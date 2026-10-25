@@ -13,9 +13,10 @@ import {
   gradeGrades,
   gradeItems,
   gradePublications,
-  quizAttempts,
-  quizPaperScans,
-  quizzes,
+  examAttempts,
+  examPins,
+  examScans,
+  examVersions,
   roleAssignments,
   userCourseCardPrefs,
   userDashboardState,
@@ -78,26 +79,27 @@ export class DashboardRepository {
         cmId: courseModules.id,
         activityId: courseModules.instanceId,
         courseId: courseModules.course,
-        name: quizzes.name,
-        dueAt: quizzes.timeClose,
-        attemptState: quizAttempts.state,
+        name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`,
+        dueAt: examPins.timeClose,
+        attemptState: examAttempts.state,
       })
       .from(courseModules)
-      .innerJoin(quizzes, eq(quizzes.id, courseModules.instanceId))
-      .leftJoin(quizAttempts, and(
-        eq(quizAttempts.quizId, quizzes.id),
-        eq(quizAttempts.userId, userId),
-        eq(quizAttempts.preview, false),
+      .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
+      .leftJoin(examAttempts, and(
+        eq(examAttempts.pinId, examPins.id),
+        eq(examAttempts.userId, userId),
+        eq(examAttempts.preview, false),
       ))
       .where(and(
         inArray(courseModules.course, courseIds),
         eq(courseModules.component, 'mod_quiz'),
         eq(courseModules.visible, true),
         eq(courseModules.deletionInProgress, false),
-        isNotNull(quizzes.timeClose),
-        lte(quizzes.timeClose, until),
+        isNotNull(examPins.timeClose),
+        lte(examPins.timeClose, until),
       ))
-      .orderBy(asc(quizzes.timeClose));
+      .orderBy(asc(examPins.timeClose));
   }
 
   /** Bài tập C2 có hạn nộp trong tập khoá kèm bài nộp hiện hành của chính user. */
@@ -224,16 +226,16 @@ export class DashboardRepository {
     if (!courseIds.length) return [];
     return this.db
       .select({
-        courseId: quizzes.course,
-        timeFinish: quizAttempts.timeFinish,
-        timeStart: quizAttempts.timeStart,
+        courseId: examPins.courseId,
+        timeFinish: examAttempts.timeFinish,
+        timeStart: examAttempts.timeStart,
       })
-      .from(quizAttempts)
-      .innerJoin(quizzes, eq(quizzes.id, quizAttempts.quizId))
+      .from(examAttempts)
+      .innerJoin(examPins, eq(examPins.id, examAttempts.pinId))
       .where(and(
-        inArray(quizzes.course, courseIds),
-        eq(quizAttempts.state, 'needsgrading'),
-        eq(quizAttempts.preview, false),
+        inArray(examPins.courseId, courseIds),
+        eq(examAttempts.state, 'needsgrading'),
+        eq(examAttempts.preview, false),
       ));
   }
 
@@ -247,15 +249,15 @@ export class DashboardRepository {
     if (!courseIds.length) return [];
     return this.db
       .select({
-        courseId: quizzes.course,
-        quizId: quizPaperScans.quizId,
-        createdAt: quizPaperScans.createdAt,
+        courseId: examPins.courseId,
+        pinId: examScans.examPinId,
+        createdAt: examScans.createdAt,
       })
-      .from(quizPaperScans)
-      .innerJoin(quizzes, eq(quizzes.id, quizPaperScans.quizId))
+      .from(examScans)
+      .innerJoin(examPins, eq(examPins.id, examScans.examPinId))
       .where(and(
-        inArray(quizzes.course, courseIds),
-        inArray(quizPaperScans.status, ['needs_identity', 'needs_review']),
+        inArray(examPins.courseId, courseIds),
+        inArray(examScans.status, ['needs_identity', 'needs_review']),
       ));
   }
 

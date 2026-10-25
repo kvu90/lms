@@ -946,22 +946,22 @@ export class QuestionBanksService {
    * kiện `question_withdrawn` mang danh sách quiz đang dùng câu để phía
    * thông báo xử lý tiếp.
    */
-  async withdrawQuestion(actorId: string, questionId: string, reason: string): Promise<{ questionId: string; status: string; affectedQuizIds: string[] }> {
+  async withdrawQuestion(actorId: string, questionId: string, reason: string): Promise<{ questionId: string; status: string; affectedPinIds: string[] }> {
     const { q, bank } = await this.assertCanGovernQuestion(actorId, questionId);
     const entry = await this.questionsRepo.getEntryByQuestion(questionId);
     if (!entry) throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
     if (entry.status === 'hidden') {
       throw new ConflictException({ message: 'Question is already withdrawn', code: 'question.already_withdrawn' });
     }
-    const affectedQuizIds = await this.repo.listQuizIdsUsingQuestion(questionId);
+    const affectedPinIds = await this.repo.listPinIdsUsingQuestion(questionId);
     await this.repo.updateEntry(entry.id, {
       status: 'hidden', withdrawnReason: reason, withdrawnBy: actorId, withdrawnAt: new Date(),
     });
     await this.outbox.enqueueStandalone({
       aggregate: 'question', type: 'question_withdrawn',
-      payload: { questionId, bankId: bank?.id ?? null, reason, actorId, affectedQuizIds, authorId: q.createdBy },
+      payload: { questionId, bankId: bank?.id ?? null, reason, actorId, affectedPinIds, authorId: q.createdBy },
     });
-    return { questionId, status: 'hidden', affectedQuizIds };
+    return { questionId, status: 'hidden', affectedPinIds };
   }
 
   /** Hoàn rút câu: trạng thái về `ready`, xoá truy vết rút. */
@@ -988,13 +988,13 @@ export class QuestionBanksService {
    */
   async deleteQuestion(actorId: string, questionId: string): Promise<{ deleted: true }> {
     await this.assertCanGovernQuestion(actorId, questionId);
-    const [slotQuizIds, attempts] = await Promise.all([
-      this.repo.listQuizIdsUsingQuestion(questionId),
+    const [slotPinIds, attempts] = await Promise.all([
+      this.repo.listPinIdsUsingQuestion(questionId),
       this.repo.countAttemptsOfQuestion(questionId),
     ]);
-    if (slotQuizIds.length > 0 || attempts > 0) {
+    if (slotPinIds.length > 0 || attempts > 0) {
       throw new ConflictException({
-        message: 'Question is referenced by quiz slots or attempts and cannot be deleted; withdraw it instead',
+        message: 'Question is referenced by exam slots or attempts and cannot be deleted; withdraw it instead',
         code: 'question.delete_blocked_in_use',
       });
     }

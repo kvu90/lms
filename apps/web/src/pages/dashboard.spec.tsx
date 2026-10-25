@@ -264,7 +264,7 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
             : [],
         gradingQueue:
           role === 'teacher'
-            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 5, assignmentPending: 2, quizPending: 1, paperPending: 2, paperQuizId: 'quiz-paper-1', oldestPendingAt: past }]
+            ? [{ courseId: COURSE_ID, courseName: 'Khoá học mẫu', pendingCount: 5, assignmentPending: 2, quizPending: 1, paperPending: 2, paperPinId: 'quiz-paper-1', oldestPendingAt: past }]
             : [],
       });
     }

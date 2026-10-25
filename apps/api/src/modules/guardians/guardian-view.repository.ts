@@ -9,8 +9,9 @@ import {
   courseModulesCompletion,
   guardianViewState,
   notifications,
-  quizAttempts,
-  quizzes,
+  examAttempts,
+  examPins,
+  examVersions,
 } from '../../db/schema';
 
 /**
@@ -51,26 +52,27 @@ export class GuardianViewRepository {
       .select({
         cmId: courseModules.id,
         courseId: courseModules.course,
-        name: quizzes.name,
-        dueAt: quizzes.timeClose,
-        attemptState: quizAttempts.state,
+        name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`,
+        dueAt: examPins.timeClose,
+        attemptState: examAttempts.state,
       })
       .from(courseModules)
-      .innerJoin(quizzes, eq(quizzes.id, courseModules.instanceId))
-      .leftJoin(quizAttempts, and(
-        eq(quizAttempts.quizId, quizzes.id),
-        eq(quizAttempts.userId, studentUserId),
-        eq(quizAttempts.preview, false),
+      .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
+      .leftJoin(examAttempts, and(
+        eq(examAttempts.pinId, examPins.id),
+        eq(examAttempts.userId, studentUserId),
+        eq(examAttempts.preview, false),
       ))
       .where(and(
         inArray(courseModules.course, courseIds),
         eq(courseModules.component, 'mod_quiz'),
         eq(courseModules.visible, true),
         eq(courseModules.deletionInProgress, false),
-        isNotNull(quizzes.timeClose),
-        lte(quizzes.timeClose, until),
+        isNotNull(examPins.timeClose),
+        lte(examPins.timeClose, until),
       ))
-      .orderBy(asc(quizzes.timeClose));
+      .orderBy(asc(examPins.timeClose));
   }
 
   /** Bài tập C2 có hạn nộp không muộn hơn `until` trong tập khoá kèm bài nộp hiện hành của học sinh. */

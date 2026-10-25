@@ -13,10 +13,10 @@ import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantConfigService } from '../tenants/tenant-config.service';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import {
-  ExamPapersRepository,
+  ExamsRepository,
   type ExamDossierRow,
-} from './exam-papers.repository';
-import { ExamPapersService, EXAM_CAPABILITIES } from './exam-papers.service';
+} from './exams.repository';
+import { ExamsService, EXAM_CAPABILITIES } from './exams.service';
 
 /**
  * Luồng duyệt BỘ HỒ SƠ đề (EB-3, issue #165) — đơn vị duyệt của
@@ -43,8 +43,8 @@ import { ExamPapersService, EXAM_CAPABILITIES } from './exam-papers.service';
 @Injectable()
 export class ExamDossiersService {
   constructor(
-    private readonly repo: ExamPapersRepository,
-    private readonly papers: ExamPapersService,
+    private readonly repo: ExamsRepository,
+    private readonly papers: ExamsService,
     private readonly banks: QuestionBanksService,
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
@@ -109,34 +109,34 @@ export class ExamDossiersService {
   }
 
   private async dossierView(row: ExamDossierRow): Promise<ExamDossierView> {
-    const paper = await this.repo.getPaper(row.paperId);
-    let paperName: string | null = null;
+    const paper = await this.repo.getPaper(row.examId);
+    let examName: string | null = null;
     if (paper) {
-      const version = row.paperVersionId
-        ? await this.repo.getVersion(row.paperVersionId)
+      const version = row.examVersionId
+        ? await this.repo.getVersion(row.examVersionId)
         : await this.papers.currentVersion(paper).catch(() => undefined);
-      paperName = version?.name ?? null;
+      examName = version?.name ?? null;
     }
     const matrixInfo = row.matrixId ? await this.repo.getMatrixInfo(row.matrixId) : undefined;
     const reviews = await this.repo.listDossierReviews(row.id);
     const names = await this.banks.displayNames([row.proposerId, ...reviews.map((r) => r.reviewerId)]);
     return {
       id: row.id,
-      paperId: row.paperId,
-      paperName,
+      examId: row.examId,
+      examName,
       sourceBankId: paper?.bankId ?? null,
       targetBankId: row.targetBankId,
       proposerId: row.proposerId,
       proposerName: names.get(row.proposerId) ?? null,
       note: row.note,
       status: row.status as ExamDossierView['status'],
-      paperVersionId: row.paperVersionId,
-      paperVersionNumber: row.paperVersionNumber,
+      examVersionId: row.examVersionId,
+      examVersionNumber: row.examVersionNumber,
       matrixId: row.matrixId,
       matrixName: matrixInfo?.name ?? null,
       matrixVersion: row.matrixVersion,
       boardApprovalRequired: await this.boardApprovalRequired(row),
-      resultPaperId: row.resultPaperId,
+      resultExamId: row.resultExamId,
       reviews: reviews.map((r) => ({
         id: r.id,
         dossierId: r.dossierId,
@@ -161,8 +161,8 @@ export class ExamDossiersService {
    * được là bank cá nhân và không trùng bank nguồn. Version CHƯA
    * ghim ở bước này — ghim tại lúc nộp.
    */
-  async createDossier(actorId: string, paperId: string, input: CreateExamDossier): Promise<ExamDossierView> {
-    const paper = await this.papers.getPaperOrThrow(paperId);
+  async createDossier(actorId: string, examId: string, input: CreateExamDossier): Promise<ExamDossierView> {
+    const paper = await this.papers.getPaperOrThrow(examId);
     const sourceBank = await this.papers.bankOfPaper(paper);
     await this.papers.assertCanEditPaper(actorId, paper, sourceBank);
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.share, sourceBank.contextId);
@@ -174,12 +174,12 @@ export class ExamDossiersService {
       throw new BadRequestException({ message: 'The paper is already in the target bank', code: 'exam.dossier_same_bank' });
     }
     const row = await this.repo.insertDossier({
-      paperId: paper.id, targetBankId: target.id, proposerId: actorId,
+      examId: paper.id, targetBankId: target.id, proposerId: actorId,
       note: input.note ?? '', status: 'draft',
     });
     await this.outbox.enqueueStandalone({
       aggregate: 'exam_paper', type: 'exam_dossier_created',
-      payload: { dossierId: row.id, paperId: paper.id, targetBankId: target.id, proposerId: actorId },
+      payload: { dossierId: row.id, examId: paper.id, targetBankId: target.id, proposerId: actorId },
     });
     return this.dossierView(row);
   }
@@ -198,7 +198,7 @@ export class ExamDossiersService {
     if (dossier.status !== 'draft') {
       throw new ConflictException({ message: 'Only a draft dossier can be submitted', code: 'exam.dossier_not_draft' });
     }
-    const paper = await this.papers.getPaperOrThrow(dossier.paperId);
+    const paper = await this.papers.getPaperOrThrow(dossier.examId);
     if (paper.status !== 'ready') {
       throw new BadRequestException({ message: 'Only a ready paper can be submitted in a dossier', code: 'exam.dossier_source_not_ready' });
     }
@@ -221,8 +221,8 @@ export class ExamDossiersService {
     })));
     await this.repo.updateDossier(dossier.id, {
       status: 'pending',
-      paperVersionId: version.id,
-      paperVersionNumber: version.version,
+      examVersionId: version.id,
+      examVersionNumber: version.version,
       matrixId: version.matrixId,
       matrixVersion,
       specSnapshot: spec as unknown as Record<string, unknown>,
@@ -230,7 +230,7 @@ export class ExamDossiersService {
     await this.outbox.enqueueStandalone({
       aggregate: 'exam_paper', type: 'exam_dossier_submitted',
       payload: {
-        dossierId: dossier.id, paperId: paper.id, paperVersionId: version.id,
+        dossierId: dossier.id, examId: paper.id, examVersionId: version.id,
         matrixId: version.matrixId, matrixVersion, targetBankId: dossier.targetBankId, proposerId: actorId,
       },
     });
@@ -247,7 +247,7 @@ export class ExamDossiersService {
     await this.repo.deleteDossier(dossier.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'exam_paper', type: 'exam_dossier_discarded',
-      payload: { dossierId: dossier.id, paperId: dossier.paperId, targetBankId: dossier.targetBankId, proposerId: actorId },
+      payload: { dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId, proposerId: actorId },
     });
     return { id: dossier.id, deleted: true };
   }
@@ -303,7 +303,7 @@ export class ExamDossiersService {
     if (isModerator && dossier.proposerId !== actorId) {
       await this.outbox.enqueueStandalone({
         aggregate: 'exam_paper', type: 'exam_dossier_spec_viewed',
-        payload: { dossierId: dossier.id, paperId: dossier.paperId, targetBankId: dossier.targetBankId, actorId },
+        payload: { dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId, actorId },
       });
     }
     return dossier.specSnapshot;
@@ -349,16 +349,16 @@ export class ExamDossiersService {
    * đích → 409 như duyệt đóng góp QB-4.
    */
   private async finalizeApproval(actorId: string, dossier: ExamDossierRow, level: number): Promise<ExamDossierRow> {
-    const source = await this.papers.getPaperOrThrow(dossier.paperId);
+    const source = await this.papers.getPaperOrThrow(dossier.examId);
     const target = await this.papers.getExamBank(actorId, dossier.targetBankId);
     const inTarget = await this.repo.listPapersInBank(target.id);
-    if (inTarget.some((p) => p.derivedFromPaperId === source.id)) {
+    if (inTarget.some((p) => p.derivedFromExamId === source.id)) {
       throw new ConflictException({
         message: `An identical paper already exists in the target bank (copied from ${source.id})`,
         code: 'exam.duplicate_in_bank',
       });
     }
-    const pinned = dossier.paperVersionId ? await this.repo.getVersion(dossier.paperVersionId) : undefined;
+    const pinned = dossier.examVersionId ? await this.repo.getVersion(dossier.examVersionId) : undefined;
     if (!pinned) {
       throw new ConflictException({ message: 'The pinned paper version of this dossier no longer exists', code: 'exam.dossier_version_gone' });
     }
@@ -366,12 +366,12 @@ export class ExamDossiersService {
     await this.repo.insertDossierReview({
       dossierId: dossier.id, level, reviewerId: actorId, decision: 'approved', reason: null,
     });
-    await this.repo.updateDossier(dossier.id, { status: 'approved', resultPaperId: copied.id });
+    await this.repo.updateDossier(dossier.id, { status: 'approved', resultExamId: copied.id });
     await this.outbox.enqueueStandalone({
       aggregate: 'exam_paper', type: 'exam_dossier_approved',
       payload: {
-        dossierId: dossier.id, paperId: source.id, paperVersionId: pinned.id,
-        targetBankId: target.id, resultPaperId: copied.id,
+        dossierId: dossier.id, examId: source.id, examVersionId: pinned.id,
+        targetBankId: target.id, resultExamId: copied.id,
         reviewerId: actorId, proposerId: dossier.proposerId, level,
       },
     });
@@ -387,7 +387,7 @@ export class ExamDossiersService {
     await this.outbox.enqueueStandalone({
       aggregate: 'exam_paper', type: 'exam_dossier_rejected',
       payload: {
-        dossierId: dossier.id, paperId: dossier.paperId, targetBankId: dossier.targetBankId,
+        dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId,
         reviewerId: actorId, proposerId: dossier.proposerId, level, reason,
       },
     });
@@ -413,7 +413,7 @@ export class ExamDossiersService {
       await this.outbox.enqueueStandalone({
         aggregate: 'exam_paper', type: 'exam_dossier_level1_approved',
         payload: {
-          dossierId: dossier.id, paperId: dossier.paperId, targetBankId: dossier.targetBankId,
+          dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId,
           reviewerId: actorId, proposerId: dossier.proposerId,
         },
       });

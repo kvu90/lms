@@ -9,7 +9,7 @@ import { GroupsModule } from '../groups/groups.module';
 import { QuestionsModule } from '../questions/questions.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
-import { CourseQuizzesController, ExamMatricesController, QuizAttemptsController, QuizzesController } from './quiz.controller';
+import { ExamMatricesController, QuizAttemptsController } from './quiz.controller';
 import { ExamMatrixBankController, QuestionBankMatricesController } from './matrix-banks.controller';
 import { MatrixBanksService } from './matrix-banks.service';
 import { QuizRepository } from './quiz.repository';
@@ -25,7 +25,7 @@ import { QuizService } from './quiz.service';
  */
 @Module({
   imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule, EnrolModule],
-  controllers: [CourseQuizzesController, QuizzesController, QuizAttemptsController, ExamMatricesController, ExamMatrixBankController, QuestionBankMatricesController],
+  controllers: [QuizAttemptsController, ExamMatricesController, ExamMatrixBankController, QuestionBankMatricesController],
   providers: [QuizRepository, QuizService, MatrixBanksService],
   exports: [QuizService, MatrixBanksService],
 })

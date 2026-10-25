@@ -16,20 +16,16 @@ export interface MatrixPreset {
 }
 
 /**
- * Tỉ lệ % ĐIỂM mục tiêu của hai preset đã chốt:
- * - CV 7991 (kiểm tra định kỳ, mẫu THPT): dạng trắc nghiệm 30 / Đ–S 20 /
- *   trả lời ngắn 20 / tự luận 30; mức Biết 40 / Hiểu 30 / Vận dụng 30.
- * - QĐ 764 (tốt nghiệp): Phần I trắc nghiệm 12 câu = 3đ (30%), Phần II
- *   Đ–S chùm = 4đ (40%), Phần III trả lời ngắn 6 câu = 3đ (30%), không
- *   tự luận; mức Biết/Hiểu/Vận dụng ≈ 40/30/30.
+ * Tỉ lệ % ĐIỂM tham chiếu của khuôn ma trận DUY NHẤT — CV 7991
+ * (kiểm tra định kỳ, mẫu THPT): dạng trắc nghiệm 30 / Đ–S 20 /
+ * trả lời ngắn 20 / tự luận 30; mức Biết 40 / Hiểu 30 / Vận dụng 30.
+ * Đây là HẰNG CẤU HÌNH chụp vào ma trận lúc tạo (chốt 26/10: bỏ hẳn
+ * cơ chế chọn preset), không phải một lựa chọn của giáo viên; tỉ lệ
+ * từng ô do giáo viên quyết theo đối tượng, lệch tỉ lệ chỉ cảnh báo.
  */
-export const MATRIX_PRESETS: Record<'cv7991_periodic' | 'qd764_graduation', MatrixPreset> = {
+export const MATRIX_PRESETS: Record<'cv7991_periodic', MatrixPreset> = {
   cv7991_periodic: {
     targetFormPercents: { multichoice: 30, truefalse: 20, shortanswer: 20, essay: 30 },
-    targetLevelPercents: { biet: 40, hieu: 30, van_dung: 30 },
-  },
-  qd764_graduation: {
-    targetFormPercents: { multichoice: 30, truefalse: 40, shortanswer: 30, essay: 0 },
     targetLevelPercents: { biet: 40, hieu: 30, van_dung: 30 },
   },
 };

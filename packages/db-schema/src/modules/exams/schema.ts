@@ -17,34 +17,6 @@ import { question, questionBanks } from '../questions/schema';
 import { examMatrices, examMatrixCells } from '../quiz/schema';
 import { tenants } from '../tenants/schema';
 
-/** Một ô trong bản chụp cấu trúc của đề recipe (EB-2): tiêu chí rút + số câu + điểm của ô tại đúng matrix version đã ghim. */
-export interface RecipeCellSpec {
-  /** Ô nguồn trong exam_matrix_cells (truy vết + điểm neo swap-cùng-ô khi materialize). */
-  sourceCellId: string;
-  learningOutcomeId: string;
-  cognitiveLevel: string;
-  qtype: string;
-  /** Số ĐƠN VỊ rút (ô truefalse đếm theo chùm 4 câu). */
-  questionCount: number;
-  cellScore: number;
-  minutes: number | null;
-  tfScale: number[] | null;
-}
-
-/**
- * Công thức của một đề RECIPE tại một paper version (EB-2, điểm A.1/
- * D.2): cấu trúc ô CHỤP CỨNG tại thời điểm sinh đề từ matrix version
- * đã ghim — ma trận bị sửa về sau (version mới) không đổi cấu trúc
- * của recipe này; bộ câu thì rút lại tại từng lần triển khai/attempt
- * theo pool của các ô nguồn.
- */
-export interface RecipeSpec {
-  drawMode: 'fixed' | 'per_student';
-  /** Scope của bank nguồn của ma trận tại thời điểm sinh đề (pool rút theo scope này lúc triển khai). */
-  sourceBankScope: string | null;
-  sourceBankId: string | null;
-  cells: RecipeCellSpec[];
-}
 
 /**
  * Thực thể ĐỀ (feat issue #113, EB-1; research ngân hàng đề/ma trận mục
@@ -56,8 +28,8 @@ export interface RecipeSpec {
  * metadata hay slots đều tạo version mới, version cũ giữ nguyên cho các
  * quiz đã ghim (cùng nguyên tắc đóng băng của question versions).
  *
- * kind: 'snapshot' (bản chụp câu cụ thể — lát EB-1) | 'recipe' (công
- * thức theo ma trận — lát EB-2, chỉ khai báo enum ở lát này).
+ * kind: chỉ còn 'snapshot' (bản chụp câu cụ thể) — dạng recipe/công
+ * thức đã bỏ hẳn theo chốt 26/10.
  * status: draft / ready / hidden như câu hỏi — hidden là rút khỏi ngân
  * hàng (không khám phá/thêm mới được; quiz đang triển khai KHÔNG vỡ vì
  * deploy đã chụp slots sang quiz_slots).
@@ -92,7 +64,7 @@ export const exams = pgTable('exams', {
       index('exams_status_idx').on(table.status),
       index('exams_created_by_idx').on(table.createdBy),
       index('exams_derived_from_idx').on(table.derivedFromExamId),
-      check('exams_kind_check', sql`${table.kind} in ('snapshot', 'recipe')`),
+      check('exams_kind_check', sql`${table.kind} in ('snapshot')`),
       check('exams_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),
   ]);
 
@@ -118,13 +90,6 @@ export const examVersions = pgTable('exam_versions', {
   tfScale: jsonb('tf_scale').$type<number[]>(),
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   matrixVersion: integer('matrix_version'),
-  /**
-   * Công thức recipe (EB-2): chỉ có ở paper version của đề kind=
-   * 'recipe' (và bản chụp snapshot materialize từ recipe — giữ để báo
-   * cáo lệch tỉ lệ theo ô + swap-cùng-ô biết pool nguồn). Snapshot
-   * thường: null.
-   */
-  recipeSpec: jsonb('recipe_spec').$type<RecipeSpec>(),
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },

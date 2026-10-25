@@ -27,7 +27,7 @@ import { GroupsModule } from './modules/groups/groups.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { QuestionsModule } from './modules/questions/questions.module';
 import { McpModule } from './modules/mcp/mcp.module';
-import { ExamPapersModule } from './modules/exam-papers/exam-papers.module';
+import { ExamsModule } from './modules/exams/exams.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 import { PaperGradingModule } from './modules/paper-grading/paper-grading.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
@@ -149,7 +149,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
     DashboardModule,
     QuestionsModule,
     McpModule,
-    ExamPapersModule,
+    ExamsModule,
     QuizModule,
     PaperGradingModule,
     AssignmentsModule,

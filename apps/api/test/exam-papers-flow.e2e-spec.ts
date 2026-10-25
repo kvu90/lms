@@ -31,14 +31,14 @@ interface PaperSlotBody {
 interface PaperBody {
   paper: {
     id: string; bankId: string; status: string; latestVersion: number; copyCount: number;
-    derivedFromPaperId: string | null; originalAuthorId: string | null; createdBy: string;
+    derivedFromExamId: string | null; originalAuthorId: string | null; createdBy: string;
   };
   version: { id: string; version: number; name: string };
   slots: PaperSlotBody[];
   capabilities: { view: boolean; edit: boolean; copy: boolean; share: boolean; moderate: boolean; deploy: boolean };
 }
 interface QuizBody {
-  id: string; cmId: string; paperId: string | null; paperVersionId: string | null;
+  id: string; cmId: string; paperId: string | null; examVersionId: string | null;
   slots: { questionId: string | null; maxMark: number; versionMode: string | null; pinnedVersion: number | null }[];
 }
 interface AttemptBody {
@@ -156,8 +156,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const deployed = await deploy(owner.token, paper.paper.id, quiz.id);
     expect(deployed.status, JSON.stringify(deployed.body)).toBe(201);
     const quizView = deployed.body as QuizBody;
-    expect(quizView.paperId).toBe(paper.paper.id);
-    expect(quizView.paperVersionId).toBe(paper.version.id);
+    expect(quizView.examId).toBe(paper.paper.id);
+    expect(quizView.examVersionId).toBe(paper.version.id);
     expect(quizView.slots.map((s) => s.questionId)).toEqual([q1, q2]);
     expect(quizView.slots.every((s) => s.versionMode === 'pinned' && s.pinnedVersion === 1)).toBe(true);
     // Phần I / Phần II thành hai trang.
@@ -215,7 +215,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const deployed2 = await deploy(owner.token, paper.paper.id, quiz2.id);
     expect(deployed2.status).toBe(201);
     expect((deployed2.body as QuizBody).slots.map((s) => s.questionId)).toEqual([q1, q3]);
-    expect((deployed2.body as QuizBody).paperVersionId).toBe(v2.version.id);
+    expect((deployed2.body as QuizBody).examVersionId).toBe(v2.version.id);
   });
 
   it('TC3: copy từ ngân hàng hệ thống về bank của tôi — slots giữ question + pinned version, derived_from + ghi công; copy_count tăng', async () => {
@@ -241,7 +241,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const myBank = await bankOfKind(owner.token, 'exam', 'personal', owner.id);
     expect(copy.paper.bankId).toBe(myBank.id);
     expect(copy.paper.id).not.toBe(source.paper.id);
-    expect(copy.paper.derivedFromPaperId).toBe(source.paper.id);
+    expect(copy.paper.derivedFromExamId).toBe(source.paper.id);
     expect(copy.paper.originalAuthorId).toBe(source.paper.createdBy);
     expect(copy.paper.status).toBe('draft');
     // Slots sao nguyên: cùng câu, cùng version đã ghim, cùng điểm.
@@ -327,8 +327,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const quizAfter = await http(app).get(`/api/v1/quizzes/${quiz3.id}`).set(bearer(owner.token));
     expect(quizAfter.status).toBe(200);
     const quizAfterView = (quizAfter.body as { quiz: QuizBody }).quiz;
-    expect(quizAfterView.paperId).toBeNull();
-    expect(quizAfterView.paperVersionId).toBeNull();
+    expect(quizAfterView.examId).toBeNull();
+    expect(quizAfterView.examVersionId).toBeNull();
     expect(quizAfterView.slots.map((s) => s.questionId)).toEqual([q1]);
   });
 
@@ -365,7 +365,7 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     expect((conflict.body as { code?: string }).code).toBe('exam.deploy_quiz_has_manual_slots');
     const replaced = await deploy(owner.token, paper.paper.id, quiz.id, true);
     expect(replaced.status).toBe(201);
-    expect((replaced.body as QuizBody).paperId).toBe(paper.paper.id);
+    expect((replaced.body as QuizBody).examId).toBe(paper.paper.id);
     expect((replaced.body as QuizBody).slots).toHaveLength(1);
     expect((replaced.body as QuizBody).slots[0]!.maxMark).toBe(1);
   });
@@ -393,13 +393,13 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     const approve = await http(app).post(`/api/v1/exam-papers/banks/${schoolBank.id}/contributions/${contribution.id}/approve`)
       .set(bearer(admin)).send({});
     expect(approve.status, JSON.stringify(approve.body)).toBe(201);
-    const approved = approve.body as { status: string; resultPaperId: string | null };
+    const approved = approve.body as { status: string; resultExamId: string | null };
     expect(approved.status).toBe('approved');
-    expect(approved.resultPaperId).toBeTruthy();
+    expect(approved.resultExamId).toBeTruthy();
     const inSchool = await http(app).get(`/api/v1/exam-papers/banks/${schoolBank.id}/papers`).set(bearer(admin));
-    const copied = (inSchool.body as { id: string; derivedFromPaperId: string | null }[])
-      .find((p) => p.id === approved.resultPaperId);
-    expect(copied?.derivedFromPaperId).toBe(paper.paper.id);
+    const copied = (inSchool.body as { id: string; derivedFromExamId: string | null }[])
+      .find((p) => p.id === approved.resultExamId);
+    expect(copied?.derivedFromExamId).toBe(paper.paper.id);
 
     // Đề xuất lại cùng đề rồi duyệt tiếp → trùng hoàn toàn 409.
     const propose2 = await http(app).post(`/api/v1/exam-papers/banks/${schoolBank.id}/contributions`).set(bearer(owner.token))

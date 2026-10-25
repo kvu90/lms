@@ -4,7 +4,7 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
   course, learningOutcomes, question, questionAttempts, questionBankContributions, questionBankEntries, questionBanks, questionCategories,
-  quizSlots, role, roleAssignments, users,
+  examPins, examSlots, examVersions, role, roleAssignments, users,
 } from '../../db/schema';
 
 export type QuestionBankRow = typeof questionBanks.$inferSelect;
@@ -89,22 +89,24 @@ export class QuestionBanksRepository {
 
   // --- signals -------------------------------------------------------------------
 
-  /** Số slot đề đang tham chiếu từng câu hỏi (use_count — tín hiệu QB-4). */
+  /** Số slot đề đang tham chiếu từng câu hỏi (use_count — tín hiệu QB-4; slot nay nằm trên exam version). */
   async countSlotsByQuestionIds(questionIds: string[]): Promise<Map<string, number>> {
     const out = new Map<string, number>();
     if (questionIds.length === 0) return out;
-    const rows = await this.db.select({ questionId: quizSlots.questionId, n: sql<number>`count(*)::int` })
-      .from(quizSlots)
-      .where(inArray(quizSlots.questionId, questionIds))
-      .groupBy(quizSlots.questionId);
+    const rows = await this.db.select({ questionId: examSlots.questionId, n: sql<number>`count(*)::int` })
+      .from(examSlots)
+      .where(inArray(examSlots.questionId, questionIds))
+      .groupBy(examSlots.questionId);
     for (const r of rows) if (r.questionId) out.set(r.questionId, Number(r.n));
     return out;
   }
-  /** Các quiz đang dùng một câu hỏi (distinct) — phục vụ rút câu + cấm xoá vật lý. */
-  async listQuizIdsUsingQuestion(questionId: string): Promise<string[]> {
-    const rows = await this.db.selectDistinct({ quizId: quizSlots.quizId }).from(quizSlots)
-      .where(eq(quizSlots.questionId, questionId));
-    return rows.map((r) => r.quizId);
+  /** Các LẦN GHIM đang dùng một câu hỏi (distinct, qua exam version của pin) — phục vụ rút câu + cấm xoá vật lý. */
+  async listPinIdsUsingQuestion(questionId: string): Promise<string[]> {
+    const rows = await this.db.selectDistinct({ pinId: examPins.id }).from(examSlots)
+      .innerJoin(examVersions, eq(examVersions.id, examSlots.examVersionId))
+      .innerJoin(examPins, eq(examPins.examVersionId, examVersions.id))
+      .where(eq(examSlots.questionId, questionId));
+    return rows.map((r) => r.pinId);
   }
   /** Số question attempt đã tồn tại cho một câu hỏi (cấm xoá vật lý khi > 0). */
   async countAttemptsOfQuestion(questionId: string): Promise<number> {

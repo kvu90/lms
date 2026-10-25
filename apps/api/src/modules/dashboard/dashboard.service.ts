@@ -250,7 +250,7 @@ export class DashboardService {
         assignmentPending: 0,
         quizPending: 0,
         paperPending: 0,
-        paperQuizId: null,
+        paperPinId: null,
         oldestPendingAt: null,
         oldest: null,
         paperOldest: null,
@@ -282,7 +282,7 @@ export class DashboardService {
       // Đích deep-link = quiz có phiếu chờ lâu nhất của khoá.
       if (!entry.paperOldest || row.createdAt < entry.paperOldest) {
         entry.paperOldest = row.createdAt;
-        entry.paperQuizId = row.quizId;
+        entry.paperPinId = row.pinId;
       }
     }
 
@@ -295,7 +295,7 @@ export class DashboardService {
         assignmentPending: e.assignmentPending,
         quizPending: e.quizPending,
         paperPending: e.paperPending,
-        paperQuizId: e.paperQuizId,
+        paperPinId: e.paperPinId,
         oldestPendingAt: e.oldest?.toISOString() ?? null,
       }))
       .sort((a, b) => (a.oldestPendingAt ?? '').localeCompare(b.oldestPendingAt ?? ''));

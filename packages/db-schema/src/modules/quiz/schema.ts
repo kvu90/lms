@@ -24,7 +24,7 @@ import { tenants } from '../tenants/schema';
  * Ma trận đề (Chặng 3, mục C.1 của hồ sơ thiết kế): thực thể đặt tên,
  * lưu trữ, tái sử dụng — neo theo Chương trình GDPT 2018 (môn + chương
  * trình), KHÔNG neo SGK. preset_kind: 'cv7991_periodic' (kiểm tra định
- * kỳ theo CV 7991) | 'qd764_graduation' (tốt nghiệp theo QĐ 764) |
+ * kỳ theo CV 7991) — khuôn duy nhất, không còn lựa chọn preset |
  * 'custom'. target_*_percents là tỉ lệ % ĐIỂM mục tiêu CHỤP lúc tạo từ
  * preset (sửa preset về sau không đổi ma trận đã tạo); lệch tỉ lệ chỉ
  * CẢNH BÁO, không khoá cứng. level_set: 'three' (Biết/Hiểu/Vận dụng)
@@ -60,7 +60,7 @@ export const examMatrices = pgTable('exam_matrices', {
   isTemplate: boolean('is_template').notNull().default(false),
   derivedFromMatrixId: uuid('derived_from_matrix_id'),
   version: integer('version').notNull().default(1),
-  presetKind: text('preset_kind').notNull().default('custom'),
+  presetKind: text('preset_kind').notNull().default('cv7991_periodic'),
   targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),
   targetLevelPercents: jsonb('target_level_percents').$type<Record<string, number>>(),
   levelSet: text('level_set').notNull().default('three'),
@@ -76,7 +76,7 @@ export const examMatrices = pgTable('exam_matrices', {
       index('exam_matrices_subject_idx').on(table.subjectId),
       index('exam_matrices_curriculum_idx').on(table.curriculumId),
       index('exam_matrices_bank_idx').on(table.bankId),
-      check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic', 'qd764_graduation', 'custom')`),
+      check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic')`),
       check('exam_matrices_level_set_check', sql`${table.levelSet} in ('three', 'four')`),
       check('exam_matrices_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),
   ]);
@@ -151,21 +151,6 @@ export interface ExamVariant {
   seed: number;
 }
 
-/**
- * Một slot đã RÚT CỐ ĐỊNH cho lần ghim của đề recipe ở chế độ fixed:
- * bộ câu được rút một lần duy nhất lúc ghim (như quiz_slots trước
- * đây) và đóng băng tại pin — các lượt làm của pin đều dùng đúng bộ
- * này. Đề snapshot đọc thẳng exam_slots, đề recipe per_student rút
- * tại từng lượt, nên cột này chỉ có ở pin của recipe-fixed.
- */
-export interface FixedPinSlot {
-  questionId: string;
-  matrixCellId: string | null;
-  clusterId: string | null;
-  maxMark: number;
-  page: number;
-  pinnedVersionId: string | null;
-}
 
 /**
  * Một LẦN GHIM một exam version vào một khoá (feat #226 — hợp nhất
@@ -188,6 +173,13 @@ export const examPins = pgTable('exam_pins', {
   examVersionId: uuid('exam_version_id').notNull().references(() => examVersions.id, { onDelete: 'cascade' }),
   courseId: uuid('course_id').notNull().references(() => course.id, { onDelete: 'cascade' }),
   cmId: uuid('cm_id'),
+  /**
+   * Nhóm đích của lần ghim (chốt bổ sung 26/10): null = ghim toàn
+   * khoá; có giá trị = chỉ học sinh thuộc nhóm đó mới thấy và làm
+   * được bài. Nhóm dùng thực thể course_groups sẵn có của khoá —
+   * validate nhóm thuộc đúng khoá này ở service.
+   */
+  targetGroupId: uuid('target_group_id').references(() => courseGroups.id, { onDelete: 'set null' }),
   /** Tên hiển thị ghi đè trong khoá; null = dùng tên của exam version đã ghim. */
   name: text('name'),
   intro: text('intro').notNull().default(''),
@@ -219,8 +211,6 @@ export const examPins = pgTable('exam_pins', {
   monitorEvents: boolean('monitor_events').notNull().default(false),
   variantCount: integer('variant_count').notNull().default(1),
   variants: jsonb('variants').$type<ExamVariant[]>().notNull(),
-  /** Bộ câu rút cố định đóng băng tại lần ghim (chỉ pin của đề recipe chế độ fixed; còn lại null). */
-  fixedSlots: jsonb('fixed_slots').$type<FixedPinSlot[]>(),
   resultsPublishedAt: timestamp('results_published_at', { withTimezone: true }),
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

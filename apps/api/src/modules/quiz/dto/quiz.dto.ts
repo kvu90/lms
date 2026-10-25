@@ -1,14 +1,12 @@
 import {
-  addQuizSlotSchema,
   approveMatrixContributionSchema,
-  clusterQuizSlotsSchema,
   copyExamMatrixSchema,
   createExamMatrixCellSchema,
   createExamMatrixSchema,
+  createExamPinFeedbackSchema,
+  createExamPinOverrideSchema,
+  createExamPinSchema,
   createMatrixContributionSchema,
-  createQuizFeedbackSchema,
-  createQuizOverrideSchema,
-  createQuizSchema,
   generateFromMatrixSchema,
   gradeQuizQuestionSchema,
   manualGradeQuizSchema,
@@ -16,22 +14,18 @@ import {
   rejectMatrixContributionSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
-  swapQuizSlotSchema,
   updateExamMatrixCellSchema,
   updateExamMatrixSchema,
-  updateQuizOverrideSchema,
-  updateQuizSchema,
-  updateQuizSlotSchema,
-  type AddQuizSlot,
+  updateExamPinOverrideSchema,
+  updateExamPinSchema,
   type ApproveMatrixContribution,
-  type ClusterQuizSlots,
   type CopyExamMatrix,
   type CreateExamMatrix,
   type CreateExamMatrixCell,
+  type CreateExamPin,
+  type CreateExamPinFeedback,
+  type CreateExamPinOverride,
   type CreateMatrixContribution,
-  type CreateQuiz,
-  type CreateQuizFeedback,
-  type CreateQuizOverride,
   type GenerateFromMatrix,
   type GradeQuizQuestion,
   type ManualGradeQuiz,
@@ -39,29 +33,25 @@ import {
   type RejectMatrixContribution,
   type StartQuizAttempt,
   type SubmitQuizResponse,
-  type SwapQuizSlot,
   type UpdateExamMatrix,
   type UpdateExamMatrixCell,
-  type UpdateQuiz,
-  type UpdateQuizOverride,
-  type UpdateQuizSlot,
+  type UpdateExamPin,
+  type UpdateExamPinOverride,
 } from '@lms/contracts';
 
 /**
- * Validation của Quiz dùng Zod qua Standard Schema — schema nền ở
+ * Validation của Quiz/Pin dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất (giống các module khác).
  */
 export {
-  addQuizSlotSchema,
   approveMatrixContributionSchema,
-  clusterQuizSlotsSchema,
   copyExamMatrixSchema,
   createExamMatrixCellSchema,
   createExamMatrixSchema,
+  createExamPinFeedbackSchema,
+  createExamPinOverrideSchema,
+  createExamPinSchema,
   createMatrixContributionSchema,
-  createQuizFeedbackSchema,
-  createQuizOverrideSchema,
-  createQuizSchema,
   generateFromMatrixSchema,
   gradeQuizQuestionSchema,
   manualGradeQuizSchema,
@@ -69,22 +59,18 @@ export {
   rejectMatrixContributionSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
-  swapQuizSlotSchema,
   updateExamMatrixCellSchema,
   updateExamMatrixSchema,
-  updateQuizOverrideSchema,
-  updateQuizSchema,
-  updateQuizSlotSchema,
+  updateExamPinOverrideSchema,
+  updateExamPinSchema,
 };
-export type CreateQuizDto = CreateQuiz;
-export type UpdateQuizDto = UpdateQuiz;
-export type AddQuizSlotDto = AddQuizSlot;
-export type UpdateQuizSlotDto = UpdateQuizSlot;
+export type CreateExamPinDto = CreateExamPin;
+export type UpdateExamPinDto = UpdateExamPin;
 export type StartQuizAttemptDto = StartQuizAttempt;
 export type SubmitQuizResponseDto = SubmitQuizResponse;
 export type ManualGradeQuizDto = ManualGradeQuiz;
-export type CreateQuizOverrideDto = CreateQuizOverride;
-export type UpdateQuizOverrideDto = UpdateQuizOverride;
+export type CreateExamPinOverrideDto = CreateExamPinOverride;
+export type UpdateExamPinOverrideDto = UpdateExamPinOverride;
 export type CreateExamMatrixDto = CreateExamMatrix;
 export type CopyExamMatrixDto = CopyExamMatrix;
 export type CreateMatrixContributionDto = CreateMatrixContribution;
@@ -94,8 +80,6 @@ export type UpdateExamMatrixDto = UpdateExamMatrix;
 export type CreateExamMatrixCellDto = CreateExamMatrixCell;
 export type UpdateExamMatrixCellDto = UpdateExamMatrixCell;
 export type GenerateFromMatrixDto = GenerateFromMatrix;
-export type SwapQuizSlotDto = SwapQuizSlot;
-export type ClusterQuizSlotsDto = ClusterQuizSlots;
-export type CreateQuizFeedbackDto = CreateQuizFeedback;
+export type CreateExamPinFeedbackDto = CreateExamPinFeedback;
 export type GradeQuizQuestionDto = GradeQuizQuestion;
 export type RecordQuizAttemptEventDto = RecordQuizAttemptEvent;

@@ -31,11 +31,11 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
   afterAll(async () => { await pg.end(); await app.close(); });
 
   interface SlotBody { id: string; slot: number; questionId: string | null; matrixCellId: string | null; clusterId: string | null; maxMark: number }
-  interface QuizBody { id: string; matrixId: string | null; paperId: string | null; paperVersionId: string | null; slots: SlotBody[]; sumGrades: number }
+  interface QuizBody { id: string; matrixId: string | null; paperId: string | null; examVersionId: string | null; slots: SlotBody[]; sumGrades: number }
   interface PaperSlot { position: number; questionId: string; pinnedVersionNumber: number | null; maxMark: number; matrixCellId: string | null }
   interface CellReport { sourceCellId: string; expectedUnits: number; actualUnits: number; expectedScore: number; actualScore: number; deviated: boolean }
   interface PaperBody {
-    paper: { id: string; kind: string; status: string; derivedFromPaperId: string | null; latestVersion: number };
+    paper: { id: string; kind: string; status: string; derivedFromExamId: string | null; latestVersion: number };
     version: { id: string; matrixId: string | null; matrixVersion: number | null; recipeSpec: { drawMode: string; sourceBankScope: string | null; cells: unknown[] } | null };
     slots: PaperSlot[];
     cellReport: CellReport[] | null;
@@ -158,7 +158,7 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     expect(gen.status === 200 || gen.status === 201).toBe(true);
     const quiz1 = gen.body as QuizBody & { deployment: DeploymentBody };
     // Truy vết: paper là chính, matrix là phụ; slots chỉ mang ô nguồn.
-    expect(quiz1.paperId).toBeTruthy();
+    expect(quiz1.examId).toBeTruthy();
     expect(quiz1.matrixId).toBe(matrix.id);
     expect(quiz1.slots).toHaveLength(4);
     for (const s of quiz1.slots) {
@@ -168,7 +168,7 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     expect(quiz1.deployment.variants.map((v) => v.code)).toEqual(['001']);
 
     // Đề recipe đã nằm trong ngân hàng đề: ghim matrix version + công thức.
-    const paperRes = await http(app).get(`/api/v1/exam-papers/${quiz1.paperId}`).set('Authorization', `Bearer ${admin}`);
+    const paperRes = await http(app).get(`/api/v1/exam-papers/${quiz1.examId}`).set('Authorization', `Bearer ${admin}`);
     const paper = paperRes.body as PaperBody;
     expect(paper.paper.kind).toBe('recipe');
     expect(paper.paper.status).toBe('ready');
@@ -182,10 +182,10 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     const quiz2Res = await http(app).post(`/api/v1/courses/${ctx.course2.id}/quizzes`).set('Authorization', `Bearer ${admin}`)
       .send({ sectionId: ctx.course2.sectionId, name: 'Đề luyện tập lớp 2' });
     const quiz2 = quiz2Res.body as QuizBody;
-    const deploy = await http(app).post(`/api/v1/exam-papers/${quiz1.paperId}/deploy`).set('Authorization', `Bearer ${admin}`)
+    const deploy = await http(app).post(`/api/v1/exam-papers/${quiz1.examId}/deploy`).set('Authorization', `Bearer ${admin}`)
       .send({ quizId: quiz2.id, variantCount: 2 });
     expect(deploy.status === 200 || deploy.status === 201).toBe(true);
-    expect((deploy.body as QuizBody).paperId).toBe(quiz1.paperId);
+    expect((deploy.body as QuizBody).examId).toBe(quiz1.examId);
     expect((deploy.body as { deployment: DeploymentBody }).deployment.variants.map((v) => v.code)).toEqual(['001', '002']);
 
     // Hai lớp làm bài: cấu trúc tương đương (3 câu ô A + 1 câu ô B, đều
@@ -207,7 +207,7 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     expect(seen.size).toBeGreaterThan(1);
 
     // Sổ triển khai của đề: 2 lần (generate + deploy tay), mã theo từng lần.
-    const deps = await http(app).get(`/api/v1/exam-papers/${quiz1.paperId}/deployments`).set('Authorization', `Bearer ${admin}`);
+    const deps = await http(app).get(`/api/v1/exam-papers/${quiz1.examId}/deployments`).set('Authorization', `Bearer ${admin}`);
     const rows = deps.body as DeploymentBody[];
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.variantCount).sort()).toEqual([1, 2]);
@@ -218,7 +218,7 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     const matrix = await createMatrix(ctx);
     const gen = await generate(ctx, matrix.id, ctx.course1, 'per_student', 'Đề recipe gốc');
     const quiz1 = gen.body as QuizBody;
-    const recipeId = quiz1.paperId!;
+    const recipeId = quiz1.examId!;
     // Một lượt thi TRƯỚC khi materialize/swap — phải nguyên vẹn về sau.
     const before = await startAttempt(ctx.students1[0]!, quiz1.id);
     const beforeSet = new Set(before.questions.map((q) => q.questionId));
@@ -234,7 +234,7 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     expect(mat.status === 200 || mat.status === 201).toBe(true);
     const snapshot = mat.body as PaperBody;
     expect(snapshot.paper.kind).toBe('snapshot');
-    expect(snapshot.paper.derivedFromPaperId).toBe(recipeId);
+    expect(snapshot.paper.derivedFromExamId).toBe(recipeId);
     expect(snapshot.version.matrixVersion).toBe(matrix.version);
     expect(snapshot.slots).toHaveLength(4);
     for (const s of snapshot.slots) {
@@ -312,11 +312,11 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     const gen = await generate(ctx, matrix.id, ctx.course1, 'fixed', 'Đề cố định');
     expect(gen.status === 200 || gen.status === 201).toBe(true);
     const quiz = gen.body as QuizBody;
-    expect(quiz.paperId).toBeTruthy();
+    expect(quiz.examId).toBeTruthy();
     expect(quiz.matrixId).toBe(matrix.id);
     expect(quiz.slots).toHaveLength(4);
     for (const s of quiz.slots) expect(s.questionId).toBeTruthy();
-    const paperRes = await http(app).get(`/api/v1/exam-papers/${quiz.paperId}`).set('Authorization', `Bearer ${admin}`);
+    const paperRes = await http(app).get(`/api/v1/exam-papers/${quiz.examId}`).set('Authorization', `Bearer ${admin}`);
     const paper = paperRes.body as PaperBody;
     expect(paper.paper.kind).toBe('snapshot');
     expect(paper.paper.status).toBe('ready');

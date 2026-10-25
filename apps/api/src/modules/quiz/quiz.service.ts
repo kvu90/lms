@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, PaperSlotLayout, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, PaperSlotLayout, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -16,10 +16,10 @@ import { QuestionBanksService } from '../questions/question-banks.service';
 import { QuestionsService, type QuestionView, type UsageView } from '../questions/questions.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
-import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateQuizOverrideDto, SwapQuizSlotDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateQuizOverrideDto } from './dto/quiz.dto';
+import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateExamPinOverrideDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateExamPinOverrideDto } from './dto/quiz.dto';
 import { effectiveTfScale, EXAM_KIND_PRESETS, isValidTfScale, MATRIX_PRESETS, matrixWarnings, tfScaleLabel, type ExamKind } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
-import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type QuizAttemptEventRow, type QuizAttemptRow, type QuizFeedbackRow, type QuizOverrideRow, type QuizRow, type QuizSlotRow } from './quiz.repository';
+import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type ExamAttemptEventRow, type ExamAttemptRow, type ExamPinFeedbackRow, type ExamPinOverrideRow, type ExamPinRow } from './quiz.repository';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
@@ -331,6 +331,37 @@ export interface QuizNeedsGradingView {
  * khi còn essay chờ chấm tay; chấm tay xong câu cuối cùng thì lượt về
  * finished và điểm bài được ghi lại.
  */
+
+/**
+ * Hàng pin đã LÀM GIÀU: exam_pins + các trường suy từ exam version
+ * đã ghim (thang điểm/tên/mặc định/ma trận/thang Đ–S) và exam
+ * (kind + công thức recipe qua version). `course`/`grade`/`name`
+ * giữ tên quen thuộc của mô hình quiz cũ cho các tầng trên.
+ */
+export type PinRow = ExamPinRow & {
+  course: string;
+  grade: number;
+  tfScale: number[] | null;
+  matrixId: string | null;
+  name: string;
+};
+
+/** Slot hiệu lực suy ra từ exam version đã ghim (không còn bảng quiz_slots). */
+export interface EffectiveSlotRow {
+  id: string;
+  pinId: string;
+  slot: number;
+  page: number;
+  questionId: string | null;
+  categoryId: string | null;
+  maxMark: number;
+  matrixCellId: string | null;
+  clusterId: string | null;
+  versionMode: 'pinned' | 'follow_latest';
+  pinnedVersionId: string | null;
+  pinnedVersionNumber: number | null;
+}
+
 @Injectable()
 export class QuizService {
   private readonly logger = new Logger(QuizService.name);
@@ -361,20 +392,70 @@ export class QuizService {
   // --- helpers ---------------------------------------------------------------
 
   /**
-   * Lấy quiz; ném quiz.not_found khi vắng.
+   * Lấy pin đã LÀM GIÀU; ném exam.pin_not_found khi vắng. Hàng
+   * exam_pins được gộp với các trường suy từ exam version đã ghim
+   * (thang điểm, tên hiển thị, ma trận, thang Đ–S) và exam (kind)
+   * thành một "bài kiểm tra trong khoá" thống nhất cho các tầng trên.
    */
-  async getQuiz(id: string): Promise<QuizRow> {
-    const row = await this.repo.getQuiz(id);
-    if (!row) throw new NotFoundException({ message: `Quiz ${id} not found`, code: 'quiz.not_found' });
-    return row;
+  async getPin(id: string): Promise<PinRow> {
+    const row = await this.repo.getPin(id);
+    if (!row) throw new NotFoundException({ message: `Exam pin ${id} not found`, code: 'exam.pin_not_found' });
+    return this.enrichPin(row);
   }
-  private async getAttemptRow(id: string): Promise<QuizAttemptRow> {
+
+  /** Hàng pin thô (chưa làm giàu) cho các seam cần đúng bản ghi đã ghim (vd in đề theo pin). */
+  async getPinRow(id: string): Promise<ExamPinRow | undefined> {
+    return this.repo.getPin(id);
+  }
+
+  private async enrichPin(row: ExamPinRow): Promise<PinRow> {
+    const version = await this.repo.getExamVersion(row.examVersionId);
+    if (!version) throw new NotFoundException({ message: `Exam version ${row.examVersionId} not found`, code: 'exam.version_not_found' });
+    return {
+      ...row,
+      course: row.courseId,
+      grade: version.totalScore,
+      tfScale: version.tfScale,
+      matrixId: version.matrixId,
+      name: row.name ?? version.name,
+    };
+  }
+
+  /**
+   * Slots HIỆU LỰC của một pin — không còn bảng slots riêng của bài:
+   * - Đề snapshot: đọc thẳng exam_slots của version đã ghim (page suy
+   *   từ thứ tự xuất hiện của section, như lúc triển khai trước đây).
+   */
+  async effectiveSlots(pin: PinRow): Promise<EffectiveSlotRow[]> {
+    const slots = await this.repo.listExamSlots(pin.examVersionId);
+    const pageBySection = new Map<string, number>();
+    return slots.map((sl) => {
+      if (!pageBySection.has(sl.section)) pageBySection.set(sl.section, pageBySection.size + 1);
+      return {
+        id: sl.id, pinId: pin.id, slot: sl.position, page: pageBySection.get(sl.section)!,
+        questionId: sl.questionId, categoryId: null, maxMark: sl.maxMark,
+        matrixCellId: sl.matrixCellId, clusterId: sl.clusterId,
+        versionMode: 'pinned' as const,
+        pinnedVersionId: sl.pinnedVersionId, pinnedVersionNumber: sl.pinnedVersionNumber,
+      };
+    });
+  }
+
+  /** Pin đã có lượt làm thật thì exam version đã ghim bị khoá (lượt đã pin câu theo version đó). */
+  async assertPinUnlocked(pin: PinRow): Promise<void> {
+    const attempts = await this.repo.listAttempts(pin.id);
+    if (attempts.some((a) => !a.preview)) {
+      throw new BadRequestException({ message: 'This pin already has real attempts; its pinned exam version is locked', code: 'exam.pin_locked' });
+    }
+  }
+
+  private async getAttemptRow(id: string): Promise<ExamAttemptRow> {
     const row = await this.repo.getAttempt(id);
     if (!row) throw new NotFoundException({ message: `Quiz attempt ${id} not found`, code: 'quiz.attempt_not_found' });
     return row;
   }
   /** Context của course module chứa quiz — mọi capability quiz:* kiểm tại đây. */
-  private async cmContextId(quiz: QuizRow): Promise<string> {
+  private async cmContextId(quiz: PinRow): Promise<string> {
     if (quiz.cmId) {
       const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.MODULE, quiz.cmId);
       if (ctx) return ctx.id;
@@ -383,10 +464,10 @@ export class QuizService {
     if (!courseCtx) throw new NotFoundException({ message: `No context for quiz ${quiz.id}`, code: 'quiz.context_missing' });
     return courseCtx.id;
   }
-  private async requireCap(actorId: string, quiz: QuizRow, capability: string): Promise<void> {
+  private async requireCap(actorId: string, quiz: PinRow, capability: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, capability, await this.cmContextId(quiz));
   }
-  private async hasCap(actorId: string, quiz: QuizRow, capability: string): Promise<boolean> {
+  private async hasCap(actorId: string, quiz: PinRow, capability: string): Promise<boolean> {
     return this.evaluator.hasCapability(actorId, capability, await this.cmContextId(quiz));
   }
 
@@ -396,12 +477,12 @@ export class QuizService {
    * đang ghim, version ready mới nhất và cờ có bản mới để UI hiển thị
    * "Câu thuộc Ngân hàng [tên] · đang ghim v[n] · đã có v[m]".
    */
-  async quizView(quiz: QuizRow): Promise<QuizView> {
-    const slots = await this.repo.listSlots(quiz.id);
+  async pinView(quiz: PinRow): Promise<QuizView> {
+    const slots = await this.effectiveSlots(quiz);
     const slotViews: QuizView['slots'] = [];
     for (const s of slots) {
       const base = {
-        id: s.id, quizId: s.quizId, slot: s.slot, page: s.page,
+        id: s.id, pinId: s.pinId, slot: s.slot, page: s.page,
         questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
         matrixCellId: s.matrixCellId, clusterId: s.clusterId,
         versionMode: null as 'pinned' | 'follow_latest' | null,
@@ -442,10 +523,9 @@ export class QuizService {
       gradeMethod: (['highest', 'average', 'first', 'last'].includes(quiz.gradeMethod) ? quiz.gradeMethod : 'highest') as QuizView['gradeMethod'],
       grade: quiz.grade,
       shuffleAnswers: quiz.shuffleAnswers,
+      targetGroupId: quiz.targetGroupId,
       hasPassword: quiz.passwordHash !== null,
       subnet: quiz.subnet,
-      delay1Seconds: quiz.delay1,
-      delay2Seconds: quiz.delay2,
       reviewAttempt: quiz.reviewAttempt,
       reviewCorrectness: quiz.reviewCorrectness,
       reviewMarks: quiz.reviewMarks,
@@ -454,10 +534,10 @@ export class QuizService {
       reviewRightAnswer: quiz.reviewRightAnswer,
       reviewOverallFeedback: quiz.reviewOverallFeedback,
       matrixId: quiz.matrixId,
-      paperId: quiz.paperId,
-      paperVersionId: quiz.paperVersionId,
+      examId: quiz.examId,
+      examVersionId: quiz.examVersionId,
       tfScale: quiz.tfScale,
-      examKind: (quiz.examKind as QuizView['examKind']) ?? null,
+      preset: (quiz.preset as QuizView['preset']) ?? null,
       lateEntryMinutes: quiz.lateEntryMinutes,
       monitorEvents: quiz.monitorEvents,
       slots: slotViews,
@@ -470,18 +550,18 @@ export class QuizService {
     return usage.attempts.reduce((sum, a) => sum + a.maxMark, 0);
   }
   /** Điểm một lượt đã quy về thang điểm của quiz (null khi chưa chốt hoặc đề rỗng). */
-  private attemptGradeValue(quiz: QuizRow, row: QuizAttemptRow, totalMax: number): number | null {
+  private attemptGradeValue(quiz: PinRow, row: ExamAttemptRow, totalMax: number): number | null {
     if (row.sumGrades === null || totalMax <= 0) return null;
     return (row.sumGrades / totalMax) * quiz.grade;
   }
-  private async attemptSummary(quiz: QuizRow, row: QuizAttemptRow): Promise<QuizAttemptSummary> {
+  private async attemptSummary(quiz: PinRow, row: ExamAttemptRow): Promise<QuizAttemptSummary> {
     let grade: number | null = null;
     if (row.sumGrades !== null) {
       const usage = await this.questions.getUsage(row.usageId);
       grade = this.attemptGradeValue(quiz, row, this.usageTotalMax(usage));
     }
     return {
-      id: row.id, quizId: row.quizId, userId: row.userId, attemptNumber: row.attemptNumber,
+      id: row.id, pinId: row.pinId, userId: row.userId, attemptNumber: row.attemptNumber,
       usageId: row.usageId, state: row.state, preview: row.preview,
       timeStart: row.timeStart.toISOString(), timeFinish: row.timeFinish?.toISOString() ?? null,
       sumGrades: row.sumGrades, grade,
@@ -501,7 +581,7 @@ export class QuizService {
    * tầng tổng hợp này. Chùm còn câu chờ chấm tay thì phần đã chấm tính
    * tuyến tính như thường (không xảy ra với truefalse tự chấm).
    */
-  private syncFromUsage(usage: UsageView, quiz?: QuizRow, slots?: QuizSlotRow[]): { sumGrades: number; pendingManual: number } {
+  private syncFromUsage(usage: UsageView, quiz?: PinRow, slots?: EffectiveSlotRow[]): { sumGrades: number; pendingManual: number } {
     let sum = 0;
     let pending = 0;
     const clusterBySlot = new Map<number, string>();
@@ -562,49 +642,77 @@ export class QuizService {
   }
 
   /**
-   * Tạo quiz: bản ghi quiz + course module (component mod_quiz, completion
-   * tự động theo điểm) + grade item 'mod' mang thang điểm của bài. Quyền
-   * tạo hoạt động do CoursesService kiểm (course:manageactivities);
-   * các thao tác về sau kiểm quiz:manage tại context của module.
+   * Tạo một lần GHIM đề vào khoá (thực thể duy nhất thay quiz +
+   * deployment): bản ghi exam_pins neo (exam, exam version) + course
+   * module (component mod_quiz, completion tự động theo điểm) + grade
+   * item 'mod' mang thang điểm của exam version. Cổng exam:deploy tại
+   * bank của đề + trạng thái ready của đề do ExamsService kiểm trước
+   * khi gọi; quyền tạo hoạt động do CoursesService kiểm
+   * (course:manageactivities); các thao tác về sau kiểm quiz:manage
+   * tại context của module.
    */
-  async createQuiz(actorId: string, courseId: string, input: {
-    sectionId: string; name: string; intro?: string;
+  /** Nhóm đích của lần ghim phải thuộc đúng khoá của lần ghim (chốt bổ sung 26/10 — ghim neo KHOÁ HỌC, nhóm là của khoá đó). */
+  private async assertTargetGroup(courseId: string, targetGroupId: string | null | undefined): Promise<void> {
+    if (targetGroupId === undefined || targetGroupId === null) return;
+    const group = await this.groups.getGroup(targetGroupId).catch(() => null);
+    if (!group || group.courseId !== courseId) {
+      throw new BadRequestException({ message: 'Target group does not belong to this course', code: 'exam.pin_target_group_invalid' });
+    }
+  }
+
+  /** Người dùng có thuộc phạm vi đích của lần ghim không: ghim toàn khoá (targetGroupId null) thì mọi học sinh của khoá đều thuộc; ghim theo nhóm thì chỉ thành viên nhóm đích. */
+  private async isInTargetGroup(quiz: PinRow, userId: string): Promise<boolean> {
+    if (!quiz.targetGroupId) return true;
+    const mine = await this.groups.groupsOfUser(quiz.course, userId);
+    return mine.some((g) => g.id === quiz.targetGroupId);
+  }
+
+  async createPinRecord(actorId: string, courseId: string, input: {
+    sectionId: string; examId: string; examVersionId: string;
+    name?: string; intro?: string;
     timeOpen?: string | null; timeClose?: string | null; timeLimitSeconds?: number | null;
-    attemptsAllowed?: number; gradeMethod?: string; grade?: number; shuffleAnswers?: boolean;
+    attemptsAllowed?: number; gradeMethod?: string; shuffleAnswers?: boolean;
     password?: string | null; subnet?: string | null;
-    delay1Seconds?: number | null; delay2Seconds?: number | null;
     reviewAttempt?: number; reviewCorrectness?: number; reviewMarks?: number;
     reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
-    tfScale?: number[] | null;
-    examKind?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
+    preset?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
+    variantCount?: number; targetGroupId?: string | null;
   }): Promise<QuizView> {
     await this.courses.getCourse(courseId);
+    await this.assertTargetGroup(courseId, input.targetGroupId);
+    const version = await this.repo.getExamVersion(input.examVersionId);
+    if (!version || version.examId !== input.examId) {
+      throw new NotFoundException({ message: `Exam version ${input.examVersionId} not found for exam ${input.examId}`, code: 'exam.version_not_found' });
+    }
     const timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
     const timeClose = input.timeClose ? new Date(input.timeClose) : null;
     if (timeOpen && timeClose && timeClose <= timeOpen) {
       throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
     }
     this.assertValidSubnet(input.subnet);
-    this.assertValidTfScale(input.tfScale);
     // Preset theo hình thức thi: trường gửi kèm THẮNG preset, preset
     // chỉ điền các trường còn trống (bảng preset ở domain/matrix.ts).
-    const preset = input.examKind ? EXAM_KIND_PRESETS[input.examKind] : null;
-    const quiz = await this.repo.insertQuiz({
-      course: courseId, cmId: null, name: input.name, intro: input.intro ?? '',
+    const preset = input.preset ? EXAM_KIND_PRESETS[input.preset] : null;
+    const name = input.name ?? version.name;
+    const variantCount = input.variantCount ?? 1;
+    const pin = await this.repo.insertPin({
+      examId: input.examId, examVersionId: input.examVersionId, courseId, cmId: null,
+      name: input.name ?? null, intro: input.intro ?? '',
       timeOpen, timeClose, timeLimit: input.timeLimitSeconds ?? null,
       attemptsAllowed: input.attemptsAllowed ?? preset?.attemptsAllowed ?? 0,
       gradeMethod: input.gradeMethod ?? 'highest',
-      grade: input.grade ?? 10,
       shuffleAnswers: input.shuffleAnswers ?? preset?.shuffleAnswers ?? false,
       passwordHash: await this.hashQuizPassword(input.password),
       subnet: input.subnet ?? null,
-      delay1: input.delay1Seconds ?? null,
-      delay2: input.delay2Seconds ?? null,
-      tfScale: input.tfScale ?? null,
-      examKind: input.examKind ?? null,
+      preset: input.preset ?? null,
       lateEntryMinutes: input.lateEntryMinutes !== undefined ? input.lateEntryMinutes : (preset?.lateEntryMinutes ?? null),
       monitorEvents: input.monitorEvents ?? preset?.monitorEvents ?? false,
+      variantCount,
+      variants: this.makeVariants(`${input.examId}:${input.examVersionId}:${courseId}:${Date.now()}`, variantCount),
+      targetGroupId: input.targetGroupId ?? null,
+      resultsPublishedAt: null,
+      createdBy: actorId,
       ...(input.reviewAttempt !== undefined ? { reviewAttempt: input.reviewAttempt } : {}),
       ...(input.reviewCorrectness !== undefined ? { reviewCorrectness: input.reviewCorrectness } : (preset ? { reviewCorrectness: preset.reviewCorrectness } : {})),
       ...(input.reviewMarks !== undefined ? { reviewMarks: input.reviewMarks } : (preset ? { reviewMarks: preset.reviewMarks } : {})),
@@ -615,43 +723,58 @@ export class QuizService {
     });
     try {
       const cm = await this.courses.createCm(actorId, courseId, {
-        sectionId: input.sectionId, component: QUIZ_COMPONENT, instanceId: quiz.id, name: input.name,
+        sectionId: input.sectionId, component: QUIZ_COMPONENT, instanceId: pin.id, name,
         completion: 2, completionUseGrade: true,
       });
-      await this.repo.updateQuiz(quiz.id, { cmId: cm.id });
+      await this.repo.updatePin(pin.id, { cmId: cm.id });
       await this.grades.createItem(actorId, courseId, {
-        itemName: input.name, itemType: 'mod', cmId: cm.id, gradeMax: quiz.grade,
+        itemName: name, itemType: 'mod', cmId: cm.id, gradeMax: version.totalScore,
       });
     } catch (err) {
-      // Dọn dẹp best-effort để không để lại quiz mồ côi không có cm.
-      await this.repo.deleteQuiz(quiz.id).catch(() => undefined);
+      // Dọn dẹp best-effort để không để lại pin mồ côi không có cm.
+      await this.repo.deletePin(pin.id).catch(() => undefined);
       throw err;
     }
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_created', payload: { quizId: quiz.id, courseId, actorId } });
-    return this.quizView(await this.getQuiz(quiz.id));
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_pin', type: 'exam_pinned',
+      payload: { examId: input.examId, examVersionId: input.examVersionId, pinId: pin.id, courseId, actorId },
+    });
+    return this.pinView(await this.getPin(pin.id));
+  }
+
+  /** Sinh danh sách mã đề cho một lần ghim: 001, 002… kèm seed hoán vị riêng từng mã (hạt giống suy xác định từ nguồn hạt để in lại khớp — chuyển từ tầng deployment EB-2 cũ). */
+  private makeVariants(seedSource: string, count: number): { code: string; seed: number }[] {
+    let h = 2166136261;
+    for (const ch of seedSource) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+    return Array.from({ length: count }, (_, i) => ({
+      code: String(i + 1).padStart(3, '0'),
+      seed: (h + i * 2654435761) % 2147483647,
+    }));
   }
 
   /**
-   * Sửa cài đặt quiz (quiz:manage); tên và thang điểm được đồng bộ
-   * sang course module và grade item của hoạt động.
+   * Sửa CẤU HÌNH TỔ CHỨC của một pin (quiz:manage): giờ mở/đóng, thời
+   * lượng, số lượt, mật khẩu, luật xem lại, preset (chỉ nhãn — không
+   * áp lại preset), số mã đề. Tên và thang điểm được đồng bộ sang
+   * course module và grade item; thang điểm suy từ exam version nên
+   * chỉ đổi khi đổi version đã ghim — và đổi version bị khoá khi pin
+   * đã có lượt làm thật (exam.pin_locked), số mã đề cũng vậy.
    */
-  async updateQuiz(actorId: string, quizId: string, input: {
+  async updatePin(actorId: string, pinId: string, input: {
     name?: string; intro?: string;
     timeOpen?: string | null; timeClose?: string | null; timeLimitSeconds?: number | null;
-    attemptsAllowed?: number; gradeMethod?: string; grade?: number; shuffleAnswers?: boolean;
+    attemptsAllowed?: number; gradeMethod?: string; shuffleAnswers?: boolean;
     password?: string | null; subnet?: string | null;
-    delay1Seconds?: number | null; delay2Seconds?: number | null;
     reviewAttempt?: number; reviewCorrectness?: number; reviewMarks?: number;
     reviewSpecificFeedback?: number; reviewGeneralFeedback?: number;
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
-    tfScale?: number[] | null;
-    examKind?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
+    preset?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
+    examVersionId?: string; variantCount?: number; targetGroupId?: string | null;
   }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    const pin = await this.getPin(pinId);
+    await this.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
     this.assertValidSubnet(input.subnet);
-    this.assertValidTfScale(input.tfScale);
-    const patch: Partial<QuizRow> = {};
+    const patch: Partial<ExamPinRow> = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.intro !== undefined) patch.intro = input.intro;
     if (input.timeOpen !== undefined) patch.timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
@@ -659,12 +782,9 @@ export class QuizService {
     if (input.timeLimitSeconds !== undefined) patch.timeLimit = input.timeLimitSeconds;
     if (input.attemptsAllowed !== undefined) patch.attemptsAllowed = input.attemptsAllowed;
     if (input.gradeMethod !== undefined) patch.gradeMethod = input.gradeMethod;
-    if (input.grade !== undefined) patch.grade = input.grade;
     if (input.shuffleAnswers !== undefined) patch.shuffleAnswers = input.shuffleAnswers;
     if (input.password !== undefined) patch.passwordHash = await this.hashQuizPassword(input.password);
     if (input.subnet !== undefined) patch.subnet = input.subnet;
-    if (input.delay1Seconds !== undefined) patch.delay1 = input.delay1Seconds;
-    if (input.delay2Seconds !== undefined) patch.delay2 = input.delay2Seconds;
     if (input.reviewAttempt !== undefined) patch.reviewAttempt = input.reviewAttempt;
     if (input.reviewCorrectness !== undefined) patch.reviewCorrectness = input.reviewCorrectness;
     if (input.reviewMarks !== undefined) patch.reviewMarks = input.reviewMarks;
@@ -672,231 +792,96 @@ export class QuizService {
     if (input.reviewGeneralFeedback !== undefined) patch.reviewGeneralFeedback = input.reviewGeneralFeedback;
     if (input.reviewRightAnswer !== undefined) patch.reviewRightAnswer = input.reviewRightAnswer;
     if (input.reviewOverallFeedback !== undefined) patch.reviewOverallFeedback = input.reviewOverallFeedback;
-    if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
     // Sửa chỉ đổi NHÃN hình thức — không áp lại preset (giáo viên đã
     // tinh chỉnh từng trường sau khi chọn preset lúc tạo).
-    if (input.examKind !== undefined) patch.examKind = input.examKind;
+    if (input.preset !== undefined) patch.preset = input.preset;
     if (input.lateEntryMinutes !== undefined) patch.lateEntryMinutes = input.lateEntryMinutes;
+    if (input.targetGroupId !== undefined) {
+      await this.assertTargetGroup(pin.course, input.targetGroupId);
+      patch.targetGroupId = input.targetGroupId;
+    }
     if (input.monitorEvents !== undefined) patch.monitorEvents = input.monitorEvents;
-    const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : quiz.timeOpen;
-    const nextClose = patch.timeClose !== undefined ? patch.timeClose : quiz.timeClose;
+    let newVersion: Awaited<ReturnType<QuizRepository['getExamVersion']>> | undefined;
+    if (input.examVersionId !== undefined && input.examVersionId !== pin.examVersionId) {
+      await this.assertPinUnlocked(pin);
+      const v = await this.repo.getExamVersion(input.examVersionId);
+      if (!v || v.examId !== pin.examId) {
+        throw new NotFoundException({ message: `Exam version ${input.examVersionId} not found for exam ${pin.examId}`, code: 'exam.version_not_found' });
+      }
+      newVersion = v;
+      patch.examVersionId = input.examVersionId;
+    }
+    if (input.variantCount !== undefined && input.variantCount !== pin.variantCount) {
+      await this.assertPinUnlocked(pin);
+      patch.variantCount = input.variantCount;
+      patch.variants = this.makeVariants(`${pin.examId}:${patch.examVersionId ?? pin.examVersionId}:${pin.courseId}:${Date.now()}`, input.variantCount);
+    }
+    const nextOpen = patch.timeOpen !== undefined ? patch.timeOpen : pin.timeOpen;
+    const nextClose = patch.timeClose !== undefined ? patch.timeClose : pin.timeClose;
     if (nextOpen && nextClose && nextClose <= nextOpen) {
       throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
     }
-    if (Object.keys(patch).length) await this.repo.updateQuiz(quiz.id, patch);
-    const updated = await this.getQuiz(quiz.id);
+    if (Object.keys(patch).length) await this.repo.updatePin(pin.id, patch);
+    const updated = await this.getPin(pin.id);
     if (updated.cmId && input.name !== undefined) {
-      await this.courses.updateCm(actorId, updated.cmId, { name: input.name });
+      await this.courses.updateCm(actorId, updated.cmId, { name: updated.name });
     }
-    if (updated.cmId && (input.grade !== undefined || input.name !== undefined)) {
+    if (updated.cmId && (newVersion || input.name !== undefined)) {
       const item = await this.grades.getItemForCm(updated.course, updated.cmId);
       if (item) {
         await this.grades.updateItem(actorId, item.id, {
-          ...(input.grade !== undefined ? { gradeMax: input.grade } : {}),
-          ...(input.name !== undefined ? { itemName: input.name } : {}),
+          ...(newVersion ? { gradeMax: newVersion.totalScore } : {}),
+          ...(input.name !== undefined ? { itemName: updated.name } : {}),
         });
       }
     }
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_updated', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
-    return this.quizView(updated);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_updated', payload: { pinId: pin.id, courseId: pin.course, actorId } });
+    return this.pinView(updated);
   }
 
   /**
-   * Xoá quiz cùng slots, attempts, usages của engine, course module và
-   * grade item của hoạt động (quiz:manage).
+   * Xoá pin cùng attempts, usages của engine, course module và
+   * grade item của hoạt động (quiz:manage). Đề trong bank không bị
+   * ảnh hưởng — xoá pin chỉ gỡ lần tổ chức trong khoá này.
    */
-  async deleteQuiz(actorId: string, quizId: string): Promise<void> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    const attempts = await this.repo.listAttempts(quiz.id);
+  async deletePin(actorId: string, pinId: string): Promise<void> {
+    const pin = await this.getPin(pinId);
+    await this.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
+    const attempts = await this.repo.listAttempts(pin.id);
     for (const a of attempts) await this.questions.deleteUsage(a.usageId);
-    if (quiz.cmId) {
-      const item = await this.grades.getItemForCm(quiz.course, quiz.cmId).catch(() => undefined);
+    if (pin.cmId) {
+      const item = await this.grades.getItemForCm(pin.course, pin.cmId).catch(() => undefined);
       if (item) await this.grades.deleteItem(actorId, item.id).catch(() => undefined);
     }
-    await this.repo.deleteQuiz(quiz.id);
-    if (quiz.cmId) await this.courses.deleteCm(actorId, quiz.cmId);
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_deleted', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
+    await this.repo.deletePin(pin.id);
+    if (pin.cmId) await this.courses.deleteCm(actorId, pin.cmId);
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_deleted', payload: { pinId: pin.id, courseId: pin.course, actorId } });
   }
 
   /**
-   * Các quiz trong khoá học (cho trang khoá học/danh sách hoạt động).
+   * Các pin trong khoá học (cho trang khoá học/danh sách hoạt động).
    * H9 (rà soát #134): QuizView kèm slots (questionId, pinnedVersion,
    * bank) là cấu trúc đề — chỉ người qua cổng truy cập khoá mới liệt kê
    * được; trước đây handler không nhận actor nên người ngoài khoá cũng
    * khảo sát được thành phần đề của bất kỳ khoá nào.
    */
-  async listQuizzes(actorId: string, courseId: string): Promise<QuizView[]> {
+  async listPins(actorId: string, courseId: string): Promise<QuizView[]> {
     await this.courses.assertCourseAccess(actorId, courseId);
-    const rows = await this.repo.listQuizzesInCourse(courseId);
+    const rows = await this.repo.listPinsInCourse(courseId);
+    // Phạm vi nhóm đích: người không có quyền quản lý tại khoá chỉ
+    // thấy lần ghim toàn khoá + lần ghim của nhóm mình thuộc về.
+    const canManage = await this.evaluator.hasCapability(actorId, QUIZ_CAPABILITIES.manage, await this.courses.courseContextId(courseId));
+    const myGroupIds = canManage ? null : new Set((await this.groups.groupsOfUser(courseId, actorId)).map((g) => g.id));
     const out: QuizView[] = [];
-    for (const r of rows) out.push(await this.quizView(r));
+    for (const r of rows) {
+      if (myGroupIds && r.targetGroupId && !myGroupIds.has(r.targetGroupId)) continue;
+      out.push(await this.pinView(await this.enrichPin(r)));
+    }
     return out;
   }
 
-  // --- slots -------------------------------------------------------------------
-
-  /**
-   * Thêm slot vào cuối đề (quiz:manage): câu cố định (maxMark mặc
-   * định lấy từ default_mark hiện tại của câu) hoặc slot ngẫu nhiên theo
-   * category (maxMark phải được cho hoặc mặc định 1).
-   *
-   * Kỷ luật version (QB-3): câu từ bank tổ/trường MẶC ĐỊNH ghim cứng
-   * (pinned) vào version hiện tại; `follow_latest` phải được chọn tường
-   * minh. Câu đã rút (hidden) không thêm mới vào đề được.
-   */
-  async addSlot(actorId: string, quizId: string, input: { questionId?: string; categoryId?: string; maxMark?: number; page?: number; versionMode?: string }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    if (!!input.questionId === !!input.categoryId) {
-      throw new BadRequestException({ message: 'A slot needs exactly one of questionId (fixed) or categoryId (random)', code: 'quiz.slot_bad_source' });
-    }
-    if (input.versionMode !== undefined && input.versionMode !== 'pinned' && input.versionMode !== 'follow_latest') {
-      throw new BadRequestException({ message: `Unknown slot version mode ${input.versionMode}`, code: 'quiz.slot_bad_version_mode' });
-    }
-    const slots = await this.repo.listSlots(quiz.id);
-    let maxMark = input.maxMark;
-    let versionMode = 'follow_latest';
-    let pinnedVersionId: string | null = null;
-    let pinnedVersionNumber: number | null = null;
-    if (input.questionId) {
-      const view = await this.questions.getQuestion(input.questionId);
-      maxMark = maxMark ?? view.latestVersion.defaultMark;
-      const info = await this.banks.getQuestionBankInfo(input.questionId);
-      if (info?.entryStatus === 'hidden') {
-        throw new BadRequestException({ message: 'Question has been withdrawn from its bank and cannot be added to a quiz', code: 'quiz.slot_question_withdrawn' });
-      }
-      if (info?.entryStatus === 'draft') {
-        throw new BadRequestException({ message: 'Question is still a draft (pending review) and cannot be added to a quiz; publish it first', code: 'quiz.slot_question_draft' });
-      }
-      // Mặc định pinned chỉ khi câu thật sự nằm trong bank tổ/trường
-      // (category gắn bank tường minh); category cũ suy bank theo
-      // context giữ hành vi follow_latest như trước feat.
-      const sharedBank = info?.bankExplicit && info.bank && (info.bank.scope === 'team' || info.bank.scope === 'school');
-      versionMode = input.versionMode ?? (sharedBank ? 'pinned' : 'follow_latest');
-      if (versionMode === 'pinned') {
-        pinnedVersionId = info?.latestReadyVersionId ?? info?.latestVersionId ?? view.latestVersion.id;
-        pinnedVersionNumber = info?.latestReadyVersionNumber ?? info?.latestVersion ?? view.latestVersion.version;
-      }
-    } else {
-      await this.questions.getCategory(input.categoryId!);
-      maxMark = maxMark ?? 1;
-    }
-    const nextSlot = slots.length ? Math.max(...slots.map((s) => s.slot)) + 1 : 1;
-    const lastPage = slots.length ? slots[slots.length - 1]!.page : 1;
-    await this.repo.insertSlot({
-      quizId: quiz.id, slot: nextSlot, page: input.page ?? lastPage,
-      questionId: input.questionId ?? null, categoryId: input.categoryId ?? null, maxMark,
-      versionMode, pinnedVersionId, pinnedVersionNumber,
-    });
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_added', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
-    return this.quizView(quiz);
-  }
-
-  /**
-   * Sửa một slot (quiz:manage): điểm, trang hoặc vị trí trong đề —
-   * đổi vị trí là hoán đổi số slot với slot đang giữ số đó (giữ bất biến
-   * duy nhất của cặp quiz+slot).
-   */
-  async updateSlot(actorId: string, quizId: string, slotId: string, input: { maxMark?: number; page?: number; slot?: number; versionMode?: string }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    const slot = await this.repo.getSlot(slotId);
-    if (!slot || slot.quizId !== quiz.id) throw new NotFoundException({ message: `Quiz slot ${slotId} not found`, code: 'quiz.slot_not_found' });
-    const patch: Partial<QuizSlotRow> = {};
-    if (input.maxMark !== undefined) patch.maxMark = input.maxMark;
-    if (input.page !== undefined) patch.page = input.page;
-    if (input.versionMode !== undefined) {
-      // Đổi chế độ version (QB-3): chuyển sang pinned thì ghim vào
-      // version ready hiện tại; chuyển về follow_latest thì bỏ ghim.
-      if (input.versionMode !== 'pinned' && input.versionMode !== 'follow_latest') {
-        throw new BadRequestException({ message: `Unknown slot version mode ${input.versionMode}`, code: 'quiz.slot_bad_version_mode' });
-      }
-      if (!slot.questionId) {
-        throw new BadRequestException({ message: 'Random slots do not carry a version mode', code: 'quiz.slot_random_no_version_mode' });
-      }
-      patch.versionMode = input.versionMode;
-      if (input.versionMode === 'pinned') {
-        const info = await this.banks.getQuestionBankInfo(slot.questionId);
-        patch.pinnedVersionId = info?.latestReadyVersionId ?? info?.latestVersionId ?? null;
-        patch.pinnedVersionNumber = info?.latestReadyVersionNumber ?? info?.latestVersion ?? null;
-      } else {
-        patch.pinnedVersionId = null;
-        patch.pinnedVersionNumber = null;
-      }
-    }
-    if (input.slot !== undefined && input.slot !== slot.slot) {
-      const slots = await this.repo.listSlots(quiz.id);
-      const other = slots.find((s) => s.slot === input.slot);
-      // Hoán đổi qua số âm tạm thời (số slot luôn dương) để không đụng
-      // ràng buộc duy nhất của cặp (quiz, slot) giữa hai lần cập nhật.
-      await this.repo.updateSlot(slot.id, { slot: -slot.slot });
-      if (other) await this.repo.updateSlot(other.id, { slot: slot.slot });
-      patch.slot = input.slot;
-    }
-    if (Object.keys(patch).length) await this.repo.updateSlot(slot.id, patch);
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_updated', payload: { quizId: quiz.id, slotId, courseId: quiz.course, actorId } });
-    return this.quizView(quiz);
-  }
-
-  /**
-   * Nâng version đã ghim của một slot lên version ready mới nhất (QB-3):
-   * chỉ áp dụng cho slot pinned; ghi nhật ký quiz_slot_version_events +
-   * sự kiện outbox (ai nâng, từ version nào lên version nào, khi nào).
-   * Lượt làm đã bắt đầu không bị ảnh hưởng — chúng giữ version đã pin
-   * trong engine.
-   */
-  async upgradeSlotVersion(actorId: string, quizId: string, slotId: string): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    const slot = await this.repo.getSlot(slotId);
-    if (!slot || slot.quizId !== quiz.id) throw new NotFoundException({ message: `Quiz slot ${slotId} not found`, code: 'quiz.slot_not_found' });
-    if (!slot.questionId || slot.versionMode !== 'pinned') {
-      throw new BadRequestException({ message: 'Only a pinned fixed slot can be upgraded', code: 'quiz.slot_not_pinned' });
-    }
-    const info = await this.banks.getQuestionBankInfo(slot.questionId);
-    const targetId = info?.latestReadyVersionId ?? null;
-    const targetNumber = info?.latestReadyVersionNumber ?? null;
-    if (!info || targetId === null || targetNumber === null || (slot.pinnedVersionNumber !== null && targetNumber <= slot.pinnedVersionNumber)) {
-      throw new BadRequestException({ message: 'The slot already pins the latest ready version', code: 'quiz.slot_no_newer_version' });
-    }
-    await this.repo.updateSlot(slot.id, { pinnedVersionId: targetId, pinnedVersionNumber: targetNumber });
-    await this.repo.insertSlotVersionEvent({
-      quizId: quiz.id, slotId: slot.id, questionId: slot.questionId,
-      fromVersion: slot.pinnedVersionNumber, toVersion: targetNumber, actorId,
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'quiz', type: 'quiz_slot_version_upgraded',
-      payload: { quizId: quiz.id, slotId: slot.id, questionId: slot.questionId, fromVersion: slot.pinnedVersionNumber, toVersion: targetNumber, actorId },
-    });
-    return this.quizView(quiz);
-  }
-
-  /**
-   * Xoá một slot khỏi đề (quiz:manage); các slot sau nó được đánh số
-   * lại liên tục. Lượt làm đã bắt đầu không bị ảnh hưởng (attempt của
-   * engine đã pin câu và maxMark tại thời điểm bắt đầu).
-   */
-  async removeSlot(actorId: string, quizId: string, slotId: string): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    const slot = await this.repo.getSlot(slotId);
-    if (!slot || slot.quizId !== quiz.id) throw new NotFoundException({ message: `Quiz slot ${slotId} not found`, code: 'quiz.slot_not_found' });
-    await this.repo.deleteSlot(slot.id);
-    const rest = await this.repo.listSlots(quiz.id);
-    let n = 1;
-    for (const s of rest) {
-      if (s.slot !== n) await this.repo.updateSlot(s.id, { slot: n });
-      n += 1;
-    }
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_removed', payload: { quizId: quiz.id, slotId, courseId: quiz.course, actorId } });
-    return this.quizView(quiz);
-  }
-
-  // --- ghi đè cài đặt thi (overrides, Chặng 2) -----------------------------------
-
   /** View của một override: tên đích được tra cứu để client hiển thị, mật khẩu chỉ lộ cờ hasPassword. */
-  private async overrideView(row: QuizOverrideRow): Promise<QuizOverrideView> {
+  private async overrideView(row: ExamPinOverrideRow): Promise<ExamPinOverrideView> {
     let groupName: string | null = null;
     let userName: string | null = null;
     if (row.groupId) {
@@ -908,7 +893,7 @@ export class QuizService {
       if (user) userName = `${user.firstName} ${user.lastName}`.trim() || user.username;
     }
     return {
-      id: row.id, quizId: row.quizId,
+      id: row.id, pinId: row.pinId,
       groupId: row.groupId, groupName,
       userId: row.userId, userName,
       timeOpen: row.timeOpen?.toISOString() ?? null,
@@ -920,20 +905,59 @@ export class QuizService {
     };
   }
 
-  private async getOverrideRow(quiz: QuizRow, overrideId: string): Promise<QuizOverrideRow> {
+  private async getOverrideRow(quiz: PinRow, overrideId: string): Promise<ExamPinOverrideRow> {
     const row = await this.repo.getOverride(overrideId);
-    if (!row || row.quizId !== quiz.id) {
+    if (!row || row.pinId !== quiz.id) {
       throw new NotFoundException({ message: `Quiz override ${overrideId} not found`, code: 'quiz.override_not_found' });
     }
     return row;
   }
 
+  // --- công bố kết quả + bề mặt theo id của pin --------------------------------
+
+  /** Công bố kết quả của pin (trạng thái công bố của #224 sống trên exam_pins.results_published_at; quiz:manage). */
+  async publishResults(actorId: string, pinId: string): Promise<QuizView> {
+    const pin = await this.getPin(pinId);
+    await this.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
+    await this.repo.updatePin(pin.id, { resultsPublishedAt: new Date() });
+    return this.pinView(await this.getPin(pin.id));
+  }
+
+  /** Thu hồi công bố kết quả của pin (quiz:manage). */
+  async unpublishResults(actorId: string, pinId: string): Promise<QuizView> {
+    const pin = await this.getPin(pinId);
+    await this.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
+    await this.repo.updatePin(pin.id, { resultsPublishedAt: null });
+    return this.pinView(await this.getPin(pin.id));
+  }
+
+  /** Sửa override theo id (route /exam-pin-overrides/:overrideId): pin suy từ chính override. */
+  async updatePinOverride(actorId: string, overrideId: string, dto: UpdateExamPinOverrideDto): Promise<ExamPinOverrideView> {
+    const row = await this.repo.getOverride(overrideId);
+    if (!row) throw new NotFoundException({ message: `Exam pin override ${overrideId} not found`, code: 'quiz.override_not_found' });
+    return this.updateOverride(actorId, row.pinId, overrideId, dto);
+  }
+
+  /** Xoá override theo id (route /exam-pin-overrides/:overrideId). */
+  async deletePinOverride(actorId: string, overrideId: string): Promise<void> {
+    const row = await this.repo.getOverride(overrideId);
+    if (!row) throw new NotFoundException({ message: `Exam pin override ${overrideId} not found`, code: 'quiz.override_not_found' });
+    await this.deleteOverride(actorId, row.pinId, overrideId);
+  }
+
+  /** Xoá feedback theo id (route /exam-pin-feedbacks/:feedbackId): pin suy từ chính feedback. */
+  async deletePinFeedback(actorId: string, feedbackId: string): Promise<void> {
+    const row = await this.repo.getFeedback(feedbackId);
+    if (!row) throw new NotFoundException({ message: `Exam pin feedback ${feedbackId} not found`, code: 'quiz.feedback_not_found' });
+    await this.deleteFeedback(actorId, row.pinId, feedbackId);
+  }
+
   /** Danh sách ghi đè của quiz (quiz:manageoverrides). */
-  async listOverrides(actorId: string, quizId: string): Promise<QuizOverrideView[]> {
-    const quiz = await this.getQuiz(quizId);
+  async listOverrides(actorId: string, pinId: string): Promise<ExamPinOverrideView[]> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
     const rows = await this.repo.listOverrides(quiz.id);
-    const out: QuizOverrideView[] = [];
+    const out: ExamPinOverrideView[] = [];
     for (const r of rows) out.push(await this.overrideView(r));
     return out;
   }
@@ -944,8 +968,8 @@ export class QuizService {
    * tối đa một ghi đè cho một quiz (trùng đích bị từ chối thay vì đè
    * lặng lẽ như Moodle upsert).
    */
-  async createOverride(actorId: string, quizId: string, input: CreateQuizOverrideDto): Promise<QuizOverrideView> {
-    const quiz = await this.getQuiz(quizId);
+  async createOverride(actorId: string, pinId: string, input: CreateExamPinOverrideDto): Promise<ExamPinOverrideView> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
     if (!!input.groupId === !!input.userId) {
       throw new BadRequestException({ message: 'An override needs exactly one target: groupId or userId', code: 'quiz.override_target' });
@@ -976,7 +1000,7 @@ export class QuizService {
       throw new BadRequestException({ message: 'A reason is required for a user override that extends time or opens a separate window', code: 'quiz.override_reason_required' });
     }
     const row = await this.repo.insertOverride({
-      quizId: quiz.id,
+      pinId: quiz.id,
       groupId: input.groupId ?? null,
       userId: input.userId ?? null,
       timeOpen, timeClose,
@@ -985,16 +1009,16 @@ export class QuizService {
       passwordHash: await this.hashQuizPassword(input.password),
       reason: input.reason ?? null,
     });
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_created', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_created', payload: { pinId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
     return this.overrideView(row);
   }
 
   /** Sửa một ghi đè (quiz:manageoverrides); trường không gửi giữ nguyên, `null` ở trường ghi đè = quay về kế thừa. */
-  async updateOverride(actorId: string, quizId: string, overrideId: string, input: UpdateQuizOverrideDto): Promise<QuizOverrideView> {
-    const quiz = await this.getQuiz(quizId);
+  async updateOverride(actorId: string, pinId: string, overrideId: string, input: UpdateExamPinOverrideDto): Promise<ExamPinOverrideView> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
     const row = await this.getOverrideRow(quiz, overrideId);
-    const patch: Partial<QuizOverrideRow> = {};
+    const patch: Partial<ExamPinOverrideRow> = {};
     if (input.timeOpen !== undefined) patch.timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
     if (input.timeClose !== undefined) patch.timeClose = input.timeClose ? new Date(input.timeClose) : null;
     if (input.timeLimitSeconds !== undefined) patch.timeLimit = input.timeLimitSeconds;
@@ -1017,17 +1041,17 @@ export class QuizService {
       throw new BadRequestException({ message: 'A reason is required for a user override that extends time or opens a separate window', code: 'quiz.override_reason_required' });
     }
     if (Object.keys(patch).length) await this.repo.updateOverride(row.id, patch);
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_updated', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_updated', payload: { pinId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
     return this.overrideView(await this.getOverrideRow(quiz, overrideId));
   }
 
   /** Xoá một ghi đè (quiz:manageoverrides) — đích của ghi đè quay về cài đặt tầng dưới ngay. */
-  async deleteOverride(actorId: string, quizId: string, overrideId: string): Promise<void> {
-    const quiz = await this.getQuiz(quizId);
+  async deleteOverride(actorId: string, pinId: string, overrideId: string): Promise<void> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides);
     const row = await this.getOverrideRow(quiz, overrideId);
     await this.repo.deleteOverride(row.id);
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_deleted', payload: { quizId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_override_deleted', payload: { pinId: quiz.id, courseId: quiz.course, overrideId: row.id, actorId } });
   }
 
   // --- ma trận đề (Chặng 3) ---------------------------------------------------------
@@ -1138,8 +1162,10 @@ export class QuizService {
     } else {
       await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, subject.contextId);
     }
-    const presetKind = input.presetKind ?? 'custom';
-    const preset = presetKind === 'custom' ? undefined : MATRIX_PRESETS[presetKind];
+    // Khuôn ma trận duy nhất là CV 7991 (bỏ hẳn chọn preset): tỉ lệ
+    // tham chiếu chụp từ hằng cấu hình khi GV không cho tỉ lệ riêng.
+    const presetKind = 'cv7991_periodic';
+    const preset = MATRIX_PRESETS[presetKind];
     const row = await this.repo.insertMatrix({
       tenantId: bankTenantId !== undefined ? bankTenantId : await this.matrixTenantId(),
       name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
@@ -1224,7 +1250,6 @@ export class QuizService {
     }
     const patch: Partial<ExamMatrixRow> = {};
     if (input.name !== undefined) patch.name = input.name;
-    if (input.presetKind !== undefined) patch.presetKind = input.presetKind;
     if (input.targetFormPercents !== undefined) patch.targetFormPercents = input.targetFormPercents;
     if (input.targetLevelPercents !== undefined) patch.targetLevelPercents = input.targetLevelPercents;
     if (input.levelSet !== undefined) patch.levelSet = input.levelSet;
@@ -1237,7 +1262,7 @@ export class QuizService {
     // Ma trận đã ready (đã dùng sinh đề/đem duyệt) thì sửa nội dung
     // phải tăng version — bản đặc tả đã nộp khớp version tại thời điểm
     // nộp, không khớp bản đã sửa lặng lẽ.
-    const contentChanged = ['name', 'presetKind', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeOutcomeIds', 'totalScore']
+    const contentChanged = ['name', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeOutcomeIds', 'totalScore']
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
     if (contentChanged && row.status !== 'draft') patch.version = row.version + 1;
     if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch);
@@ -1449,7 +1474,7 @@ export class QuizService {
 
   /**
    * Đọc ma trận cho generate (cổng quiz:managematrix tại context của
-   * bank — E-8 qua requireMatrixCap) + các ô. EB-2: ExamPapersService
+   * bank — E-8 qua requireMatrixCap) + các ô. EB-2: ExamsService
    * là phía điều phối generate; QuizService chỉ còn là nguồn dữ liệu
    * ma trận/pool và phía ghi slots vào quiz.
    */
@@ -1524,64 +1549,8 @@ export class QuizService {
     return candidates.some((v) => v.question.id === questionId);
   }
 
-  /**
-   * Triển khai một ĐỀ RECIPE (EB-2) vào quiz này: ghi các slot theo
-   * Ô NGUỒN (matrix_cell_id, chưa có câu — câu rút tại lúc bắt đầu
-   * từng lượt như per_student của Chặng 3, attempt pin câu đã rút),
-   * ghim quizzes.paper_id/paper_version_id + matrix_id truy vết phụ.
-   * Cùng cổng/giới hạn như deployPaperSlots: quiz:manage tại khoá,
-   * chưa có lượt thật, quiz đã có slots dựng tay thì phải replace.
-   */
-  async deployRecipeSlots(actorId: string, quizId: string, input: {
-    paperId: string;
-    paperVersionId: string;
-    matrixId: string;
-    tfScale?: number[] | null;
-    replace: boolean;
-    slots: { matrixCellId: string; clusterId: string | null; maxMark: number; page: number }[];
-  }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    await this.assertNoRealAttempts(quiz);
-    const existing = await this.repo.listSlots(quiz.id);
-    if (existing.length > 0 && !quiz.paperId && !input.replace) {
-      throw new ConflictException({
-        message: 'This quiz already has manually built slots; confirm replace to deploy a bank paper over them',
-        code: 'exam.deploy_quiz_has_manual_slots',
-      });
-    }
-    await this.repo.dbHandle.transaction(async (tx) => {
-      for (const s of existing) await this.repo.deleteSlot(s.id, tx);
-      let n = 0;
-      for (const s of input.slots) {
-        n += 1;
-        await this.repo.insertSlot({
-          quizId: quiz.id,
-          slot: n,
-          page: s.page,
-          questionId: null,
-          categoryId: null,
-          matrixCellId: s.matrixCellId,
-          clusterId: s.clusterId,
-          maxMark: s.maxMark,
-        }, tx);
-      }
-      await this.repo.updateQuiz(quiz.id, {
-        paperId: input.paperId,
-        paperVersionId: input.paperVersionId,
-        matrixId: input.matrixId,
-        ...(input.tfScale ? { tfScale: input.tfScale } : {}),
-      }, tx);
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'quiz', type: 'exam_paper_deployed',
-      payload: { quizId: quiz.id, courseId: quiz.course, paperId: input.paperId, paperVersionId: input.paperVersionId, kind: 'recipe', actorId },
-    });
-    return this.quizView(await this.getQuiz(quiz.id));
-  }
-
   /** Đề đã có lượt làm thật thì cấu trúc slots đóng băng (đúng ngữ nghĩa Chặng 1: attempt đã pin câu). */
-  private async assertNoRealAttempts(quiz: QuizRow): Promise<void> {
+  private async assertNoRealAttempts(quiz: PinRow): Promise<void> {
     const attempts = await this.repo.listAttempts(quiz.id);
     if (attempts.some((a) => !a.preview)) {
       throw new BadRequestException({ message: 'This quiz already has real attempts; its slots are frozen', code: 'quiz.slots_frozen' });
@@ -1589,279 +1558,27 @@ export class QuizService {
   }
 
   /**
-   * Triển khai một ĐỀ NGÂN HÀNG (EB-1, issue #113) vào quiz này: chụp
-   * toàn bộ slots của paper version sang quiz_slots (mỗi slot ghim
-   * cứng version câu của đề — kỷ luật snapshot), ghim
-   * quizzes.paper_id/paper_version_id và trả QuizView mới. Cổng:
-   * quiz:manage tại context của course module + chưa có lượt làm thật
-   * (assertNoRealAttempts). Quiz đã có slots DỰNG TAY (paper_id null)
-   * thì chỉ thay khi người gọi xác nhận `replace` tường minh — tránh
-   * xoá nhầm đề đã soạn tay; quiz đã triển khai từ một đề khác thì
-   * triển khai lại là thay đề (slots cũ bị thay toàn bộ, attempt cũ
-   * không có vì đã chặn ở trên). Quyền exam:deploy tại bank của đề do
-   * ExamPapersService kiểm trước khi gọi vào đây.
-   */
-  async deployPaperSlots(actorId: string, quizId: string, input: {
-    paperId: string;
-    paperVersionId: string;
-    /** Ma trận nguồn của đề (EB-2: truy vết phụ trên quiz bên cạnh paper_id chính); bỏ trống = giữ nguyên matrix_id hiện tại của quiz. */
-    matrixId?: string | null;
-    tfScale?: number[] | null;
-    replace: boolean;
-    slots: {
-      questionId: string;
-      pinnedVersionId: string | null;
-      pinnedVersionNumber: number | null;
-      maxMark: number;
-      page: number;
-      clusterId: string | null;
-      /** Ô ma trận nguồn của slot (đề sinh từ ma trận) — giữ để đặc tả + swap-cùng-ô trên quiz đọc được. */
-      matrixCellId?: string | null;
-    }[];
-  }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    await this.assertNoRealAttempts(quiz);
-    const existing = await this.repo.listSlots(quiz.id);
-    if (existing.length > 0 && !quiz.paperId && !input.replace) {
-      throw new ConflictException({
-        message: 'This quiz already has manually built slots; confirm replace to deploy a bank paper over them',
-        code: 'exam.deploy_quiz_has_manual_slots',
-      });
-    }
-    await this.repo.dbHandle.transaction(async (tx) => {
-      for (const s of existing) await this.repo.deleteSlot(s.id, tx);
-      let n = 0;
-      for (const s of input.slots) {
-        n += 1;
-        await this.repo.insertSlot({
-          quizId: quiz.id,
-          slot: n,
-          page: s.page,
-          questionId: s.questionId,
-          maxMark: s.maxMark,
-          versionMode: 'pinned',
-          pinnedVersionId: s.pinnedVersionId,
-          pinnedVersionNumber: s.pinnedVersionNumber,
-          clusterId: s.clusterId,
-          matrixCellId: s.matrixCellId ?? null,
-        }, tx);
-      }
-      await this.repo.updateQuiz(quiz.id, {
-        paperId: input.paperId,
-        paperVersionId: input.paperVersionId,
-        ...(input.matrixId ? { matrixId: input.matrixId } : {}),
-        ...(input.tfScale ? { tfScale: input.tfScale } : {}),
-      }, tx);
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'quiz', type: 'exam_paper_deployed',
-      payload: { quizId: quiz.id, courseId: quiz.course, paperId: input.paperId, paperVersionId: input.paperVersionId, actorId },
-    });
-    return this.quizView(await this.getQuiz(quiz.id));
-  }
-
-  /**
-   * Đổi câu/ô của một slot sinh từ ma trận (quiz:manage; chỉ khi chưa
-   * có lượt thật): slot cố định đổi sang một ứng viên KHÁC CÙNG Ô và
-   * không trùng câu trong đề; slot per_student đổi ô nguồn (ô đích
-   * phải cùng ma trận; slot thuộc chùm thì đổi cả 4 slot của chùm và ô
-   * đích phải là ô truefalse). Slot thuộc chùm không đổi lẻ từng câu.
-   */
-  async swapSlot(actorId: string, quizId: string, slotId: string, input: SwapQuizSlotDto): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    const slot = await this.repo.getSlot(slotId);
-    if (!slot || slot.quizId !== quiz.id) throw new NotFoundException({ message: `Quiz slot ${slotId} not found`, code: 'quiz.slot_not_found' });
-    await this.assertNoRealAttempts(quiz);
-    if (slot.clusterId && slot.questionId) {
-      throw new BadRequestException({ message: 'A cluster member cannot be swapped on its own; regenerate the quiz or uncluster first', code: 'quiz.slot_cluster_swap' });
-    }
-    if (slot.questionId) {
-      if (!input.questionId) {
-        throw new BadRequestException({ message: 'questionId is required to swap a fixed slot', code: 'quiz.swap_question_required' });
-      }
-      if (slot.matrixCellId) {
-        const cell = await this.repo.getMatrixCell(slot.matrixCellId);
-        if (!cell) throw new NotFoundException({ message: `Matrix cell ${slot.matrixCellId} not found`, code: 'quiz.matrix_cell_not_found' });
-        const candidates = await this.cellCandidates(cell);
-        if (!candidates.some((v) => v.question.id === input.questionId)) {
-          throw new BadRequestException({ message: 'The candidate question is not in the pool of this slot\'s matrix cell', code: 'quiz.swap_candidate_out_of_cell' });
-        }
-      } else {
-        await this.questions.getQuestion(input.questionId);
-      }
-      const slots = await this.repo.listSlots(quiz.id);
-      if (slots.some((s) => s.id !== slot.id && s.questionId === input.questionId)) {
-        throw new BadRequestException({ message: 'The candidate question is already in this quiz', code: 'quiz.swap_candidate_duplicate' });
-      }
-      await this.repo.updateSlot(slot.id, { questionId: input.questionId });
-    } else if (slot.matrixCellId) {
-      if (!input.matrixCellId) {
-        throw new BadRequestException({ message: 'matrixCellId is required to swap the source cell of a per-student slot', code: 'quiz.swap_cell_required' });
-      }
-      const target = await this.repo.getMatrixCell(input.matrixCellId);
-      if (!target || !quiz.matrixId || target.matrixId !== quiz.matrixId) {
-        throw new BadRequestException({ message: 'The target cell does not belong to the matrix of this quiz', code: 'quiz.swap_cell_mismatch' });
-      }
-      const slots = await this.repo.listSlots(quiz.id);
-      const targets = slot.clusterId ? slots.filter((s) => s.clusterId === slot.clusterId) : [slot];
-      if (slot.clusterId && target.qtype !== 'truefalse') {
-        throw new BadRequestException({ message: 'A cluster slot can only move to a truefalse cell', code: 'quiz.swap_cell_mismatch' });
-      }
-      const perUnit = target.cellScore / target.questionCount;
-      for (const s of targets) {
-        await this.repo.updateSlot(s.id, { matrixCellId: target.id, maxMark: slot.clusterId ? perUnit / 4 : perUnit });
-      }
-    } else {
-      throw new BadRequestException({ message: 'Only matrix-generated slots can be swapped', code: 'quiz.swap_not_supported' });
-    }
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slot_swapped', payload: { quizId: quiz.id, courseId: quiz.course, slotId, actorId } });
-    return this.quizView(quiz);
-  }
-
-  /**
-   * Rút lại các slot do ma trận sinh (quiz:manage; chỉ khi chưa có
-   * lượt thật): slot cố định rút câu mới từ pool của ô (theo quyền của
-   * người gọi), slot thuộc chùm rút lại cả chùm; slot per_student giữ
-   * nguyên ô nguồn nên không đổi.
-   */
-  async regenerateQuiz(actorId: string, quizId: string): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    if (!quiz.matrixId) {
-      throw new BadRequestException({ message: 'This quiz was not generated from a matrix', code: 'quiz.regenerate_not_from_matrix' });
-    }
-    await this.assertNoRealAttempts(quiz);
-    const slots = await this.repo.listSlots(quiz.id);
-    const fixed = slots.filter((s) => s.matrixCellId && s.questionId);
-    const cellIds = [...new Set(fixed.map((s) => s.matrixCellId!))];
-    const cells: ExamMatrixCellRow[] = [];
-    for (const id of cellIds) {
-      const cell = await this.repo.getMatrixCell(id);
-      if (cell) cells.push(cell);
-    }
-    const { deficits, pools } = await this.matrixDeficits(actorId, cells);
-    if (deficits.length) {
-      throw new UnprocessableEntityException({
-        message: deficits.map((d) => `cell ${d.cellId} (outcome ${d.learningOutcomeId}, ${d.cognitiveLevel}/${d.qtype}): required ${d.required}, available ${d.available}, deficit ${d.deficit}`),
-        code: 'quiz.matrix_insufficient_questions',
-      });
-    }
-    const chosen = new Set<string>();
-    // Slot không do ma trận sinh (dựng tay thêm vào) giữ nguyên câu —
-    // các câu đó cũng bị loại khỏi pool rút lại để không trùng.
-    for (const s of slots) if (!s.matrixCellId && s.questionId) chosen.add(s.questionId);
-    const clusterGroups = new Map<string, QuizSlotRow[]>();
-    for (const s of fixed) {
-      if (!s.clusterId) continue;
-      const list = clusterGroups.get(s.clusterId) ?? [];
-      list.push(s);
-      clusterGroups.set(s.clusterId, list);
-    }
-    const clusteredSlotIds = new Set([...clusterGroups.values()].flatMap((g) => g.map((s) => s.id)));
-    for (const group of clusterGroups.values()) {
-      const pool = pools.get(group[0]!.matrixCellId!)!;
-      const picked = this.shuffled(pool.clusters)[0]!;
-      const ordered = [...group].sort((a, b) => a.slot - b.slot);
-      for (let i = 0; i < ordered.length; i++) {
-        await this.repo.updateSlot(ordered[i]!.id, { questionId: picked[i]!.question.id });
-        chosen.add(picked[i]!.question.id);
-      }
-    }
-    for (const s of fixed) {
-      if (clusteredSlotIds.has(s.id)) continue;
-      const pool = pools.get(s.matrixCellId!)!;
-      const fresh = pool.candidates.filter((v) => !chosen.has(v.question.id));
-      const candidates = fresh.length ? fresh : pool.candidates;
-      const picked = candidates[Math.floor(Math.random() * candidates.length)]!;
-      await this.repo.updateSlot(s.id, { questionId: picked.question.id });
-      chosen.add(picked.question.id);
-    }
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_regenerated', payload: { quizId: quiz.id, courseId: quiz.course, matrixId: quiz.matrixId, actorId } });
-    return this.quizView(quiz);
-  }
-
-  /**
-   * Gom 4 slot truefalse cùng một stimulus thành một chùm Đ–S cho đề
-   * dựng tay (quiz:manage; chỉ khi chưa có lượt thật). Điểm của chùm
-   * tính theo thang của quiz ở tầng tổng hợp, các slot giữ max_mark
-   * danh nghĩa như cũ (tổng max của chùm không đổi).
-   */
-  async clusterSlots(actorId: string, quizId: string, input: { slotIds: string[] }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    await this.assertNoRealAttempts(quiz);
-    if (input.slotIds.length !== 4 || new Set(input.slotIds).size !== 4) {
-      throw new BadRequestException({ message: 'A true/false cluster needs exactly 4 distinct slots', code: 'quiz.cluster_size' });
-    }
-    const slots = await this.repo.listSlots(quiz.id);
-    const picked = input.slotIds.map((id) => slots.find((s) => s.id === id));
-    if (picked.some((s) => !s)) {
-      throw new NotFoundException({ message: 'One of the slots does not belong to this quiz', code: 'quiz.slot_not_found' });
-    }
-    if (picked.some((s) => s!.clusterId)) {
-      throw new BadRequestException({ message: 'One of the slots is already in a cluster; uncluster it first', code: 'quiz.cluster_exists' });
-    }
-    if (picked.some((s) => !s!.questionId)) {
-      throw new BadRequestException({ message: 'Only fixed true/false question slots can be clustered', code: 'quiz.cluster_not_fixed' });
-    }
-    let stimulusId: string | null = null;
-    for (const s of picked) {
-      const view = await this.questions.getQuestion(s!.questionId!);
-      if (view.question.qtype !== 'truefalse' || !view.stimulus) {
-        throw new BadRequestException({ message: 'Cluster members must be true/false questions sharing one stimulus', code: 'quiz.cluster_not_truefalse_cluster' });
-      }
-      if (stimulusId === null) stimulusId = view.stimulus.id;
-      else if (view.stimulus.id !== stimulusId) {
-        throw new BadRequestException({ message: 'Cluster members must share the same stimulus', code: 'quiz.cluster_stimulus_mismatch' });
-      }
-    }
-    const clusterId = randomUUID();
-    for (const s of picked) await this.repo.updateSlot(s!.id, { clusterId });
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slots_clustered', payload: { quizId: quiz.id, courseId: quiz.course, clusterId, actorId } });
-    return this.quizView(quiz);
-  }
-
-  /** Gỡ chùm khỏi các slot (quiz:manage; chỉ khi chưa có lượt thật) — điểm quay về cộng tuyến tính. */
-  async unclusterSlots(actorId: string, quizId: string, input: { slotIds: string[] }): Promise<QuizView> {
-    const quiz = await this.getQuiz(quizId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
-    await this.assertNoRealAttempts(quiz);
-    const slots = await this.repo.listSlots(quiz.id);
-    for (const id of input.slotIds) {
-      const slot = slots.find((s) => s.id === id);
-      if (!slot) throw new NotFoundException({ message: `Quiz slot ${id} not found`, code: 'quiz.slot_not_found' });
-      if (slot.clusterId) await this.repo.updateSlot(slot.id, { clusterId: null });
-    }
-    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_slots_unclustered', payload: { quizId: quiz.id, courseId: quiz.course, actorId } });
-    return this.quizView(quiz);
-  }
-
-  // --- bản đặc tả (Chặng 3, mục C.6) ------------------------------------------------
-
-  /**
    * Dựng view model bản đặc tả theo Mẫu 2 của phụ lục CV 7991: hàng
    * Chủ đề → Nội dung/đơn vị kiến thức → YCCĐ (nguyên văn chương trình
    * `source_kind='program'` + bản tách mức của tổ chuyên môn khi YCCĐ
    * của ô là bản `derived`), cột số câu/điểm theo dạng × mức từ các ô;
-   * khi đã sinh đề (quizId của đề sinh từ chính ma trận này) thì thêm
+   * khi đã sinh đề (pinId của đề sinh từ chính ma trận này) thì thêm
    * vị trí slot thật — đề per_student ghi rõ rút ngẫu nhiên theo ô.
    * Chân bảng: tổng theo dạng (điểm + %). Trường nhãn năng lực để dành
    * trong view model (competencyRefs) — chặng này chưa có cơ chế gắn
    * mã năng lực vào outcome nên luôn rỗng.
    */
-  async getMatrixSpecification(actorId: string, matrixId: string, quizId?: string): Promise<MatrixSpecification> {
+  async getMatrixSpecification(actorId: string, matrixId: string, pinId?: string): Promise<MatrixSpecification> {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.viewMatrix);
-    let quiz: QuizRow | null = null;
+    let quiz: PinRow | null = null;
     let slots: SpecificationSlot[] | null = null;
-    if (quizId) {
-      quiz = await this.getQuiz(quizId);
+    if (pinId) {
+      quiz = await this.getPin(pinId);
       if (quiz.matrixId !== matrix.id) {
         throw new BadRequestException({ message: 'The quiz was not generated from this matrix', code: 'quiz.spec_quiz_mismatch' });
       }
-      slots = (await this.repo.listSlots(quiz.id)).map((s) => ({
+      slots = (await this.effectiveSlots(quiz)).map((s) => ({
         matrixCellId: s.matrixCellId, slot: s.slot, questionId: s.questionId,
       }));
     }
@@ -1887,10 +1604,11 @@ export class QuizService {
   }
 
   /** Thông tin tối thiểu của một quiz cho đặc tả theo đề (EB-3): phía gọi tự kiểm quiz có thuộc đề đang xét hay không. */
-  async getQuizSummary(quizId: string): Promise<{ id: string; name: string; paperId: string | null; matrixId: string | null } | null> {
-    const quiz = await this.repo.getQuiz(quizId);
-    if (!quiz) return null;
-    return { id: quiz.id, name: quiz.name, paperId: quiz.paperId, matrixId: quiz.matrixId };
+  async getPinSummary(pinId: string): Promise<{ id: string; name: string; examId: string | null; matrixId: string | null } | null> {
+    const row = await this.repo.getPin(pinId);
+    if (!row) return null;
+    const quiz = await this.enrichPin(row);
+    return { id: quiz.id, name: quiz.name, examId: quiz.examId, matrixId: quiz.matrixId };
   }
 
   /**
@@ -1983,11 +1701,7 @@ export class QuizService {
     const formTotals = [...byForm.values()].map((f) => ({
       ...f, percent: totalScore > 0 ? Math.round((f.score / totalScore) * 1000) / 10 : 0,
     }));
-    const purpose = matrix.presetKind === 'qd764_graduation'
-      ? `Đề thi tốt nghiệp THPT môn ${subject.name} (lớp ${curriculum.grade}) xây dựng theo cấu trúc định dạng đề thi của Quyết định 764/QĐ-BGDĐT, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`
-      : matrix.presetKind === 'cv7991_periodic'
-        ? `Đề kiểm tra định kỳ môn ${subject.name} (lớp ${curriculum.grade}) xây dựng theo hướng dẫn của Công văn 7991/BGDĐT-GDTrH, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`
-        : `Đề kiểm tra môn ${subject.name} (lớp ${curriculum.grade}) do tổ chuyên môn xây dựng theo ma trận riêng, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`;
+    const purpose = `Đề kiểm tra định kỳ môn ${subject.name} (lớp ${curriculum.grade}) xây dựng theo hướng dẫn của Công văn 7991/BGDĐT-GDTrH, bám sát yêu cầu cần đạt của Chương trình GDPT 2018.`;
     return {
       matrix: { id: matrix.id, name: matrix.name, presetKind: matrix.presetKind, totalScore: matrix.totalScore, levelSet: matrix.levelSet },
       subject: { id: subject.id, name: subject.name },
@@ -2011,11 +1725,11 @@ export class QuizService {
    * điểm vnEdu; docx qua gói docx): cùng một view model, hai định dạng
    * nộp/lưu hồ sơ. Định dạng khác → 400 quiz.spec_export_format.
    */
-  async exportMatrixSpecification(actorId: string, matrixId: string, format: string, quizId?: string): Promise<{ filename: string; contentType: string; buffer: Buffer }> {
+  async exportMatrixSpecification(actorId: string, matrixId: string, format: string, pinId?: string): Promise<{ filename: string; contentType: string; buffer: Buffer }> {
     if (format !== 'xlsx' && format !== 'docx') {
       throw new BadRequestException({ message: 'Specification export format must be xlsx or docx', code: 'quiz.spec_export_format' });
     }
-    const spec = await this.getMatrixSpecification(actorId, matrixId, quizId);
+    const spec = await this.getMatrixSpecification(actorId, matrixId, pinId);
     return this.renderSpecification(spec, format);
   }
 
@@ -2102,7 +1816,7 @@ export class QuizService {
    * động tại context của module (học sinh: view/attempt; giáo viên:
    * manage/grade/viewreports/preview).
    */
-  private async requireAnyViewCap(actorId: string, quiz: QuizRow): Promise<void> {
+  private async requireAnyViewCap(actorId: string, quiz: PinRow): Promise<void> {
     const ctx = await this.cmContextId(quiz);
     for (const cap of [QUIZ_CAPABILITIES.view, QUIZ_CAPABILITIES.attempt, QUIZ_CAPABILITIES.manage, QUIZ_CAPABILITIES.grade, QUIZ_CAPABILITIES.viewReports, QUIZ_CAPABILITIES.preview]) {
       if (await this.evaluator.hasCapability(actorId, cap, ctx)) return;
@@ -2124,10 +1838,10 @@ export class QuizService {
    * các nhóm áp dụng (nhập đúng một trong các mật khẩu là được); không
    * nữa thì mật khẩu của quiz.
    */
-  async resolveEffectiveSettings(quiz: QuizRow, userId: string): Promise<EffectiveQuizSettings> {
+  async resolveEffectiveSettings(quiz: PinRow, userId: string): Promise<EffectiveQuizSettings> {
     const overrides = await this.repo.listOverrides(quiz.id);
     const userOverride = overrides.find((o) => o.userId === userId);
-    let groupOverrides: QuizOverrideRow[] = [];
+    let groupOverrides: ExamPinOverrideRow[] = [];
     if (overrides.some((o) => o.groupId !== null)) {
       const myGroupIds = new Set((await this.groups.groupsOfUser(quiz.course, userId)).map((g) => g.id));
       groupOverrides = overrides.filter((o) => o.groupId !== null && myGroupIds.has(o.groupId));
@@ -2135,7 +1849,7 @@ export class QuizService {
     const hasGroups = groupOverrides.length > 0;
     // Giá trị hợp nhất của nhóm cho một trường ngày giờ: undefined = không có override nhóm nào;
     // null = có nhóm không giới hạn trường này (thắng); ngược lại lấy mốc rộng nhất.
-    const mergeDate = (pick: (o: QuizOverrideRow) => Date | null, widest: 'min' | 'max'): Date | null | undefined => {
+    const mergeDate = (pick: (o: ExamPinOverrideRow) => Date | null, widest: 'min' | 'max'): Date | null | undefined => {
       if (!hasGroups) return undefined;
       if (groupOverrides.some((o) => pick(o) === null)) return null;
       const values = groupOverrides.map((o) => pick(o)!.getTime());
@@ -2177,25 +1891,8 @@ export class QuizService {
     };
   }
 
-  /**
-   * Mốc sớm nhất người dùng được bắt đầu lượt mới theo độ trễ bắt buộc
-   * (delay1/delay2 của quiz — KHÔNG nằm trong override như Moodle):
-   * sau lượt chốt thứ nhất tính delay1 từ time_finish của lượt đó; từ
-   * lượt thứ ba trở đi tính delay2 từ time_finish của lượt chốt gần
-   * nhất. null = không bị trễ (chưa có lượt chốt hoặc quiz không đặt).
-   */
-  private nextAttemptNotBefore(quiz: QuizRow, finishedAttempts: QuizAttemptRow[]): Date | null {
-    const finished = finishedAttempts
-      .filter((a) => !a.preview && a.state !== 'inprogress' && a.timeFinish !== null)
-      .sort((x, y) => x.timeFinish!.getTime() - y.timeFinish!.getTime());
-    if (!finished.length) return null;
-    const delaySeconds = finished.length === 1 ? quiz.delay1 : quiz.delay2;
-    if (delaySeconds === null || delaySeconds === undefined) return null;
-    return new Date(finished[finished.length - 1]!.timeFinish!.getTime() + delaySeconds * 1000);
-  }
-
   /** Học sinh còn được bắt đầu lượt mới hay không, và vì sao không (mọi kiểm tra đều trên cài đặt HIỆU LỰC của chính học sinh). */
-  private async attemptEligibility(quiz: QuizRow, userId: string, now: Date): Promise<{
+  private async attemptEligibility(quiz: PinRow, userId: string, now: Date): Promise<{
     canAttempt: boolean; reason: string | null; inProgressAttemptId: string | null;
     nextAttemptAt: string | null; passwordRequired: boolean;
   }> {
@@ -2206,13 +1903,13 @@ export class QuizService {
     if (effective.timeOpen && now < effective.timeOpen) return { canAttempt: false, reason: 'not_yet_open', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
     if (effective.timeClose && now > effective.timeClose) return { canAttempt: false, reason: 'closed', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
     if (effective.attemptsAllowed > 0 && mine.length >= effective.attemptsAllowed) return { canAttempt: false, reason: 'no_more_attempts', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
-    const notBefore = this.nextAttemptNotBefore(quiz, mine);
-    if (notBefore && now < notBefore) return { canAttempt: false, reason: 'delay_not_elapsed', inProgressAttemptId: null, nextAttemptAt: notBefore.toISOString(), passwordRequired: effective.passwordRequired };
+    // Khoảng chờ giữa hai lượt (delay1/delay2 của quiz cũ) đã bỏ
+    // hẳn khỏi mô hình pin — không còn cổng chờ giữa các lượt.
     if (quiz.lateEntryMinutes !== null && effective.timeOpen
       && now.getTime() > effective.timeOpen.getTime() + quiz.lateEntryMinutes * 60_000) {
       return { canAttempt: false, reason: 'late_entry_closed', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
     }
-    const slots = await this.repo.listSlots(quiz.id);
+    const slots = await this.effectiveSlots(quiz);
     if (!slots.length) return { canAttempt: false, reason: 'no_questions', inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
     return { canAttempt: true, reason: null, inProgressAttemptId: null, nextAttemptAt: null, passwordRequired: effective.passwordRequired };
   }
@@ -2221,7 +1918,7 @@ export class QuizService {
    * Điểm bài hiện tại của một học sinh theo grade_method của quiz (null
    * khi chưa có lượt nào chốt điểm).
    */
-  async currentGradeForUser(quiz: QuizRow, userId: string): Promise<number | null> {
+  async currentGradeForUser(quiz: PinRow, userId: string): Promise<number | null> {
     const finished = (await this.repo.listAttemptsForUser(quiz.id, userId)).filter((a) => a.state === 'finished' && a.sumGrades !== null);
     if (!finished.length) return null;
     const values: number[] = [];
@@ -2244,7 +1941,7 @@ export class QuizService {
    * chính người xem, điểm bài hiện tại và các cờ quyền để client hiển thị
    * đúng thao tác.
    */
-  async getQuizForUser(actorId: string, quizId: string): Promise<{
+  async getQuizForUser(actorId: string, pinId: string): Promise<{
     quiz: QuizView;
     myAttempts: QuizAttemptSummary[];
     myGrade: number | null;
@@ -2259,9 +1956,9 @@ export class QuizService {
     };
     permissions: { manage: boolean; manageOverrides: boolean; grade: boolean; viewReports: boolean; preview: boolean; attempt: boolean };
   }> {
-    const quiz = await this.getQuiz(quizId);
+    const quiz = await this.getPin(pinId);
     await this.requireAnyViewCap(actorId, quiz);
-    const view = await this.quizView(quiz);
+    const view = await this.pinView(quiz);
     const mine = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
     const summaries: QuizAttemptSummary[] = [];
     for (const a of mine) summaries.push(await this.attemptSummary(quiz, a));
@@ -2275,6 +1972,13 @@ export class QuizService {
       this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.preview),
       this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.attempt),
     ]);
+    // Phạm vi nhóm đích: người xem không có vai trò nhân sự (quản
+    // lý/chấm/báo cáo/preview) mà không thuộc nhóm đích thì lần ghim
+    // coi như không tồn tại (404 — không lộ sự tồn tại).
+    const isStaffViewer = manage || grade || viewReports || preview;
+    if (!isStaffViewer && !(await this.isInTargetGroup(quiz, actorId))) {
+      throw new NotFoundException({ message: `Exam pin ${pinId} not found`, code: 'exam.pin_not_found' });
+    }
     return {
       quiz: view,
       myAttempts: summaries,
@@ -2296,17 +2000,6 @@ export class QuizService {
 
   // --- lượt làm ------------------------------------------------------------------
 
-  /** Chọn câu cho một slot ngẫu nhiên: rút ngẫu nhiên trong category, tránh trùng câu đã chọn trong cùng lượt khi còn lựa chọn. Câu đã rút khỏi bank (hidden — QB-3) không bao giờ được rút. */
-  private async pickRandomQuestion(categoryId: string, alreadyChosen: Set<string>): Promise<string> {
-    const ids = await this.questions.listUsableQuestionIdsInCategory(categoryId);
-    if (!ids.length) {
-      throw new BadRequestException({ message: `Question category ${categoryId} has no questions for a random slot`, code: 'quiz.random_slot_empty' });
-    }
-    const fresh = ids.filter((id) => !alreadyChosen.has(id));
-    const pool = fresh.length ? fresh : ids;
-    return pool[Math.floor(Math.random() * pool.length)]!;
-  }
-
   /**
    * Bắt đầu lượt làm mới (hoặc trả về lượt đang dở để tiếp tục): kiểm cửa
    * sổ mở–đóng và số lần cho phép phía server, rút câu cho slot ngẫu
@@ -2314,14 +2007,19 @@ export class QuizService {
    * bản câu ngay lúc bắt đầu. Preview của giáo viên (quiz:preview)
    * bỏ qua cửa sổ/giới hạn và không ghi điểm về sau.
    */
-  async startAttempt(actorId: string, quizId: string, opts: { preview?: boolean; password?: string; clientIp?: string } = {}): Promise<QuizAttemptView> {
-    const quiz = await this.getQuiz(quizId);
+  async startAttempt(actorId: string, pinId: string, opts: { preview?: boolean; password?: string; clientIp?: string } = {}): Promise<QuizAttemptView> {
+    const quiz = await this.getPin(pinId);
     const preview = opts.preview === true;
     if (preview) {
       await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.preview);
     } else {
       await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.attempt);
       await this.courses.assertCourseAccess(actorId, quiz.course);
+      // Phạm vi nhóm đích: học sinh ngoài nhóm đích không mở được
+      // lượt làm của lần ghim này (403 như các cổng thi khác).
+      if (!(await this.isInTargetGroup(quiz, actorId))) {
+        throw new ForbiddenException({ message: 'This exam is limited to a specific group of this course', code: 'exam.pin_not_in_target_group' });
+      }
     }
     const existing = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
     const inProgress = existing.find((a) => a.state === 'inprogress' && a.preview === preview);
@@ -2356,10 +2054,6 @@ export class QuizService {
       if (effective.attemptsAllowed > 0 && mine.length >= effective.attemptsAllowed) {
         throw new ForbiddenException({ message: 'No more attempts are allowed for this quiz', code: 'quiz.no_more_attempts' });
       }
-      const notBefore = this.nextAttemptNotBefore(quiz, mine);
-      if (notBefore && now < notBefore) {
-        throw new ForbiddenException({ message: 'You must wait before starting another attempt', code: 'quiz.delay_not_elapsed' });
-      }
       if (effective.passwordRequired) {
         if (opts.password === undefined || opts.password === '') {
           throw new ForbiddenException({ message: 'A password is required to start this quiz', code: 'quiz.password_required' });
@@ -2374,68 +2068,21 @@ export class QuizService {
       }
       this.assertSubnetAllowed(quiz, opts.clientIp);
     }
-    const slots = await this.repo.listSlots(quiz.id);
+    const slots = await this.effectiveSlots(quiz);
     if (!slots.length) throw new BadRequestException({ message: 'This quiz has no questions yet', code: 'quiz.no_questions' });
 
-    const chosen = new Set<string>();
-    const resolvedSlots: { quizSlot: QuizSlotRow; questionId: string }[] = [];
-    // Slot nguồn ô ma trận (per_student) rút câu từ pool của ô lúc bắt
-    // đầu lượt; slot thuộc một chùm Đ–S rút CẢ CHÙM (4 câu cùng
-    // stimulus) cho đủ 4 slot của chùm, không rút lẻ từng câu.
-    const cellPoolCache = new Map<string, { cell: ExamMatrixCellRow; candidates: QuestionView[] }>();
-    const poolForCell = async (cellId: string) => {
-      let entry = cellPoolCache.get(cellId);
-      if (!entry) {
-        const cell = await this.repo.getMatrixCell(cellId);
-        if (!cell) throw new BadRequestException({ message: `Matrix cell ${cellId} no longer exists`, code: 'quiz.matrix_cell_missing' });
-        entry = { cell, candidates: await this.cellCandidates(cell) };
-        cellPoolCache.set(cellId, entry);
-      }
-      return entry;
-    };
-    const clusterAssignment = new Map<string, string>();
-    const usedStimuli = new Set<string>();
-    const clusterGroups = new Map<string, QuizSlotRow[]>();
+    // Attempt đọc THẲNG slots đã ghim của exam version (bỏ hẳn đường
+    // rút câu lúc bắt đầu lượt của recipe/per_student — chốt 26/10):
+    // mọi slot hiệu lực đều đã có câu + version ghim, hai học sinh làm
+    // cùng một pin nhận CÙNG một bộ câu.
+    const resolvedSlots: { quizSlot: EffectiveSlotRow; questionId: string }[] = [];
     for (const s of slots) {
-      if (s.matrixCellId && s.clusterId && !s.questionId) {
-        const list = clusterGroups.get(s.clusterId) ?? [];
-        list.push(s);
-        clusterGroups.set(s.clusterId, list);
+      if (!s.questionId) {
+        throw new BadRequestException({ message: `Slot ${s.slot} of this pin has no pinned question`, code: 'exam.pin_slot_unresolved' });
       }
+      resolvedSlots.push({ quizSlot: s, questionId: s.questionId });
     }
-    for (const group of clusterGroups.values()) {
-      const { candidates } = await poolForCell(group[0]!.matrixCellId!);
-      const clusters = this.tfClustersOf(candidates)
-        .filter((c) => !usedStimuli.has(c[0]!.stimulus!.id));
-      if (!clusters.length) {
-        throw new UnprocessableEntityException({ message: 'The question bank no longer has a full true/false cluster for a matrix cell of this quiz', code: 'quiz.matrix_insufficient_questions' });
-      }
-      const picked = clusters[Math.floor(Math.random() * clusters.length)]!;
-      usedStimuli.add(picked[0]!.stimulus!.id);
-      group.sort((a, b) => a.slot - b.slot).forEach((s, i) => {
-        clusterAssignment.set(s.id, picked[i]!.question.id);
-      });
-    }
-    for (const s of slots) {
-      let questionId = s.questionId;
-      if (!questionId && clusterAssignment.has(s.id)) {
-        questionId = clusterAssignment.get(s.id)!;
-      }
-      if (!questionId && s.matrixCellId) {
-        const { candidates } = await poolForCell(s.matrixCellId);
-        const fresh = candidates.filter((v) => !chosen.has(v.question.id));
-        const pool = fresh.length ? fresh : candidates;
-        if (!pool.length) {
-          throw new UnprocessableEntityException({ message: 'The question bank no longer has questions for a matrix cell of this quiz', code: 'quiz.matrix_insufficient_questions' });
-        }
-        questionId = pool[Math.floor(Math.random() * pool.length)]!.question.id;
-      }
-      if (!questionId) {
-        questionId = await this.pickRandomQuestion(s.categoryId!, chosen);
-      }
-      chosen.add(questionId);
-      resolvedSlots.push({ quizSlot: s, questionId });
-    }
+
     // Moodle dùng MỘT dãy số lượt cho mỗi (quiz, user) — preview chỉ là
     // cờ trên lượt, không phải dãy riêng: ràng buộc duy nhất của
     // quiz_attempts là (quiz_id, user_id, attempt_number) không phân
@@ -2467,7 +2114,7 @@ export class QuizService {
       attemptsAllowed: eff.attemptsAllowed,
       passwordRequired: eff.passwordRequired,
       subnet: eff.subnet,
-      examKind: quiz.examKind,
+      preset: (quiz.preset as QuizView['preset']) ?? null,
       lateEntryMinutes: quiz.lateEntryMinutes,
       monitorEvents: quiz.monitorEvents,
       userOverrideId: eff.userOverrideId,
@@ -2477,13 +2124,13 @@ export class QuizService {
     try {
       await this.questions.startUsage(actorId, usage.usage.id);
       const row = await this.repo.insertAttempt({
-        quizId: quiz.id, userId: actorId, attemptNumber, usageId: usage.usage.id,
+        pinId: quiz.id, userId: actorId, attemptNumber, usageId: usage.usage.id,
         state: 'inprogress', preview, timeStart: now,
         makeup, appliedSettings,
       });
       await this.outbox.enqueueStandalone({
         aggregate: 'quiz', type: 'quiz_attempt_started',
-        payload: { quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: actorId, attemptNumber, preview, actorId },
+        payload: { pinId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: actorId, attemptNumber, preview, actorId },
       });
       return this.buildAttemptView(quiz, row, false);
     } catch (err) {
@@ -2498,7 +2145,7 @@ export class QuizService {
   }
 
   /** Cổng subnet: quiz có đặt subnet thì IP khách thật phải khớp một mục trong danh sách (kiểm cả khi bắt đầu lượt và khi nộp từng đáp án). */
-  private assertSubnetAllowed(quiz: QuizRow, clientIp: string | undefined): void {
+  private assertSubnetAllowed(quiz: PinRow, clientIp: string | undefined): void {
     if (!quiz.subnet) return;
     if (!clientIp || !ipMatchesSubnetList(clientIp, quiz.subnet)) {
       throw new ForbiddenException({ message: 'Your network address is not allowed for this quiz', code: 'quiz.subnet_denied' });
@@ -2514,7 +2161,7 @@ export class QuizService {
    * mốc đều là giá trị HIỆU LỰC của CHỦ LƯỢT (override áp cho người đó),
    * không phải giá trị gốc của quiz và không chụp tại lúc bắt đầu.
    */
-  private async attemptDeadline(quiz: QuizRow, row: QuizAttemptRow): Promise<Date | null> {
+  private async attemptDeadline(quiz: PinRow, row: ExamAttemptRow): Promise<Date | null> {
     const effective = await this.resolveEffectiveSettings(quiz, row.userId);
     let deadline: number | null = null;
     if (effective.timeLimit) deadline = row.timeStart.getTime() + effective.timeLimit * 1000;
@@ -2524,7 +2171,7 @@ export class QuizService {
     }
     return deadline === null ? null : new Date(deadline);
   }
-  private async isOverdue(quiz: QuizRow, row: QuizAttemptRow): Promise<boolean> {
+  private async isOverdue(quiz: PinRow, row: ExamAttemptRow): Promise<boolean> {
     const deadline = await this.attemptDeadline(quiz, row);
     return deadline !== null && new Date() > deadline;
   }
@@ -2539,7 +2186,7 @@ export class QuizService {
    * lộ đề (hồ sơ thi trực tuyến VN điểm 5.1.4). Đợt không có mốc đóng
    * thì không bao giờ sang cửa sổ sau-đóng.
    */
-  private async reviewWindowBit(quiz: QuizRow, row: QuizAttemptRow, now: Date): Promise<number> {
+  private async reviewWindowBit(quiz: PinRow, row: ExamAttemptRow, now: Date): Promise<number> {
     const finish = row.timeFinish?.getTime() ?? now.getTime();
     if (now.getTime() < finish + REVIEW_IMMEDIATELY_AFTER_MS) return REVIEW_WINDOW.immediatelyAfter;
     const session = await this.repo.sessionLatestClose(quiz.id);
@@ -2555,9 +2202,9 @@ export class QuizService {
    * nằm ở tầng server, client không nhận được dữ liệu bị tắt. Người có
    * quiz:grade/viewreports/manage và lượt preview không bị giới hạn.
    */
-  async buildAttemptView(quiz: QuizRow, row: QuizAttemptRow, closedDueToTimeLimit: boolean, viewerId?: string): Promise<QuizAttemptView> {
+  async buildAttemptView(quiz: PinRow, row: ExamAttemptRow, closedDueToTimeLimit: boolean, viewerId?: string): Promise<QuizAttemptView> {
     const usage = await this.questions.getUsage(row.usageId);
-    const slots = await this.repo.listSlots(quiz.id);
+    const slots = await this.effectiveSlots(quiz);
     const pageBySlot = new Map(slots.map((s) => [s.slot, s.page]));
     const submitted = row.state !== 'inprogress';
     const viewer = viewerId ?? row.userId;
@@ -2684,7 +2331,7 @@ export class QuizService {
     }
     return {
       attempt: await this.attemptSummary(quiz, row),
-      quiz: await this.quizView(quiz),
+      quiz: await this.pinView(quiz),
       questions,
       totalMax: this.usageTotalMax(usage),
       pendingManualCount: pendingManual,
@@ -2694,7 +2341,7 @@ export class QuizService {
   }
 
   /** Quyền xem một lượt: chủ lượt, hoặc người có quiz:grade/viewreports tại module. */
-  private async requireAttemptReadable(actorId: string, quiz: QuizRow, row: QuizAttemptRow): Promise<void> {
+  private async requireAttemptReadable(actorId: string, quiz: PinRow, row: ExamAttemptRow): Promise<void> {
     if (row.userId === actorId) return;
     const ctx = await this.cmContextId(quiz);
     for (const cap of [QUIZ_CAPABILITIES.grade, QUIZ_CAPABILITIES.viewReports, QUIZ_CAPABILITIES.manage]) {
@@ -2710,7 +2357,7 @@ export class QuizService {
    */
   async getAttemptView(actorId: string, attemptId: string): Promise<QuizAttemptView> {
     const row = await this.getAttemptRow(attemptId);
-    const quiz = await this.getQuiz(row.quizId);
+    const quiz = await this.getPin(row.pinId);
     await this.requireAttemptReadable(actorId, quiz, row);
     if (row.state === 'inprogress' && row.userId === actorId && await this.isOverdue(quiz, row)) {
       return this.finalizeAttempt(quiz, await this.getAttemptRow(attemptId), true);
@@ -2725,7 +2372,7 @@ export class QuizService {
    */
   async submitResponse(actorId: string, attemptId: string, input: { questionAttemptId: string; response?: string | null }, clientIp?: string): Promise<QuizAttemptView> {
     const row = await this.getAttemptRow(attemptId);
-    const quiz = await this.getQuiz(row.quizId);
+    const quiz = await this.getPin(row.pinId);
     if (row.userId !== actorId) {
       throw new ForbiddenException({ message: 'Only the attempt owner can answer', code: 'quiz.attempt_forbidden' });
     }
@@ -2751,10 +2398,10 @@ export class QuizService {
    * quiz_attempt_finished được phát và — khi đã chốt hẳn — điểm bài theo
    * grade_method được ghi vào sổ điểm.
    */
-  private async finalizeAttempt(quiz: QuizRow, row: QuizAttemptRow, closedDueToTimeLimit: boolean): Promise<QuizAttemptView> {
+  private async finalizeAttempt(quiz: PinRow, row: ExamAttemptRow, closedDueToTimeLimit: boolean): Promise<QuizAttemptView> {
     if (row.state !== 'inprogress') return this.buildAttemptView(quiz, row, false);
     const finishedUsage = await this.questions.finishUsage(row.userId, row.usageId);
-    const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage, quiz, await this.repo.listSlots(quiz.id));
+    const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage, quiz, await this.effectiveSlots(quiz));
     const state = pendingManual > 0 ? 'needsgrading' : 'finished';
     await this.repo.updateAttempt(row.id, { state, timeFinish: new Date(), sumGrades });
     // Nộp tự động khi hết giờ là một sự kiện giám sát do SERVER ghi
@@ -2766,7 +2413,7 @@ export class QuizService {
     await this.outbox.enqueueStandalone({
       aggregate: 'quiz', type: 'quiz_attempt_finished',
       payload: {
-        quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId,
+        pinId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId,
         userId: row.userId, attemptNumber: row.attemptNumber, preview: row.preview,
         sumGrades, needsGrading: pendingManual > 0, closedDueToTimeLimit, actorId: row.userId,
       },
@@ -2780,7 +2427,7 @@ export class QuizService {
    */
   async submitAttempt(actorId: string, attemptId: string): Promise<QuizAttemptView> {
     const row = await this.getAttemptRow(attemptId);
-    const quiz = await this.getQuiz(row.quizId);
+    const quiz = await this.getPin(row.pinId);
     if (row.userId !== actorId) {
       throw new ForbiddenException({ message: 'Only the attempt owner can submit', code: 'quiz.attempt_forbidden' });
     }
@@ -2792,7 +2439,7 @@ export class QuizService {
    * hoạt động (bỏ qua lặng lẽ nếu item chưa tồn tại — quiz tạo trước khi
    * cơ chế item có hiệu lực; việc nộp bài không được hỏng vì sổ điểm).
    */
-  private async pushGrade(quiz: QuizRow, userId: string): Promise<void> {
+  private async pushGrade(quiz: PinRow, userId: string): Promise<void> {
     if (!quiz.cmId) return;
     const value = await this.currentGradeForUser(quiz, userId);
     if (value === null) return;
@@ -2823,10 +2470,10 @@ export class QuizService {
    * nhất tại thời điểm sinh phiếu) kèm đáp án của version đó theo thứ
    * tự in, để lúc ghi điểm chấm đúng bản đã phát cho học sinh.
    */
-  async resolvePaperLayout(actorId: string, quizId: string): Promise<{ quiz: QuizRow; layout: PaperSlotLayout[] }> {
-    const quiz = await this.getQuiz(quizId);
+  async resolvePaperLayout(actorId: string, pinId: string): Promise<{ quiz: PinRow; layout: PaperSlotLayout[] }> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.gradePaper);
-    const slots = await this.repo.listSlots(quiz.id);
+    const slots = await this.effectiveSlots(quiz);
     if (!slots.length) throw new BadRequestException({ message: 'This quiz has no questions yet', code: 'quiz.no_questions' });
     if (slots.length > 60) {
       throw new UnprocessableEntityException({ message: 'A paper answer sheet supports at most 60 questions', code: 'paper.too_many_questions' });
@@ -2882,7 +2529,7 @@ export class QuizService {
    * ngữ nghĩa engine cho slot i (multichoice: answerId đã chọn;
    * truefalse: 'true'/'false'; null: để trống).
    */
-  async recordPaperAttempt(actorId: string, quizId: string, input: {
+  async recordPaperAttempt(actorId: string, pinId: string, input: {
     studentId: string;
     layout: PaperSlotLayout[];
     responses: (string | null)[];
@@ -2890,7 +2537,7 @@ export class QuizService {
     batchId: string;
     variantCode: string;
   }): Promise<{ attemptId: string; state: string; sumGrades: number | null }> {
-    const quiz = await this.getQuiz(quizId);
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.gradePaper);
     const existing = await this.repo.listAttemptsForUser(quiz.id, input.studentId, true);
     const attemptNumber = existing.length + 1;
@@ -2902,13 +2549,13 @@ export class QuizService {
     try {
       await this.questions.startUsage(input.studentId, usage.usage.id);
       const row = await this.repo.insertAttempt({
-        quizId: quiz.id, userId: input.studentId, attemptNumber, usageId: usage.usage.id,
+        pinId: quiz.id, userId: input.studentId, attemptNumber, usageId: usage.usage.id,
         state: 'inprogress', preview: false, timeStart: now, makeup: false,
         appliedSettings: { source: 'paper-scan', scanId: input.scanId, batchId: input.batchId, variantCode: input.variantCode },
       });
       await this.outbox.enqueueStandalone({
         aggregate: 'quiz', type: 'quiz_attempt_started',
-        payload: { quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: input.studentId, attemptNumber, preview: false, actorId },
+        payload: { pinId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId, userId: input.studentId, attemptNumber, preview: false, actorId },
       });
       const usageView = await this.questions.getUsage(usage.usage.id);
       for (const s of input.layout) {
@@ -2936,7 +2583,7 @@ export class QuizService {
    * điểm bài hiện tại theo từng học sinh, hàng đợi essay chờ chấm tay,
    * và thống kê câu sai theo từng slot (câu sai nhiều nhất xếp trước).
    */
-  async getResults(actorId: string, quizId: string): Promise<{
+  async getResults(actorId: string, pinId: string): Promise<{
     quiz: QuizView;
     attempts: QuizAttemptSummary[];
     gradesByUser: { userId: string; grade: number | null }[];
@@ -2944,7 +2591,7 @@ export class QuizService {
     questionStats: QuizQuestionStat[];
     summary: QuizResultsSummary;
   }> {
-    const quiz = await this.getQuiz(quizId);
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
     const rows = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview);
     const attempts: QuizAttemptSummary[] = [];
@@ -2967,18 +2614,18 @@ export class QuizService {
       }
     }
     const questionStats = await this.questionStats(rows);
-    return { quiz: await this.quizView(quiz), attempts, gradesByUser, needsGrading, questionStats, summary };
+    return { quiz: await this.pinView(quiz), attempts, gradesByUser, needsGrading, questionStats, summary };
   }
 
   /**
    * Tổng quan tham gia + phổ điểm của bài (bộ Azota — issue #224):
-   * ghi danh lấy từ enrol của khoá chứa quiz; "đã nộp" = có ít nhất
+   * ghi danh lấy từ enrol của khoá chứa pin; "đã nộp" = có ít nhất
    * một lượt finished/needsgrading (không tính preview của GV); phổ
    * điểm tính trên điểm BÀI hiện tại của từng HS (gradesByUser).
    */
   private async resultsSummary(
-    quiz: QuizRow,
-    rows: QuizAttemptRow[],
+    quiz: PinRow,
+    rows: ExamAttemptRow[],
     gradesByUser: { userId: string; grade: number | null }[],
   ): Promise<QuizResultsSummary> {
     const enrolments = await this.enrol.listEnrolmentsForCourse(quiz.course);
@@ -3017,7 +2664,7 @@ export class QuizService {
    * MỌI lượt ở slot dùng cùng một câu (slot cố định). Xếp wrongCount
    * giảm dần để câu sai nhiều nhất lên đầu, hoà thì theo số slot.
    */
-  private async questionStats(rows: QuizAttemptRow[]): Promise<QuizQuestionStat[]> {
+  private async questionStats(rows: ExamAttemptRow[]): Promise<QuizQuestionStat[]> {
     const submitted = rows.filter((r) => r.state === 'finished' || r.state === 'needsgrading');
     interface SlotAcc {
       questionIds: Set<string>;
@@ -3112,7 +2759,7 @@ export class QuizService {
    */
   async manualGrade(actorId: string, attemptId: string, input: { questionAttemptId: string; mark: number; comment?: string }): Promise<QuizAttemptView> {
     const row = await this.getAttemptRow(attemptId);
-    const quiz = await this.getQuiz(row.quizId);
+    const quiz = await this.getPin(row.pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
     const usage = await this.questions.getUsage(row.usageId);
     if (!usage.attempts.some((a) => a.id === input.questionAttemptId)) {
@@ -3120,15 +2767,15 @@ export class QuizService {
     }
     await this.questions.manualGradeAttempt(actorId, input.questionAttemptId, input.mark, input.comment);
     const after = await this.questions.getUsage(row.usageId);
-    const { sumGrades, pendingManual } = this.syncFromUsage(after, quiz, await this.repo.listSlots(quiz.id));
+    const { sumGrades, pendingManual } = this.syncFromUsage(after, quiz, await this.effectiveSlots(quiz));
     const wasSubmitted = row.state === 'needsgrading' || row.state === 'finished';
     const nextState = row.state === 'inprogress' ? row.state : (pendingManual > 0 ? 'needsgrading' : 'finished');
     await this.repo.updateAttempt(row.id, { sumGrades, ...(wasSubmitted ? { state: nextState } : {}) });
     const updated = await this.getAttemptRow(row.id);
     await this.outbox.enqueueStandalone({
-      aggregate: 'quiz', type: 'quiz_attempt_regraded',
+      aggregate: 'quiz', type: 'exam_attempt_regraded',
       payload: {
-        quizId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId,
+        pinId: quiz.id, courseId: quiz.course, attemptId: row.id, usageId: row.usageId,
         userId: row.userId, questionAttemptId: input.questionAttemptId, mark: input.mark,
         sumGrades, state: updated.state, actorId,
       },
@@ -3140,25 +2787,25 @@ export class QuizService {
   // --- dải nhận xét tổng quát / sự kiện giám sát / chấm theo câu / thống kê chùm ---
 
   /** Các dải nhận xét tổng quát của quiz (quiz:manage). */
-  async listFeedbacks(actorId: string, quizId: string): Promise<QuizFeedbackRow[]> {
-    const quiz = await this.getQuiz(quizId);
+  async listFeedbacks(actorId: string, pinId: string): Promise<ExamPinFeedbackRow[]> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
     return this.repo.listFeedbacks(quiz.id);
   }
 
   /** Tạo một dải nhận xét tổng quát (quiz:manage); dải tính theo % điểm của bài, [min, max). */
-  async createFeedback(actorId: string, quizId: string, input: { minPercent: number; maxPercent: number; feedback: string }): Promise<QuizFeedbackRow> {
-    const quiz = await this.getQuiz(quizId);
+  async createFeedback(actorId: string, pinId: string, input: { minPercent: number; maxPercent: number; feedback: string }): Promise<ExamPinFeedbackRow> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
     if (!(input.minPercent < input.maxPercent)) {
       throw new BadRequestException({ message: 'minPercent must be below maxPercent', code: 'quiz.feedback_range' });
     }
-    return this.repo.insertFeedback({ quizId: quiz.id, minPercent: input.minPercent, maxPercent: input.maxPercent, feedback: input.feedback });
+    return this.repo.insertFeedback({ pinId: quiz.id, minPercent: input.minPercent, maxPercent: input.maxPercent, feedback: input.feedback });
   }
 
   /** Xoá một dải nhận xét tổng quát (quiz:manage). */
-  async deleteFeedback(actorId: string, quizId: string, feedbackId: string): Promise<void> {
-    const quiz = await this.getQuiz(quizId);
+  async deleteFeedback(actorId: string, pinId: string, feedbackId: string): Promise<void> {
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
     const bands = await this.repo.listFeedbacks(quiz.id);
     if (!bands.some((b) => b.id === feedbackId)) {
@@ -3173,12 +2820,12 @@ export class QuizService {
    * đang làm, quiz bật monitor_events. CHỈ GHI NHẬN — không có bất kỳ
    * hệ quả tự động nào lên lượt làm.
    */
-  async recordAttemptEvent(actorId: string, attemptId: string, input: { type: string; data?: Record<string, unknown> }): Promise<QuizAttemptEventRow> {
+  async recordAttemptEvent(actorId: string, attemptId: string, input: { type: string; data?: Record<string, unknown> }): Promise<ExamAttemptEventRow> {
     const row = await this.getAttemptRow(attemptId);
     if (row.userId !== actorId) {
       throw new ForbiddenException({ message: 'This attempt belongs to another user', code: 'quiz.attempt_forbidden' });
     }
-    const quiz = await this.getQuiz(row.quizId);
+    const quiz = await this.getPin(row.pinId);
     if (!quiz.monitorEvents) {
       throw new BadRequestException({ message: 'Event monitoring is not enabled for this quiz', code: 'quiz.monitoring_disabled' });
     }
@@ -3189,9 +2836,9 @@ export class QuizService {
   }
 
   /** Nhật ký sự kiện giám sát của một lượt (chủ lượt hoặc người có quyền chấm/báo cáo). */
-  async listAttemptEvents(actorId: string, attemptId: string): Promise<QuizAttemptEventRow[]> {
+  async listAttemptEvents(actorId: string, attemptId: string): Promise<ExamAttemptEventRow[]> {
     const row = await this.getAttemptRow(attemptId);
-    const quiz = await this.getQuiz(row.quizId);
+    const quiz = await this.getPin(row.pinId);
     await this.requireAttemptReadable(actorId, quiz, row);
     return this.repo.listAttemptEvents(row.id);
   }
@@ -3201,12 +2848,12 @@ export class QuizService {
    * đáp án hiện tại và điểm đã có — giáo viên chấm một câu cho cả lớp
    * trong một màn hình thay vì mở từng học sinh.
    */
-  async listQuestionGradingQueue(actorId: string, quizId: string, questionId: string): Promise<{
+  async listQuestionGradingQueue(actorId: string, pinId: string, questionId: string): Promise<{
     attemptId: string; userId: string; displayName: string; attemptNumber: number;
     questionAttemptId: string; slot: number; state: string; response: string | null;
     fraction: number | null; mark: number | null; maxMark: number;
   }[]> {
-    const quiz = await this.getQuiz(quizId);
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
     const submitted = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview && a.state !== 'inprogress');
     const rows: {
@@ -3241,16 +2888,16 @@ export class QuizService {
    * chấm tay theo lượt hiện có (engine ghi step, tổng điểm đồng bộ,
    * lượt cuối cùng hết câu chờ thì chốt + ghi sổ điểm).
    */
-  async gradeQuestionForAttempts(actorId: string, quizId: string, input: {
+  async gradeQuestionForAttempts(actorId: string, pinId: string, input: {
     questionId: string;
     grades: { attemptId: string; mark: number; comment?: string }[];
   }): Promise<QuizAttemptSummary[]> {
-    const quiz = await this.getQuiz(quizId);
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
     const out: QuizAttemptSummary[] = [];
     for (const entry of input.grades) {
       const row = await this.getAttemptRow(entry.attemptId);
-      if (row.quizId !== quiz.id) {
+      if (row.pinId !== quiz.id) {
         throw new BadRequestException({ message: `Attempt ${entry.attemptId} does not belong to this quiz`, code: 'quiz.attempt_quiz_mismatch' });
       }
       const usage = await this.questions.getUsage(row.usageId);
@@ -3272,17 +2919,17 @@ export class QuizService {
    * mỗi lượt rút chùm khác nhau; kèm phân bố số ý đúng của cả chùm —
    * đầu vào cho vòng ôn tập từ câu sai (EB-4). Chỉ tính lượt đã nộp.
    */
-  async clusterStatistics(actorId: string, quizId: string): Promise<{
+  async clusterStatistics(actorId: string, pinId: string): Promise<{
     clusterId: string;
     slots: number[];
     attemptsCount: number;
     items: { position: number; slot: number; gradedCount: number; correctCount: number; wrongCount: number; pendingCount: number }[];
     correctDistribution: { correctCount: number; attempts: number }[];
   }[]> {
-    const quiz = await this.getQuiz(quizId);
+    const quiz = await this.getPin(pinId);
     await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
-    const slots = await this.repo.listSlots(quiz.id);
-    const clusters = new Map<string, QuizSlotRow[]>();
+    const slots = await this.effectiveSlots(quiz);
+    const clusters = new Map<string, EffectiveSlotRow[]>();
     for (const s of slots) {
       if (!s.clusterId) continue;
       const list = clusters.get(s.clusterId) ?? [];
@@ -3342,8 +2989,8 @@ export class QuizService {
    * Các lượt làm của một quiz cho chủ nhân hoặc giáo viên — dùng cho
    * trang thông tin (lượt của tôi) và báo cáo.
    */
-  async listAttemptSummaries(actorId: string, quizId: string): Promise<QuizAttemptSummary[]> {
-    const quiz = await this.getQuiz(quizId);
+  async listAttemptSummaries(actorId: string, pinId: string): Promise<QuizAttemptSummary[]> {
+    const quiz = await this.getPin(pinId);
     await this.requireAnyViewCap(actorId, quiz);
     const canSeeAll = await this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
     const rows = canSeeAll

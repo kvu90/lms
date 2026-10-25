@@ -1,12 +1,12 @@
 /**
- * API chấm bài giấy (CAM-0, issue #112): lô IN phiếu + PDF phiếu dưới
- * `quizzes/:quizId/paper-batches`, tải ảnh theo BUỔI (lô chụp) dưới
- * `quizzes/:quizId/paper-scans`, hàng chờ phiếu đã quét dưới
- * `paper-scans`. Mọi route đều qua cổng `quiz:gradepaper` trong
- * PaperGradingService (controller không tự kiểm quyền).
+ * API chấm bài giấy (CAM-0, issue #112; neo pin theo #226): lô IN
+ * phiếu + PDF phiếu dưới `exam-batches` (neo `pinId`), tải ảnh theo
+ * BUỔI (lô chụp) và hàng chờ phiếu đã quét dưới `exam-scans`. Mọi
+ * route đều qua cổng `quiz:gradepaper` trong PaperGradingService
+ * (controller không tự kiểm quyền).
  */
 import {
-  Body, Controller, Delete, Get, Param, Post, Query, Res, UploadedFiles, UseInterceptors,
+  BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Res, UploadedFiles, UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
@@ -24,48 +24,50 @@ export const PAPER_UPLOAD_MAX_FILES = 24;
 export const PAPER_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
 
 @ApiTags('paper-grading')
-@Controller({ path: 'quizzes/:quizId/paper-batches', version: '1' })
-export class PaperBatchesController {
+@Controller({ path: 'exam-batches', version: '1' })
+export class ExamBatchesController {
   constructor(private readonly paper: PaperGradingService) {}
 
   @Post()
-  /** POST /quizzes/:quizId/paper-batches — sinh một lô phiếu (một mã đề), ghim layout + chụp roster. */
+  /** POST /exam-batches?pinId= — sinh một lô phiếu (một mã đề) cho pin, ghim layout + chụp roster. */
   async create(
-    @Param('quizId', { schema: uuidIdSchema }) quizId: string,
+    @Query('pinId', { schema: uuidIdSchema }) pinId: string,
     @Body({ schema: createPaperBatchSchema }) dto: CreatePaperBatch,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.paper.createBatch(actor.id, quizId, dto);
+    return this.paper.createBatch(actor.id, pinId, dto);
   }
 
   @Get()
-  /** GET /quizzes/:quizId/paper-batches — các lô phiếu của quiz. */
-  async list(@Param('quizId', { schema: uuidIdSchema }) quizId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.paper.listBatches(actor.id, quizId);
+  /** GET /exam-batches?pinId= — các lô phiếu của pin. */
+  async list(@Query('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.paper.listBatches(actor.id, pinId);
   }
 
   @Get(':batchId')
-  /** GET /quizzes/:quizId/paper-batches/:batchId — một lô phiếu (layout + roster). */
+  /** GET /exam-batches/:batchId — một lô phiếu (layout + roster); pin suy từ chính lô. */
   async get(
-    @Param('quizId', { schema: uuidIdSchema }) quizId: string,
     @Param('batchId', { schema: uuidIdSchema }) batchId: string,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.paper.getBatch(actor.id, quizId, batchId);
+    return this.paper.getBatch(actor.id, batchId);
   }
 
-  @Get(':batchId/sheets.pdf')
-  /** GET …/sheets.pdf — tải PDF phiếu: mặc định phiếu DÙNG CHUNG (?copies=n, mặc định bằng sĩ số); ?kind=personalized phiếu cá nhân hoá theo danh sách; ?studentId=… một phiếu cá nhân hoá. */
-  async sheetsPdf(
-    @Param('quizId', { schema: uuidIdSchema }) quizId: string,
+  @Get(':batchId/sheets')
+  /** GET /exam-batches/:batchId/sheets?format=pdf — tải PDF phiếu: mặc định phiếu DÙNG CHUNG (?copies=n, mặc định bằng sĩ số); ?kind=personalized phiếu cá nhân hoá theo danh sách; ?studentId=… một phiếu cá nhân hoá. */
+  async sheets(
     @Param('batchId', { schema: uuidIdSchema }) batchId: string,
+    @Query('format') format: string | undefined,
     @Query('studentId') studentId: string | undefined,
     @Query('kind') kind: string | undefined,
     @Query('copies') copies: string | undefined,
     @CurrentUser() actor: AuthenticatedUser,
     @Res() res: Response,
   ) {
-    const { buffer, fileName } = await this.paper.sheetsPdf(actor.id, quizId, batchId, {
+    if (format !== undefined && format !== 'pdf') {
+      throw new BadRequestException({ message: `Unsupported sheets format ${format}`, code: 'paper.sheets_format_unsupported' });
+    }
+    const { buffer, fileName } = await this.paper.sheetsPdf(actor.id, batchId, {
       studentId, kind, copies: copies ? Number(copies) : undefined,
     });
     res.setHeader('Content-Type', 'application/pdf');
@@ -79,20 +81,19 @@ export class PaperBatchesController {
   @UseInterceptors(FilesInterceptor('files', PAPER_UPLOAD_MAX_FILES, {
     limits: { fileSize: PAPER_UPLOAD_MAX_BYTES },
   }))
-  /** POST …/scans — tải hàng loạt ảnh chụp (multipart, trường `files`): cổng chất lượng từ chối từng ảnh hỏng kèm lý do; 422 khi mọi ảnh đều bị từ chối. */
+  /** POST /exam-batches/:batchId/scans — tải hàng loạt ảnh chụp (multipart, trường `files`): cổng chất lượng từ chối từng ảnh hỏng kèm lý do; 422 khi mọi ảnh đều bị từ chối. */
   async uploadScans(
-    @Param('quizId', { schema: uuidIdSchema }) quizId: string,
     @Param('batchId', { schema: uuidIdSchema }) batchId: string,
     @UploadedFiles() files: { originalname: string; buffer: Buffer; mimetype: string }[],
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.paper.uploadScans(actor.id, quizId, batchId, files ?? []);
+    return this.paper.uploadScans(actor.id, batchId, files ?? []);
   }
 }
 
 @ApiTags('paper-grading')
-@Controller({ path: 'quizzes/:quizId/paper-scans', version: '1' })
-export class PaperSessionScansController {
+@Controller({ path: 'exam-scans', version: '1' })
+export class ExamScansController {
   constructor(private readonly paper: PaperGradingService) {}
 
   // Không đặt guard capability ở decorator: guard chạy trước interceptor
@@ -101,39 +102,33 @@ export class PaperSessionScansController {
   @UseInterceptors(FilesInterceptor('files', PAPER_UPLOAD_MAX_FILES, {
     limits: { fileSize: PAPER_UPLOAD_MAX_BYTES },
   }))
-  /** POST /quizzes/:quizId/paper-scans — tải ảnh theo BUỔI (một lô chụp): hệ thống định tuyến từng phiếu về lô in theo mã đề/QR; phiếu không định tuyến được vẫn được lưu chưa gắn lô vào hàng chờ. */
+  /** POST /exam-scans?pinId= — tải ảnh theo BUỔI (một lô chụp): hệ thống định tuyến từng phiếu về lô in theo mã đề/QR; phiếu không định tuyến được vẫn được lưu chưa gắn lô vào hàng chờ. */
   async uploadSession(
-    @Param('quizId', { schema: uuidIdSchema }) quizId: string,
+    @Query('pinId', { schema: uuidIdSchema }) pinId: string,
     @UploadedFiles() files: { originalname: string; buffer: Buffer; mimetype: string }[],
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.paper.uploadSessionScans(actor.id, quizId, files ?? []);
+    return this.paper.uploadSessionScans(actor.id, pinId, files ?? []);
   }
-}
-
-@ApiTags('paper-grading')
-@Controller({ path: 'paper-scans', version: '1' })
-export class PaperScansController {
-  constructor(private readonly paper: PaperGradingService) {}
 
   @Get()
-  /** GET /paper-scans?quizId=…&status=… — hàng chờ phiếu của một quiz, lọc theo trạng thái khi cần. */
+  /** GET /exam-scans?pinId=…&status=… — hàng chờ phiếu của một pin, lọc theo trạng thái khi cần. */
   async list(
-    @Query('quizId', { schema: uuidIdSchema }) quizId: string,
+    @Query('pinId', { schema: uuidIdSchema }) pinId: string,
     @Query('status') status: string | undefined,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
-    return this.paper.listScans(actor.id, quizId, status);
+    return this.paper.listScans(actor.id, pinId, status);
   }
 
   @Get(':scanId')
-  /** GET /paper-scans/:scanId — chi tiết một phiếu (kết quả đọc + hình học lưới để web cắt vùng câu). */
+  /** GET /exam-scans/:scanId — chi tiết một phiếu (kết quả đọc + hình học lưới để web cắt vùng câu). */
   async get(@Param('scanId', { schema: uuidIdSchema }) scanId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.paper.getScan(actor.id, scanId);
   }
 
   @Get(':scanId/image/:kind')
-  /** GET /paper-scans/:scanId/image/original|warped — ảnh phiếu, chỉ qua cổng quiz:gradepaper. */
+  /** GET /exam-scans/:scanId/image/original|warped — ảnh phiếu, chỉ qua cổng quiz:gradepaper. */
   async image(
     @Param('scanId', { schema: uuidIdSchema }) scanId: string,
     @Param('kind') kind: string,
@@ -147,7 +142,7 @@ export class PaperScansController {
   }
 
   @Post(':scanId/assign-identity')
-  /** POST /paper-scans/:scanId/assign-identity — hàng chờ gán định danh: giáo viên chọn đúng học sinh trong roster (ghi event log như biên bản). */
+  /** POST /exam-scans/:scanId/assign-identity — hàng chờ gán định danh: giáo viên chọn đúng học sinh trong roster (ghi event log như biên bản). */
   async assignIdentity(
     @Param('scanId', { schema: uuidIdSchema }) scanId: string,
     @Body({ schema: assignPaperIdentitySchema }) dto: AssignPaperIdentity,
@@ -157,7 +152,7 @@ export class PaperScansController {
   }
 
   @Post(':scanId/assign-batch')
-  /** POST /paper-scans/:scanId/assign-batch — hàng chờ gán lô in: gắn phiếu chưa định tuyến được (hoặc sửa mã đề sai) về đúng lô in; hệ thống đọc lại phiếu theo layout của lô (ghi event log như biên bản). */
+  /** POST /exam-scans/:scanId/assign-batch — hàng chờ gán lô in: gắn phiếu chưa định tuyến được (hoặc sửa mã đề sai) về đúng lô in; hệ thống đọc lại phiếu theo layout của lô (ghi event log như biên bản). */
   async assignBatch(
     @Param('scanId', { schema: uuidIdSchema }) scanId: string,
     @Body({ schema: assignPaperBatchSchema }) dto: AssignPaperBatch,
@@ -167,7 +162,7 @@ export class PaperScansController {
   }
 
   @Post(':scanId/resolve-readings')
-  /** POST /paper-scans/:scanId/resolve-readings — hàng chờ ca mơ hồ: giáo viên quyết ô chọn cho từng câu ambiguous. */
+  /** POST /exam-scans/:scanId/resolve-readings — hàng chờ ca mơ hồ: giáo viên quyết ô chọn cho từng câu ambiguous. */
   async resolveReadings(
     @Param('scanId', { schema: uuidIdSchema }) scanId: string,
     @Body({ schema: resolvePaperReadingsSchema }) dto: ResolvePaperReadings,
@@ -177,13 +172,13 @@ export class PaperScansController {
   }
 
   @Post(':scanId/record')
-  /** POST /paper-scans/:scanId/record — ghi phiếu đã sẵn sàng thành attempt thi giấy (điểm vào sổ như attempt online). */
+  /** POST /exam-scans/:scanId/record — ghi phiếu đã sẵn sàng thành attempt thi giấy (điểm vào sổ như attempt online). */
   async record(@Param('scanId', { schema: uuidIdSchema }) scanId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.paper.recordScan(actor.id, scanId);
   }
 
   @Delete(':scanId')
-  /** DELETE /paper-scans/:scanId — xoá phiếu chưa ghi khỏi hàng chờ. */
+  /** DELETE /exam-scans/:scanId — xoá phiếu chưa ghi khỏi hàng chờ. */
   async remove(@Param('scanId', { schema: uuidIdSchema }) scanId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.paper.deleteScan(actor.id, scanId);
     return { deleted: true };

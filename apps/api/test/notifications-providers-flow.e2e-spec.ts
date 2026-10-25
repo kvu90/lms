@@ -440,7 +440,7 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
       `insert into outbox_events (aggregate, type, payload) values ('quiz', 'exam_paper_deployed', $1::jsonb)`,
       [JSON.stringify({
         quizId, courseId: ctx.course.id,
-        paperId: '00000000-0000-4000-8000-000000000001', paperVersionId: '00000000-0000-4000-8000-000000000002',
+        paperId: '00000000-0000-4000-8000-000000000001', examVersionId: '00000000-0000-4000-8000-000000000002',
         kind: 'recipe', actorId: ctx.teacherId,
       })],
     );

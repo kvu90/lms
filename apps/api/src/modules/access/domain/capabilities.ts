@@ -113,7 +113,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   // question:useall của QB tránh bằng cách chỉ manager/editingteacher).
   // Giáo viên staff có quyền tại bank mình thuộc về qua assignment
   // thật qbankmember/qbanklead + override exam:* tại context bank
-  // (ExamPapersService.ensureExamGrants).
+  // (ExamsService.ensureExamGrants).
   { name: 'exam:view', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'exam:edit', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'exam:copy', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
