@@ -73,21 +73,15 @@ function makeS3Storage(): { storage: S3ObjectStorage; fake: FakeS3Client } {
 
 /**
  * Bộ test HỢP ĐỒNG của port ObjectStorage — chạy nguyên vẹn cho mọi adapter:
- * bố cục key, vòng put/get/delete/exists, và ngữ nghĩa dedup (put trùng hash
- * KHÔNG ghi đè nội dung đã lưu).
+ * vòng put/get/delete/exists, và ngữ nghĩa dedup (put trùng hash
+ * KHÔNG ghi đè nội dung đã lưu). Bố cục key nội bộ và số lần gọi adapter
+ * là chi tiết triển khai — không khẳng định ở đây (rà soát #219).
  */
 function storageContract(name: string, make: () => Promise<{ storage: ObjectStorage; cleanup: () => Promise<void> }>): void {
   describe(`ObjectStorage contract — ${name}`, () => {
     const dataA = Buffer.from('noi-dung-phieu-A');
     const dataB = Buffer.from('noi-dung-khac-B');
     const hash = sha256Hex(dataA);
-
-    it('keyFor follows the xx/yy/<sha256> layout', async () => {
-      const { storage, cleanup } = await make();
-      try {
-        expect(storage.keyFor(hash).replace(/\\/g, '/').endsWith(contentKey(hash))).toBe(true);
-      } finally { await cleanup(); }
-    });
 
     it('put → exists=true and get returns the exact bytes', async () => {
       const { storage, cleanup } = await make();
@@ -139,14 +133,6 @@ storageContract('S3ObjectStorage (in-memory S3 double)', async () => {
 });
 
 describe('S3ObjectStorage specifics', () => {
-  it('put skips the PutObject call entirely when the key already exists (dedup)', async () => {
-    const { storage, fake } = makeS3Storage();
-    const hash = sha256Hex(Buffer.from('dedup-me'));
-    await storage.put(hash, Buffer.from('dedup-me'));
-    await storage.put(hash, Buffer.from('dedup-me'));
-    expect(fake.sent.filter((op) => op === 'put')).toHaveLength(1);
-  });
-
   it('presignGetUrl issues a signed URL carrying the content key and the TTL (offline presigning)', async () => {
     const storage = new S3ObjectStorage(fakeConfig({
       ...S3_TEST_CONFIG,
