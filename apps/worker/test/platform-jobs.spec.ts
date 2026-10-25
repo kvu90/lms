@@ -198,9 +198,11 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   });
 
   it('payment webhook twin is idempotent by external transaction id and reconciliation counts succeeded', async () => {
-    const acctRows = await db.execute(sql`insert into payment_accounts (name, gateway) values (${`WK5 acct ${suffix}`}, 'manual') returning id`);
+    const acctRows = await db.execute(sql`insert into payment_accounts (name, gateway, tenant_id) values (${`WK5 acct ${suffix}`}, 'manual', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const acctId = (acctRows.rows[0] as { id: string }).id;
-    const [payment] = await db.insert(payments).values({ accountId: acctId, userId: teacherId, amount: 12000, currency: 'VND', status: 'pending', gateway: 'manual' }).returning();
+    const tenantRows = await db.execute(sql`select id from tenants where slug = 'worker-fixture'`);
+    const fixtureTenantId = (tenantRows.rows[0] as { id: string }).id;
+    const [payment] = await db.insert(payments).values({ accountId: acctId, tenantId: fixtureTenantId, userId: teacherId, amount: 12000, currency: 'VND', status: 'pending', gateway: 'manual' }).returning();
     const processor = context.get(PaymentReconciliationProcessor);
     const tx = `wk5-tx-${suffix}`;
     const first = await processor.process({ data: { paymentId: payment.id, externalTransactionId: tx, status: 'succeeded' } } as never);
