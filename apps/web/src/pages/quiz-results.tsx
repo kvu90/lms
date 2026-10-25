@@ -169,6 +169,9 @@ export function QuizResultsPage() {
               {data.attempts.map((a) => (
                 <li key={a.id} data-testid={`result-attempt-${a.id}`}>
                   {a.userId} — {t('quizAttemptLine', { number: a.attemptNumber, state: t(`quizAttemptState_${a.state}`) })}
+                  {a.makeup ? (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">{t('quizMakeupBadge')}</span>
+                  ) : null}
                   {a.sumGrades !== null ? ` — ${a.sumGrades}/${data.quiz.sumGrades}` : ''}{' '}
                   <Link to={`/quiz-attempts/${a.id}`}>{t('quizViewAttempt')}</Link>
                 </li>
