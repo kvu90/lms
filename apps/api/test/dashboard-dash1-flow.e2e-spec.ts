@@ -26,7 +26,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
   interface Overview {
     generatedAt: string;
     previousSeenAt: string | null;
-    dueItems: { courseId: string; cmId: string; kind: string; name: string; dueAt: string; status: string }[];
+    dueItems: { courseId: string; cmId: string; activityId: string; kind: string; name: string; dueAt: string; status: string }[];
     newResults: { courseId: string; kind: string; itemId: string | null; itemName: string | null; finalGrade: number | null; feedback: string | null; changedAt: string }[];
     gradingQueue: { courseId: string; pendingCount: number; assignmentPending: number; quizPending: number; oldestPendingAt: string | null }[];
   }
@@ -124,8 +124,9 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     let due = view.dueItems.filter((d) => d.courseId === ctx.course.id);
     // Quá hạn lên đầu; bài hạn 20 ngày nằm ngoài cửa sổ 7 ngày thì không hiện.
     expect(due.map((d) => d.kind)).toEqual(['assignment', 'quiz']);
-    expect(due[0]).toMatchObject({ cmId: overdueAssign.cmId, status: 'overdue' });
-    expect(due[1]).toMatchObject({ cmId: quiz.cmId, status: 'not_started' });
+    // ĐX-5 (issue #179): mỗi việc mang activityId = id của instance để web trỏ thẳng trang hoạt động.
+    expect(due[0]).toMatchObject({ cmId: overdueAssign.cmId, activityId: overdueAssign.id, status: 'overdue' });
+    expect(due[1]).toMatchObject({ cmId: quiz.cmId, activityId: quiz.id, status: 'not_started' });
     expect(due.some((d) => d.cmId === farAssign.cmId)).toBe(false);
 
     // Bắt đầu làm quiz → in_progress.

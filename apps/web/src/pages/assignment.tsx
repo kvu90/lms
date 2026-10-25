@@ -312,7 +312,8 @@ function StudentPanel({ data, reload }: { data: AssignmentForUserView; reload: (
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [chosenFile, setChosenFile] = useState<File | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   useEffect(() => {
     void apiJson<{ id: string }>('/api/v1/users/me')
@@ -337,13 +338,13 @@ function StudentPanel({ data, reload }: { data: AssignmentForUserView; reload: (
   }
 
   async function uploadChosen() {
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
+    if (!chosenFile) return;
     const fd = new FormData();
-    fd.append('file', file);
+    fd.append('file', chosenFile);
     await act(async () => {
       await apiJson(`/api/v1/assignments/${assignment.id}/submission/files`, { method: 'POST', body: fd });
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      setChosenFile(null);
+      setFileInputKey((k) => k + 1);
     });
   }
 
@@ -388,8 +389,14 @@ function StudentPanel({ data, reload }: { data: AssignmentForUserView; reload: (
         {editable ? (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Input ref={fileInputRef} type="file" aria-label={t('assignUploadLabel')} className="max-w-xs" />
-              <Button type="button" variant="outline" disabled={busy} onClick={() => void uploadChosen()}>
+              <Input
+                key={fileInputKey}
+                type="file"
+                aria-label={t('assignUploadLabel')}
+                className="max-w-xs"
+                onChange={(e) => setChosenFile(e.target.files?.[0] ?? null)}
+              />
+              <Button type="button" variant="outline" disabled={busy || !chosenFile} onClick={() => void uploadChosen()}>
                 {t('assignUploadButton')}
               </Button>
             </div>

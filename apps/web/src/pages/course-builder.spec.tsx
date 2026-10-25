@@ -237,6 +237,8 @@ function stubFetch(calls: RecordedCall[], content: unknown = CONTENT, bankItems:
         return respond({ reordered: true });
       if (url === `/api/v1/courses/${COURSE_ID}/quizzes` && method === 'POST')
         return respond({ id: '01900000-0000-7000-8000-00000000aa01', course: COURSE_ID, name: 'Quiz mới' });
+      if (url === `/api/v1/courses/${COURSE_ID}/assignments` && method === 'POST')
+        return respond({ id: '01900000-0000-7000-8000-00000000aa02', courseId: COURSE_ID, name: 'Bài tập mới' });
       if (url === `/api/v1/courses/${COURSE_ID}/groupings`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
@@ -267,6 +269,7 @@ function renderCourseBuilder() {
     [
       { path: '/courses/:id/builder', element: <CourseBuilderPage /> },
       { path: '/courses/:id/quizzes/:quizId', element: <p>quiz-editor</p> },
+      { path: '/courses/:id/assignments/:assignmentId', element: <p>assignment-editor</p> },
     ],
     { initialEntries: [`/courses/${COURSE_ID}/builder`] },
   );
@@ -441,6 +444,27 @@ describe('Builder Outline K1 (teacher)', () => {
     expect(call?.body).toEqual({ sectionId: SECTION_ID, name: 'Kiểm tra 15 phút' });
     // Không còn đường tạo module bằng chuỗi component cho quiz.
     expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules` && c.method === 'POST')).toBe(false);
+  });
+
+  it('thêm nội dung bằng menu chọn loại Bài tập gọi POST /courses/:id/assignments và mở trang hoạt động (issue #179)', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderCourseBuilder();
+
+    const sectionBox = await screen.findByTestId(`section-builder-${SECTION_ID}`);
+    await userEvent.selectOptions(within(sectionBox).getByLabelText('Loại nội dung'), 'mod_assign');
+    const nameInput = sectionBox.querySelector<HTMLInputElement>(`#module-new-name-${SECTION_ID}`);
+    await userEvent.type(nameInput!, 'Bài tập về nhà');
+    await userEvent.click(within(sectionBox).getByRole('button', { name: 'Thêm module' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/assignments` && c.method === 'POST')).toBe(true),
+    );
+    const call = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/assignments`);
+    expect(call?.body).toEqual({ sectionId: SECTION_ID, name: 'Bài tập về nhà' });
+    expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules` && c.method === 'POST')).toBe(false);
+    // Tạo xong điều hướng thẳng tới trang hoạt động bài tập để GV cài đặt tiếp.
+    expect(await screen.findByText('assignment-editor')).toBeTruthy();
   });
 
   it('đặt trạng thái Mở theo lịch cho module gửi visible=true kèm openAt qua PATCH', async () => {
