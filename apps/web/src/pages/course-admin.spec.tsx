@@ -413,3 +413,243 @@ describe('Groupings & cohort members (teacher with manage capabilities)', () => 
     );
   });
 });
+
+const SUSPENDED_ID = '01900000-0000-7000-8000-000000000009';
+const ENROL_INSTANCE_ID = '01900000-0000-7000-8000-000000000300';
+
+/**
+ * Stub cho khu quản trị NHÓM của khoá (GN-1/GN-3, issue #234): một nhóm
+ * "Nhóm 1" có sẵn một thành viên; danh sách ghi danh của khoá gồm thành
+ * viên đó (đang học), một học sinh đang học chưa thuộc nhóm và một học
+ * sinh đã tạm khoá — bộ chọn thêm thành viên chỉ được hiện học sinh đang
+ * ghi danh hiệu lực chưa thuộc nhóm. `manageGroups: false` mô phỏng giáo
+ * viên không có `course:managegroups`: thấy nhóm/thành viên nhưng không
+ * có công cụ quản lý. Trạng thái nhóm/thành viên/chế độ nhóm giữ trong
+ * closure để các thao tác ghi phản ánh ở lần đọc sau.
+ */
+function stubFetchGroupAdmin(calls: RecordedCall[], opts?: { manageGroups?: boolean }) {
+  const manageGroups = opts?.manageGroups ?? true;
+  let groupList = [{ ...GROUP_ROW }];
+  let groupMemberList: { userId: string; timeAdded: string }[] = [
+    { userId: MEMBER_ID, timeAdded: '2026-01-02T00:00:00.000Z' },
+  ];
+  let courseState = { ...COURSE, groupMode: 0, groupModeForce: false };
+  const enrolmentRows = [
+    { id: '01900000-0000-7000-8000-000000000301', enrolId: ENROL_INSTANCE_ID, userId: MEMBER_ID, status: 0, timeStart: '2026-01-01T00:00:00.000Z', timeEnd: null, enrolMethod: 'manual' },
+    { id: '01900000-0000-7000-8000-000000000302', enrolId: ENROL_INSTANCE_ID, userId: NEW_MEMBER_ID, status: 0, timeStart: '2026-01-01T00:00:00.000Z', timeEnd: null, enrolMethod: 'manual' },
+    { id: '01900000-0000-7000-8000-000000000303', enrolId: ENROL_INSTANCE_ID, userId: SUSPENDED_ID, status: 1, timeStart: '2026-01-01T00:00:00.000Z', timeEnd: null, enrolMethod: 'manual' },
+  ];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities') {
+        return respond({
+          userId: TEACHER_ID,
+          isSiteAdmin: false,
+          assignments: [
+            {
+              id: '01900000-0000-7000-8000-0000000000f1',
+              roleId: '01900000-0000-7000-8000-0000000000b9',
+              roleShortname: 'editingteacher',
+              roleName: 'Teacher',
+              contextId: CONTENT.contextId,
+              contextLevel: 50,
+              contextPath: '/1/9/10',
+              instanceId: COURSE_ID,
+            },
+          ],
+          contexts: [
+            {
+              contextId: '01900000-0000-7000-8000-0000000000e1',
+              contextLevel: 10,
+              contextPath: '/1',
+              capabilities: [],
+            },
+            {
+              contextId: CONTENT.contextId,
+              contextLevel: 50,
+              contextPath: '/1/9/10',
+              capabilities: [
+                'grade:viewall',
+                'course:update',
+                ...(manageGroups ? ['course:managegroups'] : []),
+              ],
+            },
+          ],
+        });
+      }
+      if (url === '/api/v1/courses' && method === 'GET') return respond([COURSE]);
+      if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`)
+        return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
+      if (url === `/api/v1/courses/${COURSE_ID}` && method === 'GET')
+        return respond({ ...courseState, contextId: CONTENT.contextId, customFields: [], formatOptions: {} });
+      if (url === `/api/v1/courses/${COURSE_ID}` && method === 'PATCH') {
+        const body = JSON.parse(String(init?.body)) as { groupMode?: number; groupModeForce?: boolean };
+        courseState = {
+          ...courseState,
+          ...(body.groupMode !== undefined ? { groupMode: body.groupMode } : {}),
+          ...(body.groupModeForce !== undefined ? { groupModeForce: body.groupModeForce } : {}),
+        };
+        return respond({ ...courseState, contextId: CONTENT.contextId, customFields: [], formatOptions: {} });
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/content`) return respond(CONTENT);
+      if (url === `/api/v1/courses/${COURSE_ID}/groups` && method === 'GET') return respond(groupList);
+      if (url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}` && method === 'PATCH') {
+        const body = JSON.parse(String(init?.body)) as { name?: string };
+        groupList = groupList.map((g) => (g.id === GROUP_ID ? { ...g, ...(body.name ? { name: body.name } : {}) } : g));
+        return respond(groupList.find((g) => g.id === GROUP_ID));
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}` && method === 'DELETE') {
+        groupList = groupList.filter((g) => g.id !== GROUP_ID);
+        return respond({ deleted: true });
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}/members` && method === 'GET')
+        return respond(groupMemberList);
+      if (url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}/members` && method === 'POST') {
+        const body = JSON.parse(String(init?.body)) as { userId: string };
+        groupMemberList = [...groupMemberList, { userId: body.userId, timeAdded: '2026-01-03T00:00:00.000Z' }];
+        return respond({ added: true });
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}/members/${MEMBER_ID}` && method === 'DELETE') {
+        groupMemberList = groupMemberList.filter((m) => m.userId !== MEMBER_ID);
+        return respond({ removed: true });
+      }
+      if (url === `/api/v1/courses/${COURSE_ID}/groupings`) return respond([]);
+      if (url === '/api/v1/cohorts') return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/enrolments`) return respond(enrolmentRows);
+      if (url === `/api/v1/courses/${COURSE_ID}/completion`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
+      return respond({}, 404);
+    }),
+  );
+}
+
+describe('Course groups admin (GN-1/GN-3, issue #234)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    localStorage.clear();
+  });
+
+  it('lists group members, adds an actively enrolled student from the picker and removes a member', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchGroupAdmin(calls);
+    renderCourseAdmin();
+
+    const groupRow = await screen.findByTestId(`group-${GROUP_ID}`);
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Xem thành viên' }));
+    await waitFor(() => expect(within(groupRow).getByText(new RegExp(MEMBER_ID))).toBeTruthy());
+
+    // Bộ chọn chỉ có học sinh đang ghi danh hiệu lực chưa thuộc nhóm:
+    // học sinh đã tạm khoá không xuất hiện.
+    await userEvent.click(within(groupRow).getByLabelText('Học sinh cần thêm vào nhóm'));
+    expect(await screen.findByRole('option', { name: NEW_MEMBER_ID })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: SUSPENDED_ID })).toBeNull();
+    await userEvent.click(screen.getByRole('option', { name: NEW_MEMBER_ID }));
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Thêm vào nhóm' }));
+
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}/members` &&
+            c.method === 'POST' &&
+            (c.body as { userId?: string })?.userId === NEW_MEMBER_ID,
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(within(groupRow).getByText(new RegExp(NEW_MEMBER_ID))).toBeTruthy());
+
+    const memberLine = within(groupRow).getByText(new RegExp(MEMBER_ID)).closest('li');
+    await userEvent.click(within(memberLine as HTMLElement).getByRole('button', { name: 'Gỡ khỏi nhóm' }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}/members/${MEMBER_ID}` && c.method === 'DELETE',
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(within(groupRow).queryByText(new RegExp(MEMBER_ID))).toBeNull());
+  });
+
+  it('renames a group inline via PATCH and deletes it via DELETE after confirmation', async () => {
+    const calls: RecordedCall[] = [];
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    stubFetchGroupAdmin(calls);
+    renderCourseAdmin();
+
+    const groupRow = await screen.findByTestId(`group-${GROUP_ID}`);
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Đổi tên' }));
+    const nameInput = within(groupRow).getByLabelText('Tên mới của nhóm Nhóm 1');
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, 'Nhóm 1 (đổi)');
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Lưu tên' }));
+
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}` &&
+            c.method === 'PATCH' &&
+            (c.body as { name?: string })?.name === 'Nhóm 1 (đổi)',
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(within(groupRow).getByText('Nhóm 1 (đổi)')).toBeTruthy());
+
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Xoá nhóm' }));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/groups/${GROUP_ID}` && c.method === 'DELETE'),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(screen.queryByTestId(`group-${GROUP_ID}`)).toBeNull());
+  });
+
+  it('saves the course group mode (mode + force) via PATCH /courses/:id', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchGroupAdmin(calls);
+    renderCourseAdmin();
+
+    await screen.findByTestId(`group-${GROUP_ID}`);
+    await userEvent.click(screen.getByLabelText('Chế độ nhóm'));
+    await userEvent.click(await screen.findByRole('option', { name: 'Nhóm tách biệt' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: /Ép buộc chế độ này/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu chế độ nhóm' }));
+
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === `/api/v1/courses/${COURSE_ID}` &&
+            c.method === 'PATCH' &&
+            (c.body as { groupMode?: number; groupModeForce?: boolean })?.groupMode === 1 &&
+            (c.body as { groupMode?: number; groupModeForce?: boolean })?.groupModeForce === true,
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it('a teacher without course:managegroups sees groups and members but no group management tools', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchGroupAdmin(calls, { manageGroups: false });
+    renderCourseAdmin();
+
+    const groupRow = await screen.findByTestId(`group-${GROUP_ID}`);
+    expect(within(groupRow).queryByRole('button', { name: 'Đổi tên' })).toBeNull();
+    expect(within(groupRow).queryByRole('button', { name: 'Xoá nhóm' })).toBeNull();
+    expect(screen.queryByLabelText('Tên nhóm mới')).toBeNull();
+
+    await userEvent.click(within(groupRow).getByRole('button', { name: 'Xem thành viên' }));
+    await waitFor(() => expect(within(groupRow).getByText(new RegExp(MEMBER_ID))).toBeTruthy());
+    expect(within(groupRow).queryByRole('button', { name: 'Gỡ khỏi nhóm' })).toBeNull();
+    expect(within(groupRow).queryByLabelText('Học sinh cần thêm vào nhóm')).toBeNull();
+  });
+});
