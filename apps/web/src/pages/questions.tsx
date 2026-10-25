@@ -142,6 +142,7 @@ interface AttributionLite {
 interface PaperSummaryLite {
   id: string;
   bankId: string;
+  kind: string;
   status: string;
   name: string;
   examKind: string | null;
@@ -482,6 +483,7 @@ export function QuestionsPage() {
   const [deployCourseId, setDeployCourseId] = useState('');
   const [deployQuizzes, setDeployQuizzes] = useState<QuizLite[]>([]);
   const [deployQuizId, setDeployQuizId] = useState('');
+  const [deployVariantCount, setDeployVariantCount] = useState('1');
 
   const loadQuestions = useCallback(async (categoryId: string) => {
     const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
@@ -842,7 +844,11 @@ export function QuestionsPage() {
     try {
       await apiJson(`/api/v1/exam-papers/${deployPaper.id}/deploy`, {
         method: 'POST',
-        body: JSON.stringify({ quizId: deployQuizId, ...(replace ? { replace: true } : {}) }),
+        body: JSON.stringify({
+          quizId: deployQuizId,
+          variantCount: Math.min(50, Math.max(1, Number(deployVariantCount) || 1)),
+          ...(replace ? { replace: true } : {}),
+        }),
       });
       setMessage(t('deployOk', { version: deployPaper.latestVersion }));
       setDeployPaper(null);
@@ -1468,6 +1474,9 @@ export function QuestionsPage() {
                             : t('examPaperStatusDraft')}
                       </span>
                       <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
+                      {paper.kind === 'recipe' ? (
+                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">{t('paperKindRecipe')}</span>
+                      ) : null}
                       <span className="ml-2 text-xs text-muted-foreground">
                         {t('examPaperSlotsCount', { count: paper.slotCount })}
                       </span>
@@ -1531,6 +1540,18 @@ export function QuestionsPage() {
                       <option key={q.id} value={q.id}>{q.name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <Label htmlFor="deploy-variants">{t('deployVariantCount')}</Label>
+                  <Input
+                    id="deploy-variants"
+                    type="number"
+                    min={1}
+                    max={50}
+                    className="w-24"
+                    value={deployVariantCount}
+                    onChange={(e) => setDeployVariantCount(e.target.value)}
+                  />
                 </div>
                 <Button type="button" disabled={!deployQuizId} onClick={() => void runDeploy()}>
                   {t('deployRun')}
@@ -1740,6 +1761,9 @@ export function QuestionsPage() {
                       <span className="min-w-0 flex-1">
                         {paper.name}
                         <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
+                        {paper.kind === 'recipe' ? (
+                          <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">{t('paperKindRecipe')}</span>
+                        ) : null}
                         <span className="ml-2 text-xs text-muted-foreground">
                           {t('examPaperSlotsCount', { count: paper.slotCount })} · {t('copiedTimes', { count: paper.copyCount })}
                         </span>
