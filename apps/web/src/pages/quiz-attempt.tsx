@@ -34,6 +34,12 @@ interface AttemptQuestion {
   fraction: number | null;
   mark: number | null;
   rightAnswer: string | null;
+  /** Phản hồi riêng cho đáp án đã chọn — API chỉ trả khi cổng review của quiz cho xem ở thời điểm xem lại. */
+  feedback: RichTextDocument | null;
+  /** Lời giải chung của câu — cùng cổng review phía API. */
+  generalFeedback: RichTextDocument | null;
+  /** Nhận xét của giáo viên khi chấm tay câu này — cùng cổng review phía API. */
+  manualComment: string | null;
 }
 
 /** Hình dạng trả về của các endpoint lượt làm quiz. */
@@ -48,6 +54,8 @@ interface AttemptView {
   totalMax: number;
   pendingManualCount: number;
   closedDueToTimeLimit: boolean;
+  /** Nhận xét tổng quát theo dải điểm của cả bài — API chỉ trả khi cổng review cho xem. */
+  overallFeedback: string | null;
 }
 
 function plainText(doc: RichTextDocument | null | undefined): string {
@@ -210,6 +218,9 @@ export function QuizAttemptPage() {
                 })}
               </p>
               {attempt.state === 'needsgrading' ? <p>{t('quizWaitingManualGrade', { count: view.pendingManualCount })}</p> : null}
+              {view.overallFeedback ? (
+                <p className="whitespace-pre-wrap">{t('quizOverallFeedback', { text: view.overallFeedback })}</p>
+              ) : null}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">{t('quizAttemptInstructions')}</p>
@@ -265,6 +276,18 @@ export function QuizAttemptPage() {
                     : t('quizQuestionMark', { mark: q.mark ?? 0, max: q.maxMark })}
                 </p>
                 {q.rightAnswer ? <p className="text-muted-foreground">{t('quizRightAnswer', { answer: q.rightAnswer })}</p> : null}
+                {q.feedback ? (
+                  <p className="whitespace-pre-wrap">{t('quizAnswerFeedback', { text: plainText(q.feedback) })}</p>
+                ) : null}
+                {q.manualComment ? (
+                  <p className="whitespace-pre-wrap">{t('quizManualComment', { text: q.manualComment })}</p>
+                ) : null}
+                {q.generalFeedback ? (
+                  <div className="rounded-md border p-3">
+                    <h4 className="text-sm font-medium">{t('quizGeneralFeedbackHeading')}</h4>
+                    <p className="whitespace-pre-wrap">{plainText(q.generalFeedback)}</p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </CardContent>

@@ -199,6 +199,14 @@ export interface QuizAttemptQuestionView {
   /** Nhận xét chung của câu (cổng review_general_feedback). */
   generalFeedback: RichTextDocument | null;
   /**
+   * Nhận xét của giáo viên khi chấm tay câu này (step chấm tay của
+   * engine mang data.comment — xem manualGradeAttempt). Nó là phản hồi
+   * gắn với chính đáp án của học sinh nên đi cùng cổng
+   * review_specific_feedback như feedback theo đáp án; null khi câu
+   * chưa được chấm tay kèm nhận xét hoặc cửa sổ hiện tại không cho xem.
+   */
+  manualComment: string | null;
+  /**
    * Trình bày CHÙM Đ–S (Q-a): câu thuộc chùm thì KHÔNG hiện điểm lẻ
    * từng ý (mark = null) — thay bằng một dòng tổng của cả chùm nêu
    * thang đã áp bằng chữ ("Đúng 3/4 ý = 50% điểm câu theo thang
@@ -2597,6 +2605,13 @@ export class QuizService {
         }
       }
       const lastResponse = [...a.steps].reverse().find((s) => s.data.answer !== undefined)?.data.answer ?? null;
+      // Step chấm tay gần nhất có nhận xét: engine ghi data.gradedBy +
+      // data.comment khi giáo viên chấm tay (manualGradeAttempt); các
+      // step khác (trả lời/chấm tự động) không mang gradedBy.
+      const manualCommentStep = [...a.steps]
+        .sort((x, y) => x.sequenceNumber - y.sequenceNumber)
+        .reverse()
+        .find((s) => s.data.gradedBy != null && typeof s.data.comment === 'string' && s.data.comment !== '');
       questions.push({
         slot: a.slot,
         page: pageBySlot.get(a.slot) ?? 1,
@@ -2622,6 +2637,9 @@ export class QuizService {
           ? (feedbackByAnswerId.get(lastResponse) ?? null)
           : null,
         generalFeedback: aspectOn(quiz.reviewGeneralFeedback) ? generalFeedback : null,
+        manualComment: aspectOn(quiz.reviewSpecificFeedback)
+          ? (manualCommentStep?.data.comment ?? null)
+          : null,
         cluster: clusterInfoBySlot.get(a.slot) ?? null,
       });
     }
