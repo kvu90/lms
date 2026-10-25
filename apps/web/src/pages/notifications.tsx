@@ -22,12 +22,11 @@ import {
   useNotificationGroups,
   useReadNotificationGroup,
   useSetMessagePreference,
+  type EmailFrequency,
   type NotificationGroupFilter,
   type NotificationGroupView,
   type NotificationItemView,
-  type PreferenceChannel,
-  type PreferenceRow,
-  type PreferenceState,
+  type NotificationPreferenceView,
 } from '#lib/notifications';
 
 type GroupFilterSelection = NotificationGroupFilter | 'all';
@@ -67,11 +66,12 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
  * list (issue #51): rows are grouped by (type × source × day) with
  * cursor pagination, group/unread filters, expandable detail, deep
  * links via context_url that mark items read, and per-row delete.
- * Preferences below are unchanged here (the v2 preference model is a
- * later slice): a notification only exists when the (provider ×
- * channel × login-state) preference allowed the popup channel; each
- * toggle PUTs exactly that one preference row through to the API and
- * takes effect on the very next dispatch.
+ * Preferences below are the v2 model (NB-2, issue #174): one row per
+ * provider with labels/descriptions served by the API registry (no
+ * raw keys anywhere), an in-app on/off switch and an email frequency
+ * (immediate / daily digest / off). The old logged-in/logged-off
+ * matrix is gone; each change PUTs exactly one provider's patch
+ * through to the API and takes effect on the very next dispatch.
  *
  * Dữ liệu qua TanStack Query (lib/notifications.ts, F-01): danh sách
  * nhóm là infinite query theo khoá bộ lọc, các mục mở rộng tải qua
@@ -84,7 +84,7 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
  * lên cache qua setQueriesData thay cho state cục bộ.
  */
 export function NotificationsPage() {
-  const { t } = useTranslation('app');
+  const { t, i18n } = useTranslation('app');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [groupFilter, setGroupFilter] = useState<GroupFilterSelection>('all');
@@ -232,17 +232,17 @@ export function NotificationsPage() {
     });
   }
 
-  function toggle(row: PreferenceRow) {
-    const key = preferenceKey(row);
+  /** Lưu một patch tuỳ chọn của một provider; cờ đang-lưu theo (provider, trường). */
+  function savePreference(row: NotificationPreferenceView, field: 'popup' | 'email', patch: { popupEnabled?: boolean; emailFrequency?: EmailFrequency }) {
+    const key = `${preferenceKey(row)}|${field}`;
     if (savingPrefs.has(key)) return;
-    const enabled = !row.enabled;
     setPrefError(null);
     setSavingPrefs((prev) => new Set(prev).add(key));
     // Cập nhật lạc quan + hoàn lại khi lỗi nằm trong mutation ở
-    // lib/notifications.ts; ở đây chỉ lo cờ đang-lưu theo dòng và lỗi
-    // riêng của khu vực tuỳ chọn.
+    // lib/notifications.ts; ở đây chỉ lo cờ đang-lưu và lỗi riêng
+    // của khu vực tuỳ chọn.
     preferenceMutation.mutate(
-      { row, enabled },
+      { provider: row.provider, patch },
       {
         onError: () => setPrefError(t('preferenceSaveFailed')),
         onSettled: () =>
@@ -253,6 +253,14 @@ export function NotificationsPage() {
           }),
       },
     );
+  }
+
+  function togglePopup(row: NotificationPreferenceView) {
+    savePreference(row, 'popup', { popupEnabled: !row.popupEnabled });
+  }
+
+  function changeEmailFrequency(row: NotificationPreferenceView, frequency: EmailFrequency) {
+    savePreference(row, 'email', { emailFrequency: frequency });
   }
 
   function markAllRead() {
@@ -267,18 +275,17 @@ export function NotificationsPage() {
     });
   }
 
-  // Gộp các dòng phẳng của API thành từng cặp (provider × channel) để
-  // dựng hai cột đã đăng nhập / chưa đăng nhập như trước; mỗi ô vẫn là
-  // một dòng preference độc lập khi ghi.
-  const pairs: { provider: string; channel: PreferenceChannel; byState: Partial<Record<PreferenceState, PreferenceRow>> }[] = [];
-  for (const row of prefs) {
-    let pair = pairs.find((p) => p.provider === row.provider && p.channel === row.channel);
-    if (!pair) {
-      pair = { provider: row.provider, channel: row.channel, byState: {} };
-      pairs.push(pair);
-    }
-    pair.byState[row.state] = row;
-  }
+  // Trang cài đặt v2 (NB-2): các dòng tuỳ chọn đã là một dòng cho mỗi
+  // provider — chỉ cần chia theo 3 nhóm có sẵn để trình bày; nhãn/mô
+  // tả hiển thị lấy nguyên văn từ registry ở API theo ngôn ngữ hiện
+  // tại của giao diện.
+  const prefSections = (['learning', 'people', 'system'] as NotificationGroupFilter[])
+    .map((group) => ({ group, rows: prefs.filter((p) => p.group === group) }))
+    .filter((section) => section.rows.length > 0);
+  const localized = (row: NotificationPreferenceView) =>
+    i18n.language?.startsWith('en')
+      ? { label: row.label.en, description: row.description.en }
+      : { label: row.label.vi, description: row.description.vi };
 
   const groupLabel: Record<NotificationGroupFilter, string> = {
     learning: t('notificationsGroupLearning'),
@@ -437,46 +444,71 @@ export function NotificationsPage() {
         <CardHeader>
           <CardTitle>{t('notificationPreferences')}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           {prefError ? (
             <Alert variant="destructive">
               <AlertDescription>{prefError}</AlertDescription>
             </Alert>
           ) : null}
-          <table className="w-full text-sm">
-            <thead>
-              <tr>
-                <th className="text-left">{t('provider')}</th>
-                <th className="text-left">{t('channel')}</th>
-                <th>{t('loggedIn')}</th>
-                <th>{t('loggedOff')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pairs.map((pair) => (
-                <tr key={`${pair.provider}-${pair.channel}`}>
-                  <td>{pair.provider}</td>
-                  <td>{pair.channel}</td>
-                  {(['loggedin', 'loggedoff'] as PreferenceState[]).map((state) => {
-                    const row = pair.byState[state];
-                    return (
-                      <td key={state}>
-                        {row ? (
-                          <input
-                            aria-label={`${pair.provider} ${pair.channel} ${state === 'loggedin' ? t('prefLoggedIn') : t('prefLoggedOff')}`}
-                            type="checkbox"
-                            checked={row.enabled}
-                            disabled={savingPrefs.has(preferenceKey(row))}
-                            onChange={() => toggle(row)}
-                          />
+          {prefSections.map((section) => (
+            <section key={section.group} aria-label={groupLabel[section.group]} className="space-y-3">
+              <h3 className="text-sm font-semibold">{groupLabel[section.group]}</h3>
+              <div className="grid grid-cols-[1fr_auto_auto] items-start gap-x-4 gap-y-1 text-sm">
+                <span className="text-xs font-medium uppercase text-muted-foreground">{t('prefType')}</span>
+                <span className="text-xs font-medium uppercase text-muted-foreground">{t('prefInApp')}</span>
+                <span className="text-xs font-medium uppercase text-muted-foreground">{t('prefEmail')}</span>
+                {section.rows.map((row) => {
+                  const text = localized(row);
+                  const emailSaving = savingPrefs.has(`${preferenceKey(row)}|email`);
+                  return [
+                    <div key={`${row.provider}-label`} className="min-w-0 border-t pt-2">
+                      <p className="font-medium">
+                        {text.label}
+                        {row.teacherOnly ? (
+                          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{t('prefTeacherOnly')}</span>
                         ) : null}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {row.mandatoryInApp ? (
+                          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{t('prefMandatory')}</span>
+                        ) : null}
+                      </p>
+                      <p className="text-muted-foreground">{text.description}</p>
+                      {row.mandatoryInApp ? <p className="text-xs text-muted-foreground">{t('prefMandatoryNote')}</p> : null}
+                    </div>,
+                    <div key={`${row.provider}-popup`} className="border-t pt-2">
+                      <input
+                        aria-label={`${text.label} — ${t('prefInApp')}`}
+                        type="checkbox"
+                        checked={row.popupEnabled}
+                        disabled={row.mandatoryInApp || savingPrefs.has(`${preferenceKey(row)}|popup`)}
+                        onChange={() => togglePopup(row)}
+                      />
+                    </div>,
+                    <div key={`${row.provider}-email`} className="border-t pt-2">
+                      {row.emailFrequency !== null ? (
+                        <>
+                          <select
+                            aria-label={`${text.label} — ${t('prefEmail')}`}
+                            value={row.emailFrequency}
+                            disabled={emailSaving}
+                            onChange={(e) => changeEmailFrequency(row, e.target.value as EmailFrequency)}
+                          >
+                            <option value="immediate">{t('prefEmailImmediate')}</option>
+                            <option value="daily">{t('prefEmailDaily')}</option>
+                            <option value="off">{t('prefEmailOff')}</option>
+                          </select>
+                          {!row.emailAvailable ? (
+                            <p className="mt-1 max-w-56 text-xs text-muted-foreground">{t('prefChannelUnavailable')}</p>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>,
+                  ];
+                })}
+              </div>
+            </section>
+          ))}
         </CardContent>
       </Card>
     </PageShell>

@@ -44,14 +44,17 @@ describe('Notifications page', () => {
     vi.unstubAllGlobals();
   });
 
-  // Hình dạng thật của GET /messages/preferences: một dòng cho mỗi
-  // (provider × channel × state) kèm `enabled` của chính dòng đó.
-  const PREF_ROWS = [
-    { provider: 'badge_awarded', component: 'core_badges', channel: 'popup', state: 'loggedin', enabled: true },
-    { provider: 'badge_awarded', component: 'core_badges', channel: 'popup', state: 'loggedoff', enabled: true },
-    { provider: 'badge_awarded', component: 'core_badges', channel: 'email', state: 'loggedin', enabled: true },
-    { provider: 'badge_awarded', component: 'core_badges', channel: 'email', state: 'loggedoff', enabled: false },
-  ];
+  // Hình dạng thật của GET /messages/preferences ở mô hình v2 (NB-2):
+  // MỘT dòng cho mỗi provider, nhãn/mô tả vi/en từ registry ở API,
+  // popup bật/tắt + tần suất email; không còn trục loggedin/loggedoff,
+  // không có kênh push.
+  const PREF_ROW = {
+    provider: 'badge_awarded', component: 'core_badges', group: 'people',
+    label: { vi: 'Huy hiệu mới', en: 'New badge' },
+    description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
+    teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false,
+  };
+  const PREF_ROWS = [PREF_ROW];
   // Hình dạng thật của GET /notifications ở trung tâm v2 (issue #51):
   // phong bì { items: [dòng GỘP], nextCursor } thay cho mảng phẳng cũ.
   const NOTIFICATION_PAGE = {
@@ -89,49 +92,56 @@ describe('Notifications page', () => {
     return router;
   }
 
-  it('renders each state row from the API and PUTs exactly the toggled logged-in row', async () => {
+  it('renders the v2 provider row with its registry label and PUTs exactly the popup patch', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
       if (url.startsWith('/api/v1/notifications?')) return NOTIFICATION_PAGE;
       if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
-        const body = JSON.parse(String(init.body)) as { provider: string; channel: string; state: string; enabled: boolean };
+        const body = JSON.parse(String(init.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
         puts.push(body);
-        // API thật trả lại đúng một mục vừa đặt.
-        return body;
+        // API thật trả lại dòng đầy đủ của provider vừa đặt.
+        return { ...PREF_ROW, ...body };
       }
       if (url === '/api/v1/messages/preferences') return PREF_ROWS;
       return undefined;
     });
     renderNotificationsPage();
     await waitFor(() => expect(screen.getByText('Badge awarded')).toBeInTheDocument());
-    const toggle = screen.getByLabelText('badge_awarded popup đã đăng nhập');
+    // Nhãn hiển thị là nhãn registry (vi), không còn khoá thô nào.
+    expect(screen.getByText('Huy hiệu mới')).toBeInTheDocument();
+    expect(screen.queryByText('badge_awarded')).not.toBeInTheDocument();
+    expect(screen.queryByText(/loggedin|loggedoff/)).not.toBeInTheDocument();
+    const toggle = screen.getByLabelText('Huy hiệu mới — Trong ứng dụng');
     expect(toggle).toBeChecked();
-    expect(screen.getByLabelText('badge_awarded email chưa đăng nhập')).not.toBeChecked();
     await userEvent.click(toggle);
     await waitFor(() => expect(puts).toHaveLength(1));
-    expect(puts[0]).toEqual({ provider: 'badge_awarded', channel: 'popup', state: 'loggedin', enabled: false });
+    expect(puts[0]).toEqual({ provider: 'badge_awarded', popupEnabled: false });
     await waitFor(() => expect(toggle).not.toBeChecked());
   });
 
-  it('toggling the logged-off row PUTs that state only', async () => {
+  it('changing the email frequency PUTs that patch only, and the unavailable-channel note is shown', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
       if (url.startsWith('/api/v1/notifications?')) return NOTIFICATION_PAGE;
       if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
-        const body = JSON.parse(String(init.body)) as { provider: string; channel: string; state: string; enabled: boolean };
+        const body = JSON.parse(String(init.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
         puts.push(body);
-        return body;
+        return { ...PREF_ROW, ...body };
       }
       if (url === '/api/v1/messages/preferences') return PREF_ROWS;
       return undefined;
     });
     renderNotificationsPage();
-    const toggle = await screen.findByLabelText('badge_awarded email chưa đăng nhập');
-    expect(toggle).not.toBeChecked();
-    await userEvent.click(toggle);
+    const select = await screen.findByLabelText('Huy hiệu mới — Email');
+    expect(select).toHaveValue('immediate');
+    // Trung thực kênh: email chưa gửi thật thì phải có ghi chú, và
+    // không có bất kỳ bề mặt push nào trên trang.
+    expect(screen.getByText('Chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở')).toBeInTheDocument();
+    expect(screen.queryByText(/push/i)).not.toBeInTheDocument();
+    await userEvent.selectOptions(select, 'off');
     await waitFor(() => expect(puts).toHaveLength(1));
-    expect(puts[0]).toEqual({ provider: 'badge_awarded', channel: 'email', state: 'loggedoff', enabled: true });
-    await waitFor(() => expect(toggle).toBeChecked());
+    expect(puts[0]).toEqual({ provider: 'badge_awarded', emailFrequency: 'off' });
+    await waitFor(() => expect(select).toHaveValue('off'));
   });
 
   it('reverts the toggle and reports an error when the PUT fails', async () => {
@@ -151,7 +161,7 @@ describe('Notifications page', () => {
       }),
     );
     renderNotificationsPage();
-    const toggle = await screen.findByLabelText('badge_awarded popup đã đăng nhập');
+    const toggle = await screen.findByLabelText('Huy hiệu mới — Trong ứng dụng');
     expect(toggle).toBeChecked();
     await userEvent.click(toggle);
     expect(await screen.findByRole('alert')).toHaveTextContent('Không lưu được tuỳ chọn thông báo');
