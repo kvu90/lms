@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -21,6 +22,7 @@ import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
+import { queryKeys } from '#lib/query-keys';
 import {
   COURSE_CARD_COLOR_HEX,
   displayCourseName,
@@ -39,9 +41,19 @@ import { CourseCardPrefEditor } from '../components/course-card-pref-editor';
  */
 export function CoursesPage() {
   const { t } = useTranslation('app');
-  const { canAdminister } = usePermissions();
+  const perms = usePermissions();
+  const { canAdminister } = perms;
+  const queryClient = useQueryClient();
   const [tree, setTree] = useState<CourseCategoryTreeNode[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
+  // Danh sách khoá đọc qua TanStack với ĐÚNG khoá `courses` mà
+  // PermissionsProvider dùng (F-03, rà soát #133): trước đây trang tự
+  // fetch lại /courses trong khi provider vừa tải cùng dữ liệu — nay
+  // cache dùng chung, trang mở sau provider thì không tốn request.
+  const coursesQuery = useQuery({
+    queryKey: queryKeys.courses,
+    queryFn: () => apiJson<Course[]>('/api/v1/courses'),
+  });
+  const courses = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
   // Tiến độ học của chính người dùng theo khoá (K2): chỉ khoá truy cập
   // được mới có số (endpoint progress/me qua cổng khoá học); khoá không
   // vào được thì probe lỗi và không hiện gì.
@@ -52,24 +64,29 @@ export function CoursesPage() {
   const [cardPrefs, setCardPrefs] = useState<Map<string, CourseCardPrefView>>(new Map());
   const [editingCardCourseId, setEditingCardCourseId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [treeLoading, setTreeLoading] = useState(true);
   const [catName, setCatName] = useState('');
   const [catParent, setCatParent] = useState('0');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
-  const reload = useCallback(async () => {
-    const [t, c] = await Promise.all([
-      apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'),
-      apiJson<Course[]>('/api/v1/courses'),
-    ]);
-    setTree(t);
-    setCourses(c);
+  const loadTree = useCallback(async () => {
+    setTree(await apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'));
   }, []);
+  /** Nạp lại sau đột biến danh mục: cây danh mục fetch lại + invalidate khoá courses dùng chung. */
+  const reload = useCallback(async () => {
+    await Promise.all([loadTree(), queryClient.invalidateQueries({ queryKey: queryKeys.courses })]);
+  }, [loadTree, queryClient]);
 
   useEffect(() => {
-    void reload()
+    void loadTree()
       .catch(() => setMessage(t('coursesLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
+      .finally(() => setTreeLoading(false));
+  }, [loadTree, t]);
+
+  useEffect(() => {
+    if (coursesQuery.isError) setMessage(t('coursesLoadFailed'));
+  }, [coursesQuery.isError, t]);
+
+  const loading = treeLoading || coursesQuery.isPending;
 
   // Nạp pref thẻ khoá của chính người dùng một lần khi mở trang; lỗi thì
   // lặng lẽ dùng tên gốc (pref là lớp phủ cá nhân, không chặn trang).
@@ -85,14 +102,22 @@ export function CoursesPage() {
     };
   }, []);
 
-  // Nạp % tiến độ của từng khoá sau khi có danh sách: probe độc lập
-  // từng khoá, lỗi (chưa ghi danh/không quyền) thì bỏ qua lặng lẽ.
+  // Nạp % tiến độ sau khi có danh sách: CHỈ probe các khoá người dùng
+  // thuộc về (dạy/học theo ảnh chụp quyền) — trước đây fan-out mọi khoá
+  // trong hệ (F-03, rà soát #133) dù khoá ngoài vốn luôn lỗi qua cổng
+  // khoá học và không hiện số nào. Lỗi từng khoá thì bỏ qua lặng lẽ.
+  const memberCourseIds = useMemo(
+    () => new Set([...perms.teaching, ...perms.learning].map((c) => c.course.id)),
+    [perms.teaching, perms.learning],
+  );
   useEffect(() => {
-    if (courses.length === 0) return;
+    if (!perms.ready || courses.length === 0) return;
+    const targets = courses.filter((c) => memberCourseIds.has(c.id));
+    if (targets.length === 0) return;
     let alive = true;
     void (async () => {
       const entries = await Promise.all(
-        courses.map(async (c) => {
+        targets.map(async (c) => {
           try {
             const p = await apiJson<{ percent: number | null }>(`/api/v1/courses/${c.id}/progress/me`);
             return [c.id, p.percent] as const;
@@ -106,7 +131,7 @@ export function CoursesPage() {
     return () => {
       alive = false;
     };
-  }, [courses]);
+  }, [courses, memberCourseIds, perms.ready]);
 
   const flatCategories: CourseCategory[] = [];
   const walk = (nodes: CourseCategoryTreeNode[]) => {

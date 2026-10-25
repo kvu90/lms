@@ -32,6 +32,11 @@ export function HealthPage({ initialHealth }: { initialHealth?: HealthStatus | n
   );
 
   useEffect(() => {
+    // Loader đã cấp dữ liệu (SSR) thì KHÔNG fetch lại khi mount — request
+    // trùng làm mất giá trị của loader (F-09 trong rà soát #133). Chỉ khi
+    // loader không với tới được API (initialHealth null) mới rơi về luồng
+    // fetch phía client như trước.
+    if (initialHealth) return;
     let cancelled = false;
     fetch('/api/v1/health')
       .then(async (res) => {
@@ -52,7 +57,7 @@ export function HealthPage({ initialHealth }: { initialHealth?: HealthStatus | n
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialHealth]);
 
   return (
     <PageShell width="narrow">

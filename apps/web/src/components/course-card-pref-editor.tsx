@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import {
@@ -9,12 +10,16 @@ import {
   type CourseCardColor,
   type CourseCardPrefView,
 } from '#lib/course-cards';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Panel sửa thẻ khoá tại dòng (DASH1, issue #121): chọn màu trong bảng màu
  * cố định + nhập biệt danh — chỉ áp cho chính người dùng đang đăng nhập,
  * tên gốc của khoá không đổi. Lưu xong gọi onSaved để trang cha cập nhật
- * ngay pref đang hiển thị.
+ * ngay pref đang hiển thị, đồng thời invalidate khoá `courseCards` trong
+ * TanStack cache (F-04, rà soát #133): dashboard đọc pref qua
+ * `useCourseCardPrefs` — nếu không invalidate, nó giữ pref cũ tới khi
+ * staleTime hết dù trang khoá học đã hiện pref mới.
  */
 export function CourseCardPrefEditor({
   courseId,
@@ -28,6 +33,7 @@ export function CourseCardPrefEditor({
   onCancel: () => void;
 }) {
   const { t } = useTranslation('app');
+  const queryClient = useQueryClient();
   const [color, setColor] = useState<CourseCardColor | null>(initial?.color ?? null);
   const [nickname, setNickname] = useState(initial?.nickname ?? '');
   const [saving, setSaving] = useState(false);
@@ -38,6 +44,7 @@ export function CourseCardPrefEditor({
     setFailed(false);
     try {
       const pref = await saveCourseCardPref(courseId, { color: nextColor, nickname: nextNickname });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.courseCards });
       onSaved(pref);
     } catch {
       setFailed(true);
