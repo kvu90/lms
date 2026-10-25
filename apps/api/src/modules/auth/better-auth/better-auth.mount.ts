@@ -39,10 +39,22 @@ const LEGACY_AUTH_SEGMENTS = new Set([
  * để request tới đường auth của Better Auth đến tay nó ở dạng thô
  * (Better Auth tự đọc body/cookie của nó). Cả bootstrap thật (main.ts)
  * lẫn spec e2e đều đi qua hàm này để không lệch nhau.
+ *
+ * Cầu discovery của AS (Refs #7, vá proxy discovery MCP AS): metadata
+ * AS (RFC 8414) của plugin oauth-provider chỉ khớp hai dạng
+ * `/.well-known/oauth-authorization-server{issuerPath}` và
+ * `{issuerPath}/.well-known/oauth-authorization-server` với
+ * `issuerPath = /api/v1/auth` — dạng gốc
+ * `/.well-known/oauth-authorization-server` không nằm trong tập khớp
+ * nên phải neo về dạng hậu tố, còn dạng chèn-đường-dẫn chuyển nguyên
+ * trạng. Hai route cầu này KHÔNG qua cổng LEGACY_AUTH_SEGMENTS (chúng
+ * không thuộc không gian `/api/v1/auth`). Nếu AS tắt (không compose
+ * plugin mcp) thì handler trả 404 — hành vi ròng như trước khi vá.
  */
 export function mountBetterAuth(app: NestExpressApplication, auth: BetterAuthInstance): void {
   const server = app.getHttpAdapter().getInstance() as {
     all: (path: string, handler: (req: Request, res: Response, next: NextFunction) => void) => void;
+    get: (path: string, handler: (req: Request, res: Response) => void) => void;
   };
   const handler = toNodeHandler(auth);
   server.all(`${BETTER_AUTH_BASE_PATH}/*splat`, (req: Request, res: Response, next: NextFunction) => {
@@ -51,6 +63,22 @@ export function mountBetterAuth(app: NestExpressApplication, auth: BetterAuthIns
       next();
       return;
     }
+    handler(req, res);
+  });
+  // Dạng gốc: GET|HEAD — rewrite về dạng hậu tố đã kiểm chứng 200,
+  // giữ nguyên query string. Express tự phục vụ HEAD từ route GET.
+  server.get('/.well-known/oauth-authorization-server', (req: Request, res: Response) => {
+    const queryIndex = req.url.indexOf('?');
+    const query = queryIndex >= 0 ? req.url.slice(queryIndex) : '';
+    const rewritten = `${BETTER_AUTH_BASE_PATH}/.well-known/oauth-authorization-server${query}`;
+    req.url = rewritten;
+    (req as Request & { originalUrl?: string }).originalUrl = rewritten;
+    handler(req, res);
+  });
+  // Dạng chèn-đường-dẫn: chuyển NGUYÊN TRẠNG cho handler — hook của
+  // oauth-provider khớp đúng dạng này và trả metadata; hậu tố lạ khác
+  // thì handler trả 404 như đúng thiết kế.
+  server.all('/.well-known/oauth-authorization-server/*splat', (req: Request, res: Response) => {
     handler(req, res);
   });
 }

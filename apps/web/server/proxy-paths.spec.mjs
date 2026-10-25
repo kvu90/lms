@@ -25,6 +25,13 @@ describe('isProxyPath', () => {
     expect(isProxyPath('/.well-known/oauth-protected-resource?x=1')).toBe(true);
   });
 
+  it('chuyển tiếp discovery AS (Refs #7): dạng gốc, dạng chèn-đường-dẫn, kèm query', () => {
+    expect(isProxyPath('/.well-known/oauth-authorization-server')).toBe(true);
+    expect(isProxyPath('/.well-known/oauth-authorization-server/api/v1/auth')).toBe(true);
+    expect(isProxyPath('/.well-known/oauth-authorization-server?x=1')).toBe(true);
+    expect(isProxyPath('/.well-known/oauth-authorization-server/api/v1/auth?x=1')).toBe(true);
+  });
+
   it('giữ nguyên các đường proxy cũ: /api và /socket.io', () => {
     expect(isProxyPath('/api')).toBe(true);
     expect(isProxyPath('/api/v1/courses')).toBe(true);
@@ -44,6 +51,7 @@ describe('isProxyPath', () => {
     expect(isProxyPath('/apixyz')).toBe(false);
     expect(isProxyPath('/.well-known/other')).toBe(false);
     expect(isProxyPath('/.well-known/oauth-protected-resourceXYZ')).toBe(false);
+    expect(isProxyPath('/.well-known/oauth-authorization-serverXYZ')).toBe(false);
     expect(isProxyPath('/dashboard/mcp')).toBe(false);
   });
 });
