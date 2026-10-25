@@ -360,10 +360,14 @@ export const uploadContentBankFileSchema = z.strictObject({
 });
 export type UploadContentBankFile = z.infer<typeof uploadContentBankFileSchema>;
 
-/** Payload tạo tài khoản thanh toán. */
+/** Payload tạo tài khoản thanh toán. `config` giữ cấu hình gateway (với SePay:
+ * bankBin/bankCode, bankAccountNumber, sepayApiKey, sepayBankAccountXid…) —
+ * giá trị nhạy cảm trong config KHÔNG bao giờ được trả nguyên qua API đọc
+ * (che ở tầng service, tiêu chí 6.4.5 của issue #189). */
 export const createPaymentAccountSchema = z.strictObject({
   name: z.string().min(1),
   gateway: z.string().optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 });
 export type CreatePaymentAccount = z.infer<typeof createPaymentAccountSchema>;
 
