@@ -296,7 +296,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
         <form onSubmit={(e) => void createBook(e)} className="flex flex-wrap items-end gap-2">
           <Field>
             <FieldLabel htmlFor="vn-book-term">{t('vnBookTerm')}</FieldLabel>
-            <Select value={newTerm} onValueChange={setNewTerm}>
+            <Select value={newTerm} onValueChange={(v) => setNewTerm(v ?? 'hk1')}>
               <SelectTrigger id="vn-book-term">
                 <SelectValue />
               </SelectTrigger>
@@ -308,7 +308,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
           </Field>
           <Field>
             <FieldLabel htmlFor="vn-book-mode">{t('vnBookMode')}</FieldLabel>
-            <Select value={newMode} onValueChange={setNewMode}>
+            <Select value={newMode} onValueChange={(v) => setNewMode(v ?? 'score')}>
               <SelectTrigger id="vn-book-mode">
                 <SelectValue />
               </SelectTrigger>
@@ -336,7 +336,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
         {books.length > 0 ? (
           <Field>
             <FieldLabel htmlFor="vn-book-select">{t('vnBookSelect')}</FieldLabel>
-            <Select value={bookId} onValueChange={setBookId}>
+            <Select value={bookId} onValueChange={(v) => setBookId(v ?? '')}>
               <SelectTrigger id="vn-book-select">
                 <SelectValue />
               </SelectTrigger>
@@ -427,7 +427,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
                             <p className="text-xs text-muted-foreground">{t('vnBookStatusMissing')}</p>
                           ) : null}
                           {periodic ? (
-                            <Select onValueChange={(v) => void setMakeup(row, item.id, v)}>
+                            <Select onValueChange={(v) => { if (v) void setMakeup(row, item.id, v); }}>
                               <SelectTrigger aria-label={t('vnBookMakeupLabel')} className="mt-1 w-32">
                                 <SelectValue placeholder={t('vnBookMakeupLabel')} />
                               </SelectTrigger>
@@ -478,7 +478,7 @@ export function VnBooksSection({ courseId }: { courseId: string }) {
                 <span className="min-w-40">{row.userName}</span>
                 <Select
                   value={commentDrafts[row.userId] ?? row.snapshot?.commentResult ?? 'Đạt'}
-                  onValueChange={(v) => setCommentDrafts((prev) => ({ ...prev, [row.userId]: v }))}
+                  onValueChange={(v) => { if (v) setCommentDrafts((prev) => ({ ...prev, [row.userId]: v })); }}
                 >
                   <SelectTrigger aria-label={`${row.userName} — ${t('vnBookCommentResult')}`}>
                     <SelectValue />
