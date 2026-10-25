@@ -39,7 +39,13 @@ function UnreadBadgeProbe() {
   return <span data-testid="unread-badge">{query.data ? String(query.data.unread) : '…'}</span>;
 }
 
-function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: boolean; prefEnabled: boolean }) {
+interface CourseOverrideState {
+  courseId: string;
+  courseName: string;
+  mode: 'all' | 'mute';
+}
+
+function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: boolean; prefEnabled: boolean; courses: CourseOverrideState[] }) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -106,6 +112,16 @@ function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: bool
           emailFrequency: body.emailFrequency ?? 'daily', emailAvailable: false,
         });
       }
+      if (url === '/api/v1/messages/preferences/courses' && method === 'GET') {
+        // Ghi đè theo khoá (NB-4): mọi khoá thuộc về kèm chế độ hiệu lực.
+        return respond({ courses: state.courses });
+      }
+      if (url === '/api/v1/messages/preferences/courses' && method === 'PUT') {
+        const body = JSON.parse(String(init?.body)) as { courseId: string; mode: 'all' | 'mute' };
+        const row = state.courses.find((c) => c.courseId === body.courseId);
+        if (row) row.mode = body.mode;
+        return respond(row ?? { courseId: body.courseId, courseName: '', mode: body.mode });
+      }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -133,7 +149,7 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   it('mark-all-read invalidates the shared unread-count query so the badge drops to 0', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
-    const state = { unread: 3, allRead: false, prefEnabled: true };
+    const state = { unread: 3, allRead: false, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
     renderPage();
 
@@ -157,7 +173,7 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   it('preference toggle PUTs exactly one provider patch and keeps the saved value', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
-    const state = { unread: 0, allRead: true, prefEnabled: true };
+    const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
     renderPage();
 
@@ -176,7 +192,7 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   it('settings show registry labels only — no raw keys, no push, mandatory type locked on (NB-2)', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
-    const state = { unread: 0, allRead: true, prefEnabled: true };
+    const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
     renderPage();
 
@@ -193,5 +209,40 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
     expect(mandatoryToggle).toBeDisabled();
     // Email chưa khả dụng phải có ghi chú trung thực.
     expect(screen.getAllByText('Chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở').length).toBeGreaterThan(0);
+  });
+
+  it('course exceptions: lists my courses, shows muted state, toggling PUTs the new mode (NB-4)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    const state = {
+      unread: 0, allRead: true, prefEnabled: true,
+      courses: [
+        { courseId: 'course-1', courseName: 'Khoá Toán 10', mode: 'all' as const },
+        { courseId: 'course-2', courseName: 'Khoá Văn 10', mode: 'mute' as const },
+      ],
+    };
+    stubFetch(calls, state);
+    renderPage();
+
+    // Mục ngoại lệ liệt kê mọi khoá thuộc về; khoá đang mute có huy hiệu.
+    expect(await screen.findByText('Ngoại lệ theo khoá học')).toBeInTheDocument();
+    expect(await screen.findByText('Khoá Toán 10')).toBeInTheDocument();
+    expect(screen.getByText('Khoá Văn 10')).toBeInTheDocument();
+    expect(screen.getByText('Đã tắt tiếng')).toBeInTheDocument();
+    // Chú thích P3: điểm mới + hết hạn ghi danh vẫn được gửi.
+    expect(screen.getByText(/Điểm mới và thông báo sắp hết hạn ghi danh/)).toBeInTheDocument();
+
+    const muteBox = screen.getByLabelText('Tắt tiếng khoá này: Khoá Toán 10');
+    expect(muteBox).not.toBeChecked();
+    expect(screen.getByLabelText('Tắt tiếng khoá này: Khoá Văn 10')).toBeChecked();
+
+    await userEvent.click(muteBox);
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/messages/preferences/courses' && c.method === 'PUT')).toBe(true),
+    );
+    const put = calls.find((c) => c.url === '/api/v1/messages/preferences/courses' && c.method === 'PUT');
+    expect(put?.body).toEqual({ courseId: 'course-1', mode: 'mute' });
+    // Sau khi lưu, cả hai khoá đều mang huy hiệu đã tắt tiếng.
+    await waitFor(() => expect(screen.getAllByText('Đã tắt tiếng')).toHaveLength(2));
   });
 });
