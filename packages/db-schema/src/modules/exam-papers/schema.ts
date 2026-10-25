@@ -162,6 +162,7 @@ export const examPaperSlots = pgTable('exam_paper_slots', {
       index('exam_paper_slots_version_idx').on(table.paperVersionId),
       index('exam_paper_slots_question_idx').on(table.questionId),
       index('exam_paper_slots_cluster_idx').on(table.clusterId),
+      index('exam_paper_slots_matrix_cell_idx').on(table.matrixCellId),
       unique('exam_paper_slots_version_position_unique').on(table.paperVersionId, table.position),
   ]);
 
@@ -223,5 +224,6 @@ export const examDeployments = pgTable('exam_deployments', {
 },
   (table) => [
       index('exam_deployments_paper_idx').on(table.paperId),
+      index('exam_deployments_paper_version_idx').on(table.paperVersionId),
       index('exam_deployments_quiz_idx').on(table.quizId),
   ]);

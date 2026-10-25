@@ -854,6 +854,7 @@ export class ExamPapersService {
           maxMark: s.maxMark,
           page: pageBySection.get(s.section)!,
           clusterId: s.clusterId,
+          matrixCellId: s.matrixCellId ?? null,
         };
       });
       view = await this.quiz.deployPaperSlots(actorId, input.quizId, {

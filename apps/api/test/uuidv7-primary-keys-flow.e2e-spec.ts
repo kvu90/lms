@@ -114,7 +114,9 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + guardian_view_state (đợt PH-1 bề mặt phụ huynh, issue #130 —
     // PK phức hợp (guardian, student), không cột id) → 183 bảng tổng,
     // 171 bảng có PK mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(171);
+    // + exam_deployments (EB-2 mã đề ở tầng triển khai, issue #153)
+    // → trên cây hợp nhất: 184 bảng tổng, 172 bảng có PK mặc định uuidv7().
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(172);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     expect(sqlText).not.toMatch(/CREATE SEQUENCE/);
@@ -129,7 +131,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    expect(defaults.rows.length).toBe(171);
+    expect(defaults.rows.length).toBe(173);
     for (const row of defaults.rows) {
       expect(row.column_default, `table ${row.table_name}`).toBe('uuidv7()');
     }

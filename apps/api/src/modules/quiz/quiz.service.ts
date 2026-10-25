@@ -1550,6 +1550,8 @@ export class QuizService {
       maxMark: number;
       page: number;
       clusterId: string | null;
+      /** Ô ma trận nguồn của slot (đề sinh từ ma trận) — giữ để đặc tả + swap-cùng-ô trên quiz đọc được. */
+      matrixCellId?: string | null;
     }[];
   }): Promise<QuizView> {
     const quiz = await this.getQuiz(quizId);
@@ -1577,6 +1579,7 @@ export class QuizService {
           pinnedVersionId: s.pinnedVersionId,
           pinnedVersionNumber: s.pinnedVersionNumber,
           clusterId: s.clusterId,
+          matrixCellId: s.matrixCellId ?? null,
         }, tx);
       }
       await this.repo.updateQuiz(quiz.id, {
