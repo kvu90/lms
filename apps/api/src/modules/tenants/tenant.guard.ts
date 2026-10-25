@@ -8,6 +8,7 @@ import {
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { PLATFORM_TENANT_SLUG, TenantsRepository } from './tenants.repository';
+import { tenantAls } from './tenant-als';
 import { TenantsService } from './tenants.service';
 import { TenantContextService } from './tenant-context.service';
 
@@ -35,6 +36,17 @@ export class TenantGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // HOTFIX #196: guard là khâu THIẾT LẬP ngữ cảnh nên chính các tra cứu
+    // của nó (tenant-zero, tenant của claim tid, membership) phải chạy
+    // trong ngữ cảnh platform tường minh — ngoài ngữ cảnh, RLS
+    // fail-closed giấu sạch bảng tenants/memberships, guard tưởng tenant
+    // chưa gieo và cho request chạy KHÔNG ngữ cảnh (chỉ lộ khi app chạy
+    // bằng role thường). Ngữ cảnh cho handler vẫn do
+    // TenantContextInterceptor bọc lại từ `request.tenantId` như trước.
+    return tenantAls.run({ platform: true }, () => this.resolveRequestTenant(context));
+  }
+
+  private async resolveRequestTenant(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser; tenantId?: string }>();
     const zero = await this.repo.getTenantBySlug(PLATFORM_TENANT_SLUG);
     // Tenant-zero chưa được gieo (chỉ có thể xảy ra trước bootstrap seed

@@ -11,6 +11,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { tenantAls } from './tenant-als';
 import {
   DEFAULT_SCHOOL_TENANT_SLUG,
   PLATFORM_TENANT_SLUG,
@@ -72,8 +73,20 @@ export class TenantsService {
 
   // --- tenant-zero + seed helpers ------------------------------------------
 
-  /** Tenant-zero (Trang chính); ném lỗi khi chưa được gieo — bootstrap seed luôn tạo trước mọi request. */
+  /**
+   * Tenant-zero (Trang chính); ném lỗi khi chưa được gieo — bootstrap seed luôn tạo trước mọi request.
+   *
+   * HOTFIX #196: tra cứu này là đường HỆ THỐNG (đăng nhập/guard chạy
+   * trước khi có ngữ cảnh tenant) nên phải chạy trong ngữ cảnh platform
+   * tường minh — ngoài ngữ cảnh, RLS fail-closed giấu sạch bảng tenants
+   * và mọi request tiền-đăng-nhập chết `tenant.platform_missing` dù seed
+   * đã gieo (chỉ lộ khi app chạy bằng role thường, test superuser mù).
+   */
   async platformTenant(): Promise<TenantRow> {
+    return tenantAls.run({ platform: true }, () => this.platformTenantInContext());
+  }
+
+  private async platformTenantInContext(): Promise<TenantRow> {
     const zero = await this.repo.getTenantBySlug(PLATFORM_TENANT_SLUG);
     if (!zero) throw new NotFoundException({ message: 'Platform tenant (tenant-zero) is not seeded', code: 'tenant.platform_missing' });
     return zero;
@@ -337,6 +350,12 @@ export class TenantsService {
 
   /** Các tenant user là thành viên active và tenant đang active — cho bộ chọn tenant. */
   async listMyTenants(userId: string, activeTenantId?: string): Promise<MyTenant[]> {
+    // Đường hệ thống xuyên tenant (bộ chọn tenant phải thấy membership ở
+    // MỌI tenant của user) — chạy trong ngữ cảnh platform như platformTenant.
+    return tenantAls.run({ platform: true }, () => this.listMyTenantsInContext(userId, activeTenantId));
+  }
+
+  private async listMyTenantsInContext(userId: string, activeTenantId?: string): Promise<MyTenant[]> {
     const memberships = await this.repo.listMembershipsForUser(userId);
     const active = memberships.filter((m) => m.status === 'active');
     const rows: MyTenant[] = [];
@@ -363,6 +382,12 @@ export class TenantsService {
    * đoán một tenant khách hàng cho người không phải thành viên.
    */
   async resolveDefaultTenant(userId: string): Promise<TenantRow> {
+    // Đường tiền-đăng-nhập: phân giải tenant mặc định phải thấy membership
+    // của user ở mọi tenant — chạy trong ngữ cảnh platform như platformTenant.
+    return tenantAls.run({ platform: true }, () => this.resolveDefaultTenantInContext(userId));
+  }
+
+  private async resolveDefaultTenantInContext(userId: string): Promise<TenantRow> {
     const zero = await this.platformTenant();
     const memberships = (await this.repo.listMembershipsForUser(userId)).filter((m) => m.status === 'active');
     const tenants: TenantRow[] = [];
@@ -386,6 +411,12 @@ export class TenantsService {
    * công cộng của Trang chính).
    */
   async resolveSwitchTarget(userId: string, tenantId: string): Promise<TenantRow> {
+    // Kiểm chứng đích chuyển tenant là đường hệ thống xuyên tenant — chạy
+    // trong ngữ cảnh platform như platformTenant.
+    return tenantAls.run({ platform: true }, () => this.resolveSwitchTargetInContext(userId, tenantId));
+  }
+
+  private async resolveSwitchTargetInContext(userId: string, tenantId: string): Promise<TenantRow> {
     const tenant = await this.getTenant(tenantId);
     if (tenant.status !== 'active') {
       throw new ForbiddenException({ message: `Tenant ${tenant.slug} is ${tenant.status}`, code: 'tenant.not_active' });
