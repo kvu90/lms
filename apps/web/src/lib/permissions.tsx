@@ -5,14 +5,6 @@ import { apiJson } from './api';
 import { useAuth } from './auth';
 import { queryKeys } from './query-keys';
 
-/** Ghi danh của chính người dùng trong một khoá học (GET /courses/:id/enrolments/me). */
-export interface MyEnrolment {
-  courseId: string;
-  userId: string;
-  enrolled: boolean;
-  active: boolean;
-}
-
 /**
  * Quyền hiệu lực của người dùng trong MỘT khoá học cụ thể — quyền trong hệ
  * này là theo ngữ cảnh (context), nên trạng thái được giữ riêng theo từng
@@ -20,8 +12,6 @@ export interface MyEnrolment {
  */
 export interface CourseAccess {
   course: Course;
-  /** Ghi danh của chính người dùng trong khoá (null nếu API không trả về). */
-  enrolment: MyEnrolment | null;
   /**
    * Capability đã phân giải của người dùng tại context của khoá này, lấy từ
    * GET /users/me/capabilities — nguồn quyết định phân loại giảng dạy/học
@@ -130,16 +120,22 @@ function isCourseStaff(access: MyAccessView | null, courseAccess: CourseAccess):
 
 /**
  * Người dùng có gán vai trò tại chính context của khoá này hay không —
- * nửa còn lại của định nghĩa “thuộc khoá” đã chốt ở #33: ghi danh đang
- * hiệu lực ∪ gán vai tại context khoá. Đây là cùng định nghĩa mà roster
- * tin nhắn dùng phía API (listMembershipCourseIds chỉ tính gán vai ở
- * context có contextLevel = COURSE, instanceId = id của khoá; gán vai
- * học viên tại context khoá cũng tính là thuộc khoá). Ảnh chụp quyền đã
- * mang sẵn mọi gán vai của người dùng (MyAccessView.assignments) nên
- * phân loại tính ngay tại web, không cần endpoint mới. Giáo viên phụ
- * trách khoá qua gán vai (đúng thiết kế seed: editingteacher tại
- * context khoá, không qua ghi danh) nhờ đó thấy khoá ở nhóm giảng dạy
- * thay vì rơi vào cả hai danh sách đều rỗng.
+ * đây là toàn bộ định nghĩa “thuộc khoá” đã chốt ở #33 (ghi danh đang
+ * hiệu lực ∪ gán vai tại context khoá) sau khi đối chiếu phía API: nửa
+ * “ghi danh” của hợp nhất LUÔN hiện diện trong ảnh chụp dưới dạng gán
+ * vai, vì tầng ghi danh của API vật chất hoá mọi ghi danh thành một gán
+ * vai tại context khoá — instance ghi danh luôn chốt một vai (mặc định
+ * vai học viên), ghi danh thì cấp vai đó, rút ghi danh thì gỡ đúng vai
+ * đó, đình chỉ thì giữ vai (khớp hành vi cũ: học viên bị đình chỉ vẫn ở
+ * nhóm learning qua nhánh gán vai). Đây cũng là cùng định nghĩa mà
+ * roster tin nhắn dùng phía API (listMembershipCourseIds chỉ tính gán
+ * vai ở context có contextLevel = COURSE, instanceId = id của khoá).
+ * Nhờ vậy phân loại không còn cần probe `enrolments/me` cho từng khoá
+ * nữa (F-02, rà soát #133): ảnh chụp quyền đã mang sẵn mọi gán vai của
+ * người dùng (MyAccessView.assignments). Giáo viên phụ trách khoá qua
+ * gán vai (đúng thiết kế seed: editingteacher tại context khoá, không
+ * qua ghi danh) nhờ đó thấy khoá ở nhóm giảng dạy thay vì rơi vào cả
+ * hai danh sách đều rỗng.
  */
 function hasCourseAssignment(access: MyAccessView | null, course: Course): boolean {
   if (!access) return false;
@@ -148,26 +144,44 @@ function hasCourseAssignment(access: MyAccessView | null, course: Course): boole
   );
 }
 
-/** Ba lượt dò dữ liệu hiển thị của một khoá, chạy song song trong một query. */
-async function probeCourseData(course: Course) {
-  const [enrolment, report, gradebook] = await Promise.all([
-    probe<MyEnrolment>(`/api/v1/courses/${course.id}/enrolments/me`),
-    probe<GradeReport>(`/api/v1/courses/${course.id}/grades/report`),
-    probe<Gradebook>(`/api/v1/courses/${course.id}/gradebook`),
+/** Dữ liệu điểm hiển thị của một khoá mà dashboard cần (không quyết định phân loại). */
+export interface CourseGradeData {
+  /** Báo cáo điểm toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
+  report: GradeReport | null;
+  /** Sổ điểm của chính người dùng trong khoá (null nếu không truy cập được). */
+  gradebook: Gradebook | null;
+}
+
+/**
+ * Hai lượt dò dữ liệu điểm của một khoá, chạy song song trong một query
+ * (khoá TanStack `courseAccess`). Dùng chung cho PermissionsProvider
+ * (chỉ tải cho khoá người dùng thuộc về) và trang grades (đọc qua đúng
+ * khoá này để dedupe thay vì fetch riêng — F-03, rà soát #133). Mỗi
+ * endpoint lỗi độc lập thì phần đó null, không sập cả query.
+ */
+export async function fetchCourseGradeData(courseId: string): Promise<CourseGradeData> {
+  const [report, gradebook] = await Promise.all([
+    probe<GradeReport>(`/api/v1/courses/${courseId}/grades/report`),
+    probe<Gradebook>(`/api/v1/courses/${courseId}/gradebook`),
   ]);
-  return { enrolment, report, gradebook };
+  return { report, gradebook };
 }
 
 /**
  * Nạp ảnh chụp quyền cho người đang đăng nhập bằng TanStack Query: ảnh
- * chụp quyền và danh sách khoá chạy song song ngay từ đầu; dữ liệu theo
- * từng khoá là các query độc lập (useQueries) chạy song song và lấp vào
- * trạng thái ngay khi từng khoá xong — không còn thác nước nối tiếp chờ
- * tất cả mới hiển thị một lần như trước. Phân loại quản trị/giảng dạy/
- * học viên vẫn suy ra hoàn toàn từ capability đã phân giải; các tải dữ
- * liệu thất bại độc lập và chỉ làm rỗng đúng phần dữ liệu đó. Kết quả
- * được cache theo staleTime của QueryClient nên các lần F5/điều hướng
- * gần nhau dựng ngay từ cache rồi làm mới nền.
+ * chụp quyền và danh sách khoá chạy song song ngay từ đầu — HAI request
+ * này là toàn bộ đầu vào của việc phân loại (F-02, rà soát #133; trước
+ * đây provider fan-out 2 + 3N request vì dò enrolments/me + report +
+ * gradebook cho mọi khoá trong hệ). Dữ liệu điểm theo khoá (report +
+ * gradebook, thuần hiển thị cho dashboard) là các query độc lập
+ * (useQueries) CHỈ chạy cho khoá người dùng thuộc về theo ảnh chụp, và
+ * lấp vào trạng thái ngay khi từng khoá xong — không còn thác nước nối
+ * tiếp chờ tất cả mới hiển thị một lần như trước. Phân loại quản trị/
+ * giảng dạy/học viên suy ra hoàn toàn từ capability và gán vai đã phân
+ * giải trong ảnh chụp; các tải dữ liệu thất bại độc lập và chỉ làm
+ * rỗng đúng phần dữ liệu đó. Kết quả được cache theo staleTime của
+ * QueryClient nên các lần F5/điều hướng gần nhau dựng ngay từ cache
+ * rồi làm mới nền.
  *
  * Vị trí kiểm soát: provider được mount tại root (root.tsx), bao phủ
  * toàn bộ cây route vô điều kiện — đây là điểm duy nhất dựng context
@@ -194,12 +208,23 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     enabled,
   });
   const courseList = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const accessSnapshot = capabilitiesQuery.data ?? null;
+  // Khoá người dùng thuộc về (có gán vai tại context khoá) — suy ngay
+  // từ ảnh chụp, là tập duy nhất còn phải tải dữ liệu điểm hiển thị.
+  const memberCourses = useMemo(
+    () => courseList.filter((course) => hasCourseAssignment(accessSnapshot, course)),
+    [courseList, accessSnapshot],
+  );
   const courseDataQueries = useQueries({
-    queries: courseList.map((course) => ({
+    queries: memberCourses.map((course) => ({
       queryKey: queryKeys.courseAccess(course.id),
-      queryFn: () => probeCourseData(course),
+      queryFn: () => fetchCourseGradeData(course.id),
     })),
   });
+  const gradeDataByCourse = useMemo(
+    () => new Map(memberCourses.map((course, i) => [course.id, courseDataQueries[i]?.data])),
+    [memberCourses, courseDataQueries],
+  );
 
   const value = useMemo<PermissionsState>(() => {
     if (!user) {
@@ -215,12 +240,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         learning: [],
       };
     }
-    const access = capabilitiesQuery.data ?? null;
-    const courses: CourseAccess[] = courseList.map((course, i) => {
-      const data = courseDataQueries[i]?.data;
+    const access = accessSnapshot;
+    const courses: CourseAccess[] = courseList.map((course) => {
+      const data = gradeDataByCourse.get(course.id);
       return {
         course,
-        enrolment: data?.enrolment ?? null,
         report: data?.report ?? null,
         gradebook: data?.gradebook ?? null,
         capabilities: access ? courseCapabilities(access, course) : [],
@@ -230,12 +254,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('user:viewdetails');
     const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('role:manage');
     const teaching = courses.filter(
-      (c) => (c.enrolment?.enrolled || hasCourseAssignment(access, c.course)) && isCourseStaff(access, c),
+      (c) => hasCourseAssignment(access, c.course) && isCourseStaff(access, c),
     );
     const learning = courses.filter(
-      (c) =>
-        ((c.enrolment?.enrolled && c.enrolment.active) || hasCourseAssignment(access, c.course)) &&
-        !isCourseStaff(access, c),
+      (c) => hasCourseAssignment(access, c.course) && !isCourseStaff(access, c),
     );
     return {
       ready: !capabilitiesQuery.isPending && !coursesQuery.isPending,
@@ -262,11 +284,11 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     };
   }, [
     user,
-    capabilitiesQuery.data,
+    accessSnapshot,
     capabilitiesQuery.isPending,
     coursesQuery.isPending,
     courseList,
-    courseDataQueries,
+    gradeDataByCourse,
   ]);
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;

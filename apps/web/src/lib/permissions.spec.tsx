@@ -7,10 +7,19 @@ import { usePermissions } from './permissions';
 /**
  * Bảo chứng phân loại khoá dạy/học theo định nghĩa “thuộc khoá” đã chốt
  * ở #33 (việc nối tiếp #66): thuộc khoá = ghi danh đang hiệu lực ∪ gán
- * vai tại context khoá. Trước fix, permissions.tsx chỉ tính ghi danh
- * (enrolments/me chỉ đọc user_enrolments) nên giáo viên được gán vai
- * tại khoá mà không ghi danh — đúng thiết kế seed — rơi vào cả hai
+ * vai tại context khoá. Trước fix #66, permissions.tsx chỉ tính ghi
+ * danh (enrolments/me chỉ đọc user_enrolments) nên giáo viên được gán
+ * vai tại khoá mà không ghi danh — đúng thiết kế seed — rơi vào cả hai
  * danh sách đều rỗng và trang tổng quan báo chưa ghi danh khoá nào.
+ *
+ * Từ F-02 (rà soát #133, issue #149) phân loại suy TRỌN từ ảnh chụp
+ * capabilities, provider không còn gọi enrolments/me nữa: phía API,
+ * nửa “ghi danh” của hợp nhất luôn hiện diện trong ảnh chụp dưới dạng
+ * gán vai — tầng ghi danh chốt roleId cho mọi instance (mặc định vai
+ * học viên), ghi danh thì cấp vai đó tại context khoá, rút ghi danh
+ * thì gỡ vai, đình chỉ thì giữ vai. Fixture dưới đây mô phỏng đúng
+ * hợp đồng đó: học sinh “đã ghi danh” có gán vai student trong ảnh
+ * chụp hệt học sinh được gán vai trực tiếp.
  */
 
 const TEACHER_ID = '01900000-0000-7000-8000-0000000000a2';
@@ -95,7 +104,11 @@ function accessView(scenario: Scenario) {
       ],
     };
   }
-  if (scenario === 'student-assigned') {
+  if (scenario === 'student-assigned' || scenario === 'student-enrolled') {
+    // Hai kịch bản cho cùng một ảnh chụp: API vật chất hoá ghi danh
+    // thành gán vai student tại context khoá, nên học sinh đã ghi danh
+    // và học sinh được gán vai trực tiếp không phân biệt được — và
+    // không cần phân biệt — trong ảnh chụp.
     return {
       ...base,
       assignments: [assignment('student', 'Học viên')],
@@ -110,32 +123,28 @@ function accessView(scenario: Scenario) {
 
 type Scenario = 'teacher-assigned' | 'student-enrolled' | 'student-assigned' | 'outsider';
 
-const ENROLLED: Record<Scenario, boolean> = {
-  'teacher-assigned': false,
-  'student-enrolled': true,
-  'student-assigned': false,
-  outsider: false,
-};
+/** Mọi URL fetch đã gọi trong lần render hiện tại (để đếm request F-02). */
+const fetchCalls: string[] = [];
 
 function stubFetch(scenario: Scenario) {
+  fetchCalls.length = 0;
   const me =
     scenario === 'teacher-assigned'
       ? profile(TEACHER_ID, 'teacher1')
       : scenario === 'outsider'
         ? profile(OUTSIDER_ID, 'outsider1')
         : profile(STUDENT_ID, 'student1');
-  const enrolled = ENROLLED[scenario];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      fetchCalls.push(url);
       const respond = (status: number, body: unknown) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(200, me);
       if (url === '/api/v1/users/me/capabilities') return respond(200, accessView(scenario));
       if (url === '/api/v1/courses') return respond(200, [COURSE]);
-      if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`) {
-        return respond(200, { courseId: COURSE_ID, userId: me.id, enrolled, active: enrolled });
-      }
+      // KHÔNG stub enrolments/me: provider không được gọi nó nữa —
+      // nếu còn gọi, URL rơi về 404 ở đây và ca đếm request bắt được.
       // Dữ liệu hiển thị theo khoá không quyết định phân loại; trả rỗng/403 đều được.
       return respond(404, {});
     }),
@@ -209,5 +218,58 @@ describe('Phân loại khoá dạy/học theo định nghĩa thuộc khoá #33',
     const { teaching, learning } = await renderClassification('outsider');
     expect(teaching).toBe('');
     expect(learning).toBe('');
+  });
+});
+
+describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('phân loại chỉ tốn 2 request; dữ liệu điểm chỉ tải cho khoá thuộc về, không còn enrolments/me', async () => {
+    const OTHER_1 = { ...COURSE, id: '01900000-0000-7000-8000-000000000011', shortName: 'OTHER1' };
+    const OTHER_2 = { ...COURSE, id: '01900000-0000-7000-8000-000000000012', shortName: 'OTHER2' };
+    fetchCalls.length = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        fetchCalls.push(url);
+        const respond = (status: number, body: unknown) =>
+          new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond(200, profile(TEACHER_ID, 'teacher1'));
+        if (url === '/api/v1/users/me/capabilities') return respond(200, accessView('teacher-assigned'));
+        if (url === '/api/v1/courses') return respond(200, [COURSE, OTHER_1, OTHER_2]);
+        if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(200, {});
+        if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return respond(200, {});
+        return respond(404, {});
+      }),
+    );
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const router = createMemoryRouter([{ path: '/', element: <ClassificationProbe /> }]);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId('course-count')).toHaveTextContent('3');
+      expect(screen.getByTestId('teaching')).toHaveTextContent('DEMO101');
+    });
+    // Chờ query dữ liệu điểm của khoá thành viên chạy xong mới đếm.
+    await waitFor(() => {
+      expect(fetchCalls).toContain(`/api/v1/courses/${COURSE_ID}/gradebook`);
+    });
+    // Trước F-02: 2 + 3×3 = 11 request (mỗi khoá đủ enrolments/me +
+    // report + gradebook). Nay: phân loại = capabilities + courses;
+    // dữ liệu điểm chỉ 2 request cho đúng khoá thuộc về.
+    expect(fetchCalls).not.toEqual(expect.arrayContaining([expect.stringContaining('enrolments/me')]));
+    const perCourseCalls = fetchCalls.filter((u) => /\/courses\/[0-9a-f-]{36}\//.test(u));
+    expect(perCourseCalls.sort()).toEqual(
+      [`/api/v1/courses/${COURSE_ID}/gradebook`, `/api/v1/courses/${COURSE_ID}/grades/report`].sort(),
+    );
   });
 });

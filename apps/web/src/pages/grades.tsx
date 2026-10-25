@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   Gradebook,
   GradebookCategoryView,
@@ -28,7 +29,8 @@ import { DataTable, type DataColumn } from '#components/data-table';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
-import { usePermissions } from '#lib/permissions';
+import { fetchCourseGradeData, usePermissions } from '#lib/permissions';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Thang điểm tuỳ biến như API trả về (bảng `scales` phía grades service —
@@ -149,8 +151,18 @@ export function GradebookPage() {
   const { id } = useParams();
   const courseId = id ?? '';
   const perms = usePermissions();
-  const [book, setBook] = useState<Gradebook | null>(null);
-  const [report, setReport] = useState<GradeReport | null>(null);
+  // Sổ điểm + báo cáo của khoá đọc qua TanStack với ĐÚNG khoá
+  // `courseAccess` và fetcher mà PermissionsProvider dùng (F-03, rà
+  // soát #133): trước đây trang tự fetch lại hai endpoint này trong khi
+  // provider vừa tải cùng dữ liệu cho cùng khoá — hai request trùng.
+  // Nay cache dùng chung: trang mở sau provider thì không tốn request,
+  // trang mở thẳng thì query này là lượt tải duy nhất cho cả hai nơi.
+  const gradeDataQuery = useQuery({
+    queryKey: queryKeys.courseAccess(courseId),
+    queryFn: () => fetchCourseGradeData(courseId),
+  });
+  const book = gradeDataQuery.data?.gradebook ?? null;
+  const report = gradeDataQuery.data?.report ?? null;
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [gradeItemId, setGradeItemId] = useState('');
@@ -198,16 +210,21 @@ export function GradebookPage() {
   const [historyRows, setHistoryRows] = useState<GradeHistoryView[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
+  /** Nạp lại sổ điểm + báo cáo sau đột biến: invalidate đúng khoá dùng chung với provider. */
   const reload = useCallback(async () => {
-    const mine = await apiJson<Gradebook>(`/api/v1/courses/${courseId}/gradebook`);
-    setBook(mine);
-    const rep = await apiJson<GradeReport>(`/api/v1/courses/${courseId}/grades/report`).catch(() => null);
-    setReport(rep);
-  }, [courseId]);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.courseAccess(courseId) });
+  }, [queryClient, courseId]);
 
+  // Fetcher dùng chung nuốt lỗi theo từng endpoint (null khi không tải
+  // được); sổ điểm null sau khi query đã về = lượt tải hỏng như trước
+  // đây (gradebook là dữ liệu chính của trang, report hỏng thì chỉ
+  // phần báo cáo trống).
   useEffect(() => {
-    void reload().catch(() => setError(t('gradebookLoadFailed')));
-  }, [reload]);
+    if (gradeDataQuery.data) {
+      setError(gradeDataQuery.data.gradebook ? null : t('gradebookLoadFailed'));
+    }
+  }, [gradeDataQuery.data, t]);
 
   /**
    * Nạp dữ liệu quản trị sổ điểm (chỉ gọi khi đã xác nhận staff): category
