@@ -2238,67 +2238,6 @@ CREATE TABLE "learning_plans" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "blog_association" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"blog_id" uuid NOT NULL,
-	"context_id" uuid NOT NULL,
-	"assoc_type" text NOT NULL,
-	"assoc_id" uuid NOT NULL,
-	CONSTRAINT "blog_association_unique" UNIQUE("blog_id","assoc_type","assoc_id")
-);
---> statement-breakpoint
-CREATE TABLE "blog_post_placements" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"post_id" uuid NOT NULL,
-	"space_type" text NOT NULL,
-	"space_id" uuid,
-	"context_id" uuid NOT NULL,
-	"status" text DEFAULT 'approved' NOT NULL,
-	"created_by" uuid NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"decided_by" uuid,
-	"decided_at" timestamp with time zone,
-	CONSTRAINT "blog_post_placements_unique" UNIQUE("post_id","space_type","space_id")
-);
---> statement-breakpoint
-CREATE TABLE "blog_post_references" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"post_id" uuid NOT NULL,
-	"ref_type" text NOT NULL,
-	"ref_id" text,
-	"question_id" uuid,
-	"question_version_id" uuid,
-	"display_mode" text,
-	"caption" text,
-	"sort_order" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "blog_posts" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
-	"user_id" uuid NOT NULL,
-	"subject" text DEFAULT '' NOT NULL,
-	"summary" text DEFAULT '' NOT NULL,
-	"content" text DEFAULT '' NOT NULL,
-	"publish_state" text DEFAULT 'draft' NOT NULL,
-	"space_type" text DEFAULT 'user' NOT NULL,
-	"space_id" uuid,
-	"kind" text DEFAULT 'article' NOT NULL,
-	"status" text DEFAULT 'draft' NOT NULL,
-	"audience" text DEFAULT 'private' NOT NULL,
-	"moderation_state" text DEFAULT 'clear' NOT NULL,
-	"comments_policy" text DEFAULT 'open' NOT NULL,
-	"question_state" text,
-	"published_at" timestamp with time zone,
-	"scheduled_at" timestamp with time zone,
-	"pinned_until" timestamp with time zone,
-	"deleted_at" timestamp with time zone,
-	"deleted_by" uuid,
-	"delete_reason" text,
-	"created" timestamp with time zone DEFAULT now() NOT NULL,
-	"last_modified" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "comments" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"context_id" uuid NOT NULL,
@@ -2961,14 +2900,6 @@ CREATE INDEX "competency_user_comp_reviewer_id_idx" ON "competency_user_comp" ("
 CREATE INDEX "learning_plans_user_id_idx" ON "learning_plans" ("user_id");--> statement-breakpoint
 CREATE INDEX "learning_plans_template_id_idx" ON "learning_plans" ("template_id");--> statement-breakpoint
 CREATE INDEX "learning_plans_reviewer_id_idx" ON "learning_plans" ("reviewer_id");--> statement-breakpoint
-CREATE INDEX "blog_association_context_id_idx" ON "blog_association" ("context_id");--> statement-breakpoint
-CREATE INDEX "blog_association_assoc_id_idx" ON "blog_association" ("assoc_id");--> statement-breakpoint
-CREATE INDEX "blog_post_placements_post_id_idx" ON "blog_post_placements" ("post_id");--> statement-breakpoint
-CREATE INDEX "blog_post_placements_space_idx" ON "blog_post_placements" ("space_type","space_id");--> statement-breakpoint
-CREATE INDEX "blog_post_references_post_id_idx" ON "blog_post_references" ("post_id");--> statement-breakpoint
-CREATE INDEX "blog_posts_user_id_idx" ON "blog_posts" ("user_id");--> statement-breakpoint
-CREATE INDEX "blog_posts_space_idx" ON "blog_posts" ("space_type","space_id");--> statement-breakpoint
-CREATE INDEX "blog_posts_status_published_idx" ON "blog_posts" ("status","published_at");--> statement-breakpoint
 CREATE INDEX "comments_context_id_idx" ON "comments" ("context_id");--> statement-breakpoint
 CREATE INDEX "comments_item_id_idx" ON "comments" ("item_id");--> statement-breakpoint
 CREATE INDEX "comments_user_id_idx" ON "comments" ("user_id");--> statement-breakpoint
@@ -3263,9 +3194,6 @@ ALTER TABLE "competency_template_cohort" ADD CONSTRAINT "competency_template_coh
 ALTER TABLE "competency_template_comp" ADD CONSTRAINT "competency_template_comp_H2NoFiKnKq8W_fkey" FOREIGN KEY ("template_id") REFERENCES "competency_template"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "competency_template_comp" ADD CONSTRAINT "competency_template_comp_competency_id_competency_id_fkey" FOREIGN KEY ("competency_id") REFERENCES "competency"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "competency_user_comp" ADD CONSTRAINT "competency_user_comp_competency_id_competency_id_fkey" FOREIGN KEY ("competency_id") REFERENCES "competency"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "blog_association" ADD CONSTRAINT "blog_association_blog_id_blog_posts_id_fkey" FOREIGN KEY ("blog_id") REFERENCES "blog_posts"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "blog_post_placements" ADD CONSTRAINT "blog_post_placements_post_id_blog_posts_id_fkey" FOREIGN KEY ("post_id") REFERENCES "blog_posts"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "blog_post_references" ADD CONSTRAINT "blog_post_references_post_id_blog_posts_id_fkey" FOREIGN KEY ("post_id") REFERENCES "blog_posts"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "tag_correlation" ADD CONSTRAINT "tag_correlation_tag_id_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tag"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "tag_instance" ADD CONSTRAINT "tag_instance_tag_id_tag_id_fkey" FOREIGN KEY ("tag_id") REFERENCES "tag"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "external_tokens" ADD CONSTRAINT "external_tokens_service_id_external_services_id_fkey" FOREIGN KEY ("service_id") REFERENCES "external_services"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -3345,11 +3273,3 @@ CREATE POLICY "tenant_isolation" ON "event_log" USING (current_setting('app.plat
 ALTER TABLE "outbox_events" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "outbox_events" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "outbox_events" USING (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR NULLIF(current_setting('app.tenant_id', true), '') IS NULL OR "tenant_id" IS NULL OR "tenant_id" = current_setting('app.tenant_id', true)::uuid);
---> statement-breakpoint
-ALTER TABLE "blog_association" DROP CONSTRAINT "blog_association_blog_id_blog_posts_id_fkey";--> statement-breakpoint
-ALTER TABLE "blog_post_placements" DROP CONSTRAINT "blog_post_placements_post_id_blog_posts_id_fkey";--> statement-breakpoint
-ALTER TABLE "blog_post_references" DROP CONSTRAINT "blog_post_references_post_id_blog_posts_id_fkey";--> statement-breakpoint
-DROP TABLE "blog_association";--> statement-breakpoint
-DROP TABLE "blog_post_placements";--> statement-breakpoint
-DROP TABLE "blog_post_references";--> statement-breakpoint
-DROP TABLE "blog_posts";
