@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import {
   MESSAGING_SOCKET_EVENTS,
   type LmsMessage,
+  type RealtimeConversationInvalidatePayload,
   type RealtimeConversationUpdatedPayload,
   type RealtimeMessageDeletedPayload,
   type RealtimeMessageReadPayload,
@@ -12,7 +13,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import Redis from 'ioredis';
 import type { Server } from 'socket.io';
 import { redisTlsFromUrl } from '../../config/env';
-import { MessagingRepository, type MessageRow } from './messaging.repository';
+import { blankRecalledContent, MessagingRepository, type MessageRow } from './messaging.repository';
 
 /** Room của một conversation: mọi thành viên đang nối đều ở trong room này. */
 export function conversationRoom(conversationId: string): string {
@@ -37,6 +38,8 @@ export function toWireMessage(row: MessageRow): LmsMessage {
     clientMessageId: row.clientMessageId,
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
     deletedBy: row.deletedBy,
+    recalledAt: row.recalledAt ? row.recalledAt.toISOString() : null,
+    recalledBy: row.recalledBy,
   };
 }
 
@@ -237,6 +240,127 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       };
       this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
     }));
+  }
+
+  /**
+   * Cặp 1–1 đang có quan hệ chặn thì MỌI sự kiện vòng đời (thu hồi,
+   * xoá cứng) đều bị nén im lặng như ở {@link distributeMessageDeleted}:
+   * không phát gì. Trả true khi sự kiện đã bị nén (caller dừng phân
+   * phối). CHỈ chặn phát, KHÔNG đẩy socket khỏi room (nhất quán với
+   * tiếp quản PR #94): socket bị đẩy ra không tự nối lại khi bỏ chặn
+   * nên presence sau bỏ chặn mất vĩnh viễn; mọi đường phát vào room
+   * đều đã có cổng ở thời điểm phát nên chặn phát là đủ.
+   */
+  private async suppressIfBlockedDirectPair(conversationId: string, memberIds: string[]): Promise<boolean> {
+    const conversation = await this.repo.getConversation(conversationId).catch(() => undefined);
+    if (conversation?.type !== 1 || memberIds.length !== 2) return false;
+    const first = memberIds[0];
+    const second = memberIds[1];
+    if (first === undefined || second === undefined) return true;
+    const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
+    if (!blocked.includes(second)) return false;
+    return true;
+  }
+
+  /** Phát `conversation.invalidate` tới room riêng của TỪNG thành viên: cache danh sách của họ phải tải lại. */
+  private emitConversationInvalidate(conversationId: string, memberIds: string[]): void {
+    const payload: RealtimeConversationInvalidatePayload = { conversationId };
+    for (const memberId of memberIds) {
+      this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationInvalidate, payload);
+    }
+  }
+
+  /**
+   * Phân phối một lần THU HỒI (vòng đời theo vai, lớp (b)): phía nhận
+   * phải gỡ nội dung NGAY — phát `message.deleted` (payload không nội
+   * dung) vào room như một lần xoá, kèm `conversation.updated` với
+   * xem trước đã vô hiệu nội dung nếu tin bị thu hồi chính là tin
+   * cuối, và BẮT BUỘC `conversation.invalidate` tới từng thành viên
+   * để cache danh sách bị vô hiệu (số chưa đọc cũng đã đổi: tin thu
+   * hồi không còn đếm chưa đọc).
+   */
+  async distributeMessageRecalled(messageRow: MessageRow, memberIds: string[]): Promise<void> {
+    if (!this.server) return;
+    if (await this.suppressIfBlockedDirectPair(messageRow.conversationId, memberIds)) return;
+    await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
+    const deletedPayload: RealtimeMessageDeletedPayload = {
+      conversationId: messageRow.conversationId,
+      messageId: messageRow.id,
+      seq: messageRow.seq,
+      deletedBy: messageRow.recalledBy ?? '',
+    };
+    this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    const [lastVisible] = await this.repo.listMessages(messageRow.conversationId, { limit: 1 }).catch(() => []);
+    if (lastVisible) {
+      // Tin cuối còn hiển thị có thể CHÍNH LÀ tin vừa thu hồi: xem
+      // trước gửi đi phải qua vô hiệu nội dung như mọi đường đọc.
+      const wire = toWireMessage(blankRecalledContent(lastVisible));
+      await Promise.all(memberIds.map(async (memberId) => {
+        const unreadCount = await this.repo.countUnreadForConversation(messageRow.conversationId, memberId).catch(() => 0);
+        const payload: RealtimeConversationUpdatedPayload = {
+          conversationId: messageRow.conversationId, message: wire, unreadCount,
+        };
+        this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+      }));
+    }
+    this.emitConversationInvalidate(messageRow.conversationId, memberIds);
+  }
+
+  /**
+   * Phân phối một lần XOÁ CỨNG (lớp (c)): dòng tin ĐÃ biến mất khỏi
+   * DB nên mọi định danh đến từ BẢN CHỤP trong payload sự kiện (do
+   * consumer truyền vào) — không đọc lại dòng tin được nữa. Sự kiện
+   * phía client giống hệt thu hồi/xoá mềm (`message.deleted` +
+   * `conversation.updated` nếu còn tin cuối hiển thị + BẮT BUỘC
+   * `conversation.invalidate`): với phía nhận, một tin bị gỡ là một
+   * tin biến mất, lý do kiểm duyệt không đi qua kênh này.
+   */
+  async distributeMessageRemoved(
+    snapshot: { conversationId: string; messageId: string; seq: number; removedBy: string },
+    memberIds: string[],
+  ): Promise<void> {
+    if (!this.server) return;
+    if (await this.suppressIfBlockedDirectPair(snapshot.conversationId, memberIds)) return;
+    await this.evictNonMemberSockets(snapshot.conversationId, memberIds);
+    const deletedPayload: RealtimeMessageDeletedPayload = {
+      conversationId: snapshot.conversationId,
+      messageId: snapshot.messageId,
+      seq: snapshot.seq,
+      deletedBy: snapshot.removedBy,
+    };
+    this.server.to(conversationRoom(snapshot.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    const [lastVisible] = await this.repo.listMessages(snapshot.conversationId, { limit: 1 }).catch(() => []);
+    if (lastVisible) {
+      const wire = toWireMessage(blankRecalledContent(lastVisible));
+      await Promise.all(memberIds.map(async (memberId) => {
+        const unreadCount = await this.repo.countUnreadForConversation(snapshot.conversationId, memberId).catch(() => 0);
+        const payload: RealtimeConversationUpdatedPayload = {
+          conversationId: snapshot.conversationId, message: wire, unreadCount,
+        };
+        this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+      }));
+    }
+    this.emitConversationInvalidate(snapshot.conversationId, memberIds);
+  }
+
+  /**
+   * Phân phối một lần XOÁ-PHÍA-MÌNH (lớp (a)): CHỈ người xoá được
+   * biết — phát `message.deleted` + `conversation.invalidate` vào
+   * room RIÊNG của chính họ để các thiết bị khác của họ đồng bộ;
+   * TUYỆT ĐỐI không phát vào room conversation (phía kia không được
+   * nhận bất kỳ tín hiệu nào: với họ cuộc trò chuyện không đổi).
+   */
+  async distributeMessageDeletedForMe(snapshot: { conversationId: string; messageId: string; seq: number; actorId: string }): Promise<void> {
+    if (!this.server) return;
+    const deletedPayload: RealtimeMessageDeletedPayload = {
+      conversationId: snapshot.conversationId,
+      messageId: snapshot.messageId,
+      seq: snapshot.seq,
+      deletedBy: snapshot.actorId,
+    };
+    this.server.to(userRoom(snapshot.actorId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    const invalidatePayload: RealtimeConversationInvalidatePayload = { conversationId: snapshot.conversationId };
+    this.server.to(userRoom(snapshot.actorId)).emit(MESSAGING_SOCKET_EVENTS.conversationInvalidate, invalidatePayload);
   }
 
   /** Phân phối biên đã-đọc của một thành viên vào room của conversation. */

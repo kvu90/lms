@@ -104,6 +104,17 @@ export const message = pgTable('message', {
    */
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
   deletedBy: uuid('deleted_by'),
+  /**
+   * Dấu vết THU HỒI (vòng đời tin nhắn theo vai, issue #33): tác giả
+   * thu hồi tin cho MỌI NGƯỜI trong cửa sổ cấu hình site
+   * (`core/messagingrecallwindowminutes`, mặc định 15 phút kể từ lúc
+   * gửi). Nội dung gốc GIỮ NGUYÊN trong dòng — đường đọc thường vô
+   * hiệu hoá nó (trả nội dung rỗng + hai trường này) cho mọi thành
+   * viên thường, đường truy vết có thẩm quyền vẫn đọc được để đối
+   * chiếu với dòng moderator_action 'recall' tương ứng.
+   */
+  recalledAt: timestamp('recalled_at', { withTimezone: true }),
+  recalledBy: uuid('recalled_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
@@ -111,6 +122,60 @@ export const message = pgTable('message', {
       index('message_user_id_from_idx').on(table.userIdFrom),
       index('message_conversation_seq_idx').on(table.conversationId, table.seq),
       unique('message_conversation_client_id_unique').on(table.conversationId, table.userIdFrom, table.clientMessageId),
+  ]);
+
+/**
+ * Cờ XOÁ-PHÍA-MÌNH theo từng user (vòng đời tin nhắn theo vai, issue
+ * #33 — lớp (a)): một thành viên (thường là tác giả) ẩn một tin khỏi
+ * tầm nhìn của CHÍNH MÌNH, mọi lúc, không điều kiện cửa sổ. Tin vẫn
+ * hiển thị nguyên vẹn với mọi thành viên khác; dòng này chỉ là cờ
+ * hiển thị cá nhân — KHÔNG phải dấu vết kiểm duyệt và không ai khác
+ * đọc được nó. PK phức hợp (message, user) là định danh tự nhiên;
+ * tin bị xoá cứng thì các cờ của nó cascade theo.
+ */
+export const messageUserDeletions = pgTable(
+  'message_user_deletions',
+  {
+    messageId: uuid('message_id').notNull().references(() => message.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+      index('message_user_deletions_user_id_idx').on(table.userId),primaryKey({ columns: [table.messageId, table.userId] })],
+);
+
+/**
+ * Dấu vết HÀNH ĐỘNG KIỂM DUYỆT trên tin nhắn (vòng đời tin nhắn theo
+ * vai, issue #33): mỗi lần thu hồi (`recall` — do chính tác giả, lý
+ * do để trống) và mỗi lần xoá cứng (`hard_delete` / `bulk_hard_delete`
+ * — do người có capability `moderation:manage`, lý do BẮT BUỘC) đều
+ * ghi đúng một dòng tại đây TRƯỚC khi trạng thái tin thay đổi. Đây là
+ * căn cứ truy vết duy nhất còn lại sau xoá cứng nên các cột định danh
+ * (message/conversation/tác giả/seq) là BẢN CHỤP, cố ý KHÔNG khoá
+ * ngoại: dòng tin bị xoá vật lý không được kéo theo dấu vết của
+ * chính lần xoá đó. Nội dung tin KHÔNG được sao vào đây — xoá cứng
+ * là xoá thật khỏi hệ thống.
+ */
+export const messageModeratorActions = pgTable('message_moderator_actions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  messageId: uuid('message_id').notNull(),
+  conversationId: uuid('conversation_id').notNull(),
+  /** Người thực hiện hành động (tác giả khi recall, moderator khi xoá cứng). */
+  actorId: uuid('actor_id').notNull(),
+  /** Bản chụp tác giả của tin tại thời điểm hành động. */
+  authorId: uuid('author_id').notNull(),
+  /** 'recall' | 'hard_delete' | 'bulk_hard_delete'. */
+  action: text('action').notNull(),
+  /** Lý do: bắt buộc với hai hành động xoá cứng (chốt ở tầng service + DTO), null với recall. */
+  reason: text('reason'),
+  /** Bản chụp seq của tin trong conversation tại thời điểm hành động. */
+  messageSeq: integer('message_seq'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('message_moderator_actions_message_id_idx').on(table.messageId),
+      index('message_moderator_actions_conversation_id_idx').on(table.conversationId),
+      index('message_moderator_actions_actor_id_idx').on(table.actorId),
   ]);
 
 

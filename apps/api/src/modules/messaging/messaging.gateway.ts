@@ -9,7 +9,7 @@ import {
 } from '@lms/contracts';
 import type { Server, Socket } from 'socket.io';
 import { Public } from '../../common/public.decorator';
-import { MessagingRepository } from './messaging.repository';
+import { blankRecalledContent, MessagingRepository } from './messaging.repository';
 import { JwtMessagingSocketAuth } from './messaging-socket-auth';
 import { conversationRoom, MessagingRealtimeService, toWireMessage, userRoom } from './messaging-realtime.service';
 
@@ -183,8 +183,16 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       // Nối vào room luôn thể: conversation tạo sau khi socket nối
       // (hoặc membership mới đồng bộ) thì từ nay nhận realtime trực tiếp.
       await client.join(conversationRoom(conversationId));
-      const missing = await this.repo.listMessages(conversationId, { afterSeq: Math.floor(lastSeq), limit: SYNC_LIMIT_PER_CONVERSATION });
-      if (missing.length) result[conversationId] = missing.map(toWireMessage);
+      // Đồng bộ là đường đọc của CHÍNH người xin: lọc tin họ đã
+      // xoá-phía-mình và vô hiệu nội dung tin đã thu hồi — cùng luật
+      // với đường đọc REST, không để kênh này thành đường vòng lộ
+      // nội dung (vòng đời tin nhắn theo vai, issue #33).
+      const missing = await this.repo.listMessages(conversationId, {
+        afterSeq: Math.floor(lastSeq),
+        limit: SYNC_LIMIT_PER_CONVERSATION,
+        viewerId: userId,
+      });
+      if (missing.length) result[conversationId] = missing.map((row) => toWireMessage(blankRecalledContent(row)));
     }
     return result;
   }

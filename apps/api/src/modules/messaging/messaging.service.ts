@@ -8,8 +8,9 @@ import type { ListNotificationGroupsQueryDto, ListNotificationItemsQueryDto, Rea
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
-import { MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
+import { blankRecalledContent, MessagingRepository, type ConversationRow, type MessageRow, type NotificationRow, type ReportRow } from './messaging.repository';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
@@ -207,6 +208,18 @@ export interface NotificationChannelPort {
  *    'notification-dispatch' queue consumed by the worker; those channels
  *    are ports that only LOG the dispatch (no real email/push is sent).
  */
+/**
+ * Tin có còn nằm trong CỬA SỔ THU HỒI hay không (vòng đời tin nhắn
+ * theo vai, issue #33): thuần hàm thời gian để kiểm chứng đơn vị
+ * tách khỏi DB — `windowMinutes <= 0` nghĩa là thu hồi đã TẮT (không
+ * tin nào thu hồi được, kể cả tin vừa gửi); mốc biên ĐÚNG bằng cửa
+ * sổ vẫn được tính là trong cửa sổ.
+ */
+export function isWithinRecallWindow(createdAt: Date, now: Date, windowMinutes: number): boolean {
+  if (windowMinutes <= 0) return false;
+  return now.getTime() - createdAt.getTime() <= windowMinutes * 60_000;
+}
+
 @Injectable()
 /**
  * Nhắn tin và thông báo.
@@ -233,6 +246,7 @@ export class MessagingService {
     private readonly realtime: MessagingRealtimeService,
     private readonly unreadStream: NotificationUnreadStreamService,
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
+    private readonly siteConfig: SiteConfigService,
   ) {}
 
   // --- preferences -----------------------------------------------------------
@@ -1040,7 +1054,9 @@ export class MessagingService {
         members: s.members,
         unread: s.unreadCount,
         lastReadSeq: s.lastReadSeq,
-        lastMessage: s.lastMessage,
+        // Danh sách là đường đọc thường: tin cuối đã thu hồi thì xem
+        // trước chỉ còn dấu vết thu hồi, không lộ nội dung gốc.
+        lastMessage: s.lastMessage ? blankRecalledContent(s.lastMessage) : null,
       });
     }
     // Tên hiển thị của mọi thành viên (gồm người gửi tin cuối) để
@@ -1103,14 +1119,22 @@ export class MessagingService {
     // kèm dấu vết — đó là đường truy vết của chính sách xoá mềm.
     const canModerate = await this.canModerateConversation(userId, conversation);
     const canManage = canModerate || await this.canManageConversation(userId, conversation);
-    const messages = await this.repo.listMessages(conversationId, { limit: opts.limit ?? 50, includeDeleted: canModerate });
+    // Đường đọc thường (không phải truy vết): lọc tin chính người xem
+    // đã xoá-phía-mình và vô hiệu nội dung tin đã thu hồi. Đường truy
+    // vết (canModerate) giữ nguyên mọi thứ kèm dấu vết đầy đủ.
+    const rawMessages = await this.repo.listMessages(conversationId, {
+      limit: opts.limit ?? 50,
+      includeDeleted: canModerate,
+      viewerId: canModerate ? undefined : userId,
+    });
+    const messages = canModerate ? rawMessages : rawMessages.map(blankRecalledContent);
     const markers = await this.repo.listMemberReadMarkers(conversationId);
     const members = await this.repo.listMembers(conversationId);
     return {
       ...conversation,
       members,
       messages,
-      hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate) : false,
+      hasMoreBefore: messages.length > 0 ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate, canModerate ? undefined : userId) : false,
       lastReadSeq: markers.find((m) => m.userId === userId)?.lastReadSeq ?? 0,
       memberReadMarkers: markers,
       // Tên hiển thị của thành viên: client dùng cho nhãn người gửi,
@@ -1137,13 +1161,20 @@ export class MessagingService {
     }
     await this.assertDirectConversationVisible(userId, conversation);
     // Cùng luật tầm nhìn với getConversation: chỉ người có thẩm quyền
-    // kiểm duyệt mới nhận được tin đã xoá mềm trong cửa sổ đồng bộ.
+    // kiểm duyệt mới nhận được tin đã xoá mềm trong cửa sổ đồng bộ;
+    // người xem thường bị lọc tin đã xoá-phía-mình và nhận nội dung
+    // rỗng cho tin đã thu hồi.
     const canModerate = await this.canModerateConversation(userId, conversation);
-    const messages = await this.repo.listMessages(conversationId, { ...query, includeDeleted: canModerate });
+    const rawMessages = await this.repo.listMessages(conversationId, {
+      ...query,
+      includeDeleted: canModerate,
+      viewerId: canModerate ? undefined : userId,
+    });
+    const messages = canModerate ? rawMessages : rawMessages.map(blankRecalledContent);
     return {
       messages,
       hasMoreBefore: messages.length > 0 && query.afterSeq === undefined
-        ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate)
+        ? await this.repo.hasMessagesBefore(conversationId, messages[0]!.seq, canModerate, canModerate ? undefined : userId)
         : false,
     };
   }
@@ -1260,19 +1291,70 @@ export class MessagingService {
       code: 'messaging.message_immutable',
     });
   }
+  // --- vòng đời tin nhắn theo vai (issue #33, bổ sung PR #94) ---------------
+  //
+  // Ba lớp thao tác, tách bạch theo vai — thay mô hình xoá mềm toàn
+  // cục cũ (một lần DELETE là tin biến mất với mọi người):
+  //   (a) XOÁ-PHÍA-MÌNH (DELETE /messages/:id): chỉ TÁC GIẢ, mọi lúc
+  //       không điều kiện cửa sổ — đặt cờ cá nhân
+  //       `message_user_deletions`, tin chỉ ẩn khỏi tầm nhìn của
+  //       chính người xoá; phía kia và đường truy vết không đổi.
+  //   (b) THU HỒI (POST /messages/:id/recall): chỉ TÁC GIẢ, chỉ
+  //       trong cửa sổ site-config `core/messagingrecallwindowminutes`
+  //       (mặc định 15 phút từ lúc gửi) — nội dung bị vô hiệu với
+  //       mọi thành viên thường, ghi dấu moderator_action 'recall'.
+  //       Ngoài cửa sổ người thường không còn thao tác này.
+  //   (c) XOÁ CỨNG / GỠ HÀNG LOẠT (POST /messages/:id/hard-delete,
+  //       POST /messages/bulk-remove): chỉ người có capability
+  //       `moderation:manage` trong phạm vi conversation, không
+  //       giới hạn thời gian, lý do BẮT BUỘC và luôn ghi
+  //       moderator_action trước khi dòng tin bị xoá vật lý.
+  // Cổng chặn hội thoại 1–1 (assertDirectConversationVisible) vẫn đặt
+  // TRƯỚC (a) và (b) như mọi đường theo id của người dùng thường;
+  // đường (c) là đường kiểm duyệt có thẩm quyền riêng — như đường
+  // xem báo cáo — nên KHÔNG qua cổng chặn: kiểm duyệt phải xử lý
+  // được cả nội dung trong hội thoại đang bị chặn.
+
+  /** Cửa sổ thu hồi hiện hành (phút) đọc từ site-config; giá trị lỗi/thiếu → mặc định 15. */
+  private async recallWindowMinutes(): Promise<number> {
+    const value = await this.siteConfig.getValue<number>('core', 'messagingrecallwindowminutes');
+    if (typeof value !== 'number' || !Number.isFinite(value)) return 15;
+    return Math.max(0, Math.floor(value));
+  }
+
   /**
-   * Xoá mềm một tin nhắn (Lớp B — thay tính bất biến tuyệt đối cũ):
-   *   - NGƯỜI GỬI xoá tin của chính mình: tin biến mất khỏi tầm nhìn
-   *     của mọi học sinh (kể cả chính người gửi), nhưng giáo viên phụ
-   *     trách/quản trị vẫn truy vết được nội dung.
-   *   - NGƯỜI CÓ THẨM QUYỀN KIỂM DUYỆT trên conversation (giáo viên
-   *     phụ trách khoá / quản trị viên) xoá tin của bất kỳ ai: học
-   *     sinh không còn thấy, phía có thẩm quyền vẫn thấy dấu vết.
-   * Người khác (thành viên thường không phải tác giả) → 403. Dòng tin
-   * KHÔNG bị xoá vật lý: chỉ ghi `deleted_at`/`deleted_by`, kèm sự
-   * kiện outbox `message_deleted` cho realtime (client gỡ tin khỏi
-   * khung) và cho event_log (truy vết ai đã xoá tin nào). Xoá lại tin
-   * đã xoá là idempotent — dấu vết lần xoá đầu được giữ nguyên.
+   * Cổng thẩm quyền XOÁ CỨNG: phải có thẩm quyền kiểm duyệt TRÊN
+   * conversation (staff khoá/quản trị — canModerateConversation) VÀ
+   * capability `moderation:manage` tại context khoá của conversation.
+   * Conversation không thuộc khoá nào thì chỉ quản trị viên toàn
+   * site qua được (canModerate đã là admin-only ở trường hợp đó và
+   * evaluator cho admin qua mọi kiểm tra capability).
+   */
+  private async assertCanHardDelete(actorId: string, conversation: ConversationRow): Promise<void> {
+    const forbidden = () => new ForbiddenException({
+      message: 'Only a moderator with the moderation:manage capability in this conversation scope can permanently remove messages',
+      code: 'messaging.message_moderation_forbidden',
+    });
+    if (!(await this.canModerateConversation(actorId, conversation))) throw forbidden();
+    const courseId = await this.resolveConversationCourseId(conversation);
+    if (!courseId) {
+      if (!(await this.evaluator.isSiteAdmin(actorId))) throw forbidden();
+      return;
+    }
+    const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
+    const allowed = courseCtx
+      ? await this.evaluator.hasCapability(actorId, 'moderation:manage', courseCtx.id)
+      : await this.evaluator.isSiteAdmin(actorId);
+    if (!allowed) throw forbidden();
+  }
+
+  /**
+   * Lớp (a) — XOÁ-PHÍA-MÌNH: tác giả ẩn tin của chính mình khỏi tầm
+   * nhìn của mình, mọi lúc. KHÔNG đổi dòng tin, KHÔNG ảnh hưởng phía
+   * kia; sự kiện `message_deleted_for_me` chỉ phân phối tới CHÍNH
+   * người xoá (đồng bộ các thiết bị của họ). Người không phải tác
+   * giả → 403 (kể cả moderator: gỡ cho mọi người là việc của lớp
+   * (c), không mượn đường này). Idempotent: xoá lại là no-op 200.
    */
   async deleteMessage(actorId: string, messageId: string): Promise<MessageRow> {
     const existing = await this.repo.getMessage(messageId);
@@ -1280,32 +1362,164 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(existing.conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${existing.conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    // Cổng hiển thị khi chặn (việc nối tiếp #33, siết sau PR #94 vòng 1):
-    // hội thoại 1–1 đang chặn hành xử như KHÔNG TỒN TẠI với cả hai
-    // phía ở mọi đường theo id — kể cả xoá tin. Đặt TRƯỚC kiểm tra
-    // tác giả/kiểm duyệt để phía bị chặn cũng nhận 404 thay vì 403
-    // (403 sẽ lộ là tin/hội thoại có tồn tại), và để không ghi sự
-    // kiện outbox `message_deleted` nào trong lúc chặn. Hội thoại
-    // nhóm không bị cổng này chạm (type !== 1 trả ngay).
+    // Cổng hiển thị khi chặn (việc nối tiếp #33, siết sau PR #94):
+    // hội thoại 1–1 đang chặn hành xử như KHÔNG TỒN TẠI ở mọi đường
+    // theo id — kể cả xoá-phía-mình. Đặt TRƯỚC kiểm tra tác giả để
+    // phía bị chặn nhận 404 thay vì 403 và không sự kiện nào phát ra.
     await this.assertDirectConversationVisible(actorId, conversation);
-    const isAuthor = existing.userIdFrom === actorId;
-    if (!isAuthor && !(await this.canModerateConversation(actorId, conversation))) {
+    if (existing.userIdFrom !== actorId) {
       throw new ForbiddenException({
-        message: 'Only the author, the teacher in charge, or an administrator can delete this message',
+        message: 'Only the author can delete this message for themselves; permanent removal belongs to moderators',
         code: 'messaging.message_delete_forbidden',
       });
     }
+    // Tin đã bị xoá mềm toàn cục (dữ liệu từ mô hình cũ): không còn
+    // hiển thị với ai — không còn gì để ẩn thêm, trả nguyên trạng.
     if (existing.deletedAt) return existing;
-    const deleted = await this.repo.softDeleteMessage(messageId, actorId);
+    if (!(await this.repo.isDeletedForUser(messageId, actorId))) {
+      await this.repo.markDeletedForUser(messageId, actorId);
+      const courseId = await this.resolveConversationCourseId(conversation);
+      await this.outbox.enqueueStandalone({
+        aggregate: 'messaging', type: 'message_deleted_for_me',
+        payload: {
+          actorId, conversationId: conversation.id, messageId, seq: existing.seq,
+          authorId: existing.userIdFrom, courseId: courseId ?? undefined,
+        },
+      });
+    }
+    return existing;
+  }
+
+  /**
+   * Lớp (b) — THU HỒI cho mọi người: chỉ tác giả, chỉ trong cửa sổ
+   * cấu hình kể từ lúc gửi. Thu hồi thành công: set dấu
+   * `recalled_at`/`recalled_by`, ghi moderator_action 'recall'
+   * TRƯỚC khi đổi trạng thái, phát `message_recalled` (phía kia gỡ
+   * nội dung + vô hiệu cache danh sách). Ngoài cửa sổ → 403
+   * `messaging.recall_window_expired` — người thường chỉ còn lớp
+   * (a). Thu hồi lại tin đã thu hồi là idempotent (giữ dấu đầu).
+   */
+  async recallMessage(actorId: string, messageId: string): Promise<MessageRow> {
+    const existing = await this.repo.getMessage(messageId);
+    if (!existing) throw new NotFoundException({ message: `Message ${messageId} not found`, code: 'messaging.message_not_found' });
+    const conversation = await this.repo.getConversation(existing.conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${existing.conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    // Cùng cổng chặn như lớp (a): đang chặn thì hội thoại như không
+    // tồn tại — không thu hồi được và không phát sự kiện nào.
+    await this.assertDirectConversationVisible(actorId, conversation);
+    if (existing.userIdFrom !== actorId) {
+      throw new ForbiddenException({
+        message: 'Only the author can recall this message',
+        code: 'messaging.message_recall_forbidden',
+      });
+    }
+    if (existing.recalledAt) return existing;
+    if (existing.deletedAt) {
+      throw new BadRequestException({
+        message: 'This message is already deleted and can no longer be recalled',
+        code: 'messaging.message_already_deleted',
+      });
+    }
+    const windowMinutes = await this.recallWindowMinutes();
+    if (!isWithinRecallWindow(existing.createdAt, new Date(), windowMinutes)) {
+      throw new ForbiddenException({
+        message: `The recall window of ${windowMinutes} minutes has expired for this message`,
+        code: 'messaging.recall_window_expired',
+      });
+    }
+    await this.repo.insertModeratorAction({
+      messageId, conversationId: conversation.id, actorId, authorId: existing.userIdFrom,
+      action: 'recall', reason: null, messageSeq: existing.seq,
+    });
+    const recalled = await this.repo.applyRecall(messageId, actorId);
     const courseId = await this.resolveConversationCourseId(conversation);
     await this.outbox.enqueueStandalone({
-      aggregate: 'messaging', type: 'message_deleted',
+      aggregate: 'messaging', type: 'message_recalled',
       payload: {
         actorId, conversationId: conversation.id, messageId, seq: existing.seq,
-        deletedBy: actorId, authorId: existing.userIdFrom, courseId: courseId ?? undefined,
+        recalledBy: actorId, authorId: existing.userIdFrom, courseId: courseId ?? undefined,
       },
     });
-    return deleted!;
+    return recalled!;
+  }
+
+  /**
+   * Lớp (c) — XOÁ CỨNG một tin: chỉ moderator có `moderation:manage`
+   * trong phạm vi, lý do bắt buộc (chốt ở DTO), không giới hạn thời
+   * gian. Dấu vết moderator_action ghi TRƯỚC, dòng tin xoá vật lý
+   * SAU — sau thao tác này nội dung không còn ở bất kỳ đường đọc
+   * nào, kể cả truy vết; căn cứ duy nhất còn lại là dòng hành động.
+   */
+  async hardDeleteMessage(actorId: string, messageId: string, input: { reason: string }): Promise<{ deleted: true; messageId: string; conversationId: string }> {
+    const existing = await this.repo.getMessage(messageId);
+    if (!existing) throw new NotFoundException({ message: `Message ${messageId} not found`, code: 'messaging.message_not_found' });
+    const conversation = await this.repo.getConversation(existing.conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${existing.conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    await this.assertCanHardDelete(actorId, conversation);
+    await this.repo.insertModeratorAction({
+      messageId, conversationId: conversation.id, actorId, authorId: existing.userIdFrom,
+      action: 'hard_delete', reason: input.reason, messageSeq: existing.seq,
+    });
+    await this.repo.hardDeleteMessage(messageId);
+    const courseId = await this.resolveConversationCourseId(conversation);
+    await this.outbox.enqueueStandalone({
+      aggregate: 'messaging', type: 'message_removed',
+      payload: {
+        actorId, conversationId: conversation.id, messageId, seq: existing.seq,
+        removedBy: actorId, authorId: existing.userIdFrom, courseId: courseId ?? undefined,
+      },
+    });
+    return { deleted: true, messageId, conversationId: conversation.id };
+  }
+
+  /**
+   * Lớp (c) — GỠ HÀNG LOẠT: cùng cổng thẩm quyền và lý do bắt buộc
+   * như xoá cứng một tin. Toàn bộ danh sách được kiểm tra (tồn tại +
+   * thẩm quyền trên TỪNG conversation liên quan) TRƯỚC khi bất kỳ
+   * tin nào bị gỡ — một tin hỏng là cả yêu cầu bị từ chối, không gỡ
+   * một phần. Mỗi tin một dòng moderator_action 'bulk_hard_delete'
+   * và một sự kiện `message_removed` riêng.
+   */
+  async bulkRemoveMessages(actorId: string, input: { messageIds: string[]; reason: string }): Promise<{ removed: number; messageIds: string[] }> {
+    const uniqueIds = [...new Set(input.messageIds)];
+    const rows = await this.repo.getMessagesByIds(uniqueIds);
+    if (rows.length !== uniqueIds.length) {
+      throw new NotFoundException({ message: 'One or more messages were not found', code: 'messaging.message_not_found' });
+    }
+    const conversations = new Map<string, ConversationRow>();
+    for (const row of rows) {
+      let conversation = conversations.get(row.conversationId);
+      if (!conversation) {
+        conversation = (await this.repo.getConversation(row.conversationId)) ?? undefined;
+        if (!conversation) throw new NotFoundException({ message: `Conversation ${row.conversationId} not found`, code: 'messaging.conversation_not_found' });
+        await this.syncGroupConversationIfLinked(conversation);
+        conversations.set(row.conversationId, conversation);
+      }
+      await this.assertCanHardDelete(actorId, conversation);
+    }
+    for (const row of rows) {
+      await this.repo.insertModeratorAction({
+        messageId: row.id, conversationId: row.conversationId, actorId, authorId: row.userIdFrom,
+        action: 'bulk_hard_delete', reason: input.reason, messageSeq: row.seq,
+      });
+    }
+    for (const row of rows) {
+      await this.repo.hardDeleteMessage(row.id);
+    }
+    for (const row of rows) {
+      const conversation = conversations.get(row.conversationId)!;
+      const courseId = await this.resolveConversationCourseId(conversation);
+      await this.outbox.enqueueStandalone({
+        aggregate: 'messaging', type: 'message_removed',
+        payload: {
+          actorId, conversationId: row.conversationId, messageId: row.id, seq: row.seq,
+          removedBy: actorId, authorId: row.userIdFrom, bulk: true, courseId: courseId ?? undefined,
+        },
+      });
+    }
+    return { removed: rows.length, messageIds: rows.map((row) => row.id) };
   }
 
   // --- báo cáo conversation (Lớp B) -------------------------------------------

@@ -14,7 +14,7 @@ const POLL_INTERVAL_MS = 500;
 /** Số sự kiện tối đa xử lý trong một nhịp quét. */
 const BATCH_SIZE = 100;
 /** Các loại sự kiện messaging được phân phối qua realtime. */
-const DISTRIBUTED_TYPES = ['message_sent', 'message_conversation_read', 'message_deleted'] as const;
+const DISTRIBUTED_TYPES = ['message_sent', 'message_conversation_read', 'message_deleted', 'message_recalled', 'message_removed', 'message_deleted_for_me'] as const;
 
 /**
  * Consumer phân phối realtime cho messaging (issue #33, chặng A1) —
@@ -181,6 +181,13 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
       // nhận conversation.updated, và danh sách này là căn cứ rà soát
       // room khi phát message.new (F1).
       const memberIds = await this.repo.listMembers(message.conversationId);
+      // Tin đã bị THU HỒI trước khi sự kiện gửi được phân phối (gửi
+      // rồi thu hồi ngay trong cùng nhịp quét): phân phối như một lần
+      // thu hồi — phát bản tin mới ở đây sẽ lộ nội dung vừa bị vô hiệu.
+      if (message.recalledAt) {
+        await this.realtime.distributeMessageRecalled(message, memberIds);
+        return;
+      }
       await this.realtime.distributeNewMessage(message, memberIds);
       return;
     }
@@ -202,6 +209,43 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
       if (!message || !message.deletedAt) return;
       const memberIds = await this.repo.listMembers(message.conversationId);
       await this.realtime.distributeMessageDeleted(message, memberIds);
+      return;
+    }
+    if (type === 'message_recalled') {
+      const messageId = typeof payload.messageId === 'string' ? payload.messageId : null;
+      if (!messageId) return;
+      // Tin thu hồi vẫn còn dòng (nội dung chỉ bị vô hiệu ở đường
+      // đọc) — đọc lại dấu thu hồi mới nhất rồi phân phối; nếu dấu đã
+      // mất (dòng bị xoá cứng chen giữa) thì sự kiện gỡ cứng đi sau
+      // sẽ lo phần còn lại.
+      const message = await this.repo.getMessage(messageId);
+      if (!message || !message.recalledAt) return;
+      const memberIds = await this.repo.listMembers(message.conversationId);
+      await this.realtime.distributeMessageRecalled(message, memberIds);
+      return;
+    }
+    if (type === 'message_removed') {
+      // Tin đã bị XOÁ CỨNG: dòng không còn trong DB — mọi định danh
+      // lấy từ BẢN CHỤP trong payload lúc xoá, membership vẫn chốt
+      // tại thời điểm phân phối như mọi sự kiện (kỷ luật F1).
+      const conversationId = typeof payload.conversationId === 'string' ? payload.conversationId : null;
+      const messageId = typeof payload.messageId === 'string' ? payload.messageId : null;
+      const seq = typeof payload.seq === 'number' ? payload.seq : null;
+      const removedBy = typeof payload.removedBy === 'string' ? payload.removedBy : null;
+      if (!conversationId || !messageId || seq === null || !removedBy) return;
+      const memberIds = await this.repo.listMembers(conversationId);
+      await this.realtime.distributeMessageRemoved({ conversationId, messageId, seq, removedBy }, memberIds);
+      return;
+    }
+    if (type === 'message_deleted_for_me') {
+      // Xoá-phía-mình: phân phối CHỈ tới chính người xoá (realtime tự
+      // giới hạn ở room riêng của họ) — membership không liên quan.
+      const conversationId = typeof payload.conversationId === 'string' ? payload.conversationId : null;
+      const messageId = typeof payload.messageId === 'string' ? payload.messageId : null;
+      const seq = typeof payload.seq === 'number' ? payload.seq : null;
+      const actorId = typeof payload.actorId === 'string' ? payload.actorId : null;
+      if (!conversationId || !messageId || seq === null || !actorId) return;
+      await this.realtime.distributeMessageDeletedForMe({ conversationId, messageId, seq, actorId });
     }
   }
 }

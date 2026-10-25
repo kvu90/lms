@@ -69,27 +69,14 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     );
     expect(Number(staleOverrides.rows[0].n)).toBe(0);
 
-    // The registry itself is intact: 111 definitions (94 trên main d5e20fc
-    // — 88 gốc + 5 quyền assign:* của mod_assign, issue #88 +
-    // contentbank:reviewcontent của Kho học liệu CB-1, issue #69 — cộng 3
-    // quyền question:* của feat ngân hàng câu hỏi chung, PR #83, cộng 3
-    // quyền quiz của Quiz Chặng 2+3, PR #84: quiz:manageoverrides,
-    // quiz:viewmatrix, quiz:managematrix, cộng 3 quyền matrix:* của
-    // Ngân hàng ma trận MB-1, issue #111: matrix:copy, matrix:share,
-    // matrix:moderate, cộng 6 quyền exam:* của Ngân hàng đề EB-1,
-    // issue #113: exam:view, exam:edit, exam:copy, exam:share,
-    // exam:moderate, exam:deploy), every one prefix-free,
-    // and the renamed defaults were re-seeded at the system context.
-    // Provenance of the count: 100 (sau PR #84) + 2 của PH-0
-    // (issue #116) + 3 new capabilities added by MB-1 (issue #111)
-    // + 6 new capabilities added by EB-1 Ngân hàng đề (issue #113):
+    // The registry itself is intact: 111 definitions trên main 7ff4691
+    // (105 + 6 quyền exam:* của Ngân hàng đề EB-1, issue #113:
     // exam:view, exam:edit, exam:copy, exam:share, exam:moderate,
-    // exam:deploy.
+    // exam:deploy) + 1 quyền moderation:manage của vòng đời tin nhắn
+    // theo vai (issue #124) → 112, every one prefix-free,
+    // and the renamed defaults were re-seeded at the system context.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
-    // 100 sau Quiz Chặng 2+3 (PR #84) + 2 quyền của PH-0 (issue #116):
-    // grade:publish, guardian:manage → 102, + 3 quyền matrix:* của MB-1
-    // (issue #111) → 105, + 6 quyền exam:* của EB-1 (issue #113) → 111.
-    expect(Number(defs.rows[0].n)).toBe(111);
+    expect(Number(defs.rows[0].n)).toBe(112);
     const renamed = await pg.query<{ permission: number }>(
       `select permission from role_capabilities where context_id = $1 and role_id = $2 and capability = 'course:update'`,
       [systemId, managerId],

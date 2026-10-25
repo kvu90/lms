@@ -116,6 +116,10 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'curriculum:manage', capType: 'write', contextLevel: 10, component: 'core_curriculum', archetypes: { manager: CAP_ALLOW } },
   // Communication & Engagement
   { name: 'site:sendmessage', capType: 'write', contextLevel: 30, component: 'core_message', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
+  // Kiểm duyệt nội dung trao đổi (vòng đời tin nhắn theo vai, issue #33):
+  // cổng cho thao tác xoá CỨNG/gỡ hàng loạt tin nhắn — staff khoá tại
+  // context khoá của conversation, quản trị viên qua archetype manager.
+  { name: 'moderation:manage', capType: 'write', contextLevel: 50, component: 'core_message', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'calendar:manageentries', capType: 'write', contextLevel: 50, component: 'core_calendar', archetypes: { ...ALL_STAFF } },
   { name: 'calendar:managegroupentries', capType: 'write', contextLevel: 50, component: 'core_calendar', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'calendar:manageownentries', capType: 'write', contextLevel: 30, component: 'core_calendar', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },

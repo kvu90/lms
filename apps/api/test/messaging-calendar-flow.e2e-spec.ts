@@ -143,7 +143,7 @@ describe('Messaging & calendar', () => {
     expect(mine!.members).toEqual(expect.arrayContaining([a.id, b.id]));
   });
 
-  it('a sent message cannot be EDITED; deletion is the soft-delete flow of Lớp B (supersedes the old §2#12 absolute immutability)', async () => {
+  it('a sent message cannot be EDITED; deletion follows the role lifecycle — delete-for-me hides it for the author only, recall invalidates it for everyone (bổ sung PR #94)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
     // Contact gate: the two users are accepted contacts so the send itself succeeds.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
@@ -152,24 +152,40 @@ describe('Messaging & calendar', () => {
     const sent = await http(app).post(`/api/v1/messages/conversations/${conv.body.id}/messages`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Words I regret' });
     const messageId = sent.body.id as string;
-    // Editing stays refused — the Lớp B policy only softens deletion.
+    // Editing stays refused — the lifecycle only governs deletion/recall.
     const patch = await http(app).patch(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Edited!' });
     expect(patch.status).toBe(403);
     expect(patch.body.code).toBe('messaging.message_immutable');
-    // The author soft-deletes their own message: the row is only MARKED
-    // (deletedAt/deletedBy carry the trace), never physically removed.
+    // DELETE is now DELETE-FOR-ME (vòng đời theo vai, lớp (a)): the
+    // row is NOT marked deleted — only a per-user flag hides it from
+    // the author. The response is the untouched row.
     const del = await http(app).delete(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`);
     expect(del.status).toBe(200);
     expect(del.body.id).toBe(messageId);
-    expect(del.body.deletedAt).toBeTruthy();
-    expect(del.body.deletedBy).toBe(a.id);
+    expect(del.body.deletedAt).toBeNull();
+    expect(del.body.deletedBy).toBeNull();
     expect(del.body.fullMessage).toBe('Words I regret');
-    // Both students stop seeing it — the recipient AND the author.
-    const viewB = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
-    expect((viewB.body.messages as { id: string }[]).map((m) => m.id)).not.toContain(messageId);
+    // The AUTHOR stops seeing it…
     const viewA = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${aToken}`);
     expect((viewA.body.messages as { id: string }[]).map((m) => m.id)).not.toContain(messageId);
+    // …but the RECIPIENT still sees it in full: delete-for-me never
+    // leaks to the other side (that is what recall is for).
+    const viewB = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
+    const forB = (viewB.body.messages as { id: string; fullMessage: string }[]).find((m) => m.id === messageId);
+    expect(forB?.fullMessage).toBe('Words I regret');
+    // RECALL (lớp (b), still inside the default 15-minute window)
+    // invalidates the content for the recipient: the row stays as a
+    // placeholder with the recall trace, its content is blanked.
+    const recall = await http(app).post(`/api/v1/messages/messages/${messageId}/recall`).set('Authorization', `Bearer ${aToken}`).send({});
+    expect(recall.status).toBe(201);
+    expect(recall.body.recalledBy).toBe(a.id);
+    const viewBAfter = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
+    const recalledForB = (viewBAfter.body.messages as { id: string; fullMessage: string; recalledAt: string | null }[])
+      .find((m) => m.id === messageId);
+    expect(recalledForB).toBeDefined();
+    expect(recalledForB!.fullMessage).toBe('');
+    expect(recalledForB!.recalledAt).toBeTruthy();
   });
 
   it('blocked contacts cannot send: the recipient block list stops delivery (api_test test_count_blocked_users)', async () => {

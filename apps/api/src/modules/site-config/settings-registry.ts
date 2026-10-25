@@ -26,6 +26,12 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // Tương đương `messagingallusers` của Moodle: false = chỉ nhắn tin cho
   // contact hoặc người học cùng khoá; true = mọi người dùng nhắn cho nhau.
   { component: 'core', name: 'messagingallusers', type: 'boolean', defaultValue: false },
+  // Cửa sổ THU HỒI tin nhắn (vòng đời tin nhắn theo vai, issue #33),
+  // đơn vị PHÚT tính từ lúc gửi: trong cửa sổ, tác giả thu hồi được
+  // tin cho mọi người; ngoài cửa sổ chỉ còn xoá phía mình và đường
+  // kiểm duyệt. 0 = tắt hẳn thu hồi. Mặc định 15 phút theo chuẩn các
+  // app nhắn tin phổ biến.
+  { component: 'core', name: 'messagingrecallwindowminutes', type: 'number', defaultValue: 15 },
   { component: 'badges', name: 'enabled', type: 'boolean', defaultValue: true },
 ];
 

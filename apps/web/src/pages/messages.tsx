@@ -34,6 +34,14 @@ interface MessageView {
    */
   deletedAt?: string | null;
   deletedBy?: string | null;
+  /**
+   * Dấu vết THU HỒI (vòng đời tin nhắn theo vai, issue #33): đường đọc
+   * thường trả nội dung rỗng kèm hai trường này để hiện dòng "tin nhắn
+   * đã được thu hồi"; chỉ đường truy vết có thẩm quyền mới thấy nội
+   * dung gốc.
+   */
+  recalledAt?: string | null;
+  recalledBy?: string | null;
   /** Trạng thái cục bộ của tin gửi lạc quan; tin từ server không có trường này. */
   localStatus?: 'sending' | 'failed';
 }
@@ -163,6 +171,8 @@ export function MessagesPage() {
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  /** Tin đã chọn để gỡ hàng loạt (chỉ moderator) — chọn bằng checkbox ở từng dòng tin. */
+  const [selectedForBulk, setSelectedForBulk] = useState<Set<string>>(new Set());
 
   /** Deep-link ?conversation= chỉ xử lý một lần khi trang vừa nạp (không giành cuộc trò chuyện đang mở ở các lần nạp lại sau). */
   const deepLinkHandledRef = useRef(false);
@@ -372,6 +382,28 @@ export function MessagesPage() {
         setMessages((prev) => prev.map((m) => (m.id === messageId
           ? { ...m, deletedAt: new Date().toISOString(), deletedBy }
           : m)));
+      },
+      onConversationInvalidate: ({ conversationId }) => {
+        // Vòng đời tin nhắn theo vai (issue #33): thu hồi phát
+        // message.deleted trước, invalidate sau — chỉ tải lại cửa sổ
+        // tin mới phân biệt được "đã thu hồi" (recalledAt, nội dung
+        // rỗng) với "đã xoá", và tin bị xoá cứng mới biến mất khỏi
+        // khung. Danh sách luôn tải lại vì tin cuối/số chưa đọc đã đổi.
+        if (activeRef.current?.id === conversationId) {
+          void (async () => {
+            try {
+              const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conversationId}`);
+              setMessages(detail.messages);
+              setHasMoreBefore(detail.hasMoreBefore ?? false);
+              const markers: Record<string, number> = {};
+              for (const marker of detail.memberReadMarkers ?? []) markers[marker.userId] = marker.lastReadSeq;
+              setReadMarkers(markers);
+            } catch {
+              // Giữ khung cũ; lần tải lại sau sẽ đồng bộ.
+            }
+          })();
+        }
+        void reload().catch(() => undefined);
       },
       onReadReceipt: ({ conversationId, userId, lastReadSeq }) => {
         if (activeRef.current?.id === conversationId) {
@@ -612,9 +644,10 @@ export function MessagesPage() {
   }
 
   /**
-   * Xoá mềm một tin nhắn (tin của mình, hoặc mọi tin khi canModerate):
-   * server trả dòng tin kèm dấu vết — áp ngay vào khung; phía học sinh
-   * tin biến mất ở bước render, phía kiểm duyệt thấy dấu đã xoá.
+   * Xoá-phía-mình một tin nhắn (vòng đời tin nhắn theo vai, issue #33):
+   * chỉ tác giả, mọi lúc — tin chỉ ẩn khỏi tầm nhìn của chính người
+   * xoá, phía kia không đổi. Server trả dòng tin kèm dấu vết — áp ngay
+   * vào khung; phía học sinh tin biến mất ở bước render.
    */
   async function deleteMessage(message: MessageView) {
     setActionMessage(null);
@@ -625,6 +658,71 @@ export function MessagesPage() {
         : m)));
     } catch {
       setActionMessage(t('deleteMessageFailed'));
+    }
+  }
+
+  /**
+   * Cửa sổ thu hồi mặc định (phút) theo site-config
+   * `core/messagingrecallwindowminutes`: server là thẩm quyền cuối
+   * (ngoài cửa sổ trả 403) — client chỉ dùng mốc này để ẨN nút thu
+   * hồi khi tin đã cũ, không tự quyết cho phép thu hồi.
+   */
+  const RECALL_WINDOW_MINUTES = 15;
+  function canRecall(message: MessageView): boolean {
+    if (message.userIdFrom !== myId || message.localStatus || message.recalledAt || message.deletedAt) return false;
+    return Date.now() - new Date(message.createdAt).getTime() < RECALL_WINDOW_MINUTES * 60 * 1000;
+  }
+
+  /** Thu hồi tin của mình cho mọi người (chỉ trong cửa sổ): nội dung bị vô hiệu, khung hiện dòng đã thu hồi. */
+  async function recallMessage(message: MessageView) {
+    setActionMessage(null);
+    try {
+      const recalled = await apiJson<MessageView>(`/api/v1/messages/messages/${message.id}/recall`, { method: 'POST', body: '{}' });
+      setMessages((prev) => prev.map((m) => (m.id === message.id
+        ? { ...m, fullMessage: '', recalledAt: recalled.recalledAt ?? new Date().toISOString(), recalledBy: recalled.recalledBy ?? myId ?? null }
+        : m)));
+    } catch {
+      setActionMessage(t('recallMessageFailed'));
+    }
+  }
+
+  /** Xoá cứng một tin (chỉ moderator có moderation:manage): lý do bắt buộc, tin biến mất khỏi khung ngay. */
+  async function hardDeleteMessage(message: MessageView) {
+    setActionMessage(null);
+    if (!window.confirm(t('hardDeleteConfirm'))) return;
+    const reason = window.prompt(t('hardDeleteReasonPrompt'));
+    if (!reason || !reason.trim()) return;
+    try {
+      await apiJson(`/api/v1/messages/messages/${message.id}/hard-delete`, {
+        method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
+      });
+      setMessages((prev) => prev.filter((m) => m.id !== message.id));
+      setSelectedForBulk((prev) => {
+        const next = new Set(prev);
+        next.delete(message.id);
+        return next;
+      });
+    } catch {
+      setActionMessage(t('hardDeleteMessageFailed'));
+    }
+  }
+
+  /** Gỡ hàng loạt các tin đã chọn (chỉ moderator): toàn bộ danh sách kiểm tra thẩm quyền trước, một tin ngoài phạm vi là cả lượt bị từ chối. */
+  async function bulkRemoveSelected() {
+    setActionMessage(null);
+    const messageIds = [...selectedForBulk];
+    if (messageIds.length === 0) return;
+    if (!window.confirm(t('bulkRemoveConfirm', { count: messageIds.length }))) return;
+    const reason = window.prompt(t('bulkRemoveReasonPrompt'));
+    if (!reason || !reason.trim()) return;
+    try {
+      await apiJson('/api/v1/messages/messages/bulk-remove', {
+        method: 'POST', body: JSON.stringify({ messageIds, reason: reason.trim() }),
+      });
+      setMessages((prev) => prev.filter((m) => !selectedForBulk.has(m.id)));
+      setSelectedForBulk(new Set());
+    } catch {
+      setActionMessage(t('bulkRemoveMessageFailed'));
     }
   }
 
@@ -850,6 +948,14 @@ export function MessagesPage() {
                   {t('loadOlderMessages')}
                 </Button>
               ) : null}
+              {active.canModerate && selectedForBulk.size > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{t('bulkSelectedCount', { count: selectedForBulk.size })}</span>
+                  <Button type="button" variant="destructive" onClick={() => void bulkRemoveSelected()}>
+                    {t('bulkRemoveMessages')}
+                  </Button>
+                </div>
+              ) : null}
               <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
                 <MessageScroller className="h-[30rem] rounded-md border">
                   <MessageScrollerViewport aria-label={t('messagesListLabel')}>
@@ -867,16 +973,21 @@ export function MessagesPage() {
                               <MessageContent>
                                 {!mine ? <MessageHeader>{nameOf(m.userIdFrom)}</MessageHeader> : null}
                                 <Bubble
-                                  variant={m.deletedAt ? 'destructive' : mine ? 'default' : 'muted'}
+                                  variant={m.deletedAt || m.recalledAt ? 'destructive' : mine ? 'default' : 'muted'}
                                   align={mine ? 'end' : 'start'}
                                 >
-                                  <BubbleContent>{m.fullMessage}</BubbleContent>
+                                  <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
                                 </Bubble>
                                 <MessageFooter className="flex-wrap gap-2">
                                   <span>{new Date(m.createdAt).toLocaleString()}</span>
                                   {m.deletedAt ? (
                                     <span className="italic">
                                       {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
+                                    </span>
+                                  ) : null}
+                                  {m.recalledAt ? (
+                                    <span className="italic">
+                                      {t('messageRecalledBy', { userId: m.recalledBy ? nameOf(m.recalledBy) : '' })}
                                     </span>
                                   ) : null}
                                   {m.localStatus === 'sending' ? <span>{t('messageSending')}</span> : null}
@@ -888,10 +999,33 @@ export function MessagesPage() {
                                       </Button>
                                     </span>
                                   ) : null}
-                                  {!m.deletedAt && !m.localStatus && (m.userIdFrom === myId || active.canModerate) ? (
+                                  {!m.deletedAt && !m.localStatus && m.userIdFrom === myId ? (
                                     <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
                                       {t('deleteMessage')}
                                     </Button>
+                                  ) : null}
+                                  {canRecall(m) ? (
+                                    <Button type="button" variant="outline" onClick={() => void recallMessage(m)}>
+                                      {t('recallMessage')}
+                                    </Button>
+                                  ) : null}
+                                  {active.canModerate && !m.localStatus ? (
+                                    <>
+                                      <input
+                                        type="checkbox"
+                                        aria-label={t('selectMessageForBulk')}
+                                        checked={selectedForBulk.has(m.id)}
+                                        onChange={() => setSelectedForBulk((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(m.id)) next.delete(m.id);
+                                          else next.add(m.id);
+                                          return next;
+                                        })}
+                                      />
+                                      <Button type="button" variant="destructive" onClick={() => void hardDeleteMessage(m)}>
+                                        {t('hardDeleteMessage')}
+                                      </Button>
+                                    </>
                                   ) : null}
                                 </MessageFooter>
                               </MessageContent>

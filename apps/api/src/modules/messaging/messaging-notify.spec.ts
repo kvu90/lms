@@ -23,12 +23,14 @@ describe('MessagingService.notify — external channel minimization', () => {
     const unreadStream = { signalUnreadCountChanged: vi.fn(async () => undefined) };
     const dispatchQueue = { add: vi.fn(async (_name: string, data: Record<string, unknown>) => { jobs.push(data); }) };
     const outbox = { enqueueStandalone: vi.fn(async () => undefined) };
-    // Rebase lên main sau N1 (#59): lát #33 đã gỡ SiteConfigService khỏi
-    // MessagingService (cổng messagingallusers không còn hiệu lực với tin
-    // nhắn) nên constructor chỉ còn 8 tham số — bỏ placeholder siteConfig.
+    // SiteConfigService quay lại constructor (tham số thứ 9) cho cửa
+    // sổ THU HỒI của vòng đời tin nhắn theo vai — spec này không đụng
+    // đường thu hồi nên chỉ cần stub getValue trả undefined (service
+    // tự rơi về mặc định 15 phút).
+    const siteConfig = { getValue: vi.fn(async () => undefined) };
     const service = new MessagingService(
       repo as never, users as never, {} as never, {} as never, outbox as never,
-      {} as never, unreadStream as never, dispatchQueue as never,
+      {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
     );
     return { service, inserted, jobs };
   }

@@ -380,7 +380,9 @@ function stubDomainFetch(calls: RecordedCall[]) {
     conversationId: CONV_ID,
     userIdFrom: ME_ID,
     fullMessage: 'tin của tôi sẽ xoá',
-    createdAt: '2026-01-01T00:00:00.000Z',
+    // Tin mới gửi trong vòng cửa sổ thu hồi (15 phút) để nút Thu hồi
+    // hiện trong test vòng đời; các test cũ không phụ thuộc mốc này.
+    createdAt: new Date().toISOString(),
     seq: 1,
     clientMessageId: null,
     deletedAt: null as string | null,
@@ -451,6 +453,14 @@ function stubDomainFetch(calls: RecordedCall[]) {
       if (url === `/api/v1/messages/messages/${ownMessage.id}` && method === 'DELETE') {
         ownMessage.deletedAt = '2026-01-01T00:03:00.000Z';
         ownMessage.deletedBy = ME_ID;
+        return respond(ownMessage);
+      }
+      if (url === `/api/v1/messages/messages/${ownMessage.id}/recall` && method === 'POST') {
+        // Thu hồi: server trả dòng tin kèm dấu thu hồi, nội dung đã vô
+        // hiệu với thành viên thường (xem trước cũng rỗng).
+        ownMessage.fullMessage = '';
+        (ownMessage as unknown as Record<string, unknown>).recalledAt = new Date().toISOString();
+        (ownMessage as unknown as Record<string, unknown>).recalledBy = ME_ID;
         return respond(ownMessage);
       }
       if (url === `/api/v1/messages/conversations/${CONV_ID}/report` && method === 'POST')
@@ -688,5 +698,48 @@ describe('Messages page — create conversation contract', () => {
     // Conversation vừa tạo mở ra với người được chỉ định là một thành viên:
     // nút chặn dành cho thành viên đó xuất hiện trong khung trò chuyện.
     expect(await screen.findByRole('button', { name: 'Chặn liên lạc' })).toBeInTheDocument();
+  });
+});
+
+describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invalidate)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('shows the recall button only for my recent message, recalls via POST, and keeps the recalled line after conversation.invalidate', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubDomainFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm lớp/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
+
+    // Chỉ tin của mình (mới gửi, trong cửa sổ 15 phút) có nút Thu hồi;
+    // tin của bạn học không có.
+    const recallButtons = screen.getAllByRole('button', { name: 'Thu hồi' });
+    expect(recallButtons).toHaveLength(1);
+    await userEvent.click(recallButtons[0]!);
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/messages/messages/01900000-0000-7000-8000-0000000000d5/recall` && c.method === 'POST')).toBe(true),
+    );
+    // Nội dung bị vô hiệu, khung hiện dòng đã thu hồi thay vì nội dung cũ.
+    expect(await within(thread).findByText('Tin nhắn đã được thu hồi.')).toBeInTheDocument();
+    expect(within(thread).queryByText('tin của tôi sẽ xoá')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thu hồi' })).not.toBeInTheDocument();
+
+    // Sự kiện conversation.invalidate tải lại cửa sổ tin: dòng đã thu
+    // hồi vẫn còn (không bị ghi đè thành xoá hay trở lại nội dung cũ).
+    act(() => {
+      realtime.handlers?.onConversationInvalidate({ conversationId: CONV_ID } as never);
+    });
+    await waitFor(() =>
+      expect(calls.filter((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}`).length).toBeGreaterThan(1),
+    );
+    expect(await within(thread).findByText('Tin nhắn đã được thu hồi.')).toBeInTheDocument();
   });
 });

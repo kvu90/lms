@@ -24,6 +24,16 @@ export const messageSchema = z.object({
    */
   deletedAt: z.string().nullable(),
   deletedBy: uuidIdSchema.nullable(),
+  /**
+   * Dấu vết THU HỒI (vòng đời tin nhắn theo vai, issue #33): tác giả
+   * thu hồi tin cho mọi người trong cửa sổ cấu hình site — từ thời
+   * điểm này nội dung bị vô hiệu với mọi thành viên thường (đường đọc
+   * thường trả nội dung rỗng kèm hai trường này để client hiện dòng
+   * "tin nhắn đã được thu hồi"); chỉ đường truy vết có thẩm quyền
+   * mới còn thấy nội dung gốc. null khi tin chưa từng bị thu hồi.
+   */
+  recalledAt: z.string().nullable(),
+  recalledBy: uuidIdSchema.nullable(),
 });
 export type LmsMessage = z.infer<typeof messageSchema>;
 
@@ -364,6 +374,31 @@ export const updateReportStatusSchema = z.strictObject({
 export type UpdateReportStatus = z.infer<typeof updateReportStatusSchema>;
 
 /**
+ * Xoá CỨNG một tin bởi người kiểm duyệt (vòng đời tin nhắn theo vai,
+ * issue #33): chỉ người có capability `moderation:manage` trong phạm
+ * vi của conversation, không giới hạn thời gian, và LÝ DO LÀ BẮT
+ * BUỘC — mọi lần xoá cứng đều ghi một dòng moderator_action kèm lý
+ * do này trước khi dòng tin bị xoá vật lý.
+ */
+export const hardDeleteMessageSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(500),
+});
+export type HardDeleteMessage = z.infer<typeof hardDeleteMessageSchema>;
+
+/**
+ * Gỡ HÀNG LOẠT nhiều tin bởi người kiểm duyệt: cùng luật thẩm quyền
+ * và lý do bắt buộc như xoá cứng một tin; trần 100 tin mỗi lượt để
+ * một yêu cầu không khoá bảng quá lâu — cần gỡ nhiều hơn thì chia
+ * lượt. Toàn bộ danh sách được kiểm tra thẩm quyền TRƯỚC: một tin
+ * ngoài phạm vi là cả yêu cầu bị từ chối, không gỡ một phần.
+ */
+export const bulkRemoveMessagesSchema = z.strictObject({
+  messageIds: z.array(uuidIdSchema).min(1).max(100),
+  reason: z.string().trim().min(1).max(500),
+});
+export type BulkRemoveMessages = z.infer<typeof bulkRemoveMessagesSchema>;
+
+/**
  * Tóm tắt hiển thị của một user, trả kèm trong các response danh sách
  * của messaging để client hiện TÊN thay cho UUID thô.
  */
@@ -440,6 +475,13 @@ export const MESSAGING_SOCKET_EVENTS = {
   messageRead: 'message.read',
   /** Server → client: một tin đã bị xoá mềm — client gỡ tin khỏi khung (payload không kèm nội dung). */
   messageDeleted: 'message.deleted',
+  /**
+   * Server → client: cache DANH SÁCH conversation của người nhận đã
+   * cũ — client PHẢI tải lại danh sách (tin cuối/số chưa đọc không
+   * còn tin được sau một lần xoá/thu hồi/xoá cứng). Phát kèm mọi sự
+   * kiện xoá của vòng đời tin nhắn theo vai (issue #33).
+   */
+  conversationInvalidate: 'conversation.invalidate',
   /** Hai chiều: một thành viên đang nhập trong conversation. */
   typing: 'typing',
   /** Server → client: trạng thái trực tuyến của một user thay đổi. */
@@ -482,6 +524,17 @@ export interface RealtimeMessageDeletedPayload {
   messageId: string;
   seq: number;
   deletedBy: string;
+}
+
+/**
+ * Danh sách conversation của người nhận sự kiện này phải được tải
+ * lại từ đầu (vô hiệu cache): phát sau các thao tác xoá/thu hồi/xoá
+ * cứng làm tin cuối hoặc số chưa đọc thay đổi theo cách mà một bản
+ * `conversation.updated` đơn lẻ không diễn tả hết được (ví dụ tin
+ * cuối bị xoá cứng — không còn "tin cuối mới" để gửi kèm).
+ */
+export interface RealtimeConversationInvalidatePayload {
+  conversationId: string;
 }
 
 export interface RealtimeTypingPayload {
