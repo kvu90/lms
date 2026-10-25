@@ -1,10 +1,10 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Job } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { notificationDispatchLog, userPreferences, users } from '@lms/db-schema';
+import { notificationDispatchLog, pluginConfig, userPreferences, users } from '@lms/db-schema';
 import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;
@@ -21,9 +21,17 @@ export interface NotificationDispatchJobData {
   tenantId?: string | null;
 }
 export interface NotificationDispatchResult {
-  status: 'logged' | 'skipped-suspended' | 'skipped-preference' | 'duplicate';
+  status: 'logged' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'duplicate';
   channel: string;
 }
+
+/**
+ * Hai loại bắt buộc (P2) — bản chiếu tối thiểu của `mandatoryInApp`
+ * trong registry phía API (messaging/notification-providers.ts):
+ * chính sách admin không bao giờ chặn chúng, kể cả ở khâu kiểm lại
+ * lúc phân phối này.
+ */
+const MANDATORY_PROVIDERS = new Set(['enrol_expiry_warning', 'admin_announcement']);
 
 /**
  * Notification dispatch: the worker end of the channel PORTS. Email and
@@ -64,6 +72,29 @@ export class NotificationDispatchProcessor extends WorkerHost {
         notificationId: job.data.notificationId ?? null,
       }).onConflictDoNothing();
       return { status: 'skipped-suspended', channel };
+    }
+    // Admin site policy re-check (NB-7): the type may have been
+    // disabled site-wide AFTER the job was queued — the dispatch-time
+    // law wins, like the suspended/preference re-checks. Mandatory P2
+    // types are never blocked here either.
+    if (!MANDATORY_PROVIDERS.has(provider)) {
+      const [policy] = await this.db.select({ value: pluginConfig.value }).from(pluginConfig)
+        .where(and(
+          eq(pluginConfig.plugin, 'notifications'),
+          eq(pluginConfig.name, `provider_${provider}_enabled`),
+          isNull(pluginConfig.tenantId),
+        ));
+      let adminDisabled = false;
+      if (policy && policy.value !== null) {
+        try { adminDisabled = JSON.parse(policy.value) === false; } catch { adminDisabled = false; }
+      }
+      if (adminDisabled) {
+        await this.db.insert(notificationDispatchLog).values({
+          userId: userId, provider, channel, status: 'skipped-admin-disabled', subject, dedupeKey, tenantId,
+          notificationId: job.data.notificationId ?? null,
+        }).onConflictDoNothing();
+        return { status: 'skipped-admin-disabled', channel };
+      }
     }
     // Preference re-check for both login states: disabled in both ⇒ no dispatch.
     const prefName = (state: string) => `message_provider_${provider}_${channel}_${state}`;

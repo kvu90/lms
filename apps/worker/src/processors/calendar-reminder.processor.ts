@@ -13,7 +13,7 @@ import { resolveDefaultTenantId } from '../db/default-tenant';
 type Database = NodePgDatabase<typeof relations>;
 
 export interface CalendarReminderJobData { eventId: string; userId: string; minutesBefore: number }
-export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'event-missing'; notificationId?: string }
+export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'event-missing'; notificationId?: string }
 
 /**
  * Calendar reminders: the API schedules these as BullMQ DELAYED jobs;
@@ -81,6 +81,7 @@ export class CalendarReminderProcessor extends WorkerHost {
     });
     if (delivered.status === 'delivered') return { status: 'notified', notificationId: delivered.notificationId };
     if (delivered.status === 'skipped-suspended') return { status: 'skipped-suspended' };
+    if (delivered.status === 'skipped-admin-disabled') return { status: 'skipped-admin-disabled' };
     // 'skipped-preference' là trạng thái duy nhất còn lại cho provider đã
     // đăng ký này (deliverInApp chỉ trả unknown-provider khi provider
     // không nằm trong sổ worker — calendar_reminder luôn có mặt).

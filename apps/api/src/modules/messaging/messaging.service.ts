@@ -27,6 +27,8 @@ import {
   isExemptFromCourseMute,
   EMAIL_CHANNEL_AVAILABLE,
   defaultEmailFrequency,
+  NOTIFICATION_POLICY_COMPONENT,
+  notificationPolicySettingName,
   type MessageChannel,
   type LoginState,
   type MessageProviderGroup,
@@ -254,6 +256,36 @@ export class MessagingService {
   // --- preferences -----------------------------------------------------------
 
   /**
+   * Chính sách phát của ADMIN ở cấp site cho một provider (NB-7,
+   * issue #174): đọc khoá `notifications/provider_<tên>_enabled` trong
+   * site-config; chưa ghi đè = mặc định bật (hành vi trước NB-7). Loại
+   * bắt buộc P2 luôn bật ở tầng này — SiteConfigService đã chặn không
+   * cho admin đặt false, ở đây ép bật thêm một lớp cho chắc.
+   */
+  async isProviderEnabledBySitePolicy(provider: MessageProviderDefinition): Promise<boolean> {
+    if (provider.mandatoryInApp) return true;
+    const value = await this.siteConfig.getValue<boolean>(
+      NOTIFICATION_POLICY_COMPONENT,
+      notificationPolicySettingName(provider.name),
+    );
+    return value !== false;
+  }
+
+  /**
+   * User có được toàn bộ bề mặt tuỳ chọn theo loại (v2) hay chỉ bề
+   * mặt tối thiểu của học sinh (NB-7, issue #174 — quyết của Lão gia:
+   * học sinh chỉ tuỳ chọn TỐI THIỂU). Đầy đủ = site admin, hoặc có bất
+   * kỳ gán vai nhân sự (archetype manager/coursecreator/
+   * editingteacher/teacher) tại bất kỳ context nào. Còn lại — học
+   * sinh thuần, phụ huynh, tài khoản chưa gán vai — là tối thiểu: bề
+   * mặt duy nhất còn lại là ngoại lệ tắt tiếng theo khoá (NB-4).
+   */
+  async hasFullNotificationPreferences(userId: string): Promise<boolean> {
+    if (await this.evaluator.isSiteAdmin(userId)) return true;
+    return this.repo.hasStaffRoleAssignment(userId);
+  }
+
+  /**
    * Kênh có đang bật cho provider này theo tuỳ chọn của user (phân biệt logged-in/logged-off) hay không.
    * CHỈ còn dùng cho kênh push (chưa có mô hình v2 — push ẩn khỏi trang
    * cài đặt cho tới khi có app native) và làm nền suy giá trị cũ.
@@ -317,8 +349,12 @@ export class MessagingService {
   /**
    * Tuỳ chọn notification v2 của user: một dòng cho mỗi provider đã
    * đăng ký (NB-2 — không còn ma trận provider × kênh × trạng thái).
+   * Học sinh (NB-7) chỉ nhận phần tối thiểu: danh sách theo loại rỗng —
+   * bề mặt tuỳ chọn duy nhất của họ là ngoại lệ theo khoá (NB-4) ở
+   * endpoint riêng.
    */
   async getPreferences(userId: string): Promise<NotificationPreferenceView[]> {
+    if (!(await this.hasFullNotificationPreferences(userId))) return [];
     const out: NotificationPreferenceView[] = [];
     for (const provider of MESSAGE_PROVIDERS) out.push(await this.preferenceView(userId, provider));
     return out;
@@ -331,6 +367,16 @@ export class MessagingService {
    * tắt được tuyệt đối qua emailFrequency='off'.
    */
   async setPreference(userId: string, input: { provider: string; popupEnabled?: boolean; emailFrequency?: EmailFrequency }): Promise<NotificationPreferenceView> {
+    // Phân tầng bề mặt (NB-7): tuỳ chọn theo loại chỉ dành cho giáo
+    // viên/nhân sự — học sinh bị chặn ngay ở server (403), không chỉ
+    // giấu giao diện. Chặn trước mọi kiểm chứng khác để học sinh gọi
+    // với bất kỳ payload nào cũng nhận cùng một 403 rõ ràng.
+    if (!(await this.hasFullNotificationPreferences(userId))) {
+      throw new ForbiddenException({
+        message: 'Per-type notification preferences are only available to teaching and administrative staff',
+        code: 'messaging.preference_staff_only',
+      });
+    }
     const provider = providerByName(input.provider);
     if (!provider) throw new BadRequestException({ message: `Unknown message provider ${input.provider}`, code: 'messaging.unknown_provider' });
     if (input.popupEnabled === undefined && input.emailFrequency === undefined) {
@@ -454,6 +500,19 @@ export class MessagingService {
         subject: input.subject, dedupeKey: `${tenantKey}-skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
       }).catch(() => undefined);
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'suspended' };
+    }
+    // Chính sách ADMIN cấp site (NB-7, issue #174): loại bị admin tắt
+    // trong site-config thì KHÔNG phát ở bất kỳ kênh nào cho bất kỳ ai
+    // — luật toàn cục này chạy TRƯỚC tuỳ chọn người dùng và ghi đè theo
+    // khoá, chỉ ghi dispatch log 'skipped-admin-disabled' để truy vết.
+    // Hai loại bắt buộc P2 không bao giờ bị chặn ở đây (admin cũng
+    // không tắt được chúng — SiteConfigService từ chối đặt false).
+    if (!(await this.isProviderEnabledBySitePolicy(provider))) {
+      await this.repo.insertDispatchLog({
+        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-admin-disabled',
+        subject: input.subject, dedupeKey: `admin-disabled-${providerName}-${userId}-${randomUUID()}`,
+      });
+      return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'admin-disabled' };
     }
     // Ghi đè theo khoá (NB-4, issue #174): áp TRƯỚC khi xét kênh và
     // tuỳ chọn theo loại — khoá nguồn đã bị người nhận tắt tiếng thì

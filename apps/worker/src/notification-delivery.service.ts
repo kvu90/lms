@@ -1,13 +1,13 @@
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import type { relations } from './db/relations';
 import { redisConnectionFromUrl } from './config/env';
-import { notificationDispatchLog, notifications, userPreferences, users } from '@lms/db-schema';
+import { notificationDispatchLog, notifications, pluginConfig, userPreferences, users } from '@lms/db-schema';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -40,7 +40,7 @@ export const WORKER_PROVIDERS: Record<string, WorkerProviderLaw> = {
   report_scheduled: { name: 'report_scheduled', component: 'core_reportbuilder', mandatoryInApp: false },
 };
 
-export type InAppDeliveryStatus = 'delivered' | 'skipped-suspended' | 'skipped-preference' | 'unknown-provider';
+export type InAppDeliveryStatus = 'delivered' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'unknown-provider';
 export interface InAppDeliveryResult { status: InAppDeliveryStatus; notificationId?: string }
 
 /**
@@ -50,6 +50,12 @@ export interface InAppDeliveryResult { status: InAppDeliveryStatus; notification
  *
  * - Người nhận không tồn tại / bị đình chỉ / đã xoá → không lưu gì, chỉ
  *   ghi dispatch log `skipped-suspended` (như API).
+ * - Chính sách ADMIN cấp site (NB-7): loại bị admin tắt trong
+ *   site-config (`notifications/provider_<tên>_enabled` = false, đọc
+ *   thẳng từ `plugin_config` như API đọc qua SiteConfigService) → ghi
+ *   dispatch log `skipped-admin-disabled`, không sinh thông báo. Luật
+ *   này chạy TRƯỚC tuỳ chọn người dùng, như notify() phía API; loại
+ *   bắt buộc (P2) không bao giờ bị chặn ở đây.
  * - Tuỳ chọn hiệu lực theo đúng luật NB-2 (`resolveNotificationPreference`
  *   phía API): khoá v2 `message_provider_<p>_popup_v2` trước; chưa có thì
  *   suy từ dữ liệu cũ theo thứ tự loggedin → loggedoff; chưa đặt ở đâu
@@ -104,6 +110,30 @@ export class NotificationDeliveryService implements OnModuleDestroy {
       await this.publisherClient().publish(NOTIFICATION_UNREAD_CHANGED_CHANNEL, userId);
     } catch {
       // Bỏ qua: client vẫn còn số khởi tạo từ REST và snapshot khi nối lại.
+    }
+  }
+
+  /**
+   * Chính sách phát của ADMIN ở cấp site cho provider này (NB-7) —
+   * cùng luật `isProviderEnabledBySitePolicy` phía API: chưa có ghi
+   * đè trong `plugin_config` (plugin `notifications`, khoá
+   * `provider_<tên>_enabled`, tenant NULL — setting scope platform)
+   * thì mặc định bật; giá trị lưu là JSON như SiteConfigRepository
+   * ghi. Loại bắt buộc (P2) luôn bật.
+   */
+  private async isProviderEnabledBySitePolicy(provider: WorkerProviderLaw): Promise<boolean> {
+    if (provider.mandatoryInApp) return true;
+    const [row] = await this.db.select({ value: pluginConfig.value }).from(pluginConfig)
+      .where(and(
+        eq(pluginConfig.plugin, 'notifications'),
+        eq(pluginConfig.name, `provider_${provider.name}_enabled`),
+        isNull(pluginConfig.tenantId),
+      ));
+    if (!row || row.value === null) return true;
+    try {
+      return JSON.parse(row.value) !== false;
+    } catch {
+      return true;
     }
   }
 
@@ -165,6 +195,16 @@ export class NotificationDeliveryService implements OnModuleDestroy {
         tenantId: input.tenantId ?? null,
       }).onConflictDoNothing();
       return { status: 'skipped-suspended' };
+    }
+
+    // Chính sách admin cấp site (NB-7) chạy TRƯỚC tuỳ chọn người dùng,
+    // như notify() phía API.
+    if (!(await this.isProviderEnabledBySitePolicy(provider))) {
+      await this.db.insert(notificationDispatchLog).values({
+        userId, provider: providerName, channel: 'popup', status: 'skipped-admin-disabled',
+        subject: input.subject, dedupeKey: `admin-disabled-${providerName}-${userId}-${randomUUID()}`,
+      }).onConflictDoNothing();
+      return { status: 'skipped-admin-disabled' };
     }
 
     if (!(await this.resolvePopupEnabled(userId, provider))) {
