@@ -39,6 +39,13 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstS
  *  - mọi tools/call ghi outbox aggregate 'mcp' (worker relay mirror
  *    sang event_log — cùng cơ chế mọi aggregate khác).
  *  - rate limit tạo câu: vượt hạn → 429 + mã -32029 (app riêng, hạn 2).
+ *  - submit_contribution (lát MCP-2, mở lại #110): câu của chính chủ
+ *    (draft → ready) nộp vào bank trường thành contribution pending ở
+ *    cả hai kỷ nguyên; approve qua REST → deep copy vào bank trường
+ *    (derived_from trỏ câu gốc); chặn câu chưa ready / câu của người
+ *    khác / đích bank personal / câu không tồn tại; idempotency replay
+ *    + conflict; trần thiếu scope lms.banks.contribute → HTTP 403
+ *    insufficient_scope (app riêng).
  */
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -124,6 +131,9 @@ describe('MCP server (MCP-0, issue #110)', () => {
   let student: { id: string; username: string; token: string };
   let bankA = '';
   let catA = '';
+  let schoolBankId = '';
+  let contribQ1 = '';
+  let contribQ2 = '';
 
   async function mkUser(): Promise<{ id: string; username: string; token: string }> {
     const u = await createUserViaApi(app, admin);
@@ -169,6 +179,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(prm.status).toBe(200);
     expect(String(prm.body.resource)).toMatch(/\/mcp$/);
     expect(prm.body.scopes_supported).toContain('lms.questions.draft');
+    expect(prm.body.scopes_supported).toContain('lms.banks.contribute');
     expect(prm.body.authorization_servers?.length).toBeGreaterThan(0);
 
     const noToken = await mcpCall(app, null, 'tools/call', { name: 'list_my_banks', arguments: {} });
@@ -177,14 +188,14 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(badToken.status).toBe(401);
   });
 
-  it('tools/list ở cả hai kỷ nguyên: đúng 4 tools', async () => {
+  it('tools/list ở cả hai kỷ nguyên: đúng 5 tools', async () => {
     const modern = await mcpCall(app, teacherA.token, 'tools/list', {});
     expect(modern.jsonrpcError).toBeUndefined();
     const modernList = await http(app).post('/mcp').set(bearer(teacherA.token))
       .set('MCP-Protocol-Version', '2026-07-28').set('Mcp-Method', 'tools/list')
       .send({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: MODERN_META } });
     const modernNames = (parseMcpBody(modernList.text).result.tools as { name: string }[]).map((t) => t.name).sort();
-    expect(modernNames).toEqual(['create_question', 'get_question', 'list_categories', 'list_my_banks']);
+    expect(modernNames).toEqual(['create_question', 'get_question', 'list_categories', 'list_my_banks', 'submit_contribution']);
     void modern;
 
     const init = await mcpCall(app, teacherA.token, 'initialize', {
@@ -195,7 +206,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
       .set('Accept', 'application/json, text/event-stream')
       .send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
     const legacyNames = (parseMcpBody(legacyList.text).result.tools as { name: string }[]).map((t) => t.name).sort();
-    expect(legacyNames).toEqual(['create_question', 'get_question', 'list_categories', 'list_my_banks']);
+    expect(legacyNames).toEqual(['create_question', 'get_question', 'list_categories', 'list_my_banks', 'submit_contribution']);
   });
 
   it('list_my_banks + list_categories: bank personal có quyền add; học viên không có bank nào', async () => {
@@ -615,6 +626,138 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(stu.structured!.error.code).toBe('question.not_found');
   });
 
+  it('submit_contribution: câu MCP (draft → ready) nộp vào bank trường thành pending, cả hai kỷ nguyên + idempotency', async () => {
+    // Bank trường lấy qua đúng đường khám phá của MCP + service bảo đảm tồn tại.
+    const schoolBank = await banks.ensureSchoolBank(teacherA.id);
+    schoolBankId = schoolBank.id;
+    const banksRes = await callTool(app, teacherA.token, 'list_my_banks', {});
+    expect((banksRes.structured!.banks as any[]).some((b) => b.id === schoolBankId && b.scope === 'school')).toBe(true);
+
+    const mkReady = async (n: number): Promise<string> => {
+      const res = await callTool(app, teacherA.token, 'create_question', {
+        bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName(`mcpContrib${n}`),
+        questionText: `Câu đóng góp số ${n} của giáo viên A.`,
+        idempotencyKey: uniqueName('key'),
+      });
+      expect(res.isError).toBe(false);
+      const qid = res.structured!.questionId as string;
+      await banks.setQuestionStatus(qid, 'ready');
+      return qid;
+    };
+    contribQ1 = await mkReady(1);
+    contribQ2 = await mkReady(2);
+
+    const key1 = uniqueName('key');
+    const sub1 = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: [contribQ1], note: 'Đóng góp từ MCP', idempotencyKey: key1,
+    });
+    expect(sub1.isError).toBe(false);
+    expect(sub1.structured!.created).toBe(1);
+    expect(sub1.structured!.failed).toBe(0);
+    const r1 = (sub1.structured!.results as any[])[0];
+    expect(r1.status).toBe('pending');
+    expect(r1.contributionId).toBeTruthy();
+    const row = await sqlOne<{ status: string; target_bank_id: string; proposer_id: string }>(
+      'SELECT status, target_bank_id, proposer_id FROM question_bank_contributions WHERE id = $1', [r1.contributionId]);
+    expect(row.status).toBe('pending');
+    expect(row.target_bank_id).toBe(schoolBankId);
+    expect(row.proposer_id).toBe(teacherA.id);
+
+    // Kỷ nguyên legacy dùng chung factory tool — nộp được như modern.
+    const sub2 = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: [contribQ2], idempotencyKey: uniqueName('key'),
+    }, 'legacy');
+    expect(sub2.isError).toBe(false);
+    expect((sub2.structured!.results as any[])[0].status).toBe('pending');
+
+    // Phát lại cùng key + cùng payload → kết quả cũ, không nhân đôi đề xuất.
+    const replay = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: [contribQ1], note: 'Đóng góp từ MCP', idempotencyKey: key1,
+    });
+    expect(replay.isError).toBe(false);
+    expect((replay.structured!.results as any[])[0].contributionId).toBe(r1.contributionId);
+    const cnt = await sqlOne<{ n: string }>(
+      'SELECT COUNT(*)::text AS n FROM question_bank_contributions WHERE question_id = $1', [contribQ1]);
+    expect(Number(cnt.n)).toBe(1);
+
+    // Cùng key, payload khác → idempotency_conflict.
+    const conflict = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: [contribQ2], idempotencyKey: key1,
+    });
+    expect(conflict.isError).toBe(true);
+    expect(conflict.structured!.error.code).toBe('question.idempotency_conflict');
+  });
+
+  it('submit_contribution → approve qua REST → câu vào bank trường (deep copy + derived_from)', async () => {
+    const pending = await sqlOne<{ id: string }>(
+      "SELECT id FROM question_bank_contributions WHERE question_id = $1 AND status = 'pending'", [contribQ1]);
+    const approve = await http(app)
+      .post(`/api/v1/question-banks/${schoolBankId}/contributions/${pending.id}/approve`)
+      .set(bearer(admin))
+      .send({});
+    expect(approve.status).toBeLessThan(300);
+    const row = await sqlOne<{ status: string; result_question_id: string | null }>(
+      'SELECT status, result_question_id FROM question_bank_contributions WHERE id = $1', [pending.id]);
+    expect(row.status).toBe('approved');
+    expect(row.result_question_id).toBeTruthy();
+    const copied = await sqlOne<{ derived: string; bank: string }>(
+      `SELECT q.derived_from_question_id AS derived, c.bank_id AS bank
+         FROM question q JOIN question_categories c ON c.id = q.category
+        WHERE q.id = $1`, [row.result_question_id]);
+    expect(copied.derived).toBe(contribQ1);
+    expect(copied.bank).toBe(schoolBankId);
+  });
+
+  it('submit_contribution: chặn câu chưa ready / câu của người khác / đích bank personal / câu không tồn tại', async () => {
+    const draftRes = await callTool(app, teacherA.token, 'create_question', {
+      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpContribDraft'),
+      questionText: 'Câu nháp chưa phát hành.', idempotencyKey: uniqueName('key'),
+    });
+    const draftId = draftRes.structured!.questionId as string;
+    const notReady = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: [draftId], idempotencyKey: uniqueName('key'),
+    });
+    expect(notReady.isError).toBe(false);
+    const nr = (notReady.structured!.results as any[])[0];
+    expect(nr.status).toBe('failed');
+    expect(nr.code).toBe('question.contribution_source_not_ready');
+
+    // Câu ready của giáo viên B — A không nộp thay được, 0 đề xuất sinh ra.
+    const banksB = await callTool(app, teacherB.token, 'list_my_banks', {});
+    const personalB = (banksB.structured!.banks as any[]).find((b) => b.scope === 'personal' && b.ownerId === teacherB.id);
+    const qB = await callTool(app, teacherB.token, 'create_question', {
+      bankId: personalB.id, categoryId: personalB.defaultCategoryId, qtype: 'essay',
+      name: uniqueName('mcpContribB'), questionText: 'Câu ready của giáo viên B.', idempotencyKey: uniqueName('key'),
+    });
+    const qBId = qB.structured!.questionId as string;
+    await banks.setQuestionStatus(qBId, 'ready');
+    const foreign = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: [qBId], idempotencyKey: uniqueName('key'),
+    });
+    const fr = (foreign.structured!.results as any[])[0];
+    expect(fr.status).toBe('failed');
+    expect(fr.code).toBe('question.contribution_source_not_own');
+    const cntB = await sqlOne<{ n: string }>(
+      'SELECT COUNT(*)::text AS n FROM question_bank_contributions WHERE question_id = $1', [qBId]);
+    expect(Number(cntB.n)).toBe(0);
+
+    // Đích là bank personal của chính mình → cổng QB-4 chặn.
+    const toPersonal = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: bankA, questionIds: [contribQ2], idempotencyKey: uniqueName('key'),
+    });
+    const tp = (toPersonal.structured!.results as any[])[0];
+    expect(tp.status).toBe('failed');
+    expect(tp.code).toBe('question.contribution_target_personal');
+
+    // Câu không tồn tại.
+    const ghost = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: schoolBankId, questionIds: ['01900000-0000-7000-8000-000000000099'], idempotencyKey: uniqueName('key'),
+    });
+    const gh = (ghost.structured!.results as any[])[0];
+    expect(gh.status).toBe('failed');
+    expect(gh.code).toBe('question.not_found');
+  });
+
   it('legacy era: create_question chạy qua initialize + tools/call (SSE)', async () => {
     const init = await mcpCall(app, teacherA.token, 'initialize', {
       protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'mcp-spec', version: '0.1' },
@@ -665,5 +808,44 @@ describe('MCP rate limit (app riêng, hạn tạo = 2/giờ)', () => {
     const third = await mk(3);
     expect(third.status).toBe(429);
     expect(third.jsonrpcError?.code).toBe(-32029);
+  });
+});
+
+describe('MCP submit_contribution thiếu scope (app riêng, trần không có lms.banks.contribute)', () => {
+  let app3: INestApplication;
+
+  beforeAll(async () => {
+    app3 = await createMountedMcpApp((a) => {
+      // Deps chuẩn từ facade của McpModule (issue #138), chỉ thu hẹp
+      // trần scope để kiểm cổng insufficient_scope của submit_contribution.
+      const deps = a.get(McpDepsService).createMountDeps();
+      return { ...deps, grantedScopes: ['lms.questions.read', 'lms.questions.draft'] };
+    });
+  });
+  afterAll(async () => { await app3.close(); });
+
+  it('tools/call submit_contribution → HTTP 403 + WWW-Authenticate insufficient_scope kèm scope cần', async () => {
+    const admin3 = await adminToken(app3);
+    const u = await createUserViaApi(app3, admin3);
+    await assignRole(app3, admin3, u.id, await roleIdByShortname(app3, admin3, 'teacher'), await systemContextId(app3, admin3));
+    const session = await login(app3, u.username, STRONG_PASSWORD);
+    const res = await http(app3).post('/mcp').set(bearer(session.accessToken))
+      .set('MCP-Protocol-Version', '2026-07-28').set('Mcp-Method', 'tools/call').set('Mcp-Name', 'submit_contribution')
+      .send({
+        jsonrpc: '2.0', id: 1, method: 'tools/call',
+        params: {
+          name: 'submit_contribution',
+          arguments: {
+            targetBankId: '01900000-0000-7000-8000-000000000001',
+            questionIds: ['01900000-0000-7000-8000-000000000002'],
+            idempotencyKey: 'k-thieu-scope',
+          },
+          _meta: MODERN_META,
+        },
+      });
+    expect(res.status).toBe(403);
+    expect(String(res.headers['www-authenticate'])).toContain('insufficient_scope');
+    expect(String(res.headers['www-authenticate'])).toContain('lms.banks.contribute');
+    expect(parseMcpBody(res.text).error?.code).toBe(-32003);
   });
 });

@@ -9,8 +9,12 @@ import {
   mcpListCategoriesInputSchema,
   mcpListCategoriesOutputSchema,
   mcpListMyBanksOutputSchema,
+  mcpSubmitContributionInputSchema,
+  mcpSubmitContributionOutputSchema,
   type McpCreateQuestionInput,
   type McpCreateQuestionOutput,
+  type McpSubmitContributionInput,
+  type McpSubmitContributionOutput,
 } from '@lms/contracts';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { QuestionBanksService } from '../questions/question-banks.service';
@@ -379,6 +383,122 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         await auditCall(deps, actor, 'get_question', { result: 'error', code, questionId });
         return errResult(code, message);
       }
+    },
+  );
+
+  server.registerTool(
+    'submit_contribution',
+    {
+      title: 'Submit my questions to a shared bank for review',
+      description:
+        'Propose one or more of YOUR OWN ready questions for inclusion in a shared question bank (team, school or course bank). Each accepted proposal becomes a PENDING contribution in the target bank; a human moderator of that bank must approve it before the question is copied in — this tool cannot write into a shared bank directly. Questions must belong to you and already be in ready status (drafts are rejected per question). The target must not be a personal bank. Results are per question: pending with a contributionId, or failed with the business error code. Retrying with the same idempotencyKey and the same payload returns the original result; the same key with a different payload is an error.',
+      inputSchema: mcpSubmitContributionInputSchema,
+      outputSchema: mcpSubmitContributionOutputSchema,
+    },
+    async (rawArgs) => {
+      const args = rawArgs as McpSubmitContributionInput;
+
+      // ── Lớp 3: nội dung (ghi chú đóng góp — quét ký tự cấm → NFC) ──
+      const violations: ContentViolation[] = [];
+      scanContent(args, violations, '', new Set(['/targetBankId', '/idempotencyKey']));
+      if (violations.length > 0) {
+        const first = violations[0]!;
+        await auditCall(deps, actor, 'submit_contribution', { result: 'invalid_content', fieldPath: first.fieldPath });
+        return errResult('question.invalid_content', first.message, first.fieldPath);
+      }
+      const clean = normalizeContentStrings(args);
+      const { idempotencyKey, targetBankId, questionIds } = clean;
+      const note = clean.note ?? '';
+
+      // ── Trần scope (phòng thủ tầng tool; cổng chính ở mount trả HTTP
+      // 403 insufficient_scope — research Phần 2.2/3.2): scope OAuth
+      // chỉ là TRẦN, quyền nghiệp vụ thật do proposeContribution kiểm
+      // bằng capability tại context như đường REST. ─────────────────
+      if (!actor.scopes.includes('lms.banks.contribute')) {
+        await auditCall(deps, actor, 'submit_contribution', { result: 'insufficient_scope', bankId: targetBankId });
+        return errResult('insufficient_scope', 'This tool requires the OAuth scope "lms.banks.contribute"');
+      }
+
+      // ── Bank đích phải tồn tại (mọi cổng đích còn lại — personal,
+      // trùng, quyền share — do proposeContribution giữ như REST). ──
+      try {
+        await deps.banks.getBankOrThrow(targetBankId);
+      } catch {
+        await auditCall(deps, actor, 'submit_contribution', { result: 'bank_not_found', bankId: targetBankId });
+        return errResult('question.bank_not_found', `Question bank ${targetBankId} not found`, '/targetBankId');
+      }
+
+      // ── Idempotency (cùng khuôn create_question / đặc tả 2026-07-28)
+      const { idempotencyKey: _key, ...hashPayload } = clean;
+      const requestHash = mcpRequestHash('submit_contribution', hashPayload);
+      const existing = await deps.idempotency.find(actor.userId, idempotencyKey);
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          await auditCall(deps, actor, 'submit_contribution', { result: 'idempotency_conflict', bankId: targetBankId });
+          return errResult(
+            'question.idempotency_conflict',
+            'This idempotencyKey was already used with a different payload. Use a new key for a different submission.',
+          );
+        }
+        const stored = existing.responseJson as unknown as McpSubmitContributionOutput;
+        await auditCall(deps, actor, 'submit_contribution', { result: 'idempotent_replay', bankId: targetBankId });
+        return okResult({ ...stored }, 'Idempotent replay: this submission was already processed; returning the original result.');
+      }
+
+      // ── Từng câu: cổng chủ sở hữu ở biên MCP (câu phải của chính chủ
+      // token), rồi ĐÚNG đường QB-4 — proposeContribution tự kiểm
+      // question:share tại context bank nguồn, trạng thái ready, đích
+      // không phải bank personal, trùng trong bank đích. ─────────────
+      const results: McpSubmitContributionOutput['results'] = [];
+      for (const questionId of questionIds) {
+        // Qua facade QuestionsService (sau tái cấu trúc module #138):
+        // câu không tồn tại → service ném question.not_found.
+        let createdBy: string | null;
+        try {
+          createdBy = (await deps.questions.getQuestion(questionId)).question.createdBy;
+        } catch {
+          results.push({ questionId, status: 'failed', contributionId: null, code: 'question.not_found', message: `Question ${questionId} not found` });
+          continue;
+        }
+        if (createdBy !== actor.userId) {
+          results.push({
+            questionId, status: 'failed', contributionId: null,
+            code: 'question.contribution_source_not_own',
+            message: 'Only your own questions can be submitted as a contribution',
+          });
+          continue;
+        }
+        try {
+          const contribution = await deps.banks.proposeContribution(actor.userId, targetBankId, { questionId, note });
+          results.push({ questionId, status: 'pending', contributionId: contribution.id, code: null, message: null });
+        } catch (error) {
+          const { code, message } = errorShape(error);
+          results.push({ questionId, status: 'failed', contributionId: null, code, message });
+        }
+      }
+
+      const created = results.filter((r) => r.status === 'pending').length;
+      const response: McpSubmitContributionOutput = {
+        targetBankId,
+        results,
+        created,
+        failed: results.length - created,
+      };
+      await deps.idempotency.store({ userId: actor.userId, key: idempotencyKey, tool: 'submit_contribution', requestHash, response: { ...response } });
+      await auditCall(deps, actor, 'submit_contribution', {
+        result: created === results.length ? 'ok' : created > 0 ? 'partial' : 'failed',
+        bankId: targetBankId,
+        requested: results.length,
+        created,
+        failed: response.failed,
+        contributionIds: results.filter((r) => r.contributionId).map((r) => r.contributionId),
+      });
+      return okResult(
+        { ...response },
+        created === results.length
+          ? `Submitted ${created} question(s) to bank ${targetBankId}; each is a pending contribution awaiting moderator approval.`
+          : `Submitted ${created} of ${results.length} question(s) to bank ${targetBankId}; see per-question results for the failures.`,
+      );
     },
   );
 }

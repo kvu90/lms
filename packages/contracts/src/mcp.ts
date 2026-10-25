@@ -136,3 +136,45 @@ export type McpGetQuestionInput = z.infer<typeof mcpGetQuestionInputSchema>;
 
 /** Tool `get_question` trả ĐÚNG projection của REST (questionViewSchema — không chứa source_kind/source_ref). */
 export const mcpGetQuestionOutputSchema = questionViewSchema;
+
+/**
+ * Tool `submit_contribution` (lát MCP-2 của issue #110, scope OAuth
+ * `lms.banks.contribute`): đề xuất đưa các câu CỦA CHÍNH chủ token (đã
+ * `ready`) vào một bank chung (tổ/trường/khoá) qua cơ chế đóng góp QB-4
+ * hiện hữu — server tạo `question_bank_contributions` ở trạng thái
+ * `pending`, người có `question:moderate` tại bank đích duyệt thì câu
+ * mới vào bank đích. AI KHÔNG ghi thẳng được vào bank chung ở bất kỳ
+ * scope nào (ranh giới ghi cứng, hồ sơ research Phần 3.2).
+ * `idempotencyKey` bắt buộc như mọi write tool (đặc tả 2026-07-28):
+ * phát lại cùng key + cùng payload trả kết quả cũ, không tạo đề xuất
+ * trùng; cùng key khác payload là lỗi `question.idempotency_conflict`.
+ */
+export const mcpSubmitContributionInputSchema = z.strictObject({
+  targetBankId: uuidIdSchema,
+  questionIds: z.array(uuidIdSchema).min(1).max(50),
+  note: z.string().max(2000).optional(),
+  idempotencyKey: z.string().min(1).max(200),
+});
+export type McpSubmitContributionInput = z.infer<typeof mcpSubmitContributionInputSchema>;
+
+/**
+ * Kết quả `submit_contribution` theo từng câu (ngữ nghĩa từng-item như
+ * batch): `pending` kèm contributionId khi đề xuất đã tạo; `failed`
+ * kèm mã lỗi nghiệp vụ của đúng cổng đã chặn (chưa ready, không phải
+ * câu của chủ token, đích là bank personal, trùng trong bank đích…).
+ */
+export const mcpSubmitContributionOutputSchema = z.object({
+  targetBankId: uuidIdSchema,
+  results: z.array(
+    z.object({
+      questionId: uuidIdSchema,
+      status: z.enum(['pending', 'failed']),
+      contributionId: uuidIdSchema.nullable(),
+      code: z.string().nullable(),
+      message: z.string().nullable(),
+    }),
+  ),
+  created: z.number().int(),
+  failed: z.number().int(),
+});
+export type McpSubmitContributionOutput = z.infer<typeof mcpSubmitContributionOutputSchema>;

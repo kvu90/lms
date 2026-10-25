@@ -25,11 +25,28 @@ import type { McpToolDeps } from './mcp.tools';
  * header Mcp-Method/Mcp-Name (client modern gửi) phải khớp method/tên
  * tool trong body (lệch → lỗi -32020 HeaderMismatchError), token cầu
  * auth hợp lệ mới tới được bất kỳ tool nào (401 + WWW-Authenticate
- * trỏ PRM), rate limit theo (giáo viên, nhóm tool) vượt hạn → 429.
+ * trỏ PRM), tool có scope riêng mà trần scope không có → 403
+ * `insufficient_scope` + challenge step-up (lát MCP-2), rate limit theo
+ * (giáo viên, nhóm tool) vượt hạn → 429.
  */
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MCP_SCOPES = ['lms.questions.read', 'lms.questions.draft', 'lms.questions.write', 'lms.banks.contribute'] as const;
+
+/**
+ * Tập scope kỷ nguyên CẦU AUTH cấp cho token hệ thống (authInfo.scopes):
+ * chỉ các scope đã có tool thật sau lưng — read + draft của MCP-0 và
+ * contribute của lát MCP-2 (issue #110 mở lại). `lms.questions.write`
+ * vẫn chỉ nằm trong PRM, chờ tool publish của MCP-1. Khi AS OAuth 2.1
+ * (MCP-1) thay cầu auth, scope lấy từ access token và mount truyền
+ * nguyên qua deps.grantedScopes — cổng dưới đây không đổi.
+ */
+const BRIDGE_SCOPES: readonly string[] = ['lms.questions.read', 'lms.questions.draft', 'lms.banks.contribute'];
+
+/** Tool ghi có scope riêng: thiếu scope → 403 `insufficient_scope` + challenge step-up (research Phần 2.2). */
+const TOOL_REQUIRED_SCOPES: Record<string, string> = {
+  submit_contribution: 'lms.banks.contribute',
+};
 
 interface JsonRpcEnvelope {
   jsonrpc?: unknown;
@@ -75,6 +92,13 @@ export interface McpMountDeps {
   /** Origin công khai của chính API (PRM `resource` + authorization_servers mặc định). */
   publicBaseUrl: string | null;
   issuer: string | null;
+  /**
+   * Trần scope hiệu lực cho mọi request qua mount này. Mặc định (khi
+   * không truyền) = BRIDGE_SCOPES của kỷ nguyên cầu auth; AS OAuth sẽ
+   * truyền scope của từng token. Test dùng trường này để dựng phiên
+   * thiếu scope.
+   */
+  grantedScopes?: readonly string[];
   /** Deps của tools (services dùng chung với REST — không có đường nghiệp vụ riêng cho MCP). */
   toolDeps: McpToolDeps;
 }
@@ -94,6 +118,7 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
         clientId: ctx.authInfo?.clientId ?? 'unknown',
         ip: extra.ip ?? null,
         era: ctx.era,
+        scopes: ctx.authInfo?.scopes ?? [],
       };
       return createLmsMcpServer(actor, deps.toolDeps);
     },
@@ -172,6 +197,18 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
       }
       if (body.method === 'tools/call') {
         const toolName = typeof body.params?.name === 'string' ? body.params.name : undefined;
+        // Cổng scope ở tầng mount (cùng họ 401/429): tool có scope
+        // riêng mà trần hiệu lực không có → 403 + challenge step-up
+        // gồm đủ scope còn thiếu trong một lần (research Phần 2.2).
+        const requiredScope = toolName ? TOOL_REQUIRED_SCOPES[toolName] : undefined;
+        const effectiveScopes = deps.grantedScopes ?? BRIDGE_SCOPES;
+        if (requiredScope && !effectiveScopes.includes(requiredScope)) {
+          res.setHeader(
+            'WWW-Authenticate',
+            `Bearer error="insufficient_scope", scope="${requiredScope}", resource_metadata="${baseOf(req)}/.well-known/oauth-protected-resource"`,
+          );
+          return jsonRpcError(res, 403, body.id, -32003, `Insufficient scope: this tool requires "${requiredScope}"`);
+        }
         const decision = deps.rateLimiter.check(identity.userId, McpRateLimiter.bucketForTool(toolName));
         if (!decision.allowed) {
           res.setHeader('Retry-After', String(decision.retryAfterSeconds));
@@ -181,7 +218,7 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
       const authInfo: AuthInfo = {
         token: (req.get('authorization') ?? '').slice('Bearer '.length),
         clientId: clientIdOf(body),
-        scopes: ['lms.questions.read', 'lms.questions.draft'],
+        scopes: [...(deps.grantedScopes ?? BRIDGE_SCOPES)],
         extra: { userId: identity.userId, username: identity.username, ip: req.ip ?? null },
       };
       const webRes = await handler.fetch(toWebRequest(req, raw), { authInfo });
