@@ -94,7 +94,9 @@ describe('Notification events consumer — tự neo lại watermark sau reset DB
     // Điểm phân phối: chặn tại notify() để spec chỉ quan sát hợp đồng
     // của consumer (sự kiện nào được biến thành thông báo, mấy lần),
     // không phụ thuộc đường ghi thông báo thật.
-    notifySpy = vi.spyOn(app.get(MessagingService), 'notify').mockResolvedValue(undefined);
+    notifySpy = vi.spyOn(app.get(MessagingService), 'notify').mockResolvedValue({
+      provider: 'course_completed', userId: '', notificationId: null, channels: {},
+    });
 
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
