@@ -179,6 +179,14 @@ describe('assertProgramRecordOutcomeIntegrity — cổng toàn vẹn khi nạp',
     expect(() => assertProgramRecordOutcomeIntegrity('mau', rec)).not.toThrow();
   });
 
+  it('danh sách liệt kê ngăn bằng dấu phảy (Tiếng Anh): doc tách từng mục vẫn khớp outcome_text', () => {
+    const rec = record({
+      outcomes: [simpleDoc('Nguyên âm đơn'), simpleDoc('nguyên âm đôi'), simpleDoc('phụ âm')],
+      outcome_text: 'Nguyên âm đơn, nguyên âm đôi, phụ âm',
+    });
+    expect(() => assertProgramRecordOutcomeIntegrity('mau', rec)).not.toThrow();
+  });
+
   it('doc bị rơi chữ so với outcome_text: ném lỗi nêu dataset + bản ghi', () => {
     const rec = record({
       id: 'XX-0007',

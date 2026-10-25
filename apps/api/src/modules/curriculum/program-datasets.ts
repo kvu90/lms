@@ -204,14 +204,19 @@ export function programOutcomeDocText(doc: ProgramOutcomeDoc): string {
  * viết `–Trình bày` thiếu khoảng trắng) — các ký tự này là dấu trình
  * bày của văn bản gốc, không phải nội dung; gạch nằm giữa một token
  * có chữ, vd `cao – thấp` ở hai phía đều bị xử lý như nhau nên phép
- * so vẫn chặt về mặt chữ. Nối lại bằng một khoảng trắng. Hai phía áp
- * cùng một hàm nên phép so chỉ lệch khi chữ thật lệch.
+ * so vẫn chặt về mặt chữ. Dấu phảy/chấm phảy ở CUỐI một token cũng là
+ * dấu phân đoạn của các danh sách liệt kê (vd danh sách kiến thức
+ * ngôn ngữ của Tiếng Anh ngăn bằng `, `) nên bị tước ở cả hai phía —
+ * phép so vẫn chặt về mặt chữ vì dấu này không bao giờ nằm giữa một
+ * từ tiếng Việt. Nối lại bằng một khoảng trắng. Hai phía áp cùng một
+ * hàm nên phép so chỉ lệch khi chữ thật lệch.
  */
 export function programOutcomeComparisonKey(text: string): string {
   return text
     .split(/\s+/)
     .filter((token) => token !== '' && !/^[–−+•-]$/.test(token))
     .map((token) => (/^[–−•+]/.test(token) ? token.slice(1) : token))
+    .map((token) => token.replace(/[,;]+$/, ''))
     .join(' ');
 }
 
