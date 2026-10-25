@@ -1124,6 +1124,12 @@ export class ExamPapersService {
     const paper = await this.getPaperOrThrow(paperId);
     const bank = await this.bankOfPaper(paper);
     await this.assertCanViewPaper(actorId, paper, bank);
+    if (paper.kind === 'recipe') {
+      throw new BadRequestException({
+        message: 'A recipe paper cannot be printed directly; materialize it into a snapshot first',
+        code: 'exam.print_requires_snapshot',
+      });
+    }
     const deployment = await this.repo.getDeployment(deploymentId);
     if (!deployment || deployment.paperId !== paper.id) {
       throw new NotFoundException({ message: `Deployment ${deploymentId} not found for this paper`, code: 'exam.deployment_not_found' });

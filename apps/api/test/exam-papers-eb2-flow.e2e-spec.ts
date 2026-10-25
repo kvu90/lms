@@ -280,6 +280,21 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     expect(print.status).toBe(200);
     expect(print.text).toContain('Mã đề: 002');
 
+    // In RECIPE bị chặn: chỉ snapshot mới in được — recipe triển khai xong
+    // vẫn không in trực tiếp (tránh in nhầm tờ trống, ghi nhận đóng gói EB-2).
+    const quiz3Res = await http(app).post(`/api/v1/courses/${ctx.course1.id}/quizzes`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: ctx.course1.sectionId, name: 'Đề recipe để in thử' });
+    const quiz3 = quiz3Res.body as QuizBody;
+    const recipeDeploy = await http(app).post(`/api/v1/exam-papers/${recipeId}/deploy`).set('Authorization', `Bearer ${admin}`)
+      .send({ quizId: quiz3.id, variantCount: 1 });
+    expect(recipeDeploy.status === 200 || recipeDeploy.status === 201).toBe(true);
+    const recipeDeployment = (recipeDeploy.body as { deployment: DeploymentBody }).deployment;
+    const printRecipe = await http(app).get(`/api/v1/exam-papers/${recipeId}/print`)
+      .query({ deploymentId: recipeDeployment.id, variantCode: '001' })
+      .set('Authorization', `Bearer ${admin}`);
+    expect(printRecipe.status).toBe(400);
+    expect(printRecipe.body.code).toBe('exam.print_requires_snapshot');
+
     // Recipe gốc + lượt thi trước nguyên vẹn.
     const recipeAfter = await http(app).get(`/api/v1/exam-papers/${recipeId}`).set('Authorization', `Bearer ${admin}`);
     const recipeBody = recipeAfter.body as PaperBody;
