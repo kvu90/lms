@@ -1,43 +1,50 @@
 import { Injectable } from '@nestjs/common';
-import { AsyncLocalStorage } from 'node:async_hooks';
+import { tenantAls, type TenantAlsStore } from './tenant-als';
+
+export type TenantRequestContext = TenantAlsStore;
 
 /**
- * Ngữ cảnh tenant của request/job đang chạy (AsyncLocalStorage): được
- * TenantGuard nạp từ claim `tid` của token sau khi đã kiểm tra tenant +
- * membership còn hiệu lực. Các service thuộc bề mặt ĐÃ PHỦ tenant (lát
- * TENANT-0) đọc tenant hiệu lực từ đây để gắn `tenant_id` khi ghi và lọc
- * khi đọc — đây là lớp lọc ứng dụng, RLS là lưới an toàn phía DB cho các
- * transaction chạy qua TenantDbService.
+ * Ngữ cảnh tenant của request/job đang chạy (AsyncLocalStorage dùng
+ * chung `tenantAls`): được TenantGuard nạp từ claim `tid` của token sau
+ * khi đã kiểm tra tenant + membership còn hiệu lực. Các service thuộc bề
+ * mặt đã phủ tenant đọc tenant hiệu lực từ đây để gắn `tenant_id` khi
+ * ghi và lọc khi đọc — lớp lọc ứng dụng; RLS là lưới cứng ở tầng DB.
  *
- * ALS trống = luồng không-HTTP (seed script, worker, test gọi thẳng
- * service): các bề mặt đã phủ rơi về tenant-zero khi cần một tenant cụ
- * thể (xem TenantsService.resolveEffectiveTenantId).
+ * Từ TENANT-1 (#196), cùng ALS này còn là nguồn cho `TenantAwarePool`:
+ * mọi kết nối PG checkout trong ngữ cảnh đều được gắn GUC
+ * `app.tenant_id`/`app.platform` tương ứng, nên RLS fail-closed cưỡng
+ * chế ngay cả với truy vấn không qua `TenantDbService`. Ngữ cảnh
+ * `platform: true` chỉ do đường vận hành tường minh đặt
+ * (TenantDbService) — TenantGuard không bao giờ đặt.
+ *
+ * ALS trống = luồng không-HTTP chưa vào ngữ cảnh tường minh (seed/
+ * worker/consumer phải tự bọc bằng TenantDbService): kết nối không gắn
+ * GUC tenant và RLS fail-closed chỉ cho thấy dòng platform
+ * (tenant_id NULL) ở các bảng cho phép — không còn đường im lặng.
  */
-export interface TenantRequestContext {
-  tenantId: string;
-  userId?: string;
-}
-
 @Injectable()
 export class TenantContextService {
-  private readonly storage = new AsyncLocalStorage<TenantRequestContext>();
-
   /** Chạy `fn` với ngữ cảnh tenant cho trước (guard, job nền, spec). */
   run<T>(ctx: TenantRequestContext, fn: () => T): T {
-    return this.storage.run(ctx, fn);
+    return tenantAls.run(ctx, fn);
   }
 
   /** Gắn ngữ cảnh cho chuỗi async hiện tại và mọi bước chạy sau trong cùng request (TenantGuard dùng). */
   enter(ctx: TenantRequestContext): void {
-    this.storage.enterWith(ctx);
+    tenantAls.enterWith(ctx);
   }
 
-  /** Tenant hiệu lực của luồng hiện tại; undefined khi ngoài request. */
+  /** Tenant hiệu lực của luồng hiện tại; undefined khi ngoài request hoặc đang ở đường platform. */
   currentTenantId(): string | undefined {
-    return this.storage.getStore()?.tenantId;
+    return tenantAls.getStore()?.tenantId;
   }
 
   currentUserId(): string | undefined {
-    return this.storage.getStore()?.userId;
+    return tenantAls.getStore()?.userId;
+  }
+
+  /** Luồng hiện tại có đang chạy ở đường platform tường minh không. */
+  isPlatformContext(): boolean {
+    return tenantAls.getStore()?.platform === true;
   }
 }

@@ -88,13 +88,21 @@ export class PermissionEvaluator {
 
   /**
    * Đánh giá capability cho user tại context theo thuật toán cây context; kết quả có thể cache theo path version.
+   *
+   * TENANT-1 (#196, điểm N2): bên trong cây của tenant school/center
+   * (cổng tenant đã thu hẹp assignmentScope), lối tắt site admin KHÔNG
+   * áp dụng — platform không có quyền ngầm trong tenant: site admin ở
+   * trong tenant là người thường, chỉ gán vai thật neo trong cây tenant
+   * mới sinh quyền (muốn hỗ trợ thì gán vai như người thường, hoặc
+   * loginas có lý do + audit). Ngoài cây tenant (context hệ thống,
+   * tenant-zero) lối tắt giữ nguyên như cũ.
    */
   async hasCapability(userId: string, capability: string, contextId: string, opts?: { isGuest?: boolean }): Promise<boolean> {
     const target = await this.contexts.getContext(contextId);
     const pathContexts = await this.contexts.getPathContexts(target);
     const gate = await this.tenantGate(userId, pathContexts);
     if (!gate.allowed) return false;
-    if (await this.isSiteAdmin(userId)) return true;
+    if (gate.assignmentScope === null && (await this.isSiteAdmin(userId))) return true;
     const stamp = this.contexts.pathVersionStamp(pathContexts);
     const cacheKey = `access:${userId}:${capability}:${contextId}:${stamp}:${opts?.isGuest ? 'g' : 'u'}`;
     const cached = await this.cache.get<boolean>(cacheKey);
@@ -150,7 +158,9 @@ export class PermissionEvaluator {
     const pathContexts = await this.contexts.getPathContexts(target);
     const gate = await this.tenantGate(userId, pathContexts);
     if (!gate.allowed) return false;
-    if (await this.isSiteAdmin(userId)) return true;
+    // N2 (#196): trong cây tenant school/center, site admin cũng chỉ
+    // tính gán vai thật như người thường — cùng quy tắc hasCapability.
+    if (gate.assignmentScope === null && (await this.isSiteAdmin(userId))) return true;
     const pathIds = pathContexts.map((c) => c.id);
     const allAssignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
     const assignments = gate.assignmentScope ? allAssignments.filter((a) => gate.assignmentScope!.has(a.contextId)) : allAssignments;

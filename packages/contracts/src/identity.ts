@@ -182,9 +182,10 @@ export const changePasswordSchema = z.strictObject({
 });
 export type ChangePassword = z.infer<typeof changePasswordSchema>;
 
-/** Payload đăng nhập thay (login-as) — chỉ quản trị viên có quyền mới dùng được. */
+/** Payload đăng nhập thay (login-as) — chỉ quản trị viên có quyền mới dùng được. Từ TENANT-1 (#196): `reason` là BẮT BUỘC — platform vào danh tính trong tenant phải có lý do và để lại vết audit đầy đủ. */
 export const loginAsSchema = z.strictObject({
   userId: uuidIdSchema,
+  reason: z.string().trim().min(1).max(500),
 });
 export type LoginAs = z.infer<typeof loginAsSchema>;
 
