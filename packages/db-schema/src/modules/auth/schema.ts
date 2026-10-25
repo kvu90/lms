@@ -179,11 +179,17 @@ export const authTwoFactor = pgTable('two_factor', {
  *
  * HAI ngoại lệ định danh có chủ đích (ADR-017, allowlist tường minh
  * trong spec uuidv7):
- * - `oauth_client.id` là TEXT: field `clientId` của model ánh xạ thẳng
- *   xuống cột `id` (tài liệu plugin: adapters MAY map `client_id` →
- *   `id`; `id` phải chứa được chuỗi dạng UUID lẫn URL — client CIMD
- *   dùng chính URL tài liệu metadata làm client_id). Không thể
- *   `uuidv7()`.
+ * - `oauth_client.id` là TEXT: khoá chính NỘI BỘ của dòng client do
+ *   Better Auth tự sinh lúc ghi (không qua DB). Bảng còn một cột
+ *   `client_id` TEXT riêng (unique, not null) chứa định danh CÔNG
+ *   KHAI của client — chuỗi dạng UUID với client DCR, và chính URL
+ *   tài liệu metadata với client CIMD — nên không cột nào trong hai
+ *   cột vừa khuôn `uuidv7()`. (Đính chính lúc nối lại MCP-1: bản đầu
+ *   gộp `clientId` thẳng xuống cột `id`; schema check của
+ *   `@better-auth/drizzle-adapter` 1.7.12 nội quan schema THEO TÊN
+ *   PROPERTY và luôn đòi property `id` riêng, generator chính chủ
+ *   cũng luôn phát hai cột — bản gộp làm app bật cờ AS không khởi
+ *   động được, bằng chứng e2e `mcp-as-oauth`.)
  * - `oauth_client_assertion.id` là TEXT: provider tự cấp id bằng hàm
  *   băm xác định (SHA-256 → base64url khi `generateId` khác `uuid`,
  *   kiểm chứng trong dist 1.7.12) và insert với `forceAllowId` — DB
@@ -204,12 +210,15 @@ export const authJwks = pgTable('jwks', {
 
 /**
  * Client OAuth đã đăng ký (model `oauthClient`) — một dòng cho client
- * DCR (client_id ngẫu nhiên) lẫn client CIMD (client_id = URL). Khoá
- * chính `id` TEXT chính là client_id (xem ngoại lệ ADR-017 phía trên);
- * các bảng oauth_* khác tham chiếu tới cột này qua field `clientId`.
+ * DCR (client_id ngẫu nhiên) lẫn client CIMD (client_id = URL). Hai
+ * định danh tách bạch theo khuôn generator của plugin: `id` TEXT là
+ * khoá chính nội bộ do Better Auth tự sinh; `client_id` TEXT (unique)
+ * là định danh công khai mà các bảng oauth_* khác tham chiếu qua
+ * field `clientId` (xem ngoại lệ ADR-017 phía trên).
  */
 export const oauthClient = pgTable('oauth_client', {
   id: text('id').primaryKey(),
+  clientId: text('client_id').notNull().unique(),
   clientSecret: text('client_secret'),
   clientDiscoveryId: text('client_discovery_id'),
   disabled: boolean('disabled').notNull().default(false),
@@ -272,7 +281,7 @@ export const oauthResource = pgTable('oauth_resource', {
 /** Liên kết client ↔ resource (model `oauthClientResource`): client chỉ nhận token cho resource đã liên kết. */
 export const oauthClientResource = pgTable('oauth_client_resource', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  clientId: text('client_id').notNull().references(() => oauthClient.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClient.clientId, { onDelete: 'cascade' }),
   resourceId: text('resource_id').notNull().references(() => oauthResource.identifier, { onDelete: 'cascade' }),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }),
@@ -287,7 +296,7 @@ export const oauthClientResource = pgTable('oauth_client_resource', {
 export const oauthRefreshToken = pgTable('oauth_refresh_token', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   token: text('token').notNull().unique(),
-  clientId: text('client_id').notNull().references(() => oauthClient.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClient.clientId, { onDelete: 'cascade' }),
   sessionId: uuid('session_id').references(() => authSession.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   referenceId: text('reference_id'),
@@ -314,7 +323,7 @@ export const oauthRefreshToken = pgTable('oauth_refresh_token', {
 export const oauthAccessToken = pgTable('oauth_access_token', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   token: text('token').unique(),
-  clientId: text('client_id').notNull().references(() => oauthClient.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClient.clientId, { onDelete: 'cascade' }),
   sessionId: uuid('session_id').references(() => authSession.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   referenceId: text('reference_id'),
@@ -338,7 +347,7 @@ export const oauthAccessToken = pgTable('oauth_access_token', {
 /** Đồng ý của người dùng cho một client (model `oauthConsent`) — ghi khi giáo viên bấm đồng ý ở trang consent. */
 export const oauthConsent = pgTable('oauth_consent', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  clientId: text('client_id').notNull().references(() => oauthClient.id, { onDelete: 'cascade' }),
+  clientId: text('client_id').notNull().references(() => oauthClient.clientId, { onDelete: 'cascade' }),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   referenceId: text('reference_id'),
   resources: text('resources').array(),

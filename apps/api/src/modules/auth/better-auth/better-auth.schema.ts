@@ -75,10 +75,15 @@ export const betterAuthVerification = pgTable('verification', {
  * chỉ là lớp ánh xạ field cho adapter — property là TÊN FIELD của
  * model Better Auth, chuỗi trong ngoặc là TÊN CỘT vật lý.
  *
- * Điểm khác khuôn GĐ1 duy nhất: model `oauthClient` KHÔNG có property
- * `id` riêng — field `clientId` ánh xạ thẳng xuống cột `id` (text,
- * khoá chính) theo tài liệu plugin + ADR-017; model
- * `oauthClientAssertion` thì `id` là text do provider tự cấp.
+ * Điểm khác khuôn GĐ1: model `oauthClient` có HAI định danh tách
+ * bạch theo khuôn generator của plugin — property `id` (khoá chính
+ * nội bộ, text, Better Auth tự sinh) và property `clientId` ánh xạ
+ * cột `client_id` (định danh công khai: UUID với DCR, URL với CIMD;
+ * xem ADR-017). KHÔNG gộp `clientId` xuống cột `id`: schema check
+ * của adapter Drizzle 1.7.12 nội quan schema theo tên property và
+ * luôn đòi property `id` riêng (lỗi `SCHEMA_MISMATCH oauthClient.id`
+ * bắt tại e2e lúc nối lại MCP-1). Model `oauthClientAssertion` thì
+ * `id` là text do provider tự cấp.
  */
 export const betterAuthJwks = pgTable('jwks', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -91,7 +96,8 @@ export const betterAuthJwks = pgTable('jwks', {
 });
 
 export const betterAuthOAuthClient = pgTable('oauth_client', {
-  clientId: text('id').primaryKey(),
+  id: text('id').primaryKey(),
+  clientId: text('client_id').notNull().unique(),
   clientSecret: text('client_secret'),
   clientDiscoveryId: text('client_discovery_id'),
   disabled: boolean('disabled').notNull().default(false),
