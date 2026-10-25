@@ -282,6 +282,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       subject: this.t('platform.gradeUpdatedSubject', { course: courseName }),
       body: this.t('platform.gradeUpdatedBody', { course: courseName, item: itemName }),
       contextUrl: `/courses/${item.courseId}/grades`,
+      courseId: item.courseId,
     });
   }
 
@@ -294,6 +295,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       subject: this.t('platform.courseCompletedSubject', { course: courseName }),
       body: this.t('platform.courseCompletedBody', { course: courseName }),
       contextUrl: `/courses/${courseId}`,
+      courseId,
     });
   }
 
@@ -309,6 +311,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       subject: this.t('platform.enrolExpiryWarningSubject', { course: courseName }),
       body: this.t('platform.enrolExpiryWarningBody', { course: courseName, date: dateText }),
       contextUrl: `/courses/${courseId}`,
+      courseId,
     });
   }
 
@@ -338,6 +341,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       contextUrl: isAssign
         ? `/courses/${courseId}/assignments/${assignmentId}`
         : `/courses/${courseId}/quizzes/${quizId}`,
+      courseId,
     });
   }
 
@@ -364,7 +368,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
    * NB-1 an toàn khi sự kiện bị phát lại (tính ít-nhất-một-lần của
    * consumer): phát lại khi bản gộp còn chưa đọc là no-op về số bản.
    */
-  private async notifyGrouped(userId: string, provider: string, contextUrl: string, subject: string, body: string): Promise<void> {
+  private async notifyGrouped(userId: string, provider: string, contextUrl: string, subject: string, body: string, courseId: string): Promise<void> {
     const existing = await this.repo.getUnreadNotification(userId, provider, contextUrl);
     if (existing) {
       if (existing.subject !== subject || existing.fullMessage !== body) {
@@ -372,7 +376,10 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       }
       return;
     }
-    await this.messaging.notify(userId, provider, { subject, body, contextUrl });
+    // courseId đi vào notify() để ghi đè tắt tiếng theo khoá (NB-4)
+    // áp ở đúng một điểm — bản gộp bị mute thì notify() tự ghi
+    // dispatch log 'skipped-course-mute' và không sinh bản mới.
+    await this.messaging.notify(userId, provider, { subject, body, contextUrl, courseId });
   }
 
   private async handleAssignmentCreated(payload: Record<string, unknown>): Promise<void> {
@@ -389,7 +396,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       if (studentId === actorId) continue;
       await this.notifyGrouped(studentId, 'assignment_assigned', contextUrl,
         this.t('platform.assignmentAssignedSubject', { assignment: info.name }),
-        this.t('platform.assignmentAssignedBody', { assignment: info.name, course: courseName }));
+        this.t('platform.assignmentAssignedBody', { assignment: info.name, course: courseName }), courseId);
     }
   }
 
@@ -405,7 +412,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     // (a) Xác nhận đã nộp cho chính học sinh vừa chốt nộp.
     await this.notifyGrouped(userId, 'assignment_submitted', contextUrl,
       this.t('platform.assignmentSubmitReceiptSubject', { assignment: info.name }),
-      this.t('platform.assignmentSubmitReceiptBody', { assignment: info.name, course: courseName }));
+      this.t('platform.assignmentSubmitReceiptBody', { assignment: info.name, course: courseName }), courseId);
     // (b) Bản gộp cho giáo viên phụ trách: số bài nộp đang chờ chấm
     // của bài tập này (P5) — nhiều học sinh nộp liên tiếp chỉ cập
     // nhật con số trong cùng một bản chưa đọc.
@@ -415,7 +422,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       if (staffId === userId) continue;
       await this.notifyGrouped(staffId, 'assignment_submitted', contextUrl,
         this.t('platform.assignmentSubmittedSubject', { assignment: info.name }),
-        this.t('platform.assignmentSubmittedBody', { assignment: info.name, course: courseName, count: awaiting }));
+        this.t('platform.assignmentSubmittedBody', { assignment: info.name, course: courseName, count: awaiting }), courseId);
     }
   }
 
@@ -433,7 +440,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     // grade_updated với contextUrl trang điểm, không trùng hiển thị.
     await this.notifyGrouped(userId, 'assignment_returned', `/courses/${courseId}/assignments/${assignmentId}`,
       this.t('platform.assignmentReturnedSubject', { assignment: info.name }),
-      this.t('platform.assignmentReturnedBody', { assignment: info.name, course: courseName }));
+      this.t('platform.assignmentReturnedBody', { assignment: info.name, course: courseName }), courseId);
   }
 
   private async handleQuizCreated(payload: Record<string, unknown>): Promise<void> {
@@ -450,7 +457,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       if (studentId === actorId) continue;
       await this.notifyGrouped(studentId, 'quiz_available', contextUrl,
         this.t('platform.quizAvailableSubject', { quiz: info.name }),
-        this.t('platform.quizAvailableBody', { quiz: info.name, course: courseName }));
+        this.t('platform.quizAvailableBody', { quiz: info.name, course: courseName }), courseId);
     }
   }
 
@@ -473,7 +480,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       if (staffId === userId) continue;
       await this.notifyGrouped(staffId, 'quiz_attempt_finished', contextUrl,
         this.t('platform.quizAttemptFinishedSubject', { quiz: info.name }),
-        this.t('platform.quizAttemptFinishedBody', { quiz: info.name, course: courseName, count: awaiting }));
+        this.t('platform.quizAttemptFinishedBody', { quiz: info.name, course: courseName, count: awaiting }), courseId);
     }
   }
 
@@ -498,6 +505,10 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       // Gộp theo conversation: còn một bản chưa đọc thì bản đó đã đại
       // diện cho mọi tin mới — không sinh thêm (chuẩn app nhắn tin).
       if (await this.repo.hasUnreadNotification(memberId, 'message_new', contextUrl)) continue;
+      // NB-4 KHÔNG truyền courseId ở đây: tắt tiếng theo conversation
+      // là nhà #33 — khi #33 chốt cơ chế ghi đè của conversation,
+      // đường này đọc cùng họ khoá `notif.course.*` tại điểm notify()
+      // (notify đã nhận sẵn tham số courseId). Ghi rõ để đội #33 biết.
       await this.messaging.notify(memberId, 'message_new', {
         subject: this.t('platform.messageNewSubject', { name: senderName }),
         body: this.t('platform.messageNewBody'),

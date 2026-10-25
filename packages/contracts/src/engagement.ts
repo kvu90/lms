@@ -589,6 +589,35 @@ export const setNotificationPreferenceSchema = z.strictObject({
 });
 export type SetNotificationPreference = z.infer<typeof setNotificationPreferenceSchema>;
 
+/**
+ * Chế độ ghi đè thông báo theo khoá học (NB-4, issue #174): 'all' =
+ * nhận như mặc định toàn cục; 'mute' = tắt tiếng khoá — các thông báo
+ * thường của khoá đó không được sinh ở bất kỳ kênh nào. Chính sách P3
+ * đã chốt: điểm mới và sắp hết hạn ghi danh của khoá bị mute VẪN tới;
+ * hai loại bắt buộc P2 cũng không bị ghi đè theo khoá chặn.
+ */
+export const notificationCourseOverrideModeSchema = z.enum(['all', 'mute']);
+export type NotificationCourseOverrideMode = z.infer<typeof notificationCourseOverrideModeSchema>;
+
+/**
+ * Một dòng ghi đè theo khoá mà API trả về (GET
+ * /messages/preferences/courses): mọi khoá người dùng thuộc về, kèm
+ * chế độ hiệu lực — 'all' khi chưa từng đặt ghi đè cho khoá đó.
+ */
+export const notificationCourseOverrideSchema = z.object({
+  courseId: uuidIdSchema,
+  courseName: z.string(),
+  mode: notificationCourseOverrideModeSchema,
+});
+export type NotificationCourseOverride = z.infer<typeof notificationCourseOverrideSchema>;
+
+/** Đặt ghi đè cho đúng một khoá (PUT /messages/preferences/courses). */
+export const setNotificationCourseOverrideSchema = z.strictObject({
+  courseId: uuidIdSchema,
+  mode: notificationCourseOverrideModeSchema,
+});
+export type SetNotificationCourseOverride = z.infer<typeof setNotificationCourseOverrideSchema>;
+
 /** Payload phát thông báo hệ thống tới một người dùng. */
 export const notifyUserSchema = z.strictObject({
   userId: uuidIdSchema,

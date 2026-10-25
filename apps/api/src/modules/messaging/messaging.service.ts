@@ -272,6 +272,43 @@ export function preferenceNameV2(provider: string, kind: 'popup' | 'email'): str
 }
 
 /**
+ * Khoá ghi đè theo khoá học (NB-4, issue #174 — hình dạng khoá do hồ
+ * sơ rà soát chốt): `notif.course.<courseId>` mang 'all' | 'mute', lưu
+ * cấu trúc ngay trong user_preferences như mọi tuỳ chọn khác (không
+ * bảng riêng, không đổi baseline). Chưa đặt = 'all'.
+ */
+export function coursePreferenceName(courseId: string): string {
+  return `notif.course.${courseId}`;
+}
+
+/** Chế độ ghi đè theo khoá: 'all' = nhận như mặc định toàn cục, 'mute' = tắt tiếng khoá đó. */
+export type NotificationCourseOverrideMode = 'all' | 'mute';
+
+/** Một dòng ghi đè theo khoá của một user (hình dạng hợp đồng ở @lms/contracts). */
+export interface NotificationCourseOverrideView {
+  courseId: string;
+  courseName: string;
+  mode: NotificationCourseOverrideMode;
+}
+
+/**
+ * Các loại KHÔNG bao giờ bị ghi đè theo khoá chặn:
+ *  - Chính sách P3 (đã chốt trên issue #174): tắt tiếng một khoá vẫn
+ *    chừa ĐIỂM MỚI (`grade_updated`) và SẮP HẾT HẠN GHI DANH
+ *    (`enrol_expiry_warning`) của chính khoá đó — mute là để bớt ồn,
+ *    không phải để mất dấu học tập của chính mình.
+ *  - Hai loại bắt buộc P2 (`mandatoryInApp` trong registry): luật
+ *    toàn cục thắng ghi đè theo khoá — ghi đè không được phá chúng ở
+ *    kênh trong-app (và ở đây là mọi kênh, vì chặn theo khoá áp trước
+ *    khi xét kênh).
+ */
+const COURSE_MUTE_EXEMPT_PROVIDERS = new Set(['grade_updated', 'enrol_expiry_warning']);
+
+export function isExemptFromCourseMute(provider: MessageProviderDefinition): boolean {
+  return provider.mandatoryInApp === true || COURSE_MUTE_EXEMPT_PROVIDERS.has(provider.name);
+}
+
+/**
  * Kênh email đã gửi thật hay chưa: false cho tới khi SMTP nối ở NB-5
  * (issue #174). Trang cài đặt đọc cờ này từ API để ghi chú trung thực
  * "chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở" thay vì công tắc
@@ -303,7 +340,7 @@ export interface NotifyResult {
   userId: string;
   notificationId: string | null;
   channels: Record<string, string>;
-  skipped?: 'suspended' | 'unknown-provider';
+  skipped?: 'suspended' | 'unknown-provider' | 'course-mute';
 }
 
 /** Tóm tắt hiển thị của một user trong các response của messaging (hợp đồng ở @lms/contracts). */
@@ -526,6 +563,50 @@ export class MessagingService {
     return this.preferenceView(userId, provider);
   }
 
+  /** Chế độ ghi đè hiệu lực của một khoá cho một user: khoá `notif.course.<id>` đã đặt là 'mute' thì mute, còn lại 'all'. */
+  async getCourseOverrideMode(userId: string, courseId: string): Promise<NotificationCourseOverrideMode> {
+    const value = await this.users.getPreference(userId, coursePreferenceName(courseId));
+    return value === 'mute' ? 'mute' : 'all';
+  }
+
+  /**
+   * Ghi đè theo khoá của user (NB-4): một dòng cho MỖI khoá người
+   * dùng thuộc về (ghi danh hiệu lực ∪ gán vai tại context khoá —
+   * cùng tập với bước chọn khoá của luồng tìm bạn), kèm chế độ hiệu
+   * lực. Đây là dữ liệu của trang "Ngoại lệ" trong cài đặt: mọi khoá
+   * đang mute đều hiện ở đây để gỡ một chỗ.
+   */
+  async listCourseNotificationOverrides(userId: string): Promise<NotificationCourseOverrideView[]> {
+    const courses = await this.listMyMessagingCourses(userId);
+    const out: NotificationCourseOverrideView[] = [];
+    for (const course of courses) {
+      out.push({
+        courseId: course.courseId, courseName: course.fullName,
+        mode: await this.getCourseOverrideMode(userId, course.courseId),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Đặt ghi đè cho MỘT khoá ('all' | 'mute') — hiệu lực ngay ở lần
+   * phát kế tiếp, đối xứng với tuỳ chọn v2 theo provider. Chỉ đặt
+   * được cho khoá người dùng thật sự thuộc về; khoá ngoài phạm vi
+   * nhận 404 y hệt khoá không tồn tại (cùng kỷ luật roster).
+   */
+  async setCourseNotificationOverride(
+    userId: string,
+    input: { courseId: string; mode: NotificationCourseOverrideMode },
+  ): Promise<NotificationCourseOverrideView> {
+    const courses = await this.listMyMessagingCourses(userId);
+    const course = courses.find((c) => c.courseId === input.courseId);
+    if (!course) {
+      throw new NotFoundException({ message: 'Course not found', code: 'messaging.course_not_found' });
+    }
+    await this.users.setPreference(userId, coursePreferenceName(input.courseId), input.mode);
+    return { courseId: course.courseId, courseName: course.fullName, mode: input.mode };
+  }
+
   // --- notifications -----------------------------------------------------------
 
   /**
@@ -551,6 +632,13 @@ export class MessagingService {
   async notify(userId: string, providerName: string, input: {
     subject: string; body: string; contextUrl?: string; fromUserId?: string; loggedIn?: boolean;
     externalSubject?: string; externalBody?: string;
+    /**
+     * Khoá nguồn của sự kiện (NB-4): nơi phát nào biết sự kiện thuộc
+     * khoá nào thì truyền vào để notify() áp ghi đè tắt tiếng theo
+     * khoá của người nhận. Không truyền = sự kiện không gắn khoá, ghi
+     * đè theo khoá không áp dụng (hành vi như trước NB-4).
+     */
+    courseId?: string;
   }): Promise<NotifyResult> {
     const provider = providerByName(providerName);
     if (!provider) return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'unknown-provider' };
@@ -562,6 +650,20 @@ export class MessagingService {
         subject: input.subject, dedupeKey: `skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
       }).catch(() => undefined);
       return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'suspended' };
+    }
+    // Ghi đè theo khoá (NB-4, issue #174): áp TRƯỚC khi xét kênh và
+    // tuỳ chọn theo loại — khoá nguồn đã bị người nhận tắt tiếng thì
+    // KHÔNG sinh thông báo ở bất kỳ kênh nào, chỉ ghi dispatch log
+    // trạng thái 'skipped-course-mute' để truy vết. Các loại được
+    // chốt ở P3 và loại bắt buộc P2 không bao giờ bị chặn ở đây
+    // (isExemptFromCourseMute) — luật toàn cục thắng ghi đè theo khoá.
+    if (input.courseId && !isExemptFromCourseMute(provider)
+      && (await this.users.getPreference(userId, coursePreferenceName(input.courseId))) === 'mute') {
+      await this.repo.insertDispatchLog({
+        userId: userId, provider: providerName, channel: 'popup', status: 'skipped-course-mute',
+        subject: input.subject, dedupeKey: `course-mute-${providerName}-${userId}-${randomUUID()}`,
+      });
+      return { provider: providerName, userId, notificationId: null, channels: {}, skipped: 'course-mute' };
     }
     const state: LoginState = (input.loggedIn ?? true) ? 'loggedin' : 'loggedoff';
     const channels: Record<string, string> = {};
@@ -1920,6 +2022,10 @@ export class MessagingService {
         subject: 'A conversation was reported',
         body: 'A conversation was reported and is waiting in the moderation queue. Open the reports list in Messages to review it.',
         fromUserId: actorId,
+        // Nguồn của thông báo là khoá của conversation bị báo cáo
+        // (NB-4): người nhận đã tắt tiếng khoá đó thì ghi đè theo
+        // khoá áp dụng như mọi thông báo gắn khoá khác.
+        courseId: courseId ?? undefined,
       }).catch(() => undefined);
     }
     return report;
