@@ -63,7 +63,7 @@ async function befriend(a: Person, b: Person): Promise<void> {
   const req = await http(app).post(`/api/v1/messages/contacts/${b.id}`)
     .set('Authorization', `Bearer ${a.token}`).send({});
   expect(req.status).toBe(201);
-  const accept = await http(app).post(`/api/v1/messages/contacts/${a.id}/accept`)
+  const accept = await http(app).post(`/api/v1/messages/contacts/requests/${a.id}/accept`)
     .set('Authorization', `Bearer ${b.token}`).send({});
   expect(accept.status).toBe(201);
 }
