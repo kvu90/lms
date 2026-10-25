@@ -10,7 +10,7 @@ import {
   badge, badgeCriteria, badgeIssued, badgeManualAward, cohortMembers, competencyUserComp,
   courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
   notifications, outboxEvents, users,
-} from '../db/schema';
+} from '@lms/db-schema';
 
 /** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortName). */
 const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstName', 'lastName'] as const;

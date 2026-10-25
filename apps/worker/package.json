@@ -10,6 +10,8 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
+    "@lms/contracts": "workspace:*",
+    "@lms/db-schema": "workspace:*",
     "@lms/grades": "workspace:*",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.2.0",

@@ -8,7 +8,7 @@ import { EnrolExpiryProcessor } from '../src/processors/enrol-expiry.processor';
 import {
   courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
   courseModulesCompletion, enrol, outboxEvents, userEnrolments,
-} from '../src/db/schema';
+} from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**

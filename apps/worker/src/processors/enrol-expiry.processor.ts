@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { and, eq, gt, lt, lte, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { enrol, outboxEvents, userEnrolments } from '../db/schema';
+import { enrol, outboxEvents, userEnrolments } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
 
 type Database = NodePgDatabase<typeof relations>;

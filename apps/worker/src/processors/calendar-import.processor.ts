@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { calendarEvents, calendarSubscriptions } from '../db/schema';
+import { calendarEvents, calendarSubscriptions } from '@lms/db-schema';
 import { parseIcs } from '../domain/ics';
 
 type Database = NodePgDatabase<typeof relations>;

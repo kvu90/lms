@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, desc, eq, gte } from 'drizzle-orm';
-import { eventLog, outboxEvents, taskLog } from '../src/db/schema';
+import { eventLog, outboxEvents, taskLog } from '@lms/db-schema';
 import { EnrolExpiryProcessor } from '../src/processors/enrol-expiry.processor';
 import { OutboxRelayScheduler } from '../src/outbox-relay.scheduler';
 import { TaskLogService } from '../src/task-log.service';

@@ -8,7 +8,7 @@ import { CompletionRecalculateProcessor } from '../src/processors/completion-rec
 import {
   courseCompletionCriteria, courseCompletions, gradeCategories, gradeGrades,
   gradeGradesHistory, gradeItems, outboxEvents,
-} from '../src/db/schema';
+} from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**

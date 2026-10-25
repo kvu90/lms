@@ -10,7 +10,7 @@ import {
 import {
   backupJobs, enrol, gradeGrades, insights, payments, privacyRequests, reportBuilderReport,
   reportBuilderSchedule, searchDocuments, userEnrolments, users,
-} from '../src/db/schema';
+} from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**

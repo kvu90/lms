@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import type { DbTx } from '../curriculum/curriculum.repository';
-import { bookMappings, bookNodes, bookRecords, books } from './schema';
+import { bookMappings, bookNodes, bookRecords, books } from '../../db/schema';
 
 export type BookRow = typeof books.$inferSelect;
 export type BookNodeRow = typeof bookNodes.$inferSelect;

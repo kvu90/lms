@@ -8,13 +8,13 @@ import type { relations } from '../db/relations';
 import {
   analyticsModels, analyticsPredictions, backupIdMappings, backupJobSteps, backupJobs,
   badge, badgeCriteria, blogPosts, calendarEvents, calendarSubscriptions, competencyUserComp,
-  contentBankContent, contextTable, course,
+  contentBankContent, context as contextTable, course,
   courseCompletions, courseModules, courseModulesCompletion, courseSections, enrol,
   gradeGrades, gradeItems, insights, notifications, outboxEvents, payments, privacyExportFiles,
   privacyRequests, question, questionBankEntries, questionCategories, questionVersions,
   reportBuilderReport, reportBuilderSchedule, role, roleAssignments,
   searchDocuments, userEnrolments, userPreferences, users, badgeIssued, files,
-} from '../db/schema';
+} from '@lms/db-schema';
 
 type Database = NodePgDatabase<typeof relations>;
 

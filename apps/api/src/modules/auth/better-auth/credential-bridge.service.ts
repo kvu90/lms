@@ -5,8 +5,8 @@ import { makeSignature } from 'better-auth/crypto';
 import { createInternalAdapter } from 'better-auth/db';
 import { and, eq } from 'drizzle-orm';
 import type { Database } from '../../../db/database';
-import { users } from '../../users/schema';
-import { authAccount } from '../schema';
+import { users } from '../../../db/schema';
+import { authAccount } from '../../../db/schema';
 import { BetterAuthService } from './better-auth.service';
 
 export interface CreateUserWithCredentialInput {
