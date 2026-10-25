@@ -1,0 +1,818 @@
+{
+  "subject": "Toán",
+  "issued_with": "Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+  "records": [
+    {
+      "id": "TOAN-0045",
+      "subject": "Toán",
+      "grade": 3,
+      "level": "Tiểu học",
+      "stream": "Hình học và Đo lường",
+      "section": "Hình học trực quan",
+      "topic": "Đo lường",
+      "content": "Tính toán và ước lượng với các số đo đại lượng",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thực hiện được việc chuyển đổi và tính toán với các số đo độ dài (mm, cm, dm, m, km); diện tích (cm2); khối lượng (g, kg); dung tích (ml, l); thời gian (phút, giờ, ngày, tuần lễ, tháng, năm); tiền Việt Nam đã học."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Tính được chu vi của hình tam giác, hình tứ giác, hình chữ nhật, hình vuông khi biết độ dài các cạnh."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Tính được diện tích hình chữ nhật, hình vuông."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thực hiện được việc ước lượng các kết quả đo lường trong một số trường hợp đơn giản (ví dụ: cân nặng của một con gà khoảng 2kg,...)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải quyết được một số vấn đề thực tiễn liên quan đến đo lường."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Thực hiện được việc chuyển đổi và tính toán với các số đo độ dài (mm, cm, dm, m, km); diện tích (cm2); khối lượng (g, kg); dung tích (ml, l); thời gian (phút, giờ, ngày, tuần lễ, tháng, năm); tiền Việt Nam đã học. – Tính được chu vi của hình tam giác, hình tứ giác, hình chữ nhật, hình vuông khi biết độ dài các cạnh. – Tính được diện tích hình chữ nhật, hình vuông. – Thực hiện được việc ước lượng các kết quả đo lường trong một số trường hợp đơn giản (ví dụ: cân nặng của một con gà khoảng 2kg,...). – Giải quyết được một số vấn đề thực tiễn liên quan đến đo lường.",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          32,
+          33
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0068",
+      "subject": "Toán",
+      "grade": 4,
+      "level": "Tiểu học",
+      "stream": "Hình học và Đo lường",
+      "section": "Hình học trực quan",
+      "topic": "Đo lường",
+      "content": "Biểu tượng về đại lượng và đơn vị đo đại lượng",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được các đơn vị đo khối lượng: yến, tạ, tấn và quan hệ giữa các đơn vị đó với kg."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được các đơn vị đo diện tích: dm2 (đề-xi-mét vuông), m2 (mét vuông), mm2 (mi-li-mét vuông) và quan hệ giữa các đơn vị đó."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được các đơn vị đo thời gian: giây, thế kỉ và quan hệ giữa các đơn vị đo thời gian đã học."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được đơn vị đo góc: độ (o)."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Nhận biết được các đơn vị đo khối lượng: yến, tạ, tấn và quan hệ giữa các đơn vị đó với kg. – Nhận biết được các đơn vị đo diện tích: dm2 (đề-xi-mét vuông), m2 (mét vuông), mm2 (mi-li-mét vuông) và quan hệ giữa các đơn vị đó. – Nhận biết được các đơn vị đo thời gian: giây, thế kỉ và quan hệ giữa các đơn vị đo thời gian đã học. – Nhận biết được đơn vị đo góc: độ (o).",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          37,
+          38
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0070",
+      "subject": "Toán",
+      "grade": 4,
+      "level": "Tiểu học",
+      "stream": "Hình học và Đo lường",
+      "section": "Hình học trực quan",
+      "topic": "Đo lường",
+      "content": "Tính toán và ước lượng với các số đo đại lượng",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thực hiện được việc chuyển đổi và tính toán với các số đo độ dài (mm, cm, dm, m, km); diện tích (mm2, cm2, dm2, m2); khối lượng (g, kg, yến, tạ, tấn); dung tích (ml, l); thời gian (giây, phút, giờ, ngày, tuần lễ, tháng, năm, thế kỉ); tiền Việt Nam đã học."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thực hiện được việc ước lượng các kết quả đo lường trong một số trường hợp đơn giản (ví dụ: con bò cân nặng khoảng 3 tạ,...)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải quyết được một số vấn đề thực tiễn liên quan đến đo độ dài, diện tích, khối lượng, dung tích, thời gian, tiền Việt Nam."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Thực hiện được việc chuyển đổi và tính toán với các số đo độ dài (mm, cm, dm, m, km); diện tích (mm2, cm2, dm2, m2); khối lượng (g, kg, yến, tạ, tấn); dung tích (ml, l); thời gian (giây, phút, giờ, ngày, tuần lễ, tháng, năm, thế kỉ); tiền Việt Nam đã học. – Thực hiện được việc ước lượng các kết quả đo lường trong một số trường hợp đơn giản (ví dụ: con bò cân nặng khoảng 3 tạ,...). – Giải quyết được một số vấn đề thực tiễn liên quan đến đo độ dài, diện tích, khối lượng, dung tích, thời gian, tiền Việt Nam.",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          38
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0158",
+      "subject": "Toán",
+      "grade": 8,
+      "level": "THCS",
+      "stream": "Số và Đại số",
+      "section": "Đại số",
+      "topic": "Hàm số và đồ thị",
+      "content": "Hàm số bậc nhất y = ax + b (a  0) và đồ thị. Hệ số góc của đường thẳng y = ax + b (a  0).",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thiết lập được bảng giá trị của hàm số bậc nhất y = ax + b (a  0)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Vẽ được đồ thị của hàm số bậc nhất y = ax + b (a  0)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được khái niệm hệ số góc của đường thẳng y = ax + b (a  0)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sử dụng được hệ số góc của đường thẳng để nhận biết và giải thích được sự cắt nhau hoặc song song của hai đường thẳng cho trước."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Vận dụng được hàm số bậc nhất và đồ thị vào giải quyết một số bài toán thực tiễn (ví dụ: bài toán về chuyển động đều trong Vật lí,...)."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Thiết lập được bảng giá trị của hàm số bậc nhất y = ax + b (a  0). – Vẽ được đồ thị của hàm số bậc nhất y = ax + b (a  0). – Nhận biết được khái niệm hệ số góc của đường thẳng y = ax + b (a  0). – Sử dụng được hệ số góc của đường thẳng để nhận biết và giải thích được sự cắt nhau hoặc song song của hai đường thẳng cho trước. – Vận dụng được hàm số bậc nhất và đồ thị vào giải quyết một số bài toán thực tiễn (ví dụ: bài toán về chuyển động đều trong Vật lí,...).",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          64,
+          65
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0179",
+      "subject": "Toán",
+      "grade": 9,
+      "level": "THCS",
+      "stream": "Số và Đại số",
+      "section": "Đại số",
+      "topic": "Hàm số và đồ thị",
+      "content": "Hàm số y = ax2 (a  0) và đồ thị",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Thiết lập được bảng giá trị của hàm số y = ax2 (a  0)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Vẽ được đồ thị của hàm số y = ax2 (a  0)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được tính đối xứng (trục) và trục đối xứng của đồ thị hàm số y = ax2 (a  0)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải quyết được một số vấn đề thực tiễn gắn với hàm số y = ax2 (a  0) và đồ thị (ví dụ: các bài toán liên quan đến chuyển động trong Vật lí,...)."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Thiết lập được bảng giá trị của hàm số y = ax2 (a  0). – Vẽ được đồ thị của hàm số y = ax2 (a  0). – Nhận biết được tính đối xứng (trục) và trục đối xứng của đồ thị hàm số y = ax2 (a  0). – Giải quyết được một số vấn đề thực tiễn gắn với hàm số y = ax2 (a  0) và đồ thị (ví dụ: các bài toán liên quan đến chuyển động trong Vật lí,...).",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          71,
+          72
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0211",
+      "subject": "Toán",
+      "grade": 10,
+      "level": "THPT",
+      "stream": "Đại số và Một số yếu tố giải tích",
+      "section": "xứng.",
+      "topic": "Đại số tổ hợp",
+      "content": "Nhị thức Newton với số mũ không quá 5",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Khai triển được nhị thức Newton (a + b)n với số mũ thấp (n = 4 hoặc n = 5) bằng cách vận dụng tổ hợp."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "Khai triển được nhị thức Newton (a + b)n với số mũ thấp (n = 4 hoặc n = 5) bằng cách vận dụng tổ hợp.",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          81
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0236",
+      "subject": "Toán",
+      "grade": 11,
+      "level": "THPT",
+      "stream": "Đại số và Một số yếu tố giải tích",
+      "section": "Đại số",
+      "topic": "Hàm số lượng giác và phương trình lượng giác",
+      "content": "Hàm số lượng giác và đồ thị",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được được các khái niệm về hàm số chẵn, hàm số lẻ, hàm số tuần hoàn."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được các đặc trưng hình học của đồ thị hàm số chẵn, hàm số lẻ, hàm số tuần hoàn."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được được định nghĩa các hàm lượng giác y = sin x, y = cos x, y = tan x, y = cot x thông qua đường tròn lượng giác."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Mô tả được bảng giá trị của bốn hàm số lượng giác đó trên một chu kì."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Vẽ được đồ thị của các hàm số y = sin x, y = cos x, y = tan x, y = cot x."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải thích được: tập xác định; tập giá trị; tính chất chẵn, lẻ; tính tuần hoàn; chu kì; khoảng đồng biến, nghịch biến của các hàm số y = sin x, y = cos x, y = tan x, y = cot x dựa vào đồ thị."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải quyết được một số vấn đề thực tiễn gắn với hàm số lượng giác (ví dụ: một số bài toán có liên quan đến dao động điều hoà trong Vật lí,...)."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Nhận biết được được các khái niệm về hàm số chẵn, hàm số lẻ, hàm số tuần hoàn. – Nhận biết được các đặc trưng hình học của đồ thị hàm số chẵn, hàm số lẻ, hàm số tuần hoàn. – Nhận biết được được định nghĩa các hàm lượng giác y = sin x, y = cos x, y = tan x, y = cot x thông qua đường tròn lượng giác. – Mô tả được bảng giá trị của bốn hàm số lượng giác đó trên một chu kì. – Vẽ được đồ thị của các hàm số y = sin x, y = cos x, y = tan x, y = cot x. – Giải thích được: tập xác định; tập giá trị; tính chất chẵn, lẻ; tính tuần hoàn; chu kì; khoảng đồng biến, nghịch biến của các hàm số y = sin x, y = cos x, y = tan x, y = cot x dựa vào đồ thị. – Giải quyết được một số vấn đề thực tiễn gắn với hàm số lượng giác (ví dụ: một số bài toán có liên quan đến dao động điều hoà trong Vật lí,...).",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          90
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0237",
+      "subject": "Toán",
+      "grade": 11,
+      "level": "THPT",
+      "stream": "Đại số và Một số yếu tố giải tích",
+      "section": "Đại số",
+      "topic": "Hàm số lượng giác và phương trình lượng giác",
+      "content": "Phương trình lượng giác cơ bản",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được công thức nghiệm của phương trình lượng giác cơ bản: sin x = m; cos x = m; tan x = m; cot x = m bằng cách vận dụng đồ thị hàm số lượng giác tương ứng."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Tính được nghiệm gần đúng của phương trình lượng giác cơ bản bằng máy tính cầm tay."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải được phương trình lượng giác ở dạng vận dụng trực tiếp phương trình lượng giác cơ bản (ví dụ: giải phương trình lượng giác dạng sin 2x = sin 3x, sin x = cos 3x)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải quyết được một số vấn đề thực tiễn gắn với phương trình lượng giác (ví dụ: một số bài toán liên quan đến dao động điều hòa trong Vật lí,...)."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Nhận biết được công thức nghiệm của phương trình lượng giác cơ bản: sin x = m; cos x = m; tan x = m; cot x = m bằng cách vận dụng đồ thị hàm số lượng giác tương ứng. – Tính được nghiệm gần đúng của phương trình lượng giác cơ bản bằng máy tính cầm tay. – Giải được phương trình lượng giác ở dạng vận dụng trực tiếp phương trình lượng giác cơ bản (ví dụ: giải phương trình lượng giác dạng sin 2x = sin 3x, sin x = cos 3x). – Giải quyết được một số vấn đề thực tiễn gắn với phương trình lượng giác (ví dụ: một số bài toán liên quan đến dao động điều hòa trong Vật lí,...).",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          91
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0245",
+      "subject": "Toán",
+      "grade": 11,
+      "level": "THPT",
+      "stream": "Một số yếu tố giải tích",
+      "section": null,
+      "topic": "Hàm số mũ và hàm số lôgarit",
+      "content": "Phép tính lôgarit (logarithm). Các tính chất",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được khái niệm lôgarit cơ số a (a > 0, a  1) của một số thực dương."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải thích được các tính chất của phép tính lôgarit nhờ sử dụng định nghĩa hoặc các tính chất đã biết trước đó."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Sử dụng được tính chất của phép tính lôgarit trong tính toán các biểu thức số và rút gọn các biểu thức chứa biến (tính viết và tính nhẩm, tính nhanh một cách hợp lí)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Tính được giá trị (đúng hoặc gần đúng) của lôgarit bằng cách sử dụng máy tính cầm tay."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Giải quyết được một số vấn đề có liên quan đến môn học khác hoặc có liên quan đến thực tiễn gắn với phép tính lôgarit (ví dụ: bài toán liên quan đến độ pH trong Hoá học,...)."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Nhận biết được khái niệm lôgarit cơ số a (a > 0, a  1) của một số thực dương. – Giải thích được các tính chất của phép tính lôgarit nhờ sử dụng định nghĩa hoặc các tính chất đã biết trước đó. – Sử dụng được tính chất của phép tính lôgarit trong tính toán các biểu thức số và rút gọn các biểu thức chứa biến (tính viết và tính nhẩm, tính nhanh một cách hợp lí). – Tính được giá trị (đúng hoặc gần đúng) của lôgarit bằng cách sử dụng máy tính cầm tay. – Giải quyết được một số vấn đề có liên quan đến môn học khác hoặc có liên quan đến thực tiễn gắn với phép tính lôgarit (ví dụ: bài toán liên quan đến độ pH trong Hoá học,...).",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          94
+        ]
+      }
+    },
+    {
+      "id": "TOAN-0277",
+      "subject": "Toán",
+      "grade": 12,
+      "level": "THPT",
+      "stream": "Một số yếu tố giải tích",
+      "section": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Sử dụng phần mềm để tính được các số đặc trưng đo xu thế trung tâm cho mẫu số liệu ghép nhóm. – Thực hành sử dụng phần mềm để tính xác suất.",
+      "topic": "Ứng dụng đạo hàm để khảo sát và vẽ đồ thị của hàm số",
+      "content": "Khảo sát và vẽ đồ thị của hàm số",
+      "kind": "content",
+      "outcomes": [
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được hình ảnh hình học của đường tiệm cận ngang, đường tiệm cận đứng, đường tiệm cận xiên của đồ thị hàm số."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Mô tả được sơ đồ tổng quát để khảo sát hàm số (tìm tập xác định, xét chiều biến thiên, tìm cực trị, tìm tiệm cận, lập bảng biến thiên, vẽ đồ thị)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Khảo sát được tập xác định, chiều biến thiên, cực trị, tiệm cận, bảng biến thiên và vẽ đồ thị của các hàm số: axb y = ax3 + bx2 + cx + d (a  0); y  (c  0, ad  bc  0); cxd ax2 bxc y  (a  0, m  0 và đa thức tử không chia hết cho đa thức mxn mẫu)."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "doc",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Nhận biết được tính đối xứng (trục đối xứng, tâm đối xứng) của đồ thị các hàm số trên."
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "outcome_text": "– Nhận biết được hình ảnh hình học của đường tiệm cận ngang, đường tiệm cận đứng, đường tiệm cận xiên của đồ thị hàm số. – Mô tả được sơ đồ tổng quát để khảo sát hàm số (tìm tập xác định, xét chiều biến thiên, tìm cực trị, tìm tiệm cận, lập bảng biến thiên, vẽ đồ thị). – Khảo sát được tập xác định, chiều biến thiên, cực trị, tiệm cận, bảng biến thiên và vẽ đồ thị của các hàm số: axb y = ax3 + bx2 + cx + d (a  0); y  (c  0, ad  bc  0); cxd ax2 bxc y  (a  0, m  0 và đa thức tử không chia hết cho đa thức mxn mẫu). – Nhận biết được tính đối xứng (trục đối xứng, tâm đối xứng) của đồ thị các hàm số trên.",
+      "source": {
+        "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+        "file": "ct-toan-official.pdf",
+        "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+        "pdf_pages": [
+          106
+        ]
+      }
+    }
+  ]
+}
