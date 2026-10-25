@@ -72,7 +72,7 @@ describe('Search write routes guard (H2+H5, #134)', () => {
   it('admin (manager) gọi được cả 4 route: index, index-raw, reindex, delete', async () => {
     const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`)
       .send({ area: 'courses', itemId: courseId });
-    expect(idx.status).toBe(200);
+    expect(idx.status).toBe(201);
     expect(idx.body.indexed).toBe(true);
     const rawItemId = uuidv7();
     const raw = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
