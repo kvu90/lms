@@ -969,6 +969,81 @@ export class MessagingRepository {
     ));
   }
 
+  // --- course conversation sync ----------------------------------------------
+  // Conversation CẤP KHOÁ (chat toàn lớp): một conversation type 2 gắn
+  // với chính khoá qua (component 'core_course', itemType 'course',
+  // itemId = course id). Thành viên đúng nghĩa = ghi danh đang hiệu lực
+  // ∪ staff của khoá — đọc trực tiếp enrol/user_enrolments +
+  // role_assignments qua barrel schema như phần roster/staff phía trên.
+
+  /**
+   * Conversation gắn với chính một khoá qua (component, itemType, itemId).
+   * Nhận tx tuỳ chọn để re-check TRONG transaction đã giữ khoá advisory
+   * (xem {@link acquireCourseConversationLock}) — đường đọc mặc định
+   * vẫn qua kết nối thường.
+   */
+  async findCourseConversation(courseId: string, tx?: DbTx): Promise<ConversationRow | undefined> {
+    const [row] = await (tx ?? this.db).select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_course'),
+      eq(messageConversations.itemType, 'course'),
+      eq(messageConversations.itemId, courseId),
+    ));
+    return row;
+  }
+  /**
+   * Khoá advisory cấp transaction theo courseId cho đường ensure
+   * conversation cấp khoá: mọi lượt ensure song song của cùng một khoá
+   * xếp hàng tại đây, và vì là xact lock (giữ tới commit/rollback) nên
+   * lượt xếp sau re-check sẽ thấy conversation của lượt trước đã
+   * commit. Đây là điểm đồng bộ duy nhất giữ bất biến "mỗi khoá đúng
+   * một conversation cấp khoá" mà không cần unique trên schema.
+   */
+  async acquireCourseConversationLock(tx: DbTx, courseId: string): Promise<void> {
+    const key = `messaging:core_course:${courseId}`;
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`);
+  }
+  /**
+   * User đang ghi danh HIỆU LỰC trong một khoá (instance enabled + ghi
+   * danh ACTIVE + trong cửa sổ thời gian — cùng ngữ nghĩa activeCourseIds).
+   */
+  async listActiveEnrolledUserIds(courseId: string): Promise<string[]> {
+    const now = new Date();
+    const rows = await this.db.select({ userId: userEnrolments.userId }).from(userEnrolments)
+      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
+      .where(and(
+        eq(enrol.courseId, courseId),
+        eq(userEnrolments.status, 0),
+        eq(enrol.status, 0),
+        lte(userEnrolments.timeStart, now),
+        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
+      ));
+    return [...new Set(rows.map((r) => r.userId))];
+  }
+  /**
+   * Tập thành viên của conversation cấp khoá: ghi danh đang hiệu lực ∪
+   * staff của khoá ({@link listCourseStaffUserIds} — gán vai staff tại
+   * context khoá hoặc tổ tiên).
+   */
+  async listCourseConversationMemberIds(courseId: string): Promise<string[]> {
+    const enrolled = await this.listActiveEnrolledUserIds(courseId);
+    const staff = await this.listCourseStaffUserIds(courseId);
+    return [...new Set([...enrolled, ...staff])];
+  }
+  /**
+   * Mọi conversation cấp khoá thuộc các khoá mà user là thành viên theo
+   * định nghĩa roster (ghi danh hiệu lực ∪ gán vai tại context khoá) —
+   * để thao tác liệt kê cũng kích hoạt đồng bộ lười như đường group.
+   */
+  async listCourseConversationsForMember(userId: string): Promise<ConversationRow[]> {
+    const courseIds = await this.listMembershipCourseIds(userId);
+    if (!courseIds.length) return [];
+    return this.db.select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_course'),
+      eq(messageConversations.itemType, 'course'),
+      inArray(messageConversations.itemId, courseIds),
+    ));
+  }
+
   /**
    * Chèn notification trong ứng dụng.
    */

@@ -245,6 +245,9 @@ export function isWithinRecallWindow(createdAt: Date, now: Date, windowMinutes: 
  * người theo tên. Notification hệ thống không qua cổng liên lạc này.
  * Conversation gắn course group (component core_group) đồng bộ thành viên
  * theo group mỗi lần liệt kê/mở/gửi (đồng bộ lười phía messaging).
+ * Conversation CẤP KHOÁ (chat toàn lớp, component core_course/itemType
+ * course) cùng cơ chế: cấp phát lười khi thành viên/staff mở, thành viên
+ * = ghi danh hiệu lực ∪ staff khoá, đồng bộ lười mỗi lần liệt kê/mở/gửi.
  */
 export class MessagingService {
   constructor(
@@ -875,21 +878,30 @@ export class MessagingService {
       && conversation.itemId !== null;
   }
 
+  /** Conversation có gắn với chính một KHOÁ (chat toàn lớp) qua (component, itemType, itemId) hay không. */
+  private isCourseLinked(conversation: ConversationRow): boolean {
+    return conversation.type === 2
+      && conversation.component === 'core_course'
+      && conversation.itemType === 'course'
+      && conversation.itemId !== null;
+  }
+
   /**
-   * Đồng bộ lười thành viên của một conversation gắn group theo thành viên
-   * group HIỆN TẠI: người mới vào group được thêm, người rời group bị gỡ
-   * khỏi conversation (tin nhắn cũ giữ nguyên). Trả về danh sách thành viên
-   * sau đồng bộ. Chỉ chạy phía messaging khi conversation được liệt kê/mở/
-   * gửi — không cần hook trong module groups.
+   * Đồng bộ lười thành viên của một conversation gắn cấu trúc (group
+   * hoặc khoá) về đúng tập đích HIỆN TẠI: người mới thuộc cấu trúc được
+   * thêm, người đã rời bị gỡ khỏi conversation (tin nhắn cũ giữ nguyên).
+   * Trả về danh sách thành viên sau đồng bộ. Chỉ chạy phía messaging khi
+   * conversation được liệt kê/mở/gửi — không cần hook trong module chủ
+   * của cấu trúc.
    */
-  private async syncGroupConversationMembers(conversation: ConversationRow): Promise<string[]> {
-    const groupMemberIds = [...new Set(await this.repo.listGroupMemberIds(conversation.itemId!))];
+  private async syncLinkedConversationMembers(conversation: ConversationRow, targetIds: string[]): Promise<string[]> {
+    const memberIds = [...new Set(targetIds)];
     const current = await this.repo.listMembers(conversation.id);
-    for (const id of groupMemberIds) {
+    for (const id of memberIds) {
       if (!current.includes(id)) await this.repo.addMember(conversation.id, id);
     }
     for (const id of current) {
-      if (!groupMemberIds.includes(id)) {
+      if (!memberIds.includes(id)) {
         await this.repo.removeMember(conversation.id, id);
         // Đẩy socket của người vừa bị gỡ ra khỏi room của conversation
         // NGAY: membership ở DB đã mất mà socket còn nằm trong room thì
@@ -898,12 +910,39 @@ export class MessagingService {
         await this.realtime.evictUserFromConversation(id, conversation.id);
       }
     }
-    return groupMemberIds;
+    return memberIds;
   }
 
-  /** Đồng bộ nếu conversation gắn group; conversation thường thì bỏ qua. */
+  /** Đồng bộ thành viên theo thành viên course group hiện tại. */
+  private async syncGroupConversationMembers(conversation: ConversationRow): Promise<string[]> {
+    return this.syncLinkedConversationMembers(conversation, await this.repo.listGroupMemberIds(conversation.itemId!));
+  }
+
+  /** Đồng bộ thành viên theo ghi danh hiệu lực ∪ staff của khoá hiện tại. */
+  private async syncCourseConversationMembers(conversation: ConversationRow): Promise<string[]> {
+    return this.syncLinkedConversationMembers(conversation, await this.repo.listCourseConversationMemberIds(conversation.itemId!));
+  }
+
+  /** Đồng bộ nếu conversation gắn cấu trúc (group/khoá); conversation thường thì bỏ qua. */
   private async syncGroupConversationIfLinked(conversation: ConversationRow): Promise<void> {
     if (this.isGroupLinked(conversation)) await this.syncGroupConversationMembers(conversation);
+    else if (this.isCourseLinked(conversation)) await this.syncCourseConversationMembers(conversation);
+  }
+
+  /**
+   * Cổng thành viên cho các đường theo id (đọc/gửi/báo cáo): người
+   * không phải thành viên bị từ chối — riêng conversation CẤP KHOÁ
+   * hành xử như KHÔNG TỒN TẠI (404, cùng mã `conversation_not_found`)
+   * để bề mặt chat lớp không rò sự tồn tại của khoá/conversation cho
+   * người ngoài khoá, đồng nhất với cổng ensure; các loại conversation
+   * khác giữ 403 `not_member` như hiện hành.
+   */
+  private async assertConversationMember(userId: string, conversation: ConversationRow): Promise<void> {
+    if (await this.repo.isMember(conversation.id, userId)) return;
+    if (this.isCourseLinked(conversation)) {
+      throw new NotFoundException({ message: `Conversation ${conversation.id} not found`, code: 'messaging.conversation_not_found' });
+    }
+    throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
   }
 
   /**
@@ -945,6 +984,54 @@ export class MessagingService {
     return { ...conversation, members: groupMemberIds };
   }
 
+  // --- course conversations (chat toàn lớp, gắn chính khoá) -------------------
+
+  /**
+   * Mở (ensure) conversation của CHÍNH khoá — chat toàn lớp: component
+   * 'core_course', itemType 'course', itemId = course id, contextId =
+   * context của khoá. Cấp phát LƯỜI idempotent: chưa có thì tạo với
+   * thành viên khởi tạo = ghi danh hiệu lực ∪ staff khoá, đã có thì
+   * đồng bộ lười rồi trả lại — khoá cũ tự có chat khi mở lần đầu, không
+   * migration dữ liệu. Chỉ thành viên của khoá (ghi danh hiệu lực, gán
+   * vai tại context khoá) hoặc staff khoá mới mở được; người ngoài nhận
+   * 404 cùng mã như khoá không tồn tại (không rò tồn tại). Thẩm quyền
+   * quản lý (bật/tắt) theo staff khoá — người tạo bản ghi (có thể là
+   * một học viên mở lần đầu) KHÔNG thành quản lý, đúng luật conversation
+   * gắn cấu trúc. Đua ensure song song: transaction tạo giữ
+   * `pg_advisory_xact_lock` theo courseId rồi re-check trong cùng
+   * transaction — schema không có unique nên khoá này là điểm đồng bộ
+   * giữ bất biến một khoá/một conversation (phán quyết 6395599464).
+   */
+  async ensureCourseConversation(actorId: string, courseId: string): Promise<ConversationRow & { members: string[] }> {
+    const course = await this.repo.getCourseSummary(courseId);
+    if (!course) throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'messaging.course_not_found' });
+    if (!(await this.repo.isCourseMember(courseId, actorId)) && !(await this.isCourseStaff(actorId, courseId))) {
+      throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'messaging.course_not_found' });
+    }
+    const existing = await this.repo.findCourseConversation(courseId);
+    if (existing) return { ...existing, members: await this.syncCourseConversationMembers(existing) };
+    const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
+    const memberIds = await this.repo.listCourseConversationMemberIds(courseId);
+    const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+      // Khoá advisory TRƯỚC, re-check SAU — trong cùng transaction:
+      // lượt ensure song song đến sau phải chờ lượt trước commit xong
+      // mới qua được khoá, và re-check lúc đó thấy conversation đã
+      // tồn tại nên không insert trùng.
+      await this.repo.acquireCourseConversationLock(tx as never, courseId);
+      const rechecked = await this.repo.findCourseConversation(courseId, tx as never);
+      if (rechecked) return { conversation: rechecked, created: false as const };
+      const created = await this.repo.insertConversation({
+        type: 2, name: course.fullName,
+        component: 'core_course', itemType: 'course', itemId: courseId,
+        contextId: courseCtx?.id ?? null, createdBy: actorId,
+      }, tx as never);
+      for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
+      return { conversation: created, created: true as const };
+    });
+    if (!ensured.created) return { ...ensured.conversation, members: await this.syncCourseConversationMembers(ensured.conversation) };
+    return { ...ensured.conversation, members: memberIds };
+  }
+
   // --- thẩm quyền theo phạm vi trên một conversation (Lớp B) -----------------
   // Ba câu hỏi khác nhau, không gộp làm một:
   //  - "phụ trách khoá của conversation này" (staff tại context khoá
@@ -966,6 +1053,7 @@ export class MessagingService {
    * quyền kiểm duyệt trên nó).
    */
   private async resolveConversationCourseId(conversation: ConversationRow): Promise<string | null> {
+    if (this.isCourseLinked(conversation)) return conversation.itemId;
     if (this.isGroupLinked(conversation)) {
       const group = await this.repo.getCourseGroup(conversation.itemId!);
       if (group) return group.courseId;
@@ -1006,7 +1094,7 @@ export class MessagingService {
    */
   private async canManageConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
     if (await this.canModerateConversation(userId, conversation)) return true;
-    if (!this.isGroupLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
+    if (!this.isGroupLinked(conversation) && !this.isCourseLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
     return false;
   }
 
@@ -1047,6 +1135,9 @@ export class MessagingService {
     for (const c of await this.repo.listGroupConversationsForGroupMember(userId)) {
       await this.syncGroupConversationMembers(c);
     }
+    for (const c of await this.repo.listCourseConversationsForMember(userId)) {
+      await this.syncCourseConversationMembers(c);
+    }
     const summaries = await this.repo.listConversationSummaries(userId);
     const myGroupIds = new Set(await this.repo.listGroupIdsForUser(userId));
     const out: (ConversationRow & {
@@ -1058,6 +1149,17 @@ export class MessagingService {
         // đồng bộ ngay (gỡ user khỏi conversation) và ẩn khỏi danh sách.
         await this.syncGroupConversationMembers(s.conversation);
         continue;
+      }
+      if (this.isCourseLinked(s.conversation)) {
+        // Đã rời khoá (huỷ ghi danh/hết vai staff) nhưng membership
+        // conversation chưa được đồng bộ: đối chiếu tập thành viên đúng
+        // nghĩa của khoá — không còn thuộc thì đồng bộ ngay (gỡ user
+        // khỏi conversation) và ẩn khỏi danh sách như đường group.
+        const memberIds = await this.repo.listCourseConversationMemberIds(s.conversation.itemId!);
+        if (!memberIds.includes(userId)) {
+          await this.syncCourseConversationMembers(s.conversation);
+          continue;
+        }
       }
       out.push({
         ...s.conversation,
@@ -1119,9 +1221,7 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, userId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(userId, conversation);
     await this.assertDirectConversationVisible(userId, conversation);
     // Tầm nhìn theo vai trò (Lớp B): thành viên thường KHÔNG BAO GIỜ
     // thấy tin đã xoá mềm; người có thẩm quyền kiểm duyệt trên
@@ -1166,9 +1266,7 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, userId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(userId, conversation);
     await this.assertDirectConversationVisible(userId, conversation);
     // Cùng luật tầm nhìn với getConversation: chỉ người có thẩm quyền
     // kiểm duyệt mới nhận được tin đã xoá mềm trong cửa sổ đồng bộ;
@@ -1212,9 +1310,7 @@ export class MessagingService {
     // tra tư cách thành viên (người mới vào group gửi được ngay, người rời
     // group bị chặn ở kiểm tra ngay dưới đây).
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, actorId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(actorId, conversation);
     // Cột `enabled` phải được tôn trọng THẬT ở đường gửi (Lớp B):
     // giáo viên tắt chat của nhóm lớp thì thành viên thường dừng gửi
     // tại đây; người có thẩm quyền quản lý vẫn gửi được — đó là đường
@@ -1546,9 +1642,7 @@ export class MessagingService {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
     await this.syncGroupConversationIfLinked(conversation);
-    if (!(await this.repo.isMember(conversationId, actorId))) {
-      throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
-    }
+    await this.assertConversationMember(actorId, conversation);
     const report = await this.repo.insertReport({
       conversationId, reporterId: actorId, reason: (reason ?? '').trim(),
     });
@@ -1661,14 +1755,17 @@ export class MessagingService {
    * đã-đọc ("đã xem tới seq N") cho các thành viên còn lại.
    */
   async markConversationRead(userId: string, conversationId: string): Promise<{ marked: number; lastReadSeq: number }> {
-    if (!(await this.repo.isMember(conversationId, userId))) {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (conversation) {
+      // Cổng thành viên (conversation cấp khoá → 404 với người ngoài)
+      // + cùng cổng chặn với đường đọc: hội thoại 1–1 đang chặn thì
+      // đánh dấu đã đọc cũng 404 như không tồn tại — không phát biên
+      // đã-đọc cho phía bên kia qua outbox.
+      await this.assertConversationMember(userId, conversation);
+      await this.assertDirectConversationVisible(userId, conversation);
+    } else if (!(await this.repo.isMember(conversationId, userId))) {
       throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
     }
-    // Cùng cổng với đường đọc: hội thoại 1–1 đang chặn thì đánh dấu
-    // đã đọc cũng 404 như không tồn tại — không phát biên đã-đọc cho
-    // phía bên kia qua outbox.
-    const conversation = await this.repo.getConversation(conversationId);
-    if (conversation) await this.assertDirectConversationVisible(userId, conversation);
     const before = (await this.repo.getMemberLastReadSeq(conversationId, userId)) ?? 0;
     const result = await this.repo.markConversationRead(conversationId, userId);
     if (result.lastReadSeq > before) {
