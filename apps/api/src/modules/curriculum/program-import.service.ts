@@ -5,8 +5,8 @@ import { ContextsService } from '../access/contexts.service';
 import { CurriculumRepository, type CurriculumNodeRow } from './curriculum.repository';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from './curriculum.service';
 import {
-  loadProgramDataset, programDatasetByKey, programRecordAncestors, programRecordHash,
-  programRecordOutcomeTexts, programRecordSourceRef, PROGRAM_DATASETS, type ProgramDatasetDef, type ProgramRecord,
+  loadProgramDataset, programDatasetByKey, programRecordAncestors, programRecordEffectiveGrade, programRecordHash,
+  programRecordOutcomeTexts, programRecordSourceRef, programRecordTitle, PROGRAM_DATASETS, type ProgramDatasetDef, type ProgramRecord,
 } from './program-datasets';
 
 /**
@@ -61,7 +61,9 @@ export class ProgramImportService {
         datasetKey: def.key,
         subjectName: def.subjectName,
         slug: def.slug,
-        grades: [...new Set(file.records.map((r) => r.grade))].sort((a, b) => a - b),
+        // Khối trình bày ở trạng thái: chỉ các khối có bản ghi gắn khối
+        // tường minh (bản ghi theo cấp grade=null không liệt kê ở đây).
+        grades: [...new Set(file.records.map((r) => r.grade))].filter((g): g is number => g !== null).sort((a, b) => a - b),
         totalRecords: file.records.length,
         importedRecords: rows.length,
         subjectId: subject?.id ?? null,
@@ -110,9 +112,11 @@ export class ProgramImportService {
       });
     }
     // Chương trình theo khối: tìm theo cặp (môn, khối), chưa có thì tạo.
+    // Khối xét theo khối HIỆU LỰC của bản ghi (bản ghi theo cấp
+    // grade=null neo vào khối đầu của cấp — xem programRecordEffectiveGrade).
     const curricula = new Map<number, string>();
     for (const row of await this.repo.listCurricula(subject.id)) curricula.set(row.grade, row.id);
-    for (const grade of new Set(file.records.map((r) => r.grade))) {
+    for (const grade of new Set(file.records.map((r) => programRecordEffectiveGrade(file.records, r)))) {
       if (!curricula.has(grade)) {
         const created = await this.repo.insertCurriculum({ subjectId: subject.id, grade });
         curricula.set(grade, created.id);
@@ -139,9 +143,15 @@ export class ProgramImportService {
     let skipped = 0;
     let outcomesWritten = 0;
     for (const record of file.records) {
-      const curriculumId = curricula.get(record.grade)!;
+      const curriculumId = curricula.get(programRecordEffectiveGrade(file.records, record))!;
       const index = await indexFor(curriculumId);
       const parent = await this.ensureAncestors(index, curriculumId, record);
+      // Đường tổ tiên có thể rỗng (dataset không mang bậc cấu trúc nào,
+      // ví dụ Âm nhạc): node lesson nằm ngay ở gốc cây của khối.
+      const parentId = parent?.id ?? null;
+      // Tựa node: nguyên văn content; bản ghi requirement content rỗng
+      // thì suy xuống topic/section (xem programRecordTitle).
+      const title = programRecordTitle(record);
       const hash = programRecordHash(record);
       const reg = await this.repo.getProgramRecord(def.key, record.id);
       if (reg && reg.contentHash === hash) {
@@ -151,10 +161,10 @@ export class ProgramImportService {
       const outcomeTexts = programRecordOutcomeTexts(record);
       const sourceRef = programRecordSourceRef(record);
       if (!reg) {
-        const position = this.takePosition(index, parent.id);
+        const position = this.takePosition(index, parentId);
         await this.repo.dbHandle.transaction(async (tx) => {
           const lesson = await this.repo.insertNode({
-            curriculumId, parentId: parent.id, title: record.content, kind: 'lesson', position,
+            curriculumId, parentId, title, kind: 'lesson', position,
           }, tx as never);
           for (const [i, text] of outcomeTexts.entries()) {
             await this.repo.insertOutcome({
@@ -165,7 +175,7 @@ export class ProgramImportService {
             datasetKey: def.key, recordId: record.id, subjectId: subject.id,
             curriculumId, nodeId: lesson.id, contentHash: hash, source: record.source,
           }, tx as never);
-          index.childByKey.set(childKey(parent.id, 'lesson', record.content), lesson);
+          index.childByKey.set(childKey(parentId, 'lesson', title), lesson);
         });
         created += 1;
         outcomesWritten += outcomeTexts.length;
@@ -178,18 +188,18 @@ export class ProgramImportService {
         let lessonId = reg.nodeId;
         if (reg.curriculumId !== curriculumId) {
           await this.repo.deleteNode(reg.nodeId, tx as never);
-          const position = this.takePosition(index, parent.id);
+          const position = this.takePosition(index, parentId);
           const lesson = await this.repo.insertNode({
-            curriculumId, parentId: parent.id, title: record.content, kind: 'lesson', position,
+            curriculumId, parentId, title, kind: 'lesson', position,
           }, tx as never);
           lessonId = lesson.id;
-          index.childByKey.set(childKey(parent.id, 'lesson', record.content), lesson);
+          index.childByKey.set(childKey(parentId, 'lesson', title), lesson);
         } else {
           const current = await this.repo.getNode(reg.nodeId);
-          const patch: { title: string; parentId?: string; position?: number } = { title: record.content };
-          if (current && current.parentId !== parent.id) {
-            patch.parentId = parent.id;
-            patch.position = this.takePosition(index, parent.id);
+          const patch: { title: string; parentId?: string | null; position?: number } = { title };
+          if (current && current.parentId !== parentId) {
+            patch.parentId = parentId;
+            patch.position = this.takePosition(index, parentId);
           }
           await this.repo.updateNode(reg.nodeId, patch, tx as never);
         }
@@ -214,8 +224,12 @@ export class ProgramImportService {
     };
   }
 
-  /** Tìm-tạo đường tổ tiên (mạch → section → topic) của một bản ghi trong cây của chương trình. */
-  private async ensureAncestors(index: TreeIndex, curriculumId: string, record: ProgramRecord): Promise<CurriculumNodeRow> {
+  /**
+   * Tìm-tạo đường tổ tiên (mạch → section → topic) của một bản ghi
+   * trong cây của chương trình. Trả null khi bản ghi không mang bậc
+   * cấu trúc nào — node lesson của nó nằm ở gốc cây.
+   */
+  private async ensureAncestors(index: TreeIndex, curriculumId: string, record: ProgramRecord): Promise<CurriculumNodeRow | null> {
     let parent: CurriculumNodeRow | null = null;
     for (const step of programRecordAncestors(record)) {
       const key = childKey(parent?.id ?? null, step.kind, step.title);
@@ -231,7 +245,7 @@ export class ProgramImportService {
       index.childByKey.set(key, node);
       parent = node;
     }
-    return parent!;
+    return parent;
   }
 
   /** Cấp position tiếp theo dưới một node cha trong lượt nạp (giữ thứ tự dataset). */

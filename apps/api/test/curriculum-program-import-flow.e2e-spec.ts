@@ -161,8 +161,9 @@ describe('K0a program import (verified GDPT 2018 datasets → programme tree)', 
     expect(teacherStatus.status).toBe(200);
     const teacherImport = await http(app).post('/api/v1/curriculum/program-import').set(bearer(teacherToken)).send({ datasetKey: 'toan' });
     expect(teacherImport.status).toBe(403);
-    // Dataset không có trong manifest → 404 tường minh.
-    const bogus = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'sinh-hoc' });
+    // Dataset không có trong manifest → 404 tường minh (khoá bịa —
+    // mọi khoá môn thật đều đã vào manifest từ #161).
+    const bogus = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'mon-khong-ton-tai' });
     expect(bogus.status).toBe(404);
     expect(bogus.body.code).toBe('curriculum.program_dataset_not_found');
   });
