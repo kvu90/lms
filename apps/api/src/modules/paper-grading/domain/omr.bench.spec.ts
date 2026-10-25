@@ -127,6 +127,29 @@ describe('CAM-0 simulated acceptance set', () => {
     }
   });
 
+  it('identity exhaustive: EVERY body position × even and odd deltas is detected on rendered sheets (class codes)', LONG, () => {
+    // Ca mù của bench cũ: chỉ thử delta +3 (lẻ) ở một vị trí. Bộ trọng
+    // số cũ (3, 5, 7) lọt delta CHẴN ở vị trí trọng số 5 — nay phủ mọi
+    // vị trí × {+2, +3, +8 (≡ −2)} trên ảnh mô phỏng thật.
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40);
+    const fills = new Map<number, SlotFill>();
+    for (let slot = 1; slot <= 40; slot++) fills.set(slot, { choice: slot % 4, style: 'full' });
+    const good = studentCodeForIndex(44); // thân 045 — đủ biên cho cả ba delta ở mọi vị trí
+    let rendered = 0;
+    for (let pos = 0; pos < 3; pos++) {
+      for (const delta of [2, 3, 8]) {
+        const tampered = `${good.slice(0, pos)}${(Number(good[pos]) + delta) % 10}${good.slice(pos + 1)}`;
+        const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: tampered, fills });
+        const result = processSheetImage(simulatePhoto(sheet, { seed: 21000 + pos * 100 + delta }), geometry);
+        rendered++;
+        const accepted = result.bubbleCode !== null && result.bubbleCode.checksumOk;
+        expect(accepted, `tampered class code ${tampered} (from ${good}, pos ${pos}, delta ${delta}) must not validate`).toBe(false);
+        expect(result.bubbleCode?.code).toBe(tampered); // đọc đúng số đã tô, chỉ số kiểm tra bác
+      }
+    }
+    expect(rendered).toBe(9);
+  });
+
   it('quality gate: sheets with a missing fiducial or heavy blur are rejected', LONG, () => {
     const geometry = computeSheetGeometry(OPTION_COUNTS_40);
     const fills = new Map<number, SlotFill>();
@@ -217,6 +240,27 @@ describe('CAM-0 shared-sheet flow (variant grid + SBD codes)', () => {
       const accepted = result.bubbleCode !== null && result.bubbleCode.checksumOk;
       expect(accepted, `tampered SBD ${tampered} must not validate`).toBe(false);
     }
+  });
+
+  it('SBD identity exhaustive: EVERY body position × even and odd deltas is detected on rendered sheets', LONG, () => {
+    // Hai vị trí trọng số 5 của bộ cũ là 0 và 6 — delta CHẴN ở đó từng
+    // lọt 12,70% đột biến. Phủ cả 7 vị trí thân × {+2, +3, +8 (≡ −2)}.
+    const geometry = computeSheetGeometry(OPTION_COUNTS_40, 8);
+    const fills = FILLS_40();
+    const good = sbdCodeForIndex(12_345); // thân 0012346
+    let rendered = 0;
+    for (let pos = 0; pos < 7; pos++) {
+      for (const delta of [2, 3, 8]) {
+        const tampered = `${good.slice(0, pos)}${(Number(good[pos]) + delta) % 10}${good.slice(pos + 1)}`;
+        const sheet = renderSheetRgba({ geometry, qrText: null, bubbleCode: tampered, fills });
+        const result = processSheetImage(simulatePhoto(sheet, { seed: 22000 + pos * 100 + delta }), geometry);
+        rendered++;
+        const accepted = result.bubbleCode !== null && result.bubbleCode.checksumOk;
+        expect(accepted, `tampered SBD ${tampered} (from ${good}, pos ${pos}, delta ${delta}) must not validate`).toBe(false);
+        expect(result.bubbleCode?.code).toBe(tampered);
+      }
+    }
+    expect(rendered).toBe(21);
   });
 
   it('shared sheet end-to-end: SBD code + variant code + answers all read from one photo', LONG, () => {

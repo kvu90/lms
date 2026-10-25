@@ -524,4 +524,76 @@ describe('CAM-0 paper grading flow', () => {
     expect(rec.status).toBe(201);
     expect(rec.body.sumGrades).toBe(10);
   });
+
+  it('single-digit mutation at a previously-leaking position lands in the identity queue — never silently assigned to another student', async () => {
+    // Khoá hồi quy cho phán quyết 6393776449 (PR #120): bộ trọng số cũ
+    // có trọng số 5 (gcd(5,10)=5) nên đột biến 1 chữ số với delta CHẴN
+    // ở vị trí đó làm tổng kiểm tra không đổi → phiếu của học sinh này
+    // thành mã HỢP LỆ của học sinh khác và bị ghi attempt im lặng.
+    // Roster 23 học sinh (A, B + 21 em mới) để mã đột biến có "nạn
+    // nhân" thật trong roster theo công thức cũ.
+    for (let k = 0; k < 21; k++) {
+      const u = await createUserViaApi(app, admin);
+      await enrolUser(app, admin, ctx.courseId, ctx.instanceId, u.id);
+    }
+
+    // --- Mã lớp 4 số: vị trí 1 (trọng số 5 cũ), delta +2 ---
+    const classBatch = await createBatch({ examCode: '1006' });
+    expect(classBatch.roster.length).toBe(23);
+    const first = classBatch.roster.find((r) => Number(r.code.slice(0, 3)) === 1)!;
+    const target = classBatch.roster.find((r) => Number(r.code.slice(0, 3)) === 21)!;
+    const mutatedClass = `${first.code[0]}${(Number(first.code[1]) + 2) % 10}${first.code.slice(2)}`;
+    // Theo công thức cũ (3,5,7), chuỗi đột biến này CHÍNH LÀ mã của
+    // target — ở hệ cũ phiếu sẽ bị gán thẳng cho target.
+    const td = target.code.slice(0, 3).split('').map(Number);
+    const oldFormulaTargetCode = `${td.join('')}${(td[0]! * 3 + td[1]! * 5 + td[2]! * 7) % 10}`;
+    expect(mutatedClass).toBe(oldFormulaTargetCode);
+    // Theo công thức mới (3,9,7), nó không phải mã của bất kỳ ai.
+    expect(classBatch.roster.map((r) => r.code)).not.toContain(mutatedClass);
+    const photoClass = photoFor({
+      qrText: sheetQrPayload(classBatch.id, '1006', null), bubbleCode: mutatedClass,
+      variantCode: '1006', fills: CORRECT_FILLS(), seed: 562,
+    });
+    const resClass = await uploadSession(photoClass, 'session-mutated-class.png', ctx.teacher);
+    expect(resClass.status).toBe(201);
+    const outClass = (resClass.body as ScanOutcome[])[0]!;
+    expect(outClass.stored).toBe(true);
+    expect(outClass.scan!.batchId).toBe(classBatch.id);
+    expect(outClass.scan!.status).toBe('needs_identity');
+    expect(outClass.scan!.studentId).toBeNull(); // đặc biệt: KHÔNG gán cho target
+    expect(outClass.scan!.identityCode).toBe(mutatedClass);
+    const recClass = await http(app).post(`/api/v1/paper-scans/${outClass.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    expect(recClass.status).toBe(409);
+    const delClass = await http(app).delete(`/api/v1/paper-scans/${outClass.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(delClass.status).toBe(200);
+
+    // --- Mã SBD 8 số: vị trí 6 (trọng số 5 cũ), delta +2 ---
+    // Sự thật số học của hệ cũ, kiểm ngay trong test: mã cũ của học
+    // sinh thân 0000001 là 00000015; đột biến +2 ở vị trí 6 cho
+    // 00000035 — chính là mã cũ của học sinh thân 0000003.
+    const W_OLD = [3, 5, 7, 9, 1, 3, 5];
+    const oldCodeOf = (body: string) => `${body}${body.split('').reduce((s, c, i) => s + Number(c) * W_OLD[i]!, 0) % 10}`;
+    const oldFirst = oldCodeOf('0000001');
+    const oldMutated = `${oldFirst.slice(0, 6)}${(Number(oldFirst[6]) + 2) % 10}${oldFirst.slice(7)}`;
+    expect(oldMutated).toBe(oldCodeOf('0000003'));
+    const sbdBatch = await createBatch({ codeDigits: 8, examCode: '2002' });
+    expect(sbdBatch.roster.length).toBe(23);
+    const firstSbd = sbdBatch.roster.find((r) => Number(r.code.slice(0, 7)) === 1)!;
+    const mutatedSbd = `${firstSbd.code.slice(0, 6)}${(Number(firstSbd.code[6]) + 2) % 10}${firstSbd.code.slice(7)}`;
+    expect(sbdBatch.roster.map((r) => r.code)).not.toContain(mutatedSbd);
+    const photoSbd = photoFor({
+      qrText: sheetQrPayload(sbdBatch.id, '2002', null), bubbleCode: mutatedSbd,
+      variantCode: '2002', fills: CORRECT_FILLS(), seed: 563, codeDigits: 8,
+    });
+    const resSbd = await uploadSession(photoSbd, 'session-mutated-sbd.png', ctx.teacher);
+    expect(resSbd.status).toBe(201);
+    const outSbd = (resSbd.body as ScanOutcome[])[0]!;
+    expect(outSbd.stored).toBe(true);
+    expect(outSbd.scan!.batchId).toBe(sbdBatch.id);
+    expect(outSbd.scan!.status).toBe('needs_identity');
+    expect(outSbd.scan!.studentId).toBeNull();
+    expect(outSbd.scan!.identityCode).toBe(mutatedSbd);
+    const delSbd = await http(app).delete(`/api/v1/paper-scans/${outSbd.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(delSbd.status).toBe(200);
+  });
 });

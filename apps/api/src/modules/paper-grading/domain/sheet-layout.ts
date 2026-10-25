@@ -68,19 +68,30 @@ export const VARIANT_DIGITS = 4;
 export const VARIANT_ORIGIN = { x: 150, y: 372 };
 export const VARIANT_WRITE_BOX = { top: 330, width: 38, height: 28 };
 
-/** Mã học sinh: 3 số thứ tự (001–999) + 1 số kiểm tra = (d0*3 + d1*5 + d2*7) mod 10. */
+/**
+ * Mã học sinh: 3 số thứ tự (001–999) + 1 số kiểm tra = (d0*3 + d1*9 +
+ * d2*7) mod 10. Trọng số (3, 9, 7) đều nguyên tố cùng nhau với 10 nên
+ * sai đúng một chữ số LUÔN làm tổng kiểm tra đổi (delta × trọng số
+ * không bao giờ ≡ 0 mod 10 với delta ∈ ±1..±9) → bị bắt 100%. Bộ trọng
+ * số cũ (3, 5, 7) có trọng số 5 với gcd(5, 10) = 5: delta CHẴN ở vị
+ * trí giữa làm tổng không đổi → mã sai lọt thành mã của học sinh khác
+ * (đội đánh giá độc lập đã chứng minh bằng probe exhaustive trên PR
+ * #120, phán quyết 6393776449) — đã bỏ.
+ */
+export const STUDENT_CHECK_WEIGHTS = [3, 9, 7] as const;
+
 export function studentCodeForIndex(index: number): string {
   if (index < 0 || index > 998) throw new Error(`student index out of range: ${index}`);
   const n = index + 1;
   const d = [Math.floor(n / 100) % 10, Math.floor(n / 10) % 10, n % 10];
-  const check = (d[0]! * 3 + d[1]! * 5 + d[2]! * 7) % 10;
+  const check = (d[0]! * STUDENT_CHECK_WEIGHTS[0] + d[1]! * STUDENT_CHECK_WEIGHTS[1] + d[2]! * STUDENT_CHECK_WEIGHTS[2]) % 10;
   return `${d[0]}${d[1]}${d[2]}${check}`;
 }
 
 export function studentCodeChecksumOk(code: string): boolean {
   if (!/^\d{4}$/.test(code)) return false;
   const d = code.split('').map((c) => Number(c));
-  return (d[0]! * 3 + d[1]! * 5 + d[2]! * 7) % 10 === d[3];
+  return (d[0]! * STUDENT_CHECK_WEIGHTS[0] + d[1]! * STUDENT_CHECK_WEIGHTS[1] + d[2]! * STUDENT_CHECK_WEIGHTS[2]) % 10 === d[3];
 }
 
 /** Chỉ số (0-based) từ mã học sinh hợp lệ; null khi mã sai số kiểm tra/định dạng. */
@@ -100,13 +111,20 @@ export function studentIndexForCode(code: string): number | null {
  * cặp ghi+tô) giữ y hệt Bộ cho học sinh luyện kỹ năng thi thật.
  *
  * Số kiểm tra = tổng có trọng số mod 10 trên 7 số đầu, trọng số
- * (3, 5, 7, 9, 1, 3, 5) — mọi trọng số nguyên tố cùng nhau với 10 nên
- * sai đúng một chữ số bị bắt 100%. Hoán vị hai chữ số kề bị bắt trừ
- * cặp chữ số hơn kém nhau đúng 5 (giới hạn toán học của checksum mod
- * 10 một chữ số: hiệu hai trọng số kề luôn là số chẵn); các ca đó do
- * lớp khớp roster của buổi bắt tiếp (mã phải có trong roster).
+ * (3, 9, 7, 9, 1, 3, 9) — mọi trọng số đều nguyên tố cùng nhau với 10
+ * (và không có hai trọng số kề nào bằng nhau) nên sai đúng một chữ số
+ * bị bắt 100%: delta × trọng số không bao giờ ≡ 0 mod 10 với delta ∈
+ * ±1..±9. Bộ trọng số cũ (3, 5, 7, 9, 1, 3, 5) chứa trọng số 5 với
+ * gcd(5, 10) = 5 → delta CHẴN (±2, ±4, ±6, ±8) ở hai vị trí mang
+ * trọng số 5 làm tổng kiểm tra không đổi, mã sai lọt thành mã của thí
+ * sinh khác (probe exhaustive của đội đánh giá độc lập trên PR #120:
+ * 12,70% đột biến 1 chữ số lọt; phán quyết 6393776449) — đã bỏ. Hoán
+ * vị hai chữ số kề bị bắt trừ cặp chữ số hơn kém nhau đúng 5 (giới
+ * hạn toán học của checksum mod 10 một chữ số: hiệu hai trọng số kề
+ * luôn là số chẵn); các ca đó do lớp khớp roster của buổi bắt tiếp
+ * (mã phải có trong roster).
  */
-export const SBD_CHECK_WEIGHTS = [3, 5, 7, 9, 1, 3, 5] as const;
+export const SBD_CHECK_WEIGHTS = [3, 9, 7, 9, 1, 3, 9] as const;
 
 export function sbdCodeForIndex(index: number): string {
   if (index < 0 || index > 9_999_998) throw new Error(`sbd index out of range: ${index}`);
