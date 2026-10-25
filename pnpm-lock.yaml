@@ -200,6 +200,9 @@ importers:
       '@lms/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@lms/grades':
+        specifier: workspace:*
+        version: link:../../packages/grades
       '@modelcontextprotocol/server':
         specifier: 2.4.0
         version: 2.4.0
@@ -496,6 +499,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@lms/grades':
+        specifier: workspace:*
+        version: link:../../packages/grades
       '@nestjs/bullmq':
         specifier: ^12.0.0
         version: 12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(bullmq@6.4.0(ioredis@6.0.0)(pg@8.23.1))
@@ -663,6 +669,18 @@ importers:
       vite:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@26.6.5)(jiti@2.7.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))
+
+  packages/grades:
+    devDependencies:
+      '@lms/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))
