@@ -6,7 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import {
   assignments, assignSubmissions, course, courseModules, enrol, guardianDigests, guardianLinks,
-  outboxEvents, quizAttempts, quizzes, userEnrolments, userPreferences,
+  outboxEvents, examAttempts, examPins, examVersions, userEnrolments, userPreferences,
 } from '@lms/db-schema';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
@@ -232,20 +232,22 @@ export class GuardianDigestProcessor extends WorkerHost {
     const out: { cmId: string; courseId: string; kind: 'quiz' | 'assignment'; name: string; dueAt: Date }[] = [];
 
     const quizRows = await this.db.select({
-      cmId: courseModules.id, courseId: courseModules.course, quizId: quizzes.id, name: quizzes.name, dueAt: quizzes.timeClose,
+      cmId: courseModules.id, courseId: courseModules.course, pinId: examPins.id,
+      name: sql<string>`coalesce(${examPins.name}, ${examVersions.name})`, dueAt: examPins.timeClose,
     }).from(courseModules)
-      .innerJoin(quizzes, eq(quizzes.id, courseModules.instanceId))
+      .innerJoin(examPins, eq(examPins.id, courseModules.instanceId))
+      .innerJoin(examVersions, eq(examVersions.id, examPins.examVersionId))
       .where(and(
         inArray(courseModules.course, courseIds),
         eq(courseModules.component, 'mod_quiz'),
         eq(courseModules.visible, true),
         eq(courseModules.deletionInProgress, false),
-        isNotNull(quizzes.timeClose),
-        lte(quizzes.timeClose, threshold),
+        isNotNull(examPins.timeClose),
+        lte(examPins.timeClose, threshold),
       ));
     for (const row of quizRows) {
       if (!row.dueAt) continue;
-      if (await this.hasSubmittedQuiz(row.quizId, studentUserId)) continue;
+      if (await this.hasSubmittedQuiz(row.pinId, studentUserId)) continue;
       out.push({ cmId: row.cmId, courseId: row.courseId, kind: 'quiz', name: row.name, dueAt: row.dueAt });
     }
 
@@ -274,14 +276,14 @@ export class GuardianDigestProcessor extends WorkerHost {
     return out;
   }
 
-  /** Đã nộp quiz = tồn tại attempt không-preview ở trạng thái đã hoàn tất (khớp N5/PH-1). */
-  private async hasSubmittedQuiz(quizId: string, studentUserId: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: quizAttempts.id }).from(quizAttempts)
+  /** Đã nộp hoạt động đề = tồn tại attempt không-preview ở trạng thái đã hoàn tất cho pin (khớp N5/PH-1). */
+  private async hasSubmittedQuiz(pinId: string, studentUserId: string): Promise<boolean> {
+    const [row] = await this.db.select({ id: examAttempts.id }).from(examAttempts)
       .where(and(
-        eq(quizAttempts.quizId, quizId),
-        eq(quizAttempts.userId, studentUserId),
-        eq(quizAttempts.preview, false),
-        inArray(quizAttempts.state, SUBMITTED_ATTEMPT_STATES),
+        eq(examAttempts.pinId, pinId),
+        eq(examAttempts.userId, studentUserId),
+        eq(examAttempts.preview, false),
+        inArray(examAttempts.state, SUBMITTED_ATTEMPT_STATES),
       ))
       .limit(1);
     return row !== undefined;

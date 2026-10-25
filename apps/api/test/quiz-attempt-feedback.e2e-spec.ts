@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 
 /**
  * ĐX-3 (issue #181): phản hồi quiz phải TỚI được học sinh ở trang xem lại.
@@ -87,13 +88,13 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
   type Ctx = Awaited<ReturnType<typeof setup>>;
 
   async function mkQuiz(ctx: Ctx, name: string, extra: Record<string, unknown> = {}): Promise<string> {
-    const quizRes = await http(app).post(`/api/v1/courses/${ctx.courseId}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.sectionId, name, grade: 3, ...extra });
-    if (quizRes.status !== 201 && quizRes.status !== 200) throw new Error(`quiz failed: ${quizRes.status} ${JSON.stringify(quizRes.body)}`);
-    const quizId = quizRes.body.id as string;
-    await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`).send({ questionId: ctx.mcId });
-    await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${admin}`).send({ questionId: ctx.essayId });
-    const band = await http(app).post(`/api/v1/quizzes/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
+    // Hành trình gộp Đề (#226): soạn đề → ready → ghim (extra là cấu hình tổ chức của pin).
+    const draft = await createExamDraft(app, admin, name, 3);
+    await addExamSlot(app, admin, draft, { questionId: ctx.mcId });
+    await addExamSlot(app, admin, draft, { questionId: ctx.essayId });
+    const pin = await pinExam(app, admin, ctx.courseId, draft, { sectionId: ctx.sectionId, ...extra });
+    const quizId = pin.id as string;
+    const band = await http(app).post(`/api/v1/exam-pins/${quizId}/feedbacks`).set('Authorization', `Bearer ${admin}`)
       .send({ minPercent: 0, maxPercent: 100, feedback: BAND_TEXT });
     if (band.status !== 201 && band.status !== 200) throw new Error(`band failed: ${band.status} ${JSON.stringify(band.body)}`);
     return quizId;
@@ -101,7 +102,7 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
 
   /** HS làm bài (chọn đáp án SAI của câu MC + viết essay), nộp, GV chấm tay essay kèm nhận xét. */
   async function playAndGrade(ctx: Ctx, quizId: string, comment: string): Promise<string> {
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
     expect(start.status === 200 || start.status === 201).toBe(true);
     const view = start.body as AttemptViewBody;
     const mc = view.questions.find((q) => q.questionId === ctx.mcId)!;

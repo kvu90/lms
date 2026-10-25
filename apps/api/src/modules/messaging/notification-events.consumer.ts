@@ -332,13 +332,14 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     const courseId = typeof payload.courseId === 'string' ? payload.courseId : null;
     const timeClose = typeof payload.timeClose === 'string' ? payload.timeClose : null;
     if (!userId || !courseId || !timeClose) return;
-    // Hai loại hoạt động dùng chung sự kiện (NB-1, issue #174): quiz
-    // mang quizId, bài tập mang assignmentId + activityType 'assign';
-    // sự kiện đời cũ không có activityType thì hiểu là quiz.
+    // Hai loại hoạt động dùng chung sự kiện (NB-1, issue #174): hoạt
+    // động đề mang pinId (sau gộp Đề #226), bài tập mang assignmentId
+    // + activityType 'assign'; sự kiện không có activityType thì hiểu
+    // là hoạt động đề.
     const isAssign = payload.activityType === 'assign';
-    const quizId = typeof payload.quizId === 'string' ? payload.quizId : null;
+    const pinId = typeof payload.pinId === 'string' ? payload.pinId : null;
     const assignmentId = typeof payload.assignmentId === 'string' ? payload.assignmentId : null;
-    if (!isAssign && !quizId) return;
+    if (!isAssign && !pinId) return;
     if (isAssign && !assignmentId) return;
     const courseName = (await this.repo.getCourseFullName(courseId)) ?? '';
     const activityName = typeof payload.activityName === 'string' && payload.activityName ? payload.activityName : courseName;
@@ -352,7 +353,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.activityDueSoonBody', { activity: activityName, course: courseName, datetime: dateText }),
       contextUrl: isAssign
         ? `/courses/${courseId}/assignments/${assignmentId}`
-        : `/courses/${courseId}/quizzes/${quizId}`,
+        : `/courses/${courseId}/exams/${pinId}`,
       courseId,
       tenantId: await this.tenantIdOf(payload, courseId),
     });

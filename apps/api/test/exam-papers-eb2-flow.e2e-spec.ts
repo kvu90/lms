@@ -5,19 +5,19 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 
 /**
- * EB-2 (issue #153) — đề recipe + generate hai bước + materialize +
- * mã đề, đối chiếu hồ sơ ngân hàng đề/ma trận (E-3, D.3, E-5):
- *  - generate per_student đi matrix → exam_papers(kind=recipe, ghim
- *    matrix version + recipeSpec) → deploy quiz; quizzes.paper_id là
- *    truy vết chính, matrix_id là truy vết phụ;
- *  - một recipe triển khai cho 2 lớp: hai bộ câu tương đương cùng
- *    cấu trúc (cùng ô/số câu/điểm), câu rút tại attempt theo pool;
- *  - materialize chụp recipe xuống snapshot (derived_from → recipe),
- *    sửa bằng swap-cùng-ô; recipe gốc + lần thi trước nguyên vẹn;
- *  - mã đề (variant_code) sinh ở tầng triển khai kèm seed; in đề
- *    snapshot kèm mã đề.
+ * EB-2 hậu gộp Đề (#226; bản gốc issue #153 về recipe/materialize đã
+ * bị thay thế bởi chốt bỏ recipe 26/10) — generate từ ma trận + mã đề:
+ *  - generate rút MỘT bộ câu cố định → exams(kind=snapshot, ghim
+ *    matrix version) → ghim vào khoá (exam_pins); exam_id là truy
+ *    vết chính, matrix_id là truy vết phụ;
+ *  - cùng một đề ghim cho 2 khoá: MỌI học sinh nhận CÙNG một bộ câu
+ *    (không còn rút lại theo từng học sinh);
+ *  - đề sinh ra là snapshot thường: sửa trực tiếp bằng swap-cùng-ô
+ *    (version mới), lượt thi trước + pin cũ nguyên vẹn;
+ *  - mã đề (variant_code) sinh ở tầng GHIM kèm seed; in đề kèm mã đề
+ *    theo pin.
  */
-describe('EB-2 recipe papers + two-step generate + materialize + variant codes', () => {
+describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -31,16 +31,13 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
   afterAll(async () => { await pg.end(); await app.close(); });
 
   interface SlotBody { id: string; slot: number; questionId: string | null; matrixCellId: string | null; clusterId: string | null; maxMark: number }
-  interface QuizBody { id: string; matrixId: string | null; paperId: string | null; examVersionId: string | null; slots: SlotBody[]; sumGrades: number }
+  interface QuizBody { id: string; matrixId: string | null; examId: string | null; examVersionId: string | null; slots: SlotBody[]; sumGrades: number; variants: { code: string; seed: number }[] }
   interface PaperSlot { position: number; questionId: string; pinnedVersionNumber: number | null; maxMark: number; matrixCellId: string | null }
-  interface CellReport { sourceCellId: string; expectedUnits: number; actualUnits: number; expectedScore: number; actualScore: number; deviated: boolean }
   interface PaperBody {
     paper: { id: string; kind: string; status: string; derivedFromExamId: string | null; latestVersion: number };
-    version: { id: string; matrixId: string | null; matrixVersion: number | null; recipeSpec: { drawMode: string; sourceBankScope: string | null; cells: unknown[] } | null };
+    version: { id: string; matrixId: string | null; matrixVersion: number | null };
     slots: PaperSlot[];
-    cellReport: CellReport[] | null;
   }
-  interface DeploymentBody { id: string; quizId: string; variantCount: number; variants: { code: string; seed: number }[] }
   interface AttemptViewBody { attempt: { id: string; state: string }; questions: { slot: number; questionId: string }[] }
 
   interface Ctx {
@@ -120,7 +117,7 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
 
   async function createMatrix(ctx: Ctx): Promise<{ id: string; version: number }> {
     const r = await http(app).post('/api/v1/exam-matrices').set('Authorization', `Bearer ${admin}`)
-      .send({ name: 'Ma trận EB-2', subjectId: ctx.subjectId, curriculumId: ctx.curriculumId, presetKind: 'custom', totalScore: 4 });
+      .send({ name: 'Ma trận EB-2', subjectId: ctx.subjectId, curriculumId: ctx.curriculumId, totalScore: 4 });
     if (r.status !== 201 && r.status !== 200) throw new Error(`matrix failed: ${r.status} ${JSON.stringify(r.body)}`);
     const matrix = r.body as { id: string; version: number };
     const cellA = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/cells`).set('Authorization', `Bearer ${admin}`)
@@ -132,13 +129,13 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     return matrix;
   }
 
-  async function generate(ctx: Ctx, matrixId: string, course: { id: string; sectionId: string }, drawMode: string, name: string) {
+  async function generate(ctx: Ctx, matrixId: string, course: { id: string; sectionId: string }, name: string) {
     return http(app).post(`/api/v1/exam-matrices/${matrixId}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: course.id, sectionId: course.sectionId, name, drawMode });
+      .send({ courseId: course.id, sectionId: course.sectionId, name });
   }
 
   async function startAttempt(token: string, quizId: string): Promise<AttemptViewBody> {
-    const start = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
     if (start.status !== 201 && start.status !== 200) throw new Error(`start failed: ${start.status} ${JSON.stringify(start.body)}`);
     return start.body as AttemptViewBody;
   }
@@ -150,46 +147,44 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
     return { a, b };
   }
 
-  it('generate per_student: two-step via a recipe paper; same recipe deployed to two classes gives equivalent sets with the same structure', async () => {
+  it('generate: one fixed snapshot exam; the same exam pinned into two courses serves every student the SAME set; variant codes live on the pin', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx);
 
-    const gen = await generate(ctx, matrix.id, ctx.course1, 'per_student', 'Đề luyện tập');
+    const gen = await generate(ctx, matrix.id, ctx.course1, 'Đề luyện tập');
     expect(gen.status === 200 || gen.status === 201).toBe(true);
-    const quiz1 = gen.body as QuizBody & { deployment: DeploymentBody };
-    // Truy vết: paper là chính, matrix là phụ; slots chỉ mang ô nguồn.
+    const quiz1 = gen.body as QuizBody;
+    // Truy vết: exam là chính, matrix là phụ; slots đã ghim câu cụ thể
+    // ngay từ lúc sinh (bỏ hẳn slot chỉ-mang-ô của recipe).
     expect(quiz1.examId).toBeTruthy();
     expect(quiz1.matrixId).toBe(matrix.id);
     expect(quiz1.slots).toHaveLength(4);
-    for (const s of quiz1.slots) {
-      expect(s.questionId).toBeNull();
-      expect(s.matrixCellId).toBeTruthy();
+    for (const sl of quiz1.slots) {
+      expect(sl.questionId).toBeTruthy();
+      expect(sl.matrixCellId).toBeTruthy();
     }
-    expect(quiz1.deployment.variants.map((v) => v.code)).toEqual(['001']);
+    expect(quiz1.variants.map((v) => v.code)).toEqual(['001']);
 
-    // Đề recipe đã nằm trong ngân hàng đề: ghim matrix version + công thức.
-    const paperRes = await http(app).get(`/api/v1/exam-papers/${quiz1.examId}`).set('Authorization', `Bearer ${admin}`);
+    // Đề đã nằm trong ngân hàng đề: snapshot ready, ghim matrix version.
+    const paperRes = await http(app).get(`/api/v1/exams/${quiz1.examId}`).set('Authorization', `Bearer ${admin}`);
     const paper = paperRes.body as PaperBody;
-    expect(paper.paper.kind).toBe('recipe');
+    expect(paper.paper.kind).toBe('snapshot');
     expect(paper.paper.status).toBe('ready');
     expect(paper.version.matrixId).toBe(matrix.id);
     expect(paper.version.matrixVersion).toBe(matrix.version);
-    expect(paper.version.recipeSpec?.drawMode).toBe('per_student');
-    expect(paper.version.recipeSpec?.cells).toHaveLength(2);
-    expect(paper.slots).toHaveLength(0);
+    expect(paper.slots).toHaveLength(4);
+    expect(new Set(paper.slots.map((x) => x.questionId))).toEqual(new Set(quiz1.slots.map((x) => x.questionId)));
 
-    // Triển khai cùng recipe sang lớp 2 với 2 mã đề.
-    const quiz2Res = await http(app).post(`/api/v1/courses/${ctx.course2.id}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.course2.sectionId, name: 'Đề luyện tập lớp 2' });
-    const quiz2 = quiz2Res.body as QuizBody;
-    const deploy = await http(app).post(`/api/v1/exam-papers/${quiz1.examId}/deploy`).set('Authorization', `Bearer ${admin}`)
-      .send({ quizId: quiz2.id, variantCount: 2 });
-    expect(deploy.status === 200 || deploy.status === 201).toBe(true);
-    expect((deploy.body as QuizBody).examId).toBe(quiz1.examId);
-    expect((deploy.body as { deployment: DeploymentBody }).deployment.variants.map((v) => v.code)).toEqual(['001', '002']);
+    // Ghim cùng đề sang khoá 2 với 2 mã đề.
+    const pin2Res = await http(app).post(`/api/v1/courses/${ctx.course2.id}/exam-pins`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: ctx.course2.sectionId, examId: quiz1.examId, name: 'Đề luyện tập lớp 2', variantCount: 2 });
+    expect(pin2Res.status === 200 || pin2Res.status === 201).toBe(true);
+    const pin2 = pin2Res.body as QuizBody;
+    expect(pin2.examId).toBe(quiz1.examId);
+    expect(pin2.variants.map((v) => v.code)).toEqual(['001', '002']);
 
-    // Hai lớp làm bài: cấu trúc tương đương (3 câu ô A + 1 câu ô B, đều
-    // thuộc pool của ô), bộ câu rút tại attempt.
+    // Hai khoá làm bài: cấu trúc theo ô giữ nguyên (3 câu ô A + 1 câu
+    // ô B, đều thuộc pool của ô) và MỌI lượt nhận CÙNG một bộ câu.
     const seen = new Set<string>();
     const checkAttempt = async (token: string, quizId: string) => {
       const view = await startAttempt(token, quizId);
@@ -198,129 +193,112 @@ describe('EB-2 recipe papers + two-step generate + materialize + variant codes',
       expect(b.size).toBe(1);
       for (const q of a) expect(ctx.poolA).toContain(q);
       for (const q of b) expect(ctx.poolB).toContain(q);
-      seen.add([...a].sort().join(','));
+      seen.add([...view.questions.map((q) => q.questionId)].sort().join(','));
       return view;
     };
     for (const t of ctx.students1) await checkAttempt(t, quiz1.id);
-    for (const t of ctx.students2) await checkAttempt(t, quiz2.id);
-    // 6 lượt rút từ pool 6 chọn 3: không thể mọi lượt trùng một bộ duy nhất.
-    expect(seen.size).toBeGreaterThan(1);
+    for (const t of ctx.students2) await checkAttempt(t, pin2.id);
+    expect(seen.size).toBe(1);
 
-    // Sổ triển khai của đề: 2 lần (generate + deploy tay), mã theo từng lần.
-    const deps = await http(app).get(`/api/v1/exam-papers/${quiz1.examId}/deployments`).set('Authorization', `Bearer ${admin}`);
-    const rows = deps.body as DeploymentBody[];
-    expect(rows).toHaveLength(2);
-    expect(rows.map((r) => r.variantCount).sort()).toEqual([1, 2]);
+    // Sổ ghim của đề theo khoá: mỗi khoá đúng một pin của đề này, số
+    // mã đề theo từng lần ghim (1 và 2).
+    const pins1 = await http(app).get(`/api/v1/courses/${ctx.course1.id}/exam-pins`).set('Authorization', `Bearer ${admin}`);
+    const pins2 = await http(app).get(`/api/v1/courses/${ctx.course2.id}/exam-pins`).set('Authorization', `Bearer ${admin}`);
+    const mine1 = (pins1.body as QuizBody[]).filter((x) => x.examId === quiz1.examId);
+    const mine2 = (pins2.body as QuizBody[]).filter((x) => x.examId === quiz1.examId);
+    expect(mine1).toHaveLength(1);
+    expect(mine2).toHaveLength(1);
+    expect([mine1[0]!.variants.length, mine2[0]!.variants.length].sort()).toEqual([1, 2]);
   }, 120_000);
 
-  it('materialize: snapshot from recipe, same-cell swap, deploy again — recipe and the earlier attempt stay intact', async () => {
+  it('generated exam is a plain snapshot: same-cell swap makes a new version, earlier attempts and the original pin stay intact, print follows the pin variant', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx);
-    const gen = await generate(ctx, matrix.id, ctx.course1, 'per_student', 'Đề recipe gốc');
+    const gen = await generate(ctx, matrix.id, ctx.course1, 'Đề sinh từ ma trận');
     const quiz1 = gen.body as QuizBody;
-    const recipeId = quiz1.examId!;
-    // Một lượt thi TRƯỚC khi materialize/swap — phải nguyên vẹn về sau.
+    const examId = quiz1.examId!;
+    // Một lượt thi TRƯỚC khi swap — phải nguyên vẹn về sau.
     const before = await startAttempt(ctx.students1[0]!, quiz1.id);
     const beforeSet = new Set(before.questions.map((q) => q.questionId));
 
-    // Recipe không sửa tay trực tiếp.
-    const putSlots = await http(app).put(`/api/v1/exam-papers/${recipeId}/slots`).set('Authorization', `Bearer ${admin}`)
-      .send({ slots: [{ questionId: ctx.poolA[0] }] });
-    expect(putSlots.status).toBe(400);
-    expect(putSlots.body.code).toBe('exam.recipe_not_editable');
-
-    // Chụp xuống snapshot.
-    const mat = await http(app).post(`/api/v1/exam-papers/${recipeId}/materialize`).set('Authorization', `Bearer ${admin}`).send({});
-    expect(mat.status === 200 || mat.status === 201).toBe(true);
-    const snapshot = mat.body as PaperBody;
+    // Đề sinh ra sửa tay trực tiếp được (không còn khoá recipe): đổi
+    // toàn bộ slots qua setSlots tạo version mới.
+    const paperRes = await http(app).get(`/api/v1/exams/${examId}`).set('Authorization', `Bearer ${admin}`);
+    const snapshot = paperRes.body as PaperBody;
     expect(snapshot.paper.kind).toBe('snapshot');
-    expect(snapshot.paper.derivedFromExamId).toBe(recipeId);
-    expect(snapshot.version.matrixVersion).toBe(matrix.version);
     expect(snapshot.slots).toHaveLength(4);
-    for (const s of snapshot.slots) {
-      expect(s.matrixCellId).toBeTruthy();
-      expect(s.pinnedVersionNumber).toBeTruthy();
+    for (const sl of snapshot.slots) {
+      expect(sl.matrixCellId).toBeTruthy();
+      expect(sl.pinnedVersionNumber).toBeTruthy();
     }
-    expect(snapshot.cellReport).toHaveLength(2);
-    for (const c of snapshot.cellReport!) expect(c.deviated).toBe(false);
 
     // Swap-cùng-ô: câu ngoài pool của ô bị chặn; câu trong pool được.
-    const slotA = snapshot.slots.find((s) => s.position <= 3)!;
-    const wrongCell = await http(app).post(`/api/v1/exam-papers/${snapshot.paper.id}/swap`).set('Authorization', `Bearer ${admin}`)
+    const slotA = snapshot.slots.find((x) => x.position <= 3)!;
+    const wrongCell = await http(app).post(`/api/v1/exams/${examId}/swap`).set('Authorization', `Bearer ${admin}`)
       .send({ position: slotA.position, questionId: ctx.poolB[0] });
     expect(wrongCell.status).toBe(400);
     expect(wrongCell.body.code).toBe('exam.swap_candidate_out_of_cell');
-    const inPaper = new Set(snapshot.slots.map((s) => s.questionId));
+    const inPaper = new Set(snapshot.slots.map((x) => x.questionId));
     const candidate = ctx.poolA.find((q) => !inPaper.has(q))!;
-    const swapped = await http(app).post(`/api/v1/exam-papers/${snapshot.paper.id}/swap`).set('Authorization', `Bearer ${admin}`)
+    const swapped = await http(app).post(`/api/v1/exams/${examId}/swap`).set('Authorization', `Bearer ${admin}`)
       .send({ position: slotA.position, questionId: candidate });
     expect(swapped.status === 200 || swapped.status === 201).toBe(true);
     const after = swapped.body as PaperBody;
     expect(after.paper.latestVersion).toBe(2);
-    expect(after.slots.find((s) => s.position === slotA.position)?.questionId).toBe(candidate);
-    for (const c of after.cellReport!) expect(c.deviated).toBe(false);
+    expect(after.slots.find((x) => x.position === slotA.position)?.questionId).toBe(candidate);
 
-    // Triển khai snapshot đã sửa với 3 mã đề; học sinh thấy đúng bộ đã swap.
-    await http(app).post(`/api/v1/exam-papers/${snapshot.paper.id}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 'ready' });
-    const quiz2Res = await http(app).post(`/api/v1/courses/${ctx.course1.id}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.course1.sectionId, name: 'Đề chụp đã sửa' });
-    const quiz2 = quiz2Res.body as QuizBody;
-    const deploy = await http(app).post(`/api/v1/exam-papers/${snapshot.paper.id}/deploy`).set('Authorization', `Bearer ${admin}`)
-      .send({ quizId: quiz2.id, variantCount: 3 });
-    expect(deploy.status === 200 || deploy.status === 201).toBe(true);
-    const deployment = (deploy.body as { deployment: DeploymentBody }).deployment;
-    expect(deployment.variants.map((v) => v.code)).toEqual(['001', '002', '003']);
-    const view2 = await startAttempt(ctx.students1[1]!, quiz2.id);
-    expect(new Set(view2.questions.map((q) => q.questionId))).toEqual(new Set(after.slots.map((s) => s.questionId)));
+    // Ghim version đã sửa (pin mới, 3 mã đề); học sinh thấy đúng bộ đã swap.
+    const pin2Res = await http(app).post(`/api/v1/courses/${ctx.course1.id}/exam-pins`).set('Authorization', `Bearer ${admin}`)
+      .send({ sectionId: ctx.course1.sectionId, examId, examVersionId: after.version.id, name: 'Đề đã sửa', variantCount: 3 });
+    expect(pin2Res.status === 200 || pin2Res.status === 201).toBe(true);
+    const pin2 = pin2Res.body as QuizBody;
+    expect(pin2.variants.map((v) => v.code)).toEqual(['001', '002', '003']);
+    const view2 = await startAttempt(ctx.students1[1]!, pin2.id);
+    expect(new Set(view2.questions.map((q) => q.questionId))).toEqual(new Set(after.slots.map((x) => x.questionId)));
 
-    // In đề kèm mã đề.
-    const print = await http(app).get(`/api/v1/exam-papers/${snapshot.paper.id}/print`)
-      .query({ deploymentId: deployment.id, variantCode: '002' })
+    // In đề kèm mã đề theo pin.
+    const print = await http(app).get(`/api/v1/exams/${examId}/print`)
+      .query({ pinId: pin2.id, variantCode: '002' })
       .set('Authorization', `Bearer ${admin}`);
     expect(print.status).toBe(200);
     expect(print.text).toContain('Mã đề: 002');
-
-    // In RECIPE bị chặn: chỉ snapshot mới in được — recipe triển khai xong
-    // vẫn không in trực tiếp (tránh in nhầm tờ trống, ghi nhận đóng gói EB-2).
-    const quiz3Res = await http(app).post(`/api/v1/courses/${ctx.course1.id}/quizzes`).set('Authorization', `Bearer ${admin}`)
-      .send({ sectionId: ctx.course1.sectionId, name: 'Đề recipe để in thử' });
-    const quiz3 = quiz3Res.body as QuizBody;
-    const recipeDeploy = await http(app).post(`/api/v1/exam-papers/${recipeId}/deploy`).set('Authorization', `Bearer ${admin}`)
-      .send({ quizId: quiz3.id, variantCount: 1 });
-    expect(recipeDeploy.status === 200 || recipeDeploy.status === 201).toBe(true);
-    const recipeDeployment = (recipeDeploy.body as { deployment: DeploymentBody }).deployment;
-    const printRecipe = await http(app).get(`/api/v1/exam-papers/${recipeId}/print`)
-      .query({ deploymentId: recipeDeployment.id, variantCode: '001' })
+    // In theo pin gốc (version 1) cũng được — mọi đề đã ghim đều là
+    // snapshot in được, không còn lớp recipe bị chặn in.
+    const print1 = await http(app).get(`/api/v1/exams/${examId}/print`)
+      .query({ pinId: quiz1.id, variantCode: '001' })
       .set('Authorization', `Bearer ${admin}`);
-    expect(printRecipe.status).toBe(400);
-    expect(printRecipe.body.code).toBe('exam.print_requires_snapshot');
+    expect(print1.status).toBe(200);
+    expect(print1.text).toContain('Mã đề: 001');
 
-    // Recipe gốc + lượt thi trước nguyên vẹn.
-    const recipeAfter = await http(app).get(`/api/v1/exam-papers/${recipeId}`).set('Authorization', `Bearer ${admin}`);
-    const recipeBody = recipeAfter.body as PaperBody;
-    expect(recipeBody.paper.latestVersion).toBe(1);
-    expect(recipeBody.slots).toHaveLength(0);
-    expect(recipeBody.version.recipeSpec?.cells).toHaveLength(2);
+    // Đề gốc ở version 2 sau swap; pin gốc vẫn ghim version 1 và lượt
+    // thi trước nguyên vẹn.
+    const examAfter = await http(app).get(`/api/v1/exams/${examId}`).set('Authorization', `Bearer ${admin}`);
+    const examBody = examAfter.body as PaperBody;
+    expect(examBody.paper.latestVersion).toBe(2);
+    expect(examBody.slots).toHaveLength(4);
+    const pin1After = await http(app).get(`/api/v1/exam-pins/${quiz1.id}`).set('Authorization', `Bearer ${admin}`);
+    expect((pin1After.body as { quiz: QuizBody }).quiz.examVersionId).not.toBe(after.version.id);
     const beforeAgain = await http(app).get(`/api/v1/quiz-attempts/${before.attempt.id}`).set('Authorization', `Bearer ${ctx.students1[0]}`);
     expect(beforeAgain.status).toBe(200);
     expect(new Set((beforeAgain.body as AttemptViewBody).questions.map((q) => q.questionId))).toEqual(beforeSet);
   }, 120_000);
 
-  it('generate fixed: one-step still works, and the generated paper is a ready snapshot carrying the drawn set', async () => {
+  it('generate: one-step works, and the generated paper is a ready snapshot carrying the drawn set', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx);
-    const gen = await generate(ctx, matrix.id, ctx.course1, 'fixed', 'Đề cố định');
+    const gen = await generate(ctx, matrix.id, ctx.course1, 'Đề cố định');
     expect(gen.status === 200 || gen.status === 201).toBe(true);
     const quiz = gen.body as QuizBody;
     expect(quiz.examId).toBeTruthy();
     expect(quiz.matrixId).toBe(matrix.id);
     expect(quiz.slots).toHaveLength(4);
     for (const s of quiz.slots) expect(s.questionId).toBeTruthy();
-    const paperRes = await http(app).get(`/api/v1/exam-papers/${quiz.examId}`).set('Authorization', `Bearer ${admin}`);
+    const paperRes = await http(app).get(`/api/v1/exams/${quiz.examId}`).set('Authorization', `Bearer ${admin}`);
     const paper = paperRes.body as PaperBody;
     expect(paper.paper.kind).toBe('snapshot');
     expect(paper.paper.status).toBe('ready');
-    expect(paper.version.recipeSpec).toBeNull();
+    // Không còn trường recipeSpec trên version (bỏ hẳn recipe).
+    expect((paper.version as unknown as Record<string, unknown>).recipeSpec).toBeUndefined();
     expect(new Set(paper.slots.map((s) => s.questionId))).toEqual(new Set(quiz.slots.map((s) => s.questionId)));
   }, 120_000);
 });

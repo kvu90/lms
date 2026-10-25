@@ -4,18 +4,18 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { eq, sql } from 'drizzle-orm';
 import { ActivityDueReminderProcessor } from '../src/processors/activity-due-reminder.processor';
-import { assignments, assignSubmissions, enrol, outboxEvents, quizzes, userEnrolments } from '@lms/db-schema';
+import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 
 /**
  * Lát N5 (issue #50): nhắc hạn nộp tự động trước 24 giờ.
  *
- * Phía phát (worker): lượt quét activity-due-reminders tìm quiz có
+ * Phía phát (worker): lượt quét activity-due-reminders tìm pin có
  * time_close thuộc (hiện tại, hiện tại + 24h] và phát ĐÚNG MỘT sự
- * kiện outbox `activity_due_reminder` cho từng (học sinh, quiz) chưa
+ * kiện outbox `activity_due_reminder` cho từng (học sinh, pin) chưa
  * nộp — học sinh đã có attempt hoàn tất (needsgrading/finished) thì
  * không nhắc, attempt inprogress (chưa nộp) vẫn nhắc; chạy lại không
- * phát trùng (dedupe theo (userId, quizId, timeClose) trên outbox);
+ * phát trùng (dedupe theo (userId, pinId, timeClose) trên outbox);
  * giáo viên dời hạn thì mốc hạn mới được nhắc lại.
  *
  * NB-1 (issue #174): cùng lượt quét phủ thêm BÀI TẬP theo
@@ -46,9 +46,19 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     const cmRows = await db.execute(sql`insert into course_modules (course, section, component, visible) values (${cid}, ${secId}, 'mod_quiz', ${opts.cmVisible ?? true}) returning id`);
     const cmId = (cmRows.rows[0] as { id: string }).id;
     const timeClose = opts.closeInHours === null ? null : new Date(Date.now() + opts.closeInHours * HOUR);
-    const [quiz] = await db.insert(quizzes).values({ course: cid, cmId, name: opts.name ?? 'Quiz N5', timeClose }).returning();
+    // Sau gộp Đề (#226): hoạt động được nhắc là LẦN GHIM (exam_pins)
+    // — dựng tối thiểu bank → đề → version → pin bằng SQL như các
+    // fixture khác của suite worker.
+    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by) values ('N5 bank', 'exam', 'platform', gen_random_uuid(), ${uid(900)}) returning id`);
+    const bankId = (bankRows.rows[0] as { id: string }).id;
+    const examRows = await db.execute(sql`insert into exams (bank_id, created_by, status) values (${bankId}, ${uid(900)}, 'ready') returning id`);
+    const examId = (examRows.rows[0] as { id: string }).id;
+    const verRows = await db.execute(sql`insert into exam_versions (exam_id, version, name, created_by) values (${examId}, 1, ${opts.name ?? 'Quiz N5'}, ${uid(900)}) returning id`);
+    const versionId = (verRows.rows[0] as { id: string }).id;
+    const pinRows = await db.execute(sql`insert into exam_pins (exam_id, exam_version_id, course_id, cm_id, time_close, variants, created_by) values (${examId}, ${versionId}, ${cid}, ${cmId}, ${timeClose}, '[]'::jsonb, ${uid(900)}) returning id`);
+    const pinId = (pinRows.rows[0] as { id: string }).id;
     const [inst] = await db.insert(enrol).values({ courseId: cid, enrol: 'manual', status: 0 }).returning();
-    return { courseId: cid, quizId: quiz.id as string, instanceId: inst.id as string, timeClose };
+    return { courseId: cid, quizId: pinId, instanceId: inst.id as string, timeClose };
   }
 
   async function enrolStudent(instance: string, userId: string, overrides: Record<string, unknown> = {}) {
@@ -61,13 +71,13 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
   async function addAttempt(quizId: string, userId: string, state: string) {
     const usageRows = await db.execute(sql`insert into question_usages (component, user_id) values ('mod_quiz', ${userId}) returning id`);
     const usageId = (usageRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into quiz_attempts (quiz_id, user_id, attempt_number, usage_id, state, preview) values (${quizId}, ${userId}, 1, ${usageId}, ${state}, false)`);
+    await db.execute(sql`insert into exam_attempts (pin_id, user_id, attempt_number, usage_id, state, preview) values (${quizId}, ${userId}, 1, ${usageId}, ${state}, false)`);
   }
 
   async function eventsFor(quizId: string, userId?: string) {
     const rows = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'activity_due_reminder'));
-    return (rows as { payload: { quizId?: string; userId?: string; timeClose?: string } }[])
-      .filter((e) => e.payload.quizId === quizId && (userId === undefined || e.payload.userId === userId));
+    return (rows as { payload: { pinId?: string; userId?: string; timeClose?: string } }[])
+      .filter((e) => e.payload.pinId === quizId && (userId === undefined || e.payload.userId === userId));
   }
 
   async function makeAssignment(opts: { dueInHours: number | null; courseVisible?: boolean; cmVisible?: boolean; name?: string }) {
@@ -180,7 +190,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     expect(await eventsFor(quizId, student)).toHaveLength(1);
 
     const newClose = new Date(Date.now() + 20 * HOUR);
-    await db.update(quizzes).set({ timeClose: newClose }).where(eq(quizzes.id, quizId));
+    await db.update(examPins).set({ timeClose: newClose }).where(eq(examPins.id, quizId));
     await processor.process({ data: {} } as never);
     const events = await eventsFor(quizId, student);
     expect(events).toHaveLength(2);

@@ -6,6 +6,7 @@ import {
   roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft } from './exam-pin-helpers';
 
 /**
  * Feat Ngân hàng câu hỏi chung (issue #70, QB-1 → QB-4):
@@ -375,7 +376,7 @@ describe('Shared question bank (feat #70)', () => {
 
   // --- QB-3 -------------------------------------------------------------------
 
-  it('QB-3: slot từ bank tổ mặc định pinned — attempt giữ bản ghim qua sửa + rút; nâng version ghi nhật ký; xoá bị chặn', async () => {
+  it('QB-3: slot đề ghim bản câu hỏi — attempt giữ bản ghim qua sửa + rút; nâng version qua sửa đề + nâng pin; xoá bị chặn', async () => {
     const leader = await mkUser();
     const cohortRes = await http(app).post('/api/v1/cohorts').set(bearer(admin)).send({ name: uniqueName('Tổ Lý') });
     const cohortId = (cohortRes.body as { id: string }).id;
@@ -385,41 +386,47 @@ describe('Shared question bank (feat #70)', () => {
     const bank = bankRes.body as BankBody;
     const q = await createQuestion(leader.token, bank.defaultCategoryId!, 'Câu ghim', 'Phiên bản MỘT của câu?');
 
-    // Khoá + quiz do leader phụ trách (gán editingteacher tại khoá).
+    // Khoá do leader phụ trách (gán editingteacher tại khoá); đề soạn
+    // trong bank cá nhân của leader với slot ghim câu ở version 1.
     const { course, sectionId, courseCtxId, student } = await mkCourseWithTeacherAndStudent();
     await assignRole(app, admin, leader.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtxId);
-    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set(bearer(leader.token))
-      .send({ sectionId, name: 'Đề kiểm tra' });
-    expect(quizRes.status, JSON.stringify(quizRes.body)).toBe(201);
-    const quizId = (quizRes.body as { id: string }).id;
-    const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set(bearer(leader.token))
-      .send({ questionId: q.question.id });
-    expect(slotRes.status, JSON.stringify(slotRes.body)).toBe(201);
-    const slot = (slotRes.body as { slots: { id: string; versionMode: string; pinnedVersion: number | null; bankScope: string | null }[] }).slots[0]!;
-    expect(slot.versionMode).toBe('pinned');
-    expect(slot.pinnedVersion).toBe(1);
-    expect(slot.bankScope).toBe('team');
+    const draft = await createExamDraft(app, leader.token, 'Đề kiểm tra');
+    await addExamSlot(app, leader.token, draft, { questionId: q.question.id });
+    const examView = await http(app).get(`/api/v1/exams/${draft.examId}`).set(bearer(leader.token));
+    const examSlot = (examView.body as { slots: { questionId: string; pinnedVersionNumber: number | null }[] }).slots[0]!;
+    expect(examSlot.questionId).toBe(q.question.id);
+    expect(examSlot.pinnedVersionNumber).toBe(1);
 
-    // Sửa câu lên v2 — slot báo có bản mới nhưng attempt vẫn nhận v1.
+    const readyRes = await http(app).post(`/api/v1/exams/${draft.examId}/status`).set(bearer(leader.token)).send({ status: 'ready' });
+    expect(readyRes.status, JSON.stringify(readyRes.body)).toBe(201);
+    const pinRes = await http(app).post(`/api/v1/courses/${course.id}/exam-pins`).set(bearer(leader.token))
+      .send({ sectionId, examId: draft.examId });
+    expect(pinRes.status, JSON.stringify(pinRes.body)).toBe(201);
+    const quizId = (pinRes.body as { id: string }).id;
+
+    // Sửa câu lên v2 — pin vẫn đóng băng ở version đề cũ (ghim câu v1).
     await http(app).patch(`/api/v1/questions/${q.question.id}`).set(bearer(leader.token)).send({ questionText: 'Phiên bản HAI của câu?' });
-    const viewAfter = await http(app).get(`/api/v1/quizzes/${quizId}`).set(bearer(leader.token));
+    const viewAfter = await http(app).get(`/api/v1/exam-pins/${quizId}`).set(bearer(leader.token));
     const slotAfter = (viewAfter.body as { quiz: { slots: { pinnedVersion: number | null; latestVersion: number | null; hasNewerVersion: boolean }[] } }).quiz.slots[0]!;
     expect(slotAfter.pinnedVersion).toBe(1);
     expect(slotAfter.latestVersion).toBe(2);
     expect(slotAfter.hasNewerVersion).toBe(true);
 
-    const start1 = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set(bearer(student.token)).send({});
+    const start1 = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set(bearer(student.token)).send({});
     expect(start1.status, JSON.stringify(start1.body)).toBe(201);
     const attemptQuestions = (start1.body as { questions: { questionText: unknown }[] }).questions;
     expect(JSON.stringify(attemptQuestions[0]!.questionText)).toContain('MỘT');
 
-    // Rút câu: attempt mới vẫn phục vụ bản đã ghim; thêm slot mới bị chặn; xoá vật lý bị chặn vì còn slot.
+    // Rút câu: attempt mới vẫn phục vụ bản đã ghim; soạn slot mới với
+    // câu đã rút bị chặn; xoá vật lý bị chặn vì còn slot đề dùng tới.
     const withdraw = await http(app).post(`/api/v1/questions/${q.question.id}/withdraw`).set(bearer(leader.token)).send({ reason: 'Sai đáp án, rút để soát lại' });
     expect(withdraw.status, JSON.stringify(withdraw.body)).toBe(201);
-    expect((withdraw.body as { affectedQuizIds: string[] }).affectedQuizIds).toContain(quizId);
-    const start2 = await http(app).post(`/api/v1/quizzes/${quizId}/attempts`).set(bearer(student.token)).send({});
+    expect((withdraw.body as { affectedPinIds: string[] }).affectedPinIds).toContain(quizId);
+    const start2 = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set(bearer(student.token)).send({});
     expect([200, 201]).toContain(start2.status);
-    const addSlotHidden = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set(bearer(leader.token)).send({ questionId: q.question.id });
+    const draftHidden = await createExamDraft(app, leader.token, 'Đề câu rút');
+    draftHidden.slots.push({ questionId: q.question.id });
+    const addSlotHidden = await http(app).put(`/api/v1/exams/${draftHidden.examId}/slots`).set(bearer(leader.token)).send({ slots: draftHidden.slots });
     expect(addSlotHidden.status).toBe(400);
     const del = await http(app).delete(`/api/v1/questions/${q.question.id}`).set(bearer(leader.token));
     expect(del.status).toBe(409);
@@ -428,16 +435,29 @@ describe('Shared question bank (feat #70)', () => {
     const found = (disc.body as { questionId: string; status: string }[]).find((d) => d.questionId === q.question.id);
     expect(found?.status).toBe('hidden');
 
-    // Hoàn rút + nâng version lên v2: nhật ký có dòng, attempt sau nâng nhận v2.
+    // Hoàn rút + nâng version: pin đã có attempt thì KHOÁ đổi version
+    // (exam.pin_locked — kỷ luật đóng băng của mô hình gộp). Đường
+    // nâng đúng: sửa đề (version đề mới ghim câu v2) rồi GHIM MỚI —
+    // attempt ở lần ghim mới nhận v2.
     await http(app).post(`/api/v1/questions/${q.question.id}/restore`).set(bearer(leader.token)).send({});
-    const upgrade = await http(app).post(`/api/v1/quizzes/${quizId}/slots/${slot.id}/upgrade-version`).set(bearer(leader.token)).send({});
-    expect(upgrade.status, JSON.stringify(upgrade.body)).toBe(201);
-    const slotUp = (upgrade.body as { slots: { pinnedVersion: number | null; hasNewerVersion: boolean }[] }).slots[0]!;
-    expect(slotUp.pinnedVersion).toBe(2);
-    expect(slotUp.hasNewerVersion).toBe(false);
-    const events = await pg.query('select from_version, to_version from quiz_slot_version_events where slot_id = $1', [slot.id]);
-    expect(events.rows).toHaveLength(1);
-    expect(events.rows[0]).toMatchObject({ from_version: 1, to_version: 2 });
+    const upgraded = await http(app).put(`/api/v1/exams/${draft.examId}/slots`).set(bearer(leader.token))
+      .send({ slots: [{ questionId: q.question.id }] });
+    expect(upgraded.status, JSON.stringify(upgraded.body)).toBe(200);
+    const newVersionId = (upgraded.body as { currentVersionId: string }).currentVersionId;
+    const lockedUpgrade = await http(app).patch(`/api/v1/exam-pins/${quizId}`).set(bearer(leader.token))
+      .send({ examVersionId: newVersionId });
+    expect(lockedUpgrade.status).toBe(400);
+    expect((lockedUpgrade.body as { code?: string }).code).toBe('exam.pin_locked');
+    const pin2Res = await http(app).post(`/api/v1/courses/${course.id}/exam-pins`).set(bearer(leader.token))
+      .send({ sectionId, examId: draft.examId });
+    expect(pin2Res.status, JSON.stringify(pin2Res.body)).toBe(201);
+    const pin2 = pin2Res.body as { id: string; slots: { pinnedVersion: number | null; hasNewerVersion: boolean }[] };
+    expect(pin2.slots[0]!.pinnedVersion).toBe(2);
+    expect(pin2.slots[0]!.hasNewerVersion).toBe(false);
+    const start3 = await http(app).post(`/api/v1/exam-pins/${pin2.id}/attempts`).set(bearer(student.token)).send({});
+    expect(start3.status, JSON.stringify(start3.body)).toBe(201);
+    const attemptQuestions3 = (start3.body as { questions: { questionText: unknown }[] }).questions;
+    expect(JSON.stringify(attemptQuestions3[0]!.questionText)).toContain('HAI');
 
     // Xoá vật lý một câu chưa dùng: được phép.
     const fresh = await createQuestion(leader.token, bank.defaultCategoryId!, 'Câu xoá', 'Câu chưa dùng lần nào?');

@@ -71,7 +71,7 @@ describe('Notification course overrides (NB-4, issue #174)', () => {
     const timeClose = new Date(Date.now() + 12 * 3600_000);
     await pg.query(
       `insert into outbox_events (aggregate, type, payload) values ('activity', 'activity_due_reminder', $1::jsonb)`,
-      [JSON.stringify({ userId, courseId, quizId, activityType: 'quiz', activityName: 'Bài kiểm tra chương 1', timeClose: timeClose.toISOString() })],
+      [JSON.stringify({ userId, courseId, pinId: quizId, activityType: 'quiz', activityName: 'Bài kiểm tra chương 1', timeClose: timeClose.toISOString() })],
     );
     return quizId;
   }
@@ -147,13 +147,13 @@ describe('Notification course overrides (NB-4, issue #174)', () => {
     // (1) Thông báo thường: A bị chặn (có log truy vết), B tới bình thường.
     const quizA = await emitDueReminder(student.id, courseA.id);
     const quizB = await emitDueReminder(student.id, courseB.id);
-    const notifB = await waitForNotification(token, 'activity_due_soon', (n) => n.contextUrl === `/courses/${courseB.id}/quizzes/${quizB}`);
+    const notifB = await waitForNotification(token, 'activity_due_soon', (n) => n.contextUrl === `/courses/${courseB.id}/exams/${quizB}`);
     expect(notifB.subject).toContain('Bài kiểm tra chương 1');
     await waitForDispatchLog(student.id, 'activity_due_soon', 'skipped-course-mute');
     // Chờ thêm vài nhịp quét để chắc chắn bản của A không tới muộn.
     await new Promise((r) => setTimeout(r, 3000));
     const dueSoons = (await notificationsOf(token)).filter((n) => n.eventType === 'activity_due_soon');
-    expect(dueSoons.map((n) => n.contextUrl)).not.toContain(`/courses/${courseA.id}/quizzes/${quizA}`);
+    expect(dueSoons.map((n) => n.contextUrl)).not.toContain(`/courses/${courseA.id}/exams/${quizA}`);
 
     // (2) P3 — điểm mới của chính khoá bị mute vẫn tới.
     const item = await createGradeItem(app, admin, courseA.id, { itemName: 'Bài kiểm tra 15 phút', gradeMax: 100 });
@@ -176,7 +176,7 @@ describe('Notification course overrides (NB-4, issue #174)', () => {
     expect(unmute.status).toBe(200);
     expect(unmute.body).toMatchObject({ courseId: courseA.id, mode: 'all' });
     const quizA2 = await emitDueReminder(student.id, courseA.id);
-    const restored = await waitForNotification(token, 'activity_due_soon', (n) => n.contextUrl === `/courses/${courseA.id}/quizzes/${quizA2}`);
+    const restored = await waitForNotification(token, 'activity_due_soon', (n) => n.contextUrl === `/courses/${courseA.id}/exams/${quizA2}`);
     expect(restored.subject).toContain('Bài kiểm tra chương 1');
   });
 });

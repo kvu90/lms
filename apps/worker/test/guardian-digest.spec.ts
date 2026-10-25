@@ -54,7 +54,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     return (rows as { payload: { guardianUserId?: string } }[]).filter((e) => e.payload.guardianUserId === guardianId);
   }
 
-  /** Khoá + quiz có hạn đóng cách đây `closedDaysAgo` ngày + ghi danh cho học sinh. */
+  /** Khoá + lần ghim đề có hạn đóng cách đây `closedDaysAgo` ngày + ghi danh cho học sinh. */
   async function makeOverdueQuiz(studentId: string, closedDaysAgo: number) {
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`ph2-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
@@ -63,11 +63,18 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     const courseId = (courseRows.rows[0] as { id: string }).id;
     const secRows = await db.execute(sql`insert into course_sections (course, section) values (${courseId}, 0) returning id`);
     const secId = (secRows.rows[0] as { id: string }).id;
-    const quizRows = await db.execute(sql`insert into quizzes (course, name, time_close) values (${courseId}, 'PH2 quiz', ${new Date(Date.now() - closedDaysAgo * DAY)}) returning id`);
-    const quizId = (quizRows.rows[0] as { id: string }).id;
-    const cmRows = await db.execute(sql`insert into course_modules (course, section, component, instance_id, visible, deletion_in_progress) values (${courseId}, ${secId}, 'mod_quiz', ${quizId}, true, false) returning id`);
-    const cmId = (cmRows.rows[0] as { id: string }).id;
-    await db.execute(sql`update quizzes set cm_id = ${cmId} where id = ${quizId}`);
+    // Sau gộp Đề (#226): hoạt động quá hạn là LẦN GHIM (exam_pins).
+    const cmRows0 = await db.execute(sql`insert into course_modules (course, section, component, visible, deletion_in_progress) values (${courseId}, ${secId}, 'mod_quiz', true, false) returning id`);
+    const cmId = (cmRows0.rows[0] as { id: string }).id;
+    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by) values ('PH2 bank', 'exam', 'platform', gen_random_uuid(), ${studentId}) returning id`);
+    const bankId = (bankRows.rows[0] as { id: string }).id;
+    const examRows = await db.execute(sql`insert into exams (bank_id, created_by, status) values (${bankId}, ${studentId}, 'ready') returning id`);
+    const examId = (examRows.rows[0] as { id: string }).id;
+    const verRows = await db.execute(sql`insert into exam_versions (exam_id, version, name, created_by) values (${examId}, 1, 'PH2 quiz', ${studentId}) returning id`);
+    const versionId = (verRows.rows[0] as { id: string }).id;
+    const pinRows = await db.execute(sql`insert into exam_pins (exam_id, exam_version_id, course_id, cm_id, time_close, variants, created_by) values (${examId}, ${versionId}, ${courseId}, ${cmId}, ${new Date(Date.now() - closedDaysAgo * DAY)}, '[]'::jsonb, ${studentId}) returning id`);
+    const quizId = (pinRows.rows[0] as { id: string }).id;
+    await db.execute(sql`update course_modules set instance_id = ${quizId} where id = ${cmId}`);
     const instRows = await db.execute(sql`insert into enrol (course_id, enrol, status) values (${courseId}, 'manual', 0) returning id`);
     const instId = (instRows.rows[0] as { id: string }).id;
     await db.execute(sql`insert into user_enrolments (enrol_id, user_id, status, time_start) values (${instId}, ${studentId}, 0, ${new Date(Date.now() - 30 * DAY)})`);
@@ -183,7 +190,7 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     // Attempt đã hoàn tất cho quiz thứ ba → không còn tính quá hạn chưa nộp.
     const usageRows = await db.execute(sql`insert into question_usages (component, user_id) values ('mod_quiz', ${student}) returning id`);
     const usageId = (usageRows.rows[0] as { id: string }).id;
-    await db.execute(sql`insert into quiz_attempts (quiz_id, user_id, attempt_number, usage_id, state, preview) values (${done.quizId}, ${student}, 1, ${usageId}, 'finished', false)`);
+    await db.execute(sql`insert into exam_attempts (pin_id, user_id, attempt_number, usage_id, state, preview) values (${done.quizId}, ${student}, 1, ${usageId}, 'finished', false)`);
 
     const result = await sweep();
     const alerts = result.queued.filter((q) => q.guardianUserId === guardian && q.kind === 'overdue_alert');

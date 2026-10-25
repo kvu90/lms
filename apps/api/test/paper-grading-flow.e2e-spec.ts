@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 import { computeSheetGeometry, sbdCodeChecksumOk } from '../src/modules/paper-grading/domain/sheet-layout';
 import { renderSheetRgba, simulatePhoto, type SlotFill } from '../src/modules/paper-grading/domain/sheet-render';
 import { sheetQrPayload } from '../src/modules/paper-grading/domain/sheet-pdf';
@@ -84,17 +85,16 @@ describe('CAM-0 paper grading flow', () => {
       qtype: 'truefalse', name: 'TF1', questionText: 'The sky is blue.', defaultMark: 2, answer: { correct: true },
     });
 
-    const quizRes = await http(app).post(`/api/v1/courses/${course.id}/quizzes`).set('Authorization', `Bearer ${teacher}`)
-      .send({ sectionId, name: 'Paper Quiz', grade: 10, gradeMethod: 'highest' });
-    if (quizRes.status !== 201) throw new Error(`create quiz failed: ${quizRes.status} ${JSON.stringify(quizRes.body)}`);
-    const quizId = quizRes.body.id as string;
+    // Hành trình gộp Đề (#226): soạn đề trong bank → ghim vào khoá;
+    // ctx.quizId từ đây là id của LẦN GHIM (pin) — CAM neo pin.
+    const draft = await createExamDraft(app, teacher, 'Paper Quiz', 10);
     for (const qid of [...mcIds, tfId]) {
-      const slotRes = await http(app).post(`/api/v1/quizzes/${quizId}/slots`).set('Authorization', `Bearer ${teacher}`)
-        .send({ questionId: qid, maxMark: 2 });
-      if (slotRes.status !== 201 && slotRes.status !== 200) throw new Error(`add slot failed: ${slotRes.status} ${JSON.stringify(slotRes.body)}`);
+      await addExamSlot(app, teacher, draft, { questionId: qid, maxMark: 2 });
     }
+    const pin = await pinExam(app, teacher, course.id, draft, { sectionId, gradeMethod: 'highest' });
+    const quizId = pin.id as string;
 
-    const batchRes = await http(app).post(`/api/v1/quizzes/${quizId}/paper-batches`).set('Authorization', `Bearer ${teacher}`).send({});
+    const batchRes = await http(app).post(`/api/v1/exam-batches?pinId=${quizId}`).set('Authorization', `Bearer ${teacher}`).send({});
     if (batchRes.status !== 201) throw new Error(`create batch failed: ${batchRes.status} ${JSON.stringify(batchRes.body)}`);
 
     ctx = {
@@ -126,7 +126,7 @@ describe('CAM-0 paper grading flow', () => {
 
   function upload(photo: Buffer, name: string, token: string) {
     return http(app)
-      .post(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/scans`)
+      .post(`/api/v1/exam-batches/${ctx.batch.id}/scans`)
       .set('Authorization', `Bearer ${token}`)
       .attach('files', photo, name);
   }
@@ -134,13 +134,13 @@ describe('CAM-0 paper grading flow', () => {
   /** Tải ảnh theo BUỔI (lô chụp): hệ thống tự định tuyến từng phiếu về lô in theo mã đề/QR. */
   function uploadSession(photo: Buffer, name: string, token: string) {
     return http(app)
-      .post(`/api/v1/quizzes/${ctx.quizId}/paper-scans`)
+      .post(`/api/v1/exam-scans?pinId=${ctx.quizId}`)
       .set('Authorization', `Bearer ${token}`)
       .attach('files', photo, name);
   }
 
   async function createBatch(body: Record<string, unknown>) {
-    const res = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`).send(body);
+    const res = await http(app).post(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`).send(body);
     if (res.status !== 201) throw new Error(`create batch failed: ${res.status} ${JSON.stringify(res.body)}`);
     return res.body as {
       id: string; variantCode: string; examCode: string | null; codeDigits: number;
@@ -169,11 +169,11 @@ describe('CAM-0 paper grading flow', () => {
   });
 
   it('rejects a duplicate variant code and a duplicate exam code for the same quiz', async () => {
-    const res = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const res = await http(app).post(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ variantCode: 'A' });
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('paper.variant_exists');
-    const dupExam = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)
+    const dupExam = await http(app).post(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ examCode: '1001' });
     expect(dupExam.status).toBe(409);
     expect(dupExam.body.code).toBe('paper.exam_code_exists');
@@ -186,27 +186,27 @@ describe('CAM-0 paper grading flow', () => {
       (res as NodeJS.ReadableStream).on('end', () => cb(null, Buffer.concat(chunks)));
     };
     // Mặc định mới: phiếu DÙNG CHUNG (trước đây mặc định là cá nhân hoá).
-    const shared = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf`)
+    const shared = await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}/${ctx.batch.id}/sheets.pdf`)
       .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse(parsePdf);
     expect(shared.status).toBe(200);
     expect(shared.headers['content-type']).toContain('application/pdf');
     expect((shared.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
     expect(shared.headers['content-disposition']).toContain('dung-chung');
     // Tuỳ chọn hẹp tường minh: in theo danh sách (cá nhân hoá).
-    const personal = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf?kind=personalized`)
+    const personal = await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}/${ctx.batch.id}/sheets.pdf?kind=personalized`)
       .set('Authorization', `Bearer ${ctx.teacher}`).buffer(true).parse(parsePdf);
     expect(personal.status).toBe(200);
     expect(personal.headers['content-disposition']).toContain('ca-nhan');
     // Tên cũ kind=blank vẫn chạy như phiếu dùng chung.
-    const blank = await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches/${ctx.batch.id}/sheets.pdf?kind=blank&copies=1`)
+    const blank = await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}/${ctx.batch.id}/sheets.pdf?kind=blank&copies=1`)
       .set('Authorization', `Bearer ${ctx.teacher}`);
     expect(blank.status).toBe(200);
   });
 
   it('students cannot touch the paper grading surface at all', async () => {
-    const create = await http(app).post(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.tokenA}`).send({});
+    const create = await http(app).post(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.tokenA}`).send({});
     expect(create.status).toBe(403);
-    const list = await http(app).get(`/api/v1/paper-scans?quizId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.tokenA}`);
+    const list = await http(app).get(`/api/v1/exam-scans?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.tokenA}`);
     expect(list.status).toBe(403);
   });
 
@@ -227,20 +227,20 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.studentId).toBe(ctx.studentA.id);
     expect(outcome.scan!.identitySource).toBe('qr');
 
-    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(201);
     expect(rec.body.status).toBe('recorded');
     expect(rec.body.sumGrades).toBe(8); // 4 câu đúng × 2 điểm, 1 câu sai
     expect(rec.body.attemptId).toBeTruthy();
 
     const attempt = await pg.query<{ state: string; sum_grades: string; source: string }>(
-      `select state, sum_grades, applied_settings->>'source' as source from quiz_attempts where id = $1`, [rec.body.attemptId]);
+      `select state, sum_grades, applied_settings->>'source' as source from exam_attempts where id = $1`, [rec.body.attemptId]);
     expect(attempt.rows[0]!.state).toBe('finished');
     expect(Number(attempt.rows[0]!.sum_grades)).toBe(8);
     expect(attempt.rows[0]!.source).toBe('paper-scan');
 
     // Ghi trùng một phiếu đã ghi → 409, không tạo attempt thứ hai.
-    const again = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const again = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(again.status).toBe(409);
     expect(again.body.code).toBe('paper.already_recorded');
   });
@@ -264,17 +264,17 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.status).toBe('needs_review');
 
     // Chưa xác nhận ca mơ hồ thì không ghi được.
-    const early = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const early = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(early.status).toBe(409);
     expect(early.body.code).toBe('paper.scan_not_ready');
 
-    const resolved = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/resolve-readings`)
+    const resolved = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/resolve-readings`)
       .set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ readings: [{ slot: 2, chosen: CORRECT[1] }] });
     expect(resolved.status).toBe(201);
     expect(resolved.body.status).toBe('ready');
 
-    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(201);
     expect(rec.body.sumGrades).toBe(10);
   });
@@ -300,25 +300,25 @@ describe('CAM-0 paper grading flow', () => {
 
     // Gán học sinh ngoài roster → 400; gán đúng → ready.
     const outsider = await createUserViaApi(app, admin);
-    const bad = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/assign-identity`)
+    const bad = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/assign-identity`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: outsider.id });
     expect(bad.status).toBe(400);
     expect(bad.body.code).toBe('paper.student_not_in_roster');
-    const assigned = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/assign-identity`)
+    const assigned = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/assign-identity`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: ctx.studentA.id });
     expect(assigned.status).toBe(201);
     expect(assigned.body.status).toBe('ready');
     expect(assigned.body.identitySource).toBe('manual');
 
     // Học sinh không xem được ảnh phiếu; giáo viên xem được.
-    const imgDenied = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}/image/warped`).set('Authorization', `Bearer ${ctx.tokenA}`);
+    const imgDenied = await http(app).get(`/api/v1/exam-scans/${outcome.scan!.id}/image/warped`).set('Authorization', `Bearer ${ctx.tokenA}`);
     expect(imgDenied.status).toBe(403);
-    const imgOk = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}/image/warped`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const imgOk = await http(app).get(`/api/v1/exam-scans/${outcome.scan!.id}/image/warped`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(imgOk.status).toBe(200);
 
-    const del = await http(app).delete(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const del = await http(app).delete(`/api/v1/exam-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(del.status).toBe(200);
-    const gone = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const gone = await http(app).get(`/api/v1/exam-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(gone.status).toBe(404);
   });
 
@@ -328,7 +328,7 @@ describe('CAM-0 paper grading flow', () => {
     const res = await upload(photo, 'blur.png', ctx.teacher);
     expect(res.status).toBe(422);
     expect(res.body.code).toBe('paper.all_images_rejected');
-    const queue = await http(app).get(`/api/v1/paper-scans?quizId=${ctx.quizId}&status=needs_identity`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const queue = await http(app).get(`/api/v1/exam-scans?pinId=${ctx.quizId}&status=needs_identity`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(queue.status).toBe(200);
     expect((queue.body as unknown[]).length).toBe(0);
   });
@@ -355,15 +355,15 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.identitySource).toBe('bubbles');
     expect(outcome.scan!.status).toBe('ready');
 
-    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(201);
     expect(rec.body.sumGrades).toBe(10);
   });
 
   it('a second sheet claiming an already-matched student waits in the identity queue instead of overwriting', async () => {
-    const batch2Id = (await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)).body
+    const batch2Id = (await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)).body
       .find((b: { examCode: string }) => b.examCode === '1002').id as string;
-    const batches = (await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; roster: { code: string; userId: string }[] }[];
+    const batches = (await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; roster: { code: string; userId: string }[] }[];
     const codeB = batches.find((b) => b.id === batch2Id)!.roster.find((r) => r.userId === ctx.studentB.id)!.code;
     const photo = photoFor({
       qrText: sheetQrPayload(batch2Id, '1002', null), bubbleCode: codeB,
@@ -378,17 +378,17 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.studentId).toBeNull();
     expect(outcome.scan!.identityCode).toBe(codeB);
     // Hàng chờ gợi ý ứng viên = roster chưa khớp: studentB đã khớp nên không còn trong gợi ý.
-    const detail = await http(app).get(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const detail = await http(app).get(`/api/v1/exam-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     const candidateIds = (detail.body.identityCandidates as { userId: string }[]).map((c) => c.userId);
     expect(candidateIds).not.toContain(ctx.studentB.id);
     expect(candidateIds).toContain(ctx.studentA.id);
     // Dọn hàng chờ: phiếu trùng bị xoá được.
-    const del = await http(app).delete(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const del = await http(app).delete(`/api/v1/exam-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(del.status).toBe(200);
   });
 
   it('session upload: an ambiguous exam code falls back to QR routing, never to a guess', async () => {
-    const batches = (await http(app).get(`/api/v1/quizzes/${ctx.quizId}/paper-batches`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; examCode: string | null; roster: { code: string; userId: string }[] }[];
+    const batches = (await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; examCode: string | null; roster: { code: string; userId: string }[] }[];
     const batch2 = batches.find((b) => b.examCode === '1002')!;
     const codeA = batch2.roster.find((r) => r.userId === ctx.studentA.id)!.code;
     const photo = photoFor({
@@ -424,13 +424,13 @@ describe('CAM-0 paper grading flow', () => {
     const scanId = outcome.scan!.id;
 
     // Chưa gắn lô thì không gán định danh được.
-    const early = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-identity`)
+    const early = await http(app).post(`/api/v1/exam-scans/${scanId}/assign-identity`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: studentC.id });
     expect(early.status).toBe(400);
     expect(early.body.code).toBe('paper.batch_required');
 
     // Giáo viên gán lô (biên bản): hệ thống đọc lại phiếu theo lô mới và tự khớp mã học sinh.
-    const assigned = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-batch`)
+    const assigned = await http(app).post(`/api/v1/exam-scans/${scanId}/assign-batch`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ batchId: batch3.id });
     expect(assigned.status).toBe(201);
     expect(assigned.body.batchId).toBe(batch3.id);
@@ -446,7 +446,7 @@ describe('CAM-0 paper grading flow', () => {
 
     // Giáo viên sửa định danh tay → event log ghi mã cũ → mã mới.
     const codeA3 = batch3.roster.find((r) => r.userId === ctx.studentA.id)!.code;
-    const manual = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-identity`)
+    const manual = await http(app).post(`/api/v1/exam-scans/${scanId}/assign-identity`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: ctx.studentA.id });
     expect(manual.status).toBe(201);
     expect(manual.body.identitySource).toBe('manual');
@@ -458,10 +458,10 @@ describe('CAM-0 paper grading flow', () => {
     expect(identityEvent.rows[0]!.payload.actorId).toBeTruthy();
 
     // Gán lại đúng học sinh rồi ghi điểm.
-    const back = await http(app).post(`/api/v1/paper-scans/${scanId}/assign-identity`)
+    const back = await http(app).post(`/api/v1/exam-scans/${scanId}/assign-identity`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ studentId: studentC.id });
     expect(back.status).toBe(201);
-    const rec = await http(app).post(`/api/v1/paper-scans/${scanId}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${scanId}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(201);
     expect(rec.body.sumGrades).toBe(10);
   });
@@ -498,7 +498,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.batchId).toBe(batch5.id); // QR định tuyến về lô này
     expect(outcome.scan!.variantCodeRead).toBe('9998'); // nhưng mã tô là 9998
     expect(outcome.scan!.status).toBe('ready');
-    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(409);
     expect(rec.body.code).toBe('paper.variant_mismatch');
   });
@@ -520,7 +520,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.studentId).toBe(ctx.studentB.id);
     expect(outcome.scan!.identitySource).toBe('bubbles');
     expect(outcome.scan!.status).toBe('ready');
-    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(201);
     expect(rec.body.sumGrades).toBe(10);
   });
@@ -564,9 +564,9 @@ describe('CAM-0 paper grading flow', () => {
     expect(outClass.scan!.status).toBe('needs_identity');
     expect(outClass.scan!.studentId).toBeNull(); // đặc biệt: KHÔNG gán cho target
     expect(outClass.scan!.identityCode).toBe(mutatedClass);
-    const recClass = await http(app).post(`/api/v1/paper-scans/${outClass.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const recClass = await http(app).post(`/api/v1/exam-scans/${outClass.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(recClass.status).toBe(409);
-    const delClass = await http(app).delete(`/api/v1/paper-scans/${outClass.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const delClass = await http(app).delete(`/api/v1/exam-scans/${outClass.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(delClass.status).toBe(200);
 
     // --- Mã SBD 8 số: vị trí 6 (trọng số 5 cũ), delta +2 ---
@@ -595,7 +595,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(outSbd.scan!.status).toBe('needs_identity');
     expect(outSbd.scan!.studentId).toBeNull();
     expect(outSbd.scan!.identityCode).toBe(mutatedSbd);
-    const delSbd = await http(app).delete(`/api/v1/paper-scans/${outSbd.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const delSbd = await http(app).delete(`/api/v1/exam-scans/${outSbd.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(delSbd.status).toBe(200);
     // Ca này tạo 21 user + ghi danh + 2 lô + 2 ảnh nên cần timeout dài
     // hơn mặc định 30s của suite.
@@ -633,9 +633,9 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.status).toBe('needs_identity');
     expect(outcome.scan!.studentId).toBeNull(); // KHÔNG gán cho bất kỳ thí sinh nào khác
     expect(outcome.scan!.identityCode).toBe(transposed);
-    const rec = await http(app).post(`/api/v1/paper-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
+    const rec = await http(app).post(`/api/v1/exam-scans/${outcome.scan!.id}/record`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(rec.status).toBe(409);
-    const del = await http(app).delete(`/api/v1/paper-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    const del = await http(app).delete(`/api/v1/exam-scans/${outcome.scan!.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
     expect(del.status).toBe(200);
   });
 });
