@@ -270,8 +270,12 @@ describe('rich text contracts', () => {
     expect(richTextInputSchema.parse(doc)).toEqual(doc);
   });
 
-  it('rejects nodes outside the plain-text slice (image, heading) and unknown marks', () => {
-    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'image', attrs: { src: 'x.png' } }] })).toThrow();
+  it('rejects nodes outside the slice (heading, orderedList), malformed math/image and unknown marks', () => {
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'image' }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'image', attrs: { src: '' } }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'inlineMath' }] }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'inlineMath', attrs: { latex: 'x', extra: 1 } }] }] })).toThrow();
+    expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'orderedList', content: [{ type: 'listItem', content: [{ type: 'paragraph' }] }] }] })).toThrow();
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'T' }] }] })).toThrow();
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'highlight' }] }] }] })).toThrow();
     expect(() => richTextDocumentSchema.parse({ type: 'doc', content: [] })).toThrow();
@@ -285,6 +289,73 @@ describe('rich text contracts', () => {
     expect(toRichTextDocument('')).toEqual(emptyRichTextDocument);
     expect(toRichTextDocument(doc)).toEqual(doc);
     expect(() => toRichTextDocument({ type: 'doc', content: [{ type: 'image' }] } as never)).toThrow();
+  });
+
+  it('accepts a document with inline/block math, a bullet list and an image', () => {
+    const rich = {
+      type: 'doc' as const,
+      content: [
+        {
+          type: 'paragraph' as const,
+          content: [
+            { type: 'text' as const, text: 'Giải phương trình ' },
+            { type: 'inlineMath' as const, attrs: { latex: 'x^2 - 1 = 0' } },
+            { type: 'text' as const, text: ' sau đây.' },
+          ],
+        },
+        { type: 'blockMath' as const, attrs: { latex: '\\frac{a}{b}' } },
+        {
+          type: 'bulletList' as const,
+          content: [
+            { type: 'listItem' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Bước một' }] }] },
+            {
+              type: 'listItem' as const,
+              content: [
+                { type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Bước hai' }] },
+                {
+                  type: 'bulletList' as const,
+                  content: [
+                    { type: 'listItem' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Bước hai chấm một' }] }] },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        { type: 'image' as const, attrs: { src: 'file-123', alt: 'Đồ thị hàm số', title: null } },
+      ],
+    };
+    expect(richTextDocumentSchema.parse(rich)).toEqual(rich);
+    expect(richTextInputSchema.parse(rich)).toEqual(rich);
+  });
+
+  it('extracts plain text with math contributing its LaTeX and list items on their own lines', () => {
+    const rich = {
+      type: 'doc' as const,
+      content: [
+        {
+          type: 'paragraph' as const,
+          content: [
+            { type: 'text' as const, text: 'Hàm số ' },
+            { type: 'inlineMath' as const, attrs: { latex: 'y = ax + b' } },
+            { type: 'text' as const, text: ' là hàm bậc nhất.' },
+          ],
+        },
+        { type: 'blockMath' as const, attrs: { latex: 'a \\neq 0' } },
+        {
+          type: 'bulletList' as const,
+          content: [
+            { type: 'listItem' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Mục một' }] }] },
+            { type: 'listItem' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Mục hai' }] }] },
+          ],
+        },
+        { type: 'image' as const, attrs: { src: 'file-9', alt: 'Hình minh hoạ' } },
+        { type: 'image' as const, attrs: { src: 'file-10' } },
+      ],
+    };
+    expect(extractRichTextPlainText(rich)).toBe(
+      'Hàm số y = ax + b là hàm bậc nhất.\na \\neq 0\nMục một\nMục hai\nHình minh hoạ\n',
+    );
   });
 
   it('extracts plain text joining paragraphs with newlines, empty paragraph as an empty line', () => {
