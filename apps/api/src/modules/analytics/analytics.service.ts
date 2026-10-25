@@ -94,12 +94,16 @@ export class AnalyticsService {
    * indicator; score ≥ 0.6 ⇒ tạo prediction + insight cho các teacher của khoá.
    * Hàm này CHỈ ghi analytics_predictions/insights — không chạm grades/enrol.
    */
-  async runModel(modelName: string, courseId: string): Promise<{ predictions: number; insights: number }> {
+  async runModel(actorId: string, modelName: string, courseId: string): Promise<{ predictions: number; insights: number }> {
+    // H6 (#134): chạy mô hình là thao tác vận hành — đòi analytics:manage tại
+    // context khoá cho NGƯỜI GỌI (evaluator duyệt cây context: holder tại
+    // system qua được). Trước đây hàm không uỷ quyền người gọi chút nào.
+    const ctxId = await this.courses.courseContextId(courseId);
+    await this.evaluator.requireCapability(actorId, 'analytics:manage', ctxId);
     const model = await this.getModelByName(modelName);
     const providerDef = this.modelProviders.find((p) => p.name === modelName);
     if (!providerDef) throw new NotFoundException({ message: `Model provider ${modelName} not registered`, code: 'analytics.provider_not_found' });
     const db = this.repo.dbHandle;
-    const ctxId = await this.courses.courseContextId(courseId);
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
     const activeUserIds = [...new Set(enrolments.filter((e) => e.status === 0).map((e) => e.userId))];
     // Recipients: mọi user (không suspended/deleted) có analytics:viewinsights ở course context.
@@ -147,5 +151,19 @@ export class AnalyticsService {
     }
     return out;
   }
-  async listAllInsights(): Promise<InsightRow[]> { return this.repo.listInsights(); }
+  /**
+   * Danh sách insight toàn cục (H4, #134): lọc theo ĐÚNG vị từ của
+   * listInsightsFor — chỉ trả dòng mà người gọi có analytics:viewinsights tại
+   * context của dòng (không kèm điều kiện recipient). User không có
+   * viewinsights ở context nào (học viên thường) nhận danh sách rỗng, không
+   * còn thấy insight dự báo của người khác.
+   */
+  async listAllInsights(actorId: string): Promise<InsightRow[]> {
+    const rows = await this.repo.listInsights();
+    const out: InsightRow[] = [];
+    for (const row of rows) {
+      if (await this.evaluator.hasCapability(actorId, 'analytics:viewinsights', row.contextId)) out.push(row);
+    }
+    return out;
+  }
 }

@@ -14,11 +14,11 @@ export class AnalyticsController {
   @Get('indicators')
   async indicators() { return this.analytics.listIndicators(); }
   @Post('models/:name/run')
-  async run(@Param('name') name: string, @Body({ schema: runAnalyticsModelSchema }) dto: RunModelDto) {
-    return this.analytics.runModel(name, dto.courseId);
+  async run(@Param('name') name: string, @Body({ schema: runAnalyticsModelSchema }) dto: RunModelDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.analytics.runModel(actor.id, name, dto.courseId);
   }
   @Get('insights/me')
   async myInsights(@CurrentUser() actor: AuthenticatedUser) { return this.analytics.listInsightsFor(actor.id); }
   @Get('insights')
-  async allInsights() { return this.analytics.listAllInsights(); }
+  async allInsights(@CurrentUser() actor: AuthenticatedUser) { return this.analytics.listAllInsights(actor.id); }
 }
