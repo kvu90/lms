@@ -62,7 +62,7 @@ export interface RecipeSpec {
  * hàng (không khám phá/thêm mới được; quiz đang triển khai KHÔNG vỡ vì
  * deploy đã chụp slots sang quiz_slots).
  */
-export const examPapers = pgTable('exam_papers', {
+export const exams = pgTable('exams', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   /** Tenant sở hữu (TENANT-0, #168) — luôn bằng tenant_id của bank chủ; NULL khi bank là bank platform. */
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
@@ -75,7 +75,7 @@ export const examPapers = pgTable('exam_papers', {
    * các đời copy (ghi công không tắt được). Con trỏ mềm như các con trỏ
    * truy vết xuyên module khác.
    */
-  derivedFromPaperId: uuid('derived_from_paper_id'),
+  derivedFromExamId: uuid('derived_from_exam_id'),
   derivedFromMatrixId: uuid('derived_from_matrix_id'),
   originalAuthorId: uuid('original_author_id'),
   createdBy: uuid('created_by').notNull(),
@@ -87,13 +87,13 @@ export const examPapers = pgTable('exam_papers', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_papers_tenant_id_idx').on(table.tenantId),
-      index('exam_papers_bank_id_idx').on(table.bankId),
-      index('exam_papers_status_idx').on(table.status),
-      index('exam_papers_created_by_idx').on(table.createdBy),
-      index('exam_papers_derived_from_idx').on(table.derivedFromPaperId),
-      check('exam_papers_kind_check', sql`${table.kind} in ('snapshot', 'recipe')`),
-      check('exam_papers_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),
+      index('exams_tenant_id_idx').on(table.tenantId),
+      index('exams_bank_id_idx').on(table.bankId),
+      index('exams_status_idx').on(table.status),
+      index('exams_created_by_idx').on(table.createdBy),
+      index('exams_derived_from_idx').on(table.derivedFromExamId),
+      check('exams_kind_check', sql`${table.kind} in ('snapshot', 'recipe')`),
+      check('exams_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),
   ]);
 
 /**
@@ -103,9 +103,9 @@ export const examPapers = pgTable('exam_papers', {
  * exam_paper_slots. Version là BẤT BIẾN sau khi tạo — mọi sửa đổi đi qua
  * version mới.
  */
-export const examPaperVersions = pgTable('exam_paper_versions', {
+export const examVersions = pgTable('exam_versions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  paperId: uuid('paper_id').notNull().references(() => examPapers.id, { onDelete: 'cascade' }),
+  examId: uuid('exam_id').notNull().references(() => exams.id, { onDelete: 'cascade' }),
   version: integer('version').notNull(),
   name: text('name').notNull(),
   subjectId: uuid('subject_id').references(() => subjects.id, { onDelete: 'set null' }),
@@ -129,11 +129,11 @@ export const examPaperVersions = pgTable('exam_paper_versions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_paper_versions_paper_idx').on(table.paperId),
-      index('exam_paper_versions_subject_idx').on(table.subjectId),
-      index('exam_paper_versions_matrix_idx').on(table.matrixId),
-      unique('exam_paper_versions_paper_version_unique').on(table.paperId, table.version),
-      check('exam_paper_versions_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'midterm', 'final', 'mock', 'practice')`),
+      index('exam_versions_paper_idx').on(table.examId),
+      index('exam_versions_subject_idx').on(table.subjectId),
+      index('exam_versions_matrix_idx').on(table.matrixId),
+      unique('exam_versions_paper_version_unique').on(table.examId, table.version),
+      check('exam_versions_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'midterm', 'final', 'mock', 'practice')`),
   ]);
 
 /**
@@ -144,9 +144,9 @@ export const examPaperVersions = pgTable('exam_paper_versions', {
  * phần (chia phần trong đề); cluster_id gom các slot truefalse cùng
  * chùm Đ–S như quiz_slots.
  */
-export const examPaperSlots = pgTable('exam_paper_slots', {
+export const examSlots = pgTable('exam_slots', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  paperVersionId: uuid('paper_version_id').notNull().references(() => examPaperVersions.id, { onDelete: 'cascade' }),
+  examVersionId: uuid('exam_version_id').notNull().references(() => examVersions.id, { onDelete: 'cascade' }),
   position: integer('position').notNull(),
   section: text('section').notNull().default(''),
   questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
@@ -163,11 +163,11 @@ export const examPaperSlots = pgTable('exam_paper_slots', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_paper_slots_version_idx').on(table.paperVersionId),
-      index('exam_paper_slots_question_idx').on(table.questionId),
-      index('exam_paper_slots_cluster_idx').on(table.clusterId),
-      index('exam_paper_slots_matrix_cell_idx').on(table.matrixCellId),
-      unique('exam_paper_slots_version_position_unique').on(table.paperVersionId, table.position),
+      index('exam_slots_version_idx').on(table.examVersionId),
+      index('exam_slots_question_idx').on(table.questionId),
+      index('exam_slots_cluster_idx').on(table.clusterId),
+      index('exam_slots_matrix_cell_idx').on(table.matrixCellId),
+      unique('exam_slots_version_position_unique').on(table.examVersionId, table.position),
   ]);
 
 /**
@@ -180,9 +180,9 @@ export const examPaperSlots = pgTable('exam_paper_slots', {
  * (danh sách question + pinned version + max_mark đã sắp) phục vụ
  * chống trùng hoàn toàn/gần trùng trong bank đích.
  */
-export const examPaperContributions = pgTable('exam_paper_contributions', {
+export const examContributions = pgTable('exam_contributions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  paperId: uuid('paper_id').notNull().references(() => examPapers.id, { onDelete: 'cascade' }),
+  examId: uuid('exam_id').notNull().references(() => exams.id, { onDelete: 'cascade' }),
   targetBankId: uuid('target_bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
   proposerId: uuid('proposer_id').notNull(),
   note: text('note').notNull().default(''),
@@ -191,45 +191,15 @@ export const examPaperContributions = pgTable('exam_paper_contributions', {
   nearDuplicateOf: uuid('near_duplicate_of'),
   rejectReason: text('reject_reason'),
   reviewerId: uuid('reviewer_id'),
-  resultPaperId: uuid('result_paper_id'),
+  resultExamId: uuid('result_exam_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('exam_paper_contributions_target_bank_idx').on(table.targetBankId),
-      index('exam_paper_contributions_paper_idx').on(table.paperId),
-      index('exam_paper_contributions_proposer_idx').on(table.proposerId),
-      index('exam_paper_contributions_status_idx').on(table.status),
-  ]);
-
-/** Một biến thể mã đề của một lần triển khai: mã in trên đề + seed hoán vị thứ tự câu/đáp án khi in. */
-export interface ExamVariant {
-  code: string;
-  seed: number;
-}
-
-/**
- * Một LẦN TRIỂN KHAI một paper version vào một quiz (EB-2, điểm E-5):
- * MÃ ĐỀ sống ở tầng này, KHÔNG ở đề — cùng một đề triển khai nhiều
- * lần/mã là các dòng khác nhau. variants: danh sách mã 001, 002… kèm
- * seed hoán vị của từng mã (in đề snapshot theo mã thì dùng đúng seed
- * đó để thứ tự in khớp với bản chấm). quiz_id là con trỏ mềm (bảng
- * quizzes thuộc module quiz; xoá quiz không được vỡ sổ triển khai).
- */
-export const examDeployments = pgTable('exam_deployments', {
-  id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  paperId: uuid('paper_id').notNull().references(() => examPapers.id, { onDelete: 'cascade' }),
-  paperVersionId: uuid('paper_version_id').notNull().references(() => examPaperVersions.id, { onDelete: 'cascade' }),
-  quizId: uuid('quiz_id').notNull(),
-  variantCount: integer('variant_count').notNull().default(1),
-  variants: jsonb('variants').$type<ExamVariant[]>().notNull(),
-  createdBy: uuid('created_by').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-},
-  (table) => [
-      index('exam_deployments_paper_idx').on(table.paperId),
-      index('exam_deployments_paper_version_idx').on(table.paperVersionId),
-      index('exam_deployments_quiz_idx').on(table.quizId),
+      index('exam_contributions_target_bank_idx').on(table.targetBankId),
+      index('exam_contributions_paper_idx').on(table.examId),
+      index('exam_contributions_proposer_idx').on(table.proposerId),
+      index('exam_contributions_status_idx').on(table.status),
   ]);
 
 /**
@@ -252,25 +222,25 @@ export const examDeployments = pgTable('exam_deployments', {
  */
 export const examDossiers = pgTable('exam_dossiers', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  paperId: uuid('paper_id').notNull().references(() => examPapers.id, { onDelete: 'cascade' }),
+  examId: uuid('exam_id').notNull().references(() => exams.id, { onDelete: 'cascade' }),
   targetBankId: uuid('target_bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
   proposerId: uuid('proposer_id').notNull(),
   note: text('note').notNull().default(''),
   status: text('status').notNull().default('draft'),
-  paperVersionId: uuid('paper_version_id').references(() => examPaperVersions.id, { onDelete: 'set null' }),
-  paperVersionNumber: integer('paper_version_number'),
+  examVersionId: uuid('exam_version_id').references(() => examVersions.id, { onDelete: 'set null' }),
+  examVersionNumber: integer('exam_version_number'),
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   matrixVersion: integer('matrix_version'),
   /** Bản đặc tả (view model MatrixSpecification) chụp tại lúc nộp — nguồn duy nhất cho bề mặt duyệt trong hàng chờ. */
   specSnapshot: jsonb('spec_snapshot').$type<Record<string, unknown>>(),
-  resultPaperId: uuid('result_paper_id'),
+  resultExamId: uuid('result_exam_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('exam_dossiers_target_bank_idx').on(table.targetBankId),
-      index('exam_dossiers_paper_idx').on(table.paperId),
-      index('exam_dossiers_paper_version_idx').on(table.paperVersionId),
+      index('exam_dossiers_paper_idx').on(table.examId),
+      index('exam_dossiers_paper_version_idx').on(table.examVersionId),
       index('exam_dossiers_matrix_idx').on(table.matrixId),
       index('exam_dossiers_proposer_idx').on(table.proposerId),
       index('exam_dossiers_status_idx').on(table.status),

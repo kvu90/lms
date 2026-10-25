@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import type { PaperQuality, PaperReading, PaperRosterEntry, PaperSlotLayout } from '@lms/contracts';
-import { quizzes, quizAttempts } from '../quiz/schema';
+import { examAttempts, examPins } from '../quiz/schema';
 
 /**
  * Một lô IN phiếu trả lời (một MÃ ĐỀ) của một quiz. Layout là bản CHỤP
@@ -28,9 +28,9 @@ import { quizzes, quizAttempts } from '../quiz/schema';
  * variant (khớp variant_code của tầng triển khai đề khi EB-2 nối
  * vào); lô in khác lô chụp — một buổi chụp gồm nhiều lô in.
  */
-export const quizPaperBatches = pgTable('quiz_paper_batches', {
+export const examBatches = pgTable('exam_batches', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  examPinId: uuid('exam_pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
   variantCode: text('variant_code').notNull(),
   examCode: text('exam_code'),
   codeDigits: integer('code_digits').notNull().default(4),
@@ -41,10 +41,10 @@ export const quizPaperBatches = pgTable('quiz_paper_batches', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('quiz_paper_batches_quiz_idx').on(table.quizId),
-      unique('quiz_paper_batches_quiz_variant_unique').on(table.quizId, table.variantCode),
-      unique('quiz_paper_batches_quiz_exam_code_unique').on(table.quizId, table.examCode),
-      check('quiz_paper_batches_code_digits_check', sql`${table.codeDigits} in (4, 8)`),
+      index('exam_batches_quiz_idx').on(table.examPinId),
+      unique('exam_batches_quiz_variant_unique').on(table.examPinId, table.variantCode),
+      unique('exam_batches_quiz_exam_code_unique').on(table.examPinId, table.examCode),
+      check('exam_batches_code_digits_check', sql`${table.codeDigits} in (4, 8)`),
   ]);
 
 /**
@@ -72,11 +72,11 @@ export const quizPaperBatches = pgTable('quiz_paper_batches', {
  * (null = không đọc được chắc chắn); khi nó khác exam_code của lô in
  * thì phiếu bị chặn ghi attempt cho tới khi xử lý lại.
  */
-export const quizPaperScans = pgTable('quiz_paper_scans', {
+export const examScans = pgTable('exam_scans', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
-  batchId: uuid('batch_id').references(() => quizPaperBatches.id, { onDelete: 'cascade' }),
+  batchId: uuid('batch_id').references(() => examBatches.id, { onDelete: 'cascade' }),
   sessionId: uuid('session_id'),
-  quizId: uuid('quiz_id').notNull().references(() => quizzes.id, { onDelete: 'cascade' }),
+  examPinId: uuid('exam_pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
   fileId: uuid('file_id').notNull(),
   warpedFileId: uuid('warped_file_id'),
   studentId: uuid('student_id'),
@@ -86,18 +86,18 @@ export const quizPaperScans = pgTable('quiz_paper_scans', {
   status: text('status').notNull().default('needs_identity'),
   quality: jsonb('quality').$type<PaperQuality>(),
   readings: jsonb('readings').$type<PaperReading[]>().notNull().default([]),
-  attemptId: uuid('attempt_id').references(() => quizAttempts.id, { onDelete: 'set null' }),
+  attemptId: uuid('attempt_id').references(() => examAttempts.id, { onDelete: 'set null' }),
   uploadedBy: uuid('uploaded_by').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
-      index('quiz_paper_scans_quiz_idx').on(table.quizId),
-      index('quiz_paper_scans_batch_idx').on(table.batchId),
-      index('quiz_paper_scans_status_idx').on(table.quizId, table.status),
-      index('quiz_paper_scans_student_idx').on(table.studentId),
-      index('quiz_paper_scans_attempt_idx').on(table.attemptId),
-      check('quiz_paper_scans_status_check', sql`${table.status} in ('needs_identity', 'needs_review', 'ready', 'recorded')`),
-      check('quiz_paper_scans_identity_source_check', sql`${table.identitySource} is null or ${table.identitySource} in ('qr', 'bubbles', 'manual')`),
+      index('exam_scans_quiz_idx').on(table.examPinId),
+      index('exam_scans_batch_idx').on(table.batchId),
+      index('exam_scans_status_idx').on(table.examPinId, table.status),
+      index('exam_scans_student_idx').on(table.studentId),
+      index('exam_scans_attempt_idx').on(table.attemptId),
+      check('exam_scans_status_check', sql`${table.status} in ('needs_identity', 'needs_review', 'ready', 'recorded')`),
+      check('exam_scans_identity_source_check', sql`${table.identitySource} is null or ${table.identitySource} in ('qr', 'bubbles', 'manual')`),
   ]);
