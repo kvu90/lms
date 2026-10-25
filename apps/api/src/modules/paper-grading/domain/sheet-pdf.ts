@@ -135,10 +135,10 @@ export async function generateSheetsPdf(input: SheetsPdfInput): Promise<Buffer> 
 
     // Vùng học sinh (y 150..300).
     if (student) {
-      text(page, ctx, `Họ và tên: ${student.displayName}`, 64, 168, 12, { bold: true, maxWidthPt: px(900) });
+      text(page, ctx, `Họ và tên: ${student.displayName}`, 64, 168, 12, { bold: true, maxWidthPt: px(QR_RECT.x - 64 - 14) });
       text(page, ctx, `Mã học sinh: ${student.code} — phiếu này chỉ dành cho học sinh trên, không dùng chung.`, 64, 202, 10.5, { color: GRAY });
     } else {
-      text(page, ctx, 'Họ và tên: …………………………………………………………', 64, 168, 12, { maxWidthPt: px(900) });
+      text(page, ctx, 'Họ và tên: …………………………………………………………', 64, 168, 12, { maxWidthPt: px(QR_RECT.x - 64 - 14) });
       text(page, ctx, 'Tô kín MÃ HỌC SINH của em vào lưới mã ở dưới (3 số thứ tự + 1 số kiểm tra do giáo viên cấp).', 64, 202, 10.5, { color: GRAY });
     }
     text(page, ctx, 'Hướng dẫn: dùng bút chì 2B hoặc bút bi tô KÍN ô tròn của đáp án em chọn. Mỗi câu chỉ tô MỘT ô.', 64, 246, 9.5, { color: GRAY });

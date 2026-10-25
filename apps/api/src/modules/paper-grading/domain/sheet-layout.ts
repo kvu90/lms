@@ -34,10 +34,14 @@ export const FIDUCIAL_CENTERS: readonly { x: number; y: number }[] = [
 
 /**
  * Vùng QR ở đầu phiếu: nằm dưới dải fiducial trên (fiducial chiếm y
- * 48..88), x từ lề phải vào 176px. Phiếu trắng giữ nguyên vùng này
- * (khung trống) để một template hình học dùng cho cả hai loại phiếu.
+ * 48..88), x từ lề phải vào. Cỡ 240px là yêu cầu đọc tin cậy: payload
+ * sản xuất ~81 ký tự (hai uuid) tạo QR version 6 (41×41 module) — ở
+ * 176px module chỉ ~4,3px, giải mã sau nắn phối cảnh + nhiễu rớt ngẫu
+ * nhiên theo nội dung (đo thực tế 9/12); ở 240px module ~5,9px đọc ổn
+ * định. Phiếu trắng giữ nguyên vùng này (khung trống) để một template
+ * hình học dùng cho cả hai loại phiếu.
  */
-export const QR_RECT = { x: TEMPLATE_WIDTH - 64 - 176, y: 116, size: 176 };
+export const QR_RECT = { x: TEMPLATE_WIDTH - 64 - 240, y: 100, size: 240 };
 
 /** Vùng mã học sinh: lưới ô tô 4 cột × 10 hàng (chỉ dùng cho phiếu trắng). */
 export const CODE_DIGITS = 4;

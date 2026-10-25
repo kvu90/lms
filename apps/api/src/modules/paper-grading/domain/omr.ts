@@ -249,6 +249,7 @@ function diskOffsets(radius: number): { dx: number; dy: number }[] {
 }
 const DISK9 = diskOffsets(9);
 const DISK7 = diskOffsets(7);
+const DISK4 = diskOffsets(4);
 
 /** 4 góc phần tư của đĩa lấy mẫu (chỉ số = (dx≥0) + 2·(dy≥0)). */
 function diskQuadrants(disk: { dx: number; dy: number }[]): { dx: number; dy: number }[][] {
@@ -260,13 +261,18 @@ const DISK9_QUADRANTS = diskQuadrants(DISK9);
 const DISK7_QUADRANTS = diskQuadrants(DISK7);
 
 /**
- * Tô kín THẬT phủ mực khắp đĩa bong bóng; nét gạch/dấu ✓ chỉ phủ một
- * dải chéo — mật độ trung bình vẫn cao nhưng góc ít mực nhất thấp hẳn.
- * Ô thắng mà góc ít mực nhất < 45% mật độ của chính ô thì không phải
- * tô kín: xếp ca mơ hồ cho giáo viên xác nhận, hệ thống không chấm
- * đoán (tiêu chí cứng của CAM-0: 100% ca mơ hồ vào hàng chờ).
+ * Tô kín THẬT phủ mực khắp đĩa bong bóng; hai kiểu "không kín" phổ
+ * biến phải bị bắt vào hàng chờ dù mật độ trung bình cao:
+ *  - nét gạch/dấu ✓ chỉ phủ một dải chéo → góc phần tư ít mực nhất của
+ *    đĩa thấp hẳn so với mật độ của chính ô (ngưỡng phủ góc 45%);
+ *  - tẩy xoá để lại VÀNH mực quanh tâm trắng → mật độ ở đĩa tâm (r≤4)
+ *    thấp hẳn so với mật độ của chính ô (ngưỡng phủ tâm 50%).
+ * Ô thắng mà một trong hai kiểm tra không đạt thì không phải tô kín:
+ * xếp ca mơ hồ cho giáo viên xác nhận, hệ thống không chấm đoán (tiêu
+ * chí cứng của CAM-0: 100% ca mơ hồ vào hàng chờ).
  */
 const MIN_QUADRANT_COVERAGE = 0.45;
+const MIN_CENTER_COVERAGE = 0.5;
 
 function meanDisk(img: GrayImage, cx: number, cy: number, offsets: { dx: number; dy: number }[]): number {
   let sum = 0, n = 0;
@@ -381,11 +387,12 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
     return Math.min(1, Math.max(0, (paper - mean) / range));
   };
 
-  /** Ô thắng có phủ mực ĐỀU khắp đĩa không (chặn nét gạch/dấu ✓ bị đọc thành tô kín). */
+  /** Ô thắng có phải tô kín thật không (phủ đều 4 góc + đặc tâm — chặn nét gạch/dấu ✓ và vành tẩy xoá bị đọc thành tô kín). */
   const uniformFill = (cx: number, cy: number, quads: { dx: number; dy: number }[][], topDensity: number): boolean => {
     let min = Infinity;
     for (const offs of quads) min = Math.min(min, densityAt(cx, cy, offs));
-    return min >= topDensity * MIN_QUADRANT_COVERAGE;
+    if (min < topDensity * MIN_QUADRANT_COVERAGE) return false;
+    return densityAt(cx, cy, DISK4) >= topDensity * MIN_CENTER_COVERAGE;
   };
 
   const readings: SheetReading[] = geometry.rows.map((row) => {
