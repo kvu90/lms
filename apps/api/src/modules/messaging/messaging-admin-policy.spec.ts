@@ -49,9 +49,11 @@ describe('MessagingService — admin site policy + student minimal preferences (
         return disabled.has(provider) ? false : undefined;
       }),
     };
+    const sendThrottle = { consume: vi.fn(async () => undefined) };
     const service = new MessagingService(
       repo as never, users as never, evaluator as never, {} as never, outbox as never,
       {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
+      sendThrottle as never,
     );
     return { service, inserted, logs, jobs, storedPrefs };
   }
