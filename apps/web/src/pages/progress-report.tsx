@@ -1,40 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiFetch, apiJson } from '#lib/api';
-
-/** Một học sinh trong báo cáo tiến độ (GET /courses/:id/progress/report). */
-interface ReportStudent {
-  userId: string;
-  username: string;
-  fullName: string;
-  completed: number;
-  total: number;
-  percent: number | null;
-  lastAccessAt: string | null;
-  states: Record<string, number>;
-}
-
-/** Báo cáo tiến độ cho giáo viên: ma trận lớp × mục + tổng theo mục/HS. */
-interface ProgressReport {
-  courseId: string;
-  items: { cmId: string; name: string; component: string; completedCount: number; totalStudents: number; percent: number | null }[];
-  students: ReportStudent[];
-}
-
-interface CourseGroup { id: string; name: string }
-
-/** Tải một endpoint phụ độc lập: lỗi thì trả null. */
-async function probe<T>(path: string): Promise<T | null> {
-  try {
-    return await apiJson<T>(path);
-  } catch {
-    return null;
-  }
-}
+import { apiFetch } from '#lib/api';
+import {
+  courseGroupsQueryOptions,
+  progressReportQueryOptions,
+  useCourseGroups,
+  useProgressReport,
+} from '#lib/progress-report-data';
+import { queryClient } from '#lib/query-client';
 
 /**
  * Báo cáo tiến độ học cho giáo viên (K2-B4) — ba bề mặt trên một trang:
@@ -47,35 +24,16 @@ async function probe<T>(path: string): Promise<T | null> {
 export function ProgressReportPage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
-  const [report, setReport] = useState<ProgressReport | null>(null);
-  const [denied, setDenied] = useState(false);
-  const [groups, setGroups] = useState<CourseGroup[]>([]);
   const [groupId, setGroupId] = useState('');
-
-  const load = useCallback(async () => {
-    if (!id) return;
-    const query = groupId ? `?groupId=${groupId}` : '';
-    const data = await probe<ProgressReport>(`/api/v1/courses/${id}/progress/report${query}`);
-    if (!data) {
-      setDenied(true);
-      setReport(null);
-      return;
-    }
-    setDenied(false);
-    setReport(data);
-  }, [id, groupId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!id) return;
-    void (async () => {
-      const data = await probe<CourseGroup[]>(`/api/v1/courses/${id}/groups`);
-      setGroups(data ?? []);
-    })();
-  }, [id]);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): báo cáo theo khoá + nhóm
+  // lọc là một query (đổi nhóm = đổi khoá, keepPreviousData giữ bản cũ
+  // trong lúc tải bản mới như luồng thủ công); danh sách nhóm là query
+  // riêng. Lỗi tải báo cáo → data null → trạng thái không có quyền.
+  const reportQuery = useProgressReport(id, groupId);
+  const report = reportQuery.data ?? null;
+  const denied = reportQuery.data === null;
+  const groupsQuery = useCourseGroups(id);
+  const groups = groupsQuery.data ?? [];
 
   /** Tải CSV qua fetch có xác thực rồi lưu bằng blob URL. */
   async function downloadCsv() {
@@ -179,6 +137,21 @@ export function ProgressReportPage() {
 
 /** Route module là chính trang này (src/routes.ts trỏ thẳng vào file): cần default export để framework mode coi đây là route có component — thiếu nó, request tài liệu phía server bị xếp vào resource route và trả 400 (GĐ4 của issue #7 phát hiện khi rà SSR toàn bộ route). */
 export default ProgressReportPage;
+
+/**
+ * clientLoader (F-01 đợt 1 + bổ sung clientLoader, rà soát #133):
+ * prefetch báo cáo (chưa lọc nhóm) + danh sách nhóm vào QueryClient
+ * singleton dùng chung, đúng khoá factory, trước khi component mount.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.id) {
+    await Promise.all([
+      queryClient.prefetchQuery(progressReportQueryOptions(params.id, '')),
+      queryClient.prefetchQuery(courseGroupsQueryOptions(params.id)),
+    ]);
+  }
+  return null;
+}
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';

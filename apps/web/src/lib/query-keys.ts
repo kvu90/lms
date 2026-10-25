@@ -24,6 +24,11 @@ export const queryKeys = {
   categoryTree: ['courses', 'categories', 'tree'] as const,
   /** Tiến độ học của chính người dùng trong một khoá (% hoàn thành; probe lỗi → null). */
   courseMyProgress: (courseId: string) => ['courses', courseId, 'progress', 'me'] as const,
+  /** Báo cáo tiến độ lớp của một khoá theo nhóm lọc (trang progress-report; probe lỗi → null = không có quyền). */
+  courseProgressReport: (courseId: string, groupId: string) =>
+    ['courses', courseId, 'progress', 'report', groupId] as const,
+  /** Các nhóm (lớp) của một khoá — bộ lọc của báo cáo tiến độ. */
+  courseGroups: (courseId: string) => ['courses', courseId, 'groups'] as const,
   /** Danh sách vai trò cho khối quản trị. */
   roles: ['access', 'roles'] as const,
   /** Gốc khoá phân quyền — tiền tố làm mới mọi truy vấn access sau đột biến gán vai. */
