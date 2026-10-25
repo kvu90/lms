@@ -100,8 +100,9 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     expect(off.body.value).toBe(false);
 
     // Nhân sự (tuỳ chọn bật) vẫn bị chặn ở cổng admin.
+    // (POST /notifications/send trả 201 theo mặc định @Post của Nest.)
     const blocked = await sendTo(staff.id, 'grade_updated', 'Điểm mới NB-7');
-    expect(blocked.status).toBe(200);
+    expect(blocked.status).toBe(201);
     expect(blocked.body.skipped).toBe('admin-disabled');
     expect(blocked.body.notificationId).toBeNull();
     expect(blocked.body.channels).toEqual({});
