@@ -90,6 +90,12 @@ export const guardianDigests = pgTable('guardian_digests', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   guardianUserId: uuid('guardian_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   studentUserId: uuid('student_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /**
+   * Tenant của liên kết giám hộ sinh digest này (TENANT-1, #196): worker
+   * quét digest theo từng tenant và dedupe gồm tenant; lấy từ
+   * guardian_links.tenant_id của cặp guardian–student.
+   */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   /** weekly | daily | overdue_alert. */
   kind: text('kind').notNull(),
   /** Cửa sổ tổng hợp (chỉ digest định kỳ; null ở overdue_alert). */
@@ -115,4 +121,5 @@ export const guardianDigests = pgTable('guardian_digests', {
       uniqueIndex('guardian_digests_dedupe_key_unique').on(table.dedupeKey),
       index('guardian_digests_guardian_user_id_idx').on(table.guardianUserId),
       index('guardian_digests_student_user_id_idx').on(table.studentUserId),
+      index('guardian_digests_tenant_id_idx').on(table.tenantId),
   ]);

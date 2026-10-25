@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "a75b8cee-7977-4384-a754-998832b01b9e",
+  "id": "05e52ad3-0833-42cf-b5fc-043b25aa88fb",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -6285,6 +6285,26 @@
       "statementTarget": [
         "index",
         "public",
+        "guardian_digests",
+        "guardian_digests_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.guardian_digests_tenant_id_idx",
+        "n|idx|public.guardian_digests_tenant_id_idx",
+        "e|idx|public.guardian_digests_tenant_id_idx",
+        "n|rel|public.guardian_digests_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|col|public.guardian_digests.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "guardian_links",
         "guardian_links_tenant_id_idx"
       ],
@@ -9542,6 +9562,26 @@
       "statementTarget": [
         "index",
         "public",
+        "message_conversations",
+        "message_conversations_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.message_conversations_tenant_id_idx",
+        "n|idx|public.message_conversations_tenant_id_idx",
+        "e|idx|public.message_conversations_tenant_id_idx",
+        "n|rel|public.message_conversations_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversations",
+        "n|sch|public",
+        "n|col|public.message_conversations.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "message_moderator_actions",
         "message_moderator_actions_message_id_idx"
       ],
@@ -9682,6 +9722,26 @@
       "statementTarget": [
         "index",
         "public",
+        "notification_dispatch_log",
+        "notification_dispatch_log_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.notification_dispatch_log_tenant_id_idx",
+        "n|idx|public.notification_dispatch_log_tenant_id_idx",
+        "e|idx|public.notification_dispatch_log_tenant_id_idx",
+        "n|rel|public.notification_dispatch_log_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.notification_dispatch_log",
+        "n|sch|public",
+        "n|col|public.notification_dispatch_log.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "notifications",
         "notifications_user_id_from_idx"
       ],
@@ -9715,6 +9775,26 @@
         "n|tbl|public.notifications",
         "n|sch|public",
         "n|col|public.notifications.user_id_to"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "notifications",
+        "notifications_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.notifications_tenant_id_idx",
+        "n|idx|public.notifications_tenant_id_idx",
+        "e|idx|public.notifications_tenant_id_idx",
+        "n|rel|public.notifications_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.notifications",
+        "n|sch|public",
+        "n|col|public.notifications.tenant_id"
       ]
     },
     {
@@ -13981,6 +14061,29 @@
       "statementTarget": [
         "table",
         "public",
+        "guardian_digests"
+      ],
+      "writes": [
+        "s|fk|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey",
+        "n|fk|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey",
+        "e|fk|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey",
+        "n|con|public.guardian_digests.guardian_digests_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.guardian_digests",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.guardian_digests.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "guardian_links"
       ],
       "writes": [
@@ -16745,6 +16848,29 @@
       "statementTarget": [
         "table",
         "public",
+        "message_conversations"
+      ],
+      "writes": [
+        "s|fk|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey",
+        "n|fk|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey",
+        "e|fk|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey",
+        "n|con|public.message_conversations.message_conversations_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.message_conversations",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.message_conversations.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "message_user_deletions"
       ],
       "writes": [
@@ -16761,6 +16887,52 @@
         "n|col|public.message_user_deletions.message_id",
         "n|col|public.message.id",
         "e|uniqueness|public.message.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "notification_dispatch_log"
+      ],
+      "writes": [
+        "s|fk|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey",
+        "n|fk|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey",
+        "e|fk|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey",
+        "n|con|public.notification_dispatch_log.notification_dispatch_log_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.notification_dispatch_log",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.notification_dispatch_log.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "notifications"
+      ],
+      "writes": [
+        "s|fk|public.notifications.notifications_tenant_id_tenants_id_fkey",
+        "n|fk|public.notifications.notifications_tenant_id_tenants_id_fkey",
+        "e|fk|public.notifications.notifications_tenant_id_tenants_id_fkey",
+        "n|con|public.notifications.notifications_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.notifications",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.notifications.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
       ]
     },
     {
@@ -27522,6 +27694,19 @@
     {
       "schema": "public",
       "table": "guardian_digests",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "guardian_digests",
       "name": "kind",
       "type": "text",
       "typeSchema": null,
@@ -36869,6 +37054,19 @@
     {
       "schema": "public",
       "table": "message_conversations",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "message_conversations",
       "name": "last_message_seq",
       "type": "integer",
       "typeSchema": null,
@@ -37142,6 +37340,19 @@
     {
       "schema": "public",
       "table": "notification_dispatch_log",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notification_dispatch_log",
       "name": "provider",
       "type": "text",
       "typeSchema": null,
@@ -37250,6 +37461,19 @@
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "notifications",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
@@ -45429,6 +45653,27 @@
     },
     {
       "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "guardian_links",
       "name": "guardian_links_tenant_id_idx",
       "nameExplicit": true,
@@ -48950,6 +49195,27 @@
     },
     {
       "schema": "public",
+      "table": "message_conversations",
+      "name": "message_conversations_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "message_moderator_actions",
       "name": "message_moderator_actions_message_id_idx",
       "nameExplicit": true,
@@ -49097,6 +49363,27 @@
     },
     {
       "schema": "public",
+      "table": "notification_dispatch_log",
+      "name": "notification_dispatch_log_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "notifications",
       "name": "notifications_user_id_from_idx",
       "nameExplicit": true,
@@ -49124,6 +49411,27 @@
       "columns": [
         {
           "value": "user_id_to",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "notifications",
+      "name": "notifications_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -52946,6 +53254,23 @@
     },
     {
       "schema": "public",
+      "table": "guardian_digests",
+      "name": "guardian_digests_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "guardian_links",
       "name": "guardian_links_tenant_id_tenants_id_fkey",
       "nameExplicit": false,
@@ -54990,6 +55315,23 @@
     },
     {
       "schema": "public",
+      "table": "message_conversations",
+      "name": "message_conversations_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "message_user_deletions",
       "name": "message_user_deletions_message_id_message_id_fkey",
       "nameExplicit": false,
@@ -55003,6 +55345,40 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "notification_dispatch_log",
+      "name": "notification_dispatch_log_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "notifications",
+      "name": "notifications_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
