@@ -3329,3 +3329,6 @@ CREATE POLICY "tenant_isolation" ON "notification_dispatch_log" USING (current_s
 ALTER TABLE "classes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "classes" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+ALTER TABLE "message" ADD COLUMN "reply_to_message_id" uuid;--> statement-breakpoint
+CREATE INDEX "message_reply_to_message_id_idx" ON "message" ("reply_to_message_id");--> statement-breakpoint
+ALTER TABLE "message" ADD CONSTRAINT "message_reply_to_message_id_message_id_fkey" FOREIGN KEY ("reply_to_message_id") REFERENCES "message"("id") ON DELETE SET NULL;
