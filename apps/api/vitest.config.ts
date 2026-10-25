@@ -19,6 +19,10 @@ export default defineConfig({
       JWT_SECRET: 'test-secret-at-least-16-chars',
       NODE_ENV: 'test',
       PORT: '3100',
+      // Secret xác thực webhook thanh toán cho gateway 'manual' (H1,
+      // #134): spec webhook đọc cùng giá trị này qua process.env để gắn
+      // header `x-payment-webhook-secret`. Chỉ là khoá test công khai.
+      PAYMENT_WEBHOOK_SECRET: 'test-only-payment-webhook-secret-0123456789',
       // Bộ test e2e bắn hàng nghìn request từ một IP: nới hạn mức để
       // rate limit không chặn test; hành vi 429 có spec riêng với hạn
       // mức thấp (test/platform-hardening.e2e-spec.ts).
