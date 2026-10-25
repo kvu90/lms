@@ -52,6 +52,7 @@ export default [
     route('exam-papers/:paperId/edit', 'routes/exam-paper-edit.tsx'),
     route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),
+    route('guardian', 'pages/guardian.tsx'),
     route('calendar', 'pages/calendar.tsx'),
     route('badges', 'pages/badges.tsx'),
     route('learning-plan', 'pages/learning-plan.tsx'),
