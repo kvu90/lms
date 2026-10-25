@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { CalendarPage } from './calendar';
 
 /**
@@ -84,6 +85,15 @@ function stubFetch(calls: RecordedCall[]) {
   );
 }
 
+/** Render trang lịch trong khung provider của ứng dụng thật (trang đã chuyển sang TanStack Query ở F-01). */
+function renderCalendar() {
+  render(
+    <TestProviders>
+      <CalendarPage />
+    </TestProviders>,
+  );
+}
+
 /** Chuỗi datetime-local của thời điểm hiện tại (để sự kiện nằm trong tháng đang xem). */
 function localNowInput(): string {
   const d = new Date();
@@ -100,7 +110,7 @@ describe('Calendar page — export', () => {
   it('creates a subscription URL via POST /calendar/export-token and revokes it via DELETE', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    render(<CalendarPage />);
+    renderCalendar();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Tạo đường dẫn đăng ký' }));
     const urlInput = (await screen.findByLabelText('Đường dẫn đăng ký')) as HTMLInputElement;
@@ -121,7 +131,7 @@ describe('Calendar page — export', () => {
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL });
     const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
-    render(<CalendarPage />);
+    renderCalendar();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Tải tệp .ics' }));
     await waitFor(() =>
@@ -141,7 +151,7 @@ describe('Calendar page — create events and subscriptions', () => {
   it('creates an event via POST /calendar/events with the DTO shape', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    render(<CalendarPage />);
+    renderCalendar();
 
     // §5.6: form sự kiện nằm trong Sheet — mở Sheet trước rồi mới điền.
     await userEvent.click(screen.getByRole('button', { name: 'Sự kiện mới' }));
@@ -162,7 +172,7 @@ describe('Calendar page — create events and subscriptions', () => {
   it('adds a subscription via POST /calendar/subscriptions and imports it', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    render(<CalendarPage />);
+    renderCalendar();
 
     await userEvent.type(await screen.findByLabelText('Tên subscription'), 'Lịch trường');
     await userEvent.type(screen.getByLabelText('URL nguồn ICS'), 'https://example.com/cal.ics');
