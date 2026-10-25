@@ -29,12 +29,19 @@ describe('Notification centre v2 (N2, issue #51)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
+  let platformTenantId: string;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
+    // TENANT-1 (#196): thông báo gieo thẳng phải mang tenant của người
+    // nhận (user tạo qua API thuộc tenant platform) — dòng không gắn
+    // tenant chỉ hiển thị ở ngữ cảnh platform tường minh, không thuộc
+    // phiên tenant của user.
+    const t = await pg.query<{ id: string }>(`select id from tenants where kind = 'platform'`);
+    platformTenantId = t.rows[0]!.id;
   });
   afterAll(async () => { await pg.end(); await app.close(); });
 
@@ -55,9 +62,9 @@ describe('Notification centre v2 (N2, issue #51)', () => {
   /** Gieo một thông báo cho user, trả id vừa tạo. */
   async function seed(userId: string, spec: SeedSpec): Promise<string> {
     const res = await pg.query<{ id: string }>(
-      `insert into notifications (user_id_from, user_id_to, subject, full_message, small_message, component, event_type, context_url, context_url_name, created_at, time_read)
-       values (null, $1, $2, $3, $3, $4, $5, $6, null, $7, $8) returning id`,
-      [userId, spec.subject, `Nội dung của ${spec.subject}`, spec.component, spec.eventType, spec.contextUrl, spec.at, spec.read ? spec.at : null],
+      `insert into notifications (user_id_from, user_id_to, subject, full_message, small_message, component, event_type, context_url, context_url_name, created_at, time_read, tenant_id)
+       values (null, $1, $2, $3, $3, $4, $5, $6, null, $7, $8, $9) returning id`,
+      [userId, spec.subject, `Nội dung của ${spec.subject}`, spec.component, spec.eventType, spec.contextUrl, spec.at, spec.read ? spec.at : null, platformTenantId],
     );
     return res.rows[0]!.id;
   }
