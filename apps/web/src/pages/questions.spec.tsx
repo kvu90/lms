@@ -423,3 +423,104 @@ describe('Question bank page — admin parity (issue #70)', () => {
     await expectFullBankSurface();
   });
 });
+
+/**
+ * Liên kết sâu ?bank= (mở lại issue #70): sidebar có nhóm Ngân hàng câu
+ * hỏi riêng với 4 mục con trỏ thẳng tới từng khu vực của trang —
+ * ?bank=system / my-questions / my-papers / my-matrices phải mở đúng
+ * collapse tương ứng (aria-expanded=true trên nút collapse) và đóng ba
+ * collapse còn lại ngay từ lần dựng đầu, không cần thao tác bấm. URL
+ * không có tham số thì cả bốn collapse đóng như hành vi cũ.
+ */
+describe('Question bank page — deep link ?bank= (issue #70)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const PERSONAL_BANK_ID = '01900000-0000-7000-8000-0000000000b1';
+  const SCHOOL_BANK_ID = '01900000-0000-7000-8000-0000000000b2';
+  const CAPS = {
+    use: true, add: true, edit: true, manageCategory: true, copy: true, share: true, moderate: true,
+    matrixView: true, matrixManage: true, matrixCopy: true, matrixShare: true, matrixModerate: true,
+  };
+  const bankRow = (id: string, scope: string, kind: string) => ({
+    id, name: scope === 'personal' ? 'Ngân hàng của tôi' : 'Ngân hàng trường', scope, bankKind: kind,
+    ownerId: scope === 'personal' ? PROFILE.id : null, scopeRefId: null, contextId: SYSTEM_CTX_ID,
+    status: 'active', createdBy: PROFILE.id, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    capabilities: CAPS, defaultCategoryId: kind === 'question' ? CATEGORY_ID : null,
+    categoryIds: kind === 'question' ? [CATEGORY_ID] : [],
+  });
+
+  function stubDeepLinkFetch() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/questions/categories')
+          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
+        if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) return respond([]);
+        if (url === '/api/v1/question-banks')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'question'), bankRow(SCHOOL_BANK_ID, 'school', 'question')]);
+        if (url === '/api/v1/question-banks?kind=matrix')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'matrix'), bankRow(SCHOOL_BANK_ID, 'school', 'matrix')]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  const TOGGLES: Array<{ bank: string | null; name: RegExp }> = [
+    { bank: 'my-questions', name: /Ngân hàng riêng của tôi/ },
+    { bank: 'my-matrices', name: /Ma trận của tôi/ },
+    { bank: 'my-papers', name: /Đề của tôi/ },
+    { bank: 'system', name: /Ngân hàng hệ thống/ },
+  ];
+
+  for (const openCase of TOGGLES) {
+    it(`?bank=${openCase.bank} mở đúng collapse của khu vực đó, ba collapse còn lại đóng`, async () => {
+      localStorage.setItem('lms.accessToken', 'test-token');
+      stubDeepLinkFetch();
+      const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+        initialEntries: [`/questions?bank=${openCase.bank}`],
+      });
+      render(
+        <TestProviders>
+          <RouterProvider router={router} />
+        </TestProviders>,
+      );
+
+      expect(await screen.findByRole('button', { name: openCase.name })).toHaveAttribute('aria-expanded', 'true');
+      for (const other of TOGGLES) {
+        if (other.bank === openCase.bank) continue;
+        expect(screen.getByRole('button', { name: other.name })).toHaveAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  it('không có ?bank= thì cả bốn collapse đóng như hành vi cũ', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    stubDeepLinkFetch();
+    const router = createMemoryRouter([{ path: '/questions', element: <QuestionsPage /> }], {
+      initialEntries: ['/questions'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    expect(await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    for (const other of TOGGLES.slice(1)) {
+      expect(screen.getByRole('button', { name: other.name })).toHaveAttribute('aria-expanded', 'false');
+    }
+  });
+});
