@@ -66,7 +66,9 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     // Sau gộp Đề (#226): hoạt động quá hạn là LẦN GHIM (exam_pins).
     const cmRows0 = await db.execute(sql`insert into course_modules (course, section, component, visible, deletion_in_progress) values (${courseId}, ${secId}, 'mod_quiz', true, false) returning id`);
     const cmId = (cmRows0.rows[0] as { id: string }).id;
-    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by) values ('PH2 bank', 'exam', 'personal', ${studentId}, ${studentId}) returning id`);
+    const tenantRows = await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do update set slug = excluded.slug returning id`);
+    const tenantId = (tenantRows.rows[0] as { id: string }).id;
+    const bankRows = await db.execute(sql`insert into question_banks (name, bank_kind, scope, context_id, created_by, tenant_id) values ('PH2 bank', 'exam', 'personal', ${studentId}, ${studentId}, ${tenantId}) returning id`);
     const bankId = (bankRows.rows[0] as { id: string }).id;
     const examRows = await db.execute(sql`insert into exams (bank_id, created_by, status) values (${bankId}, ${studentId}, 'ready') returning id`);
     const examId = (examRows.rows[0] as { id: string }).id;
