@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { adminSettingAudit, config, pluginConfig } from '../../db/schema';
 
@@ -28,7 +28,7 @@ export class SiteConfigRepository {
     const [row] = await this.db
       .select()
       .from(pluginConfig)
-      .where(and(eq(pluginConfig.plugin, component), eq(pluginConfig.name, name)));
+      .where(and(eq(pluginConfig.plugin, component), eq(pluginConfig.name, name), isNull(pluginConfig.tenantId)));
     if (!row || row.value === null) return undefined;
     try {
       return JSON.parse(row.value) as unknown;
@@ -53,6 +53,7 @@ export class SiteConfigRepository {
       .values({ plugin: component, name, value: JSON.stringify(value) })
       .onConflictDoUpdate({
         target: [pluginConfig.plugin, pluginConfig.name],
+        targetWhere: sql`tenant_id is null`,
         set: { value: JSON.stringify(value) },
       });
   }
@@ -67,7 +68,7 @@ export class SiteConfigRepository {
     }
     await this.db
       .delete(pluginConfig)
-      .where(and(eq(pluginConfig.plugin, component), eq(pluginConfig.name, name)));
+      .where(and(eq(pluginConfig.plugin, component), eq(pluginConfig.name, name), isNull(pluginConfig.tenantId)));
   }
 
   /**
@@ -79,12 +80,15 @@ export class SiteConfigRepository {
     oldValue: unknown;
     newValue: unknown;
     changedBy: string;
+    /** NULL = thay đổi ở tầng platform; có giá trị = đổi cấu hình tenant (TENANT-0, #168). */
+    tenantId?: string | null;
   }): Promise<void> {
     await this.db.insert(adminSettingAudit).values({
       settingKey: entry.settingKey,
       oldValue: entry.oldValue ?? null,
       newValue: entry.newValue ?? null,
       changedBy: entry.changedBy,
+      tenantId: entry.tenantId ?? null,
     });
   }
 

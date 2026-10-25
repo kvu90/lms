@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, PaperSlotLayout, QuizAttemptSummary, QuizOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { TenantContextService } from '../tenants/tenant-context.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -312,7 +314,14 @@ export class QuizService {
     private readonly groups: GroupsService,
     private readonly curriculum: CurriculumService,
     private readonly outbox: OutboxService,
+    private readonly tenantContext: TenantContextService,
+    private readonly tenants: TenantsService,
   ) {}
+
+  /** Tenant cho ma trận không gắn bank: tenant hiệu lực của request; ngoài request rơi về tenant-zero. */
+  private async matrixTenantId(): Promise<string> {
+    return this.tenantContext.currentTenantId() ?? (await this.tenants.fallbackTenantId());
+  }
 
   // --- helpers ---------------------------------------------------------------
 
@@ -1072,8 +1081,10 @@ export class QuizService {
     if (curriculum.subjectId !== subject.id) {
       throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
     }
+    let bankTenantId: string | null | undefined;
     if (input.bankId) {
       const bank = await this.banks.findBankById(input.bankId);
+      bankTenantId = bank?.tenantId;
       if (!bank) throw new NotFoundException({ message: `Matrix bank ${input.bankId} not found`, code: 'quiz.matrix_bank_not_found' });
       if (bank.bankKind !== 'matrix') {
         throw new BadRequestException({ message: 'Target bank is not a matrix bank', code: 'quiz.matrix_bank_kind_mismatch' });
@@ -1090,6 +1101,7 @@ export class QuizService {
     const presetKind = input.presetKind ?? 'custom';
     const preset = presetKind === 'custom' ? undefined : MATRIX_PRESETS[presetKind];
     const row = await this.repo.insertMatrix({
+      tenantId: bankTenantId !== undefined ? bankTenantId : await this.matrixTenantId(),
       name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
       contextId: subject.contextId, presetKind,
       targetFormPercents: input.targetFormPercents !== undefined ? input.targetFormPercents : (preset?.targetFormPercents ?? null),
@@ -1113,6 +1125,11 @@ export class QuizService {
   /** Đọc một ma trận kèm ô và cảnh báo lệch tỉ lệ (quiz:viewmatrix). */
   async getMatrix(actorId: string, matrixId: string): Promise<ExamMatrixView> {
     const row = await this.getMatrixRow(matrixId);
+    // Ma trận thuộc tenant khác với tenant hiệu lực → 404 đồng nhất (TENANT-0, #168).
+    const activeTenant = this.tenantContext.currentTenantId();
+    if (activeTenant !== undefined && row.tenantId !== null && row.tenantId !== activeTenant) {
+      throw new NotFoundException({ message: `Exam matrix ${matrixId} not found`, code: 'quiz.matrix_not_found' });
+    }
     await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.viewMatrix);
     return this.matrixView(row);
   }

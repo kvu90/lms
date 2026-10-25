@@ -9,6 +9,9 @@ import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { GroupsService } from '../groups/groups.service';
+import { TenantContextService } from '../tenants/tenant-context.service';
+import { TenantsRepository } from '../tenants/tenants.repository';
+import { TenantsService } from '../tenants/tenants.service';
 import { QuestionsRepository, type DbTx, type QCategoryRow, type QuestionRow } from './questions.repository';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
 import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
@@ -28,7 +31,7 @@ function memberCapsForKind(kind: BankKind): string[] { return kind === 'matrix' 
 function leadCapsForKind(kind: BankKind): string[] { return kind === 'matrix' ? MATRIX_LEAD_CAPS : LEAD_CAPS; }
 /** Archetype được coi là "giáo viên" cho bank trường. */
 const STAFF_ARCHETYPES = ['manager', 'coursecreator', 'editingteacher', 'teacher'];
-export const BANK_SCOPES = ['personal', 'team', 'school', 'course'] as const;
+export const BANK_SCOPES = ['personal', 'team', 'school', 'course', 'platform'] as const;
 export type BankScope = (typeof BANK_SCOPES)[number];
 
 export interface BankCapabilitiesView {
@@ -79,7 +82,23 @@ export class QuestionBanksService {
     private readonly roles: RolesService,
     private readonly groups: GroupsService,
     private readonly outbox: OutboxService,
+    private readonly tenantContext: TenantContextService,
+    private readonly tenantRepo: TenantsRepository,
+    private readonly tenants: TenantsService,
   ) {}
+
+  /** Tenant cho bank trường mới: tenant hiệu lực của request; ngoài request rơi về tenant-zero. */
+  private async schoolTenantId(): Promise<string> {
+    return this.tenantContext.currentTenantId() ?? (await this.tenants.fallbackTenantId());
+  }
+
+  /** Bank thuộc tenant khác với tenant hiệu lực (và không phải bank cá nhân/bank platform) = vô hình — 404 đồng nhất. */
+  private bankTenantHidden(bank: QuestionBankRow): boolean {
+    const active = this.tenantContext.currentTenantId();
+    if (active === undefined) return false;
+    if (bank.scope === 'personal' || bank.scope === 'platform') return false;
+    return bank.tenantId !== active;
+  }
 
   // --- vai chuyên dụng -----------------------------------------------------------
 
@@ -120,13 +139,17 @@ export class QuestionBanksService {
   private async buildBank(actorId: string, input: {
     name: string; scope: BankScope; bankKind?: BankKind; ownerId: string | null; scopeRefId: string | null;
     parentContextId: string; contextLevel: number;
+    /** Tenant sở hữu (TENANT-0, #168): NULL chỉ cho bank platform; bank cá nhân ghi tenant nhà của chủ sở hữu. */
+    tenantId: string | null;
+    /** Người nhận vai lead tại context bank khi bank không có owner (vd người tạo bank platform). */
+    leadUserId?: string | null;
   }): Promise<QuestionBankRow> {
     const kind = input.bankKind ?? 'question';
     const { memberRoleId, leadRoleId } = await this.ensureBankRoles();
     const bankId = uuidv7();
     const ctx = await this.contexts.createContext(input.contextLevel, bankId, input.parentContextId);
     const bank = await this.repo.insertBank({
-      id: bankId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
+      id: bankId, tenantId: input.tenantId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
       scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
     });
     // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
@@ -138,10 +161,12 @@ export class QuestionBanksService {
     }
     await this.grantCaps(memberRoleId, ctx.id, memberCapsForKind(kind));
     await this.grantCaps(leadRoleId, ctx.id, leadCapsForKind(kind));
-    if (input.ownerId) await this.ensureAssignment(input.ownerId, leadRoleId, ctx.id);
+    const leadUserId = input.ownerId ?? input.leadUserId ?? null;
+    if (leadUserId) await this.ensureAssignment(leadUserId, leadRoleId, ctx.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'question_bank', type: 'question_bank_created',
       payload: { bankId: bank.id, scope: bank.scope, scopeRefId: bank.scopeRefId, ownerId: bank.ownerId, actorId },
+      tenantId: input.tenantId,
     });
     return bank;
   }
@@ -175,6 +200,9 @@ export class QuestionBanksService {
       return await this.buildBank(userId, {
         name: 'Ngân hàng của tôi', scope: 'personal', bankKind: kind, ownerId: userId, scopeRefId: null,
         parentContextId: system.id, contextLevel: CONTEXT_LEVELS.USER,
+        // Bank cá nhân là của người dùng trên toàn hệ thống (unique theo
+        // owner+kind); tenant_id chỉ ghi tenant nhà lúc tạo để truy vết.
+        tenantId: await this.schoolTenantId(),
       });
     } catch (err) {
       const again = await this.repo.getPersonalBank(userId, kind);
@@ -183,20 +211,46 @@ export class QuestionBanksService {
     }
   }
 
-  /** Bank trường duy nhất cho một loại món — tạo lười bởi người đầu tiên đủ quyền (admin/giáo viên). */
+  /** Bank trường duy nhất CỦA TENANT HIỆU LỰC cho một loại món — tạo lười bởi người đầu tiên đủ quyền (admin/giáo viên của tenant). */
   async ensureSchoolBank(actorId: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
-    const existing = await this.repo.getSchoolBank(kind);
+    const tenantId = await this.schoolTenantId();
+    const existing = await this.repo.getSchoolBank(tenantId, kind);
     if (existing) return existing;
-    const system = await this.contexts.ensureSystemContext();
+    const tenantCtx = await this.contexts.ensureTenantContext(tenantId);
     try {
       const bank = await this.buildBank(actorId, {
         name: 'Ngân hàng trường', scope: 'school', bankKind: kind, ownerId: null, scopeRefId: null,
-        parentContextId: system.id, contextLevel: CONTEXT_LEVELS.COURSECAT,
+        parentContextId: tenantCtx.id, contextLevel: CONTEXT_LEVELS.COURSECAT,
+        tenantId,
       });
       await this.syncSchoolMembers(bank);
       return bank;
     } catch (err) {
-      const again = await this.repo.getSchoolBank(kind);
+      const again = await this.repo.getSchoolBank(tenantId, kind);
+      if (again) return again;
+      throw err;
+    }
+  }
+
+  /**
+   * Bank platform (Ngân hàng hệ thống) duy nhất cho một loại món — chỉ
+   * platform tạo/ghi (cổng ở createBank/listBanks phía gọi); tenant_id
+   * NULL, mọi tenant đọc/copy xuống được qua đồng bộ thành viên staff.
+   */
+  async ensurePlatformBank(actorId: string, kind: BankKind = 'question'): Promise<QuestionBankRow> {
+    const existing = await this.repo.getPlatformBank(kind);
+    if (existing) return existing;
+    const system = await this.contexts.ensureSystemContext();
+    try {
+      const bank = await this.buildBank(actorId, {
+        name: 'Ngân hàng hệ thống', scope: 'platform', bankKind: kind, ownerId: null, scopeRefId: null,
+        parentContextId: system.id, contextLevel: CONTEXT_LEVELS.COURSECAT,
+        tenantId: null, leadUserId: actorId,
+      });
+      await this.syncPlatformMembers(bank);
+      return bank;
+    } catch (err) {
+      const again = await this.repo.getPlatformBank(kind);
       if (again) return again;
       throw err;
     }
@@ -208,10 +262,13 @@ export class QuestionBanksService {
     if (existing) return existing;
     const courseCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSE, courseId);
     if (!courseCtx) throw new NotFoundException({ message: `No context for course ${courseId}`, code: 'question.course_context_missing' });
+    const tenantId = await this.repo.getCourseTenantId(courseId);
+    if (!tenantId) throw new NotFoundException({ message: `Course ${courseId} not found`, code: 'question.course_not_found' });
     try {
       return await this.buildBank(actorId, {
         name: name ?? 'Ngân hàng khoá học', scope: 'course', bankKind: kind, ownerId: null, scopeRefId: courseId,
         parentContextId: courseCtx.id, contextLevel: CONTEXT_LEVELS.COURSE,
+        tenantId,
       });
     } catch (err) {
       const again = await this.repo.getBankByScopeRef('course', courseId, kind);
@@ -241,9 +298,23 @@ export class QuestionBanksService {
       const bank = await this.ensurePersonalBank(actorId, kind);
       return this.bankView(actorId, bank);
     }
-    if (scope === 'school') {
+    if (scope === 'platform') {
+      // Ngân hàng hệ thống: chỉ platform ghi — cổng `tenant:manage` tại
+      // context hệ thống (platform admin / site admin).
       const system = await this.contexts.ensureSystemContext();
-      await this.evaluator.requireCapability(actorId, 'question:managecategory', system.id);
+      await this.evaluator.requireCapability(actorId, 'tenant:manage', system.id);
+      const bank = await this.ensurePlatformBank(actorId, kind);
+      return this.bankView(actorId, bank);
+    }
+    if (scope === 'school') {
+      // Bank trường của tenant hiệu lực: cổng tại context tenant của
+      // tenant đó, lùi về context hệ thống cho vai platform như trước.
+      const tenantId = await this.schoolTenantId();
+      const tenantCtx = await this.contexts.ensureTenantContext(tenantId);
+      if (!(await this.evaluator.hasCapability(actorId, 'question:managecategory', tenantCtx.id))) {
+        const system = await this.contexts.ensureSystemContext();
+        await this.evaluator.requireCapability(actorId, 'question:managecategory', system.id);
+      }
       const bank = await this.ensureSchoolBank(actorId, kind);
       return this.bankView(actorId, bank);
     }
@@ -274,6 +345,7 @@ export class QuestionBanksService {
     const bank = await this.buildBank(actorId, {
       name: input.name, scope: 'team', bankKind: kind, ownerId: leaderId, scopeRefId: cohort.id,
       parentContextId: parentCtx.id, contextLevel: CONTEXT_LEVELS.COURSECAT,
+      tenantId: cohort.tenantId,
     });
     await this.syncTeamMembers(bank);
     return this.bankView(actorId, bank);
@@ -305,18 +377,39 @@ export class QuestionBanksService {
     await this.syncRoleAssignments(bank, leadRoleId, new Set(bank.ownerId ? [bank.ownerId] : []));
   }
 
-  /** Bank trường: mọi người đang giữ vai archetype giáo viên ở bất kỳ đâu → qbankmember. */
+  /**
+   * Bank trường: giáo viên (archetype staff) → qbankmember — trong một
+   * tenant trường/trung tâm chỉ tính staff LÀ THÀNH VIÊN của tenant đó;
+   * bank trường của tenant-zero (không gian platform) giữ quy tắc cũ
+   * (mọi staff, vì tenant-zero không có cổng membership).
+   */
   async syncSchoolMembers(bank: QuestionBankRow): Promise<void> {
-    if (bank.scope !== 'school') return;
+    if (bank.scope !== 'school' || !bank.tenantId) return;
+    const { memberRoleId } = await this.ensureBankRoles();
+    const staff = await this.repo.listUserIdsWithArchetypes(STAFF_ARCHETYPES);
+    const tenant = await this.tenantRepo.getTenant(bank.tenantId);
+    let desired = staff;
+    if (tenant && tenant.kind !== 'platform') {
+      const members = await this.tenantRepo.listMembershipsForTenant(bank.tenantId);
+      const memberIds = new Set(members.filter((m) => m.status === 'active').map((m) => m.userId));
+      desired = staff.filter((id) => memberIds.has(id));
+    }
+    await this.syncRoleAssignments(bank, memberRoleId, new Set(desired));
+  }
+
+  /** Bank platform (Ngân hàng hệ thống): mọi staff đọc/copy được (qbankmember); quyền ghi nằm ở vai lead do platform cấp tường minh. */
+  async syncPlatformMembers(bank: QuestionBankRow): Promise<void> {
+    if (bank.scope !== 'platform') return;
     const { memberRoleId } = await this.ensureBankRoles();
     const staff = await this.repo.listUserIdsWithArchetypes(STAFF_ARCHETYPES);
     await this.syncRoleAssignments(bank, memberRoleId, new Set(staff));
   }
 
-  /** Đồng bộ tư cách thành viên trước khi đánh giá quyền (bank tổ + bank trường). */
+  /** Đồng bộ tư cách thành viên trước khi đánh giá quyền (bank tổ + bank trường + bank platform). */
   private async syncMembership(bank: QuestionBankRow): Promise<void> {
     if (bank.scope === 'team') await this.syncTeamMembers(bank);
     else if (bank.scope === 'school') await this.syncSchoolMembers(bank);
+    else if (bank.scope === 'platform') await this.syncPlatformMembers(bank);
   }
 
   // --- cổng quyền + view -----------------------------------------------------------------
@@ -470,9 +563,18 @@ export class QuestionBanksService {
     // học sinh gọi listBanks không còn tự sinh bank + vai qbanklead.
     if (isStaff) await this.ensurePersonalBank(actorId, kind);
     if (isStaff) await this.ensureSchoolBank(actorId, kind);
+    // Ngân hàng hệ thống (bank platform) chỉ platform tạo — người giữ
+    // tenant:manage ở hệ thống mở danh sách thì bank được đảm bảo tồn tại.
+    const system = await this.contexts.ensureSystemContext();
+    if (await this.evaluator.hasCapability(actorId, 'tenant:manage', system.id)) {
+      await this.ensurePlatformBank(actorId, kind);
+    }
     const all = (await this.repo.listBanks()).filter((b) => b.bankKind === kind);
     const out: BankView[] = [];
     for (const bank of all) {
+      // Bank của tenant khác (trừ bank cá nhân của chính mình và bank
+      // platform dùng chung) không xuất hiện trong danh sách (TENANT-0).
+      if (this.bankTenantHidden(bank)) continue;
       // Hàng tồn từ trước khi có cổng: bank cá nhân của chính người
       // không đủ tư cách cũng không liệt kê cho họ nữa.
       if (bank.scope === 'personal' && bank.ownerId === actorId && !isStaff) continue;
@@ -499,6 +601,9 @@ export class QuestionBanksService {
    * Bank personal của người khác → 404 như không tồn tại (issue #123). */
   async getBank(actorId: string, bankId: string): Promise<BankView> {
     const bank = await this.getBankOrThrow(bankId);
+    if (this.bankTenantHidden(bank)) {
+      throw new NotFoundException({ message: `Question bank ${bankId} not found`, code: 'question.bank_not_found' });
+    }
     await this.assertNotForeignPersonalBank(actorId, bank);
     await this.assertCanUseBankForKind(actorId, bank);
     return this.bankView(actorId, bank);
@@ -519,7 +624,12 @@ export class QuestionBanksService {
       return (await this.repo.getBankByScopeRef('course', ctx.instanceId)) ?? null;
     }
     if (ctx.contextLevel === CONTEXT_LEVELS.SYSTEM || ctx.contextLevel === CONTEXT_LEVELS.COURSECAT) {
-      return (await this.repo.getSchoolBank()) ?? null;
+      // Bank trường suy theo tenant của cây context chứa category; chưa
+      // có neo tenant (category cũ) thì rơi về tenant hiệu lực/zero.
+      const pathContexts = await this.contexts.getPathContexts(ctx);
+      const tenantCtx = pathContexts.find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
+      const tenantId = tenantCtx?.instanceId ?? (await this.schoolTenantId());
+      return (await this.repo.getSchoolBank(tenantId)) ?? null;
     }
     return null;
   }

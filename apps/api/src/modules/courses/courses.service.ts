@@ -14,6 +14,8 @@ import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { AvailabilityService, type AvailabilityContext } from '../availability/availability.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
+import { TenantContextService } from '../tenants/tenant-context.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type DbTx, type SectionRow } from './courses.repository';
 
 export const GROUPMODE_NOGROUPS = 0;
@@ -173,7 +175,21 @@ export class CoursesService {
     private readonly availability: AvailabilityService,
     private readonly outbox: OutboxService,
     private readonly emitter: EventEmitter2,
+    private readonly tenantContext: TenantContextService,
+    private readonly tenants: TenantsService,
   ) {}
+
+  // --- tenant helpers (TENANT-0, #168) ---------------------------------------
+  /** Tenant hiệu lực: ngữ cảnh request; ngoài request (seed/job) rơi về tenant-zero. */
+  private async effectiveTenantId(): Promise<string> {
+    return this.tenantContext.currentTenantId() ?? (await this.tenants.fallbackTenantId());
+  }
+
+  /** Dòng thuộc tenant khác với tenant hiệu lực của request = coi như không tồn tại (404 đồng nhất, hồ sơ mục 3.1). */
+  private tenantHidden(rowTenantId: string): boolean {
+    const active = this.tenantContext.currentTenantId();
+    return active !== undefined && rowTenantId !== active;
+  }
 
   /**
    * Đăng ký hàm kiểm tra enrolment (module enrol cắm vào).
@@ -211,15 +227,21 @@ export class CoursesService {
   async createCategory(actorId: string, input: { name: string; idNumber?: string; description?: string; parent?: string; visible?: boolean }): Promise<CategoryRow> {
     const parent = input.parent ?? null;
     let parentCtxId: string;
+    let tenantId: string;
     if (parent === null) {
-      parentCtxId = (await this.contexts.ensureSystemContext()).id;
+      // Danh mục gốc sống trong không gian của tenant hiệu lực: context
+      // của nó neo dưới context tenant (không còn neo thẳng hệ thống).
+      tenantId = await this.effectiveTenantId();
+      parentCtxId = (await this.contexts.ensureTenantContext(tenantId)).id;
     } else {
       const parentCat = await this.getCategory(parent);
+      tenantId = parentCat.tenantId;
       parentCtxId = await this.categoryContextId(parentCat.id);
     }
     await this.evaluator.requireCapability(actorId, 'category:manage', parentCtxId);
     const sortOrder = await this.repo.countSiblingCategories(parent);
     const cat = await this.repo.insertCategory({
+      tenantId,
       name: input.name, idNumber: input.idNumber ?? null, description: input.description ?? '',
       parent, sortOrder, visible: input.visible ?? true, path: '', depth: 1,
     });
@@ -237,20 +259,24 @@ export class CoursesService {
    */
   async getCategory(id: string): Promise<CategoryRow> {
     const row = await this.repo.getCategory(id);
-    if (!row) throw new NotFoundException({ message: `Category ${id} not found`, code: 'course.category_not_found' });
+    if (!row || this.tenantHidden(row.tenantId)) throw new NotFoundException({ message: `Category ${id} not found`, code: 'course.category_not_found' });
     return row;
   }
   /**
-   * Liệt kê category.
+   * Liệt kê category (trong request: chỉ category của tenant hiệu lực).
    */
-  async listCategories(): Promise<CategoryRow[]> { return this.repo.listCategories(); }
+  async listCategories(): Promise<CategoryRow[]> {
+    const all = await this.repo.listCategories();
+    const active = this.tenantContext.currentTenantId();
+    return active ? all.filter((c) => c.tenantId === active) : all;
+  }
 
   /** Category tree for UI: nested children arrays. */
   /**
    * Cây category kèm khoá học lồng bên trong.
    */
   async categoryTree(): Promise<(CategoryRow & { children: unknown[] })[]> {
-    const all = await this.repo.listCategories();
+    const all = await this.listCategories();
     const byId = new Map<string, CategoryRow & { children: unknown[] }>(all.map((c) => [c.id, { ...c, children: [] }]));
     const roots: (CategoryRow & { children: unknown[] })[] = [];
     for (const c of byId.values()) {
@@ -295,7 +321,7 @@ export class CoursesService {
     }
     await this.repo.updateCategory(cat.id, { parent: newParent });
     const ctxId = await this.categoryContextId(cat.id);
-    const newParentCtxId = newParentRow ? await this.categoryContextId(newParentRow.id) : (await this.contexts.ensureSystemContext()).id;
+    const newParentCtxId = newParentRow ? await this.categoryContextId(newParentRow.id) : (await this.contexts.ensureTenantContext(cat.tenantId)).id;
     await this.contexts.reparentContext(ctxId, newParentCtxId);
     await this.outbox.enqueueStandalone({ aggregate: 'course_category', type: 'category_moved', payload: { categoryId: cat.id, fromParent: cat.parent, toParent: newParent, actorId: actorId ?? null } });
   }
@@ -376,6 +402,7 @@ export class CoursesService {
     const siblings = await this.repo.listCourses(category.id);
     const created = await this.repo.dbHandle.transaction(async (tx) => {
       const row = await this.repo.insertCourse({
+        tenantId: category.tenantId,
         category: category.id, fullName: input.fullName, shortName,
         idNumber: input.idNumber ?? '', summary: input.summary ?? '',
         format: input.format ?? 'topics', visible: input.visible ?? true,
@@ -384,7 +411,7 @@ export class CoursesService {
         groupMode: input.groupMode ?? GROUPMODE_NOGROUPS, groupModeForce: input.groupModeForce ?? false, sortOrder: siblings.length,
         subjectId: input.subjectId ?? null, grade: input.grade ?? null,
       }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId } });
+      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId }, tenantId: category.tenantId });
       return row;
     });
     await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, categoryCtxId);
@@ -406,20 +433,28 @@ export class CoursesService {
     }
   }
 
+  /** Tenant sở hữu khoá (KHÔNG lọc theo tenant hiệu lực — dùng cho các móc nội bộ như ghi danh → membership). */
+  async getCourseTenantId(id: string): Promise<string | undefined> {
+    const row = await this.repo.getCourse(id);
+    return row?.tenantId;
+  }
+
   /**
    * Lấy khoá học; ném course.not_found khi vắng.
    */
   async getCourse(id: string): Promise<CourseRow> {
     const row = await this.repo.getCourse(id);
-    if (!row) throw new NotFoundException({ message: `Course ${id} not found`, code: 'course.not_found' });
+    if (!row || this.tenantHidden(row.tenantId)) throw new NotFoundException({ message: `Course ${id} not found`, code: 'course.not_found' });
     return row;
   }
   /**
    * Tìm/liệt kê khoá học — khoá mẫu tổ/trường (K1) KHÔNG hiện ở danh
    * sách khoá thường; chúng chỉ được liệt kê qua `listTemplates`.
+   * Trong request: chỉ khoá của tenant hiệu lực.
    */
   async listCourses(categoryId?: string): Promise<CourseRow[]> {
-    return (await this.repo.listCourses(categoryId)).filter((c) => !c.isTemplate);
+    const active = this.tenantContext.currentTenantId();
+    return (await this.repo.listCourses(categoryId)).filter((c) => !c.isTemplate && (!active || c.tenantId === active));
   }
 
   /**
@@ -1112,6 +1147,7 @@ export class CoursesService {
     const siblings = await this.repo.listCourses(targetCategory.id);
     const created = await this.repo.dbHandle.transaction(async (tx) => {
       const row = await this.repo.insertCourse({
+        tenantId: targetCategory.tenantId,
         category: targetCategory.id, fullName: input.fullName, shortName,
         idNumber: '', summary: source.summary,
         format: source.format, visible: false,

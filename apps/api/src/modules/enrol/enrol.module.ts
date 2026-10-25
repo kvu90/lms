@@ -4,6 +4,7 @@ import { AccessModule } from '../access/access.module';
 import { CoursesModule } from '../courses/courses.module';
 import { GroupsModule } from '../groups/groups.module';
 import { MessagingModule } from '../messaging/messaging.module';
+import { TenantsModule } from '../tenants/tenants.module';
 import { EnrolController } from './enrol.controller';
 import { EnrolRepository } from './enrol.repository';
 import { EnrolService } from './enrol.service';
@@ -17,7 +18,7 @@ import { EnrolService } from './enrol.service';
  * Events, so there is no module cycle (same pattern as Badges/Reports).
  */
 @Module({
-  imports: [AccessModule, CoursesModule, GroupsModule, EventsModule, MessagingModule],
+  imports: [AccessModule, CoursesModule, GroupsModule, EventsModule, MessagingModule, TenantsModule],
   controllers: [EnrolController],
   providers: [EnrolRepository, EnrolService],
   exports: [EnrolService],

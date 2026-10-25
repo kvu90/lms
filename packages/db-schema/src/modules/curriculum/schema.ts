@@ -17,6 +17,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { question } from '../questions/schema';
+import { tenants } from '../tenants/schema';
 
 /**
  * Môn học — cấp gốc của chương trình (port từ giaokhoa `subjects`).
@@ -117,6 +118,8 @@ export const curriculumNodes = pgTable('curriculum_nodes', {
  */
 export const learningOutcomes = pgTable('learning_outcomes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  /** NULL = YCCĐ chuẩn của platform (dữ liệu chuẩn GDPT dùng chung); có giá trị = outcome `derived` thuộc tenant đó (TENANT-0, #168). */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   nodeId: uuid('node_id').notNull().references(() => curriculumNodes.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   position: integer('position').notNull().default(1),
@@ -129,6 +132,7 @@ export const learningOutcomes = pgTable('learning_outcomes', {
   (table) => [
       check('learning_outcomes_position_check', sql`${table.position} > 0`),
       check('learning_outcomes_source_kind_check', sql`${table.sourceKind} in ('program', 'derived')`),
+      index('learning_outcomes_tenant_id_idx').on(table.tenantId),
       index('learning_outcomes_node_id_idx').on(table.nodeId, table.position),
       index('learning_outcomes_derived_from_id_idx').on(table.derivedFromId),
   ]);

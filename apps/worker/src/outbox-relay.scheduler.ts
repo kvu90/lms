@@ -74,6 +74,7 @@ export class OutboxRelayScheduler {
       await this.eventLog.record({
         id: row.id, seq: row.seq, aggregate: row.aggregate, type: row.type,
         payload: row.payload as Record<string, unknown> | null, occurredAt: row.occurredAt,
+        tenantId: row.tenantId,
       });
       published += 1;
     }

@@ -132,6 +132,29 @@ export class AuthController {
    */
   async logout(@Body({ schema: refreshTokenSchema }) dto: RefreshDto) { await this.auth.logout(dto.refreshToken); return { loggedOut: true }; }
 
+  @Get('tenants')
+  /**
+   * GET /auth/tenants — các tenant user là thành viên active (cho bộ chọn tenant), kèm cờ tenant hiệu lực.
+   */
+  async myTenants(@CurrentUser() actor: AuthenticatedUser) {
+    const user = await this.users.getUser(actor.id);
+    return this.auth.myTenants(user, actor.tenantId);
+  }
+
+  @Post('switch-tenant/:tenantId')
+  /**
+   * POST /auth/switch-tenant/:tenantId — chuyển tenant trong phiên: thu hồi family hiện tại, cấp cặp token mới mang claim `tid` của tenant đích.
+   */
+  async switchTenant(
+    @Param('tenantId', { schema: uuidIdSchema }) tenantId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const user = await this.users.getUser(actor.id);
+    const tokens = await this.auth.switchTenant(user, tenantId, actor.sessionId, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
+    return { user: { id: user.id, username: user.username }, tenantId, ...tokens };
+  }
+
   @Post('change-password')
   /**
    * POST /auth/change-password — đổi mật khẩu của chính user.

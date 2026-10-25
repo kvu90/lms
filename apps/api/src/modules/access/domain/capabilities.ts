@@ -13,6 +13,13 @@ const ALL_STAFF = { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher
 /** Capability registry — definitions live in code (like Moodle db/access.php), rows are synced into `capabilities`. */
 export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'site:config', capType: 'write', contextLevel: 10, component: 'core', archetypes: { manager: CAP_ALLOW } },
+  // Multi-tenant (TENANT-0, #168): `tenant:manage` tại context HỆ THỐNG là
+  // quyền của tầng platform (tạo tenant, khoá/mở, nâng cấp gói);
+  // `tenant:viewall` cũng tại context hệ thống, chỉ mở cho platform admin.
+  // Bên trong một tenant, tenant admin giữ vai manager TẠI CONTEXT TENANT
+  // nên cùng hai capability này hiệu lực ở cây của tenant qua evaluator.
+  { name: 'tenant:manage', capType: 'write', contextLevel: 20, component: 'core_tenant', archetypes: { manager: CAP_ALLOW } },
+  { name: 'tenant:viewall', capType: 'read', contextLevel: 20, component: 'core_tenant', archetypes: { manager: CAP_ALLOW } },
   { name: 'site:viewuseridentity', capType: 'read', contextLevel: 10, component: 'core', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'user:create', capType: 'write', contextLevel: 10, component: 'core_user', archetypes: { manager: CAP_ALLOW } },
   { name: 'user:update', capType: 'write', contextLevel: 10, component: 'core_user', archetypes: { manager: CAP_ALLOW } },
@@ -169,7 +176,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'privacy:manage', capType: 'write', contextLevel: 10, component: 'core_privacy', archetypes: { manager: CAP_ALLOW } },
 ];
 
-export const CONTEXT_LEVELS = { SYSTEM: 10, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;
+export const CONTEXT_LEVELS = { SYSTEM: 10, TENANT: 20, USER: 30, COURSECAT: 40, COURSE: 50, MODULE: 70, BLOCK: 80 } as const;
 
 export interface RoleDefinition { shortName: string; name: string; archetype: string; sortOrder: number }
 export const DEFAULT_ROLES: RoleDefinition[] = [

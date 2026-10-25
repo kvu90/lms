@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from '../users/schema';
+import { tenants } from '../tenants/schema';
 
 /**
  * Liên kết giám hộ PH–HS (PH-0, issue #116): trường cấp theo hồ sơ giám hộ
@@ -24,6 +25,8 @@ import { users } from '../users/schema';
  */
 export const guardianLinks = pgTable('guardian_links', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  /** Tenant của trường cấp liên kết (TENANT-0, #168) — cả hai phía của liên kết phải là thành viên active của đúng tenant này. */
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'restrict' }),
   guardianUserId: uuid('guardian_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   studentUserId: uuid('student_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   /** Quan hệ với học sinh (cha / mẹ / ông bà / người giám hộ...) — do trường xác lập theo hồ sơ. */
@@ -38,6 +41,7 @@ export const guardianLinks = pgTable('guardian_links', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
+      index('guardian_links_tenant_id_idx').on(table.tenantId),
       index('guardian_links_guardian_user_id_idx').on(table.guardianUserId),
       index('guardian_links_student_user_id_idx').on(table.studentUserId),
       uniqueIndex('guardian_links_active_pair_unique')

@@ -7,6 +7,8 @@ export interface OutboxEventInput {
   aggregate: string;
   type: string;
   payload: Record<string, unknown>;
+  /** Tenant của ngữ cảnh phát sinh sự kiện (TENANT-0, #168); bỏ trống = platform/không gian chung. */
+  tenantId?: string | null;
 }
 
 /** The minimal transaction surface OutboxService needs (a Drizzle tx). */
@@ -28,6 +30,7 @@ export class OutboxService {
       aggregate: input.aggregate,
       type: input.type,
       payload: input.payload,
+      tenantId: input.tenantId ?? null,
     });
   }
 

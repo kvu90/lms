@@ -41,6 +41,7 @@ export class SiteConfigService {
       defaultValue: def.defaultValue,
       value: stored === undefined ? def.defaultValue : stored,
       source: stored === undefined ? 'default' : 'database',
+      scope: def.scope,
     };
   }
 
@@ -150,6 +151,7 @@ export class SiteConfigService {
       oldValue: row.oldValue,
       newValue: row.newValue,
       changedBy: row.changedBy,
+      tenantId: row.tenantId ?? null,
       createdAt: row.createdAt.toISOString(),
     }));
   }

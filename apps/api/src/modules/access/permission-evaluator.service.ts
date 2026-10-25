@@ -1,9 +1,16 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { AccessRepository } from './access.repository';
+import { AccessRepository, type ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
+import { CONTEXT_LEVELS } from './domain/capabilities';
 import { aggregateRoleResults, evaluateSingleRole, type RoleOverridePoint } from './domain/permission';
+
+/** Kết quả cổng tenant: `allowed=false` = chặn tuyệt đối; `assignmentScope` = tập context mà gán vai được tính (null = không thu hẹp). */
+interface TenantGate {
+  allowed: boolean;
+  assignmentScope: Set<string> | null;
+}
 
 /**
  * PermissionEvaluator — the single source of truth for Moodle capability
@@ -51,24 +58,56 @@ export class PermissionEvaluator {
   }
 
   /**
+   * Cổng tenant (TENANT-0, #168 — hồ sơ mục 3.2/4.3): khi context đích
+   * nằm trong cây của một tenant `school`/`center` thì (1) user phải có
+   * membership `active` ở tenant đó — cổng chạy TRƯỚC lối tắt site admin
+   * vì platform admin KHÔNG có quyền ngầm trong tenant (vào tenant qua
+   * loginas có lý do + audit, hoặc được gán vai như người thường khi đã
+   * là thành viên); (2) chỉ gán vai neo TRONG cây tenant mới hiệu lực —
+   * gán vai ở context hệ thống không chảy vào tenant (định nghĩa role +
+   * archetype defaults vẫn toàn cục như Moodle). Tenant-zero
+   * (kind `platform`) là không gian của chính platform nên không cổng,
+   * không thu hẹp — hành vi cũ giữ nguyên. Đổi trạng thái membership
+   * phải markContextDirty(context tenant) để cache cũ hết hiệu lực.
+   */
+  private async tenantGate(userId: string, pathContexts: ContextRow[]): Promise<TenantGate> {
+    const tenantCtx = pathContexts.find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
+    if (!tenantCtx?.instanceId) return { allowed: true, assignmentScope: null };
+    const info = await this.repo.getTenantGateInfo(tenantCtx.instanceId);
+    if (!info || (info.kind !== 'school' && info.kind !== 'center')) return { allowed: true, assignmentScope: null };
+    // Tenant đã khoá (suspended) hoặc lưu trữ (archived) thì không ai còn
+    // quyền trong cây của nó — kể cả thành viên.
+    if (info.status !== 'active') return { allowed: false, assignmentScope: null };
+    const status = await this.repo.getMembershipStatus(tenantCtx.instanceId, userId);
+    if (status !== 'active') return { allowed: false, assignmentScope: null };
+    const scope = new Set(
+      pathContexts.filter((c) => c.path.startsWith(tenantCtx.path)).map((c) => c.id),
+    );
+    return { allowed: true, assignmentScope: scope };
+  }
+
+  /**
    * Đánh giá capability cho user tại context theo thuật toán cây context; kết quả có thể cache theo path version.
    */
   async hasCapability(userId: string, capability: string, contextId: string, opts?: { isGuest?: boolean }): Promise<boolean> {
-    if (await this.isSiteAdmin(userId)) return true;
     const target = await this.contexts.getContext(contextId);
     const pathContexts = await this.contexts.getPathContexts(target);
+    const gate = await this.tenantGate(userId, pathContexts);
+    if (!gate.allowed) return false;
+    if (await this.isSiteAdmin(userId)) return true;
     const stamp = this.contexts.pathVersionStamp(pathContexts);
     const cacheKey = `access:${userId}:${capability}:${contextId}:${stamp}:${opts?.isGuest ? 'g' : 'u'}`;
     const cached = await this.cache.get<boolean>(cacheKey);
     if (cached !== undefined && cached !== null) return cached;
-    const result = await this.evaluate(userId, capability, pathContexts, opts);
+    const result = await this.evaluate(userId, capability, pathContexts, opts, gate.assignmentScope);
     await this.cache.set(cacheKey, result, 60 * 60 * 1000);
     return result;
   }
 
-  private async evaluate(userId: string, capability: string, pathContexts: { id: string }[], opts?: { isGuest?: boolean }): Promise<boolean> {
+  private async evaluate(userId: string, capability: string, pathContexts: { id: string }[], opts?: { isGuest?: boolean }, assignmentScope?: Set<string> | null): Promise<boolean> {
     const pathIds = pathContexts.map((c) => c.id); // leaf → root
-    const assignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
+    const allAssignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
+    const assignments = assignmentScope ? allAssignments.filter((a) => assignmentScope.has(a.contextId)) : allAssignments;
     const roleIds = new Set<string>(assignments.map((a) => a.roleId));
     // Moodle adds virtual default-role assignments: `user` for any logged-in
     // user, `guest` for the guest account — both anchored at the system context.
@@ -107,11 +146,14 @@ export class PermissionEvaluator {
     contextId: string,
     opts?: { excludeArchetypes?: string[] },
   ): Promise<boolean> {
-    if (await this.isSiteAdmin(userId)) return true;
     const target = await this.contexts.getContext(contextId);
     const pathContexts = await this.contexts.getPathContexts(target);
+    const gate = await this.tenantGate(userId, pathContexts);
+    if (!gate.allowed) return false;
+    if (await this.isSiteAdmin(userId)) return true;
     const pathIds = pathContexts.map((c) => c.id);
-    const assignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
+    const allAssignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
+    const assignments = gate.assignmentScope ? allAssignments.filter((a) => gate.assignmentScope!.has(a.contextId)) : allAssignments;
     const roleIds = new Set<string>();
     for (const a of assignments) {
       if (opts?.excludeArchetypes?.length) {

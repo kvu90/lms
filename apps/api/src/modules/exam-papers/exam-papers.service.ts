@@ -14,6 +14,7 @@ import { CAP_ALLOW } from '../access/domain/permission';
 import { QuestionBanksService, QBANK_LEAD_ROLE, QBANK_MEMBER_ROLE } from '../questions/question-banks.service';
 import type { QuestionBankRow } from '../questions/question-banks.repository';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
+import { TenantContextService } from '../tenants/tenant-context.service';
 import {
   ExamPapersRepository,
   type ExamDeploymentRow, type ExamPaperContributionRow, type ExamPaperRow, type ExamPaperSlotRow, type ExamPaperVersionRow,
@@ -154,6 +155,7 @@ export class ExamPapersService {
     private readonly roles: RolesService,
     private readonly quiz: QuizService,
     private readonly outbox: OutboxService,
+    private readonly tenantContext: TenantContextService,
   ) {}
 
   // --- cổng bank + quyền ----------------------------------------------------
@@ -459,6 +461,11 @@ export class ExamPapersService {
   /** Chi tiết một đề: version hiện tại + slots đã ghim + truy vết + khả năng của actor. Nội dung đề qua cổng A.3.4 (EB-3) và ghi audit khi thuộc diện định kỳ ở bank trường. */
   async getPaper(actorId: string, paperId: string): Promise<ExamPaperView> {
     const paper = await this.getPaperOrThrow(paperId);
+    // Đề thuộc tenant khác với tenant hiệu lực → 404 đồng nhất (TENANT-0, #168).
+    const activeTenant = this.tenantContext.currentTenantId();
+    if (activeTenant !== undefined && paper.tenantId !== null && paper.tenantId !== activeTenant) {
+      throw new NotFoundException({ message: `Exam paper ${paperId} not found`, code: 'exam.not_found' });
+    }
     const bank = await this.bankOfPaper(paper);
     await this.assertCanViewPaperContent(actorId, paper, bank);
     const view = await this.paperView(actorId, paper);
@@ -474,7 +481,7 @@ export class ExamPapersService {
     let paper: ExamPaperRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
       paper = await this.repo.insertPaper({
-        bankId: bank.id, kind: 'snapshot', status: 'draft', createdBy: actorId, latestVersion: 1,
+        tenantId: bank.tenantId, bankId: bank.id, kind: 'snapshot', status: 'draft', createdBy: actorId, latestVersion: 1,
         derivedFromMatrixId: input.matrixId ?? null,
       }, tx);
       const version = await this.repo.insertVersion({
@@ -676,7 +683,7 @@ export class ExamPapersService {
     let created: ExamPaperRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
       created = await this.repo.insertPaper({
-        bankId: target.id, kind: source.kind, status: opts?.status ?? 'draft',
+        tenantId: target.tenantId, bankId: target.id, kind: source.kind, status: opts?.status ?? 'draft',
         derivedFromPaperId: source.id,
         derivedFromMatrixId: sourceVersion.matrixId,
         originalAuthorId: source.originalAuthorId ?? source.createdBy,
@@ -1004,7 +1011,7 @@ export class ExamPapersService {
     let paper: ExamPaperRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
       paper = await this.repo.insertPaper({
-        bankId: bankRow.id,
+        tenantId: bankRow.tenantId, bankId: bankRow.id,
         kind: input.drawMode === 'fixed' ? 'snapshot' : 'recipe',
         status: 'ready', createdBy: actorId, latestVersion: 1,
         derivedFromMatrixId: matrix.id,
@@ -1083,7 +1090,7 @@ export class ExamPapersService {
     let created: ExamPaperRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
       created = await this.repo.insertPaper({
-        bankId: recipe.bankId, kind: 'snapshot', status: 'draft',
+        tenantId: recipe.tenantId, bankId: recipe.bankId, kind: 'snapshot', status: 'draft',
         derivedFromPaperId: recipe.id, derivedFromMatrixId: recipeVersion.matrixId,
         originalAuthorId: recipe.originalAuthorId ?? recipe.createdBy,
         createdBy: actorId, latestVersion: 1,

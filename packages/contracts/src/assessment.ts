@@ -1529,8 +1529,8 @@ export const createTeacherCommentBankEntrySchema = z.strictObject({
 export type CreateTeacherCommentBankEntry = z.infer<typeof createTeacherCommentBankEntrySchema>;
 // --- Ngân hàng câu hỏi chung (feat issue #70: QB-1 → QB-4) ---------------------
 
-/** Bốn scope của một bank câu hỏi: cá nhân / tổ chuyên môn / trường / khoá. */
-export const QUESTION_BANK_SCOPES = ['personal', 'team', 'school', 'course'] as const;
+/** Năm scope của một bank câu hỏi: cá nhân / tổ chuyên môn / trường / khoá / platform (Ngân hàng hệ thống — TENANT-0, #168; bank platform chỉ platform tạo, tenant_id = NULL). */
+export const QUESTION_BANK_SCOPES = ['personal', 'team', 'school', 'course', 'platform'] as const;
 
 /** Payload tạo bank: `scopeRefId` là cohort (team) hoặc course (course); `leaderId` là tổ trưởng của bank tổ (mặc định người tạo). */
 /** Loại món của bank đa loại (bank_kind): question là mặc định của feat Ngân hàng câu hỏi chung; exam/matrix dùng chung khuôn bank. */

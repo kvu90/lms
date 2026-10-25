@@ -9,6 +9,7 @@
 export * from './infrastructure.schema';
 export * from './modules/access/schema';
 export * from './modules/users/schema';
+export * from './modules/tenants/schema';
 export * from './modules/auth/schema';
 export * from './modules/custom-fields/schema';
 export * from './modules/files/schema';

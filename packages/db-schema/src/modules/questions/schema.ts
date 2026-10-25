@@ -1,6 +1,7 @@
 /** Các bảng của bounded context Questions — định nghĩa Drizzle do module questions sở hữu; file barrel `src/db/schema.ts` tổng hợp toàn bộ cho Drizzle. */
 import {
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -13,6 +14,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
+import { tenants } from '../tenants/schema';
 
 /**
  * Bảng BANK ĐA LOẠI dùng chung của hệ thống (giữ tên vật lý
@@ -30,9 +32,17 @@ import { sql } from 'drizzle-orm';
  * bank là con của context khoá nên quyền tại khoá thừa hưởng xuống bank
  * theo cây context). Ràng buộc duy nhất theo (scope, kind): mỗi chủ thể
  * có đúng một bank cho mỗi loại món.
+ *
+ * TENANT-0 (#168): bank mang `tenant_id` của tenant sở hữu; RIÊNG scope
+ * `platform` (Ngân hàng hệ thống — câu hỏi/đề/ma trận CHUNG của Trang
+ * chính) có `tenant_id = NULL`, chỉ platform được ghi, mọi tenant được
+ * đọc/copy xuống. Bank trường duy nhất được hiểu lại là duy nhất **theo
+ * tenant** (unique một phần (tenant_id, scope, kind) khi scope='school').
  */
 export const questionBanks = pgTable('question_banks', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  /** NULL chỉ khi scope = 'platform' (ràng buộc check bên dưới). */
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   name: text('name').notNull(),
   /** Loại món của bank: question | exam | matrix (mặc định question — toàn bộ hành vi QB-1..4). */
   bankKind: text('bank_kind').notNull().default('question'),
@@ -50,9 +60,12 @@ export const questionBanks = pgTable('question_banks', {
       index('question_banks_kind_idx').on(table.bankKind),
       index('question_banks_owner_id_idx').on(table.ownerId),
       index('question_banks_scope_ref_id_idx').on(table.scopeRefId),
+      index('question_banks_tenant_id_idx').on(table.tenantId),
       uniqueIndex('question_banks_personal_owner_kind_unique').on(table.ownerId, table.bankKind).where(sql`scope = 'personal'`),
       uniqueIndex('question_banks_scope_ref_kind_unique').on(table.scope, table.scopeRefId, table.bankKind).where(sql`scope_ref_id is not null`),
-      uniqueIndex('question_banks_school_kind_unique').on(table.scope, table.bankKind).where(sql`scope = 'school'`),
+      uniqueIndex('question_banks_school_kind_unique').on(table.tenantId, table.scope, table.bankKind).where(sql`scope = 'school'`),
+      uniqueIndex('question_banks_platform_kind_unique').on(table.scope, table.bankKind).where(sql`scope = 'platform'`),
+      check('question_banks_tenant_scope_check', sql`${table.tenantId} is not null or ${table.scope} = 'platform'`),
   ]);
 
 /** Question categories live in a context (Moodle `question_categories`). */

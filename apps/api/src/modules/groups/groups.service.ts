@@ -7,6 +7,8 @@ import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { CoursesService, GROUPMODE_SEPARATEGROUPS } from '../courses/courses.service';
+import { TenantContextService } from '../tenants/tenant-context.service';
+import { TenantsService } from '../tenants/tenants.service';
 import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } from './groups.repository';
 
 /**
@@ -41,7 +43,15 @@ export class GroupsService implements OnModuleInit {
     private readonly outbox: OutboxService,
     private readonly emitter: EventEmitter2,
     private readonly i18n: I18nService,
+    private readonly tenantContext: TenantContextService,
+    private readonly tenants: TenantsService,
   ) {}
+
+  /** Tenant hiệu lực cho cohort mới: category (nếu có) quyết định, không thì tenant của request, ngoài request rơi về tenant-zero. */
+  private async cohortTenantId(categoryId?: string): Promise<string> {
+    if (categoryId !== undefined) return (await this.courses.getCategory(categoryId)).tenantId;
+    return this.tenantContext.currentTenantId() ?? (await this.tenants.fallbackTenantId());
+  }
 
   /**
    * Khởi tạo: đăng ký các hook liên module cần thiết.
@@ -339,40 +349,52 @@ export class GroupsService implements OnModuleInit {
   }
 
   // --- cohorts -------------------------------------------------------------------
-  private async cohortContextId(input: { contextLevel?: number; categoryId?: string }): Promise<string> {
+  private async cohortContextId(input: { contextLevel?: number; categoryId?: string }, tenantId: string): Promise<string> {
     if (input.categoryId !== undefined) {
       const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSECAT, input.categoryId);
       if (!ctx) throw new NotFoundException({ message: `No context for category ${input.categoryId}`, code: 'cohort.category_context_missing' });
       return ctx.id;
     }
-    return (await this.contexts.ensureSystemContext()).id;
+    // Cohort không gắn category neo vào context TENANT của tenant sở hữu
+    // (không còn neo thẳng hệ thống) để cổng membership + phạm vi vai của
+    // tenant áp được lên cohort và các bank tổ bám vào nó (TENANT-0, #168).
+    return (await this.contexts.ensureTenantContext(tenantId)).id;
   }
 
   /**
-   * Tạo cohort tại context hệ thống hoặc category.
+   * Tạo cohort trong một tenant (theo category hoặc tenant hiệu lực).
    */
   async createCohort(actorId: string, input: { name: string; idNumber?: string; description?: string; categoryId?: string; visible?: boolean }): Promise<CohortRow> {
-    const contextId = await this.cohortContextId(input);
+    const tenantId = await this.cohortTenantId(input.categoryId);
+    const contextId = await this.cohortContextId(input, tenantId);
     await this.evaluator.requireCapability(actorId, 'cohort:manage', contextId);
     const row = await this.repo.insertCohort({
+      tenantId,
       name: input.name, idNumber: input.idNumber ?? '', description: input.description ?? '',
       contextId, visible: input.visible ?? true,
     });
-    await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_created', payload: { cohortId: row.id } });
+    await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_created', payload: { cohortId: row.id }, tenantId });
     return row;
   }
   /**
-   * Lấy cohort; ném groups.cohort_not_found khi vắng.
+   * Lấy cohort; ném groups.cohort_not_found khi vắng (kể cả khi cohort thuộc tenant khác — 404 đồng nhất).
    */
   async getCohort(id: string): Promise<CohortRow> {
     const row = await this.repo.getCohort(id);
-    if (!row) throw new NotFoundException({ message: `Cohort ${id} not found`, code: 'cohort.not_found' });
+    const active = this.tenantContext.currentTenantId();
+    if (!row || (active !== undefined && row.tenantId !== active)) {
+      throw new NotFoundException({ message: `Cohort ${id} not found`, code: 'cohort.not_found' });
+    }
     return row;
   }
   /**
-   * Liệt kê cohort.
+   * Liệt kê cohort (trong request: chỉ cohort của tenant hiệu lực).
    */
-  async listCohorts(): Promise<CohortRow[]> { return this.repo.listCohorts(); }
+  async listCohorts(): Promise<CohortRow[]> {
+    const all = await this.repo.listCohorts();
+    const active = this.tenantContext.currentTenantId();
+    return active ? all.filter((c) => c.tenantId === active) : all;
+  }
   /**
    * Cập nhật cohort.
    */

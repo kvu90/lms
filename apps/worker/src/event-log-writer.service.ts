@@ -15,7 +15,7 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  * dùng chung `@lms/db-schema` (trước đây là interface chép tay). `payload`
  * thu hẹp về record vì writer chỉ đọc payload dạng object.
  */
-export type OutboxRowLike = Pick<OutboxRow, 'id' | 'seq' | 'aggregate' | 'type' | 'occurredAt'> & {
+export type OutboxRowLike = Pick<OutboxRow, 'id' | 'seq' | 'aggregate' | 'type' | 'occurredAt' | 'tenantId'> & {
   payload: Record<string, unknown> | null;
 };
 
@@ -98,6 +98,7 @@ export class EventLogWriter {
         eventType: row.type,
         contextId,
         userId: actorId,
+        tenantId: row.tenantId ?? str(source.tenantId),
         payload,
         createdAt: row.occurredAt,
       });

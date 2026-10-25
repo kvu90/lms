@@ -25,6 +25,8 @@ export const refreshTokenFamily = pgTable('refresh_token_family', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   familyId: text('family_id').notNull().unique(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** Tenant hiệu lực của phiên (claim `tid`) — giữ qua refresh, đổi qua switch-tenant (TENANT-0, #168). */
+  tenantId: uuid('tenant_id'),
   ip: text('ip'),
   userAgent: text('user_agent'),
   currentTokenHash: text('current_token_hash').notNull(),

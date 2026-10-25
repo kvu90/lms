@@ -29,6 +29,17 @@ export class AuthRepository {
       .where(or(eq(refreshTokenFamily.currentTokenHash, tokenHash), eq(refreshTokenFamily.previousTokenHash, tokenHash)));
     return rows[0];
   }
+  /** Tìm family theo `familyId` (claim `sid` của access token). */
+  async getFamilyById(familyId: string): Promise<RefreshFamilyRow | undefined> {
+    const [row] = await this.db.select().from(refreshTokenFamily).where(eq(refreshTokenFamily.familyId, familyId));
+    return row;
+  }
+
+  /** Cập nhật tenant hiệu lực của family (khi refresh phân giải lại tenant). */
+  async setFamilyTenant(id: string, tenantId: string): Promise<void> {
+    await this.db.update(refreshTokenFamily).set({ tenantId }).where(eq(refreshTokenFamily.id, id));
+  }
+
   /**
    * Xoay family sang refresh token mới (ghi hash mới, đánh dấu hash cũ đã dùng).
    */

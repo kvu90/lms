@@ -3,6 +3,9 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { GradesService } from '../grades/grades.service';
 import { VnGradebooksService } from '../grades/vn-gradebooks.service';
+import { TenantContextService } from '../tenants/tenant-context.service';
+import { TenantsRepository } from '../tenants/tenants.repository';
+import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
 import { GuardiansRepository, type GuardianLinkRow } from './guardians.repository';
 
@@ -33,7 +36,35 @@ export class GuardiansService {
     private readonly grades: GradesService,
     private readonly vn: VnGradebooksService,
     private readonly outbox: OutboxService,
+    private readonly tenantContext: TenantContextService,
+    private readonly tenantRepo: TenantsRepository,
+    private readonly tenants: TenantsService,
   ) {}
+
+  /** Tenant của liên kết mới: tenant hiệu lực của request; ngoài request rơi về tenant-zero. */
+  private async linkTenantId(): Promise<string> {
+    return this.tenantContext.currentTenantId() ?? (await this.tenants.fallbackTenantId());
+  }
+
+  /**
+   * Cả hai phía của liên kết phải là thành viên active của đúng tenant
+   * cấp liên kết (TENANT-0, #168 — hồ sơ mục 6.2). Tenant-zero là không
+   * gian công cộng của Trang chính: có tài khoản là đủ điều kiện như
+   * mọi bề mặt platform khác.
+   */
+  private async assertBothMembers(tenantId: string, guardianUserId: string, studentUserId: string): Promise<void> {
+    const tenant = await this.tenantRepo.getTenant(tenantId);
+    if (!tenant || tenant.kind === 'platform') return;
+    for (const [side, userId] of [['guardian', guardianUserId], ['student', studentUserId]] as const) {
+      const membership = await this.tenantRepo.getMembership(tenantId, userId);
+      if (!membership || membership.status !== 'active') {
+        throw new BadRequestException({
+          message: `The ${side} is not an active member of this tenant`,
+          code: 'guardian.membership_required',
+        });
+      }
+    }
+  }
 
   /**
    * Cổng quản lý liên kết: actor phải có guardian:manage từ một gán vai
@@ -56,11 +87,14 @@ export class GuardiansService {
     }
     await this.users.getUser(input.guardianUserId);
     await this.users.getUser(input.studentUserId);
+    const tenantId = await this.linkTenantId();
+    await this.assertBothMembers(tenantId, input.guardianUserId, input.studentUserId);
     const existing = await this.repo.findActiveLink(input.guardianUserId, input.studentUserId);
     if (existing) {
       throw new ConflictException({ message: 'An active guardian link already exists for this pair', code: 'guardian.link_already_active' });
     }
     const link = await this.repo.insertLink({
+      tenantId,
       guardianUserId: input.guardianUserId,
       studentUserId: input.studentUserId,
       relationship: input.relationship,
@@ -71,22 +105,26 @@ export class GuardiansService {
     await this.outbox.enqueueStandalone({
       aggregate: 'guardian', type: 'guardian_link_created',
       payload: { actorId, userId: input.studentUserId, guardianUserId: input.guardianUserId, linkId: link.id, objectId: link.id, relationship: input.relationship },
+      tenantId,
     });
     return link;
   }
 
-  /** Liệt kê liên kết theo bộ lọc — bề mặt quản lý (guardian:manage) hoặc chính chủ xem phần liên quan tới mình. */
+  /** Liệt kê liên kết theo bộ lọc — bề mặt quản lý (guardian:manage) hoặc chính chủ xem phần liên quan tới mình. Trong request: chỉ liên kết của tenant hiệu lực. */
   async listLinks(actorId: string, filters: { guardianUserId?: string; studentUserId?: string; status?: string }): Promise<GuardianLinkRow[]> {
     const involvesSelf = filters.guardianUserId === actorId || filters.studentUserId === actorId;
     if (!involvesSelf) await this.assertCanManageLinks(actorId);
-    return this.repo.listLinks(filters);
+    const rows = await this.repo.listLinks(filters);
+    const active = this.tenantContext.currentTenantId();
+    return active ? rows.filter((l) => l.tenantId === active) : rows;
   }
 
-  /** Thu hồi một liên kết (không xoá cứng — giữ vết cho audit); liên kết đã thu hồi thì 404 nhất quán. */
+  /** Thu hồi một liên kết (không xoá cứng — giữ vết cho audit); liên kết đã thu hồi hoặc thuộc tenant khác thì 404 nhất quán. */
   async revokeLink(actorId: string, linkId: string): Promise<GuardianLinkRow> {
     await this.assertCanManageLinks(actorId);
     const link = await this.repo.getLink(linkId);
-    if (!link || link.status !== 'active') {
+    const active = this.tenantContext.currentTenantId();
+    if (!link || link.status !== 'active' || (active !== undefined && link.tenantId !== active)) {
       throw new NotFoundException({ message: `Active guardian link ${linkId} not found`, code: 'guardian.link_not_found' });
     }
     await this.repo.updateLink(linkId, { status: 'revoked', revokedBy: actorId, revokedAt: new Date() });

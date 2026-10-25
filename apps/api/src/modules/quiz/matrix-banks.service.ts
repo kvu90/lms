@@ -96,6 +96,7 @@ export class MatrixBanksService {
     const cells = await this.repo.listMatrixCells(source.id);
     return this.repo.dbHandle.transaction(async (tx) => {
       const copy = await this.repo.insertMatrix({
+        tenantId: targetBank.tenantId,
         name: opts.name ?? source.name,
         subjectId: source.subjectId, curriculumId: source.curriculumId,
         contextId: source.contextId,

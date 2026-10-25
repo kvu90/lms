@@ -32,7 +32,7 @@ export class LocalAuthStrategy extends PassportStrategy(LocalStrategy, 'local') 
   }
 }
 
-export interface JwtPayload { sub: string; username: string; sid: string; scope?: string }
+export interface JwtPayload { sub: string; username: string; sid: string; scope?: string; /** Tenant hiệu lực của phiên (TENANT-0, #168). */ tid?: string }
 
 @Injectable()
 /** Chiến lược JWT: giải mã access token và dựng principal cho request (id, username, cờ site admin). */
@@ -56,6 +56,6 @@ export class JwtAuthStrategy extends PassportStrategy(JwtStrategy, 'jwt') {
     if (!user || user.deleted || user.suspended) {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
     }
-    return { id: user.id, username: user.username, sessionId: payload.sid };
+    return { id: user.id, username: user.username, sessionId: payload.sid, tenantId: payload.tid };
   }
 }
