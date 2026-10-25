@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "702e3663-c4cd-4fb5-8873-95b3f814d214",
+  "id": "0afca266-8bd1-472b-80b9-13d6cf42cb2f",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -49304,7 +49304,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -50224,7 +50224,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -50292,7 +50292,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -50309,7 +50309,7 @@
         "id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
+      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
