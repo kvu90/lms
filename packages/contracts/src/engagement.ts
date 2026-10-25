@@ -409,6 +409,40 @@ export const updateConversationSchema = z.strictObject({
 });
 export type UpdateConversation = z.infer<typeof updateConversationSchema>;
 
+/**
+ * Query danh sách conversation của tôi (lát M5, issue #240): mặc định
+ * chỉ các conversation CHƯA lưu trữ; `archived: true` = xem riêng mục
+ * đã lưu trữ.
+ */
+export const listConversationsQuerySchema = z.strictObject({
+  archived: z.boolean().optional(),
+});
+export type ListConversationsQuery = z.infer<typeof listConversationsQuerySchema>;
+
+/**
+ * Đặt trạng thái cá nhân của CHÍNH THÀNH VIÊN trên một conversation
+ * (lát M5, issue #240): ba cờ độc lập — ghim, lưu trữ, tắt tiếng. Chỉ
+ * các trường có mặt mới bị đổi; trường vắng giữ nguyên trạng thái cũ.
+ * Trạng thái là của từng thành viên, không ảnh hưởng phía còn lại.
+ */
+export const updateConversationStateSchema = z.strictObject({
+  pinned: z.boolean().optional(),
+  archived: z.boolean().optional(),
+  muted: z.boolean().optional(),
+});
+export type UpdateConversationState = z.infer<typeof updateConversationStateSchema>;
+
+/** Trạng thái cá nhân của người xem trên một conversation (lát M5) — hình dạng API trả về. */
+export const conversationMemberStateSchema = z.object({
+  conversationId: uuidIdSchema,
+  pinned: z.boolean(),
+  pinnedAt: z.string().nullable(),
+  archived: z.boolean(),
+  archivedAt: z.string().nullable(),
+  muted: z.boolean(),
+});
+export type ConversationMemberState = z.infer<typeof conversationMemberStateSchema>;
+
 /** Báo cáo một conversation (Lớp B, issue #33): lý do là tuỳ chọn. */
 export const reportConversationSchema = z.strictObject({
   reason: z.string().max(1000).optional(),

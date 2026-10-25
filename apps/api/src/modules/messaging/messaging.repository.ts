@@ -24,6 +24,12 @@ export interface ConversationSummaryRow {
   lastReadSeq: number;
   unreadCount: number;
   lastMessage: MessageRow | null;
+  /** Trạng thái cá nhân của chính user trên conversation này (lát M5): mốc ghim (null = không ghim). */
+  pinnedAt: Date | null;
+  /** Trạng thái cá nhân (lát M5): mốc lưu trữ (null = không lưu). */
+  archivedAt: Date | null;
+  /** Trạng thái cá nhân (lát M5): đã tắt tiếng conversation này hay chưa. */
+  muted: boolean;
 }
 
 /** Tuỳ chọn cửa sổ tin theo cursor seq. */
@@ -280,8 +286,17 @@ export class MessagingRepository {
    * Danh sách conversation kèm số chưa đọc + tin cuối cho một user —
    * MỘT truy vấn duy nhất: unread đếm bằng count(*) theo mốc last-read
    * của chính user, tin cuối lấy bằng lateral theo seq.
+   *
+   * Lát M5 (issue #240): kèm ba trạng thái cá nhân của chính user;
+   * mặc định CHỈ các conversation chưa lưu trữ, `archivedOnly` thì
+   * chỉ các conversation ĐÃ lưu — hai mục không bao giờ trộn nhau.
+   * Thứ tự: conversation ĐÃ GHIM lên đầu (trong nhóm ghim vẫn theo
+   * hoạt động gần nhất), còn lại theo hoạt động gần nhất.
    */
-  async listConversationSummaries(userId: string): Promise<ConversationSummaryRow[]> {
+  async listConversationSummaries(userId: string, opts: { archivedOnly?: boolean } = {}): Promise<ConversationSummaryRow[]> {
+    const archivedClause = opts.archivedOnly
+      ? sql`AND mine.archived_at IS NOT NULL`
+      : sql`AND mine.archived_at IS NULL`;
     const executed = await this.db.execute(sql`
       SELECT c.id AS conversation_id, c.type AS conversation_type, c.name AS conversation_name,
         c.component AS conversation_component, c.item_type AS conversation_item_type,
@@ -291,6 +306,7 @@ export class MessagingRepository {
         c.last_message_seq AS conversation_last_seq,
         c.created_at AS conversation_created_at, c.updated_at AS conversation_updated_at,
         mine.last_read_seq AS last_read_seq,
+        mine.pinned_at AS pinned_at, mine.archived_at AS archived_at, mine.muted AS muted,
         COALESCE(mem.members, ARRAY[]::uuid[]) AS members,
         COALESCE(u.unread, 0)::int AS unread_count,
         lm.last_message AS last_message
@@ -328,6 +344,7 @@ export class MessagingRepository {
         ORDER BY msg.seq DESC LIMIT 1
       ) lm ON true
       WHERE mine.user_id = ${userId}
+        ${archivedClause}
         -- Chuẩn app nhắn tin (chốt bổ sung trên issue #33, 24/10/2026):
         -- có quan hệ chặn ở BẤT KỲ chiều nào thì conversation 1–1 bị
         -- ẨN khỏi danh sách của CẢ HAI phía (dữ liệu giữ nguyên, bỏ
@@ -339,7 +356,7 @@ export class MessagingRepository {
             OR (b.user_id = other_m.user_id AND b.blocked_user_id = mine.user_id)
           WHERE other_m.conversation_id = c.id AND other_m.user_id <> mine.user_id
         ))
-      ORDER BY c.updated_at DESC
+      ORDER BY (mine.pinned_at IS NOT NULL) DESC, c.updated_at DESC
     `);
     // drizzle trả QueryResult (hoặc mảng QueryResult với nhiều câu lệnh).
     const rows = (Array.isArray(executed) ? executed[0] : executed)?.rows ?? [];
@@ -365,6 +382,9 @@ export class MessagingRepository {
         members: (raw.members as string[]) ?? [],
         lastReadSeq: raw.last_read_seq as number,
         unreadCount: raw.unread_count as number,
+        pinnedAt: raw.pinned_at ? new Date(raw.pinned_at as string) : null,
+        archivedAt: raw.archived_at ? new Date(raw.archived_at as string) : null,
+        muted: raw.muted === true,
         lastMessage: lastMessageRaw
           ? {
               id: lastMessageRaw.id as string,
@@ -665,6 +685,74 @@ export class MessagingRepository {
       .where(eq(messageConversationMembers.conversationId, conversationId));
   }
   /**
+   * Ba trạng thái cá nhân của MỘT thành viên trên MỘT conversation
+   * (lát M5, issue #240) — undefined nếu user không phải thành viên.
+   */
+  async getMemberConversationState(conversationId: string, userId: string): Promise<{ pinnedAt: Date | null; archivedAt: Date | null; muted: boolean } | undefined> {
+    const [row] = await this.db.select({
+      pinnedAt: messageConversationMembers.pinnedAt,
+      archivedAt: messageConversationMembers.archivedAt,
+      muted: messageConversationMembers.muted,
+    })
+      .from(messageConversationMembers)
+      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
+    return row;
+  }
+  /**
+   * Đặt trạng thái cá nhân của CHÍNH một thành viên (lát M5): chỉ các
+   * trường có mặt trong `patch` mới đổi — ghim/lưu đặt mốc thời gian
+   * hiện tại khi bật và xoá mốc (null) khi tắt; tắt tiếng là cờ
+   * boolean. Trả trạng thái sau khi đặt (undefined nếu không phải
+   * thành viên — tầng service đã gác thành viên trước khi gọi).
+   */
+  async updateMemberConversationState(
+    conversationId: string,
+    userId: string,
+    patch: { pinned?: boolean; archived?: boolean; muted?: boolean },
+  ): Promise<{ pinnedAt: Date | null; archivedAt: Date | null; muted: boolean } | undefined> {
+    const set: Partial<{ pinnedAt: Date | null; archivedAt: Date | null; muted: boolean }> = {};
+    if (patch.pinned !== undefined) set.pinnedAt = patch.pinned ? new Date() : null;
+    if (patch.archived !== undefined) set.archivedAt = patch.archived ? new Date() : null;
+    if (patch.muted !== undefined) set.muted = patch.muted;
+    if (Object.keys(set).length === 0) return this.getMemberConversationState(conversationId, userId);
+    const [row] = await this.db.update(messageConversationMembers)
+      .set(set)
+      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)))
+      .returning({
+        pinnedAt: messageConversationMembers.pinnedAt,
+        archivedAt: messageConversationMembers.archivedAt,
+        muted: messageConversationMembers.muted,
+      });
+    return row;
+  }
+  /**
+   * Các thành viên đã TẮT TIẾNG một conversation (lát M5) — consumer
+   * thông báo đọc tập này MỘT lần cho mỗi sự kiện tin mới rồi bỏ qua
+   * các thành viên trong tập khi sinh `message_new`.
+   */
+  async listMutedMemberIds(conversationId: string): Promise<string[]> {
+    const rows = await this.db.select({ userId: messageConversationMembers.userId })
+      .from(messageConversationMembers)
+      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.muted, true)));
+    return rows.map((r) => r.userId);
+  }
+  /**
+   * Tin mới vào conversation thì các thành viên còn lại TỰ BỎ LƯU
+   * (lát M5, quyết định đã chốt: hội thoại đã lưu tự hiện lại khi có
+   * tin mới): xoá `archived_at` của mọi thành viên TRỪ người gửi,
+   * trong CÙNG transaction với lần chèn tin — danh sách của người
+   * nhận không bao giờ ở trạng thái "có tin mới nhưng vẫn ẩn vì lưu".
+   */
+  async clearArchivedForIncomingMessage(conversationId: string, senderId: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(messageConversationMembers)
+      .set({ archivedAt: null })
+      .where(and(
+        eq(messageConversationMembers.conversationId, conversationId),
+        ne(messageConversationMembers.userId, senderId),
+        isNotNull(messageConversationMembers.archivedAt),
+      ));
+  }
+  /**
    * Đánh dấu một thành viên đã đọc tới tin mới nhất hiện có: nâng mốc
    * last-read của RIÊNG thành viên đó lên last_message_seq của
    * conversation. Trả số tin vừa được đánh dấu (tin của người khác nằm
@@ -727,6 +815,10 @@ export class MessagingRepository {
       .from(messageConversationMembers)
       .where(and(
         eq(messageConversationMembers.userId, userId),
+        // Conversation đã TẮT TIẾNG không tính vào huy hiệu điều
+        // hướng (lát M5, quyết định đã chốt): tin vẫn tới và vẫn đếm
+        // chưa đọc trong chính danh sách, chỉ huy hiệu tổng là bỏ qua.
+        eq(messageConversationMembers.muted, false),
         sql`exists (
           select 1 from ${message} msg
           where msg.conversation_id = ${messageConversationMembers.conversationId}

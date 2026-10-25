@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQueryServerSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SearchMessagesQueryDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listConversationsQueryServerSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQueryServerSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListConversationsQueryDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SearchMessagesQueryDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateConversationStateDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -30,10 +30,23 @@ export class MessagingController {
   }
   @Get('conversations')
   /**
-   * GET /messages/conversations — conversation của tôi.
+   * GET /messages/conversations — conversation của tôi: đã ghim lên
+   * đầu, còn lại theo hoạt động gần nhất. Mặc định chỉ mục CHƯA lưu
+   * trữ; `?archived=true` xem riêng mục ĐÃ LƯU (lát M5, issue #240).
    */
-  async listConversations(@CurrentUser() actor: AuthenticatedUser) {
-    return this.messaging.listConversations(actor.id);
+  async listConversations(@Query({ schema: listConversationsQueryServerSchema }) query: ListConversationsQueryDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.listConversations(actor.id, { archivedOnly: query.archived });
+  }
+  @Patch('conversations/:id/state')
+  /**
+   * PATCH /messages/conversations/:id/state — đặt trạng thái cá nhân
+   * của CHÍNH tôi trên conversation (lát M5, issue #240): ghim
+   * (`pinned`), lưu trữ (`archived`), tắt tiếng (`muted`) — ba cờ
+   * độc lập, chỉ trường có mặt mới đổi. Người ngoài nhận 404 như
+   * conversation không tồn tại.
+   */
+  async updateConversationState(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateConversationStateSchema }) dto: UpdateConversationStateDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.updateConversationState(actor.id, id, dto);
   }
   @Get('conversations/:id')
   /**

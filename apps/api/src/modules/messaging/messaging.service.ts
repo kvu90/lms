@@ -1346,6 +1346,40 @@ export class MessagingService {
   }
 
   /**
+   * Đặt trạng thái cá nhân của CHÍNH thành viên trên một conversation
+   * (lát M5, issue #240): ghim / lưu trữ / tắt tiếng — ba cờ độc lập,
+   * chỉ trường có mặt mới đổi. Cổng như các đường theo id của thành
+   * viên: conversation không tồn tại, người ngoài, và hội thoại 1–1
+   * đang bị chặn đều 404 `messaging.conversation_not_found` — trạng
+   * thái cá nhân không bao giờ lộ tồn tại của conversation với người
+   * không thuộc về nó. Trạng thái chỉ chạm dòng thành viên của chính
+   * người gọi; phía còn lại không đổi.
+   */
+  async updateConversationState(
+    userId: string,
+    conversationId: string,
+    input: { pinned?: boolean; archived?: boolean; muted?: boolean },
+  ): Promise<{ conversationId: string; pinned: boolean; pinnedAt: Date | null; archived: boolean; archivedAt: Date | null; muted: boolean }> {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    await this.syncGroupConversationIfLinked(conversation);
+    if (!(await this.repo.isMember(conversationId, userId))) {
+      throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    }
+    await this.assertDirectConversationVisible(userId, conversation);
+    const state = await this.repo.updateMemberConversationState(conversationId, userId, input);
+    if (!state) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    return {
+      conversationId,
+      pinned: state.pinnedAt !== null,
+      pinnedAt: state.pinnedAt,
+      archived: state.archivedAt !== null,
+      archivedAt: state.archivedAt,
+      muted: state.muted,
+    };
+  }
+
+  /**
    * Conversation của user kèm số chưa đọc, tin cuối và mốc đã đọc của
    * chính user — lấy bằng MỘT truy vấn tổng hợp ở repository (không còn
    * tải toàn bộ lịch sử về đếm như trước). Conversation gắn group được
@@ -1354,8 +1388,9 @@ export class MessagingService {
    * ngay; membership đã cũ (user đã rời group nhưng chưa lần đồng bộ
    * nào chạy) được đồng bộ và loại khỏi danh sách tại đây.
    */
-  async listConversations(userId: string): Promise<(ConversationRow & {
+  async listConversations(userId: string, opts: { archivedOnly?: boolean } = {}): Promise<(ConversationRow & {
     members: string[]; unread: number; lastReadSeq: number; lastMessage: MessageRow | null;
+    pinnedAt: Date | null; archivedAt: Date | null; muted: boolean;
     memberProfiles: Record<string, PersonSummaryView>;
   })[]> {
     for (const c of await this.repo.listGroupConversationsForGroupMember(userId)) {
@@ -1364,10 +1399,11 @@ export class MessagingService {
     for (const c of await this.repo.listCourseConversationsForMember(userId)) {
       await this.syncCourseConversationMembers(c);
     }
-    const summaries = await this.repo.listConversationSummaries(userId);
+    const summaries = await this.repo.listConversationSummaries(userId, opts);
     const myGroupIds = new Set(await this.repo.listGroupIdsForUser(userId));
     const out: (ConversationRow & {
       members: string[]; unread: number; lastReadSeq: number; lastMessage: MessageRow | null;
+      pinnedAt: Date | null; archivedAt: Date | null; muted: boolean;
     })[] = [];
     for (const s of summaries) {
       if (this.isGroupLinked(s.conversation) && !myGroupIds.has(s.conversation.itemId!)) {
@@ -1392,6 +1428,12 @@ export class MessagingService {
         members: s.members,
         unread: s.unreadCount,
         lastReadSeq: s.lastReadSeq,
+        // Trạng thái cá nhân của chính người xem (lát M5): client
+        // hiện dấu ghim, số chưa đọc dạng mờ khi tắt tiếng, và biết
+        // mình đang ở mục đã lưu hay mục chính.
+        pinnedAt: s.pinnedAt,
+        archivedAt: s.archivedAt,
+        muted: s.muted,
         // Danh sách là đường đọc thường: tin cuối đã thu hồi thì xem
         // trước chỉ còn dấu vết thu hồi, không lộ nội dung gốc.
         lastMessage: s.lastMessage ? blankRecalledContent(s.lastMessage) : null,
@@ -1674,6 +1716,10 @@ export class MessagingService {
           seq, clientMessageId: input.clientMessageId ?? null,
           replyToMessageId: input.replyToMessageId ?? null,
         }, tx as never);
+        // Lát M5: tin mới làm hội thoại ĐÃ LƯU của các thành viên còn
+        // lại tự hiện lại (bỏ lưu trong cùng transaction — xem
+        // clearArchivedForIncomingMessage ở repository).
+        await this.repo.clearArchivedForIncomingMessage(conversationId, actorId, tx as never);
         await this.outbox.enqueue(tx as never, {
           aggregate: 'messaging', type: 'message_sent',
           payload: {
