@@ -40,7 +40,21 @@ export class ReportsService {
     this.registerBuiltinDatasources();
   }
 
-  listDatasources(): { name: string; columns: string[] }[] {
+  /**
+   * Cổng metadata báo cáo (H15, rà soát #134 + §7.3): định nghĩa báo cáo,
+   * datasource và lịch chạy là thông tin vận hành nội bộ — mọi đường đọc
+   * metadata và đường kích hoạt chạy theo lịch đều đòi
+   * `reportbuilder:manage` tại system, cùng cổng với createReport/
+   * createSchedule. Dữ liệu báo cáo vẫn gác riêng theo audience + từng
+   * dòng ở runReport, không đổi.
+   */
+  private async requireManage(actorId: string): Promise<void> {
+    const sys = await this.contexts.ensureSystemContext();
+    await this.evaluator.requireCapability(actorId, 'reportbuilder:manage', sys.id);
+  }
+
+  async listDatasources(actorId: string): Promise<{ name: string; columns: string[] }[]> {
+    await this.requireManage(actorId);
     return [...this.datasources.values()].map((d) => ({ name: d.name, columns: d.columns }));
   }
 
@@ -111,12 +125,21 @@ export class ReportsService {
     return report;
   }
 
-  async getReport(id: string): Promise<ReportRow> {
+  /** Đọc thô một report theo id — đường nội bộ (runReport/createSchedule/worker), không gác tại đây. */
+  private async getReportRow(id: string): Promise<ReportRow> {
     const row = await this.repo.getReport(id);
     if (!row) throw new NotFoundException({ message: `Report ${id} not found`, code: 'report.not_found' });
     return row;
   }
-  async listReports(): Promise<ReportRow[]> { return this.repo.listReports(); }
+  /** Chi tiết report qua HTTP: qua cổng metadata (H15). */
+  async getReport(actorId: string, id: string): Promise<ReportRow> {
+    await this.requireManage(actorId);
+    return this.getReportRow(id);
+  }
+  async listReports(actorId: string): Promise<ReportRow[]> {
+    await this.requireManage(actorId);
+    return this.repo.listReports();
+  }
 
   /** Kiểm tra audience: user có trong audience trực tiếp hoặc qua role shortName tại system context. */
   async isInAudience(userId: string, report: ReportRow): Promise<boolean> {
@@ -141,7 +164,7 @@ export class ReportsService {
    * enrolments/completion của bản thân — học viên xem được dòng của mình).
    */
   async runReport(viewerId: string, reportId: string): Promise<{ report: ReportRow; rows: Record<string, unknown>[] }> {
-    const report = await this.getReport(reportId);
+    const report = await this.getReportRow(reportId);
     if (!(await this.isInAudience(viewerId, report))) {
       throw new ForbiddenException({ message: 'You are not in the audience of this report', code: 'report.not_in_audience' });
     }
@@ -181,12 +204,20 @@ export class ReportsService {
   }
 
   async createSchedule(actorId: string, reportId: string, cron = 'daily'): Promise<ScheduleRow> {
-    const report = await this.getReport(reportId);
+    const report = await this.getReportRow(reportId);
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'reportbuilder:manage', sys.id);
     return this.repo.insertSchedule({ reportId: report.id, createdBy: actorId, cron, enabled: true });
   }
-  async listSchedules(): Promise<ScheduleRow[]> { return this.repo.listSchedules(); }
+  async listSchedules(actorId: string): Promise<ScheduleRow[]> {
+    await this.requireManage(actorId);
+    return this.repo.listSchedules();
+  }
+  /** Kích hoạt chạy một schedule qua HTTP: qua cổng metadata (H15) rồi chạy bằng engine nội bộ. */
+  async triggerSchedule(actorId: string, scheduleId: string): Promise<{ scheduleId: string; rows: number }> {
+    await this.requireManage(actorId);
+    return this.runSchedule(scheduleId);
+  }
 
   /**
    * Chạy một schedule: chạy báo cáo DƯỚI DANH TÍNH NGƯỜI TẠO với quyền tại

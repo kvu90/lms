@@ -129,14 +129,14 @@ export class CohortsController {
   }
   @Get()
   /**
-   * GET /cohorts — liệt kê cohort.
+   * GET /cohorts — liệt kê cohort (chỉ các cohort người gọi có cohort:view/cohort:manage).
    */
-  async list() { return this.groups.listCohorts(); }
+  async list(@CurrentUser() actor: AuthenticatedUser) { return this.groups.listCohorts(actor.id); }
   @Get(':id')
   /**
-   * GET /cohorts/:id — chi tiết cohort.
+   * GET /cohorts/:id — chi tiết cohort (người ngoài nhận 404 như cohort không tồn tại).
    */
-  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.groups.getCohort(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.groups.getCohort(id, actor.id); }
   @Patch(':id')
   /**
    * PATCH /cohorts/:id — cập nhật cohort.

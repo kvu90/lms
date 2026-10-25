@@ -686,8 +686,13 @@ export class QuizService {
 
   /**
    * Các quiz trong khoá học (cho trang khoá học/danh sách hoạt động).
+   * H9 (rà soát #134): QuizView kèm slots (questionId, pinnedVersion,
+   * bank) là cấu trúc đề — chỉ người qua cổng truy cập khoá mới liệt kê
+   * được; trước đây handler không nhận actor nên người ngoài khoá cũng
+   * khảo sát được thành phần đề của bất kỳ khoá nào.
    */
-  async listQuizzes(courseId: string): Promise<QuizView[]> {
+  async listQuizzes(actorId: string, courseId: string): Promise<QuizView[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
     const rows = await this.repo.listQuizzesInCourse(courseId);
     const out: QuizView[] = [];
     for (const r of rows) out.push(await this.quizView(r));

@@ -30,7 +30,7 @@ export class CoursesController {
   /**
    * GET /courses/categories/tree — cây category kèm khoá học.
    */
-  async categoryTree() { return this.courses.categoryTree(); }
+  async categoryTree(@CurrentUser() actor: AuthenticatedUser) { return this.courses.categoryTreeFor(actor.id); }
   @Get('categories/:id')
   /**
    * GET /courses/categories/:id — chi tiết category.
@@ -67,8 +67,8 @@ export class CoursesController {
   /**
    * GET /courses — liệt kê/tìm khoá học (không gồm khoá mẫu — K1).
    */
-  async list(@Query('category') category?: string) {
-    return this.courses.listCourses(category || undefined);
+  async list(@CurrentUser() actor: AuthenticatedUser, @Query('category') category?: string) {
+    return this.courses.listCoursesFor(actor.id, category || undefined);
   }
   @Get('templates')
   /**

@@ -360,10 +360,12 @@ export class CalendarService {
   }
 
   /**
-   * Subscription của user.
+   * Subscription của user (H11, rà soát #134): chỉ trả subscription mà
+   * người gọi là chủ — trước đây handler không truyền actor nên lộ URL
+   * feed lịch ngoài của mọi user.
    */
-  async listSubscriptions(): Promise<CalendarSubscriptionRow[]> {
-    return this.repo.listSubscriptions();
+  async listSubscriptions(actorId: string): Promise<CalendarSubscriptionRow[]> {
+    return this.repo.listSubscriptionsForUser(actorId);
   }
 
   /**

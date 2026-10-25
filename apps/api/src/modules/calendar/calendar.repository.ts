@@ -88,6 +88,12 @@ export class CalendarRepository {
   async listSubscriptions(): Promise<CalendarSubscriptionRow[]> {
     return this.db.select().from(calendarSubscriptions).orderBy(asc(calendarSubscriptions.id));
   }
+  /** Subscription thuộc về đúng một user (đường đọc qua HTTP — H11 của rà soát #134). */
+  async listSubscriptionsForUser(userId: string): Promise<CalendarSubscriptionRow[]> {
+    return this.db.select().from(calendarSubscriptions)
+      .where(eq(calendarSubscriptions.userId, userId))
+      .orderBy(asc(calendarSubscriptions.id));
+  }
   /**
    * Token xuất lịch đang hiệu lực của một user (chỉ chứa hash), nếu có.
    */

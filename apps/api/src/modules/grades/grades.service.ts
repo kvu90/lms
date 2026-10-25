@@ -274,9 +274,11 @@ export class GradesService implements OnModuleInit {
     return row;
   }
   /**
-   * Category của khoá học.
+   * Category của khoá học (H14, rà soát #134): cấu trúc sổ điểm theo khoá
+   * chỉ mở cho người qua cổng truy cập khoá.
    */
-  async listCategories(courseId: string): Promise<CategoryRow[]> {
+  async listCategories(actorId: string, courseId: string): Promise<CategoryRow[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
     await this.ensureCourseCategory(courseId);
     return this.repo.listCategories(courseId);
   }
@@ -424,7 +426,8 @@ export class GradesService implements OnModuleInit {
   /**
    * Item của khoá học.
    */
-  async listItems(courseId: string): Promise<ItemRow[]> {
+  async listItems(actorId: string, courseId: string): Promise<ItemRow[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
     await this.ensureCourseCategory(courseId);
     return this.repo.listItems(courseId);
   }
@@ -945,6 +948,12 @@ export class GradesService implements OnModuleInit {
     return this.repo.listLetters(contextId);
   }
 
+  /** Bảng letters qua HTTP: qua cổng truy cập khoá (H14, rà soát #134). */
+  async getLettersFor(actorId: string, courseId: string): Promise<LetterRow[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
+    return this.getLetters(courseId);
+  }
+
   /**
    * Tạo scale điểm tuỳ biến.
    */
@@ -962,7 +971,10 @@ export class GradesService implements OnModuleInit {
   /**
    * Liệt kê scales.
    */
-  async listScales(courseId: string): Promise<ScaleRow[]> { return this.repo.listScales(courseId); }
+  async listScales(actorId: string, courseId: string): Promise<ScaleRow[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
+    return this.repo.listScales(courseId);
+  }
 
   // --- outcomes --------------------------------------------------------------
 
@@ -990,6 +1002,22 @@ export class GradesService implements OnModuleInit {
    */
   async listOutcomes(courseId?: string): Promise<OutcomeRow[]> {
     return this.repo.listOutcomes(courseId);
+  }
+
+  /** Outcome của khoá học qua HTTP: qua cổng truy cập khoá (H14, rà soát #134). */
+  async listOutcomesFor(actorId: string, courseId: string): Promise<OutcomeRow[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
+    return this.repo.listOutcomes(courseId);
+  }
+
+  /**
+   * Outcome mức site qua HTTP (H14, rà soát #134): danh mục cấu trúc mức
+   * site — chỉ người có `grade:manage` tại system (cùng cổng với đường
+   * tạo outcome site).
+   */
+  async listSiteOutcomesFor(actorId: string): Promise<OutcomeRow[]> {
+    await this.requireSiteCap(actorId, 'grade:manage');
+    return this.repo.listOutcomes(undefined);
   }
 
   /** Kiểm capability phù hợp phạm vi của outcome (site → context hệ thống, khoá học → context khoá học). */

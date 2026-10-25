@@ -21,9 +21,9 @@ export class PrivacyController {
   @Get('requests')
   async list(@CurrentUser() actor: AuthenticatedUser) { return this.privacy.listRequestsFor(actor.id); }
   @Get('requests/:id')
-  async get(@Param('id', { schema: uuidIdSchema }) id: string) { return this.privacy.getRequest(id); }
+  async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.privacy.getRequestFor(actor.id, id); }
   @Get('requests/:id/files')
-  async files(@Param('id', { schema: uuidIdSchema }) id: string) { return this.privacy.listExportFiles(id); }
+  async files(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.privacy.listExportFilesFor(actor.id, id); }
   @Post('requests/:id/decide')
   async decide(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: decidePrivacyRequestSchema }) dto: DecidePrivacyRequestDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.privacy.decide(actor.id, id, dto.decision);

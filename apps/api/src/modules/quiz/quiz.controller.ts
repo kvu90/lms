@@ -31,8 +31,8 @@ export class CourseQuizzesController {
   /**
    * GET /courses/:courseId/quizzes — các quiz trong khoá học.
    */
-  async list(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.quiz.listQuizzes(courseId);
+  async list(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listQuizzes(actor.id, courseId);
   }
 }
 

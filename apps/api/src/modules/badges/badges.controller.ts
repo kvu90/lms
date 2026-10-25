@@ -95,16 +95,15 @@ export class BadgesController {
   /**
    * POST /badges/:id/evaluate — đánh giá tiêu chí cho một user.
    */
-  async evaluate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: badgeUserSchema }) dto: EvaluateDto) {
-    return this.badges.evaluateBadge(id, dto.userId);
+  async evaluate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: badgeUserSchema }) dto: EvaluateDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.badges.evaluateBadgeFor(actor.id, id, dto.userId);
   }
   @Post('evaluate-user')
   /**
    * POST /badges/evaluate-user — đánh giá mọi badge cho user.
    */
   async evaluateUser(@Body({ schema: badgeUserSchema }) dto: EvaluateDto, @CurrentUser() actor: AuthenticatedUser) {
-    void actor;
-    return this.badges.evaluateUserBadges(dto.userId);
+    return this.badges.evaluateUserBadgesFor(actor.id, dto.userId);
   }
   @Get('issued/:issuedId')
   /**

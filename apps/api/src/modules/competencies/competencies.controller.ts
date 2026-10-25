@@ -67,8 +67,8 @@ export class CompetenciesController {
   /**
    * GET /competencies/frameworks/:frameworkId/competencies/:competencyId/rule — xem rule points của competency cha.
    */
-  async getCompetencyRule(@Param('competencyId', { schema: uuidIdSchema }) competencyId: string) {
-    return this.competencies.getCompetencyRule(competencyId);
+  async getCompetencyRule(@Param('competencyId', { schema: uuidIdSchema }) competencyId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.getCompetencyRuleFor(actor.id, competencyId);
   }
   @Post('frameworks/:frameworkId/competencies/:competencyId/rule')
   /**
@@ -89,7 +89,7 @@ export class CompetenciesController {
   /**
    * GET /competencies/courses/:courseId/links — competency của khoá học.
    */
-  async courseLinks(@Param('courseId', { schema: uuidIdSchema }) courseId: string) { return this.competencies.listCourseCompetencies(courseId); }
+  async courseLinks(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) { return this.competencies.listCourseCompetencies(actor.id, courseId); }
   @Post('modules/:cmId/links')
   /**
    * POST /competencies/modules/:cmId/links — liên kết competency với module.
@@ -101,7 +101,7 @@ export class CompetenciesController {
   /**
    * GET /competencies/modules/:cmId/links — competency của module.
    */
-  async moduleLinks(@Param('cmId', { schema: uuidIdSchema }) cmId: string) { return this.competencies.listModuleCompetencies(cmId); }
+  async moduleLinks(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @CurrentUser() actor: AuthenticatedUser) { return this.competencies.listModuleCompetencies(actor.id, cmId); }
 
   @Post('templates')
   /**
@@ -226,15 +226,15 @@ export class CompetenciesController {
   /**
    * GET /competencies/usercomp/user/:userId — năng lực của user.
    */
-  async usercomps(@Param('userId', { schema: uuidIdSchema }) userId: string) {
-    return this.competencies.listUsercompsForUser(userId);
+  async usercomps(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.listUsercompsForUserFor(actor.id, userId);
   }
   @Get('usercomp/:id/evidence')
   /**
    * GET /competencies/usercomp/:id/evidence — bằng chứng của usercomp.
    */
-  async evidence(@Param('id', { schema: uuidIdSchema }) id: string) {
-    return this.competencies.listEvidence(id);
+  async evidence(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.listEvidenceFor(actor.id, id);
   }
   @Post('usercomp/grade')
   /**

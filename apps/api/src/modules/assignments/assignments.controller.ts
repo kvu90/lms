@@ -36,8 +36,8 @@ export class CourseAssignmentsController {
   /**
    * GET /courses/:courseId/assignments — các bài tập nộp tệp/ảnh trong khoá học.
    */
-  async list(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.assignments.listAssignments(courseId);
+  async list(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.assignments.listAssignments(actor.id, courseId);
   }
 }
 
