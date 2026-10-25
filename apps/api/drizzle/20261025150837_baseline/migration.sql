@@ -3242,8 +3242,7 @@ ALTER TABLE "payment_provider_events" ADD CONSTRAINT "payment_provider_events_ma
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
--- TENANT-0 (issue #168): ROW LEVEL SECURITY — cổng cách ly cứng ở tầng
+ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;-- TENANT-0 (issue #168): ROW LEVEL SECURITY — cổng cách ly cứng ở tầng
 -- cơ sở dữ liệu (hồ sơ mục 2.1/3.2). Mọi bảng mang tenant_id ở lát này
 -- đều ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
 --   * Phiên platform tường minh (GUC app.platform = 'on', do
