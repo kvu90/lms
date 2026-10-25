@@ -57,14 +57,104 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe các chữ cái đã học (khoảng 13 chữ cái).",
-    "Nghe các âm cơ bản đã học.",
-    "Nghe các số đếm trong phạm vi 10.",
-    "Nghe các từ và cụm từ gần gũi với hoạt động của học sinh trong ngữ cảnh (trong phạm vi khoảng 35",
-    "70 từ quen thuộc).",
-    "Nghe và phản hồi phi ngôn ngữ trong một số tình huống giao tiếp rất đơn giản khi đã được thực hành nhiều lần.",
-    "Nghe và thực hiện theo các hướng dẫn rất đơn giản trong lớp học khi đã được thực hành nhiều lần.",
-    "Nghe và phản hồi bằng tiếng Anh trong một số tình huống hỏi đáp rất quen thuộc khi đã được thực hành nhiều lần."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe các chữ cái đã học (khoảng 13 chữ cái)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe các âm cơ bản đã học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe các số đếm trong phạm vi 10."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe các từ và cụm từ gần gũi với hoạt động của học sinh trong ngữ cảnh (trong phạm vi khoảng 35 - 70 từ quen thuộc)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và phản hồi phi ngôn ngữ trong một số tình huống giao tiếp rất đơn giản khi đã được thực hành nhiều lần."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và thực hiện theo các hướng dẫn rất đơn giản trong lớp học khi đã được thực hành nhiều lần."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và phản hồi bằng tiếng Anh trong một số tình huống hỏi đáp rất quen thuộc khi đã được thực hành nhiều lần."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe các chữ cái đã học (khoảng 13 chữ cái). - Nghe các âm cơ bản đã học. - Nghe các số đếm trong phạm vi 10. - Nghe các từ và cụm từ gần gũi với hoạt động của học sinh trong ngữ cảnh (trong phạm vi khoảng 35 - 70 từ quen thuộc). - Nghe và phản hồi phi ngôn ngữ trong một số tình huống giao tiếp rất đơn giản khi đã được thực hành nhiều lần. - Nghe và thực hiện theo các hướng dẫn rất đơn giản trong lớp học khi đã được thực hành nhiều lần. - Nghe và phản hồi bằng tiếng Anh trong một số tình huống hỏi đáp rất quen thuộc khi đã được thực hành nhiều lần.",
    "source": {
@@ -89,10 +179,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nhắc lại một số cụm từ, câu đơn giản, bài đọc vè, bài hát phù hợp với lứa tuổi.",
-    "Nói các từ quen thuộc chỉ sự vật trong ngữ cảnh (trong phạm vi khoảng 35-70 từ quen thuộc).",
-    "Nghe và nhắc lại các âm cơ bản đã học.",
-    "Trả lời đơn giản, có thể chỉ ở cấp độ từ hoặc cụm từ, các câu hỏi rất đơn giản trong các tình huống giao tiếp đơn giản hoạt động hằng ngày."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhắc lại một số cụm từ, câu đơn giản, bài đọc vè, bài hát phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các từ quen thuộc chỉ sự vật trong ngữ cảnh (trong phạm vi khoảng 35-70 từ quen thuộc)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhắc lại các âm cơ bản đã học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trả lời đơn giản, có thể chỉ ở cấp độ từ hoặc cụm từ, các câu hỏi rất đơn giản trong các tình huống giao tiếp đơn giản hoạt động hằng ngày."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nhắc lại một số cụm từ, câu đơn giản, bài đọc vè, bài hát phù hợp với lứa tuổi. - Nói các từ quen thuộc chỉ sự vật trong ngữ cảnh (trong phạm vi khoảng 35-70 từ quen thuộc). - Nghe và nhắc lại các âm cơ bản đã học. - Trả lời đơn giản, có thể chỉ ở cấp độ từ hoặc cụm từ, các câu hỏi rất đơn giản trong các tình huống giao tiếp đơn giản hoạt động hằng ngày.",
    "source": {
@@ -117,7 +259,20 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc thành lời các từ và một số cụm từ quen thuộc, đơn giản và cụ thể."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc thành lời các từ và một số cụm từ quen thuộc, đơn giản và cụ thể."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc thành lời các từ và một số cụm từ quen thuộc, đơn giản và cụ thể.",
    "source": {
@@ -142,8 +297,34 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Tô hoặc chép lại chữ cái trong từ.",
-    "Viết chữ cái trong từ"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tô hoặc chép lại chữ cái trong từ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết chữ cái trong từ"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Tô hoặc chép lại chữ cái trong từ. - Viết chữ cái trong từ",
    "source": {
@@ -168,8 +349,34 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "13 chữ cái",
-    "Một số âm đơn giản ở vị trí bắt đầu của từ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "13 chữ cái"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Một số âm đơn giản ở vị trí bắt đầu của từ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "13 chữ cái - Một số âm đơn giản ở vị trí bắt đầu của từ.",
    "source": {
@@ -193,10 +400,34 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Số đếm 1",
-    "10",
-    "Khoảng 35",
-    "70 từ vựng trong các chủ đề quen thuộc, ưu tiên danh từ và động từ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Số đếm 1 - 10"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khoảng 35 - 70 từ vựng trong các chủ đề quen thuộc, ưu tiên danh từ và động từ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Số đếm 1 - 10 - Khoảng 35 - 70 từ vựng trong các chủ đề quen thuộc, ưu tiên danh từ và động từ.",
    "source": {
@@ -263,15 +494,118 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe và nhận biết các chữ cái đã học (khoảng 13 chữ cái).",
-    "Nghe và nhận biết các âm đã học ở vị trí bắt đầu hoặc kết thúc của từ.",
-    "Nghe hiểu các số đếm trong phạm vi 20.",
-    "Nghe hiểu các từ và cụm từ gần gũi với hoạt động của học sinh trong ngữ cảnh (thêm khoảng 35",
-    "70 từ so với lớp 1).",
-    "Nghe hiểu và phản hồi phi ngôn ngữ trong một số tình huống giao tiếp đơn giản.",
-    "Nghe hiểu và thực hiện theo các hướng dẫn đơn giản trong lớp học.",
-    "Nghe hiểu và tham gia vào các hoạt động trên lớp có chỉ dẫn bằng tiếng Anh.",
-    "Nghe hiểu và phản hồi bằng tiếng Anh trong một số tình huống hỏi đáp quen thuộc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhận biết các chữ cái đã học (khoảng 13 chữ cái)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhận biết các âm đã học ở vị trí bắt đầu hoặc kết thúc của từ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các số đếm trong phạm vi 20."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các từ và cụm từ gần gũi với hoạt động của học sinh trong ngữ cảnh (thêm khoảng 35 - 70 từ so với lớp 1)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và phản hồi phi ngôn ngữ trong một số tình huống giao tiếp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và thực hiện theo các hướng dẫn đơn giản trong lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và tham gia vào các hoạt động trên lớp có chỉ dẫn bằng tiếng Anh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và phản hồi bằng tiếng Anh trong một số tình huống hỏi đáp quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe và nhận biết các chữ cái đã học (khoảng 13 chữ cái). - Nghe và nhận biết các âm đã học ở vị trí bắt đầu hoặc kết thúc của từ. - Nghe hiểu các số đếm trong phạm vi 20. - Nghe hiểu các từ và cụm từ gần gũi với hoạt động của học sinh trong ngữ cảnh (thêm khoảng 35 - 70 từ so với lớp 1). - Nghe hiểu và phản hồi phi ngôn ngữ trong một số tình huống giao tiếp đơn giản. - Nghe hiểu và thực hiện theo các hướng dẫn đơn giản trong lớp học. - Nghe hiểu và tham gia vào các hoạt động trên lớp có chỉ dẫn bằng tiếng Anh. - Nghe hiểu và phản hồi bằng tiếng Anh trong một số tình huống hỏi đáp quen thuộc.",
    "source": {
@@ -296,12 +630,76 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nhắc lại một số cụm từ, câu đơn giản, bài vè, bài hát phù hợp với lứa tuổi.",
-    "Nói các từ quen thuộc chỉ sự vật trong ngữ cảnh (thêm khoảng 35",
-    "70 từ so với lớp 1).",
-    "Nghe và nhắc lại các âm cơ bản đã học.",
-    "Trả lời các câu hỏi đơn giản quen thuộc gắn liền với trải nghiệm của học sinh, có thể ở cấp độ từ hoặc câu đơn giản.",
-    "Đưa ra một số chỉ dẫn quen thuộc khi tham gia vào các hoạt động đơn giản trên lớp."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhắc lại một số cụm từ, câu đơn giản, bài vè, bài hát phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các từ quen thuộc chỉ sự vật trong ngữ cảnh (thêm khoảng 35 - 70 từ so với lớp 1)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhắc lại các âm cơ bản đã học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trả lời các câu hỏi đơn giản quen thuộc gắn liền với trải nghiệm của học sinh, có thể ở cấp độ từ hoặc câu đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra một số chỉ dẫn quen thuộc khi tham gia vào các hoạt động đơn giản trên lớp."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nhắc lại một số cụm từ, câu đơn giản, bài vè, bài hát phù hợp với lứa tuổi. - Nói các từ quen thuộc chỉ sự vật trong ngữ cảnh (thêm khoảng 35 - 70 từ so với lớp 1). - Nghe và nhắc lại các âm cơ bản đã học. - Trả lời các câu hỏi đơn giản quen thuộc gắn liền với trải nghiệm của học sinh, có thể ở cấp độ từ hoặc câu đơn giản. - Đưa ra một số chỉ dẫn quen thuộc khi tham gia vào các hoạt động đơn giản trên lớp.",
    "source": {
@@ -326,8 +724,34 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc thành lời các từ và một số cụm từ quen thuộc, đơn giản và cụ thể.",
-    "Đọc hiểu nội dung chính của một cụm từ hoặc câu ngắn."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc thành lời các từ và một số cụm từ quen thuộc, đơn giản và cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính của một cụm từ hoặc câu ngắn."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc thành lời các từ và một số cụm từ quen thuộc, đơn giản và cụ thể. - Đọc hiểu nội dung chính của một cụm từ hoặc câu ngắn.",
    "source": {
@@ -352,9 +776,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Tô hoặc chép lại chữ cái trong từ.",
-    "Viết chữ cái trong từ.",
-    "Viết được từ rất đơn giản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tô hoặc chép lại chữ cái trong từ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết chữ cái trong từ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được từ rất đơn giản."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Tô hoặc chép lại chữ cái trong từ. - Viết chữ cái trong từ. - Viết được từ rất đơn giản.",
    "source": {
@@ -379,8 +842,34 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "13 chữ cái",
-    "Một số âm đơn giản ở vị trí bắt đầu và kết thúc của từ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "13 chữ cái"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Một số âm đơn giản ở vị trí bắt đầu và kết thúc của từ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "13 chữ cái - Một số âm đơn giản ở vị trí bắt đầu và kết thúc của từ.",
    "source": {
@@ -403,9 +892,34 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Số đếm từ 1",
-    "20",
-    "Thêm khoảng 35-70 từ vựng; ưu tiên danh từ, động từ và tính từ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Số đếm từ 1 - 20"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thêm khoảng 35-70 từ vựng; ưu tiên danh từ, động từ và tính từ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Số đếm từ 1 - 20 - Thêm khoảng 35-70 từ vựng; ưu tiên danh từ, động từ và tính từ.",
    "source": {
