@@ -2,7 +2,9 @@ import { act, cleanup, render, screen, waitFor, within } from '@testing-library/
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
+import { createQueryClient } from '#lib/query-client';
 import { MessagesPage } from './messages';
 
 /**
@@ -99,15 +101,17 @@ function stubFetch(calls: RecordedCall[]) {
   );
 }
 
-/** Render trang tin nhắn trong AuthProvider như ứng dụng thật. */
+/** Render trang tin nhắn trong AuthProvider như ứng dụng thật (cây provider như root: QueryClientProvider bọc ngoài). */
 function renderMessages(entry = '/messages') {
   const router = createMemoryRouter([{ path: '/messages', element: <MessagesPage /> }], {
     initialEntries: [entry],
   });
   render(
-    <AuthProvider>
-      <RouterProvider router={router} />
-    </AuthProvider>,
+    <QueryClientProvider client={createQueryClient()}>
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -240,7 +244,9 @@ describe('Messages page — optimistic send and realtime updates', () => {
       expect(typeof (send?.body as { clientMessageId?: unknown }).clientMessageId).toBe('string');
       expect((send?.body as { text?: unknown }).text).toBe('xin chào lạc quan');
     });
-    expect(await screen.findByText('xin chào lạc quan')).toBeInTheDocument();
+    // Từ lát M1, xem trước ở danh sách cũng phản ánh tin vừa gửi nên
+    // các khẳng định chống trùng dưới đây được khoanh trong khung tin.
+    expect(await within(thread).findByText('xin chào lạc quan')).toBeInTheDocument();
 
     // Echo của chính tin đó qua socket (cùng id + clientMessageId) không nhân đôi.
     const sendCall = calls.find((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/messages` && c.method === 'POST');
@@ -260,7 +266,7 @@ describe('Messages page — optimistic send and realtime updates', () => {
         },
       } as never);
     });
-    expect(screen.getAllByText('xin chào lạc quan')).toHaveLength(1);
+    expect(within(thread).getAllByText('xin chào lạc quan')).toHaveLength(1);
   });
 
   it('appends a realtime message from the peer and updates unread from conversation.updated', async () => {
@@ -799,5 +805,195 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
       expect(calls.filter((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}`).length).toBeGreaterThan(1),
     );
     expect(await within(thread).findByText('Tin nhắn đã được thu hồi.')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Spec lát M1 (issue #204) cho trang tin nhắn: (1) danh sách tự sắp
+ * xếp lại khi có hoạt động mới qua sự kiện realtime
+ * `conversation.updated` và hiện mốc thời gian tương đối của tin
+ * cuối; (2) nháp soạn tin giữ riêng theo từng conversation, gửi xong
+ * chỉ xoá nháp của conversation đó; (3) composer nhiều dòng — Enter
+ * gửi, Shift+Enter xuống dòng không gửi.
+ */
+const CONV_A = '01900000-0000-7000-8000-0000000000aa';
+const CONV_B = '01900000-0000-7000-8000-0000000000bb';
+
+function isoMinutesAgo(minutes: number): string {
+  return new Date(Date.now() - minutes * 60_000).toISOString();
+}
+
+/** Stub fetch cho lát M1: hai conversation có sẵn tin cuối, gửi tin trả bản đã lưu như server. */
+function stubFetchM1(calls: RecordedCall[]) {
+  const lastA = {
+    id: 'm-a1', conversationId: CONV_A, userIdFrom: OTHER_ID, fullMessage: 'tin A gần nhất',
+    createdAt: isoMinutesAgo(120), seq: 3, clientMessageId: null,
+  };
+  const lastB = {
+    id: 'm-b1', conversationId: CONV_B, userIdFrom: OTHER_ID, fullMessage: 'tin B gần nhất',
+    createdAt: isoMinutesAgo(30), seq: 4, clientMessageId: null,
+  };
+  const summaries = [
+    { id: CONV_A, type: 1, name: 'Hội thoại A', members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 3, lastMessageSeq: 3, lastMessage: lastA },
+    { id: CONV_B, type: 1, name: 'Hội thoại B', members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 4, lastMessageSeq: 4, lastMessage: lastB },
+  ];
+  let sentSeq = 100;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, method, body });
+      const respond = (payload: unknown) =>
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET') return respond(summaries);
+      if (url === `/api/v1/messages/conversations/${CONV_A}`)
+        return respond({ ...summaries[0], messages: [lastA], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/conversations/${CONV_B}`)
+        return respond({ ...summaries[1], messages: [lastB], hasMoreBefore: false, memberReadMarkers: [] });
+      const sendMatch = /^\/api\/v1\/messages\/conversations\/([^/]+)\/messages$/.exec(url);
+      if (sendMatch && method === 'POST') {
+        sentSeq += 1;
+        return respond({
+          id: `m-sent-${sentSeq}`,
+          conversationId: sendMatch[1],
+          userIdFrom: ME_ID,
+          fullMessage: (body as { text?: string })?.text ?? '',
+          createdAt: new Date().toISOString(),
+          seq: sentSeq,
+          clientMessageId: (body as { clientMessageId?: string })?.clientMessageId ?? null,
+        });
+      }
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      if (url === '/api/v1/messages/contacts') return respond({ contacts: [] });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [] });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+/** Thứ tự hiện tại của các nút conversation trong danh sách (theo tên). */
+function conversationOrder(): string[] {
+  return screen
+    .getAllByRole('button', { name: /Hội thoại [AB]/ })
+    .map((b) => (b.textContent ?? '').trim());
+}
+
+/** Thứ tự rút gọn của danh sách: mảng 'A'/'B' theo vị trí hiện tại. */
+function conversationOrderShort(): string[] {
+  return conversationOrder().map((s) => (s.startsWith('Hội thoại A') ? 'A' : 'B'));
+}
+
+describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, composer', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('hiện thời gian tương đối của tin cuối và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM1(calls);
+    renderMessages();
+
+    // Thứ tự ban đầu theo đúng đáp ứng của server: A trước, B sau.
+    await screen.findByRole('button', { name: /Hội thoại A/ });
+    expect(conversationOrderShort()).toEqual(['A', 'B']);
+    // Mốc thời gian tương đối của tin cuối: A 2 giờ trước, B 30 phút trước.
+    expect(screen.getByTestId(`conversation-last-time-${CONV_A}`)).toHaveTextContent('2 giờ trước');
+    expect(screen.getByTestId(`conversation-last-time-${CONV_B}`)).toHaveTextContent('30 phút trước');
+
+    // Tin mới tới B qua realtime: B lên đầu, xem trước và mốc thời
+    // gian đổi theo tin mới, số chưa đọc của B hiện theo sự kiện.
+    act(() => {
+      realtime.handlers?.onConversationUpdated({
+        conversationId: CONV_B,
+        message: {
+          id: 'm-b2', conversationId: CONV_B, userIdFrom: OTHER_ID, fullMessage: 'tin mới từ B',
+          createdAt: new Date().toISOString(), seq: 5, clientMessageId: null,
+        },
+        unreadCount: 1,
+      } as never);
+    });
+
+    await waitFor(() => expect(conversationOrderShort()).toEqual(['B', 'A']));
+    expect(screen.getByText('tin mới từ B')).toBeInTheDocument();
+    expect(screen.getByTestId(`conversation-last-time-${CONV_B}`)).toHaveTextContent('vừa xong');
+    expect(conversationOrder()[0]).toContain('(1 chưa đọc)');
+  });
+
+  it('giữ nháp riêng theo từng conversation và chỉ xoá nháp của conversation vừa gửi', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM1(calls);
+    renderMessages();
+
+    const composer = async () => (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await userEvent.type(await composer(), 'nháp của A');
+
+    // Sang B: composer trống; soạn nháp riêng của B.
+    await userEvent.click(screen.getByRole('button', { name: /Hội thoại B/ }));
+    expect((await composer()).value).toBe('');
+    await userEvent.type(await composer(), 'nháp của B');
+
+    // Quay lại A: nháp của A còn nguyên.
+    await userEvent.click(screen.getByRole('button', { name: /Hội thoại A/ }));
+    expect((await composer()).value).toBe('nháp của A');
+
+    // Gửi ở A: đúng nội dung nháp A được POST, composer của A trống.
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.url === `/api/v1/messages/conversations/${CONV_A}/messages`
+            && c.method === 'POST'
+            && (c.body as { text?: string })?.text === 'nháp của A',
+        ),
+      ).toBe(true),
+    );
+    expect((await composer()).value).toBe('');
+
+    // Nháp của B không bị lần gửi ở A đụng vào.
+    await userEvent.click(screen.getByRole('button', { name: /Hội thoại B/ }));
+    expect((await composer()).value).toBe('nháp của B');
+  });
+
+  it('composer nhiều dòng: Enter gửi tin, Shift+Enter xuống dòng không gửi', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM1(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    const composer = (await screen.findByLabelText('Nội dung tin nhắn')) as HTMLTextAreaElement;
+    // Composer là textarea nhiều dòng, không còn là input một dòng.
+    expect(composer.tagName).toBe('TEXTAREA');
+
+    await userEvent.type(composer, 'dòng một{shift>}{enter}{/shift}dòng hai');
+    expect(composer.value).toBe('dòng một\ndòng hai');
+    // Shift+Enter chỉ xuống dòng — chưa có lượt gửi nào.
+    expect(
+      calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV_A}/messages` && c.method === 'POST'),
+    ).toBe(false);
+
+    // Enter thường: gửi đúng cả hai dòng, composer trống sau gửi.
+    await userEvent.type(composer, '{enter}');
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) => c.url === `/api/v1/messages/conversations/${CONV_A}/messages`
+            && c.method === 'POST'
+            && (c.body as { text?: string })?.text === 'dòng một\ndòng hai',
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(composer.value).toBe(''));
   });
 });
