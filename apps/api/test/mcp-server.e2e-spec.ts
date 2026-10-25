@@ -188,14 +188,26 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(badToken.status).toBe(401);
   });
 
-  it('tools/list ở cả hai kỷ nguyên: đúng 5 tools', async () => {
+  it('tools/list ở cả hai kỷ nguyên: đúng danh mục tool hiện hành (5 của MCP-0 + 6 của MCP-1)', async () => {
+    // Danh mục tool là MỘT sổ đăng ký dùng chung cho cả hai kỷ
+    // nguyên (gác theo scope ở từng lần gọi, không gác theo kỷ
+    // nguyên): MCP-1 (issue #163) thêm create_questions_batch,
+    // create_stimulus_with_questions, publish_questions,
+    // search_questions, check_duplicates, search_curriculum_outcomes
+    // vào cùng danh mục 5 tool của MCP-0.
+    const EXPECTED_TOOLS = [
+      'check_duplicates', 'create_question', 'create_questions_batch',
+      'create_stimulus_with_questions', 'get_question', 'list_categories',
+      'list_my_banks', 'publish_questions', 'search_curriculum_outcomes',
+      'search_questions', 'submit_contribution',
+    ];
     const modern = await mcpCall(app, teacherA.token, 'tools/list', {});
     expect(modern.jsonrpcError).toBeUndefined();
     const modernList = await http(app).post('/mcp').set(bearer(teacherA.token))
       .set('MCP-Protocol-Version', '2026-07-28').set('Mcp-Method', 'tools/list')
       .send({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: { _meta: MODERN_META } });
     const modernNames = (parseMcpBody(modernList.text).result.tools as { name: string }[]).map((t) => t.name).sort();
-    expect(modernNames).toEqual(['create_question', 'get_question', 'list_categories', 'list_my_banks', 'submit_contribution']);
+    expect(modernNames).toEqual(EXPECTED_TOOLS);
     void modern;
 
     const init = await mcpCall(app, teacherA.token, 'initialize', {
@@ -206,7 +218,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
       .set('Accept', 'application/json, text/event-stream')
       .send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
     const legacyNames = (parseMcpBody(legacyList.text).result.tools as { name: string }[]).map((t) => t.name).sort();
-    expect(legacyNames).toEqual(['create_question', 'get_question', 'list_categories', 'list_my_banks', 'submit_contribution']);
+    expect(legacyNames).toEqual(EXPECTED_TOOLS);
   });
 
   it('list_my_banks + list_categories: bank personal có quyền add; học viên không có bank nào', async () => {

@@ -77,7 +77,8 @@ export const betterAuthVerification = pgTable('verification', {
  *
  * Điểm khác khuôn GĐ1: model `oauthClient` có HAI định danh tách
  * bạch theo khuôn generator của plugin — property `id` (khoá chính
- * nội bộ, text, Better Auth tự sinh) và property `clientId` ánh xạ
+ * nội bộ, text, PostgreSQL sinh bằng DEFAULT `gen_random_uuid()::text`
+ * vì instance chạy `generateId: false`) và property `clientId` ánh xạ
  * cột `client_id` (định danh công khai: UUID với DCR, URL với CIMD;
  * xem ADR-017). KHÔNG gộp `clientId` xuống cột `id`: schema check
  * của adapter Drizzle 1.7.12 nội quan schema theo tên property và
@@ -96,7 +97,7 @@ export const betterAuthJwks = pgTable('jwks', {
 });
 
 export const betterAuthOAuthClient = pgTable('oauth_client', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
   clientId: text('client_id').notNull().unique(),
   clientSecret: text('client_secret'),
   clientDiscoveryId: text('client_discovery_id'),

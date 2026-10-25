@@ -158,13 +158,22 @@ async function runAuthorizeFlow(
   cookie: string,
   clientId: string,
   scope: string,
+  options?: { offlineAccess?: boolean },
 ): Promise<TokenSet> {
+  // `offline_access` là scope GIAO THỨC phía AS (không phải scope
+  // quyền LMS): plugin oauth-provider CHỈ cấp refresh token khi
+  // authorize xin scope này (kiểm chứng trong dist 1.7.12) — luồng
+  // chính xin kèm để có refresh token mà xoay vòng. Access token
+  // mang offline_access trong claim scope (resource không ghim
+  // allowedScopes — xem better-auth.instance.ts); RS bỏ qua scope
+  // này khi gác theo tool.
+  const requestedScope = options?.offlineAccess ? `${scope} offline_access` : scope;
   const { verifier, challenge } = pkcePair();
   const authorizeParams = new URLSearchParams({
     client_id: clientId,
     redirect_uri: REDIRECT_URI,
     response_type: 'code',
-    scope,
+    scope: requestedScope,
     state: 'spec-state',
     code_challenge: challenge,
     code_challenge_method: 'S256',
@@ -177,28 +186,40 @@ async function runAuthorizeFlow(
     .redirects(0);
   expect(
     authorizeRes.status,
-    `authorize did not redirect to consent: ${authorizeRes.status} ${authorizeRes.text.slice(0, 300)}`,
+    `authorize did not redirect: ${authorizeRes.status} ${authorizeRes.text.slice(0, 300)}`,
   ).toBe(302);
   const location = authorizeRes.headers.location as string;
-  expect(location).toContain('/mcp-consent');
-  // Chuỗi query authorize đã ký mà AS gắn vào URL consent — gửi lại
-  // nguyên văn làm oauth_query (đúng cách trang web consent làm).
-  const consentUrl = new URL(location, ORIGIN);
-  const packed = consentUrl.searchParams.get('oauth_query');
-  const oauthQuery = packed ?? consentUrl.search.replace(/^\?/, '');
+  let callbackUrl: URL;
+  if (location.startsWith(REDIRECT_URI)) {
+    // AS BỎ QUA trang consent khi consent đã lưu của (user, client)
+    // bao phủ scope đang xin (kiểm chứng chạy thật: lượt authorize
+    // thứ hai cho cùng client chuyển thẳng về callback kèm code) —
+    // client thật phải chấp nhận cả hai hình redirect này.
+    callbackUrl = new URL(location);
+  } else {
+    expect(location).toContain('/mcp-consent');
+    // Chuỗi query authorize đã ký mà AS gắn vào URL consent — gửi lại
+    // nguyên văn làm oauth_query (đúng cách trang web consent làm):
+    // plugin đóng gói TOÀN BỘ query authorize vào một tham số
+    // `oauth_query` đã ký; trang consent không tự tách từng tham số.
+    const consentUrl = new URL(location, ORIGIN);
+    const packed = consentUrl.searchParams.get('oauth_query');
+    const oauthQuery = packed ?? consentUrl.search.replace(/^\?/, '');
 
-  const consentRes = await helpers
-    .http(app)
-    .post('/api/v1/auth/oauth2/consent')
-    .set('Cookie', cookie)
-    .set('Origin', ORIGIN)
-    .send({ accept: true, scope, oauth_query: oauthQuery });
-  expect(consentRes.status, `consent failed: ${consentRes.text.slice(0, 300)}`).toBe(200);
-  const redirectTarget = (consentRes.body as { url?: string }).url;
-  expect(redirectTarget, `consent response: ${JSON.stringify(consentRes.body).slice(0, 300)}`).toBeTruthy();
-  const callbackUrl = new URL(redirectTarget!);
+    const consentRes = await helpers
+      .http(app)
+      .post('/api/v1/auth/oauth2/consent')
+      .set('Cookie', cookie)
+      .set('Origin', ORIGIN)
+      .send({ accept: true, scope: requestedScope, oauth_query: oauthQuery });
+    expect(consentRes.status, `consent failed: ${consentRes.text.slice(0, 300)}`).toBe(200);
+    const redirectTarget = (consentRes.body as { url?: string }).url;
+    expect(redirectTarget, `consent response: ${JSON.stringify(consentRes.body).slice(0, 300)}`).toBeTruthy();
+    expect(redirectTarget!.startsWith(REDIRECT_URI), `consent did not return callback: ${redirectTarget!.slice(0, 300)}`).toBe(true);
+    callbackUrl = new URL(redirectTarget!);
+  }
   const code = callbackUrl.searchParams.get('code');
-  expect(code).toBeTruthy();
+  expect(code, `callback without code: ${callbackUrl.toString().slice(0, 300)}`).toBeTruthy();
 
   const tokenRes = await helpers
     .http(app)
@@ -240,7 +261,12 @@ async function registerClient(app: INestApplication, name: string): Promise<stri
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       token_endpoint_auth_method: 'none',
-      scope: ALL_SCOPES,
+      // Client đăng ký cả `offline_access`: authorize validate scope
+      // xin theo ĐÚNG tập scope client đã đăng ký (client.scopes của
+      // plugin), và refresh token chỉ được cấp khi offline_access
+      // nằm trong scope đã duyệt — client thật muốn phiên dài đều
+      // đăng ký như vậy.
+      scope: `${ALL_SCOPES} offline_access`,
     });
   expect(res.status, `DCR failed: ${res.text.slice(0, 400)}`).toBe(201);
   const clientId = (res.body as { client_id?: string }).client_id;
@@ -302,6 +328,13 @@ async function createAsApp(cimdFetch?: (input: unknown, init?: unknown) => Promi
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.useGlobalFilters(new ProblemDetailsFilter());
   await app.init();
+  // RS kiểm access token bằng JWKS lấy qua HTTP THẬT từ issuer
+  // (http://localhost:3100/api/v1/auth/jwks — đường
+  // createMcpProtectedRequestHandler của plugin): app phải NGHE ở
+  // đúng cổng của issuer thì fetch JWKS mới tới nơi; chỉ init +
+  // supertest in-process là JWKS fetch chết ECONNREFUSED và mọi
+  // tool call đều bị RS bác (kiểm chứng chạy thật lúc nối lại).
+  await app.listen(3100);
   return app;
 }
 
@@ -353,7 +386,7 @@ describe('MCP-1: máy chủ OAuth (AS) + RS + bộ tool mới (issue #163)', () 
     );
     cookie = await signInBetterAuth(app, teacherUsername);
     clientId = await registerClient(app, 'MCP AS spec client');
-    tokens = await runAuthorizeFlow(app, cookie, clientId, ALL_SCOPES);
+    tokens = await runAuthorizeFlow(app, cookie, clientId, ALL_SCOPES, { offlineAccess: true });
   });
 
   afterAll(async () => {
@@ -399,7 +432,12 @@ describe('MCP-1: máy chủ OAuth (AS) + RS + bộ tool mới (issue #163)', () 
     expect(claims.aud).toBe(RESOURCE);
     expect(claims.sub).toBe(teacherId);
     expect(claims.client_id).toBe(clientId);
-    expect(new Set((claims.scope as string).split(' '))).toEqual(new Set(ALL_SCOPES.split(' ')));
+    // Claim scope = 4 scope quyền + offline_access (scope giao thức
+    // đi kèm để vòng đời refresh token xoay vòng được — xem
+    // better-auth.instance.ts mục resources).
+    expect(new Set((claims.scope as string).split(' '))).toEqual(
+      new Set([...ALL_SCOPES.split(' '), 'offline_access']),
+    );
     expect((claims.exp as number) - (claims.iat as number)).toBe(3600);
     expect(tokens.expiresIn).toBe(3600);
     expect(tokens.refreshToken).toBeTruthy();
@@ -839,9 +877,20 @@ describe('MCP-1: luồng CIMD — client_id là URL tài liệu metadata (issue 
     await new Promise<void>((resolve) => metadataServer.listen(0, '127.0.0.1', resolve));
     const address = metadataServer.address();
     if (!address || typeof address === 'string') throw new Error('metadata server has no port');
-    clientUrl = `http://127.0.0.1:${address.port}/client.json`;
+    // Plugin CIMD 1.7.12 CHỈ phân giải client_id là URL HTTPS trỏ
+    // host CÔNG KHAI (validateClientIdUrl chặn https-thiếu/loopback/
+    // private ở tầng chính sách TRƯỚC cả fetch, kiểm chứng trong
+    // dist) — client_id vì thế là một URL https trên tên miền công
+    // khai dạng văn bản; fetch tiêm riêng ÁNH XẠ URL đó về metadata
+    // server loopback của spec (tài liệu vẫn do server tí hon này
+    // phục vụ, client_id trong tài liệu khớp URL https).
+    clientUrl = 'https://mcp-cimd-spec.example.com/client.json';
+    const localMetadataUrl = `http://127.0.0.1:${address.port}/client.json`;
 
-    app = await createAsApp((input, init) => fetch(input as never, init as never));
+    app = await createAsApp((input, init) => {
+      if (String(input) === clientUrl) return fetch(localMetadataUrl, init as never);
+      return fetch(input as never, init as never);
+    });
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
     const adminLegacy = await helpers.adminToken(app);

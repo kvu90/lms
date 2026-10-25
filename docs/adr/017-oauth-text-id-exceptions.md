@@ -19,12 +19,17 @@ lý: `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`,
 sinh.
 
 ## Quyết định
-Cho phép đúng HAI cột khoá chính dạng `text`, không có default phía
-DB, là ngoại lệ tường minh của ADR-013:
+Cho phép đúng HAI cột khoá chính dạng `text` dưới đây là ngoại lệ
+tường minh của ADR-013:
 
 1. **`oauth_client.id`** — khoá chính NỘI BỘ của dòng client, dạng
-   `text`, do Better Auth tự sinh lúc ghi (DB không sinh, không
-   default). Bảng mang thêm một cột **`client_id`** `text` riêng
+   `text`, do PostgreSQL sinh lúc ghi bằng
+   `DEFAULT gen_random_uuid()::text`. (Instance chạy
+   `generateId: false` theo khuôn GĐ1 nên Better Auth không tự sinh
+   id; adapter chèn placeholder DEFAULT cho cột này — không có
+   DEFAULT ở DB thì insert chết 23502, kiểm chứng ở e2e
+   `mcp-as-oauth` lúc nối lại MCP-1. Giá trị chỉ là khoá nội bộ,
+   không mang ngữ nghĩa.) Bảng mang thêm một cột **`client_id`** `text` riêng
    (unique, not null) chứa định danh CÔNG KHAI của client: chuỗi
    dạng UUID với client đăng ký động (DCR), và — bản chất của CIMD
    (Client ID Metadata Document, hồ sơ MCP 2026-07-28) — chính URL

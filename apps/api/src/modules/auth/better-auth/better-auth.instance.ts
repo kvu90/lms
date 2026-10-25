@@ -130,11 +130,28 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
               loginPage: mcpAs.loginPage,
               consentPage: mcpAs.consentPage,
               resource: mcpAs.resource,
-              scopes: [...MCP_OAUTH_SCOPES],
+              // Scope của AS = 4 scope quyền của resource + scope
+              // giao thức `offline_access` (plugin bắt scope này nằm
+              // trong danh sách của AS thì client mới đăng ký/ xin
+              // được nó; metadata của RESOURCE tự lọc các scope
+              // phía-AS ra nên PRM vẫn chỉ quảng bá 4 scope quyền).
+              scopes: [...MCP_OAUTH_SCOPES, 'offline_access'],
               resources: [
                 {
                   identifier: mcpAs.resource,
-                  allowedScopes: [...MCP_OAUTH_SCOPES],
+                  // CỐ Ý không ghim allowedScopes cho resource:
+                  // plugin tính effectiveScopes bằng phép giao với
+                  // allowedScopes, làm scope giao thức offline_access
+                  // bị tước khỏi scope LƯU trên refresh token → ở
+                  // grant refresh, plugin không còn căn cứ cấp token
+                  // xoay vòng (kiểm chứng dist + DB ở e2e MCP-1:
+                  // refresh chỉ trả access token mới, token cũ không
+                  // bị thu hồi). Bỏ allowedScopes thì trần scope của
+                  // resource vẫn do danh sách scope của AS (đúng 4
+                  // scope quyền + offline_access) và scope client đã
+                  // đăng ký gác; đổi lại access token mang thêm
+                  // offline_access trong claim scope — RS bỏ qua
+                  // scope không thuộc bộ tool.
                   accessTokenTtl: MCP_ACCESS_TOKEN_TTL_SECONDS,
                 },
               ],
@@ -145,6 +162,14 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
               allowDynamicClientRegistration: true,
               allowUnauthenticatedClientRegistration: true,
               clientRegistrationDefaultApplicationType: 'infer',
+              // `offline_access` là scope GIAO THỨC phía AS, không
+              // phải scope quyền của resource /mcp: plugin chỉ cho
+              // client đăng ký scope này khi AS khai tường minh tại
+              // đây, và chỉ cấp refresh token khi authorize xin nó
+              // (cơ chế oauth-provider 1.7.12 — kiểm chứng trong
+              // dist + e2e mcp-as-oauth; thiếu khai này thì DCR của
+              // client xin phiên dài chết invalid_scope ngay).
+              clientRegistrationAllowedScopes: ['offline_access'],
             }),
             cimd({
               fetchClientMetadataResource: mcpAs.cimdFetch ?? defaultCimdFetch,

@@ -179,8 +179,12 @@ export const authTwoFactor = pgTable('two_factor', {
  *
  * HAI ngoại lệ định danh có chủ đích (ADR-017, allowlist tường minh
  * trong spec uuidv7):
- * - `oauth_client.id` là TEXT: khoá chính NỘI BỘ của dòng client do
- *   Better Auth tự sinh lúc ghi (không qua DB). Bảng còn một cột
+ * - `oauth_client.id` là TEXT: khoá chính NỘI BỘ của dòng client,
+ *   PostgreSQL sinh lúc ghi bằng `DEFAULT gen_random_uuid()::text`
+ *   (instance chạy `generateId: false` theo khuôn GĐ1 — id do DB
+ *   sinh; adapter chèn placeholder DEFAULT cho cột này, không có
+ *   DEFAULT ở DB là insert chết 23502, bằng chứng e2e lúc nối lại).
+ *   Bảng còn một cột
  *   `client_id` TEXT riêng (unique, not null) chứa định danh CÔNG
  *   KHAI của client — chuỗi dạng UUID với client DCR, và chính URL
  *   tài liệu metadata với client CIMD — nên không cột nào trong hai
@@ -212,12 +216,13 @@ export const authJwks = pgTable('jwks', {
  * Client OAuth đã đăng ký (model `oauthClient`) — một dòng cho client
  * DCR (client_id ngẫu nhiên) lẫn client CIMD (client_id = URL). Hai
  * định danh tách bạch theo khuôn generator của plugin: `id` TEXT là
- * khoá chính nội bộ do Better Auth tự sinh; `client_id` TEXT (unique)
+ * khoá chính nội bộ do PostgreSQL sinh (`gen_random_uuid()::text`);
+ * `client_id` TEXT (unique)
  * là định danh công khai mà các bảng oauth_* khác tham chiếu qua
  * field `clientId` (xem ngoại lệ ADR-017 phía trên).
  */
 export const oauthClient = pgTable('oauth_client', {
-  id: text('id').primaryKey(),
+  id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
   clientId: text('client_id').notNull().unique(),
   clientSecret: text('client_secret'),
   clientDiscoveryId: text('client_discovery_id'),
