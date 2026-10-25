@@ -1,18 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
-import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
-import { Badge } from '@lms/ui/components/badge';
-import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
-import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Textarea } from '@lms/ui/components/textarea';
-import {
-  Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader,
-} from '@lms/ui/components/message';
-import {
-  MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem,
-  MessageScrollerProvider, MessageScrollerViewport,
-} from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import '../i18n';
@@ -21,153 +8,19 @@ import { apiJson, ApiError } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '#lib/messaging-socket';
 import { queryKeys } from '#lib/query-keys';
-
-/**
- * Đếm ký tự người dùng thấy (grapheme) của nháp — CÙNG cách đếm với
- * trần phía server (lát M2, issue #212) để bộ đếm ở composer không
- * lệch với cổng 400 `messaging.message_too_long`: emoji ghép và chữ
- * kèm dấu tổ hợp tính là một ký tự, không đếm đơn vị UTF-16.
- */
-function countMessageCharacters(text: string): number {
-  const SegmenterCtor = (Intl as unknown as {
-    Segmenter?: new (locales?: string, options?: { granularity: 'grapheme' }) => {
-      segment(input: string): Iterable<unknown>;
-    };
-  }).Segmenter;
-  if (SegmenterCtor) {
-    const segmenter = new SegmenterCtor(undefined, { granularity: 'grapheme' });
-    let count = 0;
-    for (const _segment of segmenter.segment(text)) count += 1;
-    return count;
-  }
-  return [...text].length;
-}
-
-interface MessageView {
-  id: string;
-  conversationId: string;
-  userIdFrom: string;
-  fullMessage: string;
-  createdAt: string;
-  seq: number;
-  clientMessageId: string | null;
-  /**
-   * Dấu vết xoá mềm (Lớp B, issue #33): tin đã xoá chỉ còn xuất hiện
-   * trong cửa sổ của người có thẩm quyền kiểm duyệt; phía học sinh
-   * không bao giờ nhận được tin có hai trường này khác null.
-   */
-  deletedAt?: string | null;
-  deletedBy?: string | null;
-  /**
-   * Dấu vết THU HỒI (vòng đời tin nhắn theo vai, issue #33): đường đọc
-   * thường trả nội dung rỗng kèm hai trường này để hiện dòng "tin nhắn
-   * đã được thu hồi"; chỉ đường truy vết có thẩm quyền mới thấy nội
-   * dung gốc.
-   */
-  recalledAt?: string | null;
-  recalledBy?: string | null;
-  /** Trạng thái cục bộ của tin gửi lạc quan; tin từ server không có trường này. */
-  localStatus?: 'sending' | 'failed';
-}
-/** Tóm tắt hiển thị của một user do API trả kèm (tên thật thay cho UUID thô). */
-interface PersonSummary {
-  userId: string;
-  displayName: string;
-  username: string;
-}
-/** Trạng thái quan hệ của một người so với chính mình. */
-type ContactRelationship = 'contact' | 'pending_incoming' | 'pending_outgoing' | 'blocked' | 'none';
-/** Một khoá tôi thuộc về — đầu vào của luồng tìm bạn theo khoá (GET /messages/courses). */
-interface MessagingCourse {
-  courseId: string;
-  fullName: string;
-  shortName: string;
-}
-/** Một dòng roster thành viên khoá (GET /messages/courses/:id/members). */
-interface RosterMember extends PersonSummary {
-  role: 'teacher' | 'student';
-  relationship: ContactRelationship;
-  /**
-   * GV của khoá nhắn riêng trực tiếp được với thành viên này (đang
-   * ghi danh) không cần kết bạn — ngoại lệ chốt 25/10/2026 trên
-   * issue #33; API kèm cờ này thì hiện nút "Nhắn tin" tại dòng.
-   */
-  canDirectMessage?: boolean;
-}
-/** Một yêu cầu kết bạn trong hàng chờ: API đã kèm tên hiển thị của phía kia. */
-interface ContactRequestView {
-  userId: string;
-  createdAt: string;
-  displayName?: string;
-  username?: string;
-}
-interface ConversationView {
-  id: string;
-  type: number;
-  name: string | null;
-  members: string[];
-  /** Tên hiển thị của từng thành viên (API trả kèm) — client tra tên từ đây. */
-  memberProfiles?: Record<string, PersonSummary>;
-  unread?: number;
-  lastReadSeq?: number;
-  lastMessageSeq?: number;
-  lastMessage?: MessageView | null;
-  /** Chat đang bật hay không — giáo viên tắt được (Lớp B); vắng mặt coi như đang bật. */
-  enabled?: boolean;
-  createdBy?: string | null;
-  /** Thẩm quyền của CHÍNH user trên conversation (chỉ chi tiết conversation mới mang): kiểm duyệt / quản lý. */
-  canModerate?: boolean;
-  canManage?: boolean;
-}
-/** Chi tiết conversation theo API: conversation kèm một cửa sổ tin + mốc đã đọc của từng thành viên. */
-interface ConversationDetailView extends ConversationView {
-  messages: MessageView[];
-  hasMoreBefore?: boolean;
-  memberReadMarkers?: { userId: string; lastReadSeq: number }[];
-}
-
-/** Gộp tin vào danh sách hiện có: chống trùng theo id và clientMessageId, sắp theo seq (tin lạc quan chưa có seq thật nằm cuối). */
-/**
- * Mốc thời gian tương đối của tin cuối trong danh sách conversation
- * (lát M1, issue #204 — cùng khuôn và cùng khoá i18n với trang thông
- * báo): "vừa xong", "{{count}} phút/giờ/ngày trước"; quá một tuần thì
- * in ngày giờ cụ thể.
- */
-function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknown>) => string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  if (diffMs < 60_000) return t('justNow');
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 60) return t('minutesAgo', { count: minutes });
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return t('hoursAgo', { count: hours });
-  const days = Math.floor(hours / 24);
-  if (days < 7) return t('daysAgo', { count: days });
-  return new Date(iso).toLocaleString();
-}
-
-/** Hai chữ cái đầu của tên hiển thị — nội dung AvatarFallback. */
-function initialsOf(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-function mergeMessages(existing: MessageView[], incoming: MessageView[]): MessageView[] {
-  const byId = new Map<string, MessageView>();
-  for (const m of existing) byId.set(m.id, m);
-  for (const m of incoming) {
-    // Tin lạc quan của chính lần gửi này đã được server xác nhận: bỏ
-    // bản tạm, dùng bản thật (khớp theo clientMessageId).
-    if (m.clientMessageId) {
-      for (const [id, local] of byId) {
-        if (local.localStatus && local.clientMessageId === m.clientMessageId) byId.delete(id);
-      }
-    }
-    byId.set(m.id, m);
-  }
-  return [...byId.values()].sort((a, b) => (a.seq || Number.MAX_SAFE_INTEGER) - (b.seq || Number.MAX_SAFE_INTEGER));
-}
+import { ChatPanel } from '../components/messages/chat-panel';
+import { ConversationSidebar } from '../components/messages/conversation-sidebar';
+import type {
+  ContactRelationship,
+  ContactRequestView,
+  ConversationDetailView,
+  ConversationView,
+  MessageView,
+  MessagingCourse,
+  PersonSummary,
+  RosterMember,
+} from '../components/messages/types';
+import { countMessageCharacters, mergeMessages } from '../components/messages/utils';
 
 /**
  * Messages: conversation list with unread count, message thread and
@@ -859,376 +712,62 @@ export function MessagesPage() {
 
   return (
     <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {error ? <p role="alert">{error}</p> : null}
-          <ul className="space-y-1">
-            {conversations.map((c) => (
-              <li key={c.id}>
-                <Button
-                  type="button"
-                  variant={active?.id === c.id ? 'default' : 'outline'}
-                  onClick={() => void open(c)}
-                >
-                  {c.name ?? t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') })}
-                  {(c.unread ?? 0) > 0 ? t('unreadSuffix', { count: c.unread }) : ''}
-                </Button>
-                {c.lastMessage ? (
-                  <p className="flex items-baseline gap-2 text-xs text-muted-foreground">
-                    <span className="truncate">{c.lastMessage.fullMessage}</span>
-                    <span className="shrink-0" data-testid={`conversation-last-time-${c.id}`}>
-                      {relativeTime(c.lastMessage.createdAt, t)}
-                    </span>
-                  </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          <div className="space-y-2">
-            <h3 className="font-medium">{t('findFriendsTitle')}</h3>
-            <p className="text-sm text-muted-foreground">{t('findFriendsHint')}</p>
-            {myCourses.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('myCoursesEmpty')}</p>
-            ) : (
-              <ul className="space-y-1">
-                {myCourses.map((c) => (
-                  <li key={c.courseId}>
-                    <Button
-                      type="button"
-                      variant={rosterCourseId === c.courseId ? 'default' : 'outline'}
-                      onClick={() => void openRoster(c.courseId)}
-                    >
-                      {c.fullName}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {rosterError ? <p role="alert">{rosterError}</p> : null}
-            {rosterCourseId ? (
-              rosterMembers.length > 0 ? (
-                <ul className="space-y-1">
-                  {rosterMembers.map((m) => (
-                    <li key={m.userId} data-testid={`roster-member-${m.userId}`} className="flex items-center gap-2">
-                      <Avatar>
-                        <AvatarFallback>{initialsOf(m.displayName)}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm">
-                        {m.displayName} <span className="text-muted-foreground">@{m.username}</span>
-                      </span>
-                      <Badge variant="secondary">
-                        {m.role === 'teacher' ? t('rosterTeacher') : t('rosterStudent')}
-                      </Badge>
-                      {m.canDirectMessage && m.relationship !== 'contact' ? (
-                        <Button type="button" variant="outline" onClick={() => void messageContact(m.userId)}>
-                          {t('messageWithContact')}
-                        </Button>
-                      ) : null}
-                      {m.relationship === 'none' ? (
-                        <Button type="button" variant="outline" onClick={() => void sendContactRequestTo(m.userId)}>
-                          {t('addContact')}
-                        </Button>
-                      ) : null}
-                      {m.relationship === 'pending_outgoing' ? (
-                        <span className="text-sm text-muted-foreground">{t('contactRequestPendingSuffix')}</span>
-                      ) : null}
-                      {m.relationship === 'pending_incoming' ? (
-                        <>
-                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(m.userId, 'accept')}>
-                            {t('acceptContactRequest')}
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => void respondContactRequest(m.userId, 'decline')}>
-                            {t('declineContactRequest')}
-                          </Button>
-                        </>
-                      ) : null}
-                      {m.relationship === 'contact' ? (
-                        <Button type="button" variant="outline" onClick={() => void messageContact(m.userId)}>
-                          {t('messageWithContact')}
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('rosterEmpty')}</p>
-              )
-            ) : null}
-            {rosterCourseId && rosterCursor ? (
-              <Button type="button" variant="outline" onClick={() => void loadMoreRoster()}>
-                {t('rosterLoadMore')}
-              </Button>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-medium">{t('contactsTitle')}</h3>
-            {contactMessage ? <p role="status">{contactMessage}</p> : null}
-            <ul className="space-y-1">
-              {contacts.map((userId) => (
-                <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-2">
-                  <span className="text-sm">{nameOf(userId)}</span>
-                  <Button type="button" variant="outline" onClick={() => void messageContact(userId)}>
-                    {t('messageWithContact')}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            {contacts.length === 0 ? <p className="text-sm text-muted-foreground">{t('noContacts')}</p> : null}
-            {incomingRequests.length > 0 ? (
-              <>
-                <h4 className="text-sm font-medium">{t('incomingRequestsTitle')}</h4>
-                <ul className="space-y-1">
-                  {incomingRequests.map((r) => (
-                    <li key={r.userId} data-testid={`incoming-request-${r.userId}`} className="flex items-center gap-2">
-                      <span className="text-sm">{r.displayName ?? nameOf(r.userId)}</span>
-                      <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'accept')}>
-                        {t('acceptContactRequest')}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'decline')}>
-                        {t('declineContactRequest')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-            {outgoingRequests.length > 0 ? (
-              <>
-                <h4 className="text-sm font-medium">{t('outgoingRequestsTitle')}</h4>
-                <ul className="space-y-1">
-                  {outgoingRequests.map((r) => (
-                    <li key={r.userId} className="text-sm">
-                      {r.displayName ?? nameOf(r.userId)} {t('contactRequestPendingSuffix')}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-medium">{t('blockedContactsTitle')}</h3>
-            {blockMessage ? <p role="status">{blockMessage}</p> : null}
-            <ul className="space-y-1">
-              {blocked.map((userId) => (
-                <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-2">
-                  <span className="text-sm">{nameOf(userId)}</span>
-                  <Button type="button" variant="outline" onClick={() => void unblockContact(userId)}>
-                    {t('unblockContact')}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            {blocked.length === 0 ? <p className="text-sm text-muted-foreground">{t('noBlockedContacts')}</p> : null}
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>{active ? (active.name ?? t('conversationFallback')) : t('selectConversation')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {active ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                {active.members
-                  .filter((memberId) => memberId !== user?.id)
-                  .map((memberId) => (
-                    <span key={memberId} className="flex items-center gap-2">
-                      {onlineUsers[memberId] ? (
-                        <span className="text-xs text-muted-foreground">● {t('onlineNow')}</span>
-                      ) : null}
-                      {blocked.includes(memberId) ? (
-                        <span className="flex items-center gap-2 text-sm">
-                          {nameOf(memberId)} {t('blockedSuffix')}
-                          <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>
-                            {t('unblockContact')}
-                          </Button>
-                        </span>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void blockContact(memberId)}
-                        >
-                          {t('blockContact')}
-                        </Button>
-                      )}
-                    </span>
-                  ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" onClick={() => void reportActiveConversation()}>
-                  {t('reportConversation')}
-                </Button>
-                {active.canManage ? (
-                  <Button type="button" variant="outline" onClick={() => void toggleActiveChat()}>
-                    {(active.enabled ?? true) ? t('disableChat') : t('enableChat')}
-                  </Button>
-                ) : null}
-                {reportMessage ? <p role="status">{reportMessage}</p> : null}
-                {actionMessage ? <p role="alert">{actionMessage}</p> : null}
-              </div>
-              {hasMoreBefore ? (
-                <Button type="button" variant="outline" onClick={() => void loadOlder()}>
-                  {t('loadOlderMessages')}
-                </Button>
-              ) : null}
-              {active.canModerate && selectedForBulk.size > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('bulkSelectedCount', { count: selectedForBulk.size })}</span>
-                  <Button type="button" variant="destructive" onClick={() => void bulkRemoveSelected()}>
-                    {t('bulkRemoveMessages')}
-                  </Button>
-                </div>
-              ) : null}
-              <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
-                <MessageScroller className="h-[30rem] rounded-md border">
-                  <MessageScrollerViewport aria-label={t('messagesListLabel')}>
-                    <MessageScrollerContent className="gap-4 p-4">
-                      {visibleMessages.map((m) => {
-                        const mine = m.userIdFrom === myId;
-                        return (
-                          <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={mine}>
-                            <Message align={mine ? 'end' : 'start'}>
-                              <MessageAvatar>
-                                <Avatar>
-                                  <AvatarFallback>{initialsOf(nameOf(m.userIdFrom))}</AvatarFallback>
-                                </Avatar>
-                              </MessageAvatar>
-                              <MessageContent>
-                                {!mine ? <MessageHeader>{nameOf(m.userIdFrom)}</MessageHeader> : null}
-                                <Bubble
-                                  variant={m.deletedAt || m.recalledAt ? 'destructive' : mine ? 'default' : 'muted'}
-                                  align={mine ? 'end' : 'start'}
-                                >
-                                  <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
-                                </Bubble>
-                                <MessageFooter className="flex-wrap gap-2">
-                                  <span>{new Date(m.createdAt).toLocaleString()}</span>
-                                  {m.deletedAt ? (
-                                    <span className="italic">
-                                      {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
-                                    </span>
-                                  ) : null}
-                                  {m.recalledAt ? (
-                                    <span className="italic">
-                                      {t('messageRecalledBy', { userId: m.recalledBy ? nameOf(m.recalledBy) : '' })}
-                                    </span>
-                                  ) : null}
-                                  {m.localStatus === 'sending' ? <span>{t('messageSending')}</span> : null}
-                                  {m.localStatus === 'failed' ? (
-                                    <span className="flex items-center gap-2">
-                                      <span>{t('messageSendFailed')}</span>
-                                      <Button type="button" variant="outline" onClick={() => void retrySend(m)}>
-                                        {t('retrySend')}
-                                      </Button>
-                                    </span>
-                                  ) : null}
-                                  {!m.deletedAt && !m.localStatus && m.userIdFrom === myId ? (
-                                    <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
-                                      {t('deleteMessage')}
-                                    </Button>
-                                  ) : null}
-                                  {canRecall(m) ? (
-                                    <Button type="button" variant="outline" onClick={() => void recallMessage(m)}>
-                                      {t('recallMessage')}
-                                    </Button>
-                                  ) : null}
-                                  {active.canModerate && !m.localStatus ? (
-                                    <>
-                                      <input
-                                        type="checkbox"
-                                        aria-label={t('selectMessageForBulk')}
-                                        checked={selectedForBulk.has(m.id)}
-                                        onChange={() => setSelectedForBulk((prev) => {
-                                          const next = new Set(prev);
-                                          if (next.has(m.id)) next.delete(m.id);
-                                          else next.add(m.id);
-                                          return next;
-                                        })}
-                                      />
-                                      <Button type="button" variant="destructive" onClick={() => void hardDeleteMessage(m)}>
-                                        {t('hardDeleteMessage')}
-                                      </Button>
-                                    </>
-                                  ) : null}
-                                </MessageFooter>
-                              </MessageContent>
-                            </Message>
-                          </MessageScrollerItem>
-                        );
-                      })}
-                    </MessageScrollerContent>
-                  </MessageScrollerViewport>
-                  <MessageScrollerButton />
-                </MessageScroller>
-              </MessageScrollerProvider>
-              {seenByAllOthers ? (
-                <p data-testid="seen-status" className="text-xs text-muted-foreground">{t('seenByMembers')}</p>
-              ) : null}
-              {typingNames.map((userId) => (
-                <p key={userId} data-testid="typing-indicator" className="text-xs text-muted-foreground">
-                  {t('typingIndicator', { userId: nameOf(userId) })}
-                </p>
-              ))}
-              {active.enabled === false && !active.canManage ? (
-                <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledNotice')}</p>
-              ) : (
-                <>
-                  {active.enabled === false ? (
-                    <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
-                  ) : null}
-                  <form onSubmit={(e) => void send(e)} className="flex gap-2">
-                    <Textarea
-                      aria-label={t('messageText')}
-                      value={draft}
-                      onChange={(e) => {
-                        // Nháp ghi theo conversation đang mở (lát M1,
-                        // issue #204) — soạn dở ở conversation này
-                        // không lẫn sang conversation khác.
-                        setDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
-                        noteTyping();
-                      }}
-                      onKeyDown={(e) => {
-                        // Enter gửi, Shift+Enter xuống dòng (lát M1,
-                        // issue #204) — ngữ nghĩa chuẩn app nhắn tin
-                        // cho composer nhiều dòng.
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          e.currentTarget.form?.requestSubmit();
-                        }
-                      }}
-                    />
-                    <Button type="submit">{t('send')}</Button>
-                  </form>
-                  <div className="flex items-center justify-between gap-2">
-                    {sendError ? (
-                      <p role="alert" className="text-sm text-destructive">{sendError}</p>
-                    ) : (
-                      <span />
-                    )}
-                    <p
-                      data-testid="message-char-count"
-                      className={countMessageCharacters(draft) > MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT
-                        ? 'text-xs text-destructive'
-                        : 'text-xs text-muted-foreground'}
-                    >
-                      {countMessageCharacters(draft)}/{MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT}
-                    </p>
-                  </div>
-                </>
-              )}
-            </>
-          ) : (
-            <p>{t('pickConversation')}</p>
-          )}
-        </CardContent>
-      </Card>
+      <ConversationSidebar
+        conversations={conversations}
+        active={active}
+        unread={unread}
+        error={error}
+        onOpenConversation={open}
+        nameOf={nameOf}
+        myCourses={myCourses}
+        rosterCourseId={rosterCourseId}
+        rosterMembers={rosterMembers}
+        rosterError={rosterError}
+        rosterCursor={rosterCursor}
+        onOpenRoster={openRoster}
+        onLoadMoreRoster={loadMoreRoster}
+        onMessageContact={messageContact}
+        onSendContactRequest={sendContactRequestTo}
+        onRespondContactRequest={respondContactRequest}
+        contacts={contacts}
+        contactMessage={contactMessage}
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        blocked={blocked}
+        blockMessage={blockMessage}
+        onUnblockContact={unblockContact}
+      />
+      <ChatPanel
+        active={active}
+        myId={myId}
+        onlineUsers={onlineUsers}
+        blocked={blocked}
+        onUnblockContact={unblockContact}
+        onBlockContact={blockContact}
+        onReportConversation={reportActiveConversation}
+        onToggleChat={toggleActiveChat}
+        reportMessage={reportMessage}
+        actionMessage={actionMessage}
+        hasMoreBefore={hasMoreBefore}
+        onLoadOlder={loadOlder}
+        selectedForBulk={selectedForBulk}
+        setSelectedForBulk={setSelectedForBulk}
+        onBulkRemove={bulkRemoveSelected}
+        visibleMessages={visibleMessages}
+        nameOf={nameOf}
+        onRetrySend={retrySend}
+        onDeleteMessage={deleteMessage}
+        canRecall={canRecall}
+        onRecallMessage={recallMessage}
+        onHardDeleteMessage={hardDeleteMessage}
+        seenByAllOthers={seenByAllOthers}
+        typingNames={typingNames}
+        draft={draft}
+        setDrafts={setDrafts}
+        onNoteTyping={noteTyping}
+        onSend={send}
+        sendError={sendError}
+      />
     </main>
   );
 }

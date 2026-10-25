@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import {
-  COURSE_CONTENT_TYPES,
-  type Course, type CourseContent, type CourseGroup, type CourseGrouping, type GradeItem,
+import type {
+  Course, CourseContent, CourseGroup, CourseGrouping, GradeItem,
 } from '@lms/contracts';
-import { AvailabilityEditor } from '#components/availability-editor';
 import { CurriculumFramePanel, BookFramePanel } from '#components/curriculum-frame-panel';
-import { Badge } from '@lms/ui/components/badge';
-import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { fetchItems, insertItem, type LibraryItem } from '#lib/content-bank';
 import { usePermissions } from '#lib/permissions';
+import { CompletionCard } from '../components/course-builder/completion-card';
+import { CourseInfoCard } from '../components/course-builder/course-info-card';
+import { ImportCard } from '../components/course-builder/import-card';
+import { OutlineCard } from '../components/course-builder/outline-card';
+import { statusChoiceOf, type ItemStatusChoice } from '../components/course-builder/utils';
 
 /**
  * Builder Outline (K1 — issue #68): trang xây dựng khoá học RIÊNG,
@@ -31,48 +30,6 @@ import { usePermissions } from '#lib/permissions';
  * và tiêu chí hoàn thành khoá. Quyền: teaching của khoá hoặc quản trị
  * hệ thống — API vẫn thực thi capability thật cho từng thao tác ghi.
  */
-type ItemStatusChoice = 'draft' | 'open' | 'scheduled';
-
-function statusChoiceOf(visible: boolean, openAt: string | null | undefined): ItemStatusChoice {
-  if (!visible) return 'draft';
-  return openAt ? 'scheduled' : 'open';
-}
-
-function moveItem<T>(items: T[], from: number, to: number): T[] {
-  const next = [...items];
-  const [moved] = next.splice(from, 1);
-  next.splice(to, 0, moved!);
-  return next;
-}
-
-/** Key i18n nhãn loại học liệu của Kho (CB-1) — dùng chung catalog platform với trang kho. */
-function bankTypeKey(resourceType: string): string {
-  return resourceType === 'multimedia_lecture'
-    ? 'platform:libraryTypeMultimediaLecture'
-    : resourceType === 'lab_guide'
-      ? 'platform:libraryTypeLabGuide'
-      : resourceType === 'simulation'
-        ? 'platform:libraryTypeSimulation'
-        : resourceType === 'question_set'
-          ? 'platform:libraryTypeQuestionSet'
-          : 'platform:libraryTypeReference';
-}
-
-/** Key i18n nhãn phạm vi (không gian) của học liệu trong Kho. */
-function bankScopeKey(scope: string): string {
-  return scope === 'org' ? 'platform:libraryScopeOrg' : scope === 'school' ? 'platform:libraryScopeSchool' : 'platform:libraryScopePersonal';
-}
-
-/**
- * Học liệu cắm được vào khoá: mọi học liệu trừ bộ câu hỏi THAM CHIẾU
- * (`question_set` không có file — chỉ tham chiếu Ngân hàng câu hỏi),
- * khớp đúng cổng ở endpoint insert của CB-1
- * (`contentbank.question_set_not_insertable`).
- */
-function bankItemInsertable(item: LibraryItem): boolean {
-  return !(item.resourceType === 'question_set' && !item.fileId);
-}
-
 export function CourseBuilderPage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
@@ -583,60 +540,29 @@ export function CourseBuilderPage() {
 
   return (
     <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('courseBuilder')}</CardTitle>
-          <CardDescription>{t('courseBuilderDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadError ? <p role="alert">{loadError}</p> : null}
-          {course ? (
-            <form onSubmit={(e) => void saveCourse(e)} className="space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="builder-fullname">{t('courseFullName')}</Label>
-                <Input id="builder-fullname" value={fullName} onChange={(e) => setFullname(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="builder-shortname">{t('courseShortName')}</Label>
-                <Input id="builder-shortname" value={shortName} onChange={(e) => setShortname(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="builder-category">{t('courseCategory')}</Label>
-                <Input id="builder-category" value={courseCategory} onChange={(e) => setCourseCategory(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="builder-summary">{t('courseSummary')}</Label>
-                <Input id="builder-summary" value={summary} onChange={(e) => setSummary(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="builder-startdate">{t('courseStartDate')}</Label>
-                <Input id="builder-startdate" type="date" value={startDate} onChange={(e) => setStartdate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="builder-enddate">{t('courseEndDate')}</Label>
-                <Input id="builder-enddate" type="date" value={endDate} onChange={(e) => setEnddate(e.target.value)} />
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={courseVisible} onChange={(e) => setCourseVisible(e.target.checked)} />
-                {t('courseVisible')}
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={isTemplate} onChange={(e) => setIsTemplate(e.target.checked)} />
-                {t('builderIsTemplate')}
-              </label>
-              <div className="flex gap-2">
-                <Button type="submit">{t('saveCourse')}</Button>
-                <Link className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-transparent px-4 text-sm font-medium" to={`/courses/${courseId}/admin`}>{t('builderToAdmin')}</Link>
-              </div>
-            </form>
-          ) : null}
-          {message ? (
-            <p role="status" className="pt-2 text-sm">
-              {message}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
+      <CourseInfoCard
+        course={course}
+        loadError={loadError}
+        courseId={courseId}
+        fullName={fullName}
+        setFullname={setFullname}
+        shortName={shortName}
+        setShortname={setShortname}
+        courseCategory={courseCategory}
+        setCourseCategory={setCourseCategory}
+        summary={summary}
+        setSummary={setSummary}
+        startDate={startDate}
+        setStartdate={setStartdate}
+        endDate={endDate}
+        setEnddate={setEnddate}
+        courseVisible={courseVisible}
+        setCourseVisible={setCourseVisible}
+        isTemplate={isTemplate}
+        setIsTemplate={setIsTemplate}
+        onSaveCourse={saveCourse}
+        message={message}
+      />
 
       <CurriculumFramePanel
         courseId={courseId}
@@ -652,558 +578,76 @@ export function CourseBuilderPage() {
         onApplied={() => void reload()}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('builderOutlineTitle')}</CardTitle>
-          <CardDescription>{t('builderOutlineDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <form onSubmit={(e) => void createSection(e)} className="space-y-2">
-            <Label htmlFor="new-section-name">{t('newSectionName')}</Label>
-            <Input id="new-section-name" value={newSectionName} onChange={(e) => setNewSectionName(e.target.value)} />
-            <Button type="submit">{t('createSection')}</Button>
-          </form>
-          {content && sections.length === 0 ? <p>{t('noSections')}</p> : null}
-          {sections.map((section, sectionIndex) => {
-            const edit = sectionEdits[section.id] ?? {
-              name: section.name ?? '',
-              status: statusChoiceOf(section.visible, section.openAt),
-              openAt: section.openAt ? String(section.openAt).slice(0, 10) : '',
-            };
-            const draft = moduleDrafts[section.id] ?? { component: 'mod_page', name: '' };
-            const displayName = section.name ?? t('sectionDefaultName', { number: section.section });
-            const isCollapsed = collapsed[section.id] ?? false;
-            return (
-              <div
-                key={section.id}
-                data-testid={`section-builder-${section.id}`}
-                className="space-y-3 rounded border p-3"
-                draggable
-                onDragStart={() => setDragSectionId(section.id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (!dragSectionId || dragSectionId === section.id) return;
-                  const from = sections.findIndex((s) => s.id === dragSectionId);
-                  if (from < 0) return;
-                  void reorderSections(moveItem(sections, from, sectionIndex).map((s) => s.id));
-                  setDragSectionId(null);
-                }}
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={t('builderToggleSection')}
-                    onClick={() => setCollapsed((prev) => ({ ...prev, [section.id]: !isCollapsed }))}
-                  >
-                    {isCollapsed ? '▸' : '▾'}
-                  </Button>
-                  <span className="font-medium">{displayName}</span>
-                  <span className="rounded bg-accent px-2 py-0.5 text-xs">{statusBadge(section.status)}</span>
-                  {section.openAt ? (
-                    <span className="text-xs text-muted-foreground">
-                      {t('builderOpenAtLabel', { date: String(section.openAt).slice(0, 10) })}
-                    </span>
-                  ) : null}
-                  <span className="ml-auto flex gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={t('builderMoveUp')}
-                      disabled={sectionIndex === 0}
-                      onClick={() => void reorderSections(moveItem(sections, sectionIndex, sectionIndex - 1).map((s) => s.id))}
-                    >
-                      ↑
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={t('builderMoveDown')}
-                      disabled={sectionIndex === sections.length - 1}
-                      onClick={() => void reorderSections(moveItem(sections, sectionIndex, sectionIndex + 1).map((s) => s.id))}
-                    >
-                      ↓
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => void duplicateSection(section.id)}>
-                      {t('builderDuplicate')}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => void deleteSection(section.id, displayName)}
-                    >
-                      {t('deleteSection')}
-                    </Button>
-                  </span>
-                </div>
-                {!isCollapsed ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor={`section-name-${section.id}`}>{t('sectionName')}</Label>
-                      <Input
-                        id={`section-name-${section.id}`}
-                        value={edit.name}
-                        onChange={(e) => setSectionEdits((prev) => ({ ...prev, [section.id]: { ...edit, name: e.target.value } }))}
-                      />
-                      <div className="flex flex-wrap items-end gap-2">
-                        <div className="space-y-1">
-                          <Label htmlFor={`section-status-${section.id}`}>{t('builderStatusLabel')}</Label>
-                          <select
-                            id={`section-status-${section.id}`}
-                            className={selectClass}
-                            value={edit.status}
-                            onChange={(e) =>
-                              setSectionEdits((prev) => ({
-                                ...prev,
-                                [section.id]: { ...edit, status: e.target.value as ItemStatusChoice },
-                              }))
-                            }
-                          >
-                            <option value="draft">{t('builderStatusDraft')}</option>
-                            <option value="open">{t('builderStatusOpen')}</option>
-                            <option value="scheduled">{t('builderStatusScheduled')}</option>
-                          </select>
-                        </div>
-                        {edit.status === 'scheduled' ? (
-                          <div className="space-y-1">
-                            <Label htmlFor={`section-openat-${section.id}`}>{t('builderOpenAtField')}</Label>
-                            <Input
-                              id={`section-openat-${section.id}`}
-                              type="date"
-                              value={edit.openAt}
-                              onChange={(e) =>
-                                setSectionEdits((prev) => ({ ...prev, [section.id]: { ...edit, openAt: e.target.value } }))
-                              }
-                            />
-                          </div>
-                        ) : null}
-                        <Button type="button" variant="outline" size="sm" onClick={() => void saveSection(section.id)}>
-                          {t('saveSection')}
-                        </Button>
-                      </div>
-                    </div>
-                    <ul className="space-y-3">
-                      {section.modules.map((cm, moduleIndex) => {
-                        const mEdit = moduleEdits[cm.id] ?? {
-                          name: cm.name,
-                          status: statusChoiceOf(cm.visible, cm.openAt),
-                          openAt: cm.openAt ? String(cm.openAt).slice(0, 10) : '',
-                        };
-                        return (
-                          <li
-                            key={cm.id}
-                            data-testid={`module-builder-${cm.id}`}
-                            className="space-y-2 rounded border p-2"
-                            draggable
-                            onDragStart={() => setDragModule({ sectionId: section.id, moduleId: cm.id })}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => {
-                              if (!dragModule || dragModule.sectionId !== section.id || dragModule.moduleId === cm.id) return;
-                              const from = section.modules.findIndex((m) => m.id === dragModule.moduleId);
-                              if (from < 0) return;
-                              void reorderModules(section.id, moveItem(section.modules, from, moduleIndex).map((m) => m.id));
-                              setDragModule(null);
-                            }}
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-sm font-medium">
-                                {cm.name || cm.component}{' '}
-                                <span className="text-muted-foreground">({t(`contentType_${cm.component}`, { defaultValue: cm.component })})</span>
-                              </p>
-                              <span className="rounded bg-accent px-2 py-0.5 text-xs">{statusBadge(cm.status)}</span>
-                              <span className="ml-auto flex gap-1">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  aria-label={t('builderMoveUp')}
-                                  disabled={moduleIndex === 0}
-                                  onClick={() =>
-                                    void reorderModules(section.id, moveItem(section.modules, moduleIndex, moduleIndex - 1).map((m) => m.id))
-                                  }
-                                >
-                                  ↑
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  aria-label={t('builderMoveDown')}
-                                  disabled={moduleIndex === section.modules.length - 1}
-                                  onClick={() =>
-                                    void reorderModules(section.id, moveItem(section.modules, moduleIndex, moduleIndex + 1).map((m) => m.id))
-                                  }
-                                >
-                                  ↓
-                                </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => void duplicateModule(cm.id)}>
-                                  {t('builderDuplicate')}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => void deleteModule(cm.id, cm.name || cm.component)}
-                                >
-                                  {t('deleteModule')}
-                                </Button>
-                              </span>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor={`module-name-${cm.id}`}>{t('moduleName')}</Label>
-                              <Input
-                                id={`module-name-${cm.id}`}
-                                value={mEdit.name}
-                                onChange={(e) => setModuleEdits((prev) => ({ ...prev, [cm.id]: { ...mEdit, name: e.target.value } }))}
-                              />
-                              <div className="flex flex-wrap items-end gap-2">
-                                <div className="space-y-1">
-                                  <Label htmlFor={`module-status-${cm.id}`}>{t('builderStatusLabel')}</Label>
-                                  <select
-                                    id={`module-status-${cm.id}`}
-                                    className={selectClass}
-                                    value={mEdit.status}
-                                    onChange={(e) =>
-                                      setModuleEdits((prev) => ({
-                                        ...prev,
-                                        [cm.id]: { ...mEdit, status: e.target.value as ItemStatusChoice },
-                                      }))
-                                    }
-                                  >
-                                    <option value="draft">{t('builderStatusDraft')}</option>
-                                    <option value="open">{t('builderStatusOpen')}</option>
-                                    <option value="scheduled">{t('builderStatusScheduled')}</option>
-                                  </select>
-                                </div>
-                                {mEdit.status === 'scheduled' ? (
-                                  <div className="space-y-1">
-                                    <Label htmlFor={`module-openat-${cm.id}`}>{t('builderOpenAtField')}</Label>
-                                    <Input
-                                      id={`module-openat-${cm.id}`}
-                                      type="date"
-                                      value={mEdit.openAt}
-                                      onChange={(e) =>
-                                        setModuleEdits((prev) => ({ ...prev, [cm.id]: { ...mEdit, openAt: e.target.value } }))
-                                      }
-                                    />
-                                  </div>
-                                ) : null}
-                                <Button type="button" variant="outline" size="sm" onClick={() => void saveModule(cm.id)}>
-                                  {t('saveModule')}
-                                </Button>
-                              </div>
-                              <div className="space-y-2" data-testid={`module-availability-${cm.id}`}>
-                                <h5 className="text-sm font-medium">{t('availabilityTitle')}</h5>
-                                <AvailabilityEditor
-                                  key={`module-availability-editor-${cm.id}`}
-                                  value={cm.availability}
-                                  onChange={(next) => setAvailabilityDrafts((prev) => ({ ...prev, [`module:${cm.id}`]: next }))}
-                                  groups={groups.map((g) => ({ id: g.id, name: g.name }))}
-                                  groupings={groupings.map((g) => ({ id: g.id, name: g.name }))}
-                                  modules={sections.flatMap((s) => s.modules.map((m) => ({ id: m.id, name: m.name || m.component })))}
-                                  gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemName }))}
-                                />
-                                <Button type="button" variant="outline" size="sm" onClick={() => void saveModuleAvailability(cm.id)}>
-                                  {t('availabilitySave')}
-                                </Button>
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                      {section.modules.length === 0 ? <li className="text-sm text-muted-foreground">{t('noModulesInSection')}</li> : null}
-                    </ul>
-                    <form onSubmit={(e) => void createModule(e, section.id)} className="space-y-2">
-                      <div className="space-y-2">
-                        <Label htmlFor={`module-type-${section.id}`}>{t('builderContentType')}</Label>
-                        <select
-                          id={`module-type-${section.id}`}
-                          className={selectClass}
-                          value={draft.component}
-                          onChange={(e) =>
-                            setModuleDrafts((prev) => ({ ...prev, [section.id]: { ...draft, component: e.target.value } }))
-                          }
-                        >
-                          {COURSE_CONTENT_TYPES.map((type) => (
-                            <option key={type.component} value={type.component}>
-                              {t(`contentType_${type.component}`, { defaultValue: type.component })}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`module-new-name-${section.id}`}>{t('moduleName')}</Label>
-                        <Input
-                          id={`module-new-name-${section.id}`}
-                          value={draft.name}
-                          onChange={(e) => setModuleDrafts((prev) => ({ ...prev, [section.id]: { ...draft, name: e.target.value } }))}
-                        />
-                      </div>
-                      <Button type="submit" variant="outline">
-                        {t('addModule')}
-                      </Button>
-                    </form>
-                    <div className="space-y-2" data-testid={`section-bank-${section.id}`}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        aria-expanded={bankOpenSectionId === section.id}
-                        onClick={() => void toggleBankPanel(section.id)}
-                      >
-                        {t('builderAddFromBank')}
-                      </Button>
-                      {bankOpenSectionId === section.id ? (
-                        <div className="space-y-2 rounded border p-2">
-                          <div className="space-y-1">
-                            <Label htmlFor={`bank-search-${section.id}`}>{t('builderBankSearchLabel')}</Label>
-                            <Input
-                              id={`bank-search-${section.id}`}
-                              value={bankQuery}
-                              onChange={(e) => setBankQuery(e.target.value)}
-                              placeholder={t('builderBankSearchPlaceholder')}
-                            />
-                          </div>
-                          {bankLoadError ? (
-                            <p role="alert" className="text-sm">
-                              {bankLoadError}
-                            </p>
-                          ) : bankItems === null ? (
-                            <p className="text-sm text-muted-foreground">{t('loading')}</p>
-                          ) : bankFiltered.length === 0 ? (
-                            <p className="text-sm text-muted-foreground">{t('builderBankEmpty')}</p>
-                          ) : (
-                            <ul className="space-y-2">
-                              {bankFiltered.map((item) => (
-                                <li
-                                  key={item.id}
-                                  className="flex flex-wrap items-center gap-2 rounded border p-2"
-                                  data-testid={`bank-item-${item.id}`}
-                                >
-                                  <span className="text-sm font-medium">{item.name}</span>
-                                  <Badge variant="secondary">{t(bankTypeKey(item.resourceType))}</Badge>
-                                  <span className="text-xs text-muted-foreground">{t(bankScopeKey(item.scope))}</span>
-                                  {item.description ? (
-                                    <span className="w-full text-xs text-muted-foreground">{item.description}</span>
-                                  ) : null}
-                                  {bankItemInsertable(item) ? (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="ml-auto"
-                                      disabled={bankBusyId === item.id}
-                                      onClick={() => void insertFromBank(item, section.id)}
-                                    >
-                                      {t('builderBankInsert')}
-                                    </Button>
-                                  ) : (
-                                    <span className="ml-auto text-xs text-muted-foreground">{t('builderBankQuestionSetNote')}</span>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="space-y-2" data-testid={`section-availability-${section.id}`}>
-                      <h4 className="text-sm font-medium">{t('availabilityTitle')}</h4>
-                      <p className="text-sm text-muted-foreground">{t('availabilityDescription')}</p>
-                      <AvailabilityEditor
-                        key={`section-availability-editor-${section.id}`}
-                        value={section.availability}
-                        onChange={(next) => setAvailabilityDrafts((prev) => ({ ...prev, [`section:${section.id}`]: next }))}
-                        groups={groups.map((g) => ({ id: g.id, name: g.name }))}
-                        groupings={groupings.map((g) => ({ id: g.id, name: g.name }))}
-                        modules={sections.flatMap((s) => s.modules.map((m) => ({ id: m.id, name: m.name || m.component })))}
-                        gradeItems={gradeItems.map((item) => ({ id: item.id, name: item.itemName }))}
-                      />
-                      <Button type="button" variant="outline" size="sm" onClick={() => void saveSectionAvailability(section.id)}>
-                        {t('availabilitySave')}
-                      </Button>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+      <OutlineCard
+        content={content}
+        sections={sections}
+        newSectionName={newSectionName}
+        setNewSectionName={setNewSectionName}
+        onCreateSection={createSection}
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        dragSectionId={dragSectionId}
+        setDragSectionId={setDragSectionId}
+        dragModule={dragModule}
+        setDragModule={setDragModule}
+        sectionEdits={sectionEdits}
+        setSectionEdits={setSectionEdits}
+        moduleEdits={moduleEdits}
+        setModuleEdits={setModuleEdits}
+        moduleDrafts={moduleDrafts}
+        setModuleDrafts={setModuleDrafts}
+        onSaveSection={saveSection}
+        onDeleteSection={deleteSection}
+        onDuplicateSection={duplicateSection}
+        onReorderSections={reorderSections}
+        onReorderModules={reorderModules}
+        onSaveModule={saveModule}
+        onDeleteModule={deleteModule}
+        onDuplicateModule={duplicateModule}
+        onCreateModule={createModule}
+        groups={groups}
+        groupings={groupings}
+        gradeItems={gradeItems}
+        setAvailabilityDrafts={setAvailabilityDrafts}
+        onSaveSectionAvailability={saveSectionAvailability}
+        onSaveModuleAvailability={saveModuleAvailability}
+        bankOpenSectionId={bankOpenSectionId}
+        onToggleBankPanel={toggleBankPanel}
+        bankQuery={bankQuery}
+        setBankQuery={setBankQuery}
+        bankLoadError={bankLoadError}
+        bankItems={bankItems}
+        bankFiltered={bankFiltered}
+        bankBusyId={bankBusyId}
+        onInsertFromBank={insertFromBank}
+        selectClass={selectClass}
+        statusBadge={statusBadge}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('builderImportTitle')}</CardTitle>
-          <CardDescription>{t('builderImportDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={(e) => void submitImport(e)} className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="import-source">{t('builderImportSource')}</Label>
-              <select id="import-source" className={selectClass} value={importSourceId} onChange={(e) => setImportSourceId(e.target.value)}>
-                <option value="">{t('wizardPickSource')}</option>
-                {otherCourses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName} ({c.shortName})
-                  </option>
-                ))}
-              </select>
-            </div>
-            {importContent ? (
-              <div className="space-y-3">
-                {importContent.sections.map((s) => (
-                  <div key={s.id} className="space-y-1 rounded border p-2">
-                    <label className="flex items-center gap-2 text-sm font-medium">
-                      <input
-                        type="checkbox"
-                        checked={importSections.includes(s.id)}
-                        onChange={(e) =>
-                          setImportSections((prev) => (e.target.checked ? [...prev, s.id] : prev.filter((x) => x !== s.id)))
-                        }
-                      />
-                      {s.name ?? t('sectionDefaultName', { number: s.section })} {t('builderImportWholeSection')}
-                    </label>
-                    {s.modules.map((m) => (
-                      <label key={m.id} className="ml-6 flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={importModules.includes(m.id)}
-                          onChange={(e) =>
-                            setImportModules((prev) => (e.target.checked ? [...prev, m.id] : prev.filter((x) => x !== m.id)))
-                          }
-                        />
-                        {m.name || m.component}
-                      </label>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            <Button type="submit" disabled={!importSourceId || (importSections.length === 0 && importModules.length === 0)}>
-              {t('builderImportSubmit')}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <ImportCard
+        otherCourses={otherCourses}
+        importSourceId={importSourceId}
+        setImportSourceId={setImportSourceId}
+        importContent={importContent}
+        importSections={importSections}
+        setImportSections={setImportSections}
+        importModules={importModules}
+        setImportModules={setImportModules}
+        onSubmitImport={submitImport}
+        selectClass={selectClass}
+      />
 
-      {canManageCompletion ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('completionCriteriaTitle')}</CardTitle>
-            <CardDescription>{t('completionCriteriaDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={(e) => void saveCriteria(e)} className="space-y-3" data-testid="completion-criteria">
-              <div className="space-y-2">
-                <Label htmlFor="criteria-method">{t('completionMethod')}</Label>
-                <select
-                  id="criteria-method"
-                  aria-label={t('completionMethod')}
-                  className={selectClass}
-                  value={criteriaMethod}
-                  onChange={(e) => setCriteriaMethod(Number(e.target.value))}
-                >
-                  <option value={1}>{t('completionMethodAll')}</option>
-                  <option value={2}>{t('completionMethodAny')}</option>
-                </select>
-              </div>
-              {criteriaDraft.length === 0 ? <p className="text-sm text-muted-foreground">{t('noCriteria')}</p> : null}
-              {criteriaDraft.map((criterion, index) => (
-                <div key={index} className="flex flex-wrap items-end gap-2">
-                  <div className="space-y-1">
-                    <Label htmlFor={`criterion-type-${index}`}>{t('criterionType')}</Label>
-                    <select
-                      id={`criterion-type-${index}`}
-                      className={selectClass}
-                      value={criterion.criteriaType}
-                      onChange={(e) =>
-                        setCriteriaDraft((prev) =>
-                          prev.map((c, i) =>
-                            i === index
-                              ? {
-                                  ...c,
-                                  criteriaType: e.target.value,
-                                  moduleInstance:
-                                    e.target.value === 'module' && !c.moduleInstance
-                                      ? (sections.flatMap((s) => s.modules)[0]?.id ?? '')
-                                      : c.moduleInstance,
-                                }
-                              : c,
-                          ),
-                        )
-                      }
-                    >
-                      <option value="module">{t('criterionTypeModule')}</option>
-                      <option value="date">{t('criterionTypeDate')}</option>
-                      <option value="grade">{t('criterionTypeGrade')}</option>
-                    </select>
-                  </div>
-                  {criterion.criteriaType === 'module' ? (
-                    <div className="space-y-1">
-                      <Label htmlFor={`criterion-module-${index}`}>{t('criterionModule')}</Label>
-                      <select
-                        id={`criterion-module-${index}`}
-                        className={selectClass}
-                        value={criterion.moduleInstance}
-                        onChange={(e) =>
-                          setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, moduleInstance: e.target.value } : c)))
-                        }
-                      >
-                        {sections
-                          .flatMap((s) => s.modules)
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.name || m.component}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  ) : null}
-                  {criterion.criteriaType === 'date' ? (
-                    <div className="space-y-1">
-                      <Label htmlFor={`criterion-date-${index}`}>{t('criterionDate')}</Label>
-                      <Input
-                        id={`criterion-date-${index}`}
-                        type="date"
-                        value={criterion.date}
-                        onChange={(e) =>
-                          setCriteriaDraft((prev) => prev.map((c, i) => (i === index ? { ...c, date: e.target.value } : c)))
-                        }
-                      />
-                    </div>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => setCriteriaDraft((prev) => prev.filter((_, i) => i !== index))}
-                  >
-                    {t('removeCriterion')}
-                  </Button>
-                </div>
-              ))}
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCriteriaDraft((prev) => [...prev, { criteriaType: 'grade', moduleInstance: '', date: '' }])}
-                >
-                  {t('addCriterion')}
-                </Button>
-                <Button type="submit">{t('saveCriteria')}</Button>
-                <Button type="button" variant="outline" onClick={() => void recalculateCompletion()}>
-                  {t('recalculateCompletion')}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      ) : null}
+      <CompletionCard
+        canManageCompletion={canManageCompletion}
+        criteriaMethod={criteriaMethod}
+        setCriteriaMethod={setCriteriaMethod}
+        criteriaDraft={criteriaDraft}
+        setCriteriaDraft={setCriteriaDraft}
+        sections={sections}
+        onSaveCriteria={saveCriteria}
+        onRecalculate={recalculateCompletion}
+        selectClass={selectClass}
+      />
     </main>
   );
 }
