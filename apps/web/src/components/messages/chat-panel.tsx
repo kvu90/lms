@@ -1,8 +1,9 @@
-import { useEffect, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
+import { useEffect, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Input } from '@lms/ui/components/input';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
   Message, MessageAvatar, MessageContent, MessageFooter, MessageHeader,
@@ -13,7 +14,7 @@ import {
 } from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
 import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
-import type { ConversationView, MessageQuoteView, MessageView, ScrollerHandle } from './types';
+import type { ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, ScrollerHandle } from './types';
 import { countMessageCharacters, initialsOf, quoteExcerptOfText } from './utils';
 
 /**
@@ -68,6 +69,17 @@ interface ChatPanelProps {
   onJumpToQuote: (quote: MessageQuoteView) => void;
   highlightedMessageId: string | null;
   scrollerRef: RefObject<ScrollerHandle | null>;
+  /** Lát M4 (issue #237): tìm nội dung tin trong conversation đang mở. */
+  messageSearch: {
+    query: string;
+    results: MessageSearchResultView[];
+    loading: boolean;
+    failed: boolean;
+    submitted: boolean;
+  };
+  onSearchMessages: (query: string) => void;
+  onClearMessageSearch: () => void;
+  onJumpToSearchResult: (result: MessageSearchResultView) => void;
 }
 
 /** Cột phải trang Tin nhắn: khung hội thoại đang mở (thành viên, luồng tin, soạn tin). */
@@ -78,6 +90,7 @@ export function ChatPanel({
   canRecall, onRecallMessage, onHardDeleteMessage, seenByAllOthers, typingNames, draft,
   setDrafts, onNoteTyping, onSend, sendError,
   replyTarget, onStartReply, onCancelReply, onJumpToQuote, highlightedMessageId, scrollerRef,
+  messageSearch, onSearchMessages, onClearMessageSearch, onJumpToSearchResult,
 }: ChatPanelProps) {
   const { t } = useTranslation('app');
   const unblockContact = onUnblockContact;
@@ -92,6 +105,8 @@ export function ChatPanel({
   const hardDeleteMessage = onHardDeleteMessage;
   const noteTyping = onNoteTyping;
   const send = onSend;
+  /** Ô nhập từ khoá tìm trong conversation (lát M4): nháp cục bộ của panel, gửi lên trang chạy tìm. */
+  const [searchDraft, setSearchDraft] = useState('');
   return (
       <Card className="md:col-span-2">
         <CardHeader>
@@ -152,6 +167,63 @@ export function ChatPanel({
                   </Button>
                 </div>
               ) : null}
+              <div className="space-y-2">
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    onSearchMessages(searchDraft);
+                  }}
+                >
+                  <Input
+                    type="search"
+                    aria-label={t('messageSearchLabel')}
+                    placeholder={t('messageSearchPlaceholder')}
+                    value={searchDraft}
+                    onChange={(e) => setSearchDraft(e.target.value)}
+                  />
+                  <Button type="submit" variant="outline">{t('messageSearchButton')}</Button>
+                  {messageSearch.submitted ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setSearchDraft('');
+                        onClearMessageSearch();
+                      }}
+                    >
+                      {t('messageSearchClear')}
+                    </Button>
+                  ) : null}
+                </form>
+                {messageSearch.loading ? (
+                  <p className="text-sm text-muted-foreground">{t('messageSearchLoading')}</p>
+                ) : null}
+                {messageSearch.failed ? (
+                  <p role="alert" className="text-sm">{t('messageSearchFailed')}</p>
+                ) : null}
+                {messageSearch.submitted && !messageSearch.loading && !messageSearch.failed
+                  && messageSearch.results.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('messageSearchNoResults')}</p>
+                  ) : null}
+                {messageSearch.results.length > 0 ? (
+                  <ul className="space-y-1">
+                    {messageSearch.results.map((r) => (
+                      <li key={r.id}>
+                        <button
+                          type="button"
+                          data-testid={`search-result-${r.id}`}
+                          className="w-full rounded-md border px-2 py-1 text-left hover:bg-muted"
+                          onClick={() => onJumpToSearchResult(r)}
+                        >
+                          <span className="block text-xs font-medium">{nameOf(r.userIdFrom)}</span>
+                          <span className="block truncate text-sm">{r.excerpt}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
                 <ScrollerBridge bridgeRef={scrollerRef} />
                 <MessageScroller className="h-[30rem] rounded-md border">

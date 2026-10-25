@@ -41,6 +41,19 @@ export interface MessageView {
   /** Trạng thái cục bộ của tin gửi lạc quan; tin từ server không có trường này. */
   localStatus?: 'sending' | 'failed';
 }
+/**
+ * Một kết quả TÌM TIN trong conversation (lát M4, issue #237) — khớp
+ * `messageSearchResultSchema` của contracts: excerpt quanh chỗ khớp
+ * do server rút gọn, `seq` + `id` là neo nhảy tới đúng tin.
+ */
+export interface MessageSearchResultView {
+  id: string;
+  conversationId: string;
+  userIdFrom: string;
+  seq: number;
+  excerpt: string;
+  createdAt: string;
+}
 /** Tóm tắt hiển thị của một user do API trả kèm (tên thật thay cho UUID thô). */
 export interface PersonSummary {
   userId: string;

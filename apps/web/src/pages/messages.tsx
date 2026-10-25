@@ -16,6 +16,7 @@ import type {
   ConversationDetailView,
   ConversationView,
   MessageQuoteView,
+  MessageSearchResultView,
   MessageView,
   MessagingCourse,
   PersonSummary,
@@ -70,6 +71,19 @@ export function MessagesPage() {
   const [replyTargets, setReplyTargets] = useState<Record<string, MessageView | null>>({});
   /** Tin gốc vừa được nhảy tới từ một khối trích dẫn — tô sáng tạm để mắt bắt được vị trí. */
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  /**
+   * Tìm nội dung tin trong conversation đang mở (lát M4, issue
+   * #237): trạng thái của MỘT lượt tìm — từ khoá đã gửi, kết quả
+   * server trả (chỉ tin còn hiển thị được với mình), cờ đang tải và
+   * cờ lỗi. Đổi conversation là xoá trắng (xử lý ở `open`).
+   */
+  const [messageSearch, setMessageSearch] = useState<{
+    query: string;
+    results: MessageSearchResultView[];
+    loading: boolean;
+    failed: boolean;
+    submitted: boolean;
+  }>({ query: '', results: [], loading: false, failed: false, submitted: false });
   /** Handle cuộn của MessageScroller (component con trong ChatPanel giữ vào đây). */
   const scrollerRef = useRef<ScrollerHandle | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -405,6 +419,8 @@ export function MessagesPage() {
     setReportMessage(null);
     setActionMessage(null);
     setSendError(null);
+    // Kết quả tìm là của conversation trước — không mang sang.
+    setMessageSearch({ query: '', results: [], loading: false, failed: false, submitted: false });
     const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conv.id}`);
     // Chi tiết mang theo enabled + thẩm quyền của chính user (Lớp B):
     // gộp vào conversation đang mở để header/khung soạn biết đường hiển thị.
@@ -542,45 +558,83 @@ export function MessagesPage() {
   }
 
   /**
-   * Nhảy tới tin gốc từ một khối trích dẫn (lát M3): tin gốc đang có
-   * trong danh sách thì cuộn ngay + tô sáng tạm; chưa tải thì xin cửa
-   * sổ quanh vị trí của nó bằng ĐÚNG cơ chế phân trang hiện có
-   * (beforeSeq = seq gốc + 1 → cửa sổ kết thúc tại tin gốc), gộp vào
-   * danh sách rồi mới cuộn. Tin gốc không còn hiển thị được với mình
-   * (đã xoá-phía-mình...) thì cửa sổ tải về không chứa nó — dừng êm,
-   * không báo lỗi.
+   * Nhảy tới MỘT tin theo (id, seq) — cơ chế chung của lát M3 (khối
+   * trích dẫn) và lát M4 (kết quả tìm): tin đang có trong danh sách
+   * thì cuộn ngay + tô sáng tạm; chưa tải thì xin cửa sổ quanh vị trí
+   * của nó bằng ĐÚNG cơ chế phân trang hiện có (beforeSeq = seq + 1
+   * → cửa sổ kết thúc tại tin đích), gộp vào danh sách rồi mới cuộn.
+   * Tin đích không còn hiển thị được với mình (đã xoá-phía-mình...)
+   * thì cửa sổ tải về không chứa nó — dừng êm, không báo lỗi.
    */
-  async function jumpToQuotedMessage(quote: MessageQuoteView) {
+  async function jumpToMessage(messageId: string, seq: number) {
     if (!active) return;
     const scrollAndHighlight = () => {
-      setHighlightedMessageId(quote.id);
+      setHighlightedMessageId(messageId);
       // Phần tử có thể chưa kịp dựng sau lần gộp cửa sổ mới — thử
       // vài nhịp ngắn trước khi bỏ cuộc.
       let attempts = 0;
       const tryScroll = () => {
         attempts += 1;
-        const ok = scrollerRef.current?.scrollToMessage(quote.id, { behavior: 'smooth' }) ?? false;
+        const ok = scrollerRef.current?.scrollToMessage(messageId, { behavior: 'smooth' }) ?? false;
         if (!ok && attempts < 6) setTimeout(tryScroll, 60);
       };
       tryScroll();
       setTimeout(() => {
-        setHighlightedMessageId((cur) => (cur === quote.id ? null : cur));
+        setHighlightedMessageId((cur) => (cur === messageId ? null : cur));
       }, 2400);
     };
-    if (messages.some((m) => m.id === quote.id)) {
+    if (messages.some((m) => m.id === messageId)) {
       scrollAndHighlight();
       return;
     }
     try {
       const page = await apiJson<{ messages: MessageView[]; hasMoreBefore: boolean }>(
-        `/api/v1/messages/conversations/${active.id}/messages?beforeSeq=${quote.seq + 1}&limit=50`,
+        `/api/v1/messages/conversations/${active.id}/messages?beforeSeq=${seq + 1}&limit=50`,
       );
       setMessages((prev) => mergeMessages(page.messages, prev));
       if (page.hasMoreBefore) setHasMoreBefore(true);
-      if (page.messages.some((m) => m.id === quote.id)) scrollAndHighlight();
+      if (page.messages.some((m) => m.id === messageId)) scrollAndHighlight();
     } catch {
       // Giữ nguyên khung hiện tại; người dùng vẫn đọc tiếp được.
     }
+  }
+
+  /** Nhảy tới tin gốc từ một khối trích dẫn (lát M3). */
+  async function jumpToQuotedMessage(quote: MessageQuoteView) {
+    await jumpToMessage(quote.id, quote.seq);
+  }
+
+  /**
+   * Chạy một lượt tìm nội dung trong conversation đang mở (lát M4):
+   * server là nơi thực thi luật tầm nhìn — client chỉ mang từ khoá
+   * và hiển thị kết quả. Từ khoá toàn khoảng trắng thì xoá kết quả
+   * êm (không bắn request chắc chắn bị 400).
+   */
+  async function runMessageSearch(rawQuery: string) {
+    if (!active) return;
+    const conversationId = active.id;
+    const q = rawQuery.trim();
+    if (!q) {
+      setMessageSearch({ query: '', results: [], loading: false, failed: false, submitted: false });
+      return;
+    }
+    setMessageSearch({ query: q, results: [], loading: true, failed: false, submitted: true });
+    try {
+      const res = await apiJson<{ results: MessageSearchResultView[] }>(
+        `/api/v1/messages/conversations/${conversationId}/search?q=${encodeURIComponent(q)}&limit=50`,
+      );
+      // Người dùng đã chuyển conversation trong lúc chờ: bỏ kết quả cũ.
+      if (activeRef.current?.id !== conversationId) return;
+      setMessageSearch({ query: q, results: res.results, loading: false, failed: false, submitted: true });
+    } catch {
+      if (activeRef.current?.id !== conversationId) return;
+      setMessageSearch({ query: q, results: [], loading: false, failed: true, submitted: true });
+    }
+  }
+
+  /** Xoá lượt tìm hiện tại (lát M4) — khung tin trở về nguyên trạng. */
+  function clearMessageSearch() {
+    setMessageSearch({ query: '', results: [], loading: false, failed: false, submitted: false });
   }
 
   /** Phát tín hiệu đang nhập, throttle 3 giây ở client (server còn throttle thêm theo cửa sổ Redis). */
@@ -857,6 +911,10 @@ export function MessagesPage() {
         onJumpToQuote={(quote) => void jumpToQuotedMessage(quote)}
         highlightedMessageId={highlightedMessageId}
         scrollerRef={scrollerRef}
+        messageSearch={messageSearch}
+        onSearchMessages={(q) => void runMessageSearch(q)}
+        onClearMessageSearch={clearMessageSearch}
+        onJumpToSearchResult={(result) => void jumpToMessage(result.id, result.seq)}
       />
     </main>
   );
