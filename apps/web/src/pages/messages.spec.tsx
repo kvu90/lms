@@ -1269,3 +1269,167 @@ describe('Messages page — M3: trả lời trích dẫn (issue #229)', () => {
     });
   });
 });
+
+/**
+ * Lát M4 (issue #237): ô tìm ở danh sách hội thoại lọc theo tên hiển
+ * thị ngay trên danh sách đã tải; ô tìm trong hội thoại gọi endpoint
+ * search của API, hiện kết quả (người gửi + excerpt), bấm kết quả thì
+ * trang xin cửa sổ quanh seq của tin đích như đường nhảy của M3.
+ * Luật tầm nhìn (thành viên/chặn/thu hồi) nằm ở API — spec này khóa
+ * đúng luồng hiển thị và hợp đồng lời gọi.
+ */
+const CONV_CLASS = '01900000-0000-7000-8000-0000000000bb';
+const M4_BASE = {
+  id: 'm4-base', conversationId: CONV_A, userIdFrom: ME_ID, fullMessage: 'Tin nền trong hội thoại',
+  createdAt: '2026-01-01T10:00:00.000Z', seq: 3, clientMessageId: null,
+  replyToMessageId: null, replyTo: null,
+};
+const M4_HIT_MESSAGE = {
+  id: 'm4-hit', conversationId: CONV_A, userIdFrom: OTHER_ID, fullMessage: 'Tin ở xa chứa nội dung cần tìm',
+  createdAt: '2026-01-01T09:00:00.000Z', seq: 9, clientMessageId: null,
+  replyToMessageId: null, replyTo: null,
+};
+const M4_HIT_RESULT = {
+  id: 'm4-hit', conversationId: CONV_A, userIdFrom: OTHER_ID, seq: 9,
+  excerpt: '…chứa nội dung cần tìm…', createdAt: '2026-01-01T09:00:00.000Z',
+};
+
+function stubFetchM4(calls: RecordedCall[], opts: { failSearch?: boolean } = {}) {
+  const summaries = [
+    {
+      id: CONV_A, type: 1, name: 'Hội thoại A', members: [ME_ID, OTHER_ID], unread: 0,
+      lastReadSeq: 3, lastMessageSeq: 3, lastMessage: M4_BASE,
+    },
+    {
+      id: CONV_CLASS, type: 2, name: 'Lớp Toán 10A1', members: [ME_ID, OTHER_ID], unread: 0,
+      lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null,
+    },
+  ];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (payload: unknown, status = 200) =>
+        new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET') return respond(summaries);
+      if (url === `/api/v1/messages/conversations/${CONV_A}` && method === 'GET')
+        return respond({ ...summaries[0], messages: [M4_BASE], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url.startsWith(`/api/v1/messages/conversations/${CONV_A}/search?`) && method === 'GET') {
+        if (opts.failSearch) return respond({ message: 'boom' }, 500);
+        const q = decodeURIComponent(new URLSearchParams(url.split('?')[1]).get('q') ?? '');
+        return respond({ results: q.includes('cần tìm') ? [M4_HIT_RESULT] : [] });
+      }
+      if (url.startsWith(`/api/v1/messages/conversations/${CONV_A}/messages?`) && method === 'GET')
+        return respond({ messages: [M4_HIT_MESSAGE], hasMoreBefore: false });
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — M4: tìm kiếm (issue #237)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('ô tìm ở danh sách lọc theo tên hiển thị; không khớp thì hiện dòng trạng thái rỗng', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM4(calls);
+    renderMessages();
+
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+
+    const filter = screen.getByLabelText('Tìm cuộc trò chuyện');
+    await userEvent.type(filter, 'toán');
+    expect(screen.queryByRole('button', { name: /Hội thoại A/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+
+    await userEvent.clear(filter);
+    await userEvent.type(filter, 'không tồn tại đâu');
+    expect(await screen.findByText('Không có cuộc trò chuyện nào khớp.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Lớp Toán 10A1/ })).not.toBeInTheDocument();
+
+    await userEvent.clear(filter);
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+  });
+
+  it('tìm trong hội thoại: gửi đúng từ khoá lên API, hiện kết quả, bấm kết quả thì xin cửa sổ quanh seq và hiện tin đích', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM4(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await screen.findByLabelText('Tìm trong cuộc trò chuyện');
+
+    const searchInput = screen.getByLabelText('Tìm trong cuộc trò chuyện');
+    await userEvent.type(searchInput, 'cần tìm');
+    await userEvent.click(screen.getByRole('button', { name: 'Tìm' }));
+
+    // Hợp đồng lời gọi: GET search của đúng conversation, q đã mã hoá.
+    await waitFor(() => {
+      expect(
+        calls.some((c) => c.method === 'GET'
+          && c.url.startsWith(`/api/v1/messages/conversations/${CONV_A}/search?`)
+          && decodeURIComponent(c.url).includes('q=cần tìm')),
+      ).toBe(true);
+    });
+
+    const result = await screen.findByTestId('search-result-m4-hit');
+    expect(result).toHaveTextContent('Bạn Học');
+    expect(result).toHaveTextContent('cần tìm');
+
+    // Tin đích (seq 9) chưa có trong khung: bấm kết quả phải xin cửa
+    // sổ beforeSeq = 10 rồi bong bóng của tin đích hiện ra.
+    await userEvent.click(result);
+    await waitFor(() => {
+      expect(
+        calls.some((c) => c.method === 'GET' && c.url.includes(`/conversations/${CONV_A}/messages?beforeSeq=10&limit=50`)),
+      ).toBe(true);
+    });
+    expect(await screen.findByText('Tin ở xa chứa nội dung cần tìm')).toBeInTheDocument();
+  });
+
+  it('tìm không khớp thì hiện trạng thái rỗng; API lỗi thì hiện thông báo lỗi', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM4(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await screen.findByLabelText('Tìm trong cuộc trò chuyện');
+
+    const searchInput = screen.getByLabelText('Tìm trong cuộc trò chuyện');
+    await userEvent.type(searchInput, 'xyz không khớp');
+    await userEvent.click(screen.getByRole('button', { name: 'Tìm' }));
+    expect(await screen.findByText('Không tìm thấy tin nào khớp.')).toBeInTheDocument();
+  });
+
+  it('API tìm lỗi thì hiện thông báo lỗi rõ ràng thay vì danh sách trống', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM4(calls, { failSearch: true });
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Hội thoại A/ }));
+    await screen.findByLabelText('Tìm trong cuộc trò chuyện');
+
+    const searchInput = screen.getByLabelText('Tìm trong cuộc trò chuyện');
+    await userEvent.type(searchInput, 'cần tìm');
+    await userEvent.click(screen.getByRole('button', { name: 'Tìm' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không tìm được tin nhắn.');
+  });
+});
