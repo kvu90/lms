@@ -292,6 +292,28 @@ export class VnGradebooksController {
     await this.bookInCourse(courseId, bookId);
     return this.vn.getBookView(actor.id, bookId);
   }
+  @Get(':courseId/grades/vn-books/:bookId/grid')
+  /**
+   * GET .../vn-books/:bookId/grid — lưới sổ VN cho trang giáo viên: cấu trúc
+   * sổ + một dòng mỗi học sinh đã ghi danh (điểm cột + ĐTB trực tiếp, bản
+   * chốt mới nhất, trạng thái công bố, cờ lệch nguồn của bản chốt).
+   * Gác actor ở service: grade:viewall tại khoá (issue #183).
+   */
+  async getGrid(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.getBookGrid(actor.id, bookId);
+  }
+  @Post(':courseId/grades/vn-books/:bookId/finalize-all')
+  /**
+   * POST .../vn-books/:bookId/finalize-all — chốt kết quả học kì cho toàn bộ
+   * học sinh của sổ trong một thao tác nguyên tử: một học sinh bị chặn (chờ
+   * kiểm tra bù Điều 7.4 hoặc thiếu cột) thì cả lượt bị từ chối kèm danh
+   * sách học sinh bị chặn, không chốt dở (issue #183).
+   */
+  async finalizeAll(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('bookId', { schema: uuidIdSchema }) bookId: string, @Body({ schema: finalizeVnTermResultSchema }) dto: FinalizeVnTermResultDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.bookInCourse(courseId, bookId);
+    return this.vn.finalizeBookResults(actor.id, bookId, dto.comment);
+  }
   @Get(':courseId/grades/vn-books/:bookId/results/:userId')
   /**
    * GET .../results/:userId — tính kết quả học kì trực tiếp từ điểm cột hiện tại (chưa chốt).

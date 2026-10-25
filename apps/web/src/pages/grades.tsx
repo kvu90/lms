@@ -30,6 +30,7 @@ import { DataTable, type DataColumn } from '#components/data-table';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
+import { VnBooksSection } from './grades-vn-books';
 import { fetchCourseGradeData, usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 
@@ -883,6 +884,7 @@ export function GradebookPage() {
 
       {isStaff && (
         <>
+          <VnBooksSection courseId={courseId} />
           <Card>
             <CardHeader>
               <CardTitle>{t('gradeAdminTitle')}</CardTitle>

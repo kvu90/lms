@@ -42,6 +42,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     let detail: string | undefined;
     let code = 'http.internal_error';
     let errors: ProblemDetails['errors'];
+    let blockedStudents: ProblemDetails['blockedStudents'];
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -63,6 +64,28 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         }
         if (typeof record.code === 'string') {
           code = record.code;
+        }
+        /**
+         * Extension member `blocked` của exception nội bộ (chốt cả lớp VN
+         * bị chặn) → mang sang problem dưới tên `blockedStudents`, chỉ nhận
+         * các phần tử đúng hình dạng đã khai trong contracts — dữ liệu lạ
+         * hình bị bỏ thay vì lộ nguyên ra ngoài.
+         */
+        if (Array.isArray(record.blocked)) {
+          const shaped = record.blocked.filter(
+            (b): b is { userId: string; reason: 'awaiting_makeup' | 'incomplete'; roles: string[] } =>
+              !!b && typeof b === 'object'
+              && typeof (b as { userId?: unknown }).userId === 'string'
+              && ((b as { reason?: unknown }).reason === 'awaiting_makeup' || (b as { reason?: unknown }).reason === 'incomplete')
+              && Array.isArray((b as { roles?: unknown }).roles),
+          );
+          if (shaped.length > 0) {
+            blockedStudents = shaped.map((b) => ({
+              userId: b.userId,
+              reason: b.reason,
+              roles: b.roles.map((r) => String(r)),
+            }));
+          }
         }
       }
     } else {
@@ -96,6 +119,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       instance: request?.url,
       code,
       ...(errors ? { errors } : {}),
+      ...(blockedStudents ? { blockedStudents } : {}),
     };
 
     response
