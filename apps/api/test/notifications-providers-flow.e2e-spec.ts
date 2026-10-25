@@ -1,8 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 /**
@@ -191,15 +191,24 @@ describe('Notification providers wired (N1, issue #49)', () => {
     // provider mới mà chưa nối dây sẽ làm test này đỏ — đó là chủ đích:
     // không để công tắc giả quay lại trang cài đặt.
     expect([...groups.keys()].sort()).toEqual([
-      'activity_due_soon', 'badge_awarded', 'calendar_reminder', 'competency_review_requested', 'contact_request',
+      'activity_due_soon', 'assignment_assigned', 'assignment_returned', 'assignment_submitted', 'badge_awarded',
+      'calendar_reminder', 'competency_review_requested', 'contact_request',
       'conversation_reported', 'course_completed', 'enrol_expiry_warning', 'enrol_welcome',
-      'grade_updated', 'guardian_digest', 'guardian_overdue_alert', 'message_new', 'report_scheduled',
+      'grade_updated', 'guardian_digest', 'guardian_overdue_alert', 'message_new', 'quiz_attempt_finished',
+      'quiz_available', 'report_scheduled',
     ]);
     expect(groups.get('grade_updated')).toBe('learning');
     expect(groups.get('course_completed')).toBe('learning');
     expect(groups.get('enrol_expiry_warning')).toBe('learning');
     expect(groups.get('enrol_welcome')).toBe('learning');
     expect(groups.get('activity_due_soon')).toBe('learning');
+    // NB-1 (issue #174): năm provider vòng đời Bài tập/Quiz đã nối dây
+    // qua cùng consumer — không phải công tắc giả.
+    expect(groups.get('assignment_assigned')).toBe('learning');
+    expect(groups.get('assignment_submitted')).toBe('learning');
+    expect(groups.get('assignment_returned')).toBe('learning');
+    expect(groups.get('quiz_available')).toBe('learning');
+    expect(groups.get('quiz_attempt_finished')).toBe('learning');
     // PH-2 (issue #159): hai provider digest phụ huynh đã nối dây qua
     // GuardianDigestConsumer — không phải công tắc giả.
     expect(groups.get('guardian_digest')).toBe('learning');
@@ -208,5 +217,278 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect(groups.get('contact_request')).toBe('people');
     expect(groups.get('calendar_reminder')).toBe('system');
     expect(groups.get('report_scheduled')).toBe('system');
+  });
+});
+
+/**
+ * NB-1 (issue #174): nối dây sự kiện vòng đời Bài tập/Quiz hai chiều.
+ * Mọi luồng đi qua API THẬT (tạo bài tập/quiz, nộp bài, chấm + trả
+ * bài) để sự kiện outbox là sự kiện thật của module nguồn; riêng
+ * quiz_attempt_finished và activity_due_reminder dạng bài tập được
+ * chèn đúng hình dạng payload mà quiz/worker phát (kiểm chứng phía
+ * phát ở suite worker + spec quiz), vì dựng một lượt làm bài có câu
+ * tự luận trong e2e này quá nặng so với điểm cần chứng minh.
+ *
+ * Tiêu chí theo hồ sơ rà soát #174:
+ *  - GV nhận thông báo nộp bài GỘP theo bài tập (một bản chưa đọc,
+ *    số lượng chờ chấm cập nhật tại chỗ — P5) + thông báo lượt thi
+ *    cần chấm tay gộp theo quiz.
+ *  - HS nhận đủ: bài tập mới giao, xác nhận đã nộp, bài được trả
+ *    (nội dung KHÔNG chứa điểm), quiz mới mở, nhắc hạn bài tập.
+ *  - Người tắt tuỳ chọn popup của một provider thì không nhận loại đó.
+ */
+describe('Notification providers wired (NB-1, issue #174)', () => {
+  let app: INestApplication;
+  let admin: string;
+  let pg: Client;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    admin = await adminToken(app);
+    pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+  });
+  afterAll(async () => { await pg.end(); await app.close(); });
+
+  interface Notif { id: string; eventType: string; subject: string; fullMessage: string; contextUrl: string | null; timeRead: string | null }
+
+  async function notificationsOf(token: string): Promise<Notif[]> {
+    const res = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    return (res.body as { items: Notif[] }).items;
+  }
+
+  async function waitForNotification(token: string, eventType: string, timeoutMs = 20000, predicate: (n: Notif) => boolean = () => true): Promise<Notif> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const found = (await notificationsOf(token)).find((n) => n.eventType === eventType && predicate(n));
+      if (found) return found;
+      if (Date.now() > deadline) throw new Error(`notification ${eventType} did not arrive within ${timeoutMs}ms`);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+
+  interface ClassCtx {
+    course: { id: string; fullName?: string };
+    sectionId: string;
+    teacherId: string;
+    teacherToken: string;
+    student: { id: string; username: string };
+    studentToken: string;
+    student2: { id: string; username: string };
+    student2Token: string;
+  }
+
+  /** Một lớp: GV (editingteacher tại context khoá) + 2 HS ghi danh. */
+  async function setupClass(): Promise<ClassCtx> {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id);
+    const sectionId = await getFirstSectionId(app, admin, course.id);
+    const instance = await createEnrolInstance(app, admin, course.id);
+    const contexts = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
+    const courseCtx = (contexts.body as { id: string; contextLevel: number; instanceId: string }[])
+      .find((c) => c.contextLevel === 50 && c.instanceId === course.id)!;
+    const teacherUser = await createUserViaApi(app, admin);
+    await assignRole(app, admin, teacherUser.id, await roleIdByShortname(app, admin, 'editingteacher'), courseCtx.id);
+    const teacherToken = (await login(app, teacherUser.username, STRONG_PASSWORD)).accessToken;
+    const student = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, student.id);
+    const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
+    const student2 = await createUserViaApi(app, admin);
+    await enrolUser(app, admin, course.id, instance.id, student2.id);
+    const student2Token = (await login(app, student2.username, STRONG_PASSWORD)).accessToken;
+    return { course, sectionId, teacherId: teacherUser.id, teacherToken, student, studentToken, student2, student2Token };
+  }
+
+  async function createAssignment(ctx: ClassCtx, name: string, overrides: Record<string, unknown> = {}): Promise<{ id: string }> {
+    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/assignments`).set('Authorization', `Bearer ${ctx.teacherToken}`)
+      .send({ sectionId: ctx.sectionId, name, grade: 10, ...overrides });
+    if (res.status !== 200 && res.status !== 201) throw new Error(`create assignment failed: ${res.status} ${JSON.stringify(res.body)}`);
+    return res.body as { id: string };
+  }
+
+  async function submitAssignment(token: string, assignmentId: string, content: string): Promise<void> {
+    const up = await http(app).post(`/api/v1/assignments/${assignmentId}/submission/files`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', Buffer.from(content), 'bai-lam.jpg');
+    expect(up.status).toBe(201);
+    const sub = await http(app).post(`/api/v1/assignments/${assignmentId}/submission/submit`).set('Authorization', `Bearer ${token}`);
+    expect(sub.status).toBe(201);
+  }
+
+  it('assignment_created: enrolled students are notified about the new assignment; a student who disabled the provider is not', async () => {
+    const ctx = await setupClass();
+    const assignment = await createAssignment(ctx, 'Bài tập NB-1 số 1');
+    const notif = await waitForNotification(ctx.studentToken, 'assignment_assigned');
+    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/assignments/${assignment.id}`);
+    expect(notif.subject).toContain('Bài tập NB-1 số 1');
+
+    // HS2 tắt popup của assignment_assigned (trạng thái loggedin là
+    // trạng thái notify() dùng cho consumer) → bài tập sau không báo.
+    const pref = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${ctx.student2Token}`)
+      .send({ provider: 'assignment_assigned', channel: 'popup', state: 'loggedin', enabled: false });
+    expect(pref.status).toBeLessThan(300);
+    const assignment2 = await createAssignment(ctx, 'Bài tập NB-1 số 2');
+    const notif2 = await waitForNotification(ctx.studentToken, 'assignment_assigned', 20000,
+      (n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment2.id}`);
+    expect(notif2).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 2500));
+    // HS2 đã nhận thông báo của bài số 1 (trước khi tắt) — ca kiểm là
+    // bài số 2 không tới nữa.
+    const student2Notifs = (await notificationsOf(ctx.student2Token)).filter((n) => n.eventType === 'assignment_assigned');
+    expect(student2Notifs).toHaveLength(1);
+    expect(student2Notifs.filter((n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment2.id}`)).toHaveLength(0);
+  });
+
+  it('assignment_submitted: the student gets a receipt and the teacher gets ONE grouped notification whose count updates in place (P5)', async () => {
+    const ctx = await setupClass();
+    const assignment = await createAssignment(ctx, 'Bài tập nộp NB-1');
+
+    await submitAssignment(ctx.studentToken, assignment.id, 'bai-lam-hs-1');
+    const receipt = await waitForNotification(ctx.studentToken, 'assignment_submitted',
+      20000, (n) => n.subject.includes('Đã nộp bài'));
+    expect(receipt.contextUrl).toBe(`/courses/${ctx.course.id}/assignments/${assignment.id}`);
+    const teacherFirst = await waitForNotification(ctx.teacherToken, 'assignment_submitted',
+      20000, (n) => n.fullMessage.includes('Có 1 bài nộp'));
+    expect(teacherFirst.contextUrl).toBe(`/courses/${ctx.course.id}/assignments/${assignment.id}`);
+
+    await submitAssignment(ctx.student2Token, assignment.id, 'bai-lam-hs-2');
+    // Bản gộp của GV được CẬP NHẬT số lượng tại chỗ — vẫn đúng 1 bản.
+    await waitForNotification(ctx.teacherToken, 'assignment_submitted',
+      20000, (n) => n.fullMessage.includes('Có 2 bài nộp'));
+    const teacherAll = (await notificationsOf(ctx.teacherToken)).filter((n) => n.eventType === 'assignment_submitted');
+    expect(teacherAll).toHaveLength(1);
+    // HS2 cũng có xác nhận nộp của chính mình.
+    const receipt2 = await waitForNotification(ctx.student2Token, 'assignment_submitted',
+      20000, (n) => n.subject.includes('Đã nộp bài'));
+    expect(receipt2).toBeTruthy();
+  });
+
+  it('assignment_returned: the student is notified that the work was returned, with no score in the content', async () => {
+    const ctx = await setupClass();
+    const assignment = await createAssignment(ctx, 'Bài tập trả NB-1');
+    await submitAssignment(ctx.studentToken, assignment.id, 'bai-lam-tra');
+    const graded = await http(app).post(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}/grade`)
+      .set('Authorization', `Bearer ${ctx.teacherToken}`)
+      .send({ grade: 8.5, feedbackStrengths: 'Trình bày rõ ràng.', feedbackWeaknesses: 'Còn thiếu bước biến đổi.', feedbackProgress: 'Tiến bộ rõ.' });
+    expect(graded.status).toBe(201);
+    const released = await http(app).post(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}/release`)
+      .set('Authorization', `Bearer ${ctx.teacherToken}`);
+    expect(released.status).toBe(201);
+
+    const notif = await waitForNotification(ctx.studentToken, 'assignment_returned');
+    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/assignments/${assignment.id}`);
+    // Luật tối thiểu hoá: điểm số không nằm trong thông báo trả bài —
+    // điểm đi đường grade_updated với contextUrl trang điểm riêng.
+    expect(notif.subject).not.toContain('8.5');
+    expect(notif.fullMessage).not.toContain('8.5');
+    const gradeNotif = await waitForNotification(ctx.studentToken, 'grade_updated');
+    expect(gradeNotif.contextUrl).toBe(`/courses/${ctx.course.id}/grades`);
+  });
+
+  it('quiz_created: enrolled students are notified about the new quiz', async () => {
+    const ctx = await setupClass();
+    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
+      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra NB-1' });
+    expect(res.status).toBeLessThan(300);
+    const quizId = (res.body as { id: string }).id;
+    const notif = await waitForNotification(ctx.studentToken, 'quiz_available');
+    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/quizzes/${quizId}`);
+    expect(notif.subject).toContain('Kiểm tra NB-1');
+  });
+
+  it('exam_paper_deployed: deploying a paper into the quiz also surfaces quiz_available (grouped, no duplicate while unread)', async () => {
+    const ctx = await setupClass();
+    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
+      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra triển khai đề NB-1' });
+    expect(res.status).toBeLessThan(300);
+    const quizId = (res.body as { id: string }).id;
+
+    // quiz_created đã sinh bản quiz_available đầu tiên; HS đọc xong.
+    const first = await waitForNotification(ctx.studentToken, 'quiz_available',
+      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}`);
+    const read = await http(app).post(`/api/v1/notifications/${first.id}/read`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(read.status).toBeLessThan(300);
+
+    // Đúng hình dạng sự kiện quiz.service phát khi triển khai đề vào
+    // quiz có sẵn (deployPaperSlots/deployRecipeSlots).
+    await pg.query(
+      `insert into outbox_events (aggregate, type, payload) values ('quiz', 'exam_paper_deployed', $1::jsonb)`,
+      [JSON.stringify({
+        quizId, courseId: ctx.course.id,
+        paperId: '00000000-0000-4000-8000-000000000001', paperVersionId: '00000000-0000-4000-8000-000000000002',
+        kind: 'recipe', actorId: ctx.teacherId,
+      })],
+    );
+    // Bản cũ đã đọc → sự kiện triển khai sinh bản MỚI (nếu consumer bỏ
+    // qua exam_paper_deployed thì chờ này hết hạn và ca kiểm đỏ).
+    const second = await waitForNotification(ctx.studentToken, 'quiz_available',
+      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}` && n.id !== first.id && n.timeRead === null);
+    expect(second.subject).toContain('Kiểm tra triển khai đề NB-1');
+    const all = (await notificationsOf(ctx.studentToken)).filter((n) => n.eventType === 'quiz_available' && n.contextUrl === `/courses/${ctx.course.id}/quizzes/${quizId}`);
+    expect(all).toHaveLength(2);
+    expect(all.filter((n) => n.timeRead === null)).toHaveLength(1);
+  });
+
+  it('quiz_attempt_finished: teachers get one grouped notification only for manual-grading, non-preview attempts', async () => {
+    const ctx = await setupClass();
+    const res = await http(app).post(`/api/v1/courses/${ctx.course.id}/quizzes`).set('Authorization', `Bearer ${ctx.teacherToken}`)
+      .send({ sectionId: ctx.sectionId, name: 'Kiểm tra chấm tay NB-1' });
+    expect(res.status).toBeLessThan(300);
+    const quizId = (res.body as { id: string }).id;
+
+    // Một lượt làm thật ở trạng thái needsgrading (chèn đúng khuôn
+    // suite worker) để số lượng chờ chấm trong nội dung gộp là 1.
+    const usageRows = await pg.query(
+      `insert into question_usages (component, user_id) values ('mod_quiz', $1) returning id`, [ctx.student.id]);
+    const usageId = (usageRows.rows[0] as { id: string }).id;
+    const attemptRows = await pg.query(
+      `insert into quiz_attempts (quiz_id, user_id, attempt_number, usage_id, state, preview) values ($1, $2, 1, $3, 'needsgrading', false) returning id`,
+      [quizId, ctx.student.id, usageId]);
+    const attemptId = (attemptRows.rows[0] as { id: string }).id;
+
+    async function emitFinished(overrides: Record<string, unknown>) {
+      await pg.query(
+        `insert into outbox_events (aggregate, type, payload) values ('quiz', 'quiz_attempt_finished', $1::jsonb)`,
+        [JSON.stringify({
+          quizId, courseId: ctx.course.id, attemptId, usageId, userId: ctx.student.id,
+          attemptNumber: 1, preview: false, sumGrades: 0, needsGrading: true,
+          closedDueToTimeLimit: false, actorId: ctx.student.id, ...overrides,
+        })],
+      );
+    }
+
+    await emitFinished({});
+    const notif = await waitForNotification(ctx.teacherToken, 'quiz_attempt_finished',
+      20000, (n) => n.fullMessage.includes('1 lượt làm bài'));
+    expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/quizzes/${quizId}/results`);
+
+    // Sự kiện trùng (cùng trạng thái) + lượt tự chấm hết + lượt
+    // preview: không sinh thêm bản nào cho GV.
+    await emitFinished({});
+    await emitFinished({ needsGrading: false });
+    await emitFinished({ preview: true });
+    await new Promise((r) => setTimeout(r, 3000));
+    const all = (await notificationsOf(ctx.teacherToken)).filter((n) => n.eventType === 'quiz_attempt_finished');
+    expect(all).toHaveLength(1);
+  });
+
+  it('activity_due_soon: an assignment reminder event deep-links to the assignment page (NB-1 worker contract)', async () => {
+    const ctx = await setupClass();
+    const dueDate = new Date(Date.now() + 12 * 3600_000);
+    const assignment = await createAssignment(ctx, 'Bài tập sắp hạn NB-1', { dueDate: dueDate.toISOString() });
+    // Đúng hình dạng sự kiện ActivityDueReminderProcessor phát cho
+    // bài tập (kiểm chứng phía phát ở suite worker): activityType
+    // 'assign' + assignmentId, mốc hạn ở timeClose.
+    await pg.query(
+      `insert into outbox_events (aggregate, type, payload) values ('activity', 'activity_due_reminder', $1::jsonb)`,
+      [JSON.stringify({
+        userId: ctx.student.id, courseId: ctx.course.id, assignmentId: assignment.id,
+        activityType: 'assign', activityName: 'Bài tập sắp hạn NB-1', timeClose: dueDate.toISOString(),
+      })],
+    );
+    const notif = await waitForNotification(ctx.studentToken, 'activity_due_soon',
+      20000, (n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment.id}`);
+    expect(notif.subject).toContain('Bài tập sắp hạn NB-1');
   });
 });
