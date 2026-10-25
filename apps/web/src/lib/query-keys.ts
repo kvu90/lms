@@ -20,6 +20,8 @@ export const queryKeys = {
   adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
   /** Cây danh mục khoá học cho khối quản trị. */
   categoryTree: ['courses', 'categories', 'tree'] as const,
+  /** Tiến độ học của chính người dùng trong một khoá (% hoàn thành; probe lỗi → null). */
+  courseMyProgress: (courseId: string) => ['courses', courseId, 'progress', 'me'] as const,
   /** Danh sách vai trò cho khối quản trị. */
   roles: ['access', 'roles'] as const,
   /** Gốc khoá phân quyền — tiền tố làm mới mọi truy vấn access sau đột biến gán vai. */

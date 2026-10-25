@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -26,9 +26,12 @@ import { queryKeys } from '#lib/query-keys';
 import {
   COURSE_CARD_COLOR_HEX,
   displayCourseName,
-  fetchCourseCardPrefs,
+  useCourseCardPrefs,
   type CourseCardPrefView,
 } from '#lib/course-cards';
+
+/** Map pref rỗng dùng chung khi query pref chưa có dữ liệu (tránh tạo Map mới mỗi lần render). */
+const EMPTY_CARD_PREFS = new Map<string, CourseCardPrefView>();
 import { CourseCardPrefEditor } from '../components/course-card-pref-editor';
 
 /**
@@ -44,7 +47,14 @@ export function CoursesPage() {
   const perms = usePermissions();
   const { canAdminister } = perms;
   const queryClient = useQueryClient();
-  const [tree, setTree] = useState<CourseCategoryTreeNode[]>([]);
+  // Cây danh mục đọc qua TanStack với ĐÚNG khoá `categoryTree` dùng
+  // chung với dashboard (F-03, rà soát #133): trước đây trang tự fetch
+  // bằng useEffect + state riêng, trùng dữ liệu dashboard vừa tải.
+  const treeQuery = useQuery({
+    queryKey: queryKeys.categoryTree,
+    queryFn: () => apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'),
+  });
+  const tree = useMemo(() => treeQuery.data ?? [], [treeQuery.data]);
   // Danh sách khoá đọc qua TanStack với ĐÚNG khoá `courses` mà
   // PermissionsProvider dùng (F-03, rà soát #133): trước đây trang tự
   // fetch lại /courses trong khi provider vừa tải cùng dữ liệu — nay
@@ -54,84 +64,61 @@ export function CoursesPage() {
     queryFn: () => apiJson<Course[]>('/api/v1/courses'),
   });
   const courses = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
-  // Tiến độ học của chính người dùng theo khoá (K2): chỉ khoá truy cập
-  // được mới có số (endpoint progress/me qua cổng khoá học); khoá không
-  // vào được thì probe lỗi và không hiện gì.
-  const [progressByCourse, setProgressByCourse] = useState<Record<string, number | null>>({});
-  // Pref thẻ khoá của chính người dùng (DASH1): màu + biệt danh chỉ mình
-  // thấy; khoá không thuộc về người dùng (không ghi danh/không dạy) thì
-  // server từ chối khi lưu, lỗi được editor tự hiển thị.
-  const [cardPrefs, setCardPrefs] = useState<Map<string, CourseCardPrefView>>(new Map());
+  // Pref thẻ khoá của chính người dùng (DASH1) đọc qua query dùng chung
+  // khoá `courseCards` với dashboard (F-03/F-04): mutation lưu pref tự
+  // invalidate nên trang này tươi lại sau khi editor lưu — không còn
+  // state Map riêng + fetch thủ công khi mở trang. Lỗi tải pref thì
+  // lặng lẽ dùng tên gốc (pref là lớp phủ cá nhân, không chặn trang).
+  const cardPrefsQuery = useCourseCardPrefs();
+  const cardPrefs = cardPrefsQuery.data ?? EMPTY_CARD_PREFS;
   const [editingCardCourseId, setEditingCardCourseId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [treeLoading, setTreeLoading] = useState(true);
   const [catName, setCatName] = useState('');
   const [catParent, setCatParent] = useState('0');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
-  const loadTree = useCallback(async () => {
-    setTree(await apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'));
-  }, []);
-  /** Nạp lại sau đột biến danh mục: cây danh mục fetch lại + invalidate khoá courses dùng chung. */
+  /** Nạp lại sau đột biến danh mục: invalidate cây danh mục + danh sách khoá dùng chung. */
   const reload = useCallback(async () => {
-    await Promise.all([loadTree(), queryClient.invalidateQueries({ queryKey: queryKeys.courses })]);
-  }, [loadTree, queryClient]);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.courses }),
+    ]);
+  }, [queryClient]);
 
   useEffect(() => {
-    void loadTree()
-      .catch(() => setMessage(t('coursesLoadFailed')))
-      .finally(() => setTreeLoading(false));
-  }, [loadTree, t]);
+    if (coursesQuery.isError || treeQuery.isError) setMessage(t('coursesLoadFailed'));
+  }, [coursesQuery.isError, treeQuery.isError, t]);
 
-  useEffect(() => {
-    if (coursesQuery.isError) setMessage(t('coursesLoadFailed'));
-  }, [coursesQuery.isError, t]);
+  const loading = treeQuery.isPending || coursesQuery.isPending;
 
-  const loading = treeLoading || coursesQuery.isPending;
-
-  // Nạp pref thẻ khoá của chính người dùng một lần khi mở trang; lỗi thì
-  // lặng lẽ dùng tên gốc (pref là lớp phủ cá nhân, không chặn trang).
-  useEffect(() => {
-    let alive = true;
-    void fetchCourseCardPrefs()
-      .then((prefs) => {
-        if (alive) setCardPrefs(prefs);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // Nạp % tiến độ sau khi có danh sách: CHỈ probe các khoá người dùng
-  // thuộc về (dạy/học theo ảnh chụp quyền) — trước đây fan-out mọi khoá
-  // trong hệ (F-03, rà soát #133) dù khoá ngoài vốn luôn lỗi qua cổng
-  // khoá học và không hiện số nào. Lỗi từng khoá thì bỏ qua lặng lẽ.
+  // % tiến độ học của chính người dùng theo khoá (K2): CHỈ probe các
+  // khoá người dùng thuộc về (dạy/học theo ảnh chụp quyền) — khoá ngoài
+  // vốn luôn lỗi qua cổng khoá học và không hiện số nào. Mỗi khoá một
+  // query qua useQueries với khoá factory `courseMyProgress` (F-03);
+  // lỗi từng khoá thì percent = null và không hiện gì, như trước.
   const memberCourseIds = useMemo(
     () => new Set([...perms.teaching, ...perms.learning].map((c) => c.course.id)),
     [perms.teaching, perms.learning],
   );
-  useEffect(() => {
-    if (!perms.ready || courses.length === 0) return;
-    const targets = courses.filter((c) => memberCourseIds.has(c.id));
-    if (targets.length === 0) return;
-    let alive = true;
-    void (async () => {
-      const entries = await Promise.all(
-        targets.map(async (c) => {
-          try {
-            const p = await apiJson<{ percent: number | null }>(`/api/v1/courses/${c.id}/progress/me`);
-            return [c.id, p.percent] as const;
-          } catch {
-            return [c.id, null] as const;
-          }
-        }),
-      );
-      if (alive) setProgressByCourse(Object.fromEntries(entries));
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [courses, memberCourseIds, perms.ready]);
+  const progressTargets = useMemo(
+    () => (perms.ready ? courses.filter((c) => memberCourseIds.has(c.id)).map((c) => c.id) : []),
+    [courses, memberCourseIds, perms.ready],
+  );
+  const progressQueries = useQueries({
+    queries: progressTargets.map((courseId) => ({
+      queryKey: queryKeys.courseMyProgress(courseId),
+      queryFn: async () => {
+        try {
+          return await apiJson<{ percent: number | null }>(`/api/v1/courses/${courseId}/progress/me`);
+        } catch {
+          return { percent: null };
+        }
+      },
+    })),
+  });
+  const progressByCourse: Record<string, number | null> = {};
+  progressTargets.forEach((courseId, i) => {
+    progressByCourse[courseId] = progressQueries[i]?.data?.percent ?? null;
+  });
 
   const flatCategories: CourseCategory[] = [];
   const walk = (nodes: CourseCategoryTreeNode[]) => {
@@ -190,15 +177,7 @@ export function CoursesPage() {
                           <CourseCardPrefEditor
                             courseId={c.id}
                             initial={pref}
-                            onSaved={(saved) => {
-                              setCardPrefs((prev) => {
-                                const next = new Map(prev);
-                                if (saved.color === null && saved.nickname === null) next.delete(c.id);
-                                else next.set(c.id, saved);
-                                return next;
-                              });
-                              setEditingCardCourseId(null);
-                            }}
+                            onSaved={() => setEditingCardCourseId(null)}
                             onCancel={() => setEditingCardCourseId(null)}
                           />
                         )}
