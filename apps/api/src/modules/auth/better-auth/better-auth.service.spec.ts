@@ -50,4 +50,36 @@ describe('BetterAuthService', () => {
     // Plugin username chính chủ phải có mặt (đăng nhập bằng username).
     expect(auth.options.plugins?.some((plugin) => plugin.id === 'username')).toBe(true);
   });
+
+  it('is inert for the OAuth AS when only MCP_AS_ENABLED is off (default)', () => {
+    const service = buildService({});
+    expect(service.mcpAsEnabled).toBe(false);
+    expect(service.mcpAs).toBeNull();
+  });
+
+  it('refuses to initialize when MCP_AS_ENABLED without BETTER_AUTH_SECRET', () => {
+    expect(() => buildService({ MCP_AS_ENABLED: true, PORT: 3000 })).toThrow(/BETTER_AUTH_SECRET is required/);
+  });
+
+  it('composes the OAuth AS (jwt + oauth-provider + cimd) under MCP_AS_ENABLED alone (issue #163)', () => {
+    const service = buildService({ MCP_AS_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
+    // Cờ GĐ1 vẫn tắt — AS là lát độc lập, không chờ cutover của #7.
+    expect(service.enabled).toBe(false);
+    expect(service.mcpAsEnabled).toBe(true);
+    expect(service.mcpAs?.resource).toBe('http://localhost:3000/mcp');
+    expect(service.mcpAs?.loginPage).toBe('/mcp-login');
+    expect(service.mcpAs?.consentPage).toBe('/mcp-consent');
+    const auth = service.requireAuth();
+    const pluginIds = (auth.options.plugins ?? []).map((plugin) => plugin.id);
+    expect(pluginIds).toContain('jwt');
+    expect(pluginIds).toContain('oauth-provider');
+    expect(pluginIds).toContain('cimd');
+    // Endpoint /token của plugin jwt bị tắt khi compose AS.
+    expect(auth.options.disabledPaths).toContain('/token');
+    // Hai hiệu chỉnh bắt buộc của addendum phải nằm trong cấu hình
+    // plugin: cửa sổ tái dùng refresh = 0 và TTL resource /mcp = 3600s.
+    const pluginsJson = JSON.stringify(auth.options.plugins);
+    expect(pluginsJson).toContain('"refreshTokenReuseInterval":0');
+    expect(pluginsJson).toContain('"accessTokenTtl":3600');
+  });
 });
