@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
@@ -182,7 +182,11 @@ describe('Notification providers wired (N1, issue #49)', () => {
   });
 
   it('preferences: every listed provider is wired and carries its 3-group classification — no fake toggles remain', async () => {
-    const { token } = await setupStudentInCourse();
+    // NB-7: danh sách tuỳ chọn theo loại là bề mặt của nhân sự — học
+    // sinh chỉ nhận phần tối thiểu (spec riêng notifications-admin-policy).
+    const staff = await createUserViaApi(app, admin);
+    await assignRole(app, admin, staff.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
+    const token = (await login(app, staff.username, STRONG_PASSWORD)).accessToken;
     const res = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     // Mô hình v2 (NB-2, issue #174): một dòng cho mỗi provider kèm
@@ -336,11 +340,18 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/assignments/${assignment.id}`);
     expect(notif.subject).toContain('Bài tập NB-1 số 1');
 
-    // HS2 tắt popup của assignment_assigned (mô hình v2, NB-2) →
-    // bài tập sau không báo nữa.
-    const pref = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${ctx.student2Token}`)
-      .send({ provider: 'assignment_assigned', popupEnabled: false });
-    expect(pref.status).toBeLessThan(300);
+    // HS2 có tuỳ chọn popup của assignment_assigned đang TẮT (mô hình
+    // v2, NB-2) → bài tập sau không báo nữa. Từ NB-7 học sinh không còn
+    // tự đặt tuỳ chọn theo loại qua API (server chặn 403 — spec riêng
+    // notifications-admin-policy), nên ở đây gieo thẳng hàng tuỳ chọn
+    // vào DB: ca kiểm này chỉ nhắm luật "notify() tôn trọng tuỳ chọn đã
+    // lưu", không nhắm bề mặt API.
+    await pg.query(
+      `insert into user_preferences (user_id, name, value)
+       values ($1, 'message_provider_assignment_assigned_popup_v2', '0')
+       on conflict (user_id, name) do update set value = excluded.value`,
+      [ctx.student2.id],
+    );
     const assignment2 = await createAssignment(ctx, 'Bài tập NB-1 số 2');
     const notif2 = await waitForNotification(ctx.studentToken, 'assignment_assigned', 20000,
       (n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment2.id}`);

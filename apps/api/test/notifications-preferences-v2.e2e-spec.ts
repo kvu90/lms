@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from './identity-access-helpers';
 
 /**
  * NB-2 (issue #174): mô hình tuỳ chọn thông báo v2.
@@ -46,6 +46,11 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
   async function freshUser(): Promise<{ id: string; token: string }> {
     const user = await createUserViaApi(app, admin);
     const token = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
+    // NB-7: bề mặt tuỳ chọn theo loại chỉ còn cho nhân sự — fixture của
+    // suite này dùng vai teacher (gán ở context hệ thống) để kiểm mô
+    // hình v2 như trước; phần chặn học sinh có spec riêng
+    // (notifications-admin-policy).
+    await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
     return { id: user.id, token };
   }
 

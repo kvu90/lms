@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
 import { addGroupMember, createGroupViaApi, suspendUser } from './engagement-helpers';
 
@@ -233,6 +233,10 @@ describe('Messaging & calendar', () => {
   it('notifications: provider dispatch honours (provider × channel × loggedin) preferences; disabling popup stores nothing (DoD)', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
+    // NB-7: đặt tuỳ chọn theo loại qua API chỉ còn cho nhân sự — ca
+    // kiểm này nhắm cơ chế phát theo tuỳ chọn nên fixture mang vai
+    // teacher ở context hệ thống; phần chặn học sinh có spec riêng.
+    await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
     // Baseline: default preferences deliver the in-app notification.
     const first = await http(app).post('/api/v1/notifications/send').set('Authorization', `Bearer ${admin}`)
       .send({ userId: user.id, provider: 'badge_awarded', subject: 'Badge!', body: 'You earned a badge' });
