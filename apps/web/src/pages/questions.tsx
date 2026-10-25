@@ -465,6 +465,7 @@ export function QuestionsPage() {
   const [matrixContributions, setMatrixContributions] = useState<MatrixContributionLite[]>([]);
   const [proposeMatrixId, setProposeMatrixId] = useState('');
   const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
+
   // Ngân hàng đề (EB-1, issue #113): bank đề dùng chung khuôn bank đa
   // loại (kind=exam); "Đề của tôi" là collapse riêng song song "Ngân
   // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
@@ -679,6 +680,26 @@ export function QuestionsPage() {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
         await apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${contributionId}/reject`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+      }
+      await loadSharedMatrices(bankId);
+    } catch {
+      setMessage(t('proposeFailed'));
+    }
+  }
+
+  const subjectName = (subjectId: string) => subjects.find((s) => s.id === subjectId)?.name ?? '';
+  const matrixStatusKey = (status: string) => `matrixStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
+  const matrixPresetKey = (kind: string) =>
+    kind === 'cv7991_periodic' ? 'matrixPresetPeriodic' : kind === 'qd764_graduation' ? 'matrixPresetGraduation' : 'matrixPresetCustom';
+  const filteredSharedMatrices = sharedMatrices.filter(
+    (m) =>
+      (!matrixSubjectFilter || m.subjectId === matrixSubjectFilter) &&
+      (!matrixPresetFilter || m.presetKind === matrixPresetFilter),
+  );
+
   const personalExamBank = examBanks.find((b) => b.scope === 'personal');
   const sharedExamBanks = examBanks.filter((b) => b.scope !== 'personal');
 
@@ -784,21 +805,6 @@ export function QuestionsPage() {
           body: JSON.stringify({ reason }),
         });
       }
-      await loadSharedMatrices(bankId);
-    } catch {
-      setMessage(t('proposeFailed'));
-    }
-  }
-
-  const subjectName = (subjectId: string) => subjects.find((s) => s.id === subjectId)?.name ?? '';
-  const matrixStatusKey = (status: string) => `matrixStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
-  const matrixPresetKey = (kind: string) =>
-    kind === 'cv7991_periodic' ? 'matrixPresetPeriodic' : kind === 'qd764_graduation' ? 'matrixPresetGraduation' : 'matrixPresetCustom';
-  const filteredSharedMatrices = sharedMatrices.filter(
-    (m) =>
-      (!matrixSubjectFilter || m.subjectId === matrixSubjectFilter) &&
-      (!matrixPresetFilter || m.presetKind === matrixPresetFilter),
-  );
       await loadSystemPapers(bankId);
     } catch (err) {
       setMessage(withApiReason(t('proposeFailed'), err));
@@ -1368,6 +1374,64 @@ export function QuestionsPage() {
                       {t('editRow')}
                     </Button>
                     <Button type="button" variant="outline" onClick={() => void deleteMyMatrix(m.id)}>
+                      {t('deleteRow')}
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {sharedMatrixBanks.length > 0 && myMatrices.some((m) => m.status === 'ready') ? (
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <Label htmlFor="propose-matrix">{t('proposeToBank')}</Label>
+                    <select
+                      id="propose-matrix"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={proposeMatrixId}
+                      onChange={(e) => setProposeMatrixId(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {myMatrices
+                        .filter((m) => m.status === 'ready')
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="propose-matrix-bank">{t('pickBank')}</Label>
+                    <select
+                      id="propose-matrix-bank"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={proposeMatrixBankId}
+                      onChange={(e) => setProposeMatrixBankId(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {sharedMatrixBanks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>
+                          {bank.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={!proposeMatrixId || !proposeMatrixBankId}
+                    onClick={() => void proposeMatrixToBank(proposeMatrixId, proposeMatrixBankId)}
+                  >
+                    {t('propose')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('matrixProposeHint')}</p>
+              </div>
+            ) : null}
+          </CardContent>
+        )}
+      </Card>
+
       {/* Collapse "Đề của tôi" (EB-1): khu vực riêng của giáo viên cho
           ĐỀ — song song collapse câu hỏi ở trên theo mô hình hai khu
           vực đã chốt; mở collapse là danh sách đề của chính giáo viên
@@ -1438,52 +1502,6 @@ export function QuestionsPage() {
                 ))}
               </ul>
             )}
-            {sharedMatrixBanks.length > 0 && myMatrices.some((m) => m.status === 'ready') ? (
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-end gap-2">
-                  <div>
-                    <Label htmlFor="propose-matrix">{t('proposeToBank')}</Label>
-                    <select
-                      id="propose-matrix"
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={proposeMatrixId}
-                      onChange={(e) => setProposeMatrixId(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {myMatrices
-                        .filter((m) => m.status === 'ready')
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="propose-matrix-bank">{t('pickBank')}</Label>
-                    <select
-                      id="propose-matrix-bank"
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={proposeMatrixBankId}
-                      onChange={(e) => setProposeMatrixBankId(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {sharedMatrixBanks.map((bank) => (
-                        <option key={bank.id} value={bank.id}>
-                          {bank.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    type="button"
-                    disabled={!proposeMatrixId || !proposeMatrixBankId}
-                    onClick={() => void proposeMatrixToBank(proposeMatrixId, proposeMatrixBankId)}
-                  >
-                    {t('propose')}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">{t('matrixProposeHint')}</p>
             {deployPaper ? (
               <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
                 <div>
@@ -1562,8 +1580,9 @@ export function QuestionsPage() {
       </Card>
 
       {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
-          (câu hỏi / đề / ma trận). Ngân hàng câu hỏi chung (feat #70) và
-          ngân hàng đề chung (EB-1) đã thi công; ma trận chung chờ MB-1. */}
+          (câu hỏi / đề / ma trận) — cả ba đã thi công: câu hỏi chung
+          (feat #70), đề chung (EB-1, issue #113), ma trận chung
+          (MB-1, issue #111). */}
       <Card>
         <CardHeader>
           <button type="button" aria-expanded={systemOpen} onClick={() => setSystemOpen((v) => !v)} className="text-left">
