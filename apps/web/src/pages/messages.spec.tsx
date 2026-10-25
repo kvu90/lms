@@ -699,6 +699,64 @@ describe('Messages page — create conversation contract', () => {
     // nút chặn dành cho thành viên đó xuất hiện trong khung trò chuyện.
     expect(await screen.findByRole('button', { name: 'Chặn liên lạc' })).toBeInTheDocument();
   });
+
+  it('shows a direct Message button on roster rows flagged canDirectMessage (teacher → enrolled student, no friending first)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    // Khuôn stubFetch nhưng roster mang hai học sinh CHƯA kết bạn:
+    // một người được API gắn cờ canDirectMessage (học sinh của khoá
+    // GV đang xem), một người không — chỉ người đầu có nút nhắn thẳng.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (url === '/api/v1/users/me') return respond(PROFILE);
+        if (url === '/api/v1/messages/courses')
+          return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
+        if (url.startsWith(`/api/v1/messages/courses/${COURSE_ID}/members`))
+          return respond({
+            members: [
+              { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser', role: 'student', relationship: 'none', canDirectMessage: true },
+              { userId: THIRD_ID, displayName: 'Người Thứ Ba', username: 'thirduser', role: 'student', relationship: 'none', canDirectMessage: false },
+            ],
+            nextCursor: null,
+          });
+        if (url === '/api/v1/messages/conversations' && method === 'POST')
+          return respond({ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID] });
+        if (url === '/api/v1/messages/conversations')
+          return respond([{ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID] }]);
+        if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+        if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+        if (url === `/api/v1/messages/conversations/${CONV_ID}`)
+          return respond({ id: CONV_ID, type: 1, name: null, members: [ME_ID, OTHER_ID], messages: [] });
+        if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({});
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Khoá học mẫu' }));
+    const directRow = await screen.findByTestId(`roster-member-${OTHER_ID}`);
+    const plainRow = await screen.findByTestId(`roster-member-${THIRD_ID}`);
+    // Dòng được gắn cờ: có nút "Nhắn tin" ngay cả khi chưa kết bạn
+    // (nút Kết bạn vẫn còn bên cạnh — nhắn thẳng không ép qua kết bạn).
+    expect(within(directRow).getByRole('button', { name: 'Nhắn tin' })).toBeInTheDocument();
+    expect(within(directRow).getByRole('button', { name: 'Kết bạn' })).toBeInTheDocument();
+    // Dòng không gắn cờ: chỉ có Kết bạn, không có đường nhắn thẳng.
+    expect(within(plainRow).queryByRole('button', { name: 'Nhắn tin' })).not.toBeInTheDocument();
+    expect(within(plainRow).getByRole('button', { name: 'Kết bạn' })).toBeInTheDocument();
+
+    await userEvent.click(within(directRow).getByRole('button', { name: 'Nhắn tin' }));
+    await waitFor(() => {
+      const create = calls.find((c) => c.url === '/api/v1/messages/conversations' && c.method === 'POST');
+      expect(create).toBeDefined();
+      expect(create?.body).toEqual({ memberIds: [OTHER_ID] });
+    });
+    expect(await screen.findByRole('button', { name: 'Chặn liên lạc' })).toBeInTheDocument();
+  });
 });
 
 describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invalidate)', () => {

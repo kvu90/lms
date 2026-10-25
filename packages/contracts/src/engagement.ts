@@ -432,11 +432,16 @@ export type CourseRosterRole = z.infer<typeof courseRosterRoleSchema>;
  * chốt lại của issue #33: bỏ hẳn tìm người theo tên — vào khoá mình
  * thuộc về, xem thành viên, bấm kết bạn tại dòng). Người có quan hệ
  * chặn với người xem (cả hai chiều) bị giấu khỏi danh sách nên trạng
- * thái `blocked` không xuất hiện trong thực tế.
+ * thái `blocked` không xuất hiện trong thực tế. `canDirectMessage`:
+ * người xem là giáo viên của khoá và thành viên đang ghi danh hiệu
+ * lực → nhắn riêng trực tiếp không cần kết bạn (ngoại lệ chốt bổ
+ * sung 25/10/2026 trên issue #33); web hiện nút "Nhắn tin" tại dòng
+ * theo cờ này, cổng API vẫn tự kiểm lại quan hệ ở mỗi lần mở/gửi.
  */
 export const courseRosterMemberSchema = personSummarySchema.extend({
   role: courseRosterRoleSchema,
   relationship: contactRelationshipSchema,
+  canDirectMessage: z.boolean(),
 });
 export type CourseRosterMember = z.infer<typeof courseRosterMemberSchema>;
 
