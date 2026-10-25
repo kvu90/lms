@@ -153,7 +153,6 @@ async function main(): Promise<void> {
     };
     await ensureCm(week1, 'mod_page', 'Trang chào mừng');
     await ensureCm(week1, 'mod_resource', 'Tài liệu hướng dẫn học tập');
-    await ensureCm(week2, 'mod_quiz', 'Bài kiểm tra thử');
 
     // Ghi danh học sinh QUA LỚP (issue #184): thêm vào roster của lớp
     // mẫu → instance cohort của DEMO101 (tự tạo khi khoá được tạo trong
@@ -227,6 +226,44 @@ async function main(): Promise<void> {
       }), 'create sample rubric');
       console.log('[seed] sample assignment rubric created');
     } else console.log('[seed] sample assignment rubric exists');
+
+    // Bài kiểm tra mẫu (gộp Đề #226): dựng bằng ĐÚNG đường người dùng
+    // qua tài khoản teacher1 — soạn câu trong bank câu hỏi cá nhân →
+    // tạo ĐỀ trong bank đề cá nhân → ready → GHIM vào Tuần 2 của khoá
+    // (exam-pins tự tạo course module mod_quiz + grade item). Idempotent:
+    // khoá đã có lần ghim mang tên này thì giữ nguyên.
+    const SAMPLE_EXAM_NAME = 'Bài kiểm tra thử';
+    const existingPins = must(await call('GET', `/courses/${courseId}/exam-pins`, teacherToken), 'list pins') as { id: string; name: string }[];
+    if (existingPins.some((pin) => pin.name === SAMPLE_EXAM_NAME)) {
+      console.log('[seed] sample exam pin exists');
+    } else {
+      const qBanks = must(await call('GET', '/question-banks?kind=question', teacherToken), 'list question banks') as { scope: string; defaultCategoryId: string | null }[];
+      const myQBank = qBanks.find((b) => b.scope === 'personal');
+      if (!myQBank?.defaultCategoryId) throw new Error('teacher1 personal question bank not found');
+      const q1 = must(await call('POST', '/questions', teacherToken, {
+        categoryId: myQBank.defaultCategoryId, qtype: 'multichoice',
+        name: 'Câu mẫu 1', questionText: '2 + 3 bằng mấy?',
+        answers: [{ text: '5', fraction: 1 }, { text: '6', fraction: 0 }],
+        options: { single: true },
+      }), 'create sample question 1') as { question: { id: string } };
+      const q2 = must(await call('POST', '/questions', teacherToken, {
+        categoryId: myQBank.defaultCategoryId, qtype: 'truefalse',
+        name: 'Câu mẫu 2', questionText: 'Trái Đất quay quanh Mặt Trời.',
+        answer: { correct: true },
+      }), 'create sample question 2') as { question: { id: string } };
+      const eBanks = must(await call('GET', '/question-banks?kind=exam', teacherToken), 'list exam banks') as { id: string; scope: string }[];
+      const myEBank = eBanks.find((b) => b.scope === 'personal');
+      if (!myEBank) throw new Error('teacher1 personal exam bank not found');
+      const exam = must(await call('POST', `/exams/banks/${myEBank.id}/exams`, teacherToken, {
+        name: SAMPLE_EXAM_NAME, totalScore: 10,
+        slots: [{ questionId: q1.question.id, maxMark: 5 }, { questionId: q2.question.id, maxMark: 5 }],
+      }), 'create sample exam') as { paper: { id: string } };
+      must(await call('POST', `/exams/${exam.paper.id}/status`, teacherToken, { status: 'ready' }), 'ready sample exam');
+      const pin = must(await call('POST', `/courses/${courseId}/exam-pins`, teacherToken, {
+        sectionId: week2, examId: exam.paper.id,
+      }), 'pin sample exam') as { id: string };
+      console.log(`[seed] sample exam pinned into DEMO101 (#${pin.id})`);
+    }
 
     // Chương trình GDPT 2018 (GDPT-SEED, issue #161): nạp MỌI dataset
     // trong manifest bằng chính lõi ProgramImportService mà trang quản
