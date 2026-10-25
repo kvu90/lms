@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   };
   try {
     const login = must(await call('POST', '/auth/token', undefined, ADMIN), 'admin login');
-    const admin = (login as { accessToken: string }).accessToken;
+    let admin = (login as { accessToken: string }).accessToken;
     console.log('[seed] admin login ok');
 
     const findUser = async (username: string) => {
@@ -76,6 +76,23 @@ async function main(): Promise<void> {
     };
     const teacherId = await ensureUser(TEACHER);
     const studentIds = [await ensureUser(STUDENTS[0]!), await ensureUser(STUDENTS[1]!)];
+
+    // TENANT-0 (#168): câu chuyện mẫu sống ở tenant trường mặc định
+    // (truong-mac-dinh, bootstrap seed đã tạo). Thêm giáo viên/học sinh
+    // làm thành viên tường minh rồi chuyển phiên admin sang tenant đó —
+    // từ đây mọi dữ liệu mẫu (danh mục, khoá DEMO101, điểm, sự kiện) đều
+    // thuộc tenant-1. Ghi danh vào khoá cũng tự đảm bảo membership qua
+    // móc enrol, nhưng vai giáo viên gán ở bước sau cần membership có
+    // hiệu lực ngay từ đầu phiên tenant.
+    const myTenants = must(await call('GET', '/auth/tenants', admin), 'list admin tenants') as { id: string; slug: string }[];
+    const school = myTenants.find((t) => t.slug === 'truong-mac-dinh');
+    if (!school) throw new Error('default school tenant (truong-mac-dinh) is not seeded');
+    for (const uid of [teacherId, ...studentIds]) {
+      must(await call('POST', `/tenants/${school.id}/members`, admin, { userId: uid }), `add tenant member ${uid}`);
+    }
+    const switched = must(await call('POST', `/auth/switch-tenant/${school.id}`, admin), 'switch admin to school tenant') as { accessToken: string };
+    admin = switched.accessToken;
+    console.log('[seed] admin session switched to tenant truong-mac-dinh; demo users are members');
 
     const categories = must(await call('GET', '/courses/categories', admin), 'list categories') as { id: string; name: string }[];
     let category = categories.find((c) => c.name === 'Danh mục mẫu');
