@@ -2,7 +2,6 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CoursesService } from '../courses/courses.service';
-import { BlogService } from './blog.service';
 import { SocialRepository, type CommentRow } from './social.repository';
 
 /**
@@ -23,17 +22,7 @@ export class CommentsService {
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly courses: CoursesService,
-    private readonly blog: BlogService,
   ) {}
-
-  /**
-   * Vật chủ là bài blog (component 'core_blog') thì lớp comment THỪA
-   * HƯỞNG audience của bài (issue #48): không xem được bài → 404, không
-   * đọc/thao tác được comment của bài đó. Component khác không đổi.
-   */
-  private async assertBlogAudience(component: string, itemId: string, viewerId: string): Promise<void> {
-    if (component === 'core_blog') await this.blog.assertCanViewPost(itemId, viewerId);
-  }
 
   /** For course/module contexts, commenting also requires real course access (the virtual 'user' role alone never opens a course). */
   private async assertItemAccess(actorId: string, contextId: string): Promise<void> {
@@ -52,7 +41,6 @@ export class CommentsService {
   async addComment(actorId: string, input: {
     contextId: string; component: string; commentArea: string; itemId: string; content: string;
   }): Promise<CommentRow> {
-    await this.assertBlogAudience(input.component, input.itemId, actorId);
     await this.evaluator.requireCapability(actorId, 'comment:post', input.contextId);
     await this.assertItemAccess(actorId, input.contextId);
     return this.repo.insertComment({
@@ -67,7 +55,6 @@ export class CommentsService {
   async listComments(viewerId: string, input: {
     contextId: string; component: string; commentArea: string; itemId: string;
   }): Promise<{ comments: CommentRow[]; count: number; canpost: boolean }> {
-    await this.assertBlogAudience(input.component, input.itemId, viewerId);
     await this.evaluator.requireCapability(viewerId, 'comment:view', input.contextId);
     await this.assertItemAccess(viewerId, input.contextId);
     const rows = await this.repo.listComments(input.component, input.commentArea, input.itemId, input.contextId);
@@ -81,7 +68,6 @@ export class CommentsService {
   async deleteComment(actorId: string, commentId: string): Promise<{ deleted: boolean }> {
     const comment = await this.repo.getComment(commentId);
     if (!comment || comment.timeDeleted) throw new NotFoundException({ message: `Comment ${commentId} not found`, code: 'comments.not_found' });
-    await this.assertBlogAudience(comment.component, comment.itemId, actorId);
     if (comment.userId !== actorId) {
       const canDelete = await this.evaluator.hasCapability(actorId, 'comment:delete', comment.contextId);
       if (!canDelete) {

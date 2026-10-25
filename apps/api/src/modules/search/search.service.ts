@@ -3,9 +3,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { eq, sql } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { BlogService } from '../social/blog.service';
 import { SearchRepository, type SearchDocRow } from './search.repository';
-import { blogPosts, contentBankContent, course, users } from '../../db/schema';
+import { contentBankContent, course, users } from '../../db/schema';
 
 /** Một Search Area đăng ký vào registry: biết cách lấy tài liệu gốc để indexer lập chỉ mục và để re-check. */
 export interface SearchArea {
@@ -16,9 +15,9 @@ export interface SearchArea {
   listIds(): Promise<string[]>;
   /**
    * Cổng audience theo TỪNG NGƯỜI TÌM (tuỳ chọn): capability tại context
-   * của tài liệu không diễn đạt được audience riêng của item (ví dụ bài
-   * blog bị thu hẹp theo khoá) — area nào có audience riêng phải khai
-   * hàm này để search re-check theo viewer (issue #48).
+   * của tài liệu không diễn đạt được audience riêng của item — area nào
+   * có audience riêng phải khai hàm này để search re-check theo viewer
+   * (issue #48).
    */
   audienceCheck?(itemId: string, userId: string): Promise<boolean>;
 }
@@ -51,7 +50,6 @@ export class SearchService {
     private readonly repo: SearchRepository,
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
-    private readonly blog: BlogService,
   ) {
     this.registerBuiltinAreas();
   }
@@ -95,26 +93,6 @@ export class SearchService {
         return { title: c.name, content: `${c.name} ${c.contentType}`, contextId: c.contextId, ownerId: c.creatorId };
       },
       listIds: async () => (await db.select().from(contentBankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
-    });
-    // Area: blog — bài đã published (mô hình BL1 thay publishState hai
-    // mức bằng status). Audience của bài (theo space) KHÔNG nằm trong
-    // capability tại context — search phải re-check bằng chính cổng
-    // BlogService.canView theo từng người tìm (issue #48).
-    this.registerArea({
-      name: 'blog',
-      fetch: async (itemId) => {
-        const [p] = await db.select().from(blogPosts).where(eq(blogPosts.id, itemId));
-        if (!p || p.status !== 'published') return null;
-        const ctx = await this.contexts.getByLevelInstance(30, p.userId);
-        const sys = ctx ?? (await this.contexts.ensureSystemContext());
-        return { title: p.subject, content: `${p.subject} ${p.summary} ${p.content}`, contextId: sys.id, ownerId: p.userId };
-      },
-      listIds: async () => (await db.select().from(blogPosts)).filter((p) => p.status === 'published').map((r) => r.id),
-      audienceCheck: async (itemId, userId) => {
-        const post = await this.blog.getPost(itemId).catch(() => null);
-        if (!post) return false;
-        return this.blog.canView(post, userId);
-      },
     });
   }
 
@@ -162,7 +140,6 @@ export class SearchService {
       courses: 'course:view',
       users: 'user:viewdetails',
       contentbank: 'contentbank:viewcontent',
-      blog: 'blog:view',
     };
     for (const doc of candidates) {
       // Lớp 1: quyền tại thời điểm truy vấn ở context của tài liệu. Một
@@ -184,8 +161,8 @@ export class SearchService {
         if (!fresh) continue;
         if (fresh.contextId !== doc.contextId) continue;
         // Lớp 3 (audience theo viewer): area có audience riêng theo từng
-        // item (blog thu hẹp theo khoá) thì phải qua cổng của chính area
-        // đó — capability tại context không thay thế được (issue #48).
+        // item thì phải qua cổng của chính area đó — capability tại
+        // context không thay thế được (issue #48).
         if (provider.audienceCheck && !(await provider.audienceCheck(doc.itemId, userId))) continue;
       }
       out.push(doc);

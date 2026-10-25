@@ -266,51 +266,6 @@ export const ratingAggregateSchema = z.object({
 });
 export type RatingAggregate = z.infer<typeof ratingAggregateSchema>;
 
-/** Không gian chính của bài blog (BL1): khoá | trường | cá nhân. */
-export const blogSpaceTypeSchema = z.enum(['course', 'school', 'user']);
-export type BlogSpaceType = z.infer<typeof blogSpaceTypeSchema>;
-
-/** Loại bài blog (BL1). */
-export const blogKindSchema = z.enum(['article', 'resource', 'question']);
-export type BlogKind = z.infer<typeof blogKindSchema>;
-
-/** Vòng đời bài blog (BL1) — tách khỏi audience. */
-export const blogStatusSchema = z.enum(['draft', 'pending_review', 'published', 'hidden', 'archived', 'deleted']);
-export type BlogStatus = z.infer<typeof blogStatusSchema>;
-
-/** Audience suy ra từ space + status (BL1). */
-export const blogAudienceSchema = z.enum(['private', 'course', 'school']);
-export type BlogAudience = z.infer<typeof blogAudienceSchema>;
-
-export const blogModerationStateSchema = z.enum(['clear', 'flagged', 'held', 'removed']);
-export type BlogModerationState = z.infer<typeof blogModerationStateSchema>;
-
-export const blogCommentsPolicySchema = z.enum(['open', 'moderated', 'closed']);
-export type BlogCommentsPolicy = z.infer<typeof blogCommentsPolicySchema>;
-
-export const blogQuestionStateSchema = z.enum(['open', 'answered', 'resolved', 'closed']);
-export type BlogQuestionState = z.infer<typeof blogQuestionStateSchema>;
-
-export const blogPostSchema = z.object({
-  id: uuidIdSchema,
-  userId: uuidIdSchema,
-  subject: z.string(),
-  content: z.string(),
-  /** @deprecated Mô hình cũ hai mức — chỉ còn là projection tương thích (published → 'site', còn lại 'draft'). */
-  publishState: z.enum(['draft', 'site']),
-  spaceType: blogSpaceTypeSchema,
-  spaceId: uuidIdSchema.nullable(),
-  kind: blogKindSchema,
-  status: blogStatusSchema,
-  audience: blogAudienceSchema,
-  moderationState: blogModerationStateSchema,
-  commentsPolicy: blogCommentsPolicySchema,
-  questionState: blogQuestionStateSchema.nullable(),
-  publishedAt: z.string().nullable(),
-  scheduledAt: z.string().nullable(),
-  pinnedUntil: z.string().nullable(),
-});
-export type BlogPost = z.infer<typeof blogPostSchema>;
 
 export const noteSchema = z.object({
   id: uuidIdSchema,
@@ -956,63 +911,6 @@ export const rateItemSchema = z.strictObject({
 });
 export type RateItem = z.infer<typeof rateItemSchema>;
 
-/**
- * Payload tạo bài blog (BL1): chọn không gian chính + loại bài + trạng
- * thái ban đầu qua state machine; `publishState` là alias tương thích
- * ngược (draft | site) cho client chưa chuyển, bị ghi đè bởi `status`
- * khi cả hai cùng có mặt.
- */
-export const createBlogPostSchema = z.strictObject({
-  subject: z.string().min(1),
-  summary: z.string().optional(),
-  content: z.string(),
-  publishState: z.enum(['draft', 'site']).optional(),
-  spaceType: blogSpaceTypeSchema.optional(),
-  spaceId: uuidIdSchema.optional(),
-  kind: blogKindSchema.optional(),
-  status: z.enum(['draft', 'pending_review', 'published']).optional(),
-  commentsPolicy: blogCommentsPolicySchema.optional(),
-  questionState: blogQuestionStateSchema.optional(),
-  scheduledAt: z.iso.datetime().optional(),
-});
-export type CreateBlogPost = z.infer<typeof createBlogPostSchema>;
-
-/** Payload sửa bài blog (mọi trường đều tuỳ chọn). Đổi space bị cấm sau khi bài đã published. */
-export const updateBlogPostSchema = z.strictObject({
-  subject: z.string().optional(),
-  summary: z.string().optional(),
-  content: z.string().optional(),
-  publishState: z.enum(['draft', 'site']).optional(),
-  spaceType: blogSpaceTypeSchema.optional(),
-  spaceId: uuidIdSchema.nullable().optional(),
-  kind: blogKindSchema.optional(),
-  status: blogStatusSchema.optional(),
-  commentsPolicy: blogCommentsPolicySchema.optional(),
-  questionState: blogQuestionStateSchema.nullable().optional(),
-  scheduledAt: z.iso.datetime().nullable().optional(),
-  pinnedUntil: z.iso.datetime().nullable().optional(),
-});
-export type UpdateBlogPost = z.infer<typeof updateBlogPostSchema>;
-
-/** Query của feed blog theo space (BL1): phân trang con trỏ + lọc kind/tag/status. */
-export const blogFeedQuerySchema = z.object({
-  spaceType: blogSpaceTypeSchema.optional(),
-  spaceId: uuidIdSchema.optional(),
-  authorId: uuidIdSchema.optional(),
-  kind: blogKindSchema.optional(),
-  status: blogStatusSchema.optional(),
-  tag: z.string().min(1).optional(),
-  cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-});
-export type BlogFeedQuery = z.infer<typeof blogFeedQuerySchema>;
-
-/** Payload liên kết bài blog với một khoá học hoặc course module. */
-export const associateBlogPostSchema = z.strictObject({
-  assocType: z.enum(['course', 'coursemodule']),
-  assocId: uuidIdSchema,
-});
-export type AssociateBlogPost = z.infer<typeof associateBlogPostSchema>;
 
 /** Payload tạo ghi chú (note) về một người dùng: publishState draft | public | site. */
 export const createNoteSchema = z.strictObject({

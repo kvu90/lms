@@ -56,13 +56,6 @@
     "not_found": "Không tìm thấy huy hiệu",
     "site_badge_manager_only": "Huy hiệu cấp hệ thống yêu cầu vai trò quản lý ở context hệ thống"
   },
-  "blog": {
-    "associate_forbidden": "Chỉ tác giả mới liên kết được bài viết này",
-    "bad_publishstate": "Trạng thái xuất bản không hợp lệ",
-    "delete_forbidden": "Chỉ tác giả mới xoá được bài viết này",
-    "edit_forbidden": "Chỉ tác giả mới sửa được bài viết này",
-    "not_found": "Không tìm thấy bài blog"
-  },
   "calendar": {
     "bad_time": "Thời gian bắt đầu sự kiện không hợp lệ",
     "bad_type": "Loại sự kiện lịch không được hỗ trợ",

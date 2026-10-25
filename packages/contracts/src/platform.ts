@@ -6,7 +6,7 @@ import { uuidIdSchema } from './ids.js';
 /* ---- Search ---- */
 export const searchDocumentSchema = z.object({
   id: uuidIdSchema,
-  area: z.enum(['courses', 'users', 'contentbank', 'blog']),
+  area: z.enum(['courses', 'users', 'contentbank']),
   itemId: uuidIdSchema,
   contextId: uuidIdSchema,
   title: z.string(),
