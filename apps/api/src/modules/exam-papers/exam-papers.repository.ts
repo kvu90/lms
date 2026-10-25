@@ -1,14 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examDeployments, examPaperContributions, examPapers, examPaperSlots, examPaperVersions, question, questionBankEntries, questionVersions } from '../../db/schema';
+import {
+  context, course, examDeployments, examDossierReviews, examDossiers, examMatrices,
+  examPaperContributions, examPapers, examPaperSlots, examPaperVersions, question,
+  questionBankEntries, questionVersions, role, roleAssignments,
+} from '../../db/schema';
 
 export type ExamPaperRow = typeof examPapers.$inferSelect;
 export type ExamPaperVersionRow = typeof examPaperVersions.$inferSelect;
 export type ExamPaperSlotRow = typeof examPaperSlots.$inferSelect;
 export type ExamPaperContributionRow = typeof examPaperContributions.$inferSelect;
 export type ExamDeploymentRow = typeof examDeployments.$inferSelect;
+export type ExamDossierRow = typeof examDossiers.$inferSelect;
+export type ExamDossierReviewRow = typeof examDossierReviews.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
@@ -175,5 +181,92 @@ export class ExamPapersRepository {
     return this.db.select().from(examDeployments)
       .where(eq(examDeployments.paperId, paperId))
       .orderBy(desc(examDeployments.createdAt));
+  }
+
+  // --- bộ hồ sơ duyệt đề (EB-3) --------------------------------------------------
+
+  /** Tên + số version hiện tại của một ma trận (ghim vào bộ hồ sơ lúc nộp khi paper version không mang sẵn matrixVersion). */
+  async getMatrixInfo(matrixId: string): Promise<{ name: string; version: number } | undefined> {
+    const [row] = await this.db.select({ name: examMatrices.name, version: examMatrices.version })
+      .from(examMatrices).where(eq(examMatrices.id, matrixId));
+    return row;
+  }
+
+  async insertDossier(v: typeof examDossiers.$inferInsert, tx?: DbTx): Promise<ExamDossierRow> {
+    const [row] = await (tx ?? this.db).insert(examDossiers).values(v).returning();
+    return row!;
+  }
+
+  async getDossier(id: string): Promise<ExamDossierRow | undefined> {
+    const [row] = await this.db.select().from(examDossiers).where(eq(examDossiers.id, id));
+    return row;
+  }
+
+  async updateDossier(id: string, patch: Partial<ExamDossierRow>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examDossiers).set({ ...patch, updatedAt: new Date() })
+      .where(eq(examDossiers.id, id));
+  }
+
+  async deleteDossier(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).delete(examDossiers).where(eq(examDossiers.id, id));
+  }
+
+  /** Hàng chờ của một bank đích (mới nhất trước) — lọc theo quyền ở tầng service. */
+  async listDossiersForBank(targetBankId: string): Promise<ExamDossierRow[]> {
+    return this.db.select().from(examDossiers)
+      .where(eq(examDossiers.targetBankId, targetBankId))
+      .orderBy(desc(examDossiers.createdAt));
+  }
+
+  /** Mọi bộ hồ sơ của một người đóng góp (xem kết quả duyệt + lý do từ chối xuyên bank). */
+  async listDossiersByProposer(proposerId: string): Promise<ExamDossierRow[]> {
+    return this.db.select().from(examDossiers)
+      .where(eq(examDossiers.proposerId, proposerId))
+      .orderBy(desc(examDossiers.createdAt));
+  }
+
+  /** Bộ hồ sơ ĐANG HIỆU LỰC chờ duyệt (pending/pending_board) của cùng một đề vào cùng bank đích — nộp trùng bị chặn 409. */
+  async findActiveDossier(paperId: string, targetBankId: string, excludeId?: string): Promise<ExamDossierRow | undefined> {
+    const conds = [
+      eq(examDossiers.paperId, paperId),
+      eq(examDossiers.targetBankId, targetBankId),
+      inArray(examDossiers.status, ['pending', 'pending_board']),
+    ];
+    if (excludeId) conds.push(ne(examDossiers.id, excludeId));
+    const [row] = await this.db.select().from(examDossiers).where(and(...conds));
+    return row;
+  }
+
+  async insertDossierReview(v: typeof examDossierReviews.$inferInsert, tx?: DbTx): Promise<ExamDossierReviewRow> {
+    const [row] = await (tx ?? this.db).insert(examDossierReviews).values(v).returning();
+    return row!;
+  }
+
+  /** Vết duyệt của một bộ hồ sơ theo thứ tự thời gian (cấp 1 trước, cấp 2 sau). */
+  async listDossierReviews(dossierId: string): Promise<ExamDossierReviewRow[]> {
+    return this.db.select().from(examDossierReviews)
+      .where(eq(examDossierReviews.dossierId, dossierId))
+      .orderBy(asc(examDossierReviews.createdAt), asc(examDossierReviews.id));
+  }
+
+  /**
+   * Người dùng có đang DẠY khối `grade` hay không (lớp bảo mật đề
+   * định kỳ A.3.4): tồn tại một gán vai archetype giáo viên
+   * (teacher/editingteacher) tại context của một khoá có grade khớp.
+   */
+  async userTeachesGrade(userId: string, grade: number): Promise<boolean> {
+    const rows = await this.db.select({ id: roleAssignments.id })
+      .from(roleAssignments)
+      .innerJoin(role, eq(roleAssignments.roleId, role.id))
+      .innerJoin(context, eq(roleAssignments.contextId, context.id))
+      .innerJoin(course, eq(context.instanceId, course.id))
+      .where(and(
+        eq(roleAssignments.userId, userId),
+        eq(context.contextLevel, 50),
+        eq(course.grade, grade),
+        inArray(role.archetype, ['teacher', 'editingteacher']),
+      ))
+      .limit(1);
+    return rows.length > 0;
   }
 }

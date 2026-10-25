@@ -110,6 +110,13 @@ export interface MatrixSpecification {
   quiz: { id: string; name: string } | null;
 }
 
+/** Một slot tối thiểu cho builder đặc tả: ô nguồn + vị trí + câu đã ghim (null = slot rút tại lượt làm, đề per_student). */
+export interface SpecificationSlot {
+  matrixCellId: string | null;
+  slot: number;
+  questionId: string | null;
+}
+
 /** Bung view model đặc tả thành các dòng phẳng cho bảng xuất file (một dòng = một ô ma trận). */
 export function flattenSpecification(spec: MatrixSpecification): {
   index: number; topicTitle: string; nodeTitle: string; outcomeText: string;
@@ -1789,18 +1796,59 @@ export class QuizService {
   async getMatrixSpecification(actorId: string, matrixId: string, quizId?: string): Promise<MatrixSpecification> {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.viewMatrix);
-    const subject = await this.curriculum.getSubject(actorId, matrix.subjectId);
-    const curriculum = await this.curriculum.getCurriculum(actorId, matrix.curriculumId);
-    const cells = await this.repo.listMatrixCells(matrix.id);
     let quiz: QuizRow | null = null;
-    let slots: QuizSlotRow[] = [];
+    let slots: SpecificationSlot[] | null = null;
     if (quizId) {
       quiz = await this.getQuiz(quizId);
       if (quiz.matrixId !== matrix.id) {
         throw new BadRequestException({ message: 'The quiz was not generated from this matrix', code: 'quiz.spec_quiz_mismatch' });
       }
-      slots = await this.repo.listSlots(quiz.id);
+      slots = (await this.repo.listSlots(quiz.id)).map((s) => ({
+        matrixCellId: s.matrixCellId, slot: s.slot, questionId: s.questionId,
+      }));
     }
+    return this.buildSpecification(actorId, matrix, {
+      quiz: quiz ? { id: quiz.id, name: quiz.name } : null, slots,
+    });
+  }
+
+  /**
+   * Bản đặc tả neo theo ĐỀ (EB-3, điểm E-6 của hồ sơ ngân hàng đề):
+   * cùng một builder với đặc tả theo ma trận, nhưng vị trí câu lấy từ
+   * SLOTS CỦA PAPER VERSION đã ghim (đề là neo chính; quiz chỉ là một
+   * lần triển khai của đề). Hàm này KHÔNG tự gác capability của ma
+   * trận — cổng quyền nằm ở phía gọi (ExamPapersService gác theo đề,
+   * gồm lớp bảo mật đề định kỳ A.3.4).
+   */
+  async buildSpecificationForPaper(actorId: string, matrixId: string, paperSlots: { matrixCellId: string | null; position: number; questionId: string | null }[]): Promise<MatrixSpecification> {
+    const matrix = await this.getMatrixRow(matrixId);
+    return this.buildSpecification(actorId, matrix, {
+      quiz: null,
+      slots: paperSlots.map((s) => ({ matrixCellId: s.matrixCellId, slot: s.position, questionId: s.questionId })),
+    });
+  }
+
+  /** Thông tin tối thiểu của một quiz cho đặc tả theo đề (EB-3): phía gọi tự kiểm quiz có thuộc đề đang xét hay không. */
+  async getQuizSummary(quizId: string): Promise<{ id: string; name: string; paperId: string | null; matrixId: string | null } | null> {
+    const quiz = await this.repo.getQuiz(quizId);
+    if (!quiz) return null;
+    return { id: quiz.id, name: quiz.name, paperId: quiz.paperId, matrixId: quiz.matrixId };
+  }
+
+  /**
+   * Builder dùng chung của bản đặc tả: lưới ô của ma trận + (tuỳ
+   * chọn) vị trí câu của một tập slot cụ thể — slot của quiz (đặc tả
+   * theo ma trận, C.6) hoặc slot của paper version (đặc tả theo đề,
+   * E-6). `slots = null` nghĩa là bản đặc tả dự kiến chưa có vị trí.
+   */
+  private async buildSpecification(actorId: string, matrix: ExamMatrixRow, opts: {
+    quiz: { id: string; name: string } | null;
+    slots: SpecificationSlot[] | null;
+  }): Promise<MatrixSpecification> {
+    const subject = await this.curriculum.getSubject(actorId, matrix.subjectId);
+    const curriculum = await this.curriculum.getCurriculum(actorId, matrix.curriculumId);
+    const cells = await this.repo.listMatrixCells(matrix.id);
+    const slots = opts.slots;
     const nodeCache = new Map<string, Awaited<ReturnType<CurriculumService['getNode']>>>();
     const getNode = async (id: string) => {
       let node = nodeCache.get(id);
@@ -1858,13 +1906,13 @@ export class QuizService {
         };
         nodeAcc.outcomes.set(outcome.id, outcomeAcc);
       }
-      const cellSlots = slots.filter((s) => s.matrixCellId === cell.id);
+      const cellSlots = slots ? slots.filter((s) => s.matrixCellId === cell.id) : [];
       const perStudent = cellSlots.length > 0 && cellSlots.every((s) => s.questionId === null);
       outcomeAcc.cells.push({
         cellId: cell.id, cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
         questionCount: cell.questionCount, cellScore: cell.cellScore, minutes: cell.minutes,
-        slotNumbers: quiz ? cellSlots.map((s) => s.slot).sort((a, b) => a - b) : null,
-        drawNote: quiz && perStudent ? 'Rút ngẫu nhiên theo ô' : null,
+        slotNumbers: slots ? cellSlots.map((s) => s.slot).sort((a, b) => a - b) : null,
+        drawNote: slots && perStudent ? 'Rút ngẫu nhiên theo ô' : null,
         competencyRefs: [],
       });
       const formAcc = byForm.get(cell.qtype) ?? { qtype: cell.qtype, questionCount: 0, score: 0 };
@@ -1896,7 +1944,7 @@ export class QuizService {
         })),
       })),
       totals: { byForm: formTotals, totalScore, totalQuestions },
-      quiz: quiz ? { id: quiz.id, name: quiz.name } : null,
+      quiz: opts.quiz,
     };
   }
 
@@ -1910,6 +1958,19 @@ export class QuizService {
       throw new BadRequestException({ message: 'Specification export format must be xlsx or docx', code: 'quiz.spec_export_format' });
     }
     const spec = await this.getMatrixSpecification(actorId, matrixId, quizId);
+    return this.renderSpecification(spec, format);
+  }
+
+  /**
+   * Render một view model đặc tả ra file (xlsx qua exceljs — cùng hạ
+   * tầng với xuất điểm vnEdu; docx qua gói docx): dùng chung cho đặc
+   * tả theo ma trận (C.6), đặc tả theo đề và bản chụp trong bộ hồ sơ
+   * (EB-3) — cùng một view model, hai định dạng nộp/lưu hồ sơ.
+   */
+  async renderSpecification(spec: MatrixSpecification, format: string): Promise<{ filename: string; contentType: string; buffer: Buffer }> {
+    if (format !== 'xlsx' && format !== 'docx') {
+      throw new BadRequestException({ message: 'Specification export format must be xlsx or docx', code: 'quiz.spec_export_format' });
+    }
     const flat = flattenSpecification(spec);
     if (format === 'xlsx') {
       const ExcelJS = await import('exceljs');

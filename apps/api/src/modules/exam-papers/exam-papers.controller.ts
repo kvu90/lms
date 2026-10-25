@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
 import { generateFromMatrixSchema, uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { ExamPapersService } from './exam-papers.service';
 import type { GenerateFromMatrixDto } from '../quiz/dto/quiz.dto';
@@ -151,6 +152,38 @@ export class ExamPapersController {
    */
   async deployments(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.papers.listDeployments(actor.id, id);
+  }
+
+  @Get(':id/specification')
+  /**
+   * GET /exam-papers/:id/specification?quizId= — bản đặc tả neo theo ĐỀ (EB-3, E-6): sinh từ ma trận của paper version hiện tại + vị trí câu từ slots của chính đề; quizId (tuỳ chọn) chỉ ghi nhận lần triển khai cụ thể.
+   */
+  async specification(@Param('id', { schema: uuidIdSchema }) id: string, @Query('quizId') quizId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    if (quizId !== undefined && !uuidIdSchema.safeParse(quizId).success) {
+      throw new BadRequestException({ message: 'quizId must be a uuid', code: 'quiz.spec_quiz_invalid' });
+    }
+    return this.papers.getPaperSpecification(actor.id, id, quizId);
+  }
+
+  @Get(':id/specification/export')
+  @Header('content-disposition', 'attachment')
+  /**
+   * GET /exam-papers/:id/specification/export?format=xlsx|docx&quizId= — xuất bản đặc tả theo đề ra file.
+   */
+  async exportSpecification(
+    @Param('id', { schema: uuidIdSchema }) id: string,
+    @Query('format') format: string | undefined,
+    @Query('quizId') quizId: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    if (quizId !== undefined && !uuidIdSchema.safeParse(quizId).success) {
+      throw new BadRequestException({ message: 'quizId must be a uuid', code: 'quiz.spec_quiz_invalid' });
+    }
+    const file = await this.papers.exportPaperSpecification(actor.id, id, format ?? 'xlsx', quizId);
+    res.setHeader('Content-Type', file.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+    res.send(file.buffer);
   }
 
   @Get(':id/print')
