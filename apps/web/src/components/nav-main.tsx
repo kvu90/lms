@@ -50,19 +50,37 @@ function isNavGroup(entry: NavEntry): entry is NavGroupItem {
   return 'children' in entry;
 }
 
-/** Mục đang chọn: khớp chính xác, hoặc route con của nó (riêng trang chủ chỉ khớp chính xác). */
-function isPathActive(url: string, pathname: string): boolean {
-  return url === '/' ? pathname === '/' : pathname === url || pathname.startsWith(`${url}/`);
+/**
+ * Mục đang chọn: khớp chính xác, hoặc route con của nó (riêng trang
+ * chủ chỉ khớp chính xác). URL có query (liên kết sâu kiểu ?bank=...)
+ * thì chỉ active khi pathname khớp VÀ mọi tham số trong query của URL
+ * đều có mặt với đúng giá trị trong query hiện tại — nhờ vậy các mục
+ * con cùng pathname (4 khu vực của /questions) phân biệt được nhau và
+ * nhóm cha tự mở đúng khi đang ở trang đích theo neo. URL không query
+ * giữ nguyên hành vi cũ (không xét query hiện tại).
+ */
+function isPathActive(url: string, pathname: string, search: string): boolean {
+  const queryIndex = url.indexOf('?');
+  const urlPath = queryIndex >= 0 ? url.slice(0, queryIndex) : url;
+  const pathMatches = urlPath === '/' ? pathname === '/' : pathname === urlPath || pathname.startsWith(`${urlPath}/`);
+  if (!pathMatches || queryIndex < 0) return pathMatches;
+  const wanted = new URLSearchParams(url.slice(queryIndex + 1));
+  const current = new URLSearchParams(search);
+  let queryMatches = true;
+  wanted.forEach((value, key) => {
+    if (current.get(key) !== value) queryMatches = false;
+  });
+  return queryMatches;
 }
 
 /** Mục lá ở cấp trực tiếp của sidebar (nút có icon + tooltip khi thu thành rail). */
-function NavLeafButton({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavLeafButton({ item, pathname, search }: { item: NavItem; pathname: string; search: string }) {
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         render={<Link to={item.url} />}
         tooltip={item.title}
-        isActive={isPathActive(item.url, pathname)}
+        isActive={isPathActive(item.url, pathname, search)}
       >
         {item.icon && <item.icon />}
         <span>{item.title}</span>
@@ -87,16 +105,18 @@ function NavLeafButton({ item, pathname }: { item: NavItem; pathname: string }) 
 function NavGroupCollapsible({
   item,
   pathname,
+  search,
   open,
   onOpenChange,
 }: {
   item: NavGroupItem;
   pathname: string;
+  search: string;
   open: boolean;
   onOpenChange: (groupId: string, open: boolean) => void;
 }) {
   const { state, isMobile, setOpen } = useSidebar();
-  const hasActiveChild = item.children.some((child) => isPathActive(child.url, pathname));
+  const hasActiveChild = item.children.some((child) => isPathActive(child.url, pathname, search));
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (state === 'collapsed' && !isMobile) {
@@ -119,7 +139,7 @@ function NavGroupCollapsible({
         <SidebarMenuSub>
           {item.children.map((child) => (
             <SidebarMenuSubItem key={child.url}>
-              <SidebarMenuSubButton render={<Link to={child.url} />} isActive={isPathActive(child.url, pathname)}>
+              <SidebarMenuSubButton render={<Link to={child.url} />} isActive={isPathActive(child.url, pathname, search)}>
                 {child.icon && <child.icon />}
                 <span>{child.title}</span>
               </SidebarMenuSubButton>
@@ -148,7 +168,7 @@ export function NavMain({
   openGroups: string[];
   onOpenGroupChange: (groupId: string, open: boolean) => void;
 }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const visible = items.filter((entry) => !isNavGroup(entry) || entry.children.length > 0);
   if (visible.length === 0) return null;
   return (
@@ -161,14 +181,15 @@ export function NavMain({
                 key={entry.groupId}
                 item={entry}
                 pathname={pathname}
+                search={search}
                 open={
                   openGroups.includes(entry.groupId) ||
-                  entry.children.some((child) => isPathActive(child.url, pathname))
+                  entry.children.some((child) => isPathActive(child.url, pathname, search))
                 }
                 onOpenChange={onOpenGroupChange}
               />
             ) : (
-              <NavLeafButton key={entry.url} item={entry} pathname={pathname} />
+              <NavLeafButton key={entry.url} item={entry} pathname={pathname} search={search} />
             ),
           )}
         </SidebarMenu>

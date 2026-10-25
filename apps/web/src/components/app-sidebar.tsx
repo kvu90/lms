@@ -69,9 +69,12 @@ function readStoredOpenGroups(): string[] {
  *
  * - 6 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông báo,
  *   Tìm kiếm): các trang mọi người dùng đăng nhập đều tự phục vụ được.
- * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập, Blog và —
- *   chỉ khi API cho phép đọc danh mục câu hỏi (canUseQuestionBank) —
- *   Ngân hàng câu hỏi; học viên thuần không nhìn thấy mục đó.
+ * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập, Blog.
+ * - Nhóm "Ngân hàng câu hỏi" thu/mở được NGAY SAU nhóm Học tập — chỉ
+ *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank), học
+ *   viên thuần không nhìn thấy nhóm này: 4 mục con liên kết sâu tới
+ *   từng khu vực của trang /questions (?bank=system / my-questions /
+ *   my-papers / my-matrices).
  * - Hai nhóm quản trị ("Người dùng & quyền", "Hệ thống & dữ liệu") chỉ
  *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
  *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
@@ -143,11 +146,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         { title: t('app:navBadges'), url: '/badges', icon: IconAward },
         { title: t('app:navLearningPlan'), url: '/learning-plan', icon: IconNotebook },
         { title: t('app:navBlog'), url: '/blog', icon: IconBooks },
-        ...(perms.canUseQuestionBank
-          ? [{ title: t('app:navQuestions'), url: '/questions', icon: IconQuestionMark }]
-          : []),
       ],
     },
+    ...(perms.canUseQuestionBank
+      ? [
+          {
+            groupId: 'question-bank',
+            title: t('app:navQuestions'),
+            icon: IconQuestionMark,
+            children: [
+              { title: t('app:navBankSystem'), url: '/questions?bank=system', icon: IconDatabase },
+              { title: t('app:navMyQuestions'), url: '/questions?bank=my-questions', icon: IconQuestionMark },
+              { title: t('app:navMyPapers'), url: '/questions?bank=my-papers', icon: IconNotebook },
+              { title: t('app:navMyMatrices'), url: '/questions?bank=my-matrices', icon: IconChartBar },
+            ],
+          },
+        ]
+      : []),
     ...(perms.canAdminister
       ? [
           {

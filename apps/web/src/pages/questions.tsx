@@ -557,6 +557,21 @@ export function QuestionsPage() {
     if (notice) setMessage(notice);
   }, [location.state]);
 
+  // Liên kết sâu từ sidebar (?bank=system / my-questions / my-papers /
+  // my-matrices): mở đúng collapse của khu vực được trỏ tới và đóng ba
+  // collapse còn lại. Neo nằm ở URL nên bền qua F5, điều hướng từ trang
+  // khác và bấm qua lại giữa các mục con khi đang ở ngay trang này;
+  // không có tham số bank (hoặc giá trị lạ) thì giữ nguyên trạng thái
+  // người dùng đang thao tác.
+  useEffect(() => {
+    const bank = new URLSearchParams(location.search).get('bank');
+    if (bank !== 'system' && bank !== 'my-questions' && bank !== 'my-papers' && bank !== 'my-matrices') return;
+    setMyOpen(bank === 'my-questions');
+    setMyPapersOpen(bank === 'my-papers');
+    setMyMatrixOpen(bank === 'my-matrices');
+    setSystemOpen(bank === 'system');
+  }, [location.search]);
+
   useEffect(() => {
     // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —
     // trang render trạng thái không-có-quyền ở dưới (issue #55 mục 1).
