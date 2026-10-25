@@ -163,7 +163,7 @@ async function main(): Promise<void> {
     // (đã có editingteacher tại khoá) — đúng đường giáo viên thật dùng.
     // Idempotent: đã có bài cùng tên thì giữ nguyên, rubric chỉ dựng khi
     // bài chưa có bảng tiêu chí.
-    const teacherLogin = must(await call('POST', '/auth/token', undefined, TEACHER), 'teacher login');
+    const teacherLogin = must(await call('POST', '/auth/token', undefined, { username: TEACHER.username, password: TEACHER_PASSWORD }), 'teacher login');
     const teacherToken = (teacherLogin as { accessToken: string }).accessToken;
     const SAMPLE_ASSIGNMENT_NAME = 'Bài tập mẫu: Chụp ảnh bài làm và nộp';
     const existingAssignments = must(await call('GET', `/courses/${courseId}/assignments`, teacherToken), 'list assignments') as { id: string; name: string }[];
