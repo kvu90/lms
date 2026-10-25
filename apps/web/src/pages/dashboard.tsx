@@ -129,7 +129,14 @@ function StudentTodoBlock() {
             <ul className="flex flex-col gap-2">
               {data.newResults.map((result, idx) => (
                 <li key={`${result.kind}-${result.itemId ?? result.courseId}-${idx}`} className="text-sm" data-testid="todo-new-result">
-                  <Link to={`/courses/${result.courseId}/grades`} className="font-medium hover:underline">
+                  <Link
+                    to={
+                      result.kind === 'grade_item'
+                        ? `/courses/${result.courseId}/grades`
+                        : `/courses/${result.courseId}/grades#vn-results`
+                    }
+                    className="font-medium hover:underline"
+                  >
                     {result.kind === 'grade_item'
                       ? `${result.itemName ?? ''} — ${t('newResultGrade', { grade: result.finalGrade ?? '—', max: result.gradeMax ?? '—' })}`
                       : result.kind === 'vn_term'
