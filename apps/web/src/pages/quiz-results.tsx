@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
-import type { QuizAttemptSummary, QuizView } from '@lms/contracts';
 import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -11,56 +10,13 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
-
-/** Một câu essay đang chờ chấm tay (hàng đợi của giáo viên). */
-interface NeedsGradingItem {
-  quizAttemptId: string;
-  userId: string;
-  attemptNumber: number;
-  questionAttemptId: string;
-  slot: number;
-  questionId: string;
-  maxMark: number;
-  response: string | null;
-}
-
-/** Một học sinh làm chưa trọn vẹn một câu trong thống kê câu sai. */
-interface QuestionWrongStudent {
-  userId: string;
-  displayName: string;
-  quizAttemptId: string;
-  attemptNumber: number;
-  fraction: number;
-  mark: number;
-}
-
-/**
- * Thống kê một slot trong đề (API gộp theo vị trí câu, chỉ tính lượt
- * đã nộp): câu sai nhiều nhất được API xếp lên đầu. questionName null
- * khi slot rút câu ngẫu nhiên (mỗi lượt một câu khác nhau).
- */
-interface QuestionStat {
-  slot: number;
-  questionId: string | null;
-  questionName: string | null;
-  maxMark: number;
-  attemptsCount: number;
-  gradedCount: number;
-  pendingCount: number;
-  wrongCount: number;
-  fullyWrongCount: number;
-  wrongStudents: QuestionWrongStudent[];
-}
-
-/** Hình dạng trả về của GET /exam-pins/:id/results. */
-interface QuizResults {
-  quiz: QuizView;
-  attempts: QuizAttemptSummary[];
-  gradesByUser: { userId: string; grade: number | null }[];
-  needsGrading: NeedsGradingItem[];
-  questionStats: QuestionStat[];
-}
+import {
+  quizResultsQueryOptions,
+  useGradeQuizQuestion,
+  useQuizResults,
+  type NeedsGradingItem,
+} from '#lib/quiz-results-data';
+import { queryClient } from '#lib/query-client';
 
 /**
  * Trang kết quả quiz cho giáo viên: điểm bài hiện tại của từng học
@@ -70,64 +26,49 @@ interface QuizResults {
 export function QuizResultsPage() {
   const { t } = useTranslation('app');
   const { id: courseId, pinId: quizId } = useParams();
-  const [data, setData] = useState<QuizResults | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): clientLoader đã prefetch
+  // cùng khoá trước khi mount; chấm tay qua mutation — thành công tự
+  // invalidate query kết quả thay cho reload thủ công. Trạng thái chờ
+  // lần tải đầu trên isPending của query với skeleton sẵn có (F-14).
+  const resultsQuery = useQuizResults(quizId);
+  const data = resultsQuery.data ?? null;
+  const gradeMutation = useGradeQuizQuestion();
+  const busy = gradeMutation.isPending;
   const [actionError, setActionError] = useState<string | null>(null);
   const [marks, setMarks] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-
-  const reload = useCallback(async () => {
-    const fresh = await apiJson<QuizResults>(`/api/v1/exam-pins/${quizId}/results`);
-    setData(fresh);
-  }, [quizId]);
-
-  useEffect(() => {
-    void reload().catch(() => setError(t('quizResultsLoadFailed')));
-  }, [reload, t]);
 
   async function grade(item: NeedsGradingItem) {
     setActionError(null);
-    setBusy(true);
     try {
-      await apiJson(`/api/v1/quiz-attempts/${item.quizAttemptId}/questions/${item.questionAttemptId}/grade`, {
-        method: 'POST',
-        body: JSON.stringify({
-          mark: Number(marks[item.questionAttemptId] ?? ''),
-          ...(comments[item.questionAttemptId] ? { comment: comments[item.questionAttemptId] } : {}),
-        }),
+      await gradeMutation.mutateAsync({
+        quizId: quizId ?? '',
+        quizAttemptId: item.quizAttemptId,
+        questionAttemptId: item.questionAttemptId,
+        mark: Number(marks[item.questionAttemptId] ?? ''),
+        comment: comments[item.questionAttemptId] || undefined,
       });
-      await reload();
     } catch {
       setActionError(t('quizGradeFailed'));
-    } finally {
-      setBusy(false);
     }
   }
 
-  if (error)
+  if (resultsQuery.isError && !resultsQuery.isFetching && !data)
     return (
       <PageShell width="medium">
         <PageHeader title={t('quizResultsHeading')} />
         <Alert variant="destructive">
           <AlertTitle>{t('quizResultsHeading')}</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{t('quizResultsLoadFailed')}</AlertDescription>
         </Alert>
         <div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setError(null);
-              void reload().catch(() => setError(t('quizResultsLoadFailed')));
-            }}
-          >
+          <Button type="button" variant="outline" onClick={() => void resultsQuery.refetch()}>
             {t('retry')}
           </Button>
         </div>
       </PageShell>
     );
-  if (!data)
+  if (resultsQuery.isPending || !data)
     return (
       <PageShell width="medium">
         <PageHeader title={t('quizResultsHeading')} />
@@ -281,6 +222,18 @@ export function QuizResultsPage() {
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default function QuizResultsRoute() {
   return <QuizResultsPage />;
+}
+
+/**
+ * clientLoader (F-01 đợt 1 + bổ sung clientLoader, rà soát #133):
+ * prefetch query kết quả vào QueryClient singleton dùng chung, đúng
+ * khoá factory, trước khi component mount.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.pinId) {
+    await queryClient.prefetchQuery(quizResultsQueryOptions(params.pinId));
+  }
+  return null;
 }
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
