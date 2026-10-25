@@ -451,12 +451,16 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
       // không phải bank personal, trùng trong bank đích. ─────────────
       const results: McpSubmitContributionOutput['results'] = [];
       for (const questionId of questionIds) {
-        const row = await deps.questionsRepo.getQuestion(questionId);
-        if (!row) {
+        // Qua facade QuestionsService (sau tái cấu trúc module #138):
+        // câu không tồn tại → service ném question.not_found.
+        let createdBy: string | null;
+        try {
+          createdBy = (await deps.questions.getQuestion(questionId)).question.createdBy;
+        } catch {
           results.push({ questionId, status: 'failed', contributionId: null, code: 'question.not_found', message: `Question ${questionId} not found` });
           continue;
         }
-        if (row.createdBy !== actor.userId) {
+        if (createdBy !== actor.userId) {
           results.push({
             questionId, status: 'failed', contributionId: null,
             code: 'question.contribution_source_not_own',

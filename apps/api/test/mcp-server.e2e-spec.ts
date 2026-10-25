@@ -814,7 +814,9 @@ describe('MCP submit_contribution thiếu scope (app riêng, trần không có l
 
   beforeAll(async () => {
     app3 = await createMountedMcpApp((a) => {
-      const deps = resolveMcpDeps(a as NestExpressApplication);
+      // Deps chuẩn từ facade của McpModule (issue #138), chỉ thu hẹp
+      // trần scope để kiểm cổng insufficient_scope của submit_contribution.
+      const deps = a.get(McpDepsService).createMountDeps();
       return { ...deps, grantedScopes: ['lms.questions.read', 'lms.questions.draft'] };
     });
   });
