@@ -270,7 +270,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           }),
         });
         setMessage(t('examPaperSaved', { version: created.version.version }));
-        await navigate('/questions');
+        await navigate('/exam-papers');
         return;
       }
       if (!original || !paperId) return;
@@ -305,7 +305,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         });
       }
       setMessage(t('examPaperSaved', { version: view.version.version }));
-      await navigate('/questions');
+      await navigate('/exam-papers');
     } catch (err) {
       setMessage(withApiReason(t('examPaperSaveFailed'), err));
     }
@@ -322,7 +322,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       <PageHeader
         title={mode === 'new' ? t('examPaperNew') : t('examPaperEdit')}
         actions={
-          <Button type="button" variant="outline" render={<Link to="/questions" />}>
+          <Button type="button" variant="outline" render={<Link to="/exam-papers" />}>
             {t('backToBanks')}
           </Button>
         }

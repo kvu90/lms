@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
@@ -453,7 +453,23 @@ export function formContent(form: QuestionFormState, preserveExistingOptions = f
  * increments and the version history shows every version (attempts already
  * started keep the version they pinned; that invariant is API-side).
  */
-export function QuestionsPage() {
+/**
+ * Khu vực ngân hàng mà trang này đang phục vụ (chuẩn đường dẫn, issue
+ * #221 — lát R1): mỗi khu vực có PATH RIÊNG, trang suy ra khu vực từ
+ * route (prop do route module truyền vào), KHÔNG còn đọc ?bank=/
+ * ?section= từ URL như trước. URL cũ dạng ?bank=... được lớp tương
+ * thích ở route module questions chuyển hướng (replace) sang path mới.
+ */
+export type BankArea =
+  | 'my-questions'
+  | 'stimuli'
+  | 'my-papers'
+  | 'my-matrices'
+  | 'system-questions'
+  | 'system-papers'
+  | 'system-matrices';
+
+export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
   const perms = usePermissions();
@@ -473,8 +489,10 @@ export function QuestionsPage() {
   // Lớp bank của feat Ngân hàng câu hỏi chung (issue #70): khu vực ngân
   // hàng riêng của giáo viên + khu vực Ngân hàng hệ thống (bank chung).
   const [banks, setBanks] = useState<BankLite[]>([]);
-  const [myOpen, setMyOpen] = useState(false);
-  const [systemOpen, setSystemOpen] = useState(false);
+  // Khu vực của chính trang này mở sẵn (nó LÀ nội dung của trang);
+  // các khu vực khác không render ở route này nữa.
+  const [myOpen, setMyOpen] = useState(area === 'my-questions');
+  const [systemOpen, setSystemOpen] = useState(area.startsWith('system'));
   const [myQuestions, setMyQuestions] = useState<QuestionView[]>([]);
   const [attributions, setAttributions] = useState<Record<string, AttributionLite>>({});
   const [discBankId, setDiscBankId] = useState('');
@@ -489,7 +507,7 @@ export function QuestionsPage() {
   // section ma trận chung trong Ngân hàng hệ thống — cùng khuôn hai khu
   // vực phân biệt của ngân hàng câu hỏi.
   const [matrixBanks, setMatrixBanks] = useState<BankLite[]>([]);
-  const [myMatrixOpen, setMyMatrixOpen] = useState(false);
+  const [myMatrixOpen, setMyMatrixOpen] = useState(area === 'my-matrices');
   const [myMatrices, setMyMatrices] = useState<MatrixLite[]>([]);
   const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
   const [sharedMatrixBankId, setSharedMatrixBankId] = useState('');
@@ -504,7 +522,7 @@ export function QuestionsPage() {
   // loại (kind=exam); "Đề của tôi" là collapse riêng song song "Ngân
   // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
   const [examBanks, setExamBanks] = useState<BankLite[]>([]);
-  const [myPapersOpen, setMyPapersOpen] = useState(false);
+  const [myPapersOpen, setMyPapersOpen] = useState(area === 'my-papers');
   const [myPapers, setMyPapers] = useState<PaperSummaryLite[]>([]);
   const [systemExamBankId, setSystemExamBankId] = useState('');
   const [systemPapers, setSystemPapers] = useState<PaperSummaryLite[]>([]);
@@ -553,49 +571,9 @@ export function QuestionsPage() {
     if (notice) setMessage(notice);
   }, [location.state]);
 
-  // Liên kết sâu từ sidebar (?bank=system / my-questions / my-papers /
-  // my-matrices): mở đúng collapse của khu vực được trỏ tới và đóng ba
-  // collapse còn lại. Neo nằm ở URL nên bền qua F5, điều hướng từ trang
-  // khác và bấm qua lại giữa các mục con khi đang ở ngay trang này;
-  // không có tham số bank (hoặc giá trị lạ) thì giữ nguyên trạng thái
-  // người dùng đang thao tác.
-  //
-  // Tham số section (đính chính sidebar #70): chọn đúng PHẦN trong khu
-  // vực để cuộn tới — ba phần của Ngân hàng hệ thống (questions /
-  // papers / matrices, neo #system-questions / #system-papers /
-  // #system-matrices) hoặc thẻ Ngữ liệu của khu Câu hỏi của tôi
-  // (section=stimuli, neo #stimuli).
-  const sectionAnchorRef = useRef<string | null>(null);
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const bank = params.get('bank');
-    if (bank !== 'system' && bank !== 'my-questions' && bank !== 'my-papers' && bank !== 'my-matrices') return;
-    setMyOpen(bank === 'my-questions');
-    setMyPapersOpen(bank === 'my-papers');
-    setMyMatrixOpen(bank === 'my-matrices');
-    setSystemOpen(bank === 'system');
-    const section = params.get('section');
-    sectionAnchorRef.current =
-      bank === 'system' && (section === 'questions' || section === 'papers' || section === 'matrices')
-        ? `system-${section}`
-        : bank === 'my-questions' && section === 'stimuli'
-          ? 'stimuli'
-          : null;
-  }, [location.search]);
-
-  // Cuộn tới phần được neo khi phần tử đã render (ba phần hệ thống chỉ
-  // tồn tại sau khi collapse Ngân hàng hệ thống mở). Thử ở mỗi lần
-  // render cho tới khi thấy phần tử; môi trường không có
-  // scrollIntoView (jsdom) thì bỏ qua.
-  useEffect(() => {
-    const id = sectionAnchorRef.current;
-    if (!id) return;
-    const el = document.getElementById(id);
-    if (el) {
-      sectionAnchorRef.current = null;
-      el.scrollIntoView?.();
-    }
-  });
+  // (Đã gỡ cơ chế đọc ?bank=/?section= để mở collapse + cuộn neo:
+  // khu vực nay do PATH quyết định — xem BankArea ở đầu component.
+  // URL cũ được lớp tương thích ở route module chuyển hướng sang.)
 
   useEffect(() => {
     // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —
@@ -1385,20 +1363,44 @@ export function QuestionsPage() {
     );
   }
 
+  // Tiêu đề trang theo khu vực (chuẩn đường dẫn #221): trang Câu hỏi
+  // giữ nguyên tiêu đề + hai nút tạo như bản cũ; các trang tách ra
+  // (Đề / Ma trận / Ngân hàng hệ thống) mang tiêu đề của chính khu vực,
+  // nút tạo của chúng nằm trong section như trước.
+  const isQuestionArea = area === 'my-questions' || area === 'stimuli';
+  const headerTitle =
+    area === 'my-papers'
+      ? t('myExamBank')
+      : area === 'my-matrices'
+        ? t('myMatrixBank')
+        : area.startsWith('system')
+          ? t('systemBank')
+          : t('questionBank');
+  const headerDescription =
+    area === 'my-papers'
+      ? t('myExamBankDescription')
+      : area === 'my-matrices'
+        ? t('myMatrixBankDescription')
+        : area.startsWith('system')
+          ? t('systemBankDescription')
+          : t('questionBankDescription');
+
   return (
     <PageShell width="full">
       <PageHeader
-        title={t('questionBank')}
-        description={t('questionBankDescription')}
+        title={headerTitle}
+        description={headerDescription}
         actions={
-          <>
+          isQuestionArea ? (
+            <>
             <Button type="button" variant="outline" render={<Link to="/questions/categories/new" />}>
               {t('newCategory')}
             </Button>
-            <Button type="button" render={<Link to={`/questions/new?category=${qCategory}`} />}>
-              {t('newQuestion')}
-            </Button>
-          </>
+              <Button type="button" render={<Link to={`/questions/new?category=${qCategory}`} />}>
+                {t('newQuestion')}
+              </Button>
+            </>
+          ) : undefined
         }
       />
       {message ? (
@@ -1406,6 +1408,8 @@ export function QuestionsPage() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
+      {area === 'my-questions' ? (
+        <>
       {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính của Lão gia):
           tách hẳn khỏi Ngân hàng hệ thống; mở collapse là danh sách câu
           của chính giáo viên + Thêm mới ngay trong collapse (§9). */}
@@ -1499,7 +1503,11 @@ export function QuestionsPage() {
               </div>
             ) : null}
       </CollapsibleSection>
+        </>
+      ) : null}
 
+      {area === 'my-matrices' ? (
+        <>
       {/* Khu vực RIÊNG — Ma trận của tôi (MB-1, issue #111): collapse
           riêng phân biệt hẳn với Ngân hàng hệ thống, cùng hành vi §9
           như ngân hàng riêng: mở ra là danh sách ma trận của chính giáo
@@ -1513,7 +1521,7 @@ export function QuestionsPage() {
           if (open) void loadMatrixBanks();
         }}
       >
-            <Button type="button" onClick={() => navigate('/questions/matrices/new')} disabled={!personalMatrixBank}>
+            <Button type="button" onClick={() => navigate('/matrices/new')} disabled={!personalMatrixBank}>
               {t('addNew')}
             </Button>
             {myMatrices.length === 0 ? (
@@ -1534,7 +1542,7 @@ export function QuestionsPage() {
                         {m.derivedFromMatrixId ? ` · ${t('matrixDerivedNote')}` : ''}
                       </span>
                     </span>
-                    <Button type="button" variant="outline" onClick={() => navigate(`/questions/matrices/${m.id}/edit`)}>
+                    <Button type="button" variant="outline" onClick={() => navigate(`/matrices/${m.id}/edit`)}>
                       {t('editRow')}
                     </Button>
                     <Button type="button" variant="outline" onClick={() => void deleteMyMatrix(m.id)}>
@@ -1593,7 +1601,11 @@ export function QuestionsPage() {
               </div>
             ) : null}
       </CollapsibleSection>
+        </>
+      ) : null}
 
+      {area === 'my-papers' ? (
+        <>
       {/* Collapse "Đề của tôi" (EB-1): khu vực riêng của giáo viên cho
           ĐỀ — song song collapse câu hỏi ở trên theo mô hình hai khu
           vực đã chốt; mở collapse là danh sách đề của chính giáo viên
@@ -1830,11 +1842,17 @@ export function QuestionsPage() {
               )}
             </div>
       </CollapsibleSection>
+        </>
+      ) : null}
 
+      {area.startsWith('system') ? (
+        <>
       {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
           (câu hỏi / đề / ma trận) — cả ba đã thi công: câu hỏi chung
           (feat #70), đề chung (EB-1, issue #113), ma trận chung
-          (MB-1, issue #111). */}
+          (MB-1, issue #111). Mỗi trang /system-bank/* chỉ render đúng
+          phần của nó (chuẩn đường dẫn #221 — trước đây cả ba phần
+          chung một trang, sidebar cuộn neo tới từng phần). */}
       <CollapsibleSection
         title={t('systemBank')}
         description={t('systemBankDescription')}
@@ -1842,6 +1860,7 @@ export function QuestionsPage() {
         onOpenChange={setSystemOpen}
         contentClassName="space-y-6"
       >
+            {area === 'system-questions' ? (
             <section id="system-questions" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedQuestionBank')}</h3>
               <div className="flex flex-wrap items-end gap-2">
@@ -1958,6 +1977,9 @@ export function QuestionsPage() {
                 </div>
               ) : null}
             </section>
+            ) : null}
+            {area === 'system-papers' ? (
+            <>
             {/* Ngân hàng đề chung (EB-1): chọn một bank đề chung → danh
                 sách đề ready của bank đó + Copy về ngân hàng đề của tôi
                 tại dòng; người duyệt của bank thấy hàng chờ đóng góp đề. */}
@@ -2115,6 +2137,9 @@ export function QuestionsPage() {
                 </div>
               ) : null}
             </section>
+            </>
+            ) : null}
+            {area === 'system-matrices' ? (
             <section id="system-matrices" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedMatrixBank')}</h3>
               <div className="flex flex-wrap items-end gap-2">
@@ -2231,8 +2256,13 @@ export function QuestionsPage() {
                 </div>
               ) : null}
             </section>
+            ) : null}
       </CollapsibleSection>
+        </>
+      ) : null}
 
+      {isQuestionArea ? (
+        <>
       {/* §9: mỗi danh mục là một mục thu/mở — bấm vào thì hiện danh sách
           câu hỏi của chính danh mục đó ngay dưới. */}
       {categories.map((cat) => {
@@ -2299,7 +2329,10 @@ export function QuestionsPage() {
           <Skeleton className="h-10 w-full" />
         </div>
       ) : null}
+        </>
+      ) : null}
 
+      {area === 'stimuli' ? (
       <Card id="stimuli" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>{t('stimuli')}</CardTitle>
@@ -2358,6 +2391,7 @@ export function QuestionsPage() {
           </form>
         </CardContent>
       </Card>
+      ) : null}
     </PageShell>
   );
 }

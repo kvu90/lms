@@ -77,13 +77,16 @@ function readStoredOpenGroups(): string[] {
  * - Bốn mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (đính
  *   chính issue #70, Lão gia chốt 25/10/2026 — KHÔNG còn nhóm cha
  *   "Ngân hàng câu hỏi" bọc ngoài): "Câu hỏi của tôi" (thân mục dẫn
- *   tới ?bank=my-questions, thu/mở ra mục con "Ngữ liệu"), "Đề của
- *   tôi" (?bank=my-papers) và "Ma trận của tôi" (?bank=my-matrices)
- *   — thân hai mục này dẫn thẳng tới trang danh sách, chờ bổ sung mục
- *   con sau; "Ngân hàng hệ thống" là mục cha thu/mở thuần, mở ra đúng
- *   3 mục con (Câu hỏi / Đề / Ma trận hệ thống, neo ?bank=system&
- *   section=...). Cả bốn chỉ hiện khi API cho phép dùng ngân hàng
- *   câu hỏi (canUseQuestionBank) — học viên thuần không nhìn thấy.
+ *   tới /questions, thu/mở ra mục con "Ngữ liệu" ở
+ *   /questions/stimuli), "Đề của tôi" (/exam-papers) và "Ma trận của
+ *   tôi" (/matrices) — thân hai mục này dẫn thẳng tới trang danh
+ *   sách, chờ bổ sung mục con sau; "Ngân hàng hệ thống" là mục cha
+ *   thu/mở thuần, mở ra đúng 3 mục con (Câu hỏi / Đề / Ma trận hệ
+ *   thống ở /system-bank/questions|papers|matrices). Mỗi khu vực có
+ *   PATH RIÊNG theo chuẩn đường dẫn (issue #221, lát R1 — trước đây
+ *   cả cụm dùng chung /questions?bank=&section=). Cả bốn chỉ hiện
+ *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank) —
+ *   học viên thuần không nhìn thấy.
  * - Hai nhóm quản trị ("Người dùng & quyền", "Hệ thống & dữ liệu") chỉ
  *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
  *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
@@ -188,17 +191,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             groupId: 'my-questions',
             title: t('app:navMyQuestions'),
             icon: IconQuestionMark,
-            url: '/questions?bank=my-questions',
+            url: '/questions',
             toggleLabel: t('app:navExpandGroup', { name: t('app:navMyQuestions') }),
             children: [
-              { title: t('app:navStimuli'), url: '/questions?bank=my-questions&section=stimuli', icon: IconBook },
+              { title: t('app:navStimuli'), url: '/questions/stimuli', icon: IconBook },
             ],
           },
           {
             groupId: 'my-papers',
             title: t('app:navMyPapers'),
             icon: IconNotebook,
-            url: '/questions?bank=my-papers',
+            url: '/exam-papers',
             toggleLabel: t('app:navExpandGroup', { name: t('app:navMyPapers') }),
             children: [],
           },
@@ -206,7 +209,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             groupId: 'my-matrices',
             title: t('app:navMyMatrices'),
             icon: IconChartBar,
-            url: '/questions?bank=my-matrices',
+            url: '/matrices',
             toggleLabel: t('app:navExpandGroup', { name: t('app:navMyMatrices') }),
             children: [],
           },
@@ -215,9 +218,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             title: t('app:navBankSystem'),
             icon: IconDatabase,
             children: [
-              { title: t('app:navSystemQuestions'), url: '/questions?bank=system&section=questions', icon: IconQuestionMark },
-              { title: t('app:navSystemPapers'), url: '/questions?bank=system&section=papers', icon: IconNotebook },
-              { title: t('app:navSystemMatrices'), url: '/questions?bank=system&section=matrices', icon: IconChartBar },
+              { title: t('app:navSystemQuestions'), url: '/system-bank/questions', icon: IconQuestionMark },
+              { title: t('app:navSystemPapers'), url: '/system-bank/papers', icon: IconNotebook },
+              { title: t('app:navSystemMatrices'), url: '/system-bank/matrices', icon: IconChartBar },
             ],
           },
         ]
