@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "d6ac8de7-dd88-498b-b7a2-c70f6efecd46",
+  "id": "5be794e9-ea1b-4071-a4d8-9aa541118f4c",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -1608,6 +1608,25 @@
         "n|type|public.mcp_idempotency_keys",
         "n|rel|public.mcp_idempotency_keys_pkey",
         "n|rel|public.mcp_idempotency_keys_user_key_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_deployments"
+      ],
+      "writes": [
+        "s|tbl|public.exam_deployments",
+        "n|tbl|public.exam_deployments",
+        "e|tbl|public.exam_deployments",
+        "n|rel|public.exam_deployments",
+        "n|type|public.exam_deployments",
+        "n|rel|public.exam_deployments_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -6296,6 +6315,66 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_deployments",
+        "exam_deployments_paper_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_deployments_paper_idx",
+        "n|idx|public.exam_deployments_paper_idx",
+        "e|idx|public.exam_deployments_paper_idx",
+        "n|rel|public.exam_deployments_paper_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_deployments",
+        "n|sch|public",
+        "n|col|public.exam_deployments.paper_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_deployments",
+        "exam_deployments_paper_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_deployments_paper_version_idx",
+        "n|idx|public.exam_deployments_paper_version_idx",
+        "e|idx|public.exam_deployments_paper_version_idx",
+        "n|rel|public.exam_deployments_paper_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_deployments",
+        "n|sch|public",
+        "n|col|public.exam_deployments.paper_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_deployments",
+        "exam_deployments_quiz_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_deployments_quiz_idx",
+        "n|idx|public.exam_deployments_quiz_idx",
+        "e|idx|public.exam_deployments_quiz_idx",
+        "n|rel|public.exam_deployments_quiz_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_deployments",
+        "n|sch|public",
+        "n|col|public.exam_deployments.quiz_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "exam_paper_contributions",
         "exam_paper_contributions_target_bank_idx"
       ],
@@ -6429,6 +6508,26 @@
         "n|tbl|public.exam_paper_slots",
         "n|sch|public",
         "n|col|public.exam_paper_slots.cluster_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_paper_slots",
+        "exam_paper_slots_matrix_cell_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_paper_slots_matrix_cell_idx",
+        "n|idx|public.exam_paper_slots_matrix_cell_idx",
+        "e|idx|public.exam_paper_slots_matrix_cell_idx",
+        "n|rel|public.exam_paper_slots_matrix_cell_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.matrix_cell_id"
       ]
     },
     {
@@ -13069,6 +13168,52 @@
       "statementTarget": [
         "table",
         "public",
+        "exam_deployments"
+      ],
+      "writes": [
+        "s|fk|public.exam_deployments.exam_deployments_paper_id_exam_papers_id_fkey",
+        "n|fk|public.exam_deployments.exam_deployments_paper_id_exam_papers_id_fkey",
+        "e|fk|public.exam_deployments.exam_deployments_paper_id_exam_papers_id_fkey",
+        "n|con|public.exam_deployments.exam_deployments_paper_id_exam_papers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_deployments",
+        "n|sch|public",
+        "n|tbl|public.exam_papers",
+        "n|sch|public",
+        "n|col|public.exam_deployments.paper_id",
+        "n|col|public.exam_papers.id",
+        "e|uniqueness|public.exam_papers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_deployments"
+      ],
+      "writes": [
+        "s|fk|public.exam_deployments.exam_deployments_paper_version_id_exam_paper_versions_id_fkey",
+        "n|fk|public.exam_deployments.exam_deployments_paper_version_id_exam_paper_versions_id_fkey",
+        "e|fk|public.exam_deployments.exam_deployments_paper_version_id_exam_paper_versions_id_fkey",
+        "n|con|public.exam_deployments.exam_deployments_paper_version_id_exam_paper_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_deployments",
+        "n|sch|public",
+        "n|tbl|public.exam_paper_versions",
+        "n|sch|public",
+        "n|col|public.exam_deployments.paper_version_id",
+        "n|col|public.exam_paper_versions.id",
+        "e|uniqueness|public.exam_paper_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "exam_paper_contributions"
       ],
       "writes": [
@@ -13154,6 +13299,29 @@
         "n|col|public.exam_paper_slots.question_id",
         "n|col|public.question.id",
         "e|uniqueness|public.question.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_paper_slots"
+      ],
+      "writes": [
+        "s|fk|public.exam_paper_slots.exam_paper_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "n|fk|public.exam_paper_slots.exam_paper_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "e|fk|public.exam_paper_slots.exam_paper_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+        "n|con|public.exam_paper_slots.exam_paper_slots_matrix_cell_id_exam_matrix_cells_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_paper_slots",
+        "n|sch|public",
+        "n|tbl|public.exam_matrix_cells",
+        "n|sch|public",
+        "n|col|public.exam_paper_slots.matrix_cell_id",
+        "n|col|public.exam_matrix_cells.id",
+        "e|uniqueness|public.exam_matrix_cells.id"
       ]
     },
     {
@@ -16181,6 +16349,12 @@
     {
       "schema": "public",
       "name": "mcp_idempotency_keys",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_deployments",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -26247,6 +26421,110 @@
     },
     {
       "schema": "public",
+      "table": "exam_deployments",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "paper_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "paper_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "quiz_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "variant_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "variants",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
       "table": "exam_paper_contributions",
       "name": "id",
       "type": "uuid",
@@ -26534,6 +26812,19 @@
     {
       "schema": "public",
       "table": "exam_paper_slots",
+      "name": "matrix_cell_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
       "name": "created_at",
       "type": "timestamp with time zone",
       "typeSchema": null,
@@ -26692,6 +26983,19 @@
       "table": "exam_paper_versions",
       "name": "matrix_version",
       "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_versions",
+      "name": "recipe_spec",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
@@ -41726,6 +42030,69 @@
     },
     {
       "schema": "public",
+      "table": "exam_deployments",
+      "name": "exam_deployments_paper_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "exam_deployments_paper_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "paper_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "exam_deployments_quiz_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "quiz_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "exam_paper_contributions",
       "name": "exam_paper_contributions_target_bank_idx",
       "nameExplicit": true,
@@ -41858,6 +42225,27 @@
       "columns": [
         {
           "value": "cluster_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_matrix_cell_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "matrix_cell_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -48200,6 +48588,40 @@
     },
     {
       "schema": "public",
+      "table": "exam_deployments",
+      "name": "exam_deployments_paper_id_exam_papers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_papers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "exam_deployments_paper_version_id_exam_paper_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "paper_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_paper_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "exam_paper_contributions",
       "name": "exam_paper_contributions_paper_id_exam_papers_id_fkey",
       "nameExplicit": false,
@@ -48264,6 +48686,23 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_paper_slots",
+      "name": "exam_paper_slots_matrix_cell_id_exam_matrix_cells_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "matrix_cell_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrix_cells",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
       "entityType": "fks"
     },
     {
@@ -51013,6 +51452,16 @@
       "schema": "public",
       "table": "mcp_idempotency_keys",
       "name": "mcp_idempotency_keys_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_deployments",
+      "name": "exam_deployments_pkey",
       "columns": [
         "id"
       ],
