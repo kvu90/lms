@@ -36,7 +36,9 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     );
     expect(cat.rows[0].v).toBe(7);
     const course = await pg.query(
-      `insert into course (category, tenant_id, full_name, short_name) values ($1, (select tenant_id from course_categories where id = $1), $2, $3) returning id, uuid_extract_version(id) as v`,
+      // is_template=true: hàng khoá trần chỉ để kiểm PK — từ CLASS-0
+      // (PR #200) khoá dạy thật không lớp bị CHECK course_class_required_check chặn.
+      `insert into course (category, tenant_id, full_name, short_name, is_template) values ($1, (select tenant_id from course_categories where id = $1), $2, $3, true) returning id, uuid_extract_version(id) as v`,
       [cat.rows[0].id, `${run} course`, `${run}c`],
     );
     expect(course.rows[0].v).toBe(7);

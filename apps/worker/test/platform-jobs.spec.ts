@@ -28,6 +28,18 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   let courseId = '';
   let courseCtxId = '';
 
+
+  // CLASS-0 đóng gói (PR #200): khoá dạy thật phải có class_id (CHECK
+  // course_class_required_check) — lớp fixture cho tenant worker-fixture,
+  // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
+  async function fixtureClassId(): Promise<string> {
+    const ownerId = '01980000-0000-7000-8000-00000000c1a5';
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    const cohId = (coh.rows[0] as { id: string }).id;
+    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    return (cls.rows[0] as { id: string }).id;
+  }
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
@@ -35,7 +47,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk5-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Worker Platform Course ${suffix}`}, ${`wk5c${suffix}`}, ${await fixtureClassId()}) returning id`);
     courseId = (courseRows.rows[0] as { id: string }).id;
     // Chuỗi context phải hợp lệ theo bất biến của cây context: path gồm
     // các id UUID thật và kết thúc bằng id của chính context — tài liệu
@@ -129,7 +141,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
   it('restore processor copies sections to a target course and writes id mappings (never the original ids)', async () => {
     const catRows = await db.execute(sql`select category from course where id = ${courseId}`);
     const catId = (catRows.rows[0] as { category: string }).category;
-    const targetRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}) returning id`);
+    const targetRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), ${`Restore target ${suffix}`}, ${`wk5tgt${suffix}`}, ${await fixtureClassId()}) returning id`);
     const targetId = (targetRows.rows[0] as { id: string }).id;
     const [job] = await db.insert(backupJobs).values({ type: 'restore', courseId: courseId, targetCourseId: targetId, mode: 'new', userId: teacherId, status: 'pending' }).returning();
     const processor = context.get(RestoreProcessor);

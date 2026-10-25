@@ -6,7 +6,7 @@ import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
-import { createCategory } from './course-enrolment-helpers';
+import { createCategory, fixtureClassId } from './course-enrolment-helpers';
 import { contextIdByLevelInstance } from './engagement-helpers';
 
 /**
@@ -110,7 +110,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
   it('teacher creates a grade-5 Toán course carrying subject × grade', async () => {
     const res = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
       fullName: 'Toán 5 — khung K0a', shortName: uniqueName('toan5'), category: categoryId,
-      subjectId, grade: 5,
+      subjectId, grade: 5, classId: await fixtureClassId(app, teacherToken),
     });
     expect(res.status).toBe(201);
     expect(res.body.subjectId).toBe(subjectId);
@@ -119,7 +119,7 @@ describe('K0a curriculum frame application (programme → course sections, ancho
 
     const bogus = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
       fullName: 'Khoá neo môn ma', shortName: uniqueName('ghost'), category: categoryId,
-      subjectId: '01961e2a-7b3c-7def-8abc-0123456789ab', grade: 5,
+      subjectId: '01961e2a-7b3c-7def-8abc-0123456789ab', grade: 5, classId: await fixtureClassId(app, teacherToken),
     });
     expect(bogus.status).toBe(400);
     expect(bogus.body.code).toBe('course.subject_not_found');

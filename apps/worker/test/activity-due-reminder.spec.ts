@@ -39,7 +39,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`n5-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `n5${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'N5 course', ${short}, ${opts.courseVisible ?? true}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'N5 course', ${short}, ${opts.courseVisible ?? true}, ${await fixtureClassId()}) returning id`);
     const cid = (courseRows.rows[0] as { id: string }).id;
     const secRows = await db.execute(sql`insert into course_sections (course, section) values (${cid}, 0) returning id`);
     const secId = (secRows.rows[0] as { id: string }).id;
@@ -74,7 +74,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`nb1-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `nb1${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'NB1 course', ${short}, ${opts.courseVisible ?? true}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'NB1 course', ${short}, ${opts.courseVisible ?? true}, ${await fixtureClassId()}) returning id`);
     const cid = (courseRows.rows[0] as { id: string }).id;
     const secRows = await db.execute(sql`insert into course_sections (course, section) values (${cid}, 0) returning id`);
     const secId = (secRows.rows[0] as { id: string }).id;
@@ -96,6 +96,18 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
       .filter((e) => e.payload.assignmentId === assignmentId && (userId === undefined || e.payload.userId === userId));
   }
 
+
+  // CLASS-0 đóng gói (PR #200): khoá dạy thật phải có class_id (CHECK
+  // course_class_required_check) — lớp fixture cho tenant worker-fixture,
+  // chủ lớp là user fixture riêng; mỗi lần gọi dựng một lớp mới.
+  async function fixtureClassId(): Promise<string> {
+    const ownerId = '01980000-0000-7000-8000-00000000c1a5';
+    await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${ownerId}, 'wk-class-owner', 'wk-class-owner@x.io', false, false) on conflict (id) do nothing`);
+    const coh = await db.execute(sql`insert into cohort (tenant_id, name, context_id, component, visible) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture cohort', '01990000-0000-7000-8000-0000000000a1', 'class', false) returning id`);
+    const cohId = (coh.rows[0] as { id: string }).id;
+    const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
+    return (cls.rows[0] as { id: string }).id;
+  }
   beforeAll(async () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();

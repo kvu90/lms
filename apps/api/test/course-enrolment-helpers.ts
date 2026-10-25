@@ -9,10 +9,43 @@ export async function createCategory(app: INestApplication, token: string, overr
   return res.body;
 }
 
+export async function createClass(app: INestApplication, token: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; name: string }> {
+  const name = uniqueName('cls');
+  const res = await http(app).post('/api/v1/classes').set('Authorization', `Bearer ${token}`)
+    .send({ name, ...overrides });
+  if (res.status !== 200 && res.status !== 201) throw new Error(`create class failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body;
+}
+
+/**
+ * Lớp fixture dùng chung cho createCourse: từ cửa sổ đóng gói CLASS-0
+ * (PR #200), khoá dạy thật BẮT BUỘC thuộc một lớp (`course.class_required`
+ * + CHECK ở DB) nên helper tạo khoá phải cấp một lớp cho token nếu
+ * overrides chưa mang classId. Cache theo (app, token): một lớp cho mỗi
+ * danh tính/tenant hiệu lực — token khác nhau (hoặc sau switch-tenant)
+ * là lớp khác nhau.
+ */
+const fixtureClassByToken = new WeakMap<INestApplication, Map<string, Promise<string>>>();
+
+export function fixtureClassId(app: INestApplication, token: string): Promise<string> {
+  let byToken = fixtureClassByToken.get(app);
+  if (!byToken) {
+    byToken = new Map();
+    fixtureClassByToken.set(app, byToken);
+  }
+  let pending = byToken.get(token);
+  if (!pending) {
+    pending = createClass(app, token).then((c) => c.id);
+    byToken.set(token, pending);
+  }
+  return pending;
+}
+
 export async function createCourse(app: INestApplication, token: string, category: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; fullName: string; shortName: string; category: string }> {
   const shortName = uniqueName('crs');
+  const withClass = 'classId' in overrides ? overrides : { ...overrides, classId: await fixtureClassId(app, token) };
   const res = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${token}`)
-    .send({ fullName: `Course ${shortName}`, shortName, category, ...overrides });
+    .send({ fullName: `Course ${shortName}`, shortName, category, ...withClass });
   if (res.status !== 200 && res.status !== 201) throw new Error(`create course failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;
 }

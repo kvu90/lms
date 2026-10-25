@@ -432,8 +432,14 @@ export class CoursesService {
       classRef = await this.classHook.resolveClass(input.classId, category.tenantId);
       await this.evaluator.requireCapability(actorId, 'course:create', classRef.contextId);
     } else {
-      // Creating a course requires the capability in the CATEGORY context (Moodle rule).
-      await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
+      // Lớp học hạng nhất (issue #184 — điều kiện cứng ở cửa sổ đóng gói
+      // CLASS-0, PR #200): một khoá dạy thật PHẢI thuộc đúng một lớp.
+      // createCourse luôn tạo khoá dạy thật (is_template=false; khoá mẫu
+      // được đánh dấu sau qua updateCourse) nên thiếu classId là từ chối
+      // sạch 4xx tại đây — lưới cứng ở DB là CHECK
+      // course_class_required_check. Đường khôi phục backup (mode=new)
+      // gọi createCourse không kèm lớp cũng bị chặn ở chính cổng này.
+      throw new BadRequestException({ message: 'A course must belong to a class: classId is required', code: 'course.class_required' });
     }
     if (input.subjectId != null) await this.assertSubjectExists(input.subjectId);
     const shortName = input.shortName.trim();
@@ -590,6 +596,11 @@ export class CoursesService {
   }): Promise<CourseRow> {
     const existing = await this.getCourse(id);
     await this.evaluator.requireCapability(actorId, 'course:update', await this.courseContextId(id));
+    // Hạ cờ mẫu của một khoá không lớp sẽ biến nó thành khoá dạy thật
+    // không lớp — từ chối sạch như mọi đường tạo khoá (issue #184).
+    if (input.isTemplate === false && !existing.classId) {
+      throw new BadRequestException({ message: 'A course without a class can only exist as a template', code: 'course.class_required' });
+    }
     if (input.shortName !== undefined && input.shortName.trim() !== existing.shortName) {
       if (await this.repo.getCourseByShortname(input.shortName.trim())) {
         throw new ConflictException({ message: `Course shortName ${input.shortName} is taken`, code: 'course.shortname_taken' });
@@ -1218,7 +1229,7 @@ export class CoursesService {
    */
   async duplicateCourse(actorId: string, sourceCourseId: string, input: {
     fullName: string; shortName: string; category?: string; startDate?: string;
-    /** Lớp đích (issue #184): mặc định giữ lớp của khoá nguồn — đây là đường "nhân bản khoá mẫu vào lớp" của wizard; `null` tường minh = bản sao không thuộc lớp nào. */
+    /** Lớp đích (issue #184): mặc định giữ lớp của khoá nguồn — đây là đường "nhân bản khoá mẫu vào lớp" của wizard; đích cuối cùng không có lớp (gồm `null` tường minh) bị từ chối `course.class_required`. */
     classId?: string | null;
   }): Promise<CourseRow> {
     const source = await this.assertCanCopyFrom(actorId, sourceCourseId);
@@ -1236,7 +1247,13 @@ export class CoursesService {
       classRef = await this.classHook.resolveClass(targetClassId, targetCategory.tenantId);
       await this.evaluator.requireCapability(actorId, 'course:create', classRef.contextId);
     } else {
-      await this.evaluator.requireCapability(actorId, 'course:create', categoryCtxId);
+      // Bản sao luôn là khoá dạy thật (isTemplate=false ở insert dưới):
+      // không có lớp đích — gồm cả `classId: null` tường minh và nhân bản
+      // từ khoá mẫu vốn không lớp — là từ chối sạch 4xx (issue #184, điều
+      // kiện cứng đóng gói CLASS-0). Muốn nhân bản vào lớp thì truyền
+      // classId đích; bỏ trống chỉ hợp lệ khi khoá nguồn đã thuộc một lớp
+      // (giữ nguyên lớp nguồn).
+      throw new BadRequestException({ message: 'A duplicated course must belong to a class: classId is required', code: 'course.class_required' });
     }
     const shortName = input.shortName.trim();
     if (await this.repo.getCourseByShortname(shortName)) {

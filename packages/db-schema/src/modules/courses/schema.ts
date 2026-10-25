@@ -73,10 +73,11 @@ export const course = pgTable('course', {
    * Lớp học chứa khoá này (issue #184, CLASS-0): một khoá dạy thật thuộc
    * đúng MỘT lớp — danh sách học sinh của lớp (backing cohort) được vật
    * chất hoá xuống khoá qua enrol instance cohort tự tạo. NULL chỉ hợp lệ
-   * cho khoá mẫu (`is_template`); ràng buộc đầy đủ (NOT NULL + CHECK) siết
-   * ở cửa sổ đóng gói/CLASS-1 cùng đợt dọn fixture tạo khoá — lát nền này
-   * giữ cột nullable để không vỡ hàng loạt fixture tạo khoá hiện hữu,
-   * đường tạo khoá qua lớp đã ép đủ ngữ nghĩa ở tầng service. FK RESTRICT:
+   * cho khoá mẫu (`is_template`): siết ở cửa sổ đóng gói CLASS-0 theo
+   * điều kiện cứng của đội đánh giá độc lập (PR #200) — CHECK
+   * `course_class_required_check` (`class_id IS NOT NULL OR is_template`)
+   * ở tầng DB + tầng service từ chối 4xx trên mọi đường tạo khoá dạy thật
+   * không lớp (tạo mới / nhân bản / khôi phục backup). FK RESTRICT:
    * lớp còn khoá thì không xoá được lớp (theo tiền lệ GDPT-seed).
    */
   classId: uuid('class_id').references(() => classes.id, { onDelete: 'restrict' }),
@@ -90,6 +91,7 @@ export const course = pgTable('course', {
       index('course_class_id_idx').on(table.classId),
       index('course_subject_id_idx').on(table.subjectId),
       check('course_grade_check', sql`${table.grade} is null or (${table.grade} between 1 and 12)`),
+      check('course_class_required_check', sql`${table.classId} is not null or ${table.isTemplate}`),
   ]);
 
 

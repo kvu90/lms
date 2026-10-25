@@ -4,7 +4,7 @@ import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
-import { createCategory } from './course-enrolment-helpers';
+import { createCategory, fixtureClassId } from './course-enrolment-helpers';
 import { contextIdByLevelInstance } from './engagement-helpers';
 
 /**
@@ -81,7 +81,7 @@ describe('K0a curriculum frame re-application is idempotent per node', () => {
 
     const res = await http(app).post('/api/v1/courses').set(bearer(teacherToken)).send({
       fullName: 'Toán 5 — nạp khung idempotent', shortName: uniqueName('toan5idem'), category: category.id,
-      subjectId, grade: 5,
+      subjectId, grade: 5, classId: await fixtureClassId(app, teacherToken),
     });
     expect(res.status).toBe(201);
     courseId = res.body.id as string;

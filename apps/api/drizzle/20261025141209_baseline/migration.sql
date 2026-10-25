@@ -471,7 +471,8 @@ CREATE TABLE "course" (
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "course_grade_check" CHECK ("grade" is null or ("grade" between 1 and 12))
+	CONSTRAINT "course_grade_check" CHECK ("grade" is null or ("grade" between 1 and 12)),
+	CONSTRAINT "course_class_required_check" CHECK ("class_id" is not null or "is_template")
 );
 --> statement-breakpoint
 CREATE TABLE "course_categories" (

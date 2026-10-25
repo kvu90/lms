@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
-import { createCategory, createCm, createCourse, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
+import { createCategory, createCm, createCourse, createEnrolInstance, createSection, enrolUser, fixtureClassId, getFirstSectionId } from './course-enrolment-helpers';
 
 /**
  * Courses flow.
@@ -35,19 +35,19 @@ describe('Courses: categories, courses, sections, course modules', () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const dup = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
-      .send({ fullName: 'Copy', shortName: course.shortName, category: cat.id });
+      .send({ fullName: 'Copy', shortName: course.shortName, category: cat.id, classId: await fixtureClassId(app, admin) });
     expect(dup.status).toBe(409);
     const badDates = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
-      .send({ fullName: 'Bad', shortName: uniqueName('bad'), category: cat.id, startDate: '2026-05-01', endDate: '2026-04-01' });
+      .send({ fullName: 'Bad', shortName: uniqueName('bad'), category: cat.id, classId: await fixtureClassId(app, admin), startDate: '2026-05-01', endDate: '2026-04-01' });
     expect(badDates.status).toBe(400);
   });
 
-  it('creating a course requires course:create in the CATEGORY context — a plain user is denied', async () => {
+  it('creating a course requires course:create in the CLASS context (CLASS-0: khoá neo vào lớp) — a plain user is denied', async () => {
     const cat = await createCategory(app, admin);
     const plain = await createUserViaApi(app, admin);
     const plainLogin = await login(app, plain.username, STRONG_PASSWORD);
     const res = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${plainLogin.accessToken}`)
-      .send({ fullName: 'Nope', shortName: uniqueName('nope'), category: cat.id });
+      .send({ fullName: 'Nope', shortName: uniqueName('nope'), category: cat.id, classId: await fixtureClassId(app, admin) });
     expect(res.status).toBe(403);
   });
 
@@ -118,7 +118,7 @@ describe('Courses: categories, courses, sections, course modules', () => {
     expect(view.body.formatOptions).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'numsections', value: '8' })]));
     // Invalid select value is rejected.
     const bad = await http(app).post('/api/v1/courses').set('Authorization', `Bearer ${admin}`)
-      .send({ fullName: 'Bad cf', shortName: uniqueName('badcf'), category: cat.id, customFields: { level: 'expert' } });
+      .send({ fullName: 'Bad cf', shortName: uniqueName('badcf'), category: cat.id, classId: await fixtureClassId(app, admin), customFields: { level: 'expert' } });
     expect(bad.status).toBe(400);
   });
 
