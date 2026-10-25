@@ -5,7 +5,7 @@ import type { Database } from '../../db/database';
 import {
   assignments, assignGrades, assignSubmissions, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
-  notificationDispatchLog, notifications, quizAttempts, quizzes, role, roleAssignments, userEnrolments, users,
+  notificationDispatchLog, notifications, quizAttempts, quizzes, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
 } from '../../db/schema';
 
 export type ConversationRow = typeof messageConversations.$inferSelect;
@@ -184,6 +184,7 @@ export class MessagingRepository {
         c.component AS conversation_component, c.item_type AS conversation_item_type,
         c.item_id AS conversation_item_id, c.context_id AS conversation_context_id,
         c.enabled AS conversation_enabled, c.created_by AS conversation_created_by,
+        c.tenant_id AS conversation_tenant_id,
         c.last_message_seq AS conversation_last_seq,
         c.created_at AS conversation_created_at, c.updated_at AS conversation_updated_at,
         mine.last_read_seq AS last_read_seq,
@@ -253,6 +254,7 @@ export class MessagingRepository {
           contextId: raw.conversation_context_id as string | null,
           enabled: raw.conversation_enabled as boolean,
           createdBy: (raw.conversation_created_by as string | null) ?? null,
+          tenantId: (raw.conversation_tenant_id as string | null) ?? null,
           lastMessageSeq: raw.conversation_last_seq as number,
           createdAt: new Date(raw.conversation_created_at as string),
           updatedAt: new Date(raw.conversation_updated_at as string),
@@ -1395,6 +1397,47 @@ export class MessagingRepository {
     await this.db.update(notifications)
       .set({ subject, fullMessage, smallMessage: fullMessage.slice(0, 200) })
       .where(eq(notifications.id, id));
+  }
+
+  /** Tenant sở hữu khoá học (TENANT-1, #196) — nguồn tenant cho notification/dữ liệu phát sinh từ khoá. */
+  async getCourseTenantId(courseId: string): Promise<string | null> {
+    const [row] = await this.db.select({ tenantId: course.tenantId }).from(course).where(eq(course.id, courseId));
+    return row?.tenantId ?? null;
+  }
+
+  /** Tenant của một conversation (TENANT-1, #196) — nguồn tenant cho notification tin nhắn mới. */
+  async getConversationTenantId(conversationId: string): Promise<string | null> {
+    const [row] = await this.db.select({ tenantId: messageConversations.tenantId }).from(messageConversations)
+      .where(eq(messageConversations.id, conversationId));
+    return row?.tenantId ?? null;
+  }
+
+  /**
+   * Tenant mặc định của một user (TENANT-1, #196) — cùng luật với
+   * `TenantsService.resolveDefaultTenant` (TENANT-0): membership active
+   * duy nhất → tenant đó; nhiều tenant → tenant trường đầu tiên;
+   * không có → tenant platform (Trang chính). Dùng làm nguồn tenant
+   * cuối cùng cho notification khi nơi phát không gắn đối tượng nguồn
+   * thuộc tenant nào (bảng users KHÔNG có cột tenant — tư cách thành
+   * viên mới là nguồn sự thật).
+   */
+  async getUserDefaultTenantId(userId: string): Promise<string | null> {
+    const rows = await this.db.select({ tenantId: tenantMemberships.tenantId, kind: tenants.kind })
+      .from(tenantMemberships)
+      .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
+      .where(and(
+        eq(tenantMemberships.userId, userId),
+        eq(tenantMemberships.status, 'active'),
+        eq(tenants.status, 'active'),
+      ));
+    const distinct = [...new Map(rows.map((r) => [r.tenantId, r])).values()];
+    if (distinct.length === 1) return distinct[0]!.tenantId;
+    if (distinct.length > 1) {
+      const nonPlatform = distinct.find((r) => r.kind !== 'platform');
+      if (nonPlatform) return nonPlatform.tenantId;
+    }
+    const [zero] = await this.db.select({ id: tenants.id }).from(tenants).where(eq(tenants.kind, 'platform'));
+    return zero?.id ?? null;
   }
 
   /**

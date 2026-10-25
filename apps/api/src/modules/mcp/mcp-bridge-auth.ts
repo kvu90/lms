@@ -16,6 +16,8 @@ export interface BridgeIdentity {
   userId: string;
   username: string;
   sessionId: string;
+  /** Tenant hiệu lực của phiên (claim `tid` của token, TENANT-1 #196); token cũ không mang → null. */
+  tenantId: string | null;
 }
 
 function decodeJsonPart(part: string): Record<string, unknown> | null {
@@ -48,6 +50,7 @@ export function verifyBridgeToken(token: string, secret: string): BridgeIdentity
     userId: payload.sub,
     username: typeof payload.username === 'string' ? payload.username : '',
     sessionId: payload.sid,
+    tenantId: typeof payload.tid === 'string' ? payload.tid : null,
   };
 }
 

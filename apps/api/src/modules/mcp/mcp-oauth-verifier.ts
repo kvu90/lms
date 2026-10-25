@@ -25,6 +25,8 @@ export interface McpOAuthIdentity {
   clientId: string;
   /** Scope trên token (claim `scope` tách theo dấu cách) — trần quyền của phiên gọi. */
   scopes: string[];
+  /** Tenant của phiên (claim `tid`) khi AS có phát kèm (TENANT-1, #196); không có → null, mount phân giải từ membership. */
+  tenantId: string | null;
 }
 
 export type McpOAuthVerifyResult =
@@ -32,7 +34,7 @@ export type McpOAuthVerifyResult =
   | { ok: false; status: number; wwwAuthenticate: string | null };
 
 interface ClaimsCapture {
-  claims?: { sub?: unknown; client_id?: unknown; scope?: unknown };
+  claims?: { sub?: unknown; client_id?: unknown; scope?: unknown; tid?: unknown };
 }
 
 export class McpOAuthVerifier {
@@ -70,6 +72,7 @@ export class McpOAuthVerifier {
         userId: typeof claims.sub === 'string' ? claims.sub : '',
         clientId: typeof claims.client_id === 'string' ? claims.client_id : 'unknown',
         scopes: typeof claims.scope === 'string' ? claims.scope.split(' ').filter(Boolean) : [],
+        tenantId: typeof claims.tid === 'string' ? claims.tid : null,
       },
     };
   }

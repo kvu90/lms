@@ -10,6 +10,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
 import type { QuestionBankRow } from '../questions/question-banks.repository';
 import { SiteConfigService } from '../site-config/site-config.service';
+import { TenantConfigService } from '../tenants/tenant-config.service';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import {
   ExamPapersRepository,
@@ -49,6 +50,7 @@ export class ExamDossiersService {
     private readonly contexts: ContextsService,
     private readonly quiz: QuizService,
     private readonly siteConfig: SiteConfigService,
+    private readonly tenantConfig: TenantConfigService,
     private readonly outbox: OutboxService,
   ) {}
 
@@ -60,15 +62,25 @@ export class ExamDossiersService {
    * Máy trạng thái bộ hồ sơ chỉ gọi điểm này; KHÔNG nơi nào khác đọc
    * trực tiếp khoá cấu hình.
    *
-   * Hiện trạng (EB-3): công tắc tạm nằm ở site-config TOÀN CỤC
-   * (`exam/requireboardapproval`, mặc định TẮT theo khuyến nghị của
-   * hồ sơ ngân hàng đề F.2 — không có văn bản cấp Bộ bắt buộc cấp
-   * duyệt này). Vị trí cấu hình thật (theo tenant/bank) sẽ chốt sau
-   * research multi-tenant (issue #166): khi đó chỉ thay thân hàm
-   * này để đọc từ cấu hình tenant/bank, máy trạng thái không đổi.
-   * EB-3 không xây UI/API cấu hình riêng cho công tắc này.
+   * TENANT-1 (#196) — seam đã về cấu hình tenant như chỉ đạo EB-3
+   * chờ sẵn: công tắc đọc qua `TenantConfigService.getEffectiveValue`
+   * theo TENANT CỦA HỒ SƠ (tenant sở hữu bank đích — mỗi trường tự
+   * quyết có cấp duyệt BGH hay không; giá trị tenant không có thì
+   * TenantConfigService tự rơi về giá trị platform rồi mặc định TẮT
+   * theo khuyến nghị của hồ sơ ngân hàng đề F.2). Bank đích là bank
+   * dùng chung cấp platform (tenant_id NULL) hoặc chưa rõ hồ sơ thì
+   * đọc thẳng giá trị platform qua SiteConfigService như trước.
+   * Máy trạng thái không đổi.
    */
-  async boardApprovalRequired(): Promise<boolean> {
+  async boardApprovalRequired(dossier?: ExamDossierRow): Promise<boolean> {
+    let tenantId: string | null = null;
+    if (dossier) {
+      const bank = await this.banks.findBankById(dossier.targetBankId);
+      tenantId = bank?.tenantId ?? null;
+    }
+    if (tenantId) {
+      return (await this.tenantConfig.getEffectiveValue<boolean>(tenantId, 'exam', 'requireboardapproval')) ?? false;
+    }
     return (await this.siteConfig.getValue<boolean>('exam', 'requireboardapproval')) ?? false;
   }
 
@@ -123,7 +135,7 @@ export class ExamDossiersService {
       matrixId: row.matrixId,
       matrixName: matrixInfo?.name ?? null,
       matrixVersion: row.matrixVersion,
-      boardApprovalRequired: await this.boardApprovalRequired(),
+      boardApprovalRequired: await this.boardApprovalRequired(row),
       resultPaperId: row.resultPaperId,
       reviews: reviews.map((r) => ({
         id: r.id,
@@ -393,7 +405,7 @@ export class ExamDossiersService {
     if (dossier.status !== 'pending') {
       throw new ConflictException({ message: 'Dossier is not waiting for level-1 review', code: 'exam.dossier_not_pending' });
     }
-    if (await this.boardApprovalRequired()) {
+    if (await this.boardApprovalRequired(dossier)) {
       await this.repo.insertDossierReview({
         dossierId: dossier.id, level: 1, reviewerId: actorId, decision: 'approved', reason: null,
       });

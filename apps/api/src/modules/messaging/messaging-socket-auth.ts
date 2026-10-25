@@ -6,6 +6,12 @@ import { UsersService } from '../users/users.service';
 export interface MessagingSocketIdentity {
   userId: string;
   username: string;
+  /**
+   * Tenant hiệu lực của phiên (claim `tid` của token, TENANT-1 #196):
+   * room + khoá presence của socket được namespace theo tenant này.
+   * Token cũ không mang `tid` → null (room rơi về đoạn 'platform').
+   */
+  tenantId: string | null;
 }
 
 /**
@@ -42,7 +48,7 @@ export class JwtMessagingSocketAuth {
    */
   async authenticate(token: string | undefined): Promise<MessagingSocketIdentity | null> {
     if (!token) return null;
-    let payload: { sub?: string; username?: string; scope?: unknown; sid?: unknown };
+    let payload: { sub?: string; username?: string; scope?: unknown; sid?: unknown; tid?: unknown };
     try {
       payload = await this.jwt.verifyAsync(token);
     } catch {
@@ -53,6 +59,10 @@ export class JwtMessagingSocketAuth {
     if (!payload.sub || payload.scope !== undefined || typeof payload.sid !== 'string') return null;
     const user = await this.users.getByIdOrUndefined(payload.sub);
     if (!user || user.suspended || user.deleted) return null;
-    return { userId: user.id, username: user.username };
+    return {
+      userId: user.id,
+      username: user.username,
+      tenantId: typeof payload.tid === 'string' ? payload.tid : null,
+    };
   }
 }

@@ -110,55 +110,79 @@ export class GuardianDigestProcessor extends WorkerHost {
 
     const frequencyByPair = await this.frequencyMap(links.map((l) => l.guardianUserId));
 
+    // TENANT-1 (#196): quét THEO TỪNG TENANT — các liên kết được gom
+    // theo tenant của chúng và phần việc của mỗi tenant chạy trong
+    // đúng ngữ cảnh tenant đó (RLS tự giới hạn enrol/khoá khi đọc quá
+    // hạn), dedupe_key mang đoạn tenant, hàng digest + sự kiện outbox
+    // đều gắn tenant_id của liên kết.
+    const linksByTenant = new Map<string, typeof links>();
     for (const link of links) {
-      const frequency = frequencyByPair.get(`${link.guardianUserId}:${link.studentUserId}`) ?? 'weekly';
-
-      // Digest định kỳ cho cửa sổ đầy đủ vừa đóng theo tần suất hiện
-      // hành — `off` chỉ tắt khối này. Vòng đẩy riêng quá hạn ở dưới là
-      // ngoại lệ tách khỏi digest, chạy bất kể tần suất.
-      if (frequency !== 'off') {
-        const window = frequency === 'weekly'
-          ? { start: new Date(weekStartUtc(now).getTime() - 7 * 24 * 3600_000), end: weekStartUtc(now) }
-          : { start: new Date(dayStartUtc(now).getTime() - 24 * 3600_000), end: dayStartUtc(now) };
-        if (link.createdAt < window.end) {
-          const dedupeKey = `digest:${link.guardianUserId}:${link.studentUserId}:${frequency}:${window.start.toISOString()}`;
-          const digestId = await this.queueMark({
-            guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency,
-            windowStart: window.start, windowEnd: window.end, activityCmId: null, dedupeKey,
-          });
-          if (digestId) {
-            await this.db.insert(outboxEvents).values({
-              aggregate: 'guardian', type: 'guardian_digest_due',
-              payload: {
-                guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId,
-                kind: frequency, windowStart: window.start.toISOString(), windowEnd: window.end.toISOString(),
-              },
-            });
-            queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency, dedupeKey });
-          }
+      const group = linksByTenant.get(link.tenantId) ?? [];
+      group.push(link);
+      linksByTenant.set(link.tenantId, group);
+    }
+    for (const [tenantId, tenantLinks] of linksByTenant) {
+      await tenantAls.run({ tenantId }, async () => {
+        for (const link of tenantLinks) {
+          const frequency = frequencyByPair.get(`${link.guardianUserId}:${link.studentUserId}`) ?? 'weekly';
+          await this.sweepLink(link, frequency, now, queued);
         }
-      }
-
-      // Đẩy riêng quá hạn ≥7 ngày: đúng một lần cho từng hoạt động.
-      for (const item of await this.longOverdueItems(link.studentUserId, now)) {
-        const dedupeKey = `overdue:${link.guardianUserId}:${link.studentUserId}:${item.cmId}`;
-        const digestId = await this.queueMark({
-          guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: 'overdue_alert',
-          windowStart: null, windowEnd: null, activityCmId: item.cmId, dedupeKey,
-        });
-        if (!digestId) continue;
-        await this.db.insert(outboxEvents).values({
-          aggregate: 'guardian', type: 'guardian_overdue_alert',
-          payload: {
-            guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId,
-            cmId: item.cmId, activityKind: item.kind, courseId: item.courseId,
-            activityName: item.name, dueAt: item.dueAt.toISOString(),
-          },
-        });
-        queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: 'overdue_alert', dedupeKey });
-      }
+      });
     }
     return { checkedAt: now.toISOString(), queued };
+  }
+
+  /** Phần việc của MỘT liên kết giám hộ trong một lượt quét (chạy trong ngữ cảnh tenant của liên kết). */
+  private async sweepLink(
+    link: typeof guardianLinks.$inferSelect,
+    frequency: Frequency,
+    now: Date,
+    queued: GuardianDigestQueuedItem[],
+  ): Promise<void> {
+    // Digest định kỳ cho cửa sổ đầy đủ vừa đóng theo tần suất hiện
+    // hành — `off` chỉ tắt khối này. Vòng đẩy riêng quá hạn ở dưới là
+    // ngoại lệ tách khỏi digest, chạy bất kể tần suất.
+    if (frequency !== 'off') {
+      const window = frequency === 'weekly'
+        ? { start: new Date(weekStartUtc(now).getTime() - 7 * 24 * 3600_000), end: weekStartUtc(now) }
+        : { start: new Date(dayStartUtc(now).getTime() - 24 * 3600_000), end: dayStartUtc(now) };
+      if (link.createdAt < window.end) {
+        const dedupeKey = `digest:${link.tenantId}:${link.guardianUserId}:${link.studentUserId}:${frequency}:${window.start.toISOString()}`;
+        const digestId = await this.queueMark({
+          guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency,
+          windowStart: window.start, windowEnd: window.end, activityCmId: null, dedupeKey, tenantId: link.tenantId,
+        });
+        if (digestId) {
+          await this.db.insert(outboxEvents).values({
+            aggregate: 'guardian', type: 'guardian_digest_due', tenantId: link.tenantId,
+            payload: {
+              guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId, tenantId: link.tenantId,
+              kind: frequency, windowStart: window.start.toISOString(), windowEnd: window.end.toISOString(),
+            },
+          });
+          queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: frequency, dedupeKey });
+        }
+      }
+    }
+
+    // Đẩy riêng quá hạn ≥7 ngày: đúng một lần cho từng hoạt động.
+    for (const item of await this.longOverdueItems(link.studentUserId, now)) {
+      const dedupeKey = `overdue:${link.tenantId}:${link.guardianUserId}:${link.studentUserId}:${item.cmId}`;
+      const digestId = await this.queueMark({
+        guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: 'overdue_alert',
+        windowStart: null, windowEnd: null, activityCmId: item.cmId, dedupeKey, tenantId: link.tenantId,
+      });
+      if (!digestId) continue;
+      await this.db.insert(outboxEvents).values({
+        aggregate: 'guardian', type: 'guardian_overdue_alert', tenantId: link.tenantId,
+        payload: {
+          guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, digestId, tenantId: link.tenantId,
+          cmId: item.cmId, activityKind: item.kind, courseId: item.courseId,
+          activityName: item.name, dueAt: item.dueAt.toISOString(),
+        },
+      });
+      queued.push({ guardianUserId: link.guardianUserId, studentUserId: link.studentUserId, kind: 'overdue_alert', dedupeKey });
+    }
   }
 
   /** Tần suất theo từng cặp (phụ huynh, con): đọc một lượt mọi preference digest của các phụ huynh liên quan. */
@@ -184,11 +208,12 @@ export class GuardianDigestProcessor extends WorkerHost {
   private async queueMark(input: {
     guardianUserId: string; studentUserId: string; kind: string;
     windowStart: Date | null; windowEnd: Date | null; activityCmId: string | null; dedupeKey: string;
+    tenantId: string;
   }): Promise<string | null> {
     const [row] = await this.db.insert(guardianDigests).values({
       guardianUserId: input.guardianUserId, studentUserId: input.studentUserId, kind: input.kind,
       windowStart: input.windowStart, windowEnd: input.windowEnd, activityCmId: input.activityCmId,
-      dedupeKey: input.dedupeKey, status: 'queued',
+      dedupeKey: input.dedupeKey, status: 'queued', tenantId: input.tenantId,
     }).onConflictDoNothing().returning({ id: guardianDigests.id });
     return row?.id ?? null;
   }

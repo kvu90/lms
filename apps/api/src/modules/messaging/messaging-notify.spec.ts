@@ -15,6 +15,7 @@ describe('MessagingService.notify — external channel minimization', () => {
     const repo = {
       insertNotification: vi.fn(async (v: Record<string, unknown>) => { inserted.push(v); return { id: 'notif-1', ...v }; }),
       insertDispatchLog: vi.fn(async () => ({})),
+      getUserDefaultTenantId: vi.fn(async () => null),
     };
     const users = {
       getByIdOrUndefined: vi.fn(async (id: string) => ({ id, suspended: false, deleted: false })),

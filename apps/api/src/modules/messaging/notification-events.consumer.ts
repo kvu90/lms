@@ -296,6 +296,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.gradeUpdatedBody', { course: courseName, item: itemName }),
       contextUrl: `/courses/${item.courseId}/grades`,
       courseId: item.courseId,
+      tenantId: await this.tenantIdOf(payload, item.courseId),
     });
   }
 
@@ -309,6 +310,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.courseCompletedBody', { course: courseName }),
       contextUrl: `/courses/${courseId}`,
       courseId,
+      tenantId: await this.tenantIdOf(payload, courseId),
     });
   }
 
@@ -325,6 +327,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
       body: this.t('platform.enrolExpiryWarningBody', { course: courseName, date: dateText }),
       contextUrl: `/courses/${courseId}`,
       courseId,
+      tenantId: await this.tenantIdOf(payload, courseId),
     });
   }
 
@@ -355,6 +358,7 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
         ? `/courses/${courseId}/assignments/${assignmentId}`
         : `/courses/${courseId}/quizzes/${quizId}`,
       courseId,
+      tenantId: await this.tenantIdOf(payload, courseId),
     });
   }
 
@@ -506,6 +510,8 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     const sender = await this.users.getByIdOrUndefined(message.userIdFrom);
     const senderName = sender ? displayNameOf(sender) : '';
     const contextUrl = `/messages?conversation=${message.conversationId}`;
+    const tenantId = (typeof payload.tenantId === 'string' ? payload.tenantId : null)
+      ?? await this.repo.getConversationTenantId(message.conversationId);
     // Membership chốt TẠI THỜI ĐIỂM XỬ LÝ (kỷ luật F1 như consumer
     // realtime): thành viên đã rời conversation không nhận thông báo.
     const memberIds = await this.repo.listMembers(message.conversationId);
@@ -527,8 +533,19 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
         body: this.t('platform.messageNewBody'),
         contextUrl,
         fromUserId: message.userIdFrom,
+        tenantId,
       });
     }
+  }
+
+  /**
+   * Tenant của một sự kiện gắn khoá học (TENANT-1, #196): ưu tiên
+   * tenantId đã gương trong payload lúc phát; sự kiện cũ chưa có thì
+   * tra từ khoá học nguồn.
+   */
+  private async tenantIdOf(payload: Record<string, unknown>, courseId: string): Promise<string | null> {
+    if (typeof payload.tenantId === 'string') return payload.tenantId;
+    return this.repo.getCourseTenantId(courseId);
   }
 
   /**

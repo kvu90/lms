@@ -15,14 +15,25 @@ import type { Server } from 'socket.io';
 import { redisTlsFromUrl } from '../../config/env';
 import { blankRecalledContent, MessagingRepository, type MessageRow } from './messaging.repository';
 
+/**
+ * Đoạn namespace tenant trong mọi định danh realtime (TENANT-1,
+ * #196): room Socket.IO và khoá Redis presence/typing đều bắt đầu
+ * bằng tenant để hai tenant không bao giờ chung một kênh phát — kể
+ * cả khi id conversation/user tình cờ va nhau ở tầng ứng dụng.
+ * Tenant chưa rõ (dữ liệu cũ) rơi về đoạn 'platform'.
+ */
+export function tenantRealtimeSegment(tenantId: string | null | undefined): string {
+  return tenantId ?? 'platform';
+}
+
 /** Room của một conversation: mọi thành viên đang nối đều ở trong room này. */
-export function conversationRoom(conversationId: string): string {
-  return `conversation:${conversationId}`;
+export function conversationRoom(tenantId: string | null | undefined, conversationId: string): string {
+  return `t:${tenantRealtimeSegment(tenantId)}:conv:${conversationId}`;
 }
 
 /** Room riêng của một user: nhận cập nhật theo từng người (số chưa đọc của chính họ). */
-export function userRoom(userId: string): string {
-  return `user:${userId}`;
+export function userRoom(tenantId: string | null | undefined, userId: string): string {
+  return `t:${tenantRealtimeSegment(tenantId)}:user:${userId}`;
 }
 
 /** Dạng wire của một tin nhắn (khớp `messageSchema` của contracts; createdAt là chuỗi ISO). */
@@ -75,10 +86,11 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   private readonly presenceTtlSeconds: number;
   private readonly presenceRefreshMs: number;
   /**
-   * Sổ socket ĐANG nối tại chính tiến trình này (userId → socketId).
-   * Vòng gia hạn presence chỉ gia hạn cho user có mặt trong sổ này:
-   * tiến trình chết thì sổ biến mất theo, không ai gia hạn nữa và TTL
-   * trong Redis tự hết hạn — giữ đúng tính chất lưới an toàn của TTL.
+   * Sổ socket ĐANG nối tại chính tiến trình này (chủ thể presence
+   * `{tenant}:{userId}` → socketId). Vòng gia hạn presence chỉ gia
+   * hạn cho user có mặt trong sổ này: tiến trình chết thì sổ biến
+   * mất theo, không ai gia hạn nữa và TTL trong Redis tự hết hạn —
+   * giữ đúng tính chất lưới an toàn của TTL.
    */
   private readonly localPresence = new Map<string, Set<string>>();
   private presenceTimer: NodeJS.Timeout | null = null;
@@ -137,6 +149,11 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     return this.stateClient;
   }
 
+  /** Tenant của một conversation (TENANT-1, #196) — namespace cho room/khoá realtime; lỗi đọc thì rơi về null (đoạn 'platform'). */
+  private async tenantIdOfConversation(conversationId: string): Promise<string | null> {
+    return this.repo.getConversationTenantId(conversationId).catch(() => null);
+  }
+
   // --- phân phối sự kiện nghiệp vụ (consumer của outbox gọi) -------------
 
   /**
@@ -171,6 +188,7 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         return;
       }
     }
+    const tenantId = conversation?.tenantId ?? null;
     const wire = toWireMessage(messageRow);
     const newPayload: RealtimeNewMessagePayload = { conversationId: messageRow.conversationId, message: wire };
     // Rà soát room NGAY TRƯỚC khi phát: socket của thành viên đã bị gỡ
@@ -178,14 +196,14 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     // phân phối) bị đẩy ra khỏi room, không nhận message.new này và
     // mọi sự kiện room về sau (F1 — trước đây chỉ kiểm tra membership
     // lúc bắt tay/join nên socket cũ nằm lại trong room vô hạn).
-    await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
-    this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.newMessage, newPayload);
+    await this.evictNonMemberSockets(tenantId, messageRow.conversationId, memberIds);
+    this.server.to(conversationRoom(tenantId, messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.newMessage, newPayload);
     await Promise.all(memberIds.map(async (memberId) => {
       const unreadCount = await this.repo.countUnreadForConversation(messageRow.conversationId, memberId).catch(() => 0);
       const payload: RealtimeConversationUpdatedPayload = {
         conversationId: messageRow.conversationId, message: wire, unreadCount,
       };
-      this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+      this.server!.to(userRoom(tenantId, memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
     }));
   }
 
@@ -220,14 +238,15 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         return;
       }
     }
-    await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
+    const tenantId = conversation?.tenantId ?? null;
+    await this.evictNonMemberSockets(tenantId, messageRow.conversationId, memberIds);
     const deletedPayload: RealtimeMessageDeletedPayload = {
       conversationId: messageRow.conversationId,
       messageId: messageRow.id,
       seq: messageRow.seq,
       deletedBy: messageRow.deletedBy ?? '',
     };
-    this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    this.server.to(conversationRoom(tenantId, messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
     // Tin cuối còn hiển thị: cửa sổ đọc mặc định của repository đã lọc
     // tin đã xoá — lấy đúng 1 tin mới nhất còn sống làm xem trước mới.
     const [lastVisible] = await this.repo.listMessages(messageRow.conversationId, { limit: 1 }).catch(() => []);
@@ -238,7 +257,7 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       const payload: RealtimeConversationUpdatedPayload = {
         conversationId: messageRow.conversationId, message: wire, unreadCount,
       };
-      this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+      this.server!.to(userRoom(tenantId, memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
     }));
   }
 
@@ -263,10 +282,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   }
 
   /** Phát `conversation.invalidate` tới room riêng của TỪNG thành viên: cache danh sách của họ phải tải lại. */
-  private emitConversationInvalidate(conversationId: string, memberIds: string[]): void {
+  private emitConversationInvalidate(tenantId: string | null, conversationId: string, memberIds: string[]): void {
     const payload: RealtimeConversationInvalidatePayload = { conversationId };
     for (const memberId of memberIds) {
-      this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationInvalidate, payload);
+      this.server!.to(userRoom(tenantId, memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationInvalidate, payload);
     }
   }
 
@@ -282,14 +301,15 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   async distributeMessageRecalled(messageRow: MessageRow, memberIds: string[]): Promise<void> {
     if (!this.server) return;
     if (await this.suppressIfBlockedDirectPair(messageRow.conversationId, memberIds)) return;
-    await this.evictNonMemberSockets(messageRow.conversationId, memberIds);
+    const tenantId = await this.tenantIdOfConversation(messageRow.conversationId);
+    await this.evictNonMemberSockets(tenantId, messageRow.conversationId, memberIds);
     const deletedPayload: RealtimeMessageDeletedPayload = {
       conversationId: messageRow.conversationId,
       messageId: messageRow.id,
       seq: messageRow.seq,
       deletedBy: messageRow.recalledBy ?? '',
     };
-    this.server.to(conversationRoom(messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    this.server.to(conversationRoom(tenantId, messageRow.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
     const [lastVisible] = await this.repo.listMessages(messageRow.conversationId, { limit: 1 }).catch(() => []);
     if (lastVisible) {
       // Tin cuối còn hiển thị có thể CHÍNH LÀ tin vừa thu hồi: xem
@@ -300,10 +320,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         const payload: RealtimeConversationUpdatedPayload = {
           conversationId: messageRow.conversationId, message: wire, unreadCount,
         };
-        this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+        this.server!.to(userRoom(tenantId, memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
       }));
     }
-    this.emitConversationInvalidate(messageRow.conversationId, memberIds);
+    this.emitConversationInvalidate(tenantId, messageRow.conversationId, memberIds);
   }
 
   /**
@@ -321,14 +341,15 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   ): Promise<void> {
     if (!this.server) return;
     if (await this.suppressIfBlockedDirectPair(snapshot.conversationId, memberIds)) return;
-    await this.evictNonMemberSockets(snapshot.conversationId, memberIds);
+    const tenantId = await this.tenantIdOfConversation(snapshot.conversationId);
+    await this.evictNonMemberSockets(tenantId, snapshot.conversationId, memberIds);
     const deletedPayload: RealtimeMessageDeletedPayload = {
       conversationId: snapshot.conversationId,
       messageId: snapshot.messageId,
       seq: snapshot.seq,
       deletedBy: snapshot.removedBy,
     };
-    this.server.to(conversationRoom(snapshot.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    this.server.to(conversationRoom(tenantId, snapshot.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
     const [lastVisible] = await this.repo.listMessages(snapshot.conversationId, { limit: 1 }).catch(() => []);
     if (lastVisible) {
       const wire = toWireMessage(blankRecalledContent(lastVisible));
@@ -337,10 +358,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         const payload: RealtimeConversationUpdatedPayload = {
           conversationId: snapshot.conversationId, message: wire, unreadCount,
         };
-        this.server!.to(userRoom(memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
+        this.server!.to(userRoom(tenantId, memberId)).emit(MESSAGING_SOCKET_EVENTS.conversationUpdated, payload);
       }));
     }
-    this.emitConversationInvalidate(snapshot.conversationId, memberIds);
+    this.emitConversationInvalidate(tenantId, snapshot.conversationId, memberIds);
   }
 
   /**
@@ -352,15 +373,16 @@ export class MessagingRealtimeService implements OnModuleDestroy {
    */
   async distributeMessageDeletedForMe(snapshot: { conversationId: string; messageId: string; seq: number; actorId: string }): Promise<void> {
     if (!this.server) return;
+    const tenantId = await this.tenantIdOfConversation(snapshot.conversationId);
     const deletedPayload: RealtimeMessageDeletedPayload = {
       conversationId: snapshot.conversationId,
       messageId: snapshot.messageId,
       seq: snapshot.seq,
       deletedBy: snapshot.actorId,
     };
-    this.server.to(userRoom(snapshot.actorId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
+    this.server.to(userRoom(tenantId, snapshot.actorId)).emit(MESSAGING_SOCKET_EVENTS.messageDeleted, deletedPayload);
     const invalidatePayload: RealtimeConversationInvalidatePayload = { conversationId: snapshot.conversationId };
-    this.server.to(userRoom(snapshot.actorId)).emit(MESSAGING_SOCKET_EVENTS.conversationInvalidate, invalidatePayload);
+    this.server.to(userRoom(tenantId, snapshot.actorId)).emit(MESSAGING_SOCKET_EVENTS.conversationInvalidate, invalidatePayload);
   }
 
   /** Phân phối biên đã-đọc của một thành viên vào room của conversation. */
@@ -388,8 +410,9 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     // Cùng kỷ luật F1: rà soát room theo membership hiện tại trước
     // khi phát — thành viên đã bị gỡ không nhận biên đã-đọc nữa. Đọc
     // membership lỗi thì vẫn phát như cũ (realtime là đường phụ).
-    if (memberIds) await this.evictNonMemberSockets(payload.conversationId, memberIds);
-    this.server.to(conversationRoom(payload.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageRead, payload);
+    const tenantId = conversation?.tenantId ?? null;
+    if (memberIds) await this.evictNonMemberSockets(tenantId, payload.conversationId, memberIds);
+    this.server.to(conversationRoom(tenantId, payload.conversationId)).emit(MESSAGING_SOCKET_EVENTS.messageRead, payload);
   }
 
   /**
@@ -399,11 +422,11 @@ export class MessagingRealtimeService implements OnModuleDestroy {
    * bị gỡ khỏi conversation; đây là điểm chốt lại membership tại thời
    * điểm phân phối cho mọi sự kiện phát vào room.
    */
-  private async evictNonMemberSockets(conversationId: string, memberIds: string[]): Promise<void> {
+  private async evictNonMemberSockets(tenantId: string | null, conversationId: string, memberIds: string[]): Promise<void> {
     if (!this.server) return;
     try {
       const memberSet = new Set(memberIds);
-      const room = conversationRoom(conversationId);
+      const room = conversationRoom(tenantId, conversationId);
       const sockets = await this.server.in(room).fetchSockets();
       await Promise.all(sockets
         .filter((socket) => {
@@ -434,9 +457,9 @@ export class MessagingRealtimeService implements OnModuleDestroy {
         if (c.type !== 1) continue;
         const members = await this.repo.listMembers(c.id);
         if (members.length === 2 && members.includes(userId) && members.includes(otherUserId)) {
-          const room = conversationRoom(c.id);
-          await this.server.in(userRoom(userId)).socketsJoin(room);
-          await this.server.in(userRoom(otherUserId)).socketsJoin(room);
+          const room = conversationRoom(c.tenantId, c.id);
+          await this.server.in(userRoom(c.tenantId, userId)).socketsJoin(room);
+          await this.server.in(userRoom(c.tenantId, otherUserId)).socketsJoin(room);
         }
       }
     } catch (error) {
@@ -455,7 +478,8 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   async evictUserFromConversation(userId: string, conversationId: string): Promise<void> {
     if (!this.server) return;
     try {
-      await this.server.in(userRoom(userId)).socketsLeave(conversationRoom(conversationId));
+      const tenantId = await this.tenantIdOfConversation(conversationId);
+      await this.server.in(userRoom(tenantId, userId)).socketsLeave(conversationRoom(tenantId, conversationId));
     } catch (error) {
       this.logger.warn(`Không đẩy được socket của user ${userId} khỏi conversation ${conversationId}: ${(error as Error).message}`);
     }
@@ -463,14 +487,20 @@ export class MessagingRealtimeService implements OnModuleDestroy {
 
   // --- presence (A2): tập socket đang mở của từng user trong Redis -------
 
+  /** Chủ thể presence trong Redis + sổ local: `{tenant}:{userId}` (TENANT-1, #196). */
+  private presenceSubject(tenantId: string | null | undefined, userId: string): string {
+    return `${tenantRealtimeSegment(tenantId)}:${userId}`;
+  }
+
   /** Ghi nhận một socket vừa nối; là socket ĐẦU TIÊN của user thì phát trạng thái online. */
-  async markConnected(userId: string, socketId: string): Promise<void> {
-    this.trackLocalSocket(userId, socketId);
+  async markConnected(tenantId: string | null, userId: string, socketId: string): Promise<void> {
+    const subject = this.presenceSubject(tenantId, userId);
+    this.trackLocalSocket(subject, socketId);
     try {
       const redis = this.state();
-      const size = await redis.sadd(`${PRESENCE_KEY_PREFIX}${userId}`, socketId);
-      await redis.expire(`${PRESENCE_KEY_PREFIX}${userId}`, this.presenceTtlSeconds);
-      if (size === 1 && (await redis.scard(`${PRESENCE_KEY_PREFIX}${userId}`)) === 1) {
+      const size = await redis.sadd(`${PRESENCE_KEY_PREFIX}${subject}`, socketId);
+      await redis.expire(`${PRESENCE_KEY_PREFIX}${subject}`, this.presenceTtlSeconds);
+      if (size === 1 && (await redis.scard(`${PRESENCE_KEY_PREFIX}${subject}`)) === 1) {
         await this.broadcastPresence(userId, true);
       }
     } catch (error) {
@@ -479,14 +509,15 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   }
 
   /** Ghi nhận một socket vừa ngắt; là socket CUỐI CÙNG của user thì phát trạng thái offline. */
-  async markDisconnected(userId: string, socketId: string): Promise<void> {
+  async markDisconnected(tenantId: string | null, userId: string, socketId: string): Promise<void> {
     // Bỏ khỏi sổ local TRƯỚC: vòng gia hạn dừng ngay cho socket này,
     // kể cả khi thao tác Redis dưới đây lỗi.
-    this.untrackLocalSocket(userId, socketId);
+    const subject = this.presenceSubject(tenantId, userId);
+    this.untrackLocalSocket(subject, socketId);
     try {
       const redis = this.state();
-      await redis.srem(`${PRESENCE_KEY_PREFIX}${userId}`, socketId);
-      const remaining = await redis.scard(`${PRESENCE_KEY_PREFIX}${userId}`);
+      await redis.srem(`${PRESENCE_KEY_PREFIX}${subject}`, socketId);
+      const remaining = await redis.scard(`${PRESENCE_KEY_PREFIX}${subject}`);
       if (remaining === 0) await this.broadcastPresence(userId, false);
     } catch (error) {
       this.logger.warn(`Không ghi được presence khi ngắt: ${(error as Error).message}`);
@@ -494,11 +525,11 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   }
 
   /** Ghi socket vào sổ local và bảo đảm vòng gia hạn đang chạy. */
-  private trackLocalSocket(userId: string, socketId: string): void {
-    let sockets = this.localPresence.get(userId);
+  private trackLocalSocket(subject: string, socketId: string): void {
+    let sockets = this.localPresence.get(subject);
     if (!sockets) {
       sockets = new Set();
-      this.localPresence.set(userId, sockets);
+      this.localPresence.set(subject, sockets);
     }
     sockets.add(socketId);
     if (!this.presenceTimer) {
@@ -508,11 +539,11 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   }
 
   /** Bỏ socket khỏi sổ local; user hết socket tại tiến trình này thì vòng gia hạn không đụng tới nữa. */
-  private untrackLocalSocket(userId: string, socketId: string): void {
-    const sockets = this.localPresence.get(userId);
+  private untrackLocalSocket(subject: string, socketId: string): void {
+    const sockets = this.localPresence.get(subject);
     if (!sockets) return;
     sockets.delete(socketId);
-    if (sockets.size === 0) this.localPresence.delete(userId);
+    if (sockets.size === 0) this.localPresence.delete(subject);
   }
 
   /**
@@ -526,8 +557,8 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     if (this.localPresence.size === 0) return;
     try {
       const redis = this.state();
-      await Promise.all([...this.localPresence.keys()].map(async (userId) => {
-        await redis.expire(`${PRESENCE_KEY_PREFIX}${userId}`, this.presenceTtlSeconds);
+      await Promise.all([...this.localPresence.keys()].map(async (subject) => {
+        await redis.expire(`${PRESENCE_KEY_PREFIX}${subject}`, this.presenceTtlSeconds);
       }));
     } catch (error) {
       this.logger.warn(`Không gia hạn được presence: ${(error as Error).message}`);
@@ -553,7 +584,7 @@ export class MessagingRealtimeService implements OnModuleDestroy {
           const other = members.find((id) => id !== userId);
           if (other && blockedCounterparts.has(other)) continue;
         }
-        rooms.push(conversationRoom(c.id));
+        rooms.push(conversationRoom(c.tenantId, c.id));
       }
       if (!rooms.length) return;
       this.server
@@ -574,9 +605,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
   async noteTyping(conversationId: string, userId: string): Promise<void> {
     if (!this.server) return;
     try {
-      const set = await this.state().set(`${TYPING_KEY_PREFIX}${conversationId}:${userId}`, '1', 'EX', TYPING_TTL_SECONDS, 'NX');
+      const tenantId = await this.tenantIdOfConversation(conversationId);
+      const set = await this.state().set(`${TYPING_KEY_PREFIX}${tenantRealtimeSegment(tenantId)}:${conversationId}:${userId}`, '1', 'EX', TYPING_TTL_SECONDS, 'NX');
       if (set !== 'OK') return;
-      this.server.to(conversationRoom(conversationId)).emit(MESSAGING_SOCKET_EVENTS.typing, { conversationId, userId });
+      this.server.to(conversationRoom(tenantId, conversationId)).emit(MESSAGING_SOCKET_EVENTS.typing, { conversationId, userId });
     } catch (error) {
       this.logger.warn(`Không phát được typing: ${(error as Error).message}`);
     }

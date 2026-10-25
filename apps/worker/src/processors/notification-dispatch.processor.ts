@@ -17,6 +17,8 @@ export interface NotificationDispatchJobData {
   body: string;
   notificationId?: string | null;
   dedupeKey: string;
+  /** Tenant của notification nguồn (TENANT-1, #196); job cũ không có → null. */
+  tenantId?: string | null;
 }
 export interface NotificationDispatchResult {
   status: 'logged' | 'skipped-suspended' | 'skipped-preference' | 'duplicate';
@@ -50,6 +52,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
 
   private async processInContext(job: Job<NotificationDispatchJobData>): Promise<NotificationDispatchResult> {
     const { userId, provider, channel, subject, dedupeKey } = job.data;
+    const tenantId = job.data.tenantId ?? null;
     const [existing] = await this.db.select().from(notificationDispatchLog)
       .where(eq(notificationDispatchLog.dedupeKey, dedupeKey));
     if (existing) return { status: 'duplicate', channel };
@@ -57,7 +60,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
     const [user] = await this.db.select().from(users).where(eq(users.id, userId));
     if (!user || user.suspended || user.deleted) {
       await this.db.insert(notificationDispatchLog).values({
-        userId: userId, provider, channel, status: 'skipped-suspended', subject, dedupeKey,
+        userId: userId, provider, channel, status: 'skipped-suspended', subject, dedupeKey, tenantId,
         notificationId: job.data.notificationId ?? null,
       }).onConflictDoNothing();
       return { status: 'skipped-suspended', channel };
@@ -72,13 +75,13 @@ export class NotificationDispatchProcessor extends WorkerHost {
     const loggedoff = byName.get(prefName('loggedoff')) !== '0';
     if (!loggedin && !loggedoff) {
       await this.db.insert(notificationDispatchLog).values({
-        userId: userId, provider, channel, status: 'skipped-preference', subject, dedupeKey,
+        userId: userId, provider, channel, status: 'skipped-preference', subject, dedupeKey, tenantId,
         notificationId: job.data.notificationId ?? null,
       }).onConflictDoNothing();
       return { status: 'skipped-preference', channel };
     }
     await this.db.insert(notificationDispatchLog).values({
-      userId: userId, provider, channel, status: 'logged', subject, dedupeKey,
+      userId: userId, provider, channel, status: 'logged', subject, dedupeKey, tenantId,
       notificationId: job.data.notificationId ?? null,
     }).onConflictDoNothing();
     return { status: 'logged', channel };

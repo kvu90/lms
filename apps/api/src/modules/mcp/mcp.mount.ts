@@ -7,6 +7,7 @@ import type { McpOAuthVerifier } from './mcp-oauth-verifier';
 import { McpRateLimiter } from './mcp-rate-limit';
 import { createLmsMcpServer } from './mcp.server';
 import type { McpToolDeps } from './mcp.tools';
+import { tenantAls } from '../tenants/tenant-als';
 
 /**
  * Mount MCP server của LMS (MCP-0, issue #110) lên express instance của
@@ -125,9 +126,11 @@ export interface McpMountDeps {
   /**
    * Phân giải `sub` của access token thành actor còn hiệu lực (chỉ
    * dùng ở đường OAuth): null = tài khoản đã xoá/treo → 401, cùng
-   * nghĩa với kiểm tra tài khoản trong cầu bridge.
+   * nghĩa với kiểm tra tài khoản trong cầu bridge. `tenantId` là
+   * tenant mặc định của user theo membership (TENANT-1, #196) —
+   * nguồn tenant của phiên khi token AS không mang claim `tid`.
    */
-  resolveActor?: (userId: string) => Promise<{ username: string } | null>;
+  resolveActor?: (userId: string) => Promise<{ username: string; tenantId?: string | null } | null>;
   /**
    * Trần scope hiệu lực cho mọi request qua mount này. Mặc định (khi
    * không truyền) = BRIDGE_SCOPES của kỷ nguyên cầu auth; AS OAuth sẽ
@@ -147,10 +150,11 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
 
   const handler: McpHttpHandler = createMcpHandler(
     (ctx) => {
-      const extra = (ctx.authInfo?.extra ?? {}) as { userId?: string; username?: string; ip?: string | null };
+      const extra = (ctx.authInfo?.extra ?? {}) as { userId?: string; username?: string; ip?: string | null; tenantId?: string | null };
       const actor: McpActor = {
         userId: extra.userId ?? '',
         username: extra.username ?? '',
+        tenantId: extra.tenantId ?? null,
         clientId: ctx.authInfo?.clientId ?? 'unknown',
         ip: extra.ip ?? null,
         era: ctx.era,
@@ -230,7 +234,7 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
       //   (cùng nghĩa kiểm tra trong cầu bridge).
       // - AS tắt: đường lùi cầu auth MCP-0 (token JWT hệ thống HS256,
       //   trần scope = BRIDGE_SCOPES) — giữ nguyên hành vi MCP-0.
-      let identity: { userId: string; username: string };
+      let identity: { userId: string; username: string; tenantId: string | null };
       let tokenScopes: readonly string[];
       let verifiedClientId: string | null = null;
       if (deps.oauthVerifier) {
@@ -260,7 +264,14 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
           );
           return jsonRpcError(res, 401, body.id, -32001, 'Unauthorized: the token subject is not an active LMS user');
         }
-        identity = { userId: verdict.identity.userId, username: actor.username };
+        identity = {
+          userId: verdict.identity.userId,
+          username: actor.username,
+          // TENANT-1 (#196): tenant của phiên — claim `tid` trên token
+          // AS nếu có, không thì tenant mặc định theo membership do
+          // resolveActor phân giải.
+          tenantId: verdict.identity.tenantId ?? actor.tenantId ?? null,
+        };
         tokenScopes = verdict.identity.scopes;
         verifiedClientId = verdict.identity.clientId;
       } else {
@@ -311,9 +322,18 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
         // cầu auth: chỉ còn clientInfo tự giới thiệu (truy vết).
         clientId: verifiedClientId ?? clientIdOf(body),
         scopes: [...effectiveScopes],
-        extra: { userId: identity.userId, username: identity.username, ip: req.ip ?? null },
+        extra: { userId: identity.userId, username: identity.username, ip: req.ip ?? null, tenantId: identity.tenantId },
       };
-      const webRes = await handler.fetch(toWebRequest(req, raw), { authInfo });
+      // TENANT-1 (#196): toàn lượt thực thi tool chạy trong ngữ cảnh
+      // tenant của PHIÊN (ALS) — pool gắn GUC theo ALS nên RLS
+      // fail-closed giới hạn mọi truy vấn của tool trong tenant này;
+      // bank đích của các tool ghi phân giải trong đúng tenant của
+      // phiên. Phiên không phân giải được tenant → store không có
+      // tenantId = fail-closed (chỉ thấy dữ liệu platform).
+      const webRes = await tenantAls.run(
+        { tenantId: identity.tenantId ?? undefined, userId: identity.userId },
+        () => handler.fetch(toWebRequest(req, raw), { authInfo }),
+      );
       return pipeWebResponse(webRes, res);
     })().catch((err: unknown) => {
       console.error('[mcp] mount error:', err);

@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { eq, inArray } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '@lms/db-schema';
+import { course, gradeCategories, gradeGrades, gradeGradesHistory, gradeItems, outboxEvents } from '@lms/db-schema';
 import { calculateCategory, evaluateGradeFormula, parseGradeFormula, type AggregationStrategy, type CalcItemInput } from '@lms/grades';
 import { tenantAls } from '../db/tenant-als';
 
@@ -41,6 +41,11 @@ export class GradeRegradeProcessor extends WorkerHost {
 
   private async processInContext(job: Job<GradeRegradeJobData>): Promise<GradeRegradeResult> {
     const { courseId } = job.data;
+    // TENANT-1 (#196): mọi sự kiện grade_updated của lượt chấm lại đều
+    // mang tenant của khoá (cột + payload) cho consumer phía API.
+    const [courseRow] = await this.db.select({ tenantId: course.tenantId }).from(course)
+      .where(eq(course.id, courseId));
+    const tenantId = courseRow?.tenantId ?? null;
     const categories = await this.db.select().from(gradeCategories).where(eq(gradeCategories.courseId, courseId));
     const items = await this.db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
     const itemIds = items.map((i) => i.id);
@@ -104,8 +109,8 @@ export class GradeRegradeProcessor extends WorkerHost {
             rawGrade: null, finalGrade: value, source: 'calculation-worker',
           });
           await this.db.insert(outboxEvents).values({
-            aggregate: 'grades', type: 'grade_updated',
-            payload: { courseId, itemId: calcItem.id, userId, finalGrade: value, calculated: true, via: 'worker-regrade' },
+            aggregate: 'grades', type: 'grade_updated', tenantId,
+            payload: { courseId, itemId: calcItem.id, userId, finalGrade: value, calculated: true, via: 'worker-regrade', tenantId },
           });
         }
       }
@@ -160,15 +165,15 @@ export class GradeRegradeProcessor extends WorkerHost {
             rawGrade: null, finalGrade: result.finalGrade, source: 'regrade-worker',
           });
           await this.db.insert(outboxEvents).values({
-            aggregate: 'grades', type: 'grade_updated',
-            payload: { courseId, itemId: totalItem.id, userId, finalGrade: result.finalGrade, calculated: true, via: 'worker-regrade' },
+            aggregate: 'grades', type: 'grade_updated', tenantId,
+            payload: { courseId, itemId: totalItem.id, userId, finalGrade: result.finalGrade, calculated: true, via: 'worker-regrade', tenantId },
           });
         }
       }
     }
     await this.db.insert(outboxEvents).values({
-      aggregate: 'grades', type: 'course_grade_recalculated',
-      payload: { courseId, users: userIds.length, via: 'worker-regrade' },
+      aggregate: 'grades', type: 'course_grade_recalculated', tenantId,
+      payload: { courseId, users: userIds.length, via: 'worker-regrade', tenantId },
     });
     return { courseId, users: userIds.length, updatedTotals };
   }

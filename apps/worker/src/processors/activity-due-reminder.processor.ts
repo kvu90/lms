@@ -77,6 +77,7 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     const windowEnd = new Date(now.getTime() + ACTIVITY_DUE_REMINDER_WINDOW_HOURS * 3600_000);
     const due = await this.db.select({
       quizId: quizzes.id, quizName: quizzes.name, timeClose: quizzes.timeClose, courseId: quizzes.course,
+      tenantId: course.tenantId,
       cmVisible: courseModules.visible, cmDeletionInProgress: courseModules.deletionInProgress,
     }).from(quizzes)
       .innerJoin(course, eq(course.id, quizzes.course))
@@ -98,9 +99,9 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         if (await this.hasSubmitted(row.quizId, userId)) continue;
         if (await this.alreadyReminded(userId, row.quizId, row.timeClose)) continue;
         await this.db.insert(outboxEvents).values({
-          aggregate: 'activity', type: 'activity_due_reminder',
+          aggregate: 'activity', type: 'activity_due_reminder', tenantId: row.tenantId,
           payload: {
-            userId, courseId: row.courseId, quizId: row.quizId,
+            userId, courseId: row.courseId, quizId: row.quizId, tenantId: row.tenantId,
             activityType: 'quiz', activityName: row.quizName,
             timeClose: row.timeClose.toISOString(),
           },

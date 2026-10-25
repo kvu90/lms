@@ -136,6 +136,8 @@ export class GuardianDigestService {
       subject, body, contextUrl: deepLink,
       externalSubject: this.t('platform.guardianDigestExternalSubject'),
       externalBody: this.t('platform.guardianDigestExternalBody'),
+      // TENANT-1 (#196): digest thuộc tenant của liên kết giám hộ.
+      tenantId: link.tenantId,
     });
     await this.zalo.sendNotice({ guardianUserId: guardianId, studentUserId: studentId, kind: payload.kind, deepLink })
       .catch((error: Error) => this.logger.warn(`Seam Zalo (log-only) lỗi: ${error.message}`));
@@ -146,7 +148,7 @@ export class GuardianDigestService {
       notificationId: result.notificationId, sentAt: new Date(),
     });
     await this.outbox.enqueueStandalone({
-      aggregate: 'guardian', type: 'guardian_digest_sent',
+      aggregate: 'guardian', type: 'guardian_digest_sent', tenantId: link.tenantId,
       payload: {
         actorId: guardianId, userId: studentId, objectId: row.id, digestId: row.id,
         kind: payload.kind, windowStart: payload.windowStart, windowEnd: payload.windowEnd,
@@ -183,12 +185,14 @@ export class GuardianDigestService {
       contextUrl: deepLink,
       externalSubject: this.t('platform.guardianOverdueAlertExternalSubject'),
       externalBody: this.t('platform.guardianOverdueAlertExternalBody'),
+      // TENANT-1 (#196): đẩy quá hạn thuộc tenant của liên kết giám hộ.
+      tenantId: link.tenantId,
     });
     await this.zalo.sendNotice({ guardianUserId: guardianId, studentUserId: studentId, kind: 'overdue_alert', deepLink })
       .catch((error: Error) => this.logger.warn(`Seam Zalo (log-only) lỗi: ${error.message}`));
     await this.repo.finishDigest(row.id, { status: 'sent', notificationId: result.notificationId, sentAt: new Date() });
     await this.outbox.enqueueStandalone({
-      aggregate: 'guardian', type: 'guardian_overdue_alert_sent',
+      aggregate: 'guardian', type: 'guardian_overdue_alert_sent', tenantId: link.tenantId,
       payload: {
         actorId: guardianId, userId: studentId, objectId: row.id, digestId: row.id,
         cmId: payload.cmId, activityKind: payload.activityKind, courseId: payload.courseId, dueAt: payload.dueAt,
