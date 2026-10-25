@@ -38,6 +38,16 @@ const DISTRIBUTED_TYPES = ['message_sent', 'message_conversation_read', 'message
  * bị dựng lại — seq hiện tại nhỏ hơn watermark đã lưu) thì watermark
  * neo tại seq lớn nhất hiện có: không phát lại lịch sử cũ.
  *
+ * DB bị dựng lại TRONG LÚC tiến trình vẫn chạy (reset DB production
+ * không kèm restart dyno — sự cố live trong issue #125) được phát
+ * hiện ở mọi nhịp không có gì phân phối: seq lớn nhất của DB nhỏ
+ * hơn watermark đang giữ là điều không thể xảy ra trong một đời DB
+ * (seq chỉ tăng). Khi đó watermark neo về 0 để mọi sự kiện của đời
+ * DB mới được phân phối — neo tại seq hiện tại như lúc khởi động sẽ
+ * bỏ sót chính các sự kiện đã ghi ngay sau reset, trước nhịp phát
+ * hiện; phát lại phần lịch sử còn trong bảng là vô hại theo tính
+ * chất chống trùng ở trên.
+ *
  * Mọi lỗi đều bị nuốt kèm cảnh báo: DB là nguồn sự thật, client nối
  * lại luôn đồng bộ được phần thiếu qua `sync`/REST, nên consumer
  * chậm hoặc lỗi không bao giờ làm hỏng nghiệp vụ nhắn tin.
@@ -88,11 +98,15 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
     this.ticking = true;
     try {
       if (this.watermark === null) this.watermark = await this.initialWatermark();
-      const rows = await this.db.select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
-        .from(outboxEvents)
-        .where(and(gt(outboxEvents.seq, this.watermark), inArray(outboxEvents.type, [...DISTRIBUTED_TYPES])))
-        .orderBy(asc(outboxEvents.seq))
-        .limit(BATCH_SIZE);
+      let rows = await this.fetchPending();
+      // Nhịp trống có thể là im lặng giả: DB đã bị dựng lại trong lúc
+      // tiến trình vẫn chạy nên sự kiện mới mang seq nhỏ hơn
+      // watermark cũ và không bao giờ lọt qua bộ lọc seq > watermark.
+      // Kiểm tra dấu hiệu đó và neo lại trước khi kết luận "không có
+      // gì mới" — nếu không, consumer no-op vĩnh viễn mà không lỗi.
+      if (rows.length === 0 && (await this.reanchorIfDbReset())) {
+        rows = await this.fetchPending();
+      }
       for (const row of rows) {
         await this.distribute(row.type, row.payload as Record<string, unknown>);
         this.watermark = row.seq;
@@ -103,6 +117,37 @@ export class MessagingOutboxConsumer implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.ticking = false;
     }
+  }
+
+  /** Các sự kiện phân phối được đang chờ sau watermark, theo thứ tự seq. */
+  private async fetchPending() {
+    return this.db.select({ seq: outboxEvents.seq, type: outboxEvents.type, payload: outboxEvents.payload })
+      .from(outboxEvents)
+      .where(and(gt(outboxEvents.seq, this.watermark!), inArray(outboxEvents.type, [...DISTRIBUTED_TYPES])))
+      .orderBy(asc(outboxEvents.seq))
+      .limit(BATCH_SIZE);
+  }
+
+  /**
+   * Phát hiện DB đã bị dựng lại trong lúc tiến trình vẫn chạy và neo
+   * lại watermark: seq chỉ tăng trong một đời DB nên seq lớn nhất
+   * hiện có nhỏ hơn watermark đang giữ nghĩa là watermark thuộc về
+   * đời DB trước. Neo về 0 (không phải về seq hiện tại) để các sự
+   * kiện đã ghi sau reset — có thể đã nằm trong bảng trước nhịp phát
+   * hiện này — vẫn được phân phối; lịch sử bị phát lại là vô hại vì
+   * client chống trùng. Trả `true` khi đã neo lại để nhịp gọi quét
+   * lại từ đầu.
+   */
+  private async reanchorIfDbReset(): Promise<boolean> {
+    const [row] = await this.db.select({ value: max(outboxEvents.seq) }).from(outboxEvents);
+    const dbMax = row?.value ?? 0;
+    if (this.watermark === null || dbMax >= this.watermark) return false;
+    this.logger.warn(
+      `Phát hiện DB đã bị dựng lại trong lúc tiến trình chạy (seq lớn nhất hiện có ${dbMax} < watermark ${this.watermark}) — neo lại watermark về 0 để phân phối các sự kiện của đời DB mới.`,
+    );
+    this.watermark = 0;
+    await this.redis.set(this.watermarkKey, '0').catch(() => undefined);
+    return true;
   }
 
   /**
