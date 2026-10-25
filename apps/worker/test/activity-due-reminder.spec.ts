@@ -36,10 +36,10 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
   const HOUR = 3600_000;
 
   async function makeQuiz(opts: { closeInHours: number | null; courseVisible?: boolean; cmVisible?: boolean; name?: string }) {
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`n5-cat-${suffix}-${Math.random()}`}, '') returning id`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`n5-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `n5${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name, visible) values (${catId}, 'N5 course', ${short}, ${opts.courseVisible ?? true}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'N5 course', ${short}, ${opts.courseVisible ?? true}) returning id`);
     const cid = (courseRows.rows[0] as { id: string }).id;
     const secRows = await db.execute(sql`insert into course_sections (course, section) values (${cid}, 0) returning id`);
     const secId = (secRows.rows[0] as { id: string }).id;
@@ -71,10 +71,10 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
   }
 
   async function makeAssignment(opts: { dueInHours: number | null; courseVisible?: boolean; cmVisible?: boolean; name?: string }) {
-    const catRows = await db.execute(sql`insert into course_categories (name, path) values (${`nb1-cat-${suffix}-${Math.random()}`}, '') returning id`);
+    const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`nb1-cat-${suffix}-${Math.random()}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const short = `nb1${suffix}${Math.floor(Math.random() * 1e9)}`;
-    const courseRows = await db.execute(sql`insert into course (category, full_name, short_name, visible) values (${catId}, 'NB1 course', ${short}, ${opts.courseVisible ?? true}) returning id`);
+    const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, visible) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'NB1 course', ${short}, ${opts.courseVisible ?? true}) returning id`);
     const cid = (courseRows.rows[0] as { id: string }).id;
     const secRows = await db.execute(sql`insert into course_sections (course, section) values (${cid}, 0) returning id`);
     const secId = (secRows.rows[0] as { id: string }).id;
@@ -100,6 +100,7 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
     await context.init();
     db = context.get(getDrizzleToken());
+    await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
   });
   afterAll(async () => { await context.close(); });
 
