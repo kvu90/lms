@@ -88,7 +88,7 @@ function stubFetch(calls: RecordedCall[], forbidden = false) {
       }
       if (url === '/api/v1/curriculum/program-import' && method === 'GET') return respond(STATUS);
       if (url === '/api/v1/curriculum/program-import' && method === 'POST') {
-        return respond({ datasetKey: 'toan', subjectId: 'subj-toan', created: 0, updated: 0, skipped: 300, outcomesWritten: 0, totalRecords: 300 });
+        return respond({ datasetKey: 'toan', subjectId: 'subj-toan', created: 0, updated: 0, skipped: 300, outcomesWritten: 0, totalRecords: 300, orphanedNodes: 0, orphanedOutcomes: 0 });
       }
       if (url === '/api/v1/access/contexts') return respond([{ id: 'ctx-sys', contextLevel: 10 }]);
       if (url.startsWith('/api/v1/curriculum/subjects?')) return respond([SUBJECT]);
@@ -143,7 +143,7 @@ describe('Admin curriculum pages', () => {
     stubFetch(calls);
     renderList();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Nạp dữ liệu' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Đồng bộ lại' }));
 
     expect(await screen.findByText(/mới 0 · cập nhật 0 · bỏ qua 300/)).toBeInTheDocument();
     const post = calls.find((c) => c.url === '/api/v1/curriculum/program-import' && c.method === 'POST');
@@ -156,7 +156,7 @@ describe('Admin curriculum pages', () => {
     renderList();
 
     expect(await screen.findByText(/không có quyền quản trị chương trình/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Nạp dữ liệu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Đồng bộ lại' })).not.toBeInTheDocument();
   });
 
   it('renders the tree with outcomes and their source trace', async () => {
@@ -167,5 +167,20 @@ describe('Admin curriculum pages', () => {
     expect(await screen.findByText('Số và phép tính')).toBeInTheDocument();
     expect(await screen.findByText('Đọc, viết được các số có nhiều chữ số.')).toBeInTheDocument();
     expect(screen.getByText(/Nguồn: Thông tư 32\/2018\/TT-BGDĐT/)).toBeInTheDocument();
+  });
+
+  it('presents the programme the Ministry way: strand groups a Nội dung | Yêu cầu cần đạt table', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderTree();
+
+    // Bảng mẫu Bộ: cột Nội dung | Yêu cầu cần đạt, mạch là tiêu đề nhóm của bảng.
+    expect(await screen.findByRole('columnheader', { name: 'Nội dung' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Yêu cầu cần đạt' })).toBeInTheDocument();
+    expect(screen.getByText('Số và phép tính')).toBeInTheDocument();
+    // Nội dung của bài nằm ở cột Nội dung, YCCĐ nguyên văn ở cột YCCĐ của cùng dòng.
+    const row = screen.getByText('Đọc, viết được các số có nhiều chữ số').closest('tr');
+    expect(row).not.toBeNull();
+    expect(row!.textContent).toContain('Đọc, viết được các số có nhiều chữ số.');
   });
 });

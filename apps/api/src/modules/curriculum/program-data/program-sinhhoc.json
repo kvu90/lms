@@ -1,0 +1,2809 @@
+{
+ "subject": "Sinh học",
+ "issued_with": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+ "records": [
+  {
+   "id": "SH-0001",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Giới thiệu khái quát chương trình môn Sinh học",
+   "content": "– Đối tượng và các lĩnh vực nghiên cứu của sinh học – Mục tiêu của môn Sinh học – Vai trò của sinh học – Sinh học trong tương lai – Các ngành nghề liên quan đến sinh học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được đối tượng và các lĩnh vực nghiên cứu của sinh học. – Trình bày được mục tiêu môn Sinh học. – Phân tích được vai trò của sinh học với cuộc sống hằng ngày và với sự phát triển kinh tế –xã hội; vai trò sinh học với sự phát triển bền vững môi trường sống và những vấn đề toàn cầu. – Nêu được triển vọng phát triển sinh học trong tương lai. – Kể được tên các ngành nghề liên quan đến sinh học và ứng dụng sinh học. Trình bày được các thành tựu từ lí thuyết đến thành tựu công nghệ của một số ngành nghề chủ chốt (y – dược học, pháp y, công nghệ thực phẩm, bảo vệ môi trường, nông nghiệp, lâm nghiệp,...). Nêu được triển vọng của các ngành nghề đó trong tương lai.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     13,
+     14
+    ]
+   }
+  },
+  {
+   "id": "SH-0002",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Giới thiệu khái quát chương trình môn Sinh học",
+   "content": "Sinh học và sự phát triển bền vững",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được định nghĩa về phát triển bền vững. – Trình bày được vai trò của sinh học trong phát triển bền vững môi trường sống. – Phân tích được mối quan hệ giữa sinh học với những vấn đề xã hội: đạo đức sinh học, kinh tế, công nghệ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "SH-0003",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Giới thiệu khái quát chương trình môn Sinh học",
+   "content": "Các phương pháp nghiên cứu và học tập môn Sinh học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày và vận dụng được một số phương pháp nghiên cứu sinh học, cụ thể: + Phương pháp quan sát; + Phương pháp làm việc trong phòng thí nghiệm (các kĩ thuật phòng thí nghiệm); + Phương pháp thực nghiệm khoa học. – Nêu được một số vật liệu, thiết bị nghiên cứu và học tập môn Sinh học. – Trình bày và vận dụng được các kĩ năng trong tiến trình nghiên cứu: + Quan sát: logic thực hiện quan sát; thu thập, lưu giữ kết quả quan sát; lựa chọn hình thức biểu đạt kết quả quan sát; + Xây dựng giả thuyết; + Thiết kế và tiến hành thí nghiệm; + Điều tra, khảo sát thực địa; + Làm báo cáo kết quả nghiên cứu; – Giới thiệu được phương pháp tin sinh học (Bioinfomatics) như là công cụ trong nghiên cứu và học tập sinh học.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "SH-0004",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Giới Thiệu Chung Về Các Cấp Độ Tổ Chức Của Thế Giới Sống",
+   "topic": "Giới thiệu khái quát chương trình môn Sinh học",
+   "content": "– Khái niệm và đặc điểm của cấp độ tổ chức sống – Các cấp độ tổ chức sống – Quan hệ giữa các cấp độ tổ chức sống",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm cấp độ tổ chức sống. – Trình bày được các đặc điểm chung của các cấp độ tổ chức sống. – Dựa vào sơ đồ, phân biệt được cấp độ tổ chức sống. – Giải thích được mối quan hệ giữa các cấp độ tổ chức sống.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "SH-0005",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Giới thiệu khái quát chương trình môn Sinh học",
+   "content": "Khái quát về tế bào",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái quát học thuyết tế bào. – Giải thích được tế bào là đơn vị cấu trúc và chức năng của cơ thể sống.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "SH-0006",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Thành phần hoá học của tế bào",
+   "content": "– Các nguyên tố hoá học trong tế bào – Nước trong tế bào – Các phân tử sinh học trong tế bào",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Liệt kê được một số nguyên tố hoá học chính có trong tế bào (C, H, O, N, S, P). – Nêu được vai trò của các nguyên tố vi lượng, đa lượng trong tế bào. – Nêu được vai trò quan trọng của nguyên tố carbon trong tế bào (cấu trúc nguyên tử C có thể liên kết với chính nó và nhiều nhóm chức khác nhau). – Trình bày được đặc điểm cấu tạo phân tử nước quy định tính chất vật lí, hoá học và sinh học của nước, từ đó quy định vai trò sinh học của nước trong tế bào. – Nêu được khái niệm phân tử sinh học. – Trình bày được thành phần cấu tạo (các nguyên tố hoá học và đơn phân) và vai trò của các phân tử sinh học trong tế bào: carbohydrate, lipid, protein, nucleic acid. – Phân tích được mối quan hệ giữa cấu tạo và vai trò của các phân tử sinh học. – Nêu được một số nguồn thực phẩm cung cấp các phân tử sinh học cho cơ thể. – Vận dụng được kiến thức về thành phần hoá học của tế bào vào giải thích các hiện tượng và ứng dụng trong thực tiễn (ví dụ: ăn uống hợp lí; giải thích vì sao thịt lợn, thịt bò cùng là protein nhưng có nhiều đặc điểm khác nhau; giải thích vai trò của DNA trong xác định huyết thống, truy tìm tội phạm,...). – Thực hành xác định (định tính) được một số thành phần hoá học có trong tế bào (protein, lipid,...).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15,
+     16
+    ]
+   }
+  },
+  {
+   "id": "SH-0007",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Cấu trúc tế bào",
+   "content": "– Tế bào nhân sơ – Tế bào nhân thực",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được kích thước, cấu tạo và chức năng các thành phần của tế bào nhân sơ. – Phân tích được mối quan hệ phù hợp giữa cấu tạo và chức năng của thành tế bào (ở tế bào thực vật) và màng sinh chất. – Nêu được cấu tạo và chức năng của tế bào chất. – Trình bày được cấu trúc của nhân tế bào và chức năng quan trọng của nhân. – Phân tích được mối quan hệ giữa cấu tạo và chức năng của các bào quan trong tế bào. – Quan sát hình vẽ, lập được bảng so sánh cấu tạo tế bào thực vật và động vật. – Lập được bảng so sánh tế bào nhân sơ và tế bào nhân thực. – Thực hành làm được tiêu bản và quan sát được tế bào sinh vật nhân sơ (vi khuẩn). – Làm được tiêu bản hiển vi tế bào nhân thực (củ hành tây, hành ta, thài lài tía, hoa lúa, bí ngô, tế bào niêm mạc xoang miệng,...) và quan sát nhân, một số bào quan trên tiêu bản đó.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "SH-0008",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Trao đổi chất và chuyển hoá năng lượng ở tế bào",
+   "content": "– Tổng hợp các chất và tích luỹ năng lượng trong tế bào – Phân giải các chất và giải phóng năng lượng trong tế bào",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "enzyme; thí nghiệm kiểm tra hoạt tính thuỷ phân tinh bột của amylase. – Nêu được khái niệm tổng hợp các chất trong tế bào. Lấy được ví dụ minh hoạ (tổng hợp protein, lipid, carbohydrate,...). – Trình bày được quá trình tổng hợp các chất song song với tích luỹ năng lượng. – Nêu được vai trò quan trọng của quang hợp trong việc tổng hợp các chất và tích luỹ năng lượng trong tế bào thực vật. – Nêu được vai trò của hoá tổng hợp và quang khử ở vi khuẩn. – Phát biểu được khái niệm phân giải các chất trong tế bào. – Trình bày được các giai đoạn phân giải hiếu khí (hô hấp tế bào) và các giai đoạn phân giải kị khí (lên men). – Trình bày được quá trình phân giải các chất song song với giải phóng năng lượng. – Phân tích được mối quan hệ giữa tổng hợp và phân giải các chất trong tế bào.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18
+    ]
+   }
+  },
+  {
+   "id": "SH-0009",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Thông tin ở tế bào",
+   "content": "– Khái niệm – Quá trình",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm về thông tin giữa các tế bào. – Dựa vào sơ đồ thông tin giữa các tế bào, trình bày được các quá trình: + Tiếp nhận: Một phân tử truyền tin liên kết vào một protein thụ thể làm thụ thể thay đổi hình dạng; + Truyền tin: các chuỗi tương tác phân tử chuyển tiếp tín hiệu từ các thụ thể tới các phân tử đích trong tế bào; + Đáp ứng: Tế bào phát tín hiệu điều khiển phiên mã, dịch mã hoặc điều hoà hoạt động của tế bào.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18
+    ]
+   }
+  },
+  {
+   "id": "SH-0010",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Chu kì tế bào và phân bào",
+   "content": "– Chu kì tế bào và nguyên phân – Quá trình giảm phân",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm chu kì tế bào. Dựa vào sơ đồ, trình bày được các giai đoạn và mối quan hệ giữa các giai đoạn trong chu kì tế bào. – Dựa vào cơ chế nhân đôi và phân li của nhiễm sắc thể để giải thích được quá trình nguyên phân là cơ chế sinh sản của tế bào. – Giải thích được sự phân chia tế bào một cách không bình thường có thể dẫn đến ung thư. Trình bày được một số thông tin về bệnh ung thư ở Việt Nam. Nêu được một số biện pháp phòng tránh ung thư. – Thực hành làm được tiêu bản nhiễm sắc thể để quan sát quá trình nguyên phân (hành tây, hành ta, đại mạch, cây tỏi, lay ơn, khoai môn,...). – Dựa vào cơ chế nhân đôi và phân li của nhiễm sắc thể để giải thích được quá trình giảm phân, thụ tinh cùng với nguyên phân là cơ sở của sinh sản hữu tính ở sinh vật. – Trình bày được một số nhân tố ảnh hưởng đến quá trình giảm phân. – Lập được bảng so sánh quá trình nguyên phân và quá trình giảm phân. – Vận dụng kiến thức về nguyên phân và giảm phân vào giải thích một số vấn đề trong thực tiễn. – Làm được tiêu bản quan sát quá trình giảm phân ở tế bào động vật, thực vật (châu chấu đực, hoa hành,...).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     19
+    ]
+   }
+  },
+  {
+   "id": "SH-0011",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Tế Bào",
+   "topic": "Chu kì tế bào và phân bào",
+   "content": "Công nghệ tế bào",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm, nguyên lí công nghệ và một số thành tựu của công nghệ tế bào thực vật. – Nêu được khái niệm, nguyên lí công nghệ và một số thành tựu công nghệ tế bào động vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     19
+    ]
+   }
+  },
+  {
+   "id": "SH-0012",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Vi sinh vật",
+   "content": "– Khái niệm và các nhóm vi sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm vi sinh vật. Kể tên được các nhóm vi sinh vật. – Phân biệt được các kiểu dinh dưỡng ở vi sinh vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     20
+    ]
+   }
+  },
+  {
+   "id": "SH-0013",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Vi sinh vật",
+   "content": "– Các phương pháp nghiên cứu vi sinh vật – Quá trình tổng hợp và phân giải ở vi sinh vật – Quá trình sinh trưởng và sinh sản ở vi sinh vật – Một số ứng dụng vi sinh vật trong thực tiễn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được một số phương pháp nghiên cứu vi sinh vật. – Thực hành được một số phương pháp nghiên cứu vi sinh vật thông dụng. – Nêu được một số ví dụ về quá trình tổng hợp và phân giải các chất ở vi sinh vật. – Phân tích được vai trò của vi sinh vật trong đời sống con người và trong tự nhiên. – Nêu được khái niệm sinh trưởng ở vi sinh vật. Trình bày được đặc điểm các pha sinh trưởng của quần thể vi khuẩn. – Phân biệt được các hình thức sinh sản ở vi sinh vật nhân sơ và vi sinh vật nhân thực. – Trình bày được các yếu tố ảnh hưởng đến sinh trưởng của vi sinh vật. – Trình bày được ý nghĩa của việc sử dụng kháng sinh để ức chế hoặc tiêu diệt vi sinh vật gây bệnh và tác hại của việc lạm dụng thuốc kháng sinh trong chữa bệnh cho con người và động vật. – Kể tên được một số thành tựu hiện đại của công nghệ vi sinh vật. – Trình bày được cơ sở khoa học của việc ứng dụng vi sinh vật trong thực tiễn. – Trình bày được một số ứng dụng vi sinh vật trong thực tiễn (sản xuất và bảo quản thực phẩm, sản xuất thuốc, xử lí môi trường,...). – Thực hiện được dự án hoặc đề tài tìm hiểu về các sản phẩm công nghệ vi sinh vật. Làm được tập san các bài viết, tranh ảnh về công nghệ vi sinh vật. – Làm được một số sản phẩm lên men từ vi sinh vật (sữa chua, dưa chua, bánh mì,...). – Phân tích được triển vọng công nghệ vi sinh vật trong tương lai. – Kể tên được một số ngành nghề liên quan đến công nghệ vi sinh vật và triển vọng phát triển của ngành nghề đó.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     20,
+     21
+    ]
+   }
+  },
+  {
+   "id": "SH-0014",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Virus và các ứng dụng",
+   "content": "– Khái niệm và đặc điểm virus – Quá trình nhân lên của virus trong tế bào chủ – Một số thành tựu ứng dụng virus trong sản xuất – Virus gây bệnh",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm và các đặc điểm của virus. Trình bày được cấu tạo của virus. – Trình bày được các giai đoạn nhân lên của virus trong tế bào chủ. Từ đó giải thích được cơ chế gây bệnh do virus. – Kể tên được một số thành tựu ứng dụng virus trong sản xuất chế phẩm sinh học; trong y học và nông nghiệp; sản xuất thuốc trừ sâu từ virus. – Trình bày được phương thức lây truyền một số bệnh do virus ở người, thực vật và động vật (HIV, cúm, sởi,...) và cách phòng chống. Giải thích được các bệnh do virus thường lây lan nhanh, rộng và có nhiều biến thể. – Thực hiện được dự án hoặc đề tài điều tra một số bệnh do virus gây ra và tuyên truyền phòng chống bệnh.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     21
+    ]
+   }
+  },
+  {
+   "id": "SH-0015",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Virus và các ứng dụng",
+   "content": "– Thành tựu công nghệ tế bào – Các giai đoạn của công nghệ tế bào – Tế bào gốc và ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Kể được tên một số thành tựu hiện đại của công nghệ tế bào. – Trình bày được tính toàn năng và các giai đoạn chung của công nghệ tế bào. Lấy được ví dụ về công nghệ tế bào thực vật, công nghệ tế bào động vật. – Nêu được khái niệm tế bào gốc. Trình bày được một số thành tựu trong sử dụng tế bào gốc. – Phân tích được triển vọng của công nghệ tế bào trong tương lai. – Thực hiện được dự án hoặc đề tài tìm hiểu về các thành tựu nuôi cấy mô, thành tựu tế bào gốc. Thiết kế được tập san các bài viết, tranh ảnh về công nghệ tế bào. – Trình bày được quan điểm của bản thân về tầm quan trọng của việc sử dụng tế bào gốc trong thực tiễn. – Tranh luận, phản biện được quan điểm về nhân bản vô tính động vật, con người.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22
+    ]
+   }
+  },
+  {
+   "id": "SH-0016",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Virus và các ứng dụng",
+   "content": "– Cơ sở khoa học ứng dụng công nghệ enzyme",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được một số thành tựu của công nghệ enzyme. – Phân tích được cơ sở khoa học ứng dụng công nghệ enzyme.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22
+    ]
+   }
+  },
+  {
+   "id": "SH-0017",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Virus và các ứng dụng",
+   "content": "– Quy trình công nghệ sản xuất enzyme – Ứng dụng của công nghệ enzyme",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được quy trình công nghệ sản xuất enzyme. Lấy được một số ví dụ minh hoạ. – Trình bày được một số ứng dụng của enzyme trong các lĩnh vực: công nghệ thực phẩm, y dược, kĩ thuật di truyền. – Phân tích được triển vọng công nghệ enzyme trong tương lai. – Thực hiện được dự án hoặc đề tài tìm hiểu về ứng dụng enzyme.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23
+    ]
+   }
+  },
+  {
+   "id": "SH-0018",
+   "subject": "Sinh học",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Học Vi Sinh Vật Và Virus",
+   "topic": "Virus và các ứng dụng",
+   "content": "– Vai trò của vi sinh vật trong xử lí ô nhiễm môi trường – Vi sinh vật trong việc phân huỷ các hợp chất – Một số công nghệ ứng dụng vi sinh vật trong xử lí môi trường Trao đổi chất và chuyển hoá năng lượng ở sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được vai trò của vi sinh vật trong xử lí ô nhiễm môi trường. – Mô tả được quá trình phân giải các hợp chất trong xử lí môi trường bằng công nghệ vi sinh: phân giải hiếu khí, kị khí, lên men. – Trình bày được một số công nghệ ứng dụng vi sinh vật trong xử lí môi trường. + Xử lí ô nhiễm môi trường đất; + Xử lí nước thải và làm sạch nước; + Thu nhận khí sinh học; + Xử lí chất thải rắn. – Thực hiện được dự án: Điều tra công nghệ ứng dụng vi sinh vật xử lí ô nhiễm môi trường tại địa phương (xử lí rác thải, nước thải,...).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23,
+     24
+    ]
+   }
+  },
+  {
+   "id": "SH-0019",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát trao đổi chất và – chuyển hoá năng lượng trong sinh giới:",
+   "content": "+ Trao đổi chất và chuyển hoá năng lượng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được vai trò của trao đổi chất và chuyển hoá năng lượng đối với sinh vật. – Nêu được các dấu hiệu đặc trưng của trao đổi chất và chuyển hoá năng lượng (thu nhận các chất từ môi trường, vận chuyển các chất, biến đổi các chất, tổng hợp các chất và tích luỹ năng lượng, phân giải các chất và giải phóng năng lượng, đào thải các chất ra môi trường, điều hoà). – Dựa vào sơ đồ chuyển hoá năng lượng trong sinh giới, mô tả được tóm tắt ba giai đoạn chuyển hoá năng lượng (tổng hợp, phân giải và huy động năng lượng). – Trình bày được mối quan hệ giữa trao đổi chất và chuyển hoá năng lượng ở cấp tế bào và cơ thể.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     24
+    ]
+   }
+  },
+  {
+   "id": "SH-0020",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát trao đổi chất và – chuyển hoá năng lượng trong sinh giới:",
+   "content": "+ Các phương thức trao đổi chất và chuyển hoá năng lượng Trao đổi chất và chuyển – hoá năng lượng ở thực vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được các phương thức trao đổi chất và chuyển hoá năng lượng (tự dưỡng và dị dưỡng). Lấy được ví dụ minh hoạ. – Nêu được khái niệm tự dưỡng và dị dưỡng. – Phân tích được vai trò của sinh vật tự dưỡng trong sinh giới.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "SH-0021",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Vai trò của nước",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được nước có vai trò vừa là thành phần cấu tạo tế bào thực vật, là dung môi hoà tan các chất, môi trường cho các phản ứng sinh hoá, điều hoà thân nhiệt và vừa là phương tiện vận chuyển các chất trong hệ vận chuyển ở cơ thể thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "SH-0022",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Sự hấp thụ nước và khoáng ở rễ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào sơ đồ, mô tả được quá trình trao đổi nước trong cây, gồm: sự hấp thụ nước ở rễ, sự vận chuyển nước ở thân và sự thoát hơi nước ở lá. – Trình bày được cơ chế hấp thụ nước và khoáng ở tế bào lông hút của rễ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "SH-0023",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Sự vận chuyển các chất trong cây",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được sự vận chuyển các chất trong cây theo hai dòng: dòng mạch gỗ và dòng mạch rây. – Trình bày được sự vận chuyển nước và khoáng trong cây phụ thuộc vào: động lực hút của lá (do thoát hơi nước tạo ra), động lực đẩy nước của rễ (do áp suất rễ tạo ra) và động lực trung gian (lực liên kết giữa các phân tử nước và lực bám giữa các phân tử nước với thành mạch dẫn). – Nêu được sự vận chuyển các chất hữu cơ trong mạch rây cung cấp cho các hoạt động sống của cây và dự trữ trong cây.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "SH-0024",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Sự thoát hơi nước ở lá",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được cơ chế đóng mở khí khổng thực hiện chức năng điều tiết quá trình thoát hơi nước. Giải thích được vai trò quan trọng của sự thoát hơi nước đối với đời sống của cây.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "SH-0025",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Vai trò của các nguyên tố",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm dinh dưỡng ở thực vật và vai trò sinh lí của một số nguyên tố khoáng",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "SH-0026",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": "khoáng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "đối với thực vật (cụ thể một số nguyên tố đa lượng, vi lượng). – Quan sát và nhận biết được một số biểu hiện của cây do thiếu khoáng.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "SH-0027",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Dinh dưỡng nitơ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được các nguồn cung cấp nitơ cho cây. – Trình bày được quá trình hấp thụ và biến đổi nitrate và ammonium ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "SH-0028",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Trao đổi nước và khoáng ở thực vật",
+   "content": " Các nhân tố ảnh hưởng đến trao đổi nước và dinh dương khoáng ở thực vât và ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được một số nhân tố ảnh hưởng đến trao đổi nước ở thực vật và ứng dụng hiểu biết này vào thực tiễn. – Giải thích được sự cân bằng nước và việc tưới tiêu hợp lí; các phản ứng chống chịu hạn, chống chịu ngập úng, chống chịu mặn của thực vật và chọn giống cây trồng có khả năng chống chịu. – Trình bày được các nhân tố ảnh hưởng đến quá trình dinh dưỡng khoáng ở cây, đặc biệt là nhiệt độ và ánh sáng. Ứng dụng được kiến thức này vào thực tiễn. – Phân tích được vai trò của phân bón đối với năng suất cây trồng. – Thông qua thực hành, quan sát được cấu tạo khí khổng ở lá. – Thực hiện được các thí nghiệm chứng minh sự hút nước ở rễ; vận chuyển nước ở thân và thoát hơi nước ở lá. Thực hành tưới nước chăm sóc cây. – Thực hiện được các bài thực hành về thuỷ canh, khí canh.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "SH-0029",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Quang hợp ở thực vật",
+   "content": " Khái quát về quang hợp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm quang hợp ở thực vật. Viết được phương trình quang hợp. Nêu được vai trò của quang hợp ở thực vật (vai trò đối với cây, với sinh vật và sinh quyển).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "SH-0030",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Quang hợp ở thực vật",
+   "content": " Các giai đoạn của quá trình quang hợp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được vai trò của sắc tố trong việc hấp thụ năng lượng ánh sáng. Nêu được các sản phẩm của quá trình biến đổi năng lượng ánh sáng thành năng lượng hoá học (ATP và – Nêu được các con đường đồng hoá carbon trong quang hợp. Chứng minh được sự thích nghi của thực vật C4 và CAM trong điều kiện môi trường bất lợi. – Trình bày được vai trò của sản phẩm quang hợp trong tổng hợp chất hữu cơ (chủ yếu là tinh bột), đối với cây và đối với sinh giới.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0031",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Quang hợp ở thực vật",
+   "content": " Các nhân tố ảnh hưởng đến quang hợp ở thực vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được ảnh hưởng của các điều kiện đến quang hợp (ánh sáng, CO , nhiệt độ).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0032",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Quang hợp ở thực vật",
+   "content": " Quang hợp và năng suất cây trồng.",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được mối quan hệ giữa quang hợp và năng suất cây trồng. – Vận dụng hiểu biết về quang hợp để giải thích được một số biện pháp kĩ thuật và công nghệ nâng cao năng suất cây trồng. – Thực hành, quan sát được lục lạp trong tế bào thực vật; nhận biết, tách chiết các sắc tố (chlorophyll a, b; carotene và xanthophyll) trong lá cây. – Thiết kế và thực hiện được các thí nghiệm về sự hình thành tinh bột; thải oxygen trong quá trình quang hợp.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0033",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp ở thực vật",
+   "content": " Khái niệm",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm hô hấp ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0034",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp ở thực vật",
+   "content": " Vai trò của hô hấp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được vai trò của hô hấp ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0035",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp ở thực vật",
+   "content": " Các giai đoạn hô hấp ở thực vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được sơ đồ các giai đoạn của hô hấp ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0036",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp ở thực vật",
+   "content": " Các nhân tố ảnh hưởng đến hô hấp ở thực vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được ảnh hưởng của điều kiện môi trường đến hô hấp ở thực vật. Vận dụng được hiểu biết về hô hấp giải thích các vấn đề thực tiễn (ví dụ: bảo quản hạt và nông sản, cây ngập úng sẽ chết,...). Thực hành được thí nghiệm hô hấp ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "SH-0037",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp ở thực vật",
+   "content": " Ứng dụng  Quan hệ giữa quang hợp và hô hấp Trao đổi chất và chuyển – hoá năng lượng ở động vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được mối quan hệ giữa quang hợp và hô hấp.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "SH-0038",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Dinh dưỡng và tiêu hoá ở động vật",
+   "content": " Quá trình dinh dưỡng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được quá trình dinh dưỡng bao gồm: lấy thức ăn; tiêu hoá thức ăn; hấp thu chất dinh dưỡng và đồng hoá các chất.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "SH-0039",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Dinh dưỡng và tiêu hoá ở động vật",
+   "content": " Các hình thức tiêu hoá ở động vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào sơ đồ (hoặc hình ảnh), trình bày được hình thức tiêu hoá ở động vật chưa có cơ quan tiêu hoá; động vật có túi tiêu hoá; động vật có ống tiêu hoá.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "SH-0040",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Dinh dưỡng và tiêu hoá ở động vật",
+   "content": " Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Vận dụng được hiểu biết về dinh dưỡng trong xây dựng chế độ ăn uống và các biện pháp dinh dưỡng phù hợp ở mỗi lứa tuổi và trạng thái cơ thể. – Vận dụng được hiểu biết về hệ tiêu hoá để phòng các bệnh về tiêu hoá. – Giải thích được vai trò của việc sử dụng thực phẩm sạch trong đời sống con người. – Thực hiện tìm hiểu được các bệnh về tiêu hoá ở người và các bệnh học đường liên quan đến dinh dưỡng như béo phì, suy dinh dưỡng.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "SH-0041",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp và trao đổi khí ở động vật",
+   "content": " Vai trò hô hấp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được vai trò của hô hấp ở động vật: trao đổi khí với môi trường và hô hấp tế bào.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "SH-0042",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp và trao đổi khí ở động vật",
+   "content": " Các hình thức hô hấp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào hình ảnh, sơ đồ, trình bày được các hình thức trao đổi khí: qua bề mặt cơ thể; ống khí; mang; phổi.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "SH-0043",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Hô hấp và trao đổi khí ở động vật",
+   "content": " Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Giải thích được một số hiện tượng trong thực tiễn, ví dụ: nuôi tôm, cá thường cần có máy sục khí oxygen, nuôi ếch chú ý giữ môi trường ẩm ướt,... – Vận dụng hiểu biết về hô hấp trao đổi khí để phòng các bệnh về đường hô hấp. – Giải thích được tác hại của hút thuốc lá đối với sức khoẻ. – Giải thích được vai trò của thể dục, thể thao; thực hiện được việc tập thể dục thể thao đều đặn. – Giải thích được tác hại của ô nhiễm không khí đến hô hấp. – Tìm hiểu được các bệnh về đường hô hấp. – Trình bày được quan điểm của bản thân về việc xử phạt người hút thuốc lá ở nơi công cộng và cấm trẻ em dưới 16 tuổi hút thuốc lá.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28,
+     29
+    ]
+   }
+  },
+  {
+   "id": "SH-0044",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Vận chuyển các chất trong cơ thể động vật",
+   "content": " Khái quát hệ vận chuyển",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được khái quát hệ vận chuyển trong cơ thể động vật. Nêu được một số dạng hệ vận chuyển ở các nhóm động vật khác nhau.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "SH-0045",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Vận chuyển các chất trong cơ thể động vật",
+   "content": " Các dạng hệ tuần hoàn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào hình ảnh, sơ đồ, phân biệt được các dạng tuần hoàn ở động vật: tuần hoàn kín và tuần hoàn hở; tuần hoàn đơn và tuần hoàn kép.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "SH-0046",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Vận chuyển các chất trong cơ thể động vật",
+   "content": " Cấu tạo và hoạt động của tim và hệ mạch  Vận chuyển máu trong hệ mạch",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được cấu tạo và hoạt động của tim và sự phù hợp giữa cấu tạo và chức năng của tim. Giải thích được khả năng tự phát nhịp gây nên tính tự động của tim. – Dựa vào hình ảnh, sơ đồ, mô tả được cấu tạo và hoạt động của hệ mạch. – Mô tả được quá trình vận chuyển máu trong hệ mạch (huyết áp, vận tốc máu và sự trao đổi chất giữa máu với các tế bào).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "SH-0047",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Vận chuyển các chất trong cơ thể động vật",
+   "content": " Điều hoà hoạt động tim mạch",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được hoạt động tim mạch được điều hoà bằng cơ chế thần kinh và thể dịch.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "SH-0048",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Vận chuyển các chất trong cơ thể động vật",
+   "content": " Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được tác hại của việc lạm dụng rượu, bia đối với sức khoẻ của con người, đặc biệt là hệ tim mạch. – Trình bày được vai trò của thể dục, thể thao đối với tuần hoàn. – Kể được các bệnh thường gặp về hệ tuần hoàn. Trình bày được một số biện pháp phòng chống các bệnh tim mạch. – Thực hành: Đo được huyết áp ở người và nhận biết được trạng thái sức khoẻ từ kết quả đo. Đo nhịp tim người ở các trạng thái hoạt động khác nhau và giải thích kết quả. – Thực hành: mổ được tim ếch và tìm hiểu tính tự động của tim; tìm hiểu được vai trò của dây thần kinh giao cảm và đối giao cảm; tìm hiểu được tác động của adrenalin đến hoạt động của tim. – Đánh giá được ý nghĩa việc xử phạt người tham gia giao thông khi sử dụng rượu, bia.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29,
+     30
+    ]
+   }
+  },
+  {
+   "id": "SH-0049",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Miễn dịch ở động vật",
+   "content": " Nguyên nhân gây bệnh",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được các nguyên nhân bên trong và bên ngoài gây nên các bệnh ở động vật và người. – Giải thích được vì sao nguy cơ mắc bệnh ở người rất lớn, nhưng xác suất bị bệnh rất nhỏ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "SH-0050",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Miễn dịch ở động vật",
+   "content": " Khái niệm miễn dịch",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm miễn dịch.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "SH-0051",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Miễn dịch ở động vật",
+   "content": " Hệ miễn dịch  Miễn dịch đặc hiệu và không đặc hiệu",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được khái quát về hệ miễn dịch ở người: các tuyến và vai trò của mỗi tuyến. – Phân biệt được miễn dịch không đặc hiệu và đặc hiệu. – Trình bày được cơ chế mắc bệnh và cơ chế chống bệnh ở động vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "SH-0052",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Miễn dịch ở động vật",
+   "content": " Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được vai trò của việc chủ động tiêm phòng vaccine. – Giải thích được cơ sở của hiện tượng dị ứng với chất kích thích, thức ăn; cơ chế thử phản ứng khi tiêm kháng sinh. – Trình bày được quá trình phá vỡ hệ miễn dịch của các tác nhân gây bệnh trong cơ thể người bệnh: HIV, ung thư, tự miễn. – Điều tra việc thực hiện tiêm phòng bệnh, dịch trong trường học hoặc tại địa phương.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "SH-0053",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Bài tiết và cân bằng nội môi",
+   "content": " Bài tiết và cơ chế bài tiết",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm bài tiết. Trình bày được vai trò của bài tiết.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "SH-0054",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Bài tiết và cân bằng nội môi",
+   "content": " Vai trò của thận trong bài tiết",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được vai trò của thận trong bài tiết và cân bằng nội môi.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0055",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Bài tiết và cân bằng nội môi",
+   "content": " Khái niệm nội môi, cân bằng động",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được các khái niệm: nội môi, cân bằng động (Lấy ví dụ ở người về các chỉ số cân bằng pH, đường, nước).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0056",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Bài tiết và cân bằng nội môi",
+   "content": " Cân bằng nội môi",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Kể tên được một số cơ quan tham gia điều hoà cân bằng nội môi và hằng số nội môi cơ thể. – Dựa vào sơ đồ, giải thích được cơ chế chung điều hoà nội môi.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0057",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Bài tiết và cân bằng nội môi",
+   "content": " Ứng dụng Cảm ứng ở sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được các biện pháp bảo vệ thận: điều chỉnh chế độ ăn và uống đủ nước; không sử dụng quá nhiều loại thuốc; không uống nhiều rượu, bia. – Vận dụng được kiến thức bài tiết để phòng và chống được một số bệnh liên quan đến thận và bài tiết (suy thận, sỏi thận,...). – Nêu được tầm quan trọng của việc xét nghiệm định kì các chỉ số sinh hoá liên quan đến cân bằng nội môi. Giải thích được các kết quả xét nghiệm.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0058",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về cảm ứng ở – sinh vật",
+   "content": "+ Khái niệm cảm ứng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm cảm ứng ở sinh vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0059",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về cảm ứng ở – sinh vật",
+   "content": "+ Vai trò của cảm ứng đối với sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được vai trò của cảm ứng đối với sinh vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0060",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về cảm ứng ở – sinh vật",
+   "content": "+ Cơ chế của cảm ứng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được cơ chế cảm ứng ở sinh vật (thu nhận kích thích, dẫn truyền kích thích, phân tích và tổng hợp, trả lời kích thích).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0061",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Cảm ứng ở thực vật –",
+   "content": "+ Khái niệm, vai trò của cảm ứng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm cảm ứng ở thực vật. Phân tích được vai trò cảm ứng đối với thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0062",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Cảm ứng ở thực vật –",
+   "content": "+ Đặc điểm và cơ chế cảm ứng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được đặc điểm và cơ chế cảm ứng ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "SH-0063",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Cảm ứng ở thực vật –",
+   "content": "+ Các hình thức biểu hiện",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được một số hình thức biểu hiện của cảm ứng ở thực vật: vận động hướng động và vận động cảm ứng.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31,
+     32
+    ]
+   }
+  },
+  {
+   "id": "SH-0064",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Cảm ứng ở thực vật –",
+   "content": "+ Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Vận dụng được hiểu biết về cảm ứng ở thực vật để giải thích một số hiện tượng trong thực tiễn. – Thực hành quan sát được hiện tượng cảm ứng ở một số loài cây. – Thực hiện được thí nghiệm về cảm ứng ở một số loài cây.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     32
+    ]
+   }
+  },
+  {
+   "id": "SH-0065",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Cảm ứng ở động vật –",
+   "content": "+ Các hình thức cảm ứng ở các nhóm động vật khác nhau",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được các hình thức cảm ứng ở các nhóm động vật khác nhau.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     32
+    ]
+   }
+  },
+  {
+   "id": "SH-0066",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Cơ chế cảm ứng ở động vật có hệ thần kinh",
+   "content": " Các dạng hệ thần kinh",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào hình vẽ (hoặc sơ đồ), phân biệt được hệ thần kinh dạng ống với hệ thần kinh dạng lưới và dạng chuỗi hạch.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     32
+    ]
+   }
+  },
+  {
+   "id": "SH-0067",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Cơ chế cảm ứng ở động vật có hệ thần kinh",
+   "content": " Tế bào thần kinh",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào hình vẽ, nêu được cấu tạo và chức năng của tế bào thần kinh.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     32
+    ]
+   }
+  },
+  {
+   "id": "SH-0068",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Cơ chế cảm ứng ở động vật có hệ thần kinh",
+   "content": " Truyền tin qua synapse",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào sơ đồ, mô tả được cấu tạo synapse và quá trình truyền tin qua synapse.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     32
+    ]
+   }
+  },
+  {
+   "id": "SH-0069",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Cơ chế cảm ứng ở động vật có hệ thần kinh",
+   "content": " Phản xạ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm phản xạ. – Dựa vào sơ đồ, phân tích được một cung phản xạ (các thụ thể, dẫn truyền, phân tích, đáp ứng). – Nêu được các dạng thụ thể, vai trò của chúng (các thụ thể cảm giác về: cơ học, hoá học, điện, nhiệt, đau). – Nêu được vai trò các cảm giác vị giác, xúc giác và khứu giác trong cung phản xạ. – Phân tích được cơ chế thu nhận và phản ứng kích thích của các cơ quan cảm giác (tai, mắt). – Phân tích được đáp ứng của cơ xương trong cung phản xạ. – Phân biệt được phản xạ không điều kiện và phản xạ có điều kiện: + Nêu được đặc điểm và phân loại được phản xạ không điều kiện. Lấy được các ví dụ minh hoạ. + Trình bày được đặc điểm, các điều kiện và cơ chế hình thành phản xạ có điều kiện. Lấy được các ví dụ minh hoạ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33
+    ]
+   }
+  },
+  {
+   "id": "SH-0070",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Cơ chế cảm ứng ở động vật có hệ thần kinh",
+   "content": " Các bệnh liên quan hệ thần kinh",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được một số bệnh do tổn thương hệ thần kinh như mất khả năng vận động, mất khả năng cảm giác... – Vận dụng hiểu biết về hệ thần kinh để giải thích được cơ chế giảm đau khi uống và tiêm thuốc giảm đau. – Đề xuất được các biện pháp bảo vệ hệ thần kinh: không lạm dụng chất kích thích; phòng chống nghiện và cai nghiện các chất kích thích.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33
+    ]
+   }
+  },
+  {
+   "id": "SH-0071",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Tập tính ở động vật",
+   "content": " Khái niệm, phân loại tập tính",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm tập tính ở động vật. – Phân tích được vai trò của tập tính đối với đời sống động vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33
+    ]
+   }
+  },
+  {
+   "id": "SH-0072",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Tập tính ở động vật",
+   "content": " Một số dạng tập tính phổ biến ở động vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Lấy được một số ví dụ minh hoạ các dạng tập tính ở động vật. – Phân biệt được tập tính bẩm sinh và tập tính học được. Lấy được ví dụ minh hoạ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33
+    ]
+   }
+  },
+  {
+   "id": "SH-0073",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Tập tính ở động vật",
+   "content": " Pheromone",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Lấy được ví dụ chứng minh pheromone là chất được sử dụng như những tín hiệu hoá học của các cá thể cùng loài.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33,
+     34
+    ]
+   }
+  },
+  {
+   "id": "SH-0074",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "+ Tập tính ở động vật",
+   "content": " Một số hình thức học tập ở động vật Sinh trưởng và phát triển ở sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được một số hình thức học tập ở động vật. Lấy được ví dụ minh hoạ. – Giải thích được cơ chế học tập ở người. – Trình bày được một số ứng dụng: dạy động vật làm xiếc; dạy trẻ em học tập; ứng dụng trong chăn nuôi; bảo vệ mùa màng; ứng dụng pheromone trong thực tiễn. – Quan sát và mô tả được tập tính của một số động vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     34
+    ]
+   }
+  },
+  {
+   "id": "SH-0075",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về sinh trưởng và – phát triển ở sinh vật",
+   "content": "+ Khái niệm sinh trưởng và phát triển ở sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm sinh trưởng và phát triển ở sinh vật. Trình bày được các dấu hiệu đặc trưng của sinh trưởng và phát triển ở sinh vật (tăng khối lượng và kích thước tế bào, tăng số lượng tế bào, phân hoá tế bào và phát sinh hình thái, chức năng sinh lí, điều hoà).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     34
+    ]
+   }
+  },
+  {
+   "id": "SH-0076",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về sinh trưởng và – phát triển ở sinh vật",
+   "content": "+ Mối quan hệ giữa sinh trưởng và phát triển",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được mối quan hệ giữa sinh trưởng và phát triển.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     34
+    ]
+   }
+  },
+  {
+   "id": "SH-0077",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về sinh trưởng và – phát triển ở sinh vật",
+   "content": "+ Vòng đời và tuổi thọ của sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm vòng đời và tuổi thọ của sinh vật. Lấy được ví dụ minh hoạ. – Trình bày được một số ứng dụng hiểu biết về vòng đời của sinh vật trong thực tiễn. – Trình bày được một số yếu tố ảnh hưởng đến tuổi thọ của con người.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     34
+    ]
+   }
+  },
+  {
+   "id": "SH-0078",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – thực vật",
+   "content": "+ Đặc điểm",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được đặc điểm sinh trưởng và phát triển ở thực vật. Phân tích được một số yếu tố môi trường ảnh hưởng đến sinh trưởng và phát triển ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     34
+    ]
+   }
+  },
+  {
+   "id": "SH-0079",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – thực vật",
+   "content": "+ Mô phân sinh",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm mô phân sinh. Trình bày được vai trò của mô phân sinh đối với sinh trưởng ở thực vật. Phân biệt được các loại mô phân sinh.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     34,
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0080",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – thực vật",
+   "content": "+ Sinh trưởng sơ cấp, sinh trưởng thứ cấp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được quá trình sinh trưởng sơ cấp và sinh trưởng thứ cấp ở thực vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0081",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – thực vật",
+   "content": "+ Hormone thực vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm và vai trò hormone thực vật. Phân biệt được các loại hormone kích thích tăng trưởng và hormone ức chế tăng trưởng. – Trình bày được sự tương quan các hormone thực vật và nêu được ví dụ minh hoạ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0082",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – thực vật",
+   "content": "+ Phát triển ở thực vật có hoa",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được một số ứng dụng của hormone thực vật trong thực tiễn. – Dựa vào sơ đồ vòng đời, trình bày được quá trình phát triển ở thực vật có hoa. – Trình bày được các nhân tố chi phối quá trình phát triển ở thực vật có hoa. Lấy được ví dụ minh hoạ. – Vận dụng được hiểu biết về sinh trưởng và phát triển ở thực vật để giải thích một số ứng dụng trong thực tiễn (ví dụ: kích thích hay hạn chế sinh trưởng, giải thích vòng gỗ,...). – Thực hành, quan sát được tác dụng của bấm ngọn, tỉa cành, phun kích thích tố lên cây, tính tuổi cây.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0083",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – động vật",
+   "content": "+ Đặc điểm",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được đặc điểm sinh trưởng và phát triển ở động vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0084",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – động vật",
+   "content": "+ Các giai đoạn phát triển ở động vật và người",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào sơ đồ vòng đời, trình bày được các giai đoạn chính trong quá trình sinh trưởng và phát triển ở động vật (giai đoạn phôi và giai đoạn hậu phôi).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0085",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – động vật",
+   "content": "+ Các hình thức sinh trưởng và phát triển",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân biệt các hình thức phát triển qua biến thái và không qua biến thái. – Phân tích được ý nghĩa của sự phát triển qua biến thái hoàn toàn ở động vật đối với đời sống của chúng. – Dựa vào hình ảnh (hoặc sơ đồ, video), trình bày được các giai đoạn phát triển của con người từ hợp tử đến cơ thể trưởng thành. Vận dụng được hiểu biết về các giai đoạn phát triển để áp dụng chế độ ăn uống hợp lí.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     35
+    ]
+   }
+  },
+  {
+   "id": "SH-0086",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – động vật",
+   "content": "+ Các nhân tố ảnh hưởng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được ảnh hưởng của các nhân tố bên trong đến sinh trưởng và phát triển động vật (di truyền; giới tính; hormone sinh trưởng và phát triển). – Nêu được vai trò của một số hormone đối với hoạt động sống của động vật. – Vận dụng hiểu biết về hormone để giải thích một số hiện tượng trong thực tiễn (ví dụ: không lạm dụng hormone trong chăn nuôi; thiến hoạn động vật;...). – Trình bày được ảnh hưởng của các nhân tố bên ngoài đến sinh trưởng và phát triển động vật (nhiệt độ, thức ăn,...). – Phân tích được khả năng điều khiển sự sinh trưởng và phát triển ở động vật. – Vận dụng được hiểu biết về sinh trưởng và phát triển ở động vật vào thực tiễn (ví dụ: đề xuất được một số biện pháp hợp lí trong chăn nuôi nhằm tăng nhanh sự sinh trưởng và phát triển của vật nuôi; tiêu diệt côn trùng, muỗi;...).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36
+    ]
+   }
+  },
+  {
+   "id": "SH-0087",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – động vật",
+   "content": "+ Tuổi dậy thì, tránh thai và bệnh, tật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích đặc điểm tuổi dậy thì ở người và ứng dụng hiểu biết về tuổi dậy thì để bảo vệ sức khoẻ, chăm sóc bản thân và người khác.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36
+    ]
+   }
+  },
+  {
+   "id": "SH-0088",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh trưởng và phát triển ở – động vật",
+   "content": "+ Thực hành quan sát sinh trưởng và phát triển ở động vật Sinh sản ở sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hành quan sát được quá trình biến thái ở động vật (tằm, ếch nhái,...).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36
+    ]
+   }
+  },
+  {
+   "id": "SH-0089",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về sinh sản ở – sinh vật",
+   "content": "+ Khái niệm sinh sản",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm sinh sản, sinh sản vô tính, sinh sản hữu tính. Nêu được các dấu hiệu đặc trưng của sinh sản ở sinh vật (vật chất di truyền, truyền đạt vật chất di truyền, hình thành cơ thể mới, điều hoà sinh sản).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36
+    ]
+   }
+  },
+  {
+   "id": "SH-0090",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về sinh sản ở – sinh vật",
+   "content": "+ Vai trò sinh sản",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được vai trò của sinh sản đối với sinh vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36
+    ]
+   }
+  },
+  {
+   "id": "SH-0091",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Khái quát về sinh sản ở – sinh vật",
+   "content": "+ Các hình thức sinh sản ở sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân biệt được các hình thức sinh sản ở sinh vật (sinh sản vô tính, sinh sản hữu tính).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36
+    ]
+   }
+  },
+  {
+   "id": "SH-0092",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở thực vật –",
+   "content": "+ Sinh sản vô tính",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân biệt được các hình thứ c sinh sản vô tính ở thực vật (sinh sản bằng bào tử, sinh sản sinh dưỡng).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0093",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở thực vật –",
+   "content": "+ Ứng dụng của sinh sản vô tính ở thực vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được các phương pháp nhân giống vô tính ở thực vật. – Trình bày được ứng dụng của sinh sản vô tính ở thực vật trong thực tiễn.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0094",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở thực vật –",
+   "content": "+ Sinh sản hữu tính",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– So sánh được sinh sản hữu tính với sinh sản vô tính ở thực vật. – Trình bày được quá trình sinh sản hữu tính ở thực vật có hoa: Nêu được cấu tạo chung của hoa. Trình bày được quá trình hình thành hạt phấn, túi phôi, thụ phấn, thụ tinh, hình thành hạt, quả. – Thực hành được nhân giống cây bằng sinh sản sinh dưỡng; thụ phấn cho cây (thụ phấn hoặc quan sát thụ phấn ở ngô).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0095",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "+ Sinh sản vô tính",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân biệt được các hình thức sinh sản vô tính ở động vật.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0096",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "+ Sinh sản hữu tính",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân biệt được các hình thức sinh sản hữu tính ở động vật. – Trình bày được quá trình sinh sản hữu tính ở động vật (lấy ví dụ ở người): hình thành tinh trùng, trứng; thụ tinh tạo hợp tử; phát triển phôi thai; sự đẻ.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0097",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "+ Điều hoà sinh sản",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được cơ chế điều hoà sinh sản ở động vật. – Trình bày được một số ứng dụng về điều khiển sinh sản ở động vật và sinh đẻ có kế hoạch ở người. – Nêu được một số thành tựu thụ tinh trong ống nghiệm. – Trình bày được các biện pháp tránh thai.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0098",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "Mối quan hệ giữa các quá – trình sinh lí trong cơ thể",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được mối quan hệ giữa các quá trình sinh lí trong cơ thể. Từ đó chứng minh được cơ thể là một hệ thống mở tự điều chỉnh.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "SH-0099",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "Một số ngành nghề liên – quan đến sinh học cơ thể",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được một số ngành nghề liên quan đến sinh học cơ thể và triển vọng của các ngành nghề đó trong tương lai.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     38
+    ]
+   }
+  },
+  {
+   "id": "SH-0100",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "– Khái niệm nông nghiệp sạch – Nguyên tắc sử dụng khoáng – Biện pháp kĩ thuật sử dụng dinh dưỡng khoáng nhằm tạo nền nông nghiệp sạch",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm nông nghiệp sạch. – Phân tích được các nguyên tắc sử dụng khoáng trong việc tăng năng suất cây trồng (phù hợp thời vụ, giai đoạn sinh trưởng, phát triển, hàm lượng, phối hợp khoáng,...). – Phân tích được một số biện pháp kĩ thuật sử dụng dinh dưỡng khoáng nhằm tạo nền nông nghiệp sạch. Lấy được ví dụ minh hoạ. – Trình bày được mô hình thuỷ canh theo hướng phát triển nông nghiệp sạch. – Thực hiện được dự án: Điều tra sử dụng phân bón ở địa phương hoặc thực hành trồng cây với các kĩ thuật bón phân phù hợp. – Làm được thí nghiệm chứng minh tác dụng của loại phân bón, cách bón, hàm lượng đối với cây trồng.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     38
+    ]
+   }
+  },
+  {
+   "id": "SH-0101",
+   "subject": "Sinh học",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sinh sản ở động vật –",
+   "content": "– Một số bệnh dịch phổ biến ở người. – Nguyên nhân gây bệnh dịch ở người – Các biện pháp phòng chống bệnh dịch",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Kể tên được một số bệnh và tác nhân gây bệnh (vi khuẩn, virus,...). Trình bày được một số nguyên nhân lây nhiễm, gây dịch bệnh ở người (ví dụ: vệ sinh cơ thể không đúng cách, nhà cửa không sạch sẽ, ô nhiễm môi trường, vệ sinh giao tiếp với người bệnh không đúng cách,...). – Phân tích được một số biện pháp phòng chống các bệnh dịch phổ biến ở người: bệnh sốt xuất huyết; bệnh cúm; bệnh lao phổi; bệnh sởi,... – Thực hiện được các biện pháp phòng chống một số bệnh dịch phổ biến ở người. – Thực hiện được dự án: Điều tra được một số bệnh dịch phổ biến ở người và tuyên truyền phòng chống bệnh (Bệnh cúm, dịch tả, sốt xuất huyết, HIV/AIDS,...).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     39
+    ]
+   }
+  },
+  {
+   "id": "SH-0102",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "– Khái niệm vệ sinh an toàn thực phẩm – Các nguyên nhân gây ngộ độc thực phẩm – Tác hại của mất vệ sinh an toàn thực phẩm – Biện pháp phòng và điều trị ngộ độc thực phẩm Di truyền phân tử",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được định nghĩa vệ sinh an toàn thực phẩm. – Phân tích được một số nguyên nhân gây ngộ độc thực phẩm. Lấy được ví dụ minh hoạ. – Phân tích được tác hại của việc mất an toàn vệ sinh thực phẩm đối với sức khoẻ con người. – Phân tích được một số biện pháp phòng và điều trị ngộ độc thực phẩm. Lấy được ví dụ minh hoạ. – Thực hiện được dự án: Điều tra về hiện trạng mất an toàn vệ sinh thực phẩm tại địa phương.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     40
+    ]
+   }
+  },
+  {
+   "id": "SH-0103",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Gene và cơ chế truyền – thông tin di truyền",
+   "content": "+ Chức năng của DNA + Cấu trúc và chức năng của gene + Tái bản DNA + RNA và phiên mã + Mã di truyền và dịch mã + Mối quan hệ DNA – RNA – protein",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào cấu trúc hoá học của phân tử DNA, trình bày được chức năng của DNA. Nêu được ý nghĩa của các kết cặp đặc hiệu A–T và G–C. – Nêu được khái niệm và cấu trúc của gene. Phân biệt được các loại gene dựa vào cấu trúc và chức năng. – Phân tích được cơ chế tái bản của DNA là một quá trình tự sao thông tin di truyền từ tế bào mẹ sang tế bào con hay từ thế hệ này sang thế hệ sau. – Phân biệt được các loại RNA. Phân tích được bản chất phiên mã thông tin di truyền là cơ chế tổng hợp RNA dựa trên DNA. – Nêu được khái niệm phiên mã ngược và ý nghĩa. – Nêu được khái niệm và các đặc điểm của mã di truyền. – Trình bày được cơ chế tổng hợp protein từ bản sao là RNA có bản chất là quá trình dịch mã. – Vẽ và giải thích được sơ đồ liên kết ba quá trình thể hiện cơ chế di truyền ở cấp phân tử là quá trình truyền đạt thông tin di truyền. – Thực hành tách chiết được DNA.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     41
+    ]
+   }
+  },
+  {
+   "id": "SH-0104",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Gene và cơ chế truyền – thông tin di truyền",
+   "content": "– Điều hoà biểu hiện gene + Cơ chế điều hoà + Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được thí nghiệm trên operon Lac của E.coli. – Phân tích được ý nghĩa của điều hoà biểu hiện của gene trong tế bào và trong quá trình phát triển cá thể. – Nêu được các ứng dụng của điều hoà biểu hiện gene.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     41
+    ]
+   }
+  },
+  {
+   "id": "SH-0105",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Gene và cơ chế truyền – thông tin di truyền",
+   "content": "– Hệ gene + Khái niệm + Giải mã hệ gene người và ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm hệ gene. – Trình bày được một số thành tựu và ứng dụng của việc giải mã hệ gene người.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     42
+    ]
+   }
+  },
+  {
+   "id": "SH-0106",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Gene và cơ chế truyền – thông tin di truyền",
+   "content": "Đột biến gene – + Khái niệm, các dạng + Nguyên nhân, cơ chế phát sinh + Vai trò",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm đột biến gene. Phân biệt được các dạng đột biến gene. – Phân tích được nguyên nhân, cơ chế phát sinh của đột biến gene. – Trình bày được vai trò của đột biến gene trong tiến hoá, trong chọn giống và trong nghiên cứu di truyền.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     42
+    ]
+   }
+  },
+  {
+   "id": "SH-0107",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Gene và cơ chế truyền – thông tin di truyền",
+   "content": "– Công nghệ gene + Khái niệm, nguyên lí + Một số thành tựu",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm, nguyên lí và một số thành tựu của công nghệ DNA tái tổ hợp. – Nêu được khái niệm, nguyên lí và một số thành tựu tạo thực vật và động vật biến đổi gene. – Tranh luận, phản biện được về việc sản xuất và sử dụng sản phẩm biến đổi gene và đạo đức sinh học.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     42
+    ]
+   }
+  },
+  {
+   "id": "SH-0108",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền nhiễm sắc thể",
+   "content": "+ Gene phân bố trên các nhiễm sắc thể + Cơ chế di truyền nhiễm sắc thể",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được cách sắp xếp các gene trên nhiễm sắc thể, mỗi gene định vị tại mỗi vị trí xác định gọi là locus. – Trình bày được ý nghĩa của nguyên phân, giảm phân và thụ tinh trong nghiên cứu di truyền. Từ đó, giải thích được nguyên phân, giảm phân và thụ tinh quyết định quy luật vận động và truyền thông tin di truyền của các gene qua các thế hệ tế bào và cá thể. – Phân tích được sự vận động của nhiễm sắc thể (tự nhân đôi, phân li, tổ hợp, tái tổ hợp) trong nguyên phân, giảm phân và thụ tinh là cơ sở của sự vận động của gene được thể hiện trong các quy luật di truyền, biến dị tổ hợp và biến dị số lượng nhiễm sắc thể. – Trình bày được nhiễm sắc thể là vật chất di truyền.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     43
+    ]
+   }
+  },
+  {
+   "id": "SH-0109",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền nhiễm sắc thể",
+   "content": "– Thí nghiệm của Mendel + Lịch sử ra đời thí nghiệm của Mendel + Thí nghiệm + Ý nghĩa + Mở rộng học thuyết Mendel",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được bối cảnh ra đời thí nghiệm của Mendel. – Trình bày được cách bố trí và tiến hành thí nghiệm của Mendel. – Nêu được tính quy luật của hiện tượng di truyền và giải thích thí nghiệm của Mendel. – Trình bày được cơ sở tế bào học của các thí nghiệm của Mendel dựa trên mối quan hệ giữa nguyên phân, giảm phân và thụ tinh. Nêu được vì sao các quy luật di truyền của Mendel đặt nền móng cho di truyền học hiện đại. – Giải thích được sản phẩm của các allele của cùng một gene và của các gene khác nhau có thể tương tác với nhau quy định tính trạng .",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     43
+    ]
+   }
+  },
+  {
+   "id": "SH-0110",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền nhiễm sắc thể",
+   "content": "+ Lịch sử ra đời thí nghiệm của Morgan + Thí nghiệm  Liên kết gen",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được bối cảnh ra đời thí nghiệm của Morgan. – Trình bày được cách bố trí và tiến hành thí nghiệm của Morgan, từ đó phát biểu được khái niệm liên kết gene. – Phân tích được cơ sở tế bào học và ý nghĩa của liên kết gene.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     44
+    ]
+   }
+  },
+  {
+   "id": "SH-0111",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền nhiễm sắc thể",
+   "content": " Hoán vị gene  Di truyền giới tính và liên kết với giới tính + Ý nghĩa",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được thí nghiệm của Morgan, từ đó phát biểu được khái niệm hoán vị gene. – Phân tích được cơ sở tế bào học và ý nghĩa của hoán vị gen. – Trình bày được cách bố trí thí nghiệm của Morgan, qua đó nêu được khái niệm di truyền liên kết với giới tính. – Nêu được khái niệm nhiễm sắc thể giới tính; di truyền giới tính. – Phân tích được cơ chế di truyền xác định giới tính. – Giải thích được tỉ lệ lí thuyết giới tính trong tự nhiên thường là 1 : 1. – Trình bày được quan điểm của bản thân về việc điều khiển giới tính ở người theo ý muốn. – Trình bày được phương pháp lập bản đồ di truyền (thông qua trao đổi chéo). Nêu được ý nghĩa của việc lập bản đồ di truyền. – Vận dụng những hiểu biết về di truyền giới tính và liên kết với giới tính để giải thích các vấn đề trong thực tiễn (Ví dụ: điều khiển giới tính trong chăn nuôi, phát hiện bệnh do rối loạn cơ chế phân li, tổ hợp nhiễm sắc thể giới tính,...). – Nêu được quan điểm của Mendel và Morgan về tính quy luật của hiện tượng di truyền.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     44
+    ]
+   }
+  },
+  {
+   "id": "SH-0112",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền nhiễm sắc thể",
+   "content": "– Đột biến nhiễm sắc thể + Đột biến cấu trúc nhiễm sắc thể + Đột biến số lượng nhiễm sắc thể + Vai trò",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm đột biến nhiễm sắc thể. – Trình bày được nguyên nhân và cơ chế phát sinh đột biến cấu trúc nhiễm sắc thể. Phân biệt được các dạng đột biến cấu trúc nhiễm sắc thể. – Trình bày được nguyên nhân và cơ chế phát sinh đột biến số lượng nhiễm sắc thể. Phân biệt được các dạng đột biến số lượng nhiễm sắc thể. Lấy được ví dụ minh hoạ. – Phân tích được tác hại của một số dạng đột biến nhiễm sắc thể đối với sinh vật. – Trình bày được vai trò của đột biến nhiễm sắc thể trong tiến hoá, trong chọn giống và trong nghiên cứu di truyền. – Thực hành, quan sát được đột biến nhiễm sắc thể trên tiêu bản cố định và tạm thời; tìm hiểu được tác hại gây đột biến ở người của một số chất độc (dioxin, thuốc diệt cỏ 2,4D,...). Phân tích được mối quan hệ giữa di truyền và biến dị.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     45
+    ]
+   }
+  },
+  {
+   "id": "SH-0113",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền gene ngoài nhân",
+   "content": "– Thí nghiệm của Correns – Đặc điểm di truyền của gene ngoài nhân Mối quan hệ kiểu gene –",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được bối cảnh ra đời thí nghiệm của Correns. – Trình bày được thí nghiệm chứng minh di truyền gene ngoài nhân của Correns, từ đó giải thích được gene không những tồn tại trong nhân mà còn tồn tại ngoài nhân (trong các bào quan như ti thể, lạp thể). – Trình bày được đặc điểm di truyền của gene ngoài nhân và một số ứng dụng.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     45
+    ]
+   }
+  },
+  {
+   "id": "SH-0114",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "môi trường – kiểu hình",
+   "content": "– Sự tương tác kiểu gene và môi trường – Mức phản ứng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích được sự tương tác kiểu gene và môi trường. – Nêu được khái niệm mức phản ứng. Lấy được các ví dụ minh hoạ. – Trình bày được bản chất di truyền là di truyền mức phản ứng. – Vận dụng được hiểu biết về thường biến và mức phản ứng của một kiểu gene giải thích một số ứng dụng trong thực tiễn (tạo và chọn giống, kĩ thuật chăn nuôi, trồng trọt,...). – Thực hành trồng cây chứng minh được thường biến.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     46
+    ]
+   }
+  },
+  {
+   "id": "SH-0115",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "môi trường – kiểu hình",
+   "content": "Thành tựu chọn, tạo giống bằng các phương pháp lai hữu tính",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được một số thành tựu chọn, tạo giống cây trồng. – Nêu được một số thành tựu chọn, tạo giống vật nuôi.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     46
+    ]
+   }
+  },
+  {
+   "id": "SH-0116",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền quần thể",
+   "content": "– Cấu trúc di truyền quần thể ngẫu phối – Cấu trúc di truyền quần thể tự thụ phấn và giao phối gần – Định luật Hardy – Weinberg – Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được cấu trúc di truyền của quần thể ngẫu phối: Mô tả được trạng thái cân bằng di truyền của quần thể. – Phân tích được cấu trúc di truyền của quần thể tự thụ phấn và quần thể giao phối gần. – Trình bày được định luật Hardy – Weinberg và điều kiện nghiệm đúng. – Giải thích một số vấn đề thực tiễn: vấn đề hôn nhân gia đình; vấn đề cho cây tự thụ phấn, động vật giao phối gần giảm năng suất, chất lượng.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     47
+    ]
+   }
+  },
+  {
+   "id": "SH-0117",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Di Truyền Học",
+   "topic": "Di truyền học người",
+   "content": "– Di truyền y học – Y học tư vấn – Liệu pháp gene",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm và vai trò di truyền học người, di truyền y học. – Nêu được một số phương pháp nghiên cứu di truyền người (tập trung vào phương pháp phả hệ). Xây dựng được phả hệ để xác định được sự di truyền tính trạng trong gia đình. – Nêu được khái niệm y học tư vấn. Trình bày được cơ sở của y học tư vấn. – Giải thích được vì sao cần đến cơ sở tư vấn hôn nhân gia đình trước khi kết hôn và sàng lọc trước sinh. – Nêu được khái niệm liệu pháp gene. Vận dụng hiểu biết về liệu pháp gene để giải thích việc chữa trị các bệnh di truyền. – Trình bày được một số thành tựu và ứng dụng của liệu pháp gene.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     47
+    ]
+   }
+  },
+  {
+   "id": "SH-0118",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Tiến Hoá",
+   "topic": "Di truyền học người",
+   "content": "Các bằng chứng tiến hoá",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được các bằng chứng tiến hoá: bằng chứng hoá thạch, giải phẫu so sánh, tế bào học và sinh học phân tử.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     47
+    ]
+   }
+  },
+  {
+   "id": "SH-0119",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Tiến Hoá",
+   "topic": "Di truyền học người",
+   "content": "Quan niệm của Darwin về chọn lọc tự nhiên và hình thành loài",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được phương pháp mà Darwin đã sử dụng để xây dựng học thuyết về chọn lọc tự nhiên và hình thành loài (quan sát, hình thành giả thuyết, kiểm chứng giả thuyết).",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     48
+    ]
+   }
+  },
+  {
+   "id": "SH-0120",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Tiến Hoá",
+   "topic": "Di truyền học người",
+   "content": "Thuyết tiến hoá tổng hợp hiện đại",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm tiến hoá nhỏ và quần thể là đơn vị tiến hoá nhỏ. – Trình bày được các nhân tố tiến hoá (đột biến, di – nhập gene, chọn lọc tự nhiên, yếu tố ngẫu nhiên, giao phối không ngẫu nhiên). – Phát biểu được khái niệm thích nghi và trình bày được cơ chế hình thành đặc điểm thích nghi. – Giải thích được các đặc điểm thích nghi chỉ hợp lí tương đối. Lấy được ví dụ minh hoạ. – Phát biểu được khái niệm loài sinh học và cơ chế hình thành loài.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     48
+    ]
+   }
+  },
+  {
+   "id": "SH-0121",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Tiến Hoá",
+   "topic": "Di truyền học người",
+   "content": "Tiến hoá lớn và phát sinh chủng loại – Tiến hoá lớn – Sự phát sinh chủng loại",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm tiến hoá lớn. Phân biệt được tiến hoá lớn và tiến hoá nhỏ. – Dựa vào sơ đồ cây sự sống, trình bày được sinh giới có nguồn gốc chung và phân tích được sự phát sinh chủng loại là kết quả của tiến hoá. – Làm được bài tập sưu tầm tài liệu về sự phát sinh và phát triển của sinh giới hoặc của loài người.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     48
+    ]
+   }
+  },
+  {
+   "id": "SH-0122",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Tiến Hoá",
+   "topic": "Di truyền học người",
+   "content": "– Quá trình phát sinh sự sống trên Trái Đất – Quá trình phát triển sinh vật qua các đại địa chất – Các giai đoạn chính trong quá trình phát sinh loài người",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Vẽ được sơ đồ ba giai đoạn phát sinh sự sống trên Trái Đất (tiến hoá hoá học, tiến hoá tiền sinh học, tiến hoá sinh học). – Dựa vào sơ đồ, trình bày được các đại địa chất và biến cố lớn thể hiện sự phát triển của sinh vật trong các đại đó. Nêu được một số minh chứng về tiến hoá lớn. – Vẽ được sơ đồ các giai đoạn chính trong quá trình phát sinh loài người; nêu được loài người hiện nay (H. sapiens) đã tiến hoá từ loài vượn người (Australopithecus) qua các giai đoạn trung gian.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     48,
+     49
+    ]
+   }
+  },
+  {
+   "id": "SH-0123",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Môi trường và các nhân tố sinh thái",
+   "content": "– Môi trường sống của sinh vật – Các nhân tố sinh thái – Nhịp sinh học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm môi trường sống của sinh vật. – Nêu được khái niệm nhân tố sinh thái. Phân biệt được các nhân tố sinh thái vô sinh và hữu sinh. Lấy được ví dụ về tác động của các nhân tố sinh thái lên đời sống sinh vật và thích nghi của sinh vật với các nhân tố đó. – Trình bày được các quy luật về tác động của các nhân tố sinh thái lên đời sống sinh vật (giới hạn sinh thái; tác động tổng hợp của các nhân tố sinh thái; tác động không đồng đều của các nhân tố sinh thái). Phân tích được những thay đổi của sinh vật có thể tác động làm thay đổi môi trường sống của chúng. – Phát biểu được khái niệm nhịp sinh học; giải thích được nhịp sinh học chính là sự thích nghi của sinh vật với những thay đổi có tính chu kì của môi trường. – Tìm hiểu được nhịp sinh học của chính cơ thể mình. –",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     49
+    ]
+   }
+  },
+  {
+   "id": "SH-0124",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học quần thể",
+   "content": "sinh vật – Tăng trưởng quần thể sinh vật – Điều chỉnh tăng trưởng quần thể sinh vật – Quần thể người – Ứng dụng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "quần thể, tỉ lệ giới tính, nhóm tuổi, kiểu phân bố, mật độ cá thể). Lấy được ví dụ chứng minh sự ổn định của quần thể phụ thuộc sự ổn định của các đặc trưng đó. – Phân biệt được các kiểu tăng trưởng quần thể sinh vật (tăng trưởng theo tiềm năng sinh học và tăng trưởng trong môi trường có nguồn sống bị giới hạn). – Nêu được các yếu tố ảnh hưởng tới tăng trưởng quần thể. – Trình bày được các kiểu biến động số lượng cá thể của quần thể. – Giải thích được cơ chế điều hoà mật độ của quần thể. – Phân biệt được ba kiểu đường cong sống sót của quần thể. – Giải thích được quần thể là một cấp độ tổ chức sống. – Nêu được các đặc điểm tăng trưởng của quần thể người; phân tích được hậu quả của tăng trưởng dân số quá nhanh. – Phân tích được các ứng dụng hiểu biết về quần thể trong thực tiễn (trồng trọt, chăn nuôi, bảo tồn,...). – Thực hành tính được kích thước của quần thể thực vật và các động vật ít di chuyển; tính được kích thước của quần thể động vật theo phương pháp “bắt, đánh dấu, thả, bắt lại”.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     50
+    ]
+   }
+  },
+  {
+   "id": "SH-0125",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học quần xã",
+   "content": "– Quan hệ giữa các loài trong quần xã sinh vật – Ổ sinh thái – Tác động của con người lên quần xã sinh vật",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "bởi sự cân bằng chỉ số các đặc trưng đó. – Trình bày được khái niệm và phân biệt được các mối quan hệ giữa các loài trong quần xã (cạnh tranh, hợp tác, cộng sinh, hội sinh, ức chế, kí sinh, động vật ăn thực vật, vật ăn thịt con mồi). – Trình bày được khái niệm ổ sinh thái và vai trò của cạnh tranh trong việc hình thành ổ sinh thái. – Phân tích được tác động của việc du nhập các loài ngoại lai hoặc giảm loài trong cấu trúc quần xã đến trạng thái cân bằng của hệ sinh thái. Lấy được ví dụ minh hoạ. – Giải thích được quần xã là một cấp độ tổ chức sống và trình bày được một số biện pháp bảo vệ quần xã. – Thực hành: Tính được độ phong phú của loài trong quần xã; tính được độ đa dạng của quần xã theo chỉ số Shannon.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     51
+    ]
+   }
+  },
+  {
+   "id": "SH-0126",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Hệ sinh thái",
+   "content": "– Khái quát về hệ sinh thái – Dòng năng lượng và trao đổi vật chất trong hệ sinh thái",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm hệ sinh thái. Phân biệt được các thành phần cấu trúc của hệ sinh thái và các kiểu hệ sinh thái chủ yếu của Trái Đất, bao gồm các hệ sinh thái tự nhiên (hệ sinh thái trên cạn, dưới nước) và các hệ sinh thái nhân tạo. – Phân tích được quá trình trao đổi vật chất và chuyển hoá năng lượng trong hệ sinh thái, bao gồm:",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     51
+    ]
+   }
+  },
+  {
+   "id": "SH-0127",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Hệ sinh thái",
+   "content": "+ Hiệu suất sinh thái + Tháp sinh thái – Chu trình sinh – địa – hoá các chất – Sự biến động của hệ sinh thái + Diễn thế sinh thái + Sự ấm lên toàn cầu + Phì dưỡng + Sa mạc hoá",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "+ Trình bày được dòng năng lượng trong một hệ sinh thái (bao gồm: phân bố năng lượng trên Trái Đất, sơ đồ khái quát về dòng năng lượng trong hệ sinh thái, sơ đồ khái quát năng lượng chuyển qua các bậc dinh dưỡng trong hệ sinh thái). + Nêu được khái niệm hiệu suất sinh thái (sản lượng sơ cấp, sản lượng thứ cấp); tháp sinh thái. Phân biệt được các dạng tháp sinh thái. Tính được hiệu suất sinh thái của một hệ sinh thái. + Giải thích được ý nghĩa của nghiên cứu hiệu suất sinh thái và tháp sinh thái trong thực tiễn. – Phát biểu được khái niệm chu trình sinh – địa – hoá các chất. Vẽ được sơ đồ khái quát chu trình trao đổi chất trong tự nhiên. Trình bày được chu trình sinh – địa – hoá của một số chất: nước, carbon, nitơ (nitrogen) và ý nghĩa sinh học của các chu trình đó, đồng thời vận dụng kiến thức về các chu trình đó vào giải thích các vấn đề của thực tiễn. – Phân tích được sự biến động của hệ sinh thái, bao gồm: + Nêu được khái niệm diễn thế sinh thái. Phân biệt được các dạng diễn thế sinh thái, từ đó nêu được dạng nào có bản chất là sự tiến hoá thiết lập trạng thái thích nghi cân bằng của quần xã. Phân tích được nguyên nhân và tầm quan trọng của diễn thế sinh thái trong tự nhiên và trong thực tiễn. + Phân tích được diễn thế sinh thái ở một hệ sinh thái tại địa phương. Đề xuất được một số biện pháp bảo tồn hệ sinh thái đó.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     52
+    ]
+   }
+  },
+  {
+   "id": "SH-0128",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Hệ sinh thái",
+   "content": "– Sinh quyển + Khái niệm + Các khu sinh học (Biome) trên cạn + Các khu sinh học dưới nước.",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phát biểu được khái niệm Sinh quyển; giải thích được Sinh quyển là một cấp độ tổ chức sống lớn nhất hành tinh; trình bày được một số biện pháp bảo vệ Sinh quyển. – Phát biểu được khái niệm khu sinh học. Trình bày được đặc điểm của các khu sinh học trên cạn chủ yếu và các khu sinh học nước ngọt, khu sinh học nước mặn trên Trái Đất. – Trình bày được các biện pháp bảo vệ tài nguyên sinh học của các khu sinh học đó.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     53
+    ]
+   }
+  },
+  {
+   "id": "SH-0129",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học phục hồi, bảo tồn và phát triển bền vững",
+   "content": "+ Bảo tồn đa dạng sinh học + Phát triển nông nghiệp bền vững + Vấn đề phát triển dân số + Giáo dục bảo vệ môi trường",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Trình bày được khái niệm và các biện pháp bảo tồn đa dạng sinh học. – Nêu được khái niệm và vai trò phát triển nông nghiệp bền vững. – Trình bày được các vấn đề dân số hiện nay và vai trò của chính sách dân số, kế hoạch hoá gia đình trong phát triển bền vững. – Phân tích được vai trò của giáo dục bảo vệ môi trường đối với phát triển bền vững đất nước. – Đề xuất các hoạt động bản thân có thể làm được nhằm góp phần phát triển bền vững.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     54
+    ]
+   }
+  },
+  {
+   "id": "SH-0130",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học phục hồi, bảo tồn và phát triển bền vững",
+   "content": "– Khái quát sinh học phân tử và các thành tựu – Các nguyên lí của phương",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm sinh học phân tử. – Trình bày được một số thành tựu hiện đại về lí thuyết và ứng dụng của sinh học phân tử. – Phân tích được các nguyên tắc ứng dụng sinh học phân tử trong thực tiễn. – Nêu được các nguyên lí của phương pháp tách chiết DNA từ tế bào.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     54
+    ]
+   }
+  },
+  {
+   "id": "SH-0131",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học phục hồi, bảo tồn và phát triển bền vững",
+   "content": "pháp tách chiết DNA – Công nghệ gene – Triển vọng công nghệ gene",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dựa vào sơ đồ, mô tả được các bước trong công nghệ gene. Trình bày được các bước tạo thực vật chuyển gene và tạo động vật chuyển gene. Lấy được ví dụ minh hoạ. – Giải thích được cơ sở khoa học chuyển gene và vì sao phải sử dụng vector để truyền gene từ tế bào này sang tế bào khác. – Thực hiện được dự án hoặc đề tài tìm hiểu về các sản phẩm chuyển gene. Làm được tập san các bài viết, tranh ảnh về công nghệ chuyển gene. – Thu thập được các thông tin đánh giá về triển vọng của công nghệ gene trong tương lai. – Thực hiện được các kĩ năng: làm báo cáo, thuyết trình, tập san, thiết kế video.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     55
+    ]
+   }
+  },
+  {
+   "id": "SH-0132",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học phục hồi, bảo tồn và phát triển bền vững",
+   "content": "– Khái niệm kiểm soát sinh học – Vai trò của kiểm soát sinh học – Cơ sở của kiểm soát sinh học – Biện pháp kiểm soát sinh học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm kiểm soát sinh học. – Phân tích được vai trò của kiểm soát sinh học. – Phân tích được cơ sở của kiểm soát sinh học. – Trình bày được một số biện pháp kiểm soát sinh học (bảo vệ các loài thiên địch; sử dụng hợp lí thuốc trừ sâu, phân bón). – Thực hành: Sưu tầm hoặc điều tra được ứng dụng kiểm soát sinh học tại địa phương.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     55
+    ]
+   }
+  },
+  {
+   "id": "SH-0133",
+   "subject": "Sinh học",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Sinh Thái Học Và Môi Trường",
+   "topic": "Sinh thái học phục hồi, bảo tồn và phát triển bền vững",
+   "content": "– Khái niệm sinh thái nhân văn – Giá trị của sinh thái nhân văn trong việc phát triển bền vững – Một số lĩnh vực sinh thái nhân văn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm sinh thái nhân văn. – Phân tích được giá trị của sinh thái nhân văn trong việc phát triển bền vững. – Phân tích được giá trị của sinh thái nhân văn trong một số lĩnh vực như: + Nông nghiệp; + Phát triển đô thị; + Bảo tồn và phát triển; + Thích ứng với biến đổi khí hậu. – Thực hiện dự án: Điều tra tìm hiểu về một trong các lĩnh vực sinh thái nhân văn tại địa phương.",
+   "source": {
+    "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-sinhhoc-official.pdf",
+    "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     56
+    ]
+   }
+  }
+ ]
+}

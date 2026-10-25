@@ -2,6 +2,7 @@ import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
+import { ProgramImportService } from './modules/curriculum/program-import.service';
 
 /**
  * Seed dữ liệu mẫu cho buổi review (chạy bằng `pnpm seed` ở thư mục gốc).
@@ -15,6 +16,10 @@ import { ProblemDetailsFilter } from './common/problem-details.filter';
  * sections + module, ghi danh, điểm mẫu, một huy hiệu đã cấp cho student1
  * và một sự kiện lịch của khoá học. Mật khẩu xem tại README, mục Review —
  * CHỈ dùng cho môi trường dev/review.
+ *
+ * Riêng chương trình GDPT 2018 không đi qua HTTP: seed gọi thẳng lõi
+ * ProgramImportService (entry nội bộ) cho mọi dataset trong manifest —
+ * xem khối "[seed] program ..." trong main().
  */
 const ADMIN = { username: process.env['ADMIN_USERNAME'] ?? 'admin', password: process.env['ADMIN_PASSWORD'] ?? 'Admin123!' };
 const TEACHER_PASSWORD = ['Teacher', '123', '!'].join('');
@@ -134,6 +139,25 @@ async function main(): Promise<void> {
         console.log('[seed] teacher1 assigned editingteacher at the course');
       } else console.log('[seed] teacher role assignment exists');
     }
+
+    // Chương trình GDPT 2018 (GDPT-SEED, issue #161): nạp MỌI dataset
+    // trong manifest bằng chính lõi ProgramImportService mà trang quản
+    // trị dùng (entry nội bộ — không HTTP, không qua evaluator; tiến
+    // trình seed chạy với danh nghĩa hệ thống). Nhờ vậy DB dựng từ
+    // baseline + seed là có đủ chương trình ngay, admin không phải bấm
+    // Nạp tay sau mỗi lần reset. Lượt nạp idempotent theo sổ đăng ký +
+    // hash nội dung và cấp id xác định UUIDv5 theo khoá tự nhiên
+    // (ADR-017): chạy seed lần hai là no-op (created=0, updated=0) và
+    // tập id khớp giữa mọi môi trường.
+    const programImport = app.get(ProgramImportService, { strict: false });
+    const programStartedAt = Date.now();
+    const programResults = await programImport.importAllDatasetsInternal();
+    for (const r of programResults) {
+      console.log(`[seed] program ${r.datasetKey}: created=${r.created} updated=${r.updated} skipped=${r.skipped} orphanedNodes=${r.orphanedNodes} orphanedOutcomes=${r.orphanedOutcomes}`);
+    }
+    const programRecords = programResults.reduce((a, r) => a + r.totalRecords, 0);
+    const programCreatedTotal = programResults.reduce((a, r) => a + r.created, 0);
+    console.log(`[seed] program GDPT done: ${programResults.length} datasets, ${programRecords} records, created=${programCreatedTotal}, ${((Date.now() - programStartedAt) / 1000).toFixed(1)}s`);
 
     const items = must(await call('GET', `/courses/${courseId}/grades/items`, admin), 'list grade items') as { id: string; itemName: string }[];
     let item = items.find((i) => i.itemName === 'Bài kiểm tra 1');

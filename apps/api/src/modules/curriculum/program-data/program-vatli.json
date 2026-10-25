@@ -1,0 +1,1742 @@
+{
+ "subject": "Vật lí",
+ "issued_with": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+ "records": [
+  {
+   "id": "VL-0001",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Mở đầu",
+   "content": "Giới thiệu mục đích học tập môn Vật lí",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được đối tượng nghiên cứu của Vật lí học và mục tiêu của môn Vật lí. – Phân tích được một số ảnh hưởng của vật lí đối với cuộc sống, đối với sự phát triển của khoa học, công nghệ và kĩ thuật. – Nêu được ví dụ chứng tỏ kiến thức, kĩ năng vật lí được sử dụng trong một số lĩnh vực khác nhau. – Nêu được một số ví dụ về phương pháp nghiên cứu vật lí (phương pháp thực nghiệm và phương pháp lí thuyết). – Mô tả được các bước trong tiến trình tìm hiểu thế giới tự nhiên dưới góc độ vật lí. – Thảo luận để nêu được: + Một số loại sai số đơn giản hay gặp khi đo các đại lượng vật lí và cách khắc phục chúng; + Các quy tắc an toàn trong nghiên cứu và học tập môn Vật lí.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     9,
+     10
+    ]
+   }
+  },
+  {
+   "id": "VL-0002",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động học",
+   "content": "Mô tả chuyển động",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Lập luận để rút ra được công thức tính tốc độ trung bình, định nghĩa được tốc độ theo một phương. – Từ hình ảnh hoặc ví dụ thực tiễn, định nghĩa được độ dịch chuyển. – So sánh được quãng đường đi được và độ dịch chuyển. – Dựa vào định nghĩa tốc độ theo một phương và độ dịch chuyển, rút ra được công thức tính và định nghĩa được vận tốc. – Thực hiện thí nghiệm (hoặc dựa trên số liệu cho trước), vẽ được đồ thị độ dịch chuyển – thời gian trong chuyển động thẳng. – Tính được tốc độ từ độ dốc của đồ thị độ dịch chuyển – thời gian. – Xác định được độ dịch chuyển tổng hợp, vận tốc tổng hợp. – Vận dụng được công thức tính tốc độ, vận tốc. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, đo được tốc độ bằng dụng cụ thực hành. – Mô tả được một vài phương pháp đo tốc độ thông dụng và đánh giá được ưu, nhược điểm của chúng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     10
+    ]
+   }
+  },
+  {
+   "id": "VL-0003",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động học",
+   "content": "Chuyển động biến đổi",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm và lập luận dựa vào sự biến đổi vận tốc trong chuyển động thẳng, rút ra được công thức tính gia tốc; nêu được ý nghĩa, đơn vị của gia tốc. – Thực hiện thí nghiệm (hoặc dựa trên số liệu cho trước), vẽ được đồ thị vận tốc – thời gian trong chuyển động thẳng. – Vận dụng đồ thị vận tốc – thời gian để tính được độ dịch chuyển và gia tốc trong một số trường hợp đơn giản. – Rút ra được các công thức của chuyển động thẳng biến đổi đều (không được dùng tích phân). – Vận dụng được các công thức của chuyển động thẳng biến đổi đều. – Mô tả và giải thích được chuyển động khi vật có vận tốc không đổi theo một phương và có gia tốc không đổi theo phương vuông góc với phương này. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, đo được gia tốc rơi tự do bằng dụng cụ thực hành. – Thực hiện được dự án hay đề tài nghiên cứu tìm điều kiện ném vật trong không khí ở độ cao nào đó để đạt độ cao hoặc tầm xa lớn nhất.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     10,
+     11
+    ]
+   }
+  },
+  {
+   "id": "VL-0004",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Ba định luật Newton về chuyển động",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm, hoặc sử dụng số liệu cho trước để rút ra được a ~ F, a ~ 1/m, từ đó rút ra được biểu thức a = F/m hoặc F = ma (định luật 2 Newton). – Từ kết quả đã có (lấy từ thí nghiệm hay sử dụng số liệu cho trước), hoặc lập luận dựa vào a = F/m, nêu được khối lượng là đại lượng đặc trưng cho mức quán tính của vật. – Phát biểu định luật 1 Newton và minh hoạ được bằng ví dụ cụ thể. – Vận dụng được mối liên hệ đơn vị dẫn xuất với 7 đơn vị cơ bản của hệ SI. – Nêu được: trọng lực tác dụng lên vật là lực hấp dẫn giữa Trái Đất và vật; trọng tâm của vật là điểm đặt của trọng lực tác dụng vào vật; trọng lượng của vật được tính bằng tích khối lượng của vật với gia tốc rơi tự do. – Mô tả được bằng ví dụ thực tế về lực bằng nhau, không bằng nhau. – Mô tả được một cách định tính chuyển động rơi trong trường trọng lực đều khi có sức cản của không khí. – Thực hiện được dự án hay đề tài nghiên cứu ứng dụng sự tăng hay giảm sức cản không khí theo hình dạng của vật. – Phát biểu được định luật 3 Newton, minh hoạ được bằng ví dụ cụ thể; vận dụng được định luật 3 Newton trong một số trường hợp đơn giản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     11,
+     12
+    ]
+   }
+  },
+  {
+   "id": "VL-0005",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Một số lực trong thực tiễn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được bằng ví dụ thực tiễn và biểu diễn được bằng hình vẽ: Trọng lực; Lực ma sát; Lực cản khi một vật chuyển động trong nước (hoặc trong không khí); Lực nâng (đẩy lên trên) của nước; Lực căng dây. – Giải thích được lực nâng tác dụng lên một vật ở trong trong nước (hoặc trong không khí).",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     12
+    ]
+   }
+  },
+  {
+   "id": "VL-0006",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Cân bằng lực, moment lực",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dùng hình vẽ, tổng hợp được các lực trên một mặt phẳng. – Dùng hình vẽ, phân tích được một lực thành các lực thành phần vuông góc. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, tổng hợp được hai lực đồng quy bằng dụng cụ thực hành. – Nêu được khái niệm moment lực, moment ngẫu lực; Nêu được tác dụng của ngẫu lực lên một vật chỉ làm quay vật. – Phát biểu và vận dụng được quy tắc moment cho một số trường hợp đơn giản trong thực tế. – Thảo luận để rút ra được điều kiện để vật cân bằng: lực tổng hợp tác dụng lên vật bằng không và tổng moment lực tác dụng lên vật (đối với một điểm bất kì) bằng không. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, tổng hợp được hai lực song song bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     12
+    ]
+   }
+  },
+  {
+   "id": "VL-0007",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Khối lượng riêng,",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khối lượng riêng của một chất là khối lượng của một đơn vị thể tích của chất đó.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     12
+    ]
+   }
+  },
+  {
+   "id": "VL-0008",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "áp suất chất lỏng Công, năng lượng, công suất",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thành lập và vận dụng được phương trình Δp = ρgΔh trong một số trường hợp đơn giản; đề xuất thiết kế được mô hình minh hoạ.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     13
+    ]
+   }
+  },
+  {
+   "id": "VL-0009",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Công và năng lượng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Chế tạo mô hình đơn giản minh hoạ được định luật bảo toàn năng lượng, liên quan đến một số dạng năng lượng khác nhau. – Trình bày được ví dụ chứng tỏ có thể truyền năng lượng từ vật này sang vật khác bằng cách thực hiện công. – Nêu được biểu thức tính công bằng tích của lực tác dụng và độ dịch chuyển theo phương của lực, nêu được đơn vị đo công là đơn vị đo năng lượng (với 1 J = 1 Nm); Tính được công trong một số trường hợp đơn giản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     13
+    ]
+   }
+  },
+  {
+   "id": "VL-0010",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Động năng và thế năng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Từ phương trình chuyển động thẳng biến đổi đều với vận tốc ban đầu bằng không, rút ra được động năng của vật có giá trị bằng công của lực tác dụng lên vật. – Nêu được công thức tính thế năng trong trường trọng lực đều, vận dụng được trong một số trường hợp đơn giản. – Phân tích được sự chuyển hoá động năng và thế năng của vật trong một số trường hợp đơn giản. – Nêu được khái niệm cơ năng; phát biểu được định luật bảo toàn cơ năng và vận dụng được định luật bảo toàn cơ năng trong một số trường hợp đơn giản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     13
+    ]
+   }
+  },
+  {
+   "id": "VL-0011",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lực học",
+   "content": "Công suất và hiệu suất",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Từ một số tình huống thực tế, thảo luận để nêu được ý nghĩa vật lí và định nghĩa công suất. – Vận dụng được mối liên hệ công suất (hay tốc độ thực hiện công) với tích của lực và vận tốc trong một số tình huống thực tế. – Từ tình huống thực tế, thảo luận để nêu được định nghĩa hiệu suất, vận dụng được hiệu suất trong một số trường hợp thực tế.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     13
+    ]
+   }
+  },
+  {
+   "id": "VL-0012",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Định nghĩa động lượng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Từ tình huống thực tế, thảo luận để nêu được ý nghĩa vật lí và định nghĩa động lượng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "VL-0013",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Bảo toàn động lượng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm và thảo luận, phát biểu được định luật bảo toàn động lượng trong hệ kín. – Vận dụng được định luật bảo toàn động lượng trong một số trường hợp đơn giản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "VL-0014",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Động lượng và va chạm Chuyển động tròn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Rút ra được mối liên hệ giữa lực tổng hợp tác dụng lên vật và tốc độ thay đổi của động lượng (lực tổng hợp tác dụng lên vật là tốc độ thay đổi của động lượng của vật). – Thực hiện thí nghiệm và thảo luận được sự thay đổi năng lượng trong một số trường hợp va chạm đơn giản. – Thảo luận để giải thích được một số hiện tượng đơn giản. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án, thực hiện phương án, xác định được tốc độ và đánh giá được động lượng của vật trước và sau va chạm bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "VL-0015",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Động học của chuyển động tròn đều",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Từ tình huống thực tế, thảo luận để nêu được định nghĩa radian và biểu diễn được độ dịch chuyển góc theo radian. – Vận dụng được khái niệm tốc độ góc.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "VL-0016",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Gia tốc hướng tâm và lực hướng tâm Biến dạng của vật rắn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "rω2, v2/r. – Vận dụng được biểu thức gia tốc hướng tâm a = a = mrω2, mv2/r. – Vận dụng được biểu thức lực hướng tâm F = F = – Thảo luận và đề xuất giải pháp an toàn cho một số tình huống chuyển động tròn trong thực tế.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "VL-0017",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Biến dạng kéo và biến dạng nén;",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản (hoặc sử dụng tài liệu đa phương tiện), nêu được sự biến dạng kéo,",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     14
+    ]
+   }
+  },
+  {
+   "id": "VL-0018",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Đặc tính của lò xo.",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "biến dạng nén; mô tả được các đặc tính của lò xo: giới hạn đàn hồi, độ dãn, độ cứng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "VL-0019",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Động lượng",
+   "content": "Định luật Hooke",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, tìm mối liên hệ giữa lực đàn hồi và độ biến dạng của lò xo, từ đó phát biểu được định luật Hooke. – Vận dụng được định luật Hooke trong một số trường hợp đơn giản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "VL-0020",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.1. Vật lí trong một số ngành nghề",
+   "topic": "Động lượng",
+   "content": "Sơ lược về sự phát triển của vật lí học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập để: + Nêu được sơ lược sự ra đời và những thành tựu ban đầu của vật lí thực nghiệm. + Nêu được sơ lược vai trò của cơ học Newton đối với sự phát triển của Vật lí học. + Liệt kê được một số nhánh nghiên cứu chính của vật lí cổ điển. + Nêu được sự khủng hoảng của vật lí cuối thế kỉ XIX, tiền đề cho sự ra đời của vật lí hiện đại. + Liệt kê được một số lĩnh vực chính của vật lí hiện đại.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "VL-0021",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.1. Vật lí trong một số ngành nghề",
+   "topic": "Động lượng",
+   "content": "Giới thiệu các lĩnh vực nghiên cứu trong vật lí học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được đối tượng nghiên cứu; liệt kê được một vài mô hình lí thuyết đơn giản, một số phương pháp thực nghiệm của một số lĩnh vực chính của vật lí hiện đại. – Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu về các mô hình, lí thuyết khoa học đã phát triển và được áp dụng để cải thiện các công nghệ hiện tại cũng như phát triển các công nghệ mới.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "VL-0022",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.1. Vật lí trong một số ngành nghề",
+   "topic": "Động lượng",
+   "content": "Giới thiệu các ứng dụng của vật lí trong",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được ví dụ thực tế về việc sử dụng kiến thức vật lí trong một số lĩnh vực (Quân sự; Công nghiệp hạt nhân; Khí tượng; Nông nghiệp, Lâm nghiệp; Tài chính; Điện tử; Cơ khí, tự động hoá;",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     15
+    ]
+   }
+  },
+  {
+   "id": "VL-0023",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.1. Vật lí trong một số ngành nghề",
+   "topic": "Động lượng",
+   "content": "một số ngành nghề",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "Thông tin, truyền thông; Nghiên cứu khoa học).",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "VL-0024",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.2. Trái Đất và bầu trời",
+   "topic": "Động lượng",
+   "content": "Xác định phương hướng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Xác định được trên bản đồ sao (hoặc bằng dụng cụ thực hành) vị trí của các chòm sao: Gấu lớn, Gấu nhỏ, Thiên Hậu. – Xác định được vị trí sao Bắc Cực trên nền trời sao.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "VL-0025",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.2. Trái Đất và bầu trời",
+   "topic": "Động lượng",
+   "content": "Đặc điểm chuyển động nhìn thấy của một số thiên thể trên nền trời sao",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Sử dụng mô hình hệ Mặt Trời, thảo luận để nêu được một số đặc điểm cơ bản của chuyển động nhìn thấy của Mặt Trời, Mặt Trăng, Kim Tinh và Thuỷ Tinh trên nền trời sao. – Dùng mô hình nhật tâm của Copernic giải thích được một số đặc điểm quan sát được của Mặt Trời, Mặt Trăng, Kim Tinh và Thuỷ Tinh trên nền trời sao.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "VL-0026",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.2. Trái Đất và bầu trời",
+   "topic": "Động lượng",
+   "content": "Một số hiện tượng thiên văn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Dùng ảnh (hoặc tài liệu đa phương tiện), thảo luận để giải thích được một cách sơ lược và định tính các hiện tượng: nhật thực, nguyệt thực, thuỷ triều.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "VL-0027",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.3. Vật lí với giáo dục về bảo vệ môi trường",
+   "topic": "Động lượng",
+   "content": "Sự cần thiết phải bảo vệ môi trường",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu: + Sự cần thiết bảo vệ môi trường trong chiến lược phát triển của các quốc gia. + Vai trò của cá nhân và cộng đồng trong bảo vệ môi trường.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "VL-0028",
+   "subject": "Vật lí",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.3. Vật lí với giáo dục về bảo vệ môi trường",
+   "topic": "Động lượng",
+   "content": "Vật lí với giáo dục bảo vệ môi trường",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu: + Tác động của việc sử dụng năng lượng hiện nay đối với môi trường, kinh tế và khí hậu Việt Nam. + Sơ lược về các chất ô nhiễm trong nhiên liệu hoá thạch, mưa axit, năng lượng hạt nhân, sự suy giảm tầng ozon, sự biến đổi khí hậu. – Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu:",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     16
+    ]
+   }
+  },
+  {
+   "id": "VL-0029",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Dao động",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "+ Phân loại năng lượng hoá thạch và năng lượng tái tạo. + Vai trò của năng lượng tái tạo. + Một số công nghệ cơ bản để thu được năng lượng tái tạo.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     17
+    ]
+   }
+  },
+  {
+   "id": "VL-0030",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Dao động điều hoà",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản tạo ra được dao động và mô tả được một số ví dụ đơn giản về dao động tự do. – Dùng đồ thị li độ – thời gian có dạng hình sin (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), nêu được định nghĩa: biên độ, chu kì, tần số, tần số góc, độ lệch pha. – Vận dụng được các khái niệm: biên độ, chu kì, tần số, tần số góc, độ lệch pha để mô tả dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để xác định được: độ dịch chuyển, vận tốc và gia tốc trong dao động điều hoà. – Vận dụng được các phương trình về li độ và vận tốc, gia tốc của dao động điều hoà. 2x – Vận dụng được phương trình a = – của dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để mô tả được sự chuyển hoá động năng và thế năng trong dao động điều hoà.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     17
+    ]
+   }
+  },
+  {
+   "id": "VL-0031",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Dao động tắt dần,",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được ví dụ thực tế về dao động tắt dần, dao động cưỡng bức và hiện tượng cộng hưởng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     17
+    ]
+   }
+  },
+  {
+   "id": "VL-0032",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "hiện tượng cộng hưởng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận, đánh giá được sự có lợi hay có hại của cộng hưởng trong một số trường hợp cụ thể.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18
+    ]
+   }
+  },
+  {
+   "id": "VL-0033",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sóng",
+   "content": "Mô tả sóng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Từ đồ thị độ dịch chuyển – khoảng cách (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), mô tả được sóng qua các khái niệm bước sóng, biên độ, tần số, tốc độ và cường độ sóng. – Từ định nghĩa của vận tốc, tần số và bước sóng, rút ra được biểu thức v = f. – Vận dụng được biểu thức v = f. – Nêu được ví dụ chứng tỏ sóng truyền năng lượng. – Sử dụng mô hình sóng giải thích được một số tính chất đơn giản của âm thanh và ánh sáng. – Thực hiện thí nghiệm (hoặc sử dụng tài liệu đa phương tiện), thảo luận để nêu được mối liên hệ các đại lượng đặc trưng của sóng với các đại lượng đặc trưng cho dao động của phần tử môi trường.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18
+    ]
+   }
+  },
+  {
+   "id": "VL-0034",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sóng",
+   "content": "Sóng dọc và sóng ngang",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Quan sát hình ảnh (hoặc tài liệu đa phương tiện) về chuyển động của phần tử môi trường, thảo luận để so sánh được sóng dọc và sóng ngang. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, đo được tần số của sóng âm bằng dao động kí hoặc dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18
+    ]
+   }
+  },
+  {
+   "id": "VL-0035",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sóng",
+   "content": "Sóng điện từ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được trong chân không, tất cả các sóng điện từ đều truyền với cùng tốc độ. – Liệt kê được bậc độ lớn bước sóng của các bức xạ chủ yếu trong thang sóng điện từ.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18
+    ]
+   }
+  },
+  {
+   "id": "VL-0036",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sóng",
+   "content": "Giao thoa sóng kết hợp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện (hoặc mô tả) được thí nghiệm chứng minh sự giao thoa hai sóng kết hợp bằng dụng cụ thực hành sử dụng sóng nước (hoặc sóng ánh sáng). – Phân tích, đánh giá kết quả thu được từ thí nghiệm, nêu được các điều kiện cần thiết để quan sát được hệ vân giao thoa. – Vận dụng được biểu thức i = D/a cho giao thoa ánh sáng qua hai khe hẹp.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     18,
+     19
+    ]
+   }
+  },
+  {
+   "id": "VL-0037",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sóng",
+   "content": "Sóng dừng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm tạo sóng dừng và giải thích được sự hình thành sóng dừng. – Sử dụng hình ảnh (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), xác định được nút và bụng của sóng dừng. – Sử dụng các cách biểu diễn đại số và đồ thị để phân tích, xác định được vị trí nút và bụng của sóng dừng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     19
+    ]
+   }
+  },
+  {
+   "id": "VL-0038",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Sóng",
+   "content": "Đo tốc độ truyền âm",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, đo được tốc độ truyền âm bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     19
+    ]
+   }
+  },
+  {
+   "id": "VL-0039",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Trường điện (Điện trường)",
+   "content": "Lực điện tương tác giữa các điện tích",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm hoặc bằng ví dụ thực tế, mô tả được sự hút (hoặc đẩy) của một điện tích vào một điện tích khác. – Phát biểu được định luật Coulomb và nêu được đơn vị đo điện tích. r2, – Sử dụng biểu thức F = q q /4πε tính và mô tả được lực tương tác giữa hai điện tích điểm đặt 1 2 o trong chân không (hoặc trong không khí).",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     19
+    ]
+   }
+  },
+  {
+   "id": "VL-0040",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Trường điện (Điện trường)",
+   "content": "Khái niệm điện trường",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được khái niệm điện trường là trường lực được tạo ra bởi điện tích, là dạng vật chất tồn tại quanh điện tích và truyền tương tác giữa các điện tích. r2, – Sử dụng biểu thức E = Q/4πε tính và mô tả được cường độ điện trường do một điện tích điểm Q o đặt trong chân không hoặc trong không khí gây ra tại một điểm cách nó một khoảng r. – Nêu được ý nghĩa của cường độ điện trường và định nghĩa được cường độ điện trường tại một điểm được đo bằng tỉ số giữa lực tác dụng lên một điện tích dương đặt tại điểm đó và độ lớn của điện tích đó. – Dùng dụng cụ tạo ra (hoặc vẽ) được điện phổ trong một số trường hợp đơn giản. r2. – Vận dụng được biểu thức E = Q/4πε o",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     19,
+     20
+    ]
+   }
+  },
+  {
+   "id": "VL-0041",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Trường điện (Điện trường)",
+   "content": "Điện trường đều",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Sử dụng biểu thức E = U/d, tính được cường độ của điện trường đều giữa hai bản phẳng nhiễm điện đặt song song, xác định được lực tác dụng lên điện tích đặt trong điện trường đều. – Thảo luận để mô tả được tác dụng của điện trường đều lên chuyển động của điện tích bay vào điện trường đều theo phương vuông góc với đường sức và nêu được ví dụ về ứng dụng của hiện tượng này.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     20
+    ]
+   }
+  },
+  {
+   "id": "VL-0042",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Trường điện (Điện trường)",
+   "content": "Điện thế và thế năng điện",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận qua quan sát hình ảnh (hoặc tài liệu đa phương tiện) nêu được điện thế tại một điểm trong điện trường đặc trưng cho điện trường tại điểm đó về thế năng, được xác định bằng công dịch chuyển một đơn vị điện tích dương từ vô cực về điểm đó; thế năng của một điện tích q trong điện trường đặc trưng cho khả năng sinh công của điện trường khi đặt điện tích q tại điểm đang xét. – Vận dụng được mối liên hệ thế năng điện với điện thế, V = A/q; mối liên hệ cường độ điện trường với điện thế.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     20
+    ]
+   }
+  },
+  {
+   "id": "VL-0043",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Trường điện (Điện trường)",
+   "content": "Tụ điện và điện dung",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Định nghĩa được điện dung và đơn vị đo điện dung (fara). – Vận dụng được (không yêu cầu thiết lập) công thức điện dung của bộ tụ điện ghép nối tiếp, ghép song song. – Thảo luận để xây dựng được biểu thức tính năng lượng tụ điện. – Lựa chọn và sử dụng thông tin để xây dựng được báo cáo tìm hiểu một số ứng dụng của tụ điện trong cuộc sống.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     20
+    ]
+   }
+  },
+  {
+   "id": "VL-0044",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Cường độ dòng điện",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm (hoặc dựa vào tài liệu đa phương tiện), nêu được cường độ dòng điện đặc trưng cho tác dụng mạnh yếu của dòng điện và được xác định bằng điện lượng chuyển qua tiết diện thẳng của vật dẫn trong một đơn vị thời gian. – Vận dụng được biểu thức I = Snve cho dây dẫn có dòng điện, với n là mật độ hạt mang điện, S là tiết diện thẳng của dây, v là tốc độ dịch chuyển của hạt mang điện tích e. – Định nghĩa được đơn vị đo điện lượng coulomb là lượng điện tích chuyển qua tiết diện thẳng của dây dẫn trong 1 s khi có cường độ dòng điện 1 A chạy qua dây dẫn.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     20,
+     21
+    ]
+   }
+  },
+  {
+   "id": "VL-0045",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Mạch điện và điện trở",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Định nghĩa được điện trở, đơn vị đo điện trở và nêu được các nguyên nhân chính gây ra điện trở. – Vẽ phác và thảo luận được về đường đặc trưng I – U của vật dẫn kim loại ở nhiệt độ xác định. – Mô tả được sơ lược ảnh hưởng của nhiệt độ lên điện trở của đèn sợi đốt, điện trở nhiệt (thermistor). – Phát biểu được định luật Ohm cho vật dẫn kim loại. – Định nghĩa được suất điện động qua năng lượng dịch chuyển một điện tích đơn vị theo vòng kín. – Mô tả được ảnh hưởng của điện trở trong của nguồn điện lên hiệu điện thế giữa hai cực của nguồn. – So sánh được suất điện động và hiệu điện thế. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, đo được suất điện động và điện trở trong của pin hoặc acquy (battery hoặc accumulator) bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     21
+    ]
+   }
+  },
+  {
+   "id": "VL-0046",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Năng lượng điện, công suất điện",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được năng lượng điện tiêu thụ của đoạn mạch được đo bằng công của lực điện thực hiện khi dịch chuyển các điện tích; công suất tiêu thụ năng lượng điện của một đoạn mạch là năng lượng điện mà đoạn mạch tiêu thụ trong một đơn vị thời gian. – Tính được năng lượng điện và công suất tiêu thụ năng lượng điện của đoạn mạch.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     21,
+     22
+    ]
+   }
+  },
+  {
+   "id": "VL-0047",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.1. Trường hấp dẫn",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Khái niệm trường hấp dẫn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được ví dụ chứng tỏ tồn tại lực hấp dẫn của Trái Đất. – Thảo luận (qua hình vẽ, tài liệu đa phương tiện), nêu được: Mọi vật có khối lượng đều tạo ra một trường hấp dẫn xung quanh nó; Trường hấp dẫn là trường lực được tạo ra bởi vật có khối lượng, là dạng vật chất tồn tại quanh một vật có khối lượng và tác dụng lực hấp dẫn lên vật có khối lượng đặt trong nó.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22
+    ]
+   }
+  },
+  {
+   "id": "VL-0048",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.1. Trường hấp dẫn",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Lực hấp dẫn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được: Khi xét trường hấp dẫn ở một điểm ngoài quả cầu đồng nhất, khối lượng của quả cầu có thể xem như tập trung ở tâm của nó. /r2 – Vận dụng được định luật Newton về hấp dẫn F = Gm m cho một số trường hợp chuyển động đơn giản trong trường hấp dẫn.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22
+    ]
+   }
+  },
+  {
+   "id": "VL-0049",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.1. Trường hấp dẫn",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Cường độ trường hấp dẫn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được định nghĩa cường độ trường hấp dẫn. – Từ định luật hấp dẫn và định nghĩa cường độ trường hấp dẫn, rút ra được phương trình GM/r2 g = cho trường hợp đơn giản. GM/r2 – Vận dụng được phương trình g = để đánh giá một số hiện tượng đơn giản về trường hấp dẫn. – Nêu được tại mỗi vị trí ở gần bề mặt của Trái Đất, trong một phạm vi độ cao không lớn lắm, g là hằng số.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22
+    ]
+   }
+  },
+  {
+   "id": "VL-0050",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.1. Trường hấp dẫn",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Thế hấp dẫn và thế năng hấp dẫn",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận (qua hình ảnh, tài liệu đa phương tiện) để nêu được định nghĩa thế hấp dẫn tại một điểm trong trường hấp dẫn. – Vận dụng được phương trình  = – GM/r trong trường hợp đơn giản. – Giải thích được sơ lược chuyển động của vệ tinh địa tĩnh, rút ra được công thức tính tốc độ vũ trụ cấp 1.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22,
+     23
+    ]
+   }
+  },
+  {
+   "id": "VL-0051",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.2. Truyền thông tin bằng sóng vô tuyến",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Biến điệu",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– So sánh được biến điệu biên độ (AM) và biến điệu tần số (FM). – Liệt kê được tần số và bước sóng được sử dụng trong các kênh truyền thông khác nhau. – Thảo luận để rút ra được ưu, nhược điểm tương đối của kênh AM và kênh FM.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23
+    ]
+   }
+  },
+  {
+   "id": "VL-0052",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.2. Truyền thông tin bằng sóng vô tuyến",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Tín hiệu tương tự và tín hiệu số",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được các ưu điểm của việc truyền dữ liệu dưới dạng số so với việc truyền dữ liệu dưới dạng tương tự. – Thảo luận để rút ra được: sự truyền giọng nói hoặc âm nhạc liên quan đến chuyển đổi tương tự – số (ADC) trước khi truyền và chuyển đổi số – tương tự (DAC) khi nhận. – Mô tả được sơ lược hệ thống truyền kĩ thuật số về chuyển đổi tương tự – số và số – tương tự.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23
+    ]
+   }
+  },
+  {
+   "id": "VL-0053",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.2. Truyền thông tin bằng sóng vô tuyến",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Suy giảm tín hiệu",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận được ảnh hưởng của sự suy giảm tín hiệu đến chất lượng tín hiệu được truyền; nêu được độ suy giảm tín hiệu tính theo dB và tính theo dB trên một đơn vị độ dài.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23
+    ]
+   }
+  },
+  {
+   "id": "VL-0054",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.3. Mở đầu về điện tử học",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Khuếch đại thuật toán",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Dự án tìm hiểu: + Phân loại cảm biến (sensor) theo: nguyên tắc hoạt động, phạm vi sử dụng, hiệu quả kinh tế. + Nguyên tắc hoạt động của: điện trở phụ thuộc ánh sáng (LDR), điện trở nhiệt. + Nguyên tắc hoạt động của sensor sử dụng: điện trở phụ thuộc ánh sáng (LDR), điện trở nhiệt. + Tính chất cơ bản của bộ khuếch đại thuật toán (op-amp) lí tưởng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23
+    ]
+   }
+  },
+  {
+   "id": "VL-0055",
+   "subject": "Vật lí",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.3. Mở đầu về điện tử học",
+   "topic": "Dòng điện, mạch điện",
+   "content": "Thiết bị đầu ra",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Dự án tìm hiểu ba thiết bị đầu ra: + Nguyên tắc hoạt động của mạch op-amp – relays. + Nguyên tắc hoạt động của mạch op-amp – LEDs (light-emitting diode). + Nguyên tắc hoạt động của mạch op-amp – CMs (calibrated meter). + Thiết kế được một số mạch điện ứng dụng đơn giản có sử dụng thiết bị đầu ra.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     23,
+     24
+    ]
+   }
+  },
+  {
+   "id": "VL-0056",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Thiết bị cảm biến (sensing devices) Vật lí nhiệt",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Tham quan thực tế (hoặc qua tài liệu đa phương tiện), thảo luận để nêu được một số ứng dụng chính của thiết bị cảm biến và nguyên tắc hoạt động của thiết bị cảm biến.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     24
+    ]
+   }
+  },
+  {
+   "id": "VL-0057",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Sự chuyển thể",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Sử dụng mô hình động học phân tử, nêu được sơ lược cấu trúc của chất rắn, chất lỏng, chất khí. – Giải thích được sơ lược một số hiện tượng vật lí liên quan đến sự chuyển thể: sự nóng chảy, sự hoá hơi.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     24
+    ]
+   }
+  },
+  {
+   "id": "VL-0058",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Nội năng, định luật 1 của nhiệt động lực học",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm, nêu được: mối liên hệ nội năng của vật với năng lượng của các phân tử tạo nên vật, định luật 1 của nhiệt động lực học. – Vận dụng được định luật 1 của nhiệt động lực học trong một số trường hợp đơn giản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     24
+    ]
+   }
+  },
+  {
+   "id": "VL-0059",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Thang nhiệt độ, nhiệt kế",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản, thảo luận để nêu được sự chênh lệch nhiệt độ giữa hai vật tiếp xúc nhau có thể cho ta biết chiều truyền năng lượng nhiệt giữa chúng; từ đó nêu được khi hai vật tiếp xúc với nhau, ở cùng nhiệt độ, sẽ không có sự truyền năng lượng nhiệt giữa chúng. (1oC) – Thảo luận để nêu được mỗi độ chia trong thang Celsius bằng 1/100 của khoảng cách giữa nhiệt độ tan chảy của nước tinh khiết đóng băng và nhiệt độ sôi của nước tinh khiết (ở áp suất tiêu chuẩn), mỗi độ chia (1 K) trong thang Kelvin bằng 1/(273,16) của khoảng cách giữa nhiệt độ không tuyệt đối và nhiệt độ điểm mà nước tinh khiết tồn tại đồng thời ở thể rắn, lỏng và hơi (ở áp suất tiêu chuẩn). – Nêu được nhiệt độ không tuyệt đối là nhiệt độ mà tại đó tất cả các chất có động năng chuyển động nhiệt của các phân tử hoặc nguyên tử bằng không và thế năng của chúng là tối thiểu. – Chuyển đổi được nhiệt độ đo theo thang Celsius sang nhiệt độ đo theo thang Kelvin và ngược lại.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     24,
+     25
+    ]
+   }
+  },
+  {
+   "id": "VL-0060",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Nhiệt dung riêng, nhiệt nóng chảy riêng, nhiệt hoá hơi riêng Khí lí tưởng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được định nghĩa nhiệt dung riêng, nhiệt nóng chảy riêng, nhiệt hoá hơi riêng. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, đo được nhiệt dung riêng, nhiệt nóng chảy riêng, nhiệt hoá hơi riêng bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "VL-0061",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Mô hình động học phân tử chất khí",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Phân tích mô hình chuyển động Brown, nêu được các phân tử trong chất khí chuyển động hỗn loạn. – Từ các kết quả thực nghiệm hoặc mô hình, thảo luận để nêu được các giả thuyết của thuyết động học phân tử chất khí.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "VL-0062",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Phương trình trạng thái",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm khảo sát được định luật Boyle: Khi giữ không đổi nhiệt độ của một khối lượng khí xác định thì áp suất gây ra bởi khí tỉ lệ nghịch với thể tích của nó. – Thực hiện thí nghiệm minh hoạ được định luật Charles: Khi giữ không đổi áp suất của một khối lượng khí xác định thì thể tích của khí tỉ lệ với nhiệt độ tuyệt đối của nó. – Sử dụng định luật Boyle và định luật Charles rút ra được phương trình trạng thái của khí lí tưởng. – Vận dụng được phương trình trạng thái của khí lí tưởng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "VL-0063",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Áp suất khí theo mô",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Giải thích được chuyển động của các phân tử ảnh hưởng như thế nào đến áp suất tác dụng lên",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     25
+    ]
+   }
+  },
+  {
+   "id": "VL-0064",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "hình động học phân tử",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "thành bình và từ đó rút ra được hệ thức p=( )nmv2 với n là số phân tử trong một đơn vị thể tích (dùng mô hình va chạm một chiều đơn giản, rồi mở rộng ra cho trường hợp ba chiều bằng cách sử )v2 v2 dụng hệ thức ( = , không yêu cầu chứng minh một cách chính xác và chi tiết). x",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "VL-0065",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Động năng phân tử Trường từ (Từ trường)",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được biểu thức hằng số Boltzmann, k = R/NA. – So sánh pV=( )Nmv2 với pV = nRT, rút ra được động năng tịnh tiến trung bình của phân tử tỉ lệ với nhiệt độ T.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "VL-0066",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Khái niệm từ trường",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm tạo ra được các đường sức từ bằng các dụng cụ đơn giản. – Nêu được từ trường là trường lực gây ra bởi dòng điện hoặc nam châm, là một dạng của vật chất tồn tại xung quanh dòng điện hoặc nam châm mà biểu hiện cụ thể là sự xuất hiện của lực từ tác dụng lên một dòng điện hay một nam châm đặt trong đó.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26
+    ]
+   }
+  },
+  {
+   "id": "VL-0067",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Lực từ tác dụng lên đoạn dây dẫn mang dòng điện; Cảm ứng từ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm để mô tả được hướng của lực từ tác dụng lên đoạn dây dẫn mang dòng điện đặt trong từ trường. – Xác định được độ lớn và hướng của lực từ tác dụng lên đoạn dây dẫn mang dòng điện đặt trong từ trường. – Định nghĩa được cảm ứng từ B và đơn vị tesla. – Nêu được đơn vị cơ bản và dẫn xuất để đo các đại lượng từ. – Thảo luận để thiết kế phương án, lựa chọn phương án, thực hiện phương án, đo được (hoặc mô tả được phương pháp đo) cảm ứng từ bằng cân “dòng điện”. – Vận dụng được biểu thức tính lực F = BILsinθ.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26,
+     27
+    ]
+   }
+  },
+  {
+   "id": "VL-0068",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Từ thông; Cảm ứng điện từ Vật lí hạt nhân và phóng xạ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Định nghĩa được từ thông và đơn vị weber. – Tiến hành các thí nghiệm đơn giản minh hoạ được hiện tượng cảm ứng điện từ. – Vận dụng được định luật Faraday và định luật Lenz về cảm ứng điện từ. – Giải thích được một số ứng dụng đơn giản của hiện tượng cảm ứng điện từ. – Mô tả được mô hình sóng điện từ và ứng dụng để giải thích sự tạo thành và lan truyền của các sóng điện từ trong thang sóng điện từ. – Thảo luận để thiết kế phương án (hoặc mô tả được phương pháp) tạo ra dòng điện xoay chiều. – Nêu được: chu kì, tần số, giá trị cực đại, giá trị hiệu dụng của cường độ dòng điện và điện áp xoay chiều. – Thảo luận để nêu được một số ứng dụng của dòng điện xoay chiều trong cuộc sống, tầm quan trọng của việc tuân thủ quy tắc an toàn khi sử dụng dòng điện xoay chiều trong cuộc sống.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "VL-0069",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Cấu trúc hạt nhân",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Rút ra được sự tồn tại và đánh giá được kích thước của hạt nhân từ phân tích kết quả thí nghiệm tán xạ hạt α. – Biểu diễn được kí hiệu hạt nhân của nguyên tử bằng số nucleon và số proton. – Mô tả được mô hình đơn giản của nguyên tử gồm proton, neutron và electron.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "VL-0070",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Độ hụt khối và năng lượng liên kết hạt nhân",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Viết được đúng phương trình phân rã hạt nhân đơn giản. mc2, – Thảo luận hệ thức E = nêu được liên hệ giữa khối lượng và năng lượng. – Nêu được mối liên hệ giữa năng lượng liên kết riêng và độ bền vững của hạt nhân. – Nêu được sự phân hạch và sự tổng hợp hạt nhân. – Thảo luận để đánh giá được vai trò của một số ngành công nghiệp hạt nhân trong đời sống.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27,
+     28
+    ]
+   }
+  },
+  {
+   "id": "VL-0071",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "",
+   "topic": "",
+   "content": "Sự phóng xạ và chu kì bán rã",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được bản chất tự phát và ngẫu nhiên của sự phân rã phóng xạ. – Định nghĩa được độ phóng xạ, hằng số phóng xạ và vận dụng được liên hệ H = λN. e–t, – Vận dụng được công thức x = x với x là độ phóng xạ, số hạt chưa phân rã hoặc tốc độ số hạt đếm được. – Định nghĩa được chu kì bán rã. – Mô tả được sơ lược một số tính chất của các phóng xạ α, β và γ. – Nhận biết được dấu hiệu vị trí có phóng xạ thông qua các biển báo. – Nêu được các nguyên tắc an toàn phóng xạ; tuân thủ quy tắc an toàn phóng xạ.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28
+    ]
+   }
+  },
+  {
+   "id": "VL-0072",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.1. Dòng điện xoay chiều",
+   "topic": "",
+   "content": "Các đặc trưng của dòng điện xoay chiều",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thảo luận để thiết kế phương án, chọn phương án, thực hiện phương án, đo được (hoặc mô tả được phương pháp đo): tần số, điện áp xoay chiều bằng dụng cụ thực hành. – Nêu được: công suất toả nhiệt trung bình trên điện trở thuần bằng một nửa công suất cực đại của dòng điện xoay chiều hình sin (chạy qua điện trở thuần này). – Mô tả được bằng biểu thức đại số hoặc đồ thị: cường độ dòng điện, điện áp xoay chiều; so sánh được giá trị hiệu dụng và giá trị cực đại. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, khảo sát được đoạn mạch xoay chiều RLC mắc nối tiếp bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     28,
+     29
+    ]
+   }
+  },
+  {
+   "id": "VL-0073",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.1. Dòng điện xoay chiều",
+   "topic": "",
+   "content": "Máy biến áp",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được nguyên tắc hoạt động của máy biến áp. – Nêu được ưu điểm của dòng điện và điện áp xoay chiều trong truyền tải năng lượng điện về phương diện khoa học và kinh tế. – Thảo luận để đánh giá được vai trò của máy biến áp trong việc giảm hao phí năng lượng điện khi truyền dòng điện đi xa.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "VL-0074",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.1. Dòng điện xoay chiều",
+   "topic": "",
+   "content": "Chỉnh lưu dòng điện xoay chiều",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Thực hiện thí nghiệm, vẽ được đồ thị biểu diễn quan hệ giữa dòng điện chạy qua diode bán dẫn và điện áp giữa hai cực của nó. – Vẽ được mạch chỉnh lưu nửa chu kì sử dụng diode. – Vẽ được mạch chỉnh lưu cả chu kì sử dụng cầu chỉnh lưu. – So sánh được đồ thị chỉnh lưu nửa chu kì và chỉnh lưu cả chu kì.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "VL-0075",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.2. Một số ứng dụng vật lí trong chẩn đoán y học",
+   "topic": "",
+   "content": "Bản chất và cách tạo ra tia X",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được cách tạo ra tia X, cách điều khiển tia X, sự suy giảm tia X. – Thảo luận để đánh giá được vai trò của tia X trong đời sống và trong khoa học.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "VL-0076",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.2. Một số ứng dụng vật lí trong chẩn đoán y học",
+   "topic": "",
+   "content": "Chẩn đoán bằng tia X",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được sơ lược cách chụp ảnh bằng tia X. – Từ tranh ảnh (tài liệu đa phương tiện) thảo luận để rút ra được một số cách cải thiện ảnh chụp bằng tia X: giảm liều chiếu, cải thiện độ sắc nét, cải thiện độ tương phản.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29
+    ]
+   }
+  },
+  {
+   "id": "VL-0077",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.2. Một số ứng dụng vật lí trong chẩn đoán y học",
+   "topic": "",
+   "content": "Chẩn đoán bằng siêu âm",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được sơ lược cách tạo siêu âm. – Nêu được sơ lược cách tạo ra hình ảnh siêu âm các cấu trúc bên trong cơ thể. – Từ tranh ảnh (tài liệu đa phương tiện) thảo luận để đánh giá được vai trò của siêu âm trong đời sống và trong khoa học.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     29,
+     30
+    ]
+   }
+  },
+  {
+   "id": "VL-0078",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.2. Một số ứng dụng vật lí trong chẩn đoán y học",
+   "topic": "",
+   "content": "Chụp cắt lớp, cộng hưởng từ",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được sơ lược cách chụp ảnh cắt lớp. – Thực hiện dự án hay đề tài nghiên cứu, thiết kế được một mô hình chụp cắt lớp đơn giản. – Nêu được sơ lược nguyên lí chụp cộng hưởng từ.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "VL-0079",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.3. Vật lí lượng tử",
+   "topic": "",
+   "content": "Hiệu ứng quang điện và năng lượng của photon",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được tính lượng tử của bức xạ điện từ, năng lượng photon. – Vận dụng được công thức tính năng lượng photon, E = hf. – Nêu được hiệu ứng quang điện là bằng chứng cho tính chất hạt của bức xạ điện từ, giao thoa và nhiễu xạ là bằng chứng cho tính chất sóng của bức xạ điện từ. – Mô tả được khái niệm giới hạn quang điện, công thoát. – Giải thích được hiệu ứng quang điện dựa trên năng lượng photon và công thoát. – Giải thích được: động năng ban đầu cực đại của quang điện tử không phụ thuộc cường độ chùm sáng, cường độ dòng quang điện bão hoà tỉ lệ với cường độ chùm sáng chiếu vào. – Vận dụng được phương trình Einstein để giải thích các định luật quang điện. – Ước lượng được năng lượng của các bức xạ điện từ cơ bản trong thang sóng điện từ. – Thảo luận để thiết kế phương án hoặc lựa chọn phương án và thực hiện phương án, khảo sát được dòng quang điện bằng dụng cụ thực hành.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "VL-0080",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.3. Vật lí lượng tử",
+   "topic": "",
+   "content": "Lưỡng tính sóng hạt",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả (hoặc giải thích) được tính chất sóng của electron bằng hiện tượng nhiễu xạ electron. – Vận dụng được công thức bước sóng de Broglie: λ = h/p với p là động lượng của hạt.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     30
+    ]
+   }
+  },
+  {
+   "id": "VL-0081",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.3. Vật lí lượng tử",
+   "topic": "",
+   "content": "Quang phổ vạch của nguyên tử",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Mô tả được sự tồn tại của các mức năng lượng dừng của nguyên tử. – Giải thích được sự tạo thành vạch quang phổ. – So sánh được quang phổ phát xạ và quang phổ vạch hấp thụ. – Vận dụng được biểu thức chuyển mức năng lượng hf = E – E .",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "VL-0082",
+   "subject": "Vật lí",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 12.3. Vật lí lượng tử",
+   "topic": "",
+   "content": "Vùng năng lượng",
+   "kind": "content",
+   "outcomes": [],
+   "outcome_text": "– Nêu được các vùng năng lượng trong chất rắn theo mô hình vùng năng lượng đơn giản. – Sử dụng được lí thuyết vùng năng lượng đơn giản để giải thích được: Sự phụ thuộc vào nhiệt độ của điện trở kim loại và bán dẫn không pha tạp; Sự phụ thuộc của điện trở của các điện trở quang (LDR) vào cường độ sáng.",
+   "source": {
+    "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-vatli-official.pdf",
+    "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  }
+ ]
+}

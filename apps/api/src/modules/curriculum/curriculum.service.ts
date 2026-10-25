@@ -122,10 +122,13 @@ export class CurriculumService implements OnModuleInit {
     }
     return this.subjectOr404(id);
   }
-  /** Xoá môn học (cascade toàn bộ chương trình bên dưới). */
+  /** Xoá môn học (cascade toàn bộ chương trình bên dưới); còn tham chiếu cứng vào cây/YCCĐ của môn → 409 (xem assertNotReferenced). */
   async deleteSubject(actorId: string, id: string): Promise<void> {
     const row = await this.subjectOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, row.contextId);
+    const curricula = await this.repo.listCurricula(id);
+    const { nodeIds, outcomeIds } = await this.subtreeIds(curricula.map((c) => c.id));
+    await this.assertNotReferenced(nodeIds, outcomeIds, `subject ${row.slug}`);
     await this.repo.deleteSubject(id);
   }
 
@@ -170,10 +173,12 @@ export class CurriculumService implements OnModuleInit {
     }
     return (await this.curriculumChainOr404(id)).curriculum;
   }
-  /** Xoá chương trình (cascade cây node + outcomes). */
+  /** Xoá chương trình (cascade cây node + outcomes); còn tham chiếu cứng vào cây/YCCĐ của chương trình → 409. */
   async deleteCurriculum(actorId: string, id: string): Promise<void> {
     const { subject } = await this.curriculumChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
+    const { nodeIds, outcomeIds } = await this.subtreeIds([id]);
+    await this.assertNotReferenced(nodeIds, outcomeIds, `curriculum ${id}`);
     await this.repo.deleteCurriculum(id);
   }
 
@@ -229,10 +234,19 @@ export class CurriculumService implements OnModuleInit {
     await this.repo.updateNode(id, input);
     return (await this.nodeChainOr404(id)).node;
   }
-  /** Xoá node (cascade node con + outcomes). */
+  /** Xoá node (cascade node con + outcomes); còn tham chiếu cứng vào node/YCCĐ trong subtree → 409. */
   async deleteNode(actorId: string, id: string): Promise<void> {
-    const { subject } = await this.nodeChainOr404(id);
+    const { node, subject } = await this.nodeChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
+    const all = await this.repo.listNodes(node.curriculumId);
+    const childrenByParent = new Map<string, string[]>();
+    for (const n of all) {
+      if (n.parentId) childrenByParent.set(n.parentId, [...(childrenByParent.get(n.parentId) ?? []), n.id]);
+    }
+    const nodeIds = [id];
+    for (let i = 0; i < nodeIds.length; i += 1) nodeIds.push(...(childrenByParent.get(nodeIds[i]!) ?? []));
+    const outcomes = await this.repo.listOutcomesForNodes(nodeIds);
+    await this.assertNotReferenced(nodeIds, outcomes.map((o) => o.id), `node ${id}`);
     await this.repo.deleteNode(id);
   }
 
@@ -366,11 +380,43 @@ export class CurriculumService implements OnModuleInit {
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
     return { outcomeId: id, counts: await this.repo.countReadyQuestionsForOutcome(id) };
   }
-  /** Xoá yêu cầu cần đạt. */
+  /** Xoá yêu cầu cần đạt; còn tham chiếu cứng vào chính YCCĐ này → 409. */
   async deleteOutcome(actorId: string, id: string): Promise<void> {
     const { subject } = await this.outcomeChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
+    await this.assertNotReferenced([], [id], `learning outcome ${id}`);
     await this.repo.deleteOutcome(id);
+  }
+
+  /** Node + YCCĐ của một tập chương trình (đầu vào cho cổng chặn xoá theo tham chiếu). */
+  private async subtreeIds(curriculumIds: string[]): Promise<{ nodeIds: string[]; outcomeIds: string[] }> {
+    const nodeIds: string[] = [];
+    for (const curriculumId of curriculumIds) {
+      const nodes = await this.repo.listNodes(curriculumId);
+      nodeIds.push(...nodes.map((n) => n.id));
+    }
+    const outcomes = await this.repo.listOutcomesForNodes(nodeIds);
+    return { nodeIds, outcomeIds: outcomes.map((o) => o.id) };
+  }
+
+  /**
+   * Cổng chặn xoá theo tham chiếu (GDPT-SEED): các FK từ ánh xạ sách,
+   * ô ma trận đề và liên kết câu hỏi–YCCĐ vào cây chương trình là
+   * RESTRICT (không còn cascade) — xoá mà còn tham chiếu thì Postgres
+   * ném lỗi FK thô. Chặn trước ở tầng nghiệp vụ: 409 kèm số lượng
+   * từng loại tham chiếu để quản trị gỡ tham chiếu rồi mới xoá.
+   */
+  private async assertNotReferenced(nodeIds: string[], outcomeIds: string[], what: string): Promise<void> {
+    const refs = await this.repo.countGuardedReferences(nodeIds, outcomeIds);
+    const parts: string[] = [];
+    if (refs.bookMappings > 0) parts.push(`${refs.bookMappings} book mapping(s)`);
+    if (refs.examMatrixCells > 0) parts.push(`${refs.examMatrixCells} exam matrix cell(s)`);
+    if (refs.questionOutcomes > 0) parts.push(`${refs.questionOutcomes} question–outcome link(s)`);
+    if (parts.length === 0) return;
+    throw new ConflictException({
+      message: `Cannot delete ${what}: still referenced by ${parts.join(', ')}. Remove those references first.`,
+      code: 'curriculum.delete_referenced',
+    });
   }
 
   // --- chains -----------------------------------------------------------------------

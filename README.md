@@ -107,6 +107,19 @@ sample grades (student1 = 8.5, student2 = 6.5 on "Bài kiểm tra 1"), the
 badge "Huy hiệu khởi đầu" already awarded to student1, and a course
 calendar event for tomorrow 09:00.
 
+The seed also loads the **full GDPT 2018 national programme**: all 21
+verified datasets vendored in the repo (2,126 records across 20
+subjects, checked verbatim against the Ministry's documents) are
+imported through the same `ProgramImportService` the admin page uses,
+so a database built from the baseline + `pnpm seed` already contains
+the complete programme tree — **no manual "import" step in the admin
+UI is needed after a reset** (the admin page keeps re-sync only as a
+utility). Programme rows carry deterministic UUIDv5 identities derived
+from natural keys (see `docs/adr/017-deterministic-ids-for-reference-data.md`),
+so the id sets are identical in every environment; re-running the
+seed is a no-op for the programme (0 created / 0 updated). On a local
+machine the programme phase of the seed takes roughly 10–17 seconds.
+
 ### Main flows to review
 
 Log in → open the demo course → gradebook (teacher sees the class report)
