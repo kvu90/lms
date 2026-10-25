@@ -455,6 +455,33 @@ export class BadgesService implements OnModuleInit {
     return issued;
   }
 
+  /**
+   * Đánh giá một badge cho một user qua HTTP (H13, rà soát #134): chỉ
+   * chính chủ, hoặc người có `badges:awardbadge` tại context của badge —
+   * cùng cổng với manualAward; trước đây mọi user ép đánh giá cho user
+   * bất kỳ và đọc được chi tiết tiêu chí đạt/chưa của người khác. Đường
+   * nội bộ (hook hoàn thành/sự kiện) gọi evaluateBadge trực tiếp.
+   */
+  async evaluateBadgeFor(actorId: string, badgeId: string, userId: string) {
+    if (userId !== actorId) {
+      const badgeRow = await this.getBadge(badgeId);
+      await this.evaluator.requireCapability(actorId, 'badges:awardbadge', await this.badgeContextId(badgeRow));
+    }
+    return this.evaluateBadge(badgeId, userId);
+  }
+
+  /**
+   * Đánh giá mọi badge cho một user qua HTTP (H13): cấp thật huy hiệu khi
+   * tiêu chí đạt nên người gọi khác chủ thể phải có `badges:awardbadge`
+   * tại system; chính chủ tự kích hoạt đánh giá cho mình thì được phép.
+   */
+  async evaluateUserBadgesFor(actorId: string, userId: string) {
+    if (userId !== actorId) {
+      await this.evaluator.requireCapability(actorId, 'badges:awardbadge', await this.systemCtx());
+    }
+    return this.evaluateUserBadges(userId);
+  }
+
   /** Evaluate every ACTIVE badge for a user and issue the ones newly satisfied. */
   /**
    * Đánh giá mọi badge liên quan cho user (sau sự kiện hoàn thành).

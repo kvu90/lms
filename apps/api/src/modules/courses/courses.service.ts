@@ -458,6 +458,45 @@ export class CoursesService {
   }
 
   /**
+   * Catalogue khoá học qua HTTP (H12, rà soát #134 + §7.2): `visible`
+   * mang ngữ nghĩa Moodle — khoá ẩn KHÔNG xuất hiện trong danh sách của
+   * người thường; chỉ site admin hoặc người có
+   * `course:viewhiddencourses` tại context của chính khoá đó mới thấy.
+   * Đường nội bộ (calendar/integrations) vẫn dùng listCourses thô.
+   */
+  async listCoursesFor(actorId: string, categoryId?: string): Promise<CourseRow[]> {
+    const rows = await this.listCourses(categoryId);
+    if (await this.evaluator.isSiteAdmin(actorId)) return rows;
+    const out: CourseRow[] = [];
+    for (const c of rows) {
+      if (c.visible || (await this.evaluator.hasCapability(actorId, 'course:viewhiddencourses', await this.courseContextId(c.id)))) out.push(c);
+    }
+    return out;
+  }
+
+  /**
+   * Cây category qua HTTP (H12): category ẩn bị cắt khỏi cây (kèm cả cây
+   * con) với người thường; site admin hoặc holder
+   * `course:viewhiddencourses` tại context của category thấy đủ.
+   */
+  async categoryTreeFor(actorId: string): Promise<(CategoryRow & { children: unknown[] })[]> {
+    const tree = await this.categoryTree();
+    if (await this.evaluator.isSiteAdmin(actorId)) return tree;
+    type Node = CategoryRow & { children: unknown[] };
+    const prune = async (nodes: Node[]): Promise<Node[]> => {
+      const out: Node[] = [];
+      for (const n of nodes) {
+        const children = await prune(n.children as Node[]);
+        if (n.visible || (await this.evaluator.hasCapability(actorId, 'course:viewhiddencourses', await this.categoryContextId(n.id)))) {
+          out.push({ ...n, children });
+        }
+      }
+      return out;
+    };
+    return prune(tree);
+  }
+
+  /**
    * Danh sách khoá mẫu tổ/trường cho đường 5 của wizard tạo khoá (K1).
    * Chỉ người có thể tạo khoá ở ít nhất một danh mục (hoặc quản trị hệ
    * thống) mới thấy mẫu — người không có đường tạo khoá thì danh sách

@@ -207,6 +207,22 @@ export class CompetenciesService implements OnModuleInit {
   }
 
   /**
+   * Xem rule qua HTTP (H14, rà soát #134): rule là cấu hình biên soạn của
+   * framework — chỉ người có `competency:planview` hoặc
+   * `competency:competencymanage` tại system mới xem; đường nội bộ
+   * (đánh giá rule khi chấm) vẫn gọi getCompetencyRule không gác.
+   */
+  async getCompetencyRuleFor(actorId: string, competencyId: string) {
+    const sys = await this.systemCtx();
+    const canView = (await this.evaluator.hasCapability(actorId, 'competency:planview', sys))
+      || (await this.evaluator.hasCapability(actorId, 'competency:competencymanage', sys));
+    if (!canView) {
+      throw new ForbiddenException({ message: 'You cannot view competency rule configuration', code: 'competency.rule_forbidden' });
+    }
+    return this.getCompetencyRule(competencyId);
+  }
+
+  /**
    * Đặt rule points cho competency cha (oracle: Moodle `competency_rule_points::validate_config`).
    * Quy tắc kiểm tra bám Moodle: ngưỡng điểm >= 1; mỗi dòng điểm tham chiếu một competency
    * CON TRỰC TIẾP, không trùng, không tự tham chiếu, điểm >= 0; tổng điểm các con phải
@@ -458,9 +474,12 @@ export class CompetenciesService implements OnModuleInit {
     return this.repo.insertCourseLink({ courseId: courseId, competencyId: competencyRow.id, ruleOutcome: this.assertOutcome(input.ruleOutcome) });
   }
   /**
-   * Competency đã liên kết với khoá học.
+   * Competency đã liên kết với khoá học (H14, rà soát #134): cấu trúc theo
+   * khoá chỉ mở cho người qua được cổng truy cập khoá như mọi đường đọc
+   * nội dung theo khoá khác.
    */
-  async listCourseCompetencies(courseId: string) {
+  async listCourseCompetencies(actorId: string, courseId: string) {
+    await this.courses.assertCourseAccess(actorId, courseId);
     return this.repo.listCourseLinks(courseId);
   }
   /**
@@ -473,9 +492,12 @@ export class CompetenciesService implements OnModuleInit {
     return this.repo.insertModuleLink({ courseModuleId: cmId, competencyId: competencyRow.id, ruleOutcome: this.assertOutcome(input.ruleOutcome) });
   }
   /**
-   * Competency đã liên kết với module.
+   * Competency đã liên kết với module (H14, rà soát #134): qua cổng truy
+   * cập của khoá chứa module.
    */
-  async listModuleCompetencies(cmId: string) {
+  async listModuleCompetencies(actorId: string, cmId: string) {
+    const cm = await this.courses.getCm(cmId);
+    await this.courses.assertCourseAccess(actorId, cm.course);
     return this.repo.listModuleLinks(cmId);
   }
 
@@ -504,6 +526,27 @@ export class CompetenciesService implements OnModuleInit {
    * Usercomp của user.
    */
   async listUsercompsForUser(userId: string): Promise<UsercompRow[]> {
+    return this.repo.listUsercompsForUser(userId);
+  }
+
+  /**
+   * Cổng đọc hồ sơ năng lực của một user qua HTTP (H8, rà soát #134):
+   * chỉ chính chủ, hoặc người có `competency:planview` /
+   * `competency:usercompetencyreview` tại system — cùng khuôn các đường
+   * đọc có gác của module (plan view / review workflow). Người ngoài
+   * nhận 403, không đọc được proficiency + nhận xét chấm của HS khác.
+   */
+  private async assertCanViewUsercomps(actorId: string, targetUserId: string): Promise<void> {
+    if (actorId === targetUserId) return;
+    const sys = await this.systemCtx();
+    if (await this.evaluator.hasCapability(actorId, 'competency:planview', sys)) return;
+    if (await this.evaluator.hasCapability(actorId, 'competency:usercompetencyreview', sys)) return;
+    throw new ForbiddenException({ message: 'You cannot view the competency profile of another user', code: 'competency.usercomp_forbidden' });
+  }
+
+  /** Danh sách usercomp của một user qua HTTP: qua cổng assertCanViewUsercomps (H8). */
+  async listUsercompsForUserFor(actorId: string, userId: string): Promise<UsercompRow[]> {
+    await this.assertCanViewUsercomps(actorId, userId);
     return this.repo.listUsercompsForUser(userId);
   }
 
@@ -592,6 +635,13 @@ export class CompetenciesService implements OnModuleInit {
    */
   async listEvidence(usercompId: string): Promise<EvidenceRow[]> {
     await this.getUsercomp(usercompId);
+    return this.repo.listEvidence(usercompId);
+  }
+
+  /** Bằng chứng của usercomp qua HTTP: qua cổng sở hữu/quyền như listUsercompsForUserFor (H8). */
+  async listEvidenceFor(actorId: string, usercompId: string): Promise<EvidenceRow[]> {
+    const usercomp = await this.getUsercomp(usercompId);
+    await this.assertCanViewUsercomps(actorId, usercomp.userId);
     return this.repo.listEvidence(usercompId);
   }
 

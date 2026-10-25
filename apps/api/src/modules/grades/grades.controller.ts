@@ -27,8 +27,8 @@ export class GradesController {
   /**
    * GET /courses/:courseId/grades/categories — liệt kê category.
    */
-  async listCategories(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.grades.listCategories(courseId);
+  async listCategories(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.listCategories(actor.id, courseId);
   }
   @Patch('grades/categories/:categoryId')
   /**
@@ -57,8 +57,8 @@ export class GradesController {
   /**
    * GET /courses/:courseId/grades/items — liệt kê item.
    */
-  async listItems(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.grades.listItems(courseId);
+  async listItems(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.listItems(actor.id, courseId);
   }
   @Patch('grades/items/:itemId')
   /**
@@ -193,8 +193,8 @@ export class GradesController {
   /**
    * GET /courses/:courseId/grades/letters — bảng chữ cái điểm.
    */
-  async letters(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.grades.getLetters(courseId);
+  async letters(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.getLettersFor(actor.id, courseId);
   }
   @Put(':courseId/grades/letters')
   /**
@@ -215,8 +215,8 @@ export class GradesController {
   /**
    * GET /courses/:courseId/grades/scales — liệt kê scales của khoá học.
    */
-  async scales(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.grades.listScales(courseId);
+  async scales(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.listScales(actor.id, courseId);
   }
 
   @Post(':courseId/grades/outcomes')
@@ -230,8 +230,8 @@ export class GradesController {
   /**
    * GET /courses/:courseId/grades/outcomes — liệt kê outcome của khoá học và outcome mức site.
    */
-  async listOutcomes(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.grades.listOutcomes(courseId);
+  async listOutcomes(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.listOutcomesFor(actor.id, courseId);
   }
   @Patch('grades/outcomes/:outcomeId')
   /**
@@ -473,8 +473,8 @@ export class SiteGradesController {
   /**
    * GET /grades/outcomes — liệt kê grade outcome mức site.
    */
-  async listSiteOutcomes() {
-    return this.grades.listOutcomes();
+  async listSiteOutcomes(@CurrentUser() actor: AuthenticatedUser) {
+    return this.grades.listSiteOutcomesFor(actor.id);
   }
   @Post('scales')
   /**

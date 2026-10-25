@@ -326,8 +326,13 @@ export class AssignmentsService {
     await this.outbox.enqueueStandalone({ aggregate: 'assignment', type: 'assignment_deleted', payload: { assignmentId: assignment.id, courseId: assignment.course, actorId } });
   }
 
-  /** Các bài tập trong khoá học (cho trang khoá học/danh sách hoạt động). */
-  async listAssignments(courseId: string): Promise<AssignmentView[]> {
+  /**
+   * Các bài tập trong khoá học (cho trang khoá học/danh sách hoạt động).
+   * H14 (rà soát #134): danh sách + cài đặt bài tập là cấu trúc theo khoá —
+   * qua cổng truy cập khoá như các đường đọc nội dung theo khoá khác.
+   */
+  async listAssignments(actorId: string, courseId: string): Promise<AssignmentView[]> {
+    await this.courses.assertCourseAccess(actorId, courseId);
     const rows = await this.repo.listAssignmentsInCourse(courseId);
     return rows.map((r) => this.assignmentView(r));
   }

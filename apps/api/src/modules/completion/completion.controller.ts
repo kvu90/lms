@@ -63,8 +63,8 @@ export class CompletionController {
   /**
    * GET /courses/:courseId/completion/criteria — bộ tiêu chí hiện tại.
    */
-  async getCriteria(@Param('courseId', { schema: uuidIdSchema }) courseId: string) {
-    return this.completion.getCriteria(courseId);
+  async getCriteria(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.completion.getCriteria(actor.id, courseId);
   }
   @Put(':courseId/completion/criteria')
   /**

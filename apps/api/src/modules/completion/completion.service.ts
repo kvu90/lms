@@ -373,9 +373,11 @@ export class CompletionService implements OnModuleInit {
   }
 
   /**
-   * Bộ tiêu chí hiện tại của khoá học.
+   * Bộ tiêu chí hiện tại của khoá học (H14, rà soát #134): cấu hình tiêu
+   * chí hoàn thành là cấu trúc theo khoá — qua cổng truy cập khoá.
    */
-  async getCriteria(courseId: string): Promise<{ method: number; criteria: unknown[] }> {
+  async getCriteria(actorId: string, courseId: string): Promise<{ method: number; criteria: unknown[] }> {
+    await this.courses.assertCourseAccess(actorId, courseId);
     const settings = await this.repo.getSettings(courseId);
     return { method: settings.method, criteria: await this.repo.listCriteria(courseId) };
   }
