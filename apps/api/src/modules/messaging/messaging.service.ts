@@ -58,6 +58,16 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   // nộp phát sự kiện outbox activity_due_reminder, consumer biến thành
   // thông báo — bật mặc định (quyết định đã chốt trong issue #50).
   { name: 'activity_due_soon', component: 'core_course', channels: ['popup', 'email'], group: 'learning' },
+  // Digest phụ huynh (PH-2, issue #159): worker quét cửa sổ phát sự
+  // kiện guardian_digest_due, GuardianDigestConsumer (module Guardians)
+  // tổng hợp dữ liệu ĐÃ CÔNG BỐ rồi gọi notify() — nội dung chỉ là số
+  // lượng mục + link sâu, kênh ngoài dùng bản tối thiểu hoá, tuyệt đối
+  // không điểm số (luật kênh ngoài của notify + research phụ huynh).
+  { name: 'guardian_digest', component: 'core_guardian', channels: ['popup', 'email'], group: 'learning' },
+  // Đẩy riêng quá hạn ≥7 ngày cho phụ huynh (PH-2, research mục
+  // 5.3.6): đúng một lần cho từng (phụ huynh, con, hoạt động), dedupe
+  // bền ở guardian_digests phía worker.
+  { name: 'guardian_overdue_alert', component: 'core_guardian', channels: ['popup', 'email'], group: 'learning' },
   { name: 'badge_awarded', component: 'core_badges', channels: ['popup', 'email', 'push'], group: 'people' },
   { name: 'competency_review_requested', component: 'core_competency', channels: ['popup', 'email'], group: 'people' },
   // Lớp B (issue #33): yêu cầu kết bạn mới — phía nhận được thông báo qua pipeline sẵn có.
