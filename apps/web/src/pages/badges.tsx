@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -10,38 +10,16 @@ import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
-
-/** Huy hiệu (BadgeRow ở tầng API) như trang này cần để hiển thị. */
-interface BadgeView {
-  id: string;
-  name: string;
-  description: string;
-  type: number;
-  courseId: string | null;
-  status: number;
-}
-
-/** Bản ghi đã cấp (IssuedRow ở tầng API): bằng chứng bất biến của một lần cấp. */
-interface IssuedView {
-  id: string;
-  badgeId: string;
-  userId: string;
-  uniqueHash: string;
-  dateIssued: string;
-  dateExpire: string | null;
-  revoked: boolean;
-}
-
-/**
- * Một dòng của GET /badges/mine: bản ghi đã cấp kèm chính huy hiệu lồng
- * bên trong (badges.service listMyBadges trả `IssuedRow & { badge }`) —
- * tên huy hiệu lấy thẳng từ đây, danh sách /badges chỉ còn là nguồn dự
- * phòng khi bản ghi thiếu badge lồng.
- */
-interface MyBadgeView extends IssuedView {
-  badge?: BadgeView;
-}
+import {
+  useAllBadges,
+  useBadgeIssued,
+  useCreateBadge,
+  useMyBadges,
+  useSetBadgeCriteria,
+  useSetBadgeStatus,
+  type BadgeView,
+  type MyBadgeView,
+} from '#lib/badges';
 
 /**
  * Trang huy hiệu: "huy hiệu của tôi" (từ GET /badges/mine — server tự suy
@@ -51,6 +29,11 @@ interface MyBadgeView extends IssuedView {
  * GET /badges/:id/issued) chỉ render khi usePermissions().canAdminister.
  * Tiêu chí của huy hiệu đang hoạt động bị đóng băng phía server; panel
  * chỉ hiển thị kết quả từ chối đó.
+ *
+ * Dữ liệu qua TanStack Query (lib/badges.ts, F-01): hai danh sách là hai
+ * query dùng chung cache với mọi bề mặt huy hiệu khác; các đột biến của
+ * panel quản trị làm mới cả ba truy vấn (mọi huy hiệu / của tôi / đã cấp)
+ * qua tiền tố khoá factory thay vì nạp lại cục bộ như trước.
  */
 export function BadgesPage() {
   const { t } = useTranslation('app');
@@ -62,118 +45,88 @@ export function BadgesPage() {
     4: t('badgeStatusDisabled'),
   };
   const { canAdminister } = usePermissions();
-  const [mine, setMine] = useState<MyBadgeView[]>([]);
-  const [all, setAll] = useState<BadgeView[]>([]);
   const [name, setName] = useState('');
   const [criteriaBadgeId, setCriteriaBadgeId] = useState('');
   const [criteriaCourseId, setCriteriaCourseId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [issuedBadgeId, setIssuedBadgeId] = useState<string | null>(null);
-  const [issuedList, setIssuedList] = useState<IssuedView[]>([]);
-  const [issuedError, setIssuedError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  /**
-   * Nạp lại huy hiệu của tôi và (chỉ để tra tên dự phòng + panel quản trị)
-   * danh sách mọi huy hiệu. Huy hiệu của tôi luôn qua /badges/mine.
-   */
-  const reload = useCallback(async () => {
-    const badges = await apiJson<BadgeView[]>('/api/v1/badges');
-    setAll(badges);
-    const issued = await apiJson<MyBadgeView[]>('/api/v1/badges/mine');
-    setMine(issued);
-  }, []);
+  const mineQuery = useMyBadges();
+  const allQuery = useAllBadges();
+  const issuedQuery = useBadgeIssued(issuedBadgeId);
+  const createBadgeMutation = useCreateBadge();
+  const criteriaMutation = useSetBadgeCriteria();
+  const statusMutation = useSetBadgeStatus();
 
-  useEffect(() => {
-    void reload()
-      .catch(() => setError(t('badgesLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
+  const mine = mineQuery.data ?? [];
+  const all = allQuery.data ?? [];
+  const issuedList = issuedQuery.data ?? [];
+  const loading = mineQuery.isPending || allQuery.isPending;
+  const loadFailed = mineQuery.isError || allQuery.isError;
+  const issuedError = issuedBadgeId !== null && issuedQuery.isError ? t('issuedLoadFailed') : null;
 
   /** Tên huy hiệu của một bản ghi đã cấp: ưu tiên badge lồng trong /mine. */
   const badgeName = (entry: MyBadgeView) =>
     entry.badge?.name ?? all.find((b) => b.id === entry.badgeId)?.name ?? t('badgeFallback', { id: entry.badgeId });
 
   /** Tạo một site badge mới (panel quản trị). */
-  async function createBadge(event: FormEvent) {
+  function createBadge(event: FormEvent) {
     event.preventDefault();
-    try {
-      await apiJson('/api/v1/badges', { method: 'POST', body: JSON.stringify({ name, type: 1 }) });
-      setName('');
-      setMessage(t('badgeCreated'));
-      await reload();
-    } catch {
-      setMessage(t('badgeCreateFailed'));
-    }
+    createBadgeMutation.mutate(name, {
+      onSuccess: () => {
+        setName('');
+        setMessage(t('badgeCreated'));
+      },
+      onError: () => setMessage(t('badgeCreateFailed')),
+    });
   }
 
   /** Đặt tiêu chí hoàn thành khoá học cho một badge (panel quản trị). */
-  async function setCriteria(event: FormEvent) {
+  function setCriteria(event: FormEvent) {
     event.preventDefault();
-    try {
-      await apiJson(`/api/v1/badges/${criteriaBadgeId}/criteria`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          method: 1,
-          criteria: [{ criteriaType: 'coursecompletion', params: { courseId: criteriaCourseId } }],
-        }),
-      });
-      setMessage(t('criteriaSaved'));
-      await reload();
-    } catch {
-      setMessage(t('criteriaRefused'));
-    }
+    criteriaMutation.mutate(
+      { badgeId: criteriaBadgeId, courseId: criteriaCourseId },
+      {
+        onSuccess: () => setMessage(t('criteriaSaved')),
+        onError: () => setMessage(t('criteriaRefused')),
+      },
+    );
   }
 
   /** Kích hoạt badge: đổi trạng thái qua POST /badges/:id/status với { status: 1 }. */
-  async function activate(id: string) {
-    try {
-      await apiJson(`/api/v1/badges/${id}/status`, { method: 'POST', body: JSON.stringify({ status: 1 }) });
-      setMessage(t('badgeActivated'));
-      await reload();
-    } catch {
-      setMessage(t('badgeActivationRefused'));
-    }
+  function activate(id: string) {
+    statusMutation.mutate(
+      { badgeId: id, status: 1 },
+      {
+        onSuccess: () => setMessage(t('badgeActivated')),
+        onError: () => setMessage(t('badgeActivationRefused')),
+      },
+    );
   }
 
   /** Xem (hoặc ẩn) danh sách đã cấp của một badge qua GET /badges/:id/issued. */
-  async function toggleIssued(badge: BadgeView) {
-    if (issuedBadgeId === badge.id) {
-      setIssuedBadgeId(null);
-      setIssuedList([]);
-      return;
-    }
-    setIssuedError(null);
-    try {
-      const rows = await apiJson<IssuedView[]>(`/api/v1/badges/${badge.id}/issued`);
-      setIssuedList(rows);
-      setIssuedBadgeId(badge.id);
-    } catch {
-      setIssuedError(t('issuedLoadFailed'));
-    }
+  function toggleIssued(badge: BadgeView) {
+    setIssuedBadgeId((current) => (current === badge.id ? null : badge.id));
   }
 
   const issuedBadgeName = all.find((b) => b.id === issuedBadgeId)?.name ?? '';
+  const issuedOpen = issuedBadgeId !== null && issuedQuery.data !== undefined;
 
   return (
     <PageShell width="medium">
       <PageHeader title={t('badgesHeading')} />
-      {error ? (
+      {loadFailed ? (
         <>
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{t('badgesLoadFailed')}</AlertDescription>
           </Alert>
           <div>
             <Button
               type="button"
               variant="outline"
               onClick={() => {
-                setError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setError(t('badgesLoadFailed')))
-                  .finally(() => setLoading(false));
+                void mineQuery.refetch();
+                void allQuery.refetch();
               }}
             >
               {t('retry')}
@@ -238,11 +191,11 @@ export function BadgesPage() {
                   <span className="font-medium">{b.name}</span>
                   <span>{STATUS_LABEL[b.status] ?? b.status}</span>
                   {b.status === 0 ? (
-                    <Button type="button" variant="outline" onClick={() => void activate(b.id)}>
+                    <Button type="button" variant="outline" onClick={() => activate(b.id)}>
                       {t('activate')}
                     </Button>
                   ) : null}
-                  <Button type="button" variant="outline" onClick={() => void toggleIssued(b)}>
+                  <Button type="button" variant="outline" onClick={() => toggleIssued(b)}>
                     {issuedBadgeId === b.id ? t('hideIssued') : t('viewIssued')}
                   </Button>
                 </li>
@@ -253,7 +206,7 @@ export function BadgesPage() {
                 <AlertDescription>{issuedError}</AlertDescription>
               </Alert>
             ) : null}
-            {issuedBadgeId ? (
+            {issuedOpen ? (
               <div className="space-y-2">
                 <p className="font-medium">{t('issuedListTitle', { name: issuedBadgeName })}</p>
                 <ul className="space-y-1" aria-label={t('issuedListTitle', { name: issuedBadgeName })}>
@@ -275,7 +228,7 @@ export function BadgesPage() {
                 </ul>
               </div>
             ) : null}
-            <form onSubmit={(e) => void createBadge(e)}>
+            <form onSubmit={(e) => createBadge(e)}>
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="badge-name">{t('badgeName')}</FieldLabel>
@@ -286,7 +239,7 @@ export function BadgesPage() {
                 </div>
               </FieldGroup>
             </form>
-            <form onSubmit={(e) => void setCriteria(e)}>
+            <form onSubmit={(e) => setCriteria(e)}>
               <FieldGroup>
                 <Field>
                   <FieldLabel htmlFor="criteria-badge">{t('badgeId')}</FieldLabel>

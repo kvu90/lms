@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -10,9 +10,10 @@ import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
-import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
+import type { SiteSetting } from '@lms/contracts';
 import '../i18n';
-import { apiJson, ApiError } from '#lib/api';
+import { ApiError } from '#lib/api';
+import { useResetSiteSetting, useSaveSiteSetting, useSiteSettingAudit, useSiteSettings } from '#lib/site-config';
 
 /**
  * Các miền giá trị enum đã biết, đối chiếu registry phía backend
@@ -43,73 +44,79 @@ function formatValue(value: unknown): string {
  * vết thay đổi gần nhất từ GET /api/v1/site-config/audit. API khoá mọi
  * endpoint bằng capability `site:config`: bị 403 thì trang hiện
  * thông báo không có quyền thay vì sập.
+ *
+ * Dữ liệu qua TanStack Query (lib/site-config.ts, F-01): bảng setting và
+ * audit là hai query; Lưu/Đặt lại là mutation làm mới cả hai. Bản nháp của
+ * trang chỉ giữ phần người dùng ĐÃ sửa so với giá trị server — giá trị
+ * hiển thị của dòng chưa sửa suy thẳng từ query nên sau khi lưu/đặt lại
+ * (query được làm mới) dòng tự về giá trị server mới, không cần nạp lại
+ * toàn trang như trước.
  */
 export function AdminSiteConfigPage() {
   const { t } = useTranslation('app');
-  const [settings, setSettings] = useState<SiteSetting[]>([]);
-  const [audit, setAudit] = useState<SiteSettingAuditEntry[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string | boolean>>({});
-  const [forbidden, setForbidden] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  /** Nạp settings + audit; 403 ở GET settings được tách riêng để hiện thông báo quyền. */
-  const reload = useCallback(async () => {
-    try {
-      const list = await apiJson<SiteSetting[]>('/api/v1/site-config');
-      setSettings(list);
-      setDrafts(
-        Object.fromEntries(
-          list.map((s) => [settingKey(s), typeof s.value === 'boolean' ? s.value : formatValue(s.value)]),
-        ),
-      );
-      setForbidden(false);
-      setError(null);
-    } catch (err) {
-      if (err instanceof ApiError && err.problem.status === 403) {
-        setForbidden(true);
-        return;
-      }
-      setError(t('siteConfigLoadFailed'));
-      return;
-    }
-    const entries = await apiJson<SiteSettingAuditEntry[]>('/api/v1/site-config/audit').catch(() => []);
-    setAudit(entries);
-  }, [t]);
+  const settingsQuery = useSiteSettings();
+  const auditQuery = useSiteSettingAudit(settingsQuery.isSuccess);
+  const saveMutation = useSaveSiteSetting();
+  const resetMutation = useResetSiteSetting();
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  const settings = settingsQuery.data ?? [];
+  const audit = auditQuery.data ?? [];
+  const forbidden =
+    settingsQuery.error instanceof ApiError && settingsQuery.error.problem.status === 403;
+  const error = settingsQuery.isError && !forbidden ? t('siteConfigLoadFailed') : null;
+
+  /** Giá trị đang hiển thị của một dòng: bản nháp nếu người dùng đã sửa, không thì giá trị server. */
+  function draftOf(setting: SiteSetting): string | boolean {
+    const key = settingKey(setting);
+    if (key in drafts) return drafts[key]!;
+    return typeof setting.value === 'boolean' ? setting.value : formatValue(setting.value);
+  }
+
+  /** Bỏ bản nháp của một setting sau khi lưu/đặt lại thành công — dòng về giá trị server mới. */
+  function clearDraft(setting: SiteSetting) {
+    const key = settingKey(setting);
+    setDrafts((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
 
   /** Lưu một setting qua PUT với giá trị đã ép đúng kiểu đã đăng ký (number gửi dạng number, boolean dạng boolean). */
-  async function save(setting: SiteSetting) {
-    const key = settingKey(setting);
-    const draft = drafts[key];
+  function save(setting: SiteSetting) {
+    const draft = draftOf(setting);
     const value: unknown =
       setting.type === 'boolean' ? draft === true : setting.type === 'number' ? Number(draft) : String(draft ?? '');
     setMessage(null);
-    try {
-      await apiJson(`/api/v1/site-config/${setting.component}/${setting.name}`, {
-        method: 'PUT',
-        body: JSON.stringify({ value }),
-      });
-      setMessage(t('siteConfigSaved'));
-      await reload();
-    } catch {
-      setMessage(t('siteConfigSaveFailed'));
-    }
+    saveMutation.mutate(
+      { component: setting.component, name: setting.name, value },
+      {
+        onSuccess: () => {
+          clearDraft(setting);
+          setMessage(t('siteConfigSaved'));
+        },
+        onError: () => setMessage(t('siteConfigSaveFailed')),
+      },
+    );
   }
 
   /** Xoá ghi đè của một setting qua DELETE để nó trở về giá trị mặc định trong code. */
-  async function reset(setting: SiteSetting) {
+  function reset(setting: SiteSetting) {
     setMessage(null);
-    try {
-      await apiJson(`/api/v1/site-config/${setting.component}/${setting.name}`, { method: 'DELETE' });
-      setMessage(t('siteConfigResetDone'));
-      await reload();
-    } catch {
-      setMessage(t('siteConfigResetFailed'));
-    }
+    resetMutation.mutate(
+      { component: setting.component, name: setting.name },
+      {
+        onSuccess: () => {
+          clearDraft(setting);
+          setMessage(t('siteConfigResetDone'));
+        },
+        onError: () => setMessage(t('siteConfigResetFailed')),
+      },
+    );
   }
 
   const components = [...new Set(settings.map((s) => s.component))];
@@ -149,7 +156,7 @@ export function AdminSiteConfigPage() {
                   .filter((s) => s.component === component)
                   .map((setting) => {
                     const key = settingKey(setting);
-                    const draft = drafts[key] ?? '';
+                    const draft = draftOf(setting);
                     const enumOptions = setting.type === 'enum' ? KNOWN_ENUM_OPTIONS[key] : undefined;
                     const inputId = `site-config-${setting.component}-${setting.name}`;
                     return (
@@ -210,11 +217,11 @@ export function AdminSiteConfigPage() {
                               onChange={(e) => setDrafts((prev) => ({ ...prev, [key]: e.target.value }))}
                             />
                           )}
-                          <Button type="button" onClick={() => void save(setting)}>
+                          <Button type="button" onClick={() => save(setting)}>
                             {t('siteConfigSave')}
                           </Button>
                           {setting.source === 'database' ? (
-                            <Button type="button" variant="outline" onClick={() => void reset(setting)}>
+                            <Button type="button" variant="outline" onClick={() => reset(setting)}>
                               {t('siteConfigReset')}
                             </Button>
                           ) : null}

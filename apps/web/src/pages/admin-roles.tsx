@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CAP, type Capability, type Role } from '@lms/contracts';
+import { useEffect, useRef, useState } from 'react';
+import { CAP, type Role } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -18,23 +18,23 @@ import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
-
-interface ContextRow {
-  id: string;
-  contextLevel: number;
-  instanceId: string;
-  path: string;
-}
-interface RoleCapabilityRow {
-  roleId: string;
-  capability: string;
-  contextId: string;
-  permission: number;
-}
+import {
+  useAccessCapabilities,
+  useAccessContexts,
+  useAccessRoles,
+  useCreateAssignment,
+  useRoleCapabilities,
+} from '#lib/access';
 
 /** Nhãn mức quyền dịch qua catalog ở thời điểm render (xem hook trong component). */
 
+/**
+ * Trang quản trị vai trò: danh sách vai + danh mục capability + cây
+ * context là ba query TanStack (lib/access.ts, F-01) dùng chung khoá
+ * factory với các bề mặt quản trị khác; ma trận capability của một vai là
+ * query theo vai được chọn; gán vai là mutation làm mới các truy vấn
+ * access và ảnh chụp capability thay vì im lặng như trước.
+ */
 export function AdminRolesPage() {
   const { t } = useTranslation('app');
   const PERMISSION_LABEL: Record<number, string> = {
@@ -60,66 +60,58 @@ export function AdminRolesPage() {
       filterValue: (row) => row.permission,
     },
   ];
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [capabilities, setCapabilities] = useState<Capability[]>([]);
-  const [contexts, setContexts] = useState<ContextRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [assign, setAssign] = useState({ userId: '', roleId: '', contextId: '' });
   const [matrixRole, setMatrixRole] = useState<Role | null>(null);
-  const [matrix, setMatrix] = useState<RoleCapabilityRow[]>([]);
 
-  const load = useCallback(async () => {
-    try {
-      const [r, c, x] = await Promise.all([
-        apiJson<Role[]>('/api/v1/access/roles'),
-        apiJson<Capability[]>('/api/v1/access/capabilities'),
-        apiJson<ContextRow[]>('/api/v1/access/contexts'),
-      ]);
-      setRoles(r);
-      setCapabilities(c);
-      setContexts(x);
-      const system = x.find((ctx) => ctx.contextLevel === 10);
-      if (system) setAssign((prev) => ({ ...prev, contextId: String(system.id) }));
-      setError(null);
-    } catch {
-      setError(t('rolesLoadFailed'));
-    }
-  }, []);
+  const rolesQuery = useAccessRoles();
+  const capabilitiesQuery = useAccessCapabilities();
+  const contextsQuery = useAccessContexts();
+  const matrixQuery = useRoleCapabilities(matrixRole?.id ?? null);
+  const assignmentMutation = useCreateAssignment();
 
+  const roles = rolesQuery.data ?? [];
+  const capabilities = capabilitiesQuery.data ?? [];
+  const contexts = contextsQuery.data ?? [];
+  const matrix = matrixQuery.data ?? [];
+  const loading = rolesQuery.isPending || capabilitiesQuery.isPending || contextsQuery.isPending;
+  const loadFailed = rolesQuery.isError || capabilitiesQuery.isError || contextsQuery.isError;
+
+  /** Mặc định context của form gán vai là context hệ thống (level 10), đặt một lần khi cây context về. */
+  const contextDefaulted = useRef(false);
   useEffect(() => {
-    void load().finally(() => setLoading(false));
-  }, [load]);
+    if (contextDefaulted.current || !contextsQuery.data) return;
+    contextDefaulted.current = true;
+    const system = contextsQuery.data.find((ctx) => ctx.contextLevel === 10);
+    if (system) setAssign((prev) => ({ ...prev, contextId: String(system.id) }));
+  }, [contextsQuery.data]);
 
-  async function submitAssignment() {
-    await apiJson('/api/v1/access/assignments', {
-      method: 'POST',
-      body: JSON.stringify({ userId: assign.userId, roleId: assign.roleId, contextId: assign.contextId }),
-    });
-    setAssign({ ...assign, userId: '' });
+  function submitAssignment() {
+    assignmentMutation.mutate(
+      { userId: assign.userId, roleId: assign.roleId, contextId: assign.contextId },
+      { onSuccess: () => setAssign((prev) => ({ ...prev, userId: '' })) },
+    );
   }
 
-  async function showMatrix(roleRow: Role) {
+  function showMatrix(roleRow: Role) {
     setMatrixRole(roleRow);
-    const rows = await apiJson<RoleCapabilityRow[]>(`/api/v1/access/roles/${roleRow.id}/capabilities`);
-    setMatrix(rows);
   }
 
   return (
     <PageShell width="full">
       <PageHeader title={t('rolesTitle')} description={t('rolesDescription')} />
-      {error ? (
+      {loadFailed ? (
         <>
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{t('rolesLoadFailed')}</AlertDescription>
           </Alert>
           <div>
             <Button
               type="button"
               variant="outline"
               onClick={() => {
-                setLoading(true);
-                void load().finally(() => setLoading(false));
+                void rolesQuery.refetch();
+                void capabilitiesQuery.refetch();
+                void contextsQuery.refetch();
               }}
             >
               {t('retry')}
@@ -144,7 +136,7 @@ export function AdminRolesPage() {
                       <strong>{r.name}</strong> <code>{r.shortName}</code>
                       {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
                     </span>
-                    <Button type="button" variant="outline" onClick={() => void showMatrix(r)}>
+                    <Button type="button" variant="outline" onClick={() => showMatrix(r)}>
                       {t('capabilityMatrix')}
                     </Button>
                   </li>
@@ -221,7 +213,7 @@ export function AdminRolesPage() {
               </Select>
             </Field>
             <div className="flex justify-end">
-              <Button type="button" onClick={() => void submitAssignment()}>
+              <Button type="button" onClick={() => submitAssignment()}>
                 {t('assignRole')}
               </Button>
             </div>

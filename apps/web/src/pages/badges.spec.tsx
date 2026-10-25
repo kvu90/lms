@@ -145,6 +145,27 @@ describe('Badges page — real endpoints', () => {
     expect(calls.some((c) => c.url.includes('/activate'))).toBe(false);
   });
 
+  it('invalidates the badge queries after activation so the list refetches with the new status (F-01)', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    const state = { badgeStatus: 0 };
+    stubFetch(calls, state);
+    renderBadges();
+
+    const activateButton = await screen.findByRole('button', { name: 'Kích hoạt' });
+    const listCallsBefore = calls.filter((c) => c.url === '/api/v1/badges' && c.method === 'GET').length;
+    await userEvent.click(activateButton);
+
+    // Đột biến làm mới truy vấn qua tiền tố khoá factory: danh sách được tải
+    // lại và nút Kích hoạt biến mất vì badge đã sang trạng thái hoạt động.
+    await waitFor(() =>
+      expect(calls.filter((c) => c.url === '/api/v1/badges' && c.method === 'GET').length).toBeGreaterThan(
+        listCallsBefore,
+      ),
+    );
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Kích hoạt' })).not.toBeInTheDocument());
+  });
+
   it('shows the issued list of a badge from GET /badges/:id/issued in the admin panel', async () => {
     localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
