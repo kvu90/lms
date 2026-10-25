@@ -7,6 +7,7 @@ import '../i18n';
 import { ApiError, apiJson } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { usePermissions, type CourseAccess } from '#lib/permissions';
+import { useCoursesGradeData } from '#lib/course-grade-data';
 import { queryKeys } from '#lib/query-keys';
 import { displayCourseName, useCourseCardPrefs } from '#lib/course-cards';
 import { DashboardSkeleton } from '#components/dashboard-skeleton';
@@ -385,18 +386,22 @@ function AdminSection() {
 }
 
 /**
- * Khối giảng dạy: dựng hoàn toàn từ dữ liệu PermissionsProvider đã dò theo
- * từng khoá (lưới điểm theo bài toàn lớp). Thẻ "chưa có điểm" là hàng đợi
- * chấm thật — học viên chưa có điểm ở bất kỳ bài nào. Biểu đồ phân bố
- * điểm tính theo từng ô của lưới, chuẩn hoá theo điểm tối đa của bài đó.
+ * Khối giảng dạy: phân loại khoá dạy lấy từ PermissionsProvider, còn
+ * lưới điểm theo bài toàn lớp tải lười tại khối này qua
+ * `useCoursesGradeData` (F-02, rà soát #133 — provider không còn dò
+ * dữ liệu điểm khi nạp app). Thẻ "chưa có điểm" là hàng đợi chấm thật
+ * — học viên chưa có điểm ở bất kỳ bài nào. Biểu đồ phân bố điểm tính
+ * theo từng ô của lưới, chuẩn hoá theo điểm tối đa của bài đó.
  */
 function TeacherSection() {
   const { t } = useTranslation('dashboard');
   const perms = usePermissions();
   const prefs = useCourseCardPrefs();
   const teaching = perms.teaching;
+  const gradeData = useCoursesGradeData(teaching.map((c) => c.course.id));
+  const reportOf = (c: CourseAccess) => gradeData.get(c.course.id)?.report ?? null;
 
-  const rows = teaching.flatMap((c) => c.report?.rows ?? []);
+  const rows = teaching.flatMap((c) => reportOf(c)?.rows ?? []);
   const graded = rows.filter((r) => Object.values(r.grades).some((g) => g !== null)).length;
   const cards: StatCard[] = [
     {
@@ -429,8 +434,9 @@ function TeacherSection() {
     ];
     const counts = buckets.map(() => 0);
     for (const access of teaching) {
-      const maxByItem = new Map((access.report?.items ?? []).map((i) => [i.id, i.gradeMax]));
-      for (const row of access.report?.rows ?? []) {
+      const report = reportOf(access);
+      const maxByItem = new Map((report?.items ?? []).map((i) => [i.id, i.gradeMax]));
+      for (const row of report?.rows ?? []) {
         for (const [itemId, grade] of Object.entries(row.grades)) {
           if (grade === null) continue;
           const max = maxByItem.get(itemId);
@@ -442,7 +448,8 @@ function TeacherSection() {
       }
     }
     return buckets.map((b, i) => ({ label: b.label, value: counts[i]! }));
-  }, [teaching]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teaching, gradeData]);
 
   const columns: DataColumn<CourseAccess>[] = [
     {
@@ -454,14 +461,14 @@ function TeacherSection() {
     {
       id: 'students',
       header: t('colStudents'),
-      cell: (c) => String(c.report?.rows.length ?? 0),
-      sortValue: (c) => c.report?.rows.length ?? 0,
+      cell: (c) => String(reportOf(c)?.rows.length ?? 0),
+      sortValue: (c) => reportOf(c)?.rows.length ?? 0,
     },
     {
       id: 'ungraded',
       header: t('colUngraded'),
-      cell: (c) => String((c.report?.rows ?? []).filter((r) => !Object.values(r.grades).some((g) => g !== null)).length),
-      sortValue: (c) => (c.report?.rows ?? []).filter((r) => !Object.values(r.grades).some((g) => g !== null)).length,
+      cell: (c) => String((reportOf(c)?.rows ?? []).filter((r) => !Object.values(r.grades).some((g) => g !== null)).length),
+      sortValue: (c) => (reportOf(c)?.rows ?? []).filter((r) => !Object.values(r.grades).some((g) => g !== null)).length,
     },
     {
       id: 'actions',
@@ -510,8 +517,9 @@ function TeacherSection() {
 }
 
 /**
- * Khối học tập của học viên: khoá đang học và điểm của chính mình lấy từ
- * tầng quyền (ghi danh + sổ điểm cá nhân theo từng khoá); huy hiệu đã cấp
+ * Khối học tập của học viên: khoá đang học lấy từ tầng quyền (ghi
+ * danh), điểm của chính mình theo từng khoá tải lười tại khối này qua
+ * `useCoursesGradeData` (F-02, rà soát #133); huy hiệu đã cấp
  * và thông báo chưa đọc gọi các endpoint tự phục vụ tương ứng; biểu đồ là
  * sự kiện lịch 30 ngày tới theo ngày. Học viên không bao giờ chạm endpoint
  * quản trị hay báo cáo lớp từ khối này.
@@ -521,6 +529,8 @@ function StudentSection() {
   const perms = usePermissions();
   const prefs = useCourseCardPrefs();
   const learning = perms.learning;
+  const gradeData = useCoursesGradeData(learning.map((c) => c.course.id));
+  const gradebookOf = (c: CourseAccess) => gradeData.get(c.course.id)?.gradebook ?? null;
   // Huy hiệu, thông báo và sự kiện lịch là ba query độc lập chạy SONG
   // SONG — trước đây một effect await lần lượt từng endpoint nên thẻ
   // thống kê mọc nối tiếp và đẩy bố cục (nguồn CLS đội audit đo được).
@@ -551,7 +561,7 @@ function StudentSection() {
 
   const activityPcts: number[] = [];
   for (const access of learning) {
-    for (const activity of access.gradebook?.activities ?? []) {
+    for (const activity of gradebookOf(access)?.activities ?? []) {
       if (activity.grade?.finalGrade !== null && activity.grade?.finalGrade !== undefined && activity.item.gradeMax > 0) {
         activityPcts.push((activity.grade.finalGrade / activity.item.gradeMax) * 100);
       }
@@ -619,14 +629,14 @@ function StudentSection() {
       id: 'mygrade',
       header: t('colMyGrade'),
       cell: (c) => {
-        const pcts = (c.gradebook?.activities ?? [])
+        const pcts = (gradebookOf(c)?.activities ?? [])
           .filter((a) => a.grade?.finalGrade !== null && a.grade?.finalGrade !== undefined && a.item.gradeMax > 0)
           .map((a) => (a.grade!.finalGrade! / a.item.gradeMax) * 100);
         if (!pcts.length) return '—';
         return `${(pcts.reduce((x, y) => x + y, 0) / pcts.length).toFixed(1)}%`;
       },
       sortValue: (c) => {
-        const pcts = (c.gradebook?.activities ?? [])
+        const pcts = (gradebookOf(c)?.activities ?? [])
           .filter((a) => a.grade?.finalGrade !== null && a.grade?.finalGrade !== undefined && a.item.gradeMax > 0)
           .map((a) => (a.grade!.finalGrade! / a.item.gradeMax) * 100);
         return pcts.length ? pcts.reduce((x, y) => x + y, 0) / pcts.length : -1;

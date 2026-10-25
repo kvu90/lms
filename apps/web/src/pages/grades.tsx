@@ -20,7 +20,8 @@ import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
-import { fetchCourseGradeData, usePermissions } from '#lib/permissions';
+import { fetchCourseGradeData } from '#lib/course-grade-data';
+import { usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 
 /**
@@ -89,9 +90,10 @@ export function GradebookPage() {
   const courseId = id ?? '';
   const perms = usePermissions();
   // Điểm theo bài + lưới lớp đọc qua TanStack với ĐÚNG khoá
-  // `courseAccess` và fetcher mà PermissionsProvider dùng (F-03, rà
-  // soát #133): cache dùng chung, trang mở sau provider thì không tốn
-  // request thêm.
+  // `courseAccess` và fetcher dùng chung ở lib/course-grade-data.ts
+  // (F-03, rà soát #133): bề mặt nào mở trước thì bề mặt sau đọc cache,
+  // không tốn request thêm. Provider KHÔNG tải dữ liệu này khi nạp app
+  // (F-02) — trang này là một trong các bề mặt tải lười nó.
   const gradeDataQuery = useQuery({
     queryKey: queryKeys.courseAccess(courseId),
     queryFn: () => fetchCourseGradeData(courseId),
