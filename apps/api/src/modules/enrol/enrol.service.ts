@@ -18,6 +18,16 @@ function enrolAssignmentSource(instance: EnrolRow): { component: string; itemId:
   return { component: ENROL_ASSIGNMENT_COMPONENT, itemId: instance.id };
 }
 
+/** Lỗi có phải unique violation của PostgreSQL (mã 23505, có thể bọc trong cause của DrizzleQueryError) hay không. */
+function isUniqueViolation(err: unknown): boolean {
+  let current: unknown = err;
+  for (let depth = 0; depth < 6 && current instanceof Error; depth++) {
+    if ((current as { code?: unknown }).code === '23505') return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 /** Dòng `a` có phải là dòng gán vai do chính instance này cấp hay không. */
 function isInstanceAssignment(a: EnrolAssignmentRow, instance: EnrolRow): boolean {
   return a.roleId === instance.roleId && a.component === ENROL_ASSIGNMENT_COMPONENT && a.itemId === instance.id;
@@ -318,12 +328,26 @@ export class EnrolService implements OnModuleInit {
       await this.repo.updateUserEnrolment(existing.id, { status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId });
       ue = (await this.repo.getUserEnrolment(instance.id, userId))!;
     } else {
-      isNewEnrolment = true;
-      ue = await this.repo.dbHandle.transaction(async (tx) => {
-        const row = await this.repo.insertUserEnrolment({ enrolId: instance.id, userId: userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId }, tx as never);
-        await this.outbox.enqueue(tx as never, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol, actorId: modifierId ?? null } });
-        return row;
-      });
+      try {
+        ue = await this.repo.dbHandle.transaction(async (tx) => {
+          const row = await this.repo.insertUserEnrolment({ enrolId: instance.id, userId: userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId }, tx as never);
+          await this.outbox.enqueue(tx as never, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol, actorId: modifierId ?? null } });
+          return row;
+        });
+        isNewEnrolment = true;
+      } catch (err) {
+        // Đua ghi đồng thời (CLASS-0, #184): consumer outbox phát lại sự
+        // kiện cohort trong lúc request tạo instance đang backfill cùng
+        // một học sinh — cả hai cùng qua cửa "chưa có UE" rồi cùng
+        // insert, một phía ăn unique violation trên
+        // (enrol_id, user_id). Nối vào đường cập nhật idempotent thay
+        // vì để 500 lọt ra ngoài; phía thắng đã phát user_enrolled.
+        if (!isUniqueViolation(err)) throw err;
+        const winner = await this.repo.getUserEnrolment(instance.id, userId);
+        if (!winner) throw err;
+        await this.repo.updateUserEnrolment(winner.id, { status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId });
+        ue = (await this.repo.getUserEnrolment(instance.id, userId))!;
+      }
     }
     // Ghi danh vào khoá của tenant nào thì thuộc tenant đó (TENANT-0,
     // #168): membership active được đảm bảo ngay tại đây để cổng
