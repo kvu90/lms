@@ -33,7 +33,7 @@ import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson, ApiError } from '#lib/api';
+import { apiFetch, apiJson, ApiError } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
 import { DataTable, type DataColumn } from '#components/data-table';
 
@@ -160,6 +160,43 @@ interface ExamContributionLite {
   paperName: string | null;
   status: string;
   proposerId: string;
+}
+
+/** Một mốc duyệt trong vết của bộ hồ sơ (EB-3). */
+interface ExamDossierReviewLite {
+  level: number;
+  reviewerName: string | null;
+  decision: string;
+  reason: string | null;
+}
+
+/** Một BỘ HỒ SƠ đề (EB-3): ma trận + đề + đặc tả ghim tại lúc nộp, duyệt theo bộ (có thể hai cấp). */
+interface ExamDossierLite {
+  id: string;
+  paperId: string;
+  paperName: string | null;
+  targetBankId: string;
+  proposerName: string | null;
+  note: string;
+  status: string;
+  paperVersionNumber: number | null;
+  matrixName: string | null;
+  matrixVersion: number | null;
+  boardApprovalRequired: boolean;
+  resultPaperId: string | null;
+  reviews: ExamDossierReviewLite[];
+}
+
+/** Bản đặc tả đã chụp trong bộ hồ sơ — chỉ phần cần để hiển thị tóm tắt trong hàng chờ (EB-3). */
+interface DossierSpecLite {
+  totals: { totalQuestions: number; totalScore: number };
+  topics: {
+    nodes: {
+      outcomes: {
+        cells: { cognitiveLevel: string; questionCount: number; cellScore: number; slotNumbers: number[] | null }[];
+      }[];
+    }[];
+  }[];
 }
 
 /** Khoá học cho hộp thoại triển khai đề vào quiz. */
@@ -478,6 +515,13 @@ export function QuestionsPage() {
   const [paperContributions, setPaperContributions] = useState<ExamContributionLite[]>([]);
   const [proposePaperId, setProposePaperId] = useState('');
   const [proposePaperBankId, setProposePaperBankId] = useState('');
+  // Bộ hồ sơ đề (EB-3, issue #165): hàng chờ của bank đích đang chọn,
+  // danh sách bộ của chính giáo viên, form nộp bộ và bản đặc tả đang mở.
+  const [bankDossiers, setBankDossiers] = useState<ExamDossierLite[]>([]);
+  const [myDossiers, setMyDossiers] = useState<ExamDossierLite[]>([]);
+  const [dossierPaperId, setDossierPaperId] = useState('');
+  const [dossierBankId, setDossierBankId] = useState('');
+  const [openDossierSpec, setOpenDossierSpec] = useState<{ dossierId: string; spec: DossierSpecLite } | null>(null);
   const [deployPaper, setDeployPaper] = useState<PaperSummaryLite | null>(null);
   const [deployCourses, setDeployCourses] = useState<CourseLite[]>([]);
   const [deployCourseId, setDeployCourseId] = useState('');
@@ -694,6 +738,11 @@ export function QuestionsPage() {
 
   const subjectName = (subjectId: string) => subjects.find((s) => s.id === subjectId)?.name ?? '';
   const matrixStatusKey = (status: string) => `matrixStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
+  /** Khoá i18n cho trạng thái bộ hồ sơ (EB-3): pending_board là khoá ghép riêng. */
+  const dossierStatusKey = (status: string) =>
+    status === 'pending_board'
+      ? 'dossierStatusPendingBoard'
+      : `dossierStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
   const matrixPresetKey = (kind: string) =>
     kind === 'cv7991_periodic' ? 'matrixPresetPeriodic' : kind === 'qd764_graduation' ? 'matrixPresetGraduation' : 'matrixPresetCustom';
   const filteredSharedMatrices = sharedMatrices.filter(
@@ -721,6 +770,7 @@ export function QuestionsPage() {
       const rows = await apiJson<BankLite[]>('/api/v1/question-banks?kind=exam');
       setExamBanks(rows);
       await loadMyPapers(rows);
+      await loadMyDossiers();
     } catch {
       setExamBanks([]);
     }
@@ -745,6 +795,87 @@ export function QuestionsPage() {
       setPaperContributions(rows.filter((c) => c.status === 'pending'));
     } catch {
       setPaperContributions([]);
+    }
+    try {
+      const rows = await apiJson<ExamDossierLite[]>(`/api/v1/exam-papers/banks/${bankId}/dossiers`);
+      setBankDossiers(rows.filter((d) => d.status === 'pending' || d.status === 'pending_board'));
+    } catch {
+      setBankDossiers([]);
+    }
+  }
+
+  /** Mọi bộ hồ sơ của chính giáo viên (theo dõi duyệt + lý do từ chối). */
+  async function loadMyDossiers() {
+    try {
+      const rows = await apiJson<ExamDossierLite[]>('/api/v1/exam-papers/dossiers/mine');
+      setMyDossiers(rows);
+    } catch {
+      setMyDossiers([]);
+    }
+  }
+
+  /** Nộp một BỘ HỒ SƠ: lập hồ sơ cho đề ready có ma trận rồi nộp ngay (ghim version + chụp đặc tả ở phía API). */
+  async function proposeDossier() {
+    if (!dossierPaperId || !dossierBankId) return;
+    try {
+      const created = await apiJson<ExamDossierLite>(`/api/v1/exam-papers/${dossierPaperId}/dossiers`, {
+        method: 'POST',
+        body: JSON.stringify({ targetBankId: dossierBankId }),
+      });
+      await apiJson(`/api/v1/exam-papers/dossiers/${created.id}/submit`, { method: 'POST', body: '{}' });
+      setMessage(t('dossierProposedOk'));
+      await loadMyDossiers();
+      if (systemExamBankId) await loadSystemPapers(systemExamBankId);
+    } catch (err) {
+      setMessage(withApiReason(t('dossierFailed'), err));
+    }
+  }
+
+  /** Một mốc duyệt của bộ hồ sơ: cấp 1 (approve/reject) hoặc cấp 2 BGH (board-approve/board-reject); từ chối bắt buộc lý do. */
+  async function reviewDossier(dossierId: string, action: 'approve' | 'reject' | 'board-approve' | 'board-reject') {
+    try {
+      if (action === 'approve' || action === 'board-approve') {
+        await apiJson(`/api/v1/exam-papers/dossiers/${dossierId}/${action}`, { method: 'POST', body: '{}' });
+      } else {
+        const reason = window.prompt(t('contributionReject')) ?? '';
+        if (!reason.trim()) return;
+        await apiJson(`/api/v1/exam-papers/dossiers/${dossierId}/${action}`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+      }
+      if (systemExamBankId) await loadSystemPapers(systemExamBankId);
+      await loadMyDossiers();
+    } catch (err) {
+      setMessage(withApiReason(t('dossierFailed'), err));
+    }
+  }
+
+  /** Mở/đóng bản đặc tả ĐÃ CHỤP của bộ hồ sơ ngay trong hàng chờ. */
+  async function toggleDossierSpec(dossierId: string) {
+    if (openDossierSpec?.dossierId === dossierId) { setOpenDossierSpec(null); return; }
+    try {
+      const spec = await apiJson<DossierSpecLite>(`/api/v1/exam-papers/dossiers/${dossierId}/specification`);
+      setOpenDossierSpec({ dossierId, spec });
+    } catch (err) {
+      setMessage(withApiReason(t('dossierFailed'), err));
+    }
+  }
+
+  /** Tải bản đặc tả đã chụp của bộ hồ sơ ra file xlsx. */
+  async function downloadDossierSpec(dossierId: string) {
+    try {
+      const res = await apiFetch(`/api/v1/exam-papers/dossiers/${dossierId}/specification/export?format=xlsx`);
+      if (!res.ok) throw new Error(String(res.status));
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ban-dac-ta.xlsx';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setMessage(withApiReason(t('dossierFailed'), err));
     }
   }
 
@@ -1596,6 +1727,86 @@ export function QuestionsPage() {
                 </Button>
               </div>
             ) : null}
+            {/* Nộp BỘ HỒ SƠ (EB-3): đề ready CÓ ma trận nộp theo cả bộ
+                (ma trận + đề + đặc tả) vào bank tổ/trường; trạng thái và
+                lý do từ chối theo dõi ngay dưới đây. */}
+            {sharedExamBanks.length > 0 && myPapers.length > 0 ? (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div>
+                    <Label htmlFor="dossier-paper">{t('dossierPropose')}</Label>
+                    <select
+                      id="dossier-paper"
+                      data-testid="dossier-paper-select"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={dossierPaperId}
+                      onChange={(e) => setDossierPaperId(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {myPapers.filter((p) => p.status === 'ready').map((paper) => (
+                        <option key={paper.id} value={paper.id}>{paper.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="dossier-bank">{t('pickBank')}</Label>
+                    <select
+                      id="dossier-bank"
+                      data-testid="dossier-bank-select"
+                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
+                      value={dossierBankId}
+                      onChange={(e) => setDossierBankId(e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {sharedExamBanks.map((bank) => (
+                        <option key={bank.id} value={bank.id}>{bank.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    type="button"
+                    data-testid="dossier-submit-button"
+                    disabled={!dossierPaperId || !dossierBankId}
+                    onClick={() => void proposeDossier()}
+                  >
+                    {t('dossierPropose')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">{t('dossierProposeHint')}</p>
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              <h4 className="font-medium">{t('dossierMine')}</h4>
+              {myDossiers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('dossierEmpty')}</p>
+              ) : (
+                <ul className="space-y-2">
+                  {myDossiers.map((d) => {
+                    const rejection = [...d.reviews].reverse().find((r) => r.decision === 'rejected');
+                    return (
+                      <li key={d.id} className="flex flex-wrap items-center gap-2" data-testid="my-dossier-row">
+                        <span className="min-w-0 flex-1">
+                          {d.paperName ?? d.paperId}
+                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
+                            {t(dossierStatusKey(d.status))}
+                          </span>
+                          {d.paperVersionNumber !== null ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {t('dossierPinned', { paperVersion: d.paperVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}
+                            </span>
+                          ) : null}
+                          {d.status === 'rejected' && rejection?.reason ? (
+                            <span className="block text-xs text-destructive">
+                              {t('dossierRejectedReason', { reason: rejection.reason })}
+                            </span>
+                          ) : null}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </CardContent>
         )}
       </Card>
@@ -1801,6 +2012,85 @@ export function QuestionsPage() {
                         >
                           {t('contributionReject')}
                         </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {/* Hàng chờ BỘ HỒ SƠ (EB-3): người duyệt mở bản đặc tả đã
+                  chụp ngay tại hàng chờ; cấp 1 duyệt ở bank đích, cấp 2
+                  (BGH) chỉ xuất hiện khi bộ ở trạng thái chờ BGH. */}
+              {systemExamBankId && bankDossiers.length > 0 ? (
+                <div className="space-y-2">
+                  <h4 className="font-medium">{t('dossierQueue')}</h4>
+                  <ul className="space-y-2">
+                    {bankDossiers.map((d) => (
+                      <li key={d.id} className="space-y-1" data-testid="dossier-queue-row">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="min-w-0 flex-1">
+                            {d.paperName ?? d.paperId}
+                            <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
+                              {t(dossierStatusKey(d.status))}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {t('contributionBy', { name: d.proposerName ?? '—' })}
+                              {d.paperVersionNumber !== null
+                                ? ` · ${t('dossierPinned', { paperVersion: d.paperVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}`
+                                : ''}
+                            </span>
+                          </span>
+                          <Button type="button" variant="outline" onClick={() => void toggleDossierSpec(d.id)}>
+                            {t('dossierViewSpec')}
+                          </Button>
+                          <Button type="button" variant="outline" onClick={() => void downloadDossierSpec(d.id)}>
+                            {t('dossierDownloadSpec')}
+                          </Button>
+                          {d.status === 'pending' ? (
+                            <>
+                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'approve')}>
+                                {t('contributionApprove')}
+                              </Button>
+                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'reject')}>
+                                {t('contributionReject')}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'board-approve')}>
+                                {t('dossierBoardApprove')}
+                              </Button>
+                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'board-reject')}>
+                                {t('dossierBoardReject')}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {openDossierSpec?.dossierId === d.id ? (
+                          <div className="rounded-md border p-3 text-sm" data-testid="dossier-spec-panel">
+                            <p className="font-medium">
+                              {t('dossierSpecTotals', {
+                                count: openDossierSpec.spec.totals.totalQuestions,
+                                score: openDossierSpec.spec.totals.totalScore,
+                              })}
+                            </p>
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                              {openDossierSpec.spec.topics.flatMap((topic) =>
+                                topic.nodes.flatMap((node) =>
+                                  node.outcomes.flatMap((outcome) =>
+                                    outcome.cells.map((cell, idx) => (
+                                      <li key={idx}>
+                                        {cell.cognitiveLevel} · {cell.questionCount} · {cell.cellScore}
+                                        {cell.slotNumbers?.length
+                                          ? ` · ${t('dossierSpecSlots', { slots: cell.slotNumbers.join(', ') })}`
+                                          : ''}
+                                      </li>
+                                    )),
+                                  ),
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

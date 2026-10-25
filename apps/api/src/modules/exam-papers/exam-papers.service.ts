@@ -13,7 +13,7 @@ import { RolesService } from '../access/roles.service';
 import { CAP_ALLOW } from '../access/domain/permission';
 import { QuestionBanksService, QBANK_LEAD_ROLE, QBANK_MEMBER_ROLE } from '../questions/question-banks.service';
 import type { QuestionBankRow } from '../questions/question-banks.repository';
-import { QuizService } from '../quiz/quiz.service';
+import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import {
   ExamPapersRepository,
   type ExamDeploymentRow, type ExamPaperContributionRow, type ExamPaperRow, type ExamPaperSlotRow, type ExamPaperVersionRow,
@@ -30,6 +30,9 @@ export const EXAM_CAPABILITIES = {
   moderate: 'exam:moderate',
   deploy: 'exam:deploy',
 } as const;
+
+/** Các loại đề thuộc diện ĐỊNH KỲ/THI THỬ — nội dung ready của chúng tại bank trường là tài liệu mật theo nghĩa nghiệp vụ (lớp bảo mật A.3.4, EB-3). */
+export const PERIODIC_EXAM_KINDS = ['midterm', 'final', 'mock'] as const;
 
 /** exam:* cấp cho hai vai bank dùng chung tại context của MỖI bank đề: thành viên = xem + copy; chủ/tổ trưởng = toàn bộ. */
 const MEMBER_EXAM_CAPS = [EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.copy];
@@ -180,7 +183,7 @@ export class ExamPapersService {
   }
 
   /** Lấy bank đề (đồng bộ tư cách thành viên qua QuestionBanksService.getBank) + bảo đảm exam grants; 404 khi bank không tồn tại hoặc không phải bank đề. */
-  private async getExamBank(actorId: string, bankId: string): Promise<QuestionBankRow> {
+  async getExamBank(actorId: string, bankId: string): Promise<QuestionBankRow> {
     const view = await this.banks.getBank(actorId, bankId);
     if (view.bankKind !== 'exam') {
       throw new NotFoundException({ message: `Bank ${bankId} is not an exam bank`, code: 'exam.not_exam_bank' });
@@ -190,7 +193,7 @@ export class ExamPapersService {
     return bank;
   }
 
-  private async bankOfPaper(paper: ExamPaperRow): Promise<QuestionBankRow> {
+  async bankOfPaper(paper: ExamPaperRow): Promise<QuestionBankRow> {
     const bank = await this.banks.getBankOrThrow(paper.bankId);
     await this.ensureExamGrants(bank);
     return bank;
@@ -216,8 +219,63 @@ export class ExamPapersService {
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId);
   }
 
+  // --- lớp bảo mật đề định kỳ (A.3.4, EB-3) ---------------------------------------
+
+  /**
+   * Version hiện tại của đề khi đề thuộc diện bảo mật A.3.4 — bank
+   * TRƯỜNG + đề `ready` + loại định kỳ/thi thử; null khi không thuộc
+   * diện (đề ở bank tổ/khoá/cá nhân hoặc loại thường xuyên/ôn tập
+   * giữ nguyên cổng xem cơ bản).
+   */
+  private async periodicSchoolVersion(paper: ExamPaperRow, bank: QuestionBankRow): Promise<ExamPaperVersionRow | null> {
+    if (bank.scope !== 'school' || paper.status !== 'ready') return null;
+    const version = await this.currentVersion(paper);
+    if (!version.examKind || !(PERIODIC_EXAM_KINDS as readonly string[]).includes(version.examKind)) return null;
+    return version;
+  }
+
+  /**
+   * Cổng XEM NỘI DUNG đề (chi tiết kèm slots, bản in, bản đặc tả):
+   * cổng xem cơ bản cộng lớp A.3.4 — nội dung đề định kỳ/thi thử
+   * `ready` tại bank trường chỉ mở cho site admin, tác giả, người
+   * duyệt của bank (exam:moderate) hoặc giáo viên ĐANG DẠY khối của
+   * đề (gán vai archetype giáo viên tại context một khoá có grade
+   * khớp). Giáo viên cùng trường nhưng khác khối bị chặn 403
+   * `exam.periodic_view_forbidden`.
+   */
+  async assertCanViewPaperContent(actorId: string, paper: ExamPaperRow, bank: QuestionBankRow): Promise<void> {
+    await this.assertCanViewPaper(actorId, paper, bank);
+    const version = await this.periodicSchoolVersion(paper, bank);
+    if (!version) return;
+    if (await this.evaluator.isSiteAdmin(actorId)) return;
+    if (paper.createdBy === actorId) return;
+    if (await this.evaluator.hasCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId)) return;
+    if (version.grade !== null && await this.repo.userTeachesGrade(actorId, version.grade)) return;
+    throw new ForbiddenException({
+      message: 'Periodic exam content in the school bank is restricted to teachers of its grade and bank moderators',
+      code: 'exam.periodic_view_forbidden',
+    });
+  }
+
+  /**
+   * Ghi audit một lần XEM NỘI DUNG THÀNH CÔNG thuộc diện A.3.4 qua
+   * outbox/event log hiện có (no-op khi đề không thuộc diện): ai xem,
+   * đề nào, phiên bản nào, bề mặt nào (detail/print/specification).
+   */
+  async auditPaperContentView(actorId: string, paper: ExamPaperRow, bank: QuestionBankRow, surface: string): Promise<void> {
+    const version = await this.periodicSchoolVersion(paper, bank);
+    if (!version) return;
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_content_viewed',
+      payload: {
+        paperId: paper.id, paperVersionId: version.id, paperVersion: version.version,
+        bankId: bank.id, examKind: version.examKind, grade: version.grade, surface, actorId,
+      },
+    });
+  }
+
   /** Cổng sửa/xoá đề: có exam:edit tại bank VÀ (là tác giả HOẶC có exam:moderate) — GV khác chỉ xem/copy, không sửa đề cá nhân của người khác. */
-  private async assertCanEditPaper(actorId: string, paper: ExamPaperRow, bank: QuestionBankRow): Promise<void> {
+  async assertCanEditPaper(actorId: string, paper: ExamPaperRow, bank: QuestionBankRow): Promise<void> {
     if (await this.evaluator.isSiteAdmin(actorId)) return;
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, bank.contextId);
     if (paper.createdBy === actorId) return;
@@ -230,13 +288,13 @@ export class ExamPapersService {
     }
   }
 
-  private async getPaperOrThrow(id: string): Promise<ExamPaperRow> {
+  async getPaperOrThrow(id: string): Promise<ExamPaperRow> {
     const paper = await this.repo.getPaper(id);
     if (!paper) throw new NotFoundException({ message: `Exam paper ${id} not found`, code: 'exam.not_found' });
     return paper;
   }
 
-  private async currentVersion(paper: ExamPaperRow): Promise<ExamPaperVersionRow> {
+  async currentVersion(paper: ExamPaperRow): Promise<ExamPaperVersionRow> {
     const version = await this.repo.getVersionByNumber(paper.id, paper.latestVersion);
     if (!version) throw new NotFoundException({ message: `Paper ${paper.id} has no version ${paper.latestVersion}`, code: 'exam.version_not_found' });
     return version;
@@ -398,12 +456,14 @@ export class ExamPapersService {
     return summaries;
   }
 
-  /** Chi tiết một đề: version hiện tại + slots đã ghim + truy vết + khả năng của actor. */
+  /** Chi tiết một đề: version hiện tại + slots đã ghim + truy vết + khả năng của actor. Nội dung đề qua cổng A.3.4 (EB-3) và ghi audit khi thuộc diện định kỳ ở bank trường. */
   async getPaper(actorId: string, paperId: string): Promise<ExamPaperView> {
     const paper = await this.getPaperOrThrow(paperId);
     const bank = await this.bankOfPaper(paper);
-    await this.assertCanViewPaper(actorId, paper, bank);
-    return this.paperView(actorId, paper);
+    await this.assertCanViewPaperContent(actorId, paper, bank);
+    const view = await this.paperView(actorId, paper);
+    await this.auditPaperContentView(actorId, paper, bank, 'detail');
+    return view;
   }
 
   /** Tạo đề snapshot mới trong bank đề (metadata + slots tuỳ chọn; rỗng = đề trắng để soạn tiếp). */
@@ -599,18 +659,31 @@ export class ExamPapersService {
   /** Nhân bản đề (danh tính + version hiện tại thành version 1 + slots nguyên trạng) vào bank đích — dùng chung cho copy tay và duyệt đóng góp. */
   private async deepCopyInto(actorId: string, source: ExamPaperRow, target: QuestionBankRow, nameOverride?: string): Promise<ExamPaperRow> {
     const sourceVersion = await this.currentVersion(source);
+    return this.copyPaperVersionIntoBank(actorId, source, sourceVersion, target, { name: nameOverride, status: 'draft' });
+  }
+
+  /**
+   * Nhân bản MỘT PHIÊN BẢN CỤ THỂ của đề vào bank đích: danh tính
+   * mới, phiên bản đó trở thành version 1 của bản copy, slots sao
+   * nguyên (question + pinned version giữ nguyên), derived_from trỏ
+   * về đề nguồn, tác giả gốc giữ nguyên, copy_count của đề nguồn
+   * tăng. Copy tay/duyệt đóng góp dùng version hiện tại + trạng thái
+   * draft; duyệt BỘ HỒ SƠ (EB-3) dùng PHIÊN BẢN ĐÃ GHIM lúc nộp +
+   * trạng thái ready để đề hiện ngay ở bank đích sau khi duyệt đạt.
+   */
+  async copyPaperVersionIntoBank(actorId: string, source: ExamPaperRow, sourceVersion: ExamPaperVersionRow, target: QuestionBankRow, opts?: { name?: string; status?: string }): Promise<ExamPaperRow> {
     const sourceSlots = await this.repo.listSlots(sourceVersion.id);
     let created: ExamPaperRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
       created = await this.repo.insertPaper({
-        bankId: target.id, kind: source.kind, status: 'draft',
+        bankId: target.id, kind: source.kind, status: opts?.status ?? 'draft',
         derivedFromPaperId: source.id,
         derivedFromMatrixId: sourceVersion.matrixId,
         originalAuthorId: source.originalAuthorId ?? source.createdBy,
         createdBy: actorId, latestVersion: 1,
       }, tx);
       const version = await this.repo.insertVersion({
-        paperId: created.id, version: 1, name: nameOverride ?? sourceVersion.name,
+        paperId: created.id, version: 1, name: opts?.name ?? sourceVersion.name,
         subjectId: sourceVersion.subjectId, grade: sourceVersion.grade, examKind: sourceVersion.examKind,
         totalScore: sourceVersion.totalScore, durationMinutes: sourceVersion.durationMinutes,
         tfScale: sourceVersion.tfScale, matrixId: sourceVersion.matrixId,
@@ -1112,6 +1185,54 @@ export class ExamPapersService {
     return this.paperView(actorId, (await this.repo.getPaper(paper.id))!);
   }
 
+  // --- bản đặc tả theo đề (EB-3, E-6) -------------------------------------------------
+
+  /**
+   * Bản đặc tả neo theo ĐỀ (điểm E-6 của hồ sơ ngân hàng đề): đặc tả
+   * sinh từ ma trận của paper version hiện tại, vị trí câu lấy từ
+   * slots của chính đề (không phải từ quiz — quiz chỉ là một lần
+   * triển khai của đề). Tham số `quizId` tuỳ chọn ghi nhận lần triển
+   * khai cụ thể vào tài liệu; quiz phải thuộc chính đề này. Đề không
+   * gắn ma trận → 400 `exam.spec_requires_matrix`. Nội dung qua cổng
+   * A.3.4 + audit như mọi bề mặt nội dung đề.
+   */
+  async getPaperSpecification(actorId: string, paperId: string, quizId?: string): Promise<MatrixSpecification & { paper: { id: string; versionId: string; version: number; name: string } }> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanViewPaperContent(actorId, paper, bank);
+    const version = await this.currentVersion(paper);
+    if (!version.matrixId) {
+      throw new BadRequestException({
+        message: 'This paper is not built from a matrix; it has no specification grid',
+        code: 'exam.spec_requires_matrix',
+      });
+    }
+    let quizInfo: { id: string; name: string } | null = null;
+    if (quizId) {
+      const summary = await this.quiz.getQuizSummary(quizId);
+      if (!summary || summary.paperId !== paper.id) {
+        throw new BadRequestException({ message: 'The quiz was not deployed from this paper', code: 'quiz.spec_quiz_mismatch' });
+      }
+      quizInfo = { id: summary.id, name: summary.name };
+    }
+    const slots = await this.repo.listSlots(version.id);
+    const spec = await this.quiz.buildSpecificationForPaper(actorId, version.matrixId, slots.map((s) => ({
+      matrixCellId: s.matrixCellId, position: s.position, questionId: s.questionId,
+    })));
+    await this.auditPaperContentView(actorId, paper, bank, 'specification');
+    return {
+      ...spec,
+      quiz: quizInfo ?? spec.quiz,
+      paper: { id: paper.id, versionId: version.id, version: version.version, name: version.name },
+    };
+  }
+
+  /** Xuất bản đặc tả theo đề ra xlsx/docx — cùng renderer với đặc tả theo ma trận (một view model, hai định dạng). */
+  async exportPaperSpecification(actorId: string, paperId: string, format: string, quizId?: string): Promise<{ filename: string; contentType: string; buffer: Buffer }> {
+    const spec = await this.getPaperSpecification(actorId, paperId, quizId);
+    return this.quiz.renderSpecification(spec, format);
+  }
+
   // --- in đề kèm mã đề (EB-2, E-5) ------------------------------------------------------
 
   /**
@@ -1123,7 +1244,8 @@ export class ExamPapersService {
   async printPaperHtml(actorId: string, paperId: string, deploymentId: string, variantCode: string): Promise<string> {
     const paper = await this.getPaperOrThrow(paperId);
     const bank = await this.bankOfPaper(paper);
-    await this.assertCanViewPaper(actorId, paper, bank);
+    await this.assertCanViewPaperContent(actorId, paper, bank);
+    await this.auditPaperContentView(actorId, paper, bank, 'print');
     if (paper.kind === 'recipe') {
       throw new BadRequestException({
         message: 'A recipe paper cannot be printed directly; materialize it into a snapshot first',

@@ -1036,6 +1036,36 @@ CREATE TABLE "exam_deployments" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "exam_dossier_reviews" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"dossier_id" uuid NOT NULL,
+	"level" integer NOT NULL,
+	"reviewer_id" uuid NOT NULL,
+	"decision" text NOT NULL,
+	"reason" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_dossier_reviews_level_check" CHECK ("level" in (1, 2)),
+	CONSTRAINT "exam_dossier_reviews_decision_check" CHECK ("decision" in ('approved', 'rejected'))
+);
+--> statement-breakpoint
+CREATE TABLE "exam_dossiers" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"paper_id" uuid NOT NULL,
+	"target_bank_id" uuid NOT NULL,
+	"proposer_id" uuid NOT NULL,
+	"note" text DEFAULT '' NOT NULL,
+	"status" text DEFAULT 'draft' NOT NULL,
+	"paper_version_id" uuid,
+	"paper_version_number" integer,
+	"matrix_id" uuid,
+	"matrix_version" integer,
+	"spec_snapshot" jsonb,
+	"result_paper_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_dossiers_status_check" CHECK ("status" in ('draft', 'pending', 'pending_board', 'approved', 'rejected'))
+);
+--> statement-breakpoint
 CREATE TABLE "exam_paper_contributions" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"paper_id" uuid NOT NULL,
@@ -2501,6 +2531,13 @@ CREATE INDEX "mcp_idempotency_keys_expires_idx" ON "mcp_idempotency_keys" ("expi
 CREATE INDEX "exam_deployments_paper_idx" ON "exam_deployments" ("paper_id");--> statement-breakpoint
 CREATE INDEX "exam_deployments_paper_version_idx" ON "exam_deployments" ("paper_version_id");--> statement-breakpoint
 CREATE INDEX "exam_deployments_quiz_idx" ON "exam_deployments" ("quiz_id");--> statement-breakpoint
+CREATE INDEX "exam_dossier_reviews_dossier_idx" ON "exam_dossier_reviews" ("dossier_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_target_bank_idx" ON "exam_dossiers" ("target_bank_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_paper_idx" ON "exam_dossiers" ("paper_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_paper_version_idx" ON "exam_dossiers" ("paper_version_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_matrix_idx" ON "exam_dossiers" ("matrix_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_proposer_idx" ON "exam_dossiers" ("proposer_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_status_idx" ON "exam_dossiers" ("status");--> statement-breakpoint
 CREATE INDEX "exam_paper_contributions_target_bank_idx" ON "exam_paper_contributions" ("target_bank_id");--> statement-breakpoint
 CREATE INDEX "exam_paper_contributions_paper_idx" ON "exam_paper_contributions" ("paper_id");--> statement-breakpoint
 CREATE INDEX "exam_paper_contributions_proposer_idx" ON "exam_paper_contributions" ("proposer_id");--> statement-breakpoint
@@ -2823,6 +2860,11 @@ ALTER TABLE "question_versions" ADD CONSTRAINT "question_versions_stimulus_id_st
 ALTER TABLE "stimuli" ADD CONSTRAINT "stimuli_category_id_question_categories_id_fkey" FOREIGN KEY ("category_id") REFERENCES "question_categories"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_deployments" ADD CONSTRAINT "exam_deployments_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_deployments" ADD CONSTRAINT "exam_deployments_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_dossier_reviews" ADD CONSTRAINT "exam_dossier_reviews_dossier_id_exam_dossiers_id_fkey" FOREIGN KEY ("dossier_id") REFERENCES "exam_dossiers"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "exam_paper_contributions" ADD CONSTRAINT "exam_paper_contributions_paper_id_exam_papers_id_fkey" FOREIGN KEY ("paper_id") REFERENCES "exam_papers"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_paper_contributions" ADD CONSTRAINT "exam_paper_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_paper_slots" ADD CONSTRAINT "exam_paper_slots_paper_version_id_exam_paper_versions_id_fkey" FOREIGN KEY ("paper_version_id") REFERENCES "exam_paper_versions"("id") ON DELETE CASCADE;--> statement-breakpoint

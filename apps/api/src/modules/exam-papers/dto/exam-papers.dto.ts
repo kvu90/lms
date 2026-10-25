@@ -8,6 +8,7 @@ export {
   setExamPaperStatusSchema, copyExamPaperSchema, createExamPaperContributionSchema,
   approveExamPaperContributionSchema, rejectExamPaperContributionSchema, deployExamPaperSchema,
   materializeExamPaperSchema, swapExamPaperSlotSchema,
+  createExamDossierSchema, approveExamDossierSchema, rejectExamDossierSchema,
   type CreateExamPaper as CreateExamPaperDto,
   type UpdateExamPaper as UpdateExamPaperDto,
   type SetExamPaperSlots as SetExamPaperSlotsDto,
@@ -19,4 +20,7 @@ export {
   type DeployExamPaper as DeployExamPaperDto,
   type MaterializeExamPaper as MaterializeExamPaperDto,
   type SwapExamPaperSlot as SwapExamPaperSlotDto,
+  type CreateExamDossier as CreateExamDossierDto,
+  type ApproveExamDossier as ApproveExamDossierDto,
+  type RejectExamDossier as RejectExamDossierDto,
 } from '@lms/contracts';

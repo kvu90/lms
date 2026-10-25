@@ -227,3 +227,70 @@ export const examDeployments = pgTable('exam_deployments', {
       index('exam_deployments_paper_version_idx').on(table.paperVersionId),
       index('exam_deployments_quiz_idx').on(table.quizId),
   ]);
+
+/**
+ * Một BỘ HỒ SƠ duyệt đề (EB-3, issue #165 — đơn vị duyệt của đề/ma
+ * trận là TOÀN BỘ tài liệu, khác câu hỏi duyệt từng câu): giáo viên
+ * đóng góp bộ ba {phiên bản ma trận + phiên bản đề + bản đặc tả} vào
+ * một bank đề dùng chung (tổ/trường/khoá); tổ chức duyệt theo cấp —
+ * cấp 1 là người có exam:moderate tại bank đích, cấp 2 (ban giám
+ * hiệu) chỉ tồn tại khi cấu hình trường bật (đọc qua một điểm seam
+ * trong ExamDossiersService, mặc định TẮT).
+ *
+ * Version được GHIM TẠI LÚC NỘP (submit): paper_version_id +
+ * paper_version_number, matrix_id + matrix_version; bản đặc tả được
+ * CHỤP nguyên trạng vào spec_snapshot tại cùng thời điểm — hàng chờ
+ * duyệt luôn cho xem đúng nội dung đã nộp, ma trận/đề có sửa về sau
+ * (version mới) cũng không viết lại hồ sơ đã nộp. Duyệt đạt (qua đủ
+ * các cấp hiệu lực) = copy phiên bản đề đã ghim vào bank đích
+ * (result_paper_id, status ready, derived_from trỏ về đề nguồn).
+ * Trạng thái: draft → pending → (pending_board) → approved/rejected.
+ */
+export const examDossiers = pgTable('exam_dossiers', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  paperId: uuid('paper_id').notNull().references(() => examPapers.id, { onDelete: 'cascade' }),
+  targetBankId: uuid('target_bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
+  proposerId: uuid('proposer_id').notNull(),
+  note: text('note').notNull().default(''),
+  status: text('status').notNull().default('draft'),
+  paperVersionId: uuid('paper_version_id').references(() => examPaperVersions.id, { onDelete: 'set null' }),
+  paperVersionNumber: integer('paper_version_number'),
+  matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
+  matrixVersion: integer('matrix_version'),
+  /** Bản đặc tả (view model MatrixSpecification) chụp tại lúc nộp — nguồn duy nhất cho bề mặt duyệt trong hàng chờ. */
+  specSnapshot: jsonb('spec_snapshot').$type<Record<string, unknown>>(),
+  resultPaperId: uuid('result_paper_id'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_dossiers_target_bank_idx').on(table.targetBankId),
+      index('exam_dossiers_paper_idx').on(table.paperId),
+      index('exam_dossiers_paper_version_idx').on(table.paperVersionId),
+      index('exam_dossiers_matrix_idx').on(table.matrixId),
+      index('exam_dossiers_proposer_idx').on(table.proposerId),
+      index('exam_dossiers_status_idx').on(table.status),
+      check('exam_dossiers_status_check', sql`${table.status} in ('draft', 'pending', 'pending_board', 'approved', 'rejected')`),
+  ]);
+
+/**
+ * Một MỐC DUYỆT của bộ hồ sơ: mỗi cấp duyệt ghi một dòng độc lập
+ * (level 1 = tổ trưởng/moderate tại bank đích; level 2 = ban giám
+ * hiệu) với người duyệt, quyết định và lý do (bắt buộc khi từ chối —
+ * kiểm ở tầng service). Vết này là căn cứ truy vết "ai duyệt bộ này,
+ * ở cấp nào, khi nào" ngoài các sự kiện audit ở outbox.
+ */
+export const examDossierReviews = pgTable('exam_dossier_reviews', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  dossierId: uuid('dossier_id').notNull().references(() => examDossiers.id, { onDelete: 'cascade' }),
+  level: integer('level').notNull(),
+  reviewerId: uuid('reviewer_id').notNull(),
+  decision: text('decision').notNull(),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_dossier_reviews_dossier_idx').on(table.dossierId),
+      check('exam_dossier_reviews_level_check', sql`${table.level} in (1, 2)`),
+      check('exam_dossier_reviews_decision_check', sql`${table.decision} in ('approved', 'rejected')`),
+  ]);
