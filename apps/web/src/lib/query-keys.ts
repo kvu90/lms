@@ -15,6 +15,14 @@ export const queryKeys = {
   /** Gói dữ liệu trang một khoá học (thông tin/instance/ghi danh/nội dung/tiến độ — trang course). */
   coursePage: (courseId: string) => ['courses', courseId, 'page'] as const,
   playerView: (courseId: string, cmId: string) => ['courses', courseId, 'player', cmId] as const,
+  /** Trang lần ghim đề (GET /exam-pins/:id + tên câu của các slot — trang quiz). */
+  examPin: (pinId: string) => ['exam-pins', pinId] as const,
+  /** Ghi đè của lần ghim (GET /exam-pins/:id/overrides — trang quiz). */
+  examPinOverrides: (pinId: string) => ['exam-pins', pinId, 'overrides'] as const,
+  /** Thông tin đề nguồn của lần ghim (GET /exams/:id — trang quiz). */
+  examSource: (examId: string) => ['exams', examId] as const,
+  /** Danh sách thành viên khoá cho bộ chọn đích ghi đè (GET /messages/courses/:id/members — trang quiz). */
+  courseRosterMembers: (courseId: string) => ['courses', courseId, 'roster-members'] as const,
   /** Gói dữ liệu trang xây dựng khoá học (thông tin/nội dung/điểm mục/tiêu chí/nhóm — trang course-builder). */
   courseBuilder: (courseId: string) => ['courses', courseId, 'builder'] as const,
   /** Nội dung (outline) của một khoá (GET /courses/:id/content) — khối dùng lại nội dung ở trang builder. */
