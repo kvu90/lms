@@ -156,6 +156,15 @@ export interface CourseRosterMemberView extends PersonSummaryView {
   canDirectMessage: boolean;
 }
 
+/**
+ * Một dòng roster thành viên LỚP: cùng hình dạng dòng roster khoá —
+ * `canDirectMessage` là người xem là giáo viên của lớp này và thành
+ * viên đang thuộc roster hiệu lực của lớp → nhắn riêng trực tiếp
+ * được theo cùng ngoại lệ GV–HS (sổ quyết định mục D: HS thuộc
+ * khoá/LỚP của mình).
+ */
+export type ClassRosterMemberView = CourseRosterMemberView;
+
 /** Một khoá mà người dùng thuộc về — đầu vào của luồng tìm bạn theo khoá. */
 export interface MessagingCourseView {
   courseId: string;
@@ -954,6 +963,9 @@ export class MessagingService {
     const blockedEitherWay = (await this.repo.isBlocked(senderId, recipientId))
       || (await this.repo.isBlocked(recipientId, senderId));
     if (!blockedEitherWay && await this.repo.findTeacherStudentSharedCourseId(senderId, recipientId)) return;
+    // Cùng ngoại lệ ở cấp LỚP (sổ mục D: HS thuộc khoá/LỚP của mình):
+    // giáo viên của lớp ↔ thành viên roster hiệu lực của lớp.
+    if (!blockedEitherWay && await this.repo.findTeacherStudentSharedClassId(senderId, recipientId)) return;
     throw new ForbiddenException({
       message: 'You can only message a contact directly — send a contact request from the course member list and wait for it to be accepted',
       code: 'messaging.not_a_contact',
@@ -992,10 +1004,13 @@ export class MessagingService {
    * thì unread là số chưa đọc của chính người gọi trên conversation
    * đó. Unread của nút khoá gồm chat khoá + các nhóm con của nó;
    * unread của nút lớp là tổng của nút lớp + mọi nút con — để nhìn
-   * lướt là biết lớp/khoá nào đang có tin. Chat cấp lớp có từ MSG-T2
-   * nên ở lát này nút lớp luôn conversationId null. Đồng bộ lười
-   * membership được kích hoạt như ở danh sách conversation để số
-   * chưa đọc bám đúng tư cách thành viên hiện tại.
+   * lướt là biết lớp/khoá nào đang có tin. Chat cấp lớp (MSG-T2) là
+   * conversation riêng của nút lớp: conversationId của nút tra theo
+   * item 'class' như các nút khác — null cho tới khi có người thuộc
+   * lớp mở chat lớp lần đầu (bấm vào nút ở MSG-T3 sẽ ensure qua
+   * endpoint cấp lớp). Đồng bộ lười membership được kích hoạt như ở
+   * danh sách conversation để số chưa đọc bám đúng tư cách thành
+   * viên hiện tại.
    */
   async getGroupTree(actorId: string): Promise<ConversationGroupTreeView> {
     // Đồng bộ lười membership như listConversations: group/khoá tôi
@@ -1005,6 +1020,9 @@ export class MessagingService {
     }
     for (const c of await this.repo.listCourseConversationsForMember(actorId)) {
       await this.syncCourseConversationMembers(c);
+    }
+    for (const c of await this.repo.listClassConversationsForMember(actorId)) {
+      await this.syncClassConversationMembers(c);
     }
 
     const classRelations = await this.repo.listTreeClassesForUser(actorId);
@@ -1203,6 +1221,63 @@ export class MessagingService {
     return { members, nextCursor };
   }
 
+  /**
+   * Một trang roster thành viên của một LỚP — bản cấp lớp của roster
+   * khoá (lát MSG-T2, issue #184; hồ sơ cấu trúc nhắn tin mục 4.6):
+   * tập thành viên là roster lớp hiệu lực (backing cohort) ∪ gán vai
+   * tại context lớp ∪ chủ lớp. Cổng xem cùng kỷ luật roster khoá:
+   * chỉ người thuộc lớp mới xem được; người ngoài lớp (và lớp đã lưu
+   * trữ) nhận đúng 404 như lớp không tồn tại. `canDirectMessage`
+   * khớp đúng cổng nhắn riêng: người xem là giáo viên của lớp
+   * (staff tại context lớp — chủ lớp mang editingteacher tại đó) và
+   * thành viên đang thuộc roster hiệu lực thì nhắn trực tiếp được
+   * theo ngoại lệ GV–HS ở cấp lớp (sổ mục D).
+   */
+  async listClassRoster(actorId: string, classId: string, query: { limit?: number; cursor?: string }): Promise<{
+    members: ClassRosterMemberView[];
+    nextCursor: string | null;
+  }> {
+    const cls = await this.repo.getClassSummary(classId);
+    if (!cls || cls.status !== 'active' || !(await this.repo.isClassMember(classId, actorId))) {
+      throw new NotFoundException({ message: 'Class not found', code: 'messaging.class_not_found' });
+    }
+    const limit = Math.min(Math.max(query.limit ?? ROSTER_DEFAULT_PAGE_SIZE, 1), ROSTER_MAX_PAGE_SIZE);
+    const cursor = query.cursor ? this.decodeRosterCursor(query.cursor) : null;
+    const rows = await this.repo.listClassRosterPage(classId, actorId, cursor, limit + 1);
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const [contactIds, incoming, outgoing, viewerIsTeacher] = await Promise.all([
+      this.repo.listContacts(actorId),
+      this.repo.listIncomingContactRequests(actorId),
+      this.repo.listOutgoingContactRequests(actorId),
+      this.repo.isClassTeachingStaff(classId, actorId),
+    ]);
+    const contactSet = new Set(contactIds);
+    const incomingSet = new Set(incoming.map((r) => r.userIdFrom));
+    const outgoingSet = new Set(outgoing.map((r) => r.userIdTo));
+    const relationshipOf = (id: string): ContactRelationship => {
+      if (contactSet.has(id)) return 'contact';
+      if (incomingSet.has(id)) return 'pending_incoming';
+      if (outgoingSet.has(id)) return 'pending_outgoing';
+      return 'none';
+    };
+    const members = page.map((row) => ({
+      userId: row.userId,
+      displayName: row.displayName,
+      username: row.username,
+      role: (row.staff ? 'teacher' : 'student') as 'teacher' | 'student',
+      relationship: relationshipOf(row.userId),
+      // Cờ nhắn thẳng khớp đúng cổng API (assertCanContact có vế
+      // cấp lớp): người xem dạy lớp này + thành viên thuộc roster.
+      canDirectMessage: viewerIsTeacher && row.enrolled,
+    }));
+    const last = page[page.length - 1];
+    const nextCursor = hasMore && last
+      ? Buffer.from(JSON.stringify({ d: last.displayName, u: last.username, i: last.userId }), 'utf8').toString('base64url')
+      : null;
+    return { members, nextCursor };
+  }
+
   // --- blocked contacts ---------------------------------------------------------
 
   /**
@@ -1305,6 +1380,14 @@ export class MessagingService {
       && conversation.itemId !== null;
   }
 
+  /** Conversation có gắn với chính một LỚP (chat cấp lớp, lát MSG-T2) qua (component, itemType, itemId) hay không. */
+  private isClassLinked(conversation: ConversationRow): boolean {
+    return conversation.type === 2
+      && conversation.component === 'core_class'
+      && conversation.itemType === 'class'
+      && conversation.itemId !== null;
+  }
+
   /**
    * Đồng bộ lười thành viên của một conversation gắn cấu trúc (group
    * hoặc khoá) về đúng tập đích HIỆN TẠI: người mới thuộc cấu trúc được
@@ -1342,23 +1425,34 @@ export class MessagingService {
     return this.syncLinkedConversationMembers(conversation, await this.repo.listCourseConversationMemberIds(conversation.itemId!));
   }
 
-  /** Đồng bộ nếu conversation gắn cấu trúc (group/khoá); conversation thường thì bỏ qua. */
+  /** Đồng bộ thành viên theo roster lớp hiệu lực ∪ chủ lớp ∪ staff của lớp hiện tại. */
+  private async syncClassConversationMembers(conversation: ConversationRow): Promise<string[]> {
+    // Lớp đã mất (xoá/lưu trữ dứt điểm): giữ nguyên membership hiện
+    // tại thay vì gỡ sạch — đồng bộ chỉ chạy trên lớp đang hoạt động.
+    const cls = await this.repo.getClassSummary(conversation.itemId!);
+    if (!cls || cls.status !== 'active') return this.repo.listMembers(conversation.id);
+    return this.syncLinkedConversationMembers(conversation, await this.repo.listClassConversationMemberIds(conversation.itemId!));
+  }
+
+  /** Đồng bộ nếu conversation gắn cấu trúc (group/khoá/lớp); conversation thường thì bỏ qua. */
   private async syncGroupConversationIfLinked(conversation: ConversationRow): Promise<void> {
     if (this.isGroupLinked(conversation)) await this.syncGroupConversationMembers(conversation);
     else if (this.isCourseLinked(conversation)) await this.syncCourseConversationMembers(conversation);
+    else if (this.isClassLinked(conversation)) await this.syncClassConversationMembers(conversation);
   }
 
   /**
    * Cổng thành viên cho các đường theo id (đọc/gửi/báo cáo): người
    * không phải thành viên bị từ chối — riêng conversation CẤP KHOÁ
-   * hành xử như KHÔNG TỒN TẠI (404, cùng mã `conversation_not_found`)
-   * để bề mặt chat lớp không rò sự tồn tại của khoá/conversation cho
-   * người ngoài khoá, đồng nhất với cổng ensure; các loại conversation
-   * khác giữ 403 `not_member` như hiện hành.
+   * và CẤP LỚP hành xử như KHÔNG TỒN TẠI (404, cùng mã
+   * `conversation_not_found`) để bề mặt chat cấu trúc không rò sự
+   * tồn tại của khoá/lớp/conversation cho người ngoài, đồng nhất với
+   * cổng ensure; các loại conversation khác giữ 403 `not_member`
+   * như hiện hành.
    */
   private async assertConversationMember(userId: string, conversation: ConversationRow): Promise<void> {
     if (await this.repo.isMember(conversation.id, userId)) return;
-    if (this.isCourseLinked(conversation)) {
+    if (this.isCourseLinked(conversation) || this.isClassLinked(conversation)) {
       throw new NotFoundException({ message: `Conversation ${conversation.id} not found`, code: 'messaging.conversation_not_found' });
     }
     throw new ForbiddenException({ message: 'You are not a member of this conversation', code: 'messaging.not_member' });
@@ -1373,6 +1467,17 @@ export class MessagingService {
     const courseCtx = await this.contexts.getByLevelInstance(50, courseId);
     if (!courseCtx) return false;
     return this.evaluator.hasCapability(userId, 'course:managegroups', courseCtx.id);
+  }
+
+  /**
+   * Staff của lớp: site admin, hoặc thuộc tập staff của lớp (gán vai
+   * archetype staff tại context lớp hoặc tổ tiên — chủ lớp mang
+   * editingteacher tại context lớp nên thuộc tập này).
+   */
+  private async isClassStaff(userId: string, classId: string): Promise<boolean> {
+    if (await this.evaluator.isSiteAdmin(userId)) return true;
+    const staff = await this.repo.listClassStaffUserIds(classId);
+    return staff.includes(userId);
   }
 
   /**
@@ -1453,6 +1558,51 @@ export class MessagingService {
     return { ...ensured.conversation, members: memberIds };
   }
 
+  // --- class conversations (chat của chính lớp, lát MSG-T2) -------------------
+
+  /**
+   * Mở (ensure) conversation của CHÍNH lớp — chat cấp lớp: component
+   * 'core_class', itemType 'class', itemId = class id, contextId =
+   * context của lớp (mức 45), tenantId = tenant của lớp. Đây là
+   * conversation RIÊNG của lớp — không dùng lại nhóm con "Cả lớp"
+   * của bất kỳ khoá nào trong lớp. Cấp phát LƯỜI idempotent đúng
+   * khuôn {@link ensureCourseConversation}: chưa có thì tạo với thành
+   * viên khởi tạo = roster lớp hiệu lực ∪ chủ lớp ∪ đồng GV, đã có
+   * thì đồng bộ lười rồi trả lại. Chỉ người thuộc lớp (thành viên
+   * roster, chủ lớp, có gán vai tại context lớp) hoặc staff lớp mới
+   * mở được; người ngoài và lớp đã lưu trữ nhận 404 cùng mã như lớp
+   * không tồn tại (không rò tồn tại). Đua ensure song song: giữ
+   * `pg_advisory_xact_lock` theo classId rồi re-check trong cùng
+   * transaction như đường khoá.
+   */
+  async ensureClassConversation(actorId: string, classId: string): Promise<ConversationRow & { members: string[] }> {
+    const cls = await this.repo.getClassSummary(classId);
+    if (!cls || cls.status !== 'active') {
+      throw new NotFoundException({ message: `Class ${classId} not found`, code: 'messaging.class_not_found' });
+    }
+    if (!(await this.repo.isClassMember(classId, actorId)) && !(await this.isClassStaff(actorId, classId))) {
+      throw new NotFoundException({ message: `Class ${classId} not found`, code: 'messaging.class_not_found' });
+    }
+    const existing = await this.repo.findClassConversation(classId);
+    if (existing) return { ...existing, members: await this.syncClassConversationMembers(existing) };
+    const classCtx = await this.contexts.getByLevelInstance(45, classId);
+    const memberIds = await this.repo.listClassConversationMemberIds(classId);
+    const ensured = await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.acquireClassConversationLock(tx as never, classId);
+      const rechecked = await this.repo.findClassConversation(classId, tx as never);
+      if (rechecked) return { conversation: rechecked, created: false as const };
+      const created = await this.repo.insertConversation({
+        type: 2, name: cls.name,
+        component: 'core_class', itemType: 'class', itemId: classId,
+        contextId: classCtx?.id ?? null, createdBy: actorId, tenantId: cls.tenantId,
+      }, tx as never);
+      for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
+      return { conversation: created, created: true as const };
+    });
+    if (!ensured.created) return { ...ensured.conversation, members: await this.syncClassConversationMembers(ensured.conversation) };
+    return { ...ensured.conversation, members: memberIds };
+  }
+
   // --- thẩm quyền theo phạm vi trên một conversation (Lớp B) -----------------
   // Ba câu hỏi khác nhau, không gộp làm một:
   //  - "phụ trách khoá của conversation này" (staff tại context khoá
@@ -1474,6 +1624,11 @@ export class MessagingService {
    * quyền kiểm duyệt trên nó).
    */
   private async resolveConversationCourseId(conversation: ConversationRow): Promise<string | null> {
+    // Conversation CẤP LỚP không thuộc khoá nào: thành viên của nó
+    // thường cùng thuộc các khoá trong lớp nên phép giao tập khoá ở
+    // dưới sẽ gán nhầm một khoá cho chat lớp — chặn ngay tại đây;
+    // thẩm quyền của chat lớp resolve qua lớp (xem canModerate).
+    if (this.isClassLinked(conversation)) return null;
     if (this.isCourseLinked(conversation)) return conversation.itemId;
     if (this.isGroupLinked(conversation)) {
       const group = await this.repo.getCourseGroup(conversation.itemId!);
@@ -1495,17 +1650,43 @@ export class MessagingService {
   }
 
   /**
+   * Lớp mà một conversation "thuộc về" (lát MSG-T2): conversation
+   * gắn lớp thì là chính lớp đó; conversation có context là context
+   * lớp (mức 45) thì là lớp đó; còn lại không thuộc lớp nào. Dùng để
+   * resolve thẩm quyền kiểm duyệt/quản lý qua context lớp — song
+   * song với {@link resolveConversationCourseId} ở cấp khoá.
+   */
+  private async resolveConversationClassId(conversation: ConversationRow): Promise<string | null> {
+    if (this.isClassLinked(conversation)) return conversation.itemId;
+    if (conversation.contextId) {
+      const ctx = await this.contexts.getContext(conversation.contextId).catch(() => undefined);
+      if (ctx && ctx.contextLevel === 45) return ctx.instanceId;
+    }
+    return null;
+  }
+
+  /**
    * Người có thẩm quyền KIỂM DUYỆT trên conversation: quản trị viên,
    * hoặc staff của khoá mà conversation thuộc về (gán vai trò staff
    * tại context khoá hoặc tổ tiên — đúng tập
-   * {@link MessagingRepository.listCourseStaffUserIds}).
+   * {@link MessagingRepository.listCourseStaffUserIds}), hoặc staff
+   * của LỚP mà conversation thuộc về (cùng khuôn ở cấp lớp — lát
+   * MSG-T2: staff lớp và quản trị tenant tổ tiên có thẩm quyền trên
+   * chat lớp như thiết kế).
    */
   private async canModerateConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(userId)) return true;
     const courseId = await this.resolveConversationCourseId(conversation);
-    if (!courseId) return false;
-    const staff = await this.repo.listCourseStaffUserIds(courseId);
-    return staff.includes(userId);
+    if (courseId) {
+      const staff = await this.repo.listCourseStaffUserIds(courseId);
+      if (staff.includes(userId)) return true;
+    }
+    const classId = await this.resolveConversationClassId(conversation);
+    if (classId) {
+      const staff = await this.repo.listClassStaffUserIds(classId);
+      if (staff.includes(userId)) return true;
+    }
+    return false;
   }
 
   /**
@@ -1515,7 +1696,7 @@ export class MessagingService {
    */
   private async canManageConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
     if (await this.canModerateConversation(userId, conversation)) return true;
-    if (!this.isGroupLinked(conversation) && !this.isCourseLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
+    if (!this.isGroupLinked(conversation) && !this.isCourseLinked(conversation) && !this.isClassLinked(conversation) && conversation.createdBy !== null && conversation.createdBy === userId) return true;
     return false;
   }
 
@@ -1594,6 +1775,9 @@ export class MessagingService {
     for (const c of await this.repo.listCourseConversationsForMember(userId)) {
       await this.syncCourseConversationMembers(c);
     }
+    for (const c of await this.repo.listClassConversationsForMember(userId)) {
+      await this.syncClassConversationMembers(c);
+    }
     const summaries = await this.repo.listConversationSummaries(userId, opts);
     const myGroupIds = new Set(await this.repo.listGroupIdsForUser(userId));
     const out: (ConversationRow & {
@@ -1615,6 +1799,16 @@ export class MessagingService {
         const memberIds = await this.repo.listCourseConversationMemberIds(s.conversation.itemId!);
         if (!memberIds.includes(userId)) {
           await this.syncCourseConversationMembers(s.conversation);
+          continue;
+        }
+      }
+      if (this.isClassLinked(s.conversation)) {
+        // Đã rời lớp (rời roster/hết vai tại lớp) nhưng membership
+        // conversation chưa được đồng bộ: đối chiếu tập thành viên
+        // đúng nghĩa của lớp như đường khoá ở trên.
+        const memberIds = await this.repo.listClassConversationMemberIds(s.conversation.itemId!);
+        if (!memberIds.includes(userId)) {
+          await this.syncClassConversationMembers(s.conversation);
           continue;
         }
       }
@@ -2010,7 +2204,8 @@ export class MessagingService {
    * Cổng thẩm quyền XOÁ CỨNG: phải có thẩm quyền kiểm duyệt TRÊN
    * conversation (staff khoá/quản trị — canModerateConversation) VÀ
    * capability `moderation:manage` tại context khoá của conversation.
-   * Conversation không thuộc khoá nào thì chỉ quản trị viên toàn
+   * Conversation CẤP LỚP đi cùng khuôn tại context lớp (MSG-T2).
+   * Conversation không thuộc khoá/lớp nào thì chỉ quản trị viên toàn
    * site qua được (canModerate đã là admin-only ở trường hợp đó và
    * evaluator cho admin qua mọi kiểm tra capability).
    */
@@ -2022,6 +2217,16 @@ export class MessagingService {
     if (!(await this.canModerateConversation(actorId, conversation))) throw forbidden();
     const courseId = await this.resolveConversationCourseId(conversation);
     if (!courseId) {
+      // Conversation CẤP LỚP: cùng khuôn ở context lớp (lát MSG-T2).
+      const classId = await this.resolveConversationClassId(conversation);
+      if (classId) {
+        const classCtx = await this.contexts.getByLevelInstance(45, classId);
+        const allowedClass = classCtx
+          ? await this.evaluator.hasCapability(actorId, 'moderation:manage', classCtx.id)
+          : await this.evaluator.isSiteAdmin(actorId);
+        if (!allowedClass) throw forbidden();
+        return;
+      }
       if (!(await this.evaluator.isSiteAdmin(actorId))) throw forbidden();
       return;
     }
