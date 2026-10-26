@@ -282,7 +282,10 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
     const perCourseCalls = fetchCalls.filter((u) => /\/courses\/[0-9a-f-]{36}\//.test(u));
     expect(perCourseCalls).toEqual([]);
     expect(fetchCalls).not.toEqual(expect.arrayContaining([expect.stringContaining('enrolments/me')]));
-    const providerCalls = fetchCalls.filter((u) => u !== '/api/v1/users/me');
+    // Request phiên get-session là của AuthProvider (sau cutover cookie
+    // #257 nó luôn đi kèm khi nạp app), không phải của provider quyền —
+    // loại khỏi số đếm; khẳng định về provider quyền giữ nguyên.
+    const providerCalls = fetchCalls.filter((u) => u !== '/api/v1/users/me' && !isGetSessionUrl(u));
     expect(providerCalls.sort()).toEqual(['/api/v1/courses', '/api/v1/users/me/capabilities']);
   });
 
@@ -346,6 +349,7 @@ describe('F-15: provider phơi trạng thái lỗi của query capabilities', ()
         fetchCalls.push(url);
         const respond = (status: number, body: unknown) =>
           new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(200, baSessionBody({ id: TEACHER_ID, username: 'teacher1' }));
         if (url === '/api/v1/users/me') return respond(200, profile(TEACHER_ID, 'teacher1'));
         if (url === '/api/v1/users/me/capabilities')
           return respond(500, { type: 'about:blank', title: 'Lỗi máy chủ', status: 500, detail: 'boom', code: 'test.boom' });
