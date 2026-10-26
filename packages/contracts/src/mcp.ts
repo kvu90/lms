@@ -342,7 +342,8 @@ export type McpPublishQuestionsOutput = z.infer<typeof mcpPublishQuestionsOutput
  * Tool `search_questions`: tìm câu trong MỘT bank mà chủ token xem
  * được, theo chuỗi con trong thân câu (đã chuẩn hoá NFC + thường
  * hoá hai phía như cổng chống trùng) và lọc qtype tuỳ chọn. Chỉ trả
- * SIÊU DỮ LIỆU (không đáp án) — muốn nội dung đầy đủ dùng get_question.
+ * SIÊU DỮ LIỆU (không đáp án, không tên — câu hỏi không có trường
+ * tên, nhãn hiển thị là trích đoạn nội dung lấy qua get_question).
  */
 export const mcpSearchQuestionsInputSchema = z.strictObject({
   bankId: uuidIdSchema,
@@ -357,7 +358,6 @@ export const mcpSearchQuestionsOutputSchema = z.object({
   questions: z.array(
     z.object({
       id: uuidIdSchema,
-      name: z.string(),
       qtype: z.string(),
       status: z.string(),
       categoryId: uuidIdSchema,

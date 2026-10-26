@@ -1673,11 +1673,10 @@ export const createQuestionBankSchema = z.strictObject({
 });
 export type CreateQuestionBank = z.infer<typeof createQuestionBankSchema>;
 
-/** Payload copy một câu: đích mặc định là ngân hàng cá nhân của người copy ("Copy về ngân hàng của tôi"). */
+/** Payload copy một câu: đích mặc định là ngân hàng cá nhân của người copy ("Copy về ngân hàng của tôi"). Câu hỏi không có trường tên (quyết 11:28 ngày 26/10/2026) nên payload copy không mang tên — bản copy giữ nguyên nội dung nguồn, nhãn hiển thị là trích đoạn nội dung. */
 export const copyQuestionSchema = z.strictObject({
   targetBankId: uuidIdSchema.optional(),
   targetCategoryId: uuidIdSchema.optional(),
-  name: z.string().min(1).optional(),
 });
 export type CopyQuestion = z.infer<typeof copyQuestionSchema>;
 
