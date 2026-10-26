@@ -3,7 +3,9 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import ExcelJS from 'exceljs';
 import { Client } from 'pg';
-import { STRONG_PASSWORD, adminToken, createTestApp, createUserViaApi, login } from './identity-access-helpers';
+import {
+  STRONG_PASSWORD, adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaApi, login, setOverride, systemContextId,
+} from './identity-access-helpers';
 
 /**
  * Luồng nghiệp vụ của lát I-2 (issue #233) — GHI NGUYÊN TỬ khi nhập
@@ -278,12 +280,32 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     const suffix = Date.now().toString(36);
     const student = await createUserViaApi(app, admin, { username: `hs_i2_${suffix}` });
     expect(student.username).toBe(`hs_i2_${suffix}`);
+    // Vai tại context hệ thống CHỈ có curriculum:view — xem được
+    // môn/chương trình nhưng KHÔNG có quiz:managematrix, nên cổng
+    // quyền tạo ma trận (chạy lại ở bước parse của request ghi) phải
+    // là điểm chặn: 403 access.capability_denied như đường tạo tay.
+    const roleId = await createRoleViaApi(app, admin);
+    const systemId = await systemContextId(app, admin);
+    await assignRole(app, admin, student.id, roleId, systemId);
+    await setOverride(app, admin, roleId, 'curriculum:view', systemId, 1);
     const studentToken = (await login(app, `hs_i2_${suffix}`, STRONG_PASSWORD)).accessToken;
     const wb = await downloadTemplate(admin);
     fillValid(wb, 'Ma trận của học sinh');
     const res = await postImport(studentToken, await toBuffer(wb)).expect(403);
     expect(res.body.code).toBe('access.capability_denied');
     expect(await countMatricesByName('Ma trận của học sinh')).toBe(0);
+
+    // Người dùng không có quyền nào tại môn: đường parse của I-1 che
+    // môn thành "không tồn tại" (chống dò) → ghi bị từ chối 422 và
+    // vẫn không ghi gì.
+    const nobody = await createUserViaApi(app, admin, { username: `nb_i2_${suffix}` });
+    expect(nobody.username).toBe(`nb_i2_${suffix}`);
+    const nobodyToken = (await login(app, `nb_i2_${suffix}`, STRONG_PASSWORD)).accessToken;
+    const wb2 = await downloadTemplate(admin);
+    fillValid(wb2, 'Ma trận của người lạ');
+    const res2 = await postImport(nobodyToken, await toBuffer(wb2)).expect(422);
+    expect(res2.body.code).toBe('quiz.matrix_import_invalid');
+    expect(await countMatricesByName('Ma trận của người lạ')).toBe(0);
   });
 
   it('thiếu file: 400 quiz.matrix_import_file_required', async () => {
