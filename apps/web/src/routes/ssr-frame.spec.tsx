@@ -6,14 +6,15 @@ import App, { loader as rootLoader } from '../root';
 import Shell from './shell';
 import { RouteErrorBoundary } from '../components/route-error-boundary';
 import { queryClient } from '../lib/query-client';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Spec nghiệm thu cụm khung SSR (issue #146, từ rà soát #133):
  *
  * - F-11: root loader đọc cookie `sidebar_state` của chính request và
- *   trả `sidebarDefaultOpen` tương ứng; không có cookie `lms_session`
- *   thì KHÔNG gọi API (giữ nguyên tắc cách ly GĐ4). Shell dựng từ giá
- *   trị loader cho data-state khớp (false → collapsed, true →
+ *   trả `sidebarDefaultOpen` tương ứng; không có cookie phiên Better
+ *   Auth thì KHÔNG gọi API (giữ nguyên tắc cách ly GĐ4). Shell dựng từ
+ *   giá trị loader cho data-state khớp (false → collapsed, true →
  *   expanded) ngay từ lần render đầu.
  * - F-07: một route lá lỗi (loader ném lỗi route) thì biên lỗi của
  *   route đó hiện trong vùng nội dung, khung vẫn nguyên; bấm Thử lại
@@ -74,7 +75,7 @@ afterEach(() => {
 });
 
 describe('F-11 — root loader đọc cookie sidebar_state từ request', () => {
-  it('sidebar_state=false → sidebarDefaultOpen=false, không gọi API khi không có lms_session', async () => {
+  it('sidebar_state=false → sidebarDefaultOpen=false, không gọi API khi không có cookie phiên', async () => {
     const fetchSpy = vi.fn(async () => jsonResponse({}));
     vi.stubGlobal('fetch', fetchSpy);
 
@@ -99,18 +100,18 @@ describe('F-11 — root loader đọc cookie sidebar_state từ request', () => 
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('có lms_session → gọi API phiên với nguyên Cookie và vẫn trả sidebarDefaultOpen từ cookie', async () => {
+  it('có cookie phiên Better Auth → gọi /users/me với nguyên Cookie và vẫn trả sidebarDefaultOpen từ cookie', async () => {
     const fetchSpy = vi.fn(async () => jsonResponse(PROFILE));
     vi.stubGlobal('fetch', fetchSpy);
 
     const data = await rootLoader({
-      request: requestWithCookie('lms_session=abc; sidebar_state=false'),
+      request: requestWithCookie('better-auth.session_token=abc; sidebar_state=false'),
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain('/api/v1/auth/session/me');
-    expect(new Headers(init.headers).get('Cookie')).toBe('lms_session=abc; sidebar_state=false');
+    expect(url).toContain('/api/v1/users/me');
+    expect(new Headers(init.headers).get('Cookie')).toBe('better-auth.session_token=abc; sidebar_state=false');
     expect(data.initialUser?.username).toBe('admin');
     expect(data.sidebarDefaultOpen).toBe(false);
   });
@@ -121,6 +122,7 @@ describe('F-11 — shell dựng sidebar từ giá trị loader', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string) => {
+        if (isGetSessionUrl(url)) return baSessionResponse({ id: ADMIN_ID, username: 'admin', email: 'admin@example.com' });
         if (url === '/api/v1/users/me/capabilities') return jsonResponse(ACCESS);
         if (url === '/api/v1/courses') return jsonResponse([]);
         return jsonResponse({}, 404);

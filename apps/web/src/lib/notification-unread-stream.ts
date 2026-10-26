@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { refreshTokens, tokenStore } from './api';
 import { queryKeys } from './query-keys';
 
 /** Payload của sự kiện `unread-count` trên stream SSE — cùng hình dạng với đáp ứng REST GET /notifications/unread-count. */
@@ -18,14 +17,15 @@ const STREAM_URL = '/api/v1/notifications/unread-count/stream';
  *   `notificationUnreadCount` mỗi khi server phát sự kiện — snapshot
  *   đầu stream và mọi thay đổi về sau (thông báo mới, đã đọc, đọc tất
  *   cả) đều đi qua đây.
- * - EventSource không gắn được header Authorization nên access token
- *   đi qua query `access_token` — phía API chỉ chấp nhận cách này cho
- *   riêng route stream (xem JWT strategy của backend).
+ * - Từ cutover phiên cookie (issue #7, GĐ2): EventSource chạy cùng
+ *   nguồn nên trình duyệt TỰ gửi cookie phiên kèm request — không
+ *   còn gắn access token qua query nữa (ngoại lệ token-trong-query
+ *   phía API dành cho route stream bị gỡ ở GĐ5 cùng đợt này).
  * - Kết nối rớt: EventSource tự nối lại (mỗi lần nối server gửi lại
- *   snapshot hiện tại). Nếu server từ chối kết nối (readyState CLOSED —
- *   thường vì access token hết hạn 15 phút), hook làm mới token một
- *   lần rồi dựng lại stream bằng token mới. Mọi lỗi đều lặng lẽ: giữ
- *   số gần nhất, không toast, không vỡ giao diện.
+ *   snapshot hiện tại). Kết nối bị server đóng hẳn (readyState
+ *   CLOSED — phiên đã hết/huỷ) thì dừng lặng lẽ: giữ số gần nhất,
+ *   không toast, không vỡ giao diện; tầng phiên sẽ đưa người dùng về
+ *   trang đăng nhập qua resolve phiên như mọi bề mặt khác.
  * - Unmount (đăng xuất/rời khung đã đăng nhập) thì đóng stream.
  */
 export function useNotificationUnreadStream(): void {
@@ -33,39 +33,19 @@ export function useNotificationUnreadStream(): void {
 
   useEffect(() => {
     if (typeof EventSource === 'undefined') return;
-    let source: EventSource | null = null;
-    let stopped = false;
-    let rebuilding = false;
-
-    const connect = (): void => {
-      const access = tokenStore.access;
-      if (!access || stopped) return;
-      source = new EventSource(`${STREAM_URL}?access_token=${encodeURIComponent(access)}`);
-      source.addEventListener('unread-count', (event) => {
-        try {
-          const parsed = unreadCountEventSchema.safeParse(JSON.parse((event as MessageEvent<string>).data));
-          if (parsed.success) {
-            queryClient.setQueryData(queryKeys.notificationUnreadCount, { unread: parsed.data.unread });
-          }
-        } catch {
-          // Sự kiện lỗi định dạng: bỏ qua, giữ số gần nhất.
+    const source = new EventSource(STREAM_URL);
+    source.addEventListener('unread-count', (event) => {
+      try {
+        const parsed = unreadCountEventSchema.safeParse(JSON.parse((event as MessageEvent<string>).data));
+        if (parsed.success) {
+          queryClient.setQueryData(queryKeys.notificationUnreadCount, { unread: parsed.data.unread });
         }
-      });
-      source.onerror = () => {
-        if (stopped || rebuilding || !source || source.readyState !== EventSource.CLOSED) return;
-        rebuilding = true;
-        source.close();
-        void refreshTokens().then((ok) => {
-          rebuilding = false;
-          if (ok && !stopped) connect();
-        });
-      };
-    };
-
-    connect();
+      } catch {
+        // Sự kiện lỗi định dạng: bỏ qua, giữ số gần nhất.
+      }
+    });
     return () => {
-      stopped = true;
-      source?.close();
+      source.close();
     };
   }, [queryClient]);
 }

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { AppSidebar } from '#components/app-sidebar';
 import { SidebarProvider } from '@lms/ui/components/sidebar';
@@ -157,7 +158,6 @@ function stubFetch(handler: Handler) {
 }
 
 function renderApp(withSidebar: boolean) {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter([
     {
       path: '/',
@@ -182,6 +182,8 @@ function renderApp(withSidebar: boolean) {
 function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
   const me = role === 'admin' ? PROFILES.admin : role === 'teacher' ? PROFILES.teacher1 : PROFILES.student1;
   return (url) => {
+    // Phiên cookie Better Auth: id phiên khớp hồ sơ của vai đang stub.
+    if (isGetSessionUrl(url)) return ok(baSessionBody({ id: me.id, username: me.username, email: me.email }));
     if (url === '/api/v1/users/me') return ok(me);
     if (url === '/api/v1/users/me/capabilities') return ok(accessView(role));
     if (url.startsWith('/api/v1/users?')) {

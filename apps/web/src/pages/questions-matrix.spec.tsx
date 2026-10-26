@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { QuestionsPage } from './questions';
 import { MatrixNewPage } from './question-matrix';
 
@@ -71,6 +72,7 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities')
         return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
@@ -131,7 +133,6 @@ describe('Matrix bank UI (MB-1)', () => {
   });
 
   it('hai khu vực phân biệt: trang /matrices có ma trận của tôi; trang /system-bank/matrices có mẫu chung và copy về được', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     // Khu riêng ở path riêng (chuẩn đường dẫn #221): collapse "Ma trận
@@ -177,7 +178,6 @@ describe('Matrix bank UI (MB-1)', () => {
   });
 
   it('màn tạo ma trận riêng gửi đúng bankId của bank ma trận cá nhân (§9)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(

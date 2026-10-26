@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '#lib/auth';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { createQueryClient } from '#lib/query-client';
 import { ProfilePage } from './profile';
 
@@ -66,8 +67,6 @@ function problemResponse(code: string, detail: string, status = 400) {
 }
 
 function renderProfile() {
-  localStorage.setItem('lms.accessToken', 'access-1');
-  localStorage.setItem('lms.refreshToken', 'refresh-1');
   const router = createMemoryRouter([{ path: '/profile', element: <ProfilePage /> }], {
     initialEntries: ['/profile'],
   });
@@ -96,6 +95,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (isGetSessionUrl(url)) return jsonResponse(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links' && (!init?.method || init.method === 'GET')) {
           return jsonResponse({ links, hasPassword: true });
@@ -132,6 +132,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (isGetSessionUrl(url)) return jsonResponse(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links' && (!init?.method || init.method === 'GET')) {
           return jsonResponse({ links: [{ ...GOOGLE_LINK }], hasPassword: false });
@@ -160,6 +161,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (isGetSessionUrl(url)) return jsonResponse(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
         if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
@@ -203,6 +205,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (isGetSessionUrl(url)) return jsonResponse(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
         if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
@@ -266,6 +269,7 @@ describe('Profile page — two-factor authentication card (fetch mocked at the b
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (isGetSessionUrl(url)) return jsonResponse(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
         if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
         if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });

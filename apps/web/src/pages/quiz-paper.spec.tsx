@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import QuizPaperPage from './quiz-paper';
 
 /**
@@ -65,6 +66,7 @@ function stubFetch(calls: RecordedCall[], state: { scans: Record<string, unknown
     if (method !== 'GET' || url.includes('/image/')) {
       calls.push({ url, method, body: init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : undefined });
     }
+    if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
     if (url === '/api/v1/users/me') return respond(PROFILE);
     if (url === '/api/v1/users/me/capabilities') return respond({ userId: TEACHER_ID, isSiteAdmin: false, assignments: [], contexts: [] });
     if (url.startsWith('/api/v1/users?')) return respond({ users: [PROFILE], total: 1, page: 1, pageSize: 1 });
@@ -118,7 +120,6 @@ describe('Quiz paper page — CAM-0 queues', () => {
   });
 
   it('loads batches and queues, then assigns identity, resolves an ambiguous answer and records a grade', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     // jsdom thiếu URL.createObjectURL cho ảnh phiếu: gắn trực tiếp lên
     // class URL (thay cả global URL sẽ làm hỏng constructor của router).
@@ -192,7 +193,6 @@ describe('Quiz paper page — unbatched sheet in the identity queue', () => {
   });
 
   it('shows an unrouted sheet as unbatched and assigns a print batch from the queue', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     const urlStatics = URL as unknown as { createObjectURL: () => string; revokeObjectURL: () => void };
     urlStatics.createObjectURL = () => 'blob:fake';

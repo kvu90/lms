@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import App from '../root';
 import Shell from '../routes/shell';
 import { queryClient } from '../lib/query-client';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test cho huy hiệu số conversation chưa đọc ở mục Tin nhắn trên
@@ -54,6 +55,7 @@ function stubFetch(counts: number[], counter?: { messageUnreadCalls: number }) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      if (isGetSessionUrl(url)) return baSessionResponse({ id: ADMIN_ID, username: 'admin', email: 'admin@example.com' });
       if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(ACCESS);
       if (url === '/api/v1/courses') return jsonResponse([]);
@@ -94,11 +96,6 @@ function renderShell() {
   return render(<RouterProvider router={router} />);
 }
 
-function seedTokens() {
-  localStorage.setItem('lms.accessToken', 'access-test');
-  localStorage.setItem('lms.refreshToken', 'refresh-test');
-}
-
 beforeAll(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -122,7 +119,6 @@ afterEach(() => {
 
 describe('số conversation chưa đọc trên sidebar (M1)', () => {
   it('hiện huy hiệu đúng số conversation chưa đọc cạnh mục Tin nhắn', async () => {
-    seedTokens();
     stubFetch([4]);
     renderShell();
 
@@ -133,7 +129,6 @@ describe('số conversation chưa đọc trên sidebar (M1)', () => {
   });
 
   it('không hiện huy hiệu khi không còn conversation chưa đọc', async () => {
-    seedTokens();
     stubFetch([0]);
     renderShell();
 
@@ -146,7 +141,6 @@ describe('số conversation chưa đọc trên sidebar (M1)', () => {
     vi.useFakeTimers();
     const counter = { messageUnreadCalls: 0 };
     try {
-      seedTokens();
       stubFetch([2, 5], counter);
       renderShell();
 

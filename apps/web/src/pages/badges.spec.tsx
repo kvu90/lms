@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { BadgesPage } from './badges';
 
@@ -46,6 +47,7 @@ function stubFetch(calls: RecordedCall[], state: { badgeStatus: number }) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities')
         return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
@@ -117,19 +119,17 @@ describe('Badges page — real endpoints', () => {
   });
 
   it('loads my badges from /badges/mine and never calls the old per-user or activate URLs', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls, { badgeStatus: 0 });
     renderBadges();
 
     expect((await screen.findAllByText('Finisher')).length).toBeGreaterThan(0);
     expect(calls.some((c) => c.url === '/api/v1/badges/mine' && c.method === 'GET')).toBe(true);
-    expect(calls.some((c) => c.url.includes('/badges/users/'))).toBe(false);
-    expect(calls.some((c) => c.url.includes('/activate'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/badges/users/'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/activate'))).toBe(false);
   });
 
   it('activates a badge via POST /badges/:id/status with { status: 1 }', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = { badgeStatus: 0 };
     stubFetch(calls, state);
@@ -142,11 +142,10 @@ describe('Badges page — real endpoints', () => {
     const statusCall = calls.find((c) => c.url === `/api/v1/badges/${BADGE_ID}/status`);
     expect(statusCall?.method).toBe('POST');
     expect(statusCall?.body).toEqual({ status: 1 });
-    expect(calls.some((c) => c.url.includes('/activate'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/activate'))).toBe(false);
   });
 
   it('invalidates the badge queries after activation so the list refetches with the new status (F-01)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = { badgeStatus: 0 };
     stubFetch(calls, state);
@@ -167,7 +166,6 @@ describe('Badges page — real endpoints', () => {
   });
 
   it('shows the issued list of a badge from GET /badges/:id/issued in the admin panel', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls, { badgeStatus: 1 });
     renderBadges();
@@ -182,7 +180,6 @@ describe('Badges page — real endpoints', () => {
   });
 
   it('saves criteria via PUT with the contracts payload shape (criteria array, not leaves)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls, { badgeStatus: 1 });
     renderBadges();

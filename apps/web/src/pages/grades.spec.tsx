@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { GradebookPage } from './grades';
 import { QuestionsPage, QuestionUsagePage } from './questions';
@@ -135,7 +136,6 @@ describe('Question bank page', () => {
     // Trang ngân hàng nay đọc usePermissions() (cổng issue #55): phải bọc
     // TestProviders và stub ảnh chụp quyền có quyền ngân hàng, nếu không
     // trang ném lỗi thiếu PermissionsProvider (lỗi CI của PR #61).
-    localStorage.setItem('lms.accessToken', 'test-token');
     let edited = false;
     const questionView = (version: number) => ({
       question: {
@@ -177,6 +177,8 @@ describe('Question bank page', () => {
       },
     });
     stubFetch((url, init) => {
+      if (isGetSessionUrl(url))
+        return baSessionBody({ id: '01900000-0000-7000-8000-0000000000a9', username: 'teacher1', email: 'teacher1@example.com' });
       if (url === '/api/v1/users/me')
         return {
           id: '01900000-0000-7000-8000-0000000000a9',
@@ -260,8 +262,9 @@ describe('Question bank page', () => {
   it('renders a usage with attempt states, steps and the pinned version', async () => {
     // Trang usage cũng đọc usePermissions() (cổng issue #55): cùng cách bọc
     // và stub quyền như test ngân hàng ở trên.
-    localStorage.setItem('lms.accessToken', 'test-token');
     stubFetch((url) => {
+      if (isGetSessionUrl(url))
+        return baSessionBody({ id: '01900000-0000-7000-8000-0000000000a9', username: 'teacher1', email: 'teacher1@example.com' });
       if (url === '/api/v1/users/me')
         return {
           id: '01900000-0000-7000-8000-0000000000a9',
@@ -426,6 +429,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
         });
         const respond = (body: unknown, status = 200) =>
           new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond(PROFILE);
         if (url === '/api/v1/users/me/capabilities') {
           return respond({
@@ -502,7 +506,6 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
   }
 
   function renderAsTeacher() {
-    localStorage.setItem('lms.accessToken', 'test-token');
     renderGradebook();
   }
 
@@ -626,6 +629,6 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
 
     // Bài giữa kỳ chưa công bố bị loại khỏi ánh xạ → thiếu đúng 1 mục giữa kỳ → chặn tại UI, không gọi API.
     expect(await screen.findByText(/Cần ít nhất 1 mục thường xuyên/)).toBeInTheDocument();
-    expect(calls.some((c) => c.url.includes('export/vnedu'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('export/vnedu'))).toBe(false);
   });
 });

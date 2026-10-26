@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { MessagesPage } from './messages';
 
 /**
@@ -71,6 +72,7 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/courses')
         return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
@@ -123,7 +125,6 @@ describe('Messages page — block and unblock contacts', () => {
   });
 
   it('blocks the conversation partner via POST contacts/:userId/block and unblocks via DELETE', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
@@ -178,6 +179,7 @@ function stubRealtimeFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body });
       const respond = (payload: unknown) =>
         new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations')
         return respond([
@@ -226,7 +228,6 @@ describe('Messages page — optimistic send and realtime updates', () => {
   });
 
   it('sends with a clientMessageId and dedupes the socket echo of its own message', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
@@ -272,7 +273,6 @@ describe('Messages page — optimistic send and realtime updates', () => {
   });
 
   it('appends a realtime message from the peer and updates unread from conversation.updated', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
@@ -320,7 +320,6 @@ describe('Messages page — optimistic send and realtime updates', () => {
   });
 
   it('ignores a stale conversation.updated with an older seq than the applied one', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
@@ -414,6 +413,7 @@ function stubDomainFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET')
         return respond([{ id: CONV_ID, type: 2, name: 'Nhóm lớp', members: [ME_ID, OTHER_ID], unread: 0, lastMessageSeq: 2, lastMessage: null }]);
@@ -487,7 +487,6 @@ describe('Messages page — Lớp B contacts (request–accept)', () => {
   });
 
   it('accepts an incoming contact request and sends a new request from the course roster', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -535,7 +534,6 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
   });
 
   it('soft-deletes my own message (peer message has no delete button) and reports the conversation', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -591,6 +589,7 @@ function stubDeepLinkFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations')
         return respond([
@@ -617,7 +616,6 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
   });
 
   it('opens the conversation named by ?conversation= when it is in the loaded list', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages(`/messages?conversation=${CONV_ID}`);
@@ -634,7 +632,6 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
   });
 
   it('fetches by id and opens the conversation when it is not in the loaded list', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDeepLinkFetch(calls);
     renderMessages(`/messages?conversation=${CONV3_ID}`);
@@ -655,7 +652,6 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
   });
 
   it('ignores an unknown ?conversation= id and keeps the page as-is', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDeepLinkFetch(calls);
     renderMessages(`/messages?conversation=${UNKNOWN_CONV_ID}`);
@@ -684,7 +680,6 @@ describe('Messages page — create conversation contract', () => {
   });
 
   it('posts memberIds when starting a conversation from a course roster contact and opens it with the designated user as a member', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderMessages();
@@ -712,7 +707,6 @@ describe('Messages page — create conversation contract', () => {
   });
 
   it('shows a direct Message button on roster rows flagged canDirectMessage (teacher → enrolled student, no friending first)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     // Khuôn stubFetch nhưng roster mang hai học sinh CHƯA kết bạn:
     // một người được API gắn cờ canDirectMessage (học sinh của khoá
@@ -724,6 +718,7 @@ describe('Messages page — create conversation contract', () => {
         calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond(PROFILE);
         if (url === '/api/v1/messages/courses')
           return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
@@ -780,7 +775,6 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
   });
 
   it('shows the recall button only for my recent message, recalls via POST, and keeps the recalled line after conversation.invalidate', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubDomainFetch(calls);
     renderMessages();
@@ -852,6 +846,7 @@ function stubFetchM1(calls: RecordedCall[]) {
       calls.push({ url, method, body });
       const respond = (payload: unknown) =>
         new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET') return respond(summaries);
       if (url === `/api/v1/messages/conversations/${CONV_A}`)
@@ -902,7 +897,6 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
   });
 
   it('hiện thời gian tương đối của tin cuối và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
@@ -934,7 +928,6 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
   });
 
   it('giữ nháp riêng theo từng conversation và chỉ xoá nháp của conversation vừa gửi', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
@@ -972,7 +965,6 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
   });
 
   it('composer nhiều dòng: Enter gửi tin, Shift+Enter xuống dòng không gửi', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
@@ -1020,7 +1012,6 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
   });
 
   it('hiện bộ đếm và chặn gửi ở client khi nháp vượt trần 10.000 ký tự', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();
@@ -1041,7 +1032,6 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
   });
 
   it('server trả 429 thì hiện thông báo gửi quá nhanh cạnh composer', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     // Stub như M1 nhưng đường gửi luôn bị throttle ở server.
     vi.stubGlobal(
@@ -1052,6 +1042,7 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
         calls.push({ url, method, body });
         const respond = (payload: unknown, status = 200) =>
           new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond(PROFILE);
         if (url === '/api/v1/messages/conversations' && method === 'GET') {
           return respond([
@@ -1140,6 +1131,7 @@ function stubFetchM3(calls: RecordedCall[], detailMessages: unknown[]) {
       calls.push({ url, method, body });
       const respond = (payload: unknown) =>
         new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET') return respond([summary]);
       if (url === `/api/v1/messages/conversations/${CONV_A}` && method === 'GET')
@@ -1182,7 +1174,6 @@ describe('Messages page — M3: trả lời trích dẫn (issue #229)', () => {
   });
 
   it('hiện khối trích dẫn trong bong bóng; tin gốc đã xoá thì hiện dòng đã xoá, không lộ nội dung', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM3(calls, [M3_ORIG, M3_REPLY, M3_REPLY_DEAD]);
     renderMessages();
@@ -1199,7 +1190,6 @@ describe('Messages page — M3: trả lời trích dẫn (issue #229)', () => {
   });
 
   it('bấm Trả lời thì hiện chip ở ô soạn; gửi đi kèm replyToMessageId và chip biến mất sau khi gửi', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM3(calls, [M3_ORIG, M3_REPLY]);
     renderMessages();
@@ -1229,7 +1219,6 @@ describe('Messages page — M3: trả lời trích dẫn (issue #229)', () => {
   });
 
   it('huỷ chip trích dẫn thì gửi như tin thường (không replyToMessageId)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM3(calls, [M3_ORIG]);
     renderMessages();
@@ -1252,7 +1241,6 @@ describe('Messages page — M3: trả lời trích dẫn (issue #229)', () => {
   });
 
   it('bấm khối trích dẫn của tin chưa tải thì xin cửa sổ quanh seq tin gốc và hiện tin gốc', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     // Chi tiết hội thoại chỉ chứa tin trả lời — tin gốc (seq 1) chưa tải.
     stubFetchM3(calls, [M3_REPLY_OLD]);
@@ -1318,6 +1306,7 @@ function stubFetchM4(calls: RecordedCall[], opts: { failSearch?: boolean } = {})
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (payload: unknown, status = 200) =>
         new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET') return respond(summaries);
       if (url === `/api/v1/messages/conversations/${CONV_A}` && method === 'GET')
@@ -1349,7 +1338,6 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
   });
 
   it('ô tìm ở danh sách lọc theo tên hiển thị; không khớp thì hiện dòng trạng thái rỗng', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM4(calls);
     renderMessages();
@@ -1373,7 +1361,6 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
   });
 
   it('tìm trong hội thoại: gửi đúng từ khoá lên API, hiện kết quả, bấm kết quả thì xin cửa sổ quanh seq và hiện tin đích', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM4(calls);
     renderMessages();
@@ -1411,7 +1398,6 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
   });
 
   it('tìm không khớp thì hiện trạng thái rỗng; API lỗi thì hiện thông báo lỗi', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM4(calls);
     renderMessages();
@@ -1427,7 +1413,6 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
   });
 
   it('API tìm lỗi thì hiện thông báo lỗi rõ ràng thay vì danh sách trống', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchM4(calls, { failSearch: true });
     renderMessages();

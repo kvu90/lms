@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useNavigate } from 'react-router';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -10,35 +10,40 @@ import { PageShell } from '../components/page-shell';
 import { useAuth } from '#lib/auth';
 
 /**
- * Trang đích sau callback OAuth: backend chuyển hướng về đây kèm mã
- * bàn giao một lần trong query `handoff` (token không đi qua URL).
- * Trang đổi mã lấy phiên đăng nhập qua `loginWithHandoff` rồi sang
- * hồ sơ; mã chỉ dùng được MỘT lần nên phải chặn việc effect chạy lại
- * đổi mã lần hai (StrictMode/development mount hai lần) bằng ref ghi
- * mã đã thử — lần chạy lại với cùng mã sẽ bị bỏ qua thay vì báo lỗi
- * oan "mã đã dùng".
+ * Trang đích sau callback đăng nhập ngoài (issue #7, GĐ2): callback
+ * của Better Auth đã đặt cookie phiên rồi chuyển hướng trình duyệt về
+ * đây (callbackURL của signIn.social) — KHÔNG còn mã bàn giao đi qua
+ * URL như luồng OAuth tự viết trước đây. Việc của trang chỉ là buộc
+ * tầng phiên resolve lại từ cookie: có phiên thì sang hồ sơ, không có
+ * (luồng ngoài thất bại ở phía nhà cung cấp/server) thì hiện lỗi và
+ * đường về trang đăng nhập. `reload` chỉ chạy một lần (ref chặn
+ * StrictMode mount hai lần) và trạng thái lỗi chỉ chốt sau khi lần
+ * resolve đó kết thúc — tránh báo lỗi oan trong lúc phiên đang nạp.
  */
 export function OAuthCallbackPage() {
   const { t } = useTranslation('app');
-  const { loginWithHandoff } = useAuth();
+  const { user, reload } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [failed, setFailed] = useState(false);
-  const attemptedCode = useRef<string | null>(null);
-
-  const code = searchParams.get('handoff');
+  const [settled, setSettled] = useState(false);
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    if (!code) {
-      setFailed(true);
-      return;
-    }
-    if (attemptedCode.current === code) return;
-    attemptedCode.current = code;
-    loginWithHandoff(code)
-      .then(() => navigate('/profile', { replace: true }))
-      .catch(() => setFailed(true));
-  }, [code, loginWithHandoff, navigate]);
+    if (startedRef.current) return;
+    startedRef.current = true;
+    let alive = true;
+    void reload().finally(() => {
+      if (alive) setSettled(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [reload]);
+
+  useEffect(() => {
+    if (settled && user) navigate('/profile', { replace: true });
+  }, [settled, user, navigate]);
+
+  const failed = settled && !user;
 
   return (
     <PageShell width="narrow" contentClassName="mx-auto w-full max-w-md">

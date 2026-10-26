@@ -29,12 +29,10 @@ export async function fetchApiJson(path: string, headers?: Record<string, string
  * loader của một route chỉ bao giờ lấy được dữ liệu mà đúng cookie đó
  * được phép thấy, không có đường nào lấy dữ liệu của người khác. Không
  * có cookie thì không gọi API và trả null (trang suy biến về hành vi tải
- * phía client như trước). Endpoint dữ liệu hiện hành gác bằng Bearer
- * JWT (token ở localStorage, server không đọc được) nên với phiên
- * cookie `lms_session`, helper này tới được các endpoint phiên; khi
- * Giai đoạn 2 bật phiên Better Auth (cookie được guard dịch thành
- * danh tính cho mọi endpoint), cùng helper này tự lấy được dữ liệu
- * trang thật phía server mà không phải sửa thêm.
+ * phía client như trước). Từ Giai đoạn 2 (cutover hoàn tất): phiên là
+ * cookie Better Auth và guard phía API dịch cookie đó thành danh tính
+ * cho mọi endpoint, nên helper này lấy được dữ liệu thật phía server
+ * cho mọi loader dùng cookie của request.
  */
 export async function fetchApiJsonForRequest(request: Request, path: string): Promise<unknown> {
   const cookie = request.headers.get('Cookie') ?? '';

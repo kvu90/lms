@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { CoursePage } from './course';
 import { CoursesPage } from './courses';
@@ -211,7 +212,6 @@ describe('Courses page — category administration (admin)', () => {
    * (chỉ `name` khi tạo ở cấp cao nhất, không gửi `parent`).
    */
   it('creates a category via POST /courses/categories with the contracts body when admin', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const profile = {
       id: '01900000-0000-7000-8000-0000000000a1',
       username: 'admin',
@@ -239,6 +239,7 @@ describe('Courses page — category administration (admin)', () => {
         calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: profile.id, username: profile.username, email: profile.email }));
         if (url === '/api/v1/users/me') return respond(profile);
         if (url === '/api/v1/users/me/capabilities')
           return respond({ userId: profile.id, isSiteAdmin: true, assignments: [], contexts: [] });

@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import App from '../root';
 import Shell from '../routes/shell';
 import { queryClient } from '../lib/query-client';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test cho cây điều hướng sidebar sau Lát 1 của hồ sơ UI/UX (sidebar
@@ -101,6 +102,8 @@ function stubFetch(
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      // Phiên cookie Better Auth: id phiên khớp id hồ sơ của vai đang stub.
+      if (isGetSessionUrl(url)) return baSessionResponse({ id: (profile as { id: string }).id });
       if (url === '/api/v1/users/me') return jsonResponse(profile);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(access);
       if (url === '/api/v1/courses') return jsonResponse(opts.courses ?? []);
@@ -165,11 +168,6 @@ function renderShell(initialPath = '/') {
   return render(<RouterProvider router={router} />);
 }
 
-function seedTokens() {
-  localStorage.setItem('lms.accessToken', 'access-test');
-  localStorage.setItem('lms.refreshToken', 'refresh-test');
-}
-
 function sidebarRoot(container: HTMLElement): HTMLElement {
   const root = container.querySelector('[data-slot="sidebar"]');
   if (!root) throw new Error('không thấy sidebar');
@@ -199,7 +197,6 @@ afterEach(() => {
 
 describe('cây điều hướng sidebar — admin', () => {
   it('thấy 6 mục trực tiếp + 4 mục cha; nhóm đóng mặc định nên chưa thấy mục con', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS, 2);
     renderShell();
 
@@ -234,7 +231,6 @@ describe('cây điều hướng sidebar — admin', () => {
   });
 
   it('mở thu/mở của "Câu hỏi của tôi" thấy mục con "Ngữ liệu" đúng href theo path riêng (chuẩn #221)', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
@@ -247,7 +243,6 @@ describe('cây điều hướng sidebar — admin', () => {
   });
 
   it('mở "Ngân hàng hệ thống" thấy đúng 3 mục con hệ thống đúng thứ tự và đúng href', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
@@ -262,7 +257,6 @@ describe('cây điều hướng sidebar — admin', () => {
   });
 
   it('mở "Cài đặt hệ thống" thấy đủ 7 mục con đúng thứ tự; các nhóm mở độc lập và đóng riêng được', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
@@ -304,7 +298,6 @@ describe('cây điều hướng sidebar — admin', () => {
   });
 
   it('bấm mục con điều hướng tới đúng trang', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
@@ -316,7 +309,6 @@ describe('cây điều hướng sidebar — admin', () => {
 
 describe('cây điều hướng sidebar — trạng thái nhóm', () => {
   it('lưu nhóm đang mở vào localStorage và giữ nguyên sau khi dựng lại cây (F5)', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     const first = renderShell();
 
@@ -333,7 +325,6 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
   });
 
   it('nhóm chứa route đang xem luôn tự mở; mục con và nút cha cùng mang trạng thái active', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell('/admin/roles');
 
@@ -345,7 +336,6 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
   });
 
   it('đang ở /exams: mục top level "Đề của tôi" là link active, hai mục "của tôi" còn lại không', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
     renderShell('/exams');
 
@@ -359,7 +349,6 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
   });
 
   it('đang ở /system-bank/exams: nhóm Ngân hàng hệ thống tự mở, "Đề hệ thống" active', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
     renderShell('/system-bank/exams');
 
@@ -375,7 +364,6 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
   });
 
   it('đang ở /questions: "Câu hỏi của tôi" active và collapse tự mở thấy "Ngữ liệu" chưa active', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
     renderShell('/questions');
 
@@ -390,7 +378,6 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
   });
 
   it('đang ở /questions/stimuli: cả mục cha "Câu hỏi của tôi" lẫn mục con "Ngữ liệu" cùng active', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
     renderShell('/questions/stimuli');
 
@@ -407,7 +394,6 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
 
 describe('cây điều hướng sidebar — lọc theo quyền', () => {
   it('học viên: không thấy hai nhóm quản trị và không thấy mục ngân hàng nào', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'student1'), STUDENT_ACCESS);
     renderShell();
 
@@ -429,7 +415,6 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
   });
 
   it('giáo viên có capability câu hỏi: 4 mục ngân hàng ở cấp cao nhất, đúng href path riêng từng khu vực (chuẩn #221)', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_ACCESS);
     renderShell();
 
@@ -456,7 +441,6 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
 
 describe('cây điều hướng sidebar — chế độ rail icon', () => {
   it('cookie sidebar_state=false → rail icon có SidebarRail; bấm mục cha bung sidebar và mở nhóm', async () => {
-    seedTokens();
     document.cookie = 'sidebar_state=false; path=/';
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     const { container } = renderShell();
@@ -508,7 +492,6 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
   };
 
   it('1. GV thuần (dạy, không học ở đâu, không hiện vật): không có nút nhóm Học tập', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), TEACHER_PURE);
     renderShell();
 
@@ -517,7 +500,6 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
   });
 
   it('2. GV có ghi danh học viên ở khoá khác: nhóm hiện, mở ra thấy Huy hiệu + Kế hoạch học tập', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher1'), { ...LEARNER_ACCESS, userId: TEACHER_ID }, 0, { courses: [COURSE] });
     renderShell();
 
@@ -527,7 +509,6 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
   });
 
   it('3. HS (ghi danh học viên): nhóm hiện như hiện tại', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'student1'), LEARNER_ACCESS, 0, { courses: [COURSE] });
     renderShell();
 
@@ -537,7 +518,6 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
   });
 
   it('4. Hết ghi danh nhưng còn hiện vật: nhóm vẫn hiện', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'student1'), STUDENT_ACCESS);
     renderShell();
 
@@ -546,7 +526,6 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
   });
 
   it('5. Tài khoản mới (mọi tín hiệu rỗng): nhóm ẩn nhưng mục trực tiếp Khoá học vẫn hiện', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'newuser'), NO_FOOTPRINT);
     renderShell();
 
@@ -555,7 +534,6 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
   });
 
   it('6. Phụ huynh thuần (có liên kết giám hộ, không dấu chân): nhóm ẩn, mục Phụ huynh hiện', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'parent1'), NO_FOOTPRINT, 0, {
       guardianChildren: [{ student: { id: '01900000-0000-7000-8000-0000000000c0' } }],
     });

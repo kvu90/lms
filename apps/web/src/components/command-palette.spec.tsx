@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import App from '../root';
 import Shell from '../routes/shell';
 import { queryClient } from '../lib/query-client';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test cho bảng lệnh tìm nhanh Cmd+K (issue #54): dựng đúng cây thật
@@ -93,6 +94,8 @@ function stubFetch(profile: unknown, access: unknown) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      // Phiên cookie Better Auth: id phiên khớp id hồ sơ của vai đang stub.
+      if (isGetSessionUrl(url)) return baSessionResponse({ id: (profile as { id: string }).id });
       if (url === '/api/v1/users/me') return jsonResponse(profile);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(access);
       if (url === '/api/v1/courses') return jsonResponse([COURSE]);
@@ -125,11 +128,6 @@ function renderShell() {
   return render(<RouterProvider router={router} />);
 }
 
-function seedTokens() {
-  localStorage.setItem('lms.accessToken', 'access-test');
-  localStorage.setItem('lms.refreshToken', 'refresh-test');
-}
-
 async function openPaletteWithKeyboard() {
   // Chờ header (nơi mount CommandPalette + listener phím toàn cục) dựng
   // xong rồi mới bắn phím — bắn sớm hơn thì listener chưa gắn.
@@ -160,7 +158,6 @@ afterEach(() => {
 
 describe('bảng lệnh Cmd+K — học viên', () => {
   it('mở bằng Ctrl+K, chỉ hiện màn hình thường + khoá của mình, Enter đi tới khoá', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'student'), STUDENT_ACCESS);
     renderShell();
 
@@ -186,7 +183,6 @@ describe('bảng lệnh Cmd+K — học viên', () => {
   });
 
   it('Escape đóng bảng lệnh', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'student'), STUDENT_ACCESS);
     renderShell();
 
@@ -199,7 +195,6 @@ describe('bảng lệnh Cmd+K — học viên', () => {
 
 describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
   it('admin mở bằng nút ở header và thấy mục quản trị', async () => {
-    seedTokens();
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
@@ -210,7 +205,6 @@ describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
   });
 
   it('giáo viên có capability câu hỏi thấy Ngân hàng câu hỏi nhưng không thấy quản trị', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher'), TEACHER_ACCESS);
     renderShell();
 
@@ -223,7 +217,6 @@ describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
 
 describe('bảng lệnh Cmd+K — gác Huy hiệu/Kế hoạch theo dấu chân (issue #176)', () => {
   it('GV thuần không dấu chân: không thấy hai mục Huy hiệu/Kế hoạch trong palette', async () => {
-    seedTokens();
     stubFetch(profileOf(TEACHER_ID, 'teacher'), { ...TEACHER_ACCESS, hasLearnerArtifacts: false });
     renderShell();
 
@@ -234,7 +227,6 @@ describe('bảng lệnh Cmd+K — gác Huy hiệu/Kế hoạch theo dấu chân 
   });
 
   it('người có dấu chân (hiện vật): thấy đủ hai mục Huy hiệu/Kế hoạch trong palette', async () => {
-    seedTokens();
     stubFetch(profileOf(STUDENT_ID, 'student'), STUDENT_ACCESS);
     renderShell();
 

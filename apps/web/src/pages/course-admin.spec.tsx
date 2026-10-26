@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { CourseAdminPage } from './course-admin';
 
@@ -108,6 +109,7 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities') {
         return respond({
@@ -198,7 +200,6 @@ function stubFetch(calls: RecordedCall[]) {
 
 /** Render trang quản trị khoá trong đúng khung provider của ứng dụng thật. */
 function renderCourseAdmin() {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter([{ path: '/courses/:id/admin', element: <CourseAdminPage /> }], {
     initialEntries: [`/courses/${COURSE_ID}/admin`],
   });
@@ -246,6 +247,7 @@ function stubFetchGroups(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities') {
         return respond({
@@ -448,6 +450,7 @@ function stubFetchGroupAdmin(calls: RecordedCall[], opts?: { manageGroups?: bool
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities') {
         return respond({

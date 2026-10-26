@@ -61,7 +61,6 @@ function stubFetch(calls: RecordedCall[]) {
 }
 
 function renderWizard() {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter(
     [
       { path: '/courses/new', element: <CourseNewPage /> },

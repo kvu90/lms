@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { LearningPlanPage } from './learning-plan';
 
@@ -48,6 +49,7 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities')
         return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
@@ -107,6 +109,7 @@ function stubFetchExport(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities')
         return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
@@ -167,7 +170,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('creates a framework via POST with the real contracts DTO body', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -189,7 +191,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('exports a framework as JSON via GET /frameworks/:id/export and downloads it', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     const createObjectURL = vi.fn(() => 'blob:mock-url');
@@ -212,7 +213,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('imports a framework by posting the parsed file JSON to /frameworks/import', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     renderPage();
@@ -234,7 +234,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('shows the API integrity error verbatim when the import document is rejected', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     renderPage();
@@ -250,7 +249,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('approves an in-review plan from the review queue via POST /plans/:id/approve', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
