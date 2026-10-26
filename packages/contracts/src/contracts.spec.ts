@@ -506,7 +506,7 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
       solution: { answer: 'Lời giải mẫu...' },
     });
     expect(withDocText.options?.maxWordLimit).toBe(500);
-    expect(withDocText.solution?.answer).toBe('Lời giải mẫu...');
+    expect(withDocText.solution).toEqual({ answer: 'Lời giải mẫu...' });
   });
 
   it('locks the multichoice answer shape: 4 choices with exactly one correct (D-3 + bỏ tỉ trọng)', () => {
@@ -536,23 +536,62 @@ describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tê
     })).toThrow();
   });
 
-  it('locks truefalse to two sides with exactly one correct side, via the unified answers shape', () => {
+  it('locks truefalse to the TF-A cluster shape: stem + exactly 4 statements in the text, per-statement answers via solution (D-1)', () => {
+    const tfDoc = (statementIds: string[]) => ({
+      type: 'doc' as const,
+      content: [
+        { type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Cho hình vuông ABCD. Xét các mệnh đề:' }] },
+        {
+          type: 'statementList' as const,
+          content: statementIds.map((id, i) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Mệnh đề ${i + 1}` }] }],
+          })),
+        },
+      ],
+    });
+    const ids = ['s1', 's2', 's3', 's4'];
+    const solution = { answers: ids.map((statementId, i) => ({ statementId, value: i % 2 === 0 })) };
     const tf = createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: tfDoc(ids), solution,
+    });
+    expect(tf.answers).toBeUndefined();
+    expect(tf.solution).toEqual(solution);
+    // Thiếu một mệnh đề (3 ý) hoặc thừa (5 ý) -> từ chối: khoá đúng 4.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: tfDoc(ids.slice(0, 3)),
+      solution: { answers: solution.answers.slice(0, 3) },
+    })).toThrow();
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: tfDoc([...ids, 's5']),
+      solution: { answers: [...solution.answers, { statementId: 's5', value: true }] },
+    })).toThrow();
+    // Solution thiếu một ý / trỏ ý không có trong thân câu -> từ chối.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: tfDoc(ids),
+      solution: { answers: solution.answers.slice(0, 3) },
+    })).toThrow();
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: tfDoc(ids),
+      solution: { answers: [...solution.answers.slice(0, 3), { statementId: 's9', value: true }] },
+    })).toThrow();
+    // Thiếu hẳn solution -> từ chối (mỗi mệnh đề phải có đáp án Đ/S).
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: tfDoc(ids),
+    })).toThrow();
+    // Đường hai phía cũ (answers Đúng/Sai) đã bỏ hẳn ở TF-A.
+    expect(() => createQuestionSchema.parse({
       categoryId, qtype: 'truefalse', questionText: 'Trái đất quay quanh mặt trời.',
       answers: [{ text: 'Đúng', correct: true }, { text: 'Sai' }],
-    });
-    expect(tf.answers).toHaveLength(2);
-    // Hai phía cùng đúng / không phía nào đúng -> từ chối.
-    expect(() => createQuestionSchema.parse({
-      categoryId, qtype: 'truefalse', questionText: '?',
-      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: true }],
     })).toThrow();
+    // Thân câu dạng chuỗi thuần không mang được mệnh đề -> từ chối.
     expect(() => createQuestionSchema.parse({
-      categoryId, qtype: 'truefalse', questionText: '?', answers: [{ text: 'Đúng' }, { text: 'Sai' }],
+      categoryId, qtype: 'truefalse', questionText: 'Trái đất quay quanh mặt trời.', solution,
     })).toThrow();
-    // Dạng payload cũ answer:{correct} đã bỏ hẳn.
+    // statementList lạc vào thân câu của qtype khác -> từ chối.
     expect(() => createQuestionSchema.parse({
-      categoryId, qtype: 'truefalse', questionText: '?', answer: { correct: true },
+      categoryId, qtype: 'multichoice', questionText: tfDoc(ids), answers: mcAnswers,
     })).toThrow();
   });
 
