@@ -104,6 +104,51 @@
   accent-color: var(--primary);
 }
 
+/* --- Editor đúng/sai chùm TF-A (lát P5 #248, port giaokhoa):
+       danh sách mệnh đề là một <ol>; mỗi mệnh đề là một thẻ có viền,
+       cặp radio Đúng/Sai là widget decoration nằm ở dải đầu thẻ. --- */
+
+.lms-rich-text-editor .ProseMirror .lms-statement-list {
+  margin: 0.75rem 0 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lms-rich-text-editor .ProseMirror .lms-statement {
+  position: relative;
+  min-height: 2.5rem;
+  margin: 0.5rem 0;
+  padding: 2rem 0.75rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.lms-rich-text-editor .ProseMirror .lms-statement__answer {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.75rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.lms-rich-text-editor .ProseMirror .lms-statement__answer-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.lms-rich-text-editor .ProseMirror .lms-statement__answer-input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
 /* --- Thanh công cụ: nút icon cỡ size-8 kiểu Button/Toggle ghost của
        @lms/ui (giaokhoa: size="icon-sm", h-11, gap-1, px-2) --- */
 

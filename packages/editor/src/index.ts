@@ -18,6 +18,26 @@ export {
 } from './multiple-choice.js';
 export { MultipleChoiceEditor } from './MultipleChoiceEditor.js';
 export type { MultipleChoiceEditorProps } from './MultipleChoiceEditor.js';
+export {
+  STATEMENT_LIST_NODE_TYPE,
+  STATEMENT_NODE_TYPE,
+  TRUE_FALSE_STATEMENT_COUNT,
+  Statement,
+  StatementList,
+  StatementUniqueId,
+  TrueFalseDocument,
+  composeTrueFalseDocument,
+  createEmptyTrueFalseDocument,
+  getTrueFalseStatementIds,
+  isCompleteTrueFalse,
+  newStatementId,
+  splitTrueFalseDocument,
+  trueFalseExtensions,
+  type TrueFalseDocumentJson,
+  type TrueFalseStatementJson,
+} from './true-false.js';
+export { TrueFalseEditor } from './TrueFalseEditor.js';
+export type { TrueFalseEditorProps } from './TrueFalseEditor.js';
 export { contentForSave, ensureTerminalContinuation } from './document-continuation.js';
 export { RichTextEditor } from './RichTextEditor.js';
 export type { RichTextEditorProps, RichTextImagePick } from './RichTextEditor.js';

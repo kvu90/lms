@@ -13,6 +13,15 @@ import {
   type MultipleChoiceDocumentJson,
 } from './multiple-choice.js';
 import { MultipleChoiceEditor } from './MultipleChoiceEditor.js';
+import {
+  TRUE_FALSE_STATEMENT_COUNT,
+  composeTrueFalseDocument,
+  createEmptyTrueFalseDocument,
+  getTrueFalseStatementIds,
+  isCompleteTrueFalse,
+  splitTrueFalseDocument,
+} from './true-false.js';
+import { TrueFalseEditor } from './TrueFalseEditor.js';
 
 /**
  * Đưa editor vào trạng thái active bằng cách focus vùng soạn — từ lát
@@ -564,5 +573,126 @@ describe('MultipleChoice authoring document', () => {
 
     fireEvent.click(radios[3] as HTMLInputElement);
     expect(onCorrectChoiceChange).toHaveBeenCalledWith('ans-4');
+  });
+});
+
+describe('TrueFalse authoring document (TF-A)', () => {
+  const textBlocks = (text: string) => [{ type: 'paragraph', content: [{ type: 'text', text }] }];
+
+  it('creates an empty document with exactly four identified statements', () => {
+    const document = createEmptyTrueFalseDocument();
+    const { stem, statements } = splitTrueFalseDocument(document);
+
+    expect(stem.content).toHaveLength(1);
+    expect(statements).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+    expect(new Set(statements.map((s) => s.attrs.id)).size).toBe(TRUE_FALSE_STATEMENT_COUNT);
+    // Chưa có đáp án Đ/S cho mệnh đề nào -> chưa hoàn chỉnh.
+    expect(isCompleteTrueFalse(document, {})).toBe(false);
+  });
+
+  it('composes a stored TF document losslessly and completeness follows the per-statement answers', () => {
+    const stored: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Cho tam giác ABC. Xét các mệnh đề:' }] },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2', 'm3', 'm4'].map((id, i) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Mệnh đề ${i + 1}` }] }],
+          })),
+        },
+      ],
+    };
+    const document = composeTrueFalseDocument(stored);
+    // Tài liệu TF lưu trữ THỐNG NHẤT với tài liệu soạn: compose không đổi hình dạng.
+    expect(document).toEqual(stored);
+    expect(getTrueFalseStatementIds(document)).toEqual(['m1', 'm2', 'm3', 'm4']);
+    const { stem, statements } = splitTrueFalseDocument(document);
+    expect(stem.content?.[0]?.content?.[0]?.text).toBe('Cho tam giác ABC. Xét các mệnh đề:');
+    expect(statements.map((s) => s.attrs.id)).toEqual(['m1', 'm2', 'm3', 'm4']);
+
+    const answers = { m1: true, m2: false, m3: true, m4: false };
+    expect(isCompleteTrueFalse(document, answers)).toBe(true);
+    // Thiếu đáp án của một mệnh đề -> chưa hoàn chỉnh (mỗi mệnh đề phải có Đ/S).
+    expect(isCompleteTrueFalse(document, { m1: true, m2: false, m3: true })).toBe(false);
+    // Thân câu rỗng -> chưa hoàn chỉnh dù đáp án đủ.
+    const emptyStem = composeTrueFalseDocument({
+      type: 'doc',
+      content: [
+        { type: 'paragraph' },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2', 'm3', 'm4'].map((id) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Ý' }] }],
+          })),
+        },
+      ],
+    });
+    expect(isCompleteTrueFalse(emptyStem, answers)).toBe(false);
+    void textBlocks;
+  });
+
+  it('renders the stored TF document statically with its stem and every statement', () => {
+    const stored: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Thân câu hiển thị' }] },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2'].map((id, i) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Nội dung mệnh đề ${i + 1}` }] }],
+          })),
+        },
+      ],
+    };
+    const { container } = render(<RichTextView value={stored} />);
+    expect(container.textContent).toContain('Thân câu hiển thị');
+    expect(container.textContent).toContain('Nội dung mệnh đề 1');
+    expect(container.textContent).toContain('Nội dung mệnh đề 2');
+    expect(container.querySelectorAll('ol.lms-statement-list li')).toHaveLength(2);
+  });
+
+  it('renders one Đúng/Sai radio pair per statement and reports the picked value by statement id', async () => {
+    const document = composeTrueFalseDocument({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Thân câu' }] },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2', 'm3', 'm4'].map((id) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Ý ${id}` }] }],
+          })),
+        },
+      ],
+    });
+    const onAnswerChange = vi.fn();
+    const { container } = render(
+      <TrueFalseEditor
+        value={document}
+        onChange={() => {}}
+        answers={{ m2: false }}
+        onAnswerChange={onAnswerChange}
+        ariaLabel="Soạn câu đúng/sai"
+      />,
+    );
+
+    const trueRadios = await screen.findAllByRole('radio', { name: 'Đánh dấu mệnh đề là Đúng' });
+    const falseRadios = await screen.findAllByRole('radio', { name: 'Đánh dấu mệnh đề là Sai' });
+    expect(trueRadios).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+    expect(falseRadios).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+    expect((falseRadios[1] as HTMLInputElement).checked).toBe(true);
+    expect((trueRadios[1] as HTMLInputElement).checked).toBe(false);
+    expect(container.querySelectorAll('[data-statement]')).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+
+    fireEvent.click(trueRadios[2] as HTMLInputElement);
+    expect(onAnswerChange).toHaveBeenCalledWith('m3', true);
   });
 });
