@@ -160,12 +160,27 @@ export class CredentialBridgeService {
       // nối này phục vụ các luồng do hệ thống/quản trị khởi tạo nên
       // khai method "admin" (đúng cách plugin admin của chính Better
       // Auth gọi).
+      //
+      // BA-1 — CHỐT SEMANTICS revokeUnprovenAccountAccess (comment
+      // 6405565755 trên #7): user do cầu nối tạo được tạo với
+      // emailVerified = true. Lý do: đăng ký tự do đã đóng
+      // (disableSignUp), nên mọi user trong hệ đều do một bên tin cậy
+      // (quản trị/hệ thống) tạo cho một mailbox đã biết — chính việc
+      // tạo đó đã là khẳng định quyền sở hữu mailbox, không phải một
+      // email tự khai chưa chứng minh. Giữ `false` thì lần đăng nhập
+      // OTP đầu tiên của user sẽ chạy revokeUnprovenAccountAccess của
+      // Better Auth: XOÁ toàn bộ account (kể cả credential mật khẩu
+      // vừa migrate) + mọi phiên rồi mới đánh dấu verified — mất
+      // credential đã migrate, trái mục đích của cầu nối. Với `true`,
+      // đường revoke thành no-op cho mọi user do hệ tạo (nó early-return
+      // khi emailVerified đã true); semantics xoá chỉ còn áp cho hàng
+      // tự khai chưa chứng minh — loại hàng mà hệ đã đóng đường tạo.
       const created = await txInternalAdapter.createUser(
         {
           email: input.email,
           name: input.firstName,
           username: input.username,
-          emailVerified: false,
+          emailVerified: true,
         },
         { method: 'admin' },
       );
@@ -223,7 +238,17 @@ export class CredentialBridgeService {
       })
       .onConflictDoNothing({ target: [authAccount.userId, authAccount.providerId] })
       .returning({ id: authAccount.id });
-    return inserted.length > 0;
+    if (inserted.length === 0) return false;
+    // BA-1 — cùng chốt semantics như createUserWithCredential: việc
+    // hệ thống/quản trị chép hash mật khẩu hiện hữu sang credential
+    // là khẳng định quyền sở hữu mailbox cho user đó (chỉ bên giữ hash
+    // mới làm được), nên lần liên kết thành công cũng đánh dấu
+    // email_verified = true — nếu không, lần đăng nhập OTP đầu tiên
+    // sẽ chạy revokeUnprovenAccountAccess và xoá chính credential
+    // vừa liên kết. Chỉ liên kết thành công mới đổi cờ (đường đã có
+    // credential từ trước trả false và không ghi gì thêm).
+    await this.db.update(users).set({ emailVerified: true }).where(eq(users.id, userId));
+    return true;
   }
 
   /**

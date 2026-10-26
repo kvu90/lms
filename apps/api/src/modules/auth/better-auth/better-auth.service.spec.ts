@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Database } from '../../../db/database';
 import type { AuthMailService } from '../../mail/auth-mail.service';
 import { PasswordService } from '../../users/password.service';
+import type { LoginLockoutService } from '../login-lockout.service';
 import { BetterAuthService } from './better-auth.service';
 
 const SECRET = 'unit-test-secret-for-better-auth-0123456789';
@@ -11,9 +12,15 @@ function configStub(values: Record<string, unknown>): ConfigService {
   return { get: (key: string) => values[key] } as unknown as ConfigService;
 }
 
+/** Cổng lockout giả lập cho unit test: không khoá, ghi attempt là no-op (hành vi thật kiểm ở e2e). */
+const lockoutStub = {
+  isLoginLocked: async () => false,
+  recordLoginAttempt: async () => undefined,
+} as unknown as LoginLockoutService;
+
 function buildService(values: Record<string, unknown>): BetterAuthService {
   const config = configStub(values);
-  return new BetterAuthService(config, {} as unknown as Database, new PasswordService(config));
+  return new BetterAuthService(config, {} as unknown as Database, new PasswordService(config), undefined, lockoutStub);
 }
 
 /**
@@ -44,12 +51,20 @@ describe('BetterAuthService', () => {
     // Ghim tường minh false: Better Auth tự bỏ qua kiểm tra Origin khi
     // NODE_ENV=test nếu không khai — xem báo cáo Giai đoạn 0.
     expect(auth.options.advanced?.disableOriginCheck).toBe(false);
-    // PostgreSQL tự sinh UUIDv7; Better Auth không tự sinh id.
-    expect(auth.options.advanced?.database?.generateId).toBe(false);
+    // BA-1: generateId ghim "uuid" thay cho false trước đây. Id
+    // thường vẫn do PostgreSQL sinh UUIDv7 (adapter drizzle khai
+    // supportsUUIDs cho pg nên shouldGenerateId = false); "uuid" chỉ
+    // đổi dạng id tất định của verification lock sang UUID để hết
+    // lỗi 22P02 (xem ghi chú tại advanced.database trong instance).
+    expect(auth.options.advanced?.database?.generateId).toBe('uuid');
     // Cookie cache tắt để thu hồi phiên có hiệu lực ngay.
     expect(auth.options.session?.cookieCache?.enabled).toBe(false);
     // Plugin username chính chủ phải có mặt (đăng nhập bằng username).
     expect(auth.options.plugins?.some((plugin) => plugin.id === 'username')).toBe(true);
+    // Endpoint hooks của lockout theo tài khoản phải được gắn (điểm
+    // 2.4): before chặn trước khi kiểm mật khẩu, after ghi attempt.
+    expect(auth.options.hooks?.before).toBeDefined();
+    expect(auth.options.hooks?.after).toBeDefined();
   });
 
   it('has no mail surface when the mail port is not wired (phase 2.5 not connected yet)', () => {
