@@ -2,6 +2,8 @@ import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
+import { BetterAuthService } from './modules/auth/better-auth/better-auth.service';
+import { CredentialBridgeService } from './modules/auth/better-auth/credential-bridge.service';
 import { ProgramImportService } from './modules/curriculum/program-import.service';
 import { tenantAls } from './modules/tenants/tenant-als';
 
@@ -77,6 +79,26 @@ async function main(): Promise<void> {
     };
     const teacherId = await ensureUser(TEACHER);
     const studentIds = [await ensureUser(STUDENTS[0]!), await ensureUser(STUDENTS[1]!)];
+
+    // Chặng 2.6 (issue #7): tài khoản mẫu phải đăng nhập được qua
+    // Better Auth NGAY sau seed. User tạo mới trong chính lượt seed
+    // này đã được UsersService tự đồng bộ credential; khối này phủ
+    // các tài khoản ĐÃ tồn tại từ lần seed trước (ensureUser bỏ qua
+    // đường tạo) — sync idempotent, chạy lại vô hại. Chỉ chạy khi
+    // tiến trình seed bật Better Auth (env của chính tiến trình seed);
+    // tắt thì bỏ qua, seed giữ nguyên hành vi cũ.
+    const baService = app.get(BetterAuthService, { strict: false });
+    if (baService.enabled) {
+      const bridge = app.get(CredentialBridgeService, { strict: false });
+      const adminId = (await findUser(ADMIN.username))?.id;
+      for (const uid of [adminId, teacherId, ...studentIds]) {
+        if (!uid) continue;
+        const linked = await bridge.syncCredentialPassword(uid);
+        console.log(`[seed] better-auth credential ${linked ? 'linked' : 'already in sync'} for user #${uid}`);
+      }
+    } else {
+      console.log('[seed] better-auth disabled in seed process — credential linking skipped');
+    }
 
     // TENANT-0 (#168): câu chuyện mẫu sống ở tenant trường mặc định
     // (truong-mac-dinh, bootstrap seed đã tạo). Thêm giáo viên/học sinh

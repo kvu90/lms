@@ -103,6 +103,34 @@ export interface BetterAuthFactoryDeps {
    */
   authMail?: AuthMailPort | null;
   /**
+   * Đồng bộ ngược hash mật khẩu trong cửa sổ bake (GĐ2 chặng 2.7
+   * bước A): mỗi khi phía Better Auth ghi mật khẩu credential mới
+   * cho một user, factory gọi callback này để tầng service ĐỌC hash
+   * hiện hành từ chính dòng `account` rồi chép về
+   * `users.password_hash`. Đây là điều kiện để rollback về hệ cũ
+   * trước bước B còn đúng: mật khẩu hiện hành luôn đăng nhập được ở
+   * cả hai hệ. `null`/thiếu = không hook (mọi giai đoạn ngoài cửa sổ
+   * bake — hành vi hiện tại).
+   *
+   * Ba điểm nối (đủ mọi đường ghi mật khẩu của 1.7.12, đã đối chiếu
+   * dist): (1) `databaseHooks.account.create.after` — tạo credential
+   * mới (set-password của user chưa có credential, cầu nối tạo cặp);
+   * (2) after-hook endpoint cho `/change-password` và `/set-password`
+   * — userId lấy từ phiên trong context; (3) callback
+   * `emailAndPassword.onPasswordReset` — phủ cả reset bằng link lẫn
+   * reset bằng email OTP (plugin email-otp cũng gọi callback này).
+   * KHÔNG dùng `databaseHooks.account.update.after` cho đường cập
+   * nhật: `internalAdapter.updatePassword` của 1.7.12 đi qua
+   * `updateManyWithHooks`, mà adapter Drizzle trả về SỐ DÒNG bị ảnh
+   * hưởng cho updateMany — hook `update.after` nhận một con số chứ
+   * không phải bản ghi account, không cách nào biết user/hash nào
+   * vừa đổi (đã kiểm chứng trong dist của @better-auth/drizzle-adapter
+   * 1.7.12: updateMany → getAffectedRowCount).
+   */
+  legacyPasswordSync?: {
+    syncFromCredentialAccount: (userId: string) => Promise<void>;
+  } | null;
+  /**
    * Cấu hình máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): có
    * giá trị thì factory compose thêm `jwt()` + `mcp()` + `cimd()` —
    * instance trở thành AS phát access token cho `/mcp`. `null`/thiếu
@@ -139,15 +167,18 @@ function buildSocialProviders(config: BetterAuthSocialConfig | null | undefined)
 }
 
 /**
- * Chuỗi hoá hai after-hook thành một middleware duy nhất (better-auth
- * chỉ nhận một `hooks.after`): lockout ghi attempt trước (dựa trên đáp
- * ứng gốc của endpoint), rồi cổng MFA xử lý callback OAuth. Hai hook
- * tác động lên hai tập đường rời nhau (sign-in credential vs callback
- * OAuth) nên thứ tự không đổi semantics; lỗi redirect của cổng MFA
- * (APIError) vẫn lan ra ngoài như khi đứng một mình vì dispatch bắt
- * APIError thành response. TUYỆT ĐỐI không ghi đè `hooks` bằng spread
- * sau khối này — spread sau sẽ lặng lẽ thay cả cổng MFA (lỗi đã suýt
- * xảy ra khi rebase 2.4 lên main có cổng MFA).
+ * Chuỗi hoá các after-hook thành một middleware duy nhất (better-auth
+ * chỉ nhận một `hooks.after`): `first` (lockout — ghi attempt trước,
+ * dựa trên đáp ứng gốc của endpoint) chạy trước `second`. Tại điểm gọi
+ * duy nhất, `second` là chuỗi cổng MFA của callback OAuth + đồng bộ
+ * ngược hash của cửa sổ bake (xem khối `hooks` trong createBetterAuth):
+ * ba khâu tác động lên ba tập đường rời nhau (sign-in credential vs
+ * callback OAuth vs change/set-password) nên thứ tự không đổi
+ * semantics; lỗi redirect của cổng MFA (APIError) vẫn lan ra ngoài như
+ * khi đứng một mình vì dispatch bắt APIError thành response. TUYỆT ĐỐI
+ * không ghi đè `hooks` bằng spread sau khối này — spread sau sẽ lặng lẽ
+ * thay cả cổng MFA (lỗi đã suýt xảy ra khi rebase 2.4 lên main có cổng
+ * MFA).
  */
 function composeAfterHooks(
   first: ReturnType<typeof lockoutHooks>['after'] | undefined,
@@ -163,6 +194,22 @@ function composeAfterHooks(
 export function createBetterAuth(deps: BetterAuthFactoryDeps) {
   const mcpAs = deps.mcpAs ?? null;
   const lockoutHookSet = deps.lockout ? lockoutHooks(deps.lockout) : null;
+  // Cổng chặn hoàn tất OAuth khi tài khoản đã bật MFA (chặng 2.3) —
+  // xem oauth-mfa-gate.ts; hook tự đi qua ở mọi đường không phải
+  // callback OAuth có phiên mới.
+  const oauthMfaGate = createOAuthMfaGateHook({
+    // Tra bản ghi MFA trực tiếp qua ánh xạ Drizzle — model
+    // twoFactor chưa có trong registry adapter khi plugin chưa
+    // bật (xem OAuthMfaGateDeps).
+    lookupTwoFactorRecord: async (userId) => {
+      const rows = await deps.db
+        .select({ verified: betterAuthTwoFactor.verified })
+        .from(betterAuthTwoFactor)
+        .where(eq(betterAuthTwoFactor.userId, userId))
+        .limit(1);
+      return rows[0] ?? null;
+    },
+  });
   return betterAuth({
     secret: deps.secret,
     baseURL: deps.baseURL,
@@ -187,24 +234,32 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       },
     },
     hooks: {
-      // Cổng chặn hoàn tất OAuth khi tài khoản đã bật MFA (chặng
-      // 2.3) — xem oauth-mfa-gate.ts; hook tự đi qua ở mọi đường
-      // không phải callback OAuth có phiên mới. Khi có cổng lockout
-      // 2.4 thì chuỗi hoá chung một after duy nhất (xem
-      // composeAfterHooks) — không phía nào ghi đè phía nào.
+      // Chuỗi after-hook DUY NHẤT của instance: `hooks.after` của
+      // 1.7.12 chỉ nhận MỘT handler (dispatch bọc nó bằng matcher luôn
+      // đúng — đã đối chiếu dist), nên cả ba khâu after phải chuỗi vào
+      // đây qua composeAfterHooks — không phía nào ghi đè phía nào:
+      // (1) lockout ghi attempt (điểm 2.4, dựa trên đáp ứng gốc của
+      // endpoint); (2) cổng MFA của callback OAuth (chặng 2.3 — tự đi
+      // qua ở mọi đường không phải callback có phiên mới, và có thể
+      // ném redirect cho đường callback); (3) đồng bộ ngược hash của
+      // cửa sổ bake ở hai endpoint đổi/đặt mật khẩu. Ba khâu tác động
+      // ba tập đường rời nhau nên thứ tự không đổi semantics của nhau.
       ...(lockoutHookSet?.before ? { before: lockoutHookSet.before } : {}),
-      after: composeAfterHooks(lockoutHookSet?.after, createOAuthMfaGateHook({
-        // Tra bản ghi MFA trực tiếp qua ánh xạ Drizzle — model
-        // twoFactor chưa có trong registry adapter khi plugin chưa
-        // bật (xem OAuthMfaGateDeps).
-        lookupTwoFactorRecord: async (userId) => {
-          const rows = await deps.db
-            .select({ verified: betterAuthTwoFactor.verified })
-            .from(betterAuthTwoFactor)
-            .where(eq(betterAuthTwoFactor.userId, userId))
-            .limit(1);
-          return rows[0] ?? null;
-        },
+      after: composeAfterHooks(lockoutHookSet?.after, createAuthMiddleware(async (ctx) => {
+        await oauthMfaGate(ctx);
+        // Đồng bộ ngược hash trong cửa sổ bake (xem
+        // `legacyPasswordSync` ở deps): hai endpoint đổi/đặt mật
+        // khẩu của chính user mang phiên trong context — sau khi
+        // endpoint chạy, hash hiện hành đã nằm ở dòng credential,
+        // service chép nó về users.password_hash. Endpoint lỗi (sai
+        // mật khẩu hiện tại…) thì hash không đổi, lần chép này là
+        // no-op vô hại — cơ chế đồng bộ theo trạng thái, không theo
+        // sự kiện thành công.
+        if (!deps.legacyPasswordSync) return;
+        if (ctx.path !== '/change-password' && ctx.path !== '/set-password') return;
+        const userId = ctx.context.session?.user?.id;
+        if (!userId) return;
+        await deps.legacyPasswordSync.syncFromCredentialAccount(userId);
       })),
     },
     // Khi compose AS: tắt endpoint `/token` của plugin jwt() theo tài
@@ -238,6 +293,20 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
               token: string;
             }): Promise<void> => {
               await deps.authMail!.sendPasswordResetEmail({ userId: user.id, email: user.email, url });
+            },
+          }
+        : {}),
+      // Đồng bộ ngược hash trong cửa sổ bake (xem `legacyPasswordSync`
+      // ở deps): callback này của 1.7.12 chạy SAU khi mật khẩu mới đã
+      // ghi vào credential — ở cả endpoint reset bằng link lẫn đường
+      // reset bằng email OTP của plugin (cả hai đều gọi
+      // onPasswordReset, đã đối chiếu dist) — nên một điểm nối phủ đủ
+      // mọi đường reset; service tự đọc hash hiện hành từ dòng
+      // credential rồi chép về users.password_hash.
+      ...(deps.legacyPasswordSync
+        ? {
+            onPasswordReset: async ({ user }: { user: { id: string } }): Promise<void> => {
+              await deps.legacyPasswordSync!.syncFromCredentialAccount(user.id);
             },
           }
         : {}),
@@ -319,6 +388,30 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
           ]
         : []),
     ],
+    // Đồng bộ ngược trong cửa sổ bake (xem `legacyPasswordSync` ở
+    // deps): database hook chỉ nối ở chiều TẠO credential — hook
+    // create.after nhận đúng bản ghi vừa tạo nên biết chắc user. Các
+    // đường CẬP NHẬT mật khẩu (change-password, reset) nối ở tầng
+    // endpoint/callback như ghi ở deps, KHÔNG nối ở database hook
+    // update: `updatePassword` của 1.7.12 đi qua updateMany mà
+    // adapter trả số dòng bị ảnh hưởng — hook update.after sẽ nhận
+    // một con số và im lặng không làm gì (bẫy đã kiểm chứng trong
+    // dist, xem tài liệu của `legacyPasswordSync`).
+    ...(deps.legacyPasswordSync
+      ? {
+          databaseHooks: {
+            account: {
+              create: {
+                after: async (account: { providerId: string; userId: string }) => {
+                  if (account.providerId === 'credential') {
+                    await deps.legacyPasswordSync!.syncFromCredentialAccount(account.userId);
+                  }
+                },
+              },
+            },
+          },
+        }
+      : {}),
     session: {
       cookieCache: { enabled: false },
     },

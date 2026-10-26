@@ -1,9 +1,10 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { MyAccessView } from '@lms/contracts';
 import { and, eq } from 'drizzle-orm';
 import { badgeIssued, learningPlans } from '../../db/schema';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
+import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
 import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
@@ -33,6 +34,8 @@ export function normalizeIdentity(value: string): string { return value.trim().t
  * username/email là duy nhất trong số user chưa xoá.
  */
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly repo: UsersRepository,
     private readonly passwords: PasswordService,
@@ -41,7 +44,27 @@ export class UsersService {
     private readonly roles: RolesService,
     private readonly customFields: CustomFieldsService,
     private readonly outbox: OutboxService,
+    // forwardRef: một cạnh của vòng provider với cầu nối/BetterAuth/
+    // lockout (xem ghi chú tại CredentialBridgeService).
+    @Inject(forwardRef(() => CredentialBridgeService))
+    private readonly credentialBridge: CredentialBridgeService,
   ) {}
+
+  /**
+   * Đồng bộ dòng credential của Better Auth sau một lần ghi mật khẩu
+   * phía hệ cũ (GĐ2 chặng 2.6): cầu nối tự no-op khi Better Auth tắt
+   * nên đường cũ không đổi hành vi. Lỗi đồng bộ KHÔNG được làm hỏng
+   * thao tác nghiệp vụ vừa ghi thành công (hệ cũ vẫn là nguồn sự thật
+   * trong thời gian cùng tồn tại) — nhưng phải kêu to trong log thay
+   * vì âm thầm lệch credential.
+   */
+  private async syncCredential(userId: string): Promise<void> {
+    try {
+      await this.credentialBridge.syncCredentialPassword(userId);
+    } catch (err) {
+      this.logger.warn(`credential sync failed for user ${userId}: ${String(err)}`);
+    }
+  }
 
   /**
    * Toàn cảnh quyền của chính người gọi (tự phục vụ, không cần capability
@@ -134,6 +157,9 @@ export class UsersService {
     });
     await this.contexts.createContext(CONTEXT_LEVELS.USER, user.id, (await this.contexts.ensureSystemContext()).id);
     if (input.customFields) await this.customFields.setValuesForInstance(USER_COMPONENT, USER_AREA, user.id, input.customFields);
+    // Chặng 2.6 (issue #7): user tạo ở đây đăng nhập được qua Better
+    // Auth ngay — dòng credential sinh cùng hash vừa ghi.
+    await this.syncCredential(user.id);
     return user;
   }
 
@@ -237,6 +263,9 @@ export class UsersService {
       await this.repo.updateUser(id, patch, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_updated', payload: { userId: id } });
     });
+    // Chặng 2.6 (issue #7): mật khẩu vừa đặt lại ở hệ cũ cũng là mật
+    // khẩu của dòng credential — hai hệ không bao giờ lệch mật khẩu.
+    if (input.password !== undefined) await this.syncCredential(id);
     if (input.customFields) await this.customFields.setValuesForInstance(USER_COMPONENT, USER_AREA, id, input.customFields);
     return this.getUser(id);
   }

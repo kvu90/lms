@@ -151,3 +151,77 @@ tuần tự mỗi đường:
 theo (user, capability, context, path version) nên chi phí kiểm quyền
 không tăng tuyến tính theo độ sâu cây context. Đo lại sau mỗi thay
 đổi lớn ở tầng access/grades và cập nhật bảng này kèm ngày đo.
+
+## 10. Cutover Better Auth (GĐ2, issue #7) — cửa sổ bake, cổng bước B, rollback
+
+Ba công tắc cấu hình của chương trình (đặt qua cấu hình Heroku,
+**không qua chat/file**):
+
+| Biến | Ý nghĩa |
+|---|---|
+| `BETTER_AUTH_ENABLED` | Bật instance Better Auth song song với hệ auth tự viết. |
+| `BETTER_AUTH_SECRET` | Secret riêng của Better Auth (≥32 ký tự, **không** suy ra từ `JWT_SECRET`). Bắt buộc khi bất kỳ cờ BA nào bật — thiếu thì app từ chối boot. |
+| `AUTH_CUTOVER_STAGE` | `off` (mặc định) = hệ cũ là luồng chính. `bake` = cửa sổ bake của bước A: login-as phát phiên Better Auth qua cookie đã ký thay cho cặp token, và mọi thay đổi mật khẩu ở cả hai phía đều đồng bộ sang phía còn lại. `bake` mà `BETTER_AUTH_ENABLED` tắt thì app từ chối boot (cấu hình nửa vời). |
+
+Đồng bộ hai chiều trong cửa sổ bake (chặng 2.6 + 2.7-prep):
+
+- Hệ cũ → Better Auth: mọi điểm ghi mật khẩu của module users (tạo
+  user, admin đặt lại, user tự đổi qua đường cũ) đều gọi cầu nối
+  `syncCredentialPassword` — dòng credential trong `account` luôn
+  khớp hash ở `users.password_hash`. User tạo qua API đăng nhập
+  Better Auth được ngay, không cần bước nối tay.
+- Better Auth → hệ cũ: đổi mật khẩu (`/change-password`), đặt
+  mật khẩu lần đầu (`/set-password`), reset (link mail **và** email
+  OTP), tạo credential mới — tất cả đều chép hash hiện hành về
+  `users.password_hash`. Đây là điều kiện để rollback trước bước B
+  còn đúng.
+
+**Mở cửa sổ bake (bước A):** đặt `BETTER_AUTH_ENABLED=true` +
+`BETTER_AUTH_SECRET` (nếu chưa có) và `AUTH_CUTOVER_STAGE=bake` →
+restart → kiểm: health 200; đăng nhập cả hai hệ đều chạy; một lần
+login-as trả cookie (không token) và mở được `/users/me` đúng danh
+tính đích; đổi mật khẩu qua Better Auth rồi đăng nhập hệ cũ bằng
+mật khẩu mới phải thành công (= ca diễn tập trong
+`apps/api/test/better-auth-cutover-flow.e2e-spec.ts`, chạy ở môi
+trường review trước).
+
+**Diễn tập rollback là CỔNG BẮT BUỘC trước bước B** (kế hoạch GĐ2
+§3.2): trên môi trường review — bật bake → đổi mật khẩu qua Better
+Auth → đặt `AUTH_CUTOVER_STAGE=off` + deploy lại release trước →
+đăng nhập legacy bằng mật khẩu đã đổi phải thành công. Dữ liệu MFA
+đăng ký qua plugin trong cửa sổ bake **không** mang ngược về
+`user_totp` được: khi đóng cửa sổ phải ghi rõ số tài khoản bị ảnh
+hưởng (giai đoạn review chỉ là seed/tài khoản thử).
+
+**Cổng bước B (cutover production + gỡ legacy)** — chỉ mở khi đủ:
+
+1. Diễn tập rollback ở trên đã đạt trên môi trường review.
+2. Ma trận flow auth (§3.1 của kế hoạch GĐ2) xanh trên bản web bước
+   A với cờ bật; không còn `lms.accessToken` trong bundle web.
+3. Bí mật production đã đặt qua cấu hình Heroku; cửa sổ bake đã yên
+   qua một vòng kiểm chứng live.
+4. Bước B là **PR riêng, review độc lập riêng**, merge ở thời điểm
+   điều phối theo dõi trực tiếp được ngay (không merge rồi để qua
+   đêm không kiểm chứng live).
+5. Sau bước B: đặt cờ + reset DB production theo baseline mới nhất
+   + **seed lại bằng tiến trình seed có bật Better Auth** (xem dưới)
+   + restart + probe live: release mang đúng SHA của main, hai dyno
+   `up`, đăng nhập admin (seed) qua endpoint Better Auth đạt và
+   `get-session` trả đúng danh tính, một phiên bị thu hồi qua API →
+   request kế tiếp 401 ngay.
+
+**Sau bước B, cờ KHÔNG còn là công tắc rollback** (legacy đã gỡ
+khỏi code và baseline): tắt cờ lúc này = không còn đường auth nào.
+Rollback sau bước B = quay về release trước + reset DB production
+về baseline của release đó + seed lại. Phiên và dữ liệu phát sinh
+sau cutover bị bỏ — đúng nguyên tắc reset của dự án.
+
+**Seed sau reset:** tiến trình seed chỉ nối credential Better Auth
+cho tài khoản mẫu khi **chính tiến trình seed** có
+`BETTER_AUTH_ENABLED=true` + `BETTER_AUTH_SECRET` trong env; thiếu
+thì seed bỏ qua và tự khai báo ở log
+(`better-auth disabled in seed process — credential linking
+skipped`). Tài khoản mẫu tạo mới trong lúc seed đã tự có credential
+qua đường tạo user; khối nối của seed phủ các tài khoản đã tồn tại
+từ lần seed trước. Chạy seed hai lần liên tiếp phải idempotent và
+tài khoản mẫu đăng nhập Better Auth được ngay sau seed.

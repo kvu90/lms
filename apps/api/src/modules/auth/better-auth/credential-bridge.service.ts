@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { BetterAuthOptions } from 'better-auth';
 import { makeSignature } from 'better-auth/crypto';
@@ -49,6 +49,13 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
 @Injectable()
 export class CredentialBridgeService {
   constructor(
+    // forwardRef: vòng import/provider khép kín chỉ xuất hiện khi hai
+    // lát GĐ2 gặp nhau — cầu nối → BetterAuthService → LoginLockoutService
+    // → UsersService → cầu nối (UsersService đồng bộ credential từ
+    // chặng 2.6, LoginLockoutService là của điểm 2.4). Mọi cạnh của
+    // vòng đều khai forwardRef để metadata không bắt phải tham chiếu
+    // chưa nạp tuỳ thứ tự nạp module.
+    @Inject(forwardRef(() => BetterAuthService))
     private readonly betterAuth: BetterAuthService,
     @InjectDrizzle() private readonly db: Database,
   ) {}
@@ -249,6 +256,54 @@ export class CredentialBridgeService {
     // credential từ trước trả false và không ghi gì thêm).
     await this.db.update(users).set({ emailVerified: true }).where(eq(users.id, userId));
     return true;
+  }
+
+  /**
+   * Đồng bộ dòng credential trong `account` theo hash HIỆN HÀNH ở
+   * `users.password_hash` (chặng 2.6 của issue #7 — điểm nối duy nhất
+   * mà module users gọi sau mỗi lần ghi mật khẩu phía hệ cũ: tạo user,
+   * admin đặt lại mật khẩu, user tự đổi mật khẩu qua đường cũ; quy
+   * trình seed cũng gọi cho các tài khoản mẫu). Khác
+   * `linkExistingPasswordHash` ở hai điểm: (1) Better Auth đang TẮT
+   * thì đây là no-op trả `false` — hệ cũ là nguồn duy nhất, không
+   * phải lỗi; (2) đã có dòng credential thì CẬP NHẬT `password` của
+   * nó theo hash mới (link chỉ chèn khi chưa có). Chưa có thì chèn
+   * idempotent trên UNIQUE (user_id, provider_id) như link. User
+   * không có hash (chỉ OAuth/guest) → `false`, không tạo credential
+   * rỗng. Trả `true` khi có một lần ghi thật (chèn hoặc cập nhật).
+   */
+  async syncCredentialPassword(userId: string): Promise<boolean> {
+    if (!this.betterAuth.auth) return false;
+    const [row] = await this.db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row?.passwordHash) return false;
+    const [existing] = await this.db
+      .select({ id: authAccount.id, password: authAccount.password })
+      .from(authAccount)
+      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, 'credential')))
+      .limit(1);
+    if (existing) {
+      if (existing.password === row.passwordHash) return false;
+      await this.db
+        .update(authAccount)
+        .set({ password: row.passwordHash, updatedAt: new Date() })
+        .where(eq(authAccount.id, existing.id));
+      return true;
+    }
+    const inserted = await this.db
+      .insert(authAccount)
+      .values({
+        userId,
+        providerId: 'credential',
+        accountId: userId,
+        password: row.passwordHash,
+      })
+      .onConflictDoNothing({ target: [authAccount.userId, authAccount.providerId] })
+      .returning({ id: authAccount.id });
+    return inserted.length > 0;
   }
 
   /**

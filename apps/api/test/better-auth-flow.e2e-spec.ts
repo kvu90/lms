@@ -297,6 +297,13 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
   it('bridges an existing user: the current argon2 hash signs in through Better Auth unchanged', async () => {
     const token = await helpers.adminToken(app);
     const legacy = await helpers.createUserViaApi(app, token);
+    // Từ chặng 2.6 (issue #7), tạo user qua API đã TỰ đồng bộ
+    // credential (UsersService gọi cầu nối sau khi ghi mật khẩu) nên
+    // user mới không còn ở trạng thái "chưa có credential". Ca này
+    // kiểm đường LINK cho user tồn tại từ trước thời đồng bộ (hash
+    // nằm ở users.password_hash, chưa có dòng account) — xoá dòng
+    // credential vừa được tự đồng bộ để dựng lại đúng trạng thái đó.
+    await pg.query("delete from account where user_id = $1 and provider_id = 'credential'", [legacy.id]);
     expect(await bridge.linkExistingPasswordHash(legacy.id)).toBe(true);
     expect(await bridge.linkExistingPasswordHash(legacy.id)).toBe(false);
     const res = await http(app)
@@ -310,6 +317,8 @@ describe('Better Auth foundation (issue #7 phase 1)', () => {
   it('two concurrent linkExistingPasswordHash calls yield exactly one credential row', async () => {
     const token = await helpers.adminToken(app);
     const legacy = await helpers.createUserViaApi(app, token);
+    // Trạng thái "user có hash nhưng chưa có credential" như ca trên.
+    await pg.query("delete from account where user_id = $1 and provider_id = 'credential'", [legacy.id]);
     const results = await Promise.all([
       bridge.linkExistingPasswordHash(legacy.id),
       bridge.linkExistingPasswordHash(legacy.id),

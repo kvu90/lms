@@ -14,6 +14,8 @@ import {
   AUTH_LOCKED_OUT_MESSAGE,
   LoginLockoutService,
 } from './login-lockout.service';
+import { BetterAuthService } from './better-auth/better-auth.service';
+import { CredentialBridgeService } from './better-auth/credential-bridge.service';
 import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -47,6 +49,19 @@ export type PasswordLoginOutcome =
 export type SessionLoginOutcome =
   | { mfaRequired: false; user: UserRow; sessionId: string }
   | { mfaRequired: true; user: UserRow; challengeToken: string };
+
+/**
+ * Kết quả login-as theo chặng cutover (GĐ2 chặng 2.6/2.7, issue #7):
+ * `legacy` = cặp token JWT của hệ cũ (chặng `AUTH_CUTOVER_STAGE=off`,
+ * hiện trạng); `better-auth` = phiên lập trình của Better Auth
+ * (`AUTH_CUTOVER_STAGE=bake`) — controller đặt cookie phiên đã ký,
+ * đáp ứng KHÔNG mang token JWT nào. Cổng kiểm tra (capability, lý do
+ * bắt buộc, chặn đích không hoạt động/admin) và audit `user_loginas`
+ * là CHUNG cho cả hai chặng.
+ */
+export type LoginAsOutcome =
+  | { mode: 'legacy'; user: UserRow; tokens: TokenPair; tenantId: string }
+  | { mode: 'better-auth'; user: UserRow; tenantId: string; baSession: { signedCookieValue: string; expiresAt: Date } };
 
 /** Định danh các phiên "hiện tại" theo ngữ cảnh của người gọi: `familyId` là `sid` trong access token, `webSessionId` là id phiên trong cookie. */
 export interface CurrentSessionRefs { familyId?: string; webSessionId?: string }
@@ -92,6 +107,8 @@ export class AuthService {
     private readonly outbox: OutboxService,
     private readonly tenants: TenantsService,
     private readonly lockout: LoginLockoutService,
+    private readonly betterAuth: BetterAuthService,
+    private readonly credentialBridge: CredentialBridgeService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -410,7 +427,7 @@ export class AuthService {
    * định của chính user đích — quyền trong tenant đến từ gán vai thật
    * của user đích, không mang theo quyền của người mượn.
    */
-  async loginAs(adminId: string, targetUserId: string, reason: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: TokenPair; tenantId: string }> {
+  async loginAs(adminId: string, targetUserId: string, reason: string, client?: SessionClientInfo): Promise<LoginAsOutcome> {
     const trimmedReason = reason?.trim() ?? '';
     if (!trimmedReason) {
       throw new BadRequestException({
@@ -424,7 +441,15 @@ export class AuthService {
     if (target.deleted || target.suspended) throw new ForbiddenException({ message: 'Target account is not active', code: 'auth.account_inactive' });
     if (await this.evaluator.isSiteAdmin(target.id)) throw new ForbiddenException({ message: 'Cannot log in as a site administrator', code: 'auth.loginas_admin_denied' });
     const tenant = await this.tenants.resolveDefaultTenant(target.id);
-    const tokens = await this.issueTokens(target, client);
+    // Chặng 2.6/2.7 (issue #7): ở chặng bake, phiên mượn danh là PHIÊN
+    // LẬP TRÌNH của Better Auth (createProgrammaticSession) — danh tính
+    // đích được guard cookie nhận diện như mọi phiên BA khác, thu hồi
+    // được bằng cơ chế phiên của BA. Ở chặng off vẫn cấp cặp token JWT
+    // như cũ. Cả hai chặng dùng chung cổng kiểm tra + audit ở trên/dưới.
+    const baSession = this.betterAuth.cutoverStage === 'bake'
+      ? await this.credentialBridge.createProgrammaticSession(target.id)
+      : null;
+    const tokens = baSession ? null : await this.issueTokens(target, client);
     await this.recordAuthEvent('user_logged_in', { userId: target.id, actorId: adminId, relatedUserId: target.id, method: 'login-as', ip: client?.ip ?? null });
     await this.outbox
       .enqueueStandalone({
@@ -444,7 +469,15 @@ export class AuthService {
         },
       })
       .catch((err) => this.logger.warn(`login-as audit not recorded: ${String(err)}`));
-    return { user: target, tokens, tenantId: tenant.id };
+    if (baSession) {
+      return {
+        mode: 'better-auth',
+        user: target,
+        tenantId: tenant.id,
+        baSession: { signedCookieValue: baSession.signedCookieValue, expiresAt: baSession.expiresAt },
+      };
+    }
+    return { mode: 'legacy', user: target, tokens: tokens as TokenPair, tenantId: tenant.id };
   }
 
   // --- web sessions -----------------------------------------------------------

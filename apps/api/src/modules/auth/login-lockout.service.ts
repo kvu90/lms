@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { AuthRepository } from './auth.repository';
@@ -46,6 +46,9 @@ export interface LockoutGuardPort {
 export class LoginLockoutService implements LockoutGuardPort {
   constructor(
     private readonly repo: AuthRepository,
+    // forwardRef: một cạnh của vòng provider với cầu nối/UsersService
+    // (xem ghi chú tại CredentialBridgeService).
+    @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
     private readonly config: ConfigService,
   ) {}
