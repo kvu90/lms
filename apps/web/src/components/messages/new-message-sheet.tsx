@@ -151,6 +151,10 @@ export function NewMessageSheet({
           <SheetTitle>{t('newMessage')}</SheetTitle>
         </SheetHeader>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 pb-4">
+          {/* Thông báo kết quả hành động danh bạ (kết bạn/chấp nhận…)
+              hiện bất kể ngữ cảnh đang chọn — người dùng vừa thao tác
+              ở ngữ cảnh khoá/lớp vẫn phải thấy kết quả ngay. */}
+          {contactMessage ? <p role="status" className="text-sm">{contactMessage}</p> : null}
           {incomingRequests.length > 0 ? (
             <div className="space-y-2">
               <h3 className="flex items-center gap-2 font-medium">
@@ -201,7 +205,6 @@ export function NewMessageSheet({
             />
             {pickerContext.kind === 'contacts' ? (
               <>
-                {contactMessage ? <p role="status" className="text-sm">{contactMessage}</p> : null}
                 <ul className="space-y-1">
                   {contacts.map((userId) => (
                     <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-2">
