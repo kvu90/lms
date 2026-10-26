@@ -10,12 +10,14 @@ import { randomBytes } from 'node:crypto';
 import type {
   AddRosterStudentResult,
   ClassJoinRequest as ClassJoinRequestView,
+  ClassOverview,
   ClassRosterImportReport,
   ClassRosterMember,
   ClassStaffRole,
   ClassStaffView,
   ClassSuspendedMember,
   ClassView,
+  ClassViewerRole,
   CreateClass,
   JoinClassResult,
   RosterStudentIdentity,
@@ -282,6 +284,86 @@ export class ClassesService implements OnModuleInit {
       throw new NotFoundException({ message: `Class ${id} not found`, code: 'class.not_found' });
     }
     return toClassDto(row, await this.canSeeJoinCode(actorId, row));
+  }
+
+  /**
+   * Dashboard theo lớp (CLASS-2): gói tổng quan MỘT lớp cho đúng vai
+   * của người gọi — dữ kiện các endpoint hiện có không cho biết quan hệ
+   * của người gọi với lớp, và danh sách khoá của lớp trả mọi khoá trong
+   * khi học sinh chỉ được thấy khoá mình đang học, nên gói này suy cả
+   * hai ở phía server.
+   *
+   * Flow:
+   *  1. Cổng xem lớp như mọi đường đọc của lớp (canViewClass): người
+   *     ngoài lớp nhận 404 đồng nhất, không lộ sự tồn tại của lớp.
+   *  2. Suy quan hệ của người gọi từ dữ kiện thật: chủ lớp → `owner`;
+   *     giữ ít nhất một trong 3 vai lớp gán tay tại context lớp (cùng
+   *     cách liệt kê của listStaff) hoặc có cờ quản roster/phân vai →
+   *     `staff`; thuộc roster → `member`; còn lại là người xem được lớp
+   *     nhờ quyền quản trị cấp trên (site admin / tenant:manage) →
+   *     `staff` ở mức xem, các thao tác quản trị vẫn gác riêng bằng
+   *     `canManageRoster`/`canShare` đi kèm trong gói.
+   *  3. Danh sách khoá lọc theo vai: owner/staff nhận mọi khoá của
+   *     lớp; member chỉ nhận các khoá mình đang ghi danh ACTIVE —
+   *     đình chỉ ở một khoá thì khoá đó biến mất khỏi gói.
+   *
+   * Bất biến: gói KHÔNG mang bất kỳ dữ kiện điểm nào — dashboard là
+   * bề mặt tổng quan/điều hướng; mô hình điểm (chốt 23:49 25/10/2026)
+   * chỉ có điểm theo từng bài, cấm tổng hợp theo lớp/khoá.
+   *
+   * @param actorId - Người gọi đã xác thực.
+   * @param id - Id của lớp.
+   * @returns Gói tổng quan khớp `classOverviewSchema` phía contracts
+   *   (danh sách khoá là bản ghi khoá thô như endpoint khoá của lớp).
+   * @throws NotFoundException `class.not_found` khi lớp không thuộc
+   *   tenant hiệu lực hoặc người gọi không có quan hệ với lớp.
+   */
+  async getClassOverview(actorId: string, id: string): Promise<Omit<ClassOverview, 'courses'> & { courses: CourseRow[] }> {
+    const row = await this.getClassRow(id);
+    if (!(await this.canViewClass(actorId, row))) {
+      throw new NotFoundException({ message: `Class ${id} not found`, code: 'class.not_found' });
+    }
+    const ctxId = await this.classContextId(id);
+    const isOwner = actorId === row.ownerId;
+    const canManageRoster = isOwner || (await this.evaluator.hasCapability(actorId, 'class:manageroster', ctxId));
+    const canShare = isOwner || (await this.evaluator.hasCapability(actorId, 'class:share', ctxId));
+
+    // Đồng GV = được gán TAY (component rỗng) ít nhất một trong 3 vai
+    // lớp tại đúng context lớp này — cùng khuôn liệt kê của listStaff;
+    // các dòng gán do ghi danh cấp không phải vai lớp nên không lẫn vào.
+    const staffRoleIds = new Set<string>();
+    for (const shortName of [CLASS_ASSIGNER_ROLE, CLASS_GRADER_ROLE, CLASS_ROSTER_MANAGER_ROLE]) {
+      const role = await this.roles.getRoleByShortname(shortName);
+      if (role) staffRoleIds.add(role.id);
+    }
+    type AssignmentRow = { userId: string; roleId: string; component: string };
+    const assignments = (await this.roles.listAssignments({ contextId: ctxId })) as unknown as AssignmentRow[];
+    const hasStaffRole = assignments.some((a) => a.component === '' && a.userId === actorId && staffRoleIds.has(a.roleId));
+    const isMember = await this.groups.isCohortMember(row.cohortId, actorId);
+
+    const viewerRole: ClassViewerRole = isOwner
+      ? 'owner'
+      : hasStaffRole || canManageRoster || canShare
+        ? 'staff'
+        : isMember
+          ? 'member'
+          : 'staff';
+
+    const allCourses = await this.repo.listCoursesInClass(id);
+    let courses = allCourses;
+    if (viewerRole === 'member') {
+      const activeIds = new Set(await this.repo.listActiveEnrolledCourseIds(id, actorId));
+      courses = allCourses.filter((c) => activeIds.has(c.id));
+    }
+    const rosterCount = (await this.groups.listCohortMembers(row.cohortId)).length;
+    return {
+      class: toClassDto(row, await this.canSeeJoinCode(actorId, row)),
+      viewerRole,
+      canManageRoster,
+      canShare,
+      rosterCount,
+      courses,
+    };
   }
 
   /** Sửa lớp; đổi `onLeave` thì đẩy xuống mọi instance cohort hiện có của lớp; xoay mã tham gia làm mã cũ mất hiệu lực ngay. */

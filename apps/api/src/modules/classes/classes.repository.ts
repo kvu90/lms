@@ -84,6 +84,22 @@ export class ClassesRepository {
   }
 
   /**
+   * Các khoá của lớp mà một học sinh đang ghi danh ACTIVE (status = 0 —
+   * `ENROL_ACTIVE` của module enrol; xét mọi instance của khoá, đường
+   * chính là instance cohort của lớp). Đình chỉ ở một khoá đặt dòng ghi
+   * danh thành SUSPENDED (status = 1) nên khoá đó rơi khỏi tập này —
+   * dashboard phía học sinh (CLASS-2) chỉ hiện các khoá trong tập này.
+   */
+  async listActiveEnrolledCourseIds(classId: string, userId: string): Promise<string[]> {
+    const rows = await this.db.selectDistinct({ courseId: enrol.courseId })
+      .from(userEnrolments)
+      .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
+      .innerJoin(course, eq(course.id, enrol.courseId))
+      .where(and(eq(course.classId, classId), eq(userEnrolments.userId, userId), eq(userEnrolments.status, 0)));
+    return rows.map((r) => r.courseId);
+  }
+
+  /**
    * Đẩy chế độ rời lớp mới xuống `custom_text1` của mọi instance cohort
    * của lớp (các khoá đã tạo trước khi lớp đổi `on_leave` phải theo chế
    * độ hiện hành của lớp, không giữ ảnh chụp lúc tạo khoá).

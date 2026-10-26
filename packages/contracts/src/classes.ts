@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { courseSchema } from './course.js';
 import { uuidIdSchema } from './ids.js';
 
 /**
@@ -239,3 +240,45 @@ export const classSuspendedMemberSchema = z.object({
   email: z.string(),
 });
 export type ClassSuspendedMember = z.infer<typeof classSuspendedMemberSchema>;
+
+// ---------------------------------------------------------------------------
+// CLASS-2 (issue #184): dashboard theo lớp — gói tổng quan MỘT lớp cho
+// đúng vai của người gọi.
+// ---------------------------------------------------------------------------
+
+/**
+ * Quan hệ của người gọi với lớp, do server suy từ dữ kiện thật (chủ lớp
+ * / vai tại context lớp / thành viên roster) — web dùng để dựng dashboard
+ * đúng vai, quyền thật vẫn gác ở từng endpoint phía API:
+ *  - `owner`: chủ lớp — thấy mọi khoá của lớp + toàn bộ khối quản trị;
+ *  - `staff`: đồng GV giữ một trong 3 vai lớp (hoặc người có quyền xem
+ *    lớp ở mức quản trị như quản trị tenant) — thấy mọi khoá của lớp,
+ *    khối quản trị hiện theo từng cờ khả năng đi kèm;
+ *  - `member`: học sinh thuộc roster — `courses` CHỈ gồm các khoá mình
+ *    đang ghi danh ACTIVE trong lớp (đình chỉ ở một khoá thì khoá đó
+ *    biến mất khỏi danh sách này), không có khối quản trị nào.
+ */
+export const CLASS_VIEWER_ROLES = ['owner', 'staff', 'member'] as const;
+export const classViewerRoleSchema = z.enum(CLASS_VIEWER_ROLES);
+export type ClassViewerRole = z.infer<typeof classViewerRoleSchema>;
+
+/**
+ * Gói tổng quan của dashboard lớp (`GET /classes/:id/overview`): thông
+ * tin lớp + quan hệ của người gọi + số học sinh của roster + danh sách
+ * khoá ĐÃ LỌC THEO VAI ở phía server (member chỉ nhận khoá mình đang
+ * học). Dashboard là bề mặt tổng quan/điều hướng thuần — gói này
+ * KHÔNG mang bất kỳ dữ kiện điểm nào (mô hình điểm chốt 23:49
+ * 25/10/2026: điểm chỉ theo từng bài, không có tổng hợp theo lớp/khoá).
+ */
+export const classOverviewSchema = z.object({
+  class: classSchema,
+  viewerRole: classViewerRoleSchema,
+  /** Người gọi có quyền quản roster của lớp này (chủ lớp hoặc vai `classrostermanager`). */
+  canManageRoster: z.boolean(),
+  /** Người gọi có quyền phân vai tại lớp này (chủ lớp hoặc `class:share`). */
+  canShare: z.boolean(),
+  /** Số học sinh hiện thuộc roster của lớp (nguồn sự thật của ghi danh cấp lớp). */
+  rosterCount: z.number().int().nonnegative(),
+  courses: z.array(courseSchema),
+});
+export type ClassOverview = z.infer<typeof classOverviewSchema>;

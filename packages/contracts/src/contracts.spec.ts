@@ -13,6 +13,7 @@ import {
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
   conversationGroupTreeSchema,
+  classOverviewSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -546,5 +547,42 @@ describe('question view contracts', () => {
       id: '01900000-0000-7000-8000-000000000008', questionBankEntryId: '01900000-0000-7000-8000-000000000006', questionId: '01900000-0000-7000-8000-000000000004', version: 1,
       questionText: 'chuỗi cũ', defaultMark: 1, answerdata: { correct: true },
     })).toThrow();
+  });
+});
+
+describe('class overview contracts (CLASS-2, #184)', () => {
+  const overview = {
+    class: {
+      id: '01900000-0000-7000-8000-0000000000c1', tenantId: '01900000-0000-7000-8000-0000000000a1',
+      name: 'Lớp 10A1', code: '10A1', schoolYear: '2026-2027',
+      ownerId: '01900000-0000-7000-8000-0000000000b1', cohortId: '01900000-0000-7000-8000-0000000000d1',
+      allowSelfReport: true, joinCode: null, joinAutoApprove: false, onLeave: 'suspend', status: 'active',
+      description: '', createdAt: '2026-10-26T00:00:00.000Z', updatedAt: '2026-10-26T00:00:00.000Z',
+    },
+    viewerRole: 'member',
+    canManageRoster: false,
+    canShare: false,
+    rosterCount: 32,
+    courses: [{
+      id: '01900000-0000-7000-8000-000000000010', category: '01900000-0000-7000-8000-000000000002',
+      fullName: 'Toán 10', shortName: 'TOAN10', idNumber: '', summary: '', format: 'topics', visible: true,
+      startDate: null, endDate: null, groupMode: 0, enableCompletion: true,
+    }],
+  };
+
+  it('parses a member overview (dashboard theo vai của học sinh)', () => {
+    const parsed = classOverviewSchema.parse(overview);
+    expect(parsed.viewerRole).toBe('member');
+    expect(parsed.courses[0]?.fullName).toBe('Toán 10');
+    expect(parsed.rosterCount).toBe(32);
+  });
+
+  it('rejects a viewerRole outside the closed owner/staff/member set (vai lạ không được lọt vào dashboard)', () => {
+    expect(() => classOverviewSchema.parse({ ...overview, viewerRole: 'teacher' })).toThrow();
+    expect(() => classOverviewSchema.parse({ ...overview, viewerRole: 'admin' })).toThrow();
+  });
+
+  it('rejects a negative rosterCount (số học sinh của lớp không thể âm)', () => {
+    expect(() => classOverviewSchema.parse({ ...overview, rosterCount: -1 })).toThrow();
   });
 });

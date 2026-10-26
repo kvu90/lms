@@ -2,6 +2,7 @@ import type {
   AddRosterStudentResult,
   ClassJoinPreview,
   ClassJoinRequest,
+  ClassOverview,
   ClassRosterImportReport,
   ClassRosterMember,
   ClassStaffRole,
@@ -23,6 +24,7 @@ export type {
   AddRosterStudentResult,
   ClassJoinPreview,
   ClassJoinRequest,
+  ClassOverview,
   ClassRosterImportReport,
   ClassRosterMember,
   ClassStaffRole,
@@ -42,6 +44,20 @@ export function fetchClasses(): Promise<ClassView[]> {
 
 export function fetchClass(classId: string): Promise<ClassView> {
   return apiJson<ClassView>(`/api/v1/classes/${classId}`);
+}
+
+/**
+ * Gói tổng quan cho DASHBOARD THEO LỚP (CLASS-2): server suy quan hệ
+ * của người gọi với lớp (chủ lớp / đồng GV / học sinh) và lọc sẵn danh
+ * sách khoá theo vai — học sinh chỉ nhận các khoá mình đang ghi danh
+ * ACTIVE trong lớp. Trang chi tiết lớp dựng mọi khối hiển thị theo gói
+ * này; quyền thật vẫn gác ở từng endpoint phía API.
+ *
+ * @param classId - Id của lớp cần xem tổng quan.
+ * @returns Gói tổng quan khớp `classOverviewSchema` của contracts.
+ */
+export function fetchClassOverview(classId: string): Promise<ClassOverview> {
+  return apiJson<ClassOverview>(`/api/v1/classes/${classId}/overview`);
 }
 
 /**

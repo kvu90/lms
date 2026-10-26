@@ -31,7 +31,8 @@ const ROSTER_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
  * API lớp học (issue #184): CLASS-0 chốt vòng đời lớp + roster + hợp
  * đồng quyền tại context lớp; CLASS-1 bổ sung bề mặt giáo viên — nạp
  * roster theo định danh/import Excel, phân quyền đồng GV, tự báo danh
- * bằng mã tham gia, thành viên đã đình chỉ. Các route đặc thù
+ * bằng mã tham gia, thành viên đã đình chỉ; CLASS-2 bổ sung gói tổng
+ * quan cho dashboard theo lớp (`:id/overview`). Các route đặc thù
  * (join/join-preview/roster-template) khai TRƯỚC route `:id` để không
  * bị nuốt bởi tham số đường dẫn.
  */
@@ -75,6 +76,12 @@ export class ClassesController {
   /** GET /classes/:id — chi tiết lớp (mã tham gia chỉ lộ cho người có quyền quản roster). */
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.classes.getClass(actor.id, id);
+  }
+
+  @Get(':id/overview')
+  /** GET /classes/:id/overview — gói tổng quan cho dashboard theo lớp (CLASS-2): quan hệ của người gọi với lớp + số học sinh + khoá đã lọc theo vai (học sinh chỉ nhận khoá mình đang ghi danh ACTIVE). */
+  async overview(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.classes.getClassOverview(actor.id, id);
   }
 
   @Patch(':id')
