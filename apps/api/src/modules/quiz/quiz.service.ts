@@ -1531,7 +1531,13 @@ export class QuizService {
    * trong một câu, không còn phép gom chùm từ 4 câu rời theo ngữ liệu
    * như mô hình cũ.
    */
-  private async cellAvailableCount(actorId: string, cell: ExamMatrixCellRow): Promise<number> {
+  // Signature giữ dạng Pick 3 trường như phía main (không lấy dạng
+  // hàng đầy đủ của P5): đường importAvailability (lát I-1) gọi hàm
+  // này bằng ô DỰ THẢO chưa có bản ghi DB, trong khi thân hàm chỉ
+  // chuyển tiếp cell sang cellCandidatesForUser (cũng chỉ cần 3
+  // trường này) — siết thành hàng đầy đủ sẽ phá đường I-1 mà không
+  // đổi hành vi nào. Việc bỏ chùm của P5 (xoá tfClustersOf) giữ nguyên.
+  private async cellAvailableCount(actorId: string, cell: Pick<ExamMatrixCellRow, 'curriculumNodeId' | 'cognitiveLevel' | 'qtype'>): Promise<number> {
     const candidates = await this.cellCandidatesForUser(actorId, cell);
     return candidates.length;
   }
