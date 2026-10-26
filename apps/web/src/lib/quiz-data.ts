@@ -6,15 +6,17 @@ import type {
   ExamPinOverrideView as QuizOverrideView,
   QuizView,
 } from '@lms/contracts';
+import { extractRichTextPlainText } from '@lms/contracts';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
 
 /**
  * Tầng dữ liệu trang lần ghim đề (F-01 đợt 1, rà soát #133): lần ghim
- * + tên câu của các slot là một query gộp (clientLoader prefetch
+ * + nhãn câu của các slot là một query gộp (clientLoader prefetch
  * cùng khoá); ghi đè, thông tin đề nguồn và danh sách thành viên là
  * các query riêng bật theo quyền của người xem như các effect thủ
- * công trước đây.
+ * công trước đây. Nhãn câu là TRÍCH ĐOẠN nội dung thân câu — câu hỏi
+ * không còn trường tên (quyết 11:28 ngày 26/10/2026).
  */
 
 /** Hình dạng trả về của GET /exam-pins/:id (trang thông tin theo người xem). */
@@ -37,10 +39,10 @@ export interface QuizForUser {
   permissions: { manage: boolean; manageOverrides: boolean; grade: boolean; viewReports: boolean; preview: boolean; attempt: boolean };
 }
 
-/** Gói trang lần ghim: dữ liệu lần ghim + tên câu của từng slot đã ghim. */
+/** Gói trang lần ghim: dữ liệu lần ghim + nhãn câu của từng slot đã ghim. */
 export interface ExamPinPageData {
   view: QuizForUser;
-  /** Tên câu theo id slot; slot không tra được tên thì vắng mặt (chỉ để hiển thị). */
+  /** Nhãn câu (trích đoạn nội dung) theo id slot; slot không tra được thì vắng mặt (chỉ để hiển thị). */
   slotNames: Record<string, string>;
 }
 
@@ -63,16 +65,17 @@ async function probe<T>(path: string): Promise<T | null> {
 
 async function fetchExamPin(pinId: string): Promise<ExamPinPageData> {
   const view = await apiJson<QuizForUser>(`/api/v1/exam-pins/${pinId}`);
-  // Tra tên cho slot cố định/slot ngẫu nhiên để bảng dựng đề đọc được.
+  // Tra nhãn cho slot cố định/slot ngẫu nhiên để bảng dựng đề đọc
+  // được: nhãn là trích đoạn nội dung thân câu của phiên bản mới nhất.
   const slotNames: Record<string, string> = {};
   await Promise.all(
     view.quiz.slots.map(async (s) => {
       try {
         if (s.questionId) {
           const q = await apiJson<QuestionView>(`/api/v1/questions/${s.questionId}`);
-          slotNames[s.id] = q.question.name;
+          slotNames[s.id] = extractRichTextPlainText(q.latestVersion.questionText).slice(0, 120);
         }
-      } catch { /* tên chỉ để hiển thị */ }
+      } catch { /* nhãn chỉ để hiển thị */ }
     }),
   );
   return { view, slotNames };
@@ -85,7 +88,7 @@ export function examPinQueryOptions(pinId: string) {
   });
 }
 
-/** Đọc lần ghim + tên slot; lỗi tải nổi lên query (trang hiện lỗi + nút thử lại như trước). */
+/** Đọc lần ghim + nhãn slot; lỗi tải nổi lên query (trang hiện lỗi + nút thử lại như trước). */
 export function useExamPin(pinId: string) {
   return useQuery(examPinQueryOptions(pinId));
 }

@@ -2,7 +2,16 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
 import { extractRichTextPlainText } from '@lms/contracts';
-import { RichTextEditor, RichTextView, type RichTextImagePick } from '@lms/editor';
+import {
+  MultipleChoiceEditor,
+  RichTextEditor,
+  RichTextView,
+  composeMultipleChoiceDocument,
+  createEmptyMultipleChoiceDocument,
+  splitMultipleChoiceDocument,
+  type MultipleChoiceDocumentJson,
+  type RichTextImagePick,
+} from '@lms/editor';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -46,22 +55,43 @@ import {
 } from './questions';
 
 /**
- * Màn soạn câu hỏi (issue #248): form riêng cho từng loại trong 4 loại —
- * multichoice, truefalse (gồm dạng chùm mệnh đề Đ/S bám cùng ngữ liệu),
- * shortanswer (kèm cờ đáp án số, mặc định TẮT) và essay. Mọi trường nội
- * dung trình bày (thân câu, phương án, mệnh đề, phản hồi, hướng dẫn chấm,
- * mẫu trả lời) đều là tài liệu rich text qua trình soạn của @lms/editor —
- * công thức toán và danh sách đến từ chính editor đó; ảnh chèn qua bộ
- * chọn ảnh của lát files (định danh bền `/api/v1/files/<id>/content` nằm
- * trong `attrs.src` của node image). Mô hình form GIỮ NGUYÊN tài liệu
- * Tiptap khi mở câu có sẵn nên câu draft do MCP tạo mở ra sửa được
- * nguyên trạng (không ép về văn bản thuần như bản cũ). Đáp án của
- * shortanswer là MẪU khớp đáp án của học sinh nên giữ ô nhập thuần.
+ * Màn soạn câu hỏi (issue #248) — flow tổng thể:
  *
- * Hai nút lưu theo trạng thái đích: câu mới tạo qua API mặc định ở trạng
- * thái `ready`, nên "Lưu nháp" = lưu nội dung rồi gọi
- * `POST /questions/:id/status {status:'draft'}`; "Lưu & sẵn sàng" tương
- * tự với `ready`. Chuyển trạng thái không tạo phiên bản mới.
+ * 1. Nạp: danh mục (kèm context cho đường tải ảnh) + ngữ liệu của danh
+ *    mục; khi sửa, nạp view câu hỏi rồi `editorFormFromView` lắp thành
+ *    trạng thái form (options thiếu thì tìm thêm ở endpoint versions).
+ * 2. Soạn: form riêng cho từng loại trong 4 loại — multichoice,
+ *    truefalse (gồm dạng chùm mệnh đề Đ/S bám cùng ngữ liệu),
+ *    shortanswer (kèm cờ đáp án số, mặc định TẮT) và essay. Câu hỏi
+ *    KHÔNG có trường tên (quyết 11:28 ngày 26/10/2026): nhãn hiển thị
+ *    ở mọi bề mặt là trích đoạn nội dung câu hỏi.
+ * 3. Lưu: `editorFormContent` đóng gói payload theo hợp đồng mới (port
+ *    giaokhoa, quyết 12:04 + 12:12 ngày 26/10/2026) rồi tạo câu/phiên
+ *    bản mới, sau đó chốt trạng thái đích bằng
+ *    `POST /questions/:id/status` (chuyển trạng thái không tạo phiên
+ *    bản mới): "Lưu nháp" = `draft`, "Lưu & sẵn sàng" = `ready` (câu
+ *    mới tạo qua API mặc định ở `ready`).
+ *
+ * Mô hình soạn theo loại (chi tiết ở các hàm compose/split của
+ * `@lms/editor` và ở `editorFormContent`):
+ * - Multichoice soạn trên MỘT tài liệu thống nhất (thân câu + 4 lựa
+ *   chọn trong cùng tài liệu, radio đáp án đúng là metadata ngoài tài
+ *   liệu); khi lưu tài liệu được TÁCH thành thân câu / các dòng
+ *   answers / phản hồi theo lựa chọn.
+ * - Mọi loại câu đều có trường HƯỚNG DẪN (guidance) rich text riêng và
+ *   essay có thêm LỜI GIẢI MẪU (solution): cả hai KHÔNG nằm trong nội
+ *   dung câu hỏi gửi đi — payload gắn chúng ở cấp `guidance` /
+ *   `solution` để tầng nghiệp vụ ghi vào bản ghi phía đáp án
+ *   (`question_answer_keys`) theo quyết 12:12.
+ * - Đáp án của shortanswer là MẪU khớp đáp án của học sinh nên giữ ô
+ *   nhập thuần; mọi mẫu liệt kê đều được chấp nhận (không tỉ trọng).
+ *
+ * Mọi trường nội dung trình bày đều là tài liệu rich text qua trình
+ * soạn của @lms/editor — công thức toán và danh sách đến từ chính
+ * editor đó; ảnh chèn qua bộ chọn ảnh của lát files (định danh bền
+ * `/api/v1/files/<id>/content` nằm trong `attrs.src` của node image).
+ * Mô hình form GIỮ NGUYÊN tài liệu Tiptap khi mở câu có sẵn nên câu
+ * draft do MCP tạo mở ra sửa được nguyên trạng.
  */
 
 // ---------------------------------------------------------------------------
@@ -112,45 +142,51 @@ function entryStatus(view: QuestionView | null | undefined): string | undefined 
 // Mô hình form
 // ---------------------------------------------------------------------------
 
-/** Một phương án/đáp án dạng rich text kèm tỷ trọng và phản hồi riêng. */
-interface RichAnswerDraft {
-  doc: Doc;
-  fraction: string;
-  feedback: Doc | undefined;
-}
-
 /** Một mệnh đề Đ/S trong chùm truefalse: nội dung + đáp án đúng của mệnh đề. */
 interface TrueFalseStatementDraft {
   doc: Doc;
   correct: boolean;
 }
 
+/**
+ * Trạng thái form của màn soạn. Ranh giới dữ liệu theo mô hình port
+ * giaokhoa (quyết 12:04 + 12:12 ngày 26/10/2026):
+ * - multichoice: thân câu + lựa chọn sống trong MỘT tài liệu thống
+ *   nhất (`mcDocument`); đáp án đúng là `mcCorrectChoiceId` (id của
+ *   choice, nằm NGOÀI tài liệu); phản hồi theo lựa chọn là map theo
+ *   id choice (`mcChoiceFeedbacks`) vì nó là metadata của dòng đáp
+ *   án, không phải nội dung lựa chọn.
+ * - `guidance` (hướng dẫn) và `essaySolution` (lời giải mẫu của tự
+ *   luận) là trường soạn riêng cho MỌI/loại tương ứng — khi lưu
+ *   chúng đi ở cấp `guidance`/`solution` của payload (phía đáp án),
+ *   không bao giờ nằm trong thân câu.
+ */
 export interface QuestionEditorFormState {
   qtype: Qtype;
-  name: string;
   questionText: Doc;
   generalFeedback: Doc | undefined;
+  /** Hướng dẫn (guidance) — gợi ý cách làm cho học sinh, phía đáp án. */
+  guidance: Doc | undefined;
   stimulusId: string;
-  // multichoice
-  mcSingle: boolean;
+  // multichoice: tài liệu thống nhất + metadata ngoài tài liệu
+  mcDocument: MultipleChoiceDocumentJson;
+  mcCorrectChoiceId: string | undefined;
+  mcChoiceFeedbacks: Record<string, Doc | undefined>;
   mcShuffleAnswers: boolean;
   mcAnswerNumbering: string;
-  mcShowNumCorrect: boolean;
   mcShowStandardInstruction: boolean;
   mcCorrectFeedback: Doc | undefined;
-  mcPartiallyCorrectFeedback: Doc | undefined;
   mcIncorrectFeedback: Doc | undefined;
-  mcChoices: RichAnswerDraft[];
   // truefalse: danh sách mệnh đề (sửa một câu thì danh sách có đúng 1 mệnh đề)
   tfStatements: TrueFalseStatementDraft[];
   tfShowStandardInstruction: boolean;
-  // shortanswer: đáp án là mẫu khớp nên giữ chuỗi thuần
+  // shortanswer: đáp án là mẫu khớp nên giữ chuỗi thuần; mọi mẫu đều được chấp nhận
   saUseCase: boolean;
   saNumericAnswer: boolean;
   saNumericMaxLength: string;
   saNumericAllowSign: boolean;
   saNumericAllowDecimal: boolean;
-  saAnswers: { text: string; fraction: string }[];
+  saAnswers: { text: string }[];
   // essay
   essayResponseFormat: string;
   essayResponseRequired: boolean;
@@ -159,27 +195,25 @@ export interface QuestionEditorFormState {
   essayMaxWords: string;
   essayGraderInfo: Doc | undefined;
   essayResponseTemplate: Doc | undefined;
+  /** Lời giải mẫu của tự luận (solution.answer ở phía đáp án). */
+  essaySolution: Doc | undefined;
 }
 
 export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFormState {
   return {
     qtype,
-    name: '',
     questionText: emptyDoc(),
     generalFeedback: undefined,
+    guidance: undefined,
     stimulusId: '',
-    mcSingle: true,
+    mcDocument: createEmptyMultipleChoiceDocument(),
+    mcCorrectChoiceId: undefined,
+    mcChoiceFeedbacks: {},
     mcShuffleAnswers: true,
     mcAnswerNumbering: 'abc',
-    mcShowNumCorrect: false,
     mcShowStandardInstruction: true,
     mcCorrectFeedback: undefined,
-    mcPartiallyCorrectFeedback: undefined,
     mcIncorrectFeedback: undefined,
-    mcChoices: [
-      { doc: emptyDoc(), fraction: '1', feedback: undefined },
-      { doc: emptyDoc(), fraction: '0', feedback: undefined },
-    ],
     tfStatements: [{ doc: emptyDoc(), correct: true }],
     tfShowStandardInstruction: true,
     saUseCase: false,
@@ -187,7 +221,7 @@ export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFor
     saNumericMaxLength: '',
     saNumericAllowSign: false,
     saNumericAllowDecimal: false,
-    saAnswers: [{ text: '', fraction: '1' }],
+    saAnswers: [{ text: '' }],
     essayResponseFormat: 'editor',
     essayResponseRequired: true,
     essayResponseFieldLines: '15',
@@ -195,6 +229,7 @@ export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFor
     essayMaxWords: '',
     essayGraderInfo: undefined,
     essayResponseTemplate: undefined,
+    essaySolution: undefined,
   };
 }
 
@@ -213,43 +248,42 @@ export function editorFormFromView(
     ? (view.question.qtype as Qtype)
     : 'multichoice';
   const form = emptyEditorForm(qtype);
-  form.name = view.question.name;
   form.questionText = view.latestVersion.questionText ?? emptyDoc();
   form.generalFeedback = view.latestVersion.generalFeedback ?? undefined;
   form.stimulusId = view.latestVersion.stimulusId ?? view.stimulus?.id ?? '';
+  // Hướng dẫn nằm ở bản ghi phía đáp án của phiên bản (answerKey),
+  // không còn ở phiên bản — nạp thẳng từ đó.
+  form.guidance = view.answerKey?.guidance ?? undefined;
 
   if (qtype === 'multichoice') {
-    form.mcSingle = options.single !== false;
     form.mcShuffleAnswers = options.shuffleAnswers !== false;
     form.mcAnswerNumbering = typeof options.answerNumbering === 'string' ? options.answerNumbering : 'abc';
-    form.mcShowNumCorrect = options.showNumCorrect === true;
     form.mcShowStandardInstruction = options.showStandardInstruction !== false;
     form.mcCorrectFeedback = asDoc(options.correctFeedback);
-    form.mcPartiallyCorrectFeedback = asDoc(options.partiallyCorrectFeedback);
     form.mcIncorrectFeedback = asDoc(options.incorrectFeedback);
-    const choices = [...(view.answers ?? [])]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((answer) => ({
-        doc: answer.answer,
-        fraction: String(answer.fraction),
-        feedback: answer.feedback ?? undefined,
-      }));
-    if (choices.length > 0) form.mcChoices = choices;
+    // Lắp thân câu + các dòng answers thành tài liệu thống nhất:
+    // id của choice = id của dòng answers, đáp án đúng = dòng mang
+    // isCorrect, phản hồi theo lựa chọn vào map theo id choice.
+    const answers = [...(view.answers ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+    form.mcDocument = composeMultipleChoiceDocument(view.latestVersion.questionText, answers);
+    form.mcCorrectChoiceId = answers.find((a) => a.isCorrect)?.id;
+    form.mcChoiceFeedbacks = Object.fromEntries(
+      answers.filter((a) => a.feedback).map((a) => [a.id, a.feedback ?? undefined]),
+    );
   }
 
   if (qtype === 'truefalse') {
     form.tfShowStandardInstruction = options.showStandardInstruction !== false;
     const sorted = [...(view.answers ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-    const correctAnswer = sorted.find((a) => a.fraction > 0) ?? sorted[0];
+    // Phía đúng của câu = nội dung của dòng answers mang isCorrect:
+    // nhãn của nó là "Đúng"/"True" thì mệnh đề đúng, là "Sai"/"False"
+    // thì mệnh đề sai (cùng cách nhận diện nhãn như tầng nghiệp vụ).
+    const correctAnswer = sorted.find((a) => a.isCorrect);
     const correctText = correctAnswer ? plainText(correctAnswer.answer).trim().toLowerCase() : '';
-    const legacy = (options as { correct?: unknown }).correct;
     form.tfStatements = [
       {
         doc: view.latestVersion.questionText ?? emptyDoc(),
-        correct:
-          typeof legacy === 'boolean'
-            ? legacy
-            : correctText === 'true' || correctText === 'đúng',
+        correct: correctText === 'true' || correctText === 'đúng',
       },
     ];
   }
@@ -263,7 +297,7 @@ export function editorFormFromView(
     form.saNumericAllowDecimal = options.numericAllowDecimal === true;
     const answers = [...(view.answers ?? [])]
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((answer) => ({ text: plainText(answer.answer), fraction: String(answer.fraction) }));
+      .map((answer) => ({ text: plainText(answer.answer) }));
     if (answers.length > 0) form.saAnswers = answers;
   }
 
@@ -276,6 +310,11 @@ export function editorFormFromView(
     form.essayMaxWords = typeof options.maxWordLimit === 'number' ? String(options.maxWordLimit) : '';
     form.essayGraderInfo = asDoc(options.graderInfo);
     form.essayResponseTemplate = asDoc(options.responseTemplate);
+    // Lời giải mẫu của tự luận nằm ở phía đáp án (answerKey.solution
+    // dạng {answer}) — khác graderInfo là thông tin cho người chấm.
+    const solution = view.answerKey?.solution;
+    form.essaySolution =
+      solution && 'answer' in solution ? (solution.answer as Doc) : undefined;
   }
 
   return form;
@@ -289,38 +328,55 @@ function numberOrUndefined(value: string): number | undefined {
 
 /**
  * Dựng phần thân payload tạo/sửa từ form (chưa gồm `categoryId`, `qtype`,
- * `stimulusId` — nơi gọi gắn tuỳ đường tạo/sửa). Truefalse ở đường này là
- * MỘT mệnh đề (payload `answer: { correct }` như hợp đồng hiện hành);
- * chùm nhiều mệnh đề được nơi gọi tách thành nhiều lần tạo.
+ * `stimulusId` — nơi gọi gắn tuỳ đường tạo/sửa) theo hợp đồng port
+ * giaokhoa. Các bước tách theo loại:
+ * - Chung: KHÔNG còn trường tên; `guidance` (khi có nội dung) gắn ở
+ *   cấp payload để tầng nghiệp vụ ghi vào phía đáp án — nó không bao
+ *   giờ nằm trong `questionText`.
+ * - Multichoice: TÁCH tài liệu thống nhất bằng
+ *   `splitMultipleChoiceDocument` — phần thân câu thành `questionText`
+ *   (tài liệu hợp đồng thuần, không node lựa chọn), từng choice theo
+ *   đúng thứ tự trong tài liệu thành một dòng `answers` (`correct`
+ *   khi id của choice khớp đáp án đúng đã chọn; phản hồi lấy từ map
+ *   theo id choice).
+ * - Truefalse: MỘT mệnh đề thành một câu với hai dòng answers
+ *   "Đúng"/"Sai", cờ `correct` đặt ở phía đúng (đường `answer:
+ *   {correct}` cấp câu đã bỏ hẳn ở hợp đồng); chùm nhiều mệnh đề được
+ *   nơi gọi tách thành nhiều lần tạo.
+ * - Shortanswer: mọi mẫu liệt kê đều là đáp án được chấp nhận
+ *   (`correct: true`) — chấm khớp chính xác, không tỉ trọng.
+ * - Essay: không dòng answers; lời giải mẫu (khi có) đi qua
+ *   `solution: {answer}` ở phía đáp án.
  */
 export function editorFormContent(form: QuestionEditorFormState): Record<string, unknown> {
-  const name = form.name.trim();
   const generalFeedback = docOrUndefined(form.generalFeedback);
+  const guidance = docOrUndefined(form.guidance);
   const base: Record<string, unknown> = {
-    name,
     questionText: form.questionText,
     ...(generalFeedback ? { generalFeedback } : {}),
+    ...(guidance ? { guidance } : {}),
   };
 
   if (form.qtype === 'multichoice') {
     const correctFeedback = docOrUndefined(form.mcCorrectFeedback);
-    const partiallyCorrectFeedback = docOrUndefined(form.mcPartiallyCorrectFeedback);
     const incorrectFeedback = docOrUndefined(form.mcIncorrectFeedback);
+    const { question, choices } = splitMultipleChoiceDocument(form.mcDocument);
     return {
       ...base,
-      answers: form.mcChoices.map((choice) => ({
-        text: choice.doc,
-        fraction: numberOrUndefined(choice.fraction) ?? 0,
-        ...(docOrUndefined(choice.feedback) ? { feedback: choice.feedback } : {}),
-      })),
+      questionText: question as Doc,
+      answers: choices.map((choice) => {
+        const feedback = docOrUndefined(form.mcChoiceFeedbacks[choice.attrs.id]);
+        return {
+          text: { type: 'doc', content: choice.content ?? [] } as Doc,
+          correct: choice.attrs.id === form.mcCorrectChoiceId,
+          ...(feedback ? { feedback } : {}),
+        };
+      }),
       options: {
-        single: form.mcSingle,
         shuffleAnswers: form.mcShuffleAnswers,
         answerNumbering: form.mcAnswerNumbering,
-        showNumCorrect: form.mcShowNumCorrect,
         showStandardInstruction: form.mcShowStandardInstruction,
         ...(correctFeedback ? { correctFeedback } : {}),
-        ...(partiallyCorrectFeedback ? { partiallyCorrectFeedback } : {}),
         ...(incorrectFeedback ? { incorrectFeedback } : {}),
       },
     };
@@ -329,10 +385,13 @@ export function editorFormContent(form: QuestionEditorFormState): Record<string,
   if (form.qtype === 'truefalse') {
     const statement = form.tfStatements[0] ?? { doc: emptyDoc(), correct: true };
     return {
-      name,
       questionText: statement.doc,
       ...(generalFeedback ? { generalFeedback } : {}),
-      answer: { correct: statement.correct },
+      ...(guidance ? { guidance } : {}),
+      answers: [
+        { text: 'Đúng', correct: statement.correct },
+        { text: 'Sai', correct: !statement.correct },
+      ],
       options: { showStandardInstruction: form.tfShowStandardInstruction },
     };
   }
@@ -343,7 +402,7 @@ export function editorFormContent(form: QuestionEditorFormState): Record<string,
       ...base,
       answers: form.saAnswers.map((answer) => ({
         text: answer.text,
-        fraction: numberOrUndefined(answer.fraction) ?? 0,
+        correct: true,
       })),
       options: {
         useCase: form.saUseCase,
@@ -361,8 +420,10 @@ export function editorFormContent(form: QuestionEditorFormState): Record<string,
   const maxWordLimit = numberOrUndefined(form.essayMaxWords);
   const graderInfo = docOrUndefined(form.essayGraderInfo);
   const responseTemplate = docOrUndefined(form.essayResponseTemplate);
+  const solution = docOrUndefined(form.essaySolution);
   return {
     ...base,
+    ...(solution ? { solution: { answer: solution } } : {}),
     options: {
       responseFormat: form.essayResponseFormat,
       responseRequired: form.essayResponseRequired,
@@ -403,45 +464,29 @@ function pickImageFile(): Promise<File | null> {
 }
 
 /**
- * Một trường nội dung rich text của form câu hỏi. Chèn ảnh chỉ còn MỘT
- * đường qua chính editor (lát E3 #248, theo mô hình một-toolbar của
- * giaokhoa): nút ảnh trên toolbar của editor đang active, dán và
- * kéo-thả vào vùng soạn — cả ba đều gọi callback `onRequestImage` ở
- * dưới, tải qua `uploadQuestionImage` của lát files và editor tự chèn
- * node `image` tại con trỏ bằng định danh bền mà callback trả về. Hàng
- * chọn ảnh riêng bọc ngoài từng trường (QuestionImagePicker) đã bỏ —
- * trước lát này mỗi trường mang một hàng như vậy, lặp 10 lần trên form.
+ * Đường chèn ảnh dùng chung của mọi trường soạn trong form câu hỏi
+ * (giao diện chốt ở comment 6405254997 trên issue #248, bàn giao QE-1
+ * ở comment 6406028273): editor gọi kèm tệp khi người soạn dán/kéo-thả
+ * ảnh — tải thẳng tệp đó; gọi không kèm tệp khi bấm nút ảnh — mở
+ * trình chọn tệp trước. Chưa có context của bank đích hoặc tải ảnh
+ * lỗi thì trả `null` (editor không chèn gì) và lỗi được giữ ở
+ * `imageError` để trường soạn hiện ngay dưới trường.
+ *
+ * @param contextId - Context của bank đích; chưa có thì đường ảnh tắt.
+ * @param fileArea - Khu vực file của trường soạn (metadata phân loại).
+ * @param itemId - Id câu hỏi đang sửa (định danh mục của file).
+ * @returns Handler xin ảnh cho editor + thông báo lỗi tải ảnh hiện tại.
  */
-function RichField({
-  label,
-  value,
-  onChange,
-  fileArea,
-  contextId,
-  itemId,
-  size = 'compact',
-}: {
-  label: string;
-  value: Doc | undefined;
-  onChange: (doc: Doc) => void;
-  fileArea: QuestionFileArea;
-  contextId?: string;
-  itemId?: string;
-  /** Cỡ vùng soạn của editor: trường thân câu là `default`, còn lại `compact`. */
-  size?: 'default' | 'compact';
-}) {
+function useQuestionImageHandler(
+  contextId: string | undefined,
+  fileArea: QuestionFileArea,
+  itemId: string | undefined,
+): {
+  handleRequestImage: (file?: File) => Promise<RichTextImagePick | null>;
+  imageError: string | null;
+} {
   const { t } = useTranslation('app');
   const [imageError, setImageError] = useState<string | null>(null);
-  const doc = value ?? emptyDoc();
-
-  /**
-   * Đường chèn ảnh của editor (giao diện chốt ở comment 6405254997 trên
-   * issue #248, bàn giao QE-1 ở comment 6406028273): editor gọi kèm tệp
-   * khi người soạn dán/kéo-thả ảnh — tải thẳng tệp đó; gọi không kèm
-   * tệp khi bấm nút ảnh — mở trình chọn tệp trước. Chưa có context của
-   * bank đích hoặc tải ảnh lỗi thì trả `null` (editor không chèn gì);
-   * lỗi tải ảnh hiện ngay dưới trường.
-   */
   const handleRequestImage = useCallback(
     async (file?: File): Promise<RichTextImagePick | null> => {
       if (!contextId) return null;
@@ -464,6 +509,39 @@ function RichField({
     },
     [contextId, fileArea, itemId, t],
   );
+  return { handleRequestImage, imageError };
+}
+
+/**
+ * Một trường nội dung rich text của form câu hỏi. Chèn ảnh chỉ còn MỘT
+ * đường qua chính editor (lát E3 #248, theo mô hình một-toolbar của
+ * giaokhoa): nút ảnh trên toolbar của editor đang active, dán và
+ * kéo-thả vào vùng soạn — cả ba đều gọi callback `onRequestImage`,
+ * tải qua `uploadQuestionImage` của lát files và editor tự chèn
+ * node `image` tại con trỏ bằng định danh bền mà callback trả về. Hàng
+ * chọn ảnh riêng bọc ngoài từng trường (QuestionImagePicker) đã bỏ —
+ * trước lát này mỗi trường mang một hàng như vậy, lặp 10 lần trên form.
+ */
+function RichField({
+  label,
+  value,
+  onChange,
+  fileArea,
+  contextId,
+  itemId,
+  size = 'compact',
+}: {
+  label: string;
+  value: Doc | undefined;
+  onChange: (doc: Doc) => void;
+  fileArea: QuestionFileArea;
+  contextId?: string;
+  itemId?: string;
+  /** Cỡ vùng soạn của editor: trường thân câu là `default`, còn lại `compact`. */
+  size?: 'default' | 'compact';
+}) {
+  const doc = value ?? emptyDoc();
+  const { handleRequestImage, imageError } = useQuestionImageHandler(contextId, fileArea, itemId);
 
   return (
     <Field>
@@ -473,6 +551,55 @@ function RichField({
         onChange={onChange}
         ariaLabel={label}
         size={size}
+        onRequestImage={contextId ? handleRequestImage : undefined}
+      />
+      {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
+    </Field>
+  );
+}
+
+/**
+ * Trường soạn trắc nghiệm trên tài liệu thống nhất: thân câu + bốn
+ * lựa chọn trong MỘT editor (`MultipleChoiceEditor` của @lms/editor),
+ * radio đáp án đúng gắn tại từng lựa chọn. Đường chèn ảnh dùng chung
+ * một handler cho cả tài liệu — khu vực file ghi là `questiontext`
+ * vì vị trí con trỏ (thân câu hay trong lựa chọn) không lộ ra qua
+ * callback ảnh của editor; khu vực chỉ là metadata phân loại của bản
+ * ghi file, ảnh vẫn tải/hiển thị theo định danh bền như mọi trường
+ * khác.
+ */
+function McDocumentField({
+  label,
+  value,
+  correctChoiceId,
+  onChange,
+  onCorrectChoiceChange,
+  contextId,
+  itemId,
+}: {
+  label: string;
+  value: MultipleChoiceDocumentJson;
+  correctChoiceId: string | undefined;
+  onChange: (doc: MultipleChoiceDocumentJson) => void;
+  onCorrectChoiceChange: (choiceId: string) => void;
+  contextId?: string;
+  itemId?: string;
+}) {
+  const { handleRequestImage, imageError } = useQuestionImageHandler(
+    contextId,
+    'questiontext',
+    itemId,
+  );
+
+  return (
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <MultipleChoiceEditor
+        value={value}
+        onChange={onChange}
+        correctChoiceId={correctChoiceId}
+        onCorrectChoiceChange={onCorrectChoiceChange}
+        ariaLabel={label}
         onRequestImage={contextId ? handleRequestImage : undefined}
       />
       {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
@@ -504,11 +631,20 @@ function numberingLabel(numbering: string, index: number): string {
 
 /**
  * Cột xem trước TRỰC TIẾP như học sinh sẽ thấy câu hỏi: ngữ liệu (nếu
- * gắn), thân câu, và vùng trả lời tĩnh theo loại câu. Phản hồi sau làm
- * bài không thuộc bề mặt này.
+ * gắn), thân câu, khối Hướng dẫn (guidance hiện kèm câu hỏi trong lúc
+ * làm — điểm quyết D-4) và vùng trả lời tĩnh theo loại câu. Với
+ * multichoice, bản xem trước dựng từ tài liệu thống nhất ĐÃ TÁCH
+ * (cùng hàm split với đường lưu) nên thứ tự/đánh số lựa chọn khớp
+ * đúng thứ tự đáp án khi lưu; đáp án đúng không lộ ở bề mặt này.
+ * Riêng tự luận có thêm khối Lời giải mẫu ở cuối — đó là phần giáo
+ * viên đối chiếu khi soạn (học sinh chỉ thấy ở màn xem lại sau khi
+ * nộp, theo cổng xem lại của lần ghim). Phản hồi sau làm bài không
+ * thuộc bề mặt này.
  */
 function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; stimulus: StimulusView | null }) {
   const { t } = useTranslation('app');
+  const mcSplit =
+    form.qtype === 'multichoice' ? splitMultipleChoiceDocument(form.mcDocument) : null;
   return (
     <Card className="lg:sticky lg:top-4">
       <CardHeader>
@@ -524,15 +660,27 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
             <RichTextView value={stimulus.content} />
           </div>
         ) : null}
-        {form.qtype !== 'truefalse' ? <RichTextView value={form.questionText} /> : null}
-        {form.qtype === 'multichoice' ? (
+        {form.qtype === 'multichoice' && mcSplit ? (
+          <RichTextView value={mcSplit.question as Doc} />
+        ) : form.qtype !== 'truefalse' ? (
+          <RichTextView value={form.questionText} />
+        ) : null}
+        {docHasContent(form.guidance) ? (
+          <div className="rounded-md border p-3">
+            <p className="mb-1 text-sm font-medium">{t('guidanceHeading')}</p>
+            <RichTextView value={form.guidance ?? null} />
+          </div>
+        ) : null}
+        {form.qtype === 'multichoice' && mcSplit ? (
           <div className="space-y-2">
-            {form.mcChoices.map((choice, index) => (
-              <div key={index} className="flex items-start gap-2 text-sm">
-                <input type={form.mcSingle ? 'radio' : 'checkbox'} disabled className="mt-1" />
+            {mcSplit.choices.map((choice, index) => (
+              <div key={choice.attrs.id} className="flex items-start gap-2 text-sm">
+                <input type="radio" disabled className="mt-1" />
                 <span className="font-medium">{numberingLabel(form.mcAnswerNumbering, index)}</span>
                 <span className="min-w-0 flex-1">
-                  <RichTextView value={choice.doc} />
+                  {/* Nội dung choice là lát block của hợp đồng —
+                      ép về Doc tại biên xem trước như đường lưu. */}
+                  <RichTextView value={{ type: 'doc', content: choice.content ?? [] } as Doc} />
                 </span>
               </div>
             ))}
@@ -566,6 +714,12 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
             placeholder={t('questionAnswerPlaceholder')}
           />
         ) : null}
+        {form.qtype === 'essay' && docHasContent(form.essaySolution) ? (
+          <div className="rounded-md border p-3">
+            <p className="mb-1 text-sm font-medium">{t('modelAnswerHeading')}</p>
+            <RichTextView value={form.essaySolution ?? null} />
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -576,14 +730,22 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
 // ---------------------------------------------------------------------------
 
 /**
- * Tên hiệu dụng khi lưu: giáo viên để trống tên thì lấy đầu nội dung câu
- * (hoặc mệnh đề đầu của chùm) làm tên, tránh chặn lưu vì một trường phụ.
+ * Trích đoạn nội dung của form đang soạn — nhãn hiển thị của câu hỏi
+ * ở các bề mặt cần nhãn (tiêu đề màn sửa) vì câu hỏi không còn trường
+ * tên (quyết 11:28 ngày 26/10/2026). Nguồn trích đoạn theo loại:
+ * multichoice lấy phần thân câu của tài liệu thống nhất đã tách,
+ * truefalse lấy mệnh đề đầu của chùm, hai loại còn lại lấy thân câu.
+ *
+ * @param form - Trạng thái form hiện tại.
+ * @returns Chuỗi thuần tối đa 80 ký tự đầu của nội dung câu hỏi.
  */
-function withEffectiveName(form: QuestionEditorFormState): QuestionEditorFormState {
-  if (form.name.trim()) return form;
+function formExcerpt(form: QuestionEditorFormState): string {
+  if (form.qtype === 'multichoice') {
+    const { question } = splitMultipleChoiceDocument(form.mcDocument);
+    return plainText(question as Doc).slice(0, 80);
+  }
   const source = form.qtype === 'truefalse' ? form.tfStatements[0]?.doc : form.questionText;
-  const derived = source ? plainText(source).slice(0, 80) : '';
-  return { ...form, name: derived };
+  return source ? plainText(source).slice(0, 80) : '';
 }
 
 export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
@@ -745,7 +907,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     setMessage(null);
     setSaving(target);
     try {
-      const effective = withEffectiveName(form);
+      const effective = form;
       if (editing) {
         const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
           method: 'PATCH',
@@ -770,10 +932,9 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       // đúng mô hình của hệ (đường MCP cũng tạo mỗi mệnh đề một câu).
       if (form.qtype === 'truefalse' && form.tfStatements.length > 1) {
         let createdCount = 0;
-        for (const [index, statement] of form.tfStatements.entries()) {
+        for (const statement of form.tfStatements) {
           const single: QuestionEditorFormState = {
             ...effective,
-            name: `${effective.name} · ý ${index + 1}`,
             tfStatements: [statement],
           };
           const created = await apiJson<QuestionView>('/api/v1/questions', {
@@ -964,109 +1125,13 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     return next;
   };
 
-  const mcChoiceRows = form.mcChoices.map((choice, index) => (
-    <div key={index} className="space-y-2 rounded-md border p-3">
-      <RichField
-        label={t('choiceText', { index: index + 1 })}
-        value={choice.doc}
-        onChange={(doc) =>
-          patchForm({ mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, doc } : c)) })
-        }
-        fileArea="answer"
-        contextId={contextId}
-        itemId={editing?.question.id}
-      />
-      <div className="flex flex-wrap items-end gap-3">
-        <Field>
-          <FieldLabel htmlFor={`q-choice-fraction-${index}`}>
-            {t('choiceFraction', { index: index + 1 })}
-          </FieldLabel>
-          <Input
-            id={`q-choice-fraction-${index}`}
-            type="number"
-            step="0.05"
-            min="-1"
-            max="1"
-            className="w-28"
-            value={choice.fraction}
-            onChange={(e) =>
-              patchForm({
-                mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, fraction: e.target.value } : c)),
-              })
-            }
-          />
-        </Field>
-        {form.mcSingle ? (
-          <div className="flex items-center gap-2 pb-2">
-            <RadioGroupItem id={`q-choice-correct-${index}`} value={String(index)} />
-            <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 pb-2">
-            <Checkbox
-              id={`q-choice-correct-${index}`}
-              checked={Number(choice.fraction) > 0}
-              onCheckedChange={(checked) =>
-                patchForm({
-                  mcChoices: form.mcChoices.map((c, i) =>
-                    i === index ? { ...c, fraction: checked === true ? '1' : '0' } : c,
-                  ),
-                })
-              }
-            />
-            <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
-          </div>
-        )}
-        <div className="flex gap-1 pb-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={index === 0}
-            aria-label={t('questionMoveUp')}
-            onClick={() => patchForm({ mcChoices: moveItem(form.mcChoices, index, -1) })}
-          >
-            ↑
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={index === form.mcChoices.length - 1}
-            aria-label={t('questionMoveDown')}
-            onClick={() => patchForm({ mcChoices: moveItem(form.mcChoices, index, 1) })}
-          >
-            ↓
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={form.mcChoices.length <= 2}
-            onClick={() => patchForm({ mcChoices: form.mcChoices.filter((_, i) => i !== index) })}
-          >
-            {t('removeChoice', { index: index + 1 })}
-          </Button>
-        </div>
-      </div>
-      <RichField
-        label={t('answerFeedback', { index: index + 1 })}
-        value={choice.feedback}
-        onChange={(feedback) =>
-          patchForm({
-            mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, feedback } : c)),
-          })
-        }
-        fileArea="feedback"
-        contextId={contextId}
-        itemId={editing?.question.id}
-      />
-    </div>
-  ));
+  // Các lựa chọn hiện tại của tài liệu thống nhất (theo thứ tự soạn)
+  // — chỉ để dựng hàng phản hồi theo lựa chọn ở dưới editor.
+  const mcSplit = form.qtype === 'multichoice' ? splitMultipleChoiceDocument(form.mcDocument) : null;
 
   return (
     <PageShell width="full">
-      <PageHeader title={mode === 'edit' ? t('editQuestionTitle', { name: editing?.question.name ?? '' }) : t('newQuestion')} />
+      <PageHeader title={mode === 'edit' ? t('editQuestionTitle', { name: formExcerpt(form) }) : t('newQuestion')} />
       {/* Slot toolbar của editor (lát E3 #248, theo cơ chế
           #editor-toolbar-slot của giaokhoa): editor đang active portal
           toolbar duy nhất của nó vào đây; chưa editor nào active thì
@@ -1146,13 +1211,28 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     disabled={editing !== null}
                     onValueChange={(v) => {
                       const qtype = (v ?? 'multichoice') as Qtype;
-                      setForm((prev) => ({
-                        ...emptyEditorForm(qtype),
-                        name: prev.name,
-                        questionText: prev.questionText,
-                        generalFeedback: prev.generalFeedback,
-                        stimulusId: prev.stimulusId,
-                      }));
+                      setForm((prev) => {
+                        const next = {
+                          ...emptyEditorForm(qtype),
+                          questionText: prev.questionText,
+                          generalFeedback: prev.generalFeedback,
+                          guidance: prev.guidance,
+                          stimulusId: prev.stimulusId,
+                        };
+                        // Thân câu đi theo khi đổi loại: rời trắc
+                        // nghiệm thì tách phần thân câu khỏi tài
+                        // liệu thống nhất; vào trắc nghiệm thì lắp
+                        // thân câu hiện có vào tài liệu thống nhất
+                        // mới (lựa chọn bắt đầu rỗng).
+                        if (prev.qtype === 'multichoice' && qtype !== 'multichoice') {
+                          next.questionText = splitMultipleChoiceDocument(prev.mcDocument)
+                            .question as Doc;
+                        }
+                        if (qtype === 'multichoice' && prev.qtype !== 'multichoice') {
+                          next.mcDocument = composeMultipleChoiceDocument(prev.questionText, []);
+                        }
+                        return next;
+                      });
                     }}
                   >
                     <SelectTrigger aria-labelledby="q-type-label" className="w-full">
@@ -1166,10 +1246,6 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                       ))}
                     </SelectContent>
                   </Select>
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="q-name">{t('name')}</FieldLabel>
-                  <Input id="q-name" value={form.name} onChange={(e) => patchForm({ name: e.target.value })} />
                 </Field>
                 <Field>
                   <FieldLabel id="q-stimulus-label">{t('attachedStimulus')}</FieldLabel>
@@ -1195,7 +1271,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                   </Select>
                 </Field>
 
-                {form.qtype !== 'truefalse' && (
+                {form.qtype !== 'truefalse' && form.qtype !== 'multichoice' && (
                   <RichField
                     label={t('questionText')}
                     value={form.questionText}
@@ -1209,44 +1285,44 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
                 {form.qtype === 'multichoice' && (
                   <fieldset className="space-y-3">
-                    <legend className="text-sm font-medium">{t('choices')}</legend>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="q-mc-single"
-                        checked={form.mcSingle}
-                        onCheckedChange={(checked) => patchForm({ mcSingle: checked === true })}
-                      />
-                      <Label htmlFor="q-mc-single">{t('singleAnswerOnly')}</Label>
-                    </div>
-                    {form.mcSingle ? (
-                      <RadioGroup
-                        value={String(form.mcChoices.findIndex((c) => Number(c.fraction) === 1))}
-                        onValueChange={(v) => {
-                          const picked = Number(v);
+                    <legend className="sr-only">{t('choices')}</legend>
+                    {/* Soạn thống nhất kiểu giaokhoa: thân câu + 4
+                        lựa chọn trong một tài liệu; chọn đáp án
+                        đúng bằng radio tại từng lựa chọn trong
+                        chính editor; kéo-thả trong editor để đổi
+                        thứ tự lựa chọn. */}
+                    <McDocumentField
+                      label={t('questionText')}
+                      value={form.mcDocument}
+                      correctChoiceId={form.mcCorrectChoiceId}
+                      onChange={(mcDocument) => patchForm({ mcDocument })}
+                      onCorrectChoiceChange={(mcCorrectChoiceId) => patchForm({ mcCorrectChoiceId })}
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                    <p className="text-sm text-muted-foreground">{t('mcAuthoringHint')}</p>
+                    {/* Phản hồi theo lựa chọn là metadata của dòng
+                        đáp án nên soạn ở các trường riêng bám theo
+                        id choice (đi theo lựa chọn khi kéo-thả đổi
+                        thứ tự), không nằm trong tài liệu lựa chọn. */}
+                    {mcSplit?.choices.map((choice, index) => (
+                      <RichField
+                        key={choice.attrs.id}
+                        label={t('answerFeedback', { index: index + 1 })}
+                        value={form.mcChoiceFeedbacks[choice.attrs.id]}
+                        onChange={(feedback) =>
                           patchForm({
-                            mcChoices: form.mcChoices.map((c, i) => ({
-                              ...c,
-                              fraction: i === picked ? '1' : '0',
-                            })),
-                          });
-                        }}
-                      >
-                        <div className="space-y-3">{mcChoiceRows}</div>
-                      </RadioGroup>
-                    ) : (
-                      <div className="space-y-3">{mcChoiceRows}</div>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        patchForm({
-                          mcChoices: [...form.mcChoices, { doc: emptyDoc(), fraction: '0', feedback: undefined }],
-                        })
-                      }
-                    >
-                      {t('addChoice')}
-                    </Button>
+                            mcChoiceFeedbacks: {
+                              ...form.mcChoiceFeedbacks,
+                              [choice.attrs.id]: feedback,
+                            },
+                          })
+                        }
+                        fileArea="feedback"
+                        contextId={contextId}
+                        itemId={editing?.question.id}
+                      />
+                    ))}
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="flex items-center gap-2">
                         <Checkbox
@@ -1255,14 +1331,6 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                           onCheckedChange={(checked) => patchForm({ mcShuffleAnswers: checked === true })}
                         />
                         <Label htmlFor="q-mc-shuffle">{t('shuffleAnswers')}</Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="q-mc-numcorrect"
-                          checked={form.mcShowNumCorrect}
-                          onCheckedChange={(checked) => patchForm({ mcShowNumCorrect: checked === true })}
-                        />
-                        <Label htmlFor="q-mc-numcorrect">{t('showNumCorrect')}</Label>
                       </div>
                       <div className="flex items-center gap-2">
                         <Checkbox
@@ -1306,14 +1374,6 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                       label={t('correctFeedback')}
                       value={form.mcCorrectFeedback}
                       onChange={(mcCorrectFeedback) => patchForm({ mcCorrectFeedback })}
-                      fileArea="feedback"
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                    <RichField
-                      label={t('partiallyCorrectFeedback')}
-                      value={form.mcPartiallyCorrectFeedback}
-                      onChange={(mcPartiallyCorrectFeedback) => patchForm({ mcPartiallyCorrectFeedback })}
                       fileArea="feedback"
                       contextId={contextId}
                       itemId={editing?.question.id}
@@ -1444,27 +1504,6 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                             }
                           />
                         </Field>
-                        <Field>
-                          <FieldLabel htmlFor={`q-sa-fraction-${index}`}>
-                            {t('answerFraction', { index: index + 1 })}
-                          </FieldLabel>
-                          <Input
-                            id={`q-sa-fraction-${index}`}
-                            type="number"
-                            step="0.05"
-                            min="0"
-                            max="1"
-                            className="w-28"
-                            value={answer.fraction}
-                            onChange={(e) =>
-                              patchForm({
-                                saAnswers: form.saAnswers.map((a, i) =>
-                                  i === index ? { ...a, fraction: e.target.value } : a,
-                                ),
-                              })
-                            }
-                          />
-                        </Field>
                         <div className="flex gap-1 pb-1">
                           <Button
                             type="button"
@@ -1501,7 +1540,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '', fraction: '0' }] })}
+                      onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '' }] })}
                     >
                       {t('addAnswer')}
                     </Button>
@@ -1629,8 +1668,37 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                       contextId={contextId}
                       itemId={editing?.question.id}
                     />
+                    {/* Lời giải mẫu thuộc phía đáp án (answer_key)
+                        như guidance — học sinh chỉ thấy ở màn xem
+                        lại sau khi nộp; khác graderInfo ở trên là
+                        thông tin riêng cho người chấm. */}
+                    <RichField
+                      label={t('modelAnswer')}
+                      value={form.essaySolution}
+                      onChange={(essaySolution) => patchForm({ essaySolution })}
+                      fileArea="guidance"
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
                   </fieldset>
                 )}
+
+                {/* Hướng dẫn (guidance) có ở MỌI loại câu: gợi ý
+                    cách làm hiện kèm câu hỏi khi học sinh làm bài
+                    (điểm quyết D-4) — khác phản hồi chung/lời giải
+                    là phần chỉ hiện sau khi nộp. Khi lưu nó đi ở
+                    phía đáp án, không nằm trong thân câu. */}
+                <div className="space-y-1">
+                  <RichField
+                    label={t('guidance')}
+                    value={form.guidance}
+                    onChange={(guidance) => patchForm({ guidance })}
+                    fileArea="guidance"
+                    contextId={contextId}
+                    itemId={editing?.question.id}
+                  />
+                  <p className="text-sm text-muted-foreground">{t('guidanceHint')}</p>
+                </div>
 
                 <RichField
                   label={t('generalFeedback')}
