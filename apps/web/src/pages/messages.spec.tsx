@@ -1653,3 +1653,154 @@ describe('Messages page — #256: tab, chip lọc, quay lại', () => {
     expect(await screen.findByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).toBeInTheDocument();
   });
 });
+
+/**
+ * Fix nhân đôi tin (issue #33): sự cố production 26/10/2026 — một
+ * thao tác gửi thành hai dòng tin cách nhau 4ms mang HAI
+ * clientMessageId khác nhau. Gốc: send() mint khoá mới ở mỗi lượt gọi
+ * và không có khoá chống gọi trùng, nên hai submit trong cùng một
+ * nhịp render (khi draft ở state chưa kịp xoá) đều lọt. Server chống
+ * trùng theo clientMessageId chỉ đúng khi client GIỮ khoá của bản
+ * nháp. Hai ca dưới khoá chặt hành vi: (a) hai submit liên tiếp của
+ * cùng một bản nháp trong cùng một nhịp → đúng một request/một tin;
+ * (b) bản nháp mới sau khi gửi thành công phải mang khoá MỚI — hai
+ * tin liên tiếp hợp lệ không bị gộp oan.
+ */
+function stubDupSendFetch(calls: RecordedCall[]) {
+  let releaseSend: (() => void) | null = null;
+  const gate = new Promise<void>((resolve) => {
+    releaseSend = resolve;
+  });
+  let seq = 1;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
+      calls.push({ url, method, body });
+      const respond = (payload: unknown) =>
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations')
+        return respond([
+          {
+            id: CONV_ID, type: 2, name: 'Nhóm một', members: [ME_ID, OTHER_ID],
+            unread: 1, lastReadSeq: 0, lastMessageSeq: 1, lastMessage: FIRST_MESSAGE,
+          },
+        ]);
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}`)
+        return respond({
+          id: CONV_ID, type: 2, name: 'Nhóm một', members: [ME_ID, OTHER_ID],
+          messages: [FIRST_MESSAGE], hasMoreBefore: false,
+          memberReadMarkers: [
+            { userId: ME_ID, lastReadSeq: 1 },
+            { userId: OTHER_ID, lastReadSeq: 0 },
+          ],
+        });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 1, lastReadSeq: 1 });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/messages` && method === 'POST') {
+        // Giữ lượt gửi treo tới khi test mở cổng — tái hiện cửa sổ mà
+        // lượt submit thứ hai trong cùng nhịp ập vào.
+        await gate;
+        seq += 1;
+        return respond({
+          id: `01900000-0000-7000-8000-0000000000e${seq}`,
+          conversationId: CONV_ID,
+          userIdFrom: ME_ID,
+          subject: '',
+          fullMessage: body?.text,
+          createdAt: '2026-01-01T00:01:00.000Z',
+          seq,
+          clientMessageId: body?.clientMessageId ?? null,
+        });
+      }
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+  return {
+    releaseSend: () => releaseSend?.(),
+  };
+}
+
+describe('Messages page — fix nhân đôi tin: khoá idempotency theo bản nháp', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  const sendPosts = (calls: RecordedCall[]) =>
+    calls.filter((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/messages` && c.method === 'POST');
+
+  it('hai submit liên tiếp của cùng một bản nháp trong cùng một nhịp chỉ thành một tin', async () => {
+    const calls: RecordedCall[] = [];
+    const { releaseSend } = stubDupSendFetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    const input = screen.getByLabelText('Nội dung tin nhắn');
+    await userEvent.type(input, 'tin chống trùng');
+    const form = input.closest('form');
+    expect(form).not.toBeNull();
+
+    // Hai sự kiện submit trong CÙNG một nhịp (một act duy nhất, chưa
+    // kịp render lại xoá draft) — đúng dấu vết sự cố 4ms ở production:
+    // cả hai lượt đều đọc được draft còn nguyên.
+    act(() => {
+      form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    // Chỉ đúng MỘT request ra khỏi client, mang một clientMessageId.
+    await waitFor(() => expect(sendPosts(calls)).toHaveLength(1));
+    const key = (sendPosts(calls)[0]?.body as { clientMessageId?: unknown }).clientMessageId;
+    expect(typeof key).toBe('string');
+    expect((sendPosts(calls)[0]?.body as { text?: unknown }).text).toBe('tin chống trùng');
+    // Trong lúc lượt gửi đang bay, nút Gửi bị vô hiệu.
+    expect(screen.getByRole('button', { name: 'Gửi' })).toBeDisabled();
+    // Danh sách chỉ hiện MỘT bản của tin (bản lạc quan đang gửi).
+    expect(within(thread).getAllByText('tin chống trùng')).toHaveLength(1);
+
+    releaseSend();
+    // Server xác nhận xong: vẫn đúng một tin, nút Gửi mở lại.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Gửi' })).not.toBeDisabled());
+    expect(within(thread).getAllByText('tin chống trùng')).toHaveLength(1);
+    expect(sendPosts(calls)).toHaveLength(1);
+  });
+
+  it('bản nháp mới sau khi gửi thành công mang khoá mới — hai tin liên tiếp không bị gộp oan', async () => {
+    const calls: RecordedCall[] = [];
+    const { releaseSend } = stubDupSendFetch(calls);
+    releaseSend();
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    const input = screen.getByLabelText('Nội dung tin nhắn');
+    await userEvent.type(input, 'tin thứ nhất');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    await waitFor(() => expect(sendPosts(calls)).toHaveLength(1));
+    expect(await within(thread).findByText('tin thứ nhất')).toBeInTheDocument();
+
+    await userEvent.type(input, 'tin thứ hai');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    await waitFor(() => expect(sendPosts(calls)).toHaveLength(2));
+
+    const firstKey = (sendPosts(calls)[0]?.body as { clientMessageId?: unknown }).clientMessageId;
+    const secondKey = (sendPosts(calls)[1]?.body as { clientMessageId?: unknown }).clientMessageId;
+    expect(typeof firstKey).toBe('string');
+    expect(typeof secondKey).toBe('string');
+    expect(secondKey).not.toBe(firstKey);
+    expect(within(thread).getAllByText('tin thứ nhất')).toHaveLength(1);
+    expect(await within(thread).findByText('tin thứ hai')).toBeInTheDocument();
+    expect(within(thread).getAllByText('tin thứ hai')).toHaveLength(1);
+  });
+});

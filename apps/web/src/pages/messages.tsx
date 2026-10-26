@@ -135,6 +135,25 @@ export function MessagesPage() {
   const lastSeqRef = useRef<Map<string, number>>(new Map());
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const lastTypingSentRef = useRef(0);
+  /**
+   * Khoá idempotency của BẢN NHÁP hiện tại theo conversation (fix
+   * nhân đôi tin, issue #33): sinh một lần cho một bản nháp và giữ
+   * nguyên qua mọi lượt submit lặp của cùng bản nháp — server chống
+   * trùng theo (conversation, người gửi, clientMessageId) nên hai POST
+   * lặp mang CÙNG khoá chỉ thành một tin. Chỉ bỏ khoá khi lượt gửi đã
+   * có kết quả từ server; lượt gửi lỗi thì tin failed tự giữ khoá của
+   * nó cho đường retrySend, bản nháp sau đó phải là khoá mới.
+   */
+  const draftClientIdRef = useRef<Map<string, string>>(new Map());
+  /**
+   * Conversation đang có lượt send() bay (fix nhân đôi tin, issue
+   * #33): lượt gọi trùng cho cùng conversation bị bỏ qua ngay tại ref
+   * — không chờ setState nên hai submit trong cùng một nhịp render
+   * cũng không lọt cả hai.
+   */
+  const sendInFlightRef = useRef<Set<string>>(new Set());
+  /** Conversation đang gửi — chỉ để ChatPanel vô hiệu nút Gửi/Enter của conversation đang mở. */
+  const [sendingConversationIds, setSendingConversationIds] = useState<ReadonlySet<string>>(new Set());
 
   /**
    * Số conversation chưa đọc suy từ danh sách (mỗi mục mang unread
@@ -575,6 +594,11 @@ export function MessagesPage() {
   async function send(event: FormEvent) {
     event.preventDefault();
     if (!active) return;
+    // Khoá chống gọi trùng (fix nhân đôi tin, issue #33): một lượt
+    // send() đang bay cho conversation này thì lượt gọi sau bị bỏ qua
+    // ngay tại ref — kể cả hai submit trong cùng một nhịp render, khi
+    // draft ở state chưa kịp xoá và cả hai lượt đều đọc được nội dung.
+    if (sendInFlightRef.current.has(active.id)) return;
     const text = drafts[active.id] ?? '';
     if (!text.trim()) return;
     // Áp trần ở client theo ĐÚNG cách đếm của server (lát M2): vượt
@@ -586,27 +610,54 @@ export function MessagesPage() {
       setSendError(t('messageTooLong', { max: MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT }));
       return;
     }
-    setSendError(null);
-    // Chỉ xoá nháp của đúng conversation vừa gửi (lát M1, issue
-    // #204) — nháp của các conversation khác giữ nguyên.
-    setDrafts((prev) => {
-      const next = { ...prev };
-      delete next[active.id];
-      return next;
-    });
-    // Đích trích dẫn của conversation này cũng chỉ tiêu thụ một lần
-    // (lát M3): gửi xong là ô soạn trở về trạng thái thường; tin đã
-    // gửi (kể cả khi lỗi) tự mang trích dẫn của nó để thử lại.
-    const target = replyTargets[active.id] ?? null;
-    setReplyTargets((prev) => {
-      const next = { ...prev };
-      delete next[active.id];
-      return next;
-    });
-    await deliver(
-      active.id, text, crypto.randomUUID(),
-      target ? { replyToMessageId: target.id, replyTo: localQuoteOf(target) } : null,
-    );
+    // Khoá idempotency của BẢN NHÁP này (fix nhân đôi tin, issue
+    // #33): đã có thì dùng lại, chưa có thì sinh một lần. Mọi lượt
+    // submit lặp của cùng bản nháp mang CÙNG khoá → server trả đúng
+    // một tin kể cả khi cả hai POST đều tới nơi.
+    let clientMessageId = draftClientIdRef.current.get(active.id);
+    if (!clientMessageId) {
+      clientMessageId = crypto.randomUUID();
+      draftClientIdRef.current.set(active.id, clientMessageId);
+    }
+    sendInFlightRef.current.add(active.id);
+    setSendingConversationIds((prev) => new Set(prev).add(active.id));
+    try {
+      setSendError(null);
+      // Chỉ xoá nháp của đúng conversation vừa gửi (lát M1, issue
+      // #204) — nháp của các conversation khác giữ nguyên.
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[active.id];
+        return next;
+      });
+      // Đích trích dẫn của conversation này cũng chỉ tiêu thụ một lần
+      // (lát M3): gửi xong là ô soạn trở về trạng thái thường; tin đã
+      // gửi (kể cả khi lỗi) tự mang trích dẫn của nó để thử lại.
+      const target = replyTargets[active.id] ?? null;
+      setReplyTargets((prev) => {
+        const next = { ...prev };
+        delete next[active.id];
+        return next;
+      });
+      await deliver(
+        active.id, text, clientMessageId,
+        target ? { replyToMessageId: target.id, replyTo: localQuoteOf(target) } : null,
+      );
+      // Lượt gửi đã có kết quả từ server (tin thật về, hoặc tin lạc
+      // quan đã rơi vào failed và giữ khoá của chính nó cho retrySend)
+      // — bản nháp hiện tại chấm dứt ở đây: bỏ khoá để bản nháp KẾ
+      // TIẾP sinh khoá mới, không bị gộp oan vào tin vừa gửi.
+      if (draftClientIdRef.current.get(active.id) === clientMessageId) {
+        draftClientIdRef.current.delete(active.id);
+      }
+    } finally {
+      sendInFlightRef.current.delete(active.id);
+      setSendingConversationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(active.id);
+        return next;
+      });
+    }
   }
 
   /** Thử gửi lại một tin đã lỗi — dùng lại đúng clientMessageId nên server không tạo trùng kể cả khi lần trước đã tới nơi. */
@@ -993,6 +1044,7 @@ export function MessagesPage() {
         onNoteTyping={noteTyping}
         onSend={send}
         sendError={sendError}
+        sendInFlight={!!active && sendingConversationIds.has(active.id)}
         replyTarget={replyTarget}
         onStartReply={(m) => setReplyTargets((prev) => ({ ...prev, [m.conversationId]: m }))}
         onCancelReply={() => { if (active) setReplyTargets((prev) => ({ ...prev, [active.id]: null })); }}
