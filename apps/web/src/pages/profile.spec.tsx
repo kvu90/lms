@@ -66,17 +66,23 @@ function problemResponse(code: string, detail: string, status = 400) {
   return jsonResponse({ type: 'about:blank', title: 'Error', status, detail, code }, status);
 }
 
-function renderProfile() {
+function renderProfile(entry = '/profile') {
   const router = createMemoryRouter([{ path: '/profile', element: <ProfilePage /> }], {
-    initialEntries: ['/profile'],
+    initialEntries: [entry],
   });
-  return render(
+  const utils = render(
     <QueryClientProvider client={createQueryClient()}>
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>
     </QueryClientProvider>,
   );
+  return { router, ...utils };
+}
+
+/** Bấm mở một tab theo nhãn hiển thị, chờ trigger render xong trước (trang còn màn hình tải tới khi hồ sơ về). */
+async function openTab(name: string) {
+  await userEvent.click(await screen.findByRole('tab', { name }));
 }
 
 describe('Profile page — linked logins and own sessions (fetch mocked at the boundary)', () => {
@@ -118,6 +124,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
       }),
     );
     renderProfile();
+    await openTab('Tài khoản liên kết');
     await waitFor(() => expect(screen.getByText('learner@gmail.example.com')).toBeInTheDocument());
     expect(screen.getByText('Google')).toBeInTheDocument();
     // Issuer đã liên kết thì không còn nút liên kết; issuer chưa liên kết thì có.
@@ -147,6 +154,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
       }),
     );
     renderProfile();
+    await openTab('Tài khoản liên kết');
     await waitFor(() => expect(screen.getByText('learner@gmail.example.com')).toBeInTheDocument());
     // Tài khoản chưa có mật khẩu: gợi ý đặt mật khẩu hiện sẵn trong thẻ.
     expect(screen.getByText(/chưa có mật khẩu/)).toBeInTheDocument();
@@ -177,6 +185,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
       }),
     );
     renderProfile();
+    await openTab('Bảo mật');
     await waitFor(() => expect(screen.getByText('Hiện tại')).toBeInTheDocument());
     expect(screen.getByText('203.0.113.10')).toBeInTheDocument();
     expect(screen.getByText('198.51.100.7')).toBeInTheDocument();
@@ -222,6 +231,7 @@ describe('Profile page — linked logins and own sessions (fetch mocked at the b
       }),
     );
     renderProfile();
+    await openTab('Bảo mật');
     await waitFor(() => expect(screen.getByText('Hiện tại')).toBeInTheDocument());
     const table = screen.getByRole('table');
     expect(within(table).getAllByRole('row')).toHaveLength(4); // header + 3 phiên
@@ -298,6 +308,7 @@ describe('Profile page — two-factor authentication card (fetch mocked at the b
   it('shows the off state and the enable button when MFA is not enabled', async () => {
     stubFetch({ enabled: false });
     renderProfile();
+    await openTab('Bảo mật');
     await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Bật xác thực hai lớp' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Tắt xác thực hai lớp' })).not.toBeInTheDocument();
@@ -307,6 +318,7 @@ describe('Profile page — two-factor authentication card (fetch mocked at the b
     const state = { enabled: false };
     stubFetch(state);
     const { container } = renderProfile();
+    await openTab('Bảo mật');
     await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Bật xác thực hai lớp' }));
     // Bước setup: QR (svg của qrcode.react) + khoá bí mật dạng chữ cùng hiện.
@@ -326,6 +338,7 @@ describe('Profile page — two-factor authentication card (fetch mocked at the b
     const state = { enabled: false };
     stubFetch(state);
     renderProfile();
+    await openTab('Bảo mật');
     await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Bật xác thực hai lớp' }));
     await waitFor(() => expect(screen.getByText(TOTP_SECRET)).toBeInTheDocument());
@@ -342,6 +355,7 @@ describe('Profile page — two-factor authentication card (fetch mocked at the b
     const state = { enabled: true };
     stubFetch(state);
     renderProfile();
+    await openTab('Bảo mật');
     await waitFor(() => expect(screen.getByText('Đang bật')).toBeInTheDocument());
     await userEvent.click(screen.getByRole('button', { name: 'Tắt xác thực hai lớp' }));
     await userEvent.type(screen.getByLabelText('Mã xác thực 6 số'), '123456');
@@ -349,5 +363,98 @@ describe('Profile page — two-factor authentication card (fetch mocked at the b
     await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
     expect(screen.getByText('Đã tắt xác thực hai lớp.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bật xác thực hai lớp' })).toBeInTheDocument();
+  });
+
+  it('keeps the in-progress setup when switching to another tab and back', async () => {
+    const state = { enabled: false };
+    stubFetch(state);
+    renderProfile();
+    await openTab('Bảo mật');
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Bật xác thực hai lớp' }));
+    await waitFor(() => expect(screen.getByText(TOTP_SECRET)).toBeVisible());
+    // Chuyển sang tab khác: bước setup chỉ ẩn đi, không bị huỷ.
+    await openTab('Thông tin');
+    expect(screen.getByText(TOTP_SECRET)).not.toBeVisible();
+    // Quay lại tab Bảo mật: bước setup còn nguyên, nhập mã là bật được luôn.
+    await openTab('Bảo mật');
+    expect(screen.getByText(TOTP_SECRET)).toBeVisible();
+    await userEvent.type(screen.getByLabelText('Mã xác thực 6 số'), '123456');
+    await userEvent.click(screen.getByRole('button', { name: 'Xác nhận và bật' }));
+    await waitFor(() => expect(screen.getByText('Đang bật')).toBeVisible());
+    expect(state.enabled).toBe(true);
+  });
+});
+
+describe('Profile page — tabs (fetch mocked at the boundary)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  /** Mock tối thiểu cho các ca hành vi tab: hồ sơ + trạng thái MFA tắt + một phiên hiện tại; các thẻ khác rỗng. */
+  function stubBasics() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        void init;
+        if (isGetSessionUrl(url)) return jsonResponse(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+        if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
+        if (url === '/api/v1/auth/oauth/links') return jsonResponse({ links: [], hasPassword: true });
+        if (url === '/api/v1/auth/oauth/providers') return jsonResponse({ providers: [] });
+        if (url === '/api/v1/auth/mfa/status') return jsonResponse({ enabled: false });
+        if (url === '/api/v1/auth/sessions') return jsonResponse({ sessions: [{ ...CURRENT_SESSION }] });
+        return jsonResponse({}, 404);
+      }),
+    );
+  }
+
+  it('opens on the Information tab by default and keeps the other panels hidden', async () => {
+    stubBasics();
+    renderProfile();
+    const infoTab = await screen.findByRole('tab', { name: 'Thông tin' });
+    expect(infoTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Bảo mật' })).toHaveAttribute('aria-selected', 'false');
+    // Form hồ sơ là nội dung người dùng thấy ngay; nội dung tab Bảo mật
+    // đã tải nhưng không hiển thị cho tới khi mở tab.
+    expect(screen.getByLabelText('Tên')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeInTheDocument());
+    expect(screen.getByText('Chưa bật')).not.toBeVisible();
+    expect(screen.getByText('203.0.113.10')).not.toBeVisible();
+  });
+
+  it('opens straight into the Security tab from a ?tab=security link', async () => {
+    stubBasics();
+    renderProfile('/profile?tab=security');
+    expect(await screen.findByRole('tab', { name: 'Bảo mật' })).toHaveAttribute('aria-selected', 'true');
+    // Cả hai khối của tab Bảo mật đều tới được ngay: trạng thái 2FA và bảng phiên.
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeVisible());
+    expect(screen.getByText('203.0.113.10')).toBeVisible();
+  });
+
+  it('falls back to the Information tab for an unknown ?tab value', async () => {
+    stubBasics();
+    renderProfile('/profile?tab=khong-ton-tai');
+    expect(await screen.findByRole('tab', { name: 'Thông tin' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Tên')).toBeVisible();
+  });
+
+  it('syncs the selected tab to the URL as the user switches tabs', async () => {
+    stubBasics();
+    const { router } = renderProfile();
+    await screen.findByRole('tab', { name: 'Thông tin' });
+    await openTab('Bảo mật');
+    expect(router.state.location.search).toBe('?tab=security');
+    await waitFor(() => expect(screen.getByText('Chưa bật')).toBeVisible());
+    await openTab('Tài khoản liên kết');
+    expect(router.state.location.search).toBe('?tab=linked');
+    expect(screen.getByText('Chưa có tài khoản ngoài nào được liên kết.')).toBeVisible();
+    // Về tab mặc định thì param được gỡ khỏi URL.
+    await openTab('Thông tin');
+    expect(router.state.location.search).toBe('');
+    expect(screen.getByLabelText('Tên')).toBeVisible();
   });
 });

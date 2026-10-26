@@ -1,4 +1,24 @@
+/**
+ * Trang hồ sơ cá nhân (`/profile`) — màn cài đặt của chính người dùng,
+ * chia ba tab theo đúng cấu trúc đã nghiệm thu ở các màn cài đặt khác:
+ *
+ * Flow tổng thể: phiên đăng nhập (useAuth) nạp hồ sơ → tab đang chọn
+ * đọc từ search param `tab` trên URL (thiếu/sai thì về tab mặc định
+ * "Thông tin") → mỗi tab là một panel của component Tabs dùng chung
+ * (@lms/ui): "Thông tin" chứa form hồ sơ, "Bảo mật" chứa thẻ xác thực
+ * hai lớp + thẻ phiên đăng nhập, "Tài khoản liên kết" chứa thẻ liên
+ * kết OAuth. Đổi tab = ghi lại search param (đẩy entry lịch sử mới)
+ * nên mở link có sẵn param vào thẳng đúng tab và nút quay lại của
+ * trình duyệt lùi đúng từng tab đã qua.
+ *
+ * Mọi panel đều `keepMounted`: panel ẩn vẫn ở trong DOM nên trạng
+ * thái nội bộ của từng thẻ (bước setup 2FA, mã đang nhập, lỗi vừa
+ * hiện) không mất khi chuyển tab qua lại, và dữ liệu vẫn tải ngay
+ * khi mở trang như hành vi trước khi chia tab (các query của từng
+ * thẻ do TanStack Query cache theo query key dùng chung).
+ */
 import { useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MfaTotpSetupResponse, OAuthIssuer, UserProfile } from '@lms/contracts';
 import {
@@ -17,6 +37,7 @@ import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Spinner } from '@lms/ui/components/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/table';
 import { QRCodeSVG } from 'qrcode.react';
@@ -27,9 +48,25 @@ import { useAuth } from '#lib/auth';
 import { describeUserAgent } from '#lib/user-agent';
 import { queryKeys } from '#lib/query-keys';
 
+/** Ba tab của trang hồ sơ; giá trị khớp search param `tab` trên URL (`info` là mặc định nên không ghi param). */
+type ProfileTab = 'info' | 'security' | 'linked';
+
+/**
+ * Trang hồ sơ: khung tab + form thông tin cá nhân ở tab "Thông tin".
+ *
+ * @returns Khung trang hẹp với thanh tab ngay dưới tiêu đề; panel của
+ *   tab đang chọn hiện, hai panel còn lại ẩn nhưng vẫn mounted
+ *   (`keepMounted`) để giữ trạng thái nội bộ của các thẻ con.
+ *
+ * @remarks
+ * Tab là trạng thái điều hướng, không phải state cục bộ: nguồn sự
+ * thật là search param `tab`. Form hồ sơ giữ state ở component này
+ * (cha của mọi panel) nên không bao giờ bị unmount theo tab.
+ */
 export function ProfilePage() {
   const { t } = useTranslation('app');
   const { user, reload } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState<{
     firstName: string;
     lastName: string;
@@ -48,6 +85,26 @@ export function ProfilePage() {
       });
     }
   }, [user]);
+
+  // Tab đang chọn suy từ URL: chỉ hai giá trị khác mặc định mới được
+  // công nhận, còn lại (thiếu param, giá trị lạ) đều về "Thông tin"
+  // để link cũ/link sai vẫn mở trang an toàn.
+  const tabParam = searchParams.get('tab');
+  const activeTab: ProfileTab = tabParam === 'security' || tabParam === 'linked' ? tabParam : 'info';
+
+  /**
+   * Đổi tab = đổi search param trên URL hiện tại (giữ nguyên các
+   * param khác nếu có). Tab mặc định xoá param cho URL sạch; các tab
+   * còn lại ghi `?tab=<giá trị>`. Không dùng replace: mỗi lần đổi tab
+   * là một entry lịch sử mới để nút quay lại của trình duyệt hoạt
+   * động đúng như người dùng kỳ vọng ở màn cài đặt.
+   */
+  function handleTabChange(value: string) {
+    const next = new URLSearchParams(searchParams);
+    if (value === 'info') next.delete('tab');
+    else next.set('tab', value);
+    setSearchParams(next);
+  }
 
   if (!user || !form)
     return (
@@ -83,65 +140,88 @@ export function ProfilePage() {
   return (
     <PageShell width="narrow">
       <PageHeader title={t('profileTitle', { username: user.username })} />
-      <Card>
-        {user.forcePasswordChange ? (
-          <CardHeader>
-            <CardDescription>{t('profileMustChangePassword')}</CardDescription>
-          </CardHeader>
-        ) : null}
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstname">{t('firstName')}</Label>
-              <Input
-                id="firstname"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastname">{t('lastName')}</Label>
-              <Input
-                id="lastname"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('email')}</Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-            </div>
-            {user.customFields.map((field) => (
-              <div className="space-y-2" key={field.shortName}>
-                <Label htmlFor={`cf-${field.shortName}`}>
-                  {field.name} ({field.type})
-                </Label>
-                <Input
-                  id={`cf-${field.shortName}`}
-                  value={form.customFields[field.shortName] ?? ''}
-                  onChange={(e) =>
-                    setForm({ ...form, customFields: { ...form.customFields, [field.shortName]: e.target.value } })
-                  }
-                />
-              </div>
-            ))}
-            {message && (
-              <Alert>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit">{t('saveProfile')}</Button>
-          </form>
-        </CardContent>
-      </Card>
-      <LinkedAccountsCard />
-      <TwoFactorCard />
-      <SessionsCard />
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="gap-4">
+        <TabsList className="w-full">
+          <TabsTrigger value="info">{t('profileTabInfo')}</TabsTrigger>
+          <TabsTrigger value="security">{t('profileTabSecurity')}</TabsTrigger>
+          <TabsTrigger value="linked">{t('profileTabLinkedAccounts')}</TabsTrigger>
+        </TabsList>
+        {/* Mọi panel đều keepMounted: chuyển tab chỉ ẩn/hiện, không
+            unmount — trạng thái trong từng thẻ (vd bước setup 2FA
+            đang dở) còn nguyên khi quay lại, và dữ liệu tải một lần
+            lúc mở trang như trước khi chia tab. */}
+        <TabsContent value="info" keepMounted>
+          <Card>
+            {user.forcePasswordChange ? (
+              <CardHeader>
+                <CardDescription>{t('profileMustChangePassword')}</CardDescription>
+              </CardHeader>
+            ) : null}
+            <CardContent>
+              <form onSubmit={onSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstname">{t('firstName')}</Label>
+                  <Input
+                    id="firstname"
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastname">{t('lastName')}</Label>
+                  <Input
+                    id="lastname"
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">{t('email')}</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  />
+                </div>
+                {user.customFields.map((field) => (
+                  <div className="space-y-2" key={field.shortName}>
+                    <Label htmlFor={`cf-${field.shortName}`}>
+                      {field.name} ({field.type})
+                    </Label>
+                    <Input
+                      id={`cf-${field.shortName}`}
+                      value={form.customFields[field.shortName] ?? ''}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          customFields: { ...form.customFields, [field.shortName]: e.target.value },
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+                {message && (
+                  <Alert>
+                    <AlertDescription>{message}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit">{t('saveProfile')}</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="security" keepMounted>
+          {/* Hai thẻ xếp dọc cùng nhịp khoảng cách với khung trang. */}
+          <div className="flex flex-col gap-4 md:gap-6">
+            <TwoFactorCard />
+            <SessionsCard />
+          </div>
+        </TabsContent>
+        <TabsContent value="linked" keepMounted>
+          <LinkedAccountsCard />
+        </TabsContent>
+      </Tabs>
     </PageShell>
   );
 }
