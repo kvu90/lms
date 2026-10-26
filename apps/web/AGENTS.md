@@ -52,3 +52,52 @@
 - Neo URL/trạng thái điều hướng đã nghiệm thu là hành vi nghiệp vụ: test phải giữ
   được chúng khi refactor vỏ.
 - Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
+
+## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
+
+Mọi code TypeScript/TSX viết mới hoặc sửa trong `apps/web` phải có comment
+**tiếng Việt theo chuẩn TSDoc**, chi tiết nhất có thể — flow kỹ thuật phải nằm
+ngay trong code, để lần sửa sau dựa vào nội dung code đang có chứ không dựa
+vào trí nhớ của trợ lý:
+
+- Đầu mỗi file: khối TSDoc mô tả vai trò của file + flow tổng thể (dữ liệu vào
+  từ đâu — loader/dữ liệu route, props, API → các bước xử lý/hiển thị → dữ
+  liệu ra và side-effect).
+- Mỗi component/hook/hàm trọng yếu: TSDoc `/** ... */` tiếng Việt gồm mục
+  đích, `@param`/`@returns` (props của component, giá trị hook trả về), các
+  bước flow, bất biến/ràng buộc hiển thị, side-effect (gọi API, điều hướng,
+  đăng ký realtime/socket, ghi cache truy vấn).
+- Logic hiển thị phức tạp (render theo capability/vai, neo URL + trạng thái
+  mở/đóng, gộp dữ liệu nhiều nguồn): comment nội tuyến tiếng Việt nói bước
+  flow và **lý do** — không lặp lại điều code đã hiển nhiên.
+- Cú pháp/tag theo TSDoc (`@remarks`/`@example` khi cần); định danh và tên
+  tag giữ tiếng Anh.
+- Sửa code thì căn cứ vào comment flow đang có trong code; thấy comment lệch
+  code thật thì sửa comment **trong cùng lượt** với sửa code.
+- Đội đánh giá độc lập soi chuẩn này như một tiêu chí đạt — code thiếu comment
+  flow đạt chuẩn là chưa đạt. Code cũ chưa có comment được phủ theo đợt riêng
+  của issue #272, không tự trộn việc phủ vào feat đang bay.
+
+## Bản đồ flow của package
+
+- **Điểm vào:** `src/entry.client.tsx` (hydrate phía client) và
+  `src/entry.server.tsx` (render SSR cho bề mặt public) của React Router
+  framework mode; `src/root.tsx` là vỏ gốc (sidebar, phiên đăng nhập, thông
+  báo); `src/routes.ts` + thư mục `src/routes/` khai báo cây route theo chuẩn
+  đường dẫn của sổ mục F; `src/i18n.ts` nạp bản dịch.
+- **Luồng hiển thị:** điều hướng vào route → root/vỏ đọc phiên (cookie
+  `lms_session`) và capabilities từ API → trang trong `src/pages/` nạp dữ
+  liệu qua `src/lib/api.ts` và các helper dữ liệu theo miền trong `src/lib/`
+  (`course-data.ts`, `course-builder-data.ts`, `assignment-data.ts`,
+  `matrix-data.ts`, `classes.ts`, `notifications.ts`…) trên nền TanStack
+  Query → render bằng component nền của `@lms/ui` và editor của `@lms/editor`
+  (không tự chế editor/component nền riêng) → hành động của người dùng gọi
+  API `/api/v1` hoặc kênh realtime (`src/lib/messaging-socket.ts`,
+  `src/lib/notification-unread-stream.ts`) rồi cập nhật cache/dữ liệu hiển
+  thị.
+- **Thư mục chính:** `src/pages/` — các màn hình theo route (khoá học, lớp,
+  câu hỏi/đề/ma trận, làm bài, điểm theo bài, tin nhắn, quản trị…);
+  `src/components/` — vỏ dùng chung của app (bọc component `@lms/ui` theo
+  luồng GV/HS); `src/lib/` — client API, auth (`auth.tsx`, `auth-client.ts`),
+  phân quyền hiển thị (`permissions.tsx`, `access.ts`), helper dữ liệu theo
+  miền; `src/test/` — hạ tầng test của app.
