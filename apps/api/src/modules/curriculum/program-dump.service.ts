@@ -38,6 +38,11 @@ export class ProgramDumpService {
     return { restored: true, version: PROGRAM_DUMP_VERSION };
   }
 
+  /** Toàn văn dump của DB hiện tại (đường sản xuất ở trung tâm + kiểm chứng dùng chung). */
+  async buildDumpSql(): Promise<string> {
+    return buildProgramDumpSql(this.db);
+  }
+
   /**
    * Xuất dump của DB hiện tại ra file artifact (đường sản xuất ở
    * trung tâm — CLI export-program-dump; DB nguồn phải là DB chuẩn
