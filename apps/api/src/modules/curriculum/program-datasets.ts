@@ -189,8 +189,10 @@ export function programOutcomeDocLines(doc: ProgramOutcomeDoc): string[] {
  * khoảng trắng hai đầu. ĐÂY LÀ HÀM TRÍCH DUY NHẤT của hệ cho YCCĐ dạng
  * doc: kiểm chứng toàn vẹn với `outcome_text` so trên text này, và
  * thuật toán diff của importer (ghép cặp theo vị trí + nội dung) cũng
- * so trên text này. Định danh của dòng KHÔNG suy từ text này — id neo
- * theo VỊ TRÍ (xem programOutcomeId): đổi định dạng lưu hay sửa chữ
+ * so trên text này. Text này KHÔNG phải định danh của dòng: id của
+ * dòng là uuidv7 mờ do DB cấp một lần khi tạo dòng, không suy từ bất
+ * kỳ thuộc tính nào — không từ text này, không từ vị trí (xem
+ * programRecordOutcomeEntries) — nên đổi định dạng lưu hay sửa chữ
  * đều không đổi id của dòng.
  */
 export function programOutcomeDocText(doc: ProgramOutcomeDoc): string {
