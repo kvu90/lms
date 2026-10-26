@@ -1,12 +1,26 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import type { ClassView, CreateClass, UpdateClass } from '@lms/contracts';
+import type {
+  AddRosterStudentResult,
+  ClassJoinRequest as ClassJoinRequestView,
+  ClassRosterImportReport,
+  ClassRosterMember,
+  ClassStaffRole,
+  ClassStaffView,
+  ClassSuspendedMember,
+  ClassView,
+  CreateClass,
+  JoinClassResult,
+  RosterStudentIdentity,
+  UpdateClass,
+} from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -20,7 +34,8 @@ import { GroupsService } from '../groups/groups.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UsersService } from '../users/users.service';
-import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassRow } from './classes.repository';
+import type { UserRow } from '../users/users.repository';
+import { CLASS_WHOLE_GROUP_NAME, ClassesRepository, type ClassJoinRequestRow, type ClassRow } from './classes.repository';
 
 export type { ClassRow };
 
@@ -79,6 +94,7 @@ export function toClassDto(row: ClassRow, canSeeJoinCode: boolean): ClassView {
     cohortId: row.cohortId,
     allowSelfReport: row.allowSelfReport,
     joinCode: canSeeJoinCode ? row.joinCode : null,
+    joinAutoApprove: row.joinAutoApprove,
     onLeave: row.onLeave as ClassView['onLeave'],
     status: row.status as ClassView['status'],
     description: row.description,
@@ -288,6 +304,7 @@ export class ClassesService implements OnModuleInit {
     if (input.description !== undefined) patch.description = input.description;
     if (input.onLeave !== undefined) patch.onLeave = input.onLeave;
     if (input.allowSelfReport !== undefined) patch.allowSelfReport = input.allowSelfReport;
+    if (input.joinAutoApprove !== undefined) patch.joinAutoApprove = input.joinAutoApprove;
     if (input.rotateJoinCode || (patch.allowSelfReport === true && !row.joinCode)) {
       patch.joinCode = generateJoinCode();
     }
@@ -344,14 +361,25 @@ export class ClassesService implements OnModuleInit {
 
   // --- roster (≡ cohort_members của backing cohort) ---------------------------
 
-  /** Danh sách học sinh của lớp (cổng xem lớp). */
-  async listRoster(actorId: string, classId: string): Promise<{ userId: string; timeAdded: string }[]> {
+  /** Danh sách học sinh của lớp kèm thông tin hiển thị của tài khoản (cổng xem lớp). */
+  async listRoster(actorId: string, classId: string): Promise<ClassRosterMember[]> {
     const row = await this.getClassRow(classId);
     if (!(await this.canViewClass(actorId, row))) {
       throw new NotFoundException({ message: `Class ${classId} not found`, code: 'class.not_found' });
     }
     const members = await this.groups.listCohortMembers(row.cohortId);
-    return members.map((m) => ({ userId: m.userId, timeAdded: m.timeAdded.toISOString() }));
+    const usersById = new Map((await this.users.getUsersByIds(members.map((m) => m.userId))).map((u) => [u.id, u]));
+    return members.map((m) => {
+      const u = usersById.get(m.userId);
+      return {
+        userId: m.userId,
+        timeAdded: m.timeAdded.toISOString(),
+        firstName: u?.firstName ?? '',
+        lastName: u?.lastName ?? '',
+        username: u?.username ?? '',
+        email: u?.email ?? '',
+      };
+    });
   }
 
   /**
@@ -389,6 +417,446 @@ export class ClassesService implements OnModuleInit {
       throw new NotFoundException({ message: `Class ${classId} not found`, code: 'class.not_found' });
     }
     return this.repo.listCoursesInClass(classId);
+  }
+
+  // --- nạp roster theo định danh + import Excel (CLASS-1) ----------------------
+
+  /** Cổng quản roster dùng chung cho các đường nạp: lớp chưa lưu trữ + capability `class:manageroster` tại context lớp. */
+  private async requireRosterManager(actorId: string, row: ClassRow): Promise<void> {
+    if (row.status === 'archived') {
+      throw new BadRequestException({ message: 'Class is archived; roster is frozen', code: 'class.archived' });
+    }
+    const ctxId = await this.classContextId(row.id);
+    await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
+  }
+
+  /** Họ tên hiển thị của một tài khoản: "Họ Tên" theo thứ tự VN, rơi về username khi trống. */
+  private displayNameOf(user: UserRow): string {
+    const full = `${user.lastName} ${user.firstName}`.trim();
+    return full || user.username;
+  }
+
+  /** Tách họ tên đầy đủ kiểu VN: từ CUỐI là tên, phần còn lại là họ + đệm. */
+  private splitFullName(fullName: string): { firstName: string; lastName: string } {
+    const tokens = fullName.trim().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return { firstName: '', lastName: '' };
+    return { firstName: tokens[tokens.length - 1]!, lastName: tokens.slice(0, -1).join(' ') };
+  }
+
+  /** Mật khẩu tạm cho tài khoản học sinh mới tạo qua roster: đủ 4 lớp ký tự theo chính sách mặc định, buộc đổi ở lần đăng nhập đầu (forcePasswordChange). */
+  private generateTemporaryPassword(): string {
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    const bytes = randomBytes(12);
+    const core = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+    return `Lms@9${core}`;
+  }
+
+  /** Username chưa bị chiếm, bắt đầu từ `base`; trùng thì thêm hậu tố số tăng dần. */
+  private async uniqueUsername(base: string): Promise<string> {
+    const stem = base || 'hocvien';
+    let candidate = stem;
+    let n = 1;
+    while (await this.users.getByUsername(candidate)) {
+      n += 1;
+      candidate = `${stem}${n}`;
+    }
+    return candidate;
+  }
+
+  /**
+   * Phân giải một định danh học sinh thành tài khoản: khớp theo EMAIL
+   * trước, rồi theo SĐT (= username); không khớp thì TẠO tài khoản mới
+   * (username = SĐT hoặc phần trước @ của email; chưa có email thì dùng
+   * hộp thư giữ chỗ `<username>@roster.local` — tài khoản đăng nhập bằng
+   * username, hộp thư này chỉ để thoả ràng buộc email duy nhất, đã ghi
+   * rõ ở hợp đồng contracts). Tài khoản mới mang mật khẩu tạm + cờ buộc
+   * đổi mật khẩu.
+   */
+  private async resolveStudentAccount(input: RosterStudentIdentity): Promise<{ user: UserRow; created: boolean; temporaryPassword: string | null }> {
+    const email = input.email?.trim().toLowerCase() || undefined;
+    const phone = input.phone ? input.phone.replace(/[^0-9]/g, '') || undefined : undefined;
+    if (!email && !phone) {
+      throw new BadRequestException({ message: 'A student row needs an email or a phone number to match or create an account', code: 'class.roster_identity_missing' });
+    }
+    let user = email ? await this.users.getByEmail(email) : undefined;
+    if (!user && phone) user = await this.users.getByUsername(phone);
+    if (user) return { user, created: false, temporaryPassword: null };
+    const { firstName, lastName } = this.splitFullName(input.fullName);
+    const localPart = email ? email.split('@')[0]!.replace(/[^a-z0-9._-]/g, '') : '';
+    const username = await this.uniqueUsername(phone ?? localPart);
+    const temporaryPassword = this.generateTemporaryPassword();
+    const created = await this.users.createUser({
+      username,
+      email: email ?? `${username}@roster.local`,
+      password: temporaryPassword,
+      firstName,
+      lastName,
+      forcePasswordChange: true,
+    });
+    return { user: created, created: true, temporaryPassword };
+  }
+
+  /** Nạp một học sinh theo định danh vào lớp đã qua cổng quản roster; trả kết quả kèm mật khẩu tạm khi vừa tạo tài khoản. */
+  private async addStudentByIdentity(row: ClassRow, actorId: string, input: RosterStudentIdentity): Promise<AddRosterStudentResult> {
+    const { user, created, temporaryPassword } = await this.resolveStudentAccount(input);
+    const already = await this.groups.isCohortMember(row.cohortId, user.id);
+    if (!already) await this.addToRoster(actorId, row.id, user.id);
+    return {
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      fullName: this.displayNameOf(user),
+      outcome: already ? 'already_member' : created ? 'created' : 'matched',
+      temporaryPassword: created ? temporaryPassword : null,
+    };
+  }
+
+  /** POST /classes/:id/roster/identity — GV thêm một học sinh bằng họ tên + email/SĐT thay vì phải biết userId. */
+  async addRosterStudentByIdentity(actorId: string, classId: string, input: RosterStudentIdentity): Promise<AddRosterStudentResult> {
+    const row = await this.getClassRow(classId);
+    await this.requireRosterManager(actorId, row);
+    return this.addStudentByIdentity(row, actorId, input);
+  }
+
+  /**
+   * Import roster (nhiều dòng): mỗi dòng độc lập — dòng lỗi ghi vào báo
+   * cáo kèm mã lỗi, không chặn các dòng còn lại; GV sửa đúng dòng lỗi
+   * trong file rồi nạp lại riêng dòng đó.
+   */
+  async importRoster(actorId: string, classId: string, rows: RosterStudentIdentity[]): Promise<ClassRosterImportReport> {
+    const row = await this.getClassRow(classId);
+    await this.requireRosterManager(actorId, row);
+    const results: ClassRosterImportReport['results'] = [];
+    let added = 0;
+    let created = 0;
+    let alreadyMembers = 0;
+    let failed = 0;
+    for (const [i, input] of rows.entries()) {
+      try {
+        const r = await this.addStudentByIdentity(row, actorId, input);
+        if (r.outcome === 'already_member') {
+          alreadyMembers += 1;
+          results.push({ row: i + 1, fullName: input.fullName, status: 'already_member', userId: r.userId, username: r.username, temporaryPassword: null, error: null });
+        } else {
+          added += 1;
+          if (r.outcome === 'created') created += 1;
+          results.push({ row: i + 1, fullName: input.fullName, status: r.outcome === 'created' ? 'added_created' : 'added_matched', userId: r.userId, username: r.username, temporaryPassword: r.temporaryPassword, error: null });
+        }
+      } catch (err) {
+        failed += 1;
+        const resp = err instanceof HttpException ? err.getResponse() : null;
+        const body = (typeof resp === 'object' && resp !== null ? resp : {}) as { code?: unknown; message?: unknown };
+        const error = typeof body.code === 'string' ? body.code : typeof body.message === 'string' ? body.message : 'class.roster_row_failed';
+        results.push({ row: i + 1, fullName: input.fullName, status: 'error', userId: null, username: null, temporaryPassword: null, error });
+      }
+    }
+    return { total: rows.length, added, created, alreadyMembers, failed, results };
+  }
+
+  /** Đọc một file Excel roster (sheet đầu tiên) thành các dòng định danh: tự nhận diện hàng tiêu đề theo từ khoá cột (Họ tên | SĐT | Email | Ngày sinh), thiếu tiêu đề thì đọc theo đúng thứ tự cột đó. */
+  async parseRosterWorkbook(buffer: Buffer): Promise<RosterStudentIdentity[]> {
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as never);
+    const ws = wb.worksheets[0];
+    if (!ws) {
+      throw new BadRequestException({ message: 'The workbook has no worksheet', code: 'class.import_file_empty' });
+    }
+    const cellText = (value: unknown): string => {
+      if (value === null || value === undefined) return '';
+      if (value instanceof Date) {
+        const dd = String(value.getDate()).padStart(2, '0');
+        const mm = String(value.getMonth() + 1).padStart(2, '0');
+        return `${dd}/${mm}/${value.getFullYear()}`;
+      }
+      if (typeof value === 'object') {
+        const v = value as { text?: unknown; result?: unknown };
+        if (typeof v.text === 'string') return v.text.trim();
+        if (v.result !== undefined) return cellText(v.result);
+        return '';
+      }
+      return String(value).trim();
+    };
+    const rawRows: string[][] = [];
+    ws.eachRow((row) => {
+      const cells: string[] = [];
+      row.eachCell({ includeEmpty: true }, (cell) => cells.push(cellText(cell.value)));
+      if (cells.some((c) => c !== '')) rawRows.push(cells);
+    });
+    if (rawRows.length === 0) return [];
+    const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+    const header = rawRows[0]!.map(norm);
+    const findCol = (...keywords: string[]) => header.findIndex((h) => keywords.some((k) => h.includes(k)));
+    const nameCol = findCol('ten', 'name');
+    const hasHeader = nameCol >= 0;
+    const cols = hasHeader
+      ? { name: nameCol, phone: findCol('dien thoai', 'sdt', 'phone'), email: findCol('email', 'mail'), dob: findCol('ngay sinh', 'sinh', 'birth') }
+      : { name: 0, phone: 1, email: 2, dob: 3 };
+    const dataRows = hasHeader ? rawRows.slice(1) : rawRows;
+    if (dataRows.length > 500) {
+      throw new BadRequestException({ message: 'Roster import is limited to 500 rows per file', code: 'class.import_too_many_rows' });
+    }
+    const out: RosterStudentIdentity[] = [];
+    for (const cells of dataRows) {
+      const fullName = (cells[cols.name] ?? '').trim();
+      if (!fullName) continue;
+      const email = cols.email >= 0 ? (cells[cols.email] ?? '').trim() : '';
+      const phone = cols.phone >= 0 ? (cells[cols.phone] ?? '').trim() : '';
+      const dob = cols.dob >= 0 ? (cells[cols.dob] ?? '').trim() : '';
+      out.push({
+        fullName,
+        ...(email ? { email } : {}),
+        ...(phone ? { phone } : {}),
+        ...(dob ? { dateOfBirth: dob } : {}),
+      });
+    }
+    return out;
+  }
+
+  /** File mẫu roster .xlsx cho GV tải về: đúng 4 cột kiểu Azota (Họ tên | Số điện thoại | Email | Ngày sinh) + một dòng ví dụ. */
+  async buildRosterTemplateWorkbook(): Promise<{ filename: string; buffer: Buffer }> {
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Danh sách học sinh');
+    ws.columns = [{ width: 28 }, { width: 16 }, { width: 28 }, { width: 14 }];
+    const header = ws.addRow(['Họ tên', 'Số điện thoại', 'Email', 'Ngày sinh']);
+    header.font = { bold: true };
+    ws.addRow(['Nguyễn Văn An', '0901234567', 'an.nguyen@example.com', '15/03/2011']);
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    return { filename: 'mau-danh-sach-hoc-sinh.xlsx', buffer };
+  }
+
+  // --- phân quyền đồng GV tại context lớp (CLASS-1) -----------------------------
+
+  /**
+   * Bề mặt phân quyền của lớp: chủ lớp + mọi đồng GV đang giữ một trong
+   * 3 vai lớp tại context lớp (gán tay — component rỗng; các dòng do ghi
+   * danh cấp không phải vai lớp nên không lẫn vào). Phân quyền vẫn là cơ
+   * chế vai/context sẵn có, KHÔNG có bảng quyền song song.
+   */
+  async listStaff(actorId: string, classId: string): Promise<ClassStaffView> {
+    const row = await this.getClassRow(classId);
+    if (!(await this.canViewClass(actorId, row))) {
+      throw new NotFoundException({ message: `Class ${classId} not found`, code: 'class.not_found' });
+    }
+    const ctxId = await this.classContextId(classId);
+    const roleIds = new Map<string, ClassStaffRole>();
+    for (const shortName of ['classassigner', 'classgrader', 'classrostermanager'] as const) {
+      const role = await this.roles.getRoleByShortname(shortName);
+      if (role) roleIds.set(role.id, shortName);
+    }
+    type AssignmentRow = { id: string; userId: string; roleId: string; component: string };
+    const assignments = (await this.roles.listAssignments({ contextId: ctxId })) as unknown as AssignmentRow[];
+    const rolesByUser = new Map<string, Set<ClassStaffRole>>();
+    for (const a of assignments) {
+      if (a.component !== '') continue;
+      const shortName = roleIds.get(a.roleId);
+      if (!shortName) continue;
+      const set = rolesByUser.get(a.userId) ?? new Set<ClassStaffRole>();
+      set.add(shortName);
+      rolesByUser.set(a.userId, set);
+    }
+    const userIds = [...new Set([row.ownerId, ...rolesByUser.keys()])];
+    const usersById = new Map((await this.users.getUsersByIds(userIds)).map((u) => [u.id, u]));
+    const toEntry = (userId: string, isOwner: boolean) => {
+      const u = usersById.get(userId);
+      return {
+        userId,
+        firstName: u?.firstName ?? '',
+        lastName: u?.lastName ?? '',
+        username: u?.username ?? '',
+        email: u?.email ?? '',
+        isOwner,
+        roles: [...(rolesByUser.get(userId) ?? [])],
+      };
+    };
+    const staff = [
+      toEntry(row.ownerId, true),
+      ...[...rolesByUser.keys()].filter((id) => id !== row.ownerId).map((id) => toEntry(id, false)),
+    ];
+    const canShare = actorId === row.ownerId || (await this.evaluator.hasCapability(actorId, 'class:share', ctxId));
+    const canManageRoster = actorId === row.ownerId || (await this.evaluator.hasCapability(actorId, 'class:manageroster', ctxId));
+    return { staff, canShare, canManageRoster };
+  }
+
+  /**
+   * Đặt lại bộ 3 vai lớp cho một đồng GV (chỉ người có `class:share`):
+   * gán vai còn thiếu, gỡ vai thừa — chỉ đụng các dòng gán TAY tại đúng
+   * context lớp này. Chủ lớp giữ vai editingteacher cố định, không sửa
+   * qua đường này.
+   */
+  async setStaffRoles(actorId: string, classId: string, input: { userId?: string; email?: string; roles: ClassStaffRole[] }): Promise<ClassStaffView> {
+    const row = await this.getClassRow(classId);
+    const ctxId = await this.classContextId(classId);
+    await this.evaluator.requireCapability(actorId, 'class:share', ctxId);
+    // Định danh đồng GV: userId hoặc email của tài khoản CÓ SẴN (đường
+    // phân quyền không tự tạo tài khoản — tạo tài khoản là việc của
+    // quản trị/roster, tránh cấp quyền cho một tài khoản vừa sinh nhầm).
+    let targetId = input.userId;
+    if (!targetId && input.email) {
+      const byEmail = await this.users.getByEmail(input.email.trim().toLowerCase());
+      if (!byEmail) {
+        throw new NotFoundException({ message: `No account with email ${input.email}`, code: 'class.staff_user_not_found' });
+      }
+      targetId = byEmail.id;
+    }
+    if (!targetId) {
+      throw new BadRequestException({ message: 'A staff member must be identified by userId or email', code: 'class.staff_identity_missing' });
+    }
+    if (targetId === row.ownerId) {
+      throw new BadRequestException({ message: 'The class owner keeps the owner role; transfer ownership instead of editing class roles', code: 'class.owner_roles_locked' });
+    }
+    await this.ensureClassRoles();
+    await this.users.getUser(targetId);
+    await this.tenants.ensureActiveMembership(row.tenantId, targetId);
+    type AssignmentRow = { id: string; userId: string; roleId: string; component: string };
+    const assignments = (await this.roles.listAssignments({ contextId: ctxId, userId: targetId })) as unknown as AssignmentRow[];
+    for (const shortName of ['classassigner', 'classgrader', 'classrostermanager'] as const) {
+      const role = await this.roles.getRoleByShortname(shortName);
+      if (!role) continue;
+      const existing = assignments.find((a) => a.roleId === role.id && a.component === '');
+      const wanted = input.roles.includes(shortName);
+      if (wanted && !existing) await this.roles.assignRole(targetId, role.id, ctxId, actorId);
+      if (!wanted && existing) await this.roles.unassignRole(existing.id, actorId);
+    }
+    return this.listStaff(actorId, classId);
+  }
+
+  // --- tự báo danh bằng mã tham gia (CLASS-1) -----------------------------------
+
+  /** Tra lớp theo mã tham gia ở ngữ cảnh platform: mã là bí mật toàn hệ, lớp đích có thể thuộc tenant khác tenant hiệu lực của người gọi (hồ sơ hotfix #196: tra cứu xuyên tenant phải bọc platform tường minh, quyết định nghiệp vụ nằm ở tầng service). */
+  private async classByJoinCode(joinCode: string): Promise<ClassRow> {
+    const row = await this.tenantContext.run({ platform: true }, () => this.repo.getClassByJoinCode(joinCode.trim().toUpperCase()));
+    if (!row || !row.allowSelfReport || !row.joinCode) {
+      throw new NotFoundException({ message: 'Join code is not valid for any open class', code: 'class.join_code_invalid' });
+    }
+    return row;
+  }
+
+  /** Xem trước lớp từ mã tham gia (học sinh xác nhận đúng lớp trước khi xin vào). */
+  async previewJoin(joinCode: string): Promise<{ classId: string; name: string; schoolYear: string | null; ownerName: string }> {
+    const row = await this.classByJoinCode(joinCode);
+    const owner = await this.users.getByIdOrUndefined(row.ownerId);
+    return {
+      classId: row.id,
+      name: row.name,
+      schoolYear: row.schoolYear,
+      ownerName: owner ? this.displayNameOf(owner) : '',
+    };
+  }
+
+  /**
+   * Xin vào lớp bằng mã tham gia. Luật chốt cứng: lớp TRỐNG → vào
+   * thẳng; lớp đã có học sinh → hàng chờ duyệt, trừ khi lớp bật tự
+   * duyệt (`joinAutoApprove`). Vào thẳng đi qua đường nội bộ của cohort
+   * (người xin là học sinh, không có `cohort:manage` — quyết định cho
+   * vào đã nằm ở luật này + công tắc của lớp).
+   */
+  async joinByCode(actorId: string, joinCode: string): Promise<JoinClassResult> {
+    const row = await this.classByJoinCode(joinCode);
+    if (row.status === 'archived') {
+      throw new BadRequestException({ message: 'Class is archived; roster is frozen', code: 'class.archived' });
+    }
+    const view = { id: row.id, name: row.name, schoolYear: row.schoolYear };
+    return this.tenantContext.run({ platform: true }, async () => {
+      if (await this.groups.isCohortMember(row.cohortId, actorId)) {
+        return { outcome: 'already_member' as const, class: view };
+      }
+      const memberCount = (await this.groups.listCohortMembers(row.cohortId)).length;
+      if (row.joinAutoApprove || memberCount === 0) {
+        await this.tenants.ensureActiveMembership(row.tenantId, actorId);
+        await this.groups.addCohortMemberInternal(row.cohortId, actorId);
+        await this.outbox.enqueueStandalone({
+          aggregate: 'class', type: 'class_member_joined',
+          payload: { classId: row.id, tenantId: row.tenantId, userId: actorId, via: 'self_report' },
+          tenantId: row.tenantId,
+        });
+        return { outcome: 'joined' as const, class: view };
+      }
+      const pending = await this.repo.findPendingJoinRequest(row.id, actorId);
+      if (!pending) {
+        await this.repo.insertJoinRequest({ tenantId: row.tenantId, classId: row.id, userId: actorId, status: 'pending' });
+      }
+      return { outcome: 'pending' as const, class: view };
+    });
+  }
+
+  /** Hàng chờ duyệt tự báo danh của lớp (cổng quản roster). */
+  async listJoinRequests(actorId: string, classId: string): Promise<ClassJoinRequestView[]> {
+    const row = await this.getClassRow(classId);
+    const ctxId = await this.classContextId(classId);
+    await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
+    const requests = await this.repo.listJoinRequests(classId, 'pending');
+    const usersById = new Map((await this.users.getUsersByIds(requests.map((r) => r.userId))).map((u) => [u.id, u]));
+    return requests.map((r) => this.toJoinRequestView(r, usersById.get(r.userId)));
+  }
+
+  private toJoinRequestView(r: ClassJoinRequestRow, user?: UserRow): ClassJoinRequestView {
+    return {
+      id: r.id,
+      classId: r.classId,
+      userId: r.userId,
+      firstName: user?.firstName ?? '',
+      lastName: user?.lastName ?? '',
+      username: user?.username ?? '',
+      email: user?.email ?? '',
+      status: r.status as ClassJoinRequestView['status'],
+      createdAt: r.createdAt.toISOString(),
+      decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
+    };
+  }
+
+  /** Duyệt (đưa vào roster qua đúng đường CLASS-0) hoặc từ chối (chỉ đóng yêu cầu) một yêu cầu tự báo danh. */
+  async decideJoinRequest(actorId: string, classId: string, requestId: string, approve: boolean): Promise<ClassJoinRequestView> {
+    const row = await this.getClassRow(classId);
+    const ctxId = await this.classContextId(classId);
+    await this.evaluator.requireCapability(actorId, 'class:manageroster', ctxId);
+    const request = await this.repo.getJoinRequest(requestId);
+    if (!request || request.classId !== classId) {
+      throw new NotFoundException({ message: `Join request ${requestId} not found`, code: 'class.join_request_not_found' });
+    }
+    if (request.status !== 'pending') {
+      throw new ConflictException({ message: 'Join request was already decided', code: 'class.join_request_decided' });
+    }
+    if (approve) await this.addToRoster(actorId, classId, request.userId);
+    await this.repo.updateJoinRequest(requestId, {
+      status: approve ? 'approved' : 'rejected',
+      decidedBy: actorId,
+      decidedAt: new Date(),
+    });
+    const updated = (await this.repo.getJoinRequest(requestId))!;
+    const user = await this.users.getByIdOrUndefined(request.userId);
+    return this.toJoinRequestView(updated, user);
+  }
+
+  // --- thành viên đã đình chỉ (CLASS-1) ------------------------------------------
+
+  /**
+   * Danh sách học sinh đã đình chỉ khỏi lớp: đã gỡ khỏi roster theo chế
+   * độ `suspend` (ghi danh ở các khoá đang SUSPENDED, giữ dữ liệu) và
+   * chưa vào lại. Thêm lại vào roster (đường roster thường) là kích
+   * hoạt lại đúng các dòng ghi danh cũ.
+   */
+  async listSuspendedMembers(actorId: string, classId: string): Promise<ClassSuspendedMember[]> {
+    const row = await this.getClassRow(classId);
+    if (!(await this.canViewClass(actorId, row))) {
+      throw new NotFoundException({ message: `Class ${classId} not found`, code: 'class.not_found' });
+    }
+    const suspendedIds = await this.repo.listSuspendedMemberIds(row.cohortId);
+    if (suspendedIds.length === 0) return [];
+    const memberIds = new Set((await this.groups.listCohortMembers(row.cohortId)).map((m) => m.userId));
+    const former = suspendedIds.filter((id) => !memberIds.has(id));
+    const usersById = new Map((await this.users.getUsersByIds(former)).map((u) => [u.id, u]));
+    return former.map((userId) => {
+      const u = usersById.get(userId);
+      return {
+        userId,
+        firstName: u?.firstName ?? '',
+        lastName: u?.lastName ?? '',
+        username: u?.username ?? '',
+        email: u?.email ?? '',
+      };
+    });
   }
 
   // --- móc cho đường tạo khoá (CourseClassHook) --------------------------------

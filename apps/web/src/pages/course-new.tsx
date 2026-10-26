@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -13,6 +13,7 @@ import {
   fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId,
   type CurriculumSubject, type FrameUnit,
 } from '#lib/curriculum';
+import { createClass, fetchClasses, type ClassView } from '#lib/classes';
 
 /**
  * Wizard tạo khoá học (K1 — issue #68): màn riêng theo chuẩn §9 với
@@ -44,6 +45,7 @@ const PATHS: { key: WizardPath; titleKey: string; descKey: string }[] = [
 export function CourseNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
+  const location = useLocation();
   const [path, setPath] = useState<WizardPath>('blank');
   const [categories, setCategories] = useState<CourseCategory[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -56,6 +58,12 @@ export function CourseNewPage() {
   const [templateId, setTemplateId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Bước lớp (CLASS-1, issue #184): khoá PHẢI thuộc một lớp (API bắt
+  // classId từ CLASS-0). GV chưa có lớp nào thì wizard chèn bước tạo lớp
+  // nội tuyến 1 trường tên — KHÔNG sinh lớp mặc định ẩn.
+  const [classes, setClasses] = useState<ClassView[]>([]);
+  const [classId, setClassId] = useState('');
+  const [newClassName, setNewClassName] = useState('');
   // Đường khung chương trình.
   const [subjects, setSubjects] = useState<CurriculumSubject[]>([]);
   const [subjectId, setSubjectId] = useState('');
@@ -83,6 +91,13 @@ export function CourseNewPage() {
       if (flat.length > 0) setCategory(String(flat[0]!.id));
       setCourses(list);
       setTemplates(tpl);
+      // Nạp danh sách lớp của GV cho bước lớp; chọn sẵn lớp từ
+      // ?classId= (nút "Tạo khoá trong lớp" ở chi tiết lớp) nếu có.
+      const myClasses = await fetchClasses().catch(() => [] as ClassView[]);
+      setClasses(myClasses);
+      const wanted = new URLSearchParams(location.search).get('classId');
+      const preselect = wanted && myClasses.some((c) => c.id === wanted) ? wanted : myClasses.find((c) => c.status === 'active')?.id;
+      if (preselect) setClassId(preselect);
       try {
         const contextId = await fetchSystemContextId();
         if (contextId) setSubjects(await fetchSubjects(contextId));
@@ -110,7 +125,7 @@ export function CourseNewPage() {
       });
   }, [subjectId, grade]);
 
-  /** Chọn khoá nguồn (nhân bản/mẫu): điền sẵn tên + mã cho bản sao để giáo viên sửa tối thiểu. */
+  /** Chọn khoá nguồn (nhân bản/mẫu): điền sẵn tên + mã cho bản sao để giáo viên sửa tối thiểu. Lớp đích của bản sao do BƯỚC LỚP quyết (mặc định chọn sẵn lớp đang hoạt động đầu tiên và hiện rõ để GV đổi; API giữ lớp nguồn chỉ khi không gửi classId — wizard luôn gửi lớp đang hiện nên không có thừa kế ẩn). */
   function pickSource(course: Course | undefined) {
     if (!course) return;
     setFullName(`${course.fullName} ${t('wizardCopySuffix')}`);
@@ -118,11 +133,29 @@ export function CourseNewPage() {
     setCategory(course.category);
   }
 
+  /**
+   * Lớp hiệu lực của khoá sắp tạo: lớp đã chọn, hoặc lớp vừa tạo nội
+   * tuyến khi GV chưa có lớp nào. Phân biệt hai cớ dừng — chưa chọn/tạo
+   * lớp ('required') và tạo lớp lỗi ('createFailed') — để báo đúng.
+   */
+  async function resolveClassId(): Promise<{ id: string } | { error: 'required' | 'createFailed' }> {
+    if (classes.length > 0) return classId ? { id: classId } : { error: 'required' };
+    if (!newClassName.trim()) return { error: 'required' };
+    try {
+      const created = await createClass({ name: newClassName.trim() });
+      setClasses([created]);
+      setClassId(created.id);
+      return { id: created.id };
+    } catch {
+      return { error: 'createFailed' };
+    }
+  }
+
   async function goToBuilder(courseId: string) {
     await navigate(`/courses/${courseId}/builder`);
   }
 
-  /** Đường nhân bản + mẫu: POST /courses/:id/duplicate (bản sao nháp; startDate mới = mốc lùi hạn). */
+  /** Đường nhân bản + mẫu: POST /courses/:id/duplicate (bản sao nháp; startDate mới = mốc lùi hạn). Mẫu tổ/trường đã thuộc lớp của khoá mẫu — giữ nguyên lớp đó, không ép lớp đã chọn. */
   async function submitDuplicate(event: FormEvent) {
     event.preventDefault();
     const fromId = path === 'template' ? templateId : sourceId;
@@ -130,6 +163,21 @@ export function CourseNewPage() {
     setBusy(true);
     setMessage(null);
     try {
+      // Cả hai đường đều cần lớp đích hiện rõ: khoá mẫu vốn không lớp
+      // nên bắt buộc có lớp; nhân bản thì wizard gửi lớp đang chọn.
+      // Trường hợp duy nhất bỏ trống: nhân bản khi GV chưa có lớp nào
+      // và không tạo lớp mới — API giữ lớp của khoá nguồn.
+      const resolved = await resolveClassId();
+      let effectiveClassId: string | null = null;
+      if ('id' in resolved) {
+        effectiveClassId = resolved.id;
+      } else if (path === 'duplicate' && classes.length === 0 && !newClassName.trim()) {
+        effectiveClassId = null;
+      } else {
+        setMessage(t(resolved.error === 'createFailed' ? 'wizardClassCreateFailed' : 'wizardClassRequired'));
+        setBusy(false);
+        return;
+      }
       const created = await apiJson<Course>(`/api/v1/courses/${fromId}/duplicate`, {
         method: 'POST',
         body: JSON.stringify({
@@ -137,6 +185,7 @@ export function CourseNewPage() {
           shortName,
           ...(category ? { category } : {}),
           ...(startDate ? { startDate } : {}),
+          ...(effectiveClassId ? { classId: effectiveClassId } : {}),
         }),
       });
       await goToBuilder(created.id);
@@ -152,12 +201,20 @@ export function CourseNewPage() {
     setBusy(true);
     setMessage(null);
     try {
+      const resolved = await resolveClassId();
+      if ('error' in resolved) {
+        setMessage(t(resolved.error === 'createFailed' ? 'wizardClassCreateFailed' : 'wizardClassRequired'));
+        setBusy(false);
+        return;
+      }
+      const effectiveClassId = resolved.id;
       const created = await apiJson<Course>('/api/v1/courses', {
         method: 'POST',
         body: JSON.stringify({
           fullName,
           shortName,
           category,
+          classId: effectiveClassId,
           ...(startDate ? { startDate } : {}),
           ...(path === 'frame' && subjectId ? { subjectId } : {}),
           ...(path === 'frame' && grade ? { grade: Number(grade) } : {}),
@@ -281,6 +338,32 @@ export function CourseNewPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wizard-class">{t('wizardClass')}</Label>
+                  {classes.length > 0 ? (
+                    <select id="wizard-class" className={selectClass} value={classId} onChange={(e) => setClassId(e.target.value)}>
+                      <option value="">{t('wizardClassPick')}</option>
+                      {classes
+                        .filter((c) => c.status === 'active')
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    <>
+                      <Input
+                        id="wizard-class"
+                        aria-label={t('wizardClassNewName')}
+                        value={newClassName}
+                        onChange={(e) => setNewClassName(e.target.value)}
+                        placeholder={t('wizardClassNewName')}
+                      />
+                      <p className="text-sm text-muted-foreground">{t('wizardClassStepHint')}</p>
+                    </>
+                  )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="wizard-startdate">{t('courseStartDate')}</Label>

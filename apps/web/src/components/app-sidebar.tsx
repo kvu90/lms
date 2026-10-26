@@ -165,6 +165,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const entries: NavEntry[] = [
     { title: t('dashboard:itemDashboard'), url: '/', icon: IconLayoutDashboard },
     { title: t('app:navCourses'), url: '/courses', icon: IconBook },
+    { title: t('app:navClasses'), url: '/classes', icon: IconUsers },
     { title: t('app:navCalendar'), url: '/calendar', icon: IconCalendar },
     { title: t('app:navMessages'), url: '/messages', icon: IconMail, badgeCount: unreadConversations },
     { title: t('app:navNotifications'), url: '/notifications', icon: IconBell, badgeCount: unreadNotifications },

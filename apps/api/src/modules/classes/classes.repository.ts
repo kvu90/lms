@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, count, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { classes, cohort, course, enrol } from '../../db/schema';
+import { classes, classJoinRequests, cohort, course, enrol, userEnrolments } from '../../db/schema';
 
 export type ClassRow = typeof classes.$inferSelect;
 export type CohortRow = typeof cohort.$inferSelect;
+export type ClassJoinRequestRow = typeof classJoinRequests.$inferSelect;
 
 /** Nhóm "cả lớp" tự sinh trong mọi khoá thuộc lớp — đích giao mặc định cho hoạt động nhắm cả lớp (issue #184, mục 4.2 của hồ sơ). */
 export const CLASS_WHOLE_GROUP_NAME = 'Cả lớp';
@@ -90,5 +91,54 @@ export class ClassesRepository {
   async syncOnLeaveToInstances(cohortId: string, onLeave: string): Promise<void> {
     await this.db.update(enrol).set({ customText1: onLeave, updatedAt: new Date() })
       .where(and(eq(enrol.enrol, 'cohort'), eq(enrol.customInt1, cohortId)));
+  }
+
+  // --- tự báo danh (CLASS-1) ---------------------------------------------------
+
+  /** Lớp theo mã tham gia: `join_code` là unique toàn hệ khi có đặt, nên tra cứu không cần tenant. */
+  async getClassByJoinCode(joinCode: string): Promise<ClassRow | undefined> {
+    const [row] = await this.db.select().from(classes).where(eq(classes.joinCode, joinCode));
+    return row;
+  }
+
+  async insertJoinRequest(v: typeof classJoinRequests.$inferInsert): Promise<ClassJoinRequestRow> {
+    const [row] = await this.db.insert(classJoinRequests).values(v).returning();
+    return row!;
+  }
+
+  async getJoinRequest(id: string): Promise<ClassJoinRequestRow | undefined> {
+    const [row] = await this.db.select().from(classJoinRequests).where(eq(classJoinRequests.id, id));
+    return row;
+  }
+
+  /** Yêu cầu đang chờ của một học sinh cho một lớp (unique từng phần ở DB là lưới cuối). */
+  async findPendingJoinRequest(classId: string, userId: string): Promise<ClassJoinRequestRow | undefined> {
+    const [row] = await this.db.select().from(classJoinRequests)
+      .where(and(eq(classJoinRequests.classId, classId), eq(classJoinRequests.userId, userId), eq(classJoinRequests.status, 'pending')));
+    return row;
+  }
+
+  async listJoinRequests(classId: string, status: string): Promise<ClassJoinRequestRow[]> {
+    return this.db.select().from(classJoinRequests)
+      .where(and(eq(classJoinRequests.classId, classId), eq(classJoinRequests.status, status)))
+      .orderBy(classJoinRequests.createdAt);
+  }
+
+  async updateJoinRequest(id: string, patch: Partial<ClassJoinRequestRow>): Promise<void> {
+    await this.db.update(classJoinRequests).set({ ...patch, updatedAt: new Date() }).where(eq(classJoinRequests.id, id));
+  }
+
+  /**
+   * Học sinh đã đình chỉ khỏi lớp: còn dòng ghi danh SUSPENDED (status
+   * = 1) trên instance cohort của lớp nhưng KHÔNG còn trong backing
+   * cohort — suy ra từ chính vật chất hoá ghi danh, không bảng phụ
+   * (roster chỉ có hai trạng thái thuộc/không thuộc, xem hồ sơ mục 4.3).
+   */
+  async listSuspendedMemberIds(cohortId: string): Promise<string[]> {
+    const rows = await this.db.selectDistinct({ userId: userEnrolments.userId })
+      .from(userEnrolments)
+      .innerJoin(enrol, eq(enrol.id, userEnrolments.enrolId))
+      .where(and(eq(enrol.enrol, 'cohort'), eq(enrol.customInt1, cohortId), eq(userEnrolments.status, 1)));
+    return rows.map((r) => r.userId);
   }
 }

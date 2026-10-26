@@ -16,6 +16,27 @@ const CATEGORY_ID = '01900000-0000-7000-8000-000000000001';
 const SOURCE_ID = '01900000-0000-7000-8000-000000000010';
 const COPY_ID = '01900000-0000-7000-8000-000000000099';
 const BLANK_ID = '01900000-0000-7000-8000-000000000098';
+const CLASS_ID = '01900000-0000-7000-8000-0000000000c1';
+const NEW_CLASS_ID = '01900000-0000-7000-8000-0000000000c2';
+
+/** Lớp có sẵn của GV (CLASS-1): wizard chọn sẵn lớp đang hoạt động đầu tiên cho khoá mới. */
+const MY_CLASS = {
+  id: CLASS_ID,
+  tenantId: '01900000-0000-7000-8000-0000000000a1',
+  name: 'Lớp 10A1',
+  code: null,
+  schoolYear: '2026-2027',
+  ownerId: '01900000-0000-7000-8000-0000000000b1',
+  cohortId: '01900000-0000-7000-8000-0000000000d1',
+  allowSelfReport: false,
+  joinCode: null,
+  joinAutoApprove: false,
+  onLeave: 'suspend',
+  status: 'active',
+  description: '',
+  createdAt: '2026-10-26T00:00:00.000Z',
+  updatedAt: '2026-10-26T00:00:00.000Z',
+};
 
 const SOURCE = {
   id: SOURCE_ID,
@@ -39,7 +60,8 @@ interface RecordedCall {
   body: unknown;
 }
 
-function stubFetch(calls: RecordedCall[]) {
+function stubFetch(calls: RecordedCall[], options: { withClasses?: boolean } = {}) {
+  const withClasses = options.withClasses ?? true;
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -52,6 +74,8 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === '/api/v1/courses' && method === 'GET') return respond([SOURCE]);
       if (url === '/api/v1/courses/templates') return respond([]);
       if (url === '/api/v1/access/contexts') return respond([]);
+      if (url === '/api/v1/classes' && method === 'GET') return respond(withClasses ? [MY_CLASS] : []);
+      if (url === '/api/v1/classes' && method === 'POST') return respond({ ...MY_CLASS, id: NEW_CLASS_ID, name: 'Lớp mới' }, 201);
       if (url === `/api/v1/courses/${SOURCE_ID}/duplicate` && method === 'POST')
         return respond({ ...SOURCE, id: COPY_ID, visible: false }, 201);
       if (url === '/api/v1/courses' && method === 'POST') return respond({ ...SOURCE, id: BLANK_ID }, 201);
@@ -104,6 +128,7 @@ describe('Wizard tạo khoá K1', () => {
       shortName: 'TOAN10-HK1-copy',
       category: CATEGORY_ID,
       startDate: '2027-09-06',
+      classId: CLASS_ID,
     });
     expect(await screen.findByText('builder-page')).toBeTruthy();
   });
@@ -120,7 +145,28 @@ describe('Wizard tạo khoá K1', () => {
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/courses' && c.method === 'POST')).toBe(true));
     const call = calls.find((c) => c.url === '/api/v1/courses' && c.method === 'POST');
-    expect(call?.body).toEqual({ fullName: 'Ngữ văn 11', shortName: 'VAN11', category: CATEGORY_ID });
+    // CLASS-1: khoá bắt buộc thuộc một lớp — wizard gửi kèm classId của lớp đã chọn sẵn.
+    expect(call?.body).toEqual({ fullName: 'Ngữ văn 11', shortName: 'VAN11', category: CATEGORY_ID, classId: CLASS_ID });
+  });
+
+  it('GV chưa có lớp nào: wizard chèn bước tạo lớp nội tuyến (1 trường tên) rồi tạo khoá thuộc lớp vừa tạo — không sinh lớp ẩn', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { withClasses: false });
+    renderWizard();
+
+    await userEvent.click(await screen.findByTestId('wizard-path-blank'));
+    // Không có lớp → ô nhập tên lớp mới hiện ngay trong wizard kèm lời dẫn.
+    const classInput = await screen.findByLabelText('Tên lớp mới');
+    await userEvent.type(classInput, 'Lớp 11B2');
+    await userEvent.type(screen.getByLabelText('Tên đầy đủ của khoá học'), 'Hoá 11');
+    await userEvent.type(screen.getByLabelText('Tên ngắn của khoá học'), 'HOA11');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo khoá và xây dựng' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/courses' && c.method === 'POST')).toBe(true));
+    const classCall = calls.find((c) => c.url === '/api/v1/classes' && c.method === 'POST');
+    expect(classCall?.body).toEqual({ name: 'Lớp 11B2' });
+    const courseCall = calls.find((c) => c.url === '/api/v1/courses' && c.method === 'POST');
+    expect(courseCall?.body).toEqual({ fullName: 'Hoá 11', shortName: 'HOA11', category: CATEGORY_ID, classId: NEW_CLASS_ID });
   });
 
   it('đường khung SGK hiển thị trạng thái chờ nối K0b, không giả vờ có dữ liệu', async () => {

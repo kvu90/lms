@@ -510,4 +510,20 @@ export class GroupsService implements OnModuleInit {
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
     await this.emitter.emitAsync('cohort_member_removed', { cohortId, userId });
   }
+  /**
+   * Thêm thành viên cohort theo đường HỆ THỐNG (không gác capability của
+   * một actor cụ thể): dùng cho luồng mà quyết định cho vào đã được gác ở
+   * tầng nghiệp vụ phía trên — hiện là tự báo danh vào lớp được duyệt /
+   * tự vào thẳng theo luật lớp (ClassesService, issue #184 CLASS-1):
+   * người xin vào là học sinh, vốn không có `cohort:manage`. Phát đúng
+   * cùng cặp sự kiện như `addCohortMember` để cohort sync vật chất hoá
+   * ghi danh như mọi đường roster khác.
+   */
+  async addCohortMemberInternal(cohortId: string, userId: string): Promise<void> {
+    await this.getCohort(cohortId);
+    const added = await this.repo.addCohortMember(cohortId, userId);
+    if (!added) return;
+    await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_added', payload: { cohortId, userId } });
+    await this.emitter.emitAsync('cohort_member_added', { cohortId, userId });
+  }
 }

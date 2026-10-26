@@ -32,6 +32,14 @@ export default [
     route('admin/curriculum/outcomes/:outcomeId/edit', 'routes/admin-curriculum-outcome-edit.tsx'),
     route('courses', 'pages/courses.tsx'),
     route('courses/new', 'pages/course-new.tsx'),
+    // Lớp học (CLASS-1, issue #184): danh sách/tạo màn riêng, tự báo
+    // danh, chi tiết lớp (roster) và sửa lớp — 'new'/'join' khai trước
+    // ':id' để không bị nuốt.
+    route('classes', 'pages/classes.tsx'),
+    route('classes/new', 'pages/class-new.tsx'),
+    route('classes/join', 'pages/class-join.tsx'),
+    route('classes/:id', 'pages/class-detail.tsx'),
+    route('classes/:id/edit', 'pages/class-edit.tsx'),
     route('courses/:id', 'pages/course.tsx'),
     route('courses/:id/builder', 'pages/course-builder.tsx'),
     route('courses/:id/learn/:cmId', 'pages/player.tsx'),

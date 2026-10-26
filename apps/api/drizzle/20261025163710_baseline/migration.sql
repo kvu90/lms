@@ -3111,3 +3111,34 @@ CREATE POLICY "tenant_isolation" ON "classes" USING (current_setting('app.platfo
 ALTER TABLE "message_conversation_members" ADD COLUMN "pinned_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD COLUMN "archived_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "message_conversation_members" ADD COLUMN "muted" boolean DEFAULT false NOT NULL;
+--> statement-breakpoint
+-- CLASS-1 (issue #184): cột `join_auto_approve` trên `classes` + bảng
+-- hàng chờ duyệt tự báo danh `class_join_requests` — gộp tay vào
+-- baseline duy nhất, cùng cách M3 thêm cột reply_to_message_id.
+CREATE TABLE "class_join_requests" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"class_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"decided_by" uuid,
+	"decided_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+ALTER TABLE "classes" ADD COLUMN "join_auto_approve" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE INDEX "class_join_requests_class_id_idx" ON "class_join_requests" ("class_id");--> statement-breakpoint
+CREATE INDEX "class_join_requests_tenant_id_idx" ON "class_join_requests" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "class_join_requests_decided_by_idx" ON "class_join_requests" ("decided_by");--> statement-breakpoint
+CREATE INDEX "class_join_requests_user_id_idx" ON "class_join_requests" ("user_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "class_join_requests_pending_unique" ON "class_join_requests" ("class_id","user_id") WHERE "status" = 'pending';--> statement-breakpoint
+ALTER TABLE "class_join_requests" ADD CONSTRAINT "class_join_requests_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "class_join_requests" ADD CONSTRAINT "class_join_requests_class_id_classes_id_fkey" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "class_join_requests" ADD CONSTRAINT "class_join_requests_user_id_users_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "class_join_requests" ADD CONSTRAINT "class_join_requests_decided_by_users_id_fkey" FOREIGN KEY ("decided_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+-- CLASS-1 (issue #184): `class_join_requests` mang tenant_id NOT NULL —
+-- cùng khuôn RLS tenant_isolation FAIL-CLOSED của TENANT-1 như `classes`.
+ALTER TABLE "class_join_requests" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "class_join_requests" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE POLICY "tenant_isolation" ON "class_join_requests" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
