@@ -8,6 +8,7 @@ import { apiJson, ApiError } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '#lib/messaging-socket';
 import { queryKeys } from '#lib/query-keys';
+import { PageShell } from '../components/page-shell';
 import { ChatPanel } from '../components/messages/chat-panel';
 import { ConversationSidebar } from '../components/messages/conversation-sidebar';
 import type {
@@ -54,7 +55,6 @@ export function MessagesPage() {
    * nhau — server là nguồn sự thật của từng mục.
    */
   const [archivedConversations, setArchivedConversations] = useState<ConversationView[]>([]);
-  const [showArchived, setShowArchived] = useState(false);
   /** Lỗi của lần đổi trạng thái hội thoại gần nhất (lát M5). */
   const [stateError, setStateError] = useState<string | null>(null);
   /** Đã nạp xong danh sách conversation ít nhất một lần — mốc cho deep-link mở đúng cuộc trò chuyện. */
@@ -214,14 +214,6 @@ export function MessagesPage() {
     }
   }, [mergePeople]);
 
-  /** Mở/đóng mục đã lưu (lát M5): mở thì nạp lại từ server cho tươi. */
-  const toggleArchivedMode = useCallback(() => {
-    setShowArchived((prev) => {
-      if (!prev) void loadArchived();
-      return !prev;
-    });
-  }, [loadArchived]);
-
   /**
    * Đặt một cờ trạng thái cá nhân trên một cuộc trò chuyện (lát M5):
    * server trả trạng thái đầy đủ sau khi đặt; client phản ánh ngay —
@@ -248,16 +240,16 @@ export function MessagesPage() {
         setConversations((prev) => prev.map(applyState));
         setArchivedConversations((prev) => prev.map(applyState));
         // Ghim đổi THỨ TỰ danh sách (server xếp đã ghim lên đầu):
-        // nạp lại danh sách đang xem để thứ tự khớp server ngay.
+        // nạp lại cả hai danh sách để thứ tự khớp server ngay.
         if (patch.pinned !== undefined) {
           void reload();
-          if (showArchived) void loadArchived();
+          void loadArchived();
         }
       }
     } catch {
       setStateError(t('conversationStateFailed'));
     }
-  }, [loadArchived, reload, showArchived, t]);
+  }, [loadArchived, reload, t]);
 
   /** Đánh dấu đã đọc ở server và phản ánh ngay vào state (mốc của mình + unread của conversation). */
   const markRead = useCallback(async (conversationId: string) => {
@@ -479,6 +471,11 @@ export function MessagesPage() {
       typingTimeoutsRef.current.clear();
     };
   }, [myId, markRead, recountUnread, reload]);
+
+  /** Đóng hội thoại đang mở — nút quay lại ở mobile (issue #256); ở desktop khung phải về trạng thái trống. */
+  function closeConversation() {
+    setActive(null);
+  }
 
   async function open(conv: ConversationView) {
     setActive(conv);
@@ -916,16 +913,32 @@ export function MessagesPage() {
   const replyTarget = active ? (replyTargets[active.id] ?? null) : null;
 
   return (
-    <main className="@container/main grid flex-1 gap-4 px-4 py-4 md:grid-cols-3 md:gap-6 md:py-6 lg:px-6">
-      <ConversationSidebar
-        conversations={showArchived ? archivedConversations : conversations}
-        active={active}
-        unread={unread}
-        error={error}
-        onOpenConversation={open}
-        archivedMode={showArchived}
-        onToggleArchivedMode={toggleArchivedMode}
-        onUpdateConversationState={updateConversationState}
+    <PageShell fillHeight width="full">
+      {/*
+        Master–detail nhắn tin (issue #256) nằm TRONG vùng nội dung
+        của khung app chung — sidebar + header của app giữ nguyên
+        (chốt Lão gia 08:20 ngày 26/10/2026, sổ quyết định mục D).
+        Desktop: hai khung cuộn độc lập; mobile: một khung tại một
+        thời điểm, khung chat có nút quay lại (CSS thuần, cả hai
+        khung luôn mounted).
+      */}
+      <div className="flex h-[calc(100dvh-5.5rem)] min-h-0 overflow-hidden rounded-xl border bg-background md:h-[calc(100dvh-7rem)]">
+        <div
+          className={active
+            ? 'hidden min-h-0 w-full flex-col md:flex md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'
+            : 'flex min-h-0 w-full flex-col md:w-[340px] md:shrink-0 md:border-r lg:w-[360px]'}
+        >
+          <ConversationSidebar
+            conversations={conversations}
+            archivedConversations={archivedConversations}
+            onRequestArchived={() => void loadArchived()}
+            active={active}
+            unread={unread}
+            error={error}
+            myId={myId}
+            onlineUsers={onlineUsers}
+            onOpenConversation={open}
+            onUpdateConversationState={updateConversationState}
         stateError={stateError}
         nameOf={nameOf}
         myCourses={myCourses}
@@ -945,12 +958,16 @@ export function MessagesPage() {
         blocked={blocked}
         blockMessage={blockMessage}
         onUnblockContact={unblockContact}
-      />
-      <ChatPanel
-        active={active}
-        myId={myId}
-        onlineUsers={onlineUsers}
-        blocked={blocked}
+          />
+        </div>
+        <div className={active ? 'flex min-h-0 flex-1 flex-col' : 'hidden min-h-0 flex-1 flex-col md:flex'}>
+          <ChatPanel
+            active={active}
+            myId={myId}
+            onlineUsers={onlineUsers}
+            readMarkers={readMarkers}
+            onBack={closeConversation}
+            blocked={blocked}
         onUnblockContact={unblockContact}
         onBlockContact={blockContact}
         onReportConversation={reportActiveConversation}
@@ -986,8 +1003,10 @@ export function MessagesPage() {
         onSearchMessages={(q) => void runMessageSearch(q)}
         onClearMessageSearch={clearMessageSearch}
         onJumpToSearchResult={(result) => void jumpToMessage(result.id, result.seq)}
-      />
-    </main>
+          />
+        </div>
+      </div>
+    </PageShell>
   );
 }
 
