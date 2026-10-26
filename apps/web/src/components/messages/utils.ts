@@ -42,6 +42,34 @@ export function relativeTime(iso: string, t: (key: string, opts?: Record<string,
   return new Date(iso).toLocaleString();
 }
 
+/**
+ * Bề rộng tử tế cho các menu nổi ở bề mặt chat (menu ⋯ trên tin ở
+ * khung chat và menu quan hệ trên avatar/tên thành viên — lát dọn
+ * gọn UI nhắn tin, nối tiếp issue #33).
+ *
+ * @remarks
+ * `DropdownMenuContent` mặc định của \@lms/ui ghim bề rộng theo bề
+ * rộng của phần tử gọt (`w-(--anchor-width)`) — nút ⋯ và avatar đều
+ * rất hẹp nên các nhãn dài bị bẻ xuống nhiều dòng, menu trông nát.
+ * Hằng này sửa TẠI ĐIỂM DÙNG (cố ý không đổi class mặc định toàn cục
+ * của \@lms/ui để không đổi hành vi mọi menu khác trong hệ): menu
+ * lấy bề rộng theo mục dài nhất (`w-max`), không hẹp hơn `min-w-52`,
+ * và bị chặn ở `max-w-[calc(100vw-2rem)]` để positioner của Base UI
+ * vẫn giữ trọn menu trong viewport (cùng khuôn chặn của menu chuông
+ * thông báo). Không dùng bề rộng cố định `w-56` như menu của bảng dữ
+ * liệu vì mục dài nhất — checkbox "Chọn tin để gỡ hàng loạt" /
+ * "Select message for bulk removal" kèm khoảng đệm cho dấu tick —
+ * vượt 224px: cố định 224px sẽ cắt chữ khi mục đã cấm xuống dòng.
+ */
+export const CHAT_MENU_CONTENT_CLASS = 'w-max min-w-52 max-w-[calc(100vw-2rem)]';
+
+/**
+ * Mục của menu chat luôn nằm trên MỘT dòng (đi cùng
+ * {@link CHAT_MENU_CONTENT_CLASS}): icon và nhãn thẳng hàng, không
+ * bẻ chữ xuống dòng như trước lát dọn gọn.
+ */
+export const CHAT_MENU_ITEM_CLASS = 'whitespace-nowrap';
+
 /** Hai chữ cái đầu của tên hiển thị — nội dung AvatarFallback. */
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
