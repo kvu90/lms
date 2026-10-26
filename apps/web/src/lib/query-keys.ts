@@ -121,6 +121,18 @@ export const queryKeys = {
   guardianResults: (studentId: string) => ['guardian', 'results', studentId] as const,
   /** Tuỳ chọn tần suất digest của phụ huynh cho một con (GET/PUT /guardian/students/:id/digest-preference) — PH-2. */
   guardianDigestPreference: (studentId: string) => ['guardian', 'digest-preference', studentId] as const,
+  /** Danh sách ngân hàng theo loại (GET /question-banks?kind=…) — trang ma trận dùng kind=matrix. */
+  questionBanksByKind: (kind: string) => ['question-banks', kind] as const,
+  /** Danh sách môn học chương trình (GET /curriculum/subjects). */
+  curriculumSubjects: ['curriculum', 'subjects'] as const,
+  /** Các chương trình của một môn (GET /curriculum/curricula?subjectId=…). */
+  curriculaBySubject: (subjectId: string) => ['curriculum', 'curricula', subjectId] as const,
+  /** Cây chương trình của một chương trình (GET /curriculum/curricula/:id/tree). */
+  curriculumTree: (curriculumId: string) => ['curriculum', 'tree', curriculumId] as const,
+  /** Chi tiết một ma trận đề (GET /exam-matrices/:id). */
+  matrixDetail: (matrixId: string) => ['exam-matrices', matrixId] as const,
+  /** Khả dụng kho câu cho các ô của một ma trận (GET /exam-matrices/:id/availability). */
+  matrixAvailability: (matrixId: string) => ['exam-matrices', matrixId, 'availability'] as const,
   /** Cấu hình site (GET /site-config) — gốc khoá, kiêm tiền tố làm mới cả audit sau đột biến. */
   siteConfig: ['site-config'] as const,
   /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */
