@@ -6,7 +6,7 @@ import { CurriculumRepository, type CurriculumNodeRow, type DbTx } from './curri
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from './curriculum.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,
-  programOutcomeId, programRecordAncestors, programRecordEffectiveGrade, programRecordHash, programRecordOutcomeEntries,
+  programRecordAncestors, programRecordEffectiveGrade, programRecordHash, programRecordOutcomeEntries,
   programRecordSourceRef, programRecordTitle, programSubjectId, PROGRAM_DATASETS,
   type ProgramDatasetDef, type ProgramDatasetFile, type ProgramRecord,
 } from './program-datasets';
@@ -22,7 +22,9 @@ const IMPORT_CHANGES_CAP = 500;
  * text-changed (chỉ content), revived (retiredAt về null + position).
  */
 type OutcomeWrite =
-  | { kind: 'insert'; id: string; text: string; position: number }
+  // Chèn dòng mới KHÔNG mang id: DB cấp uuidv7 một lần (chốt 20:09
+  // ngày 26/10/2026 — id YCCĐ là mờ, không tính từ thuộc tính nào).
+  | { kind: 'insert'; text: string; position: number }
   | { kind: 'update'; id: string; patch: { position?: number; content?: string; retiredAt?: Date | null } }
   | { kind: 'retire'; id: string };
 
@@ -47,12 +49,18 @@ function childKey(parentId: string | null, kind: string, title: string): string 
  * chuyển các bản ghi đã kiểm chứng nguyên văn (dataset vendor trong
  * repo) vào cây chương trình ở context hệ thống.
  *
- * ĐỊNH DANH XÁC ĐỊNH (phương án D, issue #161, ADR-017): mọi dòng do
- * dataset sinh ra (môn, chương trình, node tổ tiên, node nội dung,
- * YCCĐ) được cấp id UUIDv5 theo khoá tự nhiên — xem program-datasets.ts.
- * Cùng một dataset → cùng một cây với cùng một tập id ở mọi môi trường.
- * Dòng đã tồn tại theo khoá tự nhiên với id khác (admin tạo tay, lượt
- * nạp kiểu cũ) thì HỘI TỤ giữ id hiện hữu, không ép đổi.
+ * VAI TRÒ HIỆN HÀNH (chốt 20:09 ngày 26/10/2026, sổ mục E): service
+ * này là CÔNG CỤ SẢN XUẤT DUMP Ở TRUNG TÂM — nạp/patch dataset vào
+ * DB chuẩn để từ đó xuất dump đông cứng (xem program-dump.ts); seed
+ * của các môi trường KHÔNG chạy importer nữa mà restore dump. Trang
+ * quản trị đồng bộ chương trình cũng gọi qua service này.
+ *
+ * ĐỊNH DANH: môn/chương trình/node do dataset sinh ra được cấp id
+ * UUIDv5 theo khoá tự nhiên (phương án D — xem program-datasets.ts);
+ * riêng YCCĐ mang **uuidv7 mờ do DB cấp một lần** (BỎ HẲN UUIDv5
+ * cho YCCĐ theo chốt 20:09): sửa chữ = sửa tại chỗ giữ id + liên
+ * kết, thêm dòng = chèn dòng mới rồi set position. Tính khớp ID
+ * giữa các môi trường đến từ dump literal, không từ công thức.
  *
  * LUẬT KHÔNG-XOÁ: đường nạp KHÔNG BAO GIỜ xoá node hay YCCĐ. Nhánh
  * cập nhật là một phép DIFF GHÉP CẶP THEO VỊ TRÍ + NỘI DUNG (đợt neo
@@ -233,7 +241,7 @@ export class ProgramImportService {
       // thì suy xuống topic/section (xem programRecordTitle).
       const title = programRecordTitle(record);
       const hash = programRecordHash(record);
-      const entries = programRecordOutcomeEntries(def.key, record);
+      const entries = programRecordOutcomeEntries(record);
       const reg = await this.repo.getProgramRecord(def.key, record.id);
       if (reg && reg.contentHash === hash) {
         // Đã khớp nguyên văn: không ghi gì. Trạng thái đã rút của
@@ -252,7 +260,7 @@ export class ProgramImportService {
           }, tx as never);
           for (const entry of entries) {
             await this.repo.insertOutcome({
-              id: entry.id, nodeId: lesson.id, content: entry.text, position: entry.position,
+              nodeId: lesson.id, content: entry.text, position: entry.position,
               sourceKind: 'program', sourceRef, derivedFromId: null,
             }, tx as never);
           }
@@ -274,7 +282,7 @@ export class ProgramImportService {
       // curriculum_id của chính node đó (giữ id, giữ mọi tham chiếu);
       // YCCĐ diff ghép cặp theo vị trí + nội dung (xem diffOutcomes).
       const current = await this.repo.getNode(reg.nodeId);
-      const diff = await this.diffOutcomes({ datasetKey: def.key, recordId: record.id, nodeId: reg.nodeId, entries });
+      const diff = await this.diffOutcomes({ recordId: record.id, nodeId: reg.nodeId, entries });
       changes.push(...diff.changes);
       await this.repo.dbHandle.transaction(async (tx) => {
         const patch: {
@@ -393,7 +401,7 @@ export class ProgramImportService {
     for (const write of writes) {
       if (write.kind === 'insert') {
         await this.repo.insertOutcome({
-          id: write.id, nodeId, content: write.text, position: write.position,
+          nodeId, content: write.text, position: write.position,
           sourceKind: 'program', sourceRef, derivedFromId: null,
         }, tx);
       }
@@ -403,12 +411,13 @@ export class ProgramImportService {
   /**
    * Diff YCCĐ thuộc diện dataset quản của một node: thuật toán GHÉP
    * CẶP 6 BƯỚC theo vị trí + nội dung (hồ sơ neo lại định danh, mục
-   * Q3.3; sổ mục E 19:57 ngày 26/10/2026). Đầu vào: `entries` là các
-   * dòng mới của bản ghi từ dataset (text canonical, vị trí 1-based,
-   * id ứng viên thế hệ 1); phía DB tách hai tập — dòng HIỆN HÀNH và
-   * dòng ĐÃ RÚT — đều thuộc diện quản (program + source_ref). Thứ tự
-   * các bước là bắt buộc, mỗi bước chỉ xử lý phần còn lại của bước
-   * trước:
+   * Q3.3; sổ mục E 19:57 ngày 26/10/2026, mô hình ID theo chốt
+   * 20:09 cùng ngày). Đầu vào: `entries` là các dòng mới của bản ghi
+   * từ dataset (text canonical, vị trí 1-based — KHÔNG mang id: id
+   * của dòng nằm ở phía DB, do DB cấp khi dòng được tạo); phía DB
+   * tách hai tập — dòng HIỆN HÀNH và dòng ĐÃ RÚT — đều thuộc diện
+   * quản (program + source_ref). Thứ tự các bước là bắt buộc, mỗi
+   * bước chỉ xử lý phần còn lại của bước trước:
    * - P1 khớp (vị trí + nguyên văn): không đổi, không ghi.
    * - P2 khớp theo nguyên văn (bắt ca xô lệch thuần do chèn/bớt dòng
    *   ở chỗ khác): chỉ sửa cột `position`, giữ id — phép ghép theo
@@ -418,9 +427,8 @@ export class ProgramImportService {
    *   ghép có thể đã bắt nhầm dòng (văn mới trùng văn cũ của dòng
    *   khác, hoặc văn cũ xuất hiện ở vị trí khác trong dataset mới).
    * - P4 hồi sinh (nguyên văn của dòng đã rút quay lại — sống lại
-   *   đúng id của nó) hoặc thêm mới (id ứng viên bị chiếm thì tăng
-   *   generation tới thế hệ trống nhỏ nhất; cấm tái dùng id cho nội
-   *   dung khác).
+   *   đúng dòng/id của nó) hoặc thêm mới (chèn dòng mới, DB cấp id
+   *   uuidv7 mới — không tính id từ bất kỳ thuộc tính nào).
    * - P5 rút dòng còn thừa: đặt `retired_at`, KHÔNG xoá dòng hay
    *   liên kết; gắn `identicalTextAmbiguous` khi dòng nằm trong nhóm
    *   trùng hệt nhau (không phân định được bằng văn bản).
@@ -430,10 +438,10 @@ export class ProgramImportService {
    * program ngoài diện quản không nằm trong phép diff này.
    */
   private async diffOutcomes(input: {
-    datasetKey: string; recordId: string; nodeId: string;
-    entries: { id: string; text: string; position: number }[];
+    recordId: string; nodeId: string;
+    entries: { text: string; position: number }[];
   }): Promise<{ writes: OutcomeWrite[]; changes: ProgramImportChange[] }> {
-    const { datasetKey, recordId, entries } = input;
+    const { recordId, entries } = input;
     const managed = await this.repo.listDatasetManagedOutcomes(input.nodeId);
     const current = managed.filter((o) => o.retiredAt === null);
     const retiredPool = managed.filter((o) => o.retiredAt !== null);
@@ -525,20 +533,10 @@ export class ProgramImportService {
         changes.push({ recordId, position: entry.position, kind: 'revived', newText: entry.text });
         continue;
       }
-      // Thêm mới: id ứng viên theo công thức vị trí; bị chiếm (bất
-      // kể trạng thái của dòng chiếm) thì tăng generation — cấm tái
-      // dùng một id đã cấp cho nội dung khác.
-      let generation = 1;
-      let candidate = entry.id;
-      while (await this.repo.getOutcome(candidate)) {
-        generation += 1;
-        candidate = programOutcomeId(datasetKey, recordId, entry.position, generation);
-      }
-      writes.push({ kind: 'insert', id: candidate, text: entry.text, position: entry.position });
-      changes.push({
-        recordId, position: entry.position, kind: 'added', newText: entry.text,
-        generation: generation > 1 ? generation : undefined,
-      });
+      // Thêm mới: chèn dòng mới, DB cấp id uuidv7 mờ một lần —
+      // không tính id từ vị trí/nội dung/khoá nào (chốt 20:09).
+      writes.push({ kind: 'insert', text: entry.text, position: entry.position });
+      changes.push({ recordId, position: entry.position, kind: 'added', newText: entry.text });
     }
 
     // P5 — rút các dòng current không được ghép: giữ dòng + liên kết,

@@ -48,7 +48,6 @@ interface ImportChange {
   kind: 'text-changed' | 'added' | 'removed' | 'moved' | 'revived';
   oldText?: string;
   newText?: string;
-  generation?: number;
   shiftSuspected?: boolean;
   identicalTextAmbiguous?: boolean;
   linkedQuestions?: number;

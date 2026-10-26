@@ -4,7 +4,7 @@ import { AppModule } from './app.module';
 import { ProblemDetailsFilter } from './common/problem-details.filter';
 import { BetterAuthService } from './modules/auth/better-auth/better-auth.service';
 import { CredentialBridgeService } from './modules/auth/better-auth/credential-bridge.service';
-import { ProgramImportService } from './modules/curriculum/program-import.service';
+import { ProgramDumpService } from './modules/curriculum/program-dump.service';
 import { tenantAls } from './modules/tenants/tenant-als';
 
 /**
@@ -20,9 +20,9 @@ import { tenantAls } from './modules/tenants/tenant-als';
  * và một sự kiện lịch của khoá học. Mật khẩu xem tại README, mục Review —
  * CHỈ dùng cho môi trường dev/review.
  *
- * Riêng chương trình GDPT 2018 không đi qua HTTP: seed gọi thẳng lõi
- * ProgramImportService (entry nội bộ) cho mọi dataset trong manifest —
- * xem khối "[seed] program ..." trong main().
+ * Riêng chương trình GDPT 2018 không đi qua HTTP: seed RESTORE dump
+ * đông cứng trong repo qua ProgramDumpService (không chạy importer) —
+ * xem khối "[seed] program dump ..." trong main().
  */
 const ADMIN = { username: process.env['ADMIN_USERNAME'] ?? 'admin', password: process.env['ADMIN_PASSWORD'] ?? 'Admin123!' };
 const TEACHER_PASSWORD = ['Teacher', '123', '!'].join('');
@@ -287,27 +287,19 @@ async function main(): Promise<void> {
       console.log(`[seed] sample exam pinned into DEMO101 (#${pin.id})`);
     }
 
-    // Chương trình GDPT 2018 (GDPT-SEED, issue #161): nạp MỌI dataset
-    // trong manifest bằng chính lõi ProgramImportService mà trang quản
-    // trị dùng (entry nội bộ — không HTTP, không qua evaluator; tiến
-    // trình seed chạy với danh nghĩa hệ thống). Nhờ vậy DB dựng từ
-    // baseline + seed là có đủ chương trình ngay, admin không phải bấm
-    // Nạp tay sau mỗi lần reset. Lượt nạp idempotent theo sổ đăng ký +
-    // hash nội dung và cấp id xác định UUIDv5 theo khoá tự nhiên
-    // (ADR-017): chạy seed lần hai là no-op (created=0, updated=0) và
-    // tập id khớp giữa mọi môi trường.
-    const programImport = app.get(ProgramImportService, { strict: false });
+    // Chương trình GDPT 2018 (GDPT-SEED, issue #161; mô hình phân
+    // phối chốt 20:09 ngày 26/10/2026): seed RESTORE DUMP ĐÔNG CỨNG
+    // trong repo qua ProgramDumpService — KHÔNG chạy importer ở các
+    // môi trường. ID trong dump là hằng số literal nên tập id khớp
+    // 100% giữa mọi môi trường; DB đã có dữ liệu chương trình thì bỏ
+    // qua (idempotent theo luật seed, không nhân đôi).
+    const programDump = app.get(ProgramDumpService, { strict: false });
     const programStartedAt = Date.now();
-    // TENANT-1 (#196): đường nạp trực tiếp (không qua HTTP) chạy với
-    // danh nghĩa hệ thống — bọc ngữ cảnh platform tường minh để RLS
-    // fail-closed cho thấy/ghi được dữ liệu dùng chung của platform.
-    const programResults = await tenantAls.run({ platform: true }, () => programImport.importAllDatasetsInternal());
-    for (const r of programResults) {
-      console.log(`[seed] program ${r.datasetKey}: created=${r.created} updated=${r.updated} skipped=${r.skipped} orphanedNodes=${r.orphanedNodes} retiredOutcomes=${r.retiredOutcomes} changes=${JSON.stringify(r.changeCounts)}`);
-    }
-    const programRecords = programResults.reduce((a, r) => a + r.totalRecords, 0);
-    const programCreatedTotal = programResults.reduce((a, r) => a + r.created, 0);
-    console.log(`[seed] program GDPT done: ${programResults.length} datasets, ${programRecords} records, created=${programCreatedTotal}, ${((Date.now() - programStartedAt) / 1000).toFixed(1)}s`);
+    // TENANT-1 (#196): đường restore trực tiếp (không qua HTTP) chạy
+    // với danh nghĩa hệ thống — bọc ngữ cảnh platform tường minh để
+    // RLS fail-closed cho thấy/ghi được dữ liệu dùng chung của platform.
+    const dumpResult = await tenantAls.run({ platform: true }, () => programDump.restoreIfEmpty());
+    console.log(`[seed] program dump version=${dumpResult.version}: restored=${dumpResult.restored}, ${((Date.now() - programStartedAt) / 1000).toFixed(1)}s`);
 
     const items = must(await call('GET', `/courses/${courseId}/grades/items`, admin), 'list grade items') as { id: string; itemName: string }[];
     let item = items.find((i) => i.itemName === 'Bài kiểm tra 1');

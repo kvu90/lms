@@ -332,7 +332,7 @@ export function programRecordEffectiveGrade(records: readonly ProgramRecord[], r
 
 /**
  * Namespace UUIDv5 cho TOÀN BỘ dữ liệu chuẩn do dataset sinh ra
- * (môn, chương trình, node, YCCĐ của tầng chương trình GDPT).
+ * (môn, chương trình, node của tầng chương trình GDPT — YCCĐ KHÔNG thuộc diện này: id uuidv7 mờ, xem programRecordOutcomeEntries).
  *
  * ⚠️ HẰNG SỐ ĐÓNG BĂNG VĨNH VIỄN — sinh ngẫu nhiên một lần khi chuẩn
  * này được thiết lập (GDPT-SEED, 25/10/2026). Đổi giá trị này = đổi
@@ -385,55 +385,28 @@ export function programLessonNodeId(datasetKey: string, recordId: string): strin
 }
 
 /**
- * Id xác định của một dòng YCCĐ của một bản ghi: khoá tự nhiên là
- * (dataset, mã bản ghi, VỊ TRÍ của dòng trong bản ghi) — mô hình
- * "YCCĐ là dòng tại vị trí" của giaokhoa, neo lại theo lệnh của Lão
- * gia 19:41 ngày 26/10/2026 và chốt mô hình 19:57 cùng ngày (sổ quyết
- * định mục E; hồ sơ `yccd-identity-reanchor-research-2026-10-26.md`).
- * Khoá hash nội dung trước đây bị BÁC: sửa một chữ sinh id mới và để
- * dòng cũ orphaned trong khi pool sinh đề không phân biệt được.
+ * ĐỊNH DANH CỦA YCCĐ — CHỐT CUỐI (Lão gia chốt 20:09 ngày 26/10/2026,
+ * sổ quyết định mục E, THAY mọi công thức v5 cho YCCĐ trước đó):
+ * YCCĐ program KHÔNG có hàm tính id nào cả. Id của một dòng là
+ * **uuidv7 mờ do DB cấp MỘT LẦN khi tạo dòng** (DEFAULT của cột —
+ * đúng mô hình giaokhoa), không suy từ bất kỳ thuộc tính nào (không
+ * hash nội dung, không vị trí, không khoá tự nhiên): sửa chữ = sửa
+ * `content` tại chỗ trên cùng dòng, id và mọi liên kết giữ nguyên;
+ * thêm dòng = chèn dòng mới (id mới) rồi set lại `position`. Tính
+ * nhất quán ID giữa các môi trường KHÔNG đến từ công thức mà đến từ
+ * DUMP ĐÔNG CỨNG (xem program-dump.ts): mọi môi trường restore cùng
+ * một artifact nên mang đúng các id literal của DB chuẩn.
  *
- * KỶ LUẬT PK (bất biến): công thức này là KHOÁ TẠO DÒNG và KHOÁ HỘI
- * TỤ — chỉ dùng khi (a) tạo dòng mới, (b) kiểm tra dòng đã tồn tại
- * lúc nạp. Một khi dòng đã được tạo, PK của nó KHÔNG BAO GIỜ được
- * tính lại hay thay đổi, kể cả khi cột `position` của nó đổi vì
- * dataset chèn/bớt dòng ở chỗ khác (importer khi đó chỉ sửa cột
- * position, giữ nguyên id — xem ProgramImportService). Vì vậy về lâu
- * dài id là định danh mờ: vị trí thật luôn đọc từ cột `position`/mã
- * hiển thị tại thời điểm hiển thị, không suy ngược từ id.
- *
- * @param position - Vị trí 1-based của dòng trong bản ghi (đúng giá
- *   trị cột `position` mà importer ghi). Trong khoá id, position viết
- *   dạng thập phân không đệm 0; đệm 2 số chỉ dùng cho mã hiển thị.
- * @param generation - Thế hệ của ô vị trí đó (mặc định 1). Chỉ tăng
- *   khi phải cấp id mới cho một ô mà id thế hệ trước đã bị một dòng
- *   khác chiếm (dòng cũ xô vị trí mang theo id đó): hậu tố `#2`,
- *   `#3`… chọn thế hệ trống nhỏ nhất. Trên DB trống không bao giờ có
- *   va chạm nên seed sạch không bị hậu tố làm bẩn. Một id đã cấp cho
- *   một nội dung thì KHÔNG BAO GIỜ được gán lại cho nội dung khác;
- *   ca duy nhất một id "sống lại" là hồi sinh đúng dòng của nó khi
- *   nguyên văn quay lại dataset.
- */
-export function programOutcomeId(datasetKey: string, recordId: string, position: number, generation = 1): string {
-  const suffix = generation > 1 ? `#${generation}` : '';
-  return programId('outcome', `${datasetKey}|${recordId}|${position}${suffix}`);
-}
-
-/**
- * Các dòng YCCĐ của một bản ghi kèm id xác định của chúng, theo đúng
- * thứ tự nguyên văn — đầu vào duy nhất của cả đường tạo mới lẫn đường
- * diff khi nạp lại. `position` là vị trí 1-based trong danh sách; id
- * là id ỨNG VIÊN thế hệ 1 tại vị trí đó (importer có thể phải tăng
- * generation khi ứng viên đã bị dòng khác chiếm — xem programOutcomeId).
- * Hai dòng trùng nội dung hệt nhau trong cùng bản ghi được phân biệt
- * tự nhiên theo vị trí, không cần bộ đếm occurrence như mô hình hash.
+ * Các dòng YCCĐ của một bản ghi theo đúng thứ tự nguyên văn — đầu
+ * vào duy nhất của cả đường tạo mới lẫn đường diff của importer
+ * (công cụ sản xuất dump ở trung tâm). `position` là vị trí 1-based
+ * trong danh sách; phép ghép cặp của importer chạy trên (vị trí +
+ * nguyên văn) của các dòng ĐANG CÓ trong DB, không trên id tính.
  */
 export function programRecordOutcomeEntries(
-  datasetKey: string,
   record: ProgramRecord,
-): { id: string; text: string; position: number }[] {
+): { text: string; position: number }[] {
   return programRecordOutcomeTexts(record).map((text, i) => ({
-    id: programOutcomeId(datasetKey, record.id, i + 1),
     text,
     position: i + 1,
   }));

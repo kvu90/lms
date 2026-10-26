@@ -124,7 +124,7 @@ describe('programRecordOutcomeTexts / programRecordOutcomeEntries với outcomes
       outcomes: [simpleDoc('Ý một.'), simpleDoc('Ý hai.')],
       outcome_text: '– Ý một. – Ý hai.',
     });
-    expect(programRecordOutcomeEntries('mau', asDoc)).toEqual(programRecordOutcomeEntries('mau', asString));
+    expect(programRecordOutcomeEntries(asDoc)).toEqual(programRecordOutcomeEntries(asString));
   });
 
   it('bản ghi hoạt động không có outcomes: đúng một dòng bằng toàn văn outcome_text', () => {

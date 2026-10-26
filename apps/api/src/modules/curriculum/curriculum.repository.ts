@@ -304,6 +304,11 @@ export class CurriculumRepository {
 
   // --- sổ đăng ký nạp dữ liệu chuẩn (K0a) --------------------------------
 
+  /** Tổng số dòng sổ đăng ký — căn cứ xét "DB đã có dữ liệu chương trình chưa" cho đường restore dump khi seed. */
+  async countProgramRecords(): Promise<number> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(curriculumProgramRecords);
+    return row?.n ?? 0;
+  }
   /** Tra một bản ghi đã nạp theo định danh ổn định (dataset, mã bản ghi). */
   async getProgramRecord(datasetKey: string, recordId: string): Promise<ProgramRecordRow | undefined> {
     const [row] = await this.db.select().from(curriculumProgramRecords)

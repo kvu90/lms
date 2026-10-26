@@ -190,7 +190,6 @@ export const programImportChangeSchema = z.object({
   kind: programImportChangeKindSchema,
   oldText: z.string().optional(),
   newText: z.string().optional(),
-  generation: z.number().int().optional(),
   shiftSuspected: z.boolean().optional(),
   identicalTextAmbiguous: z.boolean().optional(),
   linkedQuestions: z.number().int().optional(),
