@@ -10,6 +10,7 @@ import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
+import { LoginLockoutService } from './login-lockout.service';
 import { OAuthController } from './oauth.controller';
 import { OAuthService } from './oauth.service';
 import { SessionService } from './session.service';
@@ -26,8 +27,8 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
     }),
   ],
   controllers: [AuthController, OAuthController],
-  providers: [AuthRepository, AuthService, SessionService, TotpService, OAuthService, LocalAuthStrategy, JwtAuthStrategy],
-  exports: [AuthService, SessionService],
+  providers: [AuthRepository, AuthService, SessionService, TotpService, OAuthService, LoginLockoutService, LocalAuthStrategy, JwtAuthStrategy],
+  exports: [AuthService, SessionService, LoginLockoutService],
 })
 /** Module xác thực và phiên. */
 export class AuthModule {}

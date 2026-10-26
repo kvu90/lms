@@ -9,6 +9,11 @@ import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 import { AuthRepository } from './auth.repository';
+import {
+  AUTH_LOCKED_OUT_CODE,
+  AUTH_LOCKED_OUT_MESSAGE,
+  LoginLockoutService,
+} from './login-lockout.service';
 import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -86,6 +91,7 @@ export class AuthService {
     private readonly totp: TotpService,
     private readonly outbox: OutboxService,
     private readonly tenants: TenantsService,
+    private readonly lockout: LoginLockoutService,
   ) {}
 
   private readonly logger = new Logger(AuthService.name);
@@ -109,24 +115,8 @@ export class AuthService {
     await this.recordAuthEvent('user_logged_in', { userId: user.id, actorId: user.id, method, ip: client?.ip ?? null });
   }
 
-  // --- lockout (authlib_test::test_lockout semantics) -----------------------
-  /**
-   * Username có đang bị khoá tạm thời do quá nhiều lần thất bại hay không.
-   */
-  async isLockedOut(userId: string): Promise<boolean> {
-    const threshold = this.config.get<number>('LOCKOUT_THRESHOLD') ?? 5;
-    if (threshold <= 0) return false; // lockout disabled when threshold is 0 (Moodle behaviour)
-    const windowMin = this.config.get<number>('LOCKOUT_WINDOW_MINUTES') ?? 20;
-    const durationMin = this.config.get<number>('LOCKOUT_DURATION_MINUTES') ?? 30;
-    const since = new Date(Date.now() - windowMin * 60_000);
-    const failures = await this.repo.recentFailedAttempts(userId, since);
-    if (failures.length < threshold) return false;
-    const lastSuccess = await this.repo.lastSuccessfulAttemptAt(userId);
-    const relevant = lastSuccess ? failures.filter((f) => f.attemptedAt > lastSuccess) : failures;
-    if (relevant.length < threshold) return false;
-    const thresholdHitAt = relevant[threshold - 1]!.attemptedAt.getTime();
-    return Date.now() < thresholdHitAt + durationMin * 60_000;
-  }
+  // --- lockout: chính sách nằm ở LoginLockoutService (dùng chung với
+  // Better Auth qua endpoint hooks, điểm 2.4 của issue #7) -------------
 
   /**
    * Kiểm tra username/mật khẩu và trạng thái tài khoản; trả user khi hợp lệ.
@@ -136,11 +126,11 @@ export class AuthService {
     if (!user || user.deleted) {
       throw new UnauthorizedException({ message: 'Invalid username or password', code: 'auth.invalid_credentials' });
     }
-    if (await this.isLockedOut(user.id)) {
-      throw new UnauthorizedException({ message: 'Account is locked out due to failed login attempts', code: 'auth.locked_out' });
+    if (await this.lockout.isLockedOut(user.id)) {
+      throw new UnauthorizedException({ message: AUTH_LOCKED_OUT_MESSAGE, code: AUTH_LOCKED_OUT_CODE });
     }
     const ok = await this.users.verifyPassword(user, password);
-    await this.repo.recordAttempt({ userId: user.id, username: user.username, success: ok, ip });
+    await this.lockout.recordAttempt({ userId: user.id, username: user.username, success: ok, ip });
     if (!ok) throw new UnauthorizedException({ message: 'Invalid username or password', code: 'auth.invalid_credentials' });
     if (user.suspended) throw new ForbiddenException({ message: 'Account is suspended', code: 'auth.account_suspended' });
     if (user.isGuest) throw new ForbiddenException({ message: 'The guest account cannot log in with a password', code: 'auth.guest_login_denied' });
@@ -258,11 +248,11 @@ export class AuthService {
     if (!user || user.deleted || user.suspended) {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
     }
-    if (await this.isLockedOut(user.id)) {
-      throw new UnauthorizedException({ message: 'Account is locked out due to failed login attempts', code: 'auth.locked_out' });
+    if (await this.lockout.isLockedOut(user.id)) {
+      throw new UnauthorizedException({ message: AUTH_LOCKED_OUT_MESSAGE, code: AUTH_LOCKED_OUT_CODE });
     }
     const ok = await this.totp.verifyForUser(user.id, code);
-    await this.repo.recordAttempt({ userId: user.id, username: user.username, success: ok, ip });
+    await this.lockout.recordAttempt({ userId: user.id, username: user.username, success: ok, ip });
     if (!ok) {
       throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
     }

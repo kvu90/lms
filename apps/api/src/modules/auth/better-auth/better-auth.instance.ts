@@ -23,6 +23,7 @@ import { fetchClientMetadataResource as defaultCimdFetch } from '@better-auth/ci
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { mcp } from '@better-auth/mcp';
 import { APIError, betterAuth } from 'better-auth';
+import { createAuthMiddleware } from 'better-auth/api';
 import { jwt, username } from 'better-auth/plugins';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PasswordService } from '../../users/password.service';
@@ -30,6 +31,8 @@ import { eq } from 'drizzle-orm';
 import { createEmailOtpPlugin, type AuthMailPort } from '../../mail/email-otp.plugin';
 import { betterAuthSchema, betterAuthTwoFactor } from './better-auth.schema';
 import { createOAuthMfaGateHook } from './oauth-mfa-gate';
+import type { LockoutGuardPort } from '../login-lockout.service';
+import { lockoutHooks } from './lockout.hooks';
 
 /** Đường dẫn gốc mà handler của Better Auth được mount tại (xem better-auth.mount.ts). */
 export const BETTER_AUTH_BASE_PATH = '/api/v1/auth';
@@ -104,6 +107,16 @@ export interface BetterAuthFactoryDeps {
    * = instance thuần GĐ1 như trước, KHÔNG có bề mặt OAuth nào.
    */
   mcpAs?: BetterAuthMcpAsConfig | null;
+  /**
+   * Cổng lockout theo tài khoản (điểm 2.4, issue #7): có giá trị thì
+   * factory gắn endpoint hooks để các đường sign-in credential của
+   * Better Auth dùng chung chính sách khoá + bảng `login_attempts` với
+   * hệ legacy. Truyền qua deps (không qua DI của Nest) vì factory là
+   * hàm thuần và hooks chạy ngoài vòng đời Nest — cùng khuôn
+   * `passwordService`. Thiếu/`null` = không gắn (đường kiểm chứng tối
+   * thiểu không đổi hành vi).
+   */
+  lockout?: LockoutGuardPort | null;
 }
 
 /**
@@ -123,8 +136,31 @@ function buildSocialProviders(config: BetterAuthSocialConfig | null | undefined)
   return Object.keys(providers).length > 0 ? providers : undefined;
 }
 
+/**
+ * Chuỗi hoá hai after-hook thành một middleware duy nhất (better-auth
+ * chỉ nhận một `hooks.after`): lockout ghi attempt trước (dựa trên đáp
+ * ứng gốc của endpoint), rồi cổng MFA xử lý callback OAuth. Hai hook
+ * tác động lên hai tập đường rời nhau (sign-in credential vs callback
+ * OAuth) nên thứ tự không đổi semantics; lỗi redirect của cổng MFA
+ * (APIError) vẫn lan ra ngoài như khi đứng một mình vì dispatch bắt
+ * APIError thành response. TUYỆT ĐỐI không ghi đè `hooks` bằng spread
+ * sau khối này — spread sau sẽ lặng lẽ thay cả cổng MFA (lỗi đã suýt
+ * xảy ra khi rebase 2.4 lên main có cổng MFA).
+ */
+function composeAfterHooks(
+  first: ReturnType<typeof lockoutHooks>['after'] | undefined,
+  second: ReturnType<typeof createOAuthMfaGateHook>,
+) {
+  if (!first) return second;
+  return createAuthMiddleware(async (ctx) => {
+    await first(ctx);
+    await second(ctx);
+  });
+}
+
 export function createBetterAuth(deps: BetterAuthFactoryDeps) {
   const mcpAs = deps.mcpAs ?? null;
+  const lockoutHookSet = deps.lockout ? lockoutHooks(deps.lockout) : null;
   return betterAuth({
     secret: deps.secret,
     baseURL: deps.baseURL,
@@ -151,8 +187,11 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     hooks: {
       // Cổng chặn hoàn tất OAuth khi tài khoản đã bật MFA (chặng
       // 2.3) — xem oauth-mfa-gate.ts; hook tự đi qua ở mọi đường
-      // không phải callback OAuth có phiên mới.
-      after: createOAuthMfaGateHook({
+      // không phải callback OAuth có phiên mới. Khi có cổng lockout
+      // 2.4 thì chuỗi hoá chung một after duy nhất (xem
+      // composeAfterHooks) — không phía nào ghi đè phía nào.
+      ...(lockoutHookSet?.before ? { before: lockoutHookSet.before } : {}),
+      after: composeAfterHooks(lockoutHookSet?.after, createOAuthMfaGateHook({
         // Tra bản ghi MFA trực tiếp qua ánh xạ Drizzle — model
         // twoFactor chưa có trong registry adapter khi plugin chưa
         // bật (xem OAuthMfaGateDeps).
@@ -164,7 +203,7 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
             .limit(1);
           return rows[0] ?? null;
         },
-      }),
+      })),
     },
     // Khi compose AS: tắt endpoint `/token` của plugin jwt() theo tài
     // liệu OAuth Provider (token chỉ phát qua `/oauth2/token`).

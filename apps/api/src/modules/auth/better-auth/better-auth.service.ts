@@ -4,6 +4,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import type { Database } from '../../../db/database';
 import { PasswordService } from '../../users/password.service';
 import { AuthMailService } from '../../mail/auth-mail.service';
+import { LoginLockoutService } from '../login-lockout.service';
 import {
   createBetterAuth,
   type BetterAuthInstance,
@@ -51,6 +52,11 @@ export class BetterAuthService {
     // script) không truyền thì instance chạy không có đường mail —
     // đúng nghĩa "chưa nối mail" của factory, không phải lỗi.
     @Optional() authMail?: AuthMailService,
+    // Cổng lockout theo tài khoản (điểm 2.4): cùng khuôn @Optional
+    // như authMail — nơi dựng tay không truyền thì instance chạy
+    // không gắn hooks lockout (đúng nghĩa "thiếu = không gắn" của
+    // factory); app thật luôn có LoginLockoutService từ AuthModule.
+    @Optional() lockout?: LoginLockoutService,
   ) {
     this.enabled = config.get<boolean>('BETTER_AUTH_ENABLED') ?? false;
     this.mcpAsEnabled = config.get<boolean>('MCP_AS_ENABLED') ?? false;
@@ -107,6 +113,9 @@ export class BetterAuthService {
       authMail: authMail ?? null,
       mcpAs: this.mcpAs,
       socialProviders,
+      // Lockout theo tài khoản (điểm 2.4): instance gắn hooks khi
+      // có cổng — chính sách khoá là của tài khoản, không phải của cờ.
+      lockout: lockout ?? null,
     });
   }
 
