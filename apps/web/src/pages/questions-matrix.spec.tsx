@@ -204,6 +204,9 @@ function stubFetchEdit(calls: RecordedCall[]) {
         });
       }
       if (url === `/api/v1/exam-matrices/${MY_MATRIX}/specification/export?format=xlsx`) {
+        // Bản xuất thật là file nhị phân (xlsx là zip, mở đầu "PK") kèm
+        // Content-Disposition mang tên file server đặt — ca test xuất
+        // đặc tả khẳng định web giữ đúng tên này khi tải về.
         return new Response(new Blob(['PK']), {
           status: 200,
           headers: {

@@ -38,6 +38,19 @@ import {
  * của tôi" ở trang ngân hàng) chỉ có nút Thêm mới và Sửa/Xoá tại dòng.
  * Ma trận tạo từ đây luôn thuộc bank ma trận CÁ NHÂN của giáo viên
  * (bank_id gửi kèm; API gác quyền phụ trách tại chính bank đó).
+ *
+ * Flow tổng thể của file: route module prefetch dữ liệu nền qua các
+ * queryOptions của `lib/matrix-data.ts` → trang đọc lại bằng cùng
+ * khoá qua hooks (chi tiết ma trận là query chính; cây chương trình +
+ * khả dụng kho câu là query phụ) → form sửa gửi qua các mutation của
+ * cùng module dữ liệu, mutation thành công thì invalidate để trang
+ * nạp lại trạng thái mới.
+ *
+ * Mục BẢN ĐẶC TẢ (SPEC-1, issue #233) ở cuối trang sửa: dữ liệu vào là
+ * view model đặc tả do API SUY RA từ các ô của ma trận → trang chỉ
+ * trình bày (bảng phẳng một dòng = một ô, cột YCCĐ lấy từ ĐVK của ô)
+ * và xuất file qua endpoint export sẵn có; trang KHÔNG có thao tác
+ * nhập/sửa đặc tả vì đặc tả không phải dữ liệu nhập riêng.
  */
 
 const SELECT_CLASS = 'h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs';
@@ -53,11 +66,25 @@ function flattenNodes(nodes: CurriculumTreeNode[], depth = 0): { id: string; tit
 }
 
 /**
- * Mã vị trí của một YCCĐ trong bản đặc tả (`<mã bản ghi>.<số thứ tự 2
- * chữ số>`, vd TOAN-0001.02 — sổ quyết định mục B): API đặc tả chưa trả
- * position/mã bản ghi riêng nên web suy từ `sourceRef` (đuôi "bản ghi
- * <mã>") + thứ tự của YCCĐ trong ĐVK (API trả theo position tăng dần).
- * YCCĐ không truy được mã bản ghi thì không hiện tiền tố.
+ * Suy mã vị trí hiển thị của một YCCĐ trong bản đặc tả.
+ *
+ * Mã chuẩn theo sổ quyết định mục B là `<mã bản ghi>.<số thứ tự 2 chữ
+ * số>` (vd `TOAN-0001.02`; bản derived là `<mã gốc>/<mức>`). API đặc
+ * tả hiện chưa trả position/mã bản ghi riêng cho từng YCCĐ nên hàm
+ * này suy từ dữ kiện có sẵn, theo các bước: (1) trích mã bản ghi từ
+ * đuôi `sourceRef` (dạng "… — bản ghi <mã>"); (2) đếm thứ tự của YCCĐ
+ * trong nhóm anh em CÙNG bản ghi và không phải derived — API trả danh
+ * sách YCCĐ của node theo position tăng dần nên thứ tự đếm khớp
+ * position của bản ghi trong trường hợp dữ liệu chương trình chuẩn.
+ *
+ * Bất biến/ràng buộc: YCCĐ derived trả null (mã của nó phải suy từ
+ * YCCĐ gốc + mức, API chưa cho biết liên kết gốc ở bề mặt này); YCCĐ
+ * không có `sourceRef` truy được mã bản ghi cũng trả null — thà
+ * không hiện tiền tố còn hơn hiện mã đoán sai.
+ *
+ * @param outcome - YCCĐ cần suy mã.
+ * @param siblings - Toàn bộ YCCĐ của cùng ĐVK, theo đúng thứ tự API trả.
+ * @returns Mã vị trí dạng tiền tố, hoặc null khi không suy được.
  */
 function outcomeCodePrefix(outcome: SpecificationOutcomeLite, siblings: SpecificationOutcomeLite[]): string | null {
   const recordId = outcome.sourceRef?.match(/bản ghi\s+(\S+)\s*$/)?.[1];
@@ -271,6 +298,16 @@ export function MatrixEditPage() {
   const specQuery = useMatrixSpecification(matrixId, canLoad && !!matrix && specOpen);
   const spec = specQuery.data ?? null;
 
+  /**
+   * Xuất bản đặc tả của ma trận đang sửa ra file và tải về máy.
+   *
+   * Flow: uỷ thác toàn bộ lượt tải cho `downloadMatrixSpecification`
+   * (tầng dữ liệu lo endpoint + tên file của server); lỗi HTTP thì
+   * bắt tại đây và báo lên banner của trang kèm lý do API, theo đúng
+   * khuôn báo lỗi của các thao tác khác trong trang.
+   *
+   * @param format - 'xlsx' cho bản Excel, 'docx' cho bản Word.
+   */
   async function exportSpec(format: 'xlsx' | 'docx') {
     if (!matrix) return;
     try {
@@ -502,6 +539,15 @@ export function MatrixEditPage() {
             </form>
           </div>
 
+          {/*
+            Mục BẢN ĐẶC TẢ (SPEC-1): ba trạng thái hiển thị theo nhịp
+            tải lười — chưa mở thì chỉ có nút Xem + hai nút xuất (xuất
+            không cần mở xem vì endpoint export tự dựng lại đặc tả ở
+            server); đang tải thì khung xương; lỗi thì banner tại chỗ;
+            có dữ liệu thì bảng phẳng + dòng tổng. Ma trận chưa có ô
+            nào thì API trả topics rỗng → hiện câu trạng thái rỗng
+            thay cho bảng.
+          */}
           <div className="space-y-3">
             <h3 className="font-medium">{t('specSectionTitle')}</h3>
             <p className="text-sm text-muted-foreground">{t('specSectionHint')}</p>
@@ -553,6 +599,7 @@ export function MatrixEditPage() {
                                   <td className="p-2">{rowIndex + 1}</td>
                                   <td className="p-2">{topic.topicTitle}</td>
                                   <td className="p-2">{node.nodeTitle}</td>
+                                  {/* Cột YCCĐ đọc từ NODE chứ không từ ô: mọi ô của cùng một ĐVK dùng chung danh sách YCCĐ của ĐVK đó (mô hình #249). */}
                                   <td className="p-2">
                                     {node.outcomes.length === 0 ? (
                                       <span className="text-muted-foreground">—</span>
@@ -586,6 +633,7 @@ export function MatrixEditPage() {
                                   {/* Số câu theo đúng cách đếm của bản xuất: câu Đúng–Sai chùm tính 4 ý. */}
                                   <td className="p-2">{cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount}</td>
                                   <td className="p-2">{cell.cellScore}</td>
+                                  {/* Số thứ tự câu chỉ có khi đặc tả dựng theo một lần ghim cụ thể; đặc tả theo ma trận thuần luôn vắng → hiện ghi chú rút (nếu có) hoặc dấu —. */}
                                   <td className="p-2">
                                     {cell.slotNumbers && cell.slotNumbers.length
                                       ? cell.drawNote
