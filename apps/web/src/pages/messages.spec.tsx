@@ -543,10 +543,14 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
 
-    // Chỉ tin của mình có nút xoá (không canModerate): đúng một nút.
-    const deleteButtons = screen.getAllByRole('button', { name: 'Xoá tin nhắn' });
-    expect(deleteButtons).toHaveLength(1);
-    await userEvent.click(deleteButtons[0]!);
+    // Chỉ tin của mình có menu ⋯ chứa mục xoá (không canModerate):
+    // đúng một nút mở menu trong cả thread (tin của bạn học không có
+    // hành động nào ngoài Trả lời nên không có ⋯), và mục Xoá tin
+    // nhắn nằm trong menu đó.
+    const moreButtons = screen.getAllByRole('button', { name: 'Thao tác khác' });
+    expect(moreButtons).toHaveLength(1);
+    await userEvent.click(moreButtons[0]!);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Xoá tin nhắn' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url.startsWith('/api/v1/messages/messages/') && c.method === 'DELETE')).toBe(true),
     );
@@ -783,18 +787,19 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
 
-    // Chỉ tin của mình (mới gửi, trong cửa sổ 15 phút) có nút Thu hồi;
-    // tin của bạn học không có.
-    const recallButtons = screen.getAllByRole('button', { name: 'Thu hồi' });
-    expect(recallButtons).toHaveLength(1);
-    await userEvent.click(recallButtons[0]!);
+    // Chỉ tin của mình (mới gửi, trong cửa sổ 15 phút) có mục Thu hồi
+    // trong menu ⋯; tin của bạn học không có menu nào.
+    const moreButtons = screen.getAllByRole('button', { name: 'Thao tác khác' });
+    expect(moreButtons).toHaveLength(1);
+    await userEvent.click(moreButtons[0]!);
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Thu hồi' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/messages/01900000-0000-7000-8000-0000000000d5/recall` && c.method === 'POST')).toBe(true),
     );
     // Nội dung bị vô hiệu, khung hiện dòng đã thu hồi thay vì nội dung cũ.
     expect(await within(thread).findByText('Tin nhắn đã được thu hồi.')).toBeInTheDocument();
     expect(within(thread).queryByText('tin của tôi sẽ xoá')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Thu hồi' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Thu hồi' })).not.toBeInTheDocument();
 
     // Sự kiện conversation.invalidate tải lại cửa sổ tin: dòng đã thu
     // hồi vẫn còn (không bị ghi đè thành xoá hay trở lại nội dung cũ).
