@@ -50,18 +50,23 @@ describe('Matrix import I-1 (template + preview, no DB write)', () => {
 
     const subjRes = await http(app).post('/api/v1/curriculum/subjects').set('Authorization', `Bearer ${admin}`)
       .send({ contextId: systemCtx.id, name: 'Toán học', slug: `toan-import-${Date.now()}` });
+    if (subjRes.status !== 201 && subjRes.status !== 200) throw new Error(`subject failed: ${subjRes.status} ${JSON.stringify(subjRes.body)}`);
     const subjectId = subjRes.body.id as string;
-    const currRes = await http(app).post('/api/v1/curricula').set('Authorization', `Bearer ${admin}`)
+    const currRes = await http(app).post('/api/v1/curriculum/curricula').set('Authorization', `Bearer ${admin}`)
       .send({ subjectId, grade: 10 });
+    if (currRes.status !== 201 && currRes.status !== 200) throw new Error(`curriculum failed: ${currRes.status} ${JSON.stringify(currRes.body)}`);
     const curriculumId = currRes.body.id as string;
     const topicRes = await http(app).post('/api/v1/curriculum/nodes').set('Authorization', `Bearer ${admin}`)
       .send({ curriculumId, title: 'Hàm số', kind: 'topic' });
+    if (topicRes.status !== 201 && topicRes.status !== 200) throw new Error(`topic failed: ${topicRes.status} ${JSON.stringify(topicRes.body)}`);
     const topicId = topicRes.body.id as string;
     const lesson1Res = await http(app).post('/api/v1/curriculum/nodes').set('Authorization', `Bearer ${admin}`)
       .send({ curriculumId, parentId: topicId, title: 'Hàm số bậc hai', kind: 'lesson' });
+    if (lesson1Res.status !== 201 && lesson1Res.status !== 200) throw new Error(`lesson1 failed: ${lesson1Res.status} ${JSON.stringify(lesson1Res.body)}`);
     const lesson1Id = lesson1Res.body.id as string;
     const lesson2Res = await http(app).post('/api/v1/curriculum/nodes').set('Authorization', `Bearer ${admin}`)
       .send({ curriculumId, parentId: topicId, title: 'Hàm số bậc nhất', kind: 'lesson' });
+    if (lesson2Res.status !== 201 && lesson2Res.status !== 200) throw new Error(`lesson2 failed: ${lesson2Res.status} ${JSON.stringify(lesson2Res.body)}`);
     const lesson2Id = lesson2Res.body.id as string;
     const mkOutcome = async (nodeId: string, content: string) => {
       const r = await http(app).post('/api/v1/curriculum/outcomes').set('Authorization', `Bearer ${admin}`)

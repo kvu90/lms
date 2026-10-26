@@ -758,8 +758,6 @@ export class MatrixImportService {
       const valueB = this.cellText(ws.getCell(r, 2).value);
       const valueD = this.cellText(ws.getCell(r, 4).value);
       if (label === INFO.name) { out.name = valueB || null; out.rows.name = r; }
-      else if (label === INFO.subjectId) { out.subjectId = valueD || null; out.rows.subjectId = r; }
-      else if (label === INFO.curriculumId) { out.curriculumId = valueD || null; out.rows.curriculumId = r; }
       else if (label === INFO.totalScore) {
         const raw = this.rawCell(ws.getCell(r, 2).value);
         out.totalScore = raw?.kind === 'number' ? raw.value : null;
@@ -778,6 +776,13 @@ export class MatrixImportService {
           out.rows.perFormScore[form.qtype] = r;
         }
       }
+      // Mã khoá KHÔNG nằm ở cột A như các trường còn lại: buildTemplate
+      // ghi nhãn mã ở cột C và giá trị ở cột D (cùng dòng với tên môn /
+      // tên chương trình ở cột A/B) — phải quét thêm nhãn cột C, nếu chỉ
+      // quét cột A thì không bao giờ thấy "Mã môn"/"Mã chương trình".
+      const keyLabel = this.cellText(ws.getCell(r, 3).value);
+      if (keyLabel === INFO.subjectId) { out.subjectId = valueD || null; out.rows.subjectId = r; }
+      else if (keyLabel === INFO.curriculumId) { out.curriculumId = valueD || null; out.rows.curriculumId = r; }
     }
     return out;
   }

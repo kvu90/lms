@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
@@ -75,6 +75,7 @@ export class ExamMatricesController {
     res.send(buffer);
   }
   @Post('import/preview')
+  @HttpCode(200)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   /**
    * POST /exam-matrices/import/preview (multipart, trường `file`) —
@@ -82,6 +83,10 @@ export class ExamMatricesController {
    * dự thảo ma trận + lỗi cứng định vị theo sheet/dòng/cột + cảnh báo
    * tỉ lệ + khả dụng ngân hàng theo ô. KHÔNG ghi DB — ghi nguyên tử
    * là lát I-2. Route tĩnh phải đứng trước `@Post(':id/cells')`.
+   *
+   * Mã trả LUÔN 200 kể cả khi file sai khuôn (đây là thao tác phân
+   * tích, không tạo tài nguyên): lỗi nằm trong payload preview
+   * (`valid=false` + `errors[]`), để web hiển thị định vị từng lỗi.
    */
   async importPreview(@UploadedFile() file: { buffer: Buffer } | undefined, @CurrentUser() actor: AuthenticatedUser) {
     if (!file) {
