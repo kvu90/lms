@@ -28,6 +28,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PasswordService } from '../../users/password.service';
 import { createEmailOtpPlugin, type AuthMailPort } from '../../mail/email-otp.plugin';
 import { betterAuthSchema } from './better-auth.schema';
+import { createOAuthMfaGateHook } from './oauth-mfa-gate';
 
 /** Đường dẫn gốc mà handler của Better Auth được mount tại (xem better-auth.mount.ts). */
 export const BETTER_AUTH_BASE_PATH = '/api/v1/auth';
@@ -66,6 +67,16 @@ export interface BetterAuthMcpAsConfig {
 /** Tên cookie phiên của Better Auth (bản https thêm tiền tố `__Secure-`). */
 export const BETTER_AUTH_SESSION_COOKIE = 'better-auth.session_token';
 
+/**
+ * Cấu hình đăng nhập xã hội (issue #7, chặng 2.3): service chỉ truyền
+ * vào provider nào ĐỦ cả id lẫn secret từ env; provider vắng mặt trong
+ * object này là provider tắt — không đăng ký, không bề mặt.
+ */
+export interface BetterAuthSocialConfig {
+  google?: { clientId: string; clientSecret: string };
+  facebook?: { clientId: string; clientSecret: string };
+}
+
 export interface BetterAuthFactoryDeps {
   /** Instance Drizzle của app (dùng chung pool kết nối, không mở pool riêng). */
   db: NodePgDatabase<Record<string, never>>;
@@ -73,6 +84,8 @@ export interface BetterAuthFactoryDeps {
   baseURL: string;
   trustedOrigins: string[];
   passwordService: PasswordService;
+  /** Provider xã hội đã cấu hình từ env (rỗng/thiếu = không có đăng nhập xã hội qua Better Auth). */
+  socialProviders?: BetterAuthSocialConfig | null;
   /**
    * Cổng gửi mail auth (issue #7 chặng 2.5, lát BA-2): có giá trị thì
    * factory nối `sendResetPassword` vào cổng này và đăng ký plugin
@@ -92,6 +105,23 @@ export interface BetterAuthFactoryDeps {
   mcpAs?: BetterAuthMcpAsConfig | null;
 }
 
+/**
+ * Dựng object `socialProviders` cho instance từ cấu hình env: chỉ gồm
+ * provider đã cấu hình. Cả hai provider đều `disableSignUp: true` ở
+ * cấp provider — OAuth KHÔNG bao giờ tự tạo tài khoản (khớp
+ * `disableSignUp` toàn cục đã chốt: tài khoản do admin/cầu nối tạo),
+ * kể cả khi client xin `requestSignUp`; luồng còn lại là đăng nhập
+ * bằng liên kết đã có + liên kết ngầm theo email theo luật account
+ * linking bên dưới.
+ */
+function buildSocialProviders(config: BetterAuthSocialConfig | null | undefined) {
+  if (!config) return undefined;
+  const providers: Record<string, { clientId: string; clientSecret: string; disableImplicitSignUp: true; disableSignUp: true }> = {};
+  if (config.google) providers.google = { ...config.google, disableImplicitSignUp: true, disableSignUp: true };
+  if (config.facebook) providers.facebook = { ...config.facebook, disableImplicitSignUp: true, disableSignUp: true };
+  return Object.keys(providers).length > 0 ? providers : undefined;
+}
+
 export function createBetterAuth(deps: BetterAuthFactoryDeps) {
   const mcpAs = deps.mcpAs ?? null;
   return betterAuth({
@@ -99,6 +129,30 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     baseURL: deps.baseURL,
     basePath: BETTER_AUTH_BASE_PATH,
     trustedOrigins: deps.trustedOrigins,
+    socialProviders: buildSocialProviders(deps.socialProviders),
+    account: {
+      accountLinking: {
+        enabled: true,
+        // ĐÃ CHỐT trong kế hoạch GĐ2: Facebook KHÔNG vào
+        // trustedProviders — và theo source 1.7.12, Facebook luôn
+        // trả emailVerified=false (cả đường id_token lẫn userinfo)
+        // nên không bao giờ tự liên kết theo email; chỉ Google (có
+        // xác thực email của chính Google) mới liên kết ngầm.
+        trustedProviders: [],
+        // Mặc định của Better Auth còn đòi email phía tài khoản local
+        // đã xác thực, trong khi MỌI tài khoản do cầu nối/admin tạo
+        // đều có email_verified=false — giữ mặc định thì luật liên
+        // kết theo email chết lặng lẽ. Cổng gác đúng theo kế hoạch
+        // là xác thực email PHÍA PROVIDER, nên tắt điều kiện local.
+        requireLocalEmailVerified: false,
+      },
+    },
+    hooks: {
+      // Cổng chặn hoàn tất OAuth khi tài khoản đã bật MFA (chặng
+      // 2.3) — xem oauth-mfa-gate.ts; hook tự đi qua ở mọi đường
+      // không phải callback OAuth có phiên mới.
+      after: createOAuthMfaGateHook(),
+    },
     // Khi compose AS: tắt endpoint `/token` của plugin jwt() theo tài
     // liệu OAuth Provider (token chỉ phát qua `/oauth2/token`).
     ...(mcpAs ? { disabledPaths: ['/token'] } : {}),

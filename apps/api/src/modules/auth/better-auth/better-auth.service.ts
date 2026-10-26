@@ -8,6 +8,7 @@ import {
   createBetterAuth,
   type BetterAuthInstance,
   type BetterAuthMcpAsConfig,
+  type BetterAuthSocialConfig,
 } from './better-auth.instance';
 
 /**
@@ -36,6 +37,8 @@ export class BetterAuthService {
   readonly auth: BetterAuthInstance | null;
   /** Cấu hình AS đã dùng dựng instance (null khi không bật) — RS ở tầng MCP lấy issuer/resource qua đây. */
   readonly mcpAs: BetterAuthMcpAsConfig | null;
+  /** Provider xã hội đã đăng ký vào instance (chặng 2.3) — rỗng khi chưa cấu hình env nào. */
+  readonly socialProvidersEnabled: readonly ('google' | 'facebook')[];
 
   constructor(
     config: ConfigService,
@@ -51,6 +54,11 @@ export class BetterAuthService {
   ) {
     this.enabled = config.get<boolean>('BETTER_AUTH_ENABLED') ?? false;
     this.mcpAsEnabled = config.get<boolean>('MCP_AS_ENABLED') ?? false;
+    const socialProviders = readSocialConfig(config);
+    this.socialProvidersEnabled = [
+      ...(socialProviders.google ? (['google'] as const) : []),
+      ...(socialProviders.facebook ? (['facebook'] as const) : []),
+    ];
     if (!this.enabled && !this.mcpAsEnabled) {
       this.auth = null;
       this.mcpAs = null;
@@ -98,6 +106,7 @@ export class BetterAuthService {
       passwordService,
       authMail: authMail ?? null,
       mcpAs: this.mcpAs,
+      socialProviders,
     });
   }
 
@@ -110,4 +119,23 @@ export class BetterAuthService {
     }
     return this.auth;
   }
+}
+
+/**
+ * Đọc cấu hình đăng nhập xã hội từ env (issue #7, chặng 2.3): provider
+ * chỉ vào cấu hình khi CẢ id lẫn secret đều có mặt — thiếu một phía
+ * thì provider đó tắt êm (không đăng ký, không lỗi boot), đúng luật
+ * "issuer chưa cấu hình thì không có bề mặt" của hệ.
+ */
+function readSocialConfig(config: ConfigService): BetterAuthSocialConfig {
+  const googleId = config.get<string>('GOOGLE_CLIENT_ID');
+  const googleCred = config.get<string>('GOOGLE_CLIENT_SECRET');
+  const facebookId = config.get<string>('FACEBOOK_APP_ID');
+  const facebookCred = config.get<string>('FACEBOOK_APP_SECRET');
+  return {
+    ...(googleId && googleCred ? { google: { clientId: googleId, clientSecret: googleCred } } : {}),
+    ...(facebookId && facebookCred
+      ? { facebook: { clientId: facebookId, clientSecret: facebookCred } }
+      : {}),
+  };
 }

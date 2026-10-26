@@ -130,6 +130,15 @@ export const envSchema = z.object({
   // thuộc domain đã xác minh DNS trên Resend. Trống = không gửi được
   // mail nào (mailer khai báo lý do ở log, không crash).
   MAIL_FROM: z.string().min(1).optional(),
+  // Đăng nhập xã hội qua Better Auth (issue #7, chặng 2.3): khác họ
+  // OAUTH_* của luồng OAuth tự viết (luồng cũ gỡ ở chặng 2.7). Provider
+  // chỉ đăng ký vào instance khi CẢ id lẫn secret đều có mặt; thiếu một
+  // phía thì provider đó tắt êm và app vẫn boot bình thường. Tên biến
+  // theo đúng hồ sơ chương trình GĐ2 (comment mở chương trình trên #7).
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  FACEBOOK_APP_ID: z.string().min(1).optional(),
+  FACEBOOK_APP_SECRET: z.string().min(1).optional(),
   // Máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): cờ RIÊNG với
   // BETTER_AUTH_ENABLED — bật thì instance Better Auth compose thêm
   // jwt()/mcp()/cimd() và trở thành AS phát access token cho `/mcp`

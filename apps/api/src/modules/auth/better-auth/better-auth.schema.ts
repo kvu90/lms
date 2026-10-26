@@ -60,6 +60,28 @@ export const betterAuthAccount = pgTable('account', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Ánh xạ model `twoFactor` của plugin twoFactor (issue #7, chặng 2.2/2.3):
+ * bảng vật lý `two_factor` đã có trong baseline từ Giai đoạn 1 (định
+ * nghĩa ở packages/db-schema) và hình cột khớp từng field của plugin
+ * 1.7.12. Ánh xạ này cần có mặt TRƯỚC khi plugin được bật để adapter tra
+ * được bản ghi MFA (cổng OAuth của chặng 2.3 đọc trạng thái `verified`
+ * qua chính ánh xạ này); bản thân việc bật plugin thuộc chặng 2.2.
+ */
+export const betterAuthTwoFactor = pgTable('two_factor', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => betterAuthUsers.id, { onDelete: 'cascade' }),
+  secret: text('secret').notNull(),
+  backupCodes: text('backup_codes').notNull(),
+  verified: boolean('verified').notNull().default(true),
+  failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const betterAuthVerification = pgTable('verification', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   identifier: text('identifier').notNull(),
@@ -223,6 +245,7 @@ export const betterAuthSchema = {
   session: betterAuthSession,
   account: betterAuthAccount,
   verification: betterAuthVerification,
+  twoFactor: betterAuthTwoFactor,
   jwks: betterAuthJwks,
   oauthClient: betterAuthOAuthClient,
   oauthResource: betterAuthOAuthResource,
