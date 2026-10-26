@@ -817,19 +817,132 @@
        "content": [
         {
          "type": "text",
-         "text": "enzyme; thí nghiệm kiểm tra hoạt tính thuỷ phân tinh bột của amylase. – Nêu được khái niệm tổng hợp các chất trong tế bào. Lấy được ví dụ minh hoạ (tổng hợp protein, lipid, carbohydrate,...). – Trình bày được quá trình tổng hợp các chất song song với tích luỹ năng lượng. – Nêu được vai trò quan trọng của quang hợp trong việc tổng hợp các chất và tích luỹ năng lượng trong tế bào thực vật. – Nêu được vai trò của hoá tổng hợp và quang khử ở vi khuẩn. – Phát biểu được khái niệm phân giải các chất trong tế bào. – Trình bày được các giai đoạn phân giải hiếu khí (hô hấp tế bào) và các giai đoạn phân giải kị khí (lên men). – Trình bày được quá trình phân giải các chất song song với giải phóng năng lượng. – Phân tích được mối quan hệ giữa tổng hợp và phân giải các chất trong tế bào."
+         "text": "Thực hành: làm được thí nghiệm phân tích ảnh hưởng của một số yếu tố đến hoạt tính của enzyme; thí nghiệm kiểm tra hoạt tính thuỷ phân tinh bột của amylase."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái niệm tổng hợp các chất trong tế bào. Lấy được ví dụ minh hoạ (tổng hợp protein, lipid, carbohydrate,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình tổng hợp các chất song song với tích luỹ năng lượng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò quan trọng của quang hợp trong việc tổng hợp các chất và tích luỹ năng lượng trong tế bào thực vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của hoá tổng hợp và quang khử ở vi khuẩn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát biểu được khái niệm phân giải các chất trong tế bào."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các giai đoạn phân giải hiếu khí (hô hấp tế bào) và các giai đoạn phân giải kị khí (lên men)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình phân giải các chất song song với giải phóng năng lượng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mối quan hệ giữa tổng hợp và phân giải các chất trong tế bào."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "enzyme; thí nghiệm kiểm tra hoạt tính thuỷ phân tinh bột của amylase. – Nêu được khái niệm tổng hợp các chất trong tế bào. Lấy được ví dụ minh hoạ (tổng hợp protein, lipid, carbohydrate,...). – Trình bày được quá trình tổng hợp các chất song song với tích luỹ năng lượng. – Nêu được vai trò quan trọng của quang hợp trong việc tổng hợp các chất và tích luỹ năng lượng trong tế bào thực vật. – Nêu được vai trò của hoá tổng hợp và quang khử ở vi khuẩn. – Phát biểu được khái niệm phân giải các chất trong tế bào. – Trình bày được các giai đoạn phân giải hiếu khí (hô hấp tế bào) và các giai đoạn phân giải kị khí (lên men). – Trình bày được quá trình phân giải các chất song song với giải phóng năng lượng. – Phân tích được mối quan hệ giữa tổng hợp và phân giải các chất trong tế bào.",
+   "outcome_text": "– Thực hành: làm được thí nghiệm phân tích ảnh hưởng của một số yếu tố đến hoạt tính của enzyme; thí nghiệm kiểm tra hoạt tính thuỷ phân tinh bột của amylase. – Nêu được khái niệm tổng hợp các chất trong tế bào. Lấy được ví dụ minh hoạ (tổng hợp protein, lipid, carbohydrate,...). – Trình bày được quá trình tổng hợp các chất song song với tích luỹ năng lượng. – Nêu được vai trò quan trọng của quang hợp trong việc tổng hợp các chất và tích luỹ năng lượng trong tế bào thực vật. – Nêu được vai trò của hoá tổng hợp và quang khử ở vi khuẩn. – Phát biểu được khái niệm phân giải các chất trong tế bào. – Trình bày được các giai đoạn phân giải hiếu khí (hô hấp tế bào) và các giai đoạn phân giải kị khí (lên men). – Trình bày được quá trình phân giải các chất song song với giải phóng năng lượng. – Phân tích được mối quan hệ giữa tổng hợp và phân giải các chất trong tế bào.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
     "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
     "pdf_pages": [
+     17,
      18
     ]
    }
@@ -2518,14 +2631,42 @@
        "content": [
         {
          "type": "text",
-         "text": "– Trình bày được vai trò của sắc tố trong việc hấp thụ năng lượng ánh sáng. Nêu được các sản phẩm của quá trình biến đổi năng lượng ánh sáng thành năng lượng hoá học (ATP và – Nêu được các con đường đồng hoá carbon trong quang hợp. Chứng minh được sự thích nghi của thực vật C4 và CAM trong điều kiện môi trường bất lợi. – Trình bày được vai trò của sản phẩm quang hợp trong tổng hợp chất hữu cơ (chủ yếu là tinh bột), đối với cây và đối với sinh giới."
+         "text": "Trình bày được vai trò của sắc tố trong việc hấp thụ năng lượng ánh sáng. Nêu được các sản phẩm của quá trình biến đổi năng lượng ánh sáng thành năng lượng hoá học (ATP và NADPH)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các con đường đồng hoá carbon trong quang hợp. Chứng minh được sự thích nghi của thực vật C4 và CAM trong điều kiện môi trường bất lợi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của sản phẩm quang hợp trong tổng hợp chất hữu cơ (chủ yếu là tinh bột), đối với cây và đối với sinh giới."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Trình bày được vai trò của sắc tố trong việc hấp thụ năng lượng ánh sáng. Nêu được các sản phẩm của quá trình biến đổi năng lượng ánh sáng thành năng lượng hoá học (ATP và – Nêu được các con đường đồng hoá carbon trong quang hợp. Chứng minh được sự thích nghi của thực vật C4 và CAM trong điều kiện môi trường bất lợi. – Trình bày được vai trò của sản phẩm quang hợp trong tổng hợp chất hữu cơ (chủ yếu là tinh bột), đối với cây và đối với sinh giới.",
+   "outcome_text": "– Trình bày được vai trò của sắc tố trong việc hấp thụ năng lượng ánh sáng. Nêu được các sản phẩm của quá trình biến đổi năng lượng ánh sáng thành năng lượng hoá học (ATP và NADPH). – Nêu được các con đường đồng hoá carbon trong quang hợp. Chứng minh được sự thích nghi của thực vật C4 và CAM trong điều kiện môi trường bất lợi. – Trình bày được vai trò của sản phẩm quang hợp trong tổng hợp chất hữu cơ (chủ yếu là tinh bột), đối với cây và đối với sinh giới.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
@@ -7823,14 +7964,70 @@
        "content": [
         {
          "type": "text",
-         "text": "– Phát biểu được khái niệm môi trường sống của sinh vật. – Nêu được khái niệm nhân tố sinh thái. Phân biệt được các nhân tố sinh thái vô sinh và hữu sinh. Lấy được ví dụ về tác động của các nhân tố sinh thái lên đời sống sinh vật và thích nghi của sinh vật với các nhân tố đó. – Trình bày được các quy luật về tác động của các nhân tố sinh thái lên đời sống sinh vật (giới hạn sinh thái; tác động tổng hợp của các nhân tố sinh thái; tác động không đồng đều của các nhân tố sinh thái). Phân tích được những thay đổi của sinh vật có thể tác động làm thay đổi môi trường sống của chúng. – Phát biểu được khái niệm nhịp sinh học; giải thích được nhịp sinh học chính là sự thích nghi của sinh vật với những thay đổi có tính chu kì của môi trường. – Tìm hiểu được nhịp sinh học của chính cơ thể mình. –"
+         "text": "Phát biểu được khái niệm môi trường sống của sinh vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái niệm nhân tố sinh thái. Phân biệt được các nhân tố sinh thái vô sinh và hữu sinh. Lấy được ví dụ về tác động của các nhân tố sinh thái lên đời sống sinh vật và thích nghi của sinh vật với các nhân tố đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các quy luật về tác động của các nhân tố sinh thái lên đời sống sinh vật (giới hạn sinh thái; tác động tổng hợp của các nhân tố sinh thái; tác động không đồng đều của các nhân tố sinh thái). Phân tích được những thay đổi của sinh vật có thể tác động làm thay đổi môi trường sống của chúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát biểu được khái niệm nhịp sinh học; giải thích được nhịp sinh học chính là sự thích nghi của sinh vật với những thay đổi có tính chu kì của môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được nhịp sinh học của chính cơ thể mình."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Phát biểu được khái niệm môi trường sống của sinh vật. – Nêu được khái niệm nhân tố sinh thái. Phân biệt được các nhân tố sinh thái vô sinh và hữu sinh. Lấy được ví dụ về tác động của các nhân tố sinh thái lên đời sống sinh vật và thích nghi của sinh vật với các nhân tố đó. – Trình bày được các quy luật về tác động của các nhân tố sinh thái lên đời sống sinh vật (giới hạn sinh thái; tác động tổng hợp của các nhân tố sinh thái; tác động không đồng đều của các nhân tố sinh thái). Phân tích được những thay đổi của sinh vật có thể tác động làm thay đổi môi trường sống của chúng. – Phát biểu được khái niệm nhịp sinh học; giải thích được nhịp sinh học chính là sự thích nghi của sinh vật với những thay đổi có tính chu kì của môi trường. – Tìm hiểu được nhịp sinh học của chính cơ thể mình. –",
+   "outcome_text": "– Phát biểu được khái niệm môi trường sống của sinh vật. – Nêu được khái niệm nhân tố sinh thái. Phân biệt được các nhân tố sinh thái vô sinh và hữu sinh. Lấy được ví dụ về tác động của các nhân tố sinh thái lên đời sống sinh vật và thích nghi của sinh vật với các nhân tố đó. – Trình bày được các quy luật về tác động của các nhân tố sinh thái lên đời sống sinh vật (giới hạn sinh thái; tác động tổng hợp của các nhân tố sinh thái; tác động không đồng đều của các nhân tố sinh thái). Phân tích được những thay đổi của sinh vật có thể tác động làm thay đổi môi trường sống của chúng. – Phát biểu được khái niệm nhịp sinh học; giải thích được nhịp sinh học chính là sự thích nghi của sinh vật với những thay đổi có tính chu kì của môi trường. – Tìm hiểu được nhịp sinh học của chính cơ thể mình.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
@@ -7859,19 +8056,146 @@
        "content": [
         {
          "type": "text",
-         "text": "quần thể, tỉ lệ giới tính, nhóm tuổi, kiểu phân bố, mật độ cá thể). Lấy được ví dụ chứng minh sự ổn định của quần thể phụ thuộc sự ổn định của các đặc trưng đó. – Phân biệt được các kiểu tăng trưởng quần thể sinh vật (tăng trưởng theo tiềm năng sinh học và tăng trưởng trong môi trường có nguồn sống bị giới hạn). – Nêu được các yếu tố ảnh hưởng tới tăng trưởng quần thể. – Trình bày được các kiểu biến động số lượng cá thể của quần thể. – Giải thích được cơ chế điều hoà mật độ của quần thể. – Phân biệt được ba kiểu đường cong sống sót của quần thể. – Giải thích được quần thể là một cấp độ tổ chức sống. – Nêu được các đặc điểm tăng trưởng của quần thể người; phân tích được hậu quả của tăng trưởng dân số quá nhanh. – Phân tích được các ứng dụng hiểu biết về quần thể trong thực tiễn (trồng trọt, chăn nuôi, bảo tồn,...). – Thực hành tính được kích thước của quần thể thực vật và các động vật ít di chuyển; tính được kích thước của quần thể động vật theo phương pháp “bắt, đánh dấu, thả, bắt lại”."
+         "text": "Trình bày được các đặc trưng cơ bản của quần thể sinh vật (số lượng cá thể, kích thước quần thể, tỉ lệ giới tính, nhóm tuổi, kiểu phân bố, mật độ cá thể). Lấy được ví dụ chứng minh sự ổn định của quần thể phụ thuộc sự ổn định của các đặc trưng đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các kiểu tăng trưởng quần thể sinh vật (tăng trưởng theo tiềm năng sinh học và tăng trưởng trong môi trường có nguồn sống bị giới hạn)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các yếu tố ảnh hưởng tới tăng trưởng quần thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các kiểu biến động số lượng cá thể của quần thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được cơ chế điều hoà mật độ của quần thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được ba kiểu đường cong sống sót của quần thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được quần thể là một cấp độ tổ chức sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các đặc điểm tăng trưởng của quần thể người; phân tích được hậu quả của tăng trưởng dân số quá nhanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các ứng dụng hiểu biết về quần thể trong thực tiễn (trồng trọt, chăn nuôi, bảo tồn,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành tính được kích thước của quần thể thực vật và các động vật ít di chuyển; tính được kích thước của quần thể động vật theo phương pháp “bắt, đánh dấu, thả, bắt lại”."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "quần thể, tỉ lệ giới tính, nhóm tuổi, kiểu phân bố, mật độ cá thể). Lấy được ví dụ chứng minh sự ổn định của quần thể phụ thuộc sự ổn định của các đặc trưng đó. – Phân biệt được các kiểu tăng trưởng quần thể sinh vật (tăng trưởng theo tiềm năng sinh học và tăng trưởng trong môi trường có nguồn sống bị giới hạn). – Nêu được các yếu tố ảnh hưởng tới tăng trưởng quần thể. – Trình bày được các kiểu biến động số lượng cá thể của quần thể. – Giải thích được cơ chế điều hoà mật độ của quần thể. – Phân biệt được ba kiểu đường cong sống sót của quần thể. – Giải thích được quần thể là một cấp độ tổ chức sống. – Nêu được các đặc điểm tăng trưởng của quần thể người; phân tích được hậu quả của tăng trưởng dân số quá nhanh. – Phân tích được các ứng dụng hiểu biết về quần thể trong thực tiễn (trồng trọt, chăn nuôi, bảo tồn,...). – Thực hành tính được kích thước của quần thể thực vật và các động vật ít di chuyển; tính được kích thước của quần thể động vật theo phương pháp “bắt, đánh dấu, thả, bắt lại”.",
+   "outcome_text": "– Trình bày được các đặc trưng cơ bản của quần thể sinh vật (số lượng cá thể, kích thước quần thể, tỉ lệ giới tính, nhóm tuổi, kiểu phân bố, mật độ cá thể). Lấy được ví dụ chứng minh sự ổn định của quần thể phụ thuộc sự ổn định của các đặc trưng đó. – Phân biệt được các kiểu tăng trưởng quần thể sinh vật (tăng trưởng theo tiềm năng sinh học và tăng trưởng trong môi trường có nguồn sống bị giới hạn). – Nêu được các yếu tố ảnh hưởng tới tăng trưởng quần thể. – Trình bày được các kiểu biến động số lượng cá thể của quần thể. – Giải thích được cơ chế điều hoà mật độ của quần thể. – Phân biệt được ba kiểu đường cong sống sót của quần thể. – Giải thích được quần thể là một cấp độ tổ chức sống. – Nêu được các đặc điểm tăng trưởng của quần thể người; phân tích được hậu quả của tăng trưởng dân số quá nhanh. – Phân tích được các ứng dụng hiểu biết về quần thể trong thực tiễn (trồng trọt, chăn nuôi, bảo tồn,...). – Thực hành tính được kích thước của quần thể thực vật và các động vật ít di chuyển; tính được kích thước của quần thể động vật theo phương pháp “bắt, đánh dấu, thả, bắt lại”.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
     "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
     "pdf_pages": [
+     49,
      50
     ]
    }
@@ -7895,19 +8219,90 @@
        "content": [
         {
          "type": "text",
-         "text": "bởi sự cân bằng chỉ số các đặc trưng đó. – Trình bày được khái niệm và phân biệt được các mối quan hệ giữa các loài trong quần xã (cạnh tranh, hợp tác, cộng sinh, hội sinh, ức chế, kí sinh, động vật ăn thực vật, vật ăn thịt con mồi). – Trình bày được khái niệm ổ sinh thái và vai trò của cạnh tranh trong việc hình thành ổ sinh thái. – Phân tích được tác động của việc du nhập các loài ngoại lai hoặc giảm loài trong cấu trúc quần xã đến trạng thái cân bằng của hệ sinh thái. Lấy được ví dụ minh hoạ. – Giải thích được quần xã là một cấp độ tổ chức sống và trình bày được một số biện pháp bảo vệ quần xã. – Thực hành: Tính được độ phong phú của loài trong quần xã; tính được độ đa dạng của quần xã theo chỉ số Shannon."
+         "text": "Phân tích được các đặc trưng cơ bản của quần xã: thành phần loài (loài ưu thế, loài đặc trưng, loài chủ chốt); chỉ số đa dạng và độ phong phú trong quần xã; cấu trúc không gian; cấu trúc chức năng dinh dưỡng. Giải thích được sự cân bằng của quần xã được bảo đảm bởi sự cân bằng chỉ số các đặc trưng đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm và phân biệt được các mối quan hệ giữa các loài trong quần xã (cạnh tranh, hợp tác, cộng sinh, hội sinh, ức chế, kí sinh, động vật ăn thực vật, vật ăn thịt con mồi)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm ổ sinh thái và vai trò của cạnh tranh trong việc hình thành ổ sinh thái."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của việc du nhập các loài ngoại lai hoặc giảm loài trong cấu trúc quần xã đến trạng thái cân bằng của hệ sinh thái. Lấy được ví dụ minh hoạ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được quần xã là một cấp độ tổ chức sống và trình bày được một số biện pháp bảo vệ quần xã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành: Tính được độ phong phú của loài trong quần xã; tính được độ đa dạng của quần xã theo chỉ số Shannon."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "bởi sự cân bằng chỉ số các đặc trưng đó. – Trình bày được khái niệm và phân biệt được các mối quan hệ giữa các loài trong quần xã (cạnh tranh, hợp tác, cộng sinh, hội sinh, ức chế, kí sinh, động vật ăn thực vật, vật ăn thịt con mồi). – Trình bày được khái niệm ổ sinh thái và vai trò của cạnh tranh trong việc hình thành ổ sinh thái. – Phân tích được tác động của việc du nhập các loài ngoại lai hoặc giảm loài trong cấu trúc quần xã đến trạng thái cân bằng của hệ sinh thái. Lấy được ví dụ minh hoạ. – Giải thích được quần xã là một cấp độ tổ chức sống và trình bày được một số biện pháp bảo vệ quần xã. – Thực hành: Tính được độ phong phú của loài trong quần xã; tính được độ đa dạng của quần xã theo chỉ số Shannon.",
+   "outcome_text": "– Phân tích được các đặc trưng cơ bản của quần xã: thành phần loài (loài ưu thế, loài đặc trưng, loài chủ chốt); chỉ số đa dạng và độ phong phú trong quần xã; cấu trúc không gian; cấu trúc chức năng dinh dưỡng. Giải thích được sự cân bằng của quần xã được bảo đảm bởi sự cân bằng chỉ số các đặc trưng đó. – Trình bày được khái niệm và phân biệt được các mối quan hệ giữa các loài trong quần xã (cạnh tranh, hợp tác, cộng sinh, hội sinh, ức chế, kí sinh, động vật ăn thực vật, vật ăn thịt con mồi). – Trình bày được khái niệm ổ sinh thái và vai trò của cạnh tranh trong việc hình thành ổ sinh thái. – Phân tích được tác động của việc du nhập các loài ngoại lai hoặc giảm loài trong cấu trúc quần xã đến trạng thái cân bằng của hệ sinh thái. Lấy được ví dụ minh hoạ. – Giải thích được quần xã là một cấp độ tổ chức sống và trình bày được một số biện pháp bảo vệ quần xã. – Thực hành: Tính được độ phong phú của loài trong quần xã; tính được độ đa dạng của quần xã theo chỉ số Shannon.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
     "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
     "pdf_pages": [
+     50,
      51
     ]
    }
