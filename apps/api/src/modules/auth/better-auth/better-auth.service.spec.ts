@@ -51,8 +51,12 @@ describe('BetterAuthService', () => {
     // Ghim tường minh false: Better Auth tự bỏ qua kiểm tra Origin khi
     // NODE_ENV=test nếu không khai — xem báo cáo Giai đoạn 0.
     expect(auth.options.advanced?.disableOriginCheck).toBe(false);
-    // PostgreSQL tự sinh UUIDv7; Better Auth không tự sinh id.
-    expect(auth.options.advanced?.database?.generateId).toBe(false);
+    // BA-1: generateId ghim "uuid" thay cho false trước đây. Id
+    // thường vẫn do PostgreSQL sinh UUIDv7 (adapter drizzle khai
+    // supportsUUIDs cho pg nên shouldGenerateId = false); "uuid" chỉ
+    // đổi dạng id tất định của verification lock sang UUID để hết
+    // lỗi 22P02 (xem ghi chú tại advanced.database trong instance).
+    expect(auth.options.advanced?.database?.generateId).toBe('uuid');
     // Cookie cache tắt để thu hồi phiên có hiệu lực ngay.
     expect(auth.options.session?.cookieCache?.enabled).toBe(false);
     // Plugin username chính chủ phải có mặt (đăng nhập bằng username).
