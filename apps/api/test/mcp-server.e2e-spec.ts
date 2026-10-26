@@ -549,9 +549,12 @@ describe('MCP server (MCP-0, issue #110)', () => {
 
   it('idempotency: phát lại trả kết quả cũ; cùng key khác payload → conflict; trùng exact → verdict, không nhân đôi', async () => {
     const key = uniqueName('key');
+    // Thân câu duy nhất theo lượt chạy (đếm theo thân câu nên phải
+    // phân biệt được với dữ liệu của lượt chạy trước trên cùng DB).
+    const idemText = `Câu kiểm idempotency ${uniqueName('mcpIdem')}.`;
     const payload = {
       bankId: bankA, categoryId: catA, qtype: 'multichoice',
-      questionText: 'Câu kiểm idempotency.',
+      questionText: idemText,
       answers: [
         { text: 'Đúng', correct: true },
         { text: 'Sai', correct: false },
@@ -567,9 +570,9 @@ describe('MCP server (MCP-0, issue #110)', () => {
     const replay = await callTool(app, teacherA.token, 'create_question', payload);
     expect(replay.isError).toBe(false);
     expect(replay.structured!.questionId).toBe(qid);
-    expect(await countQuestionsWithText('Câu kiểm idempotency.')).toBe(1);
+    expect(await countQuestionsWithText(idemText)).toBe(1);
 
-    const conflict = await callTool(app, teacherA.token, 'create_question', { ...payload, questionText: 'Câu kiểm idempotency khác.' });
+    const conflict = await callTool(app, teacherA.token, 'create_question', { ...payload, questionText: `${idemText} khác.` });
     expect(conflict.isError).toBe(true);
     expect(conflict.structured!.error.code).toBe('question.idempotency_conflict');
 
@@ -577,7 +580,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(dup.isError).toBe(false);
     expect(dup.structured!.status).toBe('duplicate_exact');
     expect(dup.structured!.existingQuestionId).toBe(qid);
-    expect(await countQuestionsWithText('Câu kiểm idempotency.')).toBe(1);
+    expect(await countQuestionsWithText(idemText)).toBe(1);
 
     // Gần trùng: cùng thân câu, đáp án khác → vẫn tạo nhưng gắn cờ near.
     const near = await callTool(app, teacherA.token, 'create_question', {
