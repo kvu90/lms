@@ -2292,7 +2292,9 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     await openGroupFromTree(/Nhóm ôn tập/);
     await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
 
-    expect(screen.getByText('Nhóm tự do')).toBeInTheDocument();
+    // Loại "Nhóm tự do" khẳng định trong phạm vi panel (cây bên trái
+    // cũng có một tiêu đề mục cùng chữ).
+    expect(within(screen.getByTestId('member-panel')).getByText('Nhóm tự do')).toBeInTheDocument();
     expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
     expect(screen.getByText('Thành viên')).toBeInTheDocument();
     // Người tạo nhóm là tôi: dòng của tôi mang huy hiệu Người tạo nhóm.

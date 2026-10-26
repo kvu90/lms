@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import { Check, Info, MessageCircle, Trash, UserPlus, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
-import { Button } from '@lms/ui/components/button';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
@@ -138,9 +137,10 @@ interface MemberActionMenuProps {
  *   đã mở trước ở chiều HS→GV — cổng cuối vẫn là `assertCanContact`
  *   phía server khi mở/gửi). Quan hệ chặn thì mục này KHÔNG hiện —
  *   chặn thắng mọi bề mặt.
- * - Chưa quan hệ và không có cờ nhắn thẳng: hiện "Kết bạn" thay cho
- *   Nhắn riêng (HS↔HS vẫn phải kết bạn trước). Đang chờ đến thì
- *   Chấp nhận/Từ chối; đang chờ đi thì một mục mờ ghi trạng thái.
+ * - Chưa quan hệ, không có cờ nhắn thẳng và cũng chưa có hội
+ *   thoại 1–1 nào tồn tại: hiện "Kết bạn" thay cho Nhắn riêng
+ *   (HS↔HS vẫn phải kết bạn trước). Đang chờ đến thì Chấp
+ *   nhận/Từ chối; đang chờ đi thì một mục mờ ghi trạng thái.
  * - "Xem thông tin" luôn có (trừ khi bị chặn hai chiều — dòng đó
  *   vốn đã bị ẩn khỏi roster/panel ở tầng dữ liệu).
  * - Mục quản trị chỉ khi `canManage`: nhóm cấu trúc dẫn về màn
@@ -187,7 +187,7 @@ export function MemberActionMenu({
             {t('directMessageAction')}
           </DropdownMenuItem>
         ) : null}
-        {!isSelf && entry.relationship === 'none' && !entry.canDirectMessage ? (
+        {!isSelf && entry.relationship === 'none' && !entry.canDirectMessage && !hasDirectConversation ? (
           <DropdownMenuItem onClick={() => onSendContactRequest(entry.userId)}>
             <UserPlus aria-hidden />
             {t('addContact')}
@@ -319,16 +319,16 @@ interface MemberPanelProps {
   readMarkers: Record<string, number>;
   /** Seq tin mới nhất đang có — mốc so "đã xem" của từng thành viên. */
   newestSeq: number;
-  /** Bật/tắt chat của conversation (chỉ gọi khi người xem có thẩm quyền quản lý). */
-  onToggleChat: () => void;
   /** Mở hồ sơ rút gọn của một thành viên. */
   onViewProfile: (entry: MemberPanelEntry) => void;
 }
 
 /**
- * Thân PANEL THÔNG TIN của một hội thoại nhóm: thông tin nhóm +
- * công tắc chat (theo thẩm quyền) + danh sách thành viên phân
- * nhóm, thay cho danh sách id thô của panel cũ.
+ * Thân PANEL THÔNG TIN của một hội thoại nhóm: thông tin nhóm
+ * (kèm trạng thái bật/tắt chat — công tắc nằm ở thanh hành động
+ * của khung chat, chỉ người có thẩm quyền quản lý mới thấy) +
+ * danh sách thành viên phân nhóm, thay cho danh sách id thô của
+ * panel cũ.
  *
  * Luồng hiển thị: trang nạp roster theo ngữ cảnh và đưa các dòng
  * xuống qua `bundle.entries`; panel phân hai nhóm theo `role`
@@ -342,7 +342,7 @@ interface MemberPanelProps {
  * @returns Khối panel hiển thị dưới header khung chat khi nút Info đang bật.
  */
 export function MemberPanel({
-  conversation, bundle, myId, onlineUsers, readMarkers, newestSeq, onToggleChat, onViewProfile,
+  conversation, bundle, myId, onlineUsers, readMarkers, newestSeq, onViewProfile,
 }: MemberPanelProps) {
   const { t } = useTranslation('app');
   const { context, entries, failed, notice } = bundle;
@@ -399,7 +399,7 @@ export function MemberPanel({
   };
 
   return (
-    <div className="space-y-3 border-b px-3 py-2">
+    <div className="space-y-3 border-b px-3 py-2" data-testid="member-panel">
       <h3 className="text-sm font-medium">{t('conversationInfoTitle')}</h3>
       <dl className="space-y-1 text-sm">
         <div className="flex justify-between gap-3">
@@ -422,15 +422,8 @@ export function MemberPanel({
         </div>
         <div className="flex items-center justify-between gap-3">
           <dt className="text-muted-foreground">{t('memberInfoChatState')}</dt>
-          <dd className="flex items-center gap-2">
-            <span className="font-medium">
-              {(conversation.enabled ?? true) ? t('memberChatOn') : t('memberChatOff')}
-            </span>
-            {conversation.canManage ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => onToggleChat()}>
-                {(conversation.enabled ?? true) ? t('disableChat') : t('enableChat')}
-              </Button>
-            ) : null}
+          <dd className="font-medium">
+            {(conversation.enabled ?? true) ? t('memberChatOn') : t('memberChatOff')}
           </dd>
         </div>
       </dl>

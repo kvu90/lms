@@ -445,7 +445,6 @@ export function ChatPanel({
           onlineUsers={onlineUsers}
           readMarkers={readMarkers}
           newestSeq={newestSeq}
-          onToggleChat={onToggleChat}
           onViewProfile={memberProfile.open}
         />
       ) : null}
