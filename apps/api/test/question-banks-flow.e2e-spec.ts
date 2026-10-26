@@ -178,6 +178,46 @@ describe('Shared question bank (feat #70)', () => {
     expect(results.every((r) => r.ok && r.newQuestionId)).toBe(true);
   });
 
+  // QB-2 (bổ sung theo phán quyết ĐG cuối chuỗi 6419937157): bản copy
+  // phải mang đủ answerKey của bản gốc — guidance + solution là dữ
+  // liệu phía đáp án, mất chúng là mất dữ liệu dù câu vẫn copy được.
+  // Sửa answerKey ở bản copy không được đụng bản gốc (answerKey độc lập).
+  it('QB-2: copy mang đủ guidance + solution của bản gốc, sửa answerKey bản copy không đụng bản gốc', async () => {
+    const alice = await mkStaffUser();
+    const bank = await myPersonalBank(alice);
+    const sourceRes = await http(app).post('/api/v1/questions').set(bearer(alice.token)).send({
+      categoryId: bank.defaultCategoryId!, qtype: 'essay',
+      questionText: 'Phân tích nguyên nhân ô nhiễm không khí đô thị?',
+      guidance: 'Hướng dẫn bản gốc: đọc kỹ yêu cầu trước khi viết.',
+      solution: { answer: 'Lời giải mẫu bản gốc: ba ý chính.' },
+    });
+    expect(sourceRes.status, JSON.stringify(sourceRes.body)).toBe(201);
+    type AnswerKeyView = QuestionViewBody & { answerKey: { guidance: unknown; solution: unknown } };
+    const source = sourceRes.body as AnswerKeyView;
+    expect(source.answerKey.guidance).toBeTruthy();
+    expect(source.answerKey.solution).toBeTruthy();
+
+    const copyRes = await http(app).post(`/api/v1/questions/${source.question.id}/copy`).set(bearer(alice.token)).send({});
+    expect(copyRes.status, JSON.stringify(copyRes.body)).toBe(201);
+    const copy = copyRes.body as AnswerKeyView;
+    expect(copy.question.id).not.toBe(source.question.id);
+    // Bản copy mang đủ answerKey của bản gốc, bằng sâu từng trường.
+    expect(copy.answerKey.guidance).toEqual(source.answerKey.guidance);
+    expect(copy.answerKey.solution).toEqual(source.answerKey.solution);
+    // Đọc lại bản copy bằng đường GET chuẩn cũng phải thấy đủ answerKey.
+    const copyRead = await http(app).get(`/api/v1/questions/${copy.question.id}`).set(bearer(alice.token));
+    expect(copyRead.status).toBe(200);
+    expect((copyRead.body as AnswerKeyView).answerKey.guidance).toEqual(source.answerKey.guidance);
+    expect((copyRead.body as AnswerKeyView).answerKey.solution).toEqual(source.answerKey.solution);
+
+    // Sửa guidance ở bản copy không đụng bản gốc (answerKey độc lập).
+    const editCopy = await http(app).patch(`/api/v1/questions/${copy.question.id}`).set(bearer(alice.token))
+      .send({ guidance: 'Hướng dẫn ĐÃ SỬA ở bản copy.' });
+    expect(editCopy.status, JSON.stringify(editCopy.body)).toBe(200);
+    const sourceAfter = await http(app).get(`/api/v1/questions/${source.question.id}`).set(bearer(alice.token));
+    expect((sourceAfter.body as AnswerKeyView).answerKey.guidance).toEqual(source.answerKey.guidance);
+  });
+
   it('bank_kind: bank đa loại — bank đề cá nhân tách hẳn bank câu hỏi, unique theo (scope, kind)', async () => {
     const carol = await mkStaffUser();
     const questionBank = await myPersonalBank(carol);
