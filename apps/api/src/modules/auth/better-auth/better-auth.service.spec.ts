@@ -67,6 +67,42 @@ describe('BetterAuthService', () => {
     expect(auth.options.hooks?.after).toBeDefined();
   });
 
+  it('defaults the cutover stage to off: no legacy sync hooks are wired', () => {
+    const service = buildService({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
+    expect(service.cutoverStage).toBe('off');
+    const auth = service.requireAuth();
+    // Ngoài cửa sổ bake: không database hook, không callback đồng bộ
+    // ngược — hành vi auth như trước chặng 2.7-prep.
+    expect(auth.options.databaseHooks).toBeUndefined();
+    expect(auth.options.emailAndPassword?.onPasswordReset).toBeUndefined();
+  });
+
+  it('refuses to initialize when AUTH_CUTOVER_STAGE=bake without BETTER_AUTH_ENABLED', () => {
+    // Cửa sổ bake chạy trên phiên Better Auth — bật bake mà hệ BA tắt
+    // là cấu hình nửa vời, phải chết ngay lúc boot thay vì chạy lặng.
+    expect(() => buildService({ AUTH_CUTOVER_STAGE: 'bake', PORT: 3000 })).toThrow(
+      /AUTH_CUTOVER_STAGE=bake requires BETTER_AUTH_ENABLED/,
+    );
+  });
+
+  it('wires the bake-window legacy sync when stage is bake and BA is enabled', () => {
+    const service = buildService({
+      BETTER_AUTH_ENABLED: true,
+      BETTER_AUTH_SECRET: SECRET,
+      AUTH_CUTOVER_STAGE: 'bake',
+      PORT: 3000,
+    });
+    expect(service.cutoverStage).toBe('bake');
+    const auth = service.requireAuth();
+    // Ba điểm nối đồng bộ ngược (xem legacyPasswordSync ở factory):
+    // hook tạo credential + callback sau reset. Đường cập nhật mật
+    // khẩu KHÔNG có database hook update — updatePassword của 1.7.12
+    // đi qua updateMany (hook nhận số dòng, không phải bản ghi).
+    expect(typeof auth.options.databaseHooks?.account?.create?.after).toBe('function');
+    expect(Object.keys(auth.options.databaseHooks?.account ?? {})).toEqual(['create']);
+    expect(typeof auth.options.emailAndPassword?.onPasswordReset).toBe('function');
+  });
+
   it('has no mail surface when the mail port is not wired (phase 2.5 not connected yet)', () => {
     const service = buildService({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
     const auth = service.requireAuth();
