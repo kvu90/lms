@@ -154,8 +154,11 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     googleJwks = { keys: [{ ...jwk, kid: 'ba3-key-1', alg: 'RS256', use: 'sig' }] };
 
     globalThis.fetch = (async (input: unknown, init?: unknown) => {
+      // better-fetch truyền đối tượng URL làm đối số đầu — lấy href.
       const url =
-        typeof input === 'string' ? input : ((input as { url?: string })?.url ?? '');
+        typeof input === 'string'
+          ? input
+          : (((input as { href?: string })?.href ?? (input as { url?: string })?.url) ?? '');
       if (url.startsWith('https://oauth2.googleapis.com/token')) {
         return jsonResponse({
           access_token: 'ba3-google-access-token',
@@ -232,12 +235,12 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     expect(res.headers.location as string).toContain('/dashboard');
     expect(sessionCookieValue(res)).toBeTruthy();
     const accounts = await countRows(
-      `SELECT count(*)::int AS n FROM accounts WHERE user_id = $1 AND provider_id = 'google' AND account_id = 'google-sub-1'`,
+      `SELECT count(*)::int AS n FROM account WHERE user_id = $1 AND provider_id = 'google' AND account_id = 'google-sub-1'`,
       [seeded.id],
     );
     expect(accounts).toBe(1);
     const sessions = await countRows(
-      `SELECT count(*)::int AS n FROM sessions WHERE user_id = $1`,
+      `SELECT count(*)::int AS n FROM session WHERE user_id = $1`,
       [seeded.id],
     );
     expect(sessions).toBeGreaterThanOrEqual(1);
@@ -263,7 +266,7 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     expect(res.status).toBe(302);
     expect(sessionCookieValue(res)).toBeTruthy();
     const accounts = await countRows(
-      `SELECT count(*)::int AS n FROM accounts WHERE user_id = $1 AND provider_id = 'google'`,
+      `SELECT count(*)::int AS n FROM account WHERE user_id = $1 AND provider_id = 'google'`,
       [userId],
     );
     expect(accounts).toBe(1);
@@ -297,8 +300,8 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     });
     await pg.query(
       `INSERT INTO two_factor (id, user_id, secret, backup_codes, verified)
-       VALUES ($1, $2, 'ba3-totp-secret', '[]', true)`,
-      [`ba3-tf-${seeded.id}`, seeded.id],
+       VALUES (gen_random_uuid(), $1, 'ba3-totp-secret', '[]', true)`,
+      [seeded.id],
     );
     currentGoogleIdToken = mintGoogleIdToken({ sub: 'google-sub-mfa', email, emailVerified: true });
 
@@ -312,7 +315,7 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     // lúc chờ bước hai — cookie session rỗng và không có dòng session.
     expect(sessionCookieValue(res)).toBeNull();
     const sessions = await countRows(
-      `SELECT count(*)::int AS n FROM sessions WHERE user_id = $1`,
+      `SELECT count(*)::int AS n FROM session WHERE user_id = $1`,
       [seeded.id],
     );
     expect(sessions).toBe(0);
@@ -321,7 +324,7 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     const setCookies = (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
     expect(setCookies.some((c) => c.startsWith('better-auth.two_factor='))).toBe(true);
     const pending = await pg.query<{ identifier: string; value: string }>(
-      `SELECT identifier, value FROM verifications WHERE identifier LIKE '2fa%' ORDER BY identifier`,
+      `SELECT identifier, value FROM verification WHERE identifier LIKE '2fa%' ORDER BY identifier`,
     );
     const pendingForUser = pending.rows.filter((r) => r.value === seeded.id);
     expect(pendingForUser.length).toBeGreaterThanOrEqual(1);
@@ -347,12 +350,12 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     expect(res.headers.location as string).toContain('error');
     expect(sessionCookieValue(res)).toBeNull();
     const accounts = await countRows(
-      `SELECT count(*)::int AS n FROM accounts WHERE user_id = $1 AND provider_id = 'facebook'`,
+      `SELECT count(*)::int AS n FROM account WHERE user_id = $1 AND provider_id = 'facebook'`,
       [seeded.id],
     );
     expect(accounts).toBe(0);
     const sessions = await countRows(
-      `SELECT count(*)::int AS n FROM sessions WHERE user_id = $1`,
+      `SELECT count(*)::int AS n FROM session WHERE user_id = $1`,
       [seeded.id],
     );
     expect(sessions).toBe(0);

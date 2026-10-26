@@ -111,15 +111,32 @@ async function consumeTrustDevice(ctx: GateContext, userId: string): Promise<boo
   return true;
 }
 
+/** Phụ thuộc tra cứu bản ghi MFA do instance truyền vào. */
+export interface OAuthMfaGateDeps {
+  /**
+   * Tra bản ghi `two_factor` của user TRỰC TIẾP qua Drizzle: model
+   * `twoFactor` chỉ có trong registry của adapter khi plugin twoFactor
+   * đã được bật (chặng 2.2), nên cổng không dựa vào adapter cho tra
+   * cứu này — instance truyền hàm tra qua ánh xạ `betterAuthTwoFactor`.
+   */
+  lookupTwoFactorRecord?: (userId: string) => Promise<{ verified: boolean } | null>;
+}
+
 /** User đã bật MFA chưa: cờ của plugin khi có mặt, ngược lại suy từ bản ghi two_factor đã verify. */
-async function isMfaEnabled(ctx: GateContext, user: { id: string; twoFactorEnabled?: boolean | null }): Promise<boolean> {
+async function isMfaEnabled(
+  ctx: GateContext,
+  deps: OAuthMfaGateDeps,
+  user: { id: string; twoFactorEnabled?: boolean | null },
+): Promise<boolean> {
   if (user.twoFactorEnabled === true) return true;
-  const record = await ctx.context.adapter
-    .findOne({
-      model: 'twoFactor',
-      where: [{ field: 'userId', value: user.id }],
-    })
-    .catch(() => null);
+  const record = deps.lookupTwoFactorRecord
+    ? await deps.lookupTwoFactorRecord(user.id).catch(() => null)
+    : await ctx.context.adapter
+        .findOne({
+          model: 'twoFactor',
+          where: [{ field: 'userId', value: user.id }],
+        })
+        .catch(() => null);
   return Boolean(record && (record as { verified?: boolean }).verified === true);
 }
 
@@ -144,13 +161,13 @@ function twoFactorRedirectTarget(ctx: GateContext): string {
  * đang đăng nhập — các trường hợp đó không có `newSession`) hook đi
  * qua không đổi hành vi.
  */
-export function createOAuthMfaGateHook() {
+export function createOAuthMfaGateHook(deps: OAuthMfaGateDeps = {}) {
   return createAuthMiddleware(async (ctx) => {
     if (!ctx.path.startsWith('/callback/')) return;
     const data = ctx.context.newSession;
     if (!data) return;
     const { session, user } = data;
-    if (!(await isMfaEnabled(ctx, user))) return;
+    if (!(await isMfaEnabled(ctx, deps, user))) return;
     if (await consumeTrustDevice(ctx, user.id)) return;
 
     // Xoá phiên vừa tạo ở cả hai tầng như plugin làm: cookie trên

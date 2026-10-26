@@ -3,7 +3,7 @@
  * boot và các luồng Better Auth khác không bị ảnh hưởng (issue #7,
  * chặng 2.3). File này chủ động XOÁ cả bốn biến họ GOOGLE và FACEBOOK
  * trước khi app nạp env — hành vi mong đợi: POST /sign-in/social với
- * provider google/facebook bị Better Auth từ chối (400) vì provider
+ * provider google/facebook bị Better Auth từ chối (404) vì provider
  * không được đăng ký vào instance.
  */
 
@@ -65,7 +65,7 @@ describe('Better Auth — provider xã hội tắt êm khi thiếu env (e2e)', (
       .post('/api/v1/auth/sign-in/social')
       .set('Origin', ORIGIN)
       .send({ provider: 'google', callbackURL: '/dashboard' });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
     expect(JSON.stringify(res.body)).not.toContain('accounts.google.com');
   });
 
@@ -74,7 +74,7 @@ describe('Better Auth — provider xã hội tắt êm khi thiếu env (e2e)', (
       .post('/api/v1/auth/sign-in/social')
       .set('Origin', ORIGIN)
       .send({ provider: 'facebook', callbackURL: '/dashboard' });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(404);
     expect(JSON.stringify(res.body)).not.toContain('facebook.com');
   });
 });

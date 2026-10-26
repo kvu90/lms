@@ -26,8 +26,9 @@ import { APIError, betterAuth } from 'better-auth';
 import { jwt, username } from 'better-auth/plugins';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PasswordService } from '../../users/password.service';
+import { eq } from 'drizzle-orm';
 import { createEmailOtpPlugin, type AuthMailPort } from '../../mail/email-otp.plugin';
-import { betterAuthSchema } from './better-auth.schema';
+import { betterAuthSchema, betterAuthTwoFactor } from './better-auth.schema';
 import { createOAuthMfaGateHook } from './oauth-mfa-gate';
 
 /** Đường dẫn gốc mà handler của Better Auth được mount tại (xem better-auth.mount.ts). */
@@ -151,7 +152,19 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       // Cổng chặn hoàn tất OAuth khi tài khoản đã bật MFA (chặng
       // 2.3) — xem oauth-mfa-gate.ts; hook tự đi qua ở mọi đường
       // không phải callback OAuth có phiên mới.
-      after: createOAuthMfaGateHook(),
+      after: createOAuthMfaGateHook({
+        // Tra bản ghi MFA trực tiếp qua ánh xạ Drizzle — model
+        // twoFactor chưa có trong registry adapter khi plugin chưa
+        // bật (xem OAuthMfaGateDeps).
+        lookupTwoFactorRecord: async (userId) => {
+          const rows = await deps.db
+            .select({ verified: betterAuthTwoFactor.verified })
+            .from(betterAuthTwoFactor)
+            .where(eq(betterAuthTwoFactor.userId, userId))
+            .limit(1);
+          return rows[0] ?? null;
+        },
+      }),
     },
     // Khi compose AS: tắt endpoint `/token` của plugin jwt() theo tài
     // liệu OAuth Provider (token chỉ phát qua `/oauth2/token`).
