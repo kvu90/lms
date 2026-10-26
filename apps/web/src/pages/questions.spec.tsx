@@ -341,8 +341,9 @@ describe('Question bank page — role gate (issue #55)', () => {
  * #70, đính chính 25/10/2026): admin có khu riêng ĐÚNG NHƯ giáo viên.
  * Từ lát R1 (chuẩn đường dẫn #221) mỗi khu vực là một trang theo path
  * riêng (/questions, /matrices, /exams, /system-bank/*) và
- * trang chỉ render khu vực của nó, collapse của khu mở sẵn; nút Thêm
- * mới trong khu riêng dùng được (không disabled oan) cho CẢ admin
+ * trang chỉ render khu vực của nó; danh sách của khu hiện THẲNG,
+ * không qua thẻ thu/mở (chốt 23:43 ngày 26/10/2026, issue #228);
+ * nút tạo ở PageHeader dùng được (không disabled oan) cho CẢ admin
  * (isSiteAdmin) lẫn giáo viên (capability qua context, không phải
  * site admin).
  */
@@ -416,46 +417,55 @@ describe('Question bank page — admin parity (issue #70)', () => {
     );
   }
 
+  const AREA_TOGGLES = [/Ngân hàng riêng của tôi/, /Ma trận của tôi/, /Đề của tôi/, /Ngân hàng hệ thống/];
+
   async function expectFullBankSurface() {
-    // Câu hỏi của tôi (/questions): chỉ có collapse riêng và mở sẵn;
-    // hai khu riêng còn lại KHÔNG nằm chung trang nữa (chuẩn #221).
+    // Câu hỏi của tôi (/questions): danh sách khu riêng hiện THẲNG —
+    // không còn thẻ thu/mở của bất kỳ khu ngân hàng nào; nút tạo nằm
+    // ở PageHeader (link Câu hỏi mới trỏ đúng đích theo category
+    // đang chọn, link Danh mục mới) và KHÔNG còn nút "Thêm mới" lặp
+    // trong danh sách.
     renderArea('my-questions');
-    expect(await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
+    const newQuestionLink = await screen.findByRole('link', { name: 'Câu hỏi mới' });
+    await waitFor(() =>
+      expect(newQuestionLink).toHaveAttribute('href', `/questions/new?category=${CATEGORY_ID}`),
     );
-    expect(screen.queryByRole('button', { name: /Ma trận của tôi/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Ngân hàng hệ thống/ })).toBeNull();
-    // Nút Thêm mới trong khu riêng dùng được (bank cá nhân có category
-    // mặc định) — không disabled oan theo vai.
-    const addButtons = await screen.findAllByRole('button', { name: 'Thêm mới' });
-    expect(addButtons.length).toBeGreaterThanOrEqual(1);
-    for (const b of addButtons) expect(b).not.toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Danh mục mới' })).toHaveAttribute(
+      'href',
+      '/questions/categories/new',
+    );
+    for (const toggle of AREA_TOGGLES) expect(screen.queryByRole('button', { name: toggle })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Thêm mới' })).toBeNull();
     cleanup();
-    // Ma trận của tôi (/matrices): collapse ma trận mở sẵn ở trang
-    // riêng, Thêm mới cũng dùng được.
+    // Ma trận của tôi (/matrices): nút Ma trận mới + Nhập từ file ở
+    // PageHeader; Ma trận mới dùng được (bank cá nhân có sẵn) —
+    // không disabled oan theo vai.
     renderArea('my-matrices');
-    expect(await screen.findByRole('button', { name: /Ma trận của tôi/ })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.queryByRole('button', { name: /Ngân hàng riêng của tôi/ })).toBeNull();
-    const matrixAdd = await screen.findAllByRole('button', { name: 'Thêm mới' });
-    expect(matrixAdd.length).toBeGreaterThanOrEqual(1);
-    for (const b of matrixAdd) expect(b).not.toBeDisabled();
+    const newMatrixButton = await screen.findByRole('button', { name: 'Ma trận mới' });
+    expect(newMatrixButton).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Nhập từ file' })).toBeInTheDocument();
+    for (const toggle of AREA_TOGGLES) expect(screen.queryByRole('button', { name: toggle })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Thêm mới' })).toBeNull();
     cleanup();
-    // Đề của tôi (/exams): collapse đề mở sẵn ở trang riêng.
+    // Đề của tôi (/exams): nút Đề mới ở PageHeader. Stub của
+    // describe này không cấp bank đề nên nút disabled đúng luật
+    // (chưa có bank cá nhân thì không tạo được); trạng thái enabled
+    // + đích khi CÓ bank được khẳng định ở describe đích điều hướng
+    // bên dưới.
     renderArea('my-exams');
-    expect(await screen.findByRole('button', { name: /Đề của tôi/ })).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.queryByRole('button', { name: /Ngân hàng riêng của tôi/ })).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Đề mới' })).toBeDisabled();
+    for (const toggle of AREA_TOGGLES) expect(screen.queryByRole('button', { name: toggle })).toBeNull();
     cleanup();
-    // Ngân hàng hệ thống (/system-bank/questions): collapse hệ thống
-    // mở sẵn và chỉ render đúng phần câu hỏi của khu.
+    // Ngân hàng hệ thống (/system-bank/questions): phần câu hỏi
+    // hiện thẳng với neo của nó, không qua thẻ thu/mở "Ngân hàng hệ
+    // thống" và đầu trang không có nút tạo nào.
     renderArea('system-questions');
-    expect(await screen.findByRole('button', { name: /Ngân hàng hệ thống/ })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    expect(document.getElementById('system-questions')).not.toBeNull();
+    await waitFor(() => expect(document.getElementById('system-questions')).not.toBeNull());
     expect(document.getElementById('system-papers')).toBeNull();
     expect(document.getElementById('system-matrices')).toBeNull();
+    for (const toggle of AREA_TOGGLES) expect(screen.queryByRole('button', { name: toggle })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Đề mới' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ma trận mới' })).toBeNull();
     cleanup();
   }
 
@@ -483,11 +493,13 @@ describe('Question bank page — admin parity (issue #70)', () => {
 /**
  * Khu vực ngân hàng theo PATH (chuẩn đường dẫn #221, lát R1 — thay
  * cơ chế liên kết sâu ?bank=&section= của issue #70): mỗi khu vực có
- * path riêng và trang chỉ render đúng khu vực của path đó, collapse
- * của khu mở sẵn ngay từ lần dựng đầu (aria-expanded=true), các khu
- * khác KHÔNG có trong trang. Ba phần của Ngân hàng hệ thống giữ neo
- * #system-questions / #system-papers / #system-matrices trên từng
- * trang con; thẻ Ngữ liệu giữ neo #stimuli ở /questions/stimuli.
+ * path riêng và trang chỉ render đúng khu vực của path đó; danh
+ * sách của khu hiện THẲNG ngay từ lần dựng đầu, không qua thẻ
+ * thu/mở nào (bỏ bọc collapse — chốt 23:43 ngày 26/10/2026, issue
+ * #228), các khu khác KHÔNG có trong trang. Ba phần của Ngân hàng
+ * hệ thống giữ neo #system-questions / #system-papers /
+ * #system-matrices trên từng trang con; thẻ Ngữ liệu giữ neo
+ * #stimuli ở /questions/stimuli.
  */
 describe('Question bank areas — by path (issue #221)', () => {
   afterEach(() => {
@@ -534,19 +546,19 @@ describe('Question bank areas — by path (issue #221)', () => {
   }
 
   type BankArea = 'my-questions' | 'stimuli' | 'my-exams' | 'my-matrices' | 'system-questions' | 'system-exams' | 'system-matrices';
-  const AREA_CASES: Array<{ area: BankArea; path: string; toggle: RegExp | null }> = [
-    { area: 'my-questions', path: '/questions', toggle: /Ngân hàng riêng của tôi/ },
-    { area: 'stimuli', path: '/questions/stimuli', toggle: null },
-    { area: 'my-exams', path: '/exams', toggle: /Đề của tôi/ },
-    { area: 'my-matrices', path: '/matrices', toggle: /Ma trận của tôi/ },
-    { area: 'system-questions', path: '/system-bank/questions', toggle: /Ngân hàng hệ thống/ },
-    { area: 'system-exams', path: '/system-bank/exams', toggle: /Ngân hàng hệ thống/ },
-    { area: 'system-matrices', path: '/system-bank/matrices', toggle: /Ngân hàng hệ thống/ },
+  const AREA_CASES: Array<{ area: BankArea; path: string }> = [
+    { area: 'my-questions', path: '/questions' },
+    { area: 'stimuli', path: '/questions/stimuli' },
+    { area: 'my-exams', path: '/exams' },
+    { area: 'my-matrices', path: '/matrices' },
+    { area: 'system-questions', path: '/system-bank/questions' },
+    { area: 'system-exams', path: '/system-bank/exams' },
+    { area: 'system-matrices', path: '/system-bank/matrices' },
   ];
   const ALL_TOGGLES = [/Ngân hàng riêng của tôi/, /Ma trận của tôi/, /Đề của tôi/, /Ngân hàng hệ thống/];
 
   for (const areaCase of AREA_CASES) {
-    it(`${areaCase.path} chỉ render khu vực ${areaCase.area}, collapse của khu mở sẵn`, async () => {
+    it(`${areaCase.path} chỉ render khu vực ${areaCase.area}, danh sách hiện thẳng không qua thẻ thu/mở`, async () => {
       stubAreaFetch();
       const router = createMemoryRouter([{ path: areaCase.path, element: <QuestionsPage area={areaCase.area} /> }], {
         initialEntries: [areaCase.path],
@@ -557,17 +569,27 @@ describe('Question bank areas — by path (issue #221)', () => {
         </TestProviders>,
       );
 
-      if (areaCase.toggle) {
-        expect(await screen.findByRole('button', { name: areaCase.toggle })).toHaveAttribute('aria-expanded', 'true');
-      } else {
-        // Trang Ngữ liệu không có thẻ ngân hàng nào — chờ §9 render.
+      // Dấu hiệu bề mặt của khu đã hiện NGAY, không cần thao tác mở
+      // thẻ: nút tạo ở PageHeader (khu cá nhân) / neo phần (khu hệ
+      // thống) / danh mục §9 (trang Ngữ liệu dùng chung khung).
+      if (areaCase.area === 'my-questions') {
+        expect(await screen.findByRole('link', { name: 'Câu hỏi mới' })).toBeInTheDocument();
+      } else if (areaCase.area === 'my-exams') {
+        expect(await screen.findByRole('button', { name: 'Đề mới' })).toBeInTheDocument();
+      } else if (areaCase.area === 'my-matrices') {
+        expect(await screen.findByRole('button', { name: 'Ma trận mới' })).toBeInTheDocument();
+      } else if (areaCase.area === 'stimuli') {
         expect(await screen.findByText('General')).toBeInTheDocument();
+      } else {
+        const anchorId = areaCase.area === 'system-exams' ? 'system-papers' : areaCase.area;
+        await waitFor(() => expect(document.getElementById(anchorId)).not.toBeNull());
       }
-      // Các collapse của khu KHÁC không có mặt trong trang này.
+      // Không còn toggle thu/mở của BẤT KỲ khu ngân hàng nào, và
+      // không còn nút "Thêm mới" lặp trong danh sách.
       for (const other of ALL_TOGGLES) {
-        if (areaCase.toggle && other.source === areaCase.toggle.source) continue;
         expect(screen.queryByRole('button', { name: other })).toBeNull();
       }
+      expect(screen.queryByRole('button', { name: 'Thêm mới' })).toBeNull();
     });
   }
 
@@ -602,16 +624,125 @@ describe('Question bank areas — by path (issue #221)', () => {
           <RouterProvider router={router} />
         </TestProviders>,
       );
-      expect(await screen.findByRole('button', { name: /Ngân hàng hệ thống/ })).toHaveAttribute(
-        'aria-expanded',
-        'true',
-      );
+      // Phần của trang hiện thẳng với neo của nó — không còn nút
+      // thu/mở "Ngân hàng hệ thống" phải bấm mở trước.
+      await waitFor(() => expect(document.getElementById(part.id)).not.toBeNull());
+      expect(screen.queryByRole('button', { name: /Ngân hàng hệ thống/ })).toBeNull();
       for (const other of parts) {
         if (other.id === part.id) expect(document.getElementById(other.id)).not.toBeNull();
         else expect(document.getElementById(other.id)).toBeNull();
       }
       cleanup();
     }
+  });
+});
+
+/**
+ * Nút tạo ở PageHeader điều hướng đúng đích (bỏ bọc collapse —
+ * chốt 23:43 ngày 26/10/2026, issue #228): Đề mới →
+ * /exams/new?bank=<bank đề cá nhân>; Ma trận mới → /matrices/new;
+ * Nhập từ file → /matrices/import. Khu Hệ thống KHÔNG có bất kỳ
+ * nút tạo nào ở đầu trang.
+ */
+describe('Bank list pages — header create buttons (issue #228)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const PERSONAL_BANK_ID = '01900000-0000-7000-8000-0000000000b1';
+  const SCHOOL_BANK_ID = '01900000-0000-7000-8000-0000000000b2';
+  const CAPS = {
+    use: true, add: true, edit: true, manageCategory: true, copy: true, share: true, moderate: true,
+    matrixView: true, matrixManage: true, matrixCopy: true, matrixShare: true, matrixModerate: true,
+  };
+  const bankRow = (id: string, scope: string, kind: string) => ({
+    id, name: scope === 'personal' ? 'Ngân hàng của tôi' : 'Ngân hàng trường', scope, bankKind: kind,
+    ownerId: scope === 'personal' ? PROFILE.id : null, scopeRefId: null, contextId: SYSTEM_CTX_ID,
+    status: 'active', createdBy: PROFILE.id, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    capabilities: CAPS, defaultCategoryId: kind === 'question' ? CATEGORY_ID : null,
+    categoryIds: kind === 'question' ? [CATEGORY_ID] : [],
+  });
+
+  function stubNavFetch() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/questions/categories')
+          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
+        if (url === '/api/v1/question-banks')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'question'), bankRow(SCHOOL_BANK_ID, 'school', 'question')]);
+        if (url === '/api/v1/question-banks?kind=matrix')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'matrix'), bankRow(SCHOOL_BANK_ID, 'school', 'matrix')]);
+        if (url === '/api/v1/question-banks?kind=exam')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'exam'), bankRow(SCHOOL_BANK_ID, 'school', 'exam')]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  type NavArea = 'my-exams' | 'my-matrices' | 'system-exams';
+  function renderNav(area: NavArea, path: string) {
+    const router = createMemoryRouter(
+      [
+        { path, element: <QuestionsPage area={area} /> },
+        { path: '/exams/new', element: <div>Màn tạo đề</div> },
+        { path: '/matrices/new', element: <div>Màn tạo ma trận</div> },
+        { path: '/matrices/import', element: <div>Màn nhập ma trận</div> },
+      ],
+      { initialEntries: [path] },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    return router;
+  }
+
+  it('/exams: bấm Đề mới ở đầu trang sang /exams/new?bank=<bank đề cá nhân>', async () => {
+    stubNavFetch();
+    const router = renderNav('my-exams', '/exams');
+    const button = await screen.findByRole('button', { name: 'Đề mới' });
+    expect(button).not.toBeDisabled();
+    await userEvent.click(button);
+    expect(await screen.findByText('Màn tạo đề')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/exams/new');
+    expect(router.state.location.search).toBe(`?bank=${PERSONAL_BANK_ID}`);
+  });
+
+  it('/matrices: Ma trận mới → /matrices/new; Nhập từ file → /matrices/import', async () => {
+    stubNavFetch();
+    const router = renderNav('my-matrices', '/matrices');
+    const newButton = await screen.findByRole('button', { name: 'Ma trận mới' });
+    expect(newButton).not.toBeDisabled();
+    await userEvent.click(newButton);
+    expect(await screen.findByText('Màn tạo ma trận')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/matrices/new');
+    cleanup();
+
+    const router2 = renderNav('my-matrices', '/matrices');
+    await userEvent.click(await screen.findByRole('button', { name: 'Nhập từ file' }));
+    expect(await screen.findByText('Màn nhập ma trận')).toBeInTheDocument();
+    expect(router2.state.location.pathname).toBe('/matrices/import');
+  });
+
+  it('khu Hệ thống (đề): đầu trang không có nút tạo nào', async () => {
+    stubNavFetch();
+    renderNav('system-exams', '/system-bank/exams');
+    await waitFor(() => expect(document.getElementById('system-papers')).not.toBeNull());
+    expect(screen.queryByRole('button', { name: 'Đề mới' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ma trận mới' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Nhập từ file' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Câu hỏi mới' })).toBeNull();
   });
 });
 
@@ -703,10 +834,11 @@ describe('Bank area tabs — Cá nhân | Hệ thống (issue #228)', () => {
     expect(personalTab).not.toHaveAttribute('aria-current');
 
     await userEvent.click(personalTab);
-    // Đã sang trang cá nhân thật: section ngân hàng riêng render và
-    // tab Cá nhân thành tab đang đứng.
+    // Đã sang trang cá nhân thật: bề mặt ngân hàng riêng hiện thẳng
+    // (nút Câu hỏi mới ở PageHeader) và tab Cá nhân thành tab đang
+    // đứng.
     expect(
-      await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ }, { timeout: 10_000 }),
+      await screen.findByRole('link', { name: 'Câu hỏi mới' }, { timeout: 10_000 }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/questions');
     expect(screen.getByRole('link', { name: 'Cá nhân' })).toHaveAttribute('aria-current', 'page');
