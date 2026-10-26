@@ -5,8 +5,8 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
-import { FilesService } from './files.service';
-import { uploadMetaServerSchema, type UploadMetaDto } from './dto/files.dto';
+import { FilesService, questionFileContentSrc } from './files.service';
+import { questionImageMetaServerSchema, uploadMetaServerSchema, type QuestionImageMetaDto, type UploadMetaDto } from './dto/files.dto';
 
 
 @ApiTags('files')
@@ -32,6 +32,27 @@ export class FilesController {
       fileName: file.originalname, data: file.buffer, mimeType: file.mimetype, userId: actor.id,
     });
     return { id: row.id, contentHash: row.contentHash, fileSize: row.fileSize, fileName: row.fileName, contextId: row.contextId };
+  }
+
+  // Same guard shape as the root upload: capability is checked in the
+  // handler because the target context only exists after multipart parsing.
+  @Post('question-image')
+  @UseInterceptors(FileInterceptor('file'))
+  /**
+   * POST /files/question-image — tải MỘT ảnh nhúng cho nội dung câu hỏi vào
+   * context của bank đích. Trả `src` là định danh bền để editor chèn vào tài
+   * liệu; URL ký chỉ được phát khi phục vụ người đọc (resolveQuestionImageUrls).
+   */
+  async uploadQuestionImage(@UploadedFile() file: { originalname: string; buffer: Buffer; mimetype: string }, @Body({ schema: questionImageMetaServerSchema }) meta: QuestionImageMetaDto, @CurrentUser() actor: AuthenticatedUser) {
+    await this.files.assertCanUpload(meta.contextId, actor);
+    const row = await this.files.uploadQuestionImage({
+      contextId: meta.contextId, fileArea: meta.fileArea, itemId: meta.itemId,
+      fileName: file.originalname, data: file.buffer, userId: actor.id,
+    });
+    return {
+      id: row.id, src: questionFileContentSrc(row.id), fileName: row.fileName,
+      mimeType: row.mimeType, fileSize: row.fileSize, contextId: row.contextId, fileArea: row.fileArea,
+    };
   }
 
   @Get(':id')

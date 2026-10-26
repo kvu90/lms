@@ -19,10 +19,10 @@ import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRo
 /** Vai chuyên dụng của lớp bank, gán TẠI context của từng bank (không phải archetype toàn cục). */
 export const QBANK_MEMBER_ROLE = 'qbankmember';
 export const QBANK_LEAD_ROLE = 'qbanklead';
-/** Quyền của thành viên bank: dùng câu + copy câu khỏi bank (đọc qua cổng useall cho đến khi cổng đọc viewall/viewmine của issue #55 rebase vào). */
-const MEMBER_CAPS = ['question:useall', 'question:copy'];
-/** Quyền của người phụ trách bank (chủ bank cá nhân / tổ trưởng): toàn quyền trong bank, gồm duyệt đóng góp. */
-const LEAD_CAPS = ['question:useall', 'question:copy', 'question:share', 'question:moderate', 'question:add', 'question:editall', 'question:managecategory'];
+/** Quyền của thành viên bank: dùng câu + copy câu khỏi bank (đọc qua cổng useall cho đến khi cổng đọc viewall/viewmine của issue #55 rebase vào). files:view để xem được ảnh nhúng trong nội dung câu của bank. */
+const MEMBER_CAPS = ['question:useall', 'question:copy', 'files:view'];
+/** Quyền của người phụ trách bank (chủ bank cá nhân / tổ trưởng): toàn quyền trong bank, gồm duyệt đóng góp. files:upload + files:view để tải lên và xem ảnh nhúng trong nội dung câu của bank. */
+const LEAD_CAPS = ['question:useall', 'question:copy', 'question:share', 'question:moderate', 'question:add', 'question:editall', 'question:managecategory', 'files:view', 'files:upload'];
 /** MB-1 (issue #111): bộ quyền cho bank MA TRẬN — xem/sửa ma trận là quiz:viewmatrix/quiz:managematrix của Chặng 3, copy/share/moderate là matrix:* của MB-1; vẫn cấp qua đúng hai vai qbankmember/qbanklead tại context bank. */
 const MATRIX_MEMBER_CAPS = ['quiz:viewmatrix', 'matrix:copy'];
 const MATRIX_LEAD_CAPS = ['quiz:viewmatrix', 'quiz:managematrix', 'matrix:copy', 'matrix:share', 'matrix:moderate'];

@@ -3,6 +3,7 @@ import { cognitiveLevelSchema, extractRichTextPlainText, toRichTextDocument, uui
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { FilesService } from '../files/files.service';
 import { BEHAVIOURS, canTransition, gradedStateForFraction, usageState, type GradingData, type QuestionState } from './domain/question-engine';
 import {
   QuestionsRepository, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
@@ -139,6 +140,7 @@ export class QuestionsService {
     private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly outbox: OutboxService,
+    private readonly files: FilesService,
   ) {}
 
   private async requireCap(actorId: string, capability: string, contextId: string): Promise<void> {
@@ -805,7 +807,33 @@ export class QuestionsService {
   /** Chi tiết câu hỏi CHO NGƯỜI ĐỌC (cổng tại context của category chứa câu). */
   async getQuestionForViewer(actorId: string, id: string): Promise<QuestionView> {
     await this.assertQuestionReadable(actorId, id);
-    return this.getQuestion(id);
+    const view = await this.getQuestion(id);
+    return this.resolveQuestionImages(view);
+  }
+
+  /**
+   * Phát URL ký cho ảnh nhúng trong mọi tài liệu của một QuestionView (thân
+   * câu, phản hồi chung, đáp án + phản hồi của đáp án, ngữ liệu). Cổng đọc
+   * câu hỏi của bề mặt này (assertQuestionReadable) là cổng uỷ quyền cho các
+   * URL ký đó — xem FilesService.resolveQuestionImageUrls.
+   */
+  private async resolveQuestionImages(view: QuestionView): Promise<QuestionView> {
+    const [questionText, generalFeedback, stimulusContent] = await Promise.all([
+      this.files.resolveQuestionImageUrls(view.latestVersion.questionText),
+      this.files.resolveQuestionImageUrls(view.latestVersion.generalFeedback),
+      view.stimulus ? this.files.resolveQuestionImageUrls(view.stimulus.content) : Promise.resolve(null),
+    ]);
+    const answers = await Promise.all(view.answers.map(async (a) => ({
+      ...a,
+      answer: await this.files.resolveQuestionImageUrls(a.answer),
+      feedback: await this.files.resolveQuestionImageUrls(a.feedback),
+    })));
+    return {
+      ...view,
+      latestVersion: { ...view.latestVersion, questionText, generalFeedback },
+      answers,
+      stimulus: view.stimulus && stimulusContent ? { ...view.stimulus, content: stimulusContent } : view.stimulus,
+    };
   }
 
   /** Lịch sử version CHO NGƯỜI ĐỌC (cùng cổng với chi tiết câu hỏi). */
