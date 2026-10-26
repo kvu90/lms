@@ -3142,3 +3142,14 @@ ALTER TABLE "class_join_requests" ADD CONSTRAINT "class_join_requests_decided_by
 ALTER TABLE "class_join_requests" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "class_join_requests" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 CREATE POLICY "tenant_isolation" ON "class_join_requests" USING (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid) WITH CHECK (current_setting('app.platform', true) = 'on' OR "tenant_id" = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+--> statement-breakpoint
+-- CLASS-3 (issue #184): học phí theo lớp — `fee_cost` (số nguyên đơn vị
+-- nhỏ nhất; NULL/0 = không thu qua hệ, chính là công tắc thu phí),
+-- `fee_currency` (mặc định VND) và `fee_payment_account_id` (tài khoản
+-- nhận chỉ định riêng cho lớp; NULL = tài khoản mặc định của tenant).
+-- Gộp tay vào baseline duy nhất như các lát trước.
+ALTER TABLE "classes" ADD COLUMN "fee_cost" integer;--> statement-breakpoint
+ALTER TABLE "classes" ADD COLUMN "fee_currency" text DEFAULT 'VND' NOT NULL;--> statement-breakpoint
+ALTER TABLE "classes" ADD COLUMN "fee_payment_account_id" uuid;--> statement-breakpoint
+CREATE INDEX "classes_fee_payment_account_id_idx" ON "classes" ("fee_payment_account_id");--> statement-breakpoint
+ALTER TABLE "classes" ADD CONSTRAINT "classes_fee_payment_account_id_payment_accounts_id_fkey" FOREIGN KEY ("fee_payment_account_id") REFERENCES "payment_accounts"("id") ON DELETE RESTRICT;

@@ -2,6 +2,7 @@
 import {
   boolean,
   index,
+  integer,
   pgTable,
   text,
   timestamp,
@@ -10,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { cohort } from '../groups/schema';
+import { paymentAccounts } from '../payments/schema';
 import { tenants } from '../tenants/schema';
 import { users } from '../users/schema';
 
@@ -62,7 +64,17 @@ export const classJoinRequests = pgTable('class_join_requests', {
  * GV tự do sinh hoạt ở tenant-zero (trang chính), lớp của trung tâm nằm
  * trong tenant của trung tâm.
  *
- * Học phí theo lớp (`fee_*`) KHÔNG nằm ở lát nền này — thuộc CLASS-3.
+ * Học phí theo lớp (`fee_*`, CLASS-3): gói lớp bán qua đúng seam
+ * thanh toán sẵn có — payment mang `component = 'class_fee'`,
+ * `item_id = classes.id`; thanh toán thành công thì người mua vào
+ * roster (backing cohort), hoàn tiền toàn bộ thì đình chỉ khỏi lớp.
+ * `fee_cost` chính là công tắc thu phí: NULL/0 = lớp không thu học
+ * phí qua hệ thống. Tài khoản nhận tiền tuân luật hai dòng tiền tách
+ * bạch của sổ quyết định (mục E): lớp của trung tâm thu về tài khoản
+ * của CHÍNH trung tâm, lớp của GV tự do ở trang chính (tenant nền
+ * tảng) thu về tài khoản platform — `fee_payment_account_id` là chỉ
+ * định riêng theo lớp, NULL thì rơi về tài khoản mặc định của tenant
+ * sở hữu lớp, platform không thu hộ trung tâm.
  */
 export const classes = pgTable('classes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -85,12 +97,19 @@ export const classes = pgTable('classes', {
   onLeave: text('on_leave').notNull().default('suspend'),
   status: text('status').notNull().default('active'),
   description: text('description').notNull().default(''),
+  /** Học phí gói lớp (CLASS-3): số nguyên đơn vị nhỏ nhất (không float, cùng bất biến của payments); NULL hoặc 0 = lớp không thu học phí qua hệ thống — đây là công tắc thu phí, không có cờ bật/tắt riêng. */
+  feeCost: integer('fee_cost'),
+  /** Đơn vị tiền của học phí gói lớp; mặc định VND theo luật thanh toán nội địa (VietQR/SePay, sổ quyết định mục E). */
+  feeCurrency: text('fee_currency').notNull().default('VND'),
+  /** Tài khoản nhận học phí chỉ định riêng cho lớp; NULL = dùng tài khoản mặc định của tenant sở hữu lớp. FK RESTRICT: tài khoản đang được lớp trỏ tới không bị xoá mất dấu vết dòng tiền. */
+  feePaymentAccountId: uuid('fee_payment_account_id').references(() => paymentAccounts.id, { onDelete: 'restrict' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
   (table) => [
       index('classes_tenant_id_idx').on(table.tenantId),
       index('classes_owner_id_idx').on(table.ownerId),
+      index('classes_fee_payment_account_id_idx').on(table.feePaymentAccountId),
       uniqueIndex('classes_tenant_code_unique').on(table.tenantId, table.code).where(sql`${table.code} is not null`),
       uniqueIndex('classes_join_code_unique').on(table.joinCode).where(sql`${table.joinCode} is not null`),
   ]);

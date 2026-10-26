@@ -7,7 +7,11 @@ import { uuidIdSchema } from './ids.js';
  * TRƯỚC, khoá học nằm bên trong lớp; danh sách học sinh thuộc về lớp
  * (roster ≡ thành viên backing cohort) và tự vật chất hoá xuống mọi
  * khoá của lớp qua enrol instance cohort. Tạo lớp chỉ bắt buộc TÊN
- * (khuôn Azota); học phí theo lớp thuộc lát CLASS-3, không có ở đây.
+ * (khuôn Azota). CLASS-3 bổ sung học phí theo lớp (`fee*` trên hình
+ * dạng lớp + gói công khai để mua gói lớp ở cuối file): payment mang
+ * `component = 'class_fee'`, `item_id = classes.id` qua seam thanh
+ * toán sẵn có — hợp đồng payment nằm ở `platform.ts`, ở đây chỉ có
+ * cấu hình học phí trên lớp và bề mặt công khai của gói lớp.
  */
 export const CLASS_ON_LEAVE_MODES = ['suspend', 'unenrol'] as const;
 export const CLASS_STATUSES = ['active', 'archived'] as const;
@@ -28,6 +32,23 @@ export const classSchema = z.object({
   onLeave: z.enum(CLASS_ON_LEAVE_MODES),
   status: z.enum(CLASS_STATUSES),
   description: z.string(),
+  /**
+   * Học phí gói lớp (CLASS-3): số nguyên đơn vị nhỏ nhất (cùng bất biến
+   * tiền tệ của payments — không float). `null` hoặc 0 nghĩa là lớp
+   * KHÔNG thu học phí qua hệ thống: giá trị này chính là công tắc thu
+   * phí, không có cờ bật/tắt riêng.
+   */
+  feeCost: z.number().int().nullable(),
+  /** Đơn vị tiền của học phí gói lớp (mặc định `VND` — thanh toán nội địa VietQR/SePay theo sổ quyết định mục E). */
+  feeCurrency: z.string(),
+  /**
+   * Tài khoản nhận học phí chỉ định riêng cho lớp; `null` = rơi về tài
+   * khoản mặc định của tenant sở hữu lớp (lớp của trung tâm → tài khoản
+   * của chính trung tâm; lớp của GV tự do ở trang chính → tài khoản
+   * platform). Chỉ là định danh tài khoản — cấu hình nhạy cảm của tài
+   * khoản vẫn bị che ở bề mặt payments.
+   */
+  feePaymentAccountId: uuidIdSchema.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -47,7 +68,17 @@ export const createClassSchema = z.strictObject({
 });
 export type CreateClass = z.infer<typeof createClassSchema>;
 
-/** Sửa lớp: thông tin hiển thị + công tắc tự báo danh + chế độ khi rời lớp; `rotateJoinCode: true` sinh mã tham gia mới (mã cũ mất hiệu lực ngay). */
+/**
+ * Sửa lớp: thông tin hiển thị + công tắc tự báo danh + chế độ khi rời
+ * lớp; `rotateJoinCode: true` sinh mã tham gia mới (mã cũ mất hiệu lực
+ * ngay). CLASS-3: cùng PATCH này đặt/đổi HỌC PHÍ gói lớp — gác bằng
+ * capability `class:update` tại context lớp (chủ lớp giữ sẵn qua vai
+ * editingteacher), không chế capability riêng cho học phí.
+ * `feeCost: null` hoặc 0 = tắt thu học phí qua hệ thống.
+ * `feePaymentAccountId: null` = gỡ chỉ định riêng, rơi về tài khoản mặc
+ * định của tenant; tính hợp lệ của tài khoản (tồn tại + đúng tenant)
+ * được kiểm ở lúc TẠO payment, cùng khuôn `enrol_fee`.
+ */
 export const updateClassSchema = z.strictObject({
   name: z.string().min(1).max(200).optional(),
   code: z.string().min(1).max(80).nullable().optional(),
@@ -57,6 +88,9 @@ export const updateClassSchema = z.strictObject({
   joinAutoApprove: z.boolean().optional(),
   onLeave: z.enum(CLASS_ON_LEAVE_MODES).optional(),
   rotateJoinCode: z.boolean().optional(),
+  feeCost: z.number().int().min(0).nullable().optional(),
+  feeCurrency: z.string().min(3).max(3).optional(),
+  feePaymentAccountId: uuidIdSchema.nullable().optional(),
 });
 export type UpdateClass = z.infer<typeof updateClassSchema>;
 
@@ -282,3 +316,40 @@ export const classOverviewSchema = z.object({
   courses: z.array(courseSchema),
 });
 export type ClassOverview = z.infer<typeof classOverviewSchema>;
+
+// ---------------------------------------------------------------------------
+// CLASS-3 (issue #184): học phí theo lớp — bề mặt công khai của gói lớp
+// để người CHƯA ghi danh xem và bắt đầu thanh toán.
+// ---------------------------------------------------------------------------
+
+/**
+ * Gói công khai của một lớp (`GET /classes/:id/public`) — bề mặt cho
+ * người dùng đã đăng nhập trong tenant nhưng CHƯA thuộc lớp: xem thông
+ * tin lớp + gói học phí để quyết định mua. Khác `classSchema` ở chỗ
+ * gói này KHÔNG mang dữ kiện nội bộ (cohort, mã tham gia, tài khoản
+ * nhận tiền) — chỉ những gì người mua cần biết, cộng hai cờ do server
+ * suy cho đúng người gọi:
+ *  - `isMember`: người gọi đã thuộc roster (đang ACTIVE ở lớp);
+ *  - `canPurchase`: được bắt đầu thanh toán NGAY — lớp đang hoạt động,
+ *    có bật thu học phí (`feeEnabled`) và người gọi chưa là thành viên.
+ *    Người đã ghi danh ACTIVE không bị mời mua lại: `canPurchase`
+ *    luôn false với họ và bề mặt web hiện trạng thái đã ghi danh thay
+ *    cho nút mua.
+ * `feeEnabled` suy từ `feeCost` (null/0 = không thu qua hệ) để web
+ * không tự diễn giải lại công tắc học phí.
+ */
+export const classPublicViewSchema = z.object({
+  classId: uuidIdSchema,
+  name: z.string(),
+  code: z.string().nullable(),
+  schoolYear: z.string().nullable(),
+  description: z.string(),
+  ownerName: z.string(),
+  status: z.enum(CLASS_STATUSES),
+  feeCost: z.number().int().nullable(),
+  feeCurrency: z.string(),
+  feeEnabled: z.boolean(),
+  isMember: z.boolean(),
+  canPurchase: z.boolean(),
+});
+export type ClassPublicView = z.infer<typeof classPublicViewSchema>;
