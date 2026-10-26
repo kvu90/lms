@@ -198,6 +198,40 @@ export interface ConversationGroupTreeView {
 }
 
 /**
+ * Ngữ cảnh ROSTER của PANEL THÀNH VIÊN (lát MSG-T4, issue #33):
+ * panel của một hội thoại nhóm đọc thành viên từ đúng MỘT nguồn
+ * theo loại hội thoại — roster LỚP (chat cấp lớp), roster KHOÁ (chat
+ * cấp khoá và, qua lọc theo thành viên conversation, chat nhóm con),
+ * hoặc danh sách thành viên của chính conversation (nhóm tự do —
+ * loại này không có roster đứng sau). `parentName` là tên của thực
+ * thể chứa (lớp chứa khoá, khoá chứa nhóm con) để panel ghi rõ
+ * "thuộc về" — hội thoại đứng độc lập thì để trống.
+ */
+export type MemberPanelContext =
+  | { kind: 'class'; id: string; name: string; parentName?: string }
+  | { kind: 'course'; id: string; name: string; parentName?: string; subgroup?: boolean }
+  | { kind: 'free'; name: string };
+
+/**
+ * Một dòng của PANEL THÀNH VIÊN (lát MSG-T4): hình dạng hợp nhất
+ * của dòng roster lớp/khoá (server đã tính `relationship` +
+ * `canDirectMessage`) và dòng thành viên nhóm tự do (trang suy quan
+ * hệ từ danh bạ/hàng chờ/chặn của chính người xem vì nhóm tự do
+ * không có roster). `role` phân nhóm trình bày: lớp/khoá dùng
+ * teacher/student như roster; nhóm tự do dùng admin (người tạo
+ * nhóm — thẩm quyền quản lý của nhóm tự do neo vào người tạo) /
+ * member. Luật hiển thị hành động trong menu bám đúng các trường
+ * này, client không tự suy luật quan hệ nào khác.
+ */
+export interface MemberPanelEntry extends PersonSummary {
+  role: 'teacher' | 'student' | 'admin' | 'member';
+  relationship: ContactRelationship;
+  canDirectMessage: boolean;
+  /** Người tạo nhóm tự do — panel đánh dấu và menu không cho gỡ. */
+  isCreator?: boolean;
+}
+
+/**
  * Ngữ cảnh CHỌN NGƯỜI trong sheet "Tin nhắn mới" và sheet "Tạo nhóm"
  * (lát MSG-T3, issue #33): người chỉ được khám phá từ đúng ba nguồn
  * đã chốt — liên hệ đã kết bạn, roster của MỘT lớp của tôi, roster của

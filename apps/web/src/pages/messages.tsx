@@ -11,6 +11,7 @@ import { queryKeys } from '#lib/query-keys';
 import { PageShell } from '../components/page-shell';
 import { ChatPanel } from '../components/messages/chat-panel';
 import { ConversationSidebar } from '../components/messages/conversation-sidebar';
+import type { MemberPanelBundle } from '../components/messages/member-panel';
 import type {
   ContactRelationship,
   ContactRequestView,
@@ -21,6 +22,8 @@ import type {
   ConversationTreeCourseView,
   ConversationStateView,
   ConversationView,
+  MemberPanelContext,
+  MemberPanelEntry,
   MessageQuoteView,
   MessageSearchResultView,
   MessageView,
@@ -147,6 +150,62 @@ function withTreeUnread(
   };
 }
 
+/**
+ * Ngữ cảnh ROSTER cho panel thành viên của một conversation nhóm
+ * (lát MSG-T4): phân loại CHỈ theo `itemType`/`itemId` do server
+ * gắn (không đoán theo tên) — chat cấp lớp đọc roster lớp, chat cấp
+ * khoá đọc roster khoá, chat nhóm con đọc roster của KHOÁ CHỨA
+ * nhóm (tra trong cây nhóm của chính người xem) rồi lọc theo thành
+ * viên conversation ở bước nạp; còn lại là nhóm tự do. `name` của
+ * ngữ cảnh là tên thực thể mà thành viên CHUNG NHAU (hồ sơ rút gọn
+ * ghi phạm vi này); tên hiển thị của chính conversation vẫn do
+ * conversation mang. Không tra ra khoá chứa nhóm con thì trả null —
+ * panel không dựng thay vì dựng sai nguồn.
+ *
+ * @param conv - Conversation đang mở.
+ * @param tree - Cây nhóm của tôi (đã nạp từ MSG-T1) để tra khoá chứa nhóm con + tên lớp/khoá.
+ * @param courses - Các khoá của tôi (nguồn tên khoá dự phòng khi cây chưa có nút).
+ * @returns Ngữ cảnh roster, hoặc null khi không phải hội thoại nhóm / không xác định được.
+ */
+function memberPanelContextOf(
+  conv: ConversationView,
+  tree: ConversationGroupTreeView | null,
+  courses: MessagingCourse[],
+): MemberPanelContext | null {
+  if (conv.type !== 2) return null;
+  if (conv.itemType === 'class' && conv.itemId) {
+    const node = tree?.classes.find((c) => c.classId === conv.itemId);
+    return { kind: 'class', id: conv.itemId, name: node?.name ?? conv.name ?? '' };
+  }
+  if (conv.itemType === 'course' && conv.itemId) {
+    for (const cls of tree?.classes ?? []) {
+      const node = cls.courses.find((c) => c.courseId === conv.itemId);
+      if (node) return { kind: 'course', id: conv.itemId, name: node.name, parentName: cls.name };
+    }
+    const outside = tree?.coursesOutsideClasses.find((c) => c.courseId === conv.itemId);
+    if (outside) return { kind: 'course', id: conv.itemId, name: outside.name };
+    const course = courses.find((c) => c.courseId === conv.itemId);
+    return { kind: 'course', id: conv.itemId, name: course?.fullName ?? conv.name ?? '' };
+  }
+  if (conv.itemType === 'groups' && conv.itemId) {
+    const classes = tree?.classes ?? [];
+    for (const cls of classes) {
+      for (const course of cls.courses) {
+        if (course.groups.some((g) => g.groupId === conv.itemId)) {
+          return { kind: 'course', id: course.courseId, name: course.name, parentName: cls.name, subgroup: true };
+        }
+      }
+    }
+    for (const course of tree?.coursesOutsideClasses ?? []) {
+      if (course.groups.some((g) => g.groupId === conv.itemId)) {
+        return { kind: 'course', id: course.courseId, name: course.name, subgroup: true };
+      }
+    }
+    return null;
+  }
+  return { kind: 'free', name: conv.name ?? '' };
+}
+
 export function MessagesPage() {
   const { t } = useTranslation('app');
   const { user } = useAuth();
@@ -251,6 +310,21 @@ export function MessagesPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   /** Tin đã chọn để gỡ hàng loạt (chỉ moderator) — chọn bằng checkbox ở từng dòng tin. */
   const [selectedForBulk, setSelectedForBulk] = useState<Set<string>>(new Set());
+  /**
+   * Dòng thành viên của PANEL THÀNH VIÊN (lát MSG-T4) cho
+   * conversation nhóm đang mở: nạp theo ngữ cảnh roster của
+   * conversation (toàn bộ các trang roster lớp/khoá, lọc cho nhóm
+   * con; dựng tại client cho nhóm tự do) và mang theo id của
+   * conversation mà chúng thuộc về để không hiện nhầm dữ liệu của
+   * conversation trước trong lúc nạp lại.
+   */
+  const [panelData, setPanelData] = useState<{
+    conversationId: string;
+    entries: MemberPanelEntry[] | null;
+    failed: boolean;
+  }>({ conversationId: '', entries: null, failed: false });
+  /** Mốc làm mới panel — gỡ thành viên xong thì tăng để hiệu ứng nạp chạy lại. */
+  const [panelRefreshTick, setPanelRefreshTick] = useState(0);
 
   /** Deep-link ?conversation= chỉ xử lý một lần khi trang vừa nạp (không giành cuộc trò chuyện đang mở ở các lần nạp lại sau). */
   const deepLinkHandledRef = useRef(false);
@@ -464,6 +538,96 @@ export function MessagesPage() {
   useEffect(() => {
     void reload().catch(() => setError(t('messagesLoadFailed')));
   }, [reload]);
+
+  /** Ngữ cảnh roster của panel thành viên cho conversation nhóm đang mở (lát MSG-T4). */
+  const panelContext = active ? memberPanelContextOf(active, groupTree, myCourses) : null;
+  const panelContextKey = !panelContext
+    ? ''
+    : panelContext.kind === 'free'
+      ? 'free'
+      : `${panelContext.kind}:${panelContext.id}:${panelContext.kind === 'course' && panelContext.subgroup ? 'sub' : 'whole'}`;
+
+  // Nạp dòng thành viên cho panel thành viên (lát MSG-T4) mỗi khi
+  // đổi conversation nhóm / đổi ngữ cảnh / có mốc làm mới: roster
+  // lớp/khoá đọc HẾT các trang con trỏ (panel cần đủ hai nhóm
+  // GV/HS cùng lúc, khác bộ chọn người chỉ nạp từng trang theo
+  // thao tác); nhóm con lọc roster khoá theo thành viên của
+  // conversation; nhóm tự do dựng từ danh sách thành viên + hồ sơ
+  // kèm chi tiết conversation, quan hệ suy từ danh bạ/hàng chờ của
+  // chính người xem, và người tôi đã chặn bị ẩn khỏi panel như mọi
+  // bề mặt nhắn tin khác (luật chặn đã chốt).
+  useEffect(() => {
+    if (!active || active.type !== 2 || !panelContext) {
+      setPanelData({ conversationId: '', entries: null, failed: false });
+      return;
+    }
+    const conversationId = active.id;
+    const context = panelContext;
+    let cancelled = false;
+    setPanelData({ conversationId, entries: null, failed: false });
+    void (async () => {
+      try {
+        if (context.kind === 'free') {
+          const relationshipOf = (id: string): ContactRelationship => {
+            if (contacts.includes(id)) return 'contact';
+            if (incomingRequests.some((r) => r.userId === id)) return 'pending_incoming';
+            if (outgoingRequests.some((r) => r.userId === id)) return 'pending_outgoing';
+            return 'none';
+          };
+          const entries: MemberPanelEntry[] = active.members
+            .filter((id) => !blocked.includes(id))
+            .map((id) => {
+              const profile = active.memberProfiles?.[id];
+              return {
+                userId: id,
+                displayName: profile?.displayName ?? nameOf(id),
+                username: profile?.username ?? '',
+                role: active.createdBy === id ? 'admin' as const : 'member' as const,
+                relationship: relationshipOf(id),
+                canDirectMessage: false,
+                isCreator: active.createdBy === id,
+              };
+            });
+          if (!cancelled) setPanelData({ conversationId, entries, failed: false });
+          return;
+        }
+        const base = context.kind === 'class'
+          ? `/api/v1/messages/classes/${context.id}/members`
+          : `/api/v1/messages/courses/${context.id}/members`;
+        const all: RosterMember[] = [];
+        let cursor: string | null = null;
+        // Trần 25 trang × 100 dòng: đủ cho lớp/khoá thực tế; vượt
+        // trần thì panel hiện phần đã nạp thay vì vòng lặp vô hạn.
+        for (let page = 0; page < 25; page += 1) {
+          const url: string = cursor ? `${base}?limit=100&cursor=${encodeURIComponent(cursor)}` : `${base}?limit=100`;
+          const res: { members: RosterMember[]; nextCursor: string | null } = await apiJson(url);
+          all.push(...res.members);
+          cursor = res.nextCursor;
+          if (!cursor) break;
+        }
+        mergePeople(Object.fromEntries(all.map((m) => [m.userId, m])));
+        const memberSet = new Set(active.members);
+        const rows = context.kind === 'course' && context.subgroup ? all.filter((m) => memberSet.has(m.userId)) : all;
+        const entries: MemberPanelEntry[] = rows.map((m) => ({
+          userId: m.userId,
+          displayName: m.displayName,
+          username: m.username,
+          role: m.role,
+          relationship: m.relationship,
+          canDirectMessage: m.canDirectMessage ?? false,
+        }));
+        if (!cancelled) setPanelData({ conversationId, entries, failed: false });
+      } catch {
+        if (!cancelled) setPanelData({ conversationId, entries: [], failed: true });
+      }
+    })();
+    return () => { cancelled = true; };
+    // Chạy theo id conversation + khoá ngữ cảnh + mốc làm mới; các
+    // trạng thái quan hệ của nhóm tự do được đọc tại thời điểm chạy
+    // và đồng bộ lại qua patch tại chỗ khi có hành động kết bạn —
+    // cùng kỷ luật gác ref/deps chọn lọc như các hiệu ứng khác của trang.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.id, panelContextKey, panelRefreshTick]);
 
   // Deep-link từ thông báo (việc nối tiếp của #33): thông báo
   // message_new của #49 trỏ contextUrl = /messages?conversation=<id>.
@@ -949,6 +1113,13 @@ export function MessagesPage() {
     setPickerMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, relationship } : m)));
   }, []);
 
+  /** Cập nhật trạng thái quan hệ của một dòng trong panel thành viên ngay tại chỗ (lát MSG-T4) — cùng kỷ luật với bộ chọn người. */
+  const patchPanelRelationship = useCallback((userId: string, relationship: ContactRelationship) => {
+    setPanelData((prev) => (prev.entries
+      ? { ...prev, entries: prev.entries.map((e) => (e.userId === userId ? { ...e, relationship } : e)) }
+      : prev));
+  }, []);
+
   /**
    * Gửi yêu cầu kết bạn tới một user (Lớp B: luồng yêu cầu–chấp nhận
    * thay danh bạ một chiều) — điểm vào là dòng ROSTER thành viên khoá
@@ -964,6 +1135,7 @@ export function MessagesPage() {
       setContactMessage(res.status === 'accepted' ? t('contactRequestAccepted') : t('contactRequestSent'));
       // Phản ánh ngay lên dòng roster đang hiện, rồi đồng bộ lại toàn bộ.
       patchRosterRelationship(userId, res.status === 'accepted' ? 'contact' : 'pending_outgoing');
+      patchPanelRelationship(userId, res.status === 'accepted' ? 'contact' : 'pending_outgoing');
       await reload();
     } catch {
       setContactMessage(t('contactRequestFailed'));
@@ -1022,6 +1194,7 @@ export function MessagesPage() {
     try {
       await apiJson(`/api/v1/messages/contacts/requests/${userId}/${action}`, { method: 'POST', body: '{}' });
       patchRosterRelationship(userId, action === 'accept' ? 'contact' : 'none');
+      patchPanelRelationship(userId, action === 'accept' ? 'contact' : 'none');
       await reload();
     } catch {
       setContactMessage(t('contactRequestFailed'));
@@ -1152,6 +1325,30 @@ export function MessagesPage() {
     }
   }
 
+  /**
+   * Gỡ một thành viên khỏi NHÓM TỰ DO đang mở (lát MSG-T4): xác
+   * nhận trước khi gọi DELETE — server là cổng cuối (chỉ nhóm tự
+   * do, chỉ người có thẩm quyền quản lý, không gỡ người tạo). Thành
+   * công thì áp danh sách thành viên mới ngay + làm mới panel; lỗi
+   * hiện ở dải thông báo hành động của khung chat.
+   */
+  async function removeGroupMember(userId: string) {
+    if (!active) return;
+    if (!window.confirm(t('memberRemoveConfirm', { name: nameOf(userId) }))) return;
+    setActionMessage(null);
+    try {
+      const updated = await apiJson<ConversationView>(`/api/v1/messages/conversations/${active.id}/members/${userId}`, {
+        method: 'DELETE',
+      });
+      setActive((prev) => (prev ? { ...prev, members: updated.members } : prev));
+      setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, members: updated.members } : c)));
+      setPanelRefreshTick((n) => n + 1);
+      setActionMessage(t('memberRemoved'));
+    } catch {
+      setActionMessage(t('memberRemoveFailed'));
+    }
+  }
+
   /** Bật/tắt chat của cuộc trò chuyện đang mở (chỉ hiện khi canManage). */
   async function toggleActiveChat() {
     if (!active) return;
@@ -1274,6 +1471,36 @@ export function MessagesPage() {
     || groupTree.coursesOutsideClasses.some((c) => c.myRole !== 'learning')
     || groupTree.freeGroups.some((g) => g.myRole === 'staff')
   ));
+  /**
+   * Tập người đã có hội thoại 1–1 với tôi (lát MSG-T4): căn cứ
+   * nhánh "đã có hội thoại mở trước" của menu thành viên — phía
+   * server vẫn tự kiểm lại `assertCanContact` khi mở/gửi.
+   */
+  const directPartnerIds = new Set<string>();
+  for (const c of conversations) {
+    if (c.type !== 1) continue;
+    for (const memberId of c.members) {
+      if (memberId !== myId) directPartnerIds.add(memberId);
+    }
+  }
+  /**
+   * Gói panel thành viên đưa xuống khung chat (lát MSG-T4): chỉ có
+   * khi conversation đang mở là hội thoại nhóm và xác định được
+   * ngữ cảnh roster; entries chỉ lấy từ `panelData` khi nó thuộc
+   * đúng conversation này (đang nạp lại thì null → panel hiện trạng
+   * thái đang tải thay vì dữ liệu của conversation trước).
+   */
+  const memberPanel: MemberPanelBundle | null = active && panelContext ? {
+    context: panelContext,
+    entries: panelData.conversationId === active.id ? panelData.entries : null,
+    failed: panelData.conversationId === active.id && panelData.failed,
+    notice: contactMessage,
+    directPartnerIds,
+    onMessageMember: (userId) => { void messageContact(userId); },
+    onSendContactRequest: (userId) => { void sendContactRequestTo(userId); },
+    onRespondContactRequest: (userId, action) => { void respondContactRequest(userId, action); },
+    onRemoveMember: (userId) => { void removeGroupMember(userId); },
+  } : null;
 
   return (
     <PageShell fillHeight width="full">
@@ -1378,6 +1605,7 @@ export function MessagesPage() {
         onSearchMessages={(q) => void runMessageSearch(q)}
         onClearMessageSearch={clearMessageSearch}
         onJumpToSearchResult={(result) => void jumpToMessage(result.id, result.seq)}
+        memberPanel={memberPanel}
           />
         </div>
       </div>

@@ -1,7 +1,6 @@
 import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
 import { ArrowLeft, Ellipsis, Eraser, Info, MessageCircle, Reply, Search, Trash, Undo2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
-import { Badge } from '@lms/ui/components/badge';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
 import {
@@ -20,6 +19,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
 import type { ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, ScrollerHandle } from './types';
+import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, type MemberPanelBundle } from './member-panel';
 import { countMessageCharacters, initialsOf, quoteExcerptOfText } from './utils';
 
 /**
@@ -91,6 +91,13 @@ interface ChatPanelProps {
   onSearchMessages: (query: string) => void;
   onClearMessageSearch: () => void;
   onJumpToSearchResult: (result: MessageSearchResultView) => void;
+  /**
+   * Gói PANEL THÀNH VIÊN (lát MSG-T4): ngữ cảnh roster + các dòng
+   * thành viên trang đã nạp cho conversation đang mở, kèm các sự
+   * kiện thao tác trên thành viên. Null khi conversation không phải
+   * hội thoại nhóm hoặc trang chưa xác định được ngữ cảnh.
+   */
+  memberPanel: MemberPanelBundle | null;
 }
 
 /** Khung phải màn Tin nhắn (issue #256): header hội thoại + luồng tin + composer dính đáy. */
@@ -101,7 +108,7 @@ export function ChatPanel({
   canRecall, onRecallMessage, onHardDeleteMessage, seenByAllOthers, typingNames, draft,
   setDrafts, onNoteTyping, onSend, sendError, sendInFlight,
   replyTarget, onStartReply, onCancelReply, onJumpToQuote, highlightedMessageId, scrollerRef,
-  messageSearch, onSearchMessages, onClearMessageSearch, onJumpToSearchResult,
+  messageSearch, onSearchMessages, onClearMessageSearch, onJumpToSearchResult, memberPanel,
 }: ChatPanelProps) {
   const { t } = useTranslation('app');
   const unblockContact = onUnblockContact;
@@ -122,6 +129,8 @@ export function ChatPanel({
   const [searchOpen, setSearchOpen] = useState(false);
   /** Panel thông tin cuộc trò chuyện (thành viên + ai đã xem, N7) — bật/tắt ở header. */
   const [infoOpen, setInfoOpen] = useState(false);
+  /** Hồ sơ rút gọn của thành viên đang xem từ menu avatar/tên (lát MSG-T4) — một sheet dùng chung cho cả panel và dòng tin. */
+  const memberProfile = useMemberProfile();
   useEffect(() => {
     setSearchOpen(false);
     setInfoOpen(false);
@@ -153,6 +162,13 @@ export function ChatPanel({
         : '';
   /** Seq tin mới nhất đang có — mốc so "đã xem" của từng thành viên ở panel thông tin. */
   const newestSeq = visibleMessages.reduce((max, m) => Math.max(max, m.seq), 0) || active.lastMessageSeq || 0;
+  /**
+   * Dòng panel theo từng thành viên (lát MSG-T4): avatar trên dòng
+   * tin tra ở đây để mở đúng menu quan hệ của tác giả tin; tác giả
+   * không còn trong danh sách thành viên (đã rời nhóm…) thì avatar
+   * giữ dạng tĩnh như trước.
+   */
+  const panelEntryById = new Map((memberPanel?.entries ?? []).map((entry) => [entry.userId, entry]));
 
   const dayKeyOf = (iso: string) => {
     const d = new Date(iso);
@@ -179,6 +195,8 @@ export function ChatPanel({
       );
     }
     const mine = m.userIdFrom === myId;
+    /** Dòng panel của tác giả tin này (lát MSG-T4) — có thì avatar dòng tin thành nút mở menu quan hệ. */
+    const authorEntry = isGroup && !mine ? panelEntryById.get(m.userIdFrom) : undefined;
     // Cụm hành động trên tin (chốt Lão gia 26/10, sổ quyết định mục D):
     // icon nhỏ hiện khi hover/focus tin thay cho hàng nút chữ luôn hiện.
     // Điều kiện hiển thị từng hành động GIỮ NGUYÊN như trước — chỉ đổi
@@ -192,9 +210,30 @@ export function ChatPanel({
       <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={mine}>
         <Message align={mine ? 'end' : 'start'}>
           <MessageAvatar>
-            <Avatar>
-              <AvatarFallback>{initialsOf(nameOf(m.userIdFrom))}</AvatarFallback>
-            </Avatar>
+            {authorEntry && memberPanel ? (
+              <MemberActionMenu
+                entry={authorEntry}
+                myId={myId}
+                context={memberPanel.context}
+                canManage={Boolean(active.canManage)}
+                hasDirectConversation={memberPanel.directPartnerIds.has(authorEntry.userId)}
+                triggerLabel={t('memberMenuLabel', { name: authorEntry.displayName })}
+                triggerClassName="shrink-0 rounded-full"
+                onMessageMember={memberPanel.onMessageMember}
+                onSendContactRequest={memberPanel.onSendContactRequest}
+                onRespondContactRequest={memberPanel.onRespondContactRequest}
+                onRemoveMember={memberPanel.onRemoveMember}
+                onViewProfile={memberProfile.open}
+              >
+                <Avatar>
+                  <AvatarFallback>{initialsOf(authorEntry.displayName)}</AvatarFallback>
+                </Avatar>
+              </MemberActionMenu>
+            ) : (
+              <Avatar>
+                <AvatarFallback>{initialsOf(nameOf(m.userIdFrom))}</AvatarFallback>
+              </Avatar>
+            )}
           </MessageAvatar>
           <MessageContent>
             {!mine ? <MessageHeader>{nameOf(m.userIdFrom)}</MessageHeader> : null}
@@ -398,27 +437,24 @@ export function ChatPanel({
         {reportMessage ? <p role="status">{reportMessage}</p> : null}
         {actionMessage ? <p role="alert">{actionMessage}</p> : null}
       </div>
-      {isGroup && infoOpen ? (
-        <div className="space-y-2 border-b px-3 py-2">
-          <h3 className="text-sm font-medium">{t('conversationMembersTitle')}</h3>
-          <ul className="space-y-1">
-            {active.members.map((memberId) => {
-              const seen = newestSeq > 0 && (readMarkers[memberId] ?? 0) >= newestSeq;
-              return (
-                <li key={memberId} className="flex items-center gap-2">
-                  <Avatar>
-                    <AvatarFallback>{initialsOf(nameOf(memberId))}</AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0 flex-1 truncate text-sm">{nameOf(memberId)}</span>
-                  <Badge variant={seen ? 'secondary' : 'outline'}>
-                    {seen ? t('memberSeenState') : t('memberNotSeenState')}
-                  </Badge>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+      {isGroup && infoOpen && memberPanel ? (
+        <MemberPanel
+          conversation={active}
+          bundle={memberPanel}
+          myId={myId}
+          onlineUsers={onlineUsers}
+          readMarkers={readMarkers}
+          newestSeq={newestSeq}
+          onToggleChat={onToggleChat}
+          onViewProfile={memberProfile.open}
+        />
       ) : null}
+      <MemberProfileSheet
+        entry={memberProfile.entry}
+        contextName={memberPanel?.context.name ?? title}
+        online={memberProfile.entry ? Boolean(onlineUsers[memberProfile.entry.userId]) : false}
+        onClose={memberProfile.close}
+      />
       {searchOpen ? (
         <div className="space-y-2 border-b px-3 py-2">
           <form
