@@ -1,9 +1,13 @@
 import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
-import { ArrowLeft, Info, MessageCircle, Search } from 'lucide-react';
+import { ArrowLeft, Ellipsis, Eraser, Info, MessageCircle, Reply, Search, Trash, Undo2 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@lms/ui/components/dropdown-menu';
 import { Input } from '@lms/ui/components/input';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
@@ -173,6 +177,15 @@ export function ChatPanel({
       );
     }
     const mine = m.userIdFrom === myId;
+    // Cụm hành động trên tin (chốt Lão gia 26/10, sổ quyết định mục D):
+    // icon nhỏ hiện khi hover/focus tin thay cho hàng nút chữ luôn hiện.
+    // Điều kiện hiển thị từng hành động GIỮ NGUYÊN như trước — chỉ đổi
+    // cách trình bày/kích hoạt.
+    const showReplyAction = !m.deletedAt && !m.localStatus;
+    const showRecallAction = canRecall(m);
+    const showDeleteMineAction = showReplyAction && mine;
+    const showModerateActions = active.canModerate && !m.localStatus;
+    const showMoreMenu = showRecallAction || showDeleteMineAction || showModerateActions;
     threadItems.push(
       <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={mine}>
         <Message align={mine ? 'end' : 'start'}>
@@ -203,6 +216,75 @@ export function ChatPanel({
               ) : null}
               <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
             </Bubble>
+            {showReplyAction || showMoreMenu ? (
+              <div
+                data-slot="message-actions"
+                className="flex items-center gap-0.5 px-1 opacity-100 transition-opacity focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:focus-within:opacity-100 [@media(hover:none)]:opacity-60"
+              >
+                {showReplyAction ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t('replyToMessage')}
+                    data-testid={`message-reply-${m.id}`}
+                    onClick={() => onStartReply(m)}
+                  >
+                    <Reply aria-hidden />
+                  </Button>
+                ) : null}
+                {showMoreMenu ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t('messageMoreActions')}
+                          data-testid={`message-actions-${m.id}`}
+                        />
+                      }
+                    >
+                      <Ellipsis aria-hidden />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align={mine ? 'end' : 'start'} sideOffset={4}>
+                      {showRecallAction ? (
+                        <DropdownMenuItem onClick={() => void recallMessage(m)}>
+                          <Undo2 aria-hidden />
+                          {t('recallMessage')}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {showDeleteMineAction ? (
+                        <DropdownMenuItem onClick={() => void deleteMessage(m)}>
+                          <Trash aria-hidden />
+                          {t('deleteMessage')}
+                        </DropdownMenuItem>
+                      ) : null}
+                      {showModerateActions ? (
+                        <DropdownMenuCheckboxItem
+                          checked={selectedForBulk.has(m.id)}
+                          onCheckedChange={() => setSelectedForBulk((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(m.id)) next.delete(m.id);
+                            else next.add(m.id);
+                            return next;
+                          })}
+                        >
+                          {t('selectMessageForBulk')}
+                        </DropdownMenuCheckboxItem>
+                      ) : null}
+                      {showModerateActions ? (
+                        <DropdownMenuItem variant="destructive" onClick={() => void hardDeleteMessage(m)}>
+                          <Eraser aria-hidden />
+                          {t('hardDeleteMessage')}
+                        </DropdownMenuItem>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </div>
+            ) : null}
             <MessageFooter className="flex-wrap gap-2">
               <span>{new Date(m.createdAt).toLocaleString()}</span>
               {m.deletedAt ? (
@@ -223,39 +305,6 @@ export function ChatPanel({
                     {t('retrySend')}
                   </Button>
                 </span>
-              ) : null}
-              {!m.deletedAt && !m.localStatus ? (
-                <Button type="button" variant="outline" onClick={() => onStartReply(m)}>
-                  {t('replyToMessage')}
-                </Button>
-              ) : null}
-              {!m.deletedAt && !m.localStatus && m.userIdFrom === myId ? (
-                <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
-                  {t('deleteMessage')}
-                </Button>
-              ) : null}
-              {canRecall(m) ? (
-                <Button type="button" variant="outline" onClick={() => void recallMessage(m)}>
-                  {t('recallMessage')}
-                </Button>
-              ) : null}
-              {active.canModerate && !m.localStatus ? (
-                <>
-                  <input
-                    type="checkbox"
-                    aria-label={t('selectMessageForBulk')}
-                    checked={selectedForBulk.has(m.id)}
-                    onChange={() => setSelectedForBulk((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(m.id)) next.delete(m.id);
-                      else next.add(m.id);
-                      return next;
-                    })}
-                  />
-                  <Button type="button" variant="destructive" onClick={() => void hardDeleteMessage(m)}>
-                    {t('hardDeleteMessage')}
-                  </Button>
-                </>
               ) : null}
             </MessageFooter>
           </MessageContent>
