@@ -252,6 +252,54 @@ export class CredentialBridgeService {
   }
 
   /**
+   * Đồng bộ dòng credential trong `account` theo hash HIỆN HÀNH ở
+   * `users.password_hash` (chặng 2.6 của issue #7 — điểm nối duy nhất
+   * mà module users gọi sau mỗi lần ghi mật khẩu phía hệ cũ: tạo user,
+   * admin đặt lại mật khẩu, user tự đổi mật khẩu qua đường cũ; quy
+   * trình seed cũng gọi cho các tài khoản mẫu). Khác
+   * `linkExistingPasswordHash` ở hai điểm: (1) Better Auth đang TẮT
+   * thì đây là no-op trả `false` — hệ cũ là nguồn duy nhất, không
+   * phải lỗi; (2) đã có dòng credential thì CẬP NHẬT `password` của
+   * nó theo hash mới (link chỉ chèn khi chưa có). Chưa có thì chèn
+   * idempotent trên UNIQUE (user_id, provider_id) như link. User
+   * không có hash (chỉ OAuth/guest) → `false`, không tạo credential
+   * rỗng. Trả `true` khi có một lần ghi thật (chèn hoặc cập nhật).
+   */
+  async syncCredentialPassword(userId: string): Promise<boolean> {
+    if (!this.betterAuth.auth) return false;
+    const [row] = await this.db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!row?.passwordHash) return false;
+    const [existing] = await this.db
+      .select({ id: authAccount.id, password: authAccount.password })
+      .from(authAccount)
+      .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, 'credential')))
+      .limit(1);
+    if (existing) {
+      if (existing.password === row.passwordHash) return false;
+      await this.db
+        .update(authAccount)
+        .set({ password: row.passwordHash, updatedAt: new Date() })
+        .where(eq(authAccount.id, existing.id));
+      return true;
+    }
+    const inserted = await this.db
+      .insert(authAccount)
+      .values({
+        userId,
+        providerId: 'credential',
+        accountId: userId,
+        password: row.passwordHash,
+      })
+      .onConflictDoNothing({ target: [authAccount.userId, authAccount.providerId] })
+      .returning({ id: authAccount.id });
+    return inserted.length > 0;
+  }
+
+  /**
    * Tạo phiên theo chương trình cho user (không qua HTTP đăng nhập) và
    * trả giá trị cookie phiên đã ký để phía gọi đặt lên response — đúng
    * định dạng `token.signature` mà Better Auth chấp nhận.

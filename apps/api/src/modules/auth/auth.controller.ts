@@ -10,6 +10,7 @@ import { RequireCapability } from '../../common/require-capability.decorator';
 import { UsersService } from '../users/users.service';
 import { changePasswordSchema, loginAsSchema, loginSchema, mfaTotpCodeSchema, mfaVerifySchema, refreshTokenSchema, type ChangePasswordDto, type LoginAsDto, type LoginDto, type MfaTotpCodeDto, type MfaVerifyDto, type RefreshDto } from './dto/auth.dto';
 import { AuthService, type PasswordLoginOutcome } from './auth.service';
+import { BetterAuthService } from './better-auth/better-auth.service';
 
 
 export const SESSION_COOKIE = 'lms_session';
@@ -39,7 +40,7 @@ function loginResponse(outcome: PasswordLoginOutcome) {
  * API xác thực: /auth/login, refresh, logout, đổi mật khẩu, login-as, MFA TOTP và session.
  */
 export class AuthController {
-  constructor(private readonly auth: AuthService, private readonly users: UsersService) {}
+  constructor(private readonly auth: AuthService, private readonly users: UsersService, private readonly betterAuth: BetterAuthService) {}
 
   @Public()
   @UseGuards(AuthGuard('local'))
@@ -167,10 +168,30 @@ export class AuthController {
   @Post('login-as')
   /**
    * POST /auth/login-as/:id — đăng nhập thay user khác (cần capability).
+   *
+   * Theo chặng cutover (GĐ2 chặng 2.6/2.7, issue #7): chặng off trả cặp
+   * token JWT như cũ; chặng bake (AUTH_CUTOVER_STAGE=bake) đặt COOKIE
+   * phiên Better Auth đã ký cho danh tính đích và đáp ứng không mang
+   * token — client chuyển sang danh tính đích bằng chính cookie đó.
    */
-  async loginAs(@Body({ schema: loginAsSchema }) dto: LoginAsDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request) {
-    const { user, tokens, tenantId } = await this.auth.loginAs(actor.id, dto.userId, dto.reason, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
-    return { user: { id: user.id, username: user.username }, ...tokens, loginAs: { byUserId: actor.id, tenantId } };
+  async loginAs(@Body({ schema: loginAsSchema }) dto: LoginAsDto, @CurrentUser() actor: AuthenticatedUser, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const outcome = await this.auth.loginAs(actor.id, dto.userId, dto.reason, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] });
+    const { user, tenantId } = outcome;
+    if (outcome.mode === 'better-auth') {
+      res.cookie(this.betterAuth.sessionCookieName, outcome.baSession.signedCookieValue, {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: this.betterAuth.sessionCookieSecure,
+        expires: outcome.baSession.expiresAt,
+      });
+      return {
+        user: { id: user.id, username: user.username },
+        session: { expiresAt: outcome.baSession.expiresAt.toISOString() },
+        loginAs: { byUserId: actor.id, tenantId },
+      };
+    }
+    return { user: { id: user.id, username: user.username }, ...outcome.tokens, loginAs: { byUserId: actor.id, tenantId } };
   }
 
   // --- Redis web sessions (cookie carries only the signed-less opaque id; the record lives server-side) ---

@@ -1,16 +1,21 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
+import { eq } from 'drizzle-orm';
 import type { Database } from '../../../db/database';
+import { users } from '../../../db/schema';
 import { PasswordService } from '../../users/password.service';
 import { AuthMailService } from '../../mail/auth-mail.service';
 import { LoginLockoutService } from '../login-lockout.service';
 import {
+  BETTER_AUTH_SESSION_COOKIE,
   createBetterAuth,
   type BetterAuthInstance,
   type BetterAuthMcpAsConfig,
   type BetterAuthSocialConfig,
 } from './better-auth.instance';
+
+export type AuthCutoverStage = 'off' | 'bake';
 
 /**
  * Chủ sở hữu duy nhất của Better Auth instance trong tiến trình API.
@@ -29,6 +34,11 @@ import {
  * hiện tại không đổi. Cờ bật mà thiếu `BETTER_AUTH_SECRET` thì
  * constructor ném lỗi: app từ chối boot thay vì âm thầm chạy một hệ
  * auth thiếu secret.
+ *
+ * Cờ thứ ba — `AUTH_CUTOVER_STAGE` (chặng 2.7): KHÔNG dựng instance,
+ * nó chỉ chọn LUỒNG CHÍNH từng phần trong cửa sổ bake ('bake' đòi hỏi
+ * `BETTER_AUTH_ENABLED`, xem constructor) và bật hook đồng bộ ngược
+ * mật khẩu. Mặc định 'off' — hành vi hiện tại.
  */
 @Injectable()
 export class BetterAuthService {
@@ -40,6 +50,22 @@ export class BetterAuthService {
   readonly mcpAs: BetterAuthMcpAsConfig | null;
   /** Provider xã hội đã đăng ký vào instance (chặng 2.3) — rỗng khi chưa cấu hình env nào. */
   readonly socialProvidersEnabled: readonly ('google' | 'facebook')[];
+  /**
+   * Chặng cutover của GĐ2 (env `AUTH_CUTOVER_STAGE`): 'off' = luồng
+   * cũ là chính như hiện tại; 'bake' = cửa sổ bake của bước A chặng
+   * 2.7 (login-as phát phiên BA; đổi mật khẩu qua BA đồng bộ ngược
+   * hash về users.password_hash — xem createBetterAuth bên dưới).
+   */
+  readonly cutoverStage: AuthCutoverStage;
+  /**
+   * Tên cookie phiên như chính Better Auth đặt (thêm tiền tố
+   * `__Secure-` khi baseURL là https) — các điểm tự đặt cookie phiên
+   * BA ngoài handler của nó (login-as, chặng 2.6) phải dùng đúng tên
+   * này, và guard nhận cả hai dạng.
+   */
+  readonly sessionCookieName: string;
+  /** Cookie phiên có thuộc tính Secure hay không (khớp quy tắc của Better Auth theo baseURL). */
+  readonly sessionCookieSecure: boolean;
 
   constructor(
     config: ConfigService,
@@ -65,9 +91,20 @@ export class BetterAuthService {
       ...(socialProviders.google ? (['google'] as const) : []),
       ...(socialProviders.facebook ? (['facebook'] as const) : []),
     ];
+    this.cutoverStage = config.get<AuthCutoverStage>('AUTH_CUTOVER_STAGE') ?? 'off';
+    // Cửa sổ bake phát phiên Better Auth làm luồng chính từng phần —
+    // nó vô nghĩa khi chính Better Auth không bật: fail-fast như
+    // thiếu secret, thay vì chạy một cấu hình nửa vời.
+    if (this.cutoverStage === 'bake' && !this.enabled) {
+      throw new Error(
+        'AUTH_CUTOVER_STAGE=bake requires BETTER_AUTH_ENABLED=true (the bake window runs on Better Auth sessions)',
+      );
+    }
     if (!this.enabled && !this.mcpAsEnabled) {
       this.auth = null;
       this.mcpAs = null;
+      this.sessionCookieName = BETTER_AUTH_SESSION_COOKIE;
+      this.sessionCookieSecure = false;
       return;
     }
     const secret = config.get<string>('BETTER_AUTH_SECRET');
@@ -78,6 +115,12 @@ export class BetterAuthService {
     }
     const baseURL =
       config.get<string>('BETTER_AUTH_URL') ?? `http://localhost:${config.get<number>('PORT') ?? 3000}`;
+    // Quy tắc cookie của chính Better Auth: baseURL https ⇒ cookie
+    // Secure + tiền tố `__Secure-` trong tên.
+    this.sessionCookieSecure = baseURL.startsWith('https://');
+    this.sessionCookieName = this.sessionCookieSecure
+      ? `__Secure-${BETTER_AUTH_SESSION_COOKIE}`
+      : BETTER_AUTH_SESSION_COOKIE;
     const extraOrigins = (config.get<string>('BETTER_AUTH_TRUSTED_ORIGINS') ?? '')
       .split(',')
       .map((origin) => origin.trim())
@@ -116,6 +159,20 @@ export class BetterAuthService {
       // Lockout theo tài khoản (điểm 2.4): instance gắn hooks khi
       // có cổng — chính sách khoá là của tài khoản, không phải của cờ.
       lockout: lockout ?? null,
+      // Cửa sổ bake (chặng 2.7 bước A): mọi lần Better Auth ghi mật
+      // khẩu credential mới (đổi mật khẩu, đặt lại qua reset) đều
+      // đồng bộ ngược CÙNG MỘT hash về `users.password_hash` — điều
+      // kiện để tắt AUTH_CUTOVER_STAGE về 'off' là quay lại luồng cũ
+      // trọn vẹn (rollback trước bước B). Ngoài cửa sổ bake: không
+      // hook, hành vi như hiện tại.
+      legacyPasswordSync:
+        this.cutoverStage === 'bake'
+          ? {
+              syncPasswordHash: async (userId: string, passwordHash: string): Promise<void> => {
+                await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+              },
+            }
+          : null,
     });
   }
 

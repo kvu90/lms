@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MailModule } from '../../mail/mail.module';
 import { UsersModule } from '../../users/users.module';
 import { AuthModule } from '../auth.module';
@@ -13,10 +13,16 @@ import { CredentialBridgeService } from './credential-bridge.service';
  * AppModule đăng ký toàn cục trước JwtAuthGuard.
  */
 @Module({
-  // AuthModule cho LoginLockoutService (điểm 2.4: hooks của instance
-  // dùng chung chính sách khoá với hệ legacy). AuthModule không import
-  // ngược module này nên không thành vòng phụ thuộc.
-  imports: [UsersModule, MailModule, AuthModule],
+  // Hai vòng module tường minh, forwardRef ở cả hai phía như khuôn
+  // UsersModule ↔ BetterAuthModule đã có:
+  // - UsersModule: module này cần PasswordService của UsersModule,
+  //   UsersService cần CredentialBridgeService của module này để đồng
+  //   bộ credential (chặng 2.6).
+  // - AuthModule: module này cần LoginLockoutService của AuthModule
+  //   (điểm 2.4: hooks của instance dùng chung chính sách khoá với hệ
+  //   legacy), AuthModule cần BetterAuthService + CredentialBridgeService
+  //   của module này cho login-as ở chặng bake (chặng 2.6).
+  imports: [forwardRef(() => UsersModule), MailModule, forwardRef(() => AuthModule)],
   providers: [BetterAuthService, CredentialBridgeService],
   exports: [BetterAuthService, CredentialBridgeService],
 })

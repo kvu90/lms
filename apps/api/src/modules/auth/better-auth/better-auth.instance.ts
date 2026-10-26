@@ -103,6 +103,19 @@ export interface BetterAuthFactoryDeps {
    */
   authMail?: AuthMailPort | null;
   /**
+   * Đồng bộ ngược hash mật khẩu trong cửa sổ bake (GĐ2 chặng 2.7
+   * bước A): khi một dòng `account` credential được TẠO hoặc CẬP NHẬT
+   * mật khẩu qua bất kỳ đường nào của Better Auth (đổi mật khẩu, đặt
+   * lại qua reset, admin đặt hộ), factory gọi callback này để tầng
+   * service ghi CÙNG hash về `users.password_hash`. Đây là điều kiện
+   * để rollback về hệ cũ trước bước B còn đúng: mật khẩu hiện hành
+   * luôn đăng nhập được ở cả hai hệ. `null`/thiếu = không hook (mọi
+   * giai đoạn ngoài cửa sổ bake — hành vi hiện tại).
+   */
+  legacyPasswordSync?: {
+    syncPasswordHash: (userId: string, passwordHash: string) => Promise<void>;
+  } | null;
+  /**
    * Cấu hình máy chủ OAuth (AS) cho MCP (issue #163, lát MCP-1): có
    * giá trị thì factory compose thêm `jwt()` + `mcp()` + `cimd()` —
    * instance trở thành AS phát access token cho `/mcp`. `null`/thiếu
@@ -319,6 +332,35 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
           ]
         : []),
     ],
+    // Đồng bộ ngược trong cửa sổ bake (xem `legacyPasswordSync` ở
+    // deps): hook theo model `account` của chính Better Auth — mọi
+    // lần ghi mật khẩu credential đều qua create/update của model
+    // này (gồm updatePassword của internalAdapter mà change-password
+    // và reset dùng), nên một điểm hook phủ đủ mọi đường, kể cả các
+    // endpoint mà mount hiện tại còn để hệ cũ thắng (change-password
+    // legacy) — hook chỉ kích hoạt theo deps, không theo route.
+    ...(deps.legacyPasswordSync
+      ? {
+          databaseHooks: {
+            account: {
+              create: {
+                after: async (account: { providerId: string; userId: string; password?: string | null }) => {
+                  if (account.providerId === 'credential' && account.password) {
+                    await deps.legacyPasswordSync!.syncPasswordHash(account.userId, account.password);
+                  }
+                },
+              },
+              update: {
+                after: async (account: { providerId: string; userId: string; password?: string | null }) => {
+                  if (account.providerId === 'credential' && account.password) {
+                    await deps.legacyPasswordSync!.syncPasswordHash(account.userId, account.password);
+                  }
+                },
+              },
+            },
+          },
+        }
+      : {}),
     session: {
       cookieCache: { enabled: false },
     },
