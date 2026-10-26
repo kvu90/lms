@@ -240,8 +240,10 @@ export function useUpdateMatrix() {
         method: 'PATCH',
         body: JSON.stringify(vars.body),
       }),
-    onSuccess: (_data, vars) =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.matrixDetail(vars.matrixId) }),
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matrixDetail(vars.matrixId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matrixSpecification(vars.matrixId) });
+    },
   });
 }
 
@@ -263,8 +265,11 @@ export function useAddMatrixCell() {
         method: 'POST',
         body: JSON.stringify(vars.body),
       }),
-    onSuccess: (_data, vars) =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.matrixDetail(vars.matrixId) }),
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matrixDetail(vars.matrixId) });
+      // Đặc tả là bảng SUY RA từ các ô: ô đổi thì đặc tả phải nạp lại.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matrixSpecification(vars.matrixId) });
+    },
   });
 }
 
@@ -274,7 +279,9 @@ export function useDeleteMatrixCell() {
   return useMutation({
     mutationFn: (vars: { matrixId: string; cellId: string }) =>
       apiJson(`/api/v1/exam-matrices/${vars.matrixId}/cells/${vars.cellId}`, { method: 'DELETE' }),
-    onSuccess: (_data, vars) =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.matrixDetail(vars.matrixId) }),
+    onSuccess: (_data, vars) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matrixDetail(vars.matrixId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.matrixSpecification(vars.matrixId) });
+    },
   });
 }
