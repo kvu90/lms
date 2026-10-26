@@ -466,6 +466,42 @@ describe('Shared question bank (feat #70)', () => {
     expect((await http(app).get(`/api/v1/questions/${fresh.question.id}`).set(bearer(leader.token))).status).toBe(404);
   });
 
+  // --- QE-3 (#248): endpoint trạng thái draft ↔ ready cho màn soạn web --------
+
+  it('QE-3: chủ bank chuyển câu ready → draft → ready; người ngoài 403; câu đã rút 409', async () => {
+    const alice = await mkStaffUser();
+    const bob = await mkUser();
+    const bank = await myPersonalBank(alice);
+    const q = await createQuestion(alice.token, bank.defaultCategoryId!, 'Câu chuyển trạng thái', 'Thân câu chuyển trạng thái?');
+    expect(q.entry.status).toBe('ready');
+
+    // Về draft: đổi trạng thái entry, KHÔNG tạo phiên bản mới.
+    const toDraft = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'draft' });
+    expect(toDraft.status, JSON.stringify(toDraft.body)).toBe(201);
+    expect((toDraft.body as QuestionViewBody).entry.status).toBe('draft');
+    expect((toDraft.body as QuestionViewBody).entry.latestVersion).toBe(q.entry.latestVersion);
+
+    // Idempotent: gọi lại cùng trạng thái đích vẫn thành công.
+    const again = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'draft' });
+    expect(again.status, JSON.stringify(again.body)).toBe(201);
+    expect((again.body as QuestionViewBody).entry.status).toBe('draft');
+
+    // Người ngoài bank cá nhân không govern được câu → 403.
+    const bobTry = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(bob.token)).send({ status: 'ready' });
+    expect(bobTry.status).toBe(403);
+
+    // Về ready lại (đường "Lưu & sẵn sàng" / công bố câu draft MCP từ màn soạn).
+    const toReady = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'ready' });
+    expect(toReady.status, JSON.stringify(toReady.body)).toBe(201);
+    expect((toReady.body as QuestionViewBody).entry.status).toBe('ready');
+
+    // Câu đã rút (hidden): endpoint trạng thái từ chối 409 — phải restore trước.
+    const withdraw = await http(app).post(`/api/v1/questions/${q.question.id}/withdraw`).set(bearer(alice.token)).send({ reason: 'Rút để kiểm cổng trạng thái' });
+    expect(withdraw.status, JSON.stringify(withdraw.body)).toBe(201);
+    const hiddenTry = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'draft' });
+    expect(hiddenTry.status).toBe(409);
+  });
+
   // --- QB-4 -------------------------------------------------------------------
 
   it('QB-4: vòng đời đóng góp — duyệt copy vào bank đích, chống trùng, từ chối có lý do, bản mới qua derived_from', async () => {
