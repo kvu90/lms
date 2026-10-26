@@ -120,7 +120,7 @@ describe('Trang công khai mua gói lớp (CLASS-3)', () => {
     stubFetch(calls, PUBLIC_PACKAGE);
     renderPublic();
 
-    expect(await screen.findByText('Lớp 10A1')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Lớp 10A1' })).toBeTruthy();
     expect(screen.getByText(/1\.500\.000/)).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Thanh toán học phí' }));
 

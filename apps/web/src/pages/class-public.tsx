@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button, buttonVariants } from '@lms/ui/components/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Card, CardContent } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
@@ -88,10 +88,9 @@ export function ClassPublicPage() {
         </Alert>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>{pub.name}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+          {/* Tên lớp chỉ hiện ở PageHeader phía trên — không lặp lại
+              trong thẻ để trang có đúng một tiêu đề. */}
+          <CardContent className="flex flex-col gap-4 pt-6">
             <div className="flex flex-col gap-1 text-sm">
               <p className="text-muted-foreground">{t('classPublicOwner', { name: pub.ownerName })}</p>
               {pub.description ? <p>{pub.description}</p> : null}
