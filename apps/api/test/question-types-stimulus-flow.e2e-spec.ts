@@ -331,11 +331,28 @@ describe('Question types & stimulus', () => {
     });
     expect(q.status).toBeLessThan(300);
     expect(docText((q.body as { latestVersion: { questionText: DocLike } }).latestVersion.questionText)).toBe('Chọn đáp án đúng nhất\nCâu hỏi có hai đoạn.');
+    // Node image ĐÃ thuộc lát hợp đồng (QE-1 + nối files ở QE-2): tài liệu có
+    // ảnh hợp lệ phải được tạo và round-trip nguyên vẹn cả attrs.
+    const imageDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Quan sát hình sau:' }] },
+        { type: 'image', attrs: { src: '/api/v1/files/11111111-1111-7111-8111-111111111111/content', alt: 'Hình minh hoạ', title: 'Hình 1' } },
+      ],
+    };
     const withImage = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Có ảnh', questionText: { type: 'doc', content: [{ type: 'image', attrs: { src: 'x' } }] },
+      categoryId, qtype: 'multichoice', name: 'Có ảnh', questionText: imageDoc,
       answers: [{ text: 'A', fraction: 1 }, { text: 'B', fraction: 0 }],
     });
-    expect(withImage.status).toBe(400); // lát đầu chưa có node image — hợp đồng tài liệu từ chối
+    expect(withImage.status).toBeLessThan(300);
+    expect((withImage.body as { latestVersion: { questionText: unknown } }).latestVersion.questionText).toEqual(imageDoc);
+    // Node heading vẫn NGOÀI lát hợp đồng hiện tại (richTextDocumentSchema chỉ
+    // gồm paragraph, bulletList, blockMath, image) — hợp đồng tài liệu từ chối.
+    const withHeading = await createQuestion({
+      categoryId, qtype: 'multichoice', name: 'Có tiêu đề', questionText: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Tiêu đề' }] }] },
+      answers: [{ text: 'A', fraction: 1 }, { text: 'B', fraction: 0 }],
+    });
+    expect(withHeading.status).toBe(400);
   });
 
   it('editing without answers clones the previous version content into the new version with fresh rows', async () => {
