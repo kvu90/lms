@@ -50,41 +50,48 @@ async function countMatricesByName(name: string): Promise<number> {
 }
 
 async function downloadTemplate(token: string): Promise<ExcelJS.Workbook> {
+  const qs = new URLSearchParams({ subjectId, curriculumId }).toString();
   const res = await http(app)
-    .get('/api/v1/exam-matrices/import/template')
+    .get(`/api/v1/exam-matrices/template?${qs}`)
     .set(auth(token))
     .buffer(true)
     .parse((r, cb) => {
       const chunks: Buffer[] = [];
       r.on('data', (c: Buffer) => chunks.push(c));
       r.on('end', () => cb(null, Buffer.concat(chunks)));
-    })
-    .expect(200);
+    });
+  if (res.status !== 200) throw new Error(`template failed: ${res.status} ${JSON.stringify(res.body)}`);
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(res.body);
+  await wb.xlsx.load(res.body as unknown as ExcelJS.Buffer);
   return wb;
 }
 
-/** Điền file hợp lệ như ca của I-1: 9 ô có câu, tổng đúng 10 điểm. */
+/**
+ * Điền file hợp lệ đúng ca của spec I-1: sheet `Ma trận` giữ cả khối
+ * thông tin chung (B2 tên; B5 tổng 10 và B6 "Không" do mẫu điền sẵn;
+ * mã môn/chương trình ở cột D — không đụng) lẫn lưới. Điểm mỗi câu ở
+ * B7–B10; 9 ô có câu, tổng tự tính khớp đúng 10 điểm, tỉ lệ dạng khớp
+ * khuôn 30/20/20/30. Cột: MC F–H, Đ–S I–K, Trả lời ngắn L–N, Tự luận
+ * O–Q theo thứ tự Biết/Hiểu/Vận dụng; hàng 15 = ĐVK 1, 16 = ĐVK 2.
+ */
 function fillValid(wb: ExcelJS.Workbook, name: string): void {
-  const info = wb.getWorksheet('Thông tin')!;
-  info.getCell('B2').value = name;
-  info.getCell('B3').value = subjectId;
-  info.getCell('B4').value = curriculumId;
-  info.getCell('B5').value = 10;
-  info.getCell('B6').value = 'Không';
-  info.getCell('B7').value = 0.25;
-  info.getCell('B8').value = 1;
-  info.getCell('B9').value = 0.5;
-  info.getCell('B10').value = 1.5;
-  const grid = wb.getWorksheet('Ma trận')!;
-  const set = (row: number, entries: [string, number][]) => {
-    for (const [col, v] of entries) grid.getCell(`${col}${row}`).value = v;
-  };
-  // Hàng 15 = ĐVK 1: MC 4/3/2, TF 1/1/0, SA 2/1/0, Essay 1/0/0.
-  set(15, [['F', 4], ['G', 3], ['H', 2], ['I', 1], ['J', 1], ['K', 0], ['L', 2], ['M', 1], ['N', 0], ['O', 1], ['P', 0], ['Q', 0]]);
-  // Hàng 16 = ĐVK 2: MC 2/1/0, TF 0/1/0, SA 0/0/0, Essay 0/1/0.
-  set(16, [['F', 2], ['G', 1], ['H', 0], ['I', 0], ['J', 1], ['K', 0], ['L', 0], ['M', 0], ['N', 0], ['O', 0], ['P', 1], ['Q', 0]]);
+  const ws = wb.getWorksheet('Ma trận')!;
+  ws.getCell('B2').value = name;
+  ws.getCell('B7').value = 0.25; // điểm mỗi câu Nhiều lựa chọn
+  ws.getCell('B8').value = 1; // điểm mỗi chùm Đúng–Sai
+  ws.getCell('B9').value = 0.5; // điểm mỗi câu Trả lời ngắn
+  ws.getCell('B10').value = 1.5; // điểm mỗi câu Tự luận
+  // ĐVK 1 (dòng 15)
+  ws.getCell('F15').value = 4; // MC Biết
+  ws.getCell('G15').value = 4; // MC Hiểu
+  ws.getCell('J15').value = 1; // Đ–S Hiểu (chùm)
+  ws.getCell('N15').value = 2; // Trả lời ngắn Vận dụng
+  ws.getCell('Q15').value = 1; // Tự luận Vận dụng
+  // ĐVK 2 (dòng 16)
+  ws.getCell('F16').value = 4; // MC Biết
+  ws.getCell('I16').value = 1; // Đ–S Biết (chùm)
+  ws.getCell('M16').value = 2; // Trả lời ngắn Hiểu
+  ws.getCell('Q16').value = 1; // Tự luận Vận dụng
 }
 
 async function toBuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
@@ -259,7 +266,7 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     // Lệch tổng điểm khai báo: cũng từ chối toàn bộ, không ghi dở.
     const wb2 = await downloadTemplate(admin);
     fillValid(wb2, 'Ma trận lệch tổng');
-    wb2.getWorksheet('Thông tin')!.getCell('B5').value = 9;
+    wb2.getWorksheet('Ma trận')!.getCell('B5').value = 9;
     const res2 = await postImport(admin, await toBuffer(wb2)).expect(422);
     expect(res2.body.code).toBe('quiz.matrix_import_invalid');
     const issues2 = res2.body.matrixImportIssues as { code: string }[];
