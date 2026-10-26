@@ -16,3 +16,6 @@ export function meta() {
 export default function ExamsRoute() {
   return <QuestionsPage area="my-exams" />;
 }
+
+// clientLoader (F-01 đợt 1, rà soát #133): prefetch cụm ngân hàng vào QueryClient singleton.
+export { questionsPageClientLoader as clientLoader } from "../lib/questions-data";

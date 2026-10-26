@@ -15,6 +15,38 @@ export const queryKeys = {
   /** Gói dữ liệu trang một khoá học (thông tin/instance/ghi danh/nội dung/tiến độ — trang course). */
   coursePage: (courseId: string) => ['courses', courseId, 'page'] as const,
   playerView: (courseId: string, cmId: string) => ['courses', courseId, 'player', cmId] as const,
+  /** Cây danh mục câu hỏi (GET /questions/categories — trang questions). */
+  questionCategories: ['questions', 'categories'] as const,
+  /** Câu hỏi của một danh mục (GET /questions/categories/:id/questions — trang questions). */
+  categoryQuestions: (categoryId: string) => ['questions', 'categories', categoryId, 'questions'] as const,
+  /** Ngữ liệu của một danh mục (GET /stimuli?categoryId= — trang questions). */
+  categoryStimuli: (categoryId: string) => ['stimuli', 'by-category', categoryId] as const,
+  /** Dòng ghi công của một câu copy (GET /questions/:id/attribution — trang questions). */
+  questionAttribution: (questionId: string) => ['questions', questionId, 'attribution'] as const,
+  /** Các phiên bản của một câu (GET /questions/:id/versions — trang questions). */
+  questionVersions: (questionId: string) => ['questions', questionId, 'versions'] as const,
+  /** Chi tiết một câu (GET /questions/:id — xem trước ở trang questions). */
+  questionDetail: (questionId: string) => ['questions', questionId, 'detail'] as const,
+  /** Kết quả khám phá ngân hàng chung (GET /questions/discovery — trang questions). */
+  questionDiscovery: (params: string) => ['questions', 'discovery', params] as const,
+  /** Danh sách bank theo loại (GET /question-banks[?kind=] — trang questions; kind: 'question' | 'matrix' | 'exam'). */
+  questionBanks: (kind: string) => ['question-banks', kind] as const,
+  /** Mọi câu hỏi trong bank cá nhân, gộp theo từng danh mục của bank (trang questions). */
+  myBankQuestions: (bankId: string) => ['question-banks', bankId, 'all-questions'] as const,
+  /** Ma trận của một bank (GET /question-banks/:id/matrices — trang questions). */
+  bankMatrices: (bankId: string) => ['question-banks', bankId, 'matrices'] as const,
+  /** Hàng chờ đóng góp ma trận của một bank (trang questions). */
+  bankMatrixContributions: (bankId: string) => ['question-banks', bankId, 'matrix-contributions'] as const,
+  /** Hàng chờ đóng góp câu hỏi của một bank (trang questions). */
+  bankQuestionContributions: (bankId: string) => ['question-banks', bankId, 'contributions'] as const,
+  /** Đề của một bank đề (GET /exams/banks/:id/exams — trang questions). */
+  bankExams: (bankId: string) => ['exam-banks', bankId, 'exams'] as const,
+  /** Hàng chờ đóng góp đề của một bank đề (trang questions). */
+  bankExamContributions: (bankId: string) => ['exam-banks', bankId, 'contributions'] as const,
+  /** Hàng chờ bộ hồ sơ của một bank đề (trang questions). */
+  bankDossiers: (bankId: string) => ['exam-banks', bankId, 'dossiers'] as const,
+  /** Mọi bộ hồ sơ của chính giáo viên (GET /exams/dossiers/mine — trang questions). */
+  myDossiers: ['exams', 'dossiers', 'mine'] as const,
   /** Trang lần ghim đề (GET /exam-pins/:id + tên câu của các slot — trang quiz). */
   examPin: (pinId: string) => ['exam-pins', pinId] as const,
   /** Ghi đè của lần ghim (GET /exam-pins/:id/overrides — trang quiz). */
