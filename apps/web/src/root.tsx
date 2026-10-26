@@ -7,11 +7,12 @@ import {
   ScrollRestoration,
   isRouteErrorResponse,
   useLoaderData,
+  useMatches,
   useRouteError,
 } from 'react-router';
 import type { UserProfile } from '@lms/contracts';
 import { userProfileSchema } from '@lms/contracts';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { HydrationBoundary, QueryClientProvider, type DehydratedState } from '@tanstack/react-query';
 import { AuthProvider } from './lib/auth';
 import { PermissionsProvider } from './lib/permissions';
 import { createQueryClient, queryClient } from './lib/query-client';
@@ -117,6 +118,28 @@ export function Layout({ children }: { children: ReactNode }) {
 }
 
 /**
+ * Gom dehydrated state TanStack từ dữ liệu loader của các route đã
+ * khớp (lát SL-1 của #7): loader của route tầng SL trả
+ * `{ dehydratedState }` (xem `lib/ssr-data.ts`); route gốc là nơi DUY
+ * NHẤT đặt HydrationBoundary nên state được lấy từ `useMatches` —
+ * duyệt mọi match đang hoạt động và giữ state của match SÂU NHẤT có
+ * mang nó (một lần điều hướng chỉ có tối đa một route lá tầng SL).
+ * Route không thuộc tầng SL thì không match nào mang state → trả
+ * undefined và HydrationBoundary thành no-op.
+ *
+ * @param matches - Danh sách match hiện tại từ `useMatches`.
+ * @returns Dehydrated state của route lá, hoặc undefined khi không có.
+ */
+function collectDehydratedState(matches: ReturnType<typeof useMatches>): DehydratedState | undefined {
+  let state: DehydratedState | undefined;
+  for (const match of matches) {
+    const data = match.loaderData as { dehydratedState?: DehydratedState } | undefined;
+    if (data?.dehydratedState) state = data.dehydratedState;
+  }
+  return state;
+}
+
+/**
  * Gốc ứng dụng: MỌI provider toàn cục bọc tại đây theo đúng vị trí
  * framework mode quy định cho root route — QueryClientProvider (một
  * QueryClient duy nhất cho cả app), AuthProvider (phiên đăng nhập) và
@@ -129,6 +152,13 @@ export function Layout({ children }: { children: ReactNode }) {
  * người dùng; khi chưa đăng nhập nó trả ảnh chụp rỗng ở trạng thái sẵn
  * sàng nên các trang công khai vẫn đọc quyền an toàn. Cổng chờ phiên
  * (chặn mount trang con cho tới khi phiên resolve) nằm ở layout Shell.
+ *
+ * Bên trong QueryClientProvider còn có HydrationBoundary (lát SL-1):
+ * nó hydrate các query mà loader của route tầng SL đã prefetch phía
+ * server vào ĐÚNG QueryClient đang phục vụ cây này (phía server là
+ * client theo-từng-request, phía client là singleton) — nhờ vậy cả
+ * PermissionsProvider lẫn trang lá đều đọc được dữ liệu đã tải sẵn
+ * ngay từ lần render đầu, không fetch trùng.
  */
 export default function App() {
   // Cây render ngoài route gốc (test nhúng, bản nhúng từng phần) có
@@ -151,14 +181,22 @@ export default function App() {
   // xoá cache khi đổi danh tính. useState bảo đảm mỗi cây render — tức
   // mỗi request phía server — có đúng một instance riêng.
   const [requestQueryClient] = useState(() => (typeof window === 'undefined' ? createQueryClient() : null));
+  // Dehydrated state của route lá tầng SL (nếu có) cho lượt render
+  // này: phía server, loader của route con đã chạy xong trước khi cây
+  // render nên state có mặt ngay trong matches; phía client, mỗi lần
+  // điều hướng tới route SL cũng mang state mới qua matches và
+  // HydrationBoundary gộp nó vào client singleton (không xoá query cũ).
+  const dehydratedState = collectDehydratedState(useMatches());
   return (
     <SidebarDefaultOpenContext.Provider value={sidebarDefaultOpen}>
       <QueryClientProvider client={requestQueryClient ?? queryClient}>
-        <AuthProvider initialUser={initialUser}>
-          <PermissionsProvider>
-            <Outlet />
-          </PermissionsProvider>
-        </AuthProvider>
+        <HydrationBoundary state={dehydratedState}>
+          <AuthProvider initialUser={initialUser}>
+            <PermissionsProvider>
+              <Outlet />
+            </PermissionsProvider>
+          </AuthProvider>
+        </HydrationBoundary>
       </QueryClientProvider>
     </SidebarDefaultOpenContext.Provider>
   );

@@ -87,7 +87,12 @@ export function preferenceKey(row: Pick<NotificationPreferenceView, 'provider'>)
   return row.provider;
 }
 
-function groupsUrl(group: string, unreadOnly: boolean, cursor?: string): string {
+/**
+ * URL một trang danh sách nhóm theo bộ lọc + con trỏ — dùng chung cho
+ * hook phía client và loader SL-1 (loader phải gọi ĐÚNG URL này cho
+ * bộ lọc mặc định để dữ liệu dehydrate khớp trang đầu phía client).
+ */
+export function groupsUrl(group: string, unreadOnly: boolean, cursor?: string): string {
   const params = new URLSearchParams({ limit: '20' });
   if (group !== 'all') params.set('group', group);
   if (unreadOnly) params.set('unreadOnly', 'true');

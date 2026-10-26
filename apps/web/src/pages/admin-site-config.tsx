@@ -10,10 +10,39 @@ import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
-import type { SiteSetting } from '@lms/contracts';
+import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
 import '../i18n';
 import { ApiError } from '#lib/api';
 import { useResetSiteSetting, useSaveSiteSetting, useSiteSettingAudit, useSiteSettings } from '#lib/site-config';
+import { queryKeys } from '#lib/query-keys';
+import { buildSsrLoaderData, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
+
+/**
+ * Loader phía server (tầng SL-1 của #7): prefetch bảng cấu hình (key
+ * `siteConfig`) và vết thay đổi (key `siteConfigAudit`) bằng cookie
+ * của chính request rồi dehydrate cho root.tsx hydrate vào cache
+ * (xem `lib/ssr-data.ts`). Người không có capability `site:config`
+ * thì cả hai prefetch đều lỗi 403 phía server → không query nào lọt
+ * vào state, trang tự fetch lại và hiện thông báo không có quyền như
+ * trước SL-1. Không có cookie phiên thì không gọi API nào.
+ *
+ * @param request - Request đang phục vụ (nguồn cookie phiên).
+ * @returns Dehydrated state cho HydrationBoundary ở root.
+ */
+export async function loader({ request }: { request: Request }): Promise<SsrLoaderData> {
+  return buildSsrLoaderData(request, async (queryClient, req) => {
+    await Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.siteConfig,
+        queryFn: serverQueryFn<SiteSetting[]>(req, '/api/v1/site-config'),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.siteConfigAudit,
+        queryFn: serverQueryFn<SiteSettingAuditEntry[]>(req, '/api/v1/site-config/audit'),
+      }),
+    ]);
+  });
+}
 
 /**
  * Các miền giá trị enum đã biết, đối chiếu registry phía backend
@@ -74,7 +103,8 @@ function formatValue(value: unknown): string {
  * trang chỉ giữ phần người dùng ĐÃ sửa so với giá trị server — giá trị
  * hiển thị của dòng chưa sửa suy thẳng từ query nên sau khi lưu/đặt lại
  * (query được làm mới) dòng tự về giá trị server mới, không cần nạp lại
- * toàn trang như trước.
+ * toàn trang như trước. Từ lát SL-1 (#7), loader của route prefetch cả
+ * hai query phía server (khi có cookie phiên) và trang hydrate từ cache.
  */
 export function AdminSiteConfigPage() {
   const { t } = useTranslation('app');

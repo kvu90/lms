@@ -13,8 +13,18 @@ import type { Config } from '@react-router/dev/config';
  * localStorage — server không đọc được; cơ chế loader theo cookie đã
  * có sẵn trong lib/server-api.ts cho khi phiên cookie thành luồng
  * chính ở Giai đoạn 2). Mã nguồn giữ trong `src/` (appDirectory).
+ *
+ * Prerender (lát SL-1 của #7, theo bảng phân tầng route mục 5/6.5):
+ * `/` (mặt CÔNG KHAI — bản build chạy loader không cookie nên chỉ
+ * sinh mặt ẩn danh) và `/login` được render sẵn lúc build thành HTML
+ * tĩnh trong build/client để giảm tải tiến trình SSR. Hai mặt này
+ * chỉ được prod-server.mjs phục vụ tĩnh cho request KHÔNG mang
+ * cookie phiên Better Auth; request có phiên luôn đi SSR động theo
+ * đúng phiên đó (mặt đã đăng nhập của `/` không bao giờ là bản tĩnh).
+ * `/health` giữ SSR động vì nội dung là trạng thái sống.
  */
 export default {
   ssr: true,
   appDirectory: 'src',
+  prerender: ['/', '/login'],
 } satisfies Config;

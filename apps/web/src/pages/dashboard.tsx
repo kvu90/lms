@@ -8,6 +8,7 @@ import { ApiError, apiJson } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { usePermissions, type CourseAccess } from '#lib/permissions';
 import { useCoursesGradeData } from '#lib/course-grade-data';
+import { upcomingDaysRangeIso } from '#lib/calendar';
 import { queryKeys } from '#lib/query-keys';
 import { displayCourseName, useCourseCardPrefs } from '#lib/course-cards';
 import { DashboardSkeleton } from '#components/dashboard-skeleton';
@@ -545,11 +546,13 @@ function StudentSection() {
     queryKey: queryKeys.notifications,
     queryFn: () => apiJson<{ unread: number }>('/api/v1/notifications/unread-count'),
   });
-  const eventRange = useMemo(() => {
-    const from = new Date();
-    const to = new Date(from.getTime() + 30 * 86_400_000);
-    return { from: from.toISOString(), to: to.toISOString() };
-  }, []);
+  // Cửa sổ sự kiện 30 ngày: tính theo múi giờ ứng dụng qua helper
+  // dùng chung với loader SL-1 của route `/` (trước đây lấy đúng mốc
+  // tức thời lúc mount — key chứa mốc mili-giây thì loader phía
+  // server không bao giờ tính lại trùng để dehydrate được; xem
+  // `upcomingDaysRangeIso` ở lib/calendar.ts). Cửa sổ mới bắt đầu từ
+  // 00:00 hôm nay nên phủ đúng ô ngày đầu của biểu đồ bên dưới.
+  const eventRange = useMemo(() => upcomingDaysRangeIso(30), []);
   const eventsQuery = useQuery({
     queryKey: queryKeys.calendarEvents(eventRange.from, eventRange.to),
     queryFn: () => apiJson<CalendarEventView[]>(`/api/v1/calendar/events?from=${eventRange.from}&to=${eventRange.to}`),

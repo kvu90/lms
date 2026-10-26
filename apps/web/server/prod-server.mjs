@@ -129,19 +129,48 @@ function proxyUpgrade(req, socket, head) {
   socket.on('error', () => upstream.destroy());
 }
 
+/**
+ * Tài liệu đã prerender lúc build (khai ở `prerender` trong
+ * react-router.config.ts, lát SL-1 của #7): đường dẫn tài liệu → file
+ * HTML tĩnh trong build/client (React Router sinh `<path>/index.html`).
+ * Chỉ hai mặt công khai `/` và `/login` — xem luật phục vụ ở tryStatic.
+ */
+const PRERENDERED_DOCUMENTS = new Map([
+  ['/', 'index.html'],
+  ['/login', 'login/index.html'],
+]);
+
+/** Mẫu nhận diện cookie phiên Better Auth — cùng mẫu với loader gốc phía app (bản https có tiền tố `__Secure-`). */
+const SESSION_COOKIE_PATTERN = /(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=/;
+
 /** Phục vụ file tĩnh từ build/client; trả true nếu đã xử lý. */
 async function tryStatic(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
   const urlPath = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
-  const filePath = normalize(join(clientDir, urlPath));
+  // Tài liệu prerender: ánh xạ đường dẫn về file HTML đã sinh lúc
+  // build (đường dẫn thường không trỏ thẳng tới file). Luật phiên là
+  // bất biến an toàn của lát SL-1: request mang cookie phiên Better
+  // Auth thì KHÔNG BAO GIỜ nhận bản tĩnh — trả false để rơi xuống
+  // SSR động theo đúng phiên (mặt đã đăng nhập của `/` được cá nhân
+  // hoá bởi loader gốc); chỉ request ẩn danh mới nhận bản prerender.
+  const documentPath = urlPath.length > 1 ? urlPath.replace(/\/+$/, '') : urlPath;
+  const prerenderedFile = PRERENDERED_DOCUMENTS.get(documentPath);
+  if (prerenderedFile && SESSION_COOKIE_PATTERN.test(req.headers.cookie ?? '')) return false;
+  const filePath = normalize(join(clientDir, prerenderedFile ?? urlPath));
   if (!filePath.startsWith(normalize(clientDir))) return false;
   try {
     const info = await stat(filePath);
     if (!info.isFile()) return false;
     const type = MIME[extname(filePath).toLowerCase()] ?? 'application/octet-stream';
-    const cache = urlPath.startsWith('/assets/')
-      ? 'public, max-age=31536000, immutable'
-      : 'public, max-age=3600';
+    // Tài liệu prerender vẫn là TÀI LIỆU (không phải asset): giữ
+    // chính sách không cache công khai như headers() của root phía
+    // app — giá trị của prerender là bỏ chi phí render SSR, không
+    // phải cache ở tầng trung gian/trình duyệt.
+    const cache = prerenderedFile
+      ? 'private, no-cache'
+      : urlPath.startsWith('/assets/')
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=3600';
     const body = await readFile(filePath);
     const headers = { 'Content-Type': type, 'Cache-Control': cache };
     let payload = body;
