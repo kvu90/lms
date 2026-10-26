@@ -27,6 +27,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@lms/contracts": "workspace:*",
+    "@lms/editor": "workspace:*",
     "@lms/ui": "workspace:*",
     "@react-router/node": "^8.5.0",
     "@tabler/icons-react": "^3.49.0",

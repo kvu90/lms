@@ -429,6 +429,9 @@ importers:
       '@lms/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@lms/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
       '@lms/ui':
         specifier: workspace:*
         version: link:../../packages/ui
