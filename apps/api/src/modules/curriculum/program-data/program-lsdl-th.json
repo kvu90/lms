@@ -13,7 +13,20 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số phương tiện hỗ trợ học tập môn Lịch sử và Địa lí: bản đồ, lược đồ, biểu đồ, tranh ảnh, hiện vật, nguồn tư liệu,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số phương tiện hỗ trợ học tập môn Lịch sử và Địa lí: bản đồ, lược đồ, biểu đồ, tranh ảnh, hiện vật, nguồn tư liệu,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số phương tiện hỗ trợ học tập môn Lịch sử và Địa lí: bản đồ, lược đồ, biểu đồ, tranh ảnh, hiện vật, nguồn tư liệu,...",
    "source": {
@@ -36,7 +49,20 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sử dụng được một số phương tiện môn học vào học tập môn Lịch sử và Địa lí."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số phương tiện môn học vào học tập môn Lịch sử và Địa lí."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sử dụng được một số phương tiện môn học vào học tập môn Lịch sử và Địa lí.",
    "source": {
@@ -59,10 +85,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của địa phương trên bản đồ Việt Nam.",
-    "Mô tả được một số nét chính về tự nhiên (ví dụ: địa hình, khí hậu,...) của địa phương có sử dụng lược đồ hoặc bản đồ.",
-    "Trình bày được một số hoạt động kinh tế ở địa phương.",
-    "Thể hiện được tình cảm với địa phương và sẵn sàng hành động bảo vệ môi trường xung quanh."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của địa phương trên bản đồ Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số nét chính về tự nhiên (ví dụ: địa hình, khí hậu,...) của địa phương có sử dụng lược đồ hoặc bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số hoạt động kinh tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được tình cảm với địa phương và sẵn sàng hành động bảo vệ môi trường xung quanh."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của địa phương trên bản đồ Việt Nam. – Mô tả được một số nét chính về tự nhiên (ví dụ: địa hình, khí hậu,...) của địa phương có sử dụng lược đồ hoặc bản đồ. – Trình bày được một số hoạt động kinh tế ở địa phương. – Thể hiện được tình cảm với địa phương và sẵn sàng hành động bảo vệ môi trường xung quanh.",
    "source": {
@@ -86,9 +164,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Mô tả được một số nét về văn hoá (ví dụ: nhà ở, phong tục, tập quán, lễ hội, trang phục, ẩm thực,...) của địa phương.",
-    "Lựa chọn và giới thiệu được ở mức độ đơn giản một món ăn, một loại trang phục hoặc một lễ hội tiêu biểu,... ở địa phương.",
-    "Kể lại được câu chuyện về một trong số các danh nhân ở địa phương."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số nét về văn hoá (ví dụ: nhà ở, phong tục, tập quán, lễ hội, trang phục, ẩm thực,...) của địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và giới thiệu được ở mức độ đơn giản một món ăn, một loại trang phục hoặc một lễ hội tiêu biểu,... ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được câu chuyện về một trong số các danh nhân ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Mô tả được một số nét về văn hoá (ví dụ: nhà ở, phong tục, tập quán, lễ hội, trang phục, ẩm thực,...) của địa phương. – Lựa chọn và giới thiệu được ở mức độ đơn giản một món ăn, một loại trang phục hoặc một lễ hội tiêu biểu,... ở địa phương. – Kể lại được câu chuyện về một trong số các danh nhân ở địa phương.",
    "source": {
@@ -111,10 +228,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí, một số địa danh tiêu biểu (ví dụ: dãy núi Hoàng Liên Sơn, đỉnh Fansipan, cao nguyên Mộc Châu,...) của vùng trung du và miền núi Bắc Bộ trên bản đồ hoặc lược đồ.",
-    "Quan sát lược đồ, tranh ảnh, mô tả được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, sông ngòi,...) của vùng trung du và miền núi Bắc Bộ.",
-    "Nêu được một cách đơn giản ảnh hưởng của địa hình, khí hậu, sông ngòi đối với đời sống và sản xuất của người dân ở vùng trung du và miền núi Bắc Bộ.",
-    "Đưa ra được một số biện pháp bảo vệ thiên nhiên và phòng chống thiên tai ở vùng trung du và miền núi Bắc Bộ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí, một số địa danh tiêu biểu (ví dụ: dãy núi Hoàng Liên Sơn, đỉnh Fansipan, cao nguyên Mộc Châu,...) của vùng trung du và miền núi Bắc Bộ trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát lược đồ, tranh ảnh, mô tả được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, sông ngòi,...) của vùng trung du và miền núi Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một cách đơn giản ảnh hưởng của địa hình, khí hậu, sông ngòi đối với đời sống và sản xuất của người dân ở vùng trung du và miền núi Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được một số biện pháp bảo vệ thiên nhiên và phòng chống thiên tai ở vùng trung du và miền núi Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí, một số địa danh tiêu biểu (ví dụ: dãy núi Hoàng Liên Sơn, đỉnh Fansipan, cao nguyên Mộc Châu,...) của vùng trung du và miền núi Bắc Bộ trên bản đồ hoặc lược đồ. – Quan sát lược đồ, tranh ảnh, mô tả được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, sông ngòi,...) của vùng trung du và miền núi Bắc Bộ. – Nêu được một cách đơn giản ảnh hưởng của địa hình, khí hậu, sông ngòi đối với đời sống và sản xuất của người dân ở vùng trung du và miền núi Bắc Bộ. – Đưa ra được một số biện pháp bảo vệ thiên nhiên và phòng chống thiên tai ở vùng trung du và miền núi Bắc Bộ.",
    "source": {
@@ -137,10 +306,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số dân tộc sinh sống ở vùng trung du và miền núi Bắc Bộ.",
-    "Nhận xét được một cách đơn giản về sự phân bố dân cư ở trung du và miền núi Bắc Bộ thông qua lược đồ phân bố dân cư",
-    "Kể được một số cách thức khai thác tự nhiên (ví dụ: làm ruộng bậc thang, xây dựng các công trình thuỷ điện, khai thác khoáng sản,...).",
-    "Mô tả được một số lễ hội văn hoá của các dân tộc ở vùng trung du và miền núi Bắc Bộ (ví dụ: lễ hội Gầu Tào, hát Then, múa xoè Thái, lễ hội Lồng Tồng, chợ phiên vùng cao,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số dân tộc sinh sống ở vùng trung du và miền núi Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được một cách đơn giản về sự phân bố dân cư ở trung du và miền núi Bắc Bộ thông qua lược đồ phân bố dân cư"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được một số cách thức khai thác tự nhiên (ví dụ: làm ruộng bậc thang, xây dựng các công trình thuỷ điện, khai thác khoáng sản,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số lễ hội văn hoá của các dân tộc ở vùng trung du và miền núi Bắc Bộ (ví dụ: lễ hội Gầu Tào, hát Then, múa xoè Thái, lễ hội Lồng Tồng, chợ phiên vùng cao,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số dân tộc sinh sống ở vùng trung du và miền núi Bắc Bộ. – Nhận xét được một cách đơn giản về sự phân bố dân cư ở trung du và miền núi Bắc Bộ thông qua lược đồ phân bố dân cư – Kể được một số cách thức khai thác tự nhiên (ví dụ: làm ruộng bậc thang, xây dựng các công trình thuỷ điện, khai thác khoáng sản,...). – Mô tả được một số lễ hội văn hoá của các dân tộc ở vùng trung du và miền núi Bắc Bộ (ví dụ: lễ hội Gầu Tào, hát Then, múa xoè Thái, lễ hội Lồng Tồng, chợ phiên vùng cao,...).",
    "source": {
@@ -164,11 +385,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí của khu di tích Đền Hùng trên bản đồ hoặc lược đồ, thời gian, địa điểm tổ chức lễ giỗ Tổ Hùng Vương hiện nay.",
-    "Đọc sơ đồ khu di tích, xác định được một số công trình kiến trúc chính trong quần thể di tích Đền Hùng.",
-    "Sử dụng tư liệu lịch sử và văn hoá dân gian, trình bày được những nét sơ lược về lễ hội giỗ Tổ Hùng Vương.",
-    "Kể lại được một số truyền thuyết có liên quan đến Hùng Vương.",
-    "Thể hiện được niềm tự hào về truyền thống dân tộc qua lễ giỗ Tổ Hùng Vương."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí của khu di tích Đền Hùng trên bản đồ hoặc lược đồ, thời gian, địa điểm tổ chức lễ giỗ Tổ Hùng Vương hiện nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc sơ đồ khu di tích, xác định được một số công trình kiến trúc chính trong quần thể di tích Đền Hùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng tư liệu lịch sử và văn hoá dân gian, trình bày được những nét sơ lược về lễ hội giỗ Tổ Hùng Vương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được một số truyền thuyết có liên quan đến Hùng Vương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được niềm tự hào về truyền thống dân tộc qua lễ giỗ Tổ Hùng Vương."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí của khu di tích Đền Hùng trên bản đồ hoặc lược đồ, thời gian, địa điểm tổ chức lễ giỗ Tổ Hùng Vương hiện nay. – Đọc sơ đồ khu di tích, xác định được một số công trình kiến trúc chính trong quần thể di tích Đền Hùng. – Sử dụng tư liệu lịch sử và văn hoá dân gian, trình bày được những nét sơ lược về lễ hội giỗ Tổ Hùng Vương. – Kể lại được một số truyền thuyết có liên quan đến Hùng Vương. – Thể hiện được niềm tự hào về truyền thống dân tộc qua lễ giỗ Tổ Hùng Vương.",
    "source": {
@@ -191,10 +477,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của vùng đồng bằng Bắc Bộ trên bản đồ hoặc lược đồ.",
-    "Nêu được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, sông ngòi,...) của vùng đồng bằng Bắc Bộ.",
-    "Trình bày được một số thuận lợi và khó khăn của địa hình, sông ngòi đối với sản xuất và đời sống ở vùng đồng bằng Bắc Bộ.",
-    "Đưa ra được một số biện pháp bảo vệ thiên nhiên vùng đồng bằng Bắc Bộ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của vùng đồng bằng Bắc Bộ trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, sông ngòi,...) của vùng đồng bằng Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số thuận lợi và khó khăn của địa hình, sông ngòi đối với sản xuất và đời sống ở vùng đồng bằng Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được một số biện pháp bảo vệ thiên nhiên vùng đồng bằng Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của vùng đồng bằng Bắc Bộ trên bản đồ hoặc lược đồ. – Nêu được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, sông ngòi,...) của vùng đồng bằng Bắc Bộ. – Trình bày được một số thuận lợi và khó khăn của địa hình, sông ngòi đối với sản xuất và đời sống ở vùng đồng bằng Bắc Bộ. – Đưa ra được một số biện pháp bảo vệ thiên nhiên vùng đồng bằng Bắc Bộ.",
    "source": {
@@ -217,10 +555,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số dân tộc ở vùng đồng bằng Bắc Bộ.",
-    "Nhận xét và giải thích được ở mức độ đơn giản sự phân bố dân cư ở vùng đồng bằng Bắc Bộ thông qua bản đồ hoặc lược đồ phân bố dân cư.",
-    "Mô tả được một số hoạt động sản xuất truyền thống (trồng lúa nước, nghề thủ công,...) ở đồng bằng Bắc Bộ; Mô tả được một hệ thống đê và nêu được vai trò của đê điều trong trị thủy.",
-    "Mô tả được một số nét văn hoá ở làng quê vùng đồng bằng Bắc Bộ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số dân tộc ở vùng đồng bằng Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét và giải thích được ở mức độ đơn giản sự phân bố dân cư ở vùng đồng bằng Bắc Bộ thông qua bản đồ hoặc lược đồ phân bố dân cư."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số hoạt động sản xuất truyền thống (trồng lúa nước, nghề thủ công,...) ở đồng bằng Bắc Bộ; Mô tả được một hệ thống đê và nêu được vai trò của đê điều trong trị thủy."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số nét văn hoá ở làng quê vùng đồng bằng Bắc Bộ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số dân tộc ở vùng đồng bằng Bắc Bộ. – Nhận xét và giải thích được ở mức độ đơn giản sự phân bố dân cư ở vùng đồng bằng Bắc Bộ thông qua bản đồ hoặc lược đồ phân bố dân cư. – Mô tả được một số hoạt động sản xuất truyền thống (trồng lúa nước, nghề thủ công,...) ở đồng bằng Bắc Bộ; Mô tả được một hệ thống đê và nêu được vai trò của đê điều trong trị thủy. – Mô tả được một số nét văn hoá ở làng quê vùng đồng bằng Bắc Bộ.",
    "source": {
@@ -243,12 +633,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được sông Hồng trên bản đồ hoặc lược đồ.",
-    "Kể được một số tên gọi khác của sông Hồng.",
-    "Sưu tầm, sử dụng tư liệu lịch sử (tranh ảnh, đoạn trích tư liệu,...), trình bày được một số thành tựu tiêu biểu của văn minh sông Hồng.",
-    "Mô tả được một số nét cơ bản về đời sống vật chất và tinh thần của người Việt cổ thông qua quan sát một số hình ảnh về cuộc sống của người Việt cổ trong hoa văn trên trống đồng Đông Sơn, kết hợp với một số truyền thuyết (ví dụ: Sơn Tinh",
-    "Thuỷ Tinh; Sự tích bánh chưng, bánh dầy,...).",
-    "Đề xuất được ở mức độ đơn giản một số biện pháp để giữ gìn và phát huy giá trị của sông Hồng."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được sông Hồng trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được một số tên gọi khác của sông Hồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm, sử dụng tư liệu lịch sử (tranh ảnh, đoạn trích tư liệu,...), trình bày được một số thành tựu tiêu biểu của văn minh sông Hồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số nét cơ bản về đời sống vật chất và tinh thần của người Việt cổ thông qua quan sát một số hình ảnh về cuộc sống của người Việt cổ trong hoa văn trên trống đồng Đông Sơn, kết hợp với một số truyền thuyết (ví dụ: Sơn Tinh – Thuỷ Tinh; Sự tích bánh chưng, bánh dầy,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được ở mức độ đơn giản một số biện pháp để giữ gìn và phát huy giá trị của sông Hồng."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được sông Hồng trên bản đồ hoặc lược đồ. – Kể được một số tên gọi khác của sông Hồng. – Sưu tầm, sử dụng tư liệu lịch sử (tranh ảnh, đoạn trích tư liệu,...), trình bày được một số thành tựu tiêu biểu của văn minh sông Hồng. – Mô tả được một số nét cơ bản về đời sống vật chất và tinh thần của người Việt cổ thông qua quan sát một số hình ảnh về cuộc sống của người Việt cổ trong hoa văn trên trống đồng Đông Sơn, kết hợp với một số truyền thuyết (ví dụ: Sơn Tinh – Thuỷ Tinh; Sự tích bánh chưng, bánh dầy,...). – Đề xuất được ở mức độ đơn giản một số biện pháp để giữ gìn và phát huy giá trị của sông Hồng.",
    "source": {
@@ -271,16 +725,90 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của Thăng Long",
-    "Hà Nội trên bản đồ hoặc lược đồ.",
-    "Phân tích được đặc điểm tự nhiên của Thăng Long thể hiện ở Chiếu dời đô của Lý Công Uẩn.",
-    "Nêu được một số tên gọi khác của Thăng Long",
-    "Hà Nội.",
-    "Trình bày được một số nét chính về lịch sử Thăng Long",
-    "Hà Nội thông qua các tư liệu tranh ảnh, câu chuyện lịch sử về Thăng Long tứ trấn, sự tích Hồ Gươm, Hoàng Diệu chống thực dân Pháp, chuyện Hà Nội đánh Mỹ.",
-    "Sử dụng các nguồn tư liệu lịch sử và địa lí, nêu được Hà Nội là trung tâm chính trị, kinh tế, văn hoá, giáo dục quan trọng của Việt Nam.",
-    "Thể hiện được ý thức giữ gìn và phát huy truyền thống văn hoá của Thăng Long",
-    "Hà Nội."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của Thăng Long – Hà Nội trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm tự nhiên của Thăng Long thể hiện ở Chiếu dời đô của Lý Công Uẩn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số tên gọi khác của Thăng Long – Hà Nội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số nét chính về lịch sử Thăng Long – Hà Nội thông qua các tư liệu tranh ảnh, câu chuyện lịch sử về Thăng Long tứ trấn, sự tích Hồ Gươm, Hoàng Diệu chống thực dân Pháp, chuyện Hà Nội đánh Mỹ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng các nguồn tư liệu lịch sử và địa lí, nêu được Hà Nội là trung tâm chính trị, kinh tế, văn hoá, giáo dục quan trọng của Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được ý thức giữ gìn và phát huy truyền thống văn hoá của Thăng Long – Hà Nội."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của Thăng Long – Hà Nội trên bản đồ hoặc lược đồ. – Phân tích được đặc điểm tự nhiên của Thăng Long thể hiện ở Chiếu dời đô của Lý Công Uẩn. – Nêu được một số tên gọi khác của Thăng Long – Hà Nội. – Trình bày được một số nét chính về lịch sử Thăng Long – Hà Nội thông qua các tư liệu tranh ảnh, câu chuyện lịch sử về Thăng Long tứ trấn, sự tích Hồ Gươm, Hoàng Diệu chống thực dân Pháp, chuyện Hà Nội đánh Mỹ. – Sử dụng các nguồn tư liệu lịch sử và địa lí, nêu được Hà Nội là trung tâm chính trị, kinh tế, văn hoá, giáo dục quan trọng của Việt Nam. – Thể hiện được ý thức giữ gìn và phát huy truyền thống văn hoá của Thăng Long – Hà Nội.",
    "source": {
@@ -304,11 +832,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được một số công trình tiêu biểu: Khuê Văn Các, nhà bia tiến sĩ, Văn Miếu, Quốc Tử Giám trên sơ đồ khu di tích Văn Miếu",
-    "Quốc Tử Giám.",
-    "Đọc tư liệu lịch sử, mô tả được kiến trúc và chức năng của một trong các công trình Văn Miếu, Quốc Tử Giám, nhà bia tiến sĩ.",
-    "Bày tỏ được cảm nghĩ về truyền thống hiếu học của dân tộc Việt Nam.",
-    "Đề xuất được ở mức độ đơn giản một số biện pháp để giữ gìn các di tích lịch sử."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được một số công trình tiêu biểu: Khuê Văn Các, nhà bia tiến sĩ, Văn Miếu, Quốc Tử Giám trên sơ đồ khu di tích Văn Miếu – Quốc Tử Giám."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc tư liệu lịch sử, mô tả được kiến trúc và chức năng của một trong các công trình Văn Miếu, Quốc Tử Giám, nhà bia tiến sĩ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bày tỏ được cảm nghĩ về truyền thống hiếu học của dân tộc Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được ở mức độ đơn giản một số biện pháp để giữ gìn các di tích lịch sử."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được một số công trình tiêu biểu: Khuê Văn Các, nhà bia tiến sĩ, Văn Miếu, Quốc Tử Giám trên sơ đồ khu di tích Văn Miếu – Quốc Tử Giám. – Đọc tư liệu lịch sử, mô tả được kiến trúc và chức năng của một trong các công trình Văn Miếu, Quốc Tử Giám, nhà bia tiến sĩ. – Bày tỏ được cảm nghĩ về truyền thống hiếu học của dân tộc Việt Nam. – Đề xuất được ở mức độ đơn giản một số biện pháp để giữ gìn các di tích lịch sử.",
    "source": {
@@ -331,12 +910,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được trên bản đồ hoặc lược đồ vị trí địa lí, một số địa danh tiêu biểu (ví dụ: dãy núi Trường Sơn, dãy núi Bạch Mã, đèo Hải Vân, vườn quốc gia Phong Nha",
-    "Kẻ Bàng,...) của vùng duyên hải miền Trung.",
-    "Quan sát lược đồ hoặc bản đồ, tranh ảnh, trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, sông ngòi,...) của vùng duyên hải miền Trung.",
-    "Nêu được một số tác động của môi trường thiên nhiên đối với đời sống và hoạt động sản xuất trong vùng.",
-    "Đề xuất được ở mức độ đơn giản một số biện pháp phòng chống thiên tai ở vùng duyên hải miền Trung.",
-    "Thể hiện được thái độ cảm thông và sẵn sàng có hành động chia sẻ với người dân gặp thiên tai."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ hoặc lược đồ vị trí địa lí, một số địa danh tiêu biểu (ví dụ: dãy núi Trường Sơn, dãy núi Bạch Mã, đèo Hải Vân, vườn quốc gia Phong Nha – Kẻ Bàng,...) của vùng duyên hải miền Trung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát lược đồ hoặc bản đồ, tranh ảnh, trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, sông ngòi,...) của vùng duyên hải miền Trung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số tác động của môi trường thiên nhiên đối với đời sống và hoạt động sản xuất trong vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được ở mức độ đơn giản một số biện pháp phòng chống thiên tai ở vùng duyên hải miền Trung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được thái độ cảm thông và sẵn sàng có hành động chia sẻ với người dân gặp thiên tai."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được trên bản đồ hoặc lược đồ vị trí địa lí, một số địa danh tiêu biểu (ví dụ: dãy núi Trường Sơn, dãy núi Bạch Mã, đèo Hải Vân, vườn quốc gia Phong Nha – Kẻ Bàng,...) của vùng duyên hải miền Trung. – Quan sát lược đồ hoặc bản đồ, tranh ảnh, trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, sông ngòi,...) của vùng duyên hải miền Trung. – Nêu được một số tác động của môi trường thiên nhiên đối với đời sống và hoạt động sản xuất trong vùng. – Đề xuất được ở mức độ đơn giản một số biện pháp phòng chống thiên tai ở vùng duyên hải miền Trung. – Thể hiện được thái độ cảm thông và sẵn sàng có hành động chia sẻ với người dân gặp thiên tai.",
    "source": {
@@ -360,11 +1003,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số vật dụng chủ yếu có liên quan đến đời sống của người dân ở vùng duyên hải miền Trung",
-    "Kể được tên một số bãi biển, cảng biển của vùng duyên hải miền Trung.",
-    "Nêu được một số hoạt động kinh tế biển ở vùng duyên hải miền Trung (làm muối, đánh bắt và nuôi trồng hải sản, du lịch biển, giao thông đường biển,...).",
-    "Xác định được các di sản thế giới ở vùng duyên hải miền Trung trên bản đồ hoặc lược đồ.",
-    "Trình bày được một số điểm nổi bật về văn hoá của vùng duyên hải miền Trung, có sử dụng tư liệu (tranh ảnh, câu chuyện,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số vật dụng chủ yếu có liên quan đến đời sống của người dân ở vùng duyên hải miền Trung"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số bãi biển, cảng biển của vùng duyên hải miền Trung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số hoạt động kinh tế biển ở vùng duyên hải miền Trung (làm muối, đánh bắt và nuôi trồng hải sản, du lịch biển, giao thông đường biển,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được các di sản thế giới ở vùng duyên hải miền Trung trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số điểm nổi bật về văn hoá của vùng duyên hải miền Trung, có sử dụng tư liệu (tranh ảnh, câu chuyện,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số vật dụng chủ yếu có liên quan đến đời sống của người dân ở vùng duyên hải miền Trung – Kể được tên một số bãi biển, cảng biển của vùng duyên hải miền Trung. – Nêu được một số hoạt động kinh tế biển ở vùng duyên hải miền Trung (làm muối, đánh bắt và nuôi trồng hải sản, du lịch biển, giao thông đường biển,...). – Xác định được các di sản thế giới ở vùng duyên hải miền Trung trên bản đồ hoặc lược đồ. – Trình bày được một số điểm nổi bật về văn hoá của vùng duyên hải miền Trung, có sử dụng tư liệu (tranh ảnh, câu chuyện,...).",
    "source": {
@@ -387,10 +1095,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của cố đô Huế trên bản đồ hoặc lược đồ.",
-    "Mô tả được vẻ đẹp của cố đô Huế qua hình ảnh sông Hương, núi Ngự và một số công trình tiêu biểu như: Kinh thành Huế, Chùa Thiên Mụ, các lăng của vua Nguyễn,...",
-    "Kể lại được một số câu chuyện lịch sử liên quan đến cố đô Huế.",
-    "Đề xuất được một số biện pháp để bảo tồn và gìn giữ giá trị của cố đô Huế."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của cố đô Huế trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được vẻ đẹp của cố đô Huế qua hình ảnh sông Hương, núi Ngự và một số công trình tiêu biểu như: Kinh thành Huế, Chùa Thiên Mụ, các lăng của vua Nguyễn,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được một số câu chuyện lịch sử liên quan đến cố đô Huế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được một số biện pháp để bảo tồn và gìn giữ giá trị của cố đô Huế."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của cố đô Huế trên bản đồ hoặc lược đồ. – Mô tả được vẻ đẹp của cố đô Huế qua hình ảnh sông Hương, núi Ngự và một số công trình tiêu biểu như: Kinh thành Huế, Chùa Thiên Mụ, các lăng của vua Nguyễn,... – Kể lại được một số câu chuyện lịch sử liên quan đến cố đô Huế. – Đề xuất được một số biện pháp để bảo tồn và gìn giữ giá trị của cố đô Huế.",
    "source": {
@@ -413,9 +1173,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của phố cổ Hội An trên bản đồ hoặc lược đồ.",
-    "Mô tả được một số công trình kiến trúc tiêu biểu ở phố cổ Hội An (ví dụ: Nhà cổ, Hội quán của người Hoa, Chùa Cầu Nhật Bản,...) có sử dụng tư liệu (tranh ảnh, câu chuyện,...).",
-    "Đề xuất được một số biện pháp để bảo tồn và phát huy giá trị của phố cổ Hội An."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của phố cổ Hội An trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số công trình kiến trúc tiêu biểu ở phố cổ Hội An (ví dụ: Nhà cổ, Hội quán của người Hoa, Chùa Cầu Nhật Bản,...) có sử dụng tư liệu (tranh ảnh, câu chuyện,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được một số biện pháp để bảo tồn và phát huy giá trị của phố cổ Hội An."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của phố cổ Hội An trên bản đồ hoặc lược đồ. – Mô tả được một số công trình kiến trúc tiêu biểu ở phố cổ Hội An (ví dụ: Nhà cổ, Hội quán của người Hoa, Chùa Cầu Nhật Bản,...) có sử dụng tư liệu (tranh ảnh, câu chuyện,...). – Đề xuất được một số biện pháp để bảo tồn và phát huy giá trị của phố cổ Hội An.",
    "source": {
@@ -438,11 +1237,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của vùng Tây Nguyên, các cao nguyên ở Tây Nguyên trên bản đồ hoặc lược đồ.",
-    "Trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, đất đai, khí hậu, rừng,...) của vùng Tây Nguyên.",
-    "Nêu được nét điển hình của khí hậu thông qua đọc số liệu về lượng mưa, nhiệt độ của một địa điểm ở vùng Tây Nguyên.",
-    "Nêu được vai trò của rừng đối với tự nhiên, hoạt động sản xuất và đời sống của người dân ở vùng Tây Nguyên.",
-    "Đưa ra được một số biện pháp bảo vệ rừng ở Tây Nguyên."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của vùng Tây Nguyên, các cao nguyên ở Tây Nguyên trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, đất đai, khí hậu, rừng,...) của vùng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nét điển hình của khí hậu thông qua đọc số liệu về lượng mưa, nhiệt độ của một địa điểm ở vùng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của rừng đối với tự nhiên, hoạt động sản xuất và đời sống của người dân ở vùng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được một số biện pháp bảo vệ rừng ở Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của vùng Tây Nguyên, các cao nguyên ở Tây Nguyên trên bản đồ hoặc lược đồ. – Trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, đất đai, khí hậu, rừng,...) của vùng Tây Nguyên. – Nêu được nét điển hình của khí hậu thông qua đọc số liệu về lượng mưa, nhiệt độ của một địa điểm ở vùng Tây Nguyên. – Nêu được vai trò của rừng đối với tự nhiên, hoạt động sản xuất và đời sống của người dân ở vùng Tây Nguyên. – Đưa ra được một số biện pháp bảo vệ rừng ở Tây Nguyên.",
    "source": {
@@ -465,11 +1329,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số dân tộc ở vùng Tây Nguyên.",
-    "Sử dụng lược đồ phân bố dân cư hoặc bảng số liệu, so sánh được sự phân bố dân cư ở vùng Tây Nguyên với các vùng khác.",
-    "Trình bày được một số hoạt động kinh tế chủ yếu ở vùng Tây Nguyên (ví dụ: trồng cây công nghiệp, chăn nuôi gia súc, phát triển thủy điện,...).",
-    "Mô tả được một số nét chính về văn hoá các dân tộc ở vùng Tây Nguyên.",
-    "Nêu được truyền thống đấu tranh yêu nước và cách mạng của đồng bào Tây Nguyên, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử về anh hùng Núp, N'Trang Lơng, Can Lịch,…"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số dân tộc ở vùng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng lược đồ phân bố dân cư hoặc bảng số liệu, so sánh được sự phân bố dân cư ở vùng Tây Nguyên với các vùng khác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số hoạt động kinh tế chủ yếu ở vùng Tây Nguyên (ví dụ: trồng cây công nghiệp, chăn nuôi gia súc, phát triển thủy điện,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số nét chính về văn hoá các dân tộc ở vùng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được truyền thống đấu tranh yêu nước và cách mạng của đồng bào Tây Nguyên, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử về anh hùng Núp, N'Trang Lơng, Can Lịch,…"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số dân tộc ở vùng Tây Nguyên. – Sử dụng lược đồ phân bố dân cư hoặc bảng số liệu, so sánh được sự phân bố dân cư ở vùng Tây Nguyên với các vùng khác. – Trình bày được một số hoạt động kinh tế chủ yếu ở vùng Tây Nguyên (ví dụ: trồng cây công nghiệp, chăn nuôi gia súc, phát triển thủy điện,...). – Mô tả được một số nét chính về văn hoá các dân tộc ở vùng Tây Nguyên. – Nêu được truyền thống đấu tranh yêu nước và cách mạng của đồng bào Tây Nguyên, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử về anh hùng Núp, N'Trang Lơng, Can Lịch,…",
    "source": {
@@ -492,9 +1421,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số dân tộc là chủ nhân của không gian văn hoá cồng chiêng Tây Nguyên.",
-    "Nêu được vai trò của cồng chiêng trong đời sống tinh thần của đồng bào các dân tộc Tây Nguyên.",
-    "Mô tả được những nét chính về lễ hội Cồng chiêng Tây Nguyên."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số dân tộc là chủ nhân của không gian văn hoá cồng chiêng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của cồng chiêng trong đời sống tinh thần của đồng bào các dân tộc Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính về lễ hội Cồng chiêng Tây Nguyên."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số dân tộc là chủ nhân của không gian văn hoá cồng chiêng Tây Nguyên. – Nêu được vai trò của cồng chiêng trong đời sống tinh thần của đồng bào các dân tộc Tây Nguyên. – Mô tả được những nét chính về lễ hội Cồng chiêng Tây Nguyên.",
    "source": {
@@ -518,9 +1486,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của vùng Nam Bộ, một số con sông lớn của vùng Nam Bộ trên bản đồ hoặc lược đồ.",
-    "Quan sát lược đồ hoặc bản đồ, trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, đất và sông ngòi,...) ở vùng Nam Bộ.",
-    "Nêu được ảnh hưởng của môi trường thiên nhiên đến sản xuất và sinh hoạt của người dân vùng Nam Bộ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của vùng Nam Bộ, một số con sông lớn của vùng Nam Bộ trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát lược đồ hoặc bản đồ, trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, đất và sông ngòi,...) ở vùng Nam Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ảnh hưởng của môi trường thiên nhiên đến sản xuất và sinh hoạt của người dân vùng Nam Bộ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của vùng Nam Bộ, một số con sông lớn của vùng Nam Bộ trên bản đồ hoặc lược đồ. – Quan sát lược đồ hoặc bản đồ, trình bày được một trong những đặc điểm thiên nhiên (ví dụ: địa hình, khí hậu, đất và sông ngòi,...) ở vùng Nam Bộ. – Nêu được ảnh hưởng của môi trường thiên nhiên đến sản xuất và sinh hoạt của người dân vùng Nam Bộ.",
    "source": {
@@ -543,11 +1550,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên một số dân tộc ở vùng Nam Bộ.",
-    "Xác định được trên bản đồ hoặc lược đồ vùng Nam Bộ sự phân bố một số ngành công nghiệp, cây trồng, vật nuôi.",
-    "Trình bày được một số hoạt động sản xuất của người dân ở vùng Nam Bộ (ví dụ: sản xuất lúa, nuôi trồng thuỷ sản,...).",
-    "Mô tả được sự chung sống hài hòa với thiên nhiên của người dân thông qua một số nét văn hoá tiêu biểu (ví dụ: nhà ở, chợ nổi, vận tải đường sông,...).",
-    "Nêu được truyền thống đấu tranh yêu nước và cách mạng của đồng bào Nam Bộ, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử về một số nhân vật tiêu biểu của Nam Bộ, như: Trương Định, Nguyễn Trung Trực, Nguyễn Thị Định,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số dân tộc ở vùng Nam Bộ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ hoặc lược đồ vùng Nam Bộ sự phân bố một số ngành công nghiệp, cây trồng, vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số hoạt động sản xuất của người dân ở vùng Nam Bộ (ví dụ: sản xuất lúa, nuôi trồng thuỷ sản,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sự chung sống hài hòa với thiên nhiên của người dân thông qua một số nét văn hoá tiêu biểu (ví dụ: nhà ở, chợ nổi, vận tải đường sông,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được truyền thống đấu tranh yêu nước và cách mạng của đồng bào Nam Bộ, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử về một số nhân vật tiêu biểu của Nam Bộ, như: Trương Định, Nguyễn Trung Trực, Nguyễn Thị Định,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên một số dân tộc ở vùng Nam Bộ. – Xác định được trên bản đồ hoặc lược đồ vùng Nam Bộ sự phân bố một số ngành công nghiệp, cây trồng, vật nuôi. – Trình bày được một số hoạt động sản xuất của người dân ở vùng Nam Bộ (ví dụ: sản xuất lúa, nuôi trồng thuỷ sản,...). – Mô tả được sự chung sống hài hòa với thiên nhiên của người dân thông qua một số nét văn hoá tiêu biểu (ví dụ: nhà ở, chợ nổi, vận tải đường sông,...). – Nêu được truyền thống đấu tranh yêu nước và cách mạng của đồng bào Nam Bộ, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử về một số nhân vật tiêu biểu của Nam Bộ, như: Trương Định, Nguyễn Trung Trực, Nguyễn Thị Định,...",
    "source": {
@@ -570,10 +1642,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của Thành phố Hồ Chí Minh trên bản đồ hoặc lược đồ.",
-    "Kể được một số tên gọi khác của Thành phố Hồ Chí Minh.",
-    "Trình bày được một số sự kiện lịch sử có liên quan đến Thành phố Hồ Chí Minh, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử, như: chuyện về bến cảng Nhà Rồng, Nguyễn Tất Thành ra đi tìm đường cứu nước,...",
-    "Sử dụng tư liệu lịch sử và địa lí, nêu được Thành phố Hồ Chí Minh là trung tâm kinh tế, văn hoá, giáo dục quan trọng của Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của Thành phố Hồ Chí Minh trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được một số tên gọi khác của Thành phố Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số sự kiện lịch sử có liên quan đến Thành phố Hồ Chí Minh, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử, như: chuyện về bến cảng Nhà Rồng, Nguyễn Tất Thành ra đi tìm đường cứu nước,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng tư liệu lịch sử và địa lí, nêu được Thành phố Hồ Chí Minh là trung tâm kinh tế, văn hoá, giáo dục quan trọng của Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của Thành phố Hồ Chí Minh trên bản đồ hoặc lược đồ. – Kể được một số tên gọi khác của Thành phố Hồ Chí Minh. – Trình bày được một số sự kiện lịch sử có liên quan đến Thành phố Hồ Chí Minh, có sử dụng một số tư liệu tranh ảnh, câu chuyện lịch sử, như: chuyện về bến cảng Nhà Rồng, Nguyễn Tất Thành ra đi tìm đường cứu nước,... – Sử dụng tư liệu lịch sử và địa lí, nêu được Thành phố Hồ Chí Minh là trung tâm kinh tế, văn hoá, giáo dục quan trọng của Việt Nam.",
    "source": {
@@ -597,9 +1721,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí của Địa đạo Củ Chi trên bản đồ hoặc lược đồ.",
-    "Mô tả được một số công trình tiêu biểu trong Địa đạo Củ Chi, có sử dụng tranh ảnh, tài liệu lịch sử.",
-    "Sưu tầm và kể lại được một số câu chuyện lịch sử về đào hầm ở Củ Chi, chống Mỹ ở Địa đạo Củ Chi."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí của Địa đạo Củ Chi trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số công trình tiêu biểu trong Địa đạo Củ Chi, có sử dụng tranh ảnh, tài liệu lịch sử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại được một số câu chuyện lịch sử về đào hầm ở Củ Chi, chống Mỹ ở Địa đạo Củ Chi."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí của Địa đạo Củ Chi trên bản đồ hoặc lược đồ. – Mô tả được một số công trình tiêu biểu trong Địa đạo Củ Chi, có sử dụng tranh ảnh, tài liệu lịch sử. – Sưu tầm và kể lại được một số câu chuyện lịch sử về đào hầm ở Củ Chi, chống Mỹ ở Địa đạo Củ Chi.",
    "source": {
@@ -622,11 +1785,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí, của Việt Nam trên bản đồ hoặc lược đồ.",
-    "Trình bày được ảnh hưởng của vị trí địa lí đối với tự nhiên và hoạt động sản xuất.",
-    "Mô tả được hình dạng lãnh thổ phần đất liền của Việt Nam.",
-    "Nêu được số lượng đơn vị hành chính của Việt Nam, kể được tên một số tỉnh, thành phố của Việt Nam.",
-    "Nêu được ý nghĩa của Quốc kì, Quốc huy, Quốc ca của Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí, của Việt Nam trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ảnh hưởng của vị trí địa lí đối với tự nhiên và hoạt động sản xuất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được hình dạng lãnh thổ phần đất liền của Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được số lượng đơn vị hành chính của Việt Nam, kể được tên một số tỉnh, thành phố của Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của Quốc kì, Quốc huy, Quốc ca của Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí, của Việt Nam trên bản đồ hoặc lược đồ. – Trình bày được ảnh hưởng của vị trí địa lí đối với tự nhiên và hoạt động sản xuất. – Mô tả được hình dạng lãnh thổ phần đất liền của Việt Nam. – Nêu được số lượng đơn vị hành chính của Việt Nam, kể được tên một số tỉnh, thành phố của Việt Nam. – Nêu được ý nghĩa của Quốc kì, Quốc huy, Quốc ca của Việt Nam.",
    "source": {
@@ -649,11 +1877,76 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được một số đặc điểm của một trong những thành phần của thiên nhiên Việt Nam (ví dụ: địa hình, khí hậu, sông ngòi, đất, rừng,...).",
-    "Kể được tên và xác định được trên lược đồ hoặc bản đồ một số khoáng sản chính.",
-    "Nêu được vai trò của tài nguyên thiên nhiên đối với sự phát triển kinh tế.",
-    "Trình bày được một số khó khăn của môi trường thiên nhiên đối với sản xuất và đời sống.",
-    "Đưa ra được một số biện pháp bảo vệ tài nguyên thiên nhiên và phòng chống thiên tai."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số đặc điểm của một trong những thành phần của thiên nhiên Việt Nam (ví dụ: địa hình, khí hậu, sông ngòi, đất, rừng,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và xác định được trên lược đồ hoặc bản đồ một số khoáng sản chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của tài nguyên thiên nhiên đối với sự phát triển kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số khó khăn của môi trường thiên nhiên đối với sản xuất và đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được một số biện pháp bảo vệ tài nguyên thiên nhiên và phòng chống thiên tai."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được một số đặc điểm của một trong những thành phần của thiên nhiên Việt Nam (ví dụ: địa hình, khí hậu, sông ngòi, đất, rừng,...). – Kể được tên và xác định được trên lược đồ hoặc bản đồ một số khoáng sản chính. – Nêu được vai trò của tài nguyên thiên nhiên đối với sự phát triển kinh tế. – Trình bày được một số khó khăn của môi trường thiên nhiên đối với sản xuất và đời sống. – Đưa ra được một số biện pháp bảo vệ tài nguyên thiên nhiên và phòng chống thiên tai.",
    "source": {
@@ -677,9 +1970,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của vùng biển, một số đảo, quần đảo lớn của Việt Nam trên bản đồ hoặc lược đồ.",
-    "Trình bày được công cuộc bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở biển Đông trong lịch sử, có sử dụng một số tư liệu, tranh ảnh, câu chuyện liên quan (Hải đội Hoàng Sa, lễ khao lề thế lính Hoàng Sa,...).",
-    "Sưu tầm, đọc và kể lại được một số câu chuyện, bài thơ về biển, đảo Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của vùng biển, một số đảo, quần đảo lớn của Việt Nam trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được công cuộc bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở biển Đông trong lịch sử, có sử dụng một số tư liệu, tranh ảnh, câu chuyện liên quan (Hải đội Hoàng Sa, lễ khao lề thế lính Hoàng Sa,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm, đọc và kể lại được một số câu chuyện, bài thơ về biển, đảo Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của vùng biển, một số đảo, quần đảo lớn của Việt Nam trên bản đồ hoặc lược đồ. – Trình bày được công cuộc bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở biển Đông trong lịch sử, có sử dụng một số tư liệu, tranh ảnh, câu chuyện liên quan (Hải đội Hoàng Sa, lễ khao lề thế lính Hoàng Sa,...). – Sưu tầm, đọc và kể lại được một số câu chuyện, bài thơ về biển, đảo Việt Nam.",
    "source": {
@@ -702,10 +2034,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Nêu được số dân và so sánh được quy mô dân số Việt Nam với một số nước trong khu vực Đông Nam Á.",
-    "Nhận xét được sự gia tăng dân số ở Việt Nam và một số hậu quả do gia tăng dân số nhanh và phân bố dân cư chưa hợp lí ở Việt Nam, có sử dụng tranh ảnh, biểu đồ hoặc bảng số liệu.",
-    "Kể được tên một số dân tộc ở Việt Nam và kể lại được một số câu chuyện về tình đoàn kết của cộng đồng các dân tộc Việt Nam.",
-    "Bày tỏ được thái độ tôn trọng đối với sự đa dạng văn hoá của các dân tộc Việt Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được số dân và so sánh được quy mô dân số Việt Nam với một số nước trong khu vực Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét được sự gia tăng dân số ở Việt Nam và một số hậu quả do gia tăng dân số nhanh và phân bố dân cư chưa hợp lí ở Việt Nam, có sử dụng tranh ảnh, biểu đồ hoặc bảng số liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số dân tộc ở Việt Nam và kể lại được một số câu chuyện về tình đoàn kết của cộng đồng các dân tộc Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bày tỏ được thái độ tôn trọng đối với sự đa dạng văn hoá của các dân tộc Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Nêu được số dân và so sánh được quy mô dân số Việt Nam với một số nước trong khu vực Đông Nam Á. – Nhận xét được sự gia tăng dân số ở Việt Nam và một số hậu quả do gia tăng dân số nhanh và phân bố dân cư chưa hợp lí ở Việt Nam, có sử dụng tranh ảnh, biểu đồ hoặc bảng số liệu. – Kể được tên một số dân tộc ở Việt Nam và kể lại được một số câu chuyện về tình đoàn kết của cộng đồng các dân tộc Việt Nam. – Bày tỏ được thái độ tôn trọng đối với sự đa dạng văn hoá của các dân tộc Việt Nam.",
    "source": {
@@ -728,9 +2112,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được sự ra đời của nước Văn Lang, Âu Lạc thông qua tìm hiểu một số truyền thuyết và bằng chứng khảo cổ học.",
-    "Sử dụng kiến thức lịch sử và một số truyền thuyết lịch sử (Sơn Tinh",
-    "Thuỷ Tinh, Thánh Gióng, Sự tích nỏ thần...), mô tả được đời sống kinh tế và công cuộc đấu tranh bảo vệ nhà nước Văn Lang, Âu Lạc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự ra đời của nước Văn Lang, Âu Lạc thông qua tìm hiểu một số truyền thuyết và bằng chứng khảo cổ học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng kiến thức lịch sử và một số truyền thuyết lịch sử (Sơn Tinh – Thuỷ Tinh, Thánh Gióng, Sự tích nỏ thần...), mô tả được đời sống kinh tế và công cuộc đấu tranh bảo vệ nhà nước Văn Lang, Âu Lạc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được sự ra đời của nước Văn Lang, Âu Lạc thông qua tìm hiểu một số truyền thuyết và bằng chứng khảo cổ học. – Sử dụng kiến thức lịch sử và một số truyền thuyết lịch sử (Sơn Tinh – Thuỷ Tinh, Thánh Gióng, Sự tích nỏ thần...), mô tả được đời sống kinh tế và công cuộc đấu tranh bảo vệ nhà nước Văn Lang, Âu Lạc.",
    "source": {
@@ -754,8 +2163,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Trình bày được sự thành lập của nước Phù Nam qua truyền thuyết lập nước và một số bằng chứng khảo cổ học.",
-    "Mô tả được một số hiện vật khảo cổ học của Phù Nam."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự thành lập của nước Phù Nam qua truyền thuyết lập nước và một số bằng chứng khảo cổ học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số hiện vật khảo cổ học của Phù Nam."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Trình bày được sự thành lập của nước Phù Nam qua truyền thuyết lập nước và một số bằng chứng khảo cổ học. – Mô tả được một số hiện vật khảo cổ học của Phù Nam.",
    "source": {
@@ -778,9 +2213,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên và xác định được trên bản đồ hoặc lược đồ một số đền tháp Champa còn lại cho đến ngày nay.",
-    "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...) mô tả được một đền tháp Champa.",
-    "Tìm hiểu và kể lại được một số câu chuyện về đền tháp Champa."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và xác định được trên bản đồ hoặc lược đồ một số đền tháp Champa còn lại cho đến ngày nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...) mô tả được một đền tháp Champa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu và kể lại được một số câu chuyện về đền tháp Champa."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên và xác định được trên bản đồ hoặc lược đồ một số đền tháp Champa còn lại cho đến ngày nay. – Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...) mô tả được một đền tháp Champa. – Tìm hiểu và kể lại được một số câu chuyện về đền tháp Champa.",
    "source": {
@@ -803,8 +2277,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể được tên và vẽ được đường thời gian thể hiện một số cuộc khởi nghĩa tiêu biểu trong thời kì Bắc thuộc (ví dụ: 179 TCN, 40, 248, 542, 938,...).",
-    "Sưu tầm và kể lại được một số câu chuyện về Hai Bà Trưng, Bà Triệu, Lý Bí, Phùng Hưng, Ngô Quyền,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và vẽ được đường thời gian thể hiện một số cuộc khởi nghĩa tiêu biểu trong thời kì Bắc thuộc (ví dụ: 179 TCN, 40, 248, 542, 938,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại được một số câu chuyện về Hai Bà Trưng, Bà Triệu, Lý Bí, Phùng Hưng, Ngô Quyền,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể được tên và vẽ được đường thời gian thể hiện một số cuộc khởi nghĩa tiêu biểu trong thời kì Bắc thuộc (ví dụ: 179 TCN, 40, 248, 542, 938,...). – Sưu tầm và kể lại được một số câu chuyện về Hai Bà Trưng, Bà Triệu, Lý Bí, Phùng Hưng, Ngô Quyền,...",
    "source": {
@@ -827,9 +2327,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến triều Lý.",
-    "Trình bày được một số nét chính về lịch sử Việt Nam thời nhà Lý thông qua các câu chuyện về một số nhân vật lịch sử, như: Lý Công Uẩn, Lý Thường Kiệt, Nguyên phi Ỷ Lan, Từ Đạo Hạnh,…",
-    "Đọc và nêu nhận xét về nội dung và ý nghĩa của Chiếu dời đô."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến triều Lý."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số nét chính về lịch sử Việt Nam thời nhà Lý thông qua các câu chuyện về một số nhân vật lịch sử, như: Lý Công Uẩn, Lý Thường Kiệt, Nguyên phi Ỷ Lan, Từ Đạo Hạnh,…"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc và nêu nhận xét về nội dung và ý nghĩa của Chiếu dời đô."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến triều Lý. – Trình bày được một số nét chính về lịch sử Việt Nam thời nhà Lý thông qua các câu chuyện về một số nhân vật lịch sử, như: Lý Công Uẩn, Lý Thường Kiệt, Nguyên phi Ỷ Lan, Từ Đạo Hạnh,… – Đọc và nêu nhận xét về nội dung và ý nghĩa của Chiếu dời đô.",
    "source": {
@@ -853,10 +2392,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) quan đến triều Trần và kháng chiến chống Mông",
-    "Nguyên.",
-    "Trình bày được những nét chính về lịch sử Việt Nam thời nhà Trần thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: Trần Nhân Tông, Trần Quốc Tuấn, Phạm Ngũ Lão, Trần Quốc Toản, Yết Kiêu, Dã Tượng, Nguyễn Hiền, Mạc Đĩnh Chi, Chu Văn An,…).",
-    "Kể lại được chiến thắng Bạch Đằng có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh, câu chuyện về Trần Quốc Tuấn đánh giặc trên sông Bạch Đằng,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) quan đến triều Trần và kháng chiến chống Mông – Nguyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về lịch sử Việt Nam thời nhà Trần thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: Trần Nhân Tông, Trần Quốc Tuấn, Phạm Ngũ Lão, Trần Quốc Toản, Yết Kiêu, Dã Tượng, Nguyễn Hiền, Mạc Đĩnh Chi, Chu Văn An,…)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được chiến thắng Bạch Đằng có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh, câu chuyện về Trần Quốc Tuấn đánh giặc trên sông Bạch Đằng,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) quan đến triều Trần và kháng chiến chống Mông – Nguyên. – Trình bày được những nét chính về lịch sử Việt Nam thời nhà Trần thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: Trần Nhân Tông, Trần Quốc Tuấn, Phạm Ngũ Lão, Trần Quốc Toản, Yết Kiêu, Dã Tượng, Nguyễn Hiền, Mạc Đĩnh Chi, Chu Văn An,…). – Kể lại được chiến thắng Bạch Đằng có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh, câu chuyện về Trần Quốc Tuấn đánh giặc trên sông Bạch Đằng,...).",
    "source": {
@@ -879,10 +2456,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến khởi nghĩa Lam Sơn và triều Hậu Lê.",
-    "Kể lại được một số nét chính về khởi nghĩa Lam Sơn thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: Lê Lợi, Nguyễn Trãi, Lê Lai, Nguyễn Chích,...).",
-    "Kể lại được chiến thắng Chi Lăng có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh, câu chuyện về ải Chi Lăng, về Liễu Thăng,...).",
-    "Trình bày được những nét chính về lịch sử Việt Nam thời Hậu Lê thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: vua Lê Thánh Tông, Lương Thế Vinh, Ngô Sĩ Liên,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến khởi nghĩa Lam Sơn và triều Hậu Lê."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được một số nét chính về khởi nghĩa Lam Sơn thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: Lê Lợi, Nguyễn Trãi, Lê Lai, Nguyễn Chích,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được chiến thắng Chi Lăng có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh, câu chuyện về ải Chi Lăng, về Liễu Thăng,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về lịch sử Việt Nam thời Hậu Lê thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: vua Lê Thánh Tông, Lương Thế Vinh, Ngô Sĩ Liên,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến khởi nghĩa Lam Sơn và triều Hậu Lê. – Kể lại được một số nét chính về khởi nghĩa Lam Sơn thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: Lê Lợi, Nguyễn Trãi, Lê Lai, Nguyễn Chích,...). – Kể lại được chiến thắng Chi Lăng có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh, câu chuyện về ải Chi Lăng, về Liễu Thăng,...). – Trình bày được những nét chính về lịch sử Việt Nam thời Hậu Lê thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: vua Lê Thánh Tông, Lương Thế Vinh, Ngô Sĩ Liên,...).",
    "source": {
@@ -905,8 +2534,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến triều Nguyễn.",
-    "Trình bày được những nét chính về lịch sử Việt Nam thời nhà Nguyễn thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: vua Gia Long, vua Minh Mệnh, Nguyễn Công Trứ, Nguyễn Trường Tộ, Hàm Nghi, Phan Đình Phùng,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến triều Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những nét chính về lịch sử Việt Nam thời nhà Nguyễn thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: vua Gia Long, vua Minh Mệnh, Nguyễn Công Trứ, Nguyễn Trường Tộ, Hàm Nghi, Phan Đình Phùng,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sưu tầm và giới thiệu được một số tư liệu lịch sử (câu chuyện, văn bản, tranh ảnh,...) liên quan đến triều Nguyễn. – Trình bày được những nét chính về lịch sử Việt Nam thời nhà Nguyễn thông qua các câu chuyện về một số nhân vật lịch sử (ví dụ: vua Gia Long, vua Minh Mệnh, Nguyễn Công Trứ, Nguyễn Trường Tộ, Hàm Nghi, Phan Đình Phùng,...).",
    "source": {
@@ -930,8 +2585,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sưu tầm một số tư liệu (câu chuyện, văn bản, tranh ảnh,...) kể lại được thắng lợi ở một số địa phương lớn: Hà Nội, Huế, Sài Gòn,... trong Cách mạng tháng Tám năm 1945.",
-    "Kể lại được một số câu chuyện về Hồ Chí Minh khi hoạt động ở Pác Bó, Tân Trào, khi viết và đọc Tuyên ngôn Độc lập; chuyện về Kim Đồng, Võ Nguyên Giáp."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (câu chuyện, văn bản, tranh ảnh,...) kể lại được thắng lợi ở một số địa phương lớn: Hà Nội, Huế, Sài Gòn,... trong Cách mạng tháng Tám năm 1945."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được một số câu chuyện về Hồ Chí Minh khi hoạt động ở Pác Bó, Tân Trào, khi viết và đọc Tuyên ngôn Độc lập; chuyện về Kim Đồng, Võ Nguyên Giáp."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sưu tầm một số tư liệu (câu chuyện, văn bản, tranh ảnh,...) kể lại được thắng lợi ở một số địa phương lớn: Hà Nội, Huế, Sài Gòn,... trong Cách mạng tháng Tám năm 1945. – Kể lại được một số câu chuyện về Hồ Chí Minh khi hoạt động ở Pác Bó, Tân Trào, khi viết và đọc Tuyên ngôn Độc lập; chuyện về Kim Đồng, Võ Nguyên Giáp.",
    "source": {
@@ -954,8 +2635,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể lại được diễn biến chính của chiến dịch Điện Biên Phủ năm 1954 có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh và các câu chuyện về kéo pháo ở Điện Biên Phủ, chuyện bắt sống tướng De Castries,...).",
-    "Sưu tầm và kể lại được một số câu chuyện về một số anh hùng trong chiến dịch Điện Biên Phủ năm 1954 (ví dụ: Phan Đình Giót, Tô Vĩnh Diện, Bế Văn Đàn, Trần Can,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được diễn biến chính của chiến dịch Điện Biên Phủ năm 1954 có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh và các câu chuyện về kéo pháo ở Điện Biên Phủ, chuyện bắt sống tướng De Castries,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại được một số câu chuyện về một số anh hùng trong chiến dịch Điện Biên Phủ năm 1954 (ví dụ: Phan Đình Giót, Tô Vĩnh Diện, Bế Văn Đàn, Trần Can,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể lại được diễn biến chính của chiến dịch Điện Biên Phủ năm 1954 có sử dụng tư liệu lịch sử (lược đồ, tranh ảnh và các câu chuyện về kéo pháo ở Điện Biên Phủ, chuyện bắt sống tướng De Castries,...). – Sưu tầm và kể lại được một số câu chuyện về một số anh hùng trong chiến dịch Điện Biên Phủ năm 1954 (ví dụ: Phan Đình Giót, Tô Vĩnh Diện, Bế Văn Đàn, Trần Can,...).",
    "source": {
@@ -978,8 +2685,34 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Kể lại được diễn biến chính của chiến dịch Hồ Chí Minh năm 1975, có sử dụng lược đồ, tư liệu lịch sử (tranh ảnh, câu chuyện ,...).",
-    "Kể lại được một số câu chuyện về chiến dịch Hồ Chí Minh năm 1975."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được diễn biến chính của chiến dịch Hồ Chí Minh năm 1975, có sử dụng lược đồ, tư liệu lịch sử (tranh ảnh, câu chuyện ,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được một số câu chuyện về chiến dịch Hồ Chí Minh năm 1975."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Kể lại được diễn biến chính của chiến dịch Hồ Chí Minh năm 1975, có sử dụng lược đồ, tư liệu lịch sử (tranh ảnh, câu chuyện ,...). – Kể lại được một số câu chuyện về chiến dịch Hồ Chí Minh năm 1975.",
    "source": {
@@ -1002,10 +2735,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sưu tầm một số tư liệu (tranh ảnh, hiện vật,...) và mô tả được một số hiện vật của thời bao cấp và thời kì Đổi mới ở Việt Nam.",
-    "Sưu tầm và kể lại được một số câu chuyện về thời bao cấp ở Việt Nam.",
-    "Nêu được một số thành tựu về kinh tế",
-    "xã hội của đất nước Việt Nam trong thời kì Đổi mới, có sử dụng tư liệu lịch sử (tranh ảnh, câu chuyện,...)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, hiện vật,...) và mô tả được một số hiện vật của thời bao cấp và thời kì Đổi mới ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại được một số câu chuyện về thời bao cấp ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số thành tựu về kinh tế – xã hội của đất nước Việt Nam trong thời kì Đổi mới, có sử dụng tư liệu lịch sử (tranh ảnh, câu chuyện,...)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sưu tầm một số tư liệu (tranh ảnh, hiện vật,...) và mô tả được một số hiện vật của thời bao cấp và thời kì Đổi mới ở Việt Nam. – Sưu tầm và kể lại được một số câu chuyện về thời bao cấp ở Việt Nam. – Nêu được một số thành tựu về kinh tế – xã hội của đất nước Việt Nam trong thời kì Đổi mới, có sử dụng tư liệu lịch sử (tranh ảnh, câu chuyện,...).",
    "source": {
@@ -1028,10 +2799,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của Trung Quốc trên bản đồ hoặc lược đồ.",
-    "Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của Trung Quốc.",
-    "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Trung Quốc: Vạn lí trường thành và Cố cung Bắc Kinh,...",
-    "Sưu tầm và kể lại một số câu chuyện về Vạn lí trường thành, Kiến trúc sư Nguyễn An và Cố cung Bắc Kinh,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của Trung Quốc trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của Trung Quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Trung Quốc: Vạn lí trường thành và Cố cung Bắc Kinh,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại một số câu chuyện về Vạn lí trường thành, Kiến trúc sư Nguyễn An và Cố cung Bắc Kinh,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của Trung Quốc trên bản đồ hoặc lược đồ. – Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của Trung Quốc. – Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Trung Quốc: Vạn lí trường thành và Cố cung Bắc Kinh,... – Sưu tầm và kể lại một số câu chuyện về Vạn lí trường thành, Kiến trúc sư Nguyễn An và Cố cung Bắc Kinh,...",
    "source": {
@@ -1054,9 +2877,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của nước Lào trên bản đồ hoặc lược đồ.",
-    "Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của nước Lào.",
-    "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Lào: Thạt Luổng, Cánh đồng Chum, Cố đô Luang Prabang,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của nước Lào trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của nước Lào."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Lào: Thạt Luổng, Cánh đồng Chum, Cố đô Luang Prabang,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của nước Lào trên bản đồ hoặc lược đồ. – Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của nước Lào. – Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Lào: Thạt Luổng, Cánh đồng Chum, Cố đô Luang Prabang,...",
    "source": {
@@ -1079,9 +2941,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của Campuchia trên bản đồ hoặc lược đồ.",
-    "Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của Campuchia.",
-    "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Campuchia: Angkor Wat, Angkor Thom, Tượng đài các chiến sĩ tình nguyện Việt Nam,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của Campuchia trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của Campuchia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Campuchia: Angkor Wat, Angkor Thom, Tượng đài các chiến sĩ tình nguyện Việt Nam,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của Campuchia trên bản đồ hoặc lược đồ. – Nêu được một số đặc điểm cơ bản về tự nhiên và dân cư của Campuchia. – Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số công trình tiêu biểu của Campuchia: Angkor Wat, Angkor Thom, Tượng đài các chiến sĩ tình nguyện Việt Nam,...",
    "source": {
@@ -1104,9 +3005,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của khu vực Đông Nam Á và các nước trong khu vực Đông Nam Á trên bản đồ hoặc lược đồ.",
-    "Nêu được sự ra đời của Hiệp hội các quốc gia Đông Nam Á (ASEAN).",
-    "Nêu được ý nghĩa của việc Việt Nam gia nhập Hiệp hội các quốc gia Đông Nam Á (ASEAN)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của khu vực Đông Nam Á và các nước trong khu vực Đông Nam Á trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự ra đời của Hiệp hội các quốc gia Đông Nam Á (ASEAN)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của việc Việt Nam gia nhập Hiệp hội các quốc gia Đông Nam Á (ASEAN)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của khu vực Đông Nam Á và các nước trong khu vực Đông Nam Á trên bản đồ hoặc lược đồ. – Nêu được sự ra đời của Hiệp hội các quốc gia Đông Nam Á (ASEAN). – Nêu được ý nghĩa của việc Việt Nam gia nhập Hiệp hội các quốc gia Đông Nam Á (ASEAN).",
    "source": {
@@ -1129,10 +3069,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí, của các châu lục, một số dãy núi, cao nguyên, đồng bằng lớn trên thế giới trên bản đồ, lược đồ hoặc quả cầu.",
-    "Nêu và so sánh được một số đặc điểm tự nhiên (địa hình, khí hậu, sông ngòi, thiên nhiên,...) của các châu lục.",
-    "Kể được tên và xác định được vị trí địa lí của các đại dương trên bản đồ hoặc quả địa cầu.",
-    "Sử dụng bảng số liệu và lược đồ hoặc bản đồ, so sánh được diện tích, độ sâu của các đại dương."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí, của các châu lục, một số dãy núi, cao nguyên, đồng bằng lớn trên thế giới trên bản đồ, lược đồ hoặc quả cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu và so sánh được một số đặc điểm tự nhiên (địa hình, khí hậu, sông ngòi, thiên nhiên,...) của các châu lục."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và xác định được vị trí địa lí của các đại dương trên bản đồ hoặc quả địa cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng bảng số liệu và lược đồ hoặc bản đồ, so sánh được diện tích, độ sâu của các đại dương."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí, của các châu lục, một số dãy núi, cao nguyên, đồng bằng lớn trên thế giới trên bản đồ, lược đồ hoặc quả cầu. – Nêu và so sánh được một số đặc điểm tự nhiên (địa hình, khí hậu, sông ngòi, thiên nhiên,...) của các châu lục. – Kể được tên và xác định được vị trí địa lí của các đại dương trên bản đồ hoặc quả địa cầu. – Sử dụng bảng số liệu và lược đồ hoặc bản đồ, so sánh được diện tích, độ sâu của các đại dương.",
    "source": {
@@ -1155,10 +3147,62 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Sử dụng bảng số liệu dân số thế giới, so sánh được dân số giữa các châu lục trên thế giới.",
-    "Kể được tên và mô tả được những nét chính về ngoại hình của các chủng tộc trên thế giới.",
-    "Sử dụng lược đồ và trình bày được sự phân bố của các chủng tộc trên thế giới.",
-    "Biết ứng xử phù hợp thể hiện sự tôn trọng sự khác biệt chủng tộc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng bảng số liệu dân số thế giới, so sánh được dân số giữa các châu lục trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và mô tả được những nét chính về ngoại hình của các chủng tộc trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng lược đồ và trình bày được sự phân bố của các chủng tộc trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết ứng xử phù hợp thể hiện sự tôn trọng sự khác biệt chủng tộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Sử dụng bảng số liệu dân số thế giới, so sánh được dân số giữa các châu lục trên thế giới. – Kể được tên và mô tả được những nét chính về ngoại hình của các chủng tộc trên thế giới. – Sử dụng lược đồ và trình bày được sự phân bố của các chủng tộc trên thế giới. – Biết ứng xử phù hợp thể hiện sự tôn trọng sự khác biệt chủng tộc.",
    "source": {
@@ -1181,9 +3225,48 @@
    "content": "",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của nước Ai Cập hiện nay trên bản đồ hoặc lược đồ.",
-    "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số thành tựu tiêu biểu của văn minh Ai Cập: Kim tự tháp, đồng hồ mặt trời,...",
-    "Sưu tầm và kể lại được một số câu chuyện về Kim tự tháp, Pharaon,..."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của nước Ai Cập hiện nay trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số thành tựu tiêu biểu của văn minh Ai Cập: Kim tự tháp, đồng hồ mặt trời,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại được một số câu chuyện về Kim tự tháp, Pharaon,..."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của nước Ai Cập hiện nay trên bản đồ hoặc lược đồ. – Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số thành tựu tiêu biểu của văn minh Ai Cập: Kim tự tháp, đồng hồ mặt trời,... – Sưu tầm và kể lại được một số câu chuyện về Kim tự tháp, Pharaon,...",
    "source": {
@@ -1206,7 +3289,20 @@
    "content": "– Hy Lạp",
    "kind": "requirement",
    "outcomes": [
-    "Xác định được vị trí địa lí của nước Hy Lạp hiện nay trên bản đồ hoặc lược đồ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí địa lí của nước Hy Lạp hiện nay trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "– Xác định được vị trí địa lí của nước Hy Lạp hiện nay trên bản đồ hoặc lược đồ.",
    "source": {

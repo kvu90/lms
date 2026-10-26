@@ -12,7 +12,92 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Vệ sinh sân tập, chuẩn bị dụng cụ trong tập luyện. VẬN ĐỘNG CƠ BẢN Đội hình đội ngũ – Các tư thế đứng nghiêm, đứng nghỉ – Tập hợp đội hình hàng dọc, hàng ngang, dóng hàng, điểm số. – Động tác quay các hướng – Trò chơi rèn luyện đội hình đội ngũ Bài tập thể dục – Các động tác thể dục phù hợp với đặc điểm lứa tuổi – Trò chơi bổ trợ khéo léo Tư thế và kĩ năng vận động cơ bản – Các tư thế hoạt động vận động cơ bản của đầu, cổ, tay,",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết thực hiện vệ sinh sân tập, chuẩn bị dụng cụ trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết quan sát tranh ảnh và động tác làm mẫu của giáo viên để tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao được học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia chơi tích cực các trò chơi vận động rèn luyện tư thế, tác phong, phản xạ và bổ trợ môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghiêm túc, tích cực trong tập luyện và hoạt động tập thể. Bước đầu hình thành thói quen tập thể dục."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết thực hiện vệ sinh sân tập, chuẩn bị dụng cụ trong tập luyện. – Biết quan sát tranh ảnh và động tác làm mẫu của giáo viên để tập luyện. – Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao được học. – Tham gia chơi tích cực các trò chơi vận động rèn luyện tư thế, tác phong, phản xạ và bổ trợ môn thể thao ưa thích. – Hoàn thành lượng vận động của bài tập. – Nghiêm túc, tích cực trong tập luyện và hoạt động tập thể. Bước đầu hình thành thói quen tập thể dục.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -54,7 +139,64 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Vệ sinh cá nhân, đảm bảo an toàn trong tập luyện. VẬN ĐỘNG CƠ BẢN Đội hình đội ngũ – Biến đổi đội hình – Động tác giậm chân tại chỗ, đứng lại – Trò chơi rèn luyện đội hình đội ngũ Bài tập thể dục – Các động tác thể dục phù hợp với đặc điểm lứa tuổi – Trò chơi bổ trợ khéo léo",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết thực hiện vệ sinh cá nhân, đảm bảo an toàn trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết quan sát tranh ảnh và động tác làm mẫu của giáo viên để tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao và vận dụng được vào trong các hoạt động tập thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tích cực các trò chơi vận động rèn luyện tư thế, tác phong, phản xạ và bổ trợ môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết thực hiện vệ sinh cá nhân, đảm bảo an toàn trong tập luyện. – Biết quan sát tranh ảnh và động tác làm mẫu của giáo viên để tập luyện. – Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao và vận dụng được vào trong các hoạt động tập thể. – Tham gia tích cực các trò chơi vận động rèn luyện tư thế, tác phong, phản xạ và bổ trợ môn thể thao ưa thích.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -75,7 +217,36 @@
    "topic": "",
    "content": "Tư thế và kĩ năng vận động cơ bản – Các bài tập phối hợp di chuyển các hướng – Các động tác quỳ, ngồi cơ bản – Trò chơi rèn luyện kĩ năng vận động và phản xạ THỂ THAO TỰ CHỌN – Tập luyện một trong các nội dung thể thao phù hợp với đặc điểm lứa tuổi – Trò chơi vận động bổ trợ môn thể thao ưa thích",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghiêm túc, tích cực trong tập luyện và hoạt động tập thể. Bước đầu hình thành thói quen tập luyện thể dục thể thao."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Hoàn thành lượng vận động của bài tập. – Nghiêm túc, tích cực trong tập luyện và hoạt động tập thể. Bước đầu hình thành thói quen tập luyện thể dục thể thao.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -96,7 +267,64 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Những yếu tố môi trường tự nhiên có lợi, có hại trong tập luyện. VẬN ĐỘNG CƠ BẢN Đội hình đội ngũ – Biến đổi đội hình – Động tác đi đều – Trò chơi rèn luyện đội hình đội ngũ Bài tập thể dục – Các động tác thể dục phù hợp với đặc điểm",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bước đầu biết lựa chọn môi trường tự nhiên có lợi trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết quan sát tranh ảnh và động tác làm mẫu của giáo viên để tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao và vận dụng được vào trong các hoạt động tập thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tích cực các trò chơi vận động rèn luyện tư thế, tác phong, phản xạ và bổ trợ môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Bước đầu biết lựa chọn môi trường tự nhiên có lợi trong tập luyện. – Biết quan sát tranh ảnh và động tác làm mẫu của giáo viên để tập luyện. – Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao và vận dụng được vào trong các hoạt động tập thể. – Tham gia tích cực các trò chơi vận động rèn luyện tư thế, tác phong, phản xạ và bổ trợ môn thể thao ưa thích.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -117,7 +345,50 @@
    "topic": "",
    "content": "lứa tuổi – Trò chơi bổ trợ khéo léo Tư thế và kĩ năng vận động cơ bản – Các bài tập di chuyển vượt chướng ngại vật – Các bài tập rèn luyện kĩ năng tung, bắt bằng tay – Trò chơi rèn luyện kĩ năng vận động và phản xạ THỂ THAO TỰ CHỌN – Tập luyện một trong các nội dung thể thao phù hợp với đặc điểm lứa tuổi – Trò chơi vận động bổ trợ môn thể thao ưa thích",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bước đầu tự sửa sai động tác thông qua nghe, quan sát và tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghiêm túc, tích cực, trung thực trong tập luyện. Hình thành thói quen tập luyện thể dục thể thao."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Bước đầu tự sửa sai động tác thông qua nghe, quan sát và tập luyện. – Hoàn thành lượng vận động của bài tập. – Nghiêm túc, tích cực, trung thực trong tập luyện. Hình thành thói quen tập luyện thể dục thể thao.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -138,14 +409,58 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Vệ sinh trong giờ học: khởi động, tập luyện, hồi phục, nghỉ ngơi sau tập luyện. VẬN ĐỘNG CƠ BẢN Đội hình đội ngũ – Động tác đi đều vòng các hướng – Trò chơi rèn luyện đội hình đội ngũ Bài tập thể dục",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Biết và thực hiện vệ sinh đảm bảo an toàn trong giờ tập luyện của môn Giáo dục thể chất. – Quan sát tranh ảnh, động tác làm mẫu của giáo viên để tập luyện và tự sửa sai động tác. – Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục có kết hợp với đạo cụ; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao ưa thích; xử lí được một số tình huống trong tập",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết và thực hiện vệ sinh đảm bảo an toàn trong giờ tập luyện của môn Giáo dục thể chất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát tranh ảnh, động tác làm mẫu của giáo viên để tập luyện và tự sửa sai động tác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục có kết hợp với đạo cụ; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao ưa thích; xử lí được một số tình huống trong tập luyện; vận dụng được vào trong các hoạt động tập thể."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Biết và thực hiện vệ sinh đảm bảo an toàn trong giờ tập luyện của môn Giáo dục thể chất. – Quan sát tranh ảnh, động tác làm mẫu của giáo viên để tập luyện và tự sửa sai động tác. – Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục có kết hợp với đạo cụ; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao ưa thích; xử lí được một số tình huống trong tập luyện; vận dụng được vào trong các hoạt động tập thể.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
     "portal": "data.moet.gov.vn (share 8vShtvq8x2sDOWq; ban luu Wayback khop digest)",
     "pdf_pages": [
-     11
+     11,
+     12
     ]
    }
   },
@@ -159,8 +474,51 @@
    "topic": "",
    "content": "– Các động tác thể dục kết hợp sử dụng các đạo cụ (cờ, hoa, vòng, gậy, …) phù hợp với đặc điểm lứa tuổi – Trò chơi bổ trợ khéo léo Tư thế và kĩ năng vận động cơ bản – Các bài tập rèn luyện kĩ năng thăng bằng – Các bài tập rèn luyện kĩ năng bật, nhảy – Trò chơi rèn luyện kĩ năng phối hợp vận động THỂ THAO TỰ CHỌN – Tập luyện một trong các nội dung thể thao phù hợp với đặc điểm lứa tuổi – Trò chơi vận động bổ trợ môn thể thao ưa thích",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "luyện; vận dụng được vào trong các hoạt động tập thể. – Biết điều khiển tổ, nhóm tập luyện và giúp đỡ bạn trong tập luyện. – Hoàn thành lượng vận động của bài tập. – Thể hiện sự yêu thích và thường xuyên tập luyện thể dục thể thao.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết điều khiển tổ, nhóm tập luyện và giúp đỡ bạn trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự yêu thích và thường xuyên tập luyện thể dục thể thao."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Biết điều khiển tổ, nhóm tập luyện và giúp đỡ bạn trong tập luyện. – Hoàn thành lượng vận động của bài tập. – Thể hiện sự yêu thích và thường xuyên tập luyện thể dục thể thao.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
@@ -180,7 +538,36 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Chế độ ăn uống đảm bảo dinh dưỡng trong tập luyện. VẬN ĐỘNG CƠ BẢN Đội hình đội ngũ – Luyện tập các nội dung đội hình, đội ngũ đã học – Trò chơi rèn luyện đội hình đội ngũ Bài tập thể dục",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết thực hiện theo hướng dẫn về chế độ dinh dưỡng trong tập luyện nhằm tăng khả năng vận động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục có kết hợp với đạo cụ; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao ưa thích; xử lí được một số tình huống trong tập luyện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết thực hiện theo hướng dẫn về chế độ dinh dưỡng trong tập luyện nhằm tăng khả năng vận động. – Thực hiện được nội dung đội hình đội ngũ; các động tác bài tập thể dục có kết hợp với đạo cụ; các tư thế và kĩ năng vận động cơ bản; các động tác cơ bản của nội dung thể thao ưa thích; xử lí được một số tình huống trong tập luyện.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -201,7 +588,78 @@
    "topic": "",
    "content": "– Các động tác thể dục kết hợp sử dụng đạo cụ (cờ, hoa, vòng, gậy, …) phù hợp với đặc điểm lứa tuổi – Trò chơi phát triển khéo léo Tư thế và kĩ năng vận động cơ bản – Các bài tập rèn luyện kĩ năng lăn, lộn – Các bài tập rèn luyện kĩ năng leo, trèo – Trò chơi rèn luyện kĩ năng phối hợp vận động THỂ THAO TỰ CHỌN – Tập luyện một trong các nội dung thể thao phù hợp với đặc điểm cá nhân và lứa tuổi – Trò chơi vận động bổ trợ môn thể thao ưa thích",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bước đầu vận dụng được kiến thức, kĩ năng đã học vào các hoạt động tập thể, tổ chức chơi được một số trò chơi vận động phù hợp với yêu cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết sửa sai động tác thông qua nghe, quan sát và tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có trách nhiệm với tập thể và ý thức giúp đỡ bạn trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự giác, dũng cảm, thường xuyên tập luyện thể dục thể thao."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Bước đầu vận dụng được kiến thức, kĩ năng đã học vào các hoạt động tập thể, tổ chức chơi được một số trò chơi vận động phù hợp với yêu cầu. – Biết sửa sai động tác thông qua nghe, quan sát và tập luyện. – Hoàn thành lượng vận động của bài tập. – Có trách nhiệm với tập thể và ý thức giúp đỡ bạn trong tập luyện. – Tự giác, dũng cảm, thường xuyên tập luyện thể dục thể thao.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -222,14 +680,58 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Chế độ dinh dưỡng trong tập luyện thể dục thể thao. VẬN ĐỘNG CƠ BẢN Chạy cự li ngắn (60m) – Các động tác bổ trợ kĩ thuật chạy – Chạy cự li ngắn 60m",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Nhận biết được các yếu tố dinh dưỡng cơ bản có ảnh hưởng trong tập luyện và phát triển thể chất. – Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Ném bóng; Chạy cự li trung bình và môn thể thao lựa chọn. – Thực hiện được các động tác bổ trợ kĩ thuật chạy; làm quen với các giai đoạn chạy cự li ngắn (60m), chạy cự li",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được các yếu tố dinh dưỡng cơ bản có ảnh hưởng trong tập luyện và phát triển thể chất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Ném bóng; Chạy cự li trung bình và môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật chạy; làm quen với các giai đoạn chạy cự li ngắn (60m), chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nhận biết được các yếu tố dinh dưỡng cơ bản có ảnh hưởng trong tập luyện và phát triển thể chất. – Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Ném bóng; Chạy cự li trung bình và môn thể thao lựa chọn. – Thực hiện được các động tác bổ trợ kĩ thuật chạy; làm quen với các giai đoạn chạy cự li ngắn (60m), chạy cự li trung bình.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
     "portal": "data.moet.gov.vn (share 8vShtvq8x2sDOWq; ban luu Wayback khop digest)",
     "pdf_pages": [
-     13
+     13,
+     14
     ]
    }
   },
@@ -243,8 +745,121 @@
    "topic": "",
    "content": "– Một số trò chơi phát triển sức nhanh Ném bóng – Các động tác bổ trợ kĩ thuật ném bóng – Kĩ thuật ném bóng – Trò chơi phát triển sức mạnh tay – ngực Chạy cự li trung bình – Các động tác bổ trợ kĩ thuật chạy – Kĩ thuật chạy cự li trung bình – Trò chơi phát triển sức bền Bài tập thể dục – Bài thể dục liên hoàn dành cho học sinh lớp 6 – Trò chơi phát triển khéo léo THỂ THAO TỰ CHỌN – Căn cứ vào điều kiện thực tế của địa phương và nhà trường, định hướng cho học sinh lựa chọn một trong những nội dung thể thao phù hợp với đặc điểm cá nhân và lứa tuổi: Điền kinh; Thể dục; Bơi; Bóng đá; Bóng chuyền; Bóng rổ; Cầu lông; Đá cầu; Bóng bàn; Võ; Khiêu vũ thể thao; Thể dục nhịp điệu; các môn thể thao truyền thống của địa phương;... – Trò chơi vận động bổ trợ cho môn thể thao lựa chọn",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật ném bóng. Thực hiện được kĩ thuật ném bóng. – Thực hiện đúng các động tác trong bài tập thể dục liên hoàn. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Thực hiện được một số tình huống phối hợp vận động với đồng đội trong bài tập. – Biết lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực. – Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện. – Hoàn thành lượng vận động của bài tập. – Tự giác, tích cực, đoàn kết và giúp đỡ bạn trong tập luyện. Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng được kiến thức, kĩ năng đã học để rèn luyện hằng ngày.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật ném bóng. Thực hiện được kĩ thuật ném bóng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện đúng các động tác trong bài tập thể dục liên hoàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Thực hiện được một số tình huống phối hợp vận động với đồng đội trong bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự giác, tích cực, đoàn kết và giúp đỡ bạn trong tập luyện. Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức, kĩ năng đã học để rèn luyện hằng ngày."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Thực hiện được các động tác bổ trợ kĩ thuật ném bóng. Thực hiện được kĩ thuật ném bóng. – Thực hiện đúng các động tác trong bài tập thể dục liên hoàn. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Thực hiện được một số tình huống phối hợp vận động với đồng đội trong bài tập. – Biết lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực. – Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện. – Hoàn thành lượng vận động của bài tập. – Tự giác, tích cực, đoàn kết và giúp đỡ bạn trong tập luyện. Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng được kiến thức, kĩ năng đã học để rèn luyện hằng ngày.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
@@ -264,14 +879,142 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Lựa chọn và sử dụng các yếu tố của môi trường tự nhiên trong tập luyện. VẬN ĐỘNG CƠ BẢN Chạy cự li ngắn (60m) – Các động tác bổ trợ kĩ thuật chạy – Chạy cự li ngắn 60m – Một số trò chơi phát triển sức nhanh Nhảy xa kiểu ngồi – Các động tác bổ trợ kĩ thuật nhảy xa kiểu ngồi – Kĩ thuật nhảy xa kiểu ngồi – Trò chơi phát triển sức mạnh Chạy cự li trung bình – Các động tác bổ trợ kĩ thuật chạy – Kĩ thuật chạy cự li trung bình – Trò chơi phát triển sức bền Bài tập thể dục – Bài thể dục liên hoàn dành cho học sinh lớp 7 – Trò chơi phát triển sự khéo léo THỂ THAO TỰ CHỌN",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Biết lựa chọn và sử dụng các yếu tố của môi trường tự nhiên có lợi cho sức khoẻ để tập luyện. – Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy xa kiểu ngồi; Chạy cự li trung bình và môn thể thao lựa chọn. – Biết khắc phục hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật chạy; thực hiện được các giai đoạn chạy cự li ngắn (60m), chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật nhảy xa kiểu ngồi và thực hiện được các giai đoạn kĩ thuật nhảy xa kiểu ngồi. – Thực hiện được bài tập thể dục liên hoàn lớp 7. Hô đúng nhịp động tác của bài tập thể dục liên hoàn. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Xử lí được một số tình huống khi tổ chức phối hợp với đồng đội. – Biết lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực. – Biết điều chỉnh, sửa sai động tác thông qua nghe, quan",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết lựa chọn và sử dụng các yếu tố của môi trường tự nhiên có lợi cho sức khoẻ để tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy xa kiểu ngồi; Chạy cự li trung bình và môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết khắc phục hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật chạy; thực hiện được các giai đoạn chạy cự li ngắn (60m), chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật nhảy xa kiểu ngồi và thực hiện được các giai đoạn kĩ thuật nhảy xa kiểu ngồi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được bài tập thể dục liên hoàn lớp 7. Hô đúng nhịp động tác của bài tập thể dục liên hoàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Xử lí được một số tình huống khi tổ chức phối hợp với đồng đội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Biết lựa chọn và sử dụng các yếu tố của môi trường tự nhiên có lợi cho sức khoẻ để tập luyện. – Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy xa kiểu ngồi; Chạy cự li trung bình và môn thể thao lựa chọn. – Biết khắc phục hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật chạy; thực hiện được các giai đoạn chạy cự li ngắn (60m), chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật nhảy xa kiểu ngồi và thực hiện được các giai đoạn kĩ thuật nhảy xa kiểu ngồi. – Thực hiện được bài tập thể dục liên hoàn lớp 7. Hô đúng nhịp động tác của bài tập thể dục liên hoàn. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Xử lí được một số tình huống khi tổ chức phối hợp với đồng đội. – Biết lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực. – Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
     "portal": "data.moet.gov.vn (share 8vShtvq8x2sDOWq; ban luu Wayback khop digest)",
     "pdf_pages": [
-     15
+     15,
+     16
     ]
    }
   },
@@ -285,8 +1028,51 @@
    "topic": "",
    "content": "– Căn cứ vào điều kiện thực tế của địa phương và nhà trường, định hướng cho học sinh lựa chọn một trong những nội dung thể thao phù hợp để học tập và rèn luyện: Điền kinh; Thể dục; Bơi; Bóng đá; Bóng chuyền; Bóng rổ; Cầu lông; Đá cầu; Bóng bàn; Võ; Khiêu vũ thể thao; Thể dục nhịp điệu; các môn thể thao truyền thống của địa phương;... – Trò chơi vận động bổ trợ cho môn thể thao lựa chọn",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "sát và tập luyện. – Hoàn thành lượng vận động của bài tập. – Tự giác, tích cực, đoàn kết và giúp đỡ bạn trong tập luyện. Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng kiến thức, kĩ năng đã học để rèn luyện hằng ngày.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự giác, tích cực, đoàn kết và giúp đỡ bạn trong tập luyện. Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng kiến thức, kĩ năng đã học để rèn luyện hằng ngày."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Hoàn thành lượng vận động của bài tập. – Tự giác, tích cực, đoàn kết và giúp đỡ bạn trong tập luyện. Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng kiến thức, kĩ năng đã học để rèn luyện hằng ngày.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
@@ -306,14 +1092,86 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Sử dụng chế độ dinh dưỡng thích hợp với bản thân trong tập luyện thể dục thể thao. VẬN ĐỘNG CƠ BẢN Chạy cự li ngắn (100m) – Các động tác bổ trợ kĩ thuật chạy – Chạy cự li ngắn 100m – Một số trò chơi phát triển sức nhanh Nhảy cao kiểu bước qua – Các động tác bổ trợ kĩ thuật nhảy cao kiểu bước qua",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Biết lựa chọn và sử dụng chế độ dinh dưỡng thích hợp với bản thân trong tập luyện thể dục thể thao. – Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy cao kiểu bước qua; Chạy cự li trung bình và môn thể thao lựa chọn. – Khắc phục được hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật chạy. Thực hiện được các giai đoạn chạy cự li ngắn (100m), chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật nhảy cao",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết lựa chọn và sử dụng chế độ dinh dưỡng thích hợp với bản thân trong tập luyện thể dục thể thao."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy cao kiểu bước qua; Chạy cự li trung bình và môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khắc phục được hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật chạy. Thực hiện được các giai đoạn chạy cự li ngắn (100m), chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật nhảy cao kiểu bước qua. Thực hiện được các giai đoạn kĩ thuật nhảy cao kiểu bước qua."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Biết lựa chọn và sử dụng chế độ dinh dưỡng thích hợp với bản thân trong tập luyện thể dục thể thao. – Biết một số điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy cao kiểu bước qua; Chạy cự li trung bình và môn thể thao lựa chọn. – Khắc phục được hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật chạy. Thực hiện được các giai đoạn chạy cự li ngắn (100m), chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật nhảy cao kiểu bước qua. Thực hiện được các giai đoạn kĩ thuật nhảy cao kiểu bước qua.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
     "portal": "data.moet.gov.vn (share 8vShtvq8x2sDOWq; ban luu Wayback khop digest)",
     "pdf_pages": [
-     16
+     16,
+     17
     ]
    }
   },
@@ -327,8 +1185,107 @@
    "topic": "",
    "content": "– Kĩ thuật nhảy cao kiểu bước qua – Trò chơi phát triển sức mạnh Chạy cự li trung bình – Các động tác bổ trợ kĩ thuật chạy – Kĩ thuật chạy cự li trung bình – Trò chơi phát triển sức bền Bài tập thể dục – Bài thể dục nhịp điệu dành cho học sinh lớp 8 – Trò chơi phát triển sự khéo léo THỂ THAO TỰ CHỌN – Căn cứ vào điều kiện thực tế của địa phương và nhà trường, định hướng cho học sinh lựa chọn một trong những nội dung thể thao phù hợp để học tập và rèn luyện: Điền kinh; Thể dục; Bơi; Bóng đá; Bóng chuyền; Bóng rổ; Cầu lông; Đá cầu; Bóng bàn; Võ; Khiêu vũ thể thao; Thể dục nhịp điệu; các môn thể thao truyền thống của địa phương;... – Trò chơi vận động bổ trợ cho môn thể thao lựa chọn",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "kiểu bước qua. Thực hiện được các giai đoạn kĩ thuật nhảy cao kiểu bước qua. – Thực hiện được bài tập thể dục nhịp điệu lớp 8. Hô đúng nhịp bài tập thể dục nhịp điệu của học sinh lớp 8. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Xử lí linh hoạt một số tình huống khi phối hợp với đồng đội. – Lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực. – Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng những hiểu biết về môn thể thao ưa thích khi tham gia thi đấu. – Hoàn thành lượng vận động của bài tập. – Tham gia có trách nhiệm, trung thực, đoàn kết, giúp đỡ bạn trong tập luyện và các hoạt động khác trong cuộc sống.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được bài tập thể dục nhịp điệu lớp 8. Hô đúng nhịp bài tập thể dục nhịp điệu của học sinh lớp 8."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Xử lí linh hoạt một số tình huống khi phối hợp với đồng đội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng những hiểu biết về môn thể thao ưa thích khi tham gia thi đấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia có trách nhiệm, trung thực, đoàn kết, giúp đỡ bạn trong tập luyện và các hoạt động khác trong cuộc sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Thực hiện được bài tập thể dục nhịp điệu lớp 8. Hô đúng nhịp bài tập thể dục nhịp điệu của học sinh lớp 8. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Xử lí linh hoạt một số tình huống khi phối hợp với đồng đội. – Lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển tố chất thể lực. – Biết điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng những hiểu biết về môn thể thao ưa thích khi tham gia thi đấu. – Hoàn thành lượng vận động của bài tập. – Tham gia có trách nhiệm, trung thực, đoàn kết, giúp đỡ bạn trong tập luyện và các hoạt động khác trong cuộc sống.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
@@ -348,14 +1305,198 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển thể chất. VẬN ĐỘNG CƠ BẢN Chạy cự li ngắn (100m) – Các động tác bổ trợ kĩ thuật chạy – Chạy cự li ngắn 100m – Một số trò chơi phát triển sức nhanh Nhảy cao kiểu nằm nghiêng – Các động tác bổ trợ kĩ thuật nhảy cao kiểu nằm nghiêng. – Kĩ thuật nhảy cao kiểu nằm nghiêng – Trò chơi phát triển sức mạnh Chạy cự li trung bình – Các động tác bổ trợ kĩ thuật chạy – Kĩ thuật chạy cự li trung bình – Trò chơi phát triển sức bền Bài tập thể dục – Bài thể dục nhịp điệu dành cho học sinh lớp 9",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Bước đầu biết sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển tố chất thể lực. – Biết những điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy cao kiểu nằm nghiêng; Chạy cự li trung bình và môn thể thao lựa chọn. – Khắc phục được hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật chạy. Hoàn thành được các giai đoạn chạy cự li ngắn (100m), chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật nhảy cao kiểu nằm nghiêng. Hoàn thành được các giai đoạn kĩ thuật nhảy cao kiểu nằm nghiêng. – Thực hiện được bài tập thể dục nhịp điệu dành cho học sinh lớp 9. Hô đúng nhịp động tác bài tập thể dục nhịp điệu của học sinh lớp 9. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Phán đoán, xử lí một số tình huống linh hoạt, phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích. – Biết điều chỉnh, sửa sai động tác thông qua nghe, quan",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bước đầu biết sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết những điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy cao kiểu nằm nghiêng; Chạy cự li trung bình và môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khắc phục được hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật chạy. Hoàn thành được các giai đoạn chạy cự li ngắn (100m), chạy cự li trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các động tác bổ trợ kĩ thuật nhảy cao kiểu nằm nghiêng. Hoàn thành được các giai đoạn kĩ thuật nhảy cao kiểu nằm nghiêng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được bài tập thể dục nhịp điệu dành cho học sinh lớp 9. Hô đúng nhịp động tác bài tập thể dục nhịp điệu của học sinh lớp 9."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Phán đoán, xử lí một số tình huống linh hoạt, phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển các tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được khả năng điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được những hiểu biết về môn thể thao ưa thích để tập luyện hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành lượng vận động của bài tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có trách nhiệm, hoà đồng với tập thể trong tập luyện thể thao và các hoạt động khác trong cuộc sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Bước đầu biết sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển tố chất thể lực. – Biết những điều luật cơ bản ở các nội dung: Chạy cự li ngắn; Nhảy cao kiểu nằm nghiêng; Chạy cự li trung bình và môn thể thao lựa chọn. – Khắc phục được hiện tượng “cực điểm” xảy ra khi chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật chạy. Hoàn thành được các giai đoạn chạy cự li ngắn (100m), chạy cự li trung bình. – Thực hiện được các động tác bổ trợ kĩ thuật nhảy cao kiểu nằm nghiêng. Hoàn thành được các giai đoạn kĩ thuật nhảy cao kiểu nằm nghiêng. – Thực hiện được bài tập thể dục nhịp điệu dành cho học sinh lớp 9. Hô đúng nhịp động tác bài tập thể dục nhịp điệu của học sinh lớp 9. – Thực hiện được các bài tập bổ trợ và động tác kĩ thuật cơ bản của môn thể thao lựa chọn. Phán đoán, xử lí một số tình huống linh hoạt, phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích. – Biết điều chỉnh, sửa sai động tác thông qua nghe, quan sát và tập luyện. – Lựa chọn và tham gia các hoạt động trò chơi vận động phù hợp với yêu cầu, nội dung bài học nhằm phát triển các tố chất thể lực. – Thể hiện được khả năng điều khiển tổ, nhóm tập luyện và nhận xét kết quả tập luyện. – Vận dụng được những hiểu biết về môn thể thao ưa thích để tập luyện hằng ngày. – Hoàn thành lượng vận động của bài tập. – Có trách nhiệm, hoà đồng với tập thể trong tập luyện thể thao và các hoạt động khác trong cuộc sống.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-gdtc-official.pdf",
     "portal": "data.moet.gov.vn (share 8vShtvq8x2sDOWq; ban luu Wayback khop digest)",
     "pdf_pages": [
-     18
+     18,
+     19
     ]
    }
   },
@@ -369,7 +1510,64 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển thể chất. MÔN THỂ THAO TỰ CHỌN Căn cứ vào điều kiện dạy học của địa phương và nhà trường, định hướng cho học sinh lựa chọn nội dung thể thao phù hợp trong số các môn thể thao được sử dụng trong Hội khoẻ Phù đổng các cấp, trong giải thi đấu quốc",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển các tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có hiểu biết sơ giản về lịch sử môn thể thao được lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được một số điều luật của môn thể thao lựa chọn vào trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các kĩ thuật cơ bản của môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Sử dụng được một số yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển các tố chất thể lực. – Có hiểu biết sơ giản về lịch sử môn thể thao được lựa chọn. – Vận dụng được một số điều luật của môn thể thao lựa chọn vào trong tập luyện. – Thực hiện được các kĩ thuật cơ bản của môn thể thao lựa chọn.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -390,7 +1588,106 @@
    "topic": "",
    "content": "gia và quốc tế, các môn thể thao truyền thống của địa phương: Điền kinh; Thể dục; Bơi; Bóng đá; Bóng chuyền; Bóng rổ; Cầu lông; Đá cầu; Bóng bàn; Võ (Vovinam, Võ dân tộc cổ truyền, Karatedo, Taekwondo,...); Quần vợt; Bóng ném; Khiêu vũ thể thao; Thể dục nhịp điệu; Cầu mây; các môn thể thao truyền thống của địa phương;…",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết điều chỉnh, sửa sai một số động tác thông qua nghe, quan sát, tập luyện của bản thân và tổ, nhóm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết phán đoán, xử lí các tình huống linh hoạt và phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được những hiểu biết về môn thể thao đã lựa chọn để tập luyện hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự tăng tiến thể lực trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đạt tiêu chuẩn đánh giá thể lực học sinh theo quy định của Bộ Giáo dục và Đào tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức tự giác, tinh thần tập thể, đoàn kết giúp đỡ lẫn nhau trong tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự yêu thích môn thể thao trong học tập và rèn luyện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết điều chỉnh, sửa sai một số động tác thông qua nghe, quan sát, tập luyện của bản thân và tổ, nhóm. – Biết phán đoán, xử lí các tình huống linh hoạt và phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích. – Vận dụng được những hiểu biết về môn thể thao đã lựa chọn để tập luyện hằng ngày. – Thể hiện sự tăng tiến thể lực trong tập luyện. – Đạt tiêu chuẩn đánh giá thể lực học sinh theo quy định của Bộ Giáo dục và Đào tạo. – Có ý thức tự giác, tinh thần tập thể, đoàn kết giúp đỡ lẫn nhau trong tập luyện. – Thể hiện sự yêu thích môn thể thao trong học tập và rèn luyện.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -411,7 +1708,36 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển thể chất. MÔN THỂ THAO TỰ CHỌN Căn cứ vào điều kiện dạy học của địa phương và nhà",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu và sử dụng được các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ, phát triển các tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết được vai trò, tác dụng cơ bản của môn thể thao lựa chọn đối với sự phát triển thể chất."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Hiểu và sử dụng được các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ, phát triển các tố chất thể lực. – Biết được vai trò, tác dụng cơ bản của môn thể thao lựa chọn đối với sự phát triển thể chất.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -432,7 +1758,134 @@
    "topic": "",
    "content": "trường, định hướng cho học sinh lựa chọn nội dung môn thể thao phù hợp trong số các môn thể thao được sử dụng trong Hội khoẻ Phù đổng các cấp, trong giải thi đấu quốc gia và quốc tế, các môn thể thao truyền thống của địa phương: Điền kinh; Thể dục; Bơi; Bóng đá; Bóng chuyền; Bóng rổ; Cầu lông; Đá cầu; Bóng bàn; Võ (Vovinam, Võ dân tộc cổ truyền, Karatedo, Taekwondo,...); Quần vợt; Bóng ném; Khiêu vũ thể thao; Thể dục nhịp điệu; Cầu mây; các môn thể thao truyền thống của địa phương;…",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu và phân tích, vận dụng được một số điều luật của môn thể thao được lựa chọn vào trong tập luyện và đấu tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện đúng các kĩ thuật, chiến thuật cơ bản trong tập luyện và biết vận dụng vào thi đấu môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự điều chỉnh, sửa sai được động tác thông qua nghe, quan sát và tập luyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có khả năng phán đoán, xử lí các tình huống một cách linh hoạt và phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được những kiến thức, kĩ năng về môn thể thao được lựa chọn để tập luyện hằng ngày nhằm hoàn thiện kĩ năng, kĩ xảo vận động, đáp ứng yêu cầu chuyên môn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự phát triển thể lực trong rèn luyện và đấu tập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đạt tiêu chuẩn đánh giá thể lực học sinh theo quy định của Bộ Giáo dục và Đào tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện khả năng và sự đam mê thể thao trong sinh hoạt, học tập hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự giác, tích cực, đoàn kết giúp đỡ bạn trong tập luyện, thi đấu và trong cuộc sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu và phân tích, vận dụng được một số điều luật của môn thể thao được lựa chọn vào trong tập luyện và đấu tập. – Thực hiện đúng các kĩ thuật, chiến thuật cơ bản trong tập luyện và biết vận dụng vào thi đấu môn thể thao lựa chọn. – Tự điều chỉnh, sửa sai được động tác thông qua nghe, quan sát và tập luyện. – Có khả năng phán đoán, xử lí các tình huống một cách linh hoạt và phối hợp được với đồng đội trong tập luyện và thi đấu môn thể thao ưa thích. – Vận dụng được những kiến thức, kĩ năng về môn thể thao được lựa chọn để tập luyện hằng ngày nhằm hoàn thiện kĩ năng, kĩ xảo vận động, đáp ứng yêu cầu chuyên môn. – Thể hiện sự phát triển thể lực trong rèn luyện và đấu tập. – Đạt tiêu chuẩn đánh giá thể lực học sinh theo quy định của Bộ Giáo dục và Đào tạo. – Thể hiện khả năng và sự đam mê thể thao trong sinh hoạt, học tập hằng ngày. – Tự giác, tích cực, đoàn kết giúp đỡ bạn trong tập luyện, thi đấu và trong cuộc sống.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -453,7 +1906,190 @@
    "topic": "",
    "content": "KIẾN THỨC CHUNG Sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,...) và dinh dưỡng để rèn luyện sức khoẻ và phát triển thể chất. MÔN THỂ THAO TỰ CHỌN Căn cứ vào điều kiện dạy học của địa phương và nhà trường, định hướng cho học sinh lựa chọn nội dung môn thể thao phù hợp trong số các môn thể thao được sử dụng trong Hội khoẻ Phù đổng các cấp, trong giải thi đấu quốc gia và quốc tế, các môn thể thao truyền thống của địa phương,... : Điền kinh; Thể dục; Bơi; Bóng đá; Bóng chuyền; Bóng rổ; Cầu lông; Đá cầu; Bóng bàn; Võ (Vovinam, Võ dân tộc cổ truyền, Karatedo, Taekwondo,...); Quần vợt; Bóng ném; Khiêu vũ thể thao; Thể dục nhịp điệu; Cầu mây; các môn thể thao truyền thống của địa phương;…",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hướng dẫn được người khác sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,..) và dinh dưỡng để rèn luyện sức khoẻ, phát triển các tố chất thể lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được vai trò, ảnh hưởng của môn thể thao lựa chọn đối với sức khoẻ và xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu và phân tích được những điều luật của môn thể thao đã lựa chọn để áp dụng vào trong luyện tập và thi đấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện thuần thục, ổn định các kĩ thuật, chiến thuật cơ bản trong luyện tập và thi đấu môn thể thao lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có khả năng quan sát, điều chỉnh, sửa sai động tác trong tập luyện và thi đấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết lập kế hoạch tập luyện môn thể thao ưa thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện năng khiếu về môn thể thao lựa chọn trong học tập và thi đấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát triển thể lực và thành tích trong thi đấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đạt tiêu chuẩn đánh giá thể lực học sinh theo quy định của Bộ Giáo dục và Đào tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tích cực tham gia công tác trọng tài điều khiển các trận thi đấu nhằm nâng cao hiệu quả học tập và rèn luyện"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được ý thức tự giác, tinh thần tập thể, đoàn kết giúp đỡ lẫn nhau trong luyện tập và thi đấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Cảm nhận được vẻ đẹp của hoạt động thể dục thể thao và thể hiện được nhu cầu luyện tập hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự ham thích, đam mê thể thao trong sinh hoạt, học tập và cuộc sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Hướng dẫn được người khác sử dụng các yếu tố tự nhiên (không khí, nước, ánh sáng,..) và dinh dưỡng để rèn luyện sức khoẻ, phát triển các tố chất thể lực. – Hiểu được vai trò, ảnh hưởng của môn thể thao lựa chọn đối với sức khoẻ và xã hội. – Hiểu và phân tích được những điều luật của môn thể thao đã lựa chọn để áp dụng vào trong luyện tập và thi đấu. – Thực hiện thuần thục, ổn định các kĩ thuật, chiến thuật cơ bản trong luyện tập và thi đấu môn thể thao lựa chọn. – Có khả năng quan sát, điều chỉnh, sửa sai động tác trong tập luyện và thi đấu. – Biết lập kế hoạch tập luyện môn thể thao ưa thích. – Thể hiện năng khiếu về môn thể thao lựa chọn trong học tập và thi đấu. – Phát triển thể lực và thành tích trong thi đấu. – Đạt tiêu chuẩn đánh giá thể lực học sinh theo quy định của Bộ Giáo dục và Đào tạo. –Tích cực tham gia công tác trọng tài điều khiển các trận thi đấu nhằm nâng cao hiệu quả học tập và rèn luyện – Thể hiện được ý thức tự giác, tinh thần tập thể, đoàn kết giúp đỡ lẫn nhau trong luyện tập và thi đấu. – Cảm nhận được vẻ đẹp của hoạt động thể dục thể thao và thể hiện được nhu cầu luyện tập hằng ngày. – Thể hiện sự ham thích, đam mê thể thao trong sinh hoạt, học tập và cuộc sống hằng ngày.",
    "source": {
     "document": "Chương trình môn Giáo dục thể chất ban hành kèm Thông tư 32/2018/TT-BGDĐT",

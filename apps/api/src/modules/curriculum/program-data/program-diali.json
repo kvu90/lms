@@ -33,7 +33,36 @@
    "topic": "",
    "content": "phổ thông, vai trò của môn Địa lí đối với cuộc sống – Định hướng nghề nghiệp Sử dụng bản đồ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vai trò của môn Địa lí đối với đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những ngành nghề có liên quan đến kiến thức địa lí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được vai trò của môn Địa lí đối với đời sống. – Xác định được những ngành nghề có liên quan đến kiến thức địa lí.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -54,7 +83,50 @@
    "topic": "",
    "content": "– Một số phương pháp biểu hiện các đối tượng địa lí trên bản đồ – Phương pháp sử dụng bản đồ trong học tập địa lí và trong đời sống – Một số ứng dụng của GPS (Global Positioning System – Hệ thống định vị toàn cầu) và bản đồ số trong đời sống Trái Đất",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được một số phương pháp biểu hiện các đối tượng địa lí trên bản đồ: kí hiệu, đường chuyển động, chấm điểm, khoanh vùng, bản đồ - biểu đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được bản đồ trong học tập địa lí và đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định và sử dụng được một số ứng dụng của GPS và bản đồ số trong đời sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân biệt được một số phương pháp biểu hiện các đối tượng địa lí trên bản đồ: kí hiệu, đường chuyển động, chấm điểm, khoanh vùng, bản đồ - biểu đồ. – Sử dụng được bản đồ trong học tập địa lí và đời sống. – Xác định và sử dụng được một số ứng dụng của GPS và bản đồ số trong đời sống.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -75,8 +147,65 @@
    "topic": "",
    "content": "– Sự hình thành Trái Đất, vỏ Trái Đất và vật liệu cấu tạo vỏ Trái Đất – Thuyết kiến tạo mảng – Hệ quả địa lí các chuyển động của Trái Đất",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất. – Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa. – Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ). – Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian ngày đêm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất. – Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa. – Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ). – Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian ngày đêm.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -96,8 +225,23 @@
    "topic": "",
    "content": "Thạch quyển",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "ngày đêm. – Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -117,7 +261,64 @@
    "topic": "",
    "content": "– Khái niệm thạch quyển – Nội lực và ngoại lực – Sự phân bố các vành đai động đất, núi lửa Khí quyển",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm thạch quyển; phân biệt được thạch quyển với vỏ Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày khái niệm nội lực, ngoại lực; nguyên nhân của chúng; tác động đến sự hình thành địa hình bề mặt Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sơ đồ, lược đồ, tranh ảnh về tác động của nội lực, ngoại lực đến địa hình bề mặt Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét và giải thích được sự phân bố các vành đai động đất, núi lửa trên bản đồ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm thạch quyển; phân biệt được thạch quyển với vỏ Trái Đất. – Trình bày khái niệm nội lực, ngoại lực; nguyên nhân của chúng; tác động đến sự hình thành địa hình bề mặt Trái Đất. – Phân tích được sơ đồ, lược đồ, tranh ảnh về tác động của nội lực, ngoại lực đến địa hình bề mặt Trái Đất. – Nhận xét và giải thích được sự phân bố các vành đai động đất, núi lửa trên bản đồ.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -138,7 +339,64 @@
    "topic": "",
    "content": "– Mưa – Các đới và kiểu khí hậu trên Trái Đất Thuỷ quyển",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các nhân tố ảnh hưởng đến lượng mưa và trình bày được sự phân bố mưa trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được bảng số liệu, hình vẽ, bản đồ, lược đồ về một số yếu tố của khí quyển (nhiệt độ, khí áp, gió, mưa)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ các đới khí hậu trên Trái Đất; phân tích được biểu đồ một số kiểu khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được một số hiện tượng thời tiết và khí hậu trong thực tế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được các nhân tố ảnh hưởng đến lượng mưa và trình bày được sự phân bố mưa trên thế giới. – Phân tích được bảng số liệu, hình vẽ, bản đồ, lược đồ về một số yếu tố của khí quyển (nhiệt độ, khí áp, gió, mưa). – Đọc được bản đồ các đới khí hậu trên Trái Đất; phân tích được biểu đồ một số kiểu khí hậu. – Giải thích được một số hiện tượng thời tiết và khí hậu trong thực tế.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -159,7 +417,162 @@
    "topic": "",
    "content": "– Khái niệm thuỷ quyển – Nước trên lục địa – Nước biển và đại dương Sinh quyển",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái niệm thuỷ quyển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các nhân tố ảnh hưởng tới chế độ nước sông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được chế độ nước của một con sông cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các loại hồ theo nguồn gốc hình thành."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm chủ yếu của nước băng tuyết và nước ngầm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các giải pháp bảo vệ nguồn nước ngọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tính chất của nước biển và đại dương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được hiện tượng sóng biển và thuỷ triều."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được chuyển động của các dòng biển trong đại dương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của biển và đại dương đối với phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được sơ đồ; phân tích được bản đồ và hình vẽ về thuỷ quyển."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được khái niệm thuỷ quyển. – Phân tích được các nhân tố ảnh hưởng tới chế độ nước sông. – Trình bày được chế độ nước của một con sông cụ thể. – Phân biệt được các loại hồ theo nguồn gốc hình thành. – Trình bày được đặc điểm chủ yếu của nước băng tuyết và nước ngầm. – Nêu được các giải pháp bảo vệ nguồn nước ngọt. – Trình bày được tính chất của nước biển và đại dương. – Giải thích được hiện tượng sóng biển và thuỷ triều. – Trình bày được chuyển động của các dòng biển trong đại dương. – Nêu được vai trò của biển và đại dương đối với phát triển kinh tế - xã hội. – Vẽ được sơ đồ; phân tích được bản đồ và hình vẽ về thuỷ quyển.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -180,7 +593,64 @@
    "topic": "",
    "content": "– Đất – Sinh quyển – Sự phân bố của đất và sinh vật trên Trái Đất Một số quy luật của vỏ địa lí",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm về đất; phân biệt được lớp vỏ phong hoá và đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các nhân tố hình thành đất; liên hệ được thực tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm sinh quyển; phân tích được đặc điểm và giới hạn của sinh quyển, các nhân tố ảnh hưởng đến sự phát triển, phân bố của sinh vật; liên hệ được thực tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sơ đồ, hình vẽ, bản đồ phân bố các nhóm đất và sinh vật trên thế giới."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm về đất; phân biệt được lớp vỏ phong hoá và đất. – Trình bày được các nhân tố hình thành đất; liên hệ được thực tế ở địa phương. – Trình bày được khái niệm sinh quyển; phân tích được đặc điểm và giới hạn của sinh quyển, các nhân tố ảnh hưởng đến sự phát triển, phân bố của sinh vật; liên hệ được thực tế ở địa phương. – Phân tích được sơ đồ, hình vẽ, bản đồ phân bố các nhóm đất và sinh vật trên thế giới.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -201,7 +671,64 @@
    "topic": "",
    "content": "– Khái niệm vỏ địa lí – Quy luật thống nhất và hoàn chỉnh của vỏ địa lí – Quy luật địa đới và phi địa đới Địa lí dân cư",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày khái niệm vỏ địa lí; phân biệt được vỏ địa lí và vỏ Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, biểu hiện và ý nghĩa thực tiễn của quy luật thống nhất và hoàn chỉnh của vỏ địa lí; liên hệ được thực tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày khái niệm, biểu hiện và ý nghĩa thực tiễn của quy luật địa đới và phi địa đới; liên hệ được thực tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được một số hiện tượng phổ biến trong môi trường tự nhiên bằng các quy luật địa lí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày khái niệm vỏ địa lí; phân biệt được vỏ địa lí và vỏ Trái Đất. – Trình bày được khái niệm, biểu hiện và ý nghĩa thực tiễn của quy luật thống nhất và hoàn chỉnh của vỏ địa lí; liên hệ được thực tế ở địa phương. – Trình bày khái niệm, biểu hiện và ý nghĩa thực tiễn của quy luật địa đới và phi địa đới; liên hệ được thực tế ở địa phương. – Giải thích được một số hiện tượng phổ biến trong môi trường tự nhiên bằng các quy luật địa lí.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -222,8 +749,135 @@
    "topic": "",
    "content": "– Cơ cấu dân số – Phân bố dân cư – Đô thị hoá Các nguồn lực, một số tiêu chí đánh giá sự phát triển kinh tế",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "các nhân tố tác động đến gia tăng dân số. – Trình bày được các loại cơ cấu dân số: cơ cấu sinh học (tuổi và giới), cơ cấu xã hội (lao động, trình độ văn hoá). – Phân tích được tác động của các nhân tố tự nhiên, kinh tế - xã hội đến phân bố dân cư. – Trình bày được khái niệm, phân tích được các nhân tố tác động đến đô thị hoá và ảnh hưởng của đô thị hoá đến sự phát triển kinh tế - xã hội và môi trường. – So sánh được các loại tháp dân số tiêu biểu. – Vẽ được biểu đồ về dân số (quy mô, động thái, cơ cấu). – Phân tích được biểu đồ, số liệu thống kê về dân số; xử lí số liệu. – Nhận xét, giải thích được sự phân bố dân cư thông qua bản đồ, tài liệu, số liệu,... – Giải thích được một số hiện tượng về dân số trong thực tiễn.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được gia tăng dân số tự nhiên (tỉ suất sinh, tỉ suất tử) và cơ học (xuất cư, nhập cư), trình bày được khái niệm về gia tăng dân số thực tế; phân tích được các nhân tố tác động đến gia tăng dân số."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các loại cơ cấu dân số: cơ cấu sinh học (tuổi và giới), cơ cấu xã hội (lao động, trình độ văn hoá)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của các nhân tố tự nhiên, kinh tế - xã hội đến phân bố dân cư."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, phân tích được các nhân tố tác động đến đô thị hoá và ảnh hưởng của đô thị hoá đến sự phát triển kinh tế - xã hội và môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được các loại tháp dân số tiêu biểu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ về dân số (quy mô, động thái, cơ cấu)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được biểu đồ, số liệu thống kê về dân số; xử lí số liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét, giải thích được sự phân bố dân cư thông qua bản đồ, tài liệu, số liệu,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được một số hiện tượng về dân số trong thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân biệt được gia tăng dân số tự nhiên (tỉ suất sinh, tỉ suất tử) và cơ học (xuất cư, nhập cư), trình bày được khái niệm về gia tăng dân số thực tế; phân tích được các nhân tố tác động đến gia tăng dân số. – Trình bày được các loại cơ cấu dân số: cơ cấu sinh học (tuổi và giới), cơ cấu xã hội (lao động, trình độ văn hoá). – Phân tích được tác động của các nhân tố tự nhiên, kinh tế - xã hội đến phân bố dân cư. – Trình bày được khái niệm, phân tích được các nhân tố tác động đến đô thị hoá và ảnh hưởng của đô thị hoá đến sự phát triển kinh tế - xã hội và môi trường. – So sánh được các loại tháp dân số tiêu biểu. – Vẽ được biểu đồ về dân số (quy mô, động thái, cơ cấu). – Phân tích được biểu đồ, số liệu thống kê về dân số; xử lí số liệu. – Nhận xét, giải thích được sự phân bố dân cư thông qua bản đồ, tài liệu, số liệu,... – Giải thích được một số hiện tượng về dân số trong thực tiễn.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -243,7 +897,78 @@
    "topic": "",
    "content": "– Các nguồn lực phát triển kinh tế – Cơ cấu nền kinh tế – Tổng sản phẩm trong nước và tổng thu nhập quốc gia",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm và phân loại các nguồn lực, phân tích được vai trò của mỗi loại nguồn lực đối với phát triển kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm cơ cấu kinh tế; phân biệt được các loại cơ cấu kinh tế theo ngành, theo thành phần kinh tế, theo lãnh thổ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được một số tiêu chí đánh giá sự phát triển kinh tế: tổng sản phẩm trong nước (GDP), tổng thu nhập quốc gia (GNI), GDP và GNI bình quân đầu người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được một số tiêu chí đánh giá sự phát triển kinh tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sơ đồ nguồn lực và cơ cấu nền kinh tế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm và phân loại các nguồn lực, phân tích được vai trò của mỗi loại nguồn lực đối với phát triển kinh tế. – Trình bày được khái niệm cơ cấu kinh tế; phân biệt được các loại cơ cấu kinh tế theo ngành, theo thành phần kinh tế, theo lãnh thổ. – So sánh được một số tiêu chí đánh giá sự phát triển kinh tế: tổng sản phẩm trong nước (GDP), tổng thu nhập quốc gia (GNI), GDP và GNI bình quân đầu người. – Liên hệ được một số tiêu chí đánh giá sự phát triển kinh tế ở địa phương. – Phân tích được sơ đồ nguồn lực và cơ cấu nền kinh tế.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -264,7 +989,22 @@
    "topic": "",
    "content": "Địa lí các ngành kinh tế",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ cơ cấu nền kinh tế và nhận xét, giải thích."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Vẽ được biểu đồ cơ cấu nền kinh tế và nhận xét, giải thích.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -285,7 +1025,148 @@
    "topic": "",
    "content": "– Dịch vụ Phát triển bền vững và tăng trưởng xanh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của công nghiệp đối với môi trường, sự cần thiết phải phát triển mạnh các nguồn năng lượng tái tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quan niệm, vai trò của tổ chức lãnh thổ công nghiệp; phân biệt được vai trò và đặc điểm của các hình thức tổ chức lãnh thổ công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập tài liệu, trình bày và báo cáo được một vấn đề về công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ công nghiệp; vẽ và phân tích được biểu đồ về công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cơ cấu, vai trò, đặc điểm của dịch vụ; phân tích được các nhân tố ảnh hưởng tới phát triển và phân bố dịch vụ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò và đặc điểm của ngành giao thông vận tải, bưu chính viễn thông, thương mại, du lịch, tài chính ngân hàng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các nhân tố ảnh hưởng đến sự phát triển và phân bố của giao thông vận tải, bưu chính viễn thông, thương mại, du lịch, tài chính ngân hàng; trình bày được tình hình phát triển và phân bố các ngành giao thông vận tải, bưu chính viễn thông, thương mại, du lịch, tài chính ngân hàng trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, sơ đồ; đọc và phân tích được bản đồ, số liệu thống kê ngành dịch vụ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được các hoạt động dịch vụ tại địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo tìm hiểu về một ngành dịch vụ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được tác động của công nghiệp đối với môi trường, sự cần thiết phải phát triển mạnh các nguồn năng lượng tái tạo. – Trình bày được quan niệm, vai trò của tổ chức lãnh thổ công nghiệp; phân biệt được vai trò và đặc điểm của các hình thức tổ chức lãnh thổ công nghiệp. – Thu thập tài liệu, trình bày và báo cáo được một vấn đề về công nghiệp. – Đọc được bản đồ công nghiệp; vẽ và phân tích được biểu đồ về công nghiệp. – Trình bày được cơ cấu, vai trò, đặc điểm của dịch vụ; phân tích được các nhân tố ảnh hưởng tới phát triển và phân bố dịch vụ. – Trình bày được vai trò và đặc điểm của ngành giao thông vận tải, bưu chính viễn thông, thương mại, du lịch, tài chính ngân hàng. – Phân tích được các nhân tố ảnh hưởng đến sự phát triển và phân bố của giao thông vận tải, bưu chính viễn thông, thương mại, du lịch, tài chính ngân hàng; trình bày được tình hình phát triển và phân bố các ngành giao thông vận tải, bưu chính viễn thông, thương mại, du lịch, tài chính ngân hàng trên thế giới. – Vẽ được biểu đồ, sơ đồ; đọc và phân tích được bản đồ, số liệu thống kê ngành dịch vụ. – Liên hệ được các hoạt động dịch vụ tại địa phương. – Viết được báo cáo tìm hiểu về một ngành dịch vụ.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -306,8 +1187,79 @@
    "topic": "",
    "content": "– Phát triển bền vững – Tăng trưởng xanh",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "triển của xã hội loài người. – Trình bày được khái niệm và sự cần thiết phải phát triển bền vững. – Trình bày được khái niệm và biểu hiện của tăng trưởng xanh. – Liên hệ được một số vấn đề về tăng trưởng xanh tại địa phương.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được khái niệm, đặc điểm của môi trường và tài nguyên thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của môi trường, tài nguyên thiên nhiên đối với sự phát triển của xã hội loài người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm và sự cần thiết phải phát triển bền vững."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm và biểu hiện của tăng trưởng xanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được một số vấn đề về tăng trưởng xanh tại địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân biệt được khái niệm, đặc điểm của môi trường và tài nguyên thiên nhiên. – Phân tích được vai trò của môi trường, tài nguyên thiên nhiên đối với sự phát triển của xã hội loài người. – Trình bày được khái niệm và sự cần thiết phải phát triển bền vững. – Trình bày được khái niệm và biểu hiện của tăng trưởng xanh. – Liên hệ được một số vấn đề về tăng trưởng xanh tại địa phương.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -327,7 +1279,78 @@
    "topic": "",
    "content": "– Khái niệm, biểu hiện, nguyên nhân của biến đổi khí hậu – Các tác động của biến đổi khí hậu và hậu quả – Ứng phó với biến đổi khí hậu",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, các biểu hiện của biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được nguyên nhân của biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các tác động của biến đổi khí hậu và hậu quả trên phạm vi toàn cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tầm quan trọng và sự cấp bách của ứng phó với biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hệ thống hoá được các nhóm giải pháp ứng phó với biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, các biểu hiện của biến đổi khí hậu. – Giải thích được nguyên nhân của biến đổi khí hậu. – Phân tích được các tác động của biến đổi khí hậu và hậu quả trên phạm vi toàn cầu. – Giải thích được tầm quan trọng và sự cấp bách của ứng phó với biến đổi khí hậu. – Hệ thống hoá được các nhóm giải pháp ứng phó với biến đổi khí hậu.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -348,7 +1371,120 @@
    "topic": "",
    "content": "– Đô thị hoá ở các nước đang phát triển – Tác động của đô thị hoá đến dân số, kinh tế - xã hội và môi trường ở các nước đang phát triển – Vẽ biểu đồ, tìm hiểu siêu đô thị trên thế giới",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét và giải thích được xu hướng đô thị hoá ở các nước phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm đô thị hoá ở các nước đang phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét và giải thích được xu hướng đô thị hoá ở các nước đang phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được đặc điểm đô thị hoá giữa hai nhóm nước: phát triển, đang phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động tích cực và tiêu cực của quá trình đô thị hoá đến dân số, kinh tế, xã hội và môi trường ở các nước đang phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được với thực tế Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ cơ cấu dân số phân theo thành thị và nông thôn của thế giới hoặc một số nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trên bản đồ, lược đồ thế giới một số siêu đô thị."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận xét và giải thích được xu hướng đô thị hoá ở các nước phát triển. – Phân tích được đặc điểm đô thị hoá ở các nước đang phát triển. – Nhận xét và giải thích được xu hướng đô thị hoá ở các nước đang phát triển. – So sánh được đặc điểm đô thị hoá giữa hai nhóm nước: phát triển, đang phát triển. – Phân tích được tác động tích cực và tiêu cực của quá trình đô thị hoá đến dân số, kinh tế, xã hội và môi trường ở các nước đang phát triển. – Liên hệ được với thực tế Việt Nam. – Vẽ được biểu đồ cơ cấu dân số phân theo thành thị và nông thôn của thế giới hoặc một số nước. – Xác định được trên bản đồ, lược đồ thế giới một số siêu đô thị.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -369,14 +1505,133 @@
    "topic": "",
    "content": "– Những vấn đề chung – Quy trình viết một báo cáo địa lí",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Nêu được quan niệm về báo cáo địa lí. – Trình bày được cấu trúc của một báo cáo địa lí. – Xác định được các bước cần thực hiện để viết một báo cáo địa lí: Chọn đề tài, xây dựng đề cương; thu thập, chọn lọc, xử lí và hệ thống hoá tư liệu; trình bày báo cáo. + Xác định được ý tưởng và chọn đề tài báo cáo địa lí.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được quan niệm về báo cáo địa lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu trúc của một báo cáo địa lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được các bước cần thực hiện để viết một báo cáo địa lí: Chọn đề tài, xây dựng đề cương; thu thập, chọn lọc, xử lí và hệ thống hoá tư liệu; trình bày báo cáo."
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Xác định được ý tưởng và chọn đề tài báo cáo địa lí."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Xác định được cấu trúc của một đề cương báo cáo khoa học địa lí và nội dung chính của các đề mục."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Xác định và hình thành được kĩ năng thu thập, chọn lọc, xử lí thông tin, hệ thống hoá thông tin."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Xác định được cách thức trình bày báo cáo."
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được kĩ thuật viết một báo cáo địa lí; hình thành được kĩ năng viết và trình bày báo cáo địa lí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nêu được quan niệm về báo cáo địa lí. – Trình bày được cấu trúc của một báo cáo địa lí. – Xác định được các bước cần thực hiện để viết một báo cáo địa lí: Chọn đề tài, xây dựng đề cương; thu thập, chọn lọc, xử lí và hệ thống hoá tư liệu; trình bày báo cáo. + Xác định được ý tưởng và chọn đề tài báo cáo địa lí. + Xác định được cấu trúc của một đề cương báo cáo khoa học địa lí và nội dung chính của các đề mục. + Xác định và hình thành được kĩ năng thu thập, chọn lọc, xử lí thông tin, hệ thống hoá thông tin. + Xác định được cách thức trình bày báo cáo. – Trình bày được kĩ thuật viết một báo cáo địa lí; hình thành được kĩ năng viết và trình bày báo cáo địa lí.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
     "portal": "data.moet.gov.vn (share dqHM63jZJSkcVp6; ban luu Wayback khop digest)",
     "pdf_pages": [
-     18
+     18,
+     19
     ]
    }
   },
@@ -391,7 +1646,7 @@
    "content": "Sự khác biệt về trình độ phát triển kinh tế – xã hội của các nhóm nước",
    "kind": "content",
    "outcomes": [],
-   "outcome_text": "+ Xác định được cấu trúc của một đề cương báo cáo khoa học địa lí và nội dung chính của các đề mục. + Xác định và hình thành được kĩ năng thu thập, chọn lọc, xử lí thông tin, hệ thống hoá thông tin. + Xác định được cách thức trình bày báo cáo. – Trình bày được kĩ thuật viết một báo cáo địa lí; hình thành được kĩ năng viết và trình bày báo cáo địa lí.",
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -411,8 +1666,65 @@
    "topic": "",
    "content": "– Các nhóm nước – Sự khác biệt về kinh tế - xã hội",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người. – Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước. – Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước. – Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác nhau."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người. – Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước. – Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước. – Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác nhau.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -433,7 +1745,7 @@
    "content": "Toàn cầu hoá, khu vực hoá kinh tế và an ninh toàn cầu",
    "kind": "content",
    "outcomes": [],
-   "outcome_text": "nhau.",
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -453,7 +1765,92 @@
    "topic": "",
    "content": "– Toàn cầu hoá kinh tế – Khu vực hoá kinh tế – Một số tổ chức khu vực và quốc tế – An ninh toàn cầu Nền kinh tế tri thức",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các biểu hiện, hệ quả của toàn cầu hoá kinh tế, phân tích ảnh hưởng của toàn cầu hoá kinh tế đối với các nước trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các biểu hiện, hệ quả của khu vực hoá kinh tế; phân tích được ý nghĩa của khu vực hoá kinh tế đối với các nước trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số tổ chức khu vực và quốc tế: Liên hợp quốc (UN), Quỹ Tiền tệ Quốc tế (IMF), Tổ chức Thương mại Thế giới (WTO), Diễn đàn Hợp tác kinh tế châu Á – Thái Bình Dương (APEC)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và hệ thống hoá được các tư liệu, số liệu về toàn cầu hoá, khu vực hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trao đổi, thảo luận được về cơ hội và thách thức của toàn cầu hoá, khu vực hoá đối với các nước đang phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số vấn đề an ninh toàn cầu hiện nay và khẳng định được sự cần thiết phải bảo vệ hoà bình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được các biểu hiện, hệ quả của toàn cầu hoá kinh tế, phân tích ảnh hưởng của toàn cầu hoá kinh tế đối với các nước trên thế giới. – Trình bày được các biểu hiện, hệ quả của khu vực hoá kinh tế; phân tích được ý nghĩa của khu vực hoá kinh tế đối với các nước trên thế giới. – Trình bày được một số tổ chức khu vực và quốc tế: Liên hợp quốc (UN), Quỹ Tiền tệ Quốc tế (IMF), Tổ chức Thương mại Thế giới (WTO), Diễn đàn Hợp tác kinh tế châu Á – Thái Bình Dương (APEC). – Sưu tầm và hệ thống hoá được các tư liệu, số liệu về toàn cầu hoá, khu vực hoá. – Trao đổi, thảo luận được về cơ hội và thách thức của toàn cầu hoá, khu vực hoá đối với các nước đang phát triển. – Nêu được một số vấn đề an ninh toàn cầu hiện nay và khẳng định được sự cần thiết phải bảo vệ hoà bình.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -474,7 +1871,22 @@
    "topic": "",
    "content": "– Đặc điểm – Các biểu hiện Khu vực Mỹ Latinh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập tư liệu, viết được báo cáo tìm hiểu về đặc điểm và các biểu hiện của nền kinh tế tri thức."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thu thập tư liệu, viết được báo cáo tìm hiểu về đặc điểm và các biểu hiện của nền kinh tế tri thức.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -495,8 +1907,107 @@
    "topic": "",
    "content": "– Dân cư, xã hội – Kinh tế – Cộng hoà Liên bang Brasil (Bra-xin): Tình hình phát triển kinh tế và những vấn đề xã hội cần phải giải quyết Liên minh châu Âu (EU)",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội. – Trình bày được vấn đề đô thị hoá, một số vấn đề về dân cư, xã hội và phân tích ảnh hưởng đến phát triển kinh tế – xã hội. – Trình bày và giải thích được tình hình phát triển kinh tế chung của khu vực. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Vẽ được biểu đồ, rút ra nhận xét. – Khai thác được thông tin từ các nguồn khác nhau về địa lí khu vực Mỹ Latinh. – Viết được báo cáo truyền đạt những nét cơ bản về tình hình phát triển kinh tế Brasil và những vấn đề xã hội cần phải giải quyết.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí và một số đặc điểm nổi bật về tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vấn đề đô thị hoá, một số vấn đề về dân cư, xã hội và phân tích ảnh hưởng đến phát triển kinh tế – xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được tình hình phát triển kinh tế chung của khu vực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, rút ra nhận xét."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác được thông tin từ các nguồn khác nhau về địa lí khu vực Mỹ Latinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo truyền đạt những nét cơ bản về tình hình phát triển kinh tế Brasil và những vấn đề xã hội cần phải giải quyết."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí và một số đặc điểm nổi bật về tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội. – Trình bày được vấn đề đô thị hoá, một số vấn đề về dân cư, xã hội và phân tích ảnh hưởng đến phát triển kinh tế – xã hội. – Trình bày và giải thích được tình hình phát triển kinh tế chung của khu vực. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Vẽ được biểu đồ, rút ra nhận xét. – Khai thác được thông tin từ các nguồn khác nhau về địa lí khu vực Mỹ Latinh. – Viết được báo cáo truyền đạt những nét cơ bản về tình hình phát triển kinh tế Brasil và những vấn đề xã hội cần phải giải quyết.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -516,7 +2027,92 @@
    "topic": "",
    "content": "– Một liên kết kinh tế khu vực lớn – Vị thế của khu vực trong nền kinh tế thế giới – Cộng hoà Liên bang Đức: Công nghiệp Khu vực Đông Nam Á",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được quy mô, mục tiêu, thể chế hoạt động của EU."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vị thế của EU trong nền kinh tế thế giới và một số biểu hiện của hợp tác và liên kết trong khu vực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác được thông tin từ các nguồn khác nhau về địa lí của EU, hệ thống hoá và trình bày theo chủ đề."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo tìm hiểu về sự phát triển công nghiệp của Cộng hoà Liên bang Đức."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được quy mô, mục tiêu, thể chế hoạt động của EU. – Phân tích được vị thế của EU trong nền kinh tế thế giới và một số biểu hiện của hợp tác và liên kết trong khu vực. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Vẽ được biểu đồ, nhận xét. – Khai thác được thông tin từ các nguồn khác nhau về địa lí của EU, hệ thống hoá và trình bày theo chủ đề. – Viết được báo cáo tìm hiểu về sự phát triển công nghiệp của Cộng hoà Liên bang Đức.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -538,8 +2134,121 @@
    "topic": "",
    "content": "– Vị trí địa lí và điều kiện tự nhiên – Dân cư, xã hội – Kinh tế – Hiệp hội các quốc gia Đông Nam Á (ASEAN) – Hoạt động kinh tế đối ngoại Khu vực Tây Nam Á",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên, tài nguyên thiên nhiên đến phát triển kinh tế - xã hội. – Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội. – Trình bày và giải thích được tình hình phát triển kinh tế chung, sự phát triển các ngành kinh tế của khu vực Đông Nam Á. – So sánh được với EU về mục tiêu của ASEAN; cơ chế hoạt động, một số hợp tác cụ thể trong kinh tế, văn hoá; phân tích được các thành tựu và thách thức của – Chứng minh được sự hợp tác đa dạng và vai trò của Việt Nam trong ASEAN. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Khai thác, chọn lọc, hệ thống hoá được các tư liệu từ các nguồn khác về địa lí khu vực ASEAN. – Vẽ được biểu đồ, nhận xét biểu đồ, phân tích bảng số liệu và truyền đạt được thông tin địa lí về hoạt động du lịch; xuất, nhập khẩu của khu vực Đông Nam Á.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên, tài nguyên thiên nhiên đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được tình hình phát triển kinh tế chung, sự phát triển các ngành kinh tế của khu vực Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được với EU về mục tiêu của ASEAN; cơ chế hoạt động, một số hợp tác cụ thể trong kinh tế, văn hoá; phân tích được các thành tựu và thách thức của ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được sự hợp tác đa dạng và vai trò của Việt Nam trong ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác, chọn lọc, hệ thống hoá được các tư liệu từ các nguồn khác về địa lí khu vực ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét biểu đồ, phân tích bảng số liệu và truyền đạt được thông tin địa lí về hoạt động du lịch; xuất, nhập khẩu của khu vực Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên, tài nguyên thiên nhiên đến phát triển kinh tế - xã hội. – Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội. – Trình bày và giải thích được tình hình phát triển kinh tế chung, sự phát triển các ngành kinh tế của khu vực Đông Nam Á. – So sánh được với EU về mục tiêu của ASEAN; cơ chế hoạt động, một số hợp tác cụ thể trong kinh tế, văn hoá; phân tích được các thành tựu và thách thức của ASEAN. – Chứng minh được sự hợp tác đa dạng và vai trò của Việt Nam trong ASEAN. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Khai thác, chọn lọc, hệ thống hoá được các tư liệu từ các nguồn khác về địa lí khu vực ASEAN. – Vẽ được biểu đồ, nhận xét biểu đồ, phân tích bảng số liệu và truyền đạt được thông tin địa lí về hoạt động du lịch; xuất, nhập khẩu của khu vực Đông Nam Á.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -559,7 +2268,50 @@
    "topic": "",
    "content": "– Vấn đề dầu mỏ Hợp chúng quốc Hoa Kì",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác, chọn lọc, thu thập được các tư liệu từ các nguồn khác nhau về địa lí khu vực Tây Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo trình bày một số thông tin nổi bật về tài nguyên dầu mỏ và việc khai thác ở khu vực Tây Nam Á."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Khai thác, chọn lọc, thu thập được các tư liệu từ các nguồn khác nhau về địa lí khu vực Tây Nam Á. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Viết được báo cáo trình bày một số thông tin nổi bật về tài nguyên dầu mỏ và việc khai thác ở khu vực Tây Nam Á.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -580,7 +2332,22 @@
    "topic": "",
    "content": "– Vị trí địa lí và điều kiện tự nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -601,7 +2368,78 @@
    "topic": "",
    "content": "– Dân cư, xã hội – Kinh tế Liên bang Nga",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của quy mô và sự gia tăng dân số, sự đa dạng về chủng tộc, nhập cư, sự phân bố dân cư tới phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được đặc điểm của nền kinh tế hàng đầu thế giới; trình bày được sự phát triển, phân bố của các ngành kinh tế (công nghiệp, nông nghiệp, dịch vụ), sự chuyển dịch cơ cấu ngành và sự phân hoá lãnh thổ của nền kinh tế Hoa Kì."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét và giải thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác được thông tin từ các nguồn khác nhau về địa lí Hoa Kì."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được tác động của quy mô và sự gia tăng dân số, sự đa dạng về chủng tộc, nhập cư, sự phân bố dân cư tới phát triển kinh tế - xã hội. – Giải thích được đặc điểm của nền kinh tế hàng đầu thế giới; trình bày được sự phát triển, phân bố của các ngành kinh tế (công nghiệp, nông nghiệp, dịch vụ), sự chuyển dịch cơ cấu ngành và sự phân hoá lãnh thổ của nền kinh tế Hoa Kì. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Vẽ được biểu đồ, nhận xét và giải thích. – Khai thác được thông tin từ các nguồn khác nhau về địa lí Hoa Kì.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -622,8 +2460,93 @@
    "topic": "",
    "content": "– Kinh tế – Công nghiệp khai thác dầu khí Nhật Bản",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "xã hội. – Trình bày được tình hình phát triển các ngành kinh tế, đặc điểm nổi bật của một số vùng kinh tế. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu, tháp tuổi; vẽ được biểu đồ. – Sưu tầm, hệ thống hoá được các thông tin, hình ảnh về địa lí Liên bang Nga từ các nguồn khác nhau. – Vẽ được biểu đồ, rút ra được các nhận xét về phát triển công nghiệp khai thác dầu khí.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình phát triển các ngành kinh tế, đặc điểm nổi bật của một số vùng kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu, tháp tuổi; vẽ được biểu đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm, hệ thống hoá được các thông tin, hình ảnh về địa lí Liên bang Nga từ các nguồn khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, rút ra được các nhận xét về phát triển công nghiệp khai thác dầu khí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội. – Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội. – Trình bày được tình hình phát triển các ngành kinh tế, đặc điểm nổi bật của một số vùng kinh tế. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu, tháp tuổi; vẽ được biểu đồ. – Sưu tầm, hệ thống hoá được các thông tin, hình ảnh về địa lí Liên bang Nga từ các nguồn khác nhau. – Vẽ được biểu đồ, rút ra được các nhận xét về phát triển công nghiệp khai thác dầu khí.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -643,7 +2566,106 @@
    "topic": "",
    "content": "– Vị trí địa lí và điều kiện tự nhiên – Dân cư, xã hội – Kinh tế – Hoạt động kinh tế đối ngoại Cộng hoà nhân dân Trung Hoa (Trung Quốc)",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tình hình phát triển kinh tế; trình bày được sự phát triển, phân bố các ngành kinh tế; so sánh được các vùng kinh tế theo những đặc điểm nổi bật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra được nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác, chọn lọc được các tư liệu từ các nguồn khác nhau về địa lí Nhật Bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo truyền đạt những nét nổi bật về hoạt động kinh tế đối ngoại."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế - xã hội. – Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội. – Giải thích được tình hình phát triển kinh tế; trình bày được sự phát triển, phân bố các ngành kinh tế; so sánh được các vùng kinh tế theo những đặc điểm nổi bật. – Đọc được bản đồ, rút ra được nhận xét; phân tích được số liệu, tư liệu. – Khai thác, chọn lọc được các tư liệu từ các nguồn khác nhau về địa lí Nhật Bản. – Vẽ được biểu đồ, nhận xét. – Viết được báo cáo truyền đạt những nét nổi bật về hoạt động kinh tế đối ngoại.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -665,7 +2687,106 @@
    "topic": "",
    "content": "– Vị trí địa lí và điều kiện tự nhiên – Dân cư, xã hội – Kinh tế – Sự thay đổi của nền kinh tế Australia (Ô-xtrây-li-a)",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm chung phát triển kinh tế, sự phát triển, phân bố của một số ngành kinh tế và vị thế của nền kinh tế Trung Quốc trên thế giới; phân tích được nguyên nhân phát triển kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác, chọn lọc được các tư liệu từ các nguồn khác nhau về địa lí Trung Quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo về những thay đổi trong GDP, giá trị xuất, nhập khẩu và sự phát triển kinh tế tại vùng duyên hải."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh - xã hội. – Phân tích được tác động của các đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội. – Trình bày được đặc điểm chung phát triển kinh tế, sự phát triển, phân bố của một số ngành kinh tế và vị thế của nền kinh tế Trung Quốc trên thế giới; phân tích được nguyên nhân phát triển kinh tế. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Khai thác, chọn lọc được các tư liệu từ các nguồn khác nhau về địa lí Trung Quốc. – Vẽ được biểu đồ, nhận xét. – Viết được báo cáo về những thay đổi trong GDP, giá trị xuất, nhập khẩu và sự phát triển kinh tế tại vùng duyên hải.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -686,7 +2807,64 @@
    "topic": "",
    "content": "– Kinh tế Cộng hoà Nam Phi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được sự phân bố kinh tế trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác, chọn lọc, thu thập được tư liệu từ các nguồn khác nhau về địa lí Australia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo về tình hình phát triển kinh tế của Australia."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được sự phân bố kinh tế trên bản đồ. – Khai thác, chọn lọc, thu thập được tư liệu từ các nguồn khác nhau về địa lí Australia. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Viết được báo cáo về tình hình phát triển kinh tế của Australia.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -708,7 +2886,78 @@
    "topic": "",
    "content": "– Vị trí địa lí và điều kiện tự nhiên – Dân cư, xã hội – Kinh tế",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tác động của đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái quát sự phát triển nền kinh tế, các điểm nổi bật của các ngành kinh tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khai thác, chọn lọc, thu thập được tư liệu từ các nguồn khác nhau về địa lí Cộng hoà Nam Phi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được ảnh hưởng của vị trí địa lí, đặc điểm tự nhiên và tài nguyên thiên nhiên đến phát triển kinh tế. – Phân tích được tác động của đặc điểm dân cư, xã hội tới phát triển kinh tế - xã hội. – Trình bày được khái quát sự phát triển nền kinh tế, các điểm nổi bật của các ngành kinh tế. – Đọc được bản đồ, rút ra nhận xét; phân tích được số liệu, tư liệu. – Khai thác, chọn lọc, thu thập được tư liệu từ các nguồn khác nhau về địa lí Cộng hoà Nam Phi.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -729,8 +2978,79 @@
    "topic": "",
    "content": "– Uỷ hội sông Mê Công (MRC) – Hợp tác hoà bình trong khai thác Biển Đông",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Nêu được khái quát về lưu vực sông Mê Công. – Trình bày được lí do ra đời, mục tiêu của Uỷ hội sông Mê Công. – Giới thiệu được một số hoạt động của Uỷ hội sông Mê Công. – Xác định được vai trò của Việt Nam trong Uỷ hội sông Mê Công. – Nêu và đánh giá được các biểu hiện của sự hợp tác trong khai thác tài nguyên thiên nhiên, phát triển giao thông vận tải, bảo vệ chủ quyền và an ninh quốc phòng",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái quát về lưu vực sông Mê Công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được lí do ra đời, mục tiêu của Uỷ hội sông Mê Công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được một số hoạt động của Uỷ hội sông Mê Công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vai trò của Việt Nam trong Uỷ hội sông Mê Công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu và đánh giá được các biểu hiện của sự hợp tác trong khai thác tài nguyên thiên nhiên, phát triển giao thông vận tải, bảo vệ chủ quyền và an ninh quốc phòng ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nêu được khái quát về lưu vực sông Mê Công. – Trình bày được lí do ra đời, mục tiêu của Uỷ hội sông Mê Công. – Giới thiệu được một số hoạt động của Uỷ hội sông Mê Công. – Xác định được vai trò của Việt Nam trong Uỷ hội sông Mê Công. – Nêu và đánh giá được các biểu hiện của sự hợp tác trong khai thác tài nguyên thiên nhiên, phát triển giao thông vận tải, bảo vệ chủ quyền và an ninh quốc phòng ở Biển Đông.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -750,7 +3070,78 @@
    "topic": "",
    "content": "– Tài nguyên du lịch thế giới – Một số loại hình du lịch phổ biến và xu hướng phát triển du lịch trên thế giới hiện nay – Định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được sự đa dạng, phong phú của các loại tài nguyên du lịch trên thế giới, liên hệ được với tài nguyên du lịch Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số loại hình du lịch phổ biến trên thế giới hiện nay, liên hệ được với hoạt động du lịch ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số xu hướng phát triển du lịch trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ để hiểu được các định hướng phát triển du lịch Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được các ngành nghề liên quan đến du lịch."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Chứng minh được sự đa dạng, phong phú của các loại tài nguyên du lịch trên thế giới, liên hệ được với tài nguyên du lịch Việt Nam. – Trình bày được một số loại hình du lịch phổ biến trên thế giới hiện nay, liên hệ được với hoạt động du lịch ở Việt Nam. – Trình bày được một số xu hướng phát triển du lịch trên thế giới. – Liên hệ để hiểu được các định hướng phát triển du lịch Việt Nam. – Liên hệ được các ngành nghề liên quan đến du lịch.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -771,7 +3162,64 @@
    "topic": "",
    "content": "– Nội dung chủ yếu – Tác động đến phát triển kinh tế - xã hội thế giới Vị trí địa lí và phạm vi lãnh thổ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quan niệm về cuộc cách mạng công nghiệp 4.0; so sánh được đặc điểm và nội dung của cuộc cách mạng công nghiệp 4.0 với các cuộc cách mạng công nghiệp trước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các tác động chủ yếu của cuộc cách mạng công nghiệp 4.0 đến phát triển kinh tế - xã hội trên toàn thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số xu hướng chính của cuộc cách mạng công nghiệp 4.0."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được hiểu biết về cuộc cách mạng công nghiệp 4.0 vào việc định hướng nghề nghiệp và liên hệ với việc học tập."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được quan niệm về cuộc cách mạng công nghiệp 4.0; so sánh được đặc điểm và nội dung của cuộc cách mạng công nghiệp 4.0 với các cuộc cách mạng công nghiệp trước. – Phân tích được các tác động chủ yếu của cuộc cách mạng công nghiệp 4.0 đến phát triển kinh tế - xã hội trên toàn thế giới. – Nêu được một số xu hướng chính của cuộc cách mạng công nghiệp 4.0. – Vận dụng được hiểu biết về cuộc cách mạng công nghiệp 4.0 vào việc định hướng nghề nghiệp và liên hệ với việc học tập.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -793,7 +3241,36 @@
    "topic": "",
    "content": "– Vị trí địa lí, phạm vi lãnh thổ – Ảnh hưởng đối với tự nhiên, kinh tế - xã hội và an ninh quốc phòng Thiên nhiên nhiệt đới ẩm gió mùa và ảnh hưởng đến sản xuất, đời sống",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được đặc điểm vị trí địa lí, phạm vi lãnh thổ Việt Nam trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ đến tự nhiên, kinh tế - xã hội và an ninh quốc phòng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được đặc điểm vị trí địa lí, phạm vi lãnh thổ Việt Nam trên bản đồ. – Phân tích được ảnh hưởng của vị trí địa lí, phạm vi lãnh thổ đến tự nhiên, kinh tế - xã hội và an ninh quốc phòng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -814,7 +3291,50 @@
    "topic": "",
    "content": "– Biểu hiện của thiên nhiên nhiệt đới ẩm gió mùa – Ảnh hưởng đến sản xuất và đời sống Sự phân hoá đa dạng của thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các biểu hiện của thiên nhiên nhiệt đới ẩm gió mùa thông qua khí hậu và các thành phần tự nhiên khác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ tự nhiên Việt Nam, số liệu thống kê để trình bày đặc điểm thiên nhiên nhiệt đới ẩm gió mùa."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được các biểu hiện của thiên nhiên nhiệt đới ẩm gió mùa thông qua khí hậu và các thành phần tự nhiên khác. – Phân tích được ảnh hưởng của thiên nhiên nhiệt đới ẩm gió mùa đến sản xuất và đời sống. – Sử dụng được atlat địa lí Việt Nam, bản đồ tự nhiên Việt Nam, số liệu thống kê để trình bày đặc điểm thiên nhiên nhiệt đới ẩm gió mùa.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -835,8 +3355,51 @@
    "topic": "",
    "content": "xã hội Vấn đề sử dụng hợp lí tài nguyên thiên nhiên và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "kinh tế - xã hội đất nước. – Sử dụng được atlat địa lí Việt Nam, bản đồ tự nhiên Việt Nam, số liệu thống kê để chứng minh sự phân hoá đa dạng của thiên nhiên nước ta. – Thu thập tài liệu, trình bày được báo cáo về sự phân hoá tự nhiên Việt Nam.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của sự phân hoá đa dạng thiên nhiên đến phát triển kinh tế - xã hội đất nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ tự nhiên Việt Nam, số liệu thống kê để chứng minh sự phân hoá đa dạng của thiên nhiên nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập tài liệu, trình bày được báo cáo về sự phân hoá tự nhiên Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được ảnh hưởng của sự phân hoá đa dạng thiên nhiên đến phát triển kinh tế - xã hội đất nước. – Sử dụng được atlat địa lí Việt Nam, bản đồ tự nhiên Việt Nam, số liệu thống kê để chứng minh sự phân hoá đa dạng của thiên nhiên nước ta. – Thu thập tài liệu, trình bày được báo cáo về sự phân hoá tự nhiên Việt Nam.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -856,7 +3419,78 @@
    "topic": "",
    "content": "– Sử dụng hợp lí tài nguyên thiên nhiên – Bảo vệ môi trường Dân số",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được sự suy giảm các loại tài nguyên thiên nhiên ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số giải pháp sử dụng hợp lí tài nguyên thiên nhiên ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh và giải thích được hiện trạng ô nhiễm môi trường ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các giải pháp bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng tham gia vào việc sử dụng hợp lí tài nguyên hoặc bảo vệ môi trường ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày và giải thích được sự suy giảm các loại tài nguyên thiên nhiên ở nước ta. – Nêu được một số giải pháp sử dụng hợp lí tài nguyên thiên nhiên ở nước ta. – Chứng minh và giải thích được hiện trạng ô nhiễm môi trường ở Việt Nam. – Nêu được các giải pháp bảo vệ môi trường. – Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng tham gia vào việc sử dụng hợp lí tài nguyên hoặc bảo vệ môi trường ở địa phương.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -877,7 +3511,64 @@
    "topic": "",
    "content": "– Chiến lược phát triển dân số Lao động và việc làm",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được chiến lược và giải pháp phát triển dân số, liên hệ được một số vấn đề dân số ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ về dân số."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét, giải thích về đặc điểm dân số Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được một số vấn đề thực tế liên quan đến dân số nước ta."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được chiến lược và giải pháp phát triển dân số, liên hệ được một số vấn đề dân số ở địa phương. – Vẽ được biểu đồ về dân số. – Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét, giải thích về đặc điểm dân số Việt Nam. – Giải thích được một số vấn đề thực tế liên quan đến dân số nước ta.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -898,7 +3589,78 @@
    "topic": "",
    "content": "– Đặc điểm nguồn lao động – Sử dụng lao động – Vấn đề việc làm và hướng giải quyết Đô thị hoá",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm nguồn lao động; phân tích được tình hình sử dụng lao động theo ngành, theo thành phần kinh tế, theo thành thị và nông thôn ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vấn đề việc làm ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các hướng giải quyết việc làm ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được thực tế địa phương về vấn đề lao động, việc làm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các biểu đồ, bảng số liệu về lao động và việc làm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được đặc điểm nguồn lao động; phân tích được tình hình sử dụng lao động theo ngành, theo thành phần kinh tế, theo thành thị và nông thôn ở nước ta. – Phân tích được vấn đề việc làm ở nước ta. – Nêu được các hướng giải quyết việc làm ở nước ta. – Liên hệ được thực tế địa phương về vấn đề lao động, việc làm. – Phân tích được các biểu đồ, bảng số liệu về lao động và việc làm.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -919,8 +3681,65 @@
    "topic": "",
    "content": "– Đặc điểm đô thị hoá – Phân bố mạng lưới đô thị – Ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị. – Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội. – Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta. – Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc làm, đô thị hoá) ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị. – Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội. – Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta. – Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc làm, đô thị hoá) ở Việt Nam.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -941,7 +3760,7 @@
    "content": "Chuyển dịch cơ cấu kinh tế",
    "kind": "content",
    "outcomes": [],
-   "outcome_text": "làm, đô thị hoá) ở Việt Nam.",
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -961,7 +3780,78 @@
    "topic": "",
    "content": "– Ý nghĩa – Chuyển dịch cơ cấu kinh tế theo hướng công nghiệp hoá, hiện đại hoá – Chuyển dịch cơ cấu kinh tế theo ngành, theo thành phần kinh tế, theo lãnh thổ Vấn đề phát triển nông nghiệp, lâm nghiệp và thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ý nghĩa của sự chuyển dịch cơ cấu kinh tế ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh và giải thích được sự chuyển dịch cơ cấu kinh tế của nước ta theo hướng công nghiệp hoá, hiện đại hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh và giải thích được sự chuyển dịch cơ cấu kinh tế theo ngành, theo thành phần kinh tế, theo lãnh thổ ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu và đánh giá được vai trò của mỗi thành phần kinh tế trong nền kinh tế đất nước hiện nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, phân tích biểu đồ và số liệu thống kê liên quan đến chuyển dịch cơ cấu kinh tế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được ý nghĩa của sự chuyển dịch cơ cấu kinh tế ở nước ta. – Chứng minh và giải thích được sự chuyển dịch cơ cấu kinh tế của nước ta theo hướng công nghiệp hoá, hiện đại hoá. – Chứng minh và giải thích được sự chuyển dịch cơ cấu kinh tế theo ngành, theo thành phần kinh tế, theo lãnh thổ ở nước ta. – Nêu và đánh giá được vai trò của mỗi thành phần kinh tế trong nền kinh tế đất nước hiện nay. – Vẽ được biểu đồ, phân tích biểu đồ và số liệu thống kê liên quan đến chuyển dịch cơ cấu kinh tế.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -982,7 +3872,92 @@
    "topic": "",
    "content": "– Ngành thuỷ sản – Tổ chức lãnh thổ nông nghiệp Vấn đề phát triển công nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình phát triển và phân bố lâm nghiệp thông qua atlat địa lí Việt Nam, bảng số liệu, tư liệu,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vấn đề quản lí và bảo vệ tài nguyên rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế đối với phát triển ngành thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự chuyển dịch cơ cấu, tình hình phát triển và phân bố ngành thuỷ sản thông qua atlat địa lí Việt Nam, bảng số liệu, tư liệu,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số hình thức tổ chức lãnh thổ nông nghiệp ở Việt Nam: trang trại, vùng chuyên canh, vùng nông nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét, giải thích về tình hình phát triển và chuyển dịch cơ cấu ngành của các ngành nông nghiệp, lâm nghiệp và thuỷ sản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được tình hình phát triển và phân bố lâm nghiệp thông qua atlat địa lí Việt Nam, bảng số liệu, tư liệu,... – Trình bày được vấn đề quản lí và bảo vệ tài nguyên rừng. – Phân tích được các thế mạnh và hạn chế đối với phát triển ngành thuỷ sản. – Trình bày được sự chuyển dịch cơ cấu, tình hình phát triển và phân bố ngành thuỷ sản thông qua atlat địa lí Việt Nam, bảng số liệu, tư liệu,... – Phân tích được một số hình thức tổ chức lãnh thổ nông nghiệp ở Việt Nam: trang trại, vùng chuyên canh, vùng nông nghiệp. – Vẽ được biểu đồ, nhận xét, giải thích về tình hình phát triển và chuyển dịch cơ cấu ngành của các ngành nông nghiệp, lâm nghiệp và thuỷ sản.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1003,7 +3978,64 @@
    "topic": "",
    "content": "– Chuyển dịch cơ cấu công nghiệp – Một số ngành công nghiệp – Tổ chức lãnh thổ công nghiệp Vấn đề phát triển dịch vụ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày và giải thích được sự chuyển dịch cơ cấu công nghiệp theo ngành, theo thành phần kinh tế, theo lãnh thổ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm phát triển và phân bố của một số ngành: Khai thác than, dầu, khí; sản xuất điện; sản xuất sản phẩm điện tử, máy vi tính; sản xuất, chế biến thực phẩm; sản xuất đồ uống; dệt, may; giày dép thông qua atlat địa lí Việt Nam, bảng số liệu, tư liệu,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số hình thức tổ chức lãnh thổ công nghiệp ở Việt Nam: khu công nghiệp, khu công nghệ cao, trung tâm công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét và giải thích tình hình phát triển và chuyển dịch cơ cấu ngành công nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày và giải thích được sự chuyển dịch cơ cấu công nghiệp theo ngành, theo thành phần kinh tế, theo lãnh thổ. – Trình bày được đặc điểm phát triển và phân bố của một số ngành: Khai thác than, dầu, khí; sản xuất điện; sản xuất sản phẩm điện tử, máy vi tính; sản xuất, chế biến thực phẩm; sản xuất đồ uống; dệt, may; giày dép thông qua atlat địa lí Việt Nam, bảng số liệu, tư liệu,... – Phân tích được một số hình thức tổ chức lãnh thổ công nghiệp ở Việt Nam: khu công nghiệp, khu công nghệ cao, trung tâm công nghiệp. – Vẽ được biểu đồ, nhận xét và giải thích tình hình phát triển và chuyển dịch cơ cấu ngành công nghiệp.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1025,7 +4057,78 @@
    "topic": "",
    "content": "– Giao thông vận tải – Bưu chính viễn thông – Thương mại – Du lịch Khai thác thế mạnh ở Trung du và miền núi Bắc Bộ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khái quát được vai trò; phân tích được các nhân tố ảnh hưởng của các ngành dịch vụ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố ngành giao thông vận tải, bưu chính viễn thông, thương mại, du lịch ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sự phân hoá lãnh thổ du lịch (các trung tâm, vùng du lịch), du lịch với sự phát triển bền vững."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu thực tế, viết được đoạn văn ngắn giới thiệu, quảng bá về một số hoạt động và sản phẩm dịch vụ độc đáo của địa phương, nhất là về du lịch."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ và sử dụng bản đồ, số liệu để nhận xét, giải thích liên quan đến các ngành dịch vụ (giao thông vận tải, bưu chính viễn thông, thương mại và du lịch)."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Khái quát được vai trò; phân tích được các nhân tố ảnh hưởng của các ngành dịch vụ. – Trình bày được sự phát triển và phân bố ngành giao thông vận tải, bưu chính viễn thông, thương mại, du lịch ở Việt Nam. – Phân tích được sự phân hoá lãnh thổ du lịch (các trung tâm, vùng du lịch), du lịch với sự phát triển bền vững. – Tìm hiểu thực tế, viết được đoạn văn ngắn giới thiệu, quảng bá về một số hoạt động và sản phẩm dịch vụ độc đáo của địa phương, nhất là về du lịch. – Vẽ được biểu đồ và sử dụng bản đồ, số liệu để nhận xét, giải thích liên quan đến các ngành dịch vụ (giao thông vận tải, bưu chính viễn thông, thương mại và du lịch).",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1046,7 +4149,36 @@
    "topic": "",
    "content": "– Ý nghĩa của phát triển kinh tế - xã hội đối với quốc phòng an ninh Phát triển kinh tế – xã hội ở Đồng bằng sông Hồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của phát triển kinh tế - xã hội đối với quốc phòng an ninh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh và việc khai thác các thế mạnh phát triển kinh tế của vùng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được ý nghĩa của phát triển kinh tế - xã hội đối với quốc phòng an ninh. – Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh và việc khai thác các thế mạnh phát triển kinh tế của vùng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1067,7 +4199,64 @@
    "topic": "",
    "content": "– Khái quát về vùng – Các thế mạnh để phát triển kinh tế – Một số vấn đề phát triển kinh tế - xã hội Phát triển nông nghiệp, lâm nghiệp và thuỷ sản ở Bắc Trung Bộ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh, hạn chế đối với việc phát triển kinh tế - xã hội của Đồng bằng sông Hồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số vấn đề về phát triển kinh tế - xã hội của vùng: Vấn đề phát triển công nghiệp, vấn đề phát triển dịch vụ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về các thế mạnh của vùng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Phân tích được các thế mạnh, hạn chế đối với việc phát triển kinh tế - xã hội của Đồng bằng sông Hồng. – Phân tích được một số vấn đề về phát triển kinh tế - xã hội của vùng: Vấn đề phát triển công nghiệp, vấn đề phát triển dịch vụ. – Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về các thế mạnh của vùng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1088,7 +4277,64 @@
    "topic": "",
    "content": "– Khái quát về vùng – Thế mạnh, hạn chế để hình thành và phát triển cơ cấu nông nghiệp, lâm nghiệp, thuỷ sản Phát triển kinh tế biển ở Duyên hải Nam Trung Bộ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế đối với việc hình thành và phát triển nông nghiệp, lâm nghiệp và thuỷ sản của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số đặc điểm nổi bật về nông nghiệp, lâm nghiệp và thuỷ sản của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh và hạn chế của vùng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Phân tích được các thế mạnh và hạn chế đối với việc hình thành và phát triển nông nghiệp, lâm nghiệp và thuỷ sản của vùng. – Trình bày được một số đặc điểm nổi bật về nông nghiệp, lâm nghiệp và thuỷ sản của vùng. – Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh và hạn chế của vùng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1110,7 +4356,78 @@
    "topic": "",
    "content": "– Khái quát về vùng – Thế mạnh, hạn chế và việc phát triển các ngành kinh tế biển – Ý nghĩa của phát triển kinh tế biển đối với quốc phòng an ninh Khai thác thế mạnh để phát triển kinh tế ở Tây Nguyên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế đối với phát triển các ngành kinh tế biển: khai thác tài nguyên sinh vật biển, giao thông vận tải biển, du lịch biển, khai thác khoáng sản biển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được việc phát triển các ngành kinh tế biển và nêu được hướng phát triển kinh tế biển của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh phát triển các ngành kinh tế biển của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được phát triển kinh tế biển với quốc phòng an ninh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Phân tích được các thế mạnh và hạn chế đối với phát triển các ngành kinh tế biển: khai thác tài nguyên sinh vật biển, giao thông vận tải biển, du lịch biển, khai thác khoáng sản biển. – Trình bày được việc phát triển các ngành kinh tế biển và nêu được hướng phát triển kinh tế biển của vùng. – Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh phát triển các ngành kinh tế biển của vùng. – Liên hệ được phát triển kinh tế biển với quốc phòng an ninh.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1131,7 +4448,78 @@
    "topic": "",
    "content": "– Khái quát về vùng – Thế mạnh, hạn chế và việc phát triển các ngành kinh tế – Ý nghĩa của phát triển kinh tế – xã hội đối với quốc phòng an ninh Phát triển kinh tế – xã hội ở Đông Nam Bộ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế đối với phát triển kinh tế ở Tây Nguyên về cây công nghiệp lâu năm, thuỷ điện, lâm nghiệp, khoáng sản (bôxit), du lịch."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự phát triển và phân bố của cây công nghiệp lâu năm, phát triển thuỷ điện, hoạt động lâm nghiệp và bảo vệ rừng, khai thác bôxit, phát triển du lịch."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của phát triển kinh tế - xã hội đối với quốc phòng an ninh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh và việc khai thác các thế mạnh của vùng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Phân tích được các thế mạnh và hạn chế đối với phát triển kinh tế ở Tây Nguyên về cây công nghiệp lâu năm, thuỷ điện, lâm nghiệp, khoáng sản (bôxit), du lịch. – Trình bày được sự phát triển và phân bố của cây công nghiệp lâu năm, phát triển thuỷ điện, hoạt động lâm nghiệp và bảo vệ rừng, khai thác bôxit, phát triển du lịch. – Nêu được ý nghĩa của phát triển kinh tế - xã hội đối với quốc phòng an ninh. – Sử dụng được atlat địa lí Việt Nam, bản đồ và bảng số liệu để trình bày về thế mạnh và việc khai thác các thế mạnh của vùng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1153,7 +4541,78 @@
    "topic": "",
    "content": "– Khái quát về vùng – Các thế mạnh và hạn chế để phát triển kinh tế – Phát triển các ngành kinh tế – Vấn đề bảo vệ môi trường Sử dụng hợp lí tự nhiên để phát triển kinh tế ở Đồng bằng sông Cửu Long",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các thế mạnh và hạn chế đối với phát triển kinh tế của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình phát triển các ngành kinh tế: công nghiệp, dịch vụ; nông nghiệp, lâm nghiệp và thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được mối quan hệ giữa phát triển kinh tế - xã hội với bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ, số liệu thống kê để trình bày về các thế mạnh và hiện trạng phát triển các ngành kinh tế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Phân tích được các thế mạnh và hạn chế đối với phát triển kinh tế của vùng. – Trình bày được tình hình phát triển các ngành kinh tế: công nghiệp, dịch vụ; nông nghiệp, lâm nghiệp và thuỷ sản. – Trình bày được mối quan hệ giữa phát triển kinh tế - xã hội với bảo vệ môi trường. – Sử dụng được atlat địa lí Việt Nam, bản đồ, số liệu thống kê để trình bày về các thế mạnh và hiện trạng phát triển các ngành kinh tế.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1174,8 +4633,107 @@
    "topic": "",
    "content": "– Khái quát về vùng – Sử dụng hợp lí tự nhiên – Phát triển sản xuất lương thực và thực phẩm – Du lịch",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng. – Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long. – Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng. – Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng. – Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó. – Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng. – Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long. – Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng. – Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng. – Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó. – Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -1195,8 +4753,23 @@
    "topic": "",
    "content": "Phát triển các vùng kinh tế trọng điểm",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng. – Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích.",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -1216,7 +4789,64 @@
    "topic": "",
    "content": "– Đặc điểm vùng kinh tế trọng điểm – Quá trình hình thành và phát triển, nguồn lực, thực trạng, định hướng phát triển của các vùng kinh tế trọng điểm Phát triển kinh tế và đảm bảo quốc phòng an ninh ở Biển Đông và các đảo, quần đảo",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm chung của các vùng kinh tế trọng điểm ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình hình thành và phát triển, các nguồn lực, thực trạng và định hướng phát triển của các vùng kinh tế trọng điểm: Vùng kinh tế trọng điểm Bắc Bộ, Vùng kinh tế trọng điểm miền Trung, Vùng kinh tế trọng điểm phía Nam, Vùng kinh tế trọng điểm vùng Đồng bằng sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được biểu đồ, nhận xét và giải thích được nội dung liên quan đến các vùng kinh tế trọng điểm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng số liệu, atlat địa lí Việt Nam, bản đồ và các nguồn tài liệu khác, nhận xét và giải thích được những vấn đề liên quan đến các vùng kinh tế trọng điểm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được đặc điểm chung của các vùng kinh tế trọng điểm ở nước ta. – Trình bày được quá trình hình thành và phát triển, các nguồn lực, thực trạng và định hướng phát triển của các vùng kinh tế trọng điểm: Vùng kinh tế trọng điểm Bắc Bộ, Vùng kinh tế trọng điểm miền Trung, Vùng kinh tế trọng điểm phía Nam, Vùng kinh tế trọng điểm vùng Đồng bằng sông Cửu Long. – Vẽ được biểu đồ, nhận xét và giải thích được nội dung liên quan đến các vùng kinh tế trọng điểm. – Sử dụng số liệu, atlat địa lí Việt Nam, bản đồ và các nguồn tài liệu khác, nhận xét và giải thích được những vấn đề liên quan đến các vùng kinh tế trọng điểm.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1237,7 +4867,50 @@
    "topic": "",
    "content": "– Ý nghĩa chiến lược của Biển Đông trong việc phát triển kinh tế và đảm bảo an ninh cho đất nước; hướng chung trong giải quyết các tranh chấp vùng biển - đảo Thực hành tìm hiểu Địa lí địa phương (tỉnh, thành phố trực thuộc trung ương) theo các chủ đề sau đây: – Vị trí địa lí, phạm vi lãnh thổ và sự – Trình bày được vị trí địa lí, phạm vi lãnh thổ và sự phân chia hành chính của phân chia hành chính tỉnh, thành phố trực thuộc trung ương dựa trên bản đồ của địa phương, Việt Nam hoặc atlat địa lí Việt Nam và kiến thức đã có. – Tự nhiên và tài nguyên thiên nhiên – Sử dụng bản đồ, lược đồ, biểu đồ, số liệu thống kê,..., phân tích được một số đặc điểm nổi bật về tự nhiên, dân cư - xã hội, kinh tế của địa phương. – Dân cư và xã hội – Kinh tế – Thu thập được tài liệu, tranh ảnh, số liệu,... để giới thiệu về địa lí địa phương. – Viết được báo cáo giới thiệu địa lí địa phương theo một số chủ đề.",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ý nghĩa chiến lược của Biển Đông trong việc phát triển kinh tế và đảm bảo an ninh cho đất nước; trình bày được hướng chung trong việc giải quyết các tranh chấp vùng biển - đảo ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ, số liệu thống kê để trình bày về các tài nguyên thiên nhiên và việc khai thác tổng hợp tài nguyên biển - đảo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tài liệu, tranh ảnh, video,... để viết và trình bày báo cáo tuyên truyền về bảo vệ chủ quyền biển đảo của Việt Nam."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được ý nghĩa chiến lược của Biển Đông trong việc phát triển kinh tế và đảm bảo an ninh cho đất nước; trình bày được hướng chung trong việc giải quyết các tranh chấp vùng biển - đảo ở Biển Đông. – Sử dụng được atlat địa lí Việt Nam, bản đồ, số liệu thống kê để trình bày về các tài nguyên thiên nhiên và việc khai thác tổng hợp tài nguyên biển - đảo. – Thu thập được tài liệu, tranh ảnh, video,... để viết và trình bày báo cáo tuyên truyền về bảo vệ chủ quyền biển đảo của Việt Nam.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1256,36 +4929,87 @@
    "stream": "",
    "section": "Thực Hành Tìm Hiểu Địa Lí Địa Phương",
    "topic": "",
-   "content": "– Những vấn đề chung – Một số thiên tai, nguyên nhân, hậu",
+   "content": "– Những vấn đề chung – Một số thiên tai, nguyên nhân, hậu quả, biện pháp phòng chống",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "– Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai. – Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai. – Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống. – Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp). – Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta. – Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
     "portal": "data.moet.gov.vn (share dqHM63jZJSkcVp6; ban luu Wayback khop digest)",
     "pdf_pages": [
-     38
-    ]
-   }
-  },
-  {
-   "id": "DL-0061",
-   "subject": "Địa lí",
-   "grade": 12,
-   "level": "THPT",
-   "stream": "",
-   "section": "Thực Hành Tìm Hiểu Địa Lí Địa Phương",
-   "topic": "",
-   "content": "quả, biện pháp phòng chống",
-   "kind": "content",
-   "outcomes": [],
-   "outcome_text": "thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống. – Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp). – Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta. – Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống.",
-   "source": {
-    "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
-    "file": "ct-diali-official.pdf",
-    "portal": "data.moet.gov.vn (share dqHM63jZJSkcVp6; ban luu Wayback khop digest)",
-    "pdf_pages": [
+     38,
      39
     ]
    }
@@ -1300,7 +5024,64 @@
    "topic": "",
    "content": "– Quan niệm về vùng – Các loại vùng kinh tế – Đặc điểm của các loại vùng kinh tế",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quan niệm về vùng, ý nghĩa của vùng và cơ sở hình thành vùng trong nền kinh tế đất nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các loại vùng kinh tế (theo các tiêu chí cụ thể): vùng kinh tế, vùng kinh tế trọng điểm, vùng ngành,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày (tóm tắt) được các loại vùng kinh tế ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm và giải thích được sự hình thành của một số loại vùng kinh tế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được quan niệm về vùng, ý nghĩa của vùng và cơ sở hình thành vùng trong nền kinh tế đất nước. – Phân biệt được các loại vùng kinh tế (theo các tiêu chí cụ thể): vùng kinh tế, vùng kinh tế trọng điểm, vùng ngành,... – Trình bày (tóm tắt) được các loại vùng kinh tế ở Việt Nam. – Trình bày được đặc điểm và giải thích được sự hình thành của một số loại vùng kinh tế.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1321,7 +5102,50 @@
    "topic": "",
    "content": "– Những vấn đề chung – Phát triển làng nghề và các tác động",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, đặc điểm, quá trình hình thành và phát triển làng nghề."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của làng nghề, thực trạng và định hướng phát triển làng nghề; tác động của làng nghề đến kinh tế, xã hội và tài nguyên, môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được thực tế ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, đặc điểm, quá trình hình thành và phát triển làng nghề. – Phân tích được vai trò của làng nghề, thực trạng và định hướng phát triển làng nghề; tác động của làng nghề đến kinh tế, xã hội và tài nguyên, môi trường. – Liên hệ được thực tế ở địa phương.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",

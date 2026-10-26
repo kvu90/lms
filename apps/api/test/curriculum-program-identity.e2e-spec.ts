@@ -161,7 +161,7 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
     expect(outcomes.map((o) => o.id)).toEqual(expected.map((e) => e.id));
     expect(outcomes.map((o) => o.content)).toEqual(expected.map((e) => e.text));
     outcomeA1 = expected[0]!.id;
-    expect(outcomeA1).toBe(programOutcomeId(DATASET_KEY, recA.id, recA.outcomes![0]!));
+    expect(outcomeA1).toBe(programOutcomeId(DATASET_KEY, recA.id, expected[0]!.text));
   }, 180_000);
 
   it('re-importing the untouched dataset is a no-op', async () => {
@@ -244,7 +244,9 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
     const mA = mutated.records.find((r) => r.id === recA.id)!;
     mA.topic = `${recA.topic} (đính chính)`;
     const mB = mutated.records.find((r) => r.id === recB.id)!;
-    const newTextB = `${recB.outcomes![0]} [bản đính chính]`;
+    // outcomes[] nay có thể là Tiptap doc: chữ của YCCĐ đầu lấy theo text canonical của chính hệ.
+    const firstTextB = programRecordOutcomeEntries(DATASET_KEY, recB)[0]!.text;
+    const newTextB = `${firstTextB} [bản đính chính]`;
     mB.outcomes = [newTextB, ...recB.outcomes!.slice(1)];
     const mC = mutated.records.find((r) => r.id === recC.id)!;
     mC.grade = recC.grade! + 1;
@@ -265,7 +267,7 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
       `select id, content, source_kind from learning_outcomes where node_id = $1`, [lessonB]);
     const orphan = bRows.find((r) => r.id === outcomeB1);
     expect(orphan, 'old outcome row must survive as orphaned').toBeTruthy();
-    expect(orphan!.content).toBe(recB.outcomes![0]);
+    expect(orphan!.content).toBe(firstTextB);
     const fresh = bRows.find((r) => r.content === newTextB);
     expect(fresh, 'corrected outcome must exist').toBeTruthy();
     expect(fresh!.id).toBe(programOutcomeId(DATASET_KEY, recB.id, newTextB));

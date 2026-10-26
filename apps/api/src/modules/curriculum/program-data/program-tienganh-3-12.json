@@ -57,7 +57,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe hiểu các từ và cụm từ quen thuộc, đơn giản. - Nghe hiểu và làm theo những chỉ dẫn rất đơn giản trong lớp học. - Nghe và trả lời các câu hỏi rất đơn giản về các chủ đề quen thuộc được nói chậm và rõ ràng. - Nghe hiểu các đoạn hội thoại ngắn, rất đơn giản khoảng 20 - 30 từ về các chủ đề quen thuộc được nói chậm và rõ ràng."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các từ và cụm từ quen thuộc, đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và làm theo những chỉ dẫn rất đơn giản trong lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và trả lời các câu hỏi rất đơn giản về các chủ đề quen thuộc được nói chậm và rõ ràng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các đoạn hội thoại ngắn, rất đơn giản khoảng 20 - 30 từ về các chủ đề quen thuộc được nói chậm và rõ ràng."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe hiểu các từ và cụm từ quen thuộc, đơn giản. - Nghe hiểu và làm theo những chỉ dẫn rất đơn giản trong lớp học. - Nghe và trả lời các câu hỏi rất đơn giản về các chủ đề quen thuộc được nói chậm và rõ ràng. - Nghe hiểu các đoạn hội thoại ngắn, rất đơn giản khoảng 20 - 30 từ về các chủ đề quen thuộc được nói chậm và rõ ràng.",
    "source": {
@@ -81,7 +136,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nói các từ và cụm từ quen thuộc, đơn giản. - Hỏi và trả lời các câu hỏi rất đơn giản về bản thân và những người khác. - Hỏi và trả lời các câu hỏi thường dùng trong lớp học. - Nói về một số chủ đề quen thuộc, sử dụng các từ và cụm từ rất đơn giản (có sự trợ giúp)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các từ và cụm từ quen thuộc, đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hỏi và trả lời các câu hỏi rất đơn giản về bản thân và những người khác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hỏi và trả lời các câu hỏi thường dùng trong lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói về một số chủ đề quen thuộc, sử dụng các từ và cụm từ rất đơn giản (có sự trợ giúp)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nói các từ và cụm từ quen thuộc, đơn giản. - Hỏi và trả lời các câu hỏi rất đơn giản về bản thân và những người khác. - Hỏi và trả lời các câu hỏi thường dùng trong lớp học. - Nói về một số chủ đề quen thuộc, sử dụng các từ và cụm từ rất đơn giản (có sự trợ giúp).",
    "source": {
@@ -105,16 +215,72 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc đúng chữ cái trong bảng chữ cái, chữ cái trong từ. - Đọc hiểu nghĩa các từ và cụm từ quen thuộc, rất đơn giản. - Đọc hiểu các câu ngắn, rất đơn giản. - Đọc hiểu các văn bản ngắn, rất đơn giản khoảng 30 - 40 từ về các chủ đề trong nội"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc đúng chữ cái trong bảng chữ cái, chữ cái trong từ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nghĩa các từ và cụm từ quen thuộc, rất đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các câu ngắn, rất đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các văn bản ngắn, rất đơn giản khoảng 30 - 40 từ về các chủ đề trong nội dung Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Đọc đúng chữ cái trong bảng chữ cái, chữ cái trong từ. - Đọc hiểu nghĩa các từ và cụm từ quen thuộc, rất đơn giản. - Đọc hiểu các câu ngắn, rất đơn giản. - Đọc hiểu các văn bản ngắn, rất đơn giản khoảng 30 - 40 từ về các chủ đề trong nội",
+   "outcome_text": "Đọc đúng chữ cái trong bảng chữ cái, chữ cái trong từ. - Đọc hiểu nghĩa các từ và cụm từ quen thuộc, rất đơn giản. - Đọc hiểu các câu ngắn, rất đơn giản. - Đọc hiểu các văn bản ngắn, rất đơn giản khoảng 30 - 40 từ về các chủ đề trong nội dung Chương trình.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      26,
-     27
+     27,
+     28
     ]
    }
   },
@@ -129,7 +295,62 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nguyên âm đôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm",
    "source": {
@@ -153,7 +374,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 3"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 3"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 3",
    "source": {
@@ -177,7 +411,188 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì hiện tại đơn Thì hiện tại tiếp diễn Câu đơn Đại từ chỉ định: this/that/these/those There is/There are Câu hỏi có từ để hỏi: what, where, who, how, how old… Câu hỏi nghi vấn (Yes/No question) Câu mệnh lệnh: Stand up, please. Don’t talk, please,… Động từ tình thái: may, can Đại từ nhân xưng: I, you, he, she, it, we, they Tính từ sở hữu: my, your, his, her, its, our, their Danh từ (số ít, số nhiều): pen(s), book(s), chair(s), ... Tính từ miêu tả: big, small, new, old,"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại tiếp diễn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ chỉ định: this/that/these/those"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "There is/There are"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi có từ để hỏi: what, where, who, how, how old…"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi nghi vấn (Yes/No question)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu mệnh lệnh: Stand up, please. Don’t talk, please,…"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái: may, can"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ nhân xưng: I, you, he, she, it, we, they"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ sở hữu: my, your, his, her, its, our, their"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh từ (số ít, số nhiều): pen(s), book(s), chair(s), ..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ miêu tả: big, small, new, old,"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì hiện tại đơn Thì hiện tại tiếp diễn Câu đơn Đại từ chỉ định: this/that/these/those There is/There are Câu hỏi có từ để hỏi: what, where, who, how, how old… Câu hỏi nghi vấn (Yes/No question) Câu mệnh lệnh: Stand up, please. Don’t talk, please,… Động từ tình thái: may, can Đại từ nhân xưng: I, you, he, she, it, we, they Tính từ sở hữu: my, your, his, her, its, our, their Danh từ (số ít, số nhiều): pen(s), book(s), chair(s), ... Tính từ miêu tả: big, small, new, old,",
    "source": {
@@ -245,7 +660,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe hiểu và làm theo những chỉ dẫn đơn giản trong lớp học. - Nghe hiểu và làm theo những chỉ dẫn đơn giản được truyền đạt chậm và rõ ràng. - Nghe và trả lời các câu hỏi rất đơn giản về các chủ đề quen thuộc. - Nghe hiểu các đoạn hội thoại ngắn, rất đơn giản khoảng 35 - 40 từ về các chủ đề quen thuộc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và làm theo những chỉ dẫn đơn giản trong lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và làm theo những chỉ dẫn đơn giản được truyền đạt chậm và rõ ràng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và trả lời các câu hỏi rất đơn giản về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các đoạn hội thoại ngắn, rất đơn giản khoảng 35 - 40 từ về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe hiểu và làm theo những chỉ dẫn đơn giản trong lớp học. - Nghe hiểu và làm theo những chỉ dẫn đơn giản được truyền đạt chậm và rõ ràng. - Nghe và trả lời các câu hỏi rất đơn giản về các chủ đề quen thuộc. - Nghe hiểu các đoạn hội thoại ngắn, rất đơn giản khoảng 35 - 40 từ về các chủ đề quen thuộc.",
    "source": {
@@ -269,7 +739,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nói các cụm từ và các câu đơn giản. - Nói các chỉ dẫn và đề nghị ngắn gọn, đơn giản. - Hỏi và trả lời các câu hỏi đơn giản về chủ đề trong nội dung Chương trình. - Nói về một số chủ đề quen thuộc, sử dụng các từ và cụm từ đơn giản (có sự trợ giúp)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các cụm từ và các câu đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các chỉ dẫn và đề nghị ngắn gọn, đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hỏi và trả lời các câu hỏi đơn giản về chủ đề trong nội dung Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói về một số chủ đề quen thuộc, sử dụng các từ và cụm từ đơn giản (có sự trợ giúp)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nói các cụm từ và các câu đơn giản. - Nói các chỉ dẫn và đề nghị ngắn gọn, đơn giản. - Hỏi và trả lời các câu hỏi đơn giản về chủ đề trong nội dung Chương trình. - Nói về một số chủ đề quen thuộc, sử dụng các từ và cụm từ đơn giản (có sự trợ giúp).",
    "source": {
@@ -293,7 +818,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc các câu ngắn và đơn giản. - Đọc hiểu các câu ngắn, đơn giản về chủ đề quen thuộc. - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 45 - 55 từ về các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc các câu ngắn và đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các câu ngắn, đơn giản về chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 45 - 55 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc các câu ngắn và đơn giản. - Đọc hiểu các câu ngắn, đơn giản về chủ đề quen thuộc. - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 45 - 55 từ về các chủ đề trong Chương trình.",
    "source": {
@@ -317,16 +883,58 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Viết các câu trả lời rất đơn giản. - Điền thông tin vào các mẫu đơn giản (thời"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các câu trả lời rất đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Điền thông tin vào các mẫu đơn giản (thời khoá biểu, thiếp sinh nhật, nhãn vở, …)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các văn bản ngắn, rất đơn giản khoảng 20 - 30 từ (có gợi ý) về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Viết các câu trả lời rất đơn giản. - Điền thông tin vào các mẫu đơn giản (thời",
+   "outcome_text": "Viết các câu trả lời rất đơn giản. - Điền thông tin vào các mẫu đơn giản (thời khoá biểu, thiếp sinh nhật, nhãn vở, …). - Viết các văn bản ngắn, rất đơn giản khoảng 20 - 30 từ (có gợi ý) về các chủ đề quen thuộc.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      28,
-     29
+     29,
+     30
     ]
    }
   },
@@ -341,7 +949,62 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đơn, phụ âm, tổ hợp phụ âm, trọng âm từ"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm từ"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đơn, phụ âm, tổ hợp phụ âm, trọng âm từ",
    "source": {
@@ -365,7 +1028,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 4"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 4"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 4",
    "source": {
@@ -389,7 +1065,146 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn Câu đơn Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) Động từ tình thái: can, would Đại từ chỉ định (củng cố và mở rộng) Liên từ: and, but, or, because Giới từ: with, near, behind, next to, opposite, by,… …"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại tiếp diễn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi có từ để hỏi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi nghi vấn (Yes/No question)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái: can, would"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ chỉ định (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên từ: and, but, or, because"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ: with, near, behind, next to, opposite, by,… …"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn Câu đơn Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) Động từ tình thái: can, would Đại từ chỉ định (củng cố và mở rộng) Liên từ: and, but, or, because Giới từ: with, near, behind, next to, opposite, by,… …",
    "source": {
@@ -456,7 +1271,76 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe và nhận biết trọng âm từ. - Nghe hiểu và làm theo những chỉ dẫn đơn giản. - Nghe và trả lời các câu hỏi đơn giản về các chủ đề trong Chương trình. - Nghe hiểu các đoạn hội thoại, độc thoại ngắn, cấu trúc đơn giản khoảng 45 - 60 từ về các chủ đề trong Chương trình. - Nghe hiểu nội dung chính các câu chuyện ngắn rất đơn giản về các chủ đề quen thuộc (có sự trợ giúp)."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhận biết trọng âm từ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và làm theo những chỉ dẫn đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và trả lời các câu hỏi đơn giản về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các đoạn hội thoại, độc thoại ngắn, cấu trúc đơn giản khoảng 45 - 60 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung chính các câu chuyện ngắn rất đơn giản về các chủ đề quen thuộc (có sự trợ giúp)."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe và nhận biết trọng âm từ. - Nghe hiểu và làm theo những chỉ dẫn đơn giản. - Nghe và trả lời các câu hỏi đơn giản về các chủ đề trong Chương trình. - Nghe hiểu các đoạn hội thoại, độc thoại ngắn, cấu trúc đơn giản khoảng 45 - 60 từ về các chủ đề trong Chương trình. - Nghe hiểu nội dung chính các câu chuyện ngắn rất đơn giản về các chủ đề quen thuộc (có sự trợ giúp).",
    "source": {
@@ -480,7 +1364,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nói các câu chỉ dẫn và đề nghị; khởi đầu và trả lời những câu lệnh đơn giản trong và ngoài lớp học. - Hỏi và trả lời những câu hỏi đơn giản về những chủ đề quen thuộc như bản thân, gia đình, trường học, … hoặc liên quan đến nhu cầu giao tiếp tối thiểu hằng ngày. - Nói về một số chủ đề trong Chương trình (có sự trợ giúp). - Trả lời các câu hỏi trực tiếp trong những phỏng vấn đơn giản với tốc độ nói chậm và rõ ràng về những chủ đề quen thuộc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các câu chỉ dẫn và đề nghị; khởi đầu và trả lời những câu lệnh đơn giản trong và ngoài lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hỏi và trả lời những câu hỏi đơn giản về những chủ đề quen thuộc như bản thân, gia đình, trường học, … hoặc liên quan đến nhu cầu giao tiếp tối thiểu hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói về một số chủ đề trong Chương trình (có sự trợ giúp)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trả lời các câu hỏi trực tiếp trong những phỏng vấn đơn giản với tốc độ nói chậm và rõ ràng về những chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nói các câu chỉ dẫn và đề nghị; khởi đầu và trả lời những câu lệnh đơn giản trong và ngoài lớp học. - Hỏi và trả lời những câu hỏi đơn giản về những chủ đề quen thuộc như bản thân, gia đình, trường học, … hoặc liên quan đến nhu cầu giao tiếp tối thiểu hằng ngày. - Nói về một số chủ đề trong Chương trình (có sự trợ giúp). - Trả lời các câu hỏi trực tiếp trong những phỏng vấn đơn giản với tốc độ nói chậm và rõ ràng về những chủ đề quen thuộc.",
    "source": {
@@ -504,7 +1443,34 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, … - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc. - Ðọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, … - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ðọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, … - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc. - Ðọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản.",
    "source": {
@@ -528,7 +1494,34 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Trọng âm từ, nhịp điệu và ngữ điệu"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trọng âm từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nhịp điệu và ngữ điệu"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Trọng âm từ, nhịp điệu và ngữ điệu",
    "source": {
@@ -552,7 +1545,132 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 5 Ngữ pháp: Thì quá khứ đơn (củng cố và mở rộng) Thì tương lai đơn Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) (củng cố và mở rộng) Động từ tình thái: should, could, would Tính từ chỉ tính chất đơn giản Trạng từ (chỉ cách thức hành động): fast, hard, well, ...; Trạng từ (chỉ tần suất): always, usually, often, never,... Giới từ: by, on, ... …"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 5"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ngữ pháp: Thì quá khứ đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì tương lai đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi có từ để hỏi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi nghi vấn (Yes/No question) (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái: should, could, would"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ chỉ tính chất đơn giản"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trạng từ (chỉ cách thức hành động): fast, hard, well, ...; Trạng từ (chỉ tần suất): always, usually, often, never,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ: by, on, ... …"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 5 Ngữ pháp: Thì quá khứ đơn (củng cố và mở rộng) Thì tương lai đơn Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) (củng cố và mở rộng) Động từ tình thái: should, could, would Tính từ chỉ tính chất đơn giản Trạng từ (chỉ cách thức hành động): fast, hard, well, ...; Trạng từ (chỉ tần suất): always, usually, often, never,... Giới từ: by, on, ... …",
    "source": {
@@ -620,7 +1738,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ngắn và đơn giản khác nhau. - Nghe hiểu các chỉ dẫn ngắn, đơn giản sử dụng trong các hoạt động học tập trong lớp học. - Nghe hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 80 - 100 từ về các chủ đề trong Chương trình; nghe hiểu được nội dung chính các câu chuyện đơn giản về các chủ đề quen thuộc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ngắn và đơn giản khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các chỉ dẫn ngắn, đơn giản sử dụng trong các hoạt động học tập trong lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 80 - 100 từ về các chủ đề trong Chương trình; nghe hiểu được nội dung chính các câu chuyện đơn giản về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ngắn và đơn giản khác nhau. - Nghe hiểu các chỉ dẫn ngắn, đơn giản sử dụng trong các hoạt động học tập trong lớp học. - Nghe hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 80 - 100 từ về các chủ đề trong Chương trình; nghe hiểu được nội dung chính các câu chuyện đơn giản về các chủ đề quen thuộc.",
    "source": {
@@ -644,7 +1803,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ngắn và đơn giản khác nhau. - Nói các chỉ dẫn ngắn, đơn giản sử dụng trong lớp học; những câu đơn giản, liền ý về các chủ đề quen thuộc (có gợi ý). - Hỏi và trả lời ngắn gọn về các chủ đề trong Chương trình như nhà trường, bạn bè, lễ hội, danh lam thắng cảnh, … - Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ngắn và đơn giản khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các chỉ dẫn ngắn, đơn giản sử dụng trong lớp học; những câu đơn giản, liền ý về các chủ đề quen thuộc (có gợi ý)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hỏi và trả lời ngắn gọn về các chủ đề trong Chương trình như nhà trường, bạn bè, lễ hội, danh lam thắng cảnh, … - Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ngắn và đơn giản khác nhau. - Nói các chỉ dẫn ngắn, đơn giản sử dụng trong lớp học; những câu đơn giản, liền ý về các chủ đề quen thuộc (có gợi ý). - Hỏi và trả lời ngắn gọn về các chủ đề trong Chương trình như nhà trường, bạn bè, lễ hội, danh lam thắng cảnh, … - Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình.",
    "source": {
@@ -668,16 +1868,44 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn giản về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính các thư cá nhân, thông báo, đoạn văn ngắn, đơn giản khoảng 100 - 120 từ thuộc phạm vi các chủ đề quen thuộc (có thể có một số từ, cấu trúc mới)."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Đọc hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn",
+   "outcome_text": "Đọc hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn giản về các chủ đề trong Chương trình. - Đọc hiểu nội dung chính các thư cá nhân, thông báo, đoạn văn ngắn, đơn giản khoảng 100 - 120 từ thuộc phạm vi các chủ đề quen thuộc (có thể có một số từ, cấu trúc mới).",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      32,
-     33
+     33,
+     34
     ]
    }
   },
@@ -692,7 +1920,104 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nguyên âm đôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm câu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nhịp điệu và ngữ điệu"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu",
    "source": {
@@ -716,7 +2041,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 6"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 6"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 6",
    "source": {
@@ -740,7 +2078,146 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì tương lai đơn (củng cố và mở rộng) Thì quá khứ đơn (củng cố và mở rộng) Câu đơn Câu ghép Động từ tình thái: should/shouldn’t, might Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) Câu mệnh lệnh: khẳng định/phủ định"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại tiếp diễn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì tương lai đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu ghép"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái: should/shouldn’t, might"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi có từ để hỏi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi nghi vấn (Yes/No question)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu mệnh lệnh: khẳng định/phủ định"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì tương lai đơn (củng cố và mở rộng) Thì quá khứ đơn (củng cố và mở rộng) Câu đơn Câu ghép Động từ tình thái: should/shouldn’t, might Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) Câu mệnh lệnh: khẳng định/phủ định",
    "source": {
@@ -808,7 +2285,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu đơn giản. - Nghe hiểu các chỉ dẫn ngắn, đơn giản sử dụng trong các hoạt động học tập trong và ngoài lớp học. - Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 120 - 140 từ về các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các chỉ dẫn ngắn, đơn giản sử dụng trong các hoạt động học tập trong và ngoài lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 120 - 140 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu đơn giản. - Nghe hiểu các chỉ dẫn ngắn, đơn giản sử dụng trong các hoạt động học tập trong và ngoài lớp học. - Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 120 - 140 từ về các chủ đề trong Chương trình.",
    "source": {
@@ -832,7 +2350,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu đơn giản khác nhau. - Nói các chỉ dẫn ngắn sử dụng trong các hoạt động trong và ngoài lớp học. - Trao đổi các thông tin cơ bản về các chủ đề quen thuộc. - Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu đơn giản khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các chỉ dẫn ngắn sử dụng trong các hoạt động trong và ngoài lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trao đổi các thông tin cơ bản về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu đơn giản khác nhau. - Nói các chỉ dẫn ngắn sử dụng trong các hoạt động trong và ngoài lớp học. - Trao đổi các thông tin cơ bản về các chủ đề quen thuộc. - Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình.",
    "source": {
@@ -856,16 +2429,44 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc hiểu nội dung chính, nội dung chi tiết các"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 120 - 150 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính các mẩu tin, thực đơn, quảng cáo… ngắn, đơn giản thuộc phạm vi chủ đề quen thuộc (có thể có một số từ, cấu trúc mới)."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Đọc hiểu nội dung chính, nội dung chi tiết các",
+   "outcome_text": "Đọc hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 120 - 150 từ về các chủ đề trong Chương trình. - Đọc hiểu nội dung chính các mẩu tin, thực đơn, quảng cáo… ngắn, đơn giản thuộc phạm vi chủ đề quen thuộc (có thể có một số từ, cấu trúc mới).",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      34,
-     35
+     35,
+     36
     ]
    }
   },
@@ -880,7 +2481,104 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nguyên âm đôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm câu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nhịp điệu và ngữ điệu"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu",
    "source": {
@@ -904,7 +2602,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 7"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 7"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 7",
    "source": {
@@ -928,9 +2639,190 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn (củng cố và mở rộng) Thì tương lai đơn (củng cố và mở rộng) Câu đơn Động từ tình thái: should/ should not, … Câu hỏi nghi vấn (Yes/No"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại tiếp diễn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì tương lai đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái: should/ should not, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi nghi vấn (Yes/No question)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Cách so sánh: like, (not) as ... as, different from, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ sở hữu: mine, yours, his, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lượng từ không xác định: some, lots of, a lot of, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ chỉ vị trí, thời gian: in, on, at…"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Từ nối: although, however, ..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mạo từ: a/an, the, zero article …."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn (củng cố và mở rộng) Thì tương lai đơn (củng cố và mở rộng) Câu đơn Động từ tình thái: should/ should not, … Câu hỏi nghi vấn (Yes/No",
+   "outcome_text": "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn (củng cố và mở rộng) Thì tương lai đơn (củng cố và mở rộng) Câu đơn Động từ tình thái: should/ should not, … Câu hỏi nghi vấn (Yes/No question) Cách so sánh: like, (not) as ... as, different from, … Đại từ sở hữu: mine, yours, his, … Lượng từ không xác định: some, lots of, a lot of, … Giới từ chỉ vị trí, thời gian: in, on, at… Từ nối: although, however, ... Mạo từ: a/an, the, zero article ….",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -996,7 +2888,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ghép cơ bản. - Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 140 - 160 từ về các chủ đề trong Chương trình. - Nghe hiểu nội dung chính các thông báo đơn giản, được nói rõ ràng liên quan đến các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ghép cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 140 - 160 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung chính các thông báo đơn giản, được nói rõ ràng liên quan đến các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe và nhận biết âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ghép cơ bản. - Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 140 - 160 từ về các chủ đề trong Chương trình. - Nghe hiểu nội dung chính các thông báo đơn giản, được nói rõ ràng liên quan đến các chủ đề trong Chương trình.",
    "source": {
@@ -1020,7 +2953,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ghép cơ bản. - Nói các chỉ dẫn đơn giản sử dụng trong giao tiếp hằng ngày liên quan đến các chủ điểm đã học. - Tham gia các hội thoại ngắn, đơn giản về các chủ điểm quen thuộc. - Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ điểm quen thuộc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ghép cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói các chỉ dẫn đơn giản sử dụng trong giao tiếp hằng ngày liên quan đến các chủ điểm đã học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hội thoại ngắn, đơn giản về các chủ điểm quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ điểm quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm các âm, trọng âm, ngữ điệu và nhịp điệu trong các câu ghép cơ bản. - Nói các chỉ dẫn đơn giản sử dụng trong giao tiếp hằng ngày liên quan đến các chủ điểm đã học. - Tham gia các hội thoại ngắn, đơn giản về các chủ điểm quen thuộc. - Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ điểm quen thuộc.",
    "source": {
@@ -1044,16 +3032,58 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc hiểu nội dung chính, nội dung chi tiết các"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 150 - 180 từ về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu nội dung chính, nội dung chi tiết các chỉ dẫn, thông báo, biển báo... ngắn, đơn giản về các chủ đề quen thuộc trong cuộc sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu và đoán được nghĩa của từ mới dựa vào ngữ cảnh."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Đọc hiểu nội dung chính, nội dung chi tiết các",
+   "outcome_text": "Đọc hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 150 - 180 từ về các chủ đề quen thuộc. - Đọc hiểu nội dung chính, nội dung chi tiết các chỉ dẫn, thông báo, biển báo... ngắn, đơn giản về các chủ đề quen thuộc trong cuộc sống hằng ngày. - Đọc hiểu và đoán được nghĩa của từ mới dựa vào ngữ cảnh.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      36,
-     37
+     37,
+     38
     ]
    }
   },
@@ -1068,7 +3098,104 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nguyên âm đôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm câu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nhịp điệu và ngữ điệu"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu",
    "source": {
@@ -1092,7 +3219,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 8"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 8"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 8",
    "source": {
@@ -1116,7 +3256,104 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì tương lai đơn (củng cố và mở rộng) Thì quá khứ tiếp diễn Thì hiện tại đơn với nghĩa tương lai Động từ (chỉ sự thích) + danh động từ (V-ing) Động từ (chỉ sự thích) + động từ nguyên thể có to Câu hỏi có từ để hỏi, câu hỏi nghi vấn (Yes/No question) Các loại câu: câu đơn/câu nối/câu phức"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì tương lai đơn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ tiếp diễn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại đơn với nghĩa tương lai"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ (chỉ sự thích) + danh động từ (V-ing)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ (chỉ sự thích) + động từ nguyên thể có to"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu hỏi có từ để hỏi, câu hỏi nghi vấn (Yes/No question)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các loại câu: câu đơn/câu nối/câu phức"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì tương lai đơn (củng cố và mở rộng) Thì quá khứ tiếp diễn Thì hiện tại đơn với nghĩa tương lai Động từ (chỉ sự thích) + danh động từ (V-ing) Động từ (chỉ sự thích) + động từ nguyên thể có to Câu hỏi có từ để hỏi, câu hỏi nghi vấn (Yes/No question) Các loại câu: câu đơn/câu nối/câu phức",
    "source": {
@@ -1184,7 +3421,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe hiểu các cụm từ, chỉ dẫn và cách diễn đạt đơn giản liên quan tới nhu cầu giao tiếp hằng ngày. - Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 160 - 180 từ về các chủ đề trong Chương trình. - Nghe hiểu và xác định được những ý chính trong các giao dịch quen thuộc hằng ngày, các thông báo, bản tin, ... ngắn, rõ ràng và đơn giản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các cụm từ, chỉ dẫn và cách diễn đạt đơn giản liên quan tới nhu cầu giao tiếp hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 160 - 180 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và xác định được những ý chính trong các giao dịch quen thuộc hằng ngày, các thông báo, bản tin, ... ngắn, rõ ràng và đơn giản."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe hiểu các cụm từ, chỉ dẫn và cách diễn đạt đơn giản liên quan tới nhu cầu giao tiếp hằng ngày. - Nghe hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 160 - 180 từ về các chủ đề trong Chương trình. - Nghe hiểu và xác định được những ý chính trong các giao dịch quen thuộc hằng ngày, các thông báo, bản tin, ... ngắn, rõ ràng và đơn giản.",
    "source": {
@@ -1209,7 +3487,90 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm rõ ràng, tương đối chính xác âm, trọng âm, ngữ điệu, nhịp điệu các cụm từ và câu. - Tham gia các hội thoại ngắn, đơn giản về những vấn đề quen thuộc liên quan đến công việc và cuộc sống hằng ngày. - Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ đề quen thuộc; nêu lý do và giải thích ngắn gọn về quan điểm cá nhân. - Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản. Ðọc - Ðọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày. - Ðọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện. - Đọc hiểu và đoán nghĩa của từ mới dựa vào văn cảnh và suy luận, nhận biết tổ chức của đoạn văn ngắn, đơn giản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm rõ ràng, tương đối chính xác âm, trọng âm, ngữ điệu, nhịp điệu các cụm từ và câu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hội thoại ngắn, đơn giản về những vấn đề quen thuộc liên quan đến công việc và cuộc sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ đề quen thuộc; nêu lý do và giải thích ngắn gọn về quan điểm cá nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản. Ðọc - Ðọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ðọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu và đoán nghĩa của từ mới dựa vào văn cảnh và suy luận, nhận biết tổ chức của đoạn văn ngắn, đơn giản."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm rõ ràng, tương đối chính xác âm, trọng âm, ngữ điệu, nhịp điệu các cụm từ và câu. - Tham gia các hội thoại ngắn, đơn giản về những vấn đề quen thuộc liên quan đến công việc và cuộc sống hằng ngày. - Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ đề quen thuộc; nêu lý do và giải thích ngắn gọn về quan điểm cá nhân. - Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản. Ðọc - Ðọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày. - Ðọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện. - Đọc hiểu và đoán nghĩa của từ mới dựa vào văn cảnh và suy luận, nhận biết tổ chức của đoạn văn ngắn, đơn giản.",
    "source": {
@@ -1234,9 +3595,36 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Viết (có hướng dẫn) một đoạn văn ngắn khoảng 100 - 120 từ về gia đình; viết thư cá nhân, tin nhắn ngắn, đơn giản liên quan các vấn đề thuộc lĩnh vực quan tâm. - Viết tóm tắt thông tin, viết những đoạn"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết (có hướng dẫn) một đoạn văn ngắn khoảng 100 - 120 từ về gia đình; viết thư cá nhân, tin nhắn ngắn, đơn giản liên quan các vấn đề thuộc lĩnh vực quan tâm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết tóm tắt thông tin, viết những đoạn văn theo lối đơn giản, sử dụng cách hành văn và trình tự như trong văn bản gốc."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Viết (có hướng dẫn) một đoạn văn ngắn khoảng 100 - 120 từ về gia đình; viết thư cá nhân, tin nhắn ngắn, đơn giản liên quan các vấn đề thuộc lĩnh vực quan tâm. - Viết tóm tắt thông tin, viết những đoạn",
+   "outcome_text": "Viết (có hướng dẫn) một đoạn văn ngắn khoảng 100 - 120 từ về gia đình; viết thư cá nhân, tin nhắn ngắn, đơn giản liên quan các vấn đề thuộc lĩnh vực quan tâm. - Viết tóm tắt thông tin, viết những đoạn văn theo lối đơn giản, sử dụng cách hành văn và trình tự như trong văn bản gốc.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -1244,7 +3632,8 @@
     "pdf_pages": [
      38,
      39,
-     40
+     40,
+     41
     ]
    }
   },
@@ -1259,7 +3648,104 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đơn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nguyên âm đôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm câu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nhịp điệu và ngữ điệu"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đơn, nguyên âm đôi, phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu",
    "source": {
@@ -1284,7 +3770,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 9"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 9"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 9",
    "source": {
@@ -1309,7 +3808,202 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì quá khứ tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn với wish Động từ tình thái với if Động từ tình thái Cụm động từ Cấu trúc Suggest + danh động từ (V-ing) Danh động từ (V-ing) đi sau một số động từ: like, dislike, love, enjoy, hate, ... Động từ nguyên thể (verb + to infinitive) Từ để hỏi trước động từ nguyên thể có to Câu tường thuật Mệnh đề phụ chỉ nguyên nhân, kết quả, nhượng bộ Đại từ quan hệ Mệnh đề quan hệ (mệnh đề xác định và không xác định) Tính từ so sánh …"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ tiếp diễn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn với wish"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái với if"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Cụm động từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Cấu trúc Suggest + danh động từ (V-ing)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh động từ (V-ing) đi sau một số động từ: like, dislike, love, enjoy, hate, ..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ nguyên thể (verb + to infinitive)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Từ để hỏi trước động từ nguyên thể có to"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu tường thuật"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mệnh đề phụ chỉ nguyên nhân, kết quả, nhượng bộ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ quan hệ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mệnh đề quan hệ (mệnh đề xác định và không xác định)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ so sánh …"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì quá khứ tiếp diễn (củng cố và mở rộng) Thì quá khứ đơn với wish Động từ tình thái với if Động từ tình thái Cụm động từ Cấu trúc Suggest + danh động từ (V-ing) Danh động từ (V-ing) đi sau một số động từ: like, dislike, love, enjoy, hate, ... Động từ nguyên thể (verb + to infinitive) Từ để hỏi trước động từ nguyên thể có to Câu tường thuật Mệnh đề phụ chỉ nguyên nhân, kết quả, nhượng bộ Đại từ quan hệ Mệnh đề quan hệ (mệnh đề xác định và không xác định) Tính từ so sánh …",
    "source": {
@@ -1377,7 +4071,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe hiểu nội dung các cuộc hội thoại hằng ngày được nói rõ ràng. - Nghe hiểu ý chính các đoạn hội thoại, độc thoại khoảng 180 - 200 từ về những chủ đề quen thuộc. - Nghe hiểu những thông tin, chỉ dẫn thông thường."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu nội dung các cuộc hội thoại hằng ngày được nói rõ ràng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu ý chính các đoạn hội thoại, độc thoại khoảng 180 - 200 từ về những chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu những thông tin, chỉ dẫn thông thường."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe hiểu nội dung các cuộc hội thoại hằng ngày được nói rõ ràng. - Nghe hiểu ý chính các đoạn hội thoại, độc thoại khoảng 180 - 200 từ về những chủ đề quen thuộc. - Nghe hiểu những thông tin, chỉ dẫn thông thường.",
    "source": {
@@ -1401,7 +4136,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm rõ ràng, tương đối chính xác các tổ hợp phụ âm, ngữ điệu, nhịp điệu trong câu. - Bắt đầu, duy trì và kết thúc các cuộc hội thoại trực tiếp, đơn giản. - Đồng ý, phản đối một cách lịch sự; đưa ra lời khuyên. - Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm rõ ràng, tương đối chính xác các tổ hợp phụ âm, ngữ điệu, nhịp điệu trong câu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bắt đầu, duy trì và kết thúc các cuộc hội thoại trực tiếp, đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đồng ý, phản đối một cách lịch sự; đưa ra lời khuyên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm rõ ràng, tương đối chính xác các tổ hợp phụ âm, ngữ điệu, nhịp điệu trong câu. - Bắt đầu, duy trì và kết thúc các cuộc hội thoại trực tiếp, đơn giản. - Đồng ý, phản đối một cách lịch sự; đưa ra lời khuyên. - Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề trong Chương trình.",
    "source": {
@@ -1425,7 +4215,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc hiểu những ý chính của văn bản khoảng 220 - 250 từ về các chủ đề mang tính thời sự và quen thuộc. - Đọc hiểu những thông tin quan trọng trong các tờ thông tin, quảng cáo thường nhật. - Đọc hiểu những thông điệp đơn giản và các thông tin truyền thông về các chủ đề phổ biến."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu những ý chính của văn bản khoảng 220 - 250 từ về các chủ đề mang tính thời sự và quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu những thông tin quan trọng trong các tờ thông tin, quảng cáo thường nhật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu những thông điệp đơn giản và các thông tin truyền thông về các chủ đề phổ biến."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc hiểu những ý chính của văn bản khoảng 220 - 250 từ về các chủ đề mang tính thời sự và quen thuộc. - Đọc hiểu những thông tin quan trọng trong các tờ thông tin, quảng cáo thường nhật. - Đọc hiểu những thông điệp đơn giản và các thông tin truyền thông về các chủ đề phổ biến.",
    "source": {
@@ -1449,7 +4280,34 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Viết đoạn văn liền mạch, đơn giản khoảng 120 - 150 từ về các chủ điểm mà cá nhân quan tâm và bày tỏ quan điểm, ý kiến cá nhân. - Viết các thông điệp cá nhân cho bạn bè hoặc người thân, đề nghị cung cấp thông tin và tường thuật các sự kiện liên quan."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết đoạn văn liền mạch, đơn giản khoảng 120 - 150 từ về các chủ điểm mà cá nhân quan tâm và bày tỏ quan điểm, ý kiến cá nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các thông điệp cá nhân cho bạn bè hoặc người thân, đề nghị cung cấp thông tin và tường thuật các sự kiện liên quan."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Viết đoạn văn liền mạch, đơn giản khoảng 120 - 150 từ về các chủ điểm mà cá nhân quan tâm và bày tỏ quan điểm, ý kiến cá nhân. - Viết các thông điệp cá nhân cho bạn bè hoặc người thân, đề nghị cung cấp thông tin và tường thuật các sự kiện liên quan.",
    "source": {
@@ -1473,7 +4331,76 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "tổ hợp phụ âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm câu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nhịp điệu và ngữ điệu"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phụ âm, tổ hợp phụ âm, trọng âm từ, trọng âm câu, nhịp điệu và ngữ điệu",
    "source": {
@@ -1497,7 +4424,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 10"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 10"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 10",
    "source": {
@@ -1521,7 +4461,216 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì hiện tại hoàn thành Thì hiện tại đơn và hiện tại tiếp diễn (củng cố và mở rộng) Thì tương lai đơn và thì tương lai với be going to (củng cố và mở rộng) Thì quá khứ đơn và quá khứ tiếp diễn với when và while Động từ nguyên thể có to và không có to Danh động từ và động từ nguyên thể (dùng để mô tả) Câu bị động, câu bị động với động từ tình thái Câu ghép Mệnh đề quan hệ: xác định và không xác định Câu điều kiện loại 1 (củng cố và mở rộng) Câu điều kiện loại 2 Câu tường thuật Tính từ so sánh hơn và so sánh hơn nhất Tính từ chỉ thái độ Mạo từ …."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại hoàn thành"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại đơn và hiện tại tiếp diễn (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì tương lai đơn và thì tương lai với be going to (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn và quá khứ tiếp diễn với when và while"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ nguyên thể có to và không có to"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh động từ và động từ nguyên thể (dùng để mô tả)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu bị động, câu bị động với động từ tình thái"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu ghép"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mệnh đề quan hệ: xác định và không xác định"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu điều kiện loại 1 (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu điều kiện loại 2"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu tường thuật"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ so sánh hơn và so sánh hơn nhất"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ chỉ thái độ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mạo từ …."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì hiện tại hoàn thành Thì hiện tại đơn và hiện tại tiếp diễn (củng cố và mở rộng) Thì tương lai đơn và thì tương lai với be going to (củng cố và mở rộng) Thì quá khứ đơn và quá khứ tiếp diễn với when và while Động từ nguyên thể có to và không có to Danh động từ và động từ nguyên thể (dùng để mô tả) Câu bị động, câu bị động với động từ tình thái Câu ghép Mệnh đề quan hệ: xác định và không xác định Câu điều kiện loại 1 (củng cố và mở rộng) Câu điều kiện loại 2 Câu tường thuật Tính từ so sánh hơn và so sánh hơn nhất Tính từ chỉ thái độ Mạo từ ….",
    "source": {
@@ -1587,7 +4736,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe hiểu những ý chính của các đoạn hội thoại, độc thoại khoảng 200 - 230 từ về những chủ đề mà cá nhân quan tâm trong phạm vi Chương trình. - Nghe hiểu những ý chính trong các cuộc thảo luận, với điều kiện nội dung thảo luận được trình bày rõ ràng. - Nghe bản tường thuật ngắn và đưa ra các giả thuyết về những điều sẽ xảy ra tiếp theo."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu những ý chính của các đoạn hội thoại, độc thoại khoảng 200 - 230 từ về những chủ đề mà cá nhân quan tâm trong phạm vi Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu những ý chính trong các cuộc thảo luận, với điều kiện nội dung thảo luận được trình bày rõ ràng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe bản tường thuật ngắn và đưa ra các giả thuyết về những điều sẽ xảy ra tiếp theo."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe hiểu những ý chính của các đoạn hội thoại, độc thoại khoảng 200 - 230 từ về những chủ đề mà cá nhân quan tâm trong phạm vi Chương trình. - Nghe hiểu những ý chính trong các cuộc thảo luận, với điều kiện nội dung thảo luận được trình bày rõ ràng. - Nghe bản tường thuật ngắn và đưa ra các giả thuyết về những điều sẽ xảy ra tiếp theo.",
    "source": {
@@ -1611,7 +4801,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm rõ ràng, tương đối chính xác trọng âm, nối âm, ngữ điệu, nhịp điệu các câu khác nhau. - Bắt đầu, duy trì và kết thúc một cuộc hội thoại; thảo luận về các chủ đề trong Chương trình. - Đưa ra những chỉ dẫn chi tiết. - Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm rõ ràng, tương đối chính xác trọng âm, nối âm, ngữ điệu, nhịp điệu các câu khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bắt đầu, duy trì và kết thúc một cuộc hội thoại; thảo luận về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra những chỉ dẫn chi tiết."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm rõ ràng, tương đối chính xác trọng âm, nối âm, ngữ điệu, nhịp điệu các câu khác nhau. - Bắt đầu, duy trì và kết thúc một cuộc hội thoại; thảo luận về các chủ đề trong Chương trình. - Đưa ra những chỉ dẫn chi tiết. - Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề trong Chương trình.",
    "source": {
@@ -1635,7 +4880,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 250 - 280 từ về các chủ đề mang tính thời sự và quen thuộc. - Đọc hiểu các ý chính, nội dung chi tiết các bản tin, bài báo,… về các chủ đề hoặc sự kiện mang tính thời sự và hiểu toàn bộ ý nghĩa của văn bản. - Đọc lướt các văn bản ngắn để tìm kiếm các sự kiện và thông tin cần thiết."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 250 - 280 từ về các chủ đề mang tính thời sự và quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các ý chính, nội dung chi tiết các bản tin, bài báo,… về các chủ đề hoặc sự kiện mang tính thời sự và hiểu toàn bộ ý nghĩa của văn bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc lướt các văn bản ngắn để tìm kiếm các sự kiện và thông tin cần thiết."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 250 - 280 từ về các chủ đề mang tính thời sự và quen thuộc. - Đọc hiểu các ý chính, nội dung chi tiết các bản tin, bài báo,… về các chủ đề hoặc sự kiện mang tính thời sự và hiểu toàn bộ ý nghĩa của văn bản. - Đọc lướt các văn bản ngắn để tìm kiếm các sự kiện và thông tin cần thiết.",
    "source": {
@@ -1659,16 +4945,58 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Viết văn bản (có mở đầu, thân bài, kết luận) khoảng 150 - 180 từ về các chủ đề quen thuộc. - Viết thư cá nhân yêu cầu cung cấp thông tin hoàn chỉnh và chi tiết về sản phẩm hoặc"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết văn bản (có mở đầu, thân bài, kết luận) khoảng 150 - 180 từ về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết thư cá nhân yêu cầu cung cấp thông tin hoàn chỉnh và chi tiết về sản phẩm hoặc dịch vụ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết để truyền tải những thông tin, sự kiện ngắn gọn, đơn giản tới bạn bè và người thân."
+        }
+       ]
+      }
+     ]
+    }
    ],
-   "outcome_text": "Viết văn bản (có mở đầu, thân bài, kết luận) khoảng 150 - 180 từ về các chủ đề quen thuộc. - Viết thư cá nhân yêu cầu cung cấp thông tin hoàn chỉnh và chi tiết về sản phẩm hoặc",
+   "outcome_text": "Viết văn bản (có mở đầu, thân bài, kết luận) khoảng 150 - 180 từ về các chủ đề quen thuộc. - Viết thư cá nhân yêu cầu cung cấp thông tin hoàn chỉnh và chi tiết về sản phẩm hoặc dịch vụ. - Viết để truyền tải những thông tin, sự kiện ngắn gọn, đơn giản tới bạn bè và người thân.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      43,
-     44
+     44,
+     45
     ]
    }
   },
@@ -1683,7 +5011,160 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Dạng phát âm mạnh và yếu của từ, các dạng viết/phát âm tắt, nối âm giữa phụ âm và nguyên âm, trọng âm câu và nhịp điệu, nuốt âm Ngữ điệu lên và xuống, câu hỏi nghi vấn (Yes/No question) và câu hỏi có từ để hỏi, câu hỏi thay thế, câu hỏi đuôi, câu hỏi thể hiện câu mời, câu gợi ý, …"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dạng phát âm mạnh và yếu của từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "các dạng viết/phát âm tắt"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nối âm giữa phụ âm và nguyên âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "trọng âm câu và nhịp điệu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nuốt âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ngữ điệu lên và xuống"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "câu hỏi nghi vấn (Yes/No question) và câu hỏi có từ để hỏi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "câu hỏi thay thế"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "câu hỏi đuôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "câu hỏi thể hiện câu mời"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "câu gợi ý, …"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Dạng phát âm mạnh và yếu của từ, các dạng viết/phát âm tắt, nối âm giữa phụ âm và nguyên âm, trọng âm câu và nhịp điệu, nuốt âm Ngữ điệu lên và xuống, câu hỏi nghi vấn (Yes/No question) và câu hỏi có từ để hỏi, câu hỏi thay thế, câu hỏi đuôi, câu hỏi thể hiện câu mời, câu gợi ý, …",
    "source": {
@@ -1707,7 +5188,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 11"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 11"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 11",
    "source": {
@@ -1731,7 +5225,146 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì quá khứ đơn và hiện tại hoàn thành Động từ tình thái: must vs. have to… Động từ nối (be, seem, …) Động từ trạng thái dùng ở thì tiếp diễn Danh động từ (dùng như chủ ngữ, như tân ngữ, …) Phân từ và mệnh đề với động từ nguyên thể có to Danh động từ hoàn thành và phân từ hoàn thành Từ nối Cấu tạo từ (danh từ ghép) Câu chẻ: It is/was ... that + mệnh đề …."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn và hiện tại hoàn thành"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ tình thái: must vs. have to…"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ nối (be, seem, …)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Động từ trạng thái dùng ở thì tiếp diễn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh động từ (dùng như chủ ngữ, như tân ngữ, …)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân từ và mệnh đề với động từ nguyên thể có to"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh động từ hoàn thành và phân từ hoàn thành"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Từ nối"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Cấu tạo từ (danh từ ghép)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu chẻ: It is/was ... that + mệnh đề …."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì quá khứ đơn và hiện tại hoàn thành Động từ tình thái: must vs. have to… Động từ nối (be, seem, …) Động từ trạng thái dùng ở thì tiếp diễn Danh động từ (dùng như chủ ngữ, như tân ngữ, …) Phân từ và mệnh đề với động từ nguyên thể có to Danh động từ hoàn thành và phân từ hoàn thành Từ nối Cấu tạo từ (danh từ ghép) Câu chẻ: It is/was ... that + mệnh đề ….",
    "source": {
@@ -1797,7 +5430,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Nghe hiểu và xác định nội dung chính, nội dung chi tiết trong các đoạn hội thoại, độc thoại khoảng 230 - 250 từ về những chủ đề thường gặp trong cuộc sống, công việc, học tập,… trong phạm vi Chương trình. - Nghe hiểu các hướng dẫn đơn giản như công thức nấu ăn, cách sử dụng các đồ dùng thông dụng… - Nghe hiểu và đoán nghĩa (thông qua biểu hiện thái độ, tình cảm của của người nói) trong các độc thoại, hội thoại quen thuộc của cuộc sống hằng ngày. - Nghe hiểu những ý chính trong các chương trình điểm tin, phát thanh, phỏng vấn,… về các đề tài quen thuộc được diễn đạt rõ ràng, bằng ngôn ngữ đơn giản, kèm hình ảnh minh hoạ."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu và xác định nội dung chính, nội dung chi tiết trong các đoạn hội thoại, độc thoại khoảng 230 - 250 từ về những chủ đề thường gặp trong cuộc sống, công việc, học tập,… trong phạm vi Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu các hướng dẫn đơn giản như công thức nấu ăn, cách sử dụng các đồ dùng thông dụng… - Nghe hiểu và đoán nghĩa (thông qua biểu hiện thái độ, tình cảm của của người nói) trong các độc thoại, hội thoại quen thuộc của cuộc sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghe hiểu những ý chính trong các chương trình điểm tin, phát thanh, phỏng vấn,… về các đề tài quen thuộc được diễn đạt rõ ràng, bằng ngôn ngữ đơn giản, kèm hình ảnh minh hoạ."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nghe hiểu và xác định nội dung chính, nội dung chi tiết trong các đoạn hội thoại, độc thoại khoảng 230 - 250 từ về những chủ đề thường gặp trong cuộc sống, công việc, học tập,… trong phạm vi Chương trình. - Nghe hiểu các hướng dẫn đơn giản như công thức nấu ăn, cách sử dụng các đồ dùng thông dụng… - Nghe hiểu và đoán nghĩa (thông qua biểu hiện thái độ, tình cảm của của người nói) trong các độc thoại, hội thoại quen thuộc của cuộc sống hằng ngày. - Nghe hiểu những ý chính trong các chương trình điểm tin, phát thanh, phỏng vấn,… về các đề tài quen thuộc được diễn đạt rõ ràng, bằng ngôn ngữ đơn giản, kèm hình ảnh minh hoạ.",
    "source": {
@@ -1822,7 +5496,62 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Phát âm rõ ràng, tương đối chính xác các từ có hoặc không có trọng âm, trọng âm câu, đồng hoá âm, nối âm. - Nói và tương tác với người đồng thoại về các chủ đề quen thuộc, thể hiện quan điểm cá nhân và trao đổi thông tin về các chủ đề quy định trong Chương trình. - Mô tả bằng các diễn ngôn đơn giản về các chủ đề quen thuộc, kể lại một câu chuyện ngắn có nội dung gần gũi với các chủ đề đã học. - Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề được quy định trong Chương trình."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát âm rõ ràng, tương đối chính xác các từ có hoặc không có trọng âm, trọng âm câu, đồng hoá âm, nối âm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nói và tương tác với người đồng thoại về các chủ đề quen thuộc, thể hiện quan điểm cá nhân và trao đổi thông tin về các chủ đề quy định trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả bằng các diễn ngôn đơn giản về các chủ đề quen thuộc, kể lại một câu chuyện ngắn có nội dung gần gũi với các chủ đề đã học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề được quy định trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Phát âm rõ ràng, tương đối chính xác các từ có hoặc không có trọng âm, trọng âm câu, đồng hoá âm, nối âm. - Nói và tương tác với người đồng thoại về các chủ đề quen thuộc, thể hiện quan điểm cá nhân và trao đổi thông tin về các chủ đề quy định trong Chương trình. - Mô tả bằng các diễn ngôn đơn giản về các chủ đề quen thuộc, kể lại một câu chuyện ngắn có nội dung gần gũi với các chủ đề đã học. - Trình bày các dự án một cách cơ bản, có chuẩn bị trước về các chủ đề được quy định trong Chương trình.",
    "source": {
@@ -1847,7 +5576,48 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 280 - 300 từ về các chủ đề mang tính thời sự và quen thuộc. - Ðọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng. - Đọc hiểu để tìm và tóm tắt các văn bản ngắn sử dụng hằng ngày như thư từ, tờ thông tin đơn giản, sử dụng các từ và cấu trúc từ văn bản gốc."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 280 - 300 từ về các chủ đề mang tính thời sự và quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ðọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu để tìm và tóm tắt các văn bản ngắn sử dụng hằng ngày như thư từ, tờ thông tin đơn giản, sử dụng các từ và cấu trúc từ văn bản gốc."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 280 - 300 từ về các chủ đề mang tính thời sự và quen thuộc. - Ðọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng. - Đọc hiểu để tìm và tóm tắt các văn bản ngắn sử dụng hằng ngày như thư từ, tờ thông tin đơn giản, sử dụng các từ và cấu trúc từ văn bản gốc.",
    "source": {
@@ -1872,7 +5642,34 @@
    "content": "",
    "kind": "skill",
    "outcomes": [
-    "Viết bài có tính liên kết, mạch lạc khoảng 180 - 200 từ; viết được các báo cáo ngắn, theo gợi ý, cung cấp những thông tin thực tế và nêu lý do cho những kiến nghị đưa ra trong báo cáo; tập hợp thông tin ngắn từ một vài nguồn và tóm tắt lại thông tin. - Hoàn thành (viết/điền) các biểu mẫu hành chính phổ biến như sơ yếu lý lịch, đơn xin việc… - Viết bài mô tả biểu đồ, biểu bảng đơn giản."
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết bài có tính liên kết, mạch lạc khoảng 180 - 200 từ; viết được các báo cáo ngắn, theo gợi ý, cung cấp những thông tin thực tế và nêu lý do cho những kiến nghị đưa ra trong báo cáo; tập hợp thông tin ngắn từ một vài nguồn và tóm tắt lại thông tin."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hoàn thành (viết/điền) các biểu mẫu hành chính phổ biến như sơ yếu lý lịch, đơn xin việc… - Viết bài mô tả biểu đồ, biểu bảng đơn giản."
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Viết bài có tính liên kết, mạch lạc khoảng 180 - 200 từ; viết được các báo cáo ngắn, theo gợi ý, cung cấp những thông tin thực tế và nêu lý do cho những kiến nghị đưa ra trong báo cáo; tập hợp thông tin ngắn từ một vài nguồn và tóm tắt lại thông tin. - Hoàn thành (viết/điền) các biểu mẫu hành chính phổ biến như sơ yếu lý lịch, đơn xin việc… - Viết bài mô tả biểu đồ, biểu bảng đơn giản.",
    "source": {
@@ -1897,8 +5694,118 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Nguyên âm đôi Các từ có trọng âm (trường hợp đặc biệt)",
-    "Các từ không mang trọng âm Trọng âm câu, sự đồng hoá, nối nguyên âm với nguyên âm Ngữ điệu câu hỏi (củng cố và mở rộng) Từ đồng âm"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nguyên âm đôi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ có trọng âm (trường hợp đặc biệt)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ không mang trọng âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trọng âm câu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "sự đồng hoá"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "nối nguyên âm với nguyên âm"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ngữ điệu câu hỏi (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Từ đồng âm"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Nguyên âm đôi Các từ có trọng âm (trường hợp đặc biệt) – Các từ không mang trọng âm Trọng âm câu, sự đồng hoá, nối nguyên âm với nguyên âm Ngữ điệu câu hỏi (củng cố và mở rộng) Từ đồng âm",
    "source": {
@@ -1923,7 +5830,20 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Các từ liên quan đến chủ điểm, chủ đề của lớp 12"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 12"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 12",
    "source": {
@@ -1948,7 +5868,174 @@
    "content": "",
    "kind": "knowledge",
    "outcomes": [
-    "Thì hiện tại hoàn thành (củng cố và mở rộng) Thì quá khứ đơn và quá khứ tiếp diễn Các loại câu: câu đơn, câu ghép, câu phức (củng cố và mở rộng) Mạo từ (củng cố và mở rộng) Câu tường thuật: tường thuật câu mệnh lệnh, đề nghị, mời, câu khuyên nhủ và câu hướng dẫn Mệnh đề quan hệ với which đề cập tới cả mệnh đề Giới từ sau một số động từ Ngữ động từ (gồm động từ, trạng từ và giới từ) Mẫu câu so sánh kép dùng để diễn tả những điều đang thay đổi Câu chỉ nguyên nhân: chủ động và bị động Mệnh đề trạng ngữ chỉ điều kiện, so sánh Mệnh đề trạng ngữ chỉ cách thức, kết quả …"
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì hiện tại hoàn thành (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thì quá khứ đơn và quá khứ tiếp diễn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Các loại câu: câu đơn, câu ghép, câu phức (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mạo từ (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu tường thuật: tường thuật câu mệnh lệnh, đề nghị, mời, câu khuyên nhủ và câu hướng dẫn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mệnh đề quan hệ với which đề cập tới cả mệnh đề"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ sau một số động từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ngữ động từ (gồm động từ, trạng từ và giới từ)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mẫu câu so sánh kép dùng để diễn tả những điều đang thay đổi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu chỉ nguyên nhân: chủ động và bị động"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mệnh đề trạng ngữ chỉ điều kiện, so sánh"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mệnh đề trạng ngữ chỉ cách thức, kết quả …"
+        }
+       ]
+      }
+     ]
+    }
    ],
    "outcome_text": "Thì hiện tại hoàn thành (củng cố và mở rộng) Thì quá khứ đơn và quá khứ tiếp diễn Các loại câu: câu đơn, câu ghép, câu phức (củng cố và mở rộng) Mạo từ (củng cố và mở rộng) Câu tường thuật: tường thuật câu mệnh lệnh, đề nghị, mời, câu khuyên nhủ và câu hướng dẫn Mệnh đề quan hệ với which đề cập tới cả mệnh đề Giới từ sau một số động từ Ngữ động từ (gồm động từ, trạng từ và giới từ) Mẫu câu so sánh kép dùng để diễn tả những điều đang thay đổi Câu chỉ nguyên nhân: chủ động và bị động Mệnh đề trạng ngữ chỉ điều kiện, so sánh Mệnh đề trạng ngữ chỉ cách thức, kết quả …",
    "source": {

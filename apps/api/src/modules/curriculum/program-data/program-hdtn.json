@@ -12,7 +12,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được hình thức bên ngoài của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được một số biểu hiện cảm xúc và hành vi yêu thương phù hợp với hoàn cảnh giao tiếp thông thường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được hình thức bên ngoài của bản thân. – Thể hiện được một số biểu hiện cảm xúc và hành vi yêu thương phù hợp với hoàn cảnh giao tiếp thông thường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -34,7 +63,36 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số việc tự chăm sóc bản thân phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những hành động an toàn, không an toàn khi vui chơi và thực hiện được một số hành vi tự bảo vệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được một số việc tự chăm sóc bản thân phù hợp với lứa tuổi. – Nêu được những hành động an toàn, không an toàn khi vui chơi và thực hiện được một số hành vi tự bảo vệ.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -55,7 +113,50 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được lời nói, việc làm thể hiện tình yêu thương với các thành viên trong gia đình phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tham gia sắp xếp nhà cửa gọn gàng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sử dụng một số dụng cụ gia đình một cách an toàn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được lời nói, việc làm thể hiện tình yêu thương với các thành viên trong gia đình phù hợp với lứa tuổi. – Biết tham gia sắp xếp nhà cửa gọn gàng. – Biết cách sử dụng một số dụng cụ gia đình một cách an toàn.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -76,7 +177,50 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen được với bạn mới, thể hiện sự thân thiện với bạn bè, thầy cô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những việc nên làm vào giờ học, những việc nên làm vào giờ chơi và thực hiện được những việc đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động giáo dục của Sao Nhi đồng và của nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Làm quen được với bạn mới, thể hiện sự thân thiện với bạn bè, thầy cô. – Nhận biết được những việc nên làm vào giờ học, những việc nên làm vào giờ chơi và thực hiện được những việc đó. – Tham gia các hoạt động giáo dục của Sao Nhi đồng và của nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -97,7 +241,36 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết thiết lập các mối quan hệ với hàng xóm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia một số hoạt động xã hội phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết thiết lập các mối quan hệ với hàng xóm. – Tham gia một số hoạt động xã hội phù hợp với lứa tuổi.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -118,7 +291,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được với bạn bè, người thân về vẻ đẹp của cảnh quan thiên nhiên nơi mình sinh sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết bảo vệ vẻ đẹp của cảnh quan thiên nhiên nơi mình sinh sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Giới thiệu được với bạn bè, người thân về vẻ đẹp của cảnh quan thiên nhiên nơi mình sinh sống. – Biết bảo vệ vẻ đẹp của cảnh quan thiên nhiên nơi mình sinh sống.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -139,7 +341,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được thế nào là môi trường sạch, đẹp và chưa sạch, đẹp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số việc làm cụ thể phù hợp với lứa tuổi để bảo vệ môi trường xung quanh luôn sạch, đẹp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được thế nào là môi trường sạch, đẹp và chưa sạch, đẹp. – Thực hiện được một số việc làm cụ thể phù hợp với lứa tuổi để bảo vệ môi trường xung quanh luôn sạch, đẹp.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -160,7 +391,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được hình ảnh thân thiện, luôn vui vẻ của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự khéo léo, cẩn thận của bản thân thông qua sản phẩm tự làm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được hình ảnh thân thiện, luôn vui vẻ của bản thân. – Thể hiện được sự khéo léo, cẩn thận của bản thân thông qua sản phẩm tự làm.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -181,7 +441,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết sắp xếp đồ dùng sinh hoạt cá nhân ngăn nắp, gọn gàng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc tự phục vụ phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những tình huống có nguy cơ bị lạc, bị bắt cóc và thực hiện được những việc làm để phòng tránh bị lạc, bị bắt cóc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết đồng tiền được sử dụng trong trao đổi hàng hoá."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết sắp xếp đồ dùng sinh hoạt cá nhân ngăn nắp, gọn gàng. – Thực hiện được một số công việc tự phục vụ phù hợp với lứa tuổi. – Nhận biết được những tình huống có nguy cơ bị lạc, bị bắt cóc và thực hiện được những việc làm để phòng tránh bị lạc, bị bắt cóc. – Nhận biết đồng tiền được sử dụng trong trao đổi hàng hoá.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -202,7 +519,36 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số việc làm thể hiện sự quan tâm chăm sóc, lòng biết ơn đến các thành viên trong gia đình phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trao đổi được với người thân về một số hoạt động chung trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được một số việc làm thể hiện sự quan tâm chăm sóc, lòng biết ơn đến các thành viên trong gia đình phù hợp với lứa tuổi. – Trao đổi được với người thân về một số hoạt động chung trong gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -223,7 +569,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được những việc làm để thể hiện tình bạn và biết nói những lời phù hợp khi giao tiếp với bạn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tìm kiếm sự hỗ trợ từ thầy cô, bạn bè khi tự mình không giải quyết được vấn đề trong mối quan hệ với bạn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết thể hiện lòng biết ơn với thầy cô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia hoạt động lao động giữ gìn cảnh quan nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia hoạt động giáo dục của Sao Nhi Đồng, Đội Thiếu niên Tiền phong Hồ Chí Minh và của nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được những việc làm để thể hiện tình bạn và biết nói những lời phù hợp khi giao tiếp với bạn. – Biết tìm kiếm sự hỗ trợ từ thầy cô, bạn bè khi tự mình không giải quyết được vấn đề trong mối quan hệ với bạn. – Biết thể hiện lòng biết ơn với thầy cô. – Tham gia hoạt động lao động giữ gìn cảnh quan nhà trường. – Tham gia hoạt động giáo dục của Sao Nhi Đồng, Đội Thiếu niên Tiền phong Hồ Chí Minh và của nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -245,7 +662,50 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm quen được với những người bạn hàng xóm, tạo được quan hệ gần gũi, thân thiện với bạn bè trong cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết thể hiện sự đồng cảm và chia sẻ với người gặp hoàn cảnh khó khăn trong cuộc sống và trong hoạt động vì cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia vào một số hoạt động hướng đến cộng đồng do nhà trường tổ chức."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Làm quen được với những người bạn hàng xóm, tạo được quan hệ gần gũi, thân thiện với bạn bè trong cộng đồng. – Biết thể hiện sự đồng cảm và chia sẻ với người gặp hoàn cảnh khó khăn trong cuộc sống và trong hoạt động vì cộng đồng. – Tham gia vào một số hoạt động hướng đến cộng đồng do nhà trường tổ chức.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -266,7 +726,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được với bạn bè, người thân về vẻ đẹp của cảnh quan ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách chăm sóc, bảo vệ cảnh quan xung quanh nơi mình sinh sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Giới thiệu được với bạn bè, người thân về vẻ đẹp của cảnh quan ở địa phương. – Biết cách chăm sóc, bảo vệ cảnh quan xung quanh nơi mình sinh sống.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -287,7 +776,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được thực trạng vệ sinh môi trường xung quanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được những việc làm phù hợp với lứa tuổi để giữ gìn vệ sinh môi trường ở nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được thực trạng vệ sinh môi trường xung quanh. – Thực hiện được những việc làm phù hợp với lứa tuổi để giữ gìn vệ sinh môi trường ở nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -308,7 +826,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu về nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được công việc của bố mẹ hoặc người thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đức tính của bố, mẹ, người thân có liên quan đến nghề nghiệp của họ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sử dụng an toàn một số dụng cụ lao động quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được công việc của bố mẹ hoặc người thân. – Nêu được một số đức tính của bố, mẹ, người thân có liên quan đến nghề nghiệp của họ. – Biết cách sử dụng an toàn một số dụng cụ lao động quen thuộc.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -330,7 +891,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra được những nét riêng của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được các sở thích của bản thân và sản phẩm được làm theo sở thích."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận ra được những nét riêng của bản thân. – Giới thiệu được các sở thích của bản thân và sản phẩm được làm theo sở thích.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -351,7 +941,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sắp xếp được thứ tự các hoạt động, công việc trong ngày của bản thân và bước đầu thực hiện được thời gian biểu đề ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có thói quen giữ gìn nhà cửa gọn gàng, ngăn nắp, sạch sẽ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận thức được các nguy cơ nếu không thực hiện vệ sinh an toàn thực phẩm và thực hiện những việc làm đảm bảo an toàn trong ăn uống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những thứ thực sự cần mua để tránh lãng phí trong một số tình huống cụ thể."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Sắp xếp được thứ tự các hoạt động, công việc trong ngày của bản thân và bước đầu thực hiện được thời gian biểu đề ra. – Có thói quen giữ gìn nhà cửa gọn gàng, ngăn nắp, sạch sẽ. – Nhận thức được các nguy cơ nếu không thực hiện vệ sinh an toàn thực phẩm và thực hiện những việc làm đảm bảo an toàn trong ăn uống. – Xác định được những thứ thực sự cần mua để tránh lãng phí trong một số tình huống cụ thể.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -372,7 +1019,64 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được lòng biết ơn, sự quan tâm, chăm sóc đến bố mẹ, người thân bằng lời nói, thái độ và việc làm cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tiết kiệm khi sử dụng điện, nước trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia vào các hoạt động trang trí nhà cửa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được thu nhập của các thành viên trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được lòng biết ơn, sự quan tâm, chăm sóc đến bố mẹ, người thân bằng lời nói, thái độ và việc làm cụ thể. – Biết tiết kiệm khi sử dụng điện, nước trong gia đình. – Tham gia vào các hoạt động trang trí nhà cửa. – Tìm hiểu được thu nhập của các thành viên trong gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -393,7 +1097,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể lại được điều ấn tượng nhất về thầy giáo, cô giáo và thể hiện tình cảm với thầy cô bằng sản phẩm tự làm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách hoà giải bất đồng trong quan hệ bạn bè."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được ý tưởng về việc trang trí, lao động vệ sinh lớp học, có ý thức giữ an toàn trong khi trang trí lớp học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động giáo dục, hoạt động lao động của Sao Nhi đồng, Đội Thiếu niên Tiền phong Hồ Chí Minh và của nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Kể lại được điều ấn tượng nhất về thầy giáo, cô giáo và thể hiện tình cảm với thầy cô bằng sản phẩm tự làm. – Biết cách hoà giải bất đồng trong quan hệ bạn bè. – Thực hiện được ý tưởng về việc trang trí, lao động vệ sinh lớp học, có ý thức giữ an toàn trong khi trang trí lớp học. – Tham gia các hoạt động giáo dục, hoạt động lao động của Sao Nhi đồng, Đội Thiếu niên Tiền phong Hồ Chí Minh và của nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -415,7 +1176,36 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số việc làm phù hợp với lứa tuổi thể hiện sự quan tâm đến các thành viên trong cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia một số hoạt động tình nguyện, nhân đạo, giáo dục truyền thống do nhà trường, địa phương tổ chức."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được một số việc làm phù hợp với lứa tuổi thể hiện sự quan tâm đến các thành viên trong cộng đồng. – Tham gia một số hoạt động tình nguyện, nhân đạo, giáo dục truyền thống do nhà trường, địa phương tổ chức.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -436,7 +1226,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được vẻ đẹp của cảnh quan thiên nhiên ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tuyên truyền tới bạn bè, người thân về việc bảo vệ vẻ đẹp của cảnh quan thiên nhiên ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được vẻ đẹp của cảnh quan thiên nhiên ở địa phương. – Tuyên truyền tới bạn bè, người thân về việc bảo vệ vẻ đẹp của cảnh quan thiên nhiên ở địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -457,7 +1276,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những biểu hiện của ô nhiễm môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tích cực vào các hoạt động phù hợp với lứa tuổi trong phòng, chống ô nhiễm môi trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được những biểu hiện của ô nhiễm môi trường. – Tham gia tích cực vào các hoạt động phù hợp với lứa tuổi trong phòng, chống ô nhiễm môi trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -478,7 +1326,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu về nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên được một số đức tính cần có của người lao động trong nghề nghiệp mà mình yêu thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra được một số đức tính của bản thân liên quan đến nghề yêu thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết giữ an toàn trong lao động."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Kể tên được một số đức tính cần có của người lao động trong nghề nghiệp mà mình yêu thích. – Nhận ra được một số đức tính của bản thân liên quan đến nghề yêu thích. – Biết giữ an toàn trong lao động.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -500,7 +1391,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được đặc điểm, những việc làm đáng tự hào của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được khả năng điều chỉnh cảm xúc và suy nghĩ của bản thân trong một số tình huống đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Giới thiệu được đặc điểm, những việc làm đáng tự hào của bản thân. – Nhận diện được khả năng điều chỉnh cảm xúc và suy nghĩ của bản thân trong một số tình huống đơn giản.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -521,7 +1441,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được nền nếp sinh hoạt, bước đầu hình thành thói quen tư duy khoa học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự lực thực hiện nhiệm vụ của mình theo sự phân công, hướng dẫn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được nguy cơ bị xâm hại và thực hiện được những hành động để phòng tránh bị xâm hại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được mặt hàng muốn mua phù hợp với khả năng tài chính của bản thân và gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được nền nếp sinh hoạt, bước đầu hình thành thói quen tư duy khoa học. – Tự lực thực hiện nhiệm vụ của mình theo sự phân công, hướng dẫn. – Nhận biết được nguy cơ bị xâm hại và thực hiện được những hành động để phòng tránh bị xâm hại. – Lựa chọn được mặt hàng muốn mua phù hợp với khả năng tài chính của bản thân và gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -542,7 +1519,36 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tạo sự gắn kết yêu thương giữa các thành viên trong gia đình bằng các cách khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được giá của các mặt hàng phổ biến trong sinh hoạt hằng ngày của gia đình và có ý thức tiết kiệm cho gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết tạo sự gắn kết yêu thương giữa các thành viên trong gia đình bằng các cách khác nhau. – So sánh được giá của các mặt hàng phổ biến trong sinh hoạt hằng ngày của gia đình và có ý thức tiết kiệm cho gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -563,7 +1569,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được những lời nói, việc làm để duy trì và phát triển quan hệ với bạn bè, thầy cô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số vấn đề thường xảy ra trong quan hệ với bạn bè và đề xuất được cách giải quyết."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch lao động trong nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia hoạt động giáo dục theo chủ đề của Đội Thiếu niên Tiền phong Hồ Chí Minh và của nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được những lời nói, việc làm để duy trì và phát triển quan hệ với bạn bè, thầy cô. – Nêu được một số vấn đề thường xảy ra trong quan hệ với bạn bè và đề xuất được cách giải quyết. – Lập và thực hiện được kế hoạch lao động trong nhà trường. – Tham gia hoạt động giáo dục theo chủ đề của Đội Thiếu niên Tiền phong Hồ Chí Minh và của nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -585,7 +1648,50 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được hành vi có văn hoá nơi công cộng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được một số hoạt động kết nối những người sống xung quanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tích cực vào các hoạt động đền ơn đáp nghĩa và hoạt động giáo dục truyền thống ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được hành vi có văn hoá nơi công cộng. – Đề xuất được một số hoạt động kết nối những người sống xung quanh. – Tham gia tích cực vào các hoạt động đền ơn đáp nghĩa và hoạt động giáo dục truyền thống ở địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -606,7 +1712,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được với bạn bè, người thân về cảnh quan thiên nhiên ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số việc làm cụ thể để chăm sóc, bảo vệ cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Giới thiệu được với bạn bè, người thân về cảnh quan thiên nhiên ở địa phương. – Thực hiện được một số việc làm cụ thể để chăm sóc, bảo vệ cảnh quan thiên nhiên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -627,7 +1762,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được thực trạng vệ sinh trường, lớp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được những việc làm cụ thể để giữ gìn trường học xanh, sạch, đẹp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được thực trạng vệ sinh trường, lớp. – Thực hiện được những việc làm cụ thể để giữ gìn trường học xanh, sạch, đẹp.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -648,7 +1812,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu về nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được những thông tin cơ bản về nghề truyền thống ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trải nghiệm một số công việc của nghề truyền thống ở địa phương và thể hiện được hứng thú với nghề truyền thống của địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết giữ an toàn trong lao động khi làm nghề truyền thống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được những thông tin cơ bản về nghề truyền thống ở địa phương. – Trải nghiệm một số công việc của nghề truyền thống ở địa phương và thể hiện được hứng thú với nghề truyền thống của địa phương. – Biết giữ an toàn trong lao động khi làm nghề truyền thống.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -670,7 +1877,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện sự thay đổi của bản thân thông qua các tư liệu, các sản phẩm được lưu giữ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được khả năng kiểm soát cảm xúc của bản thân."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện sự thay đổi của bản thân thông qua các tư liệu, các sản phẩm được lưu giữ. – Nhận diện được khả năng kiểm soát cảm xúc của bản thân.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -691,7 +1927,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Rèn luyện được một số đức tính cần thiết để thích ứng với môi trường học tập mới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tự chủ và đảm bảo an toàn khi giao tiếp trên mạng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những nguyên nhân gây hoả hoạn để phòng chống và biết cách thoát hiểm khi gặp hoả hoạn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia lập kế hoạch kinh doanh dựa trên hoạt động do trường tổ chức."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Rèn luyện được một số đức tính cần thiết để thích ứng với môi trường học tập mới. – Biết tự chủ và đảm bảo an toàn khi giao tiếp trên mạng. – Nhận biết được những nguyên nhân gây hoả hoạn để phòng chống và biết cách thoát hiểm khi gặp hoả hoạn. – Tham gia lập kế hoạch kinh doanh dựa trên hoạt động do trường tổ chức.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -712,7 +2005,50 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được trách nhiệm, lòng biết ơn của mình với các thành viên trong gia đình bằng thái độ, lời nói, việc làm cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tạo bầu không khí vui vẻ, đầm ấm trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết lập sổ tay ghi chép chi tiêu của gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được trách nhiệm, lòng biết ơn của mình với các thành viên trong gia đình bằng thái độ, lời nói, việc làm cụ thể. – Biết tạo bầu không khí vui vẻ, đầm ấm trong gia đình. – Biết lập sổ tay ghi chép chi tiêu của gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -733,7 +2069,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được những cách làm cụ thể để nuôi dưỡng, giữ gìn tình bạn, tình thầy trò."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải quyết được một số vấn đề nảy sinh trong mối quan hệ với bạn bè và thầy cô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tổ chức sự kiện về truyền thống tôn sư trọng đạo và các truyền thống khác của nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động giáo dục của Đội Thiếu niên Tiền phong Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Đề xuất được những cách làm cụ thể để nuôi dưỡng, giữ gìn tình bạn, tình thầy trò. – Giải quyết được một số vấn đề nảy sinh trong mối quan hệ với bạn bè và thầy cô. – Tham gia tổ chức sự kiện về truyền thống tôn sư trọng đạo và các truyền thống khác của nhà trường. – Tham gia các hoạt động giáo dục của Đội Thiếu niên Tiền phong Hồ Chí Minh.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -755,7 +2148,50 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết lập được quan hệ thân thiện với những người sống xung quanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tích cực các hoạt động xã hội, hoạt động lao động công ích và các lễ hội truyền thống ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được sự đóng góp và sự tiến bộ của các thành viên khi tham gia hoạt động xã hội."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thiết lập được quan hệ thân thiện với những người sống xung quanh. – Tham gia tích cực các hoạt động xã hội, hoạt động lao động công ích và các lễ hội truyền thống ở địa phương. – Đánh giá được sự đóng góp và sự tiến bộ của các thành viên khi tham gia hoạt động xã hội.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -776,7 +2212,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được cảm xúc và niềm tự hào đối với cảnh quan thiên nhiên của địa phương và đất nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được một số biện pháp bảo tồn cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được cảm xúc và niềm tự hào đối với cảnh quan thiên nhiên của địa phương và đất nước. – Đề xuất được một số biện pháp bảo tồn cảnh quan thiên nhiên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -797,7 +2262,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được thực trạng môi trường nơi sinh sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự nguyện tham gia và vận động được người thân cùng tham gia lao động công ích, giữ vệ sinh môi trường khu dân cư."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được thực trạng môi trường nơi sinh sống. – Tự nguyện tham gia và vận động được người thân cùng tham gia lao động công ích, giữ vệ sinh môi trường khu dân cư.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -818,7 +2312,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu về nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được những thông tin cơ bản về nghề mình mơ ước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được về an toàn nghề nghiệp của nghề mơ ước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ước mơ nghề nghiệp của bản thân."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được những thông tin cơ bản về nghề mình mơ ước. – Tìm hiểu được về an toàn nghề nghiệp của nghề mơ ước. – Trình bày được ước mơ nghề nghiệp của bản thân.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -840,7 +2377,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra được sự thay đổi tích cực của bản thân, giới thiệu được đức tính đặc trưng của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát hiện được sở thích, khả năng và những giá trị khác của bản thân; tự tin với sở thích, khả năng của mình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận ra được sự thay đổi tích cực của bản thân, giới thiệu được đức tính đặc trưng của bản thân. – Phát hiện được sở thích, khả năng và những giá trị khác của bản thân; tự tin với sở thích, khả năng của mình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -861,7 +2427,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sắp xếp được góc học tập, nơi sinh hoạt cá nhân gọn gàng, ngăn nắp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết chăm sóc bản thân và điều chỉnh bản thân phù hợp môi trường học tập mới, phù hợp với hoàn cảnh giao tiếp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những dấu hiệu của thiên tai và biết cách tự bảo vệ trong một số tình huống thiên tai cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những khoản chi ưu tiên khi số tiền của mình hạn chế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Sắp xếp được góc học tập, nơi sinh hoạt cá nhân gọn gàng, ngăn nắp. – Biết chăm sóc bản thân và điều chỉnh bản thân phù hợp môi trường học tập mới, phù hợp với hoàn cảnh giao tiếp. – Nhận biết được những dấu hiệu của thiên tai và biết cách tự bảo vệ trong một số tình huống thiên tai cụ thể. – Xác định được những khoản chi ưu tiên khi số tiền của mình hạn chế.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -882,7 +2505,50 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự động viên, chăm sóc người thân trong gia đình bằng lời nói và hành động cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự chủ động, tự giác thực hiện một số công việc trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tham gia giải quyết một số vấn đề nảy sinh trong quan hệ gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được sự động viên, chăm sóc người thân trong gia đình bằng lời nói và hành động cụ thể. – Thể hiện được sự chủ động, tự giác thực hiện một số công việc trong gia đình. – Biết tham gia giải quyết một số vấn đề nảy sinh trong quan hệ gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -903,7 +2569,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết lập được các mối quan hệ với bạn, thầy cô và biết gìn giữ tình bạn, tình thầy trò."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định và giải quyết được một số vấn đề nảy sinh trong quan hệ bạn bè."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những nét nổi bật của nhà trường và chủ động, tự giác tham gia xây dựng truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia hoạt động giáo dục theo chủ đề của Đội Thiếu niên Tiền phong Hồ Chí Minh, của nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thiết lập được các mối quan hệ với bạn, thầy cô và biết gìn giữ tình bạn, tình thầy trò. – Xác định và giải quyết được một số vấn đề nảy sinh trong quan hệ bạn bè. – Giới thiệu được những nét nổi bật của nhà trường và chủ động, tự giác tham gia xây dựng truyền thống nhà trường. – Tham gia hoạt động giáo dục theo chủ đề của Đội Thiếu niên Tiền phong Hồ Chí Minh, của nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -925,7 +2648,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết lập được các mối quan hệ với cộng đồng, thể hiện được sự sẵn sàng giúp đỡ, chia sẻ với những hoàn cảnh khó khăn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được hành vi văn hoá nơi công cộng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch hoạt động thiện nguyện tại địa phương; biết vận động người thân và bạn bè tham gia các hoạt động thiện nguyện ở nơi cư trú."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được một số truyền thống của địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thiết lập được các mối quan hệ với cộng đồng, thể hiện được sự sẵn sàng giúp đỡ, chia sẻ với những hoàn cảnh khó khăn. – Thể hiện được hành vi văn hoá nơi công cộng. – Lập và thực hiện được kế hoạch hoạt động thiện nguyện tại địa phương; biết vận động người thân và bạn bè tham gia các hoạt động thiện nguyện ở nơi cư trú. – Giới thiệu được một số truyền thống của địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -946,7 +2726,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được cảm xúc, hứng thú với khám phá cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được những việc làm cụ thể để bảo tồn cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được cảm xúc, hứng thú với khám phá cảnh quan thiên nhiên. – Thực hiện được những việc làm cụ thể để bảo tồn cảnh quan thiên nhiên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -967,7 +2776,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được những tác động của biến đổi khí hậu đến sức khoẻ con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tuyên truyền, vận động người thân, bạn bè có ý thức thực hiện các việc làm giảm thiểu biến đổi khí hậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận động người thân, bạn bè không sử dụng các đồ dùng có nguồn gốc từ những động vật quý hiếm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Chỉ ra được những tác động của biến đổi khí hậu đến sức khoẻ con người. – Tuyên truyền, vận động người thân, bạn bè có ý thức thực hiện các việc làm giảm thiểu biến đổi khí hậu. – Vận động người thân, bạn bè không sử dụng các đồ dùng có nguồn gốc từ những động vật quý hiếm.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -988,7 +2840,78 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được một số nghề truyền thống ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được hoạt động đặc trưng, những yêu cầu cơ bản, trang thiết bị, dụng cụ lao động của các nghề truyền thống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số đặc điểm của bản thân phù hợp hoặc chưa phù hợp với công việc của nghề truyền thống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được về an toàn sử dụng công cụ lao động trong các nghề truyền thống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được giá trị của các nghề trong xã hội và có thái độ tôn trọng đối với lao động nghề nghiệp khác nhau."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được một số nghề truyền thống ở Việt Nam. – Nêu được hoạt động đặc trưng, những yêu cầu cơ bản, trang thiết bị, dụng cụ lao động của các nghề truyền thống. – Nhận biết được một số đặc điểm của bản thân phù hợp hoặc chưa phù hợp với công việc của nghề truyền thống. – Nhận biết được về an toàn sử dụng công cụ lao động trong các nghề truyền thống. – Nhận diện được giá trị của các nghề trong xã hội và có thái độ tôn trọng đối với lao động nghề nghiệp khác nhau.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1010,7 +2933,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được điểm mạnh, điểm hạn chế của bản thân trong học tập và cuộc sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra được khả năng kiểm soát cảm xúc của bản thân."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được điểm mạnh, điểm hạn chế của bản thân trong học tập và cuộc sống. – Nhận ra được khả năng kiểm soát cảm xúc của bản thân.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1031,7 +2983,78 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được thói quen ngăn nắp, gọn gàng, sạch sẽ ở gia đình cũng như ở trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách vượt qua khó khăn trong một số tình huống cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Rèn luyện được tính kiên trì, sự chăm chỉ trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được một số tình huống nguy hiểm và biết cách tự bảo vệ trong các tình huống đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết kiểm soát các khoản chi và biết tiết kiệm tiền."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được thói quen ngăn nắp, gọn gàng, sạch sẽ ở gia đình cũng như ở trường. – Biết cách vượt qua khó khăn trong một số tình huống cụ thể. – Rèn luyện được tính kiên trì, sự chăm chỉ trong công việc. – Xác định được một số tình huống nguy hiểm và biết cách tự bảo vệ trong các tình huống đó. – Biết kiểm soát các khoản chi và biết tiết kiệm tiền.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1053,7 +3076,64 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Bước đầu có kĩ năng chăm sóc người thân khi bị mệt, ốm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự lắng nghe tích cực khi tiếp nhận những ý kiến đóng góp và sự chia sẻ từ các thành viên trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập kế hoạch và thực hiện được kế hoạch lao động tại gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch chi tiêu cho một số sự kiện trong gia đình phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Bước đầu có kĩ năng chăm sóc người thân khi bị mệt, ốm. – Thể hiện được sự lắng nghe tích cực khi tiếp nhận những ý kiến đóng góp và sự chia sẻ từ các thành viên trong gia đình. – Lập kế hoạch và thực hiện được kế hoạch lao động tại gia đình. – Lập được kế hoạch chi tiêu cho một số sự kiện trong gia đình phù hợp với lứa tuổi.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1074,7 +3154,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát triển được mối quan hệ hoà đồng với bạn bè, thầy cô và hài lòng về các mối quan hệ này."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hợp tác được với thầy cô, bạn bè để thực hiện các nhiệm vụ chung và giải quyết được những vấn đề nảy sinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những nét nổi bật, tự hào về nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia hoạt động giáo dục theo chủ đề của Đội Thiếu niên Tiền phong Hồ Chí Minh, của nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phát triển được mối quan hệ hoà đồng với bạn bè, thầy cô và hài lòng về các mối quan hệ này. – Hợp tác được với thầy cô, bạn bè để thực hiện các nhiệm vụ chung và giải quyết được những vấn đề nảy sinh. – Giới thiệu được những nét nổi bật, tự hào về nhà trường. – Tham gia hoạt động giáo dục theo chủ đề của Đội Thiếu niên Tiền phong Hồ Chí Minh, của nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1095,7 +3232,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được hành vi giao tiếp, ứng xử có văn hoá khi tham gia các hoạt động trong cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tôn trọng sự khác biệt giữa mọi người, không đồng tình với những hành vi kì thị về giới tính, dân tộc, địa vị xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động thiện nguyện, nhân đạo và vận động người thân, bạn bè tham gia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những truyền thống đáng tự hào của địa phương mình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được hành vi giao tiếp, ứng xử có văn hoá khi tham gia các hoạt động trong cộng đồng. – Tôn trọng sự khác biệt giữa mọi người, không đồng tình với những hành vi kì thị về giới tính, dân tộc, địa vị xã hội. – Tham gia các hoạt động thiện nguyện, nhân đạo và vận động người thân, bạn bè tham gia. – Giới thiệu được những truyền thống đáng tự hào của địa phương mình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1117,7 +3311,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được một số sản phẩm thể hiện sự hiểu biết, cảm xúc của bản thân sau chuyến tham quan cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các hành vi, việc làm bảo vệ di tích, danh lam thắng cảnh tại những nơi đến tham quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thiết kế được một số sản phẩm thể hiện sự hiểu biết, cảm xúc của bản thân sau chuyến tham quan cảnh quan thiên nhiên. – Thực hiện được các hành vi, việc làm bảo vệ di tích, danh lam thắng cảnh tại những nơi đến tham quan.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1138,7 +3361,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được ảnh hưởng của hiệu ứng nhà kính đến sự sống trên Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được chiến dịch truyền thông bảo vệ môi trường thiên nhiên, giảm thiểu hiệu ứng nhà kính bằng các hình thức khác nhau."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được ảnh hưởng của hiệu ứng nhà kính đến sự sống trên Trái Đất. – Thực hiện được chiến dịch truyền thông bảo vệ môi trường thiên nhiên, giảm thiểu hiệu ứng nhà kính bằng các hình thức khác nhau.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1159,7 +3411,78 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được một số nghề hiện có ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được công việc đặc trưng, trang thiết bị, dụng cụ lao động cơ bản của một số nghề ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những phẩm chất và năng lực cần có của người làm các nghề ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được một số phẩm chất và năng lực của bản thân phù hợp hoặc chưa phù hợp với một số yêu cầu của một số ngành nghề ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được những nguy hiểm có thể xảy ra và cách giữ an toàn khi làm những nghề ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được một số nghề hiện có ở địa phương. – Nêu được công việc đặc trưng, trang thiết bị, dụng cụ lao động cơ bản của một số nghề ở địa phương. – Nêu được những phẩm chất và năng lực cần có của người làm các nghề ở địa phương. – Chỉ ra được một số phẩm chất và năng lực của bản thân phù hợp hoặc chưa phù hợp với một số yêu cầu của một số ngành nghề ở địa phương. – Nhận diện được những nguy hiểm có thể xảy ra và cách giữ an toàn khi làm những nghề ở địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1181,7 +3504,50 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được những nét đặc trưng trong tính cách của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được sự thay đổi cảm xúc của bản thân và biết điều chỉnh theo hướng tích cực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được khả năng tranh biện, thương thuyết của bản thân để bảo vệ quan điểm của mình trong một số tình huống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được những nét đặc trưng trong tính cách của bản thân. – Nhận diện được sự thay đổi cảm xúc của bản thân và biết điều chỉnh theo hướng tích cực. – Nhận diện được khả năng tranh biện, thương thuyết của bản thân để bảo vệ quan điểm của mình trong một số tình huống.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1202,7 +3568,78 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được trách nhiệm với bản thân và với mọi người xung quanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được trách nhiệm của bản thân trong các hoạt động, thực hiện được các cam kết đề ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những tình huống cần từ chối và thực hiện được kĩ năng từ chối trong một số tình huống cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra ảnh hưởng của các yếu tố bên ngoài như tiếp thị, quảng cáo đến quyết định chi tiêu cá nhân để có quyết định phù hợp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự tự chủ trong các mối quan hệ trong đời sống và quan hệ trên mạng xã hội."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được trách nhiệm với bản thân và với mọi người xung quanh. – Thể hiện được trách nhiệm của bản thân trong các hoạt động, thực hiện được các cam kết đề ra. – Nhận biết được những tình huống cần từ chối và thực hiện được kĩ năng từ chối trong một số tình huống cụ thể. – Nhận ra ảnh hưởng của các yếu tố bên ngoài như tiếp thị, quảng cáo đến quyết định chi tiêu cá nhân để có quyết định phù hợp. – Thể hiện được sự tự chủ trong các mối quan hệ trong đời sống và quan hệ trên mạng xã hội.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1223,7 +3660,78 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được những việc làm và lời nói để người thân hài lòng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tôn trọng ý kiến khác nhau của các thành viên trong gia đình và thể hiện được khả năng thuyết phục."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết sắp xếp công việc và hoàn thành các công việc trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện cách sống tiết kiệm trong sinh hoạt gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch kinh doanh của bản thân phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được những việc làm và lời nói để người thân hài lòng. – Tôn trọng ý kiến khác nhau của các thành viên trong gia đình và thể hiện được khả năng thuyết phục. – Biết sắp xếp công việc và hoàn thành các công việc trong gia đình. – Thể hiện cách sống tiết kiệm trong sinh hoạt gia đình. – Lập được kế hoạch kinh doanh của bản thân phù hợp với lứa tuổi.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1245,7 +3753,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được tình bạn và biết cách gìn giữ tình bạn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được dấu hiệu bắt nạt học đường và có kĩ năng phòng, tránh bắt nạt học đường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các việc làm cụ thể góp phần xây dựng truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia hoạt động giáo dục theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh, Đội Thiếu niên Tiền phong Hồ Chí Minh và nhà trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xây dựng được tình bạn và biết cách gìn giữ tình bạn. – Nhận diện được dấu hiệu bắt nạt học đường và có kĩ năng phòng, tránh bắt nạt học đường. – Thực hiện được các việc làm cụ thể góp phần xây dựng truyền thống nhà trường. – Tham gia hoạt động giáo dục theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh, Đội Thiếu niên Tiền phong Hồ Chí Minh và nhà trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1266,7 +3831,50 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết tìm sự hỗ trợ từ những người xung quanh khi gặp khó khăn trong giải quyết vấn đề."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch hoạt động thiện nguyện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động giáo dục truyền thống và phát triển cộng đồng ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết tìm sự hỗ trợ từ những người xung quanh khi gặp khó khăn trong giải quyết vấn đề. – Lập và thực hiện được kế hoạch hoạt động thiện nguyện. – Tham gia các hoạt động giáo dục truyền thống và phát triển cộng đồng ở địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1287,7 +3895,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được sản phẩm thể hiện vẻ đẹp danh lam thắng cảnh, cảnh quan thiên nhiên của địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tổ chức sự kiện giới thiệu về vẻ đẹp cảnh quan thiên nhiên, danh lam thắng cảnh của địa phương và cách bảo tồn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thiết kế được sản phẩm thể hiện vẻ đẹp danh lam thắng cảnh, cảnh quan thiên nhiên của địa phương. – Tổ chức sự kiện giới thiệu về vẻ đẹp cảnh quan thiên nhiên, danh lam thắng cảnh của địa phương và cách bảo tồn.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1308,7 +3945,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm được tài liệu và viết được báo cáo về thiên tai và thiệt hại do thiên tai gây ra cho địa phương trong một số năm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được kế hoạch truyền thông cho người dân địa phương về những biện pháp đề phòng thiên tai và giảm nhẹ rủi ro khi gặp thiên tai."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Sưu tầm được tài liệu và viết được báo cáo về thiên tai và thiệt hại do thiên tai gây ra cho địa phương trong một số năm. – Xây dựng và thực hiện được kế hoạch truyền thông cho người dân địa phương về những biện pháp đề phòng thiên tai và giảm nhẹ rủi ro khi gặp thiên tai.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1330,7 +3996,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được danh mục những nghề phổ biến trong xã hội hiện đại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được việc làm đặc trưng, trang thiết bị, dụng cụ lao động cơ bản của những nghề phổ biến trong xã hội hiện đại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những thách thức, phẩm chất và năng lực cần có của người làm nghề trong xã hội hiện đại."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lập được danh mục những nghề phổ biến trong xã hội hiện đại. – Nêu được việc làm đặc trưng, trang thiết bị, dụng cụ lao động cơ bản của những nghề phổ biến trong xã hội hiện đại. – Nêu được những thách thức, phẩm chất và năng lực cần có của người làm nghề trong xã hội hiện đại.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1351,7 +4060,50 @@
    "topic": "",
    "content": "Hoạt động rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được kế hoạch khảo sát hứng thú nghề nghiệp của học sinh trong trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Rèn luyện được sức khoẻ, độ bền, tính kiên trì, sự chăm chỉ trong công việc và có thái độ tôn trọng đối với lao động nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự đánh giá được việc rèn luyện phẩm chất và năng lực của bản thân phù hợp với yêu cầu của người lao động trong xã hội hiện đại."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xây dựng và thực hiện được kế hoạch khảo sát hứng thú nghề nghiệp của học sinh trong trường. – Rèn luyện được sức khoẻ, độ bền, tính kiên trì, sự chăm chỉ trong công việc và có thái độ tôn trọng đối với lao động nghề nghiệp. – Tự đánh giá được việc rèn luyện phẩm chất và năng lực của bản thân phù hợp với yêu cầu của người lao động trong xã hội hiện đại.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1372,7 +4124,36 @@
    "topic": "",
    "content": "Hoạt động lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Định hướng được các nhóm môn học ở trung học phổ thông liên quan đến hướng nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được kế hoạch học tập hướng nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Định hướng được các nhóm môn học ở trung học phổ thông liên quan đến hướng nghiệp. – Xây dựng được kế hoạch học tập hướng nghiệp.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1393,7 +4174,36 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được điểm tích cực và điểm chưa tích cực trong hành vi giao tiếp, ứng xử của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Khám phá được khả năng thích nghi của bản thân với sự thay đổi trong một số tình huống của cuộc sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được điểm tích cực và điểm chưa tích cực trong hành vi giao tiếp, ứng xử của bản thân. – Khám phá được khả năng thích nghi của bản thân với sự thay đổi trong một số tình huống của cuộc sống.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1415,7 +4225,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện có trách nhiệm các nhiệm vụ được giao."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ứng phó được với những căng thẳng trong quá trình học tập và trước các áp lực của cuộc sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách tạo động lực cho bản thân để thực hiện hoạt động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được ngân sách cá nhân hợp lí trong đó tính đến các khoản thu, chi, tiết kiệm, cho, tặng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện có trách nhiệm các nhiệm vụ được giao. – Ứng phó được với những căng thẳng trong quá trình học tập và trước các áp lực của cuộc sống. – Biết cách tạo động lực cho bản thân để thực hiện hoạt động. – Xây dựng được ngân sách cá nhân hợp lí trong đó tính đến các khoản thu, chi, tiết kiệm, cho, tặng.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1436,7 +4303,64 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tạo được bầu không khí vui vẻ, yêu thương trong gia đình, cùng các thành viên xây dựng gia đình hạnh phúc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết giải quyết bất đồng trong quan hệ giữa bản thân với các thành viên trong gia đình hoặc giữa các thành viên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tổ chức, sắp xếp được các công việc trong gia đình một cách khoa học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được một số biện pháp phát triển kinh tế gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tạo được bầu không khí vui vẻ, yêu thương trong gia đình, cùng các thành viên xây dựng gia đình hạnh phúc. – Biết giải quyết bất đồng trong quan hệ giữa bản thân với các thành viên trong gia đình hoặc giữa các thành viên. – Tổ chức, sắp xếp được các công việc trong gia đình một cách khoa học. – Đề xuất được một số biện pháp phát triển kinh tế gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1457,7 +4381,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tôn trọng sự khác biệt và sống hài hoà với bạn bè, thầy cô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được kế hoạch tổ chức hoạt động phòng chống bắt nạt học đường; tham gia thực hiện và đánh giá được hiệu quả của hoạt động này."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được mục tiêu và xây dựng được kế hoạch cho các buổi lao động công ích ở trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được các sản phẩm đóng góp xây dựng truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động của Đoàn Thanh niên Cộng sản Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tôn trọng sự khác biệt và sống hài hoà với bạn bè, thầy cô. – Xây dựng được kế hoạch tổ chức hoạt động phòng chống bắt nạt học đường; tham gia thực hiện và đánh giá được hiệu quả của hoạt động này. – Xác định được mục tiêu và xây dựng được kế hoạch cho các buổi lao động công ích ở trường. – Làm được các sản phẩm đóng góp xây dựng truyền thống nhà trường. – Tham gia các hoạt động của Đoàn Thanh niên Cộng sản Hồ Chí Minh.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1479,7 +4474,64 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách xây dựng mạng lưới quan hệ cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được đề tài khảo sát về thực trạng giao tiếp của học sinh trên mạng xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được kế hoạch truyền thông trong cộng đồng về những vấn đề học đường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia các hoạt động giáo dục truyền thống và phát triển cộng đồng ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết cách xây dựng mạng lưới quan hệ cộng đồng. – Thực hiện được đề tài khảo sát về thực trạng giao tiếp của học sinh trên mạng xã hội. – Xây dựng và thực hiện được kế hoạch truyền thông trong cộng đồng về những vấn đề học đường. – Tham gia các hoạt động giáo dục truyền thống và phát triển cộng đồng ở địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1500,7 +4552,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được sản phẩm thể hiện vẻ đẹp danh lam thắng cảnh, cảnh quan thiên nhiên của đất nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được kế hoạch quảng bá về cảnh quan thiên nhiên, danh lam thắng cảnh của đất nước."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thiết kế được sản phẩm thể hiện vẻ đẹp danh lam thắng cảnh, cảnh quan thiên nhiên của đất nước. – Xây dựng và thực hiện được kế hoạch quảng bá về cảnh quan thiên nhiên, danh lam thắng cảnh của đất nước.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1521,7 +4602,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được đề tài khảo sát về nguyên nhân ô nhiễm môi trường (đất, nước, không khí) tại địa bàn sinh sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia tuyên truyền đến người dân địa phương các biện pháp phòng chống ô nhiễm và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được đề tài khảo sát về nguyên nhân ô nhiễm môi trường (đất, nước, không khí) tại địa bàn sinh sống. – Tham gia tuyên truyền đến người dân địa phương các biện pháp phòng chống ô nhiễm và bảo vệ môi trường.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1542,7 +4652,64 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên được những nghề mà mình quan tâm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được hoạt động đặc trưng, trang thiết bị, dụng cụ lao động của những nghề mà mình quan tâm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những phẩm chất và năng lực cần có của người làm những nghề mà mình quan tâm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được những nguy hiểm có thể có và cách giữ an toàn khi làm những nghề mà mình quan tâm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Kể tên được những nghề mà mình quan tâm. – Nêu được hoạt động đặc trưng, trang thiết bị, dụng cụ lao động của những nghề mà mình quan tâm. – Nêu được những phẩm chất và năng lực cần có của người làm những nghề mà mình quan tâm. – Nhận diện được những nguy hiểm có thể có và cách giữ an toàn khi làm những nghề mà mình quan tâm.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1564,7 +4731,50 @@
    "topic": "",
    "content": "Hoạt động rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá và rèn luyện phẩm chất và năng lực liên quan đến nghề mình quan tâm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được kế hoạch phát triển bản thân để đạt được yêu cầu của định hướng nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự đánh giá được hiệu quả của việc rèn luyện phẩm chất và năng lực cần có của người lao động."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Đánh giá và rèn luyện phẩm chất và năng lực liên quan đến nghề mình quan tâm. – Thực hiện được kế hoạch phát triển bản thân để đạt được yêu cầu của định hướng nghề nghiệp. – Tự đánh giá được hiệu quả của việc rèn luyện phẩm chất và năng lực cần có của người lao động.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1585,7 +4795,50 @@
    "topic": "",
    "content": "Hoạt động lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được hệ thống các trường trung học chuyên nghiệp và đào tạo nghề của trung ương và địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham vấn được ý kiến của người thân, thầy cô về con đường tiếp theo sau trung học cơ sở."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ra quyết định lựa chọn con đường học tập, làm việc sau trung học cơ sở."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tìm hiểu được hệ thống các trường trung học chuyên nghiệp và đào tạo nghề của trung ương và địa phương. – Tham vấn được ý kiến của người thân, thầy cô về con đường tiếp theo sau trung học cơ sở. – Ra quyết định lựa chọn con đường học tập, làm việc sau trung học cơ sở.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1606,7 +4859,50 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được những đặc điểm tính cách, quan điểm sống của bản thân và biết cách phát huy điểm mạnh, hạn chế điểm yếu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được khả năng điều chỉnh tư duy theo hướng tích cực cho bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự chủ động của bản thân trong môi trường học tập, giao tiếp khác nhau."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Chỉ ra được những đặc điểm tính cách, quan điểm sống của bản thân và biết cách phát huy điểm mạnh, hạn chế điểm yếu. – Nhận diện được khả năng điều chỉnh tư duy theo hướng tích cực cho bản thân. – Thể hiện được sự chủ động của bản thân trong môi trường học tập, giao tiếp khác nhau.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1627,7 +4923,78 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện tốt nội quy, quy định của trường, lớp, cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có trách nhiệm trong thực hiện nhiệm vụ được giao và hỗ trợ những người cùng tham gia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hình thành được tư duy phản biện khi đánh giá sự vật hiện tượng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự tự chủ, lòng tự trọng, ý chí vượt khó để đạt được mục tiêu đề ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được kế hoạch tài chính cá nhân một cách hợp lí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện tốt nội quy, quy định của trường, lớp, cộng đồng. – Có trách nhiệm trong thực hiện nhiệm vụ được giao và hỗ trợ những người cùng tham gia. – Hình thành được tư duy phản biện khi đánh giá sự vật hiện tượng. – Thể hiện được sự tự chủ, lòng tự trọng, ý chí vượt khó để đạt được mục tiêu đề ra. – Xây dựng được kế hoạch tài chính cá nhân một cách hợp lí.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1648,7 +5015,64 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ứng xử phù hợp với các tình huống giao tiếp khác nhau trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được trách nhiệm của bản thân với bố mẹ, người thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được trách nhiệm đối với các hoạt động lao động trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất các biện pháp phát triển kinh tế và góp phần phát triển kinh tế cho gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Ứng xử phù hợp với các tình huống giao tiếp khác nhau trong gia đình. – Thực hiện được trách nhiệm của bản thân với bố mẹ, người thân. – Thể hiện được trách nhiệm đối với các hoạt động lao động trong gia đình. – Đề xuất các biện pháp phát triển kinh tế và góp phần phát triển kinh tế cho gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1669,7 +5093,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự tự tin trong các tình huống giao tiếp, ứng xử và biết cách thể hiện sự thân thiện với bạn bè, thầy cô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách thu hút các bạn vào hoạt động chung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch giáo dục truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được ý nghĩa của hoạt động giáo dục truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện các hoạt động theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện sự tự tin trong các tình huống giao tiếp, ứng xử và biết cách thể hiện sự thân thiện với bạn bè, thầy cô. – Biết cách thu hút các bạn vào hoạt động chung. – Lập và thực hiện được kế hoạch giáo dục truyền thống nhà trường. – Đánh giá được ý nghĩa của hoạt động giáo dục truyền thống nhà trường. – Thực hiện các hoạt động theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1690,7 +5185,50 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các biện pháp mở rộng quan hệ và thu hút cộng đồng vào các hoạt động xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch tuyên truyền trong cộng đồng về văn hoá ứng xử nơi công cộng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia một số hoạt động cộng đồng phù hợp và đánh giá được kết quả hoạt động phát triển cộng đồng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thực hiện được các biện pháp mở rộng quan hệ và thu hút cộng đồng vào các hoạt động xã hội. – Lập và thực hiện được kế hoạch tuyên truyền trong cộng đồng về văn hoá ứng xử nơi công cộng. – Tham gia một số hoạt động cộng đồng phù hợp và đánh giá được kết quả hoạt động phát triển cộng đồng.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1712,7 +5250,36 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được kế hoạch tuyên truyền, kêu gọi mọi người chung tay bảo vệ cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét, đánh giá được các hành vi, việc làm của tổ chức, cá nhân trong việc bảo tồn cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xây dựng và thực hiện được kế hoạch tuyên truyền, kêu gọi mọi người chung tay bảo vệ cảnh quan thiên nhiên. – Nhận xét, đánh giá được các hành vi, việc làm của tổ chức, cá nhân trong việc bảo tồn cảnh quan thiên nhiên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1733,7 +5300,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích, đánh giá được thực trạng môi trường tự nhiên tại địa phương; tác động của con người tới môi trường tự nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thuyết trình được với các đối tượng khác nhau về ý nghĩa của việc bảo vệ môi trường tự nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được và tham gia thực hiện các giải pháp bảo vệ môi trường tự nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích, đánh giá được thực trạng môi trường tự nhiên tại địa phương; tác động của con người tới môi trường tự nhiên. – Thuyết trình được với các đối tượng khác nhau về ý nghĩa của việc bảo vệ môi trường tự nhiên. – Đề xuất được và tham gia thực hiện các giải pháp bảo vệ môi trường tự nhiên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1754,7 +5364,64 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những hoạt động sản xuất, kinh doanh, dịch vụ của địa phương và nêu được thông tin, yêu cầu cơ bản về các nhóm nghề này."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách tìm hiểu các thông tin về nhóm nghề mình quan tâm, yêu cầu về năng lực, phẩm chất theo nhóm nghề."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được những điều kiện đảm bảo an toàn và sức khoẻ nghề nghiệp trong từng lĩnh vực nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được phẩm chất và năng lực cần có của người lao động thông qua trải nghiệm một nghề cụ thể và yêu cầu của nhà tuyển dụng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Xác định được những hoạt động sản xuất, kinh doanh, dịch vụ của địa phương và nêu được thông tin, yêu cầu cơ bản về các nhóm nghề này. – Biết cách tìm hiểu các thông tin về nhóm nghề mình quan tâm, yêu cầu về năng lực, phẩm chất theo nhóm nghề. – Tìm hiểu được những điều kiện đảm bảo an toàn và sức khoẻ nghề nghiệp trong từng lĩnh vực nghề nghiệp. – Phân tích được phẩm chất và năng lực cần có của người lao động thông qua trải nghiệm một nghề cụ thể và yêu cầu của nhà tuyển dụng.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1775,7 +5442,50 @@
    "topic": "",
    "content": "Hoạt động rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được sự phù hợp của bản thân với nhóm nghề định lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện kế hoạch rèn luyện bản thân theo định hướng nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được cách rèn luyện phù hợp về phẩm chất và năng lực cần thiết cho nhóm nghề định lựa chọn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Đánh giá được sự phù hợp của bản thân với nhóm nghề định lựa chọn. – Xây dựng và thực hiện kế hoạch rèn luyện bản thân theo định hướng nghề nghiệp. – Lựa chọn được cách rèn luyện phù hợp về phẩm chất và năng lực cần thiết cho nhóm nghề định lựa chọn.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1796,7 +5506,50 @@
    "topic": "",
    "content": "Hoạt động lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số thông tin cơ bản về hệ thống trường đào tạo liên quan đến nghề định lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham vấn ý kiến thầy cô, gia đình, bạn bè về dự định lựa chọn nghề và định hướng học tập của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện kế hoạch học tập, rèn luyện theo nhóm nghề lựa chọn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được một số thông tin cơ bản về hệ thống trường đào tạo liên quan đến nghề định lựa chọn. – Tham vấn ý kiến thầy cô, gia đình, bạn bè về dự định lựa chọn nghề và định hướng học tập của bản thân. – Xây dựng và thực hiện kế hoạch học tập, rèn luyện theo nhóm nghề lựa chọn.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1817,7 +5570,50 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được nét riêng và thể hiện được sự tự tin về đặc điểm riêng của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những điểm mạnh, điểm yếu của bản thân và biết điều chỉnh bản thân để thích ứng với sự thay đổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được hứng thú, sở trường của bản thân và có kế hoạch phát triển sở trường liên quan đến định hướng nghề nghiệp trong tương lai."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được nét riêng và thể hiện được sự tự tin về đặc điểm riêng của bản thân. – Phân tích được những điểm mạnh, điểm yếu của bản thân và biết điều chỉnh bản thân để thích ứng với sự thay đổi. – Nhận diện được hứng thú, sở trường của bản thân và có kế hoạch phát triển sở trường liên quan đến định hướng nghề nghiệp trong tương lai.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1838,7 +5634,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tuân thủ kỉ luật, quy định của nhóm, tập thể trường, lớp, cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự nỗ lực hoàn thiện bản thân; biết thu hút các bạn cùng phấn đấu hoàn thiện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quản lí được cảm xúc của bản thân và ứng xử hợp lí trong các tình huống giao tiếp khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được kế hoạch tài chính cá nhân một cách hợp lí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tuân thủ kỉ luật, quy định của nhóm, tập thể trường, lớp, cộng đồng. – Thể hiện được sự nỗ lực hoàn thiện bản thân; biết thu hút các bạn cùng phấn đấu hoàn thiện. – Quản lí được cảm xúc của bản thân và ứng xử hợp lí trong các tình huống giao tiếp khác nhau. – Thực hiện được kế hoạch tài chính cá nhân một cách hợp lí.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1860,7 +5713,78 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự quan tâm chăm sóc thường xuyên những người thân trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách hoá giải những mâu thuẫn, xung đột xảy ra trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự tự giác và trách nhiệm tham gia các hoạt động lao động khác nhau trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự tự tin trong việc tổ chức sắp xếp hợp lí công việc gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch chi tiêu phù hợp với thu nhập trong gia đình và thực hiện được mục tiêu tiết kiệm tài chính trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được sự quan tâm chăm sóc thường xuyên những người thân trong gia đình. – Biết cách hoá giải những mâu thuẫn, xung đột xảy ra trong gia đình. – Thể hiện sự tự giác và trách nhiệm tham gia các hoạt động lao động khác nhau trong gia đình. – Thể hiện sự tự tin trong việc tổ chức sắp xếp hợp lí công việc gia đình. – Lập được kế hoạch chi tiêu phù hợp với thu nhập trong gia đình và thực hiện được mục tiêu tiết kiệm tài chính trong gia đình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1881,7 +5805,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách phát triển mối quan hệ tốt đẹp với thầy cô, bạn bè."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm chủ và kiểm soát được các mối quan hệ với bạn bè ở trường cũng như qua mạng xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hợp tác được với bạn để cùng xây dựng và thực hiện các hoạt động xây dựng và phát triển nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được hiệu quả của hoạt động phát huy truyền thống nhà trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện các hoạt động theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết cách phát triển mối quan hệ tốt đẹp với thầy cô, bạn bè. – Làm chủ và kiểm soát được các mối quan hệ với bạn bè ở trường cũng như qua mạng xã hội. – Hợp tác được với bạn để cùng xây dựng và thực hiện các hoạt động xây dựng và phát triển nhà trường. – Đánh giá được hiệu quả của hoạt động phát huy truyền thống nhà trường. – Thực hiện các hoạt động theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1902,7 +5897,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách xây dựng và phát triển các mối quan hệ với mọi người trong cộng đồng"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được hành vi văn minh nơi công cộng và trách nhiệm của bản thân với cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được kế hoạch tổ chức hoạt động phát triển cộng đồng và đề xuất được giải pháp quản lí việc thực hiện hoạt động đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được ý nghĩa của hoạt động phát triển cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện được kế hoạch truyền thông trong cộng đồng về vấn đề văn hoá mạng xã hội."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Biết cách xây dựng và phát triển các mối quan hệ với mọi người trong cộng đồng – Thể hiện được hành vi văn minh nơi công cộng và trách nhiệm của bản thân với cộng đồng. – Xây dựng được kế hoạch tổ chức hoạt động phát triển cộng đồng và đề xuất được giải pháp quản lí việc thực hiện hoạt động đó. – Đánh giá được ý nghĩa của hoạt động phát triển cộng đồng. – Xây dựng và thực hiện được kế hoạch truyền thông trong cộng đồng về vấn đề văn hoá mạng xã hội.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1924,7 +5990,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra ý nghĩa của cảnh quan thiên nhiên đối với trạng thái cảm xúc của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chủ động, tích cực thực hiện việc bảo tồn cảnh quan thiên nhiên, quảng bá hình ảnh cảnh quan thiên nhiên và kêu gọi mọi người cùng thực hiện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được thực trạng bảo tồn danh lam thắng cảnh của cộng đồng dân cư tại địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận ra ý nghĩa của cảnh quan thiên nhiên đối với trạng thái cảm xúc của bản thân. – Chủ động, tích cực thực hiện việc bảo tồn cảnh quan thiên nhiên, quảng bá hình ảnh cảnh quan thiên nhiên và kêu gọi mọi người cùng thực hiện. – Đánh giá được thực trạng bảo tồn danh lam thắng cảnh của cộng đồng dân cư tại địa phương.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1945,7 +6054,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nghiên cứu, khảo sát thực trạng môi trường tự nhiên ở địa phương, tác động của sự phát triển sản xuất kinh doanh đến môi trường và báo cáo kết quả khảo sát."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được các kiến nghị về bảo vệ môi trường từ số liệu khảo sát."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tuyên truyền đến người dân địa phương các biện pháp bảo vệ tài nguyên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nghiên cứu, khảo sát thực trạng môi trường tự nhiên ở địa phương, tác động của sự phát triển sản xuất kinh doanh đến môi trường và báo cáo kết quả khảo sát. – Đưa ra được các kiến nghị về bảo vệ môi trường từ số liệu khảo sát. – Tuyên truyền đến người dân địa phương các biện pháp bảo vệ tài nguyên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1966,7 +6118,64 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân loại được các nhóm nghề cơ bản; chỉ ra được đặc trưng, yêu cầu của từng nhóm nghề."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được yêu cầu của nhà tuyển dụng về phẩm chất và năng lực của người lao động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được ý nghĩa của việc đảm bảo an toàn và sức khoẻ nghề nghiệp của người lao động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm được tài liệu về xu hướng phát triển nghề trong xã hội và thị trường lao động."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân loại được các nhóm nghề cơ bản; chỉ ra được đặc trưng, yêu cầu của từng nhóm nghề. – Phân tích được yêu cầu của nhà tuyển dụng về phẩm chất và năng lực của người lao động. – Giải thích được ý nghĩa của việc đảm bảo an toàn và sức khoẻ nghề nghiệp của người lao động. – Sưu tầm được tài liệu về xu hướng phát triển nghề trong xã hội và thị trường lao động.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1987,7 +6196,50 @@
    "topic": "",
    "content": "Hoạt động rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được điểm mạnh, điểm yếu của bản thân đối với từng nhóm nghề và chỉ ra được phẩm chất và năng lực của bản thân phù hợp hoặc không phù hợp với nhóm nghề, nghề lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khó khăn, thuận lợi trong việc xây dựng và thực hiện kế hoạch rèn luyện theo nhóm nghề lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được giải pháp học tập, rèn luyện theo định hướng nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Đánh giá được điểm mạnh, điểm yếu của bản thân đối với từng nhóm nghề và chỉ ra được phẩm chất và năng lực của bản thân phù hợp hoặc không phù hợp với nhóm nghề, nghề lựa chọn. – Đánh giá được khó khăn, thuận lợi trong việc xây dựng và thực hiện kế hoạch rèn luyện theo nhóm nghề lựa chọn. – Đề xuất được giải pháp học tập, rèn luyện theo định hướng nghề nghiệp.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2008,7 +6260,64 @@
    "topic": "",
    "content": "Hoạt động lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các thông tin cơ bản về các trường trung cấp, cao đẳng, đại học liên quan đến nhóm nghề, nghề mà bản thân định lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham vấn được ý kiến của thầy cô, gia đình, bạn bè về dự kiến ngành, nghề lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được những trường đào tạo nghề liên quan đến việc học tập hướng nghiệp của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và thực hiện kế hoạch học tập theo định hướng ngành, nghề lựa chọn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được các thông tin cơ bản về các trường trung cấp, cao đẳng, đại học liên quan đến nhóm nghề, nghề mà bản thân định lựa chọn. – Tham vấn được ý kiến của thầy cô, gia đình, bạn bè về dự kiến ngành, nghề lựa chọn. – Xác định được những trường đào tạo nghề liên quan đến việc học tập hướng nghiệp của bản thân. – Xây dựng và thực hiện kế hoạch học tập theo định hướng ngành, nghề lựa chọn.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2029,7 +6338,50 @@
    "topic": "",
    "content": "Hoạt động khám phá bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được sự trưởng thành của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được phẩm chất ý chí và sự đam mê của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận diện được khả năng tư duy độc lập và khả năng thích ứng với sự thay đổi của bản thân."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận diện được sự trưởng thành của bản thân. – Nhận diện được phẩm chất ý chí và sự đam mê của bản thân. – Nhận diện được khả năng tư duy độc lập và khả năng thích ứng với sự thay đổi của bản thân.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2050,7 +6402,78 @@
    "topic": "",
    "content": "Hoạt động rèn luyện bản thân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được tinh thần trách nhiệm, sự trung thực, tuân thủ nội quy, quy định của pháp luật trong đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được bản lĩnh và của bản thân trong việc thực hiện đam mê theo đuổi nghề yêu thích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được công việc theo kế hoạch, tuân thủ thời gian và thực hiện cam kết đề ra."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Điều chỉnh được cảm xúc của bản thân và ứng xử hợp lí trong những tình huống giao tiếp khác nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch phát triển tài chính cho bản thân trong điều kiện phù hợp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được tinh thần trách nhiệm, sự trung thực, tuân thủ nội quy, quy định của pháp luật trong đời sống. – Thể hiện được bản lĩnh và của bản thân trong việc thực hiện đam mê theo đuổi nghề yêu thích. – Thực hiện được công việc theo kế hoạch, tuân thủ thời gian và thực hiện cam kết đề ra. – Điều chỉnh được cảm xúc của bản thân và ứng xử hợp lí trong những tình huống giao tiếp khác nhau. – Lập và thực hiện được kế hoạch phát triển tài chính cho bản thân trong điều kiện phù hợp.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2071,7 +6494,64 @@
    "topic": "",
    "content": "Hoạt động chăm sóc gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự chăm sóc chu đáo đến các thành viên trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự chủ động tham gia giải quyết những vấn đề nảy sinh trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được vai trò, trách nhiệm của bản thân trong việc tổ chức cuộc sống gia đình và thấy được giá trị gia đình đối với cá nhân và xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được chi phí sinh hoạt trong gia đình có thể bị ảnh hưởng bởi thu nhập thực tế, quyết định chi tiêu và lối sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện sự chăm sóc chu đáo đến các thành viên trong gia đình. – Thể hiện sự chủ động tham gia giải quyết những vấn đề nảy sinh trong gia đình. – Thực hiện được vai trò, trách nhiệm của bản thân trong việc tổ chức cuộc sống gia đình và thấy được giá trị gia đình đối với cá nhân và xã hội. – Phân tích được chi phí sinh hoạt trong gia đình có thể bị ảnh hưởng bởi thu nhập thực tế, quyết định chi tiêu và lối sống.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2092,7 +6572,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng nhà trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nuôi dưỡng, giữ gìn và mở rộng được các quan hệ tốt đẹp với thầy cô, bạn bè."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được lập trường quan điểm phù hợp khi phân tích dư luận xã hội về quan hệ bạn bè trên mạng xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hợp tác được với mọi người trong hoạt động và biết giải quyết mâu thuẫn trong các quan hệ bạn bè."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được ý nghĩa của hoạt động phát triển các mối quan hệ và xây dựng truyền thống nhà trường đối với cá nhân và tập thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện các hoạt động theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nuôi dưỡng, giữ gìn và mở rộng được các quan hệ tốt đẹp với thầy cô, bạn bè. – Thể hiện được lập trường quan điểm phù hợp khi phân tích dư luận xã hội về quan hệ bạn bè trên mạng xã hội. – Hợp tác được với mọi người trong hoạt động và biết giải quyết mâu thuẫn trong các quan hệ bạn bè. – Đánh giá được ý nghĩa của hoạt động phát triển các mối quan hệ và xây dựng truyền thống nhà trường đối với cá nhân và tập thể. – Thực hiện các hoạt động theo chủ đề của Đoàn Thanh niên Cộng sản Hồ Chí Minh.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2114,7 +6665,78 @@
    "topic": "",
    "content": "Hoạt động xây dựng cộng đồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự chủ động và tự tin trong thiết lập các mối quan hệ xã hội, sẵn sàng chia sẻ giúp đỡ cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được các hoạt động giáo dục tinh thần đoàn kết dân tộc, hoà bình hữu nghị."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự hứng thú, ham hiểu biết khi khám phá các nền văn hoá khác nhau; thể hiện được thái độ tôn trọng sự khác biệt giữa các nền văn hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng và triển khai được dự án hoạt động tình nguyện nhân đạo và quản lí dự án hiệu quả."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được ý nghĩa của hoạt động xã hội."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Thể hiện được sự chủ động và tự tin trong thiết lập các mối quan hệ xã hội, sẵn sàng chia sẻ giúp đỡ cộng đồng. – Thực hiện được các hoạt động giáo dục tinh thần đoàn kết dân tộc, hoà bình hữu nghị. – Thể hiện được sự hứng thú, ham hiểu biết khi khám phá các nền văn hoá khác nhau; thể hiện được thái độ tôn trọng sự khác biệt giữa các nền văn hoá. – Xây dựng và triển khai được dự án hoạt động tình nguyện nhân đạo và quản lí dự án hiệu quả. – Đánh giá được ý nghĩa của hoạt động xã hội.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2135,7 +6757,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo tồn cảnh quan thiên nhiên",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được thực trạng bảo tồn một số danh lam thắng cảnh ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất và thực hiện được các giải pháp tích cực, sáng tạo trong việc bảo tồn cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc tuyên truyền trong cộng đồng về ý nghĩa của cảnh quan thiên nhiên và hành động chung tay gìn giữ cảnh quan thiên nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Đánh giá được thực trạng bảo tồn một số danh lam thắng cảnh ở địa phương. – Đề xuất và thực hiện được các giải pháp tích cực, sáng tạo trong việc bảo tồn cảnh quan thiên nhiên. – Thực hiện được việc tuyên truyền trong cộng đồng về ý nghĩa của cảnh quan thiên nhiên và hành động chung tay gìn giữ cảnh quan thiên nhiên.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2156,7 +6821,50 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu và bảo vệ môi trường",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch khảo sát thực trạng thế giới động, thực vật và bảo vệ thế giới động, thực vật ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện và tuyên truyền được đến người thân, cộng đồng các biện pháp bảo vệ thế giới động, thực vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận xét, đánh giá hành vi, việc làm của cá nhân, tổ chức trong việc bảo tồn thế giới tự nhiên và động vật hoang dã."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lập và thực hiện được kế hoạch khảo sát thực trạng thế giới động, thực vật và bảo vệ thế giới động, thực vật ở địa phương. – Thực hiện và tuyên truyền được đến người thân, cộng đồng các biện pháp bảo vệ thế giới động, thực vật. – Nhận xét, đánh giá hành vi, việc làm của cá nhân, tổ chức trong việc bảo tồn thế giới tự nhiên và động vật hoang dã.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2178,7 +6886,64 @@
    "topic": "",
    "content": "Hoạt động tìm hiểu nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được xu hướng phát triển nghề nghiệp trong xã hội hiện đại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được những phẩm chất và năng lực cần có của người lao động trong xã hội hiện đại"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu tính chuyên nghiệp trong công việc, đảm bảo yêu cầu về an toàn và sức khoẻ nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những thông tin cơ bản về thị trường lao động, nhu cầu sử dụng của thị trường lao động."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được xu hướng phát triển nghề nghiệp trong xã hội hiện đại. – Chỉ ra được những phẩm chất và năng lực cần có của người lao động trong xã hội hiện đại – Tìm hiểu tính chuyên nghiệp trong công việc, đảm bảo yêu cầu về an toàn và sức khoẻ nghề nghiệp. – Phân tích được những thông tin cơ bản về thị trường lao động, nhu cầu sử dụng của thị trường lao động.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2199,7 +6964,64 @@
    "topic": "",
    "content": "Hoạt động rèn luyện phẩm chất, năng lực phù hợp với định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được sự phù hợp của nghề với khả năng và sở thích của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định những phẩm chất, năng lực, hứng thú, sở trường của bản thân phù hợp với ngành, nghề lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Rèn luyện được một số phẩm chất và năng lực phù hợp với nghề định lựa chọn và có thể chuyển đổi nghề khi cần thiết."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự tin về bản thân và tự tin với định hướng nghề nghiệp của mình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Đánh giá được sự phù hợp của nghề với khả năng và sở thích của bản thân. – Xác định những phẩm chất, năng lực, hứng thú, sở trường của bản thân phù hợp với ngành, nghề lựa chọn. – Rèn luyện được một số phẩm chất và năng lực phù hợp với nghề định lựa chọn và có thể chuyển đổi nghề khi cần thiết. – Tự tin về bản thân và tự tin với định hướng nghề nghiệp của mình.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2220,7 +7042,64 @@
    "topic": "",
    "content": "Hoạt động lựa chọn hướng nghề nghiệp và lập kế hoạch học tập theo định hướng nghề nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và xử lí được các thông tin nghề nghiệp, thông tin về các cơ sở đào tạo và giáo dục nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham khảo được ý kiến của gia đình, thầy cô, chuyên gia làm cơ sở cho việc chọn hướng học tập nghề nghiệp phù hợp với bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đưa ra được quyết định lựa chọn nghề, nhóm nghề hoặc lựa chọn được ngành học, trường học và chuẩn bị tâm lí thích ứng với môi trường làm việc hoặc học tập tương lai."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có tâm thế sẵn sàng bước vào thế giới nghề nghiệp, sẵn sàng tham gia và hoà nhập với lực lượng lao động xã hội."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích và xử lí được các thông tin nghề nghiệp, thông tin về các cơ sở đào tạo và giáo dục nghề nghiệp. – Tham khảo được ý kiến của gia đình, thầy cô, chuyên gia làm cơ sở cho việc chọn hướng học tập nghề nghiệp phù hợp với bản thân. – Đưa ra được quyết định lựa chọn nghề, nhóm nghề hoặc lựa chọn được ngành học, trường học và chuẩn bị tâm lí thích ứng với môi trường làm việc hoặc học tập tương lai. – Có tâm thế sẵn sàng bước vào thế giới nghề nghiệp, sẵn sàng tham gia và hoà nhập với lực lượng lao động xã hội.",
    "source": {
     "document": "Chương trình Hoạt động trải nghiệm và Hoạt động trải nghiệm, hướng nghiệp ban hành kèm Thông tư 32/2018/TT-BGDĐT",

@@ -18,10 +18,21 @@ import {
  * ghi + trang) — khớp 100% mới đạt, theo đúng tiêu chí xong của issue.
  */
 
+/** Node của một YCCĐ dạng Tiptap doc trong dataset (doc/paragraph/text + bulletList/listItem cho ý con). */
+interface OutcomeDocNode {
+  type: string;
+  text?: string;
+  content?: OutcomeDocNode[];
+}
+interface OutcomeDoc {
+  type: 'doc';
+  content?: OutcomeDocNode[];
+}
+
 interface ProgramRecord {
   id: string; subject: string; grade: number; stream: string;
   section: string | null; topic: string | null; content: string;
-  outcomes: string[]; outcome_text: string;
+  outcomes: (string | OutcomeDoc)[]; outcome_text: string;
   source: { document: string; file: string; pdf_pages: number[] };
 }
 interface ProgramDataset { records: ProgramRecord[] }
@@ -30,9 +41,33 @@ function loadDataset(fileName: string): ProgramDataset {
   return JSON.parse(readFileSync(join(process.cwd(), 'src/modules/curriculum/program-data', fileName), 'utf8')) as ProgramDataset;
 }
 
-/** Các dòng YCCĐ kỳ vọng của một bản ghi — cùng quy tắc với cơ chế nạp (outcomes[] → từng dòng; rỗng + outcome_text → một dòng; cả hai rỗng → không dòng). */
+/**
+ * Text của một YCCĐ dạng doc — ORACLE trích độc lập trong spec (không
+ * dùng code nạp, giữ tính độc lập của oracle): mỗi paragraph là một
+ * dòng, listItem cho dòng của paragraph của nó rồi tới các dòng của
+ * bulletList lồng bên trong (đệ quy); các dòng nối bằng '\n', cắt
+ * khoảng trắng hai đầu — đúng semantics text canonical mà hệ lưu vào
+ * `learning_outcomes.content` ở lát này (cột text; bản doc đầy đủ chỉ
+ * lưu ở lát JSONB xếp sau đợt #161).
+ */
+function docOutcomeText(doc: OutcomeDoc): string {
+  const lines: string[] = [];
+  const walk = (node: OutcomeDocNode): void => {
+    if (node.type === 'paragraph') {
+      lines.push((node.content ?? []).filter((c) => c.type === 'text').map((c) => c.text ?? '').join(''));
+      return;
+    }
+    for (const child of node.content ?? []) walk(child);
+  };
+  walk(doc);
+  return lines.join('\n').trim();
+}
+
+/** Các dòng YCCĐ kỳ vọng của một bản ghi — cùng quy tắc với cơ chế nạp (outcomes[] → từng dòng, phần tử dạng doc trích text bằng docOutcomeText; rỗng + outcome_text → một dòng; cả hai rỗng → không dòng). */
 function expectedOutcomeTexts(r: ProgramRecord): string[] {
-  if (r.outcomes.length > 0) return [...r.outcomes];
+  if (r.outcomes.length > 0) {
+    return r.outcomes.map((o) => (typeof o === 'string' ? o : docOutcomeText(o)));
+  }
   if (r.outcome_text.trim().length > 0) return [r.outcome_text];
   return [];
 }
