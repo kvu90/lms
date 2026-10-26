@@ -94,6 +94,28 @@ export class ExamMatricesController {
     }
     return this.matrixImport.previewImport(actor.id, file.buffer);
   }
+  @Post('import')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  /**
+   * POST /exam-matrices/import (multipart, trường `file`) — GHI ma
+   * trận từ file đã điền (lát I-2, issue #233): client tải lại chính
+   * file đã xem trước; server parse lại từ đầu, chạy lại toàn bộ luật
+   * hợp lệ của bước xem trước tại thời điểm ghi rồi ghi NGUYÊN TỬ
+   * (ma trận mới + toàn bộ ô trong một transaction) vào bank ma trận
+   * cá nhân của người nhập, trạng thái draft. Trả 201 + view ma trận
+   * như `GET /exam-matrices/:id`. File không còn hợp lệ tại thời điểm
+   * ghi → 422 ProblemDetails mã `quiz.matrix_import_invalid` kèm
+   * `matrixImportIssues` định vị từng lỗi, không ghi một phần. Gửi
+   * lại cùng một nội dung (double submit/retry) trả ma trận đã có
+   * thay vì tạo bản thứ hai. Route tĩnh phải đứng trước
+   * `@Post(':id/cells')`.
+   */
+  async importCommit(@UploadedFile() file: { buffer: Buffer } | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    if (!file) {
+      throw new BadRequestException({ message: 'An .xlsx file is required in the multipart field "file"', code: 'quiz.matrix_import_file_required' });
+    }
+    return this.matrixImport.commitImport(actor.id, file.buffer);
+  }
   @Get('by-subject/:subjectId')
   /**
    * GET /exam-matrices/by-subject/:subjectId — các ma trận của một môn.

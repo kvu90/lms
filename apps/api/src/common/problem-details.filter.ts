@@ -43,6 +43,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     let code = 'http.internal_error';
     let errors: ProblemDetails['errors'];
     let blockedStudents: ProblemDetails['blockedStudents'];
+    let matrixImportIssues: ProblemDetails['matrixImportIssues'];
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -87,6 +88,26 @@ export class ProblemDetailsFilter implements ExceptionFilter {
             }));
           }
         }
+        /**
+         * Extension member `matrixImportIssues` của exception nội bộ
+         * (ghi nhập ma trận bị từ chối nguyên tử, lát I-2 của #233) →
+         * mang nguyên sang problem: lỗi cứng ĐỊNH VỊ (sheet/dòng/cột)
+         * của đường parse file, chỉ nhận các phần tử đúng hình dạng
+         * `MatrixImportIssue` đã khai trong contracts — dữ liệu lạ
+         * hình bị bỏ thay vì lộ nguyên ra ngoài.
+         */
+        if (Array.isArray(record.matrixImportIssues)) {
+          const shaped = record.matrixImportIssues.filter(
+            (i): i is { sheet: string | null; row: number | null; column: string | null; code: string; message: string } =>
+              !!i && typeof i === 'object'
+              && ((i as { sheet?: unknown }).sheet === null || typeof (i as { sheet?: unknown }).sheet === 'string')
+              && ((i as { row?: unknown }).row === null || typeof (i as { row?: unknown }).row === 'number')
+              && ((i as { column?: unknown }).column === null || typeof (i as { column?: unknown }).column === 'string')
+              && typeof (i as { code?: unknown }).code === 'string'
+              && typeof (i as { message?: unknown }).message === 'string',
+          );
+          if (shaped.length > 0) matrixImportIssues = shaped;
+        }
       }
     } else {
       this.logger.error(
@@ -120,6 +141,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       code,
       ...(errors ? { errors } : {}),
       ...(blockedStudents ? { blockedStudents } : {}),
+      ...(matrixImportIssues ? { matrixImportIssues } : {}),
     };
 
     response

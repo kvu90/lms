@@ -21,9 +21,12 @@
  *    tổng hai chiều từ các ô (KHÔNG tin công thức trong file), đối
  *    chiếu từng Mã ĐVK với `curriculum_nodes` thật của chương trình
  *    trong file và đính khả dụng ngân hàng theo từng ô dự thảo.
- * 3. Lát I-1 KHÔNG ghi DB: preview chỉ là kết quả kiểm. Ghi nguyên tử
- *    (tạo `exam_matrices` + cells trong một transaction) là lát I-2;
- *    luồng web 5 bước là lát I-3.
+ * 3. Lát I-1 KHÔNG ghi DB: preview chỉ là kết quả kiểm. Lát I-2
+ *    ({@link MatrixImportService.commitImport}) nhận lại chính file,
+ *    chạy lại toàn bộ bước 2 tại thời điểm ghi rồi mới ghi nguyên tử
+ *    (tạo `exam_matrices` + cells trong một transaction qua
+ *    `QuizService.createMatrixFromImport`); luồng web 5 bước là lát
+ *    I-3.
  *
  * Bất biến giữ ở mọi đường: ô ma trận neo ĐVK × mức × dạng (ma trận
  * KHÔNG gắn YCCĐ — đính chính #249 đã thi hành ở PR #259); với dạng
@@ -32,10 +35,10 @@
  * chung; bộ mức là 3 mức CV 7991, cột Vận dụng cao chỉ tồn tại khi
  * file khai "Có" ở trường checkbox và lưới cột phải khớp khai đó.
  */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import type {
-  MatrixImportIssue, MatrixImportPreview, MatrixImportPreviewCell,
+  ExamMatrixView, MatrixImportIssue, MatrixImportPreview, MatrixImportPreviewCell,
 } from '@lms/contracts';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CurriculumService, type CurriculumTreeView } from '../curriculum/curriculum.service';
@@ -113,9 +116,11 @@ type RawCellValue = { kind: 'number'; value: number } | { kind: 'text'; value: s
 
 @Injectable()
 /**
- * Service của lát I-1: sinh workbook mẫu + parse/preview file nhập.
- * Không giữ trạng thái, không ghi DB; quyền tạo ma trận gác tại context
- * của môn đúng như đường tạo tay (`quiz:managematrix`).
+ * Service của chuỗi lát nhập ma trận: sinh workbook mẫu +
+ * parse/preview file nhập (I-1, không ghi DB) và ghi nguyên tử khi
+ * người nhập xác nhận (I-2 — parse lại từ file gốc tại thời điểm ghi,
+ * không tin kết quả xem trước phía client). Quyền tạo ma trận gác tại
+ * context của môn đúng như đường tạo tay (`quiz:managematrix`).
  */
 export class MatrixImportService {
   constructor(
@@ -623,6 +628,74 @@ export class MatrixImportService {
 
     preview.valid = preview.errors.length === 0;
     return preview;
+  }
+
+  // --- Ghi nguyên tử (lát I-2) --------------------------------------------------
+
+  /**
+   * GHI ma trận từ file đã điền (lát I-2) — đầu chốt của luồng nhập:
+   *
+   * 1. Parse lại CHÍNH file tải lên bằng đúng đường của bước xem
+   *    trước ({@link previewImport}): toàn bộ luật hợp lệ chạy lại ở
+   *    phía server tại thời điểm ghi — lỗi cứng hai tầng, tính lại
+   *    điểm ô/tổng, khả dụng ngân hàng, và cổng `quiz:managematrix`
+   *    tại context môn (ném 403 như đường tạo tay khi người gọi
+   *    thiếu quyền). KHÔNG tin dữ liệu phía client gửi kèm (kể cả khi
+   *    client nói "đã xem trước"): file là nguồn sự thật duy nhất.
+   * 2. Kết quả parse không còn hợp lệ (file bị sửa tay sau xem trước
+   *    mà vi phạm luật) → TỪ CHỐI ghi toàn bộ: ném
+   *    `UnprocessableEntityException` 422 mang mã
+   *    `quiz.matrix_import_invalid` + danh sách lỗi cứng định vị
+   *    trong extension member `matrixImportIssues` của ProblemDetails
+   *    (đúng hình dạng lỗi của bước xem trước để web hiển thị lại
+   *    bảng lỗi). Chưa một bản ghi nào được tạo ở bước này.
+   * 3. Hợp lệ → uỷ quyền ghi cho `QuizService.createMatrixFromImport`:
+   *    ma trận mới + toàn bộ ô trong MỘT transaction vào bank ma trận
+   *    cá nhân của người nhập (draft; chống ghi trùng theo chữ ký nội
+   *    dung — xem TSDoc của hàm đó). `position` của mỗi ô = số thứ tự
+   *    hàng của ĐVK trong file (hồ sơ import: position của ô là STT
+   *    của hàng); phạm vi của ma trận = đúng tập ĐVK có hàng trong
+   *    file theo thứ tự file.
+   *
+   * @param actorId - Người gọi (người nhập).
+   * @param buffer - Nội dung file .xlsx tải lên (cùng file đã xem
+   *   trước, hoặc bản đã sửa sau xem trước — server kiểm lại từ đầu).
+   * @returns View ma trận đã ghi (hoặc bản đã có khi trùng nội dung).
+   * @throws UnprocessableEntityException 422 khi file không hợp lệ
+   *   tại thời điểm ghi (kèm `matrixImportIssues` định vị).
+   * @throws ForbiddenException khi người gọi thiếu `quiz:managematrix`
+   *   tại context của môn trong file (ném từ bước parse lại).
+   */
+  async commitImport(actorId: string, buffer: Buffer): Promise<ExamMatrixView> {
+    const preview = await this.previewImport(actorId, buffer);
+    if (!preview.valid) {
+      throw new UnprocessableEntityException({
+        message: 'File không còn hợp lệ tại thời điểm ghi — hãy sửa file theo các lỗi định vị đính kèm rồi nhập lại.',
+        code: 'quiz.matrix_import_invalid',
+        matrixImportIssues: preview.errors,
+      });
+    }
+    // valid = true chỉ khi mọi trường định danh đã có (tên/môn/chương
+    // trình/bộ mức/tổng điểm đều là lỗi cứng khi thiếu) và lưới có ít
+    // nhất một ô — các khẳng định not-null dưới đây dựa vào bất biến đó.
+    const positionByNode = new Map(preview.rows.map((r) => [r.nodeId, r.position]));
+    return this.quiz.createMatrixFromImport(actorId, {
+      name: preview.name!,
+      subjectId: preview.subjectId!,
+      curriculumId: preview.curriculumId!,
+      levelSet: preview.levelSet!,
+      totalScore: preview.totalScore!,
+      scopeNote: preview.scopeNote,
+      scopeNodeIds: preview.rows.map((r) => r.nodeId),
+      cells: preview.cells.map((c) => ({
+        curriculumNodeId: c.curriculumNodeId,
+        cognitiveLevel: c.cognitiveLevel,
+        qtype: c.qtype,
+        questionCount: c.questionCount,
+        cellScore: c.cellScore,
+        position: positionByNode.get(c.curriculumNodeId) ?? 1,
+      })),
+    });
   }
 
   /**
