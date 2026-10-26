@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import type { QuestionCategory, QuestionView, StimulusView } from '@lms/contracts';
+import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
+import { extractRichTextPlainText } from '@lms/contracts';
+import { RichTextEditor, RichTextView } from '@lms/editor';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -9,7 +11,6 @@ import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { RadioGroup, RadioGroupItem } from '@lms/ui/components/radio-group';
-import { Textarea } from '@lms/ui/components/textarea';
 import {
   Select,
   SelectContent,
@@ -20,16 +21,15 @@ import {
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
+import { QuestionImagePicker } from '../components/question-image-picker';
+import type { QuestionFileArea, QuestionImageUploadResult } from '../lib/question-files';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import {
   COGNITIVE_LEVELS,
   LEVEL_LABEL_KEYS,
-  QTYPE_LABEL_KEYS,
   QTYPES,
-  emptyForm,
-  formContent,
-  formFromView,
+  QTYPE_LABEL_KEYS,
   hasAllOptions,
   plainText,
   withApiReason,
@@ -37,29 +37,512 @@ import {
   type CurriculumTreeNode,
   type OptionsRecord,
   type Qtype,
-  type QuestionFormState,
 } from './questions';
 
 /**
- * Màn editor câu hỏi RIÊNG theo chuẩn §9 (tạo mới /questions/new, sửa
- * /questions/:questionId/edit?category=<id>): trước đây form này nhồi
- * ngay dưới danh sách ngân hàng trong cùng một trang. Sửa tạo phiên bản
- * mới phía server (PATCH) như trước; khối gắn kết chương trình chỉ hiện
- * ở màn sửa. Lưu xong quay về danh sách ngân hàng.
+ * Màn soạn câu hỏi (issue #248): form riêng cho từng loại trong 4 loại —
+ * multichoice, truefalse (gồm dạng chùm mệnh đề Đ/S bám cùng ngữ liệu),
+ * shortanswer (kèm cờ đáp án số, mặc định TẮT) và essay. Mọi trường nội
+ * dung trình bày (thân câu, phương án, mệnh đề, phản hồi, hướng dẫn chấm,
+ * mẫu trả lời) đều là tài liệu rich text qua trình soạn của @lms/editor —
+ * công thức toán và danh sách đến từ chính editor đó; ảnh chèn qua bộ
+ * chọn ảnh của lát files (định danh bền `/api/v1/files/<id>/content` nằm
+ * trong `attrs.src` của node image). Mô hình form GIỮ NGUYÊN tài liệu
+ * Tiptap khi mở câu có sẵn nên câu draft do MCP tạo mở ra sửa được
+ * nguyên trạng (không ép về văn bản thuần như bản cũ). Đáp án của
+ * shortanswer là MẪU khớp đáp án của học sinh nên giữ ô nhập thuần.
+ *
+ * Hai nút lưu theo trạng thái đích: câu mới tạo qua API mặc định ở trạng
+ * thái `ready`, nên "Lưu nháp" = lưu nội dung rồi gọi
+ * `POST /questions/:id/status {status:'draft'}`; "Lưu & sẵn sàng" tương
+ * tự với `ready`. Chuyển trạng thái không tạo phiên bản mới.
  */
+
+// ---------------------------------------------------------------------------
+// Tiện ích tài liệu rich text
+// ---------------------------------------------------------------------------
+
+type Doc = RichTextDocument;
+
+/** Tài liệu rỗng chuẩn: một doc chứa đúng một paragraph rỗng. */
+const emptyDoc = (): Doc => ({ type: 'doc', content: [{ type: 'paragraph' }] });
+
+/** Tài liệu một paragraph từ chuỗi thuần (chỉ dùng cho dữ liệu cũ dạng chuỗi). */
+function docFromText(text: string): Doc {
+  return text
+    ? { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }
+    : emptyDoc();
+}
+
+/** Ép giá trị options (có thể là tài liệu, chuỗi thuần, hoặc rác) về tài liệu. */
+function asDoc(value: unknown): Doc | undefined {
+  if (typeof value === 'string') return value ? docFromText(value) : undefined;
+  if (value && typeof value === 'object' && (value as { type?: unknown }).type === 'doc') {
+    return value as Doc;
+  }
+  return undefined;
+}
+
+/** Tài liệu có nội dung thật (chữ, hoặc node phi văn bản như ảnh/công thức) hay không. */
+function docHasContent(doc: Doc | null | undefined): boolean {
+  if (!doc) return false;
+  if (extractRichTextPlainText(doc).trim() !== '') return true;
+  return (doc.content ?? []).some((node) =>
+    ((node as { content?: { type: string }[] }).content ?? []).some((child) => child.type !== 'text'),
+  );
+}
+
+/** Bỏ qua tài liệu rỗng khi dựng payload (trường tuỳ chọn không gửi doc rỗng). */
+function docOrUndefined(doc: Doc | undefined): Doc | undefined {
+  return docHasContent(doc) ? doc : undefined;
+}
+
+/**
+ * Gắn node ảnh vào CUỐI tài liệu sau khi bộ chọn ảnh tải lên xong. Node
+ * `image` thuộc lát mở rộng schema của editor (QE-1); ở đây dựng qua ép
+ * kiểu vì lát contracts trên main chưa khai node này.
+ */
+function appendImageNode(doc: Doc, result: QuestionImageUploadResult): Doc {
+  const imageNode = { type: 'image', attrs: { src: result.src, alt: result.alt } };
+  return { type: 'doc', content: [...(doc.content ?? []), imageNode] } as unknown as Doc;
+}
+
+/** Trạng thái bank của một view như API trả về (contracts chưa khai `status` ở entry). */
+function entryStatus(view: QuestionView | null | undefined): string | undefined {
+  return (view?.entry as { status?: string } | undefined)?.status;
+}
+
+// ---------------------------------------------------------------------------
+// Mô hình form
+// ---------------------------------------------------------------------------
+
+/** Một phương án/đáp án dạng rich text kèm tỷ trọng và phản hồi riêng. */
+interface RichAnswerDraft {
+  doc: Doc;
+  fraction: string;
+  feedback: Doc | undefined;
+}
+
+/** Một mệnh đề Đ/S trong chùm truefalse: nội dung + đáp án đúng của mệnh đề. */
+interface TrueFalseStatementDraft {
+  doc: Doc;
+  correct: boolean;
+}
+
+export interface QuestionEditorFormState {
+  qtype: Qtype;
+  name: string;
+  questionText: Doc;
+  generalFeedback: Doc | undefined;
+  stimulusId: string;
+  // multichoice
+  mcSingle: boolean;
+  mcShuffleAnswers: boolean;
+  mcAnswerNumbering: string;
+  mcShowNumCorrect: boolean;
+  mcShowStandardInstruction: boolean;
+  mcCorrectFeedback: Doc | undefined;
+  mcPartiallyCorrectFeedback: Doc | undefined;
+  mcIncorrectFeedback: Doc | undefined;
+  mcChoices: RichAnswerDraft[];
+  // truefalse: danh sách mệnh đề (sửa một câu thì danh sách có đúng 1 mệnh đề)
+  tfStatements: TrueFalseStatementDraft[];
+  tfShowStandardInstruction: boolean;
+  // shortanswer: đáp án là mẫu khớp nên giữ chuỗi thuần
+  saUseCase: boolean;
+  saNumericAnswer: boolean;
+  saNumericMaxLength: string;
+  saNumericAllowSign: boolean;
+  saNumericAllowDecimal: boolean;
+  saAnswers: { text: string; fraction: string }[];
+  // essay
+  essayResponseFormat: string;
+  essayResponseRequired: boolean;
+  essayResponseFieldLines: string;
+  essayMinWords: string;
+  essayMaxWords: string;
+  essayGraderInfo: Doc | undefined;
+  essayResponseTemplate: Doc | undefined;
+}
+
+export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFormState {
+  return {
+    qtype,
+    name: '',
+    questionText: emptyDoc(),
+    generalFeedback: undefined,
+    stimulusId: '',
+    mcSingle: true,
+    mcShuffleAnswers: true,
+    mcAnswerNumbering: 'abc',
+    mcShowNumCorrect: false,
+    mcShowStandardInstruction: true,
+    mcCorrectFeedback: undefined,
+    mcPartiallyCorrectFeedback: undefined,
+    mcIncorrectFeedback: undefined,
+    mcChoices: [
+      { doc: emptyDoc(), fraction: '1', feedback: undefined },
+      { doc: emptyDoc(), fraction: '0', feedback: undefined },
+    ],
+    tfStatements: [{ doc: emptyDoc(), correct: true }],
+    tfShowStandardInstruction: true,
+    saUseCase: false,
+    saNumericAnswer: false,
+    saNumericMaxLength: '',
+    saNumericAllowSign: false,
+    saNumericAllowDecimal: false,
+    saAnswers: [{ text: '', fraction: '1' }],
+    essayResponseFormat: 'editor',
+    essayResponseRequired: true,
+    essayResponseFieldLines: '15',
+    essayMinWords: '',
+    essayMaxWords: '',
+    essayGraderInfo: undefined,
+    essayResponseTemplate: undefined,
+  };
+}
+
+/**
+ * Nạp form từ view của một câu có sẵn, GIỮ NGUYÊN tài liệu Tiptap của
+ * thân câu/phương án/phản hồi (điều kiện để câu draft MCP mở ra sửa được
+ * nguyên trạng). `fallbackOptions` lấy từ endpoint versions khi view
+ * chưa mang đủ options của loại câu.
+ */
+export function editorFormFromView(
+  view: QuestionView,
+  fallbackOptions?: OptionsRecord | null,
+): QuestionEditorFormState {
+  const options = (view.options ?? fallbackOptions ?? {}) as OptionsRecord;
+  const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
+    ? (view.question.qtype as Qtype)
+    : 'multichoice';
+  const form = emptyEditorForm(qtype);
+  form.name = view.question.name;
+  form.questionText = view.latestVersion.questionText ?? emptyDoc();
+  form.generalFeedback = view.latestVersion.generalFeedback ?? undefined;
+  form.stimulusId = view.latestVersion.stimulusId ?? view.stimulus?.id ?? '';
+
+  if (qtype === 'multichoice') {
+    form.mcSingle = options.single !== false;
+    form.mcShuffleAnswers = options.shuffleAnswers !== false;
+    form.mcAnswerNumbering = typeof options.answerNumbering === 'string' ? options.answerNumbering : 'abc';
+    form.mcShowNumCorrect = options.showNumCorrect === true;
+    form.mcShowStandardInstruction = options.showStandardInstruction !== false;
+    form.mcCorrectFeedback = asDoc(options.correctFeedback);
+    form.mcPartiallyCorrectFeedback = asDoc(options.partiallyCorrectFeedback);
+    form.mcIncorrectFeedback = asDoc(options.incorrectFeedback);
+    const choices = [...view.answers]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((answer) => ({
+        doc: answer.answer,
+        fraction: String(answer.fraction),
+        feedback: answer.feedback ?? undefined,
+      }));
+    if (choices.length > 0) form.mcChoices = choices;
+  }
+
+  if (qtype === 'truefalse') {
+    form.tfShowStandardInstruction = options.showStandardInstruction !== false;
+    const sorted = [...view.answers].sort((a, b) => a.sortOrder - b.sortOrder);
+    const correctAnswer = sorted.find((a) => a.fraction > 0) ?? sorted[0];
+    const correctText = correctAnswer ? plainText(correctAnswer.answer).trim().toLowerCase() : '';
+    const legacy = (options as { correct?: unknown }).correct;
+    form.tfStatements = [
+      {
+        doc: view.latestVersion.questionText ?? emptyDoc(),
+        correct:
+          typeof legacy === 'boolean'
+            ? legacy
+            : correctText === 'true' || correctText === 'đúng',
+      },
+    ];
+  }
+
+  if (qtype === 'shortanswer') {
+    form.saUseCase = options.useCase === true;
+    form.saNumericAnswer = options.numericAnswer === true;
+    form.saNumericMaxLength =
+      typeof options.numericMaxLength === 'number' ? String(options.numericMaxLength) : '';
+    form.saNumericAllowSign = options.numericAllowSign === true;
+    form.saNumericAllowDecimal = options.numericAllowDecimal === true;
+    const answers = [...view.answers]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((answer) => ({ text: plainText(answer.answer), fraction: String(answer.fraction) }));
+    if (answers.length > 0) form.saAnswers = answers;
+  }
+
+  if (qtype === 'essay') {
+    form.essayResponseFormat = typeof options.responseFormat === 'string' ? options.responseFormat : 'editor';
+    form.essayResponseRequired = options.responseRequired !== false;
+    form.essayResponseFieldLines =
+      typeof options.responseFieldLines === 'number' ? String(options.responseFieldLines) : '15';
+    form.essayMinWords = typeof options.minWordLimit === 'number' ? String(options.minWordLimit) : '';
+    form.essayMaxWords = typeof options.maxWordLimit === 'number' ? String(options.maxWordLimit) : '';
+    form.essayGraderInfo = asDoc(options.graderInfo);
+    form.essayResponseTemplate = asDoc(options.responseTemplate);
+  }
+
+  return form;
+}
+
+function numberOrUndefined(value: string): number | undefined {
+  if (value.trim() === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/**
+ * Dựng phần thân payload tạo/sửa từ form (chưa gồm `categoryId`, `qtype`,
+ * `stimulusId` — nơi gọi gắn tuỳ đường tạo/sửa). Truefalse ở đường này là
+ * MỘT mệnh đề (payload `answer: { correct }` như hợp đồng hiện hành);
+ * chùm nhiều mệnh đề được nơi gọi tách thành nhiều lần tạo.
+ */
+export function editorFormContent(form: QuestionEditorFormState): Record<string, unknown> {
+  const name = form.name.trim();
+  const generalFeedback = docOrUndefined(form.generalFeedback);
+  const base: Record<string, unknown> = {
+    name,
+    questionText: form.questionText,
+    ...(generalFeedback ? { generalFeedback } : {}),
+  };
+
+  if (form.qtype === 'multichoice') {
+    const correctFeedback = docOrUndefined(form.mcCorrectFeedback);
+    const partiallyCorrectFeedback = docOrUndefined(form.mcPartiallyCorrectFeedback);
+    const incorrectFeedback = docOrUndefined(form.mcIncorrectFeedback);
+    return {
+      ...base,
+      answers: form.mcChoices.map((choice) => ({
+        text: choice.doc,
+        fraction: numberOrUndefined(choice.fraction) ?? 0,
+        ...(docOrUndefined(choice.feedback) ? { feedback: choice.feedback } : {}),
+      })),
+      options: {
+        single: form.mcSingle,
+        shuffleAnswers: form.mcShuffleAnswers,
+        answerNumbering: form.mcAnswerNumbering,
+        showNumCorrect: form.mcShowNumCorrect,
+        showStandardInstruction: form.mcShowStandardInstruction,
+        ...(correctFeedback ? { correctFeedback } : {}),
+        ...(partiallyCorrectFeedback ? { partiallyCorrectFeedback } : {}),
+        ...(incorrectFeedback ? { incorrectFeedback } : {}),
+      },
+    };
+  }
+
+  if (form.qtype === 'truefalse') {
+    const statement = form.tfStatements[0] ?? { doc: emptyDoc(), correct: true };
+    return {
+      name,
+      questionText: statement.doc,
+      ...(generalFeedback ? { generalFeedback } : {}),
+      answer: { correct: statement.correct },
+      options: { showStandardInstruction: form.tfShowStandardInstruction },
+    };
+  }
+
+  if (form.qtype === 'shortanswer') {
+    const numericMaxLength = numberOrUndefined(form.saNumericMaxLength);
+    return {
+      ...base,
+      answers: form.saAnswers.map((answer) => ({
+        text: answer.text,
+        fraction: numberOrUndefined(answer.fraction) ?? 0,
+      })),
+      options: {
+        useCase: form.saUseCase,
+        numericAnswer: form.saNumericAnswer,
+        ...(form.saNumericAnswer && numericMaxLength !== undefined ? { numericMaxLength } : {}),
+        ...(form.saNumericAnswer
+          ? { numericAllowSign: form.saNumericAllowSign, numericAllowDecimal: form.saNumericAllowDecimal }
+          : {}),
+      },
+    };
+  }
+
+  // essay
+  const minWordLimit = numberOrUndefined(form.essayMinWords);
+  const maxWordLimit = numberOrUndefined(form.essayMaxWords);
+  const graderInfo = docOrUndefined(form.essayGraderInfo);
+  const responseTemplate = docOrUndefined(form.essayResponseTemplate);
+  return {
+    ...base,
+    options: {
+      responseFormat: form.essayResponseFormat,
+      responseRequired: form.essayResponseRequired,
+      responseFieldLines: numberOrUndefined(form.essayResponseFieldLines) ?? 15,
+      ...(minWordLimit !== undefined ? { minWordLimit } : {}),
+      ...(maxWordLimit !== undefined ? { maxWordLimit } : {}),
+      ...(graderInfo ? { graderInfo } : {}),
+      ...(responseTemplate ? { responseTemplate } : {}),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Trường soạn rich text kèm chèn ảnh
+// ---------------------------------------------------------------------------
+
+/**
+ * Một trường nội dung rich text: trình soạn của @lms/editor bọc trong bộ
+ * chọn ảnh của lát files — bấm "Chèn ảnh" hoặc kéo thả ảnh vào vùng soạn
+ * đều tải ảnh lên kho files rồi gắn node `image` (định danh bền) vào
+ * cuối tài liệu. Khi editor của QE-1 hoàn thiện callback `onRequestImage`
+ * thì nút ảnh ngay trong toolbar của editor sẽ nối vào cùng đường này.
+ */
+function RichField({
+  label,
+  value,
+  onChange,
+  fileArea,
+  contextId,
+  itemId,
+}: {
+  label: string;
+  value: Doc | undefined;
+  onChange: (doc: Doc) => void;
+  fileArea: QuestionFileArea;
+  contextId?: string;
+  itemId?: string;
+}) {
+  const doc = value ?? emptyDoc();
+  return (
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <QuestionImagePicker
+        contextId={contextId ?? ''}
+        fileArea={fileArea}
+        itemId={itemId}
+        disabled={!contextId}
+        onPick={(result) => onChange(appendImageNode(doc, result))}
+      >
+        <RichTextEditor value={doc} onChange={onChange} ariaLabel={label} />
+      </QuestionImagePicker>
+    </Field>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Xem trước như học sinh
+// ---------------------------------------------------------------------------
+
+/** Nhãn thứ tự của một phương án theo kiểu đánh số giáo viên đã chọn. */
+function numberingLabel(numbering: string, index: number): string {
+  switch (numbering) {
+    case 'ABC':
+      return `${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[index] ?? index + 1}.`;
+    case '123':
+      return `${index + 1}.`;
+    case 'iii':
+      return `${['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][index] ?? index + 1}.`;
+    case 'IIII':
+      return `${['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][index] ?? index + 1}.`;
+    case 'none':
+      return '';
+    default:
+      return `${'abcdefghijklmnopqrstuvwxyz'[index] ?? index + 1}.`;
+  }
+}
+
+/**
+ * Cột xem trước TRỰC TIẾP như học sinh sẽ thấy câu hỏi: ngữ liệu (nếu
+ * gắn), thân câu, và vùng trả lời tĩnh theo loại câu. Phản hồi sau làm
+ * bài không thuộc bề mặt này.
+ */
+function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; stimulus: StimulusView | null }) {
+  const { t } = useTranslation('app');
+  return (
+    <Card className="lg:sticky lg:top-4">
+      <CardHeader>
+        <CardTitle>{t('questionStudentPreview')}</CardTitle>
+        <CardDescription>{t('questionStudentPreviewHint')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {stimulus ? (
+          <div className="rounded-md bg-slate-50 p-3">
+            <p className="mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+              {t('stimulusHeading')}
+            </p>
+            <RichTextView value={stimulus.content} />
+          </div>
+        ) : null}
+        {form.qtype !== 'truefalse' ? <RichTextView value={form.questionText} /> : null}
+        {form.qtype === 'multichoice' ? (
+          <div className="space-y-2">
+            {form.mcChoices.map((choice, index) => (
+              <div key={index} className="flex items-start gap-2 text-sm">
+                <input type={form.mcSingle ? 'radio' : 'checkbox'} disabled className="mt-1" />
+                <span className="font-medium">{numberingLabel(form.mcAnswerNumbering, index)}</span>
+                <span className="min-w-0 flex-1">
+                  <RichTextView value={choice.doc} />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {form.qtype === 'truefalse' ? (
+          <div className="space-y-3">
+            {form.tfStatements.map((statement, index) => (
+              <div key={index} className="space-y-1">
+                <RichTextView value={statement.doc} />
+                <div className="flex gap-4 text-sm">
+                  <span className="flex items-center gap-1">
+                    <input type="radio" disabled /> {t('questionTrue')}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <input type="radio" disabled /> {t('questionFalse')}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {form.qtype === 'shortanswer' ? (
+          <Input disabled placeholder={t('questionAnswerPlaceholder')} />
+        ) : null}
+        {form.qtype === 'essay' ? (
+          <textarea
+            disabled
+            rows={Math.min(15, Math.max(3, Number(form.essayResponseFieldLines) || 15))}
+            className="w-full rounded-md border p-2 text-sm"
+            placeholder={t('questionAnswerPlaceholder')}
+          />
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Trang soạn
+// ---------------------------------------------------------------------------
+
+/**
+ * Tên hiệu dụng khi lưu: giáo viên để trống tên thì lấy đầu nội dung câu
+ * (hoặc mệnh đề đầu của chùm) làm tên, tránh chặn lưu vì một trường phụ.
+ */
+function withEffectiveName(form: QuestionEditorFormState): QuestionEditorFormState {
+  if (form.name.trim()) return form;
+  const source = form.qtype === 'truefalse' ? form.tfStatements[0]?.doc : form.questionText;
+  const derived = source ? plainText(source).slice(0, 80) : '';
+  return { ...form, name: derived };
+}
+
 export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
   const { questionId } = useParams();
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get('category') ?? '';
+  const [categories, setCategories] = useState<QuestionCategory[]>([]);
   const [categoryId, setCategoryId] = useState(categoryParam);
   const [editing, setEditing] = useState<QuestionView | null>(null);
-  const [form, setForm] = useState<QuestionFormState>(() => emptyForm('multichoice'));
+  const [form, setForm] = useState<QuestionEditorFormState>(() => emptyEditorForm('multichoice'));
   const [stimuli, setStimuli] = useState<StimulusView[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<'draft' | 'ready' | null>(null);
   const editOptionsRequestRef = useRef(0);
   // Gắn kết chương trình (issue #20 Chặng 2) của câu hỏi đang sửa.
   const [links, setLinks] = useState<CurriculumLinksView | null>(null);
@@ -70,9 +553,12 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const [linkLevelPick, setLinkLevelPick] = useState<string>('biet');
   const [outcomeLabels, setOutcomeLabels] = useState<Record<string, string>>({});
 
-  const patchForm = useCallback((patch: Partial<QuestionFormState>) => {
+  const patchForm = useCallback((patch: Partial<QuestionEditorFormState>) => {
     setForm((prev) => ({ ...prev, ...patch }));
   }, []);
+
+  /** Context của bank đích — bộ chọn ảnh tải lên đúng context này. */
+  const contextId = categories.find((c) => c.id === categoryId)?.contextId;
 
   const loadStimuli = useCallback(async (catId: string) => {
     const rows = await apiJson<StimulusView[]>(`/api/v1/stimuli?categoryId=${catId}`);
@@ -80,27 +566,24 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   }, []);
 
   /** Nạp gắn kết chương trình của câu hỏi + nhãn nội dung cho các YCCĐ đã gắn. */
-  const loadCurriculumLinks = useCallback(
-    async (qid: string) => {
-      try {
-        const view = await apiJson<CurriculumLinksView>(`/api/v1/questions/${qid}/curriculum-links`);
-        setLinks(view);
-        const labels: Record<string, string> = {};
-        for (const o of view.outcomes) {
-          try {
-            const oc = await apiJson<{ id: string; content: string }>(`/api/v1/curriculum/outcomes/${o.outcomeId}`);
-            labels[oc.id] = oc.content;
-          } catch {
-            // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
-          }
+  const loadCurriculumLinks = useCallback(async (qid: string) => {
+    try {
+      const view = await apiJson<CurriculumLinksView>(`/api/v1/questions/${qid}/curriculum-links`);
+      setLinks(view);
+      const labels: Record<string, string> = {};
+      for (const o of view.outcomes) {
+        try {
+          const oc = await apiJson<{ id: string; content: string }>(`/api/v1/curriculum/outcomes/${o.outcomeId}`);
+          labels[oc.id] = oc.content;
+        } catch {
+          // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
         }
-        if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
-      } catch {
-        setLinks(null);
       }
-    },
-    [],
-  );
+      if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
+    } catch {
+      setLinks(null);
+    }
+  }, []);
 
   /** Môn học cho khối Chương trình: chương trình quốc gia GDPT 2018 neo ở context hệ thống. */
   const loadLinkSubjects = useCallback(async () => {
@@ -120,7 +603,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     async (view: QuestionView) => {
       const requestId = ++editOptionsRequestRef.current;
       setEditing(view);
-      setForm(formFromView(view));
+      setForm(editorFormFromView(view));
       setLinks(null);
       setLinkSubjectPick('');
       setLinkOutcomePick('');
@@ -140,7 +623,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           versions.find((version) => version.id === view.latestVersion.id) ??
           versions.find((version) => version.version === view.entry.latestVersion);
         if (latest?.options && editOptionsRequestRef.current === requestId) {
-          setForm(formFromView(view, latest.options));
+          setForm(editorFormFromView(view, latest.options));
         }
       } catch {
         // Không tải được options bổ sung thì giữ nguyên phần đã nạp từ view.
@@ -149,13 +632,14 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     [loadCurriculumLinks, loadLinkSubjects],
   );
 
-  /** Khởi tạo màn: chốt danh mục (tham số ?category= hoặc danh mục đầu), nạp ngữ liệu, và (khi sửa) tìm câu hỏi. */
+  /** Khởi tạo màn: nạp danh mục (cần contextId cho bộ chọn ảnh), chốt danh mục đích, nạp ngữ liệu, và (khi sửa) tìm câu hỏi. */
   useEffect(() => {
     void (async () => {
       try {
+        const cats = await apiJson<QuestionCategory[]>('/api/v1/questions/categories');
+        setCategories(cats);
         let catId = categoryParam;
         if (!catId) {
-          const cats = await apiJson<QuestionCategory[]>('/api/v1/questions/categories');
           if (!cats.length) {
             setLoadError(t('questionBankLoadFailed'));
             return;
@@ -183,41 +667,93 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function submitQuestion(event: FormEvent) {
-    event.preventDefault();
-    if (editing) {
-      try {
+  /** Đưa trạng thái bank của câu về trạng thái đích sau khi lưu nội dung (không tạo phiên bản). */
+  async function applyStatus(id: string, current: string | undefined, target: 'draft' | 'ready') {
+    const needsCall =
+      current === 'draft' || current === 'ready'
+        ? current !== target
+        : current === undefined && target === 'draft';
+    if (!needsCall) return;
+    await apiJson(`/api/v1/questions/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status: target }),
+    });
+  }
+
+  /** Lưu nội dung (tạo mới hoặc tạo phiên bản mới) rồi chốt trạng thái đích. */
+  async function submitWith(target: 'draft' | 'ready') {
+    if (saving) return;
+    setMessage(null);
+    setSaving(target);
+    try {
+      const effective = withEffectiveName(form);
+      if (editing) {
         const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            ...formContent(form, true),
+            ...editorFormContent(effective),
             stimulusId: form.stimulusId === '' ? null : form.stimulusId,
           }),
         });
-        // Mang thông báo "đã lưu thành phiên bản N" về trang danh sách
-        // (editor inline trước đây hiện ngay trên trang danh sách).
+        await applyStatus(editing.question.id, entryStatus(updated) ?? entryStatus(editing), target);
         navigate('/questions', {
-          state: { notice: t('questionSavedAsVersion', { version: updated.entry.latestVersion }) },
+          state: {
+            notice:
+              target === 'draft'
+                ? t('questionSavedDraft')
+                : t('questionSavedAsVersion', { version: updated.entry.latestVersion }),
+          },
         });
-      } catch (err) {
-        setMessage(withApiReason(t('questionEditFailed'), err));
+        return;
       }
-      return;
-    }
-    try {
-      await apiJson('/api/v1/questions', {
+      // Tạo chùm Đ/S: mỗi mệnh đề là một câu truefalse bám cùng ngữ liệu —
+      // đúng mô hình của hệ (đường MCP cũng tạo mỗi mệnh đề một câu).
+      if (form.qtype === 'truefalse' && form.tfStatements.length > 1) {
+        let createdCount = 0;
+        for (const [index, statement] of form.tfStatements.entries()) {
+          const single: QuestionEditorFormState = {
+            ...effective,
+            name: `${effective.name} · ý ${index + 1}`,
+            tfStatements: [statement],
+          };
+          const created = await apiJson<QuestionView>('/api/v1/questions', {
+            method: 'POST',
+            body: JSON.stringify({
+              categoryId,
+              qtype: 'truefalse',
+              ...editorFormContent(single),
+              ...(form.stimulusId ? { stimulusId: form.stimulusId } : {}),
+            }),
+          });
+          createdCount += 1;
+          await applyStatus(created.question.id, entryStatus(created), target);
+        }
+        navigate('/questions', { state: { notice: t('questionClusterCreated', { count: createdCount }) } });
+        return;
+      }
+      const created = await apiJson<QuestionView>('/api/v1/questions', {
         method: 'POST',
         body: JSON.stringify({
           categoryId,
           qtype: form.qtype,
-          ...formContent(form),
+          ...editorFormContent(effective),
           ...(form.stimulusId ? { stimulusId: form.stimulusId } : {}),
         }),
       });
-      navigate('/questions');
+      await applyStatus(created.question.id, entryStatus(created), target);
+      navigate('/questions', {
+        state: { notice: target === 'draft' ? t('questionSavedDraft') : t('questionCreated') },
+      });
     } catch (err) {
-      setMessage(withApiReason(t('questionCreateFailed'), err));
+      setMessage(withApiReason(editing ? t('questionEditFailed') : t('questionCreateFailed'), err));
+    } finally {
+      setSaving(null);
     }
+  }
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    void submitWith('ready');
   }
 
   /** Chọn môn → nạp cây của mọi khối thuộc môn đó → danh sách YCCĐ chọn được. */
@@ -323,7 +859,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
   if (loading) {
     return (
-      <PageShell width="medium">
+      <PageShell width="wide">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
         <div className="space-y-2" aria-label={t('loading')}>
           <Skeleton className="h-9 w-full" />
@@ -335,7 +871,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   }
   if (loadError) {
     return (
-      <PageShell width="medium">
+      <PageShell width="wide">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
         <Alert variant="destructive">
           <AlertDescription>{loadError}</AlertDescription>
@@ -349,343 +885,693 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     );
   }
 
-  // Các hàng đáp án trắc nghiệm: dùng chung cho hai cách bọc — khi bật
-  // "chỉ một đáp án đúng" thì các radio chọn đáp án đúng phải nằm trong
-  // cùng một RadioGroup của @lms/ui (primitive thay radio native).
+  const currentStatus = entryStatus(editing);
+  const statusLabel =
+    currentStatus === 'draft'
+      ? t('questionStatusDraft')
+      : currentStatus === 'hidden'
+        ? t('questionStatusHidden')
+        : t('questionStatusReady');
+  const selectedStimulus = stimuli.find((s) => s.id === form.stimulusId) ?? null;
+
+  const moveItem = <T,>(items: T[], index: number, delta: number): T[] => {
+    const next = [...items];
+    const target = index + delta;
+    if (target < 0 || target >= next.length) return items;
+    const [item] = next.splice(index, 1);
+    next.splice(target, 0, item!);
+    return next;
+  };
+
   const mcChoiceRows = form.mcChoices.map((choice, index) => (
     <div key={index} className="space-y-2 rounded-md border p-3">
-      <Field>
-        <FieldLabel htmlFor={`q-choice-${index}`}>{t('choiceText', { index: index + 1 })}</FieldLabel>
-        <Input
-          id={`q-choice-${index}`}
-          value={choice.text}
-          onChange={(e) =>
-            patchForm({
-              mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, text: e.target.value } : c)),
-            })
-          }
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor={`q-choice-fraction-${index}`}>{t('choiceFraction', { index: index + 1 })}</FieldLabel>
-        <Input
-          id={`q-choice-fraction-${index}`}
-          type="number"
-          step="0.05"
-          min="-1"
-          max="1"
-          value={choice.fraction}
-          onChange={(e) =>
-            patchForm({
-              mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, fraction: e.target.value } : c)),
-            })
-          }
-        />
-      </Field>
-      {form.mcSingle && (
-        <div className="flex items-center gap-2">
-          <RadioGroupItem id={`q-choice-correct-${index}`} value={String(index)} />
-          <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
+      <RichField
+        label={t('choiceText', { index: index + 1 })}
+        value={choice.doc}
+        onChange={(doc) =>
+          patchForm({ mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, doc } : c)) })
+        }
+        fileArea="answer"
+        contextId={contextId}
+        itemId={editing?.question.id}
+      />
+      <div className="flex flex-wrap items-end gap-3">
+        <Field>
+          <FieldLabel htmlFor={`q-choice-fraction-${index}`}>
+            {t('choiceFraction', { index: index + 1 })}
+          </FieldLabel>
+          <Input
+            id={`q-choice-fraction-${index}`}
+            type="number"
+            step="0.05"
+            min="-1"
+            max="1"
+            className="w-28"
+            value={choice.fraction}
+            onChange={(e) =>
+              patchForm({
+                mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, fraction: e.target.value } : c)),
+              })
+            }
+          />
+        </Field>
+        {form.mcSingle ? (
+          <div className="flex items-center gap-2 pb-2">
+            <RadioGroupItem id={`q-choice-correct-${index}`} value={String(index)} />
+            <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pb-2">
+            <Checkbox
+              id={`q-choice-correct-${index}`}
+              checked={Number(choice.fraction) > 0}
+              onCheckedChange={(checked) =>
+                patchForm({
+                  mcChoices: form.mcChoices.map((c, i) =>
+                    i === index ? { ...c, fraction: checked === true ? '1' : '0' } : c,
+                  ),
+                })
+              }
+            />
+            <Label htmlFor={`q-choice-correct-${index}`}>{t('correctChoice')}</Label>
+          </div>
+        )}
+        <div className="flex gap-1 pb-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={index === 0}
+            aria-label={t('questionMoveUp')}
+            onClick={() => patchForm({ mcChoices: moveItem(form.mcChoices, index, -1) })}
+          >
+            ↑
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={index === form.mcChoices.length - 1}
+            aria-label={t('questionMoveDown')}
+            onClick={() => patchForm({ mcChoices: moveItem(form.mcChoices, index, 1) })}
+          >
+            ↓
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={form.mcChoices.length <= 2}
+            onClick={() => patchForm({ mcChoices: form.mcChoices.filter((_, i) => i !== index) })}
+          >
+            {t('removeChoice', { index: index + 1 })}
+          </Button>
         </div>
-      )}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={form.mcChoices.length <= 2}
-        onClick={() => patchForm({ mcChoices: form.mcChoices.filter((_, i) => i !== index) })}
-      >
-        {t('removeChoice', { index: index + 1 })}
-      </Button>
+      </div>
+      <RichField
+        label={t('answerFeedback', { index: index + 1 })}
+        value={choice.feedback}
+        onChange={(feedback) =>
+          patchForm({
+            mcChoices: form.mcChoices.map((c, i) => (i === index ? { ...c, feedback } : c)),
+          })
+        }
+        fileArea="feedback"
+        contextId={contextId}
+        itemId={editing?.question.id}
+      />
     </div>
   ));
-  const mcCorrectIndex = form.mcChoices.findIndex((c) => Number(c.fraction) === 1);
 
   return (
-    <PageShell width="medium">
-      <PageHeader title={editing ? t('editQuestionTitle', { name: editing.question.name }) : t('newQuestion')} />
-      {/* Thông báo kết quả gửi form giữ vai trò status như trang inline
-          cũ trên main (hợp đồng đã có spec của issue #55). */}
-      {message ? (
-        <Alert role="status">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      ) : null}
-      <Card>
-        <CardContent>
-          <form onSubmit={(e) => void submitQuestion(e)}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel id="q-type-label">{t('questionType')}</FieldLabel>
-                <Select
-                  items={Object.fromEntries(QTYPES.map((qtype) => [qtype, t(QTYPE_LABEL_KEYS[qtype])]))}
-                  value={form.qtype}
-                  disabled={editing !== null}
-                  onValueChange={(v) => setForm(emptyForm((v ?? 'multichoice') as Qtype))}
-                >
-                  <SelectTrigger aria-labelledby="q-type-label" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QTYPES.map((qtype) => (
-                      <SelectItem key={qtype} value={qtype}>
-                        {t(QTYPE_LABEL_KEYS[qtype])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="q-name">{t('name')}</FieldLabel>
-                <Input id="q-name" value={form.name} onChange={(e) => patchForm({ name: e.target.value })} />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="q-text">{t('questionText')}</FieldLabel>
-                <Input
-                  id="q-text"
-                  value={form.questionText}
-                  onChange={(e) => patchForm({ questionText: e.target.value })}
-                />
-              </Field>
-              <Field>
-                <FieldLabel id="q-stimulus-label">{t('attachedStimulus')}</FieldLabel>
-                <Select
-                  items={Object.fromEntries([
-                    ['none', t('noStimulus')],
-                    ...stimuli.map((s) => [s.id, plainText(s.content).slice(0, 80)] as [string, string]),
-                  ])}
-                  value={form.stimulusId === '' ? 'none' : form.stimulusId}
-                  onValueChange={(v) => patchForm({ stimulusId: v === 'none' || v === null ? '' : v })}
-                >
-                  <SelectTrigger aria-labelledby="q-stimulus-label" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t('noStimulus')}</SelectItem>
-                    {stimuli.map((stimulus) => (
-                      <SelectItem key={stimulus.id} value={stimulus.id}>
-                        {plainText(stimulus.content).slice(0, 80)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              {form.qtype === 'multichoice' && (
-                <fieldset className="space-y-3">
-                  <legend className="text-sm font-medium">{t('choices')}</legend>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="q-mc-single"
-                      checked={form.mcSingle}
-                      onCheckedChange={(checked) => patchForm({ mcSingle: checked === true })}
-                    />
-                    <Label htmlFor="q-mc-single">{t('singleAnswerOnly')}</Label>
-                  </div>
-                  {form.mcSingle ? (
-                    <RadioGroup
-                      name="q-correct-choice"
-                      value={mcCorrectIndex >= 0 ? String(mcCorrectIndex) : undefined}
-                      onValueChange={(value) => {
-                        const picked = Number(value);
-                        patchForm({
-                          mcChoices: form.mcChoices.map((c, i) => ({
-                            ...c,
-                            fraction: i === picked ? '1' : '0',
-                          })),
-                        });
-                      }}
-                    >
-                      {mcChoiceRows}
-                    </RadioGroup>
-                  ) : (
-                    mcChoiceRows
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => patchForm({ mcChoices: [...form.mcChoices, { text: '', fraction: '0' }] })}
-                  >
-                    {t('addChoice')}
-                  </Button>
-                </fieldset>
-              )}
-
-              {form.qtype === 'truefalse' && (
-                <fieldset className="space-y-2">
-                  <RadioGroup
-                    name="q-tf-correct"
-                    className="gap-2"
-                    value={form.tfCorrect ? 'true' : 'false'}
-                    onValueChange={(value) => patchForm({ tfCorrect: value === 'true' })}
-                  >
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem id="q-tf-true" value="true" />
-                      <Label htmlFor="q-tf-true">{t('correctAnswerIsTrue')}</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem id="q-tf-false" value="false" />
-                      <Label htmlFor="q-tf-false">{t('correctAnswerIsFalse')}</Label>
-                    </div>
-                  </RadioGroup>
-                </fieldset>
-              )}
-
-              {form.qtype === 'shortanswer' && (
-                <fieldset className="space-y-3">
-                  <legend className="text-sm font-medium">{t('acceptedAnswers')}</legend>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="q-sa-usecase"
-                      checked={form.saUseCase}
-                      onCheckedChange={(checked) => patchForm({ saUseCase: checked === true })}
-                    />
-                    <Label htmlFor="q-sa-usecase">{t('caseSensitive')}</Label>
-                  </div>
-                  {form.saAnswers.map((answer, index) => (
-                    <div key={index} className="space-y-2 rounded-md border p-3">
-                      <Field>
-                        <FieldLabel htmlFor={`q-sa-answer-${index}`}>
-                          {t('acceptedAnswerText', { index: index + 1 })}
-                        </FieldLabel>
-                        <Input
-                          id={`q-sa-answer-${index}`}
-                          value={answer.text}
-                          onChange={(e) =>
-                            patchForm({
-                              saAnswers: form.saAnswers.map((a, i) => (i === index ? { ...a, text: e.target.value } : a)),
-                            })
-                          }
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor={`q-sa-fraction-${index}`}>
-                          {t('answerFraction', { index: index + 1 })}
-                        </FieldLabel>
-                        <Input
-                          id={`q-sa-fraction-${index}`}
-                          type="number"
-                          step="0.05"
-                          min="0"
-                          max="1"
-                          value={answer.fraction}
-                          onChange={(e) =>
-                            patchForm({
-                              saAnswers: form.saAnswers.map((a, i) =>
-                                i === index ? { ...a, fraction: e.target.value } : a,
-                              ),
-                            })
-                          }
-                        />
-                      </Field>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={form.saAnswers.length <= 1}
-                        onClick={() => patchForm({ saAnswers: form.saAnswers.filter((_, i) => i !== index) })}
-                      >
-                        {t('removeAnswer', { index: index + 1 })}
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '', fraction: '0' }] })}
-                  >
-                    {t('addAnswer')}
-                  </Button>
-                </fieldset>
-              )}
-
-              {form.qtype === 'essay' && (
-                <fieldset className="space-y-3">
-                  <Field>
-                    <FieldLabel id="q-essay-format-label">{t('responseFormat')}</FieldLabel>
-                    <Select
-                      items={{ editor: t('responseFormatEditor'), plain: t('responseFormatPlain') }}
-                      value={form.essayResponseFormat}
-                      onValueChange={(v) => patchForm({ essayResponseFormat: v ?? 'editor' })}
-                    >
-                      <SelectTrigger aria-labelledby="q-essay-format-label" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="editor">{t('responseFormatEditor')}</SelectItem>
-                        <SelectItem value="plain">{t('responseFormatPlain')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="q-essay-response-required"
-                      checked={form.essayResponseRequired}
-                      onCheckedChange={(checked) => patchForm({ essayResponseRequired: checked === true })}
-                    />
-                    <Label htmlFor="q-essay-response-required">{t('responseRequired')}</Label>
-                  </div>
-                  <Field>
-                    <FieldLabel htmlFor="q-essay-response-field-lines">{t('responseFieldLines')}</FieldLabel>
-                    <Input
-                      id="q-essay-response-field-lines"
-                      type="number"
-                      min="1"
-                      value={form.essayResponseFieldLines}
-                      onChange={(e) => patchForm({ essayResponseFieldLines: e.target.value })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="q-essay-minwords">{t('minWordLimit')}</FieldLabel>
-                    <Input
-                      id="q-essay-minwords"
-                      type="number"
-                      min="0"
-                      value={form.essayMinWords}
-                      onChange={(e) => patchForm({ essayMinWords: e.target.value })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="q-essay-maxwords">{t('maxWordLimit')}</FieldLabel>
-                    <Input
-                      id="q-essay-maxwords"
-                      type="number"
-                      min="0"
-                      value={form.essayMaxWords}
-                      onChange={(e) => patchForm({ essayMaxWords: e.target.value })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="q-essay-graderinfo">{t('graderInfo')}</FieldLabel>
-                    <Textarea
-                      id="q-essay-graderinfo"
-                      rows={3}
-                      value={form.essayGraderInfo}
-                      onChange={(e) => patchForm({ essayGraderInfo: e.target.value })}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="q-essay-template">{t('responseTemplate')}</FieldLabel>
-                    <Textarea
-                      id="q-essay-template"
-                      rows={3}
-                      value={form.essayResponseTemplate}
-                      onChange={(e) => patchForm({ essayResponseTemplate: e.target.value })}
-                    />
-                  </Field>
-                </fieldset>
-              )}
-
-              <div className="flex gap-2">
-                <Button type="submit">{editing ? t('saveNewVersion') : t('createQuestion')}</Button>
+    <PageShell width="wide">
+      <PageHeader title={mode === 'edit' ? t('editQuestionTitle', { name: editing?.question.name ?? '' }) : t('newQuestion')} />
+      <form onSubmit={onSubmit}>
+        <Card>
+          <CardContent className="space-y-4 pt-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                {editing ? statusLabel : t('questionStatusNew')}
+              </span>
+              <div className="ml-auto flex flex-wrap gap-2">
                 {editing && (
                   <Button type="button" variant="outline" render={<Link to="/questions" />}>
                     {t('cancelEdit')}
                   </Button>
                 )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={saving !== null}
+                  onClick={() => void submitWith('draft')}
+                >
+                  {t('saveDraft')}
+                </Button>
+                <Button type="submit" disabled={saving !== null}>
+                  {editing ? t('saveNewVersion') : t('createQuestion')}
+                </Button>
               </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+            </div>
+            {message ? (
+              <Alert role="status" variant="destructive">
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+              <FieldGroup>
+                {!editing && (
+                  <Field>
+                    <FieldLabel id="q-category-label">{t('category')}</FieldLabel>
+                    <Select
+                      items={Object.fromEntries(categories.map((c) => [c.id, c.name]))}
+                      value={categoryId}
+                      onValueChange={(v) => {
+                        if (!v) return;
+                        setCategoryId(v);
+                        patchForm({ stimulusId: '' });
+                        void loadStimuli(v).catch(() => setMessage(t('stimulusLoadFailed')));
+                      }}
+                    >
+                      <SelectTrigger aria-labelledby="q-category-label" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+                <Field>
+                  <FieldLabel id="q-type-label">{t('questionType')}</FieldLabel>
+                  <Select
+                    items={Object.fromEntries(QTYPES.map((qtype) => [qtype, t(QTYPE_LABEL_KEYS[qtype])]))}
+                    value={form.qtype}
+                    disabled={editing !== null}
+                    onValueChange={(v) => {
+                      const qtype = (v ?? 'multichoice') as Qtype;
+                      setForm((prev) => ({
+                        ...emptyEditorForm(qtype),
+                        name: prev.name,
+                        questionText: prev.questionText,
+                        generalFeedback: prev.generalFeedback,
+                        stimulusId: prev.stimulusId,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger aria-labelledby="q-type-label" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {QTYPES.map((qtype) => (
+                        <SelectItem key={qtype} value={qtype}>
+                          {t(QTYPE_LABEL_KEYS[qtype])}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="q-name">{t('name')}</FieldLabel>
+                  <Input id="q-name" value={form.name} onChange={(e) => patchForm({ name: e.target.value })} />
+                </Field>
+                <Field>
+                  <FieldLabel id="q-stimulus-label">{t('attachedStimulus')}</FieldLabel>
+                  <Select
+                    items={Object.fromEntries([
+                      ['none', t('noStimulus')],
+                      ...stimuli.map((s) => [s.id, plainText(s.content).slice(0, 80)] as [string, string]),
+                    ])}
+                    value={form.stimulusId === '' ? 'none' : form.stimulusId}
+                    onValueChange={(v) => patchForm({ stimulusId: v === 'none' || v === null ? '' : v })}
+                  >
+                    <SelectTrigger aria-labelledby="q-stimulus-label" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('noStimulus')}</SelectItem>
+                      {stimuli.map((stimulus) => (
+                        <SelectItem key={stimulus.id} value={stimulus.id}>
+                          {plainText(stimulus.content).slice(0, 80)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                {form.qtype !== 'truefalse' && (
+                  <RichField
+                    label={t('questionText')}
+                    value={form.questionText}
+                    onChange={(questionText) => patchForm({ questionText })}
+                    fileArea="questiontext"
+                    contextId={contextId}
+                    itemId={editing?.question.id}
+                  />
+                )}
+
+                {form.qtype === 'multichoice' && (
+                  <fieldset className="space-y-3">
+                    <legend className="text-sm font-medium">{t('choices')}</legend>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="q-mc-single"
+                        checked={form.mcSingle}
+                        onCheckedChange={(checked) => patchForm({ mcSingle: checked === true })}
+                      />
+                      <Label htmlFor="q-mc-single">{t('singleAnswerOnly')}</Label>
+                    </div>
+                    {form.mcSingle ? (
+                      <RadioGroup
+                        value={String(form.mcChoices.findIndex((c) => Number(c.fraction) === 1))}
+                        onValueChange={(v) => {
+                          const picked = Number(v);
+                          patchForm({
+                            mcChoices: form.mcChoices.map((c, i) => ({
+                              ...c,
+                              fraction: i === picked ? '1' : '0',
+                            })),
+                          });
+                        }}
+                      >
+                        <div className="space-y-3">{mcChoiceRows}</div>
+                      </RadioGroup>
+                    ) : (
+                      <div className="space-y-3">{mcChoiceRows}</div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        patchForm({
+                          mcChoices: [...form.mcChoices, { doc: emptyDoc(), fraction: '0', feedback: undefined }],
+                        })
+                      }
+                    >
+                      {t('addChoice')}
+                    </Button>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="q-mc-shuffle"
+                          checked={form.mcShuffleAnswers}
+                          onCheckedChange={(checked) => patchForm({ mcShuffleAnswers: checked === true })}
+                        />
+                        <Label htmlFor="q-mc-shuffle">{t('shuffleAnswers')}</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="q-mc-numcorrect"
+                          checked={form.mcShowNumCorrect}
+                          onCheckedChange={(checked) => patchForm({ mcShowNumCorrect: checked === true })}
+                        />
+                        <Label htmlFor="q-mc-numcorrect">{t('showNumCorrect')}</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="q-mc-instruction"
+                          checked={form.mcShowStandardInstruction}
+                          onCheckedChange={(checked) =>
+                            patchForm({ mcShowStandardInstruction: checked === true })
+                          }
+                        />
+                        <Label htmlFor="q-mc-instruction">{t('showStandardInstruction')}</Label>
+                      </div>
+                      <Field>
+                        <FieldLabel id="q-mc-numbering-label">{t('answerNumbering')}</FieldLabel>
+                        <Select
+                          items={{
+                            abc: t('answerNumberingAbc'),
+                            ABC: t('answerNumberingABC'),
+                            '123': t('answerNumbering123'),
+                            iii: t('answerNumberingIii'),
+                            IIII: t('answerNumberingIIII'),
+                            none: t('answerNumberingNone'),
+                          }}
+                          value={form.mcAnswerNumbering}
+                          onValueChange={(v) => patchForm({ mcAnswerNumbering: v ?? 'abc' })}
+                        >
+                          <SelectTrigger aria-labelledby="q-mc-numbering-label" className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="abc">{t('answerNumberingAbc')}</SelectItem>
+                            <SelectItem value="ABC">{t('answerNumberingABC')}</SelectItem>
+                            <SelectItem value="123">{t('answerNumbering123')}</SelectItem>
+                            <SelectItem value="iii">{t('answerNumberingIii')}</SelectItem>
+                            <SelectItem value="IIII">{t('answerNumberingIIII')}</SelectItem>
+                            <SelectItem value="none">{t('answerNumberingNone')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
+                    <RichField
+                      label={t('correctFeedback')}
+                      value={form.mcCorrectFeedback}
+                      onChange={(mcCorrectFeedback) => patchForm({ mcCorrectFeedback })}
+                      fileArea="feedback"
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                    <RichField
+                      label={t('partiallyCorrectFeedback')}
+                      value={form.mcPartiallyCorrectFeedback}
+                      onChange={(mcPartiallyCorrectFeedback) => patchForm({ mcPartiallyCorrectFeedback })}
+                      fileArea="feedback"
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                    <RichField
+                      label={t('incorrectFeedback')}
+                      value={form.mcIncorrectFeedback}
+                      onChange={(mcIncorrectFeedback) => patchForm({ mcIncorrectFeedback })}
+                      fileArea="feedback"
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                  </fieldset>
+                )}
+
+                {form.qtype === 'truefalse' && (
+                  <fieldset className="space-y-3">
+                    <legend className="text-sm font-medium">{t('tfStatementsHeading')}</legend>
+                    <p className="text-sm text-muted-foreground">{t('tfClusterHint')}</p>
+                    {form.tfStatements.map((statement, index) => (
+                      <div key={index} className="space-y-2 rounded-md border p-3">
+                        <RichField
+                          label={t('tfStatement', { index: index + 1 })}
+                          value={statement.doc}
+                          onChange={(doc) =>
+                            patchForm({
+                              tfStatements: form.tfStatements.map((s, i) => (i === index ? { ...s, doc } : s)),
+                            })
+                          }
+                          fileArea="questiontext"
+                          contextId={contextId}
+                          itemId={editing?.question.id}
+                        />
+                        <RadioGroup
+                          value={statement.correct ? 'true' : 'false'}
+                          onValueChange={(v) =>
+                            patchForm({
+                              tfStatements: form.tfStatements.map((s, i) =>
+                                i === index ? { ...s, correct: v === 'true' } : s,
+                              ),
+                            })
+                          }
+                        >
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem id={`q-tf-${index}-true`} value="true" />
+                            <Label htmlFor={`q-tf-${index}-true`}>{t('correctAnswerIsTrue')}</Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem id={`q-tf-${index}-false`} value="false" />
+                            <Label htmlFor={`q-tf-${index}-false`}>{t('correctAnswerIsFalse')}</Label>
+                          </div>
+                        </RadioGroup>
+                        <div className="flex gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={index === 0}
+                            aria-label={t('questionMoveUp')}
+                            onClick={() => patchForm({ tfStatements: moveItem(form.tfStatements, index, -1) })}
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={index === form.tfStatements.length - 1}
+                            aria-label={t('questionMoveDown')}
+                            onClick={() => patchForm({ tfStatements: moveItem(form.tfStatements, index, 1) })}
+                          >
+                            ↓
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={form.tfStatements.length <= 1}
+                            onClick={() =>
+                              patchForm({ tfStatements: form.tfStatements.filter((_, i) => i !== index) })
+                            }
+                          >
+                            {t('removeStatement', { index: index + 1 })}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        patchForm({ tfStatements: [...form.tfStatements, { doc: emptyDoc(), correct: true }] })
+                      }
+                    >
+                      {t('addStatement')}
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="q-tf-instruction"
+                        checked={form.tfShowStandardInstruction}
+                        onCheckedChange={(checked) =>
+                          patchForm({ tfShowStandardInstruction: checked === true })
+                        }
+                      />
+                      <Label htmlFor="q-tf-instruction">{t('showStandardInstruction')}</Label>
+                    </div>
+                  </fieldset>
+                )}
+
+                {form.qtype === 'shortanswer' && (
+                  <fieldset className="space-y-3">
+                    <legend className="text-sm font-medium">{t('acceptedAnswers')}</legend>
+                    {form.saAnswers.map((answer, index) => (
+                      <div key={index} className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+                        <Field className="min-w-48 flex-1">
+                          <FieldLabel htmlFor={`q-sa-answer-${index}`}>
+                            {t('acceptedAnswerText', { index: index + 1 })}
+                          </FieldLabel>
+                          <Input
+                            id={`q-sa-answer-${index}`}
+                            value={answer.text}
+                            onChange={(e) =>
+                              patchForm({
+                                saAnswers: form.saAnswers.map((a, i) =>
+                                  i === index ? { ...a, text: e.target.value } : a,
+                                ),
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field>
+                          <FieldLabel htmlFor={`q-sa-fraction-${index}`}>
+                            {t('answerFraction', { index: index + 1 })}
+                          </FieldLabel>
+                          <Input
+                            id={`q-sa-fraction-${index}`}
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            className="w-28"
+                            value={answer.fraction}
+                            onChange={(e) =>
+                              patchForm({
+                                saAnswers: form.saAnswers.map((a, i) =>
+                                  i === index ? { ...a, fraction: e.target.value } : a,
+                                ),
+                              })
+                            }
+                          />
+                        </Field>
+                        <div className="flex gap-1 pb-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={index === 0}
+                            aria-label={t('questionMoveUp')}
+                            onClick={() => patchForm({ saAnswers: moveItem(form.saAnswers, index, -1) })}
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={index === form.saAnswers.length - 1}
+                            aria-label={t('questionMoveDown')}
+                            onClick={() => patchForm({ saAnswers: moveItem(form.saAnswers, index, 1) })}
+                          >
+                            ↓
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={form.saAnswers.length <= 1}
+                            onClick={() => patchForm({ saAnswers: form.saAnswers.filter((_, i) => i !== index) })}
+                          >
+                            {t('removeAnswer', { index: index + 1 })}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '', fraction: '0' }] })}
+                    >
+                      {t('addAnswer')}
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="q-sa-usecase"
+                        checked={form.saUseCase}
+                        onCheckedChange={(checked) => patchForm({ saUseCase: checked === true })}
+                      />
+                      <Label htmlFor="q-sa-usecase">{t('caseSensitive')}</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="q-sa-numeric"
+                        checked={form.saNumericAnswer}
+                        onCheckedChange={(checked) => patchForm({ saNumericAnswer: checked === true })}
+                      />
+                      <Label htmlFor="q-sa-numeric">{t('numericAnswer')}</Label>
+                    </div>
+                    {form.saNumericAnswer && (
+                      <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
+                        <Field>
+                          <FieldLabel htmlFor="q-sa-numeric-maxlength">{t('numericMaxLength')}</FieldLabel>
+                          <Input
+                            id="q-sa-numeric-maxlength"
+                            type="number"
+                            min="1"
+                            value={form.saNumericMaxLength}
+                            onChange={(e) => patchForm({ saNumericMaxLength: e.target.value })}
+                          />
+                        </Field>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="q-sa-numeric-sign"
+                            checked={form.saNumericAllowSign}
+                            onCheckedChange={(checked) => patchForm({ saNumericAllowSign: checked === true })}
+                          />
+                          <Label htmlFor="q-sa-numeric-sign">{t('numericAllowSign')}</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="q-sa-numeric-decimal"
+                            checked={form.saNumericAllowDecimal}
+                            onCheckedChange={(checked) => patchForm({ saNumericAllowDecimal: checked === true })}
+                          />
+                          <Label htmlFor="q-sa-numeric-decimal">{t('numericAllowDecimal')}</Label>
+                        </div>
+                      </div>
+                    )}
+                  </fieldset>
+                )}
+
+                {form.qtype === 'essay' && (
+                  <fieldset className="space-y-3">
+                    <legend className="text-sm font-medium">{t('questionOptions')}</legend>
+                    <Field>
+                      <FieldLabel id="q-essay-format-label">{t('responseFormat')}</FieldLabel>
+                      <Select
+                        items={{ editor: t('responseFormatEditor'), plain: t('responseFormatPlain') }}
+                        value={form.essayResponseFormat}
+                        onValueChange={(v) => patchForm({ essayResponseFormat: v ?? 'editor' })}
+                      >
+                        <SelectTrigger aria-labelledby="q-essay-format-label" className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="editor">{t('responseFormatEditor')}</SelectItem>
+                          <SelectItem value="plain">{t('responseFormatPlain')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="q-essay-required"
+                        checked={form.essayResponseRequired}
+                        onCheckedChange={(checked) => patchForm({ essayResponseRequired: checked === true })}
+                      />
+                      <Label htmlFor="q-essay-required">{t('responseRequired')}</Label>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <Field>
+                        <FieldLabel htmlFor="q-essay-lines">{t('responseFieldLines')}</FieldLabel>
+                        <Input
+                          id="q-essay-lines"
+                          type="number"
+                          min="1"
+                          value={form.essayResponseFieldLines}
+                          onChange={(e) => patchForm({ essayResponseFieldLines: e.target.value })}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="q-essay-minwords">{t('minWordLimit')}</FieldLabel>
+                        <Input
+                          id="q-essay-minwords"
+                          type="number"
+                          min="0"
+                          value={form.essayMinWords}
+                          onChange={(e) => patchForm({ essayMinWords: e.target.value })}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="q-essay-maxwords">{t('maxWordLimit')}</FieldLabel>
+                        <Input
+                          id="q-essay-maxwords"
+                          type="number"
+                          min="0"
+                          value={form.essayMaxWords}
+                          onChange={(e) => patchForm({ essayMaxWords: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                    <RichField
+                      label={t('graderInfo')}
+                      value={form.essayGraderInfo}
+                      onChange={(essayGraderInfo) => patchForm({ essayGraderInfo })}
+                      fileArea="guidance"
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                    <RichField
+                      label={t('responseTemplate')}
+                      value={form.essayResponseTemplate}
+                      onChange={(essayResponseTemplate) => patchForm({ essayResponseTemplate })}
+                      fileArea="guidance"
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                  </fieldset>
+                )}
+
+                <RichField
+                  label={t('generalFeedback')}
+                  value={form.generalFeedback}
+                  onChange={(generalFeedback) => patchForm({ generalFeedback })}
+                  fileArea="generalfeedback"
+                  contextId={contextId}
+                  itemId={editing?.question.id}
+                />
+              </FieldGroup>
+              <StudentPreview form={form} stimulus={selectedStimulus} />
+            </div>
+          </CardContent>
+        </Card>
+      </form>
 
       {editing && (
         <Card data-testid="question-programme">

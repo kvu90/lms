@@ -11,7 +11,52 @@ import { QuestionEditPage, QuestionNewPage } from './question-editor';
  * POST /questions nhận `answers` + `options` theo qtype (truefalse dùng
  * `answer: { correct }`), PATCH tạo phiên bản mới với payload đầy đủ,
  * stimulus qua POST/PATCH/DELETE /stimuli và gắn bằng `stimulusId`.
+ * Nội dung trình bày đi qua API ở dạng tài liệu Tiptap; trạng thái
+ * draft/ready chốt bằng POST /questions/:id/status sau khi lưu.
+ *
+ * `@lms/editor` được thay bằng bản giả lập textarea (tài liệu ↔ văn bản
+ * thuần theo paragraph) để spec trang kiểm LUỒNG NGƯỜI DÙNG và payload —
+ * cơ chế soạn Tiptap thật thuộc spec của chính package editor.
  */
+vi.mock('@lms/editor', async () => {
+  const React = await import('react');
+  interface DocLike {
+    type: 'doc';
+    content?: { type: string; content?: { type: string; text?: string }[] }[];
+  }
+  const docToText = (value: DocLike | null | undefined): string =>
+    (value?.content ?? [])
+      .map((node) => (node.content ?? []).map((child) => child.text ?? '').join(''))
+      .join('\n');
+  const textToDoc = (text: string): DocLike => ({
+    type: 'doc',
+    content:
+      text === ''
+        ? [{ type: 'paragraph' }]
+        : text.split('\n').map((line) => ({
+            type: 'paragraph',
+            content: line ? [{ type: 'text', text: line }] : [],
+          })),
+  });
+  return {
+    RichTextEditor: ({
+      value,
+      onChange,
+      ariaLabel,
+    }: {
+      value: DocLike;
+      onChange: (doc: DocLike) => void;
+      ariaLabel?: string;
+    }) =>
+      React.createElement('textarea', {
+        'aria-label': ariaLabel,
+        value: docToText(value),
+        onChange: (event: { target: { value: string } }) => onChange(textToDoc(event.target.value)),
+      }),
+    RichTextView: ({ value }: { value: DocLike | null }) =>
+      value ? React.createElement('div', null, docToText(value)) : null,
+  };
+});
 const CATEGORY_ID = '01900000-0000-7000-8000-000000000001';
 const QUESTION_ID = '01900000-0000-7000-8000-000000000004';
 const VERSION_ID = '01900000-0000-7000-8000-000000000008';
@@ -54,6 +99,7 @@ function multichoiceView(overrides: Record<string, unknown> = {}) {
       questionCategoryId: CATEGORY_ID,
       questionId: QUESTION_ID,
       latestVersion: 1,
+      status: 'ready',
     },
     latestVersion: {
       id: VERSION_ID,
@@ -132,14 +178,27 @@ function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = [], fail
         return respond(created);
       }
       if (url === `/api/v1/questions/${QUESTION_ID}` && method === 'PATCH') {
+        // PATCH tạo phiên bản mới nhưng KHÔNG đổi trạng thái bank của câu.
+        const currentEntry = (state.questions[0] as { entry?: { status?: string } } | undefined)?.entry;
         const updated = multichoiceView({
           entry: {
             id: '01900000-0000-7000-8000-000000000002',
             questionCategoryId: CATEGORY_ID,
             questionId: QUESTION_ID,
             latestVersion: 2,
+            status: currentEntry?.status ?? 'ready',
           },
         });
+        state.questions = [updated];
+        return respond(updated);
+      }
+      if (url === `/api/v1/questions/${QUESTION_ID}/status` && method === 'POST') {
+        const body = JSON.parse(String(init?.body)) as { status: string };
+        const current = (state.questions[0] ?? multichoiceView()) as ReturnType<typeof multichoiceView>;
+        const updated = {
+          ...current,
+          entry: { ...(current.entry as Record<string, unknown>), status: body.status },
+        };
         state.questions = [updated];
         return respond(updated);
       }
@@ -215,13 +274,46 @@ describe('Question editor — four qtypes', () => {
       categoryId: CATEGORY_ID,
       qtype: 'multichoice',
       name: 'Thủ đô',
-      questionText: 'Thủ đô của Việt Nam là gì?',
+      questionText: doc('Thủ đô của Việt Nam là gì?'),
       answers: [
-        { text: 'Hà Nội', fraction: 1 },
-        { text: 'Huế', fraction: 0 },
+        { text: doc('Hà Nội'), fraction: 1 },
+        { text: doc('Huế'), fraction: 0 },
       ],
-      options: { single: true },
+      options: {
+        single: true,
+        shuffleAnswers: true,
+        answerNumbering: 'abc',
+        showNumCorrect: false,
+        showStandardInstruction: true,
+      },
     });
+    // Câu mới mặc định đã ở trạng thái ready nên không gọi endpoint trạng thái.
+    expect(calls.some((c) => c.url.endsWith('/status'))).toBe(false);
+  });
+
+  it('saves a new question as a draft through the status endpoint', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderBank();
+
+    await screen.findByText('General');
+    await openNewQuestionForm();
+    await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu nháp');
+    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Câu đang soạn dở?');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'A');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'B');
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}/status` && c.method === 'POST')).toBe(true),
+    );
+    const statusCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}/status`);
+    expect(statusCall?.body).toEqual({ status: 'draft' });
+    // Tạo nội dung chạy trước, chốt trạng thái nháp chạy sau.
+    const createIndex = calls.findIndex((c) => c.url === '/api/v1/questions' && c.method === 'POST');
+    const statusIndex = calls.findIndex((c) => c.url === `/api/v1/questions/${QUESTION_ID}/status`);
+    expect(createIndex).toBeGreaterThanOrEqual(0);
+    expect(statusIndex).toBeGreaterThan(createIndex);
   });
 
   it('shows the real API reason when question creation fails (issue #55)', async () => {
@@ -251,7 +343,7 @@ describe('Question editor — four qtypes', () => {
     await openNewQuestionForm();
     await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Đúng/sai (truefalse)');
     await userEvent.type(questionForm().getByLabelText('Tên'), 'Trời mưa');
-    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Trời đang mưa.');
+    await userEvent.type(questionForm().getByLabelText('Mệnh đề 1'), 'Trời đang mưa.');
     // Bấm vào NHÃN như người dùng thật: nhãn trỏ tới input ẩn của
     // RadioGroupItem (Base UI) — chọn qua nhãn phải đổi đáp án đúng.
     await userEvent.click(questionForm().getByText('Đáp án đúng là "sai"'));
@@ -263,7 +355,42 @@ describe('Question editor — four qtypes', () => {
       categoryId: CATEGORY_ID,
       qtype: 'truefalse',
       name: 'Trời mưa',
-      questionText: 'Trời đang mưa.',
+      questionText: doc('Trời đang mưa.'),
+      answer: { correct: false },
+      options: { showStandardInstruction: true },
+    });
+  });
+
+  it('creates a truefalse cluster as one question per statement', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderBank();
+
+    await screen.findByText('General');
+    await openNewQuestionForm();
+    await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Đúng/sai (truefalse)');
+    await userEvent.type(questionForm().getByLabelText('Tên'), 'Chùm thời tiết');
+    await userEvent.type(questionForm().getByLabelText('Mệnh đề 1'), 'Trời đang mưa.');
+    await userEvent.click(questionForm().getByRole('button', { name: 'Thêm mệnh đề' }));
+    await userEvent.type(questionForm().getByLabelText('Mệnh đề 2'), 'Trời đang nắng.');
+    const falseLabels = questionForm().getAllByText('Đáp án đúng là "sai"');
+    await userEvent.click(falseLabels[1]!);
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
+
+    await waitFor(() =>
+      expect(calls.filter((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toHaveLength(2),
+    );
+    const createCalls = calls.filter((c) => c.url === '/api/v1/questions' && c.method === 'POST');
+    expect(createCalls[0]?.body).toMatchObject({
+      qtype: 'truefalse',
+      name: 'Chùm thời tiết · ý 1',
+      questionText: doc('Trời đang mưa.'),
+      answer: { correct: true },
+    });
+    expect(createCalls[1]?.body).toMatchObject({
+      qtype: 'truefalse',
+      name: 'Chùm thời tiết · ý 2',
+      questionText: doc('Trời đang nắng.'),
       answer: { correct: false },
     });
   });
@@ -291,12 +418,43 @@ describe('Question editor — four qtypes', () => {
       categoryId: CATEGORY_ID,
       qtype: 'shortanswer',
       name: 'Thủ đô ngắn',
-      questionText: 'Thủ đô của Việt Nam?',
+      questionText: doc('Thủ đô của Việt Nam?'),
       answers: [
         { text: 'Hà Nội', fraction: 1 },
         { text: 'Ha Noi', fraction: 0.5 },
       ],
-      options: { useCase: true },
+      options: { useCase: true, numericAnswer: false },
+    });
+  });
+
+  it('sends the numeric answer flags only when the numeric option is enabled', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderBank();
+
+    await screen.findByText('General');
+    await openNewQuestionForm();
+    await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Trả lời ngắn (shortanswer)');
+    await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu số');
+    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), '3,5 + 1,5 bằng bao nhiêu?');
+    await userEvent.type(questionForm().getByLabelText('Đáp án 1'), '5');
+    // Cờ đáp án số mặc định TẮT: bật lên mới hiện các cờ con.
+    await userEvent.click(questionForm().getByRole('checkbox', { name: 'Đáp án là số (áp dụng bộ quy tắc đáp án số)' }));
+    await userEvent.type(questionForm().getByLabelText('Số ký tự tối đa'), '10');
+    await userEvent.click(questionForm().getByRole('checkbox', { name: 'Cho phép phần thập phân' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
+    const createCall = calls.find((c) => c.url === '/api/v1/questions' && c.method === 'POST');
+    expect(createCall?.body).toMatchObject({
+      qtype: 'shortanswer',
+      options: {
+        useCase: false,
+        numericAnswer: true,
+        numericMaxLength: 10,
+        numericAllowSign: false,
+        numericAllowDecimal: true,
+      },
     });
   });
 
@@ -326,15 +484,15 @@ describe('Question editor — four qtypes', () => {
       categoryId: CATEGORY_ID,
       qtype: 'essay',
       name: 'Bài luận',
-      questionText: 'Hãy phân tích bài thơ.',
+      questionText: doc('Hãy phân tích bài thơ.'),
       options: {
         responseFormat: 'plain',
         responseRequired: false,
         responseFieldLines: 12,
         minWordLimit: 50,
         maxWordLimit: 500,
-        graderInfo: 'Chấm theo thang 10.',
-        responseTemplate: 'Mở bài: ...',
+        graderInfo: doc('Chấm theo thang 10.'),
+        responseTemplate: doc('Mở bài: ...'),
       },
     });
   });
@@ -363,10 +521,10 @@ describe('Question editor — four qtypes', () => {
     const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
     expect(patchCall?.body).toEqual({
       name: 'Thủ đô',
-      questionText: 'Thủ đô của Việt Nam là gì?',
+      questionText: doc('Thủ đô của Việt Nam là gì?'),
       answers: [
-        { text: 'Hà Nội (thủ đô)', fraction: 1 },
-        { text: 'Huế', fraction: 0 },
+        { text: doc('Hà Nội (thủ đô)'), fraction: 1 },
+        { text: doc('Huế'), fraction: 0 },
       ],
       options: {
         single: true,
@@ -412,10 +570,10 @@ describe('Question editor — four qtypes', () => {
     const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
     expect(patchCall?.body).toEqual({
       name: 'Thủ đô',
-      questionText: 'Thủ đô của Việt Nam là gì?',
+      questionText: doc('Thủ đô của Việt Nam là gì?'),
       answers: [
-        { text: 'Hà Nội', fraction: 1 },
-        { text: 'Huế', fraction: 0 },
+        { text: doc('Hà Nội'), fraction: 1 },
+        { text: doc('Huế'), fraction: 0 },
       ],
       options: {
         single: false,
@@ -429,6 +587,42 @@ describe('Question editor — four qtypes', () => {
       },
       stimulusId: null,
     });
+  });
+
+  it('reopens an MCP-created draft intact and publishes it as ready', async () => {
+    const calls: RecordedCall[] = [];
+    const generalFeedback = doc('Lời giải: Hà Nội là thủ đô.');
+    const view = multichoiceView({
+      entry: {
+        id: '01900000-0000-7000-8000-000000000002',
+        questionCategoryId: CATEGORY_ID,
+        questionId: QUESTION_ID,
+        latestVersion: 1,
+        status: 'draft',
+      },
+    });
+    (view.latestVersion as Record<string, unknown>).generalFeedback = generalFeedback;
+    stubFetch(calls, [view]);
+    renderBank();
+
+    const row = await screen.findByTestId(`question-${QUESTION_ID}`);
+    await userEvent.click(within(row).getByText('Sửa (phiên bản mới)'));
+    await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' });
+
+    // Câu draft mở ra giữ nguyên tài liệu: thân câu và phản hồi chung còn nguyên.
+    const editForm = questionForm('Lưu thành phiên bản mới');
+    expect(editForm.getByLabelText('Nội dung câu hỏi')).toHaveValue('Thủ đô của Việt Nam là gì?');
+    expect(editForm.getByLabelText('Phản hồi chung (general feedback)')).toHaveValue('Lời giải: Hà Nội là thủ đô.');
+    expect(await screen.findByText('Bản nháp')).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thành phiên bản mới' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}/status` && c.method === 'POST')).toBe(true),
+    );
+    const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
+    expect(patchCall?.body).toMatchObject({ generalFeedback });
+    const statusCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}/status`);
+    expect(statusCall?.body).toEqual({ status: 'ready' });
   });
 
   it('preserves non-default essay response options when editing', async () => {
@@ -465,15 +659,15 @@ describe('Question editor — four qtypes', () => {
     const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
     expect(patchCall?.body).toEqual({
       name: 'Bài luận',
-      questionText: 'Thủ đô của Việt Nam là gì?',
+      questionText: doc('Thủ đô của Việt Nam là gì?'),
       options: {
         responseFormat: 'editor',
         responseRequired: false,
         responseFieldLines: 7,
         minWordLimit: 20,
         maxWordLimit: 200,
-        graderInfo: 'Chấm theo rubric.',
-        responseTemplate: 'Mở bài mẫu.',
+        graderInfo: doc('Chấm theo rubric.'),
+        responseTemplate: doc('Mở bài mẫu.'),
       },
       stimulusId: null,
     });
