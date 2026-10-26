@@ -2402,7 +2402,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. 2, 3."
+         "text": "Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành."
         }
        ]
       }
@@ -2416,7 +2416,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Cảm nhận được tính chất nhịp"
+         "text": "Cảm nhận được tính chất nhịp 2/4, 3/4."
         }
        ]
       }
@@ -2437,7 +2437,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. 2, 3. – Cảm nhận được tính chất nhịp – Biết ghi chép bản nhạc đơn giản theo hướng dẫn của giáo viên.",
+   "outcome_text": "– Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. – Cảm nhận được tính chất nhịp 2/4, 3/4. – Biết ghi chép bản nhạc đơn giản theo hướng dẫn của giáo viên.",
    "source": {
     "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-amnhac-official.pdf",
@@ -3169,7 +3169,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Giải thích được ý nghĩa của một số kí hiệu và thuật ngữ âm nhạc. 4."
+         "text": "Giải thích được ý nghĩa của một số kí hiệu và thuật ngữ âm nhạc."
         }
        ]
       }
@@ -3183,7 +3183,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Cảm nhận được tính chất nhịp"
+         "text": "Cảm nhận được tính chất nhịp 4/4."
         }
        ]
       }
@@ -3204,7 +3204,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. – Giải thích được ý nghĩa của một số kí hiệu và thuật ngữ âm nhạc. 4. – Cảm nhận được tính chất nhịp – Biết ghi chép bản nhạc đơn giản.",
+   "outcome_text": "– Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. – Giải thích được ý nghĩa của một số kí hiệu và thuật ngữ âm nhạc. – Cảm nhận được tính chất nhịp 4/4. – Biết ghi chép bản nhạc đơn giản.",
    "source": {
     "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-amnhac-official.pdf",
@@ -3414,7 +3414,7 @@
    "stream": "",
    "section": "",
    "topic": "",
-   "content": "– Âm nhạc và đời sống: Một",
+   "content": "– Âm nhạc và đời sống: Một số nghệ sĩ, nghệ nhân, nhà nghiên cứu,... có nhiều đóng góp cho nền âm nhạc Việt Nam.",
    "kind": "content",
    "outcomes": [
     {
@@ -3425,43 +3425,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được đôi nét về cuộc đời và những đóng góp cho nền âm nhạc của nghệ sĩ, nghệ nhân,"
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "– Nêu được đôi nét về cuộc đời và những đóng góp cho nền âm nhạc của nghệ sĩ, nghệ nhân,",
-   "source": {
-    "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
-    "file": "ct-amnhac-official.pdf",
-    "portal": "data.moet.gov.vn (share v8r7HtTrArjXOrk; ban luu Wayback khop digest)",
-    "pdf_pages": [
-     23
-    ]
-   }
-  },
-  {
-   "id": "AN-0053",
-   "subject": "Âm nhạc",
-   "grade": 7,
-   "level": "THCS",
-   "stream": "",
-   "section": "",
-   "topic": "",
-   "content": "số nghệ sĩ, nghệ nhân, nhà nghiên cứu,... có nhiều đóng góp cho nền âm nhạc Việt Nam.",
-   "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "nhà nghiên cứu,..."
+         "text": "Nêu được đôi nét về cuộc đời và những đóng góp cho nền âm nhạc của nghệ sĩ, nghệ nhân, nhà nghiên cứu,..."
         }
        ]
       }
@@ -3482,12 +3446,13 @@
      ]
     }
    ],
-   "outcome_text": "nhà nghiên cứu,... – Cảm nhận được vẻ đẹp của tác phẩm âm nhạc do nghệ sĩ trình diễn.",
+   "outcome_text": "– Nêu được đôi nét về cuộc đời và những đóng góp cho nền âm nhạc của nghệ sĩ, nghệ nhân, nhà nghiên cứu,... – Cảm nhận được vẻ đẹp của tác phẩm âm nhạc do nghệ sĩ trình diễn.",
    "source": {
     "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-amnhac-official.pdf",
     "portal": "data.moet.gov.vn (share v8r7HtTrArjXOrk; ban luu Wayback khop digest)",
     "pdf_pages": [
+     23,
      24
     ]
    }
@@ -4707,7 +4672,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Cảm nhận được tính chất nhịp , ."
+         "text": "Cảm nhận được tính chất nhịp 3/8, 6/8."
         }
        ]
       }
@@ -4756,7 +4721,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. – Nhận biết được một số bản nhạc viết ở giọng Đô trưởng hoặc giọng La thứ. – Cảm nhận được tính chất nhịp , . – So sánh được sự khác nhau giữa các loại nhịp đã học. – Biết vận dụng kiến thức đã học khi hát, đọc nhạc, chơi nhạc cụ, tìm hiểu bản nhạc,... – Biết ghi chép bản nhạc.",
+   "outcome_text": "– Nhận biết và thể hiện được một số kí hiệu âm nhạc thông qua thực hành. – Nhận biết được một số bản nhạc viết ở giọng Đô trưởng hoặc giọng La thứ. – Cảm nhận được tính chất nhịp 3/8, 6/8. – So sánh được sự khác nhau giữa các loại nhịp đã học. – Biết vận dụng kiến thức đã học khi hát, đọc nhạc, chơi nhạc cụ, tìm hiểu bản nhạc,... – Biết ghi chép bản nhạc.",
    "source": {
     "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-amnhac-official.pdf",
@@ -6279,7 +6244,7 @@
    "stream": "",
    "section": "",
    "topic": "",
-   "content": "Nhạc cụ Các bài tập tiết tấu, giai điệu",
+   "content": "Nhạc cụ Các bài tập tiết tấu, giai điệu và hoà âm.",
    "kind": "content",
    "outcomes": [
     {
@@ -6304,43 +6269,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Thể hiện đúng cao độ, trường độ, sắc thái các bài tập tiết tấu, giai điệu, hoà âm; duy trì"
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "– Biết chơi nhạc cụ đúng tư thế và đúng kĩ thuật. – Thể hiện đúng cao độ, trường độ, sắc thái các bài tập tiết tấu, giai điệu, hoà âm; duy trì",
-   "source": {
-    "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
-    "file": "ct-amnhac-official.pdf",
-    "portal": "data.moet.gov.vn (share v8r7HtTrArjXOrk; ban luu Wayback khop digest)",
-    "pdf_pages": [
-     33
-    ]
-   }
-  },
-  {
-   "id": "AN-0091",
-   "subject": "Âm nhạc",
-   "grade": 10,
-   "level": "THPT",
-   "stream": "",
-   "section": "",
-   "topic": "",
-   "content": "và hoà âm.",
-   "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "được tốc độ ổn định."
+         "text": "Thể hiện đúng cao độ, trường độ, sắc thái các bài tập tiết tấu, giai điệu, hoà âm; duy trì được tốc độ ổn định."
         }
        ]
       }
@@ -6459,12 +6388,13 @@
      ]
     }
    ],
-   "outcome_text": "được tốc độ ổn định. – Bước đầu biết xác định tiết điệu và đặt hợp âm chính cho bản nhạc; biết ứng tác và biến tấu đơn giản khi chơi nhạc cụ. – Biết điều chỉnh cường độ để tạo nên sự hài hoà; biểu lộ cảm xúc phù hợp với tính chất âm nhạc. – Biết chơi nhạc cụ với hình thức độc tấu và hoà tấu. – Biết kết hợp các loại nhạc cụ để hoà tấu hoặc đệm cho bài hát, bản nhạc. – Biết nhận xét, đánh giá về cách chơi nhạc cụ của bản thân hoặc người khác. – Tự làm được một số nhạc cụ gõ đơn giản từ chất liệu sẵn có. – Biết bảo quản nhạc cụ và điều chỉnh âm thanh đúng cách. – Biết dàn dựng và biểu diễn nhạc cụ ở trong và ngoài nhà trường.",
+   "outcome_text": "– Biết chơi nhạc cụ đúng tư thế và đúng kĩ thuật. – Thể hiện đúng cao độ, trường độ, sắc thái các bài tập tiết tấu, giai điệu, hoà âm; duy trì được tốc độ ổn định. – Bước đầu biết xác định tiết điệu và đặt hợp âm chính cho bản nhạc; biết ứng tác và biến tấu đơn giản khi chơi nhạc cụ. – Biết điều chỉnh cường độ để tạo nên sự hài hoà; biểu lộ cảm xúc phù hợp với tính chất âm nhạc. – Biết chơi nhạc cụ với hình thức độc tấu và hoà tấu. – Biết kết hợp các loại nhạc cụ để hoà tấu hoặc đệm cho bài hát, bản nhạc. – Biết nhận xét, đánh giá về cách chơi nhạc cụ của bản thân hoặc người khác. – Tự làm được một số nhạc cụ gõ đơn giản từ chất liệu sẵn có. – Biết bảo quản nhạc cụ và điều chỉnh âm thanh đúng cách. – Biết dàn dựng và biểu diễn nhạc cụ ở trong và ngoài nhà trường.",
    "source": {
     "document": "Chương trình môn Âm nhạc (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-amnhac-official.pdf",
     "portal": "data.moet.gov.vn (share v8r7HtTrArjXOrk; ban luu Wayback khop digest)",
     "pdf_pages": [
+     33,
      34
     ]
    }
