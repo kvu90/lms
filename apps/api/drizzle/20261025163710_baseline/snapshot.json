@@ -29574,7 +29574,7 @@
     {
       "schema": "public",
       "table": "exam_matrices",
-      "name": "scope_outcome_ids",
+      "name": "scope_node_ids",
       "type": "jsonb",
       "typeSchema": null,
       "notNull": false,
@@ -29665,7 +29665,7 @@
     {
       "schema": "public",
       "table": "exam_matrix_cells",
-      "name": "learning_outcome_id",
+      "name": "curriculum_node_id",
       "type": "uuid",
       "typeSchema": null,
       "notNull": true,
@@ -44262,11 +44262,11 @@
     {
       "schema": "public",
       "table": "exam_matrix_cells",
-      "name": "exam_matrix_cells_learning_outcome_idx",
+      "name": "exam_matrix_cells_curriculum_node_idx",
       "nameExplicit": true,
       "columns": [
         {
-          "value": "learning_outcome_id",
+          "value": "curriculum_node_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -50687,13 +50687,13 @@
     {
       "schema": "public",
       "table": "exam_matrix_cells",
-      "name": "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey",
+      "name": "exam_matrix_cells_curriculum_node_id_curriculum_nodes_id_fkey",
       "nameExplicit": false,
       "columns": [
-        "learning_outcome_id"
+        "curriculum_node_id"
       ],
       "schemaTo": "public",
-      "tableTo": "learning_outcomes",
+      "tableTo": "curriculum_nodes",
       "columnsTo": [
         "id"
       ],
@@ -54758,7 +54758,7 @@
       "nameExplicit": true,
       "columns": [
         "matrix_id",
-        "learning_outcome_id",
+        "curriculum_node_id",
         "cognitive_level",
         "qtype"
       ],

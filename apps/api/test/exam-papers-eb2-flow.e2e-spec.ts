@@ -41,7 +41,7 @@ describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
   interface AttemptViewBody { attempt: { id: string; state: string }; questions: { slot: number; questionId: string }[] }
 
   interface Ctx {
-    subjectId: string; curriculumId: string;
+    subjectId: string; curriculumId: string; lessonId: string;
     outcomeBiet: string; outcomeHieu: string;
     course1: { id: string; sectionId: string };
     course2: { id: string; sectionId: string };
@@ -109,7 +109,7 @@ describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
     for (let i = 1; i <= 2; i++) { const q = await mkQuestion(`B${i}`); await tag(q, outcomeHieu, 'hieu'); poolB.push(q); }
 
     return {
-      subjectId, curriculumId, outcomeBiet, outcomeHieu,
+      subjectId, curriculumId, lessonId: lessonRes.body.id as string, outcomeBiet, outcomeHieu,
       course1: { id: c1.id, sectionId: c1.sectionId }, course2: { id: c2.id, sectionId: c2.sectionId },
       students1: c1.students, students2: c2.students, poolA, poolB,
     };
@@ -121,10 +121,10 @@ describe('EB-2 generated snapshot exams + variant codes (post-merge)', () => {
     if (r.status !== 201 && r.status !== 200) throw new Error(`matrix failed: ${r.status} ${JSON.stringify(r.body)}`);
     const matrix = r.body as { id: string; version: number };
     const cellA = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/cells`).set('Authorization', `Bearer ${admin}`)
-      .send({ learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 3, cellScore: 3, minutes: 10 });
+      .send({ curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 3, cellScore: 3, minutes: 10 });
     if (cellA.status !== 201 && cellA.status !== 200) throw new Error(`cellA failed: ${cellA.status} ${JSON.stringify(cellA.body)}`);
     const cellB = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/cells`).set('Authorization', `Bearer ${admin}`)
-      .send({ learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1, minutes: 5 });
+      .send({ curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1, minutes: 5 });
     if (cellB.status !== 201 && cellB.status !== 200) throw new Error(`cellB failed: ${cellB.status} ${JSON.stringify(cellB.body)}`);
     return matrix;
   }

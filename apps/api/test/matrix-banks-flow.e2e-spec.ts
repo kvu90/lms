@@ -36,7 +36,7 @@ interface BankBody {
 interface MatrixBody {
   id: string; name: string; bankId: string | null; status: string; isTemplate: boolean;
   derivedFromMatrixId: string | null; version: number;
-  cells: { id: string; learningOutcomeId: string; cognitiveLevel: string; qtype: string; questionCount: number; cellScore: number }[];
+  cells: { id: string; curriculumNodeId: string; cognitiveLevel: string; qtype: string; questionCount: number; cellScore: number }[];
 }
 interface ContributionBody {
   id: string; matrixId: string; matrixName: string | null; targetBankId: string;
@@ -71,7 +71,7 @@ describe('Matrix bank MB-1 (issue #111)', () => {
   }
 
   /** Môn Toán → chương trình lớp 9 → chủ đề → bài → 2 YCCĐ (Biết/Hiểu). */
-  async function setupCurriculum(): Promise<{ subjectId: string; curriculumId: string; outcomeBiet: string; outcomeHieu: string }> {
+  async function setupCurriculum(): Promise<{ subjectId: string; curriculumId: string; lessonId: string; outcomeBiet: string; outcomeHieu: string }> {
     const systemCtxId = await systemContextId(app, admin);
     const subjRes = await http(app).post('/api/v1/curriculum/subjects').set(bearer(admin))
       .send({ contextId: systemCtxId, name: uniqueName('Toán MB1'), slug: `toan-mb1-${Date.now()}-${Math.floor(Math.random() * 1e6)}` });
@@ -93,7 +93,7 @@ describe('Matrix bank MB-1 (issue #111)', () => {
       return (r.body as { id: string }).id;
     };
     return {
-      subjectId, curriculumId,
+      subjectId, curriculumId, lessonId,
       outcomeBiet: await mkOutcome('Nhận biết được khái niệm căn bậc hai.'),
       outcomeHieu: await mkOutcome('Hiểu và vận dụng được tính chất căn bậc hai.'),
     };
@@ -146,10 +146,10 @@ describe('Matrix bank MB-1 (issue #111)', () => {
       bankId: team.teamBank.id, isTemplate: true, status: 'draft',
     });
     await addCell(team.leader.token, tpl.id, {
-      learningOutcomeId: cur.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 2,
+      curriculumNodeId: cur.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 2,
     });
     const withCells = await addCell(team.leader.token, tpl.id, {
-      learningOutcomeId: cur.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1,
+      curriculumNodeId: cur.lessonId, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1,
     });
     expect(withCells.cells).toHaveLength(2);
     const readyRes = await http(app).patch(`/api/v1/exam-matrices/${tpl.id}`).set(bearer(team.leader.token)).send({ status: 'ready' });
@@ -301,7 +301,7 @@ describe('Matrix bank MB-1 (issue #111)', () => {
       bankId: myBank.id, status: 'ready',
     });
     await addCell(team.member.token, own.id, {
-      learningOutcomeId: cur.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 4, cellScore: 4,
+      curriculumNodeId: cur.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 4, cellScore: 4,
     });
 
     // Đề xuất đóng góp vào bank tổ.

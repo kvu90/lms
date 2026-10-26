@@ -50,7 +50,7 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
   let lessonC = '';
   let outcomeA1 = ''; // YCCĐ ổn định của A — đích ánh xạ sách theo outcome + gốc của derived
   let outcomeB1 = ''; // YCCĐ bị sửa chữ của B — đích gắn câu hỏi
-  let outcomeC1 = ''; // YCCĐ của C — đích ô ma trận
+  let outcomeC1 = ''; // YCCĐ đầu của C (ô ma trận nay neo node của C — issue #249)
   let derivedId = '';
   let bookNodeId = '';
 
@@ -225,7 +225,8 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
       `insert into question_learning_outcomes (question_id, learning_outcome_id, cognitive_level) values ($1, $2, 'biet')`,
       [question[0]!.id, outcomeB1]);
 
-    // Ô ma trận trỏ outcomeC1 (bản ghi sắp đổi khối).
+    // Ô ma trận neo ĐVK của bản ghi C (issue #249 — ô neo node, không
+    // neo YCCĐ; bản ghi sắp đổi khối nhưng node giữ id nên ô còn nguyên).
     const matrix = await sql<{ id: string }>(
       `insert into exam_matrices (name, subject_id, curriculum_id, context_id)
        values ('Ma trận kiểm chứng GDPT-SEED', $1,
@@ -233,8 +234,8 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
        returning id`,
       [programSubjectId(SLUG), DATASET_KEY, recC.id, systemCtxId]);
     await pg.query(
-      `insert into exam_matrix_cells (matrix_id, learning_outcome_id, cognitive_level, qtype, question_count, cell_score)
-       values ($1, $2, 'hieu', 'multichoice', 1, 1)`, [matrix[0]!.id, outcomeC1]);
+      `insert into exam_matrix_cells (matrix_id, curriculum_node_id, cognitive_level, qtype, question_count, cell_score)
+       values ($1, $2, 'hieu', 'multichoice', 1, 1)`, [matrix[0]!.id, lessonC]);
 
     const refsBefore = await referenceSnapshot();
     const outcomeTotalBefore = (await snapshotIds()).outcomes.length;
@@ -328,7 +329,7 @@ describe('GDPT-SEED deterministic program identity (phương án D)', () => {
     const links = await sql(
       `select id, question_id, learning_outcome_id from question_learning_outcomes where learning_outcome_id = $1`, [outcomeB1]);
     const cells = await sql(
-      `select id, matrix_id, learning_outcome_id from exam_matrix_cells where learning_outcome_id = $1`, [outcomeC1]);
+      `select id, matrix_id, curriculum_node_id from exam_matrix_cells where curriculum_node_id = $1`, [lessonC]);
     return { mappings, links, cells };
   }
 });

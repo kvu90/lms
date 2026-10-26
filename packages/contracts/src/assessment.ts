@@ -733,11 +733,11 @@ export const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as 
 /** Khuôn ma trận DUY NHẤT: đặc tả theo CV 7991 (chốt 26/10 — bỏ hẳn cơ chế chọn preset; preset_kind ở tầng dữ liệu chỉ còn một giá trị này). */
 export const MATRIX_PRESET_KINDS = ['cv7991_periodic'] as const;
 
-/** Một ô ma trận = YCCĐ × mức × dạng câu (riêng truefalse, `questionCount` là số CHÙM 4 câu). */
+/** Một ô ma trận = ĐƠN VỊ KIẾN THỨC × mức × dạng câu (CV 7991 Phụ lục 1, issue #249 — ma trận KHÔNG gắn YCCĐ; YCCĐ chỉ có ở bản đặc tả suy ra. Riêng truefalse, `questionCount` là số CHÙM 4 câu). */
 export const examMatrixCellViewSchema = z.object({
   id: uuidIdSchema,
   matrixId: uuidIdSchema,
-  learningOutcomeId: uuidIdSchema,
+  curriculumNodeId: uuidIdSchema,
   cognitiveLevel: z.enum(COGNITIVE_LEVELS),
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
   questionCount: z.number().int(),
@@ -760,7 +760,7 @@ export const examMatrixViewSchema = z.object({
   targetLevelPercents: z.record(z.string(), z.number()).nullable(),
   levelSet: z.enum(['three', 'four']),
   scopeNote: z.string().nullable(),
-  scopeOutcomeIds: z.array(uuidIdSchema).nullable(),
+  scopeNodeIds: z.array(uuidIdSchema).nullable(),
   totalScore: z.number(),
   createdBy: uuidIdSchema.nullable(),
   /** Các trường ngân hàng (MB-0): bank chứa ma trận (null = chưa vào bank), vòng đời trong bank, cờ mẫu, truy vết copy, phiên bản. */
@@ -783,7 +783,7 @@ export const createExamMatrixSchema = z.strictObject({
   targetLevelPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
   levelSet: z.enum(['three', 'four']).optional(),
   scopeNote: z.string().nullable().optional(),
-  scopeOutcomeIds: z.array(uuidIdSchema).nullable().optional(),
+  scopeNodeIds: z.array(uuidIdSchema).nullable().optional(),
   totalScore: z.number().positive().optional(),
   /** Trường ngân hàng (MB-0): luồng copy mẫu của MB-1 sẽ dùng bankId/derivedFromMatrixId/isTemplate khi tạo. */
   bankId: uuidIdSchema.nullable().optional(),
@@ -800,7 +800,7 @@ export const updateExamMatrixSchema = z.strictObject({
   targetLevelPercents: z.record(z.string(), z.number().min(0).max(100)).nullable().optional(),
   levelSet: z.enum(['three', 'four']).optional(),
   scopeNote: z.string().nullable().optional(),
-  scopeOutcomeIds: z.array(uuidIdSchema).nullable().optional(),
+  scopeNodeIds: z.array(uuidIdSchema).nullable().optional(),
   totalScore: z.number().positive().optional(),
   bankId: uuidIdSchema.nullable().optional(),
   status: z.enum(['draft', 'ready', 'hidden']).optional(),
@@ -808,9 +808,9 @@ export const updateExamMatrixSchema = z.strictObject({
 });
 export type UpdateExamMatrix = z.infer<typeof updateExamMatrixSchema>;
 
-/** Payload tạo ô ma trận. */
+/** Payload tạo ô ma trận (neo ĐVK — không còn learningOutcomeId, issue #249). */
 export const createExamMatrixCellSchema = z.strictObject({
-  learningOutcomeId: uuidIdSchema,
+  curriculumNodeId: uuidIdSchema,
   cognitiveLevel: z.enum(COGNITIVE_LEVELS),
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
   questionCount: z.number().int().positive(),
@@ -821,7 +821,7 @@ export const createExamMatrixCellSchema = z.strictObject({
 });
 export type CreateExamMatrixCell = z.infer<typeof createExamMatrixCellSchema>;
 
-/** Payload sửa ô ma trận (không đổi khoá outcome/mức/dạng — xoá ô và tạo lại). */
+/** Payload sửa ô ma trận (không đổi khoá ĐVK/mức/dạng — xoá ô và tạo lại). */
 export const updateExamMatrixCellSchema = z.strictObject({
   questionCount: z.number().int().positive().optional(),
   cellScore: z.number().positive().optional(),

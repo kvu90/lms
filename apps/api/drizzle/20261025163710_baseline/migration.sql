@@ -1242,7 +1242,7 @@ CREATE TABLE "exam_matrices" (
 	"target_level_percents" jsonb,
 	"level_set" text DEFAULT 'three' NOT NULL,
 	"scope_note" text,
-	"scope_outcome_ids" jsonb,
+	"scope_node_ids" jsonb,
 	"total_score" double precision DEFAULT 10 NOT NULL,
 	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -1255,7 +1255,7 @@ CREATE TABLE "exam_matrices" (
 CREATE TABLE "exam_matrix_cells" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"matrix_id" uuid NOT NULL,
-	"learning_outcome_id" uuid NOT NULL,
+	"curriculum_node_id" uuid NOT NULL,
 	"cognitive_level" text NOT NULL,
 	"qtype" text NOT NULL,
 	"question_count" integer NOT NULL,
@@ -1265,7 +1265,7 @@ CREATE TABLE "exam_matrix_cells" (
 	"position" integer DEFAULT 1 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "exam_matrix_cells_unique" UNIQUE("matrix_id","learning_outcome_id","cognitive_level","qtype"),
+	CONSTRAINT "exam_matrix_cells_unique" UNIQUE("matrix_id","curriculum_node_id","cognitive_level","qtype"),
 	CONSTRAINT "exam_matrix_cells_level_check" CHECK ("cognitive_level" in ('biet', 'hieu', 'van_dung', 'van_dung_cao')),
 	CONSTRAINT "exam_matrix_cells_qtype_check" CHECK ("qtype" in ('multichoice', 'truefalse', 'shortanswer', 'essay')),
 	CONSTRAINT "exam_matrix_cells_count_check" CHECK ("question_count" > 0),
@@ -2605,7 +2605,7 @@ CREATE INDEX "exam_matrices_subject_idx" ON "exam_matrices" ("subject_id");--> s
 CREATE INDEX "exam_matrices_curriculum_idx" ON "exam_matrices" ("curriculum_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_bank_idx" ON "exam_matrices" ("bank_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_cells_matrix_idx" ON "exam_matrix_cells" ("matrix_id");--> statement-breakpoint
-CREATE INDEX "exam_matrix_cells_learning_outcome_idx" ON "exam_matrix_cells" ("learning_outcome_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_cells_curriculum_node_idx" ON "exam_matrix_cells" ("curriculum_node_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_contributions_target_bank_idx" ON "exam_matrix_contributions" ("target_bank_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_contributions_matrix_idx" ON "exam_matrix_contributions" ("matrix_id");--> statement-breakpoint
 CREATE INDEX "exam_matrix_contributions_proposer_idx" ON "exam_matrix_contributions" ("proposer_id");--> statement-breakpoint
@@ -2932,7 +2932,7 @@ ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_subject_id_subjects_id
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_curriculum_id_curricula_id_fkey" FOREIGN KEY ("curriculum_id") REFERENCES "curricula"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_learning_outcome_id_learning_outcomes_id_fkey" FOREIGN KEY ("learning_outcome_id") REFERENCES "learning_outcomes"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_curriculum_node_id_curriculum_nodes_id_fkey" FOREIGN KEY ("curriculum_node_id") REFERENCES "curriculum_nodes"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_contributions" ADD CONSTRAINT "exam_matrix_contributions_target_bank_id_question_banks_id_fkey" FOREIGN KEY ("target_bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_pin_feedbacks" ADD CONSTRAINT "exam_pin_feedbacks_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -41,7 +41,7 @@ interface BankLite {
 }
 interface CellLite {
   id: string;
-  learningOutcomeId: string;
+  curriculumNodeId: string;
   cognitiveLevel: string;
   qtype: string;
   questionCount: number;
@@ -68,15 +68,13 @@ interface AvailabilityLite {
 
 const SELECT_CLASS = 'h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs';
 
-function flattenOutcomes(nodes: CurriculumTreeNode[]): { id: string; content: string }[] {
-  const out: { id: string; content: string }[] = [];
-  const walk = (list: CurriculumTreeNode[]) => {
-    for (const node of list) {
-      for (const o of node.outcomes ?? []) out.push({ id: o.id, content: o.content });
-      walk(node.children ?? []);
-    }
-  };
-  walk(nodes);
+/** Bung cây chương trình thành danh sách ĐƠN VỊ KIẾN THỨC (node) cho bộ chọn ô ma trận — ô neo ĐVK, không neo YCCĐ (issue #249). Nhãn kèm thụt cấp theo độ sâu để phân biệt chủ đề/bài. */
+function flattenNodes(nodes: CurriculumTreeNode[], depth = 0): { id: string; title: string }[] {
+  const out: { id: string; title: string }[] = [];
+  for (const node of nodes) {
+    out.push({ id: node.id, title: `${'— '.repeat(depth)}${node.title}` });
+    out.push(...flattenNodes(node.children ?? [], depth + 1));
+  }
   return out;
 }
 
@@ -269,14 +267,14 @@ export function MatrixEditPage() {
   const perms = usePermissions();
   const { matrixId } = useParams<{ matrixId: string }>();
   const [matrix, setMatrix] = useState<MatrixLite | null>(null);
-  const [outcomes, setOutcomes] = useState<{ id: string; content: string }[]>([]);
+  const [nodes, setNodes] = useState<{ id: string; title: string }[]>([]);
   const [availability, setAvailability] = useState<AvailabilityLite | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [status, setStatus] = useState('draft');
   const [isTemplate, setIsTemplate] = useState(false);
   const [totalScore, setTotalScore] = useState('10');
-  const [cellOutcomeId, setCellOutcomeId] = useState('');
+  const [cellNodeId, setCellNodeId] = useState('');
   const [cellLevel, setCellLevel] = useState('biet');
   const [cellQtype, setCellQtype] = useState('multichoice');
   const [cellCount, setCellCount] = useState('1');
@@ -292,9 +290,9 @@ export function MatrixEditPage() {
     setTotalScore(String(row.totalScore));
     try {
       const tree = await apiJson<CurriculumTreeNode[]>(`/api/v1/curriculum/curricula/${row.curriculumId}/tree`);
-      setOutcomes(flattenOutcomes(tree));
+      setNodes(flattenNodes(tree));
     } catch {
-      setOutcomes([]);
+      setNodes([]);
     }
     try {
       setAvailability(await apiJson<AvailabilityLite>(`/api/v1/exam-matrices/${matrixId}/availability`));
@@ -325,12 +323,12 @@ export function MatrixEditPage() {
 
   async function addCell(event: FormEvent) {
     event.preventDefault();
-    if (!matrix || !cellOutcomeId) return;
+    if (!matrix || !cellNodeId) return;
     try {
       await apiJson(`/api/v1/exam-matrices/${matrix.id}/cells`, {
         method: 'POST',
         body: JSON.stringify({
-          learningOutcomeId: cellOutcomeId, cognitiveLevel: cellLevel, qtype: cellQtype,
+          curriculumNodeId: cellNodeId, cognitiveLevel: cellLevel, qtype: cellQtype,
           questionCount: Number(cellCount) || 1, cellScore: Number(cellScore) || 1,
         }),
       });
@@ -362,7 +360,7 @@ export function MatrixEditPage() {
     );
   }
 
-  const outcomeLabel = (id: string) => outcomes.find((o) => o.id === id)?.content ?? id.slice(0, 8);
+  const nodeLabel = (id: string) => nodes.find((n) => n.id === id)?.title ?? id.slice(0, 8);
   const availabilityOf = (cellId: string) => availability?.cells.find((c) => c.cellId === cellId);
 
   return (
@@ -430,7 +428,7 @@ export function MatrixEditPage() {
                   return (
                     <li key={cell.id} className="flex flex-wrap items-center gap-2">
                       <span className="min-w-0 flex-1 text-sm">
-                        {outcomeLabel(cell.learningOutcomeId)} ·{' '}
+                        {nodeLabel(cell.curriculumNodeId)} ·{' '}
                         {t(LEVEL_LABEL_KEYS[cell.cognitiveLevel as (typeof COGNITIVE_LEVELS)[number]] ?? 'levelBiet')} ·{' '}
                         {t(QTYPE_LABEL_KEYS[cell.qtype as (typeof QTYPES)[number]] ?? 'qtypeMultichoice')} ·{' '}
                         {cell.questionCount} × {cell.cellScore}
@@ -459,18 +457,18 @@ export function MatrixEditPage() {
             ) : null}
             <form onSubmit={(e) => void addCell(e)} className="flex flex-wrap items-end gap-2">
               <div>
-                <Label htmlFor="cell-outcome">{t('matrixCellOutcome')}</Label>
+                <Label htmlFor="cell-node">{t('matrixCellNode')}</Label>
                 <select
-                  id="cell-outcome"
+                  id="cell-node"
                   className={SELECT_CLASS}
-                  value={cellOutcomeId}
-                  onChange={(e) => setCellOutcomeId(e.target.value)}
+                  value={cellNodeId}
+                  onChange={(e) => setCellNodeId(e.target.value)}
                   required
                 >
                   <option value="">—</option>
-                  {outcomes.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.content}
+                  {nodes.map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.title}
                     </option>
                   ))}
                 </select>
@@ -503,7 +501,7 @@ export function MatrixEditPage() {
                 <Label htmlFor="cell-score">{t('matrixCellScore')}</Label>
                 <Input id="cell-score" type="number" min="0.25" step="0.25" value={cellScore} onChange={(e) => setCellScore(e.target.value)} />
               </div>
-              <Button type="submit" disabled={!cellOutcomeId}>
+              <Button type="submit" disabled={!cellNodeId}>
                 {t('matrixAddCell')}
               </Button>
             </form>

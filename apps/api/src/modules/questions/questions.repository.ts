@@ -424,7 +424,7 @@ export class QuestionsRepository {
    * của bank entry. Các điều kiện gắn kết giao nhau (AND).
    */
   async filterQuestionsByCurriculumLinks(filter: {
-    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
   }): Promise<QuestionRow[]> {
     const idSets: Set<string>[] = [];
     if (filter.subjectId !== undefined) {
@@ -438,12 +438,18 @@ export class QuestionsRepository {
         .where(eq(curricula.subjectId, filter.subjectId));
       idSets.push(new Set([...viaSubjects.map((r) => r.questionId), ...viaOutcomes.map((r) => r.questionId)]));
     }
-    if (filter.outcomeId !== undefined || filter.cognitiveLevel !== undefined) {
+    if (filter.outcomeId !== undefined || filter.nodeId !== undefined || filter.cognitiveLevel !== undefined) {
       const conditions = [];
       if (filter.outcomeId !== undefined) conditions.push(eq(questionLearningOutcomes.learningOutcomeId, filter.outcomeId));
+      if (filter.nodeId !== undefined) conditions.push(eq(learningOutcomes.nodeId, filter.nodeId));
       if (filter.cognitiveLevel !== undefined) conditions.push(eq(questionLearningOutcomes.cognitiveLevel, filter.cognitiveLevel));
-      const rows = await this.db.select({ questionId: questionLearningOutcomes.questionId })
-        .from(questionLearningOutcomes).where(and(...conditions));
+      const rows = filter.nodeId !== undefined
+        ? await this.db.select({ questionId: questionLearningOutcomes.questionId })
+          .from(questionLearningOutcomes)
+          .innerJoin(learningOutcomes, eq(learningOutcomes.id, questionLearningOutcomes.learningOutcomeId))
+          .where(and(...conditions))
+        : await this.db.select({ questionId: questionLearningOutcomes.questionId })
+          .from(questionLearningOutcomes).where(and(...conditions));
       idSets.push(new Set(rows.map((r) => r.questionId)));
     }
     let candidateIds: Set<string> | null = null;

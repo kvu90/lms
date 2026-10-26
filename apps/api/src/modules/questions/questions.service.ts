@@ -1007,9 +1007,9 @@ export class QuestionsService {
 
   /** Kiểm chứng hình dạng bộ lọc chương trình (dùng chung cho bản nội bộ và bản có cổng đọc). */
   private validateCurriculumFilter(filter: {
-    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
   }): void {
-    for (const [field, value] of [['subjectId', filter.subjectId], ['outcomeId', filter.outcomeId]] as const) {
+    for (const [field, value] of [['subjectId', filter.subjectId], ['outcomeId', filter.outcomeId], ['nodeId', filter.nodeId]] as const) {
       if (value !== undefined && !uuidIdSchema.safeParse(value).success) {
         throw new BadRequestException({ message: `${field} must be a uuid`, code: 'question.invalid_filter' });
       }
@@ -1025,7 +1025,7 @@ export class QuestionsService {
    * như các endpoint liệt kê hiện hành của ngân hàng.
    */
   async listQuestionsByCurriculumFilter(filter: {
-    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
   }): Promise<QuestionView[]> {
     this.validateCurriculumFilter(filter);
     const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
@@ -1041,7 +1041,7 @@ export class QuestionsService {
    * tồn tại qua bộ lọc.
    */
   async listQuestionsByCurriculumFilterForViewer(actorId: string, filter: {
-    subjectId?: string; outcomeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
   }): Promise<QuestionView[]> {
     this.validateCurriculumFilter(filter);
     const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
