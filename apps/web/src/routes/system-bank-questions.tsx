@@ -1,11 +1,11 @@
 import { QuestionsPage } from '../pages/questions';
 
-// Route Ngân hàng hệ thống — Câu hỏi (/system-bank/questions —
+// Route Ngân hàng câu hỏi — tab Hệ thống (/system-bank/questions —
 // chuẩn đường dẫn #221, lát R1).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
-import { titleMeta } from '../lib/route-meta';
+import { appKeyMeta } from '../lib/route-meta';
 export function meta() {
-  return titleMeta('Câu hỏi hệ thống');
+  return appKeyMeta('navQuestions');
 }
 
 export default function SystemBankQuestionsRoute() {
