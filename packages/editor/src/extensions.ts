@@ -66,8 +66,21 @@ const ContinuableBlockMath = BlockMath.extend({
   },
 });
 
-/** Image có thêm phím Enter để xuống dòng viết tiếp sau ảnh. */
+/**
+ * Image có thêm phím Enter để xuống dòng viết tiếp sau ảnh, và tập thuộc
+ * tính bị thu đúng về hợp đồng contracts (`src`/`alt`/`title`):
+ * extension gốc còn khai `width`/`height` — để chúng lọt vào tài liệu
+ * thì `richTextImageNodeSchema` (strictObject) sẽ từ chối tài liệu ở
+ * biên API, nên ở đây khai lại đúng ba thuộc tính của hợp đồng.
+ */
 const ContinuableImage = Image.extend({
+  addAttributes() {
+    return {
+      src: { default: null },
+      alt: { default: null },
+      title: { default: null },
+    };
+  },
   addKeyboardShortcuts() {
     return {
       Enter: () => ensureContinuationParagraph(this.editor, 'image'),
