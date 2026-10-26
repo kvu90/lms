@@ -390,7 +390,15 @@ export class MessagingService {
     return { popupEnabled, emailFrequency };
   }
 
-  /** Một dòng tuỳ chọn v2 đầy đủ (nhãn/mô tả từ registry + giá trị hiệu lực của user). */
+  /**
+   * Một dòng tuỳ chọn v2 đầy đủ (nhãn/mô tả từ registry + giá trị hiệu
+   * lực của user). Kèm `siteEnabled` — chính sách phát của admin ở cấp
+   * site (NB-7) qua đúng hàm `isProviderEnabledBySitePolicy` mà
+   * `notify()` tôn trọng khi phát — để trang Cài đặt thông báo hiển
+   * thị "Admin đã tắt ở cấp site" và khoá điều khiển: chỉ là BỀ MẶT
+   * HIỂN THỊ của chính sách đã thi hành ở server, không đổi mô hình
+   * dữ liệu hay luật phát nào.
+   */
   private async preferenceView(userId: string, provider: MessageProviderDefinition): Promise<NotificationPreferenceView> {
     const resolved = await this.resolveNotificationPreference(userId, provider);
     return {
@@ -399,6 +407,7 @@ export class MessagingService {
       teacherOnly: provider.teacherOnly ?? false, mandatoryInApp: provider.mandatoryInApp ?? false,
       popupEnabled: resolved.popupEnabled, emailFrequency: resolved.emailFrequency,
       emailAvailable: EMAIL_CHANNEL_AVAILABLE,
+      siteEnabled: await this.isProviderEnabledBySitePolicy(provider),
     };
   }
 

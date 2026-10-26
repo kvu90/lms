@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -13,19 +13,13 @@ import {
   flattenNotificationGroups,
   groupsUrl,
   notificationGroupKey,
-  preferenceKey,
   updateNotificationGroupsCache,
   useClearReadNotifications,
   useDeleteNotification,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
-  useMessagePreferences,
-  useNotificationCourseOverrides,
   useNotificationGroups,
   useReadNotificationGroup,
-  useSetMessagePreference,
-  useSetNotificationCourseOverride,
-  type EmailFrequency,
   type NotificationCourseOverrideView,
   type NotificationGroupFilter,
   type NotificationGroupView,
@@ -115,16 +109,17 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
 }
 
 /**
- * Notification centre + preferences. The centre is the v2 grouped
- * list (issue #51): rows are grouped by (type × source × day) with
- * cursor pagination, group/unread filters, expandable detail, deep
- * links via context_url that mark items read, and per-row delete.
- * Preferences below are the v2 model (NB-2, issue #174): one row per
- * provider with labels/descriptions served by the API registry (no
- * raw keys anywhere), an in-app on/off switch and an email frequency
- * (immediate / daily digest / off). The old logged-in/logged-off
- * matrix is gone; each change PUTs exactly one provider's patch
- * through to the API and takes effect on the very next dispatch.
+ * Notification centre. The centre is the v2 grouped list (issue
+ * #51): rows are grouped by (type × source × day) with cursor
+ * pagination, group/unread filters, expandable detail, deep links
+ * via context_url that mark items read, and per-row delete.
+ *
+ * Từ issue #288 trang này CHỈ còn trung tâm thông báo: phần tuỳ
+ * chọn (mô hình v2 của NB-2, issue #174) và ngoại lệ theo khoá đã
+ * chuyển hẳn sang mục Thông báo của khu Cài đặt
+ * (`/settings/notifications`) — tách "xem thông báo" khỏi "cài đặt
+ * thông báo" đúng chuẩn các site lớn trong research #288. Trang này
+ * không còn gọi API preferences nữa.
  *
  * Dữ liệu qua TanStack Query (lib/notifications.ts, F-01): danh sách
  * nhóm là infinite query theo khoá bộ lọc, các mục mở rộng tải qua
@@ -140,35 +135,24 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
  * trang hydrate từ cache thay vì fetch lại khi mở.
  */
 export function NotificationsPage() {
-  const { t, i18n } = useTranslation('app');
+  const { t } = useTranslation('app');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [groupFilter, setGroupFilter] = useState<GroupFilterSelection>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [expandedItems, setExpandedItems] = useState<ReadonlyMap<string, NotificationItemView[]>>(new Map());
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set());
-  const [savingPrefs, setSavingPrefs] = useState<ReadonlySet<string>>(new Set());
-  const [savingOverrides, setSavingOverrides] = useState<ReadonlySet<string>>(new Set());
   const [expandError, setExpandError] = useState(false);
-  const [prefError, setPrefError] = useState<string | null>(null);
-  const [overrideError, setOverrideError] = useState<string | null>(null);
 
   const groupsQuery = useNotificationGroups(groupFilter, unreadOnly);
-  const prefsQuery = useMessagePreferences();
-  const overridesQuery = useNotificationCourseOverrides();
   const markReadMutation = useMarkNotificationRead();
   const readGroupMutation = useReadNotificationGroup();
   const deleteMutation = useDeleteNotification();
   const markAllMutation = useMarkAllNotificationsRead();
   const clearReadMutation = useClearReadNotifications();
-  const preferenceMutation = useSetMessagePreference();
-  const overrideMutation = useSetNotificationCourseOverride();
 
   const groups = flattenNotificationGroups(groupsQuery.data);
-  const prefs = prefsQuery.data ?? [];
-  const overrideCourses = overridesQuery.data ?? [];
-  const error =
-    groupsQuery.isError || prefsQuery.isError || overridesQuery.isError || expandError ? t('notificationsLoadFailed') : null;
+  const error = groupsQuery.isError || expandError ? t('notificationsLoadFailed') : null;
 
   // Đổi bộ lọc = danh sách mới: thu gọn mọi dòng đang mở như hành vi cũ
   // (loadFirstPage trước đây luôn xoá bản đồ mở rộng).
@@ -293,60 +277,6 @@ export function NotificationsPage() {
     });
   }
 
-  /** Lưu một patch tuỳ chọn của một provider; cờ đang-lưu theo (provider, trường). */
-  function savePreference(row: NotificationPreferenceView, field: 'popup' | 'email', patch: { popupEnabled?: boolean; emailFrequency?: EmailFrequency }) {
-    const key = `${preferenceKey(row)}|${field}`;
-    if (savingPrefs.has(key)) return;
-    setPrefError(null);
-    setSavingPrefs((prev) => new Set(prev).add(key));
-    // Cập nhật lạc quan + hoàn lại khi lỗi nằm trong mutation ở
-    // lib/notifications.ts; ở đây chỉ lo cờ đang-lưu và lỗi riêng
-    // của khu vực tuỳ chọn.
-    preferenceMutation.mutate(
-      { provider: row.provider, patch },
-      {
-        onError: () => setPrefError(t('preferenceSaveFailed')),
-        onSettled: () =>
-          setSavingPrefs((prev) => {
-            const next = new Set(prev);
-            next.delete(key);
-            return next;
-          }),
-      },
-    );
-  }
-
-  function togglePopup(row: NotificationPreferenceView) {
-    savePreference(row, 'popup', { popupEnabled: !row.popupEnabled });
-  }
-
-  function changeEmailFrequency(row: NotificationPreferenceView, frequency: EmailFrequency) {
-    savePreference(row, 'email', { emailFrequency: frequency });
-  }
-
-  /**
-   * Bật/tắt tắt tiếng một khoá (NB-4): cập nhật lạc quan + hoàn lại
-   * khi lỗi nằm trong mutation ở lib/notifications.ts; ở đây chỉ lo
-   * cờ đang-lưu và thông báo lỗi riêng của khu vực ngoại lệ.
-   */
-  function toggleCourseMute(course: NotificationCourseOverrideView) {
-    if (savingOverrides.has(course.courseId)) return;
-    setOverrideError(null);
-    setSavingOverrides((prev) => new Set(prev).add(course.courseId));
-    overrideMutation.mutate(
-      { courseId: course.courseId, mode: course.mode === 'mute' ? 'all' : 'mute' },
-      {
-        onError: () => setOverrideError(t('courseOverrideSaveFailed')),
-        onSettled: () =>
-          setSavingOverrides((prev) => {
-            const next = new Set(prev);
-            next.delete(course.courseId);
-            return next;
-          }),
-      },
-    );
-  }
-
   function markAllRead() {
     markAllMutation.mutate(undefined, {
       onSuccess: () => setExpandedItems(new Map()),
@@ -358,18 +288,6 @@ export function NotificationsPage() {
       onSuccess: () => setExpandedItems(new Map()),
     });
   }
-
-  // Trang cài đặt v2 (NB-2): các dòng tuỳ chọn đã là một dòng cho mỗi
-  // provider — chỉ cần chia theo 3 nhóm có sẵn để trình bày; nhãn/mô
-  // tả hiển thị lấy nguyên văn từ registry ở API theo ngôn ngữ hiện
-  // tại của giao diện.
-  const prefSections = (['learning', 'people', 'system'] as NotificationGroupFilter[])
-    .map((group) => ({ group, rows: prefs.filter((p) => p.group === group) }))
-    .filter((section) => section.rows.length > 0);
-  const localized = (row: NotificationPreferenceView) =>
-    i18n.language?.startsWith('en')
-      ? { label: row.label.en, description: row.description.en }
-      : { label: row.label.vi, description: row.description.vi };
 
   const groupLabel: Record<NotificationGroupFilter, string> = {
     learning: t('notificationsGroupLearning'),
@@ -522,122 +440,6 @@ export function NotificationsPage() {
               {t('loadMoreNotifications')}
             </Button>
           ) : null}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('notificationPreferences')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {prefError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{prefError}</AlertDescription>
-            </Alert>
-          ) : null}
-          {/* NB-7: học sinh chỉ có bề mặt tối thiểu — API trả danh sách
-              theo loại rỗng cho họ; trang nói rõ thay vì hiện một thẻ
-              trống, bề mặt thật của họ là Ngoại lệ theo khoá ở dưới. */}
-          {prefsQuery.isSuccess && prefs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('prefMinimalNote')}</p>
-          ) : null}
-          {prefSections.map((section) => (
-            <section key={section.group} aria-label={groupLabel[section.group]} className="space-y-3">
-              <h3 className="text-sm font-semibold">{groupLabel[section.group]}</h3>
-              <div className="grid grid-cols-[1fr_auto_auto] items-start gap-x-4 gap-y-1 text-sm">
-                <span className="text-xs font-medium uppercase text-muted-foreground">{t('prefType')}</span>
-                <span className="text-xs font-medium uppercase text-muted-foreground">{t('prefInApp')}</span>
-                <span className="text-xs font-medium uppercase text-muted-foreground">{t('prefEmail')}</span>
-                {section.rows.map((row) => {
-                  const text = localized(row);
-                  const emailSaving = savingPrefs.has(`${preferenceKey(row)}|email`);
-                  return [
-                    <div key={`${row.provider}-label`} className="min-w-0 border-t pt-2">
-                      <p className="font-medium">
-                        {text.label}
-                        {row.teacherOnly ? (
-                          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{t('prefTeacherOnly')}</span>
-                        ) : null}
-                        {row.mandatoryInApp ? (
-                          <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{t('prefMandatory')}</span>
-                        ) : null}
-                      </p>
-                      <p className="text-muted-foreground">{text.description}</p>
-                      {row.mandatoryInApp ? <p className="text-xs text-muted-foreground">{t('prefMandatoryNote')}</p> : null}
-                    </div>,
-                    <div key={`${row.provider}-popup`} className="border-t pt-2">
-                      <input
-                        aria-label={`${text.label} — ${t('prefInApp')}`}
-                        type="checkbox"
-                        checked={row.popupEnabled}
-                        disabled={row.mandatoryInApp || savingPrefs.has(`${preferenceKey(row)}|popup`)}
-                        onChange={() => togglePopup(row)}
-                      />
-                    </div>,
-                    <div key={`${row.provider}-email`} className="border-t pt-2">
-                      {row.emailFrequency !== null ? (
-                        <>
-                          <select
-                            aria-label={`${text.label} — ${t('prefEmail')}`}
-                            value={row.emailFrequency}
-                            disabled={emailSaving}
-                            onChange={(e) => changeEmailFrequency(row, e.target.value as EmailFrequency)}
-                          >
-                            <option value="immediate">{t('prefEmailImmediate')}</option>
-                            <option value="daily">{t('prefEmailDaily')}</option>
-                            <option value="off">{t('prefEmailOff')}</option>
-                          </select>
-                          {!row.emailAvailable ? (
-                            <p className="mt-1 max-w-56 text-xs text-muted-foreground">{t('prefChannelUnavailable')}</p>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>,
-                  ];
-                })}
-              </div>
-            </section>
-          ))}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('courseExceptionsTitle')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">{t('courseExceptionsDescription')}</p>
-          {overrideError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{overrideError}</AlertDescription>
-            </Alert>
-          ) : null}
-          {overrideCourses.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t('courseExceptionsEmpty')}</p>
-          ) : (
-            <ul className="space-y-2">
-              {overrideCourses.map((course) => (
-                <li key={course.courseId} className="flex items-center gap-3 border-t pt-2 text-sm">
-                  <span className="min-w-0 flex-1 font-medium">
-                    {course.courseName}
-                    {course.mode === 'mute' ? (
-                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal">{t('courseMutedBadge')}</span>
-                    ) : null}
-                  </span>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      aria-label={`${t('courseMuteLabel')}: ${course.courseName}`}
-                      checked={course.mode === 'mute'}
-                      disabled={savingOverrides.has(course.courseId)}
-                      onChange={() => toggleCourseMute(course)}
-                    />
-                    {t('courseMuteLabel')}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
         </CardContent>
       </Card>
     </PageShell>

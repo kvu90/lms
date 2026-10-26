@@ -343,6 +343,11 @@ export const appResources = {
   vi: {
     app: {
       navProfile: 'Hồ sơ',
+      navSettings: 'Cài đặt',
+      settingsTitle: 'Cài đặt',
+      settingsSecurity: 'Bảo mật & đăng nhập',
+      settingsLinkedAccounts: 'Tài khoản liên kết',
+      settingsNotifications: 'Thông báo',
       navTenant: 'Không gian làm việc',
       navCourses: 'Khoá học',
       navClasses: 'Lớp học',
@@ -2106,6 +2111,15 @@ export const appResources = {
       prefTeacherOnly: 'Chỉ giáo viên',
       prefMandatory: 'Bắt buộc',
       prefMandatoryNote: 'Loại bắt buộc: luôn hiện trong ứng dụng, không tắt được (email vẫn tắt được).',
+      prefGroupCustomized: 'Đã tuỳ chỉnh',
+      prefGroupCustomizedNote:
+        'Các loại trong nhóm đang có giá trị khác nhau do tuỳ chỉnh từng loại — chỉnh ở mục Tuỳ chỉnh từng loại bên dưới, hoặc đặt giá trị tại đây để áp đồng loạt cho cả nhóm.',
+      prefGroupMandatoryNote: 'Nhóm này gồm loại bắt buộc luôn hiện trong ứng dụng, không tắt được.',
+      prefAdminDisabled: 'Admin đã tắt ở cấp site',
+      prefAdminDisabledNote:
+        'Quản trị đã tắt loại này cho toàn hệ thống — thông báo sẽ không được gửi bất kể tuỳ chọn của bạn.',
+      prefCustomizeTitle: 'Tuỳ chỉnh từng loại',
+      prefCustomizeDescription: 'Chỉnh riêng từng loại thông báo; giá trị ở đây thắng cài đặt theo nhóm ở trên.',
       preferenceSaveFailed: 'Không lưu được tuỳ chọn thông báo',
       courseExceptionsTitle: 'Ngoại lệ theo khoá học',
       courseExceptionsDescription:
@@ -2490,6 +2504,11 @@ export const appResources = {
   en: {
     app: {
       navProfile: 'Profile',
+      navSettings: 'Settings',
+      settingsTitle: 'Settings',
+      settingsSecurity: 'Security & sign-in',
+      settingsLinkedAccounts: 'Linked accounts',
+      settingsNotifications: 'Notifications',
       navTenant: 'Workspace',
       navCourses: 'Courses',
       navClasses: 'Classes',
@@ -4257,6 +4276,15 @@ export const appResources = {
       prefTeacherOnly: 'Teachers only',
       prefMandatory: 'Required',
       prefMandatoryNote: 'Required type: always shown in-app and cannot be turned off (email can still be turned off).',
+      prefGroupCustomized: 'Customised',
+      prefGroupCustomizedNote:
+        'Types in this group currently differ because of per-type customisation — adjust them under "Customise each type" below, or set a value here to apply it across the whole group.',
+      prefGroupMandatoryNote: 'This group includes a required type that is always shown in-app and cannot be turned off.',
+      prefAdminDisabled: 'Turned off by site admin',
+      prefAdminDisabledNote:
+        'An administrator has turned this type off for the whole site — notifications will not be sent regardless of your preference.',
+      prefCustomizeTitle: 'Customise each type',
+      prefCustomizeDescription: 'Fine-tune individual notification types; values here override the per-group settings above.',
       preferenceSaveFailed: 'Could not save the notification preference',
       courseExceptionsTitle: 'Per-course exceptions',
       courseExceptionsDescription:

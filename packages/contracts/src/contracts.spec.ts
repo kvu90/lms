@@ -69,10 +69,20 @@ describe('engagement contracts', () => {
     const pref = notificationPreferenceSchema.parse({
       provider: 'badge_awarded', component: 'core_badges', group: 'people',
       label: { vi: 'Huy hiệu mới', en: 'New badge' }, description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
-      teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false,
+      teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false, siteEnabled: true,
     });
     expect(pref.popupEnabled).toBe(true);
     expect(pref.group).toBe('people');
+    // NB-7: trường chính sách admin cấp site là một phần của hợp đồng
+    // dòng tuỳ chọn — thiếu nó thì parse phải hỏng, để web không âm
+    // thầm mất tín hiệu "admin đã tắt ở cấp site".
+    expect(() =>
+      notificationPreferenceSchema.parse({
+        provider: 'badge_awarded', component: 'core_badges', group: 'people',
+        label: { vi: 'Huy hiệu mới', en: 'New badge' }, description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
+        teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false,
+      }),
+    ).toThrow();
   });
 
   it('khoá hình dạng tìm tin trong conversation (M4): q bắt buộc có độ dài xác định, trần kết quả 50', () => {

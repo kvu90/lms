@@ -113,6 +113,20 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(storedPrefs.get('message_provider_grade_updated_popup_v2')).toBe('0');
   });
 
+  it('preference rows expose the site policy as siteEnabled so the settings page can lock admin-disabled types (#288)', async () => {
+    // Trang Cài đặt thông báo chỉ HIỂN THỊ được "Admin đã tắt ở cấp
+    // site" khi dòng tuỳ chọn mang đúng trạng thái chính sách mà
+    // notify() tôn trọng — cùng một hàm đọc chính sách, không suy diễn.
+    const { service } = buildService({ staffAssignment: true, disabledProviders: ['grade_updated', 'enrol_expiry_warning'] });
+    const rows = await service.getPreferences('teacher-1');
+    const byProvider = new Map(rows.map((r) => [r.provider, r]));
+    expect(byProvider.get('grade_updated')?.siteEnabled).toBe(false);
+    expect(byProvider.get('enrol_welcome')?.siteEnabled).toBe(true);
+    // Loại bắt buộc P2: admin không tắt được nên siteEnabled luôn true
+    // kể cả khi kho dữ liệu có false (luật ép bật ở tầng chính sách).
+    expect(byProvider.get('enrol_expiry_warning')?.siteEnabled).toBe(true);
+  });
+
   it('a site admin without course roles still has the full surface', async () => {
     const { service } = buildService({ staffAssignment: false, siteAdmin: true });
     expect(await service.getPreferences('admin-1')).toHaveLength(20);

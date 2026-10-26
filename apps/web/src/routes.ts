@@ -15,6 +15,13 @@ export default [
     route('login', 'pages/login.tsx'),
     route('oauth/callback', 'pages/oauth-callback.tsx'),
     route('profile', 'pages/profile.tsx'),
+    // Khu Cài đặt cá nhân (issue #288): gốc chuyển hướng về mục đầu
+    // (Bảo mật); ba mục có path riêng, điều hướng bằng menu trái
+    // trong khung settings-shell — không dùng query định danh khu vực.
+    route('settings', 'pages/settings-index.tsx'),
+    route('settings/security', 'pages/settings-security.tsx'),
+    route('settings/linked-accounts', 'pages/settings-linked-accounts.tsx'),
+    route('settings/notifications', 'pages/settings-notifications.tsx'),
     route('admin/users', 'pages/admin-users.tsx'),
     route('admin/users/new', 'routes/admin-user-new.tsx'),
     route('admin/users/:userId/edit', 'routes/admin-user-edit.tsx'),

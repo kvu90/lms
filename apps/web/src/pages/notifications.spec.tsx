@@ -171,96 +171,17 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
     ).toBeGreaterThan(1);
   });
 
-  it('preference toggle PUTs exactly one provider patch and keeps the saved value', async () => {
+  it('centre only after #288: no preferences UI here and no preferences API calls', async () => {
     const calls: RecordedCall[] = [];
     const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
     renderPage();
 
-    const checkbox = await screen.findByLabelText('Điểm số thay đổi — Trong ứng dụng');
-    expect(checkbox).toBeChecked();
-    await userEvent.click(checkbox);
-
-    await waitFor(() =>
-      expect(calls.some((c) => c.url === '/api/v1/messages/preferences' && c.method === 'PUT')).toBe(true),
-    );
-    const put = calls.find((c) => c.url === '/api/v1/messages/preferences' && c.method === 'PUT');
-    expect(put?.body).toEqual({ provider: 'grade_updated', popupEnabled: false });
-    await waitFor(() => expect(screen.getByLabelText('Điểm số thay đổi — Trong ứng dụng')).not.toBeChecked());
-  });
-
-  it('settings show registry labels only — no raw keys, no push, mandatory type locked on (NB-2)', async () => {
-    const calls: RecordedCall[] = [];
-    const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
-    stubFetch(calls, state);
-    renderPage();
-
-    expect(await screen.findByText('Điểm số thay đổi')).toBeInTheDocument();
-    expect(screen.getByText('Sắp hết hạn ghi danh')).toBeInTheDocument();
-    // Không khoá thô / không trục trạng thái / không kênh push.
-    expect(screen.queryByText('grade_updated')).not.toBeInTheDocument();
-    expect(screen.queryByText('enrol_expiry_warning')).not.toBeInTheDocument();
-    expect(screen.queryByText(/loggedin|loggedoff/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/push/i)).not.toBeInTheDocument();
-    // Loại bắt buộc (P2): công tắc trong-app bị khoá ở trạng thái bật.
-    const mandatoryToggle = screen.getByLabelText('Sắp hết hạn ghi danh — Trong ứng dụng');
-    expect(mandatoryToggle).toBeChecked();
-    expect(mandatoryToggle).toBeDisabled();
-    // Email chưa khả dụng phải có ghi chú trung thực.
-    expect(screen.getAllByText('Chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở').length).toBeGreaterThan(0);
-  });
-
-  it('course exceptions: lists my courses, shows muted state, toggling PUTs the new mode (NB-4)', async () => {
-    const calls: RecordedCall[] = [];
-    const state = {
-      unread: 0, allRead: true, prefEnabled: true,
-      courses: [
-        { courseId: 'course-1', courseName: 'Khoá Toán 10', mode: 'all' as const },
-        { courseId: 'course-2', courseName: 'Khoá Văn 10', mode: 'mute' as const },
-      ],
-    };
-    stubFetch(calls, state);
-    renderPage();
-
-    // Mục ngoại lệ liệt kê mọi khoá thuộc về; khoá đang mute có huy hiệu.
-    expect(await screen.findByText('Ngoại lệ theo khoá học')).toBeInTheDocument();
-    expect(await screen.findByText('Khoá Toán 10')).toBeInTheDocument();
-    expect(screen.getByText('Khoá Văn 10')).toBeInTheDocument();
-    expect(screen.getByText('Đã tắt tiếng')).toBeInTheDocument();
-    // Chú thích P3: điểm mới + hết hạn ghi danh vẫn được gửi.
-    expect(screen.getByText(/Điểm mới và thông báo sắp hết hạn ghi danh/)).toBeInTheDocument();
-
-    const muteBox = screen.getByLabelText('Tắt tiếng khoá này: Khoá Toán 10');
-    expect(muteBox).not.toBeChecked();
-    expect(screen.getByLabelText('Tắt tiếng khoá này: Khoá Văn 10')).toBeChecked();
-
-    await userEvent.click(muteBox);
-    await waitFor(() =>
-      expect(calls.some((c) => c.url === '/api/v1/messages/preferences/courses' && c.method === 'PUT')).toBe(true),
-    );
-    const put = calls.find((c) => c.url === '/api/v1/messages/preferences/courses' && c.method === 'PUT');
-    expect(put?.body).toEqual({ courseId: 'course-1', mode: 'mute' });
-    // Sau khi lưu, cả hai khoá đều mang huy hiệu đã tắt tiếng.
-    await waitFor(() => expect(screen.getAllByText('Đã tắt tiếng')).toHaveLength(2));
-  });
-
-  it('student minimal surface: no per-type rows, minimal note shown, course exceptions remain (NB-7)', async () => {
-    const calls: RecordedCall[] = [];
-    const state = {
-      unread: 0, allRead: true, prefEnabled: true, minimalPrefs: true,
-      courses: [{ courseId: 'course-1', courseName: 'Khoá Toán 10', mode: 'all' as const }],
-    };
-    stubFetch(calls, state);
-    renderPage();
-
-    // Không còn dòng tuỳ chọn theo loại nào; trang nói rõ bề mặt tối thiểu.
-    expect(
-      await screen.findByText('Tài khoản học sinh chỉ tuỳ chỉnh được thông báo theo từng khoá học ở mục Ngoại lệ theo khoá học bên dưới.'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Điểm số thay đổi')).not.toBeInTheDocument();
-    // Bề mặt còn lại của học sinh: ngoại lệ theo khoá vẫn hiện và dùng được.
-    expect(await screen.findByText('Ngoại lệ theo khoá học')).toBeInTheDocument();
-    expect(screen.getByText('Khoá Toán 10')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tắt tiếng khoá này: Khoá Toán 10')).toBeInTheDocument();
+    // Trung tâm vẫn hiện danh sách thông báo như cũ.
+    expect(await screen.findByText('Bài tập sắp đến hạn')).toBeInTheDocument();
+    // Tuỳ chọn + ngoại lệ theo khoá đã chuyển hẳn sang /settings/notifications.
+    expect(screen.queryByText('Tuỳ chọn thông báo')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ngoại lệ theo khoá học')).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.startsWith('/api/v1/messages/preferences'))).toBe(false);
   });
 });

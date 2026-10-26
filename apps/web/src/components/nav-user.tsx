@@ -1,4 +1,4 @@
-import { IconDotsVertical, IconLogout, IconUserCircle } from '@tabler/icons-react';
+import { IconDotsVertical, IconLogout, IconSettings, IconUserCircle } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 
@@ -29,8 +29,12 @@ function initialsOf(name: string): string {
 
 /**
  * Khối người dùng ở chân sidebar (khung từ block dashboard-01): hiển thị
- * người đang đăng nhập thật từ AuthContext, menu gồm hồ sơ và đăng xuất —
- * chỉ những thao tác người dùng nào cũng thực hiện được với chính mình.
+ * người đang đăng nhập thật từ AuthContext, menu gồm hồ sơ, cài đặt và
+ * đăng xuất — chỉ những thao tác người dùng nào cũng thực hiện được với
+ * chính mình. Từ issue #288 "Hồ sơ" và "Cài đặt" là HAI lối vào tách
+ * bạch như các site lớn: Hồ sơ (`/profile`) chỉ còn thông tin user,
+ * Cài đặt (`/settings`) là khu riêng có menu trái (bảo mật, liên kết,
+ * thông báo).
  */
 export function NavUser() {
   const { user, logout } = useAuth();
@@ -86,6 +90,10 @@ export function NavUser() {
             <DropdownMenuItem onClick={() => navigate('/profile')}>
               <IconUserCircle />
               {t('navProfile')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <IconSettings />
+              {t('navSettings')}
             </DropdownMenuItem>
             <TenantSwitcherMenu />
             <DropdownMenuItem
