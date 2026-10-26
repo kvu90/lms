@@ -456,6 +456,9 @@ importers:
       isbot:
         specifier: ^5
         version: 5.2.2
+      katex:
+        specifier: ^0.18.10
+        version: 0.18.10
       lucide-react:
         specifier: ^1.61.0
         version: 1.61.0(@types/react@19.3.0)(react@19.3.1)

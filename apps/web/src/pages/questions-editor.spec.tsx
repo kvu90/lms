@@ -22,7 +22,11 @@ vi.mock('@lms/editor', async () => {
   const React = await import('react');
   interface DocLike {
     type: 'doc';
-    content?: { type: string; content?: { type: string; text?: string }[] }[];
+    content?: {
+      type: string;
+      attrs?: { src: string; alt?: string | null };
+      content?: { type: string; text?: string }[];
+    }[];
   }
   const docToText = (value: DocLike | null | undefined): string =>
     (value?.content ?? [])
@@ -43,16 +47,57 @@ vi.mock('@lms/editor', async () => {
       value,
       onChange,
       ariaLabel,
+      onRequestImage,
     }: {
       value: DocLike;
       onChange: (doc: DocLike) => void;
       ariaLabel?: string;
-    }) =>
-      React.createElement('textarea', {
-        'aria-label': ariaLabel,
-        value: docToText(value),
-        onChange: (event: { target: { value: string } }) => onChange(textToDoc(event.target.value)),
-      }),
+      onRequestImage?: (file?: File) => Promise<{ src: string; alt?: string | null } | null>;
+    }) => {
+      // Hai nút giả lập đúng hai cách editor thật gọi `onRequestImage`:
+      // bấm nút ảnh trên toolbar (không kèm tệp) và dán ảnh (kèm tệp).
+      // Editor thật tự chèn node `image` bằng định danh bề mặt chứa trả
+      // về — bản giả lập nối cùng hành vi đó vào tài liệu của trường.
+      const requestAndInsert = (file?: File) => {
+        void (async () => {
+          const pick = await onRequestImage?.(file);
+          if (pick) {
+            onChange({
+              type: 'doc',
+              content: [...(value.content ?? []), { type: 'image', attrs: { src: pick.src, alt: pick.alt ?? null } }],
+            });
+          }
+        })();
+      };
+      return React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('textarea', {
+          'aria-label': ariaLabel,
+          value: docToText(value),
+          onChange: (event: { target: { value: string } }) => onChange(textToDoc(event.target.value)),
+        }),
+        onRequestImage
+          ? React.createElement(
+              'button',
+              { type: 'button', 'aria-label': `Chèn ảnh: ${ariaLabel}`, onClick: () => requestAndInsert() },
+              'Chèn ảnh',
+            )
+          : null,
+        onRequestImage
+          ? React.createElement(
+              'button',
+              {
+                type: 'button',
+                'aria-label': `Dán ảnh vào: ${ariaLabel}`,
+                onClick: () =>
+                  requestAndInsert(new File(['png-bytes'], 'anh-dan.png', { type: 'image/png' })),
+              },
+              'Dán ảnh',
+            )
+          : null,
+      );
+    },
     RichTextView: ({ value }: { value: DocLike | null }) =>
       value ? React.createElement('div', null, docToText(value)) : null,
   };
@@ -64,6 +109,7 @@ const STIMULUS_ID = '01900000-0000-7000-8000-000000000031';
 const USAGE_ID = '01900000-0000-7000-8000-000000000009';
 const ATTEMPT_ID = '01900000-0000-7000-8000-000000000011';
 const SYSTEM_CTX_ID = '01900000-0000-7000-8000-0000000000a1';
+const FILE_ID = '01900000-0000-7000-8000-0000000000f1';
 
 const PROFILE = {
   id: '01900000-0000-7000-8000-0000000000a9',
@@ -133,7 +179,16 @@ function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = [], fail
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
-      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const rawBody = init?.body;
+      const recordedBody =
+        rawBody instanceof FormData
+          ? Object.fromEntries(
+              [...rawBody.entries()].map(([key, value]) => [key, value instanceof File ? value.name : String(value)]),
+            )
+          : rawBody
+            ? JSON.parse(String(rawBody))
+            : undefined;
+      calls.push({ url, method, body: recordedBody });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/users/me') return respond(PROFILE);
@@ -144,6 +199,18 @@ function stubFetch(calls: RecordedCall[], initialQuestions: unknown[] = [], fail
         return respond([{ id: SYSTEM_CTX_ID, contextLevel: 10, instanceId: SYSTEM_CTX_ID }]);
       if (url === '/api/v1/questions/categories')
         return respond([{ id: CATEGORY_ID, name: 'General', contextId: CATEGORY_ID, info: '', parent: null }]);
+      if (url === '/api/v1/files/question-image' && method === 'POST') {
+        const form = init?.body as FormData;
+        return respond({
+          id: FILE_ID,
+          src: `/api/v1/files/${FILE_ID}/content`,
+          fileName: (form.get('file') as File).name,
+          mimeType: 'image/png',
+          fileSize: 9,
+          contextId: form.get('contextId'),
+          fileArea: form.get('fileArea'),
+        });
+      }
       if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) return respond(state.questions);
       if (url === `/api/v1/stimuli?categoryId=${CATEGORY_ID}`) return respond(state.stimuli);
       if (url === '/api/v1/stimuli' && method === 'POST') {
@@ -314,6 +381,82 @@ describe('Question editor — four qtypes', () => {
     const statusIndex = calls.findIndex((c) => c.url === `/api/v1/questions/${QUESTION_ID}/status`);
     expect(createIndex).toBeGreaterThanOrEqual(0);
     expect(statusIndex).toBeGreaterThan(createIndex);
+  });
+
+  it('uploads an image pasted into the editor through onRequestImage and saves the durable file src', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderBank();
+
+    await screen.findByText('General');
+    await openNewQuestionForm();
+    await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu có ảnh');
+    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Quan sát hình rồi trả lời?');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'Hà Nội');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'Huế');
+    await userEvent.click(questionForm().getAllByRole('radio', { name: 'Đáp án đúng' })[0]!);
+    // Dán ảnh vào vùng soạn: editor gọi onRequestImage kèm tệp, bề mặt
+    // chứa tải ảnh qua endpoint files với context của bank đích.
+    await userEvent.click(questionForm().getByRole('button', { name: 'Dán ảnh vào: Nội dung câu hỏi' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/files/question-image' && c.method === 'POST')).toBe(true),
+    );
+    const uploadCall = calls.find((c) => c.url === '/api/v1/files/question-image');
+    expect(uploadCall?.body).toEqual({ file: 'anh-dan.png', contextId: CATEGORY_ID, fileArea: 'questiontext' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
+    const createCall = calls.find((c) => c.url === '/api/v1/questions' && c.method === 'POST');
+    // Tài liệu lưu node image với ĐỊNH DANH BỀN của file, không phải URL ký.
+    expect(createCall?.body).toMatchObject({
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Quan sát hình rồi trả lời?' }] },
+          { type: 'image', attrs: { src: `/api/v1/files/${FILE_ID}/content`, alt: 'anh-dan' } },
+        ],
+      },
+    });
+  });
+
+  it('opens a file picker for the editor toolbar image button and uploads the chosen image', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderBank();
+
+    await screen.findByText('General');
+    await openNewQuestionForm();
+    await userEvent.type(questionForm().getByLabelText('Tên'), 'Câu chèn ảnh');
+    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Nhìn hình chọn đáp án?');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'A');
+    await userEvent.type(questionForm().getByLabelText('Lựa chọn 2'), 'B');
+    await userEvent.click(questionForm().getAllByRole('radio', { name: 'Đáp án đúng' })[0]!);
+    // Bấm nút ảnh trên toolbar: editor gọi onRequestImage KHÔNG kèm tệp,
+    // bề mặt chứa mở trình chọn tệp tạm gắn thẳng vào body.
+    await userEvent.click(questionForm().getByRole('button', { name: 'Chèn ảnh: Nội dung câu hỏi' }));
+    const pickerInput = document.body.querySelector(':scope > input[type="file"]');
+    if (!(pickerInput instanceof HTMLInputElement)) throw new Error('editor image picker input not found');
+    await userEvent.upload(pickerInput, new File(['png-bytes'], 'anh-chon.png', { type: 'image/png' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/files/question-image' && c.method === 'POST')).toBe(true),
+    );
+    const uploadCall = calls.find((c) => c.url === '/api/v1/files/question-image');
+    expect(uploadCall?.body).toEqual({ file: 'anh-chon.png', contextId: CATEGORY_ID, fileArea: 'questiontext' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
+    const createCall = calls.find((c) => c.url === '/api/v1/questions' && c.method === 'POST');
+    expect(createCall?.body).toMatchObject({
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Nhìn hình chọn đáp án?' }] },
+          { type: 'image', attrs: { src: `/api/v1/files/${FILE_ID}/content`, alt: 'anh-chon' } },
+        ],
+      },
+    });
   });
 
   it('shows the real API reason when question creation fails (issue #55)', async () => {

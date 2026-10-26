@@ -20,6 +20,9 @@ import { fetchApiJson } from './lib/server-api';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
 import '@lms/ui/globals.css';
+// CSS của KaTeX cho công thức toán trong rich text (@lms/editor): editor
+// không tự nạp CSS nên app nạp tại điểm CSS toàn cục này (bàn giao QE-1).
+import 'katex/dist/katex.min.css';
 
 /**
  * Đọc cookie `sidebar_state` (ui/sidebar ghi mỗi lần bật/tắt) từ một

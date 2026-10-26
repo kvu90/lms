@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
 import { extractRichTextPlainText } from '@lms/contracts';
-import { RichTextEditor, RichTextView } from '@lms/editor';
+import { RichTextEditor, RichTextView, type RichTextImagePick } from '@lms/editor';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -22,7 +22,13 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { QuestionImagePicker } from '../components/question-image-picker';
-import type { QuestionFileArea, QuestionImageUploadResult } from '../lib/question-files';
+import {
+  QUESTION_IMAGE_ACCEPT,
+  QuestionImageError,
+  uploadQuestionImage,
+  type QuestionFileArea,
+  type QuestionImageUploadResult,
+} from '../lib/question-files';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import {
@@ -98,9 +104,9 @@ function docOrUndefined(doc: Doc | undefined): Doc | undefined {
 }
 
 /**
- * Gắn node ảnh vào CUỐI tài liệu sau khi bộ chọn ảnh tải lên xong. Node
- * `image` thuộc lát mở rộng schema của editor (QE-1); ở đây dựng qua ép
- * kiểu vì lát contracts trên main chưa khai node này.
+ * Gắn node ảnh vào CUỐI tài liệu sau khi bộ chọn ảnh tải lên xong (đường
+ * bọc ngoài; đường qua toolbar của editor thì editor tự chèn tại con
+ * trỏ). Node `image` đã có trong schema rich text của contracts (QE-1).
  */
 function appendImageNode(doc: Doc, result: QuestionImageUploadResult): Doc {
   const imageNode = { type: 'image', attrs: { src: result.src, alt: result.alt } };
@@ -384,11 +390,36 @@ export function editorFormContent(form: QuestionEditorFormState): Record<string,
 // ---------------------------------------------------------------------------
 
 /**
+ * Mở trình chọn tệp để xin MỘT tệp ảnh cho callback `onRequestImage` khi
+ * người soạn bấm nút ảnh trong toolbar của editor (trường hợp callback
+ * được gọi KHÔNG kèm tệp). Input được tạo tạm, gắn vào cuối body trong
+ * lúc chọn rồi tự gỡ bỏ; người soạn huỷ chọn thì trả `null`.
+ */
+function pickImageFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = QUESTION_IMAGE_ACCEPT;
+    input.style.display = 'none';
+    const settle = (file: File | null) => {
+      input.remove();
+      resolve(file);
+    };
+    input.addEventListener('change', () => settle(input.files?.[0] ?? null), { once: true });
+    input.addEventListener('cancel', () => settle(null), { once: true });
+    document.body.appendChild(input);
+    input.click();
+  });
+}
+
+/**
  * Một trường nội dung rich text: trình soạn của @lms/editor bọc trong bộ
- * chọn ảnh của lát files — bấm "Chèn ảnh" hoặc kéo thả ảnh vào vùng soạn
- * đều tải ảnh lên kho files rồi gắn node `image` (định danh bền) vào
- * cuối tài liệu. Khi editor của QE-1 hoàn thiện callback `onRequestImage`
- * thì nút ảnh ngay trong toolbar của editor sẽ nối vào cùng đường này.
+ * chọn ảnh của lát files. Hai đường chèn ảnh đều đi qua
+ * `uploadQuestionImage` của lát files và lưu định danh bền vào tài liệu:
+ * (1) nút "Chèn ảnh"/kéo thả của bộ chọn ảnh bọc ngoài — ảnh gắn vào
+ * CUỐI tài liệu; (2) callback `onRequestImage` của chính editor (nút ảnh
+ * trên toolbar, dán và kéo-thả vào vùng soạn) — editor tự chèn node
+ * `image` tại con trỏ bằng định danh bền mà callback trả về.
  */
 function RichField({
   label,
@@ -405,7 +436,41 @@ function RichField({
   contextId?: string;
   itemId?: string;
 }) {
+  const { t } = useTranslation('app');
+  const [imageError, setImageError] = useState<string | null>(null);
   const doc = value ?? emptyDoc();
+
+  /**
+   * Đường chèn ảnh của editor (giao diện chốt ở comment 6405254997 trên
+   * issue #248, bàn giao QE-1 ở comment 6406028273): editor gọi kèm tệp
+   * khi người soạn dán/kéo-thả ảnh — tải thẳng tệp đó; gọi không kèm
+   * tệp khi bấm nút ảnh — mở trình chọn tệp trước. Chưa có context của
+   * bank đích hoặc tải ảnh lỗi thì trả `null` (editor không chèn gì);
+   * lỗi tải ảnh hiện ngay dưới trường như ở bộ chọn ảnh bọc ngoài.
+   */
+  const handleRequestImage = useCallback(
+    async (file?: File): Promise<RichTextImagePick | null> => {
+      if (!contextId) return null;
+      const chosen = file ?? (await pickImageFile());
+      if (!chosen) return null;
+      try {
+        const result = await uploadQuestionImage(chosen, { contextId, fileArea, itemId });
+        setImageError(null);
+        return { src: result.src, alt: result.alt };
+      } catch (err) {
+        if (err instanceof QuestionImageError && err.code === 'file.image_too_large') {
+          setImageError(t('questionImageTooLarge'));
+        } else if (err instanceof QuestionImageError && err.code === 'file.not_image') {
+          setImageError(t('questionImageNotImage'));
+        } else {
+          setImageError(t('questionImageFailed'));
+        }
+        return null;
+      }
+    },
+    [contextId, fileArea, itemId, t],
+  );
+
   return (
     <Field>
       <FieldLabel>{label}</FieldLabel>
@@ -416,8 +481,14 @@ function RichField({
         disabled={!contextId}
         onPick={(result) => onChange(appendImageNode(doc, result))}
       >
-        <RichTextEditor value={doc} onChange={onChange} ariaLabel={label} />
+        <RichTextEditor
+          value={doc}
+          onChange={onChange}
+          ariaLabel={label}
+          onRequestImage={contextId ? handleRequestImage : undefined}
+        />
       </QuestionImagePicker>
+      {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
     </Field>
   );
 }
