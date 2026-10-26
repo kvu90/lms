@@ -49,6 +49,7 @@ import {
   useMyBankQuestions,
   useMyDossiers,
   useQuestionBanks,
+  clearQuestionBankListCache,
   useQuestionCategories,
   type AttributionLite,
   type BankLite,
@@ -2202,6 +2203,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 export function QuestionCategoryNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const perms = usePermissions();
   const [catName, setCatName] = useState('');
   const [contextId, setContextId] = useState('');
@@ -2256,6 +2258,7 @@ export function QuestionCategoryNewPage() {
         method: 'POST',
         body: JSON.stringify({ name: catName, contextId: contextId }),
       });
+      clearQuestionBankListCache(queryClient);
       navigate('/questions');
     } catch (err) {
       setMessage(withApiReason(t('categoryCreateFailedShort'), err));

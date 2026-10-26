@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
 import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
@@ -353,6 +353,19 @@ export function questionDiscoveryQueryOptions(params: string) {
     queryKey: queryKeys.questionDiscovery(params),
     queryFn: () => apiJson<DiscoveryItemLite[]>(`/api/v1/questions/discovery?${params}`),
   });
+}
+
+/**
+ * Xoá cache các danh sách ngân hàng (danh mục + câu hỏi theo danh
+ * mục + bank ba loại) — dùng ở điểm LƯU của màn soạn riêng/tạo
+ * danh mục ngay trước khi quay về trang danh sách: danh sách mở
+ * lại là nạp tươi (đúng hành vi trước khi hợp nhất TanStack, khi
+ * trang danh sách luôn tải lại lúc mở), tránh hiện bản cũ trong
+ * lúc refetch nền chạy.
+ */
+export function clearQuestionBankListCache(client: QueryClient) {
+  client.removeQueries({ queryKey: queryKeys.questionCategories });
+  client.removeQueries({ queryKey: ['question-banks'] });
 }
 
 /**
