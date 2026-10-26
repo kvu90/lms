@@ -98,9 +98,8 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
       .send({ name: 'PH1 bank', contextId: systemCtx.id });
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`).send({
       categoryId: bankRes.body.id,
-      qtype: 'multichoice', name: 'Capital', questionText: 'Capital of France?', defaultMark: 1,
-      answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
-      options: { single: true },
+      qtype: 'multichoice', questionText: 'Capital of France?', defaultMark: 1,
+      answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     const draft = await createExamDraft(app, teacher, 'Quiz PH1');
     await addExamSlot(app, teacher, draft, { questionId: qRes.body.question.id });

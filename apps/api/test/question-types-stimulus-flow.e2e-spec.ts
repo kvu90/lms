@@ -4,26 +4,25 @@ import { QuestionsService } from '../src/modules/questions/questions.service';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 
 /**
- * Dạng câu hỏi chuẩn + ngữ liệu (stimulus) — flow nghiệp vụ.
- * Oracle:
- *  - Cấu trúc lưu trữ + chấm: mã nguồn Moodle (bản main, đọc 23/10/2026):
- *    public/question/type/multichoice/question.php (grade_response single:
- *    fraction của đáp án đã chọn; multiple: tổng fraction kẹp [0, 1]),
- *    public/question/type/multichoice/tests/question_multi_test.php +
- *    helper test_question_maker (fixture A 0.5 / B -1 / C 0.5 / D -1),
- *    public/question/type/truefalse/question.php,
- *    public/question/type/shortanswer/question.php +
- *    tests/question_test.php (compare_string_with_wildcard) và chiến lược
- *    khớp đầu tiên question_first_matching_answer_grading_strategy,
- *    public/question/type/essay/question.php (không tự chấm → needsgrading),
- *    public/question/engine/states.php (graded_state_for_fraction).
+ * Dạng câu hỏi chuẩn + ngữ liệu (stimulus) — flow nghiệp vụ theo MÔ
+ * HÌNH GIAOKHOA (quyết 12:04 + 12:12 ngày 26/10/2026, đợt port #248):
+ *  - Câu hỏi KHÔNG có tên; đáp án chỉ mang cờ đúng/sai nhị phân
+ *    (`correct` ở payload, `isCorrect` ở view) — KHÔNG còn tỉ trọng
+ *    fraction của đáp án; chấm tự động là nhị phân 1/0.
+ *  - multichoice: đúng 4 lựa chọn, đúng MỘT đáp án đúng, chọn một đáp
+ *    án; chọn nhiều đáp án bị chấm 0.
+ *  - truefalse: hai phía Đúng/Sai truyền qua chính danh sách answers.
+ *  - shortanswer: khớp CHÍNH XÁC sau chuẩn hoá (hoa/thường theo
+ *    useCase) — ký tự đại diện `*` đã bỏ hẳn (điểm quyết D-2).
+ *  - essay: không tự chấm → needsgrading; guidance nằm ở bản ghi phía
+ *    đáp án (`answerKey`) cùng lời giải mẫu, KHÔNG còn trên version.
  *  - Stimulus + chùm câu quanh ngữ liệu: mô hình của repo giaokhoa của
- *    Lão gia (stimulus độc lập, bất biến khi đã được tham chiếu, snapshot
- *    khi vào đề) — bên LMS diễn đạt chùm true_false bằng 1 stimulus + nhiều
- *    câu truefalse đơn cùng tham chiếu, và tính bất biến do chuỗi pin
- *    attempt → version → stimulus bảo đảm (không cần snapshot riêng).
- *  - Điểm tuyệt đối gắn lúc ra đề: public/question/engine/
- *    questionattempt.php (maxMark của slot, fallback defaultMark).
+ *    Lão gia (stimulus độc lập, bất biến khi đã được tham chiếu) — bên
+ *    LMS diễn đạt chùm bằng 1 stimulus + nhiều câu truefalse đơn cùng
+ *    tham chiếu, và tính bất biến do chuỗi pin attempt → version →
+ *    stimulus bảo đảm (không cần snapshot riêng).
+ *  - Điểm tuyệt đối gắn lúc ra đề: maxMark của slot, fallback
+ *    defaultMark của câu.
  */
 
 interface DocLike { content: { content?: { text?: string }[] }[] }
@@ -95,8 +94,9 @@ describe('Question types & stimulus', () => {
     expect(stimRes.body.categoryId).toBe(categoryId);
 
     const q = await createQuestion({
-      categoryId, qtype: 'truefalse', name: 'Câu gắn ngữ liệu', questionText: 'Đoạn văn nói trời đang mưa.',
-      stimulusId, answer: { correct: true },
+      categoryId, qtype: 'truefalse', questionText: 'Đoạn văn nói trời đang mưa.',
+      stimulusId,
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }],
     });
     expect(q.status).toBeLessThan(300);
     expect((q.body as { stimulus: { id: string } }).stimulus.id).toBe(stimulusId);
@@ -131,8 +131,9 @@ describe('Question types & stimulus', () => {
     const stim = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: catA, content: 'Ngữ liệu của A.' });
     const res = await createQuestion({
-      categoryId: catB, qtype: 'truefalse', name: 'Gắn chéo', questionText: 'X?',
-      stimulusId: stim.body.id, answer: { correct: false },
+      categoryId: catB, qtype: 'truefalse', questionText: 'X?',
+      stimulusId: stim.body.id,
+      answers: [{ text: 'Đúng', correct: false }, { text: 'Sai', correct: true }],
     });
     expect(res.status).toBe(400);
     expect((res.body as { code: string }).code).toBe('question.stimulus_category_mismatch');
@@ -147,12 +148,13 @@ describe('Question types & stimulus', () => {
     const stim = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId, content: 'Trời mưa to. Đường phố ngập nước. Mọi người ở trong nhà.' });
     const stimulusId = stim.body.id as string;
-    const mk = (name: string, text: string, correct: boolean) => createQuestion({
-      categoryId, qtype: 'truefalse', name, questionText: text, stimulusId, answer: { correct },
+    const mk = (text: string, correct: boolean) => createQuestion({
+      categoryId, qtype: 'truefalse', questionText: text, stimulusId,
+      answers: [{ text: 'Đúng', correct }, { text: 'Sai', correct: !correct }],
     });
-    const q1 = await mk('Mệnh đề 1', 'Trời đang mưa.', true);
-    const q2 = await mk('Mệnh đề 2', 'Đường phố khô ráo.', false);
-    const q3 = await mk('Mệnh đề 3', 'Mọi người ra đường đông đúc.', false);
+    const q1 = await mk('Trời đang mưa.', true);
+    const q2 = await mk('Đường phố khô ráo.', false);
+    const q3 = await mk('Mọi người ra đường đông đúc.', false);
     for (const q of [q1, q2, q3]) expect(q.status).toBeLessThan(300);
     const ids = [q1, q2, q3].map((q) => (q.body as { question: { id: string } }).question.id);
 
@@ -176,20 +178,23 @@ describe('Question types & stimulus', () => {
     expect(byQuestion.get(ids[2]!)?.state).toBe('gradedwrong');
   });
 
-  it('multichoice single: grading takes the chosen answer fraction; slot maxMark carries the absolute mark', async () => {
+  it('multichoice: chọn đúng đáp án đúng duy nhất được trọn điểm của slot; chọn đáp án sai được 0', async () => {
     const categoryId = await createCategory('MC single cat');
     const q = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Thủ đô', questionText: 'Thủ đô của Pháp là?',
+      categoryId, qtype: 'multichoice', questionText: 'Thủ đô của Pháp là?',
       answers: [
-        { text: 'Paris', fraction: 1 },
-        { text: 'London', fraction: 0 },
-        { text: 'Berlin', fraction: 0 },
+        { text: 'Paris', correct: true },
+        { text: 'London', correct: false },
+        { text: 'Berlin', correct: false },
+        { text: 'Madrid', correct: false },
       ],
-      options: { single: true },
     });
     expect(q.status).toBeLessThan(300);
-    const answers = (q.body as { answers: { id: string; answer: DocLike; fraction: number }[] }).answers;
-    expect(answers).toHaveLength(3);
+    const answers = (q.body as { answers: { id: string; answer: DocLike; isCorrect: boolean }[] }).answers;
+    expect(answers).toHaveLength(4);
+    // Đáp án đúng nằm ở cờ isCorrect của đúng một dòng — view không còn fraction của đáp án.
+    expect(answers.filter((a) => a.isCorrect)).toHaveLength(1);
+    for (const a of answers) expect(a).not.toHaveProperty('fraction');
     const paris = answers.find((a) => docText(a.answer) === 'Paris')!;
     const london = answers.find((a) => docText(a.answer) === 'London')!;
     const right = await runAttempt((q.body as { question: { id: string } }).question.id, paris.id, 5);
@@ -203,78 +208,106 @@ describe('Question types & stimulus', () => {
     expect(wrong.maxMark).toBe(1); // fallback defaultMark khi slot không ghi maxMark
   });
 
-  it('multichoice validation: fewer than two choices or positive fractions not adding to 1 are refused', async () => {
+  it('multichoice validation: không đúng 4 lựa chọn hoặc không đúng một đáp án đúng đều bị từ chối', async () => {
     const categoryId = await createCategory('MC validation cat');
     const one = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Một lựa chọn', questionText: '?',
-      answers: [{ text: 'A', fraction: 1 }],
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: [{ text: 'A', correct: true }],
     });
     expect(one.status).toBe(400);
-    expect((one.body as { code: string }).code).toBe('question.bad_answer_data');
-    const badSum = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Tổng sai', questionText: '?',
-      answers: [{ text: 'A', fraction: 0.6 }, { text: 'B', fraction: 0 }],
+    const three = await createQuestion({
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: [{ text: 'A', correct: true }, { text: 'B', correct: false }, { text: 'C', correct: false }],
     });
-    expect(badSum.status).toBe(400);
-    expect((badSum.body as { code: string }).code).toBe('question.bad_answer_data');
+    expect(three.status).toBe(400);
+    const twoCorrect = await createQuestion({
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: [
+        { text: 'A', correct: true }, { text: 'B', correct: true },
+        { text: 'C', correct: false }, { text: 'D', correct: false },
+      ],
+    });
+    expect(twoCorrect.status).toBe(400);
+    const noneCorrect = await createQuestion({
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: [
+        { text: 'A', correct: false }, { text: 'B', correct: false },
+        { text: 'C', correct: false }, { text: 'D', correct: false },
+      ],
+    });
+    expect(noneCorrect.status).toBe(400);
+    // Tầng nghiệp vụ cũng giữ đúng luật này cho các đường không qua
+    // HTTP (đây là cổng mà đường nạp nội bộ chạm phải): mã lỗi nghiệp
+    // vụ của service là question.bad_answer_data.
+    const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${admin}`);
+    const svc = app.get(QuestionsService);
+    await expect(svc.createQuestion(me.body.id as string, {
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: [{ text: 'A', correct: true }, { text: 'B', correct: false }],
+    })).rejects.toMatchObject({ response: { code: 'question.bad_answer_data' } });
   });
 
-  it('multichoice multiple: fractions sum with clamping, following the Moodle multi fixture', async () => {
+  it('multichoice: chọn NHIỀU đáp án bị chấm 0 — mô hình chọn một đáp án, không cộng điểm từng phần', async () => {
     const categoryId = await createCategory('MC multi cat');
     const q = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Chọn A và C', questionText: 'The answer is A and C.',
+      categoryId, qtype: 'multichoice', questionText: 'Thủ đô của Pháp là?',
       answers: [
-        { text: 'A', fraction: 0.5 },
-        { text: 'B', fraction: -1 },
-        { text: 'C', fraction: 0.5 },
-        { text: 'D', fraction: -1 },
+        { text: 'Paris', correct: true },
+        { text: 'London', correct: false },
+        { text: 'Berlin', correct: false },
+        { text: 'Madrid', correct: false },
       ],
-      options: { single: false },
     });
     expect(q.status).toBeLessThan(300);
     const qid = (q.body as { question: { id: string } }).question.id;
     const byText = new Map((q.body as { answers: { id: string; answer: DocLike }[] }).answers.map((a) => [docText(a.answer), a.id]));
-    const ac = await runAttempt(qid, `${byText.get('A')},${byText.get('C')}`);
-    expect(ac).toMatchObject({ state: 'gradedright', fraction: 1 });
-    const abc = await runAttempt(qid, `${byText.get('A')},${byText.get('B')},${byText.get('C')}`);
-    expect(abc).toMatchObject({ state: 'gradedwrong', fraction: 0 });
-    const aOnly = await runAttempt(qid, `${byText.get('A')}`);
-    expect(aOnly).toMatchObject({ state: 'gradedpartial', fraction: 0.5 });
+    // Chọn cả đáp án đúng lẫn đáp án sai trong một response → 0 điểm
+    // (ca này phải đỏ nếu engine quay lại cộng tỉ trọng từng phần).
+    const both = await runAttempt(qid, `${byText.get('Paris')},${byText.get('London')}`);
+    expect(both).toMatchObject({ state: 'gradedwrong', fraction: 0 });
+    const only = await runAttempt(qid, `${byText.get('Paris')}`);
+    expect(only).toMatchObject({ state: 'gradedright', fraction: 1 });
   });
 
-  it('shortanswer: first matching answer wins and wildcards match (Moodle shortanswer semantics)', async () => {
+  it('shortanswer: khớp CHÍNH XÁC sau chuẩn hoá — lệch ký tự là 0 điểm, dấu * không còn là wildcard (D-2)', async () => {
     const categoryId = await createCategory('Shortanswer cat');
     const q = await createQuestion({
-      categoryId, qtype: 'shortanswer', name: 'Con ếch tiếng Anh', questionText: 'Con ếch tiếng Anh là gì?',
+      categoryId, qtype: 'shortanswer', questionText: 'Con ếch tiếng Anh là gì?',
       answers: [
-        { text: 'frog', fraction: 0.5 },
-        { text: 'frog', fraction: 1 },
-        { text: 'F*og', fraction: 1 },
+        { text: 'frog', correct: true },
+        { text: 'toad', correct: true },
       ],
       options: { useCase: false },
     });
     expect(q.status).toBeLessThan(300);
     const qid = (q.body as { question: { id: string } }).question.id;
-    // Khớp đầu tiên theo thứ tự lưu: 'frog' fraction 0.5 thắng, dù đáp án sau cho 1.
-    const first = await runAttempt(qid, 'FROG');
-    expect(first).toMatchObject({ state: 'gradedpartial', fraction: 0.5 });
-    // Wildcard: 'Fat dog' khớp mẫu 'F*og'.
-    const wild = await runAttempt(qid, 'Fat dog');
-    expect(wild).toMatchObject({ state: 'gradedright', fraction: 1 });
-    const none = await runAttempt(qid, 'toad');
-    expect(none).toMatchObject({ state: 'gradedwrong', fraction: 0 });
+    // Không phân biệt hoa/thường khi useCase tắt.
+    const exact = await runAttempt(qid, 'FROG');
+    expect(exact).toMatchObject({ state: 'gradedright', fraction: 1 });
+    // Đáp án đúng hiển thị là đáp án được chấp nhận đầu tiên theo thứ tự lưu.
+    expect((exact as { rightAnswer: string }).rightAnswer).toBe('frog');
+    // Mẫu 'F*og' KHÔNG còn khớp như wildcard: học sinh gõ nguyên văn
+    // 'F*og' hay 'Fat dog' đều không ăn điểm.
+    const wild = await runAttempt(qid, 'F*og');
+    expect(wild).toMatchObject({ state: 'gradedwrong', fraction: 0 });
+    const fatDog = await runAttempt(qid, 'Fat dog');
+    expect(fatDog).toMatchObject({ state: 'gradedwrong', fraction: 0 });
+    // Lệch một ký tự so với đáp án được chấp nhận → 0.
+    const off = await runAttempt(qid, 'frogs');
+    expect(off).toMatchObject({ state: 'gradedwrong', fraction: 0 });
   });
 
-  it('shortanswer useCase: case-sensitive grading; the legacy payload still maps onto answers/options', async () => {
+  it('shortanswer useCase: bật phân biệt hoa/thường — đáp án phải khớp đúng cả hoa/thường mới ăn điểm', async () => {
     const categoryId = await createCategory('Shortanswer case cat');
-    const legacy = await createQuestion({
-      categoryId, qtype: 'shortanswer', name: 'Thủ đô (legacy)', questionText: 'Thủ đô của Pháp?',
-      answer: { answers: ['Paris'], casesensitive: true },
+    const q = await createQuestion({
+      categoryId, qtype: 'shortanswer', questionText: 'Thủ đô của Pháp?',
+      answers: [{ text: 'Paris', correct: true }],
+      options: { useCase: true },
     });
-    expect(legacy.status).toBeLessThan(300);
-    expect((legacy.body as { options: { useCase: boolean } }).options.useCase).toBe(true);
-    expect((legacy.body as { answers: { fraction: number }[] }).answers[0]?.fraction).toBe(1);
-    const qid = (legacy.body as { question: { id: string } }).question.id;
+    expect(q.status).toBeLessThan(300);
+    expect((q.body as { options: { useCase: boolean } }).options.useCase).toBe(true);
+    expect((q.body as { answers: { isCorrect: boolean }[] }).answers[0]?.isCorrect).toBe(true);
+    const qid = (q.body as { question: { id: string } }).question.id;
     expect(await runAttempt(qid, 'paris')).toMatchObject({ state: 'gradedwrong', fraction: 0 });
     expect(await runAttempt(qid, 'Paris')).toMatchObject({ state: 'gradedright', fraction: 1 });
   });
@@ -282,8 +315,9 @@ describe('Question types & stimulus', () => {
   it('essay: options carry grader info and response template; attempts land in needsgrading with no auto fraction', async () => {
     const categoryId = await createCategory('Essay cat');
     const q = await createQuestion({
-      categoryId, qtype: 'essay', name: 'Tự luận môi trường', questionText: 'Phân tích nguyên nhân ô nhiễm không khí đô thị.',
+      categoryId, qtype: 'essay', questionText: 'Phân tích nguyên nhân ô nhiễm không khí đô thị.',
       guidance: 'Đọc kỹ yêu cầu trước khi viết.',
+      solution: { answer: 'Ba ý chính: khí thải giao thông, hoạt động công nghiệp, bụi xây dựng.' },
       options: {
         responseFormat: 'editor', responseFieldLines: 20, minWordLimit: 10, maxWordLimit: 500,
         graderInfo: 'Chấm theo 3 ý chính: giao thông, công nghiệp, xây dựng.',
@@ -291,11 +325,19 @@ describe('Question types & stimulus', () => {
       },
     });
     expect(q.status).toBeLessThan(300);
-    const body = q.body as { options: { graderInfo: DocLike; responseTemplate: DocLike; minWordLimit: number }; latestVersion: { guidance: DocLike } };
+    const body = q.body as {
+      options: { graderInfo: DocLike; responseTemplate: DocLike; minWordLimit: number };
+      latestVersion: Record<string, unknown>;
+      answerKey: { guidance: DocLike; solution: { answer: DocLike } };
+    };
     expect(docText(body.options.graderInfo)).toContain('3 ý chính');
     expect(docText(body.options.responseTemplate)).toContain('Thân bài');
     expect(body.options.minWordLimit).toBe(10);
-    expect(docText(body.latestVersion.guidance)).toBe('Đọc kỹ yêu cầu trước khi viết.');
+    // Guidance + lời giải mẫu nằm ở bản ghi phía đáp án (answerKey),
+    // KHÔNG còn trên dòng version (quyết 12:12 ngày 26/10/2026).
+    expect(docText(body.answerKey.guidance)).toBe('Đọc kỹ yêu cầu trước khi viết.');
+    expect(docText(body.answerKey.solution.answer)).toContain('Ba ý chính');
+    expect(body.latestVersion).not.toHaveProperty('guidance');
     const attempt = await runAttempt((q.body as { question: { id: string } }).question.id,
       'Ô nhiễm không khí đô thị xuất phát từ khí thải giao thông, hoạt động công nghiệp và bụi xây dựng chưa được kiểm soát tốt.');
     expect(attempt.state).toBe('needsgrading');
@@ -305,12 +347,12 @@ describe('Question types & stimulus', () => {
   it('essay validation: answers are refused and inverted word limits are refused', async () => {
     const categoryId = await createCategory('Essay validation cat');
     const withAnswers = await createQuestion({
-      categoryId, qtype: 'essay', name: 'Sai cấu trúc', questionText: '?',
-      answers: [{ text: 'Đáp án mẫu', fraction: 1 }],
+      categoryId, qtype: 'essay', questionText: '?',
+      answers: [{ text: 'Đáp án mẫu', correct: true }],
     });
     expect(withAnswers.status).toBe(400);
     const inverted = await createQuestion({
-      categoryId, qtype: 'essay', name: 'Giới hạn ngược', questionText: '?',
+      categoryId, qtype: 'essay', questionText: '?',
       options: { minWordLimit: 100, maxWordLimit: 10 },
     });
     expect(inverted.status).toBe(400);
@@ -325,9 +367,13 @@ describe('Question types & stimulus', () => {
         { type: 'paragraph', content: [{ type: 'text', text: 'Câu hỏi có hai đoạn.' }] },
       ],
     };
+    const four = [
+      { text: 'Đúng', correct: true }, { text: 'Sai', correct: false },
+      { text: 'Không rõ', correct: false }, { text: 'Tuỳ', correct: false },
+    ];
     const q = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Rich', questionText: doc,
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }],
+      categoryId, qtype: 'multichoice', questionText: doc,
+      answers: four,
     });
     expect(q.status).toBeLessThan(300);
     expect(docText((q.body as { latestVersion: { questionText: DocLike } }).latestVersion.questionText)).toBe('Chọn đáp án đúng nhất\nCâu hỏi có hai đoạn.');
@@ -341,16 +387,16 @@ describe('Question types & stimulus', () => {
       ],
     };
     const withImage = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Có ảnh', questionText: imageDoc,
-      answers: [{ text: 'A', fraction: 1 }, { text: 'B', fraction: 0 }],
+      categoryId, qtype: 'multichoice', questionText: imageDoc,
+      answers: four,
     });
     expect(withImage.status).toBeLessThan(300);
     expect((withImage.body as { latestVersion: { questionText: unknown } }).latestVersion.questionText).toEqual(imageDoc);
     // Node heading vẫn NGOÀI lát hợp đồng hiện tại (richTextDocumentSchema chỉ
     // gồm paragraph, bulletList, blockMath, image) — hợp đồng tài liệu từ chối.
     const withHeading = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Có tiêu đề', questionText: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Tiêu đề' }] }] },
-      answers: [{ text: 'A', fraction: 1 }, { text: 'B', fraction: 0 }],
+      categoryId, qtype: 'multichoice', questionText: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Tiêu đề' }] }] },
+      answers: four,
     });
     expect(withHeading.status).toBe(400);
   });
@@ -358,9 +404,12 @@ describe('Question types & stimulus', () => {
   it('editing without answers clones the previous version content into the new version with fresh rows', async () => {
     const categoryId = await createCategory('Clone cat');
     const q = await createQuestion({
-      categoryId, qtype: 'multichoice', name: 'Clone', questionText: 'Phiên bản 1',
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }],
-      options: { single: true, shuffleAnswers: true },
+      categoryId, qtype: 'multichoice', questionText: 'Phiên bản 1',
+      answers: [
+        { text: 'Đúng', correct: true }, { text: 'Sai', correct: false },
+        { text: 'Không rõ', correct: false }, { text: 'Tuỳ', correct: false },
+      ],
+      options: { shuffleAnswers: true },
     });
     const qid = (q.body as { question: { id: string } }).question.id;
     const v1AnswerIds = (q.body as { answers: { id: string }[] }).answers.map((a) => a.id);
@@ -368,9 +417,9 @@ describe('Question types & stimulus', () => {
       .send({ questionText: 'Phiên bản 2' });
     expect(edit.status).toBe(200);
     expect(edit.body.entry.latestVersion).toBe(2);
-    const v2Answers = edit.body.answers as { id: string; fraction: number; answer: DocLike }[];
-    expect(v2Answers).toHaveLength(2);
-    expect(v2Answers.map((a) => a.fraction)).toEqual([1, 0]);
+    const v2Answers = edit.body.answers as { id: string; isCorrect: boolean; answer: DocLike }[];
+    expect(v2Answers).toHaveLength(4);
+    expect(v2Answers.map((a) => a.isCorrect)).toEqual([true, false, false, false]);
     for (const a of v2Answers) expect(v1AnswerIds).not.toContain(a.id); // hàng mới, id mới
     expect(edit.body.options.shuffleAnswers).toBe(true);
     // Lượt làm trên v2 dùng id đáp án của v2 và chấm đúng.

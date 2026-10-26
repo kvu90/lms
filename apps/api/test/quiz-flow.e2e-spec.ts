@@ -81,24 +81,23 @@ describe('Quiz activity (mod_quiz)', () => {
       return res.body.question.id as string;
     }
     const qMc = await makeQuestion(bankCatId, {
-      qtype: 'multichoice', name: 'Capital', questionText: 'Capital of France?', defaultMark: 2,
-      answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
-      options: { single: true },
+      qtype: 'multichoice', questionText: 'Capital of France?', defaultMark: 2,
+      answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     const qTf = await makeQuestion(bankCatId, {
-      qtype: 'truefalse', name: 'Water', questionText: 'Water is wet.', defaultMark: 1, answer: { correct: true },
+      qtype: 'truefalse', questionText: 'Water is wet.', defaultMark: 1, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
     });
     const qSa = await makeQuestion(bankCatId, {
-      qtype: 'shortanswer', name: 'Capital VN', questionText: 'Capital of Vietnam?', defaultMark: 1,
-      answers: [{ text: 'Hanoi', fraction: 1 }],
+      qtype: 'shortanswer', questionText: 'Capital of Vietnam?', defaultMark: 1,
+      answers: [{ text: 'Hanoi', correct: true }],
     });
     const qEssay = await makeQuestion(bankCatId, {
-      qtype: 'essay', name: 'Essay', questionText: 'Describe your town.', defaultMark: 3,
+      qtype: 'essay', questionText: 'Describe your town.', defaultMark: 3,
     });
     let qRandom = '';
     for (const name of ['R1', 'R2']) {
       const id = await makeQuestion(randomCatId, {
-        qtype: 'truefalse', name, questionText: `${name}: the sun rises in the east.`, defaultMark: 1, answer: { correct: true },
+        qtype: 'truefalse', questionText: `${name}: the sun rises in the east.`, defaultMark: 1, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
       });
       if (name === 'R1') qRandom = id;
     }

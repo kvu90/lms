@@ -70,7 +70,7 @@ describe('Question bank read gate (issue #55)', () => {
     systemCatId = systemCat.body.id as string;
 
     const q = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: courseCatId, qtype: 'truefalse', name: SECRET_NAME, questionText: SECRET_TEXT, answer: { correct: true } });
+      .send({ categoryId: courseCatId, qtype: 'truefalse', questionText: SECRET_TEXT, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
     expect(q.status).toBeLessThan(300);
     questionId = q.body.question.id as string;
     // Version 2 để endpoint versions có dữ liệu thật.
@@ -79,7 +79,7 @@ describe('Question bank read gate (issue #55)', () => {
     expect(edit.status).toBe(200);
 
     const sysQ = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: systemCatId, qtype: 'truefalse', name: 'System bank q', questionText: SYSTEM_SECRET, answer: { correct: false } });
+      .send({ categoryId: systemCatId, qtype: 'truefalse', questionText: SYSTEM_SECRET, answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
     expect(sysQ.status).toBeLessThan(300);
     systemQuestionId = sysQ.body.question.id as string;
 

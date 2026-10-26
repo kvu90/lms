@@ -73,10 +73,9 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
 
   async function createMc(token: string, categoryId: string, marker: string): Promise<string> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'multichoice', name: `MC ${marker}`, questionText: `THAN-CAU-${marker}: chọn đáp án đúng?`,
+      categoryId, qtype: 'multichoice', questionText: `THAN-CAU-${marker}: chọn đáp án đúng?`,
       defaultMark: 1,
-      answers: [{ text: `DUNG-${marker}`, fraction: 1 }, { text: `SAI-${marker}`, fraction: 0 }],
-      options: { single: true },
+      answers: [{ text: `DUNG-${marker}`, correct: true }, { text: `SAI-${marker}`, correct: false }, { text: `SAI2-${marker}`, correct: false }, { text: `SAI3-${marker}`, correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body.question.id as string;
@@ -84,8 +83,8 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
 
   async function createTfWithStimulus(token: string, categoryId: string, marker: string, stimulusId: string): Promise<string> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'truefalse', name: `TF ${marker}`, questionText: `THAN-CAU-TF-${marker}: đoạn văn nói đúng nội dung?`,
-      defaultMark: 1, stimulusId, answer: { correct: true },
+      categoryId, qtype: 'truefalse', questionText: `THAN-CAU-TF-${marker}: đoạn văn nói đúng nội dung?`,
+      defaultMark: 1, stimulusId, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body.question.id as string;

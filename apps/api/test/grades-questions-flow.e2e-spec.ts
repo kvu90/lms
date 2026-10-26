@@ -120,12 +120,12 @@ describe('Grades & questions', () => {
       .send({ name: 'Bank cat', contextId: systemCtx.id });
     expect(catRes.status).toBeLessThan(300);
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: catRes.body.id, qtype: 'truefalse', name: 'Sky is blue', questionText: 'The sky is blue.', answer: { correct: true } });
+      .send({ categoryId: catRes.body.id, qtype: 'truefalse', questionText: 'The sky is blue.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
     expect(qRes.status).toBeLessThan(300);
     const qid = qRes.body.question.id as string;
     expect(qRes.body.entry.latestVersion).toBe(1);
     const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: 'The sky is green.', answer: { correct: false } });
+      .send({ questionText: 'The sky is green.', answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
     expect(edit.status).toBe(200);
     expect(edit.body.entry.latestVersion).toBe(2);
     expect(edit.body.latestVersion.version).toBe(2);
@@ -135,20 +135,21 @@ describe('Grades & questions', () => {
     const docText = (doc: { content: { content?: { text?: string }[] }[] }) => doc.content[0]?.content?.[0]?.text;
     expect(docText(versions.body[0].questionText)).toBe('The sky is blue.');
     expect(docText(versions.body[1].questionText)).toBe('The sky is green.');
-    // Đáp án đã tách sang question_answers: v1 giữ nguyên (True fraction 1),
-    // v2 mang đáp án đã sửa (False fraction 1) — kiểm chứng thẳng ở DB.
+    // Đáp án đã tách sang question_answers: v1 giữ nguyên (phía True
+    // is_correct), v2 mang đáp án đã sửa (phía False is_correct) —
+    // kiểm chứng thẳng ở DB.
     const v1Answers = await pg.query(
-      `select a.fraction from question_answers a join question_versions v on v.id = a.question_version_id
+      `select a.is_correct from question_answers a join question_versions v on v.id = a.question_version_id
         where v.id = $1 and a.answer->'content'->0->'content'->0->>'text' = 'True'`,
       [versions.body[0].id]);
-    expect((v1Answers.rows[0] as { fraction: number }).fraction).toBe(1);
+    expect((v1Answers.rows[0] as { is_correct: boolean }).is_correct).toBe(true);
     const view = await http(app).get(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`);
-    const trueRowV2 = (view.body.answers as { id: string; answer: unknown; fraction: number }[])
+    const trueRowV2 = (view.body.answers as { id: string; answer: unknown; isCorrect: boolean }[])
       .find((a) => docText(a.answer as never) === 'True');
-    const falseRowV2 = (view.body.answers as { id: string; answer: unknown; fraction: number }[])
+    const falseRowV2 = (view.body.answers as { id: string; answer: unknown; isCorrect: boolean }[])
       .find((a) => docText(a.answer as never) === 'False');
-    expect(trueRowV2?.fraction).toBe(0);
-    expect(falseRowV2?.fraction).toBe(1);
+    expect(trueRowV2?.isCorrect).toBe(false);
+    expect(falseRowV2?.isCorrect).toBe(true);
     expect(view.body.options.trueAnswer).toBe(trueRowV2?.id);
   });
 
@@ -158,7 +159,7 @@ describe('Grades & questions', () => {
     const catRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Invariant cat', contextId: systemCtx.id });
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: catRes.body.id, qtype: 'truefalse', name: 'Water wet', questionText: 'Water is wet.', answer: { correct: true } });
+      .send({ categoryId: catRes.body.id, qtype: 'truefalse', questionText: 'Water is wet.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
     const qid = qRes.body.question.id as string;
     const student = await createUserViaApi(app, admin);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
@@ -177,7 +178,7 @@ describe('Grades & questions', () => {
     const v1Id = qRes.body.latestVersion.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`).set('Authorization', `Bearer ${studentToken}`);
     // NOW the teacher edits the question: correct answer flips in v2.
-    await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`).send({ answer: { correct: false } });
+    await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`).send({ answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
     // Student answers 'true' and finishes: graded by v1 ⇒ right.
     const submit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: 'true' });
     expect(submit.body.state).toBe('complete');

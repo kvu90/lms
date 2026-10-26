@@ -80,9 +80,9 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     const body = qtype === 'multichoice'
       ? {
           categoryId, qtype, name: uniqueName('qmc'), questionText: 'Thủ đô của Pháp là?',
-          answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
+          answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
         }
-      : { categoryId, qtype, name: uniqueName('qtf'), questionText: 'Trời đang mưa.', answer: { correct: true } };
+      : { categoryId, qtype, name: uniqueName('qtf'), questionText: 'Trời đang mưa.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] };
     const res = await http(app).post('/api/v1/questions').set(bearer(admin)).send(body);
     expect(res.status).toBeLessThan(300);
     return (res.body as { question: { id: string } }).question.id;
@@ -148,7 +148,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(relevelGhost.body.code).toBe('question.outcome_link_not_found');
 
     // Sửa câu (ra version mới) KHÔNG làm mất gắn kết — gắn ở cấp danh tính.
-    const edit = await http(app).patch(`/api/v1/questions/${q}`).set(bearer(admin)).send({ name: 'Câu đã sửa tên' });
+    const edit = await http(app).patch(`/api/v1/questions/${q}`).set(bearer(admin)).send({ questionText: 'Thân câu đã sửa.' });
     expect(edit.status).toBe(200);
     const afterEdit = await getLinks(q);
     expect((afterEdit.body as LinksView).subjectIds).toEqual([tree.subjectId]);

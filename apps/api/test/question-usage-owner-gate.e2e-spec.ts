@@ -70,8 +70,8 @@ describe('Question usage owner gate (issue #60)', () => {
       .send({ name: 'Gate bank', contextId: systemCtx.id });
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
       .send({
-        categoryId: bankRes.body.id, qtype: 'truefalse', name: 'Water', questionText: 'Water is wet.',
-        defaultMark: 1, answer: { correct: true },
+        categoryId: bankRes.body.id, qtype: 'truefalse', questionText: 'Water is wet.',
+        defaultMark: 1, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
       });
     const questionId = qRes.body.question.id as string;
 

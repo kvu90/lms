@@ -1,22 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { canTransition, compareStringWithWildcard, gradeAnswer, usageState, DeferredFeedbackBehaviour, type GradingData } from './question-engine';
+import { canTransition, gradeAnswer, usageState, DeferredFeedbackBehaviour, type GradingData } from './question-engine';
 
 /**
- * Engine domain tests. Oracles (Moodle, bản main đọc 23/10/2026):
- *  - question/engine/tests/questionusagebyactivity_test.php (usage groups
- *    attempts; deferred behaviour stores responses and grades at finish)
- *    và máy trạng thái question/engine/states.php (graded_state_for_fraction).
- *  - question/type/truefalse/tests/question_test.php (grade_response).
- *  - question/type/shortanswer/tests/question_test.php
- *    (test_compare_string_with_wildcard) + chiến lược khớp đầu tiên
- *    question_first_matching_answer_grading_strategy (questionbase.php).
- *  - question/type/multichoice/tests/question_single_test.php và
- *    question_multi_test.php (grade_response: single lấy fraction của đáp
- *    án đã chọn; multi cộng fraction rồi kẹp [0, 1]).
- *  - question/type/essay/question.php: essay không có grade_response tự
- *    động — attempt về needsgrading chờ chấm tay.
+ * Kiểm chứng engine chấm theo LUỒNG NGHIỆP VỤ của mô hình giaokhoa
+ * (quyết 12:04 + điểm quyết D-2 ngày 26/10/2026, đợt port #248):
+ *  - đáp án chỉ mang cờ đúng/sai `isCorrect` — KHÔNG còn tỉ trọng
+ *    fraction của đáp án; chấm tự động là NHỊ PHÂN 1/0 cho cả
+ *    multichoice, truefalse và shortanswer, nên `gradedpartial` không
+ *    xuất phát từ chấm tự động nữa (chỉ còn từ chấm tay essay);
+ *  - shortanswer khớp CHÍNH XÁC sau chuẩn hoá — đáp án mẫu chứa ký tự
+ *    `*` được hiểu là ký tự thường, không phải ký tự đại diện;
+ *  - máy trạng thái usage/attempt giữ ngữ nghĩa Moodle
+ *    (questionusagebyactivity_test): deferred behaviour chỉ ghi nhận
+ *    khi nộp, chấm khi kết thúc; trạng thái graded* suy từ fraction
+ *    của ATTEMPT (điểm lượt làm) theo ngưỡng states.php.
+ * Các ca dưới đây phải ĐỎ nếu nghiệp vụ bị đổi ngược (vd quay lại cộng
+ * tỉ trọng từng phần hay khớp wildcard).
  */
-describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
+describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo isCorrect)', () => {
   it('state machine: notstarted can only start; graded states are terminal', () => {
     expect(canTransition('notstarted', 'todo')).toBe(true);
     expect(canTransition('notstarted', 'gradedright')).toBe(false);
@@ -40,71 +41,63 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     expect(b.stateAfterSubmit(null)).toBe('incomplete');
     const tf: GradingData = {
       answers: [
-        { id: 'a-true', text: 'True', fraction: 1 },
-        { id: 'a-false', text: 'False', fraction: 0 },
+        { id: 'a-true', text: 'True', isCorrect: true },
+        { id: 'a-false', text: 'False', isCorrect: false },
       ],
       truefalse: { trueanswerId: 'a-true', falseanswerId: 'a-false' },
     };
     expect(b.gradeAtFinish('truefalse', tf, null)).toBeNull(); // unanswered → gaveup
   });
 
-  it('truefalse grading: the side whose answer row carries fraction 1 is correct', () => {
+  it('truefalse grading: phía đúng là phía mà dòng đáp án của nó mang isCorrect', () => {
     const correctTrue: GradingData = {
       answers: [
-        { id: 't', text: 'True', fraction: 1 },
-        { id: 'f', text: 'False', fraction: 0 },
+        { id: 't', text: 'Đúng', isCorrect: true },
+        { id: 'f', text: 'Sai', isCorrect: false },
       ],
       truefalse: { trueanswerId: 't', falseanswerId: 'f' },
     };
     const correctFalse: GradingData = {
       answers: [
-        { id: 't', text: 'True', fraction: 0 },
-        { id: 'f', text: 'False', fraction: 1 },
+        { id: 't', text: 'Đúng', isCorrect: false },
+        { id: 'f', text: 'Sai', isCorrect: true },
       ],
       truefalse: { trueanswerId: 't', falseanswerId: 'f' },
     };
-    expect(gradeAnswer('truefalse', correctTrue, 'true').state).toBe('gradedright');
-    expect(gradeAnswer('truefalse', correctFalse, 'true').state).toBe('gradedwrong');
+    expect(gradeAnswer('truefalse', correctTrue, 'true')).toMatchObject({ fraction: 1, state: 'gradedright' });
+    expect(gradeAnswer('truefalse', correctFalse, 'true')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
     expect(gradeAnswer('truefalse', correctFalse, 'false').fraction).toBe(1);
-    expect(gradeAnswer('truefalse', correctTrue, 'true').rightAnswer).toBe('True');
+    // Đáp án đúng hiển thị là TEXT của dòng đúng, không phải chữ cứng 'True'.
+    expect(gradeAnswer('truefalse', correctTrue, 'true').rightAnswer).toBe('Đúng');
+    expect(gradeAnswer('truefalse', correctFalse, 'false').rightAnswer).toBe('Sai');
   });
 
-  it('shortanswer wildcard compare follows Moodle test_compare_string_with_wildcard cases', () => {
-    // Case sensitive literal.
-    expect(compareStringWithWildcard('Frog', 'Frog', false)).toBe(true);
-    expect(compareStringWithWildcard('Frog', 'frog', false)).toBe(false);
-    expect(compareStringWithWildcard('   Frog   ', 'Frog', false)).toBe(true);
-    expect(compareStringWithWildcard('Frogs', 'Frog', false)).toBe(false);
-    // Case insensitive.
-    expect(compareStringWithWildcard('Frog', 'frog', true)).toBe(true);
-    expect(compareStringWithWildcard('   FROG   ', 'Frog', true)).toBe(true);
-    // Wildcards.
-    expect(compareStringWithWildcard('Frog', 'F*og', false)).toBe(true);
-    expect(compareStringWithWildcard('Fog', 'F*og', false)).toBe(true);
-    expect(compareStringWithWildcard('   Fat dog   ', 'F*og', false)).toBe(true);
-    expect(compareStringWithWildcard('Frogs', 'F*og', false)).toBe(false);
-    expect(compareStringWithWildcard('Fg', 'F*og', false)).toBe(false);
-    expect(compareStringWithWildcard('frog', 'F*og', false)).toBe(false);
-    expect(compareStringWithWildcard('Frog', 'F*og', true)).toBe(true);
-    // Escaped star is a literal star.
-    expect(compareStringWithWildcard('a*b', 'a\\*b', false)).toBe(true);
-    expect(compareStringWithWildcard('axb', 'a\\*b', false)).toBe(false);
-  });
-
-  it('shortanswer grading: first matching answer wins; useCase toggles case sensitivity', () => {
+  it('shortanswer grading: khớp CHÍNH XÁC sau chuẩn hoá — lệch một ký tự là 0, dấu * không còn là wildcard (D-2)', () => {
     const data: GradingData = {
       answers: [
-        { id: '1', text: 'frog', fraction: 0.5 },
-        { id: '2', text: 'frog', fraction: 1 },
+        { id: '1', text: 'Hà Nội', isCorrect: true },
+        { id: '2', text: 'Ha Noi', isCorrect: true },
       ],
       shortanswer: { useCase: false },
     };
-    // Đáp án khớp đầu tiên (fraction 0.5) quyết định, không phải đáp án tốt nhất.
-    expect(gradeAnswer('shortanswer', data, 'FROG').fraction).toBe(0.5);
-    expect(gradeAnswer('shortanswer', data, 'FROG').state).toBe('gradedpartial');
-    expect(gradeAnswer('shortanswer', data, 'toad').fraction).toBe(0);
+    // Không phân biệt hoa/thường khi useCase tắt; khoảng trắng hai đầu bị cắt.
+    expect(gradeAnswer('shortanswer', data, 'hà nội')).toMatchObject({ fraction: 1, state: 'gradedright' });
+    expect(gradeAnswer('shortanswer', data, '   Hà Nội   ').fraction).toBe(1);
+    // Đáp án được chấp nhận thứ hai cũng ăn điểm trọn.
+    expect(gradeAnswer('shortanswer', data, 'Ha Noi').fraction).toBe(1);
+    // Lệch một ký tự → 0 điểm hẳn, không có điểm từng phần.
+    expect(gradeAnswer('shortanswer', data, 'Hà Nộ')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
+    expect(gradeAnswer('shortanswer', data, 'Hà Nội!').fraction).toBe(0);
+    // Ký tự * trong đáp án của học sinh KHÔNG khớp như wildcard.
+    expect(gradeAnswer('shortanswer', data, 'Hà *').fraction).toBe(0);
+    expect(gradeAnswer('shortanswer', data, '*').fraction).toBe(0);
+    // rightAnswer hiển thị là đáp án được chấp nhận đầu tiên.
+    expect(gradeAnswer('shortanswer', data, 'Ha Noi').rightAnswer).toBe('Hà Nội');
+  });
+
+  it('shortanswer grading: useCase bật thì hoa/thường phải khớp đúng', () => {
     const sensitive: GradingData = {
-      answers: [{ id: '1', text: 'Paris', fraction: 1 }],
+      answers: [{ id: '1', text: 'Paris', isCorrect: true }],
       shortanswer: { useCase: true },
     };
     expect(gradeAnswer('shortanswer', sensitive, 'paris').fraction).toBe(0);
@@ -112,12 +105,24 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     expect(gradeAnswer('shortanswer', sensitive, 'Paris').rightAnswer).toBe('Paris');
   });
 
-  it('shortanswer numeric mode (issue #30 point 6.3.3): off = plain Moodle semantics; on = length/charset gate before matching', () => {
-    const base: GradingData = {
-      answers: [{ id: '1', text: '1234', fraction: 1 }, { id: '2', text: '-5,5', fraction: 1 }],
+  it('shortanswer grading: dòng đáp án không được chấp nhận (isCorrect = false) không bao giờ ăn điểm', () => {
+    const data: GradingData = {
+      answers: [
+        { id: '1', text: 'frog', isCorrect: false },
+        { id: '2', text: 'toad', isCorrect: true },
+      ],
       shortanswer: { useCase: false },
     };
-    // Tắt (mặc định): không có cổng — chuỗi dài/chữ vẫn so khớp mẫu như thường.
+    expect(gradeAnswer('shortanswer', data, 'frog').fraction).toBe(0);
+    expect(gradeAnswer('shortanswer', data, 'toad').fraction).toBe(1);
+  });
+
+  it('shortanswer numeric mode (issue #30 point 6.3.3): off = khớp chính xác thường; on = length/charset gate before matching', () => {
+    const base: GradingData = {
+      answers: [{ id: '1', text: '1234', isCorrect: true }, { id: '2', text: '-5,5', isCorrect: true }],
+      shortanswer: { useCase: false },
+    };
+    // Tắt (mặc định): không có cổng số — khớp chính xác như thường.
     expect(gradeAnswer('shortanswer', base, '1234').fraction).toBe(1);
     const on: GradingData = { ...base, shortanswer: { useCase: false, numericAnswer: true } };
     expect(gradeAnswer('shortanswer', on, '1234').fraction).toBe(1); // đúng 4 ký tự
@@ -128,43 +133,28 @@ describe('question engine domain (Moodle questionusagebyactivity_test)', () => {
     const noSign: GradingData = { ...base, shortanswer: { useCase: false, numericAnswer: true, numericAllowSign: false } };
     expect(gradeAnswer('shortanswer', noSign, '-5,5').fraction).toBe(0);
     const longer: GradingData = { ...base, shortanswer: { useCase: false, numericAnswer: true, numericMaxLength: 6 } };
-    expect(gradeAnswer('shortanswer', longer, '12345').fraction).toBe(0); // hợp lệ về dạng nhưng không khớp mẫu nào
-    expect(gradeAnswer('shortanswer', { answers: [{ id: '1', text: '12345', fraction: 1 }], shortanswer: { useCase: false, numericAnswer: true, numericMaxLength: 6 } }, '12345').fraction).toBe(1);
+    expect(gradeAnswer('shortanswer', longer, '12345').fraction).toBe(0); // hợp lệ về dạng nhưng không khớp đáp án nào
+    expect(gradeAnswer('shortanswer', { answers: [{ id: '1', text: '12345', isCorrect: true }], shortanswer: { useCase: false, numericAnswer: true, numericMaxLength: 6 } }, '12345').fraction).toBe(1);
   });
 
-  it('multichoice single: fraction of the chosen answer (question_single_test semantics)', () => {
+  it('multichoice grading: chọn đúng một đáp án và đó là đáp án đúng duy nhất → 1; mọi trường hợp khác → 0', () => {
     const data: GradingData = {
       answers: [
-        { id: 'a', text: 'A', fraction: 1 },
-        { id: 'b', text: 'B', fraction: 0 },
-        { id: 'c', text: 'C', fraction: 0.5 },
+        { id: 'a', text: 'A', isCorrect: true },
+        { id: 'b', text: 'B', isCorrect: false },
+        { id: 'c', text: 'C', isCorrect: false },
+        { id: 'd', text: 'D', isCorrect: false },
       ],
-      multichoice: { single: true },
     };
     expect(gradeAnswer('multichoice', data, 'a')).toMatchObject({ fraction: 1, state: 'gradedright' });
     expect(gradeAnswer('multichoice', data, 'b')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
-    expect(gradeAnswer('multichoice', data, 'c')).toMatchObject({ fraction: 0.5, state: 'gradedpartial' });
+    // Chọn nhiều đáp án (kể cả có đáp án đúng bên trong) → 0: mô hình
+    // giaokhoa là chọn MỘT đáp án, không còn cộng tỉ trọng từng phần —
+    // ca này phải đỏ nếu engine quay lại chấm từng phần.
+    expect(gradeAnswer('multichoice', data, 'a,b')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
     expect(gradeAnswer('multichoice', data, 'missing-id')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
+    expect(gradeAnswer('multichoice', data, null)).toMatchObject({ fraction: 0, state: 'gradedwrong' });
     expect(gradeAnswer('multichoice', data, 'a').rightAnswer).toBe('A');
-  });
-
-  it('multichoice multiple: fractions are summed and clamped to [0, 1] (question_multi_test)', () => {
-    // Nguyên văn fixture của Moodle (test_question_maker::make_a_multichoice_multi_question):
-    // A = 0.5, B = -1, C = 0.5, D = -1.
-    const data: GradingData = {
-      answers: [
-        { id: 'a', text: 'A', fraction: 0.5 },
-        { id: 'b', text: 'B', fraction: -1 },
-        { id: 'c', text: 'C', fraction: 0.5 },
-        { id: 'd', text: 'D', fraction: -1 },
-      ],
-      multichoice: { single: false },
-    };
-    expect(gradeAnswer('multichoice', data, 'a,c')).toMatchObject({ fraction: 1, state: 'gradedright' });
-    expect(gradeAnswer('multichoice', data, 'a')).toMatchObject({ fraction: 0.5, state: 'gradedpartial' });
-    expect(gradeAnswer('multichoice', data, 'a,b,c')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
-    expect(gradeAnswer('multichoice', data, 'b')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
-    expect(gradeAnswer('multichoice', data, 'a,c').rightAnswer).toBe('A, C');
   });
 
   it('essay is never auto-graded: it lands in needsgrading with a null fraction', () => {

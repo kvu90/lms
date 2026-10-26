@@ -59,16 +59,17 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
       return r.body.question.id as string;
     };
     const mcId = await mkQuestion({
-      qtype: 'multichoice', name: 'MC feedback', questionText: '2 + 2 = ?', defaultMark: 1,
+      qtype: 'multichoice', questionText: '2 + 2 = ?', defaultMark: 1,
       generalFeedback: 'Lời giải: cộng hai số tự nhiên, 2 + 2 = 4.',
       answers: [
-        { text: '4', fraction: 1, feedback: 'Chính xác, 2 + 2 = 4.' },
-        { text: '5', fraction: 0, feedback: 'Chưa đúng, hãy cộng lại.' },
+        { text: '4', correct: true, feedback: 'Chính xác, 2 + 2 = 4.' },
+        { text: '5', correct: false, feedback: 'Chưa đúng, hãy cộng lại.' },
+        { text: '6', correct: false },
+        { text: '3', correct: false },
       ],
-      options: { single: true },
     });
     const essayId = await mkQuestion({
-      qtype: 'essay', name: 'Essay feedback', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
+      qtype: 'essay', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
     });
 
     const cat = await createCategory(app, admin);
@@ -80,7 +81,7 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     const student = (await login(app, u.username, STRONG_PASSWORD)).accessToken;
 
     const teacherView = await http(app).get(`/api/v1/questions/${mcId}`).set('Authorization', `Bearer ${admin}`);
-    const wrongAnswerId = (teacherView.body.answers as { id: string; fraction: number }[]).find((a) => a.fraction === 0)!.id;
+    const wrongAnswerId = (teacherView.body.answers as { id: string; isCorrect: boolean }[]).find((a) => !a.isCorrect)!.id;
 
     return { courseId: course.id, sectionId, student, mcId, essayId, wrongAnswerId };
   }

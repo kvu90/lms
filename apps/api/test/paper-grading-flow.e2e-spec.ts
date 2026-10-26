@@ -76,13 +76,12 @@ describe('CAM-0 paper grading flow', () => {
     const mcIds: string[] = [];
     for (let q = 0; q < 4; q++) {
       mcIds.push(await makeQuestion({
-        qtype: 'multichoice', name: `MC${q + 1}`, questionText: `Question ${q + 1}?`, defaultMark: 2,
-        answers: [0, 1, 2, 3].map((k) => ({ text: `Option ${k}`, fraction: k === CORRECT[q] ? 1 : 0 })),
-        options: { single: true },
+        qtype: 'multichoice', questionText: `Question ${q + 1}?`, defaultMark: 2,
+        answers: [0, 1, 2, 3].map((k) => ({ text: `Option ${k}`, correct: k === CORRECT[q] })),
       }));
     }
     const tfId = await makeQuestion({
-      qtype: 'truefalse', name: 'TF1', questionText: 'The sky is blue.', defaultMark: 2, answer: { correct: true },
+      qtype: 'truefalse', questionText: 'The sky is blue.', defaultMark: 2, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
     });
 
     // Hành trình gộp Đề (#226): soạn đề trong bank → ghim vào khoá;

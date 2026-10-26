@@ -229,11 +229,11 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       .send({ name: `Bank child ${suffix}`, contextId: courseCtx, parent: parentCat.body.id });
     expect(childCat.status).toBeLessThan(300);
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: childCat.body.id, qtype: 'truefalse', name: 'BK question', questionText: 'Version one text.', answer: { correct: true } });
+      .send({ categoryId: childCat.body.id, qtype: 'truefalse', questionText: 'Version one text.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
     expect(qRes.status).toBeLessThan(300);
     const qid = qRes.body.question.id as string;
     const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: 'Version two text.', answer: { correct: false } });
+      .send({ questionText: 'Version two text.', answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
     expect(edit.body.entry.latestVersion).toBe(2);
     // --- Competency dùng chung mức site (lá competency trỏ vào đây; KHÔNG nằm trong archive).
     const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
@@ -337,9 +337,10 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       (doc.content ?? []).map((p) => (p.content ?? []).map((n) => n.text ?? '').join('')).join('\n');
     expect(docText(restoredVersions.body[1].questionText)).toBe('Version two text.');
     // Nội dung chấm của version khôi phục (đáp án + trỏ true/false) đi theo
-    // archive: trueAnswer trỏ vào dòng đáp án 'True', phía đúng nằm ở fraction
-    // (version 2 của câu này có đáp án đúng là False nên True mang fraction 0).
-    expect(restoredQuestions.body[0].answers.map((a: { fraction: number }) => a.fraction)).toEqual([0, 1]);
+    // archive: trueAnswer trỏ vào dòng đáp án 'True', phía đúng nằm ở cờ
+    // isCorrect (version 2 của câu này có đáp án đúng là False nên True
+    // mang isCorrect false, False mang isCorrect true).
+    expect(restoredQuestions.body[0].answers.map((a: { isCorrect: boolean }) => a.isCorrect)).toEqual([false, true]);
     expect(restoredQuestions.body[0].options.trueAnswer).toBe(
       restoredQuestions.body[0].answers.find((a: { id: string; answer: never }) => docText(a.answer) === 'True')?.id,
     );
@@ -379,7 +380,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       .send({ name: `Site bank ${suffix}`, contextId: systemCtx.id });
     expect(siteCat.status).toBeLessThan(300);
     const siteQ = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: siteCat.body.id, qtype: 'shortanswer', name: 'Site question', questionText: 'Capital of France?', answer: { answers: ['Paris'] } });
+      .send({ categoryId: siteCat.body.id, qtype: 'shortanswer', questionText: 'Capital of France?', answers: [{ text: 'Paris', correct: true }] });
     expect(siteQ.status).toBeLessThan(300);
     const siteBadge = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: `Site Badge ${suffix}`, type: 1, issuerName: 'LMS HQ' });

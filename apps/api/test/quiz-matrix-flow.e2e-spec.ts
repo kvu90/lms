@@ -124,8 +124,8 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const mcPool: string[] = [];
     for (const name of ['MC1', 'MC2', 'MC3']) {
       const q = await mkQuestion({
-        qtype: 'multichoice', name, questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
-        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+        qtype: 'multichoice', questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
+        answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
       });
       await tag(q, outcomeBiet, 'biet');
       mcPool.push(q);
@@ -133,8 +133,8 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const mcPoolHieu: string[] = [];
     for (const name of ['MCH1', 'MCH2']) {
       const q = await mkQuestion({
-        qtype: 'multichoice', name, questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
-        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+        qtype: 'multichoice', questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
+        answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
       });
       await tag(q, outcomeHieu, 'hieu');
       mcPoolHieu.push(q);
@@ -143,15 +143,15 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     // ĐVK phải tính câu này vào pool Biết — mô hình cũ neo từng YCCĐ
     // sẽ bỏ sót.
     const mcCross = await mkQuestion({
-      qtype: 'multichoice', name: 'MCX', questionText: 'MCX: chọn đáp án đúng.', defaultMark: 1,
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+      qtype: 'multichoice', questionText: 'MCX: chọn đáp án đúng.', defaultMark: 1,
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     await tag(mcCross, outcomeHieu, 'biet');
     // Câu của ĐVK khác ở cùng mức Biết: không thuộc pool của ô.
     for (const name of ['MCO1', 'MCO2']) {
       const q = await mkQuestion({
-        qtype: 'multichoice', name, questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
-        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+        qtype: 'multichoice', questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
+        answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
       });
       await tag(q, outcomeOther, 'biet');
     }
@@ -164,8 +164,8 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const corrects = [true, false, true, false];
     for (let i = 0; i < 4; i++) {
       const q = await mkQuestion({
-        qtype: 'truefalse', name: `DS${i + 1}`, questionText: `Mệnh đề ${i + 1}`, defaultMark: 1,
-        answer: { correct: corrects[i] }, stimulusId,
+        qtype: 'truefalse', questionText: `Mệnh đề ${i + 1}`, defaultMark: 1,
+        answers: [{ text: 'True', correct: corrects[i]! }, { text: 'False', correct: !corrects[i] }], stimulusId,
       });
       await tag(q, outcomeHieu, 'hieu');
       tfClusterQuestions.push(q);
@@ -543,7 +543,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
   it('grade-by-question (Q-b): queue lists every submitted attempt for one question; bulk grading finishes the attempts', async () => {
     const ctx = await setup();
     const essay = await ctx.mkQuestion({
-      qtype: 'essay', name: 'Tự luận', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
+      qtype: 'essay', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
     });
     const draft = await createExamDraft(app, admin, 'Đề tự luận', 2);
     await addExamSlot(app, admin, draft, { questionId: essay });
@@ -589,9 +589,9 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
     const view = start.body as AttemptViewBody;
     const q = view.questions[0]!;
-    // Đáp án đúng của câu MC trong pool: đáp án có fraction 1 — lấy qua view của giáo viên.
+    // Đáp án đúng của câu MC trong pool: dòng đáp án mang isCorrect — lấy qua view của giáo viên.
     const teacherView = await http(app).get(`/api/v1/questions/${ctx.mcPool[0]}`).set('Authorization', `Bearer ${admin}`);
-    const rightId = (teacherView.body.answers as { id: string; fraction: number }[]).find((a) => a.fraction === 1)!.id;
+    const rightId = (teacherView.body.answers as { id: string; isCorrect: boolean }[]).find((a) => a.isCorrect)!.id;
     await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set('Authorization', `Bearer ${ctx.student}`)
       .send({ questionAttemptId: q.questionAttemptId, response: rightId });
     const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${ctx.student}`).send({});
