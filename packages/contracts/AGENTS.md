@@ -39,3 +39,50 @@
 - Đổi schema mà mọi test vẫn xanh nguyên = dấu hiệu test chưa bám nghiệp vụ — bổ
   sung test bám quyết định trong cùng lượt.
 - Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
+
+## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
+
+Mọi code TypeScript viết mới hoặc sửa trong `packages/contracts` phải có
+comment **tiếng Việt theo chuẩn TSDoc**, chi tiết nhất có thể — ở package này
+comment flow mang thêm một vai trò riêng: ghi lại **quyết định nghiệp vụ mà
+hình dạng dữ liệu đang mã hoá**, để lần sửa schema sau dựa vào nội dung code
+đang có chứ không dựa vào trí nhớ của trợ lý:
+
+- Đầu mỗi file: khối TSDoc mô tả miền nghiệp vụ của file + các hợp đồng chính
+  trong file + luồng sử dụng (ai định nghĩa → app nào tiêu thụ → ràng buộc
+  nào được thực thi ở đâu).
+- Mỗi schema/type trọng yếu: TSDoc `/** ... */` tiếng Việt gồm ý nghĩa nghiệp
+  vụ của trường/kiểu, ràng buộc đã chốt (giới hạn độ dài, tập enum, tập scope
+  đóng…), mã lỗi tương ứng trong khuôn ProblemDetails khi ràng buộc bị phá,
+  và quyết định trong sổ mà hình dạng này đang mã hoá (nếu có).
+- Ràng buộc khó nhìn (vì sao một trường optional, vì sao một enum chỉ có đúng
+  các giá trị đó): comment nội tuyến tiếng Việt nói lý do — không lặp lại
+  điều schema đã hiển nhiên.
+- Cú pháp/tag theo TSDoc (`@remarks`/`@example` khi cần); định danh và tên
+  tag giữ tiếng Anh.
+- Sửa schema thì căn cứ vào comment đang có trong code; thấy comment lệch
+  schema/quyết định thật thì sửa comment **trong cùng lượt** với sửa schema.
+- Đội đánh giá độc lập soi chuẩn này như một tiêu chí đạt — code thiếu comment
+  flow đạt chuẩn là chưa đạt. Code cũ chưa có comment được phủ theo đợt riêng
+  của issue #272, không tự trộn việc phủ vào feat đang bay.
+
+## Bản đồ flow của package
+
+- **Cấu trúc:** một miền một file trong `src/`, xuất tập trung qua
+  `src/index.ts`: `identity.ts` (định danh/người dùng), `course.ts`,
+  `classes.ts`, `assessment.ts` (câu hỏi/đề/bài tập/điểm theo bài),
+  `engagement.ts`, `platform.ts`, `site-config.ts` (khoá cấu hình cấp site),
+  `tenants.ts`, `curriculum.ts` (chương trình GDPT/YCCĐ), `books.ts`,
+  `dashboard.ts`, `guardian.ts`, `health.ts`, `mcp.ts` (scope + công cụ MCP),
+  `rich-text.ts` (hợp đồng nội dung soạn thảo dùng chung với
+  `packages/editor`), `problem-details.ts` (khuôn lỗi dùng chung), `ids.ts`
+  (UUIDv7). Test hợp đồng ở `src/contracts.spec.ts`.
+- **Luồng dữ liệu:** schema Zod định nghĩa MỘT lần ở đây → build ra `dist` →
+  `apps/api` dùng để kiểm chứng request/response ở biên, `apps/web` dùng làm
+  kiểu + kiểm chứng dữ liệu hiển thị, `apps/worker` dùng các kiểu dùng chung
+  khi xử lý nền. Đổi một hình dạng ở đây = đổi đồng thời ở cả ba app sau khi
+  build lại `dist` (dist cũ là nguồn lỗi type giả kinh điển — xem mục kiểm
+  chứng ở trên).
+- Package **không** chứa logic chạy: ràng buộc trong schema là khai báo hình
+  dạng; việc thực thi luật (gác quyền, cổng công bố…) nằm ở `apps/api` như
+  mục ranh giới đã ghi.
