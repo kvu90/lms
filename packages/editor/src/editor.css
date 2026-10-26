@@ -60,6 +60,50 @@
   border-radius: 0.25rem;
 }
 
+/* --- Editor trắc nghiệm thống nhất (lát P4 #248, port giaokhoa):
+       danh sách lựa chọn là một <ol> không số thứ tự; mỗi lựa chọn là
+       một thẻ có viền, chừa cột trái cho radio đáp án đúng (widget
+       decoration chèn vào đầu choice). Kéo-thả đổi thứ tự dùng cơ chế
+       kéo node của ProseMirror trên chính thẻ lựa chọn này. --- */
+
+.lms-rich-text-editor .ProseMirror .lms-choice-list {
+  margin: 0.75rem 0 0.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.lms-rich-text-editor .ProseMirror .lms-choice {
+  position: relative;
+  min-height: 2.5rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+/* Radio đáp án đúng: widget decoration nằm tuyệt đối ở cột trái của
+   thẻ lựa chọn, canh giữa theo chiều dọc như bản giaokhoa. */
+.lms-rich-text-editor .ProseMirror .lms-choice__correct {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  transform: translateY(-50%);
+}
+
+.lms-rich-text-editor .ProseMirror .lms-choice__correct-input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
 /* --- Thanh công cụ: nút icon cỡ size-8 kiểu Button/Toggle ghost của
        @lms/ui (giaokhoa: size="icon-sm", h-11, gap-1, px-2) --- */
 
