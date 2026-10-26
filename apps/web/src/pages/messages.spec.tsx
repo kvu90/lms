@@ -2034,3 +2034,385 @@ describe('Messages page — fix nhân đôi tin: khoá idempotency theo bản nh
     expect(within(thread).getAllByText('tin thứ hai')).toHaveLength(1);
   });
 });
+
+const T4_COURSE_CONV = '01900000-0000-7000-8000-0000000000f2';
+const T4_FREE_CONV = '01900000-0000-7000-8000-0000000000f3';
+const T4_FOURTH_ID = '01900000-0000-7000-8000-0000000000f4';
+const T4_STUDENT_ID = '01900000-0000-7000-8000-0000000000f5';
+
+/**
+ * Stub fetch cho các ca MSG-T4 phía GIÁO VIÊN: một chat cấp khoá
+ * (tôi là GV phụ trách, canManage) với roster gồm một HS nhắn thẳng
+ * được, một đồng GV chưa kết bạn và một HS đã là liên hệ; một nhóm
+ * tự do do tôi tạo. Roster khoá KHÔNG chứa chính người xem (đúng
+ * hành vi SQL phía server: người xem + quan hệ chặn bị loại tại
+ * nguồn).
+ */
+function stubMsgT4Fetch(calls: RecordedCall[]) {
+  const profiles = {
+    [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' },
+    [THIRD_ID]: { userId: THIRD_ID, displayName: 'Cô Đồng Nghiệp', username: 'thirduser' },
+    [T4_FOURTH_ID]: { userId: T4_FOURTH_ID, displayName: 'Bạn Bốn', username: 'fourthuser' },
+  };
+  const studentMessage = {
+    id: '01900000-0000-7000-8000-0000000000f6', conversationId: T4_COURSE_CONV, userIdFrom: OTHER_ID,
+    subject: '', fullMessage: 'em chào cô', createdAt: '2026-01-01T00:00:00.000Z', seq: 1, clientMessageId: null,
+  };
+  const freeMessage = {
+    id: '01900000-0000-7000-8000-0000000000f7', conversationId: T4_FREE_CONV, userIdFrom: OTHER_ID,
+    subject: '', fullMessage: 'chào cả nhóm', createdAt: '2026-01-01T00:00:00.000Z', seq: 1, clientMessageId: null,
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond([
+          {
+            id: T4_COURSE_CONV, type: 2, name: 'Toán 10', component: 'core_course', itemType: 'course', itemId: COURSE_ID,
+            members: [ME_ID, OTHER_ID, THIRD_ID, T4_FOURTH_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 1, lastMessage: studentMessage,
+          },
+        ]);
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [
+            { courseId: COURSE_ID, name: 'Toán 10', myRole: 'teaching', conversationId: T4_COURSE_CONV, unread: 0, groups: [] },
+          ],
+          freeGroups: [
+            { id: T4_FREE_CONV, name: 'Nhóm ôn tập', myRole: 'staff', conversationId: T4_FREE_CONV, unread: 0 },
+          ],
+        });
+      if (url === `/api/v1/messages/courses/${COURSE_ID}/conversation`)
+        return respond({
+          id: T4_COURSE_CONV, type: 2, name: 'Toán 10', component: 'core_course', itemType: 'course', itemId: COURSE_ID,
+          members: [ME_ID, OTHER_ID, THIRD_ID, T4_FOURTH_ID],
+        });
+      if (url === `/api/v1/messages/conversations/${T4_COURSE_CONV}`)
+        return respond({
+          id: T4_COURSE_CONV, type: 2, name: 'Toán 10', component: 'core_course', itemType: 'course', itemId: COURSE_ID,
+          members: [ME_ID, OTHER_ID, THIRD_ID, T4_FOURTH_ID], memberProfiles: profiles,
+          messages: [studentMessage], hasMoreBefore: false,
+          memberReadMarkers: [{ userId: OTHER_ID, lastReadSeq: 1 }],
+          enabled: true, canManage: true, canModerate: true, createdBy: THIRD_ID,
+        });
+      if (url === `/api/v1/messages/conversations/${T4_FREE_CONV}`)
+        return respond({
+          id: T4_FREE_CONV, type: 2, name: 'Nhóm ôn tập', component: null, itemType: null, itemId: null,
+          members: [ME_ID, OTHER_ID, T4_FOURTH_ID], memberProfiles: profiles,
+          messages: [freeMessage], hasMoreBefore: false, memberReadMarkers: [],
+          enabled: true, canManage: true, canModerate: false, createdBy: ME_ID,
+        });
+      if (url.startsWith(`/api/v1/messages/courses/${COURSE_ID}/members`))
+        return respond({
+          members: [
+            { ...profiles[OTHER_ID], role: 'student', relationship: 'none', canDirectMessage: true },
+            { ...profiles[THIRD_ID], role: 'teacher', relationship: 'none', canDirectMessage: false },
+            { ...profiles[T4_FOURTH_ID], role: 'student', relationship: 'contact', canDirectMessage: true },
+          ],
+          nextCursor: null,
+        });
+      if (url === `/api/v1/messages/conversations/${T4_FREE_CONV}/members/${OTHER_ID}` && method === 'DELETE')
+        return respond({ id: T4_FREE_CONV, type: 2, name: 'Nhóm ôn tập', members: [ME_ID, T4_FOURTH_ID] });
+      if (url === '/api/v1/messages/conversations' && method === 'POST')
+        return respond({ id: '01900000-0000-7000-8000-0000000000f8', type: 1, name: null, members: [ME_ID, OTHER_ID] });
+      if (url === '/api/v1/messages/conversations/01900000-0000-7000-8000-0000000000f8')
+        return respond({ id: '01900000-0000-7000-8000-0000000000f8', type: 1, name: null, members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/contacts/${THIRD_ID}` && method === 'POST') return respond({ status: 'pending' });
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [T4_FOURTH_ID], profiles });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/courses')
+        return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Toán 10', shortName: 'T10' }] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+/** Mở chat cấp khoá Toán 10 từ cây của tab Nhóm (đường ensure) và chờ khung chat hiện. */
+async function openT4CourseChat() {
+  await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+  await userEvent.click(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ }));
+  expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
+}
+
+/** Mở panel Info của khung chat đang mở và chờ dòng thành viên đầu tiên của panel nạp xong. */
+async function openT4InfoPanel(firstRowTestId: string) {
+  await userEvent.click(screen.getByRole('button', { name: 'Thông tin cuộc trò chuyện' }));
+  expect(await screen.findByTestId(firstRowTestId)).toBeInTheDocument();
+}
+
+/**
+ * Lát MSG-T4 (panel thành viên + menu trên avatar, mục 4.3 của hồ
+ * sơ cấu trúc nhắn tin): các ca dưới khoá đúng luật quan hệ đã chốt
+ * — GV nhắn thẳng HS của khoá mình, HS↔HS phải kết bạn, quản trị
+ * nhóm cấu trúc chỉ dẫn về roster, nhóm tự do mới gỡ được thành
+ * viên tại chỗ. Đổi các luật này thì ca tương ứng phải đỏ.
+ */
+describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('panel Info của chat khoá hiện thông tin nhóm, công tắc cho người quản lý và thành viên phân Giáo viên/Học sinh từ roster khoá', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    // Thông tin nhóm: loại Khoá học + công tắc Tắt chat (canManage).
+    expect(screen.getByText('Khoá học')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tắt chat' })).toBeInTheDocument();
+    // Roster được nạp hết trang từ endpoint roster của khoá.
+    expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/courses/${COURSE_ID}/members?limit=100`)).toBe(true);
+    // Phân nhóm đúng vai: đồng GV ở nhóm Giáo viên, hai HS ở nhóm Học sinh.
+    expect(screen.getByText('Giáo viên')).toBeInTheDocument();
+    expect(screen.getByText('Học sinh')).toBeInTheDocument();
+    const teacherRow = screen.getByTestId(`member-panel-row-${THIRD_ID}`);
+    expect(within(teacherRow).getByText('Cô Đồng Nghiệp')).toBeInTheDocument();
+    const studentRow = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    expect(within(studentRow).getByText('Bạn Học')).toBeInTheDocument();
+    // Mốc đã xem giữ nguyên hành vi panel cũ: HS đã đọc tới tin mới nhất thì mang huy hiệu Đã xem.
+    expect(within(studentRow).getByText('Đã xem')).toBeInTheDocument();
+  });
+
+  it('GV bấm avatar HS thuộc khoá: menu có Nhắn riêng (không ép kết bạn) và mở ngay hội thoại 1–1', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    const row = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Thao tác với Bạn Học' }));
+    expect(await screen.findByRole('menuitem', { name: 'Nhắn riêng' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Kết bạn' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Nhắn riêng' }));
+    await waitFor(() => {
+      const create = calls.find((c) => c.url === '/api/v1/messages/conversations' && c.method === 'POST');
+      expect(create?.body).toEqual({ memberIds: [OTHER_ID] });
+    });
+  });
+
+  it('đồng GV chưa kết bạn và không có cờ nhắn thẳng: menu chỉ Kết bạn, gửi yêu cầu xong dòng chuyển trạng thái chờ', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${THIRD_ID}`);
+
+    const row = screen.getByTestId(`member-panel-row-${THIRD_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Thao tác với Cô Đồng Nghiệp' }));
+    expect(await screen.findByRole('menuitem', { name: 'Kết bạn' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Nhắn riêng' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Kết bạn' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.url === `/api/v1/messages/contacts/${THIRD_ID}` && c.method === 'POST')).toBe(true);
+    });
+    expect(await screen.findByText('Đã gửi yêu cầu kết bạn — chờ phía kia chấp nhận.')).toBeInTheDocument();
+
+    // Mở lại menu của dòng đó: hành động kết bạn thay bằng trạng thái chờ phản hồi.
+    await userEvent.click(within(row).getByRole('button', { name: 'Thao tác với Cô Đồng Nghiệp' }));
+    expect(await screen.findByRole('menuitem', { name: 'Đang chờ phản hồi' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Kết bạn' })).not.toBeInTheDocument();
+  });
+
+  it('avatar trên dòng tin bấm được và mở menu quan hệ của tác giả tin', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    // Panel Info KHÔNG mở — avatar của tin "em chào cô" vẫn bấm được.
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('em chào cô')).toBeInTheDocument();
+    await userEvent.click(within(thread).getByRole('button', { name: 'Thao tác với Bạn Học' }));
+    expect(await screen.findByRole('menuitem', { name: 'Nhắn riêng' })).toBeInTheDocument();
+  });
+
+  it('người quản lý chat khoá: menu thành viên dẫn về màn roster của khoá, tuyệt đối không có gỡ thành viên trong chat', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    const row = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Thao tác với Bạn Học' }));
+    expect(await screen.findByRole('menuitem', { name: 'Quản lý danh sách khoá' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Gỡ khỏi nhóm' })).not.toBeInTheDocument();
+  });
+
+  it('Xem thông tin mở hồ sơ rút gọn của thành viên trong phạm vi khoá chung', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    const row = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Thao tác với Bạn Học' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Xem thông tin' }));
+
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('Thông tin thành viên')).toBeInTheDocument();
+    expect(within(sheet).getByText('Bạn Học')).toBeInTheDocument();
+    expect(within(sheet).getByText('Học sinh')).toBeInTheDocument();
+    expect(within(sheet).getByText('Toán 10')).toBeInTheDocument();
+    // Quan hệ theo cờ nhắn thẳng GV→HS của roster, không lộ dữ kiện ngoài khoá chung.
+    expect(within(sheet).getByText('Học viên của lớp/khoá của bạn')).toBeInTheDocument();
+  });
+
+  it('nhóm tự do: panel phân Quản trị viên (người tạo) / Thành viên; người quản lý gỡ được thành viên tại chỗ', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm ôn tập/);
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    expect(screen.getByText('Nhóm tự do')).toBeInTheDocument();
+    expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
+    expect(screen.getByText('Thành viên')).toBeInTheDocument();
+    // Người tạo nhóm là tôi: dòng của tôi mang huy hiệu Người tạo nhóm.
+    const myRow = screen.getByTestId(`member-panel-row-${ME_ID}`);
+    expect(within(myRow).getByText('Người tạo nhóm')).toBeInTheDocument();
+
+    const row = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    await userEvent.click(within(row).getByRole('button', { name: 'Thao tác với Bạn Học' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Gỡ khỏi nhóm' }));
+    await waitFor(() => {
+      expect(calls.some((c) => c.url === `/api/v1/messages/conversations/${T4_FREE_CONV}/members/${OTHER_ID}` && c.method === 'DELETE')).toBe(true);
+    });
+    // Gỡ xong: dòng của thành viên đó rời panel.
+    await waitFor(() => {
+      expect(screen.queryByTestId(`member-panel-row-${OTHER_ID}`)).not.toBeInTheDocument();
+    });
+  });
+});
+
+/**
+ * Stub fetch cho ca MSG-T4 phía HỌC SINH: tôi là HS của khoá Toán
+ * 10, đã có hội thoại 1–1 với GV (GV đã mở trước) nhưng chưa kết
+ * bạn với GV lẫn bạn học cùng khoá; roster theo góc nhìn HS không
+ * mang cờ nhắn thẳng nào.
+ */
+function stubMsgT4StudentFetch(calls: RecordedCall[]) {
+  const studentProfile = { ...PROFILE, id: T4_STUDENT_ID, username: 'student1' };
+  const profiles = {
+    [OTHER_ID]: { userId: OTHER_ID, displayName: 'Cô Giáo', username: 'teacheruser' },
+    [T4_FOURTH_ID]: { userId: T4_FOURTH_ID, displayName: 'Bạn Bốn', username: 'fourthuser' },
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: studentProfile.id, username: studentProfile.username, email: studentProfile.email }));
+      if (url === '/api/v1/users/me') return respond(studentProfile);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond([
+          { id: '01900000-0000-7000-8000-0000000000f9', type: 1, name: null, members: [T4_STUDENT_ID, OTHER_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
+          {
+            id: T4_COURSE_CONV, type: 2, name: 'Toán 10', component: 'core_course', itemType: 'course', itemId: COURSE_ID,
+            members: [T4_STUDENT_ID, OTHER_ID, T4_FOURTH_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null,
+          },
+        ]);
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [
+            { courseId: COURSE_ID, name: 'Toán 10', myRole: 'learning', conversationId: T4_COURSE_CONV, unread: 0, groups: [] },
+          ],
+          freeGroups: [],
+        });
+      if (url === `/api/v1/messages/courses/${COURSE_ID}/conversation`)
+        return respond({
+          id: T4_COURSE_CONV, type: 2, name: 'Toán 10', component: 'core_course', itemType: 'course', itemId: COURSE_ID,
+          members: [T4_STUDENT_ID, OTHER_ID, T4_FOURTH_ID],
+        });
+      if (url === `/api/v1/messages/conversations/${T4_COURSE_CONV}`)
+        return respond({
+          id: T4_COURSE_CONV, type: 2, name: 'Toán 10', component: 'core_course', itemType: 'course', itemId: COURSE_ID,
+          members: [T4_STUDENT_ID, OTHER_ID, T4_FOURTH_ID], memberProfiles: profiles,
+          messages: [], hasMoreBefore: false, memberReadMarkers: [],
+          enabled: true, canManage: false, canModerate: false, createdBy: OTHER_ID,
+        });
+      if (url.startsWith(`/api/v1/messages/courses/${COURSE_ID}/members`))
+        return respond({
+          members: [
+            { ...profiles[OTHER_ID], role: 'teacher', relationship: 'none', canDirectMessage: false },
+            { ...profiles[T4_FOURTH_ID], role: 'student', relationship: 'none', canDirectMessage: false },
+          ],
+          nextCursor: null,
+        });
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 0, notifications: 0 });
+      if (url === '/api/v1/messages/contacts') return respond({ contacts: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/courses')
+        return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Toán 10', shortName: 'T10' }] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Messages page — MSG-T4 phía học sinh: không nới luật nhắn riêng', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('HS mở panel: không công tắc quản lý; GV đã có hội thoại mở trước thì nhắn riêng được, bạn học cùng khoá thì chỉ Kết bạn', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4StudentFetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    await openT4InfoPanel(`member-panel-row-${OTHER_ID}`);
+
+    // Không có thẩm quyền quản lý: không công tắc tắt chat, không mục quản lý roster.
+    expect(screen.queryByRole('button', { name: 'Tắt chat' })).not.toBeInTheDocument();
+
+    // GV của tôi: hội thoại 1–1 đã tồn tại (GV mở trước) → Nhắn riêng hiện, Kết bạn không hiện.
+    const teacherRow = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
+    await userEvent.click(within(teacherRow).getByRole('button', { name: 'Thao tác với Cô Giáo' }));
+    expect(await screen.findByRole('menuitem', { name: 'Nhắn riêng' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Kết bạn' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Quản lý danh sách khoá' })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    // Bạn học cùng khoá, chưa kết bạn, chưa có hội thoại: chỉ Kết bạn — HS↔HS giữ đúng luật.
+    const friendRow = screen.getByTestId(`member-panel-row-${T4_FOURTH_ID}`);
+    await userEvent.click(within(friendRow).getByRole('button', { name: 'Thao tác với Bạn Bốn' }));
+    expect(await screen.findByRole('menuitem', { name: 'Kết bạn' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: 'Nhắn riêng' })).not.toBeInTheDocument();
+  });
+});

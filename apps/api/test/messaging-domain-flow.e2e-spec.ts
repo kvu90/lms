@@ -30,6 +30,9 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from './e
  *  5. Báo cáo trong conversation → giáo viên phụ trách + admin; chỉ
  *     người có thẩm quyền theo phạm vi mới xem lại được nội dung của
  *     đúng conversation bị báo cáo; mọi lần xem ghi event_log.
+ *  6. Gỡ thành viên trong chat (bổ sung MSG-T4): CHỈ nhóm tự do và
+ *     CHỈ người có thẩm quyền quản lý mới gỡ được; nhóm cấu trúc bị
+ *     từ chối để quản qua roster; người bị gỡ mất quyền ngay.
  */
 
 interface Person { id: string; username: string; token: string }
@@ -431,4 +434,55 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     // tải nặng; PR #76 giữ 120s (vòng xả tồn đọng) — lấy max hai phía,
     // không bỏ assertion nào.
   }, 120000);
+
+  it('6. gỡ thành viên nhóm tự do (MSG-T4): chỉ người quản lý gỡ được; nhóm cấu trúc bị từ chối để về roster; người bị gỡ mất quyền ngay', async () => {
+    // Giáo viên tạo nhóm tự do với hai học sinh — người tạo là chủ nhóm.
+    const created = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${teacher.token}`)
+      .send({ type: 2, memberIds: [s1.id, s2.id], name: 'Nhóm gỡ thành viên' });
+    expect(created.status).toBe(201);
+    const freeId = created.body.id as string;
+
+    // Học sinh là thành viên thường: không có thẩm quyền quản lý → 403.
+    const byMember = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)
+      .set('Authorization', `Bearer ${s1.token}`);
+    expect(byMember.status).toBe(403);
+    expect(byMember.body.code).toBe('messaging.conversation_manage_forbidden');
+
+    // Người tạo không tự gỡ chính mình và không bị gỡ khỏi nhóm của mình.
+    const removeSelf = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${teacher.id}`)
+      .set('Authorization', `Bearer ${teacher.token}`);
+    expect(removeSelf.status).toBe(400);
+    expect(removeSelf.body.code).toBe('messaging.member_remove_self');
+
+    // Gỡ thật: người tạo gỡ s2 — response mang danh sách thành viên mới.
+    const removed = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)
+      .set('Authorization', `Bearer ${teacher.token}`);
+    expect(removed.status).toBe(200);
+    expect(new Set(removed.body.members as string[])).toEqual(new Set([teacher.id, s1.id]));
+
+    // Người bị gỡ mất quyền NGAY: đọc lại conversation → 404, gửi tin → bị chặn ở cổng thành viên.
+    const viewAfter = await http(app).get(`/api/v1/messages/conversations/${freeId}`)
+      .set('Authorization', `Bearer ${s2.token}`);
+    expect(viewAfter.status).toBe(404);
+    const sendAfter = await send(s2.token, freeId, 'em còn gửi được không');
+    expect(sendAfter.status).not.toBe(201);
+
+    // Gỡ lại người đã không còn là thành viên → 404 member_not_found.
+    const removeAgain = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)
+      .set('Authorization', `Bearer ${teacher.token}`);
+    expect(removeAgain.status).toBe(404);
+    expect(removeAgain.body.code).toBe('messaging.member_not_found');
+
+    // Nhóm CẤU TRÚC (conversation gắn group của khoá): giáo viên phụ
+    // trách CÓ thẩm quyền quản lý nhưng gỡ trong chat vẫn bị từ chối
+    // 400 member_remove_structural — thành viên của nhóm này chỉ đổi
+    // qua roster/ghi danh, đồng bộ lười sẽ lắp lại nếu gỡ tay.
+    const structural = await http(app).delete(`/api/v1/messages/conversations/${groupConvId}/members/${s1.id}`)
+      .set('Authorization', `Bearer ${teacher.token}`);
+    expect(structural.status).toBe(400);
+    expect(structural.body.code).toBe('messaging.member_remove_structural');
+    // Và s1 vẫn nguyên là thành viên của nhóm cấu trúc sau lượt gỡ hụt.
+    const stillMember = await viewMessages(s1.token, groupConvId);
+    expect(stillMember).toBeTruthy();
+  });
 });
