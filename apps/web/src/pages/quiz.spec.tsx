@@ -514,32 +514,110 @@ describe('Quiz attempt page — hướng dẫn & lời giải theo mô hình gia
     expect(solution).toHaveTextContent('Bài mẫu: mở bài nêu vấn đề, thân bài có ba luận điểm.');
   });
 
-  it('xem lại truefalse: đánh dấu phía đúng suy từ solution.correctAnswerId qua options', async () => {
-    const TRUE_ID = '01900000-0000-7000-8000-0000000000d1';
-    const FALSE_ID = '01900000-0000-7000-8000-0000000000d2';
+  it('làm bài truefalse TF-A: trả lời Đ/S từng mệnh đề, response là JSON theo statementId', async () => {
+    const calls: { url: string; method: string; body?: unknown }[] = [];
+    const tfDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Xét các mệnh đề sau:' }] },
+        {
+          type: 'statementList',
+          content: ['tf1', 'tf2', 'tf3', 'tf4'].map((id, i) => ({
+            type: 'statement',
+            attrs: { id },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i + 1}.` }] }],
+          })),
+        },
+      ],
+    };
+    const view = viewWith('inprogress', {
+      ...mcQuestion({}),
+      qtype: 'truefalse',
+      questionExcerpt: 'Xét các mệnh đề sau:',
+      questionText: tfDoc,
+      answers: [],
+      solution: null,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}`) return respond(view);
+        if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}/responses` && method === 'POST') return respond({});
+        return respond({}, 404);
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
+      initialEntries: [`/quiz-attempts/${ATTEMPT_ID}`],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    // 4 mệnh đề, mỗi mệnh đề một cặp radio Đ/S riêng; chưa có đáp án nào lộ.
+    expect(await screen.findByTestId('quiz-tf-statement-1-0')).toHaveTextContent('Mệnh đề 1.');
+    expect(screen.getAllByRole('radio')).toHaveLength(8);
+    expect(document.querySelector('[data-correct="true"]')).toBeNull();
+    const first = screen.getByTestId('quiz-tf-statement-1-0');
+    await userEvent.click(within(first).getByLabelText('Đúng'));
+    const second = screen.getByTestId('quiz-tf-statement-1-1');
+    await userEvent.click(within(second).getByLabelText('Sai'));
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu câu trả lời' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith('/responses') && c.method === 'POST')).toBe(true),
+    );
+    const save = calls.find((c) => c.url.endsWith('/responses'));
+    expect((save?.body as { response: string }).response).toBe('{"tf1":true,"tf2":false}');
+  });
+
+  it('xem lại truefalse TF-A: đúng/sai TỪNG Ý từ solution.statements + response đã lưu', async () => {
+    const tfDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Xét các mệnh đề sau:' }] },
+        {
+          type: 'statementList',
+          content: ['tf1', 'tf2', 'tf3', 'tf4'].map((id, i) => ({
+            type: 'statement',
+            attrs: { id },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i + 1}.` }] }],
+          })),
+        },
+      ],
+    };
     renderAttempt(
       viewWith('finished', {
         ...mcQuestion({}),
         qtype: 'truefalse',
-        questionExcerpt: 'Trái Đất quay quanh Mặt Trời.',
-        questionText: doc('Trái Đất quay quanh Mặt Trời.'),
-        answers: [
-          { id: TRUE_ID, text: doc('Đúng') },
-          { id: FALSE_ID, text: doc('Sai') },
-        ],
-        options: { trueanswerId: TRUE_ID, falseanswerId: FALSE_ID },
-        response: 'false',
-        state: 'gradedwrong',
-        fraction: 0,
-        mark: 0,
-        solution: { correctAnswerId: TRUE_ID },
-        rightAnswer: 'Đúng',
+        questionExcerpt: 'Xét các mệnh đề sau:',
+        questionText: tfDoc,
+        answers: [],
+        // tf1 chọn đúng, tf2 chọn sai phía, tf3 bỏ trống, tf4 chọn đúng.
+        response: '{"tf1":true,"tf2":true,"tf4":false}',
+        state: 'gradedpartial',
+        fraction: 0.25,
+        mark: 1.25,
+        solution: {
+          statements: [
+            { statementId: 'tf1', value: true },
+            { statementId: 'tf2', value: false },
+            { statementId: 'tf3', value: true },
+            { statementId: 'tf4', value: false },
+          ],
+        },
+        rightAnswer: 'Đúng, Sai, Đúng, Sai',
       }),
     );
-    const trueLabel = (await screen.findByText('Đúng')).closest('label');
-    expect(trueLabel?.getAttribute('data-correct')).toBe('true');
-    const falseLabel = screen.getByText('Sai').closest('label');
-    expect(falseLabel?.getAttribute('data-correct')).toBeNull();
+    expect((await screen.findByTestId('quiz-tf-statement-1-0')).getAttribute('data-verdict')).toBe('correct');
+    expect(screen.getByTestId('quiz-tf-statement-1-1').getAttribute('data-verdict')).toBe('incorrect');
+    expect(screen.getByTestId('quiz-tf-statement-1-2').getAttribute('data-verdict')).toBe('unanswered');
+    expect(screen.getByTestId('quiz-tf-statement-1-3').getAttribute('data-verdict')).toBe('correct');
+    // Mỗi mệnh đề có đúng một phía được đánh dấu "Đáp án đúng".
+    expect(document.querySelectorAll('[data-correct="true"]')).toHaveLength(4);
+    const solution = screen.getByTestId('quiz-solution-1');
+    expect(solution).toHaveTextContent('Đáp án đúng: Đúng, Sai, Đúng, Sai');
   });
 });
 

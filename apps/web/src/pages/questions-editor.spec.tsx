@@ -12,7 +12,8 @@ import { QuestionEditPage, QuestionNewPage } from './question-editor';
  * port giaokhoa (lát P4 #248): câu hỏi KHÔNG có tên và đáp án KHÔNG có
  * tỉ trọng — POST /questions nhận `answers` mang cờ `correct` nhị phân
  * (multichoice đúng 4 lựa chọn + đúng 1 đúng soạn trên tài liệu thống
- * nhất rồi tách khi lưu; truefalse là 2 dòng answers Đúng/Sai;
+ * nhất rồi tách khi lưu; truefalse TF-A là MỘT tài liệu thân + 4
+ * mệnh đề với đáp án từng mệnh đề ở solution;
  * shortanswer mọi mẫu đều được chấp nhận), `guidance` và `solution`
  * (lời giải mẫu của essay) đi ở phía đáp án, PATCH tạo phiên bản mới
  * với payload đầy đủ, stimulus qua POST/PATCH/DELETE /stimuli và gắn
@@ -260,6 +261,128 @@ vi.mock('@lms/editor', async () => {
             },
           }),
         ]),
+      );
+    },
+    // --- Tài liệu thống nhất Đúng/Sai TF-A (giả lập theo hình dạng
+    // JSON của module true-false ở @lms/editor): doc gồm các block
+    // thân chung + một node statementList chốt đuôi chứa đúng 4
+    // statement (mỗi statement có attrs.id và content là các block).
+    splitTrueFalseDocument: (content: McDocLike) => {
+      const nodes = content.content ?? [];
+      const listIndex = nodes.findIndex((node) => node.type === 'statementList');
+      if (listIndex < 0) return { stem: content, statements: [] };
+      return {
+        stem: { ...content, content: nodes.filter((_, index) => index !== listIndex) },
+        statements: (nodes[listIndex]?.content ?? []).filter((node) => node.type === 'statement'),
+      };
+    },
+    composeTrueFalseDocument: (questionText: DocLike | null | undefined): McDocLike => {
+      const nodes = ((questionText?.content ?? [{ type: 'paragraph' }]) as McNodeLike[]).filter(
+        (node) => node.type !== 'statementList',
+      );
+      const existing = ((questionText?.content ?? []) as McNodeLike[]).find(
+        (node) => node.type === 'statementList',
+      );
+      const statements: McNodeLike[] = ((existing?.content ?? []) as McNodeLike[])
+        .filter((node) => node.type === 'statement')
+        .slice(0, 4)
+        .map((s) => ({
+          type: 'statement',
+          attrs: { id: s.attrs?.id ?? `mock-statement-${++mockChoiceSeq}` },
+          content: s.content ?? [{ type: 'paragraph' }],
+        }));
+      while (statements.length < 4) {
+        mockChoiceSeq += 1;
+        statements.push({
+          type: 'statement',
+          attrs: { id: `mock-statement-${mockChoiceSeq}` },
+          content: [{ type: 'paragraph' }],
+        });
+      }
+      return { type: 'doc', content: [...nodes, { type: 'statementList', content: statements }] };
+    },
+    createEmptyTrueFalseDocument: (): McDocLike => ({
+      type: 'doc',
+      content: [
+        { type: 'paragraph' },
+        {
+          type: 'statementList',
+          content: [0, 1, 2, 3].map(() => {
+            mockChoiceSeq += 1;
+            return {
+              type: 'statement',
+              attrs: { id: `mock-statement-${mockChoiceSeq}` },
+              content: [{ type: 'paragraph' }],
+            };
+          }),
+        },
+      ],
+    }),
+    TrueFalseEditor: ({
+      value,
+      onChange,
+      answers,
+      onAnswerChange,
+      ariaLabel,
+    }: {
+      value: McDocLike;
+      onChange: (doc: McDocLike) => void;
+      answers: Record<string, boolean | undefined>;
+      onAnswerChange: (statementId: string, value: boolean) => void;
+      ariaLabel?: string;
+    }) => {
+      const nodes = value.content ?? [];
+      const listIndex = nodes.findIndex((node) => node.type === 'statementList');
+      const stemDoc: McDocLike = {
+        type: 'doc',
+        content: nodes.filter((_, index) => index !== listIndex),
+      };
+      const statements = (nodes[listIndex]?.content ?? []).filter((node) => node.type === 'statement');
+      const rebuild = (nextStem: McDocLike, nextStatements: McNodeLike[]) =>
+        onChange({
+          type: 'doc',
+          content: [...(nextStem.content ?? []), { type: 'statementList', content: nextStatements }],
+        });
+      return React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('textarea', {
+          'aria-label': ariaLabel,
+          value: docToText(stemDoc as DocLike),
+          onChange: (event: { target: { value: string } }) =>
+            rebuild(textToDoc(event.target.value) as McDocLike, statements),
+        }),
+        ...statements.flatMap((statement, index) => {
+          const id = statement.attrs?.id ?? `statement-${index}`;
+          return [
+            React.createElement('textarea', {
+              key: `statement-${id}`,
+              'aria-label': `Mệnh đề ${index + 1}`,
+              value: docToText({ type: 'doc', content: (statement.content ?? []) as DocLike['content'] }),
+              onChange: (event: { target: { value: string } }) =>
+                rebuild(
+                  stemDoc,
+                  statements.map((s, i) =>
+                    i === index ? { ...s, content: (textToDoc(event.target.value) as McDocLike).content } : s,
+                  ),
+                ),
+            }),
+            React.createElement('input', {
+              key: `radio-true-${id}`,
+              type: 'radio',
+              'aria-label': 'Đánh dấu mệnh đề là Đúng',
+              checked: answers[id] === true,
+              onChange: () => onAnswerChange(id, true),
+            }),
+            React.createElement('input', {
+              key: `radio-false-${id}`,
+              type: 'radio',
+              'aria-label': 'Đánh dấu mệnh đề là Sai',
+              checked: answers[id] === false,
+              onChange: () => onAnswerChange(id, false),
+            }),
+          ];
+        }),
       );
     },
   };
@@ -656,7 +779,7 @@ describe('Question editor — four qtypes', () => {
     expect(status).toHaveTextContent('multichoice requires exactly one correct answer');
   });
 
-  it('creates a truefalse question with two answer rows (Đúng/Sai) and the toggle outside the document', async () => {
+  it('creates ONE truefalse TF-A question: stem + 4 statements in one document, answers as solution', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderBank();
@@ -664,66 +787,126 @@ describe('Question editor — four qtypes', () => {
     await screen.findByText('General');
     await openNewQuestionForm();
     await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Đúng/sai (truefalse)');
+    await questionForm().findByLabelText('Mệnh đề 1', {}, { timeout: 10000 });
+    await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Xét các mệnh đề sau:');
     await userEvent.type(questionForm().getByLabelText('Mệnh đề 1'), 'Trời đang mưa.');
-    // Bấm vào NHÃN như người dùng thật: nhãn trỏ tới input ẩn của
-    // RadioGroupItem (Base UI) — chọn qua nhãn phải đổi phía đúng.
-    await userEvent.click(questionForm().getByText('Đáp án đúng là "sai"'));
+    await userEvent.type(questionForm().getByLabelText('Mệnh đề 2'), 'Trời đang nắng.');
+    await userEvent.type(questionForm().getByLabelText('Mệnh đề 3'), 'Mặt trời mọc ở phía đông.');
+    await userEvent.type(questionForm().getByLabelText('Mệnh đề 4'), 'Mặt trăng là một ngôi sao.');
+    const trueRadios = questionForm().getAllByRole('radio', { name: 'Đánh dấu mệnh đề là Đúng' });
+    const falseRadios = questionForm().getAllByRole('radio', { name: 'Đánh dấu mệnh đề là Sai' });
+    expect(trueRadios).toHaveLength(4);
+    await userEvent.click(trueRadios[0]!);
+    await userEvent.click(falseRadios[1]!);
+    await userEvent.click(trueRadios[2]!);
+    await userEvent.click(falseRadios[3]!);
     await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
 
     await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toBe(true));
-    const createCall = calls.find((c) => c.url === '/api/v1/questions' && c.method === 'POST');
-    // Mô hình mới: đáp án Đúng/Sai là HAI DÒNG answers thống nhất,
-    // cờ correct nằm ở phía đúng đã chọn — không còn answer cấp câu.
-    expect(createCall?.body).toEqual({
-      categoryId: CATEGORY_ID,
-      qtype: 'truefalse',
-      questionText: doc('Trời đang mưa.'),
-      answers: [
-        { text: 'Đúng', correct: false },
-        { text: 'Sai', correct: true },
-      ],
-      options: { showStandardInstruction: true },
-    });
+    // TF-A là MỘT câu duy nhất — không còn tách chùm thành nhiều câu.
+    const createCalls = calls.filter((c) => c.url === '/api/v1/questions' && c.method === 'POST');
+    expect(createCalls).toHaveLength(1);
+    const body = createCalls[0]?.body as {
+      qtype: string;
+      questionText: {
+        content: {
+          type: string;
+          content?: { attrs?: { id?: string }; content?: { content?: { text?: string }[] }[] }[];
+        }[];
+      };
+      solution?: { answers: { statementId: string; value: boolean }[] };
+      answers?: unknown;
+      options?: unknown;
+    };
+    expect(body.qtype).toBe('truefalse');
+    // Không còn dòng answers Đúng/Sai, không còn options TF.
+    expect(body.answers).toBeUndefined();
+    expect(body.options).toBeUndefined();
+    const list = body.questionText.content[body.questionText.content.length - 1]!;
+    expect(list.type).toBe('statementList');
+    const statements = list.content ?? [];
+    expect(statements).toHaveLength(4);
+    const texts = statements.map((s) => s.content?.[0]?.content?.[0]?.text);
+    expect(texts).toEqual(['Trời đang mưa.', 'Trời đang nắng.', 'Mặt trời mọc ở phía đông.', 'Mặt trăng là một ngôi sao.']);
+    // solution.answers phủ đúng tập mệnh đề theo thứ tự tài liệu.
+    expect(body.solution?.answers).toEqual([
+      { statementId: statements[0]?.attrs?.id, value: true },
+      { statementId: statements[1]?.attrs?.id, value: false },
+      { statementId: statements[2]?.attrs?.id, value: true },
+      { statementId: statements[3]?.attrs?.id, value: false },
+    ]);
   });
 
-  it('creates a truefalse cluster as one question per statement', async () => {
+  it('edits a truefalse TF-A question: statements and answers load from the stored document + answerKey', async () => {
     const calls: RecordedCall[] = [];
-    stubFetch(calls);
+    const tfDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Xét các mệnh đề sau:' }] },
+        {
+          type: 'statementList',
+          content: ['s1', 's2', 's3', 's4'].map((id, i) => ({
+            type: 'statement',
+            attrs: { id },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề số ${i + 1}.` }] }],
+          })),
+        },
+      ],
+    };
+    const view = multichoiceView({
+      question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'truefalse' },
+      latestVersion: {
+        id: VERSION_ID,
+        questionBankEntryId: '01900000-0000-7000-8000-000000000002',
+        questionId: QUESTION_ID,
+        version: 1,
+        questionText: tfDoc,
+        generalFeedback: null,
+        defaultMark: 1,
+        penalty: 0,
+        stimulusId: null,
+      },
+      answers: [],
+      answerKey: {
+        guidance: null,
+        solution: {
+          answers: [
+            { statementId: 's1', value: true },
+            { statementId: 's2', value: false },
+            { statementId: 's3', value: true },
+            { statementId: 's4', value: false },
+          ],
+        },
+      },
+      options: {},
+    });
+    stubFetch(calls, [view]);
     renderBank();
 
-    await screen.findByText('General');
-    await openNewQuestionForm();
-    await pickSelectOption(questionForm(), 'Loại câu hỏi', 'Đúng/sai (truefalse)');
-    await userEvent.type(questionForm().getByLabelText('Mệnh đề 1'), 'Trời đang mưa.');
-    await userEvent.click(questionForm().getByRole('button', { name: 'Thêm mệnh đề' }));
-    await userEvent.type(questionForm().getByLabelText('Mệnh đề 2'), 'Trời đang nắng.');
-    const falseLabels = questionForm().getAllByText('Đáp án đúng là "sai"');
-    await userEvent.click(falseLabels[1]!);
-    await userEvent.click(screen.getByRole('button', { name: 'Tạo câu hỏi' }));
-
+    const row = await screen.findByTestId(`question-${QUESTION_ID}`);
+    await userEvent.click(within(row).getByText('Sửa (phiên bản mới)'));
+    // Mệnh đề nạp từ tài liệu đã lưu; đáp án nạp từ answerKey.solution.
+    expect(await questionForm('Lưu thành phiên bản mới').findByLabelText('Mệnh đề 3')).toHaveValue('Mệnh đề số 3.');
+    const trueRadios = questionForm('Lưu thành phiên bản mới').getAllByRole('radio', {
+      name: 'Đánh dấu mệnh đề là Đúng',
+    });
+    expect(trueRadios[0]).toBeChecked();
+    expect(trueRadios[2]).toBeChecked();
+    // Đổi đáp án của mệnh đề 2 thành Đúng rồi lưu.
+    await userEvent.click(trueRadios[1]!);
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu thành phiên bản mới' }));
     await waitFor(() =>
-      expect(calls.filter((c) => c.url === '/api/v1/questions' && c.method === 'POST')).toHaveLength(2),
+      expect(calls.some((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH')).toBe(true),
     );
-    const createCalls = calls.filter((c) => c.url === '/api/v1/questions' && c.method === 'POST');
-    // Mỗi mệnh đề là một câu riêng (không còn hậu tố tên "· ý n" vì
-    // câu hỏi không có tên); mỗi câu mang hai dòng answers của nó.
-    expect(createCalls[0]?.body).toMatchObject({
-      qtype: 'truefalse',
-      questionText: doc('Trời đang mưa.'),
-      answers: [
-        { text: 'Đúng', correct: true },
-        { text: 'Sai', correct: false },
-      ],
-    });
-    expect(createCalls[1]?.body).toMatchObject({
-      qtype: 'truefalse',
-      questionText: doc('Trời đang nắng.'),
-      answers: [
-        { text: 'Đúng', correct: false },
-        { text: 'Sai', correct: true },
-      ],
-    });
-    expect(JSON.stringify(createCalls[0]?.body)).not.toContain('name');
+    const patchCall = calls.find((c) => c.url === `/api/v1/questions/${QUESTION_ID}` && c.method === 'PATCH');
+    const body = patchCall?.body as { solution?: { answers: { statementId: string; value: boolean }[] }; answers?: unknown };
+    expect(body.answers).toBeUndefined();
+    expect(body.solution?.answers).toEqual([
+      { statementId: 's1', value: true },
+      { statementId: 's2', value: true },
+      { statementId: 's3', value: true },
+      { statementId: 's4', value: false },
+    ]);
   });
 
   it('creates a shortanswer question with accepted answers and the useCase option', async () => {
@@ -1129,3 +1312,4 @@ describe('Stimulus in the question bank UI', () => {
     expect(screen.getByTestId(`attempt-${ATTEMPT_ID}`)).toHaveTextContent('Theo đoạn văn, thủ đô là gì?');
   });
 });
+
