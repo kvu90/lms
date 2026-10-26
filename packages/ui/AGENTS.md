@@ -43,3 +43,25 @@
 - Đổi hành vi một component nền (đóng/mở, focus, phím…) phải có ca kiểm ở phía
   app thể hiện hành vi người dùng quan sát được, không test class nội bộ.
 - Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
+
+## Tính chất vendored & đợt phủ comment TSDoc (sổ mục F — chốt 14:40 ngày 26/10/2026)
+
+Toàn bộ code trong package này là **code shadcn vendored** (sinh bằng shadcn
+CLI từ upstream, xem `components.json` và README) — không phải code nghiệp vụ
+của dự án. Hệ quả đã chốt trong sổ quyết định:
+
+- **LOẠI HẲN khỏi đợt phủ comment TSDoc** (issue #272 và mọi đợt phủ sau):
+  tuyệt đối **không viết comment TSDoc** (kể cả comment flow tiếng Việt theo
+  chuẩn mục F) vào bất kỳ file code nào của package này. Chuẩn comment mục F
+  áp cho code do dự án tự viết (apps/*, packages/contracts, packages/editor…)
+  — không áp cho code vendored ở đây.
+- **Hạn chế sửa trực tiếp** code vendored: thay đổi đi qua quy trình shadcn
+  CLI / đồng bộ theo upstream như README và mục "Điều cấm" ở trên đã ghi;
+  ngoại lệ bất khả kháng phải sửa tay thì sửa tối thiểu và ghi vào mục
+  "Ngoại lệ" ở cuối README kèm lý do, trong cùng commit — để lần đồng bộ
+  upstream sau không âm thầm mất dấu chỗ đã sửa.
+- Cần hành vi khác cho một luồng nghiệp vụ cụ thể thì **bọc component ở
+  `apps/web/src/components/`**, không sửa bản vendored để phục vụ một trang.
+- Vì tính chất trên, AGENTS.md của package này **không có bản đồ flow nghiệp
+  vụ**: package không mang flow nghiệp vụ nào — luồng người dùng nằm ở
+  `apps/web`, package chỉ cung cấp component nền.
