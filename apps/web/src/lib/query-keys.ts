@@ -177,6 +177,8 @@ export const queryKeys = {
   matrixDetail: (matrixId: string) => ['exam-matrices', matrixId] as const,
   /** Khả dụng kho câu cho các ô của một ma trận (GET /exam-matrices/:id/availability). */
   matrixAvailability: (matrixId: string) => ['exam-matrices', matrixId, 'availability'] as const,
+  /** Bản đặc tả SUY RA của một ma trận (GET /exam-matrices/:id/specification) — SPEC-1, issue #233. */
+  matrixSpecification: (matrixId: string) => ['exam-matrices', matrixId, 'specification'] as const,
   /** Cấu hình site (GET /site-config) — gốc khoá, kiêm tiền tố làm mới cả audit sau đột biến. */
   siteConfig: ['site-config'] as const,
   /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */

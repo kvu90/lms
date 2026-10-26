@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiJson } from './api';
+import { apiFetch, apiJson } from './api';
 import { queryKeys } from './query-keys';
 
 /**
@@ -46,6 +46,51 @@ export interface MatrixLite {
 export interface AvailabilityLite {
   sufficient: boolean;
   cells: { cellId: string; required: number; available: number; deficit: number }[];
+}
+
+/** Một YCCĐ thuộc ĐVK trong bản đặc tả suy ra (cột "Yêu cầu cần đạt"). */
+export interface SpecificationOutcomeLite {
+  outcomeId: string;
+  content: string;
+  sourceKind: string;
+  sourceRef: string | null;
+  programContent: string | null;
+  derivedContent: string | null;
+}
+
+/** Một ô ma trận trong bản đặc tả suy ra. */
+export interface SpecificationCellLite {
+  cellId: string;
+  cognitiveLevel: string;
+  qtype: string;
+  questionCount: number;
+  cellScore: number;
+  minutes: number | null;
+  slotNumbers: number[] | null;
+  drawNote: string | null;
+}
+
+/**
+ * View model bản đặc tả (SPEC-1, issue #233): bảng SUY RA từ các ô của
+ * ma trận — ô neo ĐVK × mức × dạng; cột YCCĐ lấy từ các YCCĐ thuộc ĐVK
+ * của ô (ô KHÔNG neo YCCĐ). Cùng hình dạng API dùng cho export xlsx/docx.
+ */
+export interface MatrixSpecificationLite {
+  matrix: { id: string; name: string; totalScore: number; levelSet: string };
+  subject: { id: string; name: string };
+  curriculum: { id: string; grade: number };
+  purpose: string;
+  topics: {
+    topicId: string | null;
+    topicTitle: string;
+    nodes: {
+      nodeId: string;
+      nodeTitle: string;
+      outcomes: SpecificationOutcomeLite[];
+      cells: SpecificationCellLite[];
+    }[];
+  }[];
+  totals: { totalQuestions: number; totalScore: number };
 }
 
 /** Một nút cây chương trình (cùng hình dạng CurriculumTreeNode của trang câu hỏi). */
@@ -147,6 +192,40 @@ export function useMatrixAvailability(matrixId: string | undefined, enabled: boo
     ...matrixAvailabilityQueryOptions(matrixId ?? ''),
     enabled: enabled && !!matrixId,
   });
+}
+
+export function matrixSpecificationQueryOptions(matrixId: string) {
+  return queryOptions({
+    queryKey: queryKeys.matrixSpecification(matrixId),
+    queryFn: () => apiJson<MatrixSpecificationLite>(`/api/v1/exam-matrices/${matrixId}/specification`),
+  });
+}
+
+/** Bản đặc tả suy ra của ma trận; chỉ tải khi `enabled` (giáo viên đã mở mục đặc tả ở trang sửa ma trận). */
+export function useMatrixSpecification(matrixId: string | undefined, enabled: boolean) {
+  return useQuery({
+    ...matrixSpecificationQueryOptions(matrixId ?? ''),
+    enabled: enabled && !!matrixId,
+  });
+}
+
+/**
+ * Xuất bản đặc tả ra file (xlsx/docx) qua endpoint export sẵn có và tải
+ * về máy người dùng; tên file lấy đúng từ Content-Disposition của
+ * server, lỗi HTTP thì ném lỗi để bề mặt gọi báo theo khuôn chung.
+ */
+export async function downloadMatrixSpecification(matrixId: string, format: 'xlsx' | 'docx'): Promise<void> {
+  const res = await apiFetch(`/api/v1/exam-matrices/${matrixId}/specification/export?format=${format}`);
+  if (!res.ok) throw new Error(String(res.status));
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? `ban-dac-ta-${matrixId.slice(0, 8)}.${format}`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Lưu thông tin chung của ma trận: xong thì invalidate chi tiết để trang nạp bản mới (thay loadMatrix thủ công). */
