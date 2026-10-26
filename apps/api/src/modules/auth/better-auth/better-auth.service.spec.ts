@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import { describe, expect, it } from 'vitest';
 import type { Database } from '../../../db/database';
+import type { AuthMailService } from '../../mail/auth-mail.service';
 import { PasswordService } from '../../users/password.service';
 import { BetterAuthService } from './better-auth.service';
 
@@ -49,6 +50,47 @@ describe('BetterAuthService', () => {
     expect(auth.options.session?.cookieCache?.enabled).toBe(false);
     // Plugin username chính chủ phải có mặt (đăng nhập bằng username).
     expect(auth.options.plugins?.some((plugin) => plugin.id === 'username')).toBe(true);
+  });
+
+  it('has no mail surface when the mail port is not wired (phase 2.5 not connected yet)', () => {
+    const service = buildService({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
+    const auth = service.requireAuth();
+    // Chưa nối cổng mail: không callback reset (endpoint reset của
+    // Better Auth tự từ chối RESET_PASSWORD_DISABLED) và không plugin
+    // OTP — không có luồng nào nhận yêu cầu rồi để mất.
+    expect(auth.options.emailAndPassword?.sendResetPassword).toBeUndefined();
+    expect(auth.options.plugins?.some((plugin) => plugin.id === 'email-otp')).toBe(false);
+  });
+
+  it('wires the mail port when provided: reset callback, email-otp plugin, revocation pin', async () => {
+    const resetCalls: Array<{ userId: string; email: string; url: string }> = [];
+    const mailPort = {
+      sendPasswordResetEmail: async (input: { userId: string; email: string; url: string }) => {
+        resetCalls.push(input);
+      },
+      sendEmailOtp: async () => undefined,
+    } as unknown as AuthMailService;
+    const config = configStub({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
+    const service = new BetterAuthService(
+      config,
+      {} as unknown as Database,
+      new PasswordService(config),
+      mailPort,
+    );
+    const auth = service.requireAuth();
+    // Thu hồi phiên khi reset là chốt của issue, đặt sẵn từ Giai đoạn 1.
+    expect(auth.options.emailAndPassword?.revokeSessionsOnPasswordReset).toBe(true);
+    // Plugin emailOTP có mặt (đăng nhập bằng mã qua email).
+    expect(auth.options.plugins?.some((plugin) => plugin.id === 'email-otp')).toBe(true);
+    // Callback reset chuyển đúng { user, url } của Better Auth sang cổng mail.
+    const sendReset = auth.options.emailAndPassword?.sendResetPassword;
+    expect(typeof sendReset).toBe('function');
+    await sendReset!({
+      user: { id: 'user-1', email: 'u@example.com' } as never,
+      url: 'https://app/reset-password/tok',
+      token: 'tok',
+    });
+    expect(resetCalls).toEqual([{ userId: 'user-1', email: 'u@example.com', url: 'https://app/reset-password/tok' }]);
   });
 
   it('is inert for the OAuth AS when only MCP_AS_ENABLED is off (default)', () => {
