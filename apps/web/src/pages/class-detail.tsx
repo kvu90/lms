@@ -21,8 +21,7 @@ import {
   decideJoinRequest,
   downloadRosterTemplate,
   ensureClassConversation,
-  fetchClass,
-  fetchClassCourses,
+  fetchClassOverview,
   fetchClassStaff,
   fetchJoinRequests,
   fetchRoster,
@@ -37,16 +36,21 @@ import {
 import { queryKeys } from '#lib/query-keys';
 
 /**
- * Chi tiết lớp (CLASS-1, issue #184): khoá học trong lớp + roster là
- * nguồn sự thật của ghi danh. Các khối quản trị trên màn này:
- *  - thêm HS theo định danh (khớp tài khoản theo email/SĐT hoặc tạo mới
- *    kèm mật khẩu tạm hiện MỘT lần) và import Excel với báo cáo từng dòng;
- *  - đình chỉ/kích hoạt lại theo vòng đời CLASS-0 (gỡ khỏi roster ở chế
- *    độ suspend → hiện ở mục "Đã đình chỉ", thêm lại là kích hoạt lại);
- *  - hàng chờ duyệt tự báo danh (duyệt = nạp roster đầy đủ đường API);
- *  - phân quyền 3 vai tại context lớp cho đồng GV (khuôn Azota).
- * Quyền thật nằm ở API (capability tại context lớp); màn này chỉ dẫn
- * luồng và hiển thị kết quả API trả về.
+ * Dashboard theo lớp (CLASS-2, issue #184 — dựng trên bề mặt quản trị
+ * của CLASS-1): MỘT trang tổng quan của lớp, dựng theo ĐÚNG vai của
+ * người gọi mà server suy trong gói `GET /classes/:id/overview`:
+ *  - chủ lớp / đồng GV (staff): khối tổng quan (số học sinh, số khoá,
+ *    giáo viên của lớp) + mọi khoá trong lớp + các khối quản trị của
+ *    CLASS-1 ở dưới (roster, hàng chờ duyệt, đã đình chỉ, phân quyền) —
+ *    từng khối hiện theo cờ khả năng của chính người gọi
+ *    (canManageRoster / canShare), không hiện forms mà API sẽ từ chối;
+ *  - học sinh (member): chỉ khối tổng quan + các khoá MÌNH đang ghi
+ *    danh ACTIVE trong lớp (server đã lọc sẵn) + giáo viên của lớp +
+ *    nút Chat lớp — không có bất kỳ khối quản trị nào.
+ * Dashboard là bề mặt tổng quan/điều hướng thuần: trang này KHÔNG hiển
+ * thị bất kỳ số điểm nào (mô hình điểm chỉ theo từng bài, không tổng
+ * hợp theo lớp/khoá). Quyền thật nằm ở API (capability tại context
+ * lớp); màn này chỉ dẫn luồng và hiển thị kết quả API trả về.
  */
 export function ClassDetailPage() {
   const { t } = useTranslation('app');
@@ -83,12 +87,21 @@ export function ClassDetailPage() {
     }
   }
 
-  const classQuery = useQuery({ queryKey: queryKeys.classDetail(classId), queryFn: () => fetchClass(classId), enabled: Boolean(classId) });
-  const coursesQuery = useQuery({ queryKey: queryKeys.classCourses(classId), queryFn: () => fetchClassCourses(classId), enabled: Boolean(classId) });
-  const rosterQuery = useQuery({ queryKey: queryKeys.classRoster(classId), queryFn: () => fetchRoster(classId), enabled: Boolean(classId) });
-  const suspendedQuery = useQuery({ queryKey: queryKeys.classSuspended(classId), queryFn: () => fetchSuspendedMembers(classId), enabled: Boolean(classId) });
+  /**
+   * Gói tổng quan là nguồn vai DUY NHẤT của trang: quan hệ của người
+   * gọi với lớp + cờ khả năng + khoá đã lọc theo vai đều từ đây. Các
+   * truy vấn quản trị chỉ bật khi vai/cờ tương ứng cho phép — học sinh
+   * không gọi các endpoint quản trị, đồng GV không gọi endpoint mà
+   * mình không có quyền (tránh lỗi 403 vô ích và bề mặt thừa).
+   */
+  const overviewQuery = useQuery({ queryKey: queryKeys.classOverview(classId), queryFn: () => fetchClassOverview(classId), enabled: Boolean(classId) });
+  const overview = overviewQuery.data;
+  const isMember = overview?.viewerRole === 'member';
+  const canManageRoster = overview?.canManageRoster ?? false;
   const staffQuery = useQuery({ queryKey: queryKeys.classStaff(classId), queryFn: () => fetchClassStaff(classId), enabled: Boolean(classId) });
-  const requestsQuery = useQuery({ queryKey: queryKeys.classJoinRequests(classId), queryFn: () => fetchJoinRequests(classId), enabled: Boolean(classId) });
+  const rosterQuery = useQuery({ queryKey: queryKeys.classRoster(classId), queryFn: () => fetchRoster(classId), enabled: Boolean(classId) && Boolean(overview) && !isMember });
+  const suspendedQuery = useQuery({ queryKey: queryKeys.classSuspended(classId), queryFn: () => fetchSuspendedMembers(classId), enabled: Boolean(classId) && canManageRoster });
+  const requestsQuery = useQuery({ queryKey: queryKeys.classJoinRequests(classId), queryFn: () => fetchJoinRequests(classId), enabled: Boolean(classId) && canManageRoster });
 
   const invalidateRoster = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.classRoster(classId) });
@@ -169,7 +182,7 @@ export function ClassDetailPage() {
   });
 
   function onRemove(userId: string, name: string) {
-    const confirmText = classQuery.data?.onLeave === 'unenrol' ? t('classRemoveWithdrawConfirm', { name }) : t('classSuspendConfirm', { name });
+    const confirmText = overview?.class.onLeave === 'unenrol' ? t('classRemoveWithdrawConfirm', { name }) : t('classSuspendConfirm', { name });
     if (!window.confirm(confirmText)) return;
     setMessage(null);
     removeMutation.mutate(userId);
@@ -212,7 +225,7 @@ export function ClassDetailPage() {
     staffMutation.mutate({ userId, roles });
   }
 
-  const cls = classQuery.data;
+  const cls = overview?.class;
   const roleLabel: Record<ClassStaffRole, string> = {
     classassigner: t('classStaffRoleAssign'),
     classgrader: t('classStaffRoleGrade'),
@@ -229,9 +242,11 @@ export function ClassDetailPage() {
             <Button type="button" variant="outline" disabled={chatBusy} onClick={() => void openClassChat()}>
               {t('classChatOpen')}
             </Button>
-            <Link className={buttonVariants({ variant: 'outline' })} to={`/classes/${classId}/edit`}>
-              {t('classEdit')}
-            </Link>
+            {!isMember ? (
+              <Link className={buttonVariants({ variant: 'outline' })} to={`/classes/${classId}/edit`}>
+                {t('classEdit')}
+              </Link>
+            ) : null}
           </>
         }
       />
@@ -245,9 +260,9 @@ export function ClassDetailPage() {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
-      {classQuery.isPending ? (
+      {overviewQuery.isPending ? (
         <Skeleton className="h-64 w-full" />
-      ) : classQuery.isError || !cls ? (
+      ) : overviewQuery.isError || !cls || !overview ? (
         <Alert variant="destructive">
           <AlertDescription>{t('classDetailLoadFailed')}</AlertDescription>
         </Alert>
@@ -265,20 +280,54 @@ export function ClassDetailPage() {
           </div>
 
           <Card>
+            <CardHeader>
+              <CardTitle>{t('classOverviewTitle')}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-6 text-sm">
+                <span>
+                  {t('classOverviewStudentCount')}: <strong>{overview.rosterCount}</strong>
+                </span>
+                <span>
+                  {t('classOverviewCourseCount')}: <strong>{overview.courses.length}</strong>
+                </span>
+              </div>
+              {staffQuery.data && staffQuery.data.staff.length > 0 ? (
+                <div className="flex flex-col gap-1 text-sm">
+                  <p className="font-medium">{t('classTeachersTitle')}</p>
+                  <ul className="flex flex-col gap-1">
+                    {staffQuery.data.staff.map((member) => (
+                      <li key={member.userId} className="flex flex-wrap items-center gap-2">
+                        <span>{personName(member)}</span>
+                        {member.isOwner ? <Badge variant="secondary">{t('classStaffOwner')}</Badge> : null}
+                        {member.roles.map((role) => (
+                          <Badge key={role} variant="outline">
+                            {roleLabel[role]}
+                          </Badge>
+                        ))}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>{t('classCoursesInClass')}</CardTitle>
-              <Link className={buttonVariants({ size: 'sm' })} to={`/courses/new?classId=${classId}`}>
-                {t('classCreateCourse')}
-              </Link>
+              <CardTitle>{isMember ? t('classMyCoursesInClass') : t('classCoursesInClass')}</CardTitle>
+              {!isMember ? (
+                <Link className={buttonVariants({ size: 'sm' })} to={`/courses/new?classId=${classId}`}>
+                  {t('classCreateCourse')}
+                </Link>
+              ) : null}
             </CardHeader>
             <CardContent>
-              {coursesQuery.isPending ? (
-                <Skeleton className="h-16 w-full" />
-              ) : !coursesQuery.data || coursesQuery.data.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('classNoCourses')}</p>
+              {overview.courses.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{isMember ? t('classMyCoursesEmpty') : t('classNoCourses')}</p>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {coursesQuery.data.map((course) => (
+                  {overview.courses.map((course) => (
                     <li key={course.id} className="flex items-center justify-between gap-3 text-sm">
                       <span>{course.fullName}</span>
                       <Link className={buttonVariants({ size: 'sm', variant: 'outline' })} to={`/courses/${course.id}`}>
@@ -291,7 +340,7 @@ export function ClassDetailPage() {
             </CardContent>
           </Card>
 
-          {requestsQuery.data && requestsQuery.data.length > 0 ? (
+          {canManageRoster && requestsQuery.data && requestsQuery.data.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle>{t('classPendingRequests')}</CardTitle>
@@ -328,6 +377,7 @@ export function ClassDetailPage() {
             </Card>
           ) : null}
 
+          {!isMember ? (
           <Card>
             <CardHeader>
               <CardTitle>{t('classRoster')}</CardTitle>
@@ -360,9 +410,11 @@ export function ClassDetailPage() {
                         <TableCell>{member.email}</TableCell>
                         <TableCell>{new Date(member.timeAdded).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <Button type="button" size="sm" variant="outline" disabled={removeMutation.isPending} onClick={() => onRemove(member.userId, personName(member))}>
-                            {t('classSuspend')}
-                          </Button>
+                          {canManageRoster ? (
+                            <Button type="button" size="sm" variant="outline" disabled={removeMutation.isPending} onClick={() => onRemove(member.userId, personName(member))}>
+                              {t('classSuspend')}
+                            </Button>
+                          ) : null}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -370,6 +422,8 @@ export function ClassDetailPage() {
                 </Table>
               )}
 
+              {canManageRoster ? (
+              <>
               <form onSubmit={onAddStudent}>
                 <FieldGroup>
                   <p className="text-sm font-medium">{t('classAddStudent')}</p>
@@ -435,9 +489,13 @@ export function ClassDetailPage() {
                   ) : null}
                 </FieldGroup>
               </form>
+              </>
+              ) : null}
             </CardContent>
           </Card>
+          ) : null}
 
+          {canManageRoster ? (
           <Card>
             <CardHeader>
               <CardTitle>{t('classSuspendedList')}</CardTitle>
@@ -467,7 +525,9 @@ export function ClassDetailPage() {
               )}
             </CardContent>
           </Card>
+          ) : null}
 
+          {!isMember ? (
           <Card>
             <CardHeader>
               <CardTitle>{t('classStaff')}</CardTitle>
@@ -546,6 +606,7 @@ export function ClassDetailPage() {
               )}
             </CardContent>
           </Card>
+          ) : null}
         </div>
       )}
     </PageShell>
