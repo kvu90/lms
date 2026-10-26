@@ -28,8 +28,20 @@ import type { ResendMailService } from '../src/modules/mail/resend-mail.service'
  * khi token bị tiêu thụ; OTP đăng nhập đủ vòng (mã sai bị từ chối, mã
  * đúng tạo phiên dùng được ngay trên route nghiệp vụ, mã dùng một
  * lần); email lạ KHÔNG tự thành tài khoản qua OTP (disableSignUp đã
- * ghim ở plugin như toàn hệ); đặt lại mật khẩu bằng OTP; tài khoản bị
- * đình chỉ vẫn bị chặn ở guard dù đăng nhập OTP thành công.
+ * ghim ở plugin như toàn hệ) và nhận đáp ứng trung tính chống lộ thông
+ * tin; đặt lại mật khẩu bằng OTP; tài khoản bị đình chỉ vẫn bị chặn ở
+ * guard dù đăng nhập OTP thành công.
+ *
+ * NGOẠI LỆ ĐÃ BIẾT (blocker thuộc BA-1, đã báo main chat): user do
+ * bridge GĐ1 tạo có email_verified = false; khi user như vậy đăng
+ * nhập OTP, Better Auth 1.7.12 chạy revokeUnprovenAccountAccess →
+ * reserveVerificationValue ép id tất định dạng base64url vào cột
+ * verification.id kiểu uuid (instance ghim generateId: false nên
+ * encodeDeterministicId không sinh dạng UUID) → Postgres 22P02 →
+ * HTTP 500. Ca đó được ghim bằng it.fails riêng bên dưới: khi BA-1
+ * sửa gốc (khuyến nghị: đổi ghim sang generateId "uuid" — adapter
+ * drizzle khai supportsUUIDs nên DB vẫn tự sinh UUIDv7), ca ghim sẽ
+ * tự đỏ để nhắc gỡ .fails.
  *
  * Biến môi trường phải tồn tại TRƯỚC khi AppModule được nạp — như
  * spec nền better-auth-flow.
@@ -96,6 +108,11 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
       password: OLD_PASSWORD,
     });
     return { id: created.id, username, email };
+  }
+
+  /** Đưa user về trạng thái đã chứng minh quyền sở hữu email (như sau một luồng xác minh email thành công). */
+  async function markEmailVerified(userId: string): Promise<void> {
+    await pg.query('update users set email_verified = true where id = $1', [userId]);
   }
 
   /** Chờ consumer outbox xả tới khi có mail gửi cho địa chỉ này (nhịp quét 1 giây + dự phòng). */
@@ -237,6 +254,10 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
 
   it('email OTP sign-in end-to-end: wrong code rejected, right code creates a working session, code is single-use', async () => {
     const user = await createMailUser('bamailotp');
+    // User đã chứng minh email (trạng thái sau xác minh) — đường
+    // đăng nhập OTP chuẩn. User bridge chưa xác minh dính blocker
+    // BA-1, ghim riêng ở ca it.fails ngay dưới.
+    await markEmailVerified(user.id);
     const sent = await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
       .set('Origin', TRUSTED_ORIGIN)
@@ -280,11 +301,42 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
       .post('/api/v1/auth/email-otp/send-verification-otp')
       .set('Origin', TRUSTED_ORIGIN)
       .send({ email: ghost, type: 'sign-in' });
-    expect(res.status).toBe(400);
+    // Đáp ứng trung tính 200 như email có thật (chống lộ thông tin
+    // tài khoản nào tồn tại) — nhưng KHÔNG có mail nào được gửi.
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
     await new Promise((resolve) => setTimeout(resolve, 1600));
     expect(sentMails.some((mail) => mail.to === ghost)).toBe(false);
     const users = await pg.query('select count(*)::int as n from users where email = $1', [ghost]);
     expect(users.rows[0].n).toBe(0);
+    // Và không có mã nào đăng nhập được cho email lạ (không tài khoản nào được tự tạo).
+    const attempt = await http(app)
+      .post('/api/v1/auth/sign-in/email-otp')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: ghost, otp: '123456' });
+    expect(attempt.status).toBe(400);
+  });
+
+  // GHIM BLOCKER (BA-1): xem khối chú thích đầu file. User bridge
+  // (email_verified = false) đăng nhập OTP hiện trả 500 vì
+  // reserveVerificationValue ép id base64url vào cột uuid. Kỳ vọng
+  // ĐÚNG là 200; it.fails giữ ca này đỏ-có-chủ-đích cho tới khi BA-1
+  // sửa ghim generateId — lúc đó gỡ .fails và ca thành test thường.
+  it.fails('OTP sign-in for a not-yet-verified bridged user promotes them instead of erroring (BA-1 blocker)', async () => {
+    const user = await createMailUser('bamailotpunv');
+    const sent = await http(app)
+      .post('/api/v1/auth/email-otp/send-verification-otp')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: user.email, type: 'sign-in' });
+    expect(sent.status).toBe(200);
+    const mail = await waitForMailTo(user.email);
+    const otp = /\b(\d{6})\b/.exec(mail.text)?.[1];
+    expect(otp).toBeTruthy();
+    const ok = await http(app)
+      .post('/api/v1/auth/sign-in/email-otp')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: user.email, otp });
+    expect(ok.status).toBe(200);
   });
 
   it('password reset by email OTP works with the same mail pipeline', async () => {
@@ -311,6 +363,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
 
   it('a suspended user who signs in by OTP is still blocked at the guard', async () => {
     const user = await createMailUser('bamailotpsusp');
+    await markEmailVerified(user.id);
     const sent = await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
       .set('Origin', TRUSTED_ORIGIN)
