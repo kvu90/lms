@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '../test/providers';
 import { CoursePage } from './course';
 
 /**
@@ -228,7 +229,13 @@ function renderCourse() {
   const router = createMemoryRouter([{ path: '/courses/:id', element: <CoursePage /> }], {
     initialEntries: [`/courses/${COURSE_ID}`],
   });
-  render(<RouterProvider router={router} />);
+  // Trang đã chuyển sang TanStack Query (F-01 đợt 1, #133): render qua
+  // TestProviders để có QueryClient như cây provider thật ở root.
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 describe('Course page — self enrolment and fee payment', () => {
