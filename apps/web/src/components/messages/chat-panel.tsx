@@ -71,6 +71,8 @@ interface ChatPanelProps {
   onNoteTyping: () => void;
   onSend: (event: FormEvent) => void;
   sendError: string | null;
+  /** Conversation đang mở đang có lượt gửi bay (fix nhân đôi tin, issue #33): composer vô hiệu đường gửi trong lúc này. */
+  sendInFlight: boolean;
   /** Lát M3 (issue #229): đích trích đang chờ gửi + các thao tác trích dẫn. */
   replyTarget: MessageView | null;
   onStartReply: (message: MessageView) => void;
@@ -97,7 +99,7 @@ export function ChatPanel({
   onToggleChat, reportMessage, actionMessage, hasMoreBefore, onLoadOlder, selectedForBulk,
   setSelectedForBulk, onBulkRemove, visibleMessages, nameOf, onRetrySend, onDeleteMessage,
   canRecall, onRecallMessage, onHardDeleteMessage, seenByAllOthers, typingNames, draft,
-  setDrafts, onNoteTyping, onSend, sendError,
+  setDrafts, onNoteTyping, onSend, sendError, sendInFlight,
   replyTarget, onStartReply, onCancelReply, onJumpToQuote, highlightedMessageId, scrollerRef,
   messageSearch, onSearchMessages, onClearMessageSearch, onJumpToSearchResult,
 }: ChatPanelProps) {
@@ -552,14 +554,16 @@ export function ChatPanel({
                 onKeyDown={(e) => {
                   // Enter gửi, Shift+Enter xuống dòng (lát M1,
                   // issue #204) — ngữ nghĩa chuẩn app nhắn tin
-                  // cho composer nhiều dòng.
+                  // cho composer nhiều dòng. Đang có lượt gửi bay thì
+                  // Enter không kích thêm lượt gửi nào (fix nhân đôi
+                  // tin, issue #33); Shift+Enter vẫn xuống dòng.
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    e.currentTarget.form?.requestSubmit();
+                    if (!sendInFlight) e.currentTarget.form?.requestSubmit();
                   }
                 }}
               />
-              <Button type="submit">{t('send')}</Button>
+              <Button type="submit" disabled={sendInFlight}>{t('send')}</Button>
             </form>
             <div className="flex items-center justify-between gap-2">
               {sendError ? (
