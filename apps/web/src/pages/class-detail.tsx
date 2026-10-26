@@ -11,7 +11,7 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import {
@@ -20,6 +20,7 @@ import {
   CLASS_STAFF_ROLE_ORDER,
   decideJoinRequest,
   downloadRosterTemplate,
+  ensureClassConversation,
   fetchClass,
   fetchClassCourses,
   fetchClassStaff,
@@ -51,8 +52,30 @@ export function ClassDetailPage() {
   const { t } = useTranslation('app');
   const { id } = useParams<{ id: string }>();
   const classId = id ?? '';
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+
+  /**
+   * Mở chat cấp lớp: GET ensure conversation của lớp phía messaging
+   * (cấp phát lười phía server, lát MSG-T2) rồi điều hướng sang trang
+   * Tin nhắn mở đúng conversation qua deep-link `?conversation=` sẵn
+   * có — cùng khuôn nút chat ở trang khoá.
+   */
+  async function openClassChat() {
+    setChatBusy(true);
+    setChatError(null);
+    try {
+      const conv = await ensureClassConversation(classId);
+      navigate(`/messages?conversation=${conv.id}`);
+    } catch {
+      setChatError(t('classChatOpenFailed'));
+    } finally {
+      setChatBusy(false);
+    }
+  }
 
   const classQuery = useQuery({ queryKey: queryKeys.classDetail(classId), queryFn: () => fetchClass(classId), enabled: Boolean(classId) });
   const coursesQuery = useQuery({ queryKey: queryKeys.classCourses(classId), queryFn: () => fetchClassCourses(classId), enabled: Boolean(classId) });
@@ -196,11 +219,21 @@ export function ClassDetailPage() {
         title={cls ? cls.name : t('classesHeading')}
         description={cls?.description || undefined}
         actions={
-          <Link className={buttonVariants({ variant: 'outline' })} to={`/classes/${classId}/edit`}>
-            {t('classEdit')}
-          </Link>
+          <>
+            <Button type="button" variant="outline" disabled={chatBusy} onClick={() => void openClassChat()}>
+              {t('classChatOpen')}
+            </Button>
+            <Link className={buttonVariants({ variant: 'outline' })} to={`/classes/${classId}/edit`}>
+              {t('classEdit')}
+            </Link>
+          </>
         }
       />
+      {chatError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{chatError}</AlertDescription>
+        </Alert>
+      ) : null}
       {message ? (
         <Alert>
           <AlertDescription>{message}</AlertDescription>

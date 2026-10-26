@@ -44,6 +44,16 @@ export function fetchClass(classId: string): Promise<ClassView> {
   return apiJson<ClassView>(`/api/v1/classes/${classId}`);
 }
 
+/**
+ * Mở (ensure) CHAT CẤP LỚP phía messaging (lát MSG-T2): server cấp
+ * phát lười conversation riêng của lớp và trả id của nó — trang lớp
+ * chỉ điều hướng sang trang Tin nhắn mở đúng conversation đó. Gác
+ * quyền (chỉ người thuộc lớp mở được) nằm ở API messaging.
+ */
+export function ensureClassConversation(classId: string): Promise<{ id: string }> {
+  return apiJson<{ id: string }>(`/api/v1/messages/classes/${classId}/conversation`);
+}
+
 export function createClass(input: { name: string; code?: string; schoolYear?: string; description?: string }): Promise<ClassView> {
   return apiJson<ClassView>('/api/v1/classes', { method: 'POST', body: JSON.stringify(input) });
 }
