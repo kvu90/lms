@@ -39,11 +39,12 @@ import { queryKeys } from '#lib/query-keys';
  * Dashboard theo lớp (CLASS-2, issue #184 — dựng trên bề mặt quản trị
  * của CLASS-1): MỘT trang tổng quan của lớp, dựng theo ĐÚNG vai của
  * người gọi mà server suy trong gói `GET /classes/:id/overview`:
- *  - chủ lớp / đồng GV (staff): khối tổng quan (số học sinh, số khoá,
- *    giáo viên của lớp) + mọi khoá trong lớp + các khối quản trị của
- *    CLASS-1 ở dưới (roster, hàng chờ duyệt, đã đình chỉ, phân quyền) —
- *    từng khối hiện theo cờ khả năng của chính người gọi
- *    (canManageRoster / canShare), không hiện forms mà API sẽ từ chối;
+ *  - chủ lớp / đồng GV (staff): khối tổng quan (số học sinh, số khoá)
+ *    + mọi khoá trong lớp + các khối quản trị của CLASS-1 ở dưới
+ *    (roster, hàng chờ duyệt, đã đình chỉ, phân quyền — danh sách giáo
+ *    viên nằm ở khối phân quyền) — từng khối hiện theo cờ khả năng của
+ *    chính người gọi (canManageRoster / canShare), không hiện forms
+ *    mà API sẽ từ chối;
  *  - học sinh (member): chỉ khối tổng quan + các khoá MÌNH đang ghi
  *    danh ACTIVE trong lớp (server đã lọc sẵn) + giáo viên của lớp +
  *    nút Chat lớp — không có bất kỳ khối quản trị nào.
@@ -292,7 +293,7 @@ export function ClassDetailPage() {
                   {t('classOverviewCourseCount')}: <strong>{overview.courses.length}</strong>
                 </span>
               </div>
-              {staffQuery.data && staffQuery.data.staff.length > 0 ? (
+              {isMember && staffQuery.data && staffQuery.data.staff.length > 0 ? (
                 <div className="flex flex-col gap-1 text-sm">
                   <p className="font-medium">{t('classTeachersTitle')}</p>
                   <ul className="flex flex-col gap-1">

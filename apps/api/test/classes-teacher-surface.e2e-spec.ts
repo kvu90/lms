@@ -349,4 +349,90 @@ describe('class teacher surface (CLASS-1, #184)', () => {
     ) as { userId: string }[];
     expect(suspendedAfter.map((m) => m.userId)).not.toContain(knownStudentId);
   });
+
+  it('(8) dashboard theo lớp (CLASS-2): gói overview đúng theo quan hệ của người gọi; học sinh chỉ thấy khoá mình đang ghi danh ACTIVE', async () => {
+    type Overview = {
+      class: { id: string; joinCode: string | null };
+      viewerRole: string;
+      canManageRoster: boolean;
+      canShare: boolean;
+      rosterCount: number;
+      courses: { id: string }[];
+    };
+
+    // Chủ lớp: vai owner, đủ cờ quản trị, thấy mọi khoá trong lớp và
+    // tổng số học sinh đúng bằng roster thật.
+    const ownerView = await must(
+      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(teacher)),
+      'owner overview',
+    ) as Overview;
+    expect(ownerView.viewerRole).toBe('owner');
+    expect(ownerView.canManageRoster).toBe(true);
+    expect(ownerView.canShare).toBe(true);
+    expect(ownerView.courses.map((c) => c.id)).toContain(courseId);
+    const rosterNow = await must(
+      await http(app).get(`/api/v1/classes/${classId}/roster`).set(auth(teacher)),
+      'roster for count check',
+    ) as unknown[];
+    expect(ownerView.rosterCount).toBe(rosterNow.length);
+    expect(Object.keys(ownerView).sort()).toEqual(['canManageRoster', 'canShare', 'class', 'courses', 'rosterCount', 'viewerRole']);
+
+    // Đồng GV được gán vai chấm bài ở ca (5): vai staff, không quản
+    // roster, vẫn thấy mọi khoá của lớp để điều hướng.
+    const staffView = await must(
+      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(coTeacher)),
+      'co-teacher overview',
+    ) as Overview;
+    expect(staffView.viewerRole).toBe('staff');
+    expect(staffView.canManageRoster).toBe(false);
+    expect(staffView.canShare).toBe(false);
+    expect(staffView.courses.map((c) => c.id)).toContain(courseId);
+
+    // Học sinh trong roster: vai member, không cờ quản trị nào, mã
+    // vào lớp bị ẩn, và chỉ thấy đúng khoá mình đang ghi danh ACTIVE.
+    const memberView = await must(
+      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(knownStudent)),
+      'student overview',
+    ) as Overview;
+    expect(memberView.viewerRole).toBe('member');
+    expect(memberView.canManageRoster).toBe(false);
+    expect(memberView.canShare).toBe(false);
+    expect(memberView.class.joinCode).toBeNull();
+    expect(memberView.courses.map((c) => c.id)).toEqual([courseId]);
+
+    // Đình chỉ học sinh ở CHÍNH khoá đó (qua phương thức cohort) →
+    // khoá biến mất khỏi gói của học sinh dù em vẫn còn trong roster;
+    // kích hoạt lại thì khoá trở lại. Đây là bất biến "chỉ khoá đang
+    // học" của dashboard phía học sinh.
+    const instances = await must(
+      await http(app).get(`/api/v1/courses/${courseId}/enrol/instances`).set(auth(teacher)),
+      'list enrol instances',
+    ) as { id: string; enrol: string }[];
+    const cohortInstance = instances.find((i) => i.enrol === 'cohort');
+    expect(cohortInstance).toBeDefined();
+    await must(
+      await http(app).post(`/api/v1/courses/${courseId}/enrol/instances/${cohortInstance!.id}/users/${knownStudentId}/suspend`).set(auth(teacher)),
+      'suspend student in course',
+    );
+    const suspendedView = await must(
+      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(knownStudent)),
+      'student overview after course suspend',
+    ) as Overview;
+    expect(suspendedView.viewerRole).toBe('member');
+    expect(suspendedView.courses).toEqual([]);
+    await must(
+      await http(app).post(`/api/v1/courses/${courseId}/enrol/instances/${cohortInstance!.id}/users/${knownStudentId}/reactivate`).set(auth(teacher)),
+      'reactivate student in course',
+    );
+    const restoredView = await must(
+      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(knownStudent)),
+      'student overview after reactivate',
+    ) as Overview;
+    expect(restoredView.courses.map((c) => c.id)).toEqual([courseId]);
+
+    // Người ngoài lớp (chưa từng vào lớp này): 404 như mọi đường đọc
+    // của lớp, không lộ sự tồn tại của lớp.
+    const outsider = await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(joinerC));
+    expect(outsider.status).toBe(404);
+  });
 });

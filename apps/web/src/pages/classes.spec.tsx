@@ -57,6 +57,44 @@ const STAFF = {
   canShare: true,
   canManageRoster: true,
 };
+const COURSE_A = {
+  id: '01900000-0000-7000-8000-0000000000c2',
+  tenantId: '01900000-0000-7000-8000-0000000000a1',
+  categoryId: null,
+  classId: CLASS_ID,
+  shortName: 'TOAN10',
+  fullName: 'Toán 10',
+  idNumber: null,
+  summary: '',
+  format: 'topics',
+  visible: true,
+  startDate: null,
+  endDate: null,
+  createdAt: '2026-10-26T00:00:00.000Z',
+  updatedAt: '2026-10-26T00:00:00.000Z',
+};
+const COURSE_B = { ...COURSE_A, id: '01900000-0000-7000-8000-0000000000c3', shortName: 'VAN10', fullName: 'Văn 10' };
+
+/** Gói overview phía chủ lớp (CLASS-2): đủ cờ quản trị, mọi khoá trong lớp. */
+const OWNER_OVERVIEW = {
+  class: CLASS_VIEW,
+  viewerRole: 'owner',
+  canManageRoster: true,
+  canShare: true,
+  rosterCount: ROSTER.length,
+  courses: [COURSE_A, COURSE_B],
+};
+
+/** Gói overview phía học sinh (CLASS-2): chỉ khoá em đang ghi danh ACTIVE (Toán 10), mã vào lớp bị ẩn. */
+const MEMBER_OVERVIEW = {
+  class: { ...CLASS_VIEW, joinCode: null },
+  viewerRole: 'member',
+  canManageRoster: false,
+  canShare: false,
+  rosterCount: 32,
+  courses: [COURSE_A],
+};
+
 const REQUESTS = [
   {
     id: REQUEST_ID,
@@ -78,7 +116,7 @@ interface RecordedCall {
   body: unknown;
 }
 
-function stubFetch(calls: RecordedCall[]) {
+function stubFetch(calls: RecordedCall[], overview: unknown = OWNER_OVERVIEW) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -88,6 +126,7 @@ function stubFetch(calls: RecordedCall[]) {
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
       if (url === `/api/v1/classes/${CLASS_ID}`) return respond(CLASS_VIEW);
+      if (url === `/api/v1/classes/${CLASS_ID}/overview`) return respond(overview);
       if (url === `/api/v1/classes/${CLASS_ID}/courses`) return respond([]);
       if (url === `/api/v1/classes/${CLASS_ID}/roster` && method === 'GET') return respond(ROSTER);
       if (url === `/api/v1/classes/${CLASS_ID}/roster` && method === 'POST') return respond({ added: true }, 201);
@@ -248,6 +287,63 @@ describe('Chi tiết lớp — nút Chat lớp (MSG-T2)', () => {
     expect(calls.some((c) => c.url === `/api/v1/messages/classes/${CLASS_ID}/conversation` && c.method === 'GET')).toBe(true);
     expect(router.state.location.pathname).toBe('/messages');
     expect(router.state.location.search).toBe(`?conversation=${CONVERSATION_ID}`);
+  });
+});
+
+/**
+ * Dashboard theo lớp (CLASS-2, issue #184): cùng một trang chi tiết
+ * lớp nhưng dựng theo gói overview server trả cho TỪNG vai — chủ lớp
+ * thấy tổng quan + mọi khoá + bề mặt quản trị; học sinh chỉ thấy khoá
+ * mình đang ghi danh ACTIVE trong lớp + giáo viên của lớp + Chat lớp,
+ * không tải/gọi bất kỳ endpoint quản trị nào và trang không chứa bất
+ * kỳ số điểm tổng hợp nào (điểm chỉ theo từng bài). Đổi luật lọc theo
+ * vai ở client hoặc server thì các ca này phải đỏ.
+ */
+describe('Chi tiết lớp — dashboard theo vai (CLASS-2)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('chủ lớp: khối tổng quan hiện đúng số học sinh và mọi khoá trong lớp', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderDetail();
+
+    expect(await screen.findByText('Tổng quan lớp')).toBeTruthy();
+    expect(screen.getByText('Khoá học trong lớp')).toBeTruthy();
+    expect(screen.getByText('Toán 10')).toBeTruthy();
+    expect(screen.getByText('Văn 10')).toBeTruthy();
+    expect(document.body.textContent ?? '').toMatch(/Học sinh:\s*1/);
+    expect(document.body.textContent ?? '').toMatch(/Khoá học:\s*2/);
+  });
+
+  it('học sinh: chỉ thấy khoá mình đang học + giáo viên của lớp; không khối quản trị, không gọi endpoint quản trị, không số điểm tổng hợp', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, MEMBER_OVERVIEW);
+    renderDetail();
+
+    expect(await screen.findByText('Khoá học của tôi trong lớp')).toBeTruthy();
+    expect(screen.getByText('Toán 10')).toBeTruthy();
+    // Khoá Văn 10 có trong lớp nhưng em không ghi danh → không được thấy.
+    expect(screen.queryByText('Văn 10')).toBeNull();
+    // Giáo viên của lớp hiện trong khối tổng quan; chat lớp vẫn mở được.
+    expect(screen.getByText('Giáo viên của lớp')).toBeTruthy();
+    expect(screen.getByText('Lê Cô')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Chat lớp' })).toBeTruthy();
+    // Không bề mặt quản trị nào: roster, form nạp HS, phân quyền, sửa lớp.
+    expect(screen.queryByText('Danh sách học sinh')).toBeNull();
+    expect(screen.queryByText('Nguyễn Văn An')).toBeNull();
+    expect(screen.queryByLabelText(/Họ tên học sinh/)).toBeNull();
+    expect(screen.queryByText('Phân quyền trong lớp')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Sửa' })).toBeNull();
+    // Không bất kỳ số điểm tổng hợp nào trên dashboard.
+    expect(document.body.textContent ?? '').not.toMatch(/điểm trung bình|điểm tổng|tổng điểm/i);
+    // Học sinh không gọi các endpoint quản trị của lớp.
+    expect(calls.some((c) => c.url === `/api/v1/classes/${CLASS_ID}/roster`)).toBe(false);
+    expect(calls.some((c) => c.url.endsWith('/roster/suspended'))).toBe(false);
+    expect(calls.some((c) => c.url.endsWith('/join-requests'))).toBe(false);
   });
 });
 
