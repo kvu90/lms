@@ -70,8 +70,105 @@ export const conversationSchema = z.object({
   type: z.number().int(), // 1 individual, 2 group
   name: z.string().nullable(),
   members: z.array(uuidIdSchema),
+  /**
+   * Phân loại cấu trúc của conversation (lát MSG-T1, issue #33 —
+   * thiết kế cấu trúc nhắn tin chốt 11:36 ngày 26/10/2026): cặp
+   * `component` + `itemType` cho biết conversation gắn với thực thể
+   * nào — `core_course`/`course` = chat cấp khoá, `core_group`/
+   * `groups` = chat nhóm con trong khoá, `core_class`/`class` = chat
+   * cấp lớp (có từ MSG-T2); cả ba đều null với hội thoại cá nhân 1–1
+   * và nhóm tự do. `itemId` là id của thực thể gắn (khoá/nhóm/lớp).
+   * Client phân loại hội thoại bằng ba trường này, TUYỆT ĐỐI không
+   * đoán theo tên hiển thị.
+   */
+  component: z.string().nullable(),
+  itemType: z.string().nullable(),
+  itemId: uuidIdSchema.nullable(),
 });
 export type Conversation = z.infer<typeof conversationSchema>;
+
+/**
+ * Vai của CHÍNH người gọi tại một nút của cây nhóm (lát MSG-T1):
+ * `teaching` = chủ lớp hoặc staff phụ trách dạy của lớp/khoá;
+ * `learning` = đang học (thành viên roster lớp / ghi danh hiệu lực);
+ * `staff` = có quan hệ công tác khác (đồng GV không thuộc diện phụ
+ * trách dạy, thành viên nhóm có vai quản trị). Nhóm tự do chỉ dùng
+ * `staff` (người tạo/quản trị) và `learning` (thành viên thường).
+ */
+export const conversationTreeRoleSchema = z.enum(['teaching', 'learning', 'staff']);
+export type ConversationTreeRole = z.infer<typeof conversationTreeRoleSchema>;
+
+/**
+ * Một nút lá của cây nhóm: phần DÙNG CHUNG cho nút nhóm con và nút
+ * nhóm tự do (lát MSG-T1). `conversationId` null = chat của nút CHƯA
+ * được ensure (bấm vào nút mới ensure ở các lát sau) và khi đó
+ * `unread` luôn 0; đã ensure thì `unread` là số chưa đọc của chính
+ * người gọi trên conversation đó (tôn trọng luật ẩn bề mặt khi chặn
+ * như mọi đường đọc — đếm tại server).
+ */
+export const conversationTreeLeafSchema = z.object({
+  name: z.string(),
+  myRole: conversationTreeRoleSchema,
+  conversationId: uuidIdSchema.nullable(),
+  unread: z.number().int().nonnegative(),
+});
+export type ConversationTreeLeaf = z.infer<typeof conversationTreeLeafSchema>;
+
+/** Nút NHÓM CON trong một khoá (itemType 'groups') của cây nhóm. */
+export const conversationTreeGroupSchema = conversationTreeLeafSchema.extend({
+  groupId: uuidIdSchema,
+});
+export type ConversationTreeGroup = z.infer<typeof conversationTreeGroupSchema>;
+
+/** Nút NHÓM TỰ DO (conversation type 2 không gắn cấu trúc) của cây nhóm. */
+export const conversationTreeFreeGroupSchema = conversationTreeLeafSchema.extend({
+  conversationId: uuidIdSchema,
+});
+export type ConversationTreeFreeGroup = z.infer<typeof conversationTreeFreeGroupSchema>;
+
+/**
+ * Nút KHOÁ HỌC của cây nhóm (lát MSG-T1): nút tự thân là chat cấp
+ * khoá (`conversationId`/`unread` của conversation itemType
+ * 'course'); `groups` là các nhóm con của khoá mà người gọi thuộc về.
+ */
+export const conversationTreeCourseSchema = conversationTreeLeafSchema.extend({
+  courseId: uuidIdSchema,
+  groups: z.array(conversationTreeGroupSchema),
+});
+export type ConversationTreeCourse = z.infer<typeof conversationTreeCourseSchema>;
+
+/**
+ * Nút LỚP của cây nhóm (lát MSG-T1): nút tự thân là chat cấp lớp
+ * (`conversationId`/`unread` của conversation itemType 'class' —
+ * chat lớp có từ MSG-T2 nên ở lát này conversationId luôn null và
+ * `unread` của nút lớp là TỔNG chưa đọc của chính nút lớp cộng các
+ * nút con (khoá + nhóm con trong lớp), để nhìn lướt là biết lớp nào
+ * đang có tin); `courses` là các khoá NẰM TRONG lớp mà người gọi
+ * thuộc về theo đúng quan hệ lớp–khoá (lớp là cha của khoá).
+ */
+export const conversationTreeClassSchema = conversationTreeLeafSchema.extend({
+  classId: uuidIdSchema,
+  courses: z.array(conversationTreeCourseSchema),
+});
+export type ConversationTreeClass = z.infer<typeof conversationTreeClassSchema>;
+
+/**
+ * CÂY NHÓM của chính người gọi (lát MSG-T1, GET /messages/group-tree):
+ * dựng hoàn toàn ở server từ classes + enrol + conversations — client
+ * KHÔNG tự ghép từ danh sách hội thoại phẳng. `classes` là các lớp
+ * tôi có quan hệ (chủ lớp / staff / roster), mỗi lớp kèm các khoá
+ * trong lớp mà tôi thuộc về; `coursesOutsideClasses` là các khoá tôi
+ * thuộc về mà lớp chứa chúng tôi KHÔNG có quan hệ trực tiếp (vẫn neo
+ * theo quan hệ lớp–khoá ở course ngoài — không nhân bản thành nút
+ * "khoá ngoài lớp" tách rời khỏi lớp của nó khi tôi có lớp đó ở
+ * `classes`); `freeGroups` là các nhóm tự do tôi là thành viên.
+ */
+export const conversationGroupTreeSchema = z.object({
+  classes: z.array(conversationTreeClassSchema),
+  coursesOutsideClasses: z.array(conversationTreeCourseSchema),
+  freeGroups: z.array(conversationTreeFreeGroupSchema),
+});
+export type ConversationGroupTree = z.infer<typeof conversationGroupTreeSchema>;
 
 export const notificationSchema = z.object({
   id: uuidIdSchema,

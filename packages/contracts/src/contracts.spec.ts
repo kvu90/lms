@@ -12,6 +12,7 @@ import {
   searchMessagesQuerySchema, messageSearchResultSchema,
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
+  conversationGroupTreeSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -37,7 +38,7 @@ describe('contracts', () => {
 
 describe('engagement contracts', () => {
   it('parses a conversation, a notification and a preference row', () => {
-    const conv = conversationSchema.parse({ id: '01900000-0000-7000-8000-000000000001', type: 2, name: 'Study group', members: ['01900000-0000-7000-8000-000000000002', '01900000-0000-7000-8000-000000000003', '01900000-0000-7000-8000-000000000004'] });
+    const conv = conversationSchema.parse({ id: '01900000-0000-7000-8000-000000000001', type: 2, name: 'Study group', members: ['01900000-0000-7000-8000-000000000002', '01900000-0000-7000-8000-000000000003', '01900000-0000-7000-8000-000000000004'], component: null, itemType: null, itemId: null });
     expect(conv.members).toHaveLength(3);
     const notif = notificationSchema.parse({
       id: '01900000-0000-7000-8000-000000000009', userIdTo: '01900000-0000-7000-8000-000000000003', subject: 'Badge awarded', fullMessage: 'You earned Finisher',
@@ -116,6 +117,36 @@ describe('engagement contracts', () => {
     const note = noteSchema.parse({ id: '01900000-0000-7000-8000-000000000001', userId: '01900000-0000-7000-8000-000000000007', courseId: '01900000-0000-7000-8000-000000000003', createdBy: '01900000-0000-7000-8000-000000000005', content: 'x', publishState: 'public' });
     expect(note.publishState).toBe('public');
     expect(() => noteSchema.parse({ ...note, publishState: 'custom' })).toThrow();
+  });
+
+  it('cây nhóm nhắn tin (MSG-T1): phân loại conversation bằng component/itemType/itemId và vai tại nút chỉ thuộc tập đã chốt', () => {
+    // Phân loại KHÔNG đoán theo tên: chat khoá mang đúng cặp
+    // core_course/course + itemId của khoá; hội thoại cá nhân thì cả
+    // ba trường null. itemId không phải UUID thì schema từ chối.
+    const courseChat = conversationSchema.parse({
+      id: '01900000-0000-7000-8000-000000000001', type: 2, name: null, members: [],
+      component: 'core_course', itemType: 'course', itemId: '01900000-0000-7000-8000-000000000003',
+    });
+    expect(courseChat.itemType).toBe('course');
+    expect(() => conversationSchema.parse({ ...courseChat, itemId: 'khong-phai-uuid' })).toThrow();
+
+    const tree = conversationGroupTreeSchema.parse({
+      classes: [{
+        classId: '01900000-0000-7000-8000-000000000010', name: 'Lớp 10A1', myRole: 'teaching',
+        conversationId: null, unread: 3,
+        courses: [{
+          courseId: '01900000-0000-7000-8000-000000000003', name: 'Toán 10', myRole: 'teaching',
+          conversationId: '01900000-0000-7000-8000-000000000001', unread: 3,
+          groups: [{ groupId: '01900000-0000-7000-8000-000000000020', name: 'Tổ 1', myRole: 'staff', conversationId: null, unread: 0 }],
+        }],
+      }],
+      coursesOutsideClasses: [],
+      freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'Nhóm ôn thi', myRole: 'learning', unread: 0 }],
+    });
+    expect(tree.classes[0]!.courses[0]!.groups[0]!.conversationId).toBeNull();
+    // Vai ngoài tập chốt (teaching/learning/staff) và unread âm đều bị từ chối.
+    expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'owner', unread: 0 }] })).toThrow();
+    expect(() => conversationGroupTreeSchema.parse({ ...tree, freeGroups: [{ conversationId: '01900000-0000-7000-8000-000000000030', name: 'X', myRole: 'staff', unread: -1 }] })).toThrow();
   });
 });
 

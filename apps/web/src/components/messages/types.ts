@@ -107,6 +107,16 @@ export interface ConversationView {
   id: string;
   type: number;
   name: string | null;
+  /**
+   * Phân loại cấu trúc (lát MSG-T1, issue #33): `core_course`/`course`
+   * = chat cấp khoá, `core_group`/`groups` = chat nhóm con,
+   * `core_class`/`class` = chat cấp lớp (MSG-T2); null ở hội thoại
+   * cá nhân và nhóm tự do. Phân loại CHỈ theo ba trường này, không
+   * đoán theo tên.
+   */
+  component?: string | null;
+  itemType?: string | null;
+  itemId?: string | null;
   members: string[];
   /** Tên hiển thị của từng thành viên (API trả kèm) — client tra tên từ đây. */
   memberProfiles?: Record<string, PersonSummary>;
@@ -136,4 +146,53 @@ export interface ConversationDetailView extends ConversationView {
   messages: MessageView[];
   hasMoreBefore?: boolean;
   memberReadMarkers?: { userId: string; lastReadSeq: number }[];
+}
+
+/**
+ * CÂY NHÓM của chính tôi (lát MSG-T1, GET /messages/group-tree) —
+ * khớp `conversationGroupTreeSchema` của contracts. Server dựng sẵn
+ * cây Lớp → Khoá → Nhóm con theo VAI của người xem; `conversationId`
+ * null = chat của nút chưa được ensure (bấm vào mới ensure ở MSG-T3),
+ * `unread` của nút lớp là tổng chưa đọc của nút lớp + các nút con.
+ */
+export type ConversationTreeRoleView = 'teaching' | 'learning' | 'staff';
+
+export interface ConversationTreeGroupView {
+  groupId: string;
+  name: string;
+  myRole: ConversationTreeRoleView;
+  conversationId: string | null;
+  unread: number;
+}
+
+export interface ConversationTreeFreeGroupView {
+  conversationId: string;
+  name: string;
+  myRole: ConversationTreeRoleView;
+  unread: number;
+}
+
+export interface ConversationTreeCourseView {
+  courseId: string;
+  name: string;
+  myRole: ConversationTreeRoleView;
+  conversationId: string | null;
+  unread: number;
+  groups: ConversationTreeGroupView[];
+}
+
+export interface ConversationTreeClassView {
+  classId: string;
+  name: string;
+  myRole: ConversationTreeRoleView;
+  conversationId: string | null;
+  unread: number;
+  courses: ConversationTreeCourseView[];
+}
+
+export interface ConversationGroupTreeView {
+  classes: ConversationTreeClassView[];
+  /** Khoá tôi thuộc về mà lớp chứa chúng tôi không có quan hệ trực tiếp. */
+  coursesOutsideClasses: ConversationTreeCourseView[];
+  freeGroups: ConversationTreeFreeGroupView[];
 }
