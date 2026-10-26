@@ -20,8 +20,9 @@
  *    các vùng này để OMR dùng một template duy nhất.
  *  - Lưới đáp án (y từ 672): mỗi câu 1 hàng cao 36px, tối đa 30 hàng/cột;
  *    ≤30 câu 1 cột, 31–60 câu 2 cột, tối đa 60 câu. Bong bóng r=13,
- *    bước ngang 42px, tối đa 5 lựa chọn (A–E); câu đúng/sai in 2 bong
- *    bóng (Đ/S).
+ *    bước ngang 42px, tối đa 5 lựa chọn (A–E) cho câu trắc nghiệm; câu
+ *    đúng/sai chùm TF-A in 8 bong bóng trên cùng một hàng slot: 4 ý,
+ *    mỗi ý một cặp ô Đ/S theo thứ tự mệnh đề của câu.
  */
 export const TEMPLATE_WIDTH = 1240;
 export const TEMPLATE_HEIGHT = 1754;
@@ -186,6 +187,8 @@ export const MAX_SHEET_QUESTIONS = 60;
 export const BUBBLE_R = 13;
 export const BUBBLE_STEP = 42;
 export const MAX_OPTIONS = 5;
+/** Số bong bóng tối đa trên một hàng slot: câu đúng/sai chùm TF-A dùng 8 (4 ý × cặp Đ/S); trắc nghiệm thường tối đa {@link MAX_OPTIONS}. */
+export const MAX_BUBBLES_PER_ROW = 8;
 
 export interface AnswerRowGeometry {
   /** Số thứ tự câu 1-based theo thứ tự slot của đề. */
@@ -238,7 +241,8 @@ function columnOriginX(column: number, columns: 1 | 2): number {
 
 /**
  * Tính hình học lưới cho một đề có các câu với số lựa chọn tương ứng.
- * optionCounts[i] = số bong bóng của câu i (2..5). Ném lỗi khi quá 60
+ * optionCounts[i] = số bong bóng của câu i (2..{@link MAX_BUBBLES_PER_ROW};
+ * trắc nghiệm 2..5, câu đúng/sai chùm TF-A đúng 8). Ném lỗi khi quá 60
  * câu hoặc số lựa chọn ngoài miền — sinh phiếu phải chặn ở tầng service
  * bằng mã lỗi nghiệp vụ trước khi gọi hàm này. `codeDigits` là cấu
  * hình lưới mã học sinh của lô: 4 (tại lớp) hoặc 8 (thi thử SBD).
@@ -251,7 +255,7 @@ export function computeSheetGeometry(optionCounts: readonly number[], codeDigits
   if (questionCount === 0) throw new Error('sheet needs at least one question');
   if (questionCount > MAX_SHEET_QUESTIONS) throw new Error(`sheet supports at most ${MAX_SHEET_QUESTIONS} questions`);
   for (const n of optionCounts) {
-    if (n < 2 || n > MAX_OPTIONS) throw new Error(`option count out of range: ${n}`);
+    if (n < 2 || n > MAX_BUBBLES_PER_ROW) throw new Error(`option count out of range: ${n}`);
   }
   const columns: 1 | 2 = questionCount > ANSWER_ROWS_PER_COLUMN ? 2 : 1;
   const rows: AnswerRowGeometry[] = optionCounts.map((count, i) => {

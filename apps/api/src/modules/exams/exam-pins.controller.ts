@@ -113,13 +113,6 @@ export class ExamPinsController {
   async results(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.getResults(actor.id, pinId);
   }
-  @Get(':pinId/cluster-statistics')
-  /**
-   * GET /exam-pins/:pinId/cluster-statistics — thống kê đúng–sai theo từng Ý của các chùm Đ–S + phân bố số ý đúng (quiz:viewreports).
-   */
-  async clusterStatistics(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.quiz.clusterStatistics(actor.id, pinId);
-  }
   @Get(':pinId/grade-by-question/:questionId')
   /**
    * GET /exam-pins/:pinId/grade-by-question/:questionId — hàng đợi chấm một câu cho cả lớp (quiz:grade).

@@ -315,7 +315,7 @@ export class ExamsService {
         // câu hỏi đã ghim (khuôn quiz cũ: điểm slot thắng khi ghi rõ).
         maxMark: s.maxMark ?? ready.defaultMark,
         section: s.section ?? '',
-        clusterId: s.clusterId ?? null,
+        clusterId: null,
       });
     }
     return resolved;
@@ -912,7 +912,7 @@ export class ExamsService {
           section: `Ô ${d.page}`,
           questionId: d.questionId,
           pinnedVersionId: d.pinnedVersionId, pinnedVersionNumber: d.pinnedVersionNumber,
-          maxMark: d.maxMark, clusterId: d.clusterId, matrixCellId: d.matrixCellId,
+          maxMark: d.maxMark, clusterId: null, matrixCellId: d.matrixCellId,
         })), tx);
       }
     });

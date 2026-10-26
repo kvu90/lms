@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, MatrixImportCellAvailability, PaperSlotLayout, QuestionSolution, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
-import { extractRichTextPlainText } from '@lms/contracts';
+import { extractRichTextPlainText, getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -170,7 +170,7 @@ export function flattenSpecification(spec: MatrixSpecification): {
           outcomeText,
           levelLabel: LEVEL_LABELS[cell.cognitiveLevel] ?? cell.cognitiveLevel,
           qtypeLabel: QTYPE_LABELS[cell.qtype] ?? cell.qtype,
-          questionCount: cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount,
+          questionCount: cell.questionCount,
           cellScore: cell.cellScore,
           slotText,
         });
@@ -217,11 +217,14 @@ export interface QuizAttemptQuestionView {
   guidance: RichTextDocument | null;
   /**
    * Lời giải/đáp án đúng dạng cấu trúc của version đã pin, suy từ phía
-   * đáp án: multichoice/truefalse = `{correctAnswerId}` của dòng đáp
-   * án đúng; shortanswer = `{acceptedAnswers}` các đáp án được chấp
-   * nhận; essay = lời giải mẫu `{answer}` lưu ở bản ghi phía đáp án.
-   * Chỉ lộ khi cổng `reviewRightAnswer` của lần ghim cho phép tại cửa
-   * sổ hiện tại — cùng cổng với `rightAnswer` dạng chữ.
+   * đáp án: multichoice = `{correctAnswerId}` của dòng đáp án đúng;
+   * truefalse TF-A = `{statements}` đáp án Đúng/Sai của TỪNG mệnh đề
+   * (lưu ở bản ghi phía đáp án); shortanswer = `{acceptedAnswers}` các
+   * đáp án được chấp nhận; essay = lời giải mẫu `{answer}` lưu ở bản
+   * ghi phía đáp án. Chỉ lộ khi cổng `reviewRightAnswer` của lần ghim
+   * cho phép tại cửa sổ hiện tại — cùng cổng với `rightAnswer` dạng
+   * chữ. Đúng/sai TỪNG Ý của câu TF-A ở phía học sinh suy từ trường
+   * này + response của chính học sinh + fraction của câu.
    */
   solution: QuestionSolution | null;
   stimulus: { id: string; content: RichTextDocument } | null;
@@ -245,23 +248,6 @@ export interface QuizAttemptQuestionView {
    * chưa được chấm tay kèm nhận xét hoặc cửa sổ hiện tại không cho xem.
    */
   manualComment: string | null;
-  /**
-   * Trình bày CHÙM Đ–S (Q-a): câu thuộc chùm thì KHÔNG hiện điểm lẻ
-   * từng ý (mark = null) — thay bằng một dòng tổng của cả chùm nêu
-   * thang đã áp bằng chữ ("Đúng 3/4 ý = 50% điểm câu theo thang
-   * QĐ 764"), tránh học sinh hiểu nhầm cộng 0,25đ/ý. Đúng/sai vẫn
-   * hiện theo TỪNG Ý qua fraction. Chỉ có khi chùm đã chấm xong và
-   * cửa sổ cho xem đúng/sai.
-   */
-  cluster: {
-    correctCount: number;
-    totalCount: number;
-    /** % điểm câu theo thang lũy tiến đã áp. */
-    percent: number;
-    /** Điểm của CẢ CHÙM (chỉ khi cửa sổ cho xem điểm). */
-    mark: number | null;
-    summary: string;
-  } | null;
 }
 
 /** View đầy đủ của một lượt làm quiz: tóm tắt lượt + đề + từng câu (đã nhóm sẵn theo trang qua trường page). */
@@ -394,7 +380,6 @@ export interface EffectiveSlotRow {
   categoryId: string | null;
   maxMark: number;
   matrixCellId: string | null;
-  clusterId: string | null;
   versionMode: 'pinned' | 'follow_latest';
   pinnedVersionId: string | null;
   pinnedVersionNumber: number | null;
@@ -473,7 +458,7 @@ export class QuizService {
       return {
         id: sl.id, pinId: pin.id, slot: sl.position, page: pageBySection.get(sl.section)!,
         questionId: sl.questionId, categoryId: null, maxMark: sl.maxMark,
-        matrixCellId: sl.matrixCellId, clusterId: sl.clusterId,
+        matrixCellId: sl.matrixCellId,
         versionMode: 'pinned' as const,
         pinnedVersionId: sl.pinnedVersionId, pinnedVersionNumber: sl.pinnedVersionNumber,
       };
@@ -523,7 +508,7 @@ export class QuizService {
       const base = {
         id: s.id, pinId: s.pinId, slot: s.slot, page: s.page,
         questionId: s.questionId, categoryId: s.categoryId, maxMark: s.maxMark,
-        matrixCellId: s.matrixCellId, clusterId: s.clusterId,
+        matrixCellId: s.matrixCellId,
         versionMode: null as 'pinned' | 'follow_latest' | null,
         pinnedVersion: null as number | null,
         latestVersion: null as number | null,
@@ -611,50 +596,20 @@ export class QuizService {
   }
 
   /**
-   * Đồng bộ tổng điểm của một lượt từ usage của engine: tổng các câu ĐÃ có
-   * fraction (essay chưa chấm đóng góp 0) + số câu còn chờ chấm tay.
-   * Ngoại lệ Chặng 3 (mục C.4): các slot thuộc một CHÙM Đ–S (cluster_id)
-   * không cộng tuyến tính — điểm chùm tra thang lũy tiến theo SỐ Ý ĐÚNG
-   * (fraction = 1) trên tổng max_mark danh nghĩa của chùm; thang hiệu
-   * lực là thang của quiz (chụp từ ô khi generate) hoặc mặc định QĐ 764.
-   * Engine và question_attempts.max_mark không đổi — chùm hoá chỉ nằm ở
-   * tầng tổng hợp này. Chùm còn câu chờ chấm tay thì phần đã chấm tính
-   * tuyến tính như thường (không xảy ra với truefalse tự chấm).
+   * Đồng bộ tổng điểm của một lượt từ usage của engine: tổng tuyến
+   * tính các câu ĐÃ có fraction (mỗi câu đóng góp fraction × maxMark
+   * của chính nó; essay chưa chấm đóng góp 0) + số câu còn chờ chấm
+   * tay. Câu truefalse TF-A tự mang fraction đã tra thang Đ–S ở tầng
+   * engine (thang của lần ghim truyền vào lúc chốt usage) nên KHÔNG
+   * còn ngoại lệ chùm ở tầng tổng hợp này — mô hình chùm gom nhiều
+   * slot đã bỏ hẳn theo điểm quyết D-1.
    */
-  private syncFromUsage(usage: UsageView, quiz?: PinRow, slots?: EffectiveSlotRow[]): { sumGrades: number; pendingManual: number } {
+  private syncFromUsage(usage: UsageView): { sumGrades: number; pendingManual: number } {
     let sum = 0;
     let pending = 0;
-    const clusterBySlot = new Map<number, string>();
-    if (quiz && slots) {
-      for (const s of slots) if (s.clusterId) clusterBySlot.set(s.slot, s.clusterId);
-    }
-    const clusterMembers = new Map<string, UsageView['attempts']>();
     for (const a of usage.attempts) {
-      const clusterId = clusterBySlot.get(a.slot);
-      if (clusterId) {
-        const list = clusterMembers.get(clusterId) ?? [];
-        list.push(a);
-        clusterMembers.set(clusterId, list);
-        continue;
-      }
       if (a.state === 'needsgrading') pending += 1;
       else if (a.fraction !== null && a.fraction !== undefined) sum += a.fraction * a.maxMark;
-    }
-    if (clusterMembers.size && quiz) {
-      const scale = effectiveTfScale(quiz.tfScale);
-      for (const members of clusterMembers.values()) {
-        const pendingMembers = members.filter((a) => a.state === 'needsgrading');
-        if (pendingMembers.length) {
-          pending += pendingMembers.length;
-          for (const a of members) {
-            if (a.state !== 'needsgrading' && a.fraction !== null && a.fraction !== undefined) sum += a.fraction * a.maxMark;
-          }
-          continue;
-        }
-        const correct = members.filter((a) => a.fraction === 1).length;
-        const totalMax = members.reduce((s, a) => s + a.maxMark, 0);
-        sum += (scale[Math.min(correct, 4)]! / 100) * totalMax;
-      }
     }
     return { sumGrades: sum, pendingManual: pending };
   }
@@ -1571,25 +1526,14 @@ export class QuizService {
   }
 
   /**
-   * Các chùm Đ–S hợp lệ từ danh sách ứng viên truefalse: nhóm theo
-   * stimulus, chỉ giữ nhóm ĐÚNG 4 câu (một chùm = một stimulus + 4 câu
-   * cùng ĐVK/mức — ứng viên đã lọc sẵn theo ĐVK/mức của ô).
+   * Số câu khả dụng của một ô cho một người dùng: mọi qtype đều đếm
+   * theo CÂU — câu truefalse TF-A tự nó đã là một chùm 4 ý hoàn chỉnh
+   * trong một câu, không còn phép gom chùm từ 4 câu rời theo ngữ liệu
+   * như mô hình cũ.
    */
-  private tfClustersOf(candidates: QuestionView[]): QuestionView[][] {
-    const byStimulus = new Map<string, QuestionView[]>();
-    for (const view of candidates) {
-      if (!view.stimulus) continue;
-      const list = byStimulus.get(view.stimulus.id) ?? [];
-      list.push(view);
-      byStimulus.set(view.stimulus.id, list);
-    }
-    return [...byStimulus.values()].filter((list) => list.length === 4);
-  }
-
-  /** Số đơn vị khả dụng của một ô cho một người dùng: ô thường đếm câu; ô truefalse đếm CHÙM. */
-  private async cellAvailableCount(actorId: string, cell: Pick<ExamMatrixCellRow, 'curriculumNodeId' | 'cognitiveLevel' | 'qtype'>): Promise<number> {
+  private async cellAvailableCount(actorId: string, cell: ExamMatrixCellRow): Promise<number> {
     const candidates = await this.cellCandidatesForUser(actorId, cell);
-    return cell.qtype === 'truefalse' ? this.tfClustersOf(candidates).length : candidates.length;
+    return candidates.length;
   }
 
   /**
@@ -1643,15 +1587,14 @@ export class QuizService {
   /** Chi tiết thiếu câu theo từng ô cho lỗi cứng của generate (mục C.3 bước 1). */
   private async matrixDeficits(actorId: string, cells: ExamMatrixCellRow[]): Promise<{
     deficits: { cellId: string; curriculumNodeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[];
-    pools: Map<string, { candidates: QuestionView[]; clusters: QuestionView[][] }>;
+    pools: Map<string, { candidates: QuestionView[] }>;
   }> {
     const deficits: { cellId: string; curriculumNodeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[] = [];
-    const pools = new Map<string, { candidates: QuestionView[]; clusters: QuestionView[][] }>();
+    const pools = new Map<string, { candidates: QuestionView[] }>();
     for (const cell of cells) {
       const candidates = await this.cellCandidatesForUser(actorId, cell);
-      const clusters = cell.qtype === 'truefalse' ? this.tfClustersOf(candidates) : [];
-      pools.set(cell.id, { candidates, clusters });
-      const available = cell.qtype === 'truefalse' ? clusters.length : candidates.length;
+      pools.set(cell.id, { candidates });
+      const available = candidates.length;
       if (available < cell.questionCount) {
         deficits.push({
           cellId: cell.id, curriculumNodeId: cell.curriculumNodeId,
@@ -1686,12 +1629,13 @@ export class QuizService {
    * ra dùng chung cho generate snapshot + materialize recipe ở
    * EB-2): thiếu câu ở BẤT KỲ ô nào → 422
    * `quiz.matrix_insufficient_questions` kèm chi tiết từng ô, không
-   * rút một phần. Không lặp câu trong toàn bộ; ô truefalse rút cả
-   * chùm 4 câu cùng cluster_id, mỗi slot mang điểm danh nghĩa =
-   * điểm chùm / 4. page = thứ tự của ô trong ma trận.
+   * rút một phần. Không lặp câu trong toàn bộ; mọi ô — kể cả ô
+   * truefalse — rút theo CÂU (một câu TF-A là một slot nguyên vẹn
+   * mang trọn điểm của một đơn vị ô, không chia phần cho từng ý).
+   * page = thứ tự của ô trong ma trận.
    */
   async drawFixedSlots(actorId: string, cells: ExamMatrixCellRow[]): Promise<{
-    questionId: string; matrixCellId: string; clusterId: string | null; maxMark: number; page: number;
+    questionId: string; matrixCellId: string; maxMark: number; page: number;
   }[]> {
     const { deficits, pools } = await this.matrixDeficits(actorId, cells);
     if (deficits.length) {
@@ -1701,34 +1645,21 @@ export class QuizService {
       });
     }
     const chosen = new Set<string>();
-    const out: { questionId: string; matrixCellId: string; clusterId: string | null; maxMark: number; page: number }[] = [];
+    const out: { questionId: string; matrixCellId: string; maxMark: number; page: number }[] = [];
     let page = 0;
     for (const cell of cells) {
       page += 1;
       const pool = pools.get(cell.id)!;
       const perUnit = cell.cellScore / cell.questionCount;
-      if (cell.qtype === 'truefalse') {
-        const pickedClusters = this.shuffled(pool.clusters).slice(0, cell.questionCount);
-        for (let u = 0; u < cell.questionCount; u++) {
-          const clusterId = randomUUID();
-          const members = pickedClusters[u]!;
-          for (let k = 0; k < 4; k++) {
-            const member = members[k]!;
-            out.push({ questionId: member.question.id, matrixCellId: cell.id, clusterId, maxMark: perUnit / 4, page });
-            chosen.add(member.question.id);
-          }
-        }
-      } else {
-        const fresh = this.shuffled(pool.candidates.filter((v) => !chosen.has(v.question.id)));
-        let picked = fresh.slice(0, cell.questionCount);
-        if (picked.length < cell.questionCount) {
-          const rest = this.shuffled(pool.candidates.filter((v) => !picked.some((p) => p.question.id === v.question.id)));
-          picked = [...picked, ...rest.slice(0, cell.questionCount - picked.length)];
-        }
-        for (const member of picked) {
-          out.push({ questionId: member.question.id, matrixCellId: cell.id, clusterId: null, maxMark: perUnit, page });
-          chosen.add(member.question.id);
-        }
+      const fresh = this.shuffled(pool.candidates.filter((v) => !chosen.has(v.question.id)));
+      let picked = fresh.slice(0, cell.questionCount);
+      if (picked.length < cell.questionCount) {
+        const rest = this.shuffled(pool.candidates.filter((v) => !picked.some((p) => p.question.id === v.question.id)));
+        picked = [...picked, ...rest.slice(0, cell.questionCount - picked.length)];
+      }
+      for (const member of picked) {
+        out.push({ questionId: member.question.id, matrixCellId: cell.id, maxMark: perUnit, page });
+        chosen.add(member.question.id);
       }
     }
     return out;
@@ -1908,10 +1839,10 @@ export class QuizService {
         competencyRefs: [],
       });
       const formAcc = byForm.get(cell.qtype) ?? { qtype: cell.qtype, questionCount: 0, score: 0 };
-      formAcc.questionCount += cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount;
+      formAcc.questionCount += cell.questionCount;
       formAcc.score += cell.cellScore;
       byForm.set(cell.qtype, formAcc);
-      totalQuestions += cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount;
+      totalQuestions += cell.questionCount;
     }
     const totalScore = cells.reduce((s, c) => s + c.cellScore, 0);
     const formTotals = [...byForm.values()].map((f) => ({
@@ -2441,36 +2372,6 @@ export class QuizService {
     }
     const showAspects = submitted && (privileged || !hideContent);
     const aspectOn = (mask: number): boolean => privileged ? submitted : (showAspects && (mask & windowBit) !== 0);
-    // Trình bày chùm Đ–S (Q-a): gom các câu của usage theo cluster_id
-    // của slot; chùm chấm xong (mọi ý có fraction) thì tính sẵn dòng
-    // tổng theo thang lũy tiến hiệu lực của quiz.
-    const clusterBySlot = new Map<number, string>();
-    for (const s of slots) if (s.clusterId) clusterBySlot.set(s.slot, s.clusterId);
-    const clusterInfoBySlot = new Map<number, QuizAttemptQuestionView['cluster']>();
-    if (submitted && aspectOn(quiz.reviewCorrectness)) {
-      const membersByCluster = new Map<string, typeof usage.attempts>();
-      for (const a of usage.attempts) {
-        const cid = clusterBySlot.get(a.slot);
-        if (!cid) continue;
-        const list = membersByCluster.get(cid) ?? [];
-        list.push(a);
-        membersByCluster.set(cid, list);
-      }
-      const scale = effectiveTfScale(quiz.tfScale);
-      for (const members of membersByCluster.values()) {
-        if (!members.length || members.some((m) => m.fraction === null || m.fraction === undefined)) continue;
-        const correctCount = members.filter((m) => m.fraction === 1).length;
-        const totalCount = members.length;
-        const percent = scale[Math.min(correctCount, scale.length - 1)] ?? 0;
-        const totalNominal = members.reduce((sum, m) => sum + m.maxMark, 0);
-        const info: QuizAttemptQuestionView['cluster'] = {
-          correctCount, totalCount, percent,
-          mark: aspectOn(quiz.reviewMarks) ? (percent / 100) * totalNominal : null,
-          summary: `Đúng ${correctCount}/${totalCount} ý = ${percent}% điểm câu theo ${tfScaleLabel(scale)}`,
-        };
-        for (const m of members) clusterInfoBySlot.set(m.slot, info);
-      }
-    }
     const questions: QuizAttemptQuestionView[] = [];
     for (const a of usage.attempts) {
       if (hideContent && !privileged) break;
@@ -2511,14 +2412,21 @@ export class QuizService {
         .reverse()
         .find((s) => s.data.gradedBy != null && typeof s.data.comment === 'string' && s.data.comment !== '');
       // Solution HIỂN THỊ suy từ phía đáp án của version: đáp án đúng
-      // của multichoice/truefalse/shortanswer nằm ở cờ isCorrect của
-      // các dòng answers; riêng essay lời giải mẫu nằm ở bản ghi phía
-      // đáp án. Chỉ tính khi cổng reviewRightAnswer mở — cổng đóng thì
-      // trường này null, dữ liệu đáp án đúng không rời server.
+      // của multichoice/shortanswer nằm ở cờ isCorrect của các dòng
+      // answers; truefalse TF-A đáp án từng mệnh đề và essay lời giải
+      // mẫu đều nằm ở bản ghi phía đáp án (truefalse đổi hình dạng lưu
+      // trữ {answers} sang hình dạng hiển thị {statements}). Chỉ tính
+      // khi cổng reviewRightAnswer mở — cổng đóng thì trường này null,
+      // dữ liệu đáp án đúng không rời server.
       let solution: QuestionSolution | null = null;
       if (aspectOn(quiz.reviewRightAnswer)) {
         if (qv.question.qtype === 'essay') {
           solution = (answerKey.solution as QuestionSolution | null) ?? null;
+        } else if (qv.question.qtype === 'truefalse') {
+          const stored = answerKey.solution as { answers?: { statementId: string; value: boolean }[] } | null;
+          solution = stored?.answers?.length
+            ? { statements: stored.answers.map((a) => ({ statementId: a.statementId, value: a.value === true })) }
+            : null;
         } else if (qv.question.qtype === 'shortanswer') {
           const accepted = pinnedAnswers.filter((x) => x.isCorrect)
             .map((x) => extractRichTextPlainText(x.answer as RichTextDocument).trim())
@@ -2547,11 +2455,9 @@ export class QuizService {
         state: a.state,
         response: lastResponse,
         fraction: submitted && aspectOn(quiz.reviewCorrectness) ? a.fraction : null,
-        // Câu thuộc chùm Đ–S không hiện điểm lẻ từng ý (Q-a) — điểm
-        // của chùm nằm ở trường cluster.
-        mark: clusterBySlot.has(a.slot)
-          ? null
-          : ((submitted && aspectOn(quiz.reviewMarks) && a.fraction !== null) ? a.fraction * a.maxMark : null),
+        // Điểm của câu luôn là fraction × maxMark của chính câu (câu
+        // TF-A đã mang fraction tra thang của lần ghim từ engine).
+        mark: (submitted && aspectOn(quiz.reviewMarks) && a.fraction !== null) ? a.fraction * a.maxMark : null,
         rightAnswer: aspectOn(quiz.reviewRightAnswer) ? a.rightAnswer : null,
         feedback: aspectOn(quiz.reviewSpecificFeedback) && lastResponse !== null
           ? (feedbackByAnswerId.get(lastResponse) ?? null)
@@ -2560,7 +2466,6 @@ export class QuizService {
         manualComment: aspectOn(quiz.reviewSpecificFeedback)
           ? (manualCommentStep?.data.comment ?? null)
           : null,
-        cluster: clusterInfoBySlot.get(a.slot) ?? null,
       });
     }
     // Ảnh nhúng trong nội dung câu: phát URL ký cho đúng người đang xem bài
@@ -2581,7 +2486,7 @@ export class QuizService {
         q.solution = { answer: await this.files.resolveQuestionImageUrls(q.solution.answer) };
       }
     }
-    const { pendingManual } = this.syncFromUsage(usage, quiz, slots);
+    const { pendingManual } = this.syncFromUsage(usage);
     // Tầng feedback thứ tư: nhận xét tổng quát theo dải % điểm.
     let overallFeedback: string | null = null;
     if (submitted && row.sumGrades !== null && aspectOn(quiz.reviewOverallFeedback)) {
@@ -2664,8 +2569,12 @@ export class QuizService {
    */
   private async finalizeAttempt(quiz: PinRow, row: ExamAttemptRow, closedDueToTimeLimit: boolean): Promise<QuizAttemptView> {
     if (row.state !== 'inprogress') return this.buildAttemptView(quiz, row, false);
-    const finishedUsage = await this.questions.finishUsage(row.userId, row.usageId);
-    const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage, quiz, await this.effectiveSlots(quiz));
+    // Thang Đ–S của lần ghim đi cùng đường chốt usage để engine tra
+    // thang cho câu truefalse TF-A (cấu hình của lần ghim, không nằm
+    // trong câu hỏi); lần ghim không đặt thang thì engine dùng mặc
+    // định QĐ 764.
+    const finishedUsage = await this.questions.finishUsage(row.userId, row.usageId, { tfScale: quiz.tfScale });
+    const { sumGrades, pendingManual } = this.syncFromUsage(finishedUsage);
     const state = pendingManual > 0 ? 'needsgrading' : 'finished';
     await this.repo.updateAttempt(row.id, { state, timeFinish: new Date(), sumGrades });
     // Nộp tự động khi hết giờ là một sự kiện giám sát do SERVER ghi
@@ -2757,14 +2666,19 @@ export class QuizService {
         ? await this.questions.getVersionContent(slot.questionId, pinnedId)
         : { version: view.latestVersion, answers: view.answers, options: view.options };
       let answerIds: string[];
+      let statementIds: string[] = [];
       if (qtype === 'truefalse') {
-        // Options view của truefalse là { trueAnswer, falseAnswer } (xem
-        // QuestionsService.optionsView) — trỏ thẳng vào 2 dòng đáp án
-        // đúng/sai của version.
-        const tf = content.options as { trueAnswer?: string; falseAnswer?: string } | null;
-        if (!tf?.trueAnswer || !tf?.falseAnswer) throw new UnprocessableEntityException({ message: 'True/false question is missing its true/false answer mapping', code: 'paper.bad_truefalse' });
-        // Thứ tự in của câu đúng/sai: ô 1 = Đ (trueanswer), ô 2 = S (falseanswer).
-        answerIds = [tf.trueAnswer, tf.falseAnswer];
+        // TF-A: một slot phiếu mang 4 ý, mỗi ý một cặp ô Đ/S theo đúng
+        // thứ tự mệnh đề của version đã ghim — layout ghi statementIds
+        // để lúc ghi điểm quy các cặp ô về đáp án theo từng mệnh đề.
+        // Đáp án đúng KHÔNG nằm ở layout (nó ở phía đáp án của version,
+        // engine tự tra khi chấm).
+        const statements = getTrueFalseStatements(content.version.questionText as RichTextDocument);
+        if (!statements || statements.length !== TRUE_FALSE_STATEMENT_COUNT) {
+          throw new UnprocessableEntityException({ message: 'True/false question is missing its four statements', code: 'paper.bad_truefalse' });
+        }
+        statementIds = statements.map((s) => s.id);
+        answerIds = [];
       } else {
         if (content.answers.length < 2 || content.answers.length > 5) {
           throw new UnprocessableEntityException({ message: 'A printed multichoice question needs 2–5 answers', code: 'paper.bad_option_count' });
@@ -2773,8 +2687,8 @@ export class QuizService {
       }
       layout.push({
         slot: slot.slot, questionId: slot.questionId, versionId: content.version.id,
-        qtype, optionCount: answerIds.length, answerIds, maxMark: slot.maxMark,
-        clusterId: slot.clusterId ?? null,
+        qtype, optionCount: qtype === 'truefalse' ? statementIds.length * 2 : answerIds.length,
+        answerIds, statementIds, maxMark: slot.maxMark,
       });
     }
     return { quiz, layout };
@@ -2791,7 +2705,8 @@ export class QuizService {
    * {source: 'paper-scan', scanId, batchId, variantCode} để báo cáo
    * phân biệt được lượt thi giấy. responses[i] là chuỗi đáp án theo
    * ngữ nghĩa engine cho slot i (multichoice: answerId đã chọn;
-   * truefalse: 'true'/'false'; null: để trống).
+   * truefalse TF-A: JSON bản đồ statementId → boolean quy từ 4 cặp ô
+   * Đ/S của slot; null: để trống).
    */
   async recordPaperAttempt(actorId: string, pinId: string, input: {
     studentId: string;
@@ -3034,7 +2949,7 @@ export class QuizService {
     }
     await this.questions.manualGradeAttempt(actorId, input.questionAttemptId, input.mark, input.comment);
     const after = await this.questions.getUsage(row.usageId);
-    const { sumGrades, pendingManual } = this.syncFromUsage(after, quiz, await this.effectiveSlots(quiz));
+    const { sumGrades, pendingManual } = this.syncFromUsage(after);
     const wasSubmitted = row.state === 'needsgrading' || row.state === 'finished';
     const nextState = row.state === 'inprogress' ? row.state : (pendingManual > 0 ? 'needsgrading' : 'finished');
     await this.repo.updateAttempt(row.id, { sumGrades, ...(wasSubmitted ? { state: nextState } : {}) });
@@ -3178,78 +3093,6 @@ export class QuizService {
       out.push(view.attempt);
     }
     return out;
-  }
-
-  /**
-   * Thống kê đúng–sai theo TỪNG Ý của các chùm Đ–S (Q-d): đơn vị là
-   * VỊ TRÍ Ý trong chùm (ý 1..4 theo thứ tự slot) vì đề per_student
-   * mỗi lượt rút chùm khác nhau; kèm phân bố số ý đúng của cả chùm —
-   * đầu vào cho vòng ôn tập từ câu sai (EB-4). Chỉ tính lượt đã nộp.
-   */
-  async clusterStatistics(actorId: string, pinId: string): Promise<{
-    clusterId: string;
-    slots: number[];
-    attemptsCount: number;
-    items: { position: number; slot: number; gradedCount: number; correctCount: number; wrongCount: number; pendingCount: number }[];
-    correctDistribution: { correctCount: number; attempts: number }[];
-  }[]> {
-    const quiz = await this.getPin(pinId);
-    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
-    const slots = await this.effectiveSlots(quiz);
-    const clusters = new Map<string, EffectiveSlotRow[]>();
-    for (const s of slots) {
-      if (!s.clusterId) continue;
-      const list = clusters.get(s.clusterId) ?? [];
-      list.push(s);
-      clusters.set(s.clusterId, list);
-    }
-    const submitted = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview && a.state !== 'inprogress');
-    const usages = new Map<string, UsageView>();
-    for (const r of submitted) usages.set(r.id, await this.questions.getUsage(r.usageId));
-    const out: {
-      clusterId: string;
-      slots: number[];
-      attemptsCount: number;
-      items: { position: number; slot: number; gradedCount: number; correctCount: number; wrongCount: number; pendingCount: number }[];
-      correctDistribution: { correctCount: number; attempts: number }[];
-    }[] = [];
-    for (const [clusterId, members] of clusters) {
-      const ordered = [...members].sort((a, b) => a.slot - b.slot);
-      const items = ordered.map((s, i) => ({
-        position: i + 1, slot: s.slot, gradedCount: 0, correctCount: 0, wrongCount: 0, pendingCount: 0,
-      }));
-      const distribution = new Map<number, number>();
-      let attemptsCount = 0;
-      for (const r of submitted) {
-        const usage = usages.get(r.id)!;
-        const bySlot = new Map(usage.attempts.map((a) => [a.slot, a]));
-        if (!ordered.some((s) => bySlot.has(s.slot))) continue;
-        attemptsCount += 1;
-        let correct = 0;
-        let allGraded = true;
-        ordered.forEach((s, i) => {
-          const qa = bySlot.get(s.slot);
-          const item = items[i]!;
-          if (!qa) { allGraded = false; return; }
-          if (qa.state === 'needsgrading' || qa.fraction === null || qa.fraction === undefined) {
-            item.pendingCount += 1;
-            allGraded = false;
-            return;
-          }
-          item.gradedCount += 1;
-          if (qa.fraction === 1) { item.correctCount += 1; correct += 1; }
-          else item.wrongCount += 1;
-        });
-        if (allGraded) distribution.set(correct, (distribution.get(correct) ?? 0) + 1);
-      }
-      out.push({
-        clusterId, slots: ordered.map((s) => s.slot), attemptsCount, items,
-        correctDistribution: [...distribution.entries()]
-          .map(([correctCount, attempts]) => ({ correctCount, attempts }))
-          .sort((a, b) => a.correctCount - b.correctCount),
-      });
-    }
-    return out.sort((a, b) => (a.slots[0] ?? 0) - (b.slots[0] ?? 0));
   }
 
   /**

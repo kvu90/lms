@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
-import { extractRichTextPlainText, type RichTextDocument } from '@lms/contracts';
+import { extractRichTextPlainText, getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT, type RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
@@ -1117,9 +1117,11 @@ export class QuestionBanksService {
 
   /**
    * Kiểm luật phía đáp án cho cổng phát hành `ready`: multichoice đúng
-   * 4 lựa chọn + đúng 1 đáp án đúng; truefalse đúng 2 phía + đúng 1
-   * phía đúng; shortanswer ít nhất 1 đáp án và mọi dòng đều được chấp
-   * nhận; essay không có yêu cầu phía đáp án (chấm tay).
+   * 4 lựa chọn + đúng 1 đáp án đúng; truefalse TF-A: thân câu chốt
+   * đuôi bằng đúng 4 mệnh đề và đáp án từng mệnh đề ở bản ghi phía đáp
+   * án phủ đúng tập mệnh đề đó; shortanswer ít nhất 1 đáp án và mọi
+   * dòng đều được chấp nhận; essay không có yêu cầu phía đáp án (chấm
+   * tay).
    *
    * @param questionId - câu sắp phát hành.
    * @param latestVersion - số version mới nhất trên entry của câu.
@@ -1143,8 +1145,16 @@ export class QuestionBanksService {
       if (answers.length !== 4) throw bad('A ready multichoice question needs exactly four choices');
       if (correctCount !== 1) throw bad('A ready multichoice question needs exactly one correct answer');
     } else if (q.qtype === 'truefalse') {
-      if (answers.length !== 2) throw bad('A ready truefalse question needs exactly two answers (the True and False sides)');
-      if (correctCount !== 1) throw bad('A ready truefalse question needs exactly one correct side');
+      const statements = getTrueFalseStatements(version.questionText as RichTextDocument);
+      if (!statements || statements.length !== TRUE_FALSE_STATEMENT_COUNT) {
+        throw bad('A ready truefalse question needs a stem ending with exactly four statements');
+      }
+      const key = await this.questionsRepo.getAnswerKey(version.id);
+      const solution = key?.solution as { answers?: { statementId: string; value: boolean }[] } | null | undefined;
+      const covered = new Set((solution?.answers ?? []).map((a) => a.statementId));
+      if (covered.size !== statements.length || statements.some((s) => !covered.has(s.id))) {
+        throw bad('A ready truefalse question needs a Đúng/Sai answer for every statement');
+      }
     } else if (q.qtype === 'shortanswer') {
       if (answers.length === 0) throw bad('A ready shortanswer question needs at least one accepted answer');
       if (correctCount !== answers.length) throw bad('Every listed shortanswer answer must be an accepted answer');

@@ -1,5 +1,9 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { cognitiveLevelSchema, extractRichTextPlainText, toRichTextDocument, uuidIdSchema, type RichTextDocument, type RichTextInput } from '@lms/contracts';
+import {
+  cognitiveLevelSchema, extractRichTextPlainText, getTrueFalseStatements, richTextBlocksContainStatementList,
+  richTextBlocksHaveContent, toRichTextDocument, TRUE_FALSE_STATEMENT_COUNT, uuidIdSchema,
+  type RichTextDocument, type RichTextInput,
+} from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -49,8 +53,12 @@ export interface QuestionContentInput {
   stimulusId?: string | null;
   answers?: QuestionAnswerInput[];
   options?: QuestionOptionsInput;
-  /** Lời giải mẫu do người soạn gửi lên — đợt port này chỉ essay dùng; tầng nghiệp vụ ghi vào `question_answer_keys.solution` dạng `{answer}`. */
-  solution?: { answer: RichTextInput };
+  /**
+   * Phía đáp án do người soạn gửi lên, ghi vào `question_answer_keys.solution`:
+   * essay gửi lời giải mẫu dạng `{answer}`; truefalse TF-A gửi đáp án từng
+   * mệnh đề dạng `{answers: [{statementId, value}]}`.
+   */
+  solution?: { answer: RichTextInput } | { answers: { statementId: string; value: boolean }[] };
 }
 
 export interface QuestionView {
@@ -81,17 +89,23 @@ export interface UsageView {
 export const SUPPORTED_QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
 export type SupportedQtype = (typeof SUPPORTED_QTYPES)[number];
 
+/**
+ * Hình dạng solution LƯU TRỮ ở `question_answer_keys.solution`: lời giải
+ * mẫu của essay (`{answer}`) hoặc đáp án Đúng/Sai từng mệnh đề của
+ * truefalse TF-A (`{answers}` bám theo statementId của thân câu).
+ */
+type StoredSolution =
+  | { answer: RichTextDocument }
+  | { answers: { statementId: string; value: boolean }[] };
+
 /** Nội dung đã chuẩn hoá, sẵn sàng ghi xuống question_answers + bảng options. */
 interface NormalisedContent {
   answers: { answer: RichTextDocument; isCorrect: boolean; feedback: RichTextDocument | null }[];
   multichoice?: { shuffleAnswers: boolean; answerNumbering: string; correctFeedback: RichTextDocument | null; incorrectFeedback: RichTextDocument | null; showStandardInstruction: boolean };
-  /** Vị trí (index trong `answers`) của dòng phía Đúng — đường ghi options truefalse trỏ trueAnswer vào dòng này. */
-  truefalseTrueIndex?: number;
-  truefalseShowStandardInstruction?: boolean;
   shortanswer?: { useCase: boolean; numericAnswer: boolean; numericMaxLength: number | null; numericAllowSign: boolean; numericAllowDecimal: boolean };
   essay?: { responseFormat: string; responseRequired: boolean; responseFieldLines: number; minWordLimit: number | null; maxWordLimit: number | null; graderInfo: RichTextDocument | null; responseTemplate: RichTextDocument | null };
-  /** Nội dung phía đáp án ghi vào `question_answer_keys` cùng giao dịch với version: guidance (mọi qtype) + solution (chỉ essay ở đợt này, dạng `{answer}`). Cả hai null thì không chèn dòng nào. */
-  answerKey: { guidance: RichTextDocument | null; solution: { answer: RichTextDocument } | null };
+  /** Nội dung phía đáp án ghi vào `question_answer_keys` cùng giao dịch với version: guidance (mọi qtype) + solution (essay: lời giải mẫu; truefalse TF-A: đáp án từng mệnh đề). Cả hai null thì không chèn dòng nào. */
+  answerKey: { guidance: RichTextDocument | null; solution: StoredSolution | null };
 }
 
 /** Bóc lỗi vi phạm unique của PostgreSQL (23505) dù Drizzle có bọc qua cause hay không. */
@@ -437,10 +451,15 @@ export class QuestionsService {
    * kiểm ở cửa HTTP; service kiểm LẠI ở đây vì các đường nội bộ (MCP,
    * nhân bản) không đi qua schema HTTP):
    *  - multichoice: đúng 4 lựa chọn (D-3) và đúng MỘT đáp án đúng.
-   *  - truefalse: đúng 2 phía và đúng MỘT phía đúng, truyền qua chính
-   *    danh sách `answers` — KHÔNG còn đường `answer.correct` cấp câu.
-   *    Dòng phía Đúng được nhận diện bằng nhãn text của nó ("Đúng" /
-   *    "True"); không nhận diện được thì lấy dòng đầu tiên là phía Đúng.
+   *  - truefalse (TF-A, điểm quyết D-1): KHÔNG có dòng answers. Thân
+   *    câu (`questionText`, hoặc thân câu đã lưu khi sửa mà không gửi
+   *    thân mới) phải là tài liệu chốt đuôi bằng đúng 4 mệnh đề; đáp
+   *    án từng mệnh đề đi qua `solution.answers` phủ đúng tập mệnh đề
+   *    đó và được sắp lại theo đúng thứ tự mệnh đề trong thân câu khi
+   *    ghi vào `question_answer_keys.solution`. Đường sửa chỉ gửi
+   *    thân câu mới mà không gửi `solution` thì phía đáp án kế thừa
+   *    của version trước do `updateQuestion` ghép sau bước này (bề
+   *    mặt soạn luôn gửi kèm đáp án cùng thân câu).
    *  - shortanswer: ít nhất 1 đáp án được chấp nhận; MỌI dòng liệt kê
    *    đều là đáp án được chấp nhận (dòng `correct: false` bị từ chối —
    *    đáp án sai không có chỗ trong danh sách này).
@@ -455,14 +474,71 @@ export class QuestionsService {
    * @throws BadRequestException `question.bad_answer_data` khi phần đáp
    *   án/options vi phạm luật của qtype.
    */
-  private normaliseContent(qtype: SupportedQtype, input: QuestionContentInput): NormalisedContent {
+  private normaliseContent(qtype: SupportedQtype, input: QuestionContentInput, existingQuestionText?: RichTextDocument | null): NormalisedContent {
     const options = input.options ?? {};
     const answerKey: NormalisedContent['answerKey'] = {
       guidance: this.docOrNull(input.guidance),
-      solution: qtype === 'essay' && input.solution !== undefined
+      solution: qtype === 'essay' && input.solution !== undefined && 'answer' in input.solution
         ? { answer: toRichTextDocument(input.solution.answer) }
         : null,
     };
+    if (qtype === 'truefalse') {
+      if (input.answers && input.answers.length > 0) {
+        throw badAnswerData('truefalse (TF-A) questions do not carry answer rows; per-statement answers go through solution.answers');
+      }
+      // Thân câu hiệu lực: payload gửi thân mới thì dùng thân mới; đường
+      // sửa không gửi thân thì kiểm trên thân đã lưu của version trước.
+      const doc = input.questionText !== undefined
+        ? (typeof input.questionText === 'string' ? null : toRichTextDocument(input.questionText))
+        : (existingQuestionText ?? null);
+      const statements = doc ? getTrueFalseStatements(doc) : null;
+      if (!doc || !statements) {
+        throw badAnswerData('truefalse question text must be a document ending with a statement list (statementList)');
+      }
+      const stemBlocks = doc.content.slice(0, -1);
+      if (!richTextBlocksHaveContent(stemBlocks) || richTextBlocksContainStatementList(stemBlocks)) {
+        throw badAnswerData('truefalse stem must carry content before the statement list');
+      }
+      if (statements.length !== TRUE_FALSE_STATEMENT_COUNT) {
+        throw badAnswerData(`truefalse requires exactly ${TRUE_FALSE_STATEMENT_COUNT} statements`);
+      }
+      if (new Set(statements.map((s) => s.id)).size !== statements.length) {
+        throw badAnswerData('truefalse statements must have unique ids');
+      }
+      if (statements.some((s) => !richTextBlocksHaveContent(s.content) || richTextBlocksContainStatementList(s.content))) {
+        throw badAnswerData('every truefalse statement must carry content');
+      }
+      const solutionAnswers = input.solution !== undefined && 'answers' in input.solution ? input.solution.answers : null;
+      if (!solutionAnswers) {
+        // Đường sửa không gửi solution: để null, updateQuestion kế thừa
+        // phía đáp án của version trước. Đường tạo mới (không có thân
+        // đã lưu) thì đáp án là bắt buộc — thiếu là payload lỗi.
+        if (existingQuestionText === undefined || existingQuestionText === null) {
+          throw badAnswerData('truefalse requires solution.answers with a Đúng/Sai value for every statement');
+        }
+        return { answers: [], answerKey };
+      }
+      const statementIds = new Set(statements.map((s) => s.id));
+      const covered = new Set(solutionAnswers.map((a) => a.statementId));
+      if (solutionAnswers.length !== statements.length || covered.size !== solutionAnswers.length
+        || [...covered].some((id) => !statementIds.has(id))) {
+        throw badAnswerData('truefalse solution.answers must cover exactly the statements of the question text');
+      }
+      return {
+        answers: [],
+        answerKey: {
+          guidance: answerKey.guidance,
+          // Ghi theo đúng thứ tự mệnh đề trong thân câu: phía đọc/chấm
+          // bám statementId, thứ tự chỉ để trình bày nhất quán.
+          solution: {
+            answers: statements.map((s) => ({
+              statementId: s.id,
+              value: solutionAnswers.find((a) => a.statementId === s.id)!.value === true,
+            })),
+          },
+        },
+      };
+    }
     if (qtype === 'essay') {
       if (input.answers && input.answers.length > 0) throw badAnswerData('essay questions do not carry answers; the response is graded manually');
       const min = options.minWordLimit ?? null;
@@ -491,25 +567,6 @@ export class QuestionsService {
       feedback: a.feedback === undefined ? null : toRichTextDocument(a.feedback),
     }));
     const correctCount = answers.filter((a) => a.isCorrect).length;
-    if (qtype === 'truefalse') {
-      if (answers.length !== 2) throw badAnswerData('truefalse requires exactly two answers (the True and False sides)');
-      if (correctCount !== 1) throw badAnswerData('truefalse requires exactly one correct side');
-      // Nhận diện dòng phía Đúng bằng nhãn text thuần của đáp án (mẫu
-      // seed dùng "Đúng"/"Sai", mẫu Moodle dùng "True"/"False") — đường
-      // ghi options truefalse cần biết dòng nào là phía Đúng để trỏ
-      // trueAnswer/falseAnswer; học sinh chọn phía nào thì engine so
-      // phía đó với phía mang isCorrect. Không dòng nào mang nhãn Đúng
-      // thì quy ước dòng đầu tiên là phía Đúng (thứ tự soạn chuẩn).
-      const trueIndex = answers.findIndex(
-        (a) => ['đúng', 'true'].includes(extractRichTextPlainText(a.answer).trim().toLowerCase()),
-      );
-      return {
-        answers,
-        truefalseTrueIndex: trueIndex >= 0 ? trueIndex : 0,
-        truefalseShowStandardInstruction: options.showStandardInstruction ?? true,
-        answerKey,
-      };
-    }
     if (qtype === 'shortanswer') {
       if (answers.some((a) => !a.isCorrect)) {
         throw badAnswerData('shortanswer answers are all accepted answers; a listed answer cannot be marked incorrect');
@@ -560,14 +617,6 @@ export class QuestionsService {
     if (content.multichoice) {
       await this.repo.insertMultichoiceOptions({ questionVersionId: versionId, ...content.multichoice } as never, tx);
     }
-    if (content.truefalseTrueIndex !== undefined) {
-      const trueRow = inserted[content.truefalseTrueIndex]!;
-      const falseRow = inserted[1 - content.truefalseTrueIndex]!;
-      await this.repo.insertTruefalseOptions({
-        questionVersionId: versionId, trueAnswer: trueRow.id, falseAnswer: falseRow.id,
-        showStandardInstruction: content.truefalseShowStandardInstruction ?? true,
-      }, tx);
-    }
     if (content.shortanswer) {
       await this.repo.insertShortanswerOptions({
         questionVersionId: versionId, useCase: content.shortanswer.useCase,
@@ -610,12 +659,6 @@ export class QuestionsService {
         questionVersionId: toVersionId, shuffleAnswers: o.shuffleAnswers,
         answerNumbering: o.answerNumbering, correctFeedback: o.correctFeedback as never,
         incorrectFeedback: o.incorrectFeedback as never,
-        showStandardInstruction: o.showStandardInstruction,
-      }, tx);
-    } else if (qtype === 'truefalse') {
-      const o = await this.repo.getTruefalseOptions(fromVersionId);
-      if (o) await this.repo.insertTruefalseOptions({
-        questionVersionId: toVersionId, trueAnswer: idMap.get(o.trueAnswer)!, falseAnswer: idMap.get(o.falseAnswer)!,
         showStandardInstruction: o.showStandardInstruction,
       }, tx);
     } else if (qtype === 'shortanswer') {
@@ -662,11 +705,6 @@ export class QuestionsService {
         correctFeedback: o.correctFeedback, incorrectFeedback: o.incorrectFeedback,
         showStandardInstruction: o.showStandardInstruction,
       };
-    }
-    if (qtype === 'truefalse') {
-      const o = await this.repo.getTruefalseOptions(versionId);
-      if (!o) return null;
-      return { trueAnswer: o.trueAnswer, falseAnswer: o.falseAnswer, showStandardInstruction: o.showStandardInstruction };
     }
     if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(versionId);
@@ -955,8 +993,11 @@ export class QuestionsService {
     await this.assertCategoryNotForeignPersonal(actorId, category, () => this.questionNotFound(questionId));
     await this.requireCap(actorId, 'question:editall', category.contextId);
     this.assertSupportedQtype(q.qtype);
-    const hasNewContent = input.answers !== undefined || input.options !== undefined;
-    const content = hasNewContent ? this.normaliseContent(q.qtype, input) : null;
+    // Câu truefalse TF-A không có answers/options: thân câu (nơi chứa
+    // mệnh đề) hoặc solution (đáp án từng mệnh đề) đổi là nội dung mới.
+    const hasNewContent = input.answers !== undefined || input.options !== undefined
+      || (q.qtype === 'truefalse' && (input.questionText !== undefined || input.solution !== undefined));
+    const content = hasNewContent ? this.normaliseContent(q.qtype, input, latestVersion.questionText as RichTextDocument) : null;
     const touchesAnswerKey = input.guidance !== undefined || input.solution !== undefined;
     // Kế thừa phía đáp án của version trước cho các trường payload
     // không nhắc tới (chỉ khi version mới có nội dung đáp án mới hoặc
@@ -964,7 +1005,7 @@ export class QuestionsService {
     const prevKey = (content || touchesAnswerKey) ? await this.answerKeyOf(latestVersion.id) : null;
     if (content) {
       if (input.guidance === undefined) content.answerKey.guidance = prevKey!.guidance as RichTextDocument | null;
-      if (input.solution === undefined) content.answerKey.solution = prevKey!.solution as { answer: RichTextDocument } | null;
+      if (input.solution === undefined) content.answerKey.solution = prevKey!.solution as StoredSolution | null;
     }
     let stimulusId = latestVersion.stimulusId;
     if (input.stimulusId !== undefined) {
@@ -989,9 +1030,13 @@ export class QuestionsService {
         // lại từ bản ghi trước).
         await this.cloneVersionContent(tx, q.qtype as SupportedQtype, latestVersion.id, version.id, true);
         const guidance = input.guidance !== undefined ? this.docOrNull(input.guidance) : (prevKey!.guidance as RichTextDocument | null);
-        const solution = input.solution !== undefined
-          ? (q.qtype === 'essay' ? { answer: toRichTextDocument(input.solution.answer) } : null)
-          : (prevKey!.solution as { answer: RichTextDocument } | null);
+        const solution: StoredSolution | null = input.solution !== undefined
+          ? (q.qtype === 'essay' && 'answer' in input.solution
+            ? { answer: toRichTextDocument(input.solution.answer) }
+            : q.qtype === 'truefalse' && 'answers' in input.solution
+              ? { answers: input.solution.answers.map((a) => ({ statementId: a.statementId, value: a.value === true })) }
+              : null)
+          : (prevKey!.solution as StoredSolution | null);
         if (guidance !== null || solution !== null) {
           await this.repo.insertAnswerKey({ questionVersionId: version.id, guidance: guidance as never, solution: solution as never }, tx);
         }
@@ -1349,8 +1394,15 @@ export class QuestionsService {
     return response;
   }
 
-  /** Dựng dữ liệu chấm của một version đã pin từ question_answers (cờ isCorrect) + options của qtype. */
-  private async gradingDataFor(version: VersionRow, qtype: string): Promise<GradingData> {
+  /**
+   * Dựng dữ liệu chấm của một version đã pin: multichoice/shortanswer
+   * từ question_answers (cờ isCorrect) + options của qtype; truefalse
+   * TF-A từ đáp án từng mệnh đề ở `question_answer_keys.solution` của
+   * chính version đó, kèm thang Đ–S của lần ghim khi caller truyền vào
+   * (đường usage thường không gắn lần ghim thì engine dùng mặc định
+   * QĐ 764).
+   */
+  private async gradingDataFor(version: VersionRow, qtype: string, tfScale?: readonly number[] | null): Promise<GradingData> {
     const answers = await this.repo.listAnswers(version.id);
     const data: GradingData = {
       answers: answers.map((a) => ({
@@ -1360,8 +1412,13 @@ export class QuestionsService {
       })),
     };
     if (qtype === 'truefalse') {
-      const o = await this.repo.getTruefalseOptions(version.id);
-      if (o) data.truefalse = { trueanswerId: o.trueAnswer, falseanswerId: o.falseAnswer };
+      const key = await this.repo.getAnswerKey(version.id);
+      const solution = key?.solution as { answers?: { statementId: string; value: boolean }[] } | null | undefined;
+      data.truefalseStatements = (solution?.answers ?? []).map((a) => ({
+        statementId: a.statementId,
+        value: a.value === true,
+      }));
+      if (tfScale) data.tfScale = tfScale;
     } else if (qtype === 'shortanswer') {
       const o = await this.repo.getShortanswerOptions(version.id);
       data.shortanswer = {
@@ -1488,7 +1545,7 @@ export class QuestionsService {
    * Kết thúc một attempt: chấm theo answers/options của version ĐÃ PIN
    * (essay về needsgrading với fraction null, chờ chấm tay).
    */
-  async finishAttempt(userId: string, attemptId: string): Promise<AttemptView> {
+  async finishAttempt(userId: string, attemptId: string, tfScale?: readonly number[] | null): Promise<AttemptView> {
     const attempt = await this.getAttempt(attemptId);
     await this.requireOwnedAttempt(userId, attempt);
     if (attempt.state === 'notstarted') {
@@ -1505,7 +1562,7 @@ export class QuestionsService {
     if (!version) throw new NotFoundException({ message: 'Pinned question version missing', code: 'question.version_missing' });
     const q = await this.repo.getQuestion(attempt.questionId);
     const response = await this.latestResponse(attempt.id);
-    const gradingData = await this.gradingDataFor(version, q?.qtype ?? '');
+    const gradingData = await this.gradingDataFor(version, q?.qtype ?? '', tfScale);
     const outcome = behaviour.gradeAtFinish(q?.qtype ?? '', gradingData, response);
     let state: QuestionState;
     let fraction: number | null;
@@ -1525,11 +1582,11 @@ export class QuestionsService {
   /**
    * Kết thúc toàn bộ usage: mọi attempt về trạng thái finished.
    */
-  async finishUsage(userId: string, usageId: string): Promise<UsageView> {
+  async finishUsage(userId: string, usageId: string, opts?: { tfScale?: readonly number[] | null }): Promise<UsageView> {
     await this.requireOwnedUsage(userId, usageId);
     const before = await this.getUsage(usageId);
     for (const a of before.attempts) {
-      if (a.state !== 'notstarted') await this.finishAttempt(userId, a.id);
+      if (a.state !== 'notstarted') await this.finishAttempt(userId, a.id, opts?.tfScale);
     }
     const after = await this.getUsage(usageId);
     await this.outbox.enqueueStandalone({

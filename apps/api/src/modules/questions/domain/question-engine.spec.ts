@@ -3,11 +3,15 @@ import { canTransition, gradeAnswer, usageState, DeferredFeedbackBehaviour, type
 
 /**
  * Kiểm chứng engine chấm theo LUỒNG NGHIỆP VỤ của mô hình giaokhoa
- * (quyết 12:04 + điểm quyết D-2 ngày 26/10/2026, đợt port #248):
+ * (quyết 12:04 + các điểm quyết D ngày 26/10/2026, đợt port #248):
  *  - đáp án chỉ mang cờ đúng/sai `isCorrect` — KHÔNG còn tỉ trọng
- *    fraction của đáp án; chấm tự động là NHỊ PHÂN 1/0 cho cả
- *    multichoice, truefalse và shortanswer, nên `gradedpartial` không
- *    xuất phát từ chấm tự động nữa (chỉ còn từ chấm tay essay);
+ *    fraction của đáp án; chấm tự động là NHỊ PHÂN 1/0 cho multichoice
+ *    và shortanswer;
+ *  - truefalse là câu CHÙM TF-A (D-1): chấm từng mệnh đề 0/1 rồi tra
+ *    thang Đ–S theo số ý đúng — thang là cấu hình của lần ghim truyền
+ *    qua GradingData, mặc định QĐ 764 [0, 10, 25, 50, 100]; đây là
+ *    nguồn gradedpartial duy nhất của chấm tự động (bên cạnh chấm tay
+ *    essay);
  *  - shortanswer khớp CHÍNH XÁC sau chuẩn hoá — đáp án mẫu chứa ký tự
  *    `*` được hiểu là ký tự thường, không phải ký tự đại diện;
  *  - máy trạng thái usage/attempt giữ ngữ nghĩa Moodle
@@ -15,7 +19,7 @@ import { canTransition, gradeAnswer, usageState, DeferredFeedbackBehaviour, type
  *    khi nộp, chấm khi kết thúc; trạng thái graded* suy từ fraction
  *    của ATTEMPT (điểm lượt làm) theo ngưỡng states.php.
  * Các ca dưới đây phải ĐỎ nếu nghiệp vụ bị đổi ngược (vd quay lại cộng
- * tỉ trọng từng phần hay khớp wildcard).
+ * tỉ trọng từng phần, khớp wildcard, hay chấm truefalse theo hai phía).
  */
 describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo isCorrect)', () => {
   it('state machine: notstarted can only start; graded states are terminal', () => {
@@ -40,36 +44,59 @@ describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo
     expect(b.stateAfterSubmit('')).toBe('incomplete');
     expect(b.stateAfterSubmit(null)).toBe('incomplete');
     const tf: GradingData = {
-      answers: [
-        { id: 'a-true', text: 'True', isCorrect: true },
-        { id: 'a-false', text: 'False', isCorrect: false },
+      answers: [],
+      truefalseStatements: [
+        { statementId: 's1', value: true },
+        { statementId: 's2', value: false },
+        { statementId: 's3', value: true },
+        { statementId: 's4', value: false },
       ],
-      truefalse: { trueanswerId: 'a-true', falseanswerId: 'a-false' },
     };
     expect(b.gradeAtFinish('truefalse', tf, null)).toBeNull(); // unanswered → gaveup
   });
 
-  it('truefalse grading: phía đúng là phía mà dòng đáp án của nó mang isCorrect', () => {
-    const correctTrue: GradingData = {
-      answers: [
-        { id: 't', text: 'Đúng', isCorrect: true },
-        { id: 'f', text: 'Sai', isCorrect: false },
+  it('truefalse grading (TF-A): chấm từng mệnh đề rồi tra thang Đ–S mặc định QĐ 764 theo số ý đúng', () => {
+    const data: GradingData = {
+      answers: [],
+      truefalseStatements: [
+        { statementId: 's1', value: true },
+        { statementId: 's2', value: false },
+        { statementId: 's3', value: true },
+        { statementId: 's4', value: true },
       ],
-      truefalse: { trueanswerId: 't', falseanswerId: 'f' },
     };
-    const correctFalse: GradingData = {
-      answers: [
-        { id: 't', text: 'Đúng', isCorrect: false },
-        { id: 'f', text: 'Sai', isCorrect: true },
-      ],
-      truefalse: { trueanswerId: 't', falseanswerId: 'f' },
-    };
-    expect(gradeAnswer('truefalse', correctTrue, 'true')).toMatchObject({ fraction: 1, state: 'gradedright' });
-    expect(gradeAnswer('truefalse', correctFalse, 'true')).toMatchObject({ fraction: 0, state: 'gradedwrong' });
-    expect(gradeAnswer('truefalse', correctFalse, 'false').fraction).toBe(1);
-    // Đáp án đúng hiển thị là TEXT của dòng đúng, không phải chữ cứng 'True'.
-    expect(gradeAnswer('truefalse', correctTrue, 'true').rightAnswer).toBe('Đúng');
-    expect(gradeAnswer('truefalse', correctFalse, 'false').rightAnswer).toBe('Sai');
+    const respond = (answers: Record<string, boolean>) => JSON.stringify(answers);
+    // 0/1/2/3/4 ý đúng -> 0% / 10% / 25% / 50% / 100% (thang mặc định QĐ 764).
+    expect(gradeAnswer('truefalse', data, respond({ s1: false, s2: true, s3: false, s4: false })))
+      .toMatchObject({ fraction: 0, state: 'gradedwrong' });
+    expect(gradeAnswer('truefalse', data, respond({ s1: true, s2: true, s3: false, s4: false })).fraction).toBe(0.1);
+    expect(gradeAnswer('truefalse', data, respond({ s1: true, s2: false, s3: false, s4: false })).fraction).toBe(0.25);
+    expect(gradeAnswer('truefalse', data, respond({ s1: true, s2: false, s3: true, s4: false })))
+      .toMatchObject({ fraction: 0.5, state: 'gradedpartial' });
+    expect(gradeAnswer('truefalse', data, respond({ s1: true, s2: false, s3: true, s4: true })))
+      .toMatchObject({ fraction: 1, state: 'gradedright' });
+    // Mệnh đề không trả lời tính là ý sai; response hỏng cũng không ăn điểm.
+    expect(gradeAnswer('truefalse', data, respond({ s1: true })).fraction).toBe(0.1);
+    expect(gradeAnswer('truefalse', data, 'true').fraction).toBe(0);
+    expect(gradeAnswer('truefalse', data, null).fraction).toBe(0);
+    // Đáp án đúng hiển thị là dãy Đ/S của từng mệnh đề theo thứ tự câu.
+    expect(gradeAnswer('truefalse', data, respond({})).rightAnswer).toBe('Đúng, Sai, Đúng, Đúng');
+  });
+
+  it('truefalse grading (TF-A): thang của lần ghim thắng thang mặc định — thang không nằm trong câu hỏi', () => {
+    const statements = [
+      { statementId: 's1', value: true },
+      { statementId: 's2', value: false },
+      { statementId: 's3', value: true },
+      { statementId: 's4', value: true },
+    ];
+    const twoCorrect = JSON.stringify({ s1: true, s2: false, s3: false, s4: false });
+    // Thang đều 25/50/75/100 của lần ghim: 2 ý đúng = 50%.
+    expect(gradeAnswer('truefalse', { answers: [], truefalseStatements: statements, tfScale: [0, 25, 50, 75, 100] }, twoCorrect).fraction).toBe(0.5);
+    // Cùng câu, cùng đáp án, không có thang của lần ghim -> mặc định QĐ 764: 2 ý đúng = 25%.
+    expect(gradeAnswer('truefalse', { answers: [], truefalseStatements: statements }, twoCorrect).fraction).toBe(0.25);
+    // Thang sai hình dạng (không đủ 5 mức) -> rơi về mặc định, không chấm theo thang lạ.
+    expect(gradeAnswer('truefalse', { answers: [], truefalseStatements: statements, tfScale: [0, 50, 100] }, twoCorrect).fraction).toBe(0.25);
   });
 
   it('shortanswer grading: khớp CHÍNH XÁC sau chuẩn hoá — lệch một ký tự là 0, dấu * không còn là wildcard (D-2)', () => {

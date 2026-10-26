@@ -196,7 +196,9 @@ export async function generateSheetsPdf(input: SheetsPdfInput): Promise<Buffer> 
       const layout = input.layout[row.slot - 1]!;
       text(page, ctx, `${row.slot}.`, row.labelX, row.labelY - 12, 11, { bold: true });
       row.centers.forEach((center, k) => {
-        const letter = layout.qtype === 'truefalse' ? (k === 0 ? 'Đ' : 'S') : (OPTION_LETTERS[k] ?? '');
+        // Câu đúng/sai chùm TF-A: 4 cặp ô Đ/S nối tiếp nhau trên một
+        // hàng (cặp của ý k ở hai ô 2k = Đ, 2k+1 = S).
+        const letter = layout.qtype === 'truefalse' ? (k % 2 === 0 ? 'Đ' : 'S') : (OPTION_LETTERS[k] ?? '');
         bubble(page, center.x, center.y, 13, letter, ctx);
       });
     }

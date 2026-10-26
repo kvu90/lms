@@ -19,10 +19,7 @@
  * Chấm điểm theo MÔ HÌNH GIAOKHOA (quyết 12:04 ngày 26/10/2026, đợt
  * port #248): đáp án KHÔNG còn tỉ trọng (fraction) — mỗi dòng đáp án chỉ
  * mang cờ đúng/sai nhị phân `isCorrect`, và việc chấm tự động là NHỊ
- * PHÂN 1/0 cho multichoice, truefalse và shortanswer:
- *   - truefalse: 1 khi phía học sinh chọn trùng phía đúng (phía đúng =
- *     dòng đáp án phía Đúng mang `isCorrect`, tra qua options
- *     truefalse trueAnswer/falseAnswer).
+ * PHÂN 1/0 cho multichoice và shortanswer:
  *   - multichoice: 1 khi học sinh chọn ĐÚNG MỘT đáp án và đó là đáp án
  *     đúng duy nhất của câu (mô hình giaokhoa khoá một đáp án đúng);
  *     chọn khác, chọn nhiều hoặc không chọn đều 0.
@@ -35,10 +32,16 @@
  * `rightAnswer` (đáp án đúng để hiển thị xem lại) luôn suy từ dòng đáp
  * án `isCorrect` của version đã pin, không còn suy từ fraction cao nhất.
  * Trạng thái graded* vẫn suy từ fraction bằng ngưỡng của Moodle
- * (question/engine/states.php graded_state_for_fraction) — với chấm tự
- * động nhị phân chỉ còn gradedright/gradedwrong; gradedpartial từ nay
- * CHỈ còn xuất hiện qua chấm tay essay (manualGradeAttempt) khi giáo
- * viên cho điểm lẻ.
+ * (question/engine/states.php graded_state_for_fraction).
+ *
+ * Câu truefalse là trường hợp riêng (TF-A nguyên bản giaokhoa, điểm
+ * quyết D-1, lát P5): MỘT câu gồm thân chung + 4 mệnh đề, mỗi mệnh đề
+ * chấm 0/1 và fraction của CÂU tra thang Đ–S theo SỐ Ý ĐÚNG
+ * (`thang[số ý đúng] / 100`). Thang là CẤU HÌNH của lần ghim, đi vào
+ * qua `GradingData.tfScale`; không có thang thì mặc định QĐ 764
+ * [0, 10, 25, 50, 100] — thang KHÔNG nằm trong câu hỏi. Đây là nguồn
+ * gradedpartial duy nhất còn lại của chấm tự động (đúng một phần số ý
+ * của câu Đ–S), bên cạnh chấm tay essay.
  */
 
 export const QUESTION_STATES = [
@@ -95,7 +98,18 @@ export interface GradableAnswer {
  */
 export interface GradingData {
   answers: GradableAnswer[];
-  truefalse?: { trueanswerId: string; falseanswerId: string };
+  /**
+   * Các mệnh đề của câu truefalse TF-A kèm đáp án đúng của từng mệnh
+   * đề — dựng từ `question_answer_keys.solution` của version đã pin
+   * (mệnh đề và đáp án bám theo `statementId`, không theo vị trí).
+   */
+  truefalseStatements?: { statementId: string; value: boolean }[];
+  /**
+   * Thang Đ–S của lần ghim: tỉ lệ % cho 0..4 ý đúng của câu truefalse.
+   * Vắng mặt hoặc sai hình dạng → {@link DEFAULT_TF_SCALE} (QĐ 764).
+   * Thang là cấu hình của lần ghim — KHÔNG nằm trong câu hỏi.
+   */
+  tfScale?: readonly number[];
   shortanswer?: {
     useCase: boolean;
     /** Chế độ đáp án số kiểu thi tốt nghiệp (điểm 6.3.3 đã chốt trên issue #30): cờ CẤU HÌNH, mặc định TẮT = ngữ nghĩa Moodle nguyên vẹn. */
@@ -126,22 +140,74 @@ export function gradedStateForFraction(fraction: number): QuestionState {
 }
 
 /**
- * Chấm truefalse (một mệnh đề, hai phía Đúng/Sai): phía đúng là phía mà
- * dòng đáp án của nó mang `isCorrect` — phía Đúng tra qua
- * `truefalse.trueanswerId` của options. Response theo quy ước engine là
- * chuỗi 'true'/'false' (lượt giấy OMR và lượt online đều quy về dạng
- * này trước khi vào engine). Đúng phía → 1, sai phía hoặc response
- * không đọc được → 0. `rightAnswer` hiển thị là TEXT của dòng đáp án
- * đúng (vd "Đúng"), không còn là chữ 'True'/'False' cứng.
+ * Thang Đ–S mặc định theo QĐ 764 (tỉ lệ % cho 0..4 ý đúng của một câu
+ * truefalse chùm). Dùng khi lần ghim không cấu hình thang riêng —
+ * thang là cấu hình của lần ghim, engine chỉ giữ bản mặc định này làm
+ * giá trị rơi về, KHÔNG đọc từ câu hỏi.
+ */
+export const DEFAULT_TF_SCALE: readonly number[] = [0, 10, 25, 50, 100];
+
+/**
+ * Mã hoá đáp án của học sinh cho một câu truefalse chùm thành chuỗi
+ * response lưu trong step data: JSON của bản đồ `statementId →
+ * boolean` (true = học sinh chọn "Đúng" cho mệnh đề đó). Mệnh đề học
+ * sinh không trả lời thì VẮNG MẶT trong bản đồ (phân biệt được với
+ * chọn "Sai"). Lượt online (web) và lượt giấy (CAM recordScan quy các
+ * cặp ô Đ/S về cùng bản đồ này) đều dùng đúng quy ước này.
+ *
+ * @param answers - Bản đồ đáp án theo id mệnh đề.
+ * @returns Chuỗi JSON để lưu làm response của attempt.
+ */
+export function encodeTrueFalseResponse(answers: Readonly<Record<string, boolean>>): string {
+  return JSON.stringify(answers);
+}
+
+/**
+ * Đọc chuỗi response của câu truefalse chùm về bản đồ đáp án. Response
+ * rỗng/hỏng/không phải JSON object → bản đồ rỗng (mọi mệnh đề tính là
+ * chưa trả lời); các giá trị không phải boolean bị bỏ qua. Hàm thuần
+ * và toàn phần: không bao giờ ném lỗi.
+ *
+ * @param response - Chuỗi response đã lưu trong step data.
+ * @returns Bản đồ `statementId → boolean` của các mệnh đề đã trả lời.
+ */
+export function decodeTrueFalseResponse(response: string | null): Record<string, boolean> {
+  if (!response) return {};
+  try {
+    const parsed: unknown = JSON.parse(response);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    const out: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === 'boolean') out[key] = value;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Chấm truefalse TF-A (một câu chùm 4 mệnh đề): từng mệnh đề chấm 0/1
+ * bằng cách so đáp án học sinh chọn (theo `statementId`) với đáp án
+ * đúng của mệnh đề đó; fraction của câu = `thang[số ý đúng] / 100` với
+ * thang lấy từ `data.tfScale` của lần ghim (sai hình dạng → mặc định
+ * QĐ 764). Mệnh đề học sinh không trả lời tính là ý sai. `rightAnswer`
+ * hiển thị là dãy Đúng/Sai của các mệnh đề theo đúng thứ tự của câu
+ * (vd "Đúng, Sai, Đúng, Đúng").
  */
 function gradeTruefalse(data: GradingData, response: string | null): GradeOutcome {
-  const trueRow = data.answers.find((a) => a.id === data.truefalse?.trueanswerId);
-  const correctIsTrue = trueRow?.isCorrect ?? false;
-  const correctRow = data.answers.find((a) => a.isCorrect);
-  const rightAnswer = correctRow?.text ?? (correctIsTrue ? 'True' : 'False');
-  const given = (response ?? '').trim().toLowerCase();
-  const givenBool = given === 'true' || given === '1' ? true : given === 'false' || given === '0' ? false : null;
-  const fraction = givenBool !== null && givenBool === correctIsTrue ? 1 : 0;
+  const statements = data.truefalseStatements ?? [];
+  const rightAnswer = statements.map((s) => (s.value ? 'Đúng' : 'Sai')).join(', ');
+  if (statements.length === 0) {
+    return { fraction: 0, state: gradedStateForFraction(0), rightAnswer };
+  }
+  const given = decodeTrueFalseResponse(response);
+  const correctCount = statements.filter((s) => given[s.statementId] === s.value).length;
+  const scale = data.tfScale && data.tfScale.length === statements.length + 1
+    ? data.tfScale
+    : DEFAULT_TF_SCALE;
+  const percent = scale[Math.min(correctCount, scale.length - 1)] ?? 0;
+  const fraction = percent / 100;
   return { fraction, state: gradedStateForFraction(fraction), rightAnswer };
 }
 
@@ -226,14 +292,16 @@ function gradeMultichoice(data: GradingData, response: string | null): GradeOutc
 /** Grade one response against a pinned version's answers/options. Pure and total. */
 /**
  * Chấm một câu trả lời theo qtype (truefalse, multichoice, shortanswer,
- * essay) theo mô hình giaokhoa: ba qtype tự chấm cho fraction NHỊ PHÂN
- * 1/0 và trạng thái gradedright/gradedwrong tương ứng; essay không tự
- * chấm — trả needsgrading với fraction null chờ người chấm.
+ * essay) theo mô hình giaokhoa: multichoice/shortanswer cho fraction
+ * NHỊ PHÂN 1/0; truefalse chấm từng mệnh đề rồi tra thang Đ–S của lần
+ * ghim (có thể ra gradedpartial); essay không tự chấm — trả
+ * needsgrading với fraction null chờ người chấm.
  *
  * Quy ước response dạng chuỗi (lưu trong step data `answer`):
- * truefalse — 'true'/'false'; shortanswer/essay — văn bản trả lời;
- * multichoice — id của đáp án đã chọn (đúng một id; nhiều id ngăn bằng
- * dấu phẩy bị chấm 0 theo luật chọn-một của mô hình mới).
+ * truefalse — JSON của bản đồ `statementId → boolean` (xem
+ * {@link encodeTrueFalseResponse}); shortanswer/essay — văn bản trả
+ * lời; multichoice — id của đáp án đã chọn (đúng một id; nhiều id ngăn
+ * bằng dấu phẩy bị chấm 0 theo luật chọn-một của mô hình mới).
  */
 export function gradeAnswer(qtype: string, data: GradingData, response: string | null): GradeOutcome {
   switch (qtype) {
