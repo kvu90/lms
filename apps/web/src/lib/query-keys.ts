@@ -15,6 +15,10 @@ export const queryKeys = {
   /** Gói dữ liệu trang một khoá học (thông tin/instance/ghi danh/nội dung/tiến độ — trang course). */
   coursePage: (courseId: string) => ['courses', courseId, 'page'] as const,
   playerView: (courseId: string, cmId: string) => ['courses', courseId, 'player', cmId] as const,
+  /** Gói dữ liệu trang xây dựng khoá học (thông tin/nội dung/điểm mục/tiêu chí/nhóm — trang course-builder). */
+  courseBuilder: (courseId: string) => ['courses', courseId, 'builder'] as const,
+  /** Nội dung (outline) của một khoá (GET /courses/:id/content) — khối dùng lại nội dung ở trang builder. */
+  courseContent: (courseId: string) => ['courses', courseId, 'content'] as const,
   /** Thanh toán của chính người dùng (GET /payments/me). */
   myPayments: ['payments', 'me'] as const,
   /** Chi tiết một bài tập nộp tệp (trang assignment). */

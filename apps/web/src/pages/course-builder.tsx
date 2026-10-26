@@ -9,6 +9,14 @@ import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import { fetchItems, insertItem, type LibraryItem } from '#lib/content-bank';
+import {
+  courseBuilderQueryOptions,
+  coursesListQueryOptions,
+  useCourseBuilder,
+  useCourseContent,
+  useCoursesList,
+} from '#lib/course-builder-data';
+import { queryClient } from '#lib/query-client';
 import { usePermissions } from '#lib/permissions';
 import { CompletionCard } from '../components/course-builder/completion-card';
 import { CourseInfoCard } from '../components/course-builder/course-info-card';
@@ -45,11 +53,17 @@ export function CourseBuilderPage() {
   const canManageCompletion =
     perms.canAdminister || (courseAccess?.capabilities.includes('completion:manage') ?? false);
 
-  const [course, setCourse] = useState<Course | null>(null);
-  const [content, setContent] = useState<CourseContent | null>(null);
-  const [groups, setGroups] = useState<CourseGroup[]>([]);
-  const [groupings, setGroupings] = useState<CourseGrouping[]>([]);
-  const [gradeItems, setGradeItems] = useState<GradeItem[]>([]);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): gói builder là một query
+  // (clientLoader đã prefetch cùng khoá); chờ tải đầu qua trạng thái
+  // chưa có dữ liệu gói như trước (F-14).
+  const builderQuery = useCourseBuilder(courseId, canBuild);
+  const builderData = builderQuery.data;
+  const course = builderData?.course ?? null;
+  const content = builderData?.content ?? null;
+  const groups = builderData?.groups ?? [];
+  const groupings = builderData?.groupings ?? [];
+  const gradeItems = builderData?.gradeItems ?? [];
+  const { refetch } = builderQuery;
   const [message, setMessage] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Form thông tin khoá.
@@ -77,30 +91,21 @@ export function CourseBuilderPage() {
   const [dragSectionId, setDragSectionId] = useState<string | null>(null);
   const [dragModule, setDragModule] = useState<{ sectionId: string; moduleId: string } | null>(null);
   // Dùng lại từ khoá khác.
-  const [otherCourses, setOtherCourses] = useState<Course[]>([]);
+  const otherCourses = (useCoursesList().data ?? []).filter((c) => c.id !== courseId);
   const [importSourceId, setImportSourceId] = useState('');
-  const [importContent, setImportContent] = useState<CourseContent | null>(null);
+  const importContent = useCourseContent(importSourceId).data ?? null;
   const [importSections, setImportSections] = useState<string[]>([]);
   const [importModules, setImportModules] = useState<string[]>([]);
   // Tiêu chí hoàn thành.
   const [criteriaMethod, setCriteriaMethod] = useState(1);
   const [criteriaDraft, setCriteriaDraft] = useState<{ criteriaType: string; moduleInstance: string; date: string }[]>([]);
 
-  const reload = useCallback(async () => {
-    const [courseRes, contentRes, itemsRes, criteriaRes, groupsRes, groupingsRes] = await Promise.all([
-      apiJson<Course>(`/api/v1/courses/${courseId}`).catch(() => null),
-      apiJson<CourseContent>(`/api/v1/courses/${courseId}/content`).catch(() => null),
-      apiJson<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`).catch(() => []),
-      apiJson<{
-        method: number;
-        criteria: { id: string; criteriaType: string; moduleInstance: string | null; date: string | null }[];
-      }>(`/api/v1/courses/${courseId}/completion/criteria`).catch(() => null),
-      apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`).catch(() => []),
-      apiJson<CourseGrouping[]>(`/api/v1/courses/${courseId}/groupings`).catch(() => []),
-    ]);
-    setGradeItems(itemsRes);
-    setGroups(groupsRes);
-    setGroupings(groupingsRes);
+  // Khởi tạo các trường form/bản nháp từ gói dữ liệu mỗi khi gói
+  // (lại) tải về — đúng phần khởi tạo của reload() thủ công trước đây
+  // (chạy lúc mở trang và sau mỗi đột biến, qua refetch ở dưới).
+  useEffect(() => {
+    if (!builderData) return;
+    const { course: courseRes, content: contentRes, criteria: criteriaRes } = builderData;
     if (criteriaRes) {
       setCriteriaMethod(criteriaRes.method);
       setCriteriaDraft(
@@ -112,7 +117,6 @@ export function CourseBuilderPage() {
       );
     }
     if (courseRes) {
-      setCourse(courseRes);
       setFullname(courseRes.fullName);
       setShortname(courseRes.shortName);
       setCourseCategory(courseRes.category);
@@ -123,7 +127,6 @@ export function CourseBuilderPage() {
       setEnddate(courseRes.endDate ? courseRes.endDate.slice(0, 10) : '');
     }
     if (contentRes) {
-      setContent(contentRes);
       setSectionEdits(
         Object.fromEntries(
           contentRes.sections.map((s) => [
@@ -158,28 +161,17 @@ export function CourseBuilderPage() {
       );
     }
     if (!courseRes && !contentRes) setLoadError(t('builderLoadFailed'));
-  }, [courseId, t]);
+  }, [builderData, t]);
 
-  useEffect(() => {
-    if (canBuild) void reload();
-  }, [canBuild, reload]);
-
-  useEffect(() => {
-    void apiJson<Course[]>('/api/v1/courses')
-      .then((list) => setOtherCourses(list.filter((c) => c.id !== courseId)))
-      .catch(() => setOtherCourses([]));
-  }, [courseId]);
+  // Mọi đột biến gọi reload() như cũ — nay là refetch gói builder;
+  // dữ liệu mới về thì effect khởi tạo ở trên chạy lại.
+  const reload = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
 
   useEffect(() => {
     setImportSections([]);
     setImportModules([]);
-    if (!importSourceId) {
-      setImportContent(null);
-      return;
-    }
-    void apiJson<CourseContent>(`/api/v1/courses/${importSourceId}/content`)
-      .then(setImportContent)
-      .catch(() => setImportContent(null));
   }, [importSourceId]);
 
   async function saveCourse(event: FormEvent) {
@@ -658,6 +650,22 @@ export function CourseBuilderPage() {
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default CourseBuilderPage;
+
+/**
+ * clientLoader (F-01 đợt 1 + bổ sung clientLoader, rà soát #133):
+ * prefetch gói builder + danh sách khoá vào QueryClient singleton
+ * (đúng khoá factory) trước khi component mount. prefetchQuery
+ * không ném lỗi: tải hỏng thì component tự xử lý qua useQuery.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.id) {
+    await Promise.all([
+      queryClient.prefetchQuery(courseBuilderQueryOptions(params.id)),
+      queryClient.prefetchQuery(coursesListQueryOptions()),
+    ]);
+  }
+  return null;
+}
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
