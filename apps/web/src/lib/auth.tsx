@@ -14,7 +14,8 @@ interface AuthState {
   loginWithEmailOtp: (email: string, otp: string) => Promise<UserProfile>;
   loginWithSocial: (provider: 'google' | 'facebook') => Promise<void>;
   logout: () => Promise<void>;
-  reload: () => Promise<void>;
+  /** Nạp lại phiên từ cookie; true khi đã áp được một kết luận phiên. */
+  reload: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -44,9 +45,28 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
    */
   const syncedForRef = useRef<string | null | undefined>(undefined);
 
-  /** Đồng bộ hồ sơ hiển thị theo id người dùng của phiên BA hiện tại. */
-  const applySession = useCallback(async (sessionUserId: string | null) => {
+  /**
+   * Lần nạp hồ sơ đang bay (theo id phiên). Hai đường resolve phiên —
+   * effect theo atom của Better Auth và `reload` chủ động lúc mount —
+   * có thể chạy chồng nhau; một id phiên chỉ được có MỘT lần gọi
+   * `/users/me` tại một thời điểm, các đường còn lại chờ chung kết
+   * quả, tránh gọi trùng (và tránh đọc hai lần cùng một đáp ứng ở
+   * các biên dùng đáp ứng chia sẻ).
+   */
+  const profileFlightRef = useRef<{ id: string; promise: Promise<void> } | null>(null);
+
+  /**
+   * Đồng bộ hồ sơ hiển thị theo id người dùng của phiên BA hiện tại.
+   * Không bao giờ ném lỗi ra ngoài: nạp hồ sơ thất bại (mạng, đáp ứng
+   * hỏng) thì kết luận ẩn danh — fail-closed như nhánh đáp ứng lỗi,
+   * và các effect gọi kiểu fire-and-forget không sinh rejection chưa
+   * xử lý. `force` (đường `reload`) bỏ qua dấu đã-đồng-bộ để nạp lại
+   * hồ sơ, nhưng vẫn dùng chung chuyến bay đang chạy của cùng id —
+   * chuyến bay đó tự nó đã là một lần đọc mới.
+   */
+  const applySession = useCallback(async (sessionUserId: string | null, force = false) => {
     if (sessionUserId === null) {
+      profileFlightRef.current = null;
       if (syncedForRef.current !== null) {
         syncedForRef.current = null;
         setUser(null);
@@ -54,24 +74,73 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
       setLoading(false);
       return;
     }
-    if (syncedForRef.current === sessionUserId) {
+    const flight = profileFlightRef.current;
+    if (flight && flight.id === sessionUserId) {
+      await flight.promise;
+      return;
+    }
+    if (!force && syncedForRef.current === sessionUserId) {
       setLoading(false);
       return;
     }
     syncedForRef.current = sessionUserId;
-    const res = await apiFetch('/api/v1/users/me');
-    if (res.ok) setUser(userProfileSchema.parse(await res.json()));
-    else setUser(null);
-    setLoading(false);
+    // Bản ghi chuyến bay được đặt vào ref TRƯỚC khi thân bất đồng bộ
+    // chạy: thân tự nhận biết mình còn là chuyến bay hiện hành hay đã
+    // bị một lần resolve mới hơn thay thế bằng cách so chính bản ghi.
+    const record: { id: string; promise: Promise<void> } = {
+      id: sessionUserId,
+      promise: Promise.resolve(),
+    };
+    profileFlightRef.current = record;
+    record.promise = (async () => {
+      try {
+        const res = await apiFetch('/api/v1/users/me');
+        // Đã có lần resolve mới hơn thay thế chuyến bay này (đăng
+        // nhập/đăng xuất/xoá phiên chen vào): không áp kết quả cũ,
+        // cũng không đọc thân đáp ứng nữa.
+        if (profileFlightRef.current !== record) return;
+        if (res.ok) setUser(userProfileSchema.parse(await res.json()));
+        else setUser(null);
+      } catch {
+        if (profileFlightRef.current === record) setUser(null);
+      }
+      if (profileFlightRef.current === record) setLoading(false);
+    })();
+    try {
+      await record.promise;
+    } finally {
+      if (profileFlightRef.current === record) profileFlightRef.current = null;
+    }
   }, []);
+
+  /**
+   * Cổng chốt lần resolve lúc mount ở chế độ resolve phía client:
+   * atom phiên của BA giữ giá trị của lần fetch gần nhất qua các vòng
+   * đời mount (dedupe của nanostores), nên ngay khi provider mới mount
+   * nó có thể đang mang phiên của vòng đời TRƯỚC — giá trị đó không
+   * được áp trước khi lần `reload` lúc mount chốt, kẻo danh tính bị
+   * kết luận theo dữ liệu cũ (kể cả bị kết luận ẩn danh oan trong lúc
+   * hồ sơ của phiên thật còn đang nạp). Khi reload đã áp kết luận,
+   * giá trị atom tại thời điểm chốt được ghi làm mốc đã-tiêu-thụ và
+   * effect chỉ áp các giá trị atom có danh tính MỚI sau mốc đó (kết
+   * quả fetch thật của atom, đăng nhập/đăng xuất qua client…).
+   */
+  const mountSettledRef = useRef(initialUser !== undefined);
+  const consumedAtomDataRef = useRef<unknown>(undefined);
+  const sessionDataRef = useRef(session.data);
+  sessionDataRef.current = session.data;
+  const [mountTick, setMountTick] = useState(0);
 
   useEffect(() => {
     // Phiên còn đang resolve phía client thì không đụng trạng thái đã
     // seed từ loader — tránh việc SSR vừa render đúng danh tính lại bị
     // pha chờ của client xoá mất trước khi get-session trả về.
     if (session.isPending) return;
+    if (!mountSettledRef.current) return;
+    if (consumedAtomDataRef.current === session.data) return;
+    consumedAtomDataRef.current = session.data;
     void applySession(session.data?.user?.id ?? null);
-  }, [session.data, session.isPending, applySession]);
+  }, [session.data, session.isPending, applySession, mountTick]);
 
   /**
    * Khi KHÔNG có initialUser (resolve hoàn toàn phía client — test,
@@ -84,19 +153,40 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
    * theo cookie hiện tại. Có initialUser (đường SSR thật) thì loader
    * đã xác thực cookie phía server rồi — không gọi thêm.
    */
-  const reload = useCallback(async () => {
-    const { data } = await authClient.getSession();
+  const reload = useCallback(async (): Promise<boolean> => {
+    let sessionUserId: string | null;
+    try {
+      const { data } = await authClient.getSession();
+      sessionUserId = data?.user?.id ?? null;
+    } catch {
+      // Không đọc được phiên (lỗi mạng/phía client): giữ nguyên trạng
+      // thái hiện tại thay vì kết luận vội — atom phiên vẫn là đường
+      // resolve nền và sẽ áp kết quả của nó qua effect ở trên.
+      return false;
+    }
     // Buộc nạp lại hồ sơ kể cả khi id không đổi (phiên được gia hạn /
     // hồ sơ vừa bị sửa ở nơi khác).
-    syncedForRef.current = undefined;
-    await applySession(data?.user?.id ?? null);
+    await applySession(sessionUserId, true);
+    return true;
   }, [applySession]);
 
   const mountReloadedRef = useRef(false);
   useEffect(() => {
     if (initialUser !== undefined || mountReloadedRef.current) return;
     mountReloadedRef.current = true;
-    void reload();
+    let alive = true;
+    void reload().then((applied) => {
+      if (!alive) return;
+      // Reload đã áp kết luận dứt khoát: giá trị atom hiện tại (có
+      // thể là dư âm của vòng đời trước) coi như đã tiêu thụ — chỉ
+      // các giá trị atom mới sau đây mới được effect áp tiếp.
+      if (applied) consumedAtomDataRef.current = sessionDataRef.current;
+      mountSettledRef.current = true;
+      setMountTick((t) => t + 1);
+    });
+    return () => {
+      alive = false;
+    };
   }, [initialUser, reload]);
 
   /**
@@ -107,6 +197,8 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
    */
   const establishSession = useCallback(async (): Promise<UserProfile> => {
     queryClient.clear();
+    // Đăng nhập mới thay thế mọi lần resolve hồ sơ đang bay của phiên cũ.
+    profileFlightRef.current = null;
     const res = await apiFetch('/api/v1/users/me');
     const profile = userProfileSchema.parse(await res.json());
     syncedForRef.current = profile.id;
@@ -180,6 +272,7 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
   const logout = useCallback(async () => {
     await authClient.signOut().catch(() => undefined);
     queryClient.clear();
+    profileFlightRef.current = null;
     syncedForRef.current = null;
     setUser(null);
     setLoading(false);
