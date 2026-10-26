@@ -151,10 +151,14 @@ export class CurriculumRepository {
     }
     let examMatrixCellsCount = 0;
     let questionOutcomesCount = 0;
-    if (outcomeIds.length > 0) {
+    // Ô ma trận neo NODE (issue #249 — không còn neo YCCĐ): đếm theo
+    // tập node sắp xoá, độc lập với tập YCCĐ.
+    if (nodeIds.length > 0) {
       const [cells] = await this.db.select({ n: sql<number>`count(*)::int` }).from(examMatrixCells)
-        .where(inArray(examMatrixCells.learningOutcomeId, outcomeIds));
+        .where(inArray(examMatrixCells.curriculumNodeId, nodeIds));
       examMatrixCellsCount = cells?.n ?? 0;
+    }
+    if (outcomeIds.length > 0) {
       const [links] = await this.db.select({ n: sql<number>`count(*)::int` }).from(questionLearningOutcomes)
         .where(inArray(questionLearningOutcomes.learningOutcomeId, outcomeIds));
       questionOutcomesCount = links?.n ?? 0;
