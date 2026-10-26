@@ -8,8 +8,10 @@ import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 /**
  * Quiz Chặng 3 (issue #30) — ma trận đề + sinh slots + chấm Đ–S chùm +
  * bản đặc tả, đối chiếu hồ sơ thiết kế mục C:
- *  - ma trận neo Chương trình GDPT 2018 (môn → chương trình → node →
- *    YCCĐ), preset chụp lúc tạo, lệch tỉ lệ chỉ cảnh báo;
+ *  - ma trận neo Chương trình GDPT 2018 (môn → chương trình → ĐVK);
+ *    ô = ĐVK × mức × dạng (issue #249 — ma trận KHÔNG gắn YCCĐ, YCCĐ
+ *    chỉ hiện ở cột suy ra của bản đặc tả), preset chụp lúc tạo, lệch
+ *    tỉ lệ chỉ cảnh báo;
  *  - generate khoá cứng 422 khi thiếu câu ở bất kỳ ô nào; generate
  *    rút MỘT bộ câu cố định ghim cứng vào slots của exam version
  *    (bỏ hẳn drawMode/per_student theo chốt #226) — hai học sinh làm
@@ -45,11 +47,13 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     curriculumId: string;
     outcomeBiet: string;
     outcomeHieu: string;
+    lessonId: string;
     bankCatId: string;
     student: string;
     studentId: string;
     student2: string;
     mcPool: string[];
+    mcCross: string;
     mcPoolHieu: string[];
     tfClusterQuestions: string[];
     mkQuestion: (body: Record<string, unknown>) => Promise<string>;
@@ -81,6 +85,14 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     };
     const outcomeBiet = await mkOutcome('Nhận biết được tính đồng biến, nghịch biến của hàm số bậc hai.');
     const outcomeHieu = await mkOutcome('Giải thích được mối liên hệ giữa đồ thị và dấu của hệ số a.');
+    // ĐVK khác cùng chủ đề (issue #249): câu của ĐVK này KHÔNG được
+    // tính vào pool của ô neo ĐVK "Hàm số bậc hai".
+    const lesson2Res = await http(app).post('/api/v1/curriculum/nodes').set('Authorization', `Bearer ${admin}`)
+      .send({ curriculumId, parentId: topicId, title: 'Hàm số bậc nhất', kind: 'lesson' });
+    const lesson2Id = lesson2Res.body.id as string;
+    const outcomeOtherRes = await http(app).post('/api/v1/curriculum/outcomes').set('Authorization', `Bearer ${admin}`)
+      .send({ nodeId: lesson2Id, content: 'Nhận biết được hàm số bậc nhất.' });
+    const outcomeOther = outcomeOtherRes.body.id as string;
 
     // Khoá học + học sinh.
     const cat = await createCategory(app, admin);
@@ -127,6 +139,22 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       await tag(q, outcomeHieu, 'hieu');
       mcPoolHieu.push(q);
     }
+    // Câu gắn YCCĐ "Hiểu" của CÙNG ĐVK ở mức Biết (issue #249): ô neo
+    // ĐVK phải tính câu này vào pool Biết — mô hình cũ neo từng YCCĐ
+    // sẽ bỏ sót.
+    const mcCross = await mkQuestion({
+      qtype: 'multichoice', name: 'MCX', questionText: 'MCX: chọn đáp án đúng.', defaultMark: 1,
+      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+    });
+    await tag(mcCross, outcomeHieu, 'biet');
+    // Câu của ĐVK khác ở cùng mức Biết: không thuộc pool của ô.
+    for (const name of ['MCO1', 'MCO2']) {
+      const q = await mkQuestion({
+        qtype: 'multichoice', name, questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
+        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+      });
+      await tag(q, outcomeOther, 'biet');
+    }
     // Chùm Đ–S: một stimulus + 4 câu truefalse cùng gắn outcome/mức Hiểu.
     const stimRes = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: bankCatId, content: 'Cho hàm số y = x² − 2x + 1. Xét tính đúng sai của các mệnh đề sau.' });
@@ -143,8 +171,8 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       tfClusterQuestions.push(q);
     }
     return {
-      courseId: course.id, sectionId, subjectId, curriculumId, outcomeBiet, outcomeHieu,
-      bankCatId, student: s1.token, studentId: s1.id, student2: s2.token, mcPool, mcPoolHieu, tfClusterQuestions,
+      courseId: course.id, sectionId, subjectId, curriculumId, outcomeBiet, outcomeHieu, lessonId,
+      bankCatId, student: s1.token, studentId: s1.id, student2: s2.token, mcPool, mcCross, mcPoolHieu, tfClusterQuestions,
       mkQuestion,
     };
   }
@@ -192,20 +220,24 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(matrix.warnings.length).toBeGreaterThan(0); // chưa có ô nào
 
     const cell = await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
       questionCount: 2, cellScore: 4, minutes: 10,
     });
     expect(cell.status === 200 || cell.status === 201).toBe(true);
+    // Ô mang ĐVK, TUYỆT ĐỐI không còn trường YCCĐ (issue #249).
+    const createdCell = (cell.body.cells as Record<string, unknown>[])[0]!;
+    expect(createdCell.curriculumNodeId).toBe(ctx.lessonId);
+    expect(createdCell.learningOutcomeId).toBeUndefined();
     // Trùng khoá ô bị từ chối.
     const dup = await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
       questionCount: 1, cellScore: 1,
     });
     expect(dup.status).toBe(400);
     expect(dup.body.code).toBe('quiz.matrix_cell_exists');
     // van_dung_cao ngoài bộ ba mức bị từ chối.
     const vdc = await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'van_dung_cao', qtype: 'essay',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'van_dung_cao', qtype: 'essay',
       questionCount: 1, cellScore: 1,
     });
     expect(vdc.status).toBe(400);
@@ -215,22 +247,26 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(view.body.warnings.some((w: string) => w.includes('Tổng điểm các ô'))).toBe(true);
   });
 
-  it('availability counts candidates per cell; generate hard-fails 422 when a cell is short', async () => {
+  it('availability counts candidates per cell BY KNOWLEDGE UNIT (issue #249); generate hard-fails 422 when a cell is short', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 6 });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
-      questionCount: 4, cellScore: 4,
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
+      questionCount: 5, cellScore: 4,
     });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 2,
     });
     const avail = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/availability`).set('Authorization', `Bearer ${admin}`);
     expect(avail.body.sufficient).toBe(false);
     const mcCell = (avail.body.cells as { required: number; available: number; deficit: number }[])
-      .find((c) => c.required === 4)!;
-    expect(mcCell.available).toBe(3); // pool có 3 câu multichoice
+      .find((c) => c.required === 5)!;
+    // Pool của ô = câu gắn BẤT KỲ YCCĐ nào thuộc ĐVK ở mức Biết:
+    // 3 câu gắn YCCĐ Biết + 1 câu gắn YCCĐ Hiểu ở mức Biết = 4. Hai
+    // câu của ĐVK khác (cùng mức Biết) KHÔNG được tính — mô hình cũ
+    // neo từng YCCĐ chỉ đếm được 3, mô hình rò ĐVK sẽ đếm 6.
+    expect(mcCell.available).toBe(4);
     expect(mcCell.deficit).toBe(1);
     const tfCell = (avail.body.cells as { required: number; available: number }[]).find((c) => c.required === 1)!;
     expect(tfCell.available).toBe(1); // đúng 1 chùm 4 câu
@@ -241,18 +277,18 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(gen.body.code).toBe('quiz.matrix_insufficient_questions');
     // Chi tiết từng ô thiếu đi kèm trên wire (trường errors của problem details).
     const detailText = JSON.stringify(gen.body.errors ?? []);
-    expect(detailText).toContain('required 4, available 3, deficit 1');
+    expect(detailText).toContain('required 5, available 4, deficit 1');
   });
 
   it('generate fixed: slots follow cells, TF cell becomes one cluster of 4 slots with nominal marks', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 6 });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
       questionCount: 2, cellScore: 2, minutes: 5,
     });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 4, minutes: 10,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
@@ -265,7 +301,9 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const mcSlots = quiz.slots.filter((s) => s.matrixCellId && s.questionId && !s.clusterId);
     expect(mcSlots).toHaveLength(2);
     expect(new Set(mcSlots.map((s) => s.questionId)).size).toBe(2);
-    for (const s of mcSlots) expect(ctx.mcPool).toContain(s.questionId);
+    // Pool của ô Biết = mọi câu multichoice mức Biết thuộc ĐVK (gồm cả
+    // câu gắn YCCĐ khác của cùng ĐVK — ctx.mcCross).
+    for (const s of mcSlots) expect([...ctx.mcPool, ctx.mcCross]).toContain(s.questionId);
     const tfSlots = quiz.slots.filter((s) => s.clusterId);
     expect(tfSlots).toHaveLength(4);
     expect(new Set(tfSlots.map((s) => s.clusterId)).size).toBe(1);
@@ -279,7 +317,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 4 });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
@@ -301,16 +339,16 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 4 });
     const cellARes = await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
       questionCount: 2, cellScore: 2,
     });
     const cellA = (cellARes.body.cells as { id: string; qtype: string }[]).find((c) => c.qtype === 'multichoice')!.id;
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'multichoice',
       questionCount: 1, cellScore: 1,
     });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 1,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
@@ -323,13 +361,14 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(quiz.slots.every((x) => x.questionId !== null)).toBe(true);
     const mcFromA = quiz.slots.filter((x) => x.matrixCellId === cellA);
     expect(mcFromA).toHaveLength(2);
-    for (const x of mcFromA) expect(ctx.mcPool).toContain(x.questionId);
+    const bietPool = [...ctx.mcPool, ctx.mcCross];
+    for (const x of mcFromA) expect(bietPool).toContain(x.questionId);
 
     // Swap-cùng-ô trên ĐỀ: thay câu của slot đầu ô A bằng câu còn lại
     // của pool ô A → version đề mới; pin vẫn chỉ version cũ cho tới
     // khi được nâng.
     const slotA = mcFromA[0]!;
-    const spare = ctx.mcPool.find((q) => !mcFromA.some((x) => x.questionId === q))!;
+    const spare = bietPool.find((q) => !mcFromA.some((x) => x.questionId === q))!;
     const swap = await http(app).post(`/api/v1/exams/${quiz.examId}/swap`).set('Authorization', `Bearer ${admin}`)
       .send({ position: slotA.slot, questionId: spare });
     expect(swap.status === 200 || swap.status === 201).toBe(true);
@@ -358,11 +397,11 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'cv7991_periodic', totalScore: 6 });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
       questionCount: 2, cellScore: 2,
     });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
@@ -375,6 +414,18 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(spec.body.topics[0].topicTitle).toBe('Hàm số');
     const outcomeTexts = JSON.stringify(spec.body.topics);
     expect(outcomeTexts).toContain('Nhận biết được tính đồng biến');
+    // Cột YCCĐ của bản đặc tả = MỌI YCCĐ thuộc ĐVK của ô (issue #249):
+    // cả hai YCCĐ của bài "Hàm số bậc hai" đều hiện, dù mỗi ô trước
+    // đây chỉ neo đúng một YCCĐ; ô nằm ở cấp ĐVK, không nằm dưới YCCĐ.
+    const specNode = spec.body.topics[0].nodes[0] as {
+      outcomes: { content: string }[];
+      cells: { cellId: string }[];
+    };
+    expect(specNode.outcomes.map((o) => o.content)).toEqual(expect.arrayContaining([
+      'Nhận biết được tính đồng biến, nghịch biến của hàm số bậc hai.',
+      'Giải thích được mối liên hệ giữa đồ thị và dấu của hệ số a.',
+    ]));
+    expect(specNode.cells).toHaveLength(2);
     expect(spec.body.totals.totalScore).toBeCloseTo(6, 6);
     expect(spec.body.totals.totalQuestions).toBe(6);
     expect(spec.body.quiz).toBeNull();
@@ -447,7 +498,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     // tả sinh trực tiếp từ ô, sửa ô lặng lẽ sẽ làm đặc tả đã nộp lệch
     // version mà không ai biết.
     const withCell = await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'biet', qtype: 'multichoice',
       questionCount: 1, cellScore: 2,
     });
     expect(withCell.status).toBeLessThan(300);
@@ -464,7 +515,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
@@ -553,7 +604,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
     await addCell(matrix.id, {
-      learningOutcomeId: ctx.outcomeHieu, cognitiveLevel: 'hieu', qtype: 'truefalse',
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'hieu', qtype: 'truefalse',
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)

@@ -45,18 +45,18 @@ interface DossierBody {
 interface SpecCell { cognitiveLevel: string; questionCount: number; slotNumbers: number[] | null }
 interface SpecBody {
   matrix: { id: string; name: string };
-  topics: { nodes: { outcomes: { cells: SpecCell[] }[] }[] }[];
+  topics: { nodes: { outcomes: { content: string }[]; cells: SpecCell[] }[] }[];
   totals: { totalQuestions: number; totalScore: number };
   quiz: { id: string; name: string } | null;
   paper?: { id: string; version: number };
 }
 
-/** Bung các ô ma trận của một bản đặc tả thành danh sách phẳng (theo đúng view model MatrixSpecification). */
+/** Bung các ô ma trận của một bản đặc tả thành danh sách phẳng (theo đúng view model MatrixSpecification — ô nằm ở cấp ĐVK, issue #249). */
 function cellsOf(spec: SpecBody): SpecCell[] {
   const cells: SpecCell[] = [];
   for (const topic of spec.topics) {
     for (const node of topic.nodes) {
-      for (const outcome of node.outcomes) cells.push(...outcome.cells);
+      cells.push(...node.cells);
     }
   }
   return cells;
@@ -111,6 +111,7 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
       .send({ curriculumId, title: 'Hàm số', kind: 'topic' });
     const lessonRes = await http(app).post('/api/v1/curriculum/nodes').set(bearer(admin))
       .send({ curriculumId, parentId: topicRes.body.id, title: 'Hàm số bậc hai', kind: 'lesson' });
+    const lessonId = (lessonRes.body as { id: string }).id;
     const mkOutcome = async (content: string) => {
       const r = await http(app).post('/api/v1/curriculum/outcomes').set(bearer(admin)).send({ nodeId: lessonRes.body.id, content });
       return r.body.id as string;
@@ -145,10 +146,10 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     matrixId = matrix.id;
     matrixVersion = matrix.version;
     const cellA = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/cells`).set(bearer(admin))
-      .send({ learningOutcomeId: outcomeBiet, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 3, cellScore: 3, minutes: 10 });
+      .send({ curriculumNodeId: lessonId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 3, cellScore: 3, minutes: 10 });
     if (cellA.status !== 201 && cellA.status !== 200) throw new Error(`cellA failed: ${cellA.status}`);
     const cellB = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/cells`).set(bearer(admin))
-      .send({ learningOutcomeId: outcomeHieu, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1, minutes: 5 });
+      .send({ curriculumNodeId: lessonId, cognitiveLevel: 'hieu', qtype: 'multichoice', questionCount: 1, cellScore: 1, minutes: 5 });
     if (cellB.status !== 201 && cellB.status !== 200) throw new Error(`cellB failed: ${cellB.status}`);
 
     // Generate (admin) → đề ready gắn ma trận trong bank cá nhân admin.

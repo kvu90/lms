@@ -83,6 +83,7 @@ export interface MatrixSpecification {
     nodes: {
       nodeId: string;
       nodeTitle: string;
+      /** YCCĐ thuộc ĐVK của các ô (cột YCCĐ của bản đặc tả, Phụ lục 2 CV 7991) — ô ma trận neo ĐVK, KHÔNG neo YCCĐ (issue #249). */
       outcomes: {
         outcomeId: string;
         content: string;
@@ -90,20 +91,20 @@ export interface MatrixSpecification {
         sourceRef: string | null;
         /** Nguyên văn YCCĐ chương trình (bản thân outcome khi là 'program', hoặc outcome gốc khi là 'derived'). */
         programContent: string | null;
-        /** Bản tách mức của tổ chuyên môn khi outcome của ô là bản 'derived'. */
+        /** Bản tách mức của tổ chuyên môn khi YCCĐ là bản 'derived'. */
         derivedContent: string | null;
-        cells: {
-          cellId: string;
-          cognitiveLevel: string;
-          qtype: string;
-          questionCount: number;
-          cellScore: number;
-          minutes: number | null;
-          slotNumbers: number[] | null;
-          drawNote: string | null;
-          /** Để dành cho nhãn năng lực (điểm nối curriculum ↔ competency) — chưa có cơ chế gắn mã ở chặng này. */
-          competencyRefs: string[];
-        }[];
+      }[];
+      cells: {
+        cellId: string;
+        cognitiveLevel: string;
+        qtype: string;
+        questionCount: number;
+        cellScore: number;
+        minutes: number | null;
+        slotNumbers: number[] | null;
+        drawNote: string | null;
+        /** Để dành cho nhãn năng lực (điểm nối curriculum ↔ competency) — chưa có cơ chế gắn mã ở chặng này. */
+        competencyRefs: string[];
       }[];
     }[];
   }[];
@@ -122,7 +123,7 @@ export interface SpecificationSlot {
   questionId: string | null;
 }
 
-/** Bung view model đặc tả thành các dòng phẳng cho bảng xuất file (một dòng = một ô ma trận). */
+/** Bung view model đặc tả thành các dòng phẳng cho bảng xuất file (một dòng = một ô ma trận; cột YCCĐ = mọi YCCĐ thuộc ĐVK của ô). */
 export function flattenSpecification(spec: MatrixSpecification): {
   index: number; topicTitle: string; nodeTitle: string; outcomeText: string;
   levelLabel: string; qtypeLabel: string; questionCount: number; cellScore: number; slotText: string;
@@ -134,26 +135,25 @@ export function flattenSpecification(spec: MatrixSpecification): {
   let index = 0;
   for (const topic of spec.topics) {
     for (const node of topic.nodes) {
-      for (const outcome of node.outcomes) {
-        for (const cell of outcome.cells) {
-          index += 1;
-          const slotText = cell.slotNumbers && cell.slotNumbers.length
-            ? (cell.drawNote ? `${cell.drawNote} (vị trí ${cell.slotNumbers.join(', ')})` : cell.slotNumbers.join(', '))
-            : (cell.drawNote ?? '');
-          rows.push({
-            index,
-            topicTitle: topic.topicTitle,
-            nodeTitle: node.nodeTitle,
-            outcomeText: outcome.derivedContent
-              ? `${outcome.programContent ?? ''}\n(Tách mức: ${outcome.derivedContent})`
-              : (outcome.programContent ?? outcome.content),
-            levelLabel: LEVEL_LABELS[cell.cognitiveLevel] ?? cell.cognitiveLevel,
-            qtypeLabel: QTYPE_LABELS[cell.qtype] ?? cell.qtype,
-            questionCount: cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount,
-            cellScore: cell.cellScore,
-            slotText,
-          });
-        }
+      const outcomeText = node.outcomes.map((outcome) => (outcome.derivedContent
+        ? `${outcome.programContent ?? ''}\n(Tách mức: ${outcome.derivedContent})`
+        : (outcome.programContent ?? outcome.content))).join('\n');
+      for (const cell of node.cells) {
+        index += 1;
+        const slotText = cell.slotNumbers && cell.slotNumbers.length
+          ? (cell.drawNote ? `${cell.drawNote} (vị trí ${cell.slotNumbers.join(', ')})` : cell.slotNumbers.join(', '))
+          : (cell.drawNote ?? '');
+        rows.push({
+          index,
+          topicTitle: topic.topicTitle,
+          nodeTitle: node.nodeTitle,
+          outcomeText,
+          levelLabel: LEVEL_LABELS[cell.cognitiveLevel] ?? cell.cognitiveLevel,
+          qtypeLabel: QTYPE_LABELS[cell.qtype] ?? cell.qtype,
+          questionCount: cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount,
+          cellScore: cell.cellScore,
+          slotText,
+        });
       }
     }
   }
@@ -1101,7 +1101,7 @@ export class QuizService {
   }
   private matrixCellView(row: ExamMatrixCellRow): ExamMatrixCellView {
     return {
-      id: row.id, matrixId: row.matrixId, learningOutcomeId: row.learningOutcomeId,
+      id: row.id, matrixId: row.matrixId, curriculumNodeId: row.curriculumNodeId,
       cognitiveLevel: row.cognitiveLevel as ExamMatrixCellView['cognitiveLevel'],
       qtype: row.qtype as ExamMatrixCellView['qtype'],
       questionCount: row.questionCount, cellScore: row.cellScore,
@@ -1116,7 +1116,7 @@ export class QuizService {
       presetKind: row.presetKind as ExamMatrixView['presetKind'],
       targetFormPercents: row.targetFormPercents, targetLevelPercents: row.targetLevelPercents,
       levelSet: row.levelSet as ExamMatrixView['levelSet'],
-      scopeNote: row.scopeNote, scopeOutcomeIds: row.scopeOutcomeIds,
+      scopeNote: row.scopeNote, scopeNodeIds: row.scopeNodeIds,
       totalScore: row.totalScore, createdBy: row.createdBy,
       bankId: row.bankId, status: row.status as ExamMatrixView['status'],
       isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
@@ -1177,7 +1177,7 @@ export class QuizService {
       targetLevelPercents: input.targetLevelPercents !== undefined ? input.targetLevelPercents : (preset?.targetLevelPercents ?? null),
       levelSet: input.levelSet ?? 'three',
       scopeNote: input.scopeNote ?? null,
-      scopeOutcomeIds: input.scopeOutcomeIds ?? null,
+      scopeNodeIds: input.scopeNodeIds ?? null,
       totalScore: input.totalScore ?? 10,
       createdBy: actorId,
       // Trường ngân hàng (MB-0/MB-1): bankId đã gác quyền tại context
@@ -1257,7 +1257,7 @@ export class QuizService {
     if (input.targetLevelPercents !== undefined) patch.targetLevelPercents = input.targetLevelPercents;
     if (input.levelSet !== undefined) patch.levelSet = input.levelSet;
     if (input.scopeNote !== undefined) patch.scopeNote = input.scopeNote;
-    if (input.scopeOutcomeIds !== undefined) patch.scopeOutcomeIds = input.scopeOutcomeIds;
+    if (input.scopeNodeIds !== undefined) patch.scopeNodeIds = input.scopeNodeIds;
     if (input.totalScore !== undefined) patch.totalScore = input.totalScore;
     if (input.bankId !== undefined) patch.bankId = input.bankId;
     if (input.status !== undefined) patch.status = input.status;
@@ -1265,7 +1265,7 @@ export class QuizService {
     // Ma trận đã ready (đã dùng sinh đề/đem duyệt) thì sửa nội dung
     // phải tăng version — bản đặc tả đã nộp khớp version tại thời điểm
     // nộp, không khớp bản đã sửa lặng lẽ.
-    const contentChanged = ['name', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeOutcomeIds', 'totalScore']
+    const contentChanged = ['name', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore']
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
     if (contentChanged && row.status !== 'draft') patch.version = row.version + 1;
     if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch);
@@ -1302,10 +1302,11 @@ export class QuizService {
   }
 
   /**
-   * Thêm ô vào ma trận (quiz:managematrix): outcome phải thuộc chương
-   * trình của ma trận, mức phải thuộc bộ mức của ma trận, và khi ma
-   * trận có phạm vi đã dạy (scope_outcome_ids) thì outcome phải nằm
-   * trong phạm vi.
+   * Thêm ô vào ma trận (quiz:managematrix): ĐƠN VỊ KIẾN THỨC phải
+   * thuộc chương trình của ma trận (ô neo ĐVK — issue #249, ma trận
+   * không gắn YCCĐ), mức phải thuộc bộ mức của ma trận, và khi ma
+   * trận có phạm vi đã dạy (scope_node_ids) thì ĐVK phải nằm trong
+   * phạm vi.
    */
   async createMatrixCell(actorId: string, matrixId: string, input: CreateExamMatrixCellDto): Promise<ExamMatrixView> {
     const matrix = await this.getMatrixRow(matrixId);
@@ -1314,21 +1315,20 @@ export class QuizService {
     if (matrix.levelSet === 'three' && input.cognitiveLevel === 'van_dung_cao') {
       throw new BadRequestException({ message: 'van_dung_cao is not part of the three-level set of this matrix', code: 'quiz.matrix_level_not_in_set' });
     }
-    if (matrix.scopeOutcomeIds && matrix.scopeOutcomeIds.length && !matrix.scopeOutcomeIds.includes(input.learningOutcomeId)) {
-      throw new BadRequestException({ message: 'Outcome is outside the taught scope of this matrix', code: 'quiz.matrix_cell_out_of_scope' });
+    if (matrix.scopeNodeIds && matrix.scopeNodeIds.length && !matrix.scopeNodeIds.includes(input.curriculumNodeId)) {
+      throw new BadRequestException({ message: 'Curriculum node is outside the taught scope of this matrix', code: 'quiz.matrix_cell_out_of_scope' });
     }
-    const outcome = await this.curriculum.getOutcome(actorId, input.learningOutcomeId);
-    const node = await this.curriculum.getNode(actorId, outcome.nodeId);
+    const node = await this.curriculum.getNode(actorId, input.curriculumNodeId);
     if (node.curriculumId !== matrix.curriculumId) {
-      throw new BadRequestException({ message: 'Outcome does not belong to the curriculum of this matrix', code: 'quiz.matrix_cell_outcome_mismatch' });
+      throw new BadRequestException({ message: 'Curriculum node does not belong to the curriculum of this matrix', code: 'quiz.matrix_cell_node_mismatch' });
     }
     const cells = await this.repo.listMatrixCells(matrix.id);
-    if (cells.some((c) => c.learningOutcomeId === input.learningOutcomeId && c.cognitiveLevel === input.cognitiveLevel && c.qtype === input.qtype)) {
-      throw new BadRequestException({ message: 'A cell already exists for this outcome, level and question type', code: 'quiz.matrix_cell_exists' });
+    if (cells.some((c) => c.curriculumNodeId === input.curriculumNodeId && c.cognitiveLevel === input.cognitiveLevel && c.qtype === input.qtype)) {
+      throw new BadRequestException({ message: 'A cell already exists for this curriculum node, level and question type', code: 'quiz.matrix_cell_exists' });
     }
     const position = input.position ?? (cells.length ? Math.max(...cells.map((c) => c.position)) + 1 : 1);
     await this.repo.insertMatrixCell({
-      matrixId: matrix.id, learningOutcomeId: input.learningOutcomeId,
+      matrixId: matrix.id, curriculumNodeId: input.curriculumNodeId,
       cognitiveLevel: input.cognitiveLevel, qtype: input.qtype,
       questionCount: input.questionCount, cellScore: input.cellScore,
       minutes: input.minutes ?? null, tfScale: input.tfScale ?? null, position,
@@ -1338,7 +1338,7 @@ export class QuizService {
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
 
-  /** Sửa một ô (quiz:managematrix) — khoá outcome/mức/dạng không đổi qua sửa; muốn đổi thì xoá ô tạo lại. */
+  /** Sửa một ô (quiz:managematrix) — khoá ĐVK/mức/dạng không đổi qua sửa; muốn đổi thì xoá ô tạo lại. */
   async updateMatrixCell(actorId: string, matrixId: string, cellId: string, input: UpdateExamMatrixCellDto): Promise<ExamMatrixView> {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
@@ -1370,13 +1370,15 @@ export class QuizService {
   }
 
   /**
-   * Ứng viên thô của một ô: câu ready gắn đúng outcome + mức, đúng
-   * dạng (qua question_learning_outcomes / Curriculum Chặng 2). Chưa
-   * xét quyền dùng ngân hàng của người gọi.
+   * Ứng viên thô của một ô: câu ready gắn BẤT KỲ YCCĐ nào thuộc ĐVK
+   * của ô ở đúng mức của ô, đúng dạng (qua
+   * question_learning_outcomes / Curriculum Chặng 2 — mức nằm trên
+   * dòng nối câu × YCCĐ; issue #249). Chưa xét quyền dùng ngân hàng
+   * của người gọi.
    */
   private async cellCandidates(cell: ExamMatrixCellRow): Promise<QuestionView[]> {
     return this.questions.listQuestionsByCurriculumFilter({
-      outcomeId: cell.learningOutcomeId, cognitiveLevel: cell.cognitiveLevel,
+      nodeId: cell.curriculumNodeId, cognitiveLevel: cell.cognitiveLevel,
       qtype: cell.qtype, status: 'ready',
     });
   }
@@ -1405,7 +1407,7 @@ export class QuizService {
   /**
    * Các chùm Đ–S hợp lệ từ danh sách ứng viên truefalse: nhóm theo
    * stimulus, chỉ giữ nhóm ĐÚNG 4 câu (một chùm = một stimulus + 4 câu
-   * cùng outcome/mức — ứng viên đã lọc sẵn theo outcome/mức của ô).
+   * cùng ĐVK/mức — ứng viên đã lọc sẵn theo ĐVK/mức của ô).
    */
   private tfClustersOf(candidates: QuestionView[]): QuestionView[][] {
     const byStimulus = new Map<string, QuestionView[]>();
@@ -1452,10 +1454,10 @@ export class QuizService {
 
   /** Chi tiết thiếu câu theo từng ô cho lỗi cứng của generate (mục C.3 bước 1). */
   private async matrixDeficits(actorId: string, cells: ExamMatrixCellRow[]): Promise<{
-    deficits: { cellId: string; learningOutcomeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[];
+    deficits: { cellId: string; curriculumNodeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[];
     pools: Map<string, { candidates: QuestionView[]; clusters: QuestionView[][] }>;
   }> {
-    const deficits: { cellId: string; learningOutcomeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[] = [];
+    const deficits: { cellId: string; curriculumNodeId: string; cognitiveLevel: string; qtype: string; required: number; available: number; deficit: number }[] = [];
     const pools = new Map<string, { candidates: QuestionView[]; clusters: QuestionView[][] }>();
     for (const cell of cells) {
       const candidates = await this.cellCandidatesForUser(actorId, cell);
@@ -1464,7 +1466,7 @@ export class QuizService {
       const available = cell.qtype === 'truefalse' ? clusters.length : candidates.length;
       if (available < cell.questionCount) {
         deficits.push({
-          cellId: cell.id, learningOutcomeId: cell.learningOutcomeId,
+          cellId: cell.id, curriculumNodeId: cell.curriculumNodeId,
           cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
           required: cell.questionCount, available, deficit: cell.questionCount - available,
         });
@@ -1506,7 +1508,7 @@ export class QuizService {
     const { deficits, pools } = await this.matrixDeficits(actorId, cells);
     if (deficits.length) {
       throw new UnprocessableEntityException({
-        message: deficits.map((d) => `cell ${d.cellId} (outcome ${d.learningOutcomeId}, ${d.cognitiveLevel}/${d.qtype}): required ${d.required}, available ${d.available}, deficit ${d.deficit}`),
+        message: deficits.map((d) => `cell ${d.cellId} (node ${d.curriculumNodeId}, ${d.cognitiveLevel}/${d.qtype}): required ${d.required}, available ${d.available}, deficit ${d.deficit}`),
         code: 'quiz.matrix_insufficient_questions',
       });
     }
@@ -1544,7 +1546,7 @@ export class QuizService {
     return out;
   }
 
-  /** Câu có thuộc pool của ô hay không (pool thô theo YCCĐ + mức + dạng + ready — điểm neo swap-cùng-ô của EB-2 như swapSlot đã dùng). */
+  /** Câu có thuộc pool của ô hay không (pool thô theo ĐVK + mức + dạng + ready — điểm neo swap-cùng-ô của EB-2 như swapSlot đã dùng). */
   async cellPoolContains(cellId: string, questionId: string): Promise<boolean> {
     const cell = await this.repo.getMatrixCell(cellId);
     if (!cell) return false;
@@ -1562,9 +1564,10 @@ export class QuizService {
 
   /**
    * Dựng view model bản đặc tả theo Mẫu 2 của phụ lục CV 7991: hàng
-   * Chủ đề → Nội dung/đơn vị kiến thức → YCCĐ (nguyên văn chương trình
-   * `source_kind='program'` + bản tách mức của tổ chuyên môn khi YCCĐ
-   * của ô là bản `derived`), cột số câu/điểm theo dạng × mức từ các ô;
+   * Chủ đề → Nội dung/đơn vị kiến thức → YCCĐ (cột YCCĐ = mọi YCCĐ
+   * thuộc ĐVK của ô: nguyên văn chương trình `source_kind='program'`
+   * + bản tách mức của tổ chuyên môn `derived`), cột số câu/điểm
+   * theo dạng × mức từ các ô;
    * khi đã sinh đề (pinId của đề sinh từ chính ma trận này) thì thêm
    * vị trí slot thật — đề per_student ghi rõ rút ngẫu nhiên theo ô.
    * Chân bảng: tổng theo dạng (điểm + %). Trường nhãn năng lực để dành
@@ -1640,14 +1643,15 @@ export class QuizService {
     interface OutcomeAcc {
       outcomeId: string; content: string; sourceKind: string; sourceRef: string | null;
       programContent: string | null; derivedContent: string | null;
-      cells: MatrixSpecification['topics'][number]['nodes'][number]['outcomes'][number]['cells'];
     }
-    const topicMap = new Map<string, { topicId: string | null; topicTitle: string; nodes: Map<string, { nodeId: string; nodeTitle: string; outcomes: Map<string, OutcomeAcc> }> }>();
+    type NodeCells = MatrixSpecification['topics'][number]['nodes'][number]['cells'];
+    const topicMap = new Map<string, { topicId: string | null; topicTitle: string; nodes: Map<string, { nodeId: string; nodeTitle: string; outcomes: Map<string, OutcomeAcc>; cells: NodeCells }> }>();
     const byForm = new Map<string, { qtype: string; questionCount: number; score: number }>();
     let totalQuestions = 0;
     for (const cell of cells) {
-      const outcome = await this.curriculum.getOutcome(actorId, cell.learningOutcomeId);
-      const node = await getNode(outcome.nodeId);
+      // Ô neo ĐVK (issue #249): cột YCCĐ của bản đặc tả = MỌI YCCĐ
+      // thuộc ĐVK của ô (program + derived tách mức như trước).
+      const node = await getNode(cell.curriculumNodeId);
       // Chủ đề = node tổ tiên có kind 'topic'; không có thì lấy node gốc cao nhất của chuỗi.
       let topic = node;
       let cursor = node;
@@ -1665,29 +1669,28 @@ export class QuizService {
       }
       let nodeAcc = topicAcc.nodes.get(node.id);
       if (!nodeAcc) {
-        nodeAcc = { nodeId: node.id, nodeTitle: node.title, outcomes: new Map() };
+        nodeAcc = { nodeId: node.id, nodeTitle: node.title, outcomes: new Map(), cells: [] };
         topicAcc.nodes.set(node.id, nodeAcc);
-      }
-      let outcomeAcc = nodeAcc.outcomes.get(outcome.id);
-      if (!outcomeAcc) {
-        let programContent: string | null = null;
-        let derivedContent: string | null = null;
-        if (outcome.sourceKind === 'derived' && outcome.derivedFromId) {
-          const parent = await this.curriculum.getOutcome(actorId, outcome.derivedFromId).catch(() => undefined);
-          programContent = parent?.content ?? null;
-          derivedContent = outcome.content;
-        } else {
-          programContent = outcome.content;
+        const outcomes = await this.curriculum.listOutcomes(actorId, node.id);
+        for (const outcome of outcomes) {
+          let programContent: string | null = null;
+          let derivedContent: string | null = null;
+          if (outcome.sourceKind === 'derived' && outcome.derivedFromId) {
+            const parent = await this.curriculum.getOutcome(actorId, outcome.derivedFromId).catch(() => undefined);
+            programContent = parent?.content ?? null;
+            derivedContent = outcome.content;
+          } else {
+            programContent = outcome.content;
+          }
+          nodeAcc.outcomes.set(outcome.id, {
+            outcomeId: outcome.id, content: outcome.content, sourceKind: outcome.sourceKind,
+            sourceRef: outcome.sourceRef, programContent, derivedContent,
+          });
         }
-        outcomeAcc = {
-          outcomeId: outcome.id, content: outcome.content, sourceKind: outcome.sourceKind,
-          sourceRef: outcome.sourceRef, programContent, derivedContent, cells: [],
-        };
-        nodeAcc.outcomes.set(outcome.id, outcomeAcc);
       }
       const cellSlots = slots ? slots.filter((s) => s.matrixCellId === cell.id) : [];
       const perStudent = cellSlots.length > 0 && cellSlots.every((s) => s.questionId === null);
-      outcomeAcc.cells.push({
+      nodeAcc.cells.push({
         cellId: cell.id, cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
         questionCount: cell.questionCount, cellScore: cell.cellScore, minutes: cell.minutes,
         slotNumbers: slots ? cellSlots.map((s) => s.slot).sort((a, b) => a - b) : null,
@@ -1716,6 +1719,7 @@ export class QuizService {
         nodes: [...t.nodes.values()].map((n) => ({
           nodeId: n.nodeId, nodeTitle: n.nodeTitle,
           outcomes: [...n.outcomes.values()],
+          cells: n.cells,
         })),
       })),
       totals: { byForm: formTotals, totalScore, totalQuestions },

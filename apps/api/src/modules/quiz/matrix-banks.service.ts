@@ -87,7 +87,7 @@ export class MatrixBanksService {
   /**
    * Deep copy một ma trận vào bank đích trong MỘT transaction: dòng
    * ma trận mang danh tính mới + toàn bộ ô sao nguyên (giữ
-   * learning_outcome_id — ô neo YCCĐ của chương trình, không neo bank);
+   * curriculum_node_id — ô neo ĐVK của chương trình, không neo bank);
    * derived_from_matrix_id trỏ về nguồn; version về 1.
    */
   private async deepCopyMatrix(actorId: string, source: ExamMatrixRow, targetBank: QuestionBankRow, opts: {
@@ -104,12 +104,12 @@ export class MatrixBanksService {
         derivedFromMatrixId: source.id, version: 1,
         presetKind: source.presetKind,
         targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
-        levelSet: source.levelSet, scopeNote: source.scopeNote, scopeOutcomeIds: source.scopeOutcomeIds,
+        levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
         totalScore: source.totalScore, createdBy: actorId,
       }, tx);
       for (const cell of cells) {
         await this.repo.insertMatrixCell({
-          matrixId: copy.id, learningOutcomeId: cell.learningOutcomeId,
+          matrixId: copy.id, curriculumNodeId: cell.curriculumNodeId,
           cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
           questionCount: cell.questionCount, cellScore: cell.cellScore,
           minutes: cell.minutes, tfScale: cell.tfScale, position: cell.position,

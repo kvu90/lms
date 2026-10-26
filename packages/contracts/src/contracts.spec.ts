@@ -11,6 +11,7 @@ import {
   createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
   searchMessagesQuerySchema, messageSearchResultSchema,
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
+  createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -211,6 +212,34 @@ describe('assessment contracts', () => {
     });
     expect(usage.attempts[0]?.questionVersionId).toBe('01900000-0000-7000-8000-000000000008');
     expect(usage.attempts[0]?.steps).toHaveLength(3);
+  });
+
+  it('matrix cells anchor a knowledge unit, never an outcome (issue #249, CV 7991)', () => {
+    const nodeId = '01900000-0000-7000-8000-000000000030';
+    const cell = createExamMatrixCellSchema.parse({
+      curriculumNodeId: nodeId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 2,
+    });
+    expect(cell.curriculumNodeId).toBe(nodeId);
+    // Mô hình cũ neo YCCĐ ở ô đã bỏ hẳn: strictObject từ chối learningOutcomeId.
+    expect(() => createExamMatrixCellSchema.parse({
+      learningOutcomeId: nodeId, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 2,
+    })).toThrow();
+    const view = examMatrixCellViewSchema.parse({
+      id: '01900000-0000-7000-8000-000000000031', matrixId: '01900000-0000-7000-8000-000000000032',
+      curriculumNodeId: nodeId, cognitiveLevel: 'hieu', qtype: 'truefalse', questionCount: 1, cellScore: 4,
+      minutes: null, tfScale: null, position: 1,
+    });
+    expect(view.curriculumNodeId).toBe(nodeId);
+    // Phạm vi đã dạy của ma trận cũng theo ĐVK (scopeNodeIds), không theo YCCĐ.
+    const matrix = createExamMatrixSchema.parse({
+      name: 'Ma trận', subjectId: '01900000-0000-7000-8000-000000000033',
+      curriculumId: '01900000-0000-7000-8000-000000000034', scopeNodeIds: [nodeId],
+    });
+    expect(matrix.scopeNodeIds).toEqual([nodeId]);
+    expect(() => createExamMatrixSchema.parse({
+      name: 'Ma trận', subjectId: '01900000-0000-7000-8000-000000000033',
+      curriculumId: '01900000-0000-7000-8000-000000000034', scopeOutcomeIds: [nodeId],
+    })).toThrow();
   });
 });
 
