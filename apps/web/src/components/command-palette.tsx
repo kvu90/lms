@@ -61,6 +61,7 @@ export function CommandPalette() {
       { id: 'screen-notifications', title: t('app:navNotifications'), url: '/notifications', group: 'screens' },
       { id: 'screen-search', title: t('app:navSearch'), url: '/search', group: 'screens' },
       { id: 'screen-profile', title: t('app:navProfile'), url: '/profile', group: 'screens' },
+      { id: 'screen-settings', title: t('app:navSettings'), url: '/settings', group: 'screens' },
       ...(perms.hasLearnerFootprint
         ? ([
             { id: 'screen-badges', title: t('app:navBadges'), url: '/badges', group: 'screens' },

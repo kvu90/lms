@@ -282,6 +282,13 @@ export interface NotificationPreferenceView {
   popupEnabled: boolean;
   emailFrequency: EmailFrequency | null;
   emailAvailable: boolean;
+  /**
+   * Chính sách phát của admin ở cấp site (NB-7): false = admin đã tắt
+   * loại này cho toàn site — `notify()` bỏ qua bất kể tuỳ chọn cá
+   * nhân; trang Cài đặt thông báo đọc trường này để hiển thị khoá
+   * "Admin đã tắt ở cấp site" thay vì để người dùng bật vô ích.
+   */
+  siteEnabled: boolean;
 }
 
 export interface NotifyResult {

@@ -34,6 +34,7 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
   { prefix: '/contentbank', key: 'navContentBank', ns: 'app' },
   { prefix: '/privacy', key: 'navPrivacy', ns: 'app' },
   { prefix: '/profile', key: 'navProfile', ns: 'app' },
+  { prefix: '/settings', key: 'navSettings', ns: 'app' },
   { prefix: '/health', key: 'navHealth', ns: 'app' },
 ];
 

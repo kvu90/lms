@@ -62,6 +62,10 @@ export type EmailFrequency = 'immediate' | 'daily' | 'off';
  * `emailFrequency` null = provider không có kênh email;
  * `emailAvailable` false = kênh email chưa gửi thật (chưa có SMTP) —
  * trang hiện ghi chú trung thực, cài đặt vẫn lưu và áp dụng khi mở.
+ * `siteEnabled` false = admin đã tắt loại này ở cấp site (NB-7):
+ * trang Cài đặt thông báo hiển thị khoá "Admin đã tắt ở cấp site" và
+ * vô hiệu hoá điều khiển của dòng đó, vì server không phát loại này
+ * bất kể tuỳ chọn cá nhân.
  * Kênh push không có ở đây: ẩn hẳn cho tới khi có app native.
  */
 export interface NotificationPreferenceView {
@@ -75,6 +79,7 @@ export interface NotificationPreferenceView {
   popupEnabled: boolean;
   emailFrequency: EmailFrequency | null;
   emailAvailable: boolean;
+  siteEnabled: boolean;
 }
 
 /** Khoá định danh một dòng gộp trong cache/trạng thái hiển thị. */

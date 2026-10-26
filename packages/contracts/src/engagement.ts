@@ -193,6 +193,11 @@ export type EmailFrequency = z.infer<typeof emailFrequencySchema>;
  * `emailFrequency` là null khi provider không có kênh email;
  * `emailAvailable` cho biết kênh email đã gửi thật hay chưa (false cho
  * tới khi SMTP nối ở NB-5 — cài đặt vẫn lưu và áp dụng khi kênh mở).
+ * `siteEnabled` là chính sách phát của ADMIN ở cấp site (NB-7): false
+ * nghĩa là admin đã tắt loại này cho toàn site — `notify()` không phát
+ * bất kể tuỳ chọn cá nhân, nên web hiển thị khoá "Admin đã tắt ở cấp
+ * site" và không cho người dùng bật lên; loại bắt buộc P2 luôn true ở
+ * trường này vì admin cũng không tắt được chúng.
  * Kênh push không xuất hiện ở đây: chưa có app native nên ẩn hẳn khỏi
  * trang cài đặt, chỉ còn trong registry provider.
  */
@@ -210,6 +215,8 @@ export const notificationPreferenceSchema = z.object({
   popupEnabled: z.boolean(),
   emailFrequency: emailFrequencySchema.nullable(),
   emailAvailable: z.boolean(),
+  /** Chính sách admin cấp site (NB-7): false = admin đã tắt loại này ở cấp site, người dùng không bật lại được. */
+  siteEnabled: z.boolean(),
 });
 export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
 
