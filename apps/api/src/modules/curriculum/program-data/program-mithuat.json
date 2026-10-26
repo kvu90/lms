@@ -1131,20 +1131,30 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được một số thao tác, công đoạn cơ bản để làm nên"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được một số thao tác, công đoạn cơ bản để làm nên sản phẩm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được một số thao tác, công đoạn cơ bản để làm nên",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được một số thao tác, công đoạn cơ bản để làm nên sản phẩm.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     18
+     18,
+     19
     ]
    }
   },
@@ -1167,14 +1177,130 @@
        "content": [
         {
          "type": "text",
-         "text": "sản phẩm. – Nhận biết được tính chất tương phản của hình, khối ở sản phẩm thủ công. Sáng tạo và ứng dụng thẩm mĩ: – Tạo được sản phẩm có sự tương phản của hình, khối dạng cơ bản. – Tạo được màu đậm, màu nhạt ở sản phẩm bằng vật liệu sẵn có. – Thể hiện được chi tiết hoặc hình ảnh trọng tâm ở sản phẩm. – Vận dụng được sự khác nhau của chấm, đường hướng của nét để trang trí sản phẩm. – Tạo được cảm giác bề mặt chất liệu ở sản phẩm. Phân tích và đánh giá thẩm mĩ: – Trưng bày, giới thiệu được sản phẩm, chia sẻ mục đích sử dụng. – Biết phân biệt vật liệu tự nhiên, vật liệu nhân tạo ở sản phẩm thủ công."
+         "text": "Nhận biết được tính chất tương phản của hình, khối ở sản phẩm thủ công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tạo được sản phẩm có sự tương phản của hình, khối dạng cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tạo được màu đậm, màu nhạt ở sản phẩm bằng vật liệu sẵn có."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được chi tiết hoặc hình ảnh trọng tâm ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được sự khác nhau của chấm, đường hướng của nét để trang trí sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tạo được cảm giác bề mặt chất liệu ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trưng bày, giới thiệu được sản phẩm, chia sẻ mục đích sử dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết phân biệt vật liệu tự nhiên, vật liệu nhân tạo ở sản phẩm thủ công."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "sản phẩm. – Nhận biết được tính chất tương phản của hình, khối ở sản phẩm thủ công. Sáng tạo và ứng dụng thẩm mĩ: – Tạo được sản phẩm có sự tương phản của hình, khối dạng cơ bản. – Tạo được màu đậm, màu nhạt ở sản phẩm bằng vật liệu sẵn có. – Thể hiện được chi tiết hoặc hình ảnh trọng tâm ở sản phẩm. – Vận dụng được sự khác nhau của chấm, đường hướng của nét để trang trí sản phẩm. – Tạo được cảm giác bề mặt chất liệu ở sản phẩm. Phân tích và đánh giá thẩm mĩ: – Trưng bày, giới thiệu được sản phẩm, chia sẻ mục đích sử dụng. – Biết phân biệt vật liệu tự nhiên, vật liệu nhân tạo ở sản phẩm thủ công.",
+   "outcome_text": "– Nhận biết được tính chất tương phản của hình, khối ở sản phẩm thủ công. Sáng tạo và ứng dụng thẩm mĩ: – Tạo được sản phẩm có sự tương phản của hình, khối dạng cơ bản. – Tạo được màu đậm, màu nhạt ở sản phẩm bằng vật liệu sẵn có. – Thể hiện được chi tiết hoặc hình ảnh trọng tâm ở sản phẩm. – Vận dụng được sự khác nhau của chấm, đường hướng của nét để trang trí sản phẩm. – Tạo được cảm giác bề mặt chất liệu ở sản phẩm. Phân tích và đánh giá thẩm mĩ: – Trưng bày, giới thiệu được sản phẩm, chia sẻ mục đích sử dụng. – Biết phân biệt vật liệu tự nhiên, vật liệu nhân tạo ở sản phẩm thủ công.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -1224,20 +1350,137 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được yếu tố tạo hình: chấm, nét, hình, khối, màu sắc, đậm nhạt, chất cảm, không gian. – Nhận biết được màu nóng, màu lạnh; không gian xa, gần. – Xác định được nội dung chủ đề và hình thức thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Phối hợp được một số kĩ năng: cắt, xé, dán, vẽ, in, ghép, nặn, uốn,... trong thực hành, sáng tạo. – Vận dụng được độ đậm nhạt, nóng lạnh của màu trong thực hành, sáng tạo. – Tạo được mật độ khác nhau của chấm, nét ở sản phẩm. – Vận dụng được sự biến thể của hình, khối cơ bản để mô phỏng đối tượng. – Thể hiện được khoảng cách, vị trí khác nhau cho các yếu tố"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được yếu tố tạo hình: chấm, nét, hình, khối, màu sắc, đậm nhạt, chất cảm, không gian."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được màu nóng, màu lạnh; không gian xa, gần."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được nội dung chủ đề và hình thức thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phối hợp được một số kĩ năng: cắt, xé, dán, vẽ, in, ghép, nặn, uốn,... trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được độ đậm nhạt, nóng lạnh của màu trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tạo được mật độ khác nhau của chấm, nét ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được sự biến thể của hình, khối cơ bản để mô phỏng đối tượng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được khoảng cách, vị trí khác nhau cho các yếu tố tạo hình ở sản phẩm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được yếu tố tạo hình: chấm, nét, hình, khối, màu sắc, đậm nhạt, chất cảm, không gian. – Nhận biết được màu nóng, màu lạnh; không gian xa, gần. – Xác định được nội dung chủ đề và hình thức thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Phối hợp được một số kĩ năng: cắt, xé, dán, vẽ, in, ghép, nặn, uốn,... trong thực hành, sáng tạo. – Vận dụng được độ đậm nhạt, nóng lạnh của màu trong thực hành, sáng tạo. – Tạo được mật độ khác nhau của chấm, nét ở sản phẩm. – Vận dụng được sự biến thể của hình, khối cơ bản để mô phỏng đối tượng. – Thể hiện được khoảng cách, vị trí khác nhau cho các yếu tố",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được yếu tố tạo hình: chấm, nét, hình, khối, màu sắc, đậm nhạt, chất cảm, không gian. – Nhận biết được màu nóng, màu lạnh; không gian xa, gần. – Xác định được nội dung chủ đề và hình thức thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Phối hợp được một số kĩ năng: cắt, xé, dán, vẽ, in, ghép, nặn, uốn,... trong thực hành, sáng tạo. – Vận dụng được độ đậm nhạt, nóng lạnh của màu trong thực hành, sáng tạo. – Tạo được mật độ khác nhau của chấm, nét ở sản phẩm. – Vận dụng được sự biến thể của hình, khối cơ bản để mô phỏng đối tượng. – Thể hiện được khoảng cách, vị trí khác nhau cho các yếu tố tạo hình ở sản phẩm.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     20
+     20,
+     21
     ]
    }
   },
@@ -1260,14 +1503,65 @@
        "content": [
         {
          "type": "text",
-         "text": "tạo hình ở sản phẩm. – Tạo được sự khác nhau về cảm giác bề mặt chất liệu ở sản phẩm. – Thể hiện sự hiểu biết về hài hòa của yếu tố tạo hình trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Vận dụng được ngôn ngữ nói hoặc viết, biểu đạt cơ thể, diễn hoạt hình ảnh động, xây dựng câu chuyện,... để giới thiệu sản phẩm, tác phẩm mĩ thuật. – Nhận biết chủ đề của sản phẩm, tác phẩm; bước đầu biết đặt câu hỏi, trả lời và trao đổi để tìm hiểu tác giả, tác phẩm mĩ thuật."
+         "text": "Tạo được sự khác nhau về cảm giác bề mặt chất liệu ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện sự hiểu biết về hài hòa của yếu tố tạo hình trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được ngôn ngữ nói hoặc viết, biểu đạt cơ thể, diễn hoạt hình ảnh động, xây dựng câu chuyện,... để giới thiệu sản phẩm, tác phẩm mĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết chủ đề của sản phẩm, tác phẩm; bước đầu biết đặt câu hỏi, trả lời và trao đổi để tìm hiểu tác giả, tác phẩm mĩ thuật."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "tạo hình ở sản phẩm. – Tạo được sự khác nhau về cảm giác bề mặt chất liệu ở sản phẩm. – Thể hiện sự hiểu biết về hài hòa của yếu tố tạo hình trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Vận dụng được ngôn ngữ nói hoặc viết, biểu đạt cơ thể, diễn hoạt hình ảnh động, xây dựng câu chuyện,... để giới thiệu sản phẩm, tác phẩm mĩ thuật. – Nhận biết chủ đề của sản phẩm, tác phẩm; bước đầu biết đặt câu hỏi, trả lời và trao đổi để tìm hiểu tác giả, tác phẩm mĩ thuật.",
+   "outcome_text": "– Tạo được sự khác nhau về cảm giác bề mặt chất liệu ở sản phẩm. – Thể hiện sự hiểu biết về hài hòa của yếu tố tạo hình trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Vận dụng được ngôn ngữ nói hoặc viết, biểu đạt cơ thể, diễn hoạt hình ảnh động, xây dựng câu chuyện,... để giới thiệu sản phẩm, tác phẩm mĩ thuật. – Nhận biết chủ đề của sản phẩm, tác phẩm; bước đầu biết đặt câu hỏi, trả lời và trao đổi để tìm hiểu tác giả, tác phẩm mĩ thuật.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -1733,20 +2027,123 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được yếu tố và dấu hiệu của nguyên lí tạo hình ở sản phẩm thủ công. – Phân biệt được vật liệu tự nhiên, vật liệu nhân tạo, vật liệu sưu tầm, tái sử dụng ở sản phẩm thủ công. Sáng tạo và ứng dụng thẩm mĩ: – Xác định được đối tượng thể hiện, mục đích sáng tạo. – Làm được sản phẩm dựa trên đặc điểm của sản phẩm thủ công mĩ nghệ. – Biết sử dụng yếu tố tạo hình làm trọng tâm ở sản phẩm. – Lựa chọn, phối hợp được các vật liệu khác nhau để làm nên sản phẩm. – Biết vận dụng dấu hiệu của một số nguyên lí tạo hình như cân bằng, tương phản hoặc lặp lại, nhịp điệu,… trong thực"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được yếu tố và dấu hiệu của nguyên lí tạo hình ở sản phẩm thủ công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được vật liệu tự nhiên, vật liệu nhân tạo, vật liệu sưu tầm, tái sử dụng ở sản phẩm thủ công."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được đối tượng thể hiện, mục đích sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được sản phẩm dựa trên đặc điểm của sản phẩm thủ công mĩ nghệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết sử dụng yếu tố tạo hình làm trọng tâm ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn, phối hợp được các vật liệu khác nhau để làm nên sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết vận dụng dấu hiệu của một số nguyên lí tạo hình như cân bằng, tương phản hoặc lặp lại, nhịp điệu,… trong thực hành, sáng tạo."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được yếu tố và dấu hiệu của nguyên lí tạo hình ở sản phẩm thủ công. – Phân biệt được vật liệu tự nhiên, vật liệu nhân tạo, vật liệu sưu tầm, tái sử dụng ở sản phẩm thủ công. Sáng tạo và ứng dụng thẩm mĩ: – Xác định được đối tượng thể hiện, mục đích sáng tạo. – Làm được sản phẩm dựa trên đặc điểm của sản phẩm thủ công mĩ nghệ. – Biết sử dụng yếu tố tạo hình làm trọng tâm ở sản phẩm. – Lựa chọn, phối hợp được các vật liệu khác nhau để làm nên sản phẩm. – Biết vận dụng dấu hiệu của một số nguyên lí tạo hình như cân bằng, tương phản hoặc lặp lại, nhịp điệu,… trong thực",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được yếu tố và dấu hiệu của nguyên lí tạo hình ở sản phẩm thủ công. – Phân biệt được vật liệu tự nhiên, vật liệu nhân tạo, vật liệu sưu tầm, tái sử dụng ở sản phẩm thủ công. Sáng tạo và ứng dụng thẩm mĩ: – Xác định được đối tượng thể hiện, mục đích sáng tạo. – Làm được sản phẩm dựa trên đặc điểm của sản phẩm thủ công mĩ nghệ. – Biết sử dụng yếu tố tạo hình làm trọng tâm ở sản phẩm. – Lựa chọn, phối hợp được các vật liệu khác nhau để làm nên sản phẩm. – Biết vận dụng dấu hiệu của một số nguyên lí tạo hình như cân bằng, tương phản hoặc lặp lại, nhịp điệu,… trong thực hành, sáng tạo.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     24
+     24,
+     25
     ]
    }
   },
@@ -1769,14 +2166,37 @@
        "content": [
         {
          "type": "text",
-         "text": "hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Lựa chọn, thực hiện được hình thức giới thiệu sản phẩm. – Chia sẻ điều học hỏi được trong trưng bày, thảo luận và đánh giá sản phẩm."
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn, thực hiện được hình thức giới thiệu sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chia sẻ điều học hỏi được trong trưng bày, thảo luận và đánh giá sản phẩm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Lựa chọn, thực hiện được hình thức giới thiệu sản phẩm. – Chia sẻ điều học hỏi được trong trưng bày, thảo luận và đánh giá sản phẩm.",
+   "outcome_text": "Phân tích và đánh giá thẩm mĩ: – Lựa chọn, thực hiện được hình thức giới thiệu sản phẩm. – Chia sẻ điều học hỏi được trong trưng bày, thảo luận và đánh giá sản phẩm.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -2283,20 +2703,109 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Xác định được mục đích sáng tạo sản phẩm. – Nhận biết được giá trị thẩm mĩ của một số trường phái nghệ thuật. – Phân biệt được sự mô phỏng lại và lặp lại trên sản phẩm, tác phẩm. – Xây dựng được kế hoạch học tập sát với quá trình thực hành sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Xác định, diễn tả được nguồn sáng và đối tượng được chiếu sáng. – Mô phỏng lại được “mẫu” (đối tượng nghệ thuật) đúng trình"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được mục đích sáng tạo sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được giá trị thẩm mĩ của một số trường phái nghệ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được sự mô phỏng lại và lặp lại trên sản phẩm, tác phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xây dựng được kế hoạch học tập sát với quá trình thực hành sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định, diễn tả được nguồn sáng và đối tượng được chiếu sáng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô phỏng lại được “mẫu” (đối tượng nghệ thuật) đúng trình tự và phương pháp."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Xác định được mục đích sáng tạo sản phẩm. – Nhận biết được giá trị thẩm mĩ của một số trường phái nghệ thuật. – Phân biệt được sự mô phỏng lại và lặp lại trên sản phẩm, tác phẩm. – Xây dựng được kế hoạch học tập sát với quá trình thực hành sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Xác định, diễn tả được nguồn sáng và đối tượng được chiếu sáng. – Mô phỏng lại được “mẫu” (đối tượng nghệ thuật) đúng trình",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Xác định được mục đích sáng tạo sản phẩm. – Nhận biết được giá trị thẩm mĩ của một số trường phái nghệ thuật. – Phân biệt được sự mô phỏng lại và lặp lại trên sản phẩm, tác phẩm. – Xây dựng được kế hoạch học tập sát với quá trình thực hành sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Xác định, diễn tả được nguồn sáng và đối tượng được chiếu sáng. – Mô phỏng lại được “mẫu” (đối tượng nghệ thuật) đúng trình tự và phương pháp.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     28
+     28,
+     29
     ]
    }
   },
@@ -2319,14 +2828,93 @@
        "content": [
         {
          "type": "text",
-         "text": "tự và phương pháp. – Vận dụng được nhịp điệu của đường nét, hoa văn, hoạ tiết,... vào sáng tạo sản phẩm. – Vận dụng được giá trị thẩm mĩ của nghệ thuật truyền thống vào thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Lựa chọn được hình thức giới thiệu, không gian trưng bày sản phẩm. – Sử dụng được thuật ngữ chuyên môn để mô tả tác phẩm mĩ thuật. – Chỉ ra được vai trò của tác phẩm hội hoạ, đồ hoạ trong không gian nội thất. – Phân biệt được một số chất liệu trong hội hoạ và đồ hoạ."
+         "text": "Vận dụng được nhịp điệu của đường nét, hoa văn, hoạ tiết,... vào sáng tạo sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được giá trị thẩm mĩ của nghệ thuật truyền thống vào thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được hình thức giới thiệu, không gian trưng bày sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được thuật ngữ chuyên môn để mô tả tác phẩm mĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được vai trò của tác phẩm hội hoạ, đồ hoạ trong không gian nội thất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được một số chất liệu trong hội hoạ và đồ hoạ."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "tự và phương pháp. – Vận dụng được nhịp điệu của đường nét, hoa văn, hoạ tiết,... vào sáng tạo sản phẩm. – Vận dụng được giá trị thẩm mĩ của nghệ thuật truyền thống vào thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Lựa chọn được hình thức giới thiệu, không gian trưng bày sản phẩm. – Sử dụng được thuật ngữ chuyên môn để mô tả tác phẩm mĩ thuật. – Chỉ ra được vai trò của tác phẩm hội hoạ, đồ hoạ trong không gian nội thất. – Phân biệt được một số chất liệu trong hội hoạ và đồ hoạ.",
+   "outcome_text": "– Vận dụng được nhịp điệu của đường nét, hoa văn, hoạ tiết,... vào sáng tạo sản phẩm. – Vận dụng được giá trị thẩm mĩ của nghệ thuật truyền thống vào thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Lựa chọn được hình thức giới thiệu, không gian trưng bày sản phẩm. – Sử dụng được thuật ngữ chuyên môn để mô tả tác phẩm mĩ thuật. – Chỉ ra được vai trò của tác phẩm hội hoạ, đồ hoạ trong không gian nội thất. – Phân biệt được một số chất liệu trong hội hoạ và đồ hoạ.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -2595,20 +3183,174 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Thu thập được tư liệu, tài liệu,... cho việc thực hiện sản phẩm. – Phân biệt được tính tượng trưng, tính biểu tượng trong tác phẩm mĩ thuật. – Phân biệt được yếu tố chính, phụ, trung gian,... ở sản phẩm, tác phẩm. – Lựa chọn được công cụ, phương tiện và vật liệu để thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Vận dụng được phong cách, bút pháp của một số trường phái nghệ thuật vào thực hành sáng tạo. – Xác định và thể hiện được điểm nhấn trong thực hành, sáng tạo. – Thể hiện được phương hướng chuyển động của yếu tố tạo hình ở sản phẩm. – Vận dụng được yếu tố văn hoá nghệ thuật truyền thống của một số dân tộc ít người vào thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Tóm tắt được vài nét về cuộc đời và sự nghiệp của một số nghệ sĩ nổi tiếng Việt Nam và thế giới. – Nhận định được tiến trình phát triển của một số phong cách,"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tư liệu, tài liệu,... cho việc thực hiện sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được tính tượng trưng, tính biểu tượng trong tác phẩm mĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được yếu tố chính, phụ, trung gian,... ở sản phẩm, tác phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được công cụ, phương tiện và vật liệu để thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được phong cách, bút pháp của một số trường phái nghệ thuật vào thực hành sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định và thể hiện được điểm nhấn trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được phương hướng chuyển động của yếu tố tạo hình ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được yếu tố văn hoá nghệ thuật truyền thống của một số dân tộc ít người vào thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được vài nét về cuộc đời và sự nghiệp của một số nghệ sĩ nổi tiếng Việt Nam và thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận định được tiến trình phát triển của một số phong cách, trào lưu, trường phái nghệ thuật (Ấn tượng, Lập thể, Biểu hiện,...)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Thu thập được tư liệu, tài liệu,... cho việc thực hiện sản phẩm. – Phân biệt được tính tượng trưng, tính biểu tượng trong tác phẩm mĩ thuật. – Phân biệt được yếu tố chính, phụ, trung gian,... ở sản phẩm, tác phẩm. – Lựa chọn được công cụ, phương tiện và vật liệu để thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Vận dụng được phong cách, bút pháp của một số trường phái nghệ thuật vào thực hành sáng tạo. – Xác định và thể hiện được điểm nhấn trong thực hành, sáng tạo. – Thể hiện được phương hướng chuyển động của yếu tố tạo hình ở sản phẩm. – Vận dụng được yếu tố văn hoá nghệ thuật truyền thống của một số dân tộc ít người vào thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Tóm tắt được vài nét về cuộc đời và sự nghiệp của một số nghệ sĩ nổi tiếng Việt Nam và thế giới. – Nhận định được tiến trình phát triển của một số phong cách,",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Thu thập được tư liệu, tài liệu,... cho việc thực hiện sản phẩm. – Phân biệt được tính tượng trưng, tính biểu tượng trong tác phẩm mĩ thuật. – Phân biệt được yếu tố chính, phụ, trung gian,... ở sản phẩm, tác phẩm. – Lựa chọn được công cụ, phương tiện và vật liệu để thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Vận dụng được phong cách, bút pháp của một số trường phái nghệ thuật vào thực hành sáng tạo. – Xác định và thể hiện được điểm nhấn trong thực hành, sáng tạo. – Thể hiện được phương hướng chuyển động của yếu tố tạo hình ở sản phẩm. – Vận dụng được yếu tố văn hoá nghệ thuật truyền thống của một số dân tộc ít người vào thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Tóm tắt được vài nét về cuộc đời và sự nghiệp của một số nghệ sĩ nổi tiếng Việt Nam và thế giới. – Nhận định được tiến trình phát triển của một số phong cách, trào lưu, trường phái nghệ thuật (Ấn tượng, Lập thể, Biểu hiện,...).",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     31
+     31,
+     32
     ]
    }
   },
@@ -2631,14 +3373,28 @@
        "content": [
         {
          "type": "text",
-         "text": "trào lưu, trường phái nghệ thuật (Ấn tượng, Lập thể, Biểu hiện,...). – Phân tích, so sánh được sự tương đồng và khác biệt giữa hai tác phẩm cùng phong cách, trường phái. – Trình bày được quan điểm cá nhân về sản phẩm, tác phẩm mĩ thuật."
+         "text": "Phân tích, so sánh được sự tương đồng và khác biệt giữa hai tác phẩm cùng phong cách, trường phái."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quan điểm cá nhân về sản phẩm, tác phẩm mĩ thuật."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "trào lưu, trường phái nghệ thuật (Ấn tượng, Lập thể, Biểu hiện,...). – Phân tích, so sánh được sự tương đồng và khác biệt giữa hai tác phẩm cùng phong cách, trường phái. – Trình bày được quan điểm cá nhân về sản phẩm, tác phẩm mĩ thuật.",
+   "outcome_text": "– Phân tích, so sánh được sự tương đồng và khác biệt giữa hai tác phẩm cùng phong cách, trường phái. – Trình bày được quan điểm cá nhân về sản phẩm, tác phẩm mĩ thuật.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -2906,20 +3662,81 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Liệt kê được một số ngành nghề liên quan đến mĩ thuật tạo hình. – Nêu được yếu tố đặc trưng của một số ngành nghề liên quan đến mĩ thuật tạo hình. Sáng tạo và ứng dụng thẩm mĩ: – Viết được một bài luận hoặc làm một đoạn Video clip,... giới thiệu ngành nghề liên quan đến mĩ thuật tạo hình. – Thể hiện được kiến thức, kĩ năng liên môn thông qua sản"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liệt kê được một số ngành nghề liên quan đến mĩ thuật tạo hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được yếu tố đặc trưng của một số ngành nghề liên quan đến mĩ thuật tạo hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được một bài luận hoặc làm một đoạn Video clip,... giới thiệu ngành nghề liên quan đến mĩ thuật tạo hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được kiến thức, kĩ năng liên môn thông qua sản phẩm cụ thể."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Liệt kê được một số ngành nghề liên quan đến mĩ thuật tạo hình. – Nêu được yếu tố đặc trưng của một số ngành nghề liên quan đến mĩ thuật tạo hình. Sáng tạo và ứng dụng thẩm mĩ: – Viết được một bài luận hoặc làm một đoạn Video clip,... giới thiệu ngành nghề liên quan đến mĩ thuật tạo hình. – Thể hiện được kiến thức, kĩ năng liên môn thông qua sản",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Liệt kê được một số ngành nghề liên quan đến mĩ thuật tạo hình. – Nêu được yếu tố đặc trưng của một số ngành nghề liên quan đến mĩ thuật tạo hình. Sáng tạo và ứng dụng thẩm mĩ: – Viết được một bài luận hoặc làm một đoạn Video clip,... giới thiệu ngành nghề liên quan đến mĩ thuật tạo hình. – Thể hiện được kiến thức, kĩ năng liên môn thông qua sản phẩm cụ thể.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     33
+     33,
+     34
     ]
    }
   },
@@ -2942,14 +3759,37 @@
        "content": [
         {
          "type": "text",
-         "text": "phẩm cụ thể. Phân tích và đánh giá thẩm mĩ: – Hiểu được vai trò của mĩ thuật trong đời sống văn hoá xã hội. – Nhận định được lĩnh vực chuyên ngành phù hợp với sở thích cá nhân."
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được vai trò của mĩ thuật trong đời sống văn hoá xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận định được lĩnh vực chuyên ngành phù hợp với sở thích cá nhân."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "phẩm cụ thể. Phân tích và đánh giá thẩm mĩ: – Hiểu được vai trò của mĩ thuật trong đời sống văn hoá xã hội. – Nhận định được lĩnh vực chuyên ngành phù hợp với sở thích cá nhân.",
+   "outcome_text": "Phân tích và đánh giá thẩm mĩ: – Hiểu được vai trò của mĩ thuật trong đời sống văn hoá xã hội. – Nhận định được lĩnh vực chuyên ngành phù hợp với sở thích cá nhân.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -4195,14 +5035,37 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được khái niệm thiết kế công nghiệp và mối quan hệ của thiết kế công nghiệp với đời sống. – Nhận biết được tính chất và đặc điểm chất liệu của một số thể loại đồ chơi. Sáng tạo và ứng dụng thẩm mĩ:"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được khái niệm thiết kế công nghiệp và mối quan hệ của thiết kế công nghiệp với đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được tính chất và đặc điểm chất liệu của một số thể loại đồ chơi."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được khái niệm thiết kế công nghiệp và mối quan hệ của thiết kế công nghiệp với đời sống. – Nhận biết được tính chất và đặc điểm chất liệu của một số thể loại đồ chơi. Sáng tạo và ứng dụng thẩm mĩ:",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được khái niệm thiết kế công nghiệp và mối quan hệ của thiết kế công nghiệp với đời sống. – Nhận biết được tính chất và đặc điểm chất liệu của một số thể loại đồ chơi.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -4226,6 +5089,15 @@
     {
      "type": "doc",
      "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
       {
        "type": "paragraph",
        "content": [
@@ -4303,12 +5175,13 @@
      ]
     }
    ],
-   "outcome_text": "– Thực hiện được phác thảo và hoàn thiện thiết kế đồ chơi. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. – Thể hiện được sự kết hợp giữa thẩm mĩ và ứng dụng thông qua sản phẩm. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa tính thẩm mĩ và tính ứng dụng của các sản phẩm đồ chơi. – Đánh giá được vai trò của nghệ thuật thiết kế đồ chơi trong đời sống xã hội.",
+   "outcome_text": "Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện thiết kế đồ chơi. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. – Thể hiện được sự kết hợp giữa thẩm mĩ và ứng dụng thông qua sản phẩm. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa tính thẩm mĩ và tính ứng dụng của các sản phẩm đồ chơi. – Đánh giá được vai trò của nghệ thuật thiết kế đồ chơi trong đời sống xã hội.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
+     40,
      41
     ]
    }
@@ -4626,20 +5499,95 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm của thiết kế mĩ thuật sân khấu. – Hiểu được mục đích thẩm mĩ và công năng của thiết kế mĩ thuật sân khấu. Sáng tạo và ứng dụng thẩm mĩ: – Lựa chọn được loại hình sân khấu để thực hành, sáng tạo. – Thực hiện được phác thảo, hoàn thiện mô hình hoặc bản vẽ đơn giản về sân khấu theo chủ đề lựa chọn. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được đặc điểm của thiết kế mĩ thuật sân khấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được mục đích thẩm mĩ và công năng của thiết kế mĩ thuật sân khấu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được loại hình sân khấu để thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được phác thảo, hoàn thiện mô hình hoặc bản vẽ đơn giản về sân khấu theo chủ đề lựa chọn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm của thiết kế mĩ thuật sân khấu. – Hiểu được mục đích thẩm mĩ và công năng của thiết kế mĩ thuật sân khấu. Sáng tạo và ứng dụng thẩm mĩ: – Lựa chọn được loại hình sân khấu để thực hành, sáng tạo. – Thực hiện được phác thảo, hoàn thiện mô hình hoặc bản vẽ đơn giản về sân khấu theo chủ đề lựa chọn. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm của thiết kế mĩ thuật sân khấu. – Hiểu được mục đích thẩm mĩ và công năng của thiết kế mĩ thuật sân khấu. Sáng tạo và ứng dụng thẩm mĩ: – Lựa chọn được loại hình sân khấu để thực hành, sáng tạo. – Thực hiện được phác thảo, hoàn thiện mô hình hoặc bản vẽ đơn giản về sân khấu theo chủ đề lựa chọn. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     42
+     42,
+     43
     ]
    }
   },
@@ -4662,14 +5610,37 @@
        "content": [
         {
          "type": "text",
-         "text": "tạo. – Thể hiện được mục đích và ý tưởng thiết kế trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận trong quá trình trưng bày, đánh giá sản phẩm."
+         "text": "Thể hiện được mục đích và ý tưởng thiết kế trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích, trao đổi, thảo luận trong quá trình trưng bày, đánh giá sản phẩm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "tạo. – Thể hiện được mục đích và ý tưởng thiết kế trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận trong quá trình trưng bày, đánh giá sản phẩm.",
+   "outcome_text": "– Thể hiện được mục đích và ý tưởng thiết kế trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận trong quá trình trưng bày, đánh giá sản phẩm.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -7374,14 +8345,88 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh bố cục nhân vật. – Lựa chọn được chủ đề, chất liệu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Sử dụng được chất liệu màu bột, màu nước hoặc chất liệu tương đương để thực hành, sáng tạo. – Có khả năng xây dựng được bố cục hợp lí và sinh động. – Ứng dụng được cách phối màu, hoà sắc trong bố cục nhân vật. Phân tích và đánh giá thẩm mĩ:"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được đặc điểm tranh bố cục nhân vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được chủ đề, chất liệu để thực hành."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được chất liệu màu bột, màu nước hoặc chất liệu tương đương để thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có khả năng xây dựng được bố cục hợp lí và sinh động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ứng dụng được cách phối màu, hoà sắc trong bố cục nhân vật."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh bố cục nhân vật. – Lựa chọn được chủ đề, chất liệu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Sử dụng được chất liệu màu bột, màu nước hoặc chất liệu tương đương để thực hành, sáng tạo. – Có khả năng xây dựng được bố cục hợp lí và sinh động. – Ứng dụng được cách phối màu, hoà sắc trong bố cục nhân vật. Phân tích và đánh giá thẩm mĩ:",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh bố cục nhân vật. – Lựa chọn được chủ đề, chất liệu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Sử dụng được chất liệu màu bột, màu nước hoặc chất liệu tương đương để thực hành, sáng tạo. – Có khả năng xây dựng được bố cục hợp lí và sinh động. – Ứng dụng được cách phối màu, hoà sắc trong bố cục nhân vật.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -7410,6 +8455,15 @@
        "content": [
         {
          "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trao đổi, phân tích về tranh bố cục nhân vật."
         }
        ]
@@ -7431,12 +8485,13 @@
      ]
     }
    ],
-   "outcome_text": "– Trao đổi, phân tích về tranh bố cục nhân vật. – Thể hiện được quan điểm cá nhân trong đánh giá tranh bố cục nhân vật.",
+   "outcome_text": "Phân tích và đánh giá thẩm mĩ: – Trao đổi, phân tích về tranh bố cục nhân vật. – Thể hiện được quan điểm cá nhân trong đánh giá tranh bố cục nhân vật.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
+     55,
      56
     ]
    }
@@ -7629,20 +8684,118 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh chất liệu màu bột (hoặc chất liệu tương đương). – Lựa chọn được chất liệu, thể loại tranh để thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện tranh bằng chất liệu màu bột (hoặc chất liệu tương đương). – Biểu đạt được cảm xúc thông qua chất liệu màu bột (hoặc chất liệu tương đương). – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận, phản biện về sản phẩm, tác phẩm"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được đặc điểm tranh chất liệu màu bột (hoặc chất liệu tương đương)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được chất liệu, thể loại tranh để thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được phác thảo và hoàn thiện tranh bằng chất liệu màu bột (hoặc chất liệu tương đương)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biểu đạt được cảm xúc thông qua chất liệu màu bột (hoặc chất liệu tương đương)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích, trao đổi, thảo luận, phản biện về sản phẩm, tác phẩm hội họa chất liệu màu bột (hoặc chất liệu tương đương)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh chất liệu màu bột (hoặc chất liệu tương đương). – Lựa chọn được chất liệu, thể loại tranh để thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện tranh bằng chất liệu màu bột (hoặc chất liệu tương đương). – Biểu đạt được cảm xúc thông qua chất liệu màu bột (hoặc chất liệu tương đương). – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận, phản biện về sản phẩm, tác phẩm",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh chất liệu màu bột (hoặc chất liệu tương đương). – Lựa chọn được chất liệu, thể loại tranh để thực hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện tranh bằng chất liệu màu bột (hoặc chất liệu tương đương). – Biểu đạt được cảm xúc thông qua chất liệu màu bột (hoặc chất liệu tương đương). – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận, phản biện về sản phẩm, tác phẩm hội họa chất liệu màu bột (hoặc chất liệu tương đương).",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     57
+     57,
+     58
     ]
    }
   },
@@ -7665,14 +8818,14 @@
        "content": [
         {
          "type": "text",
-         "text": "hội họa chất liệu màu bột (hoặc chất liệu tương đương). - Nêu được quan điểm cá nhân trong trưng bày, đánh giá sản phẩm và thưởng thức tác phẩm hội họa giới thiệu trong chủ đề."
+         "text": "Nêu được quan điểm cá nhân trong trưng bày, đánh giá sản phẩm và thưởng thức tác phẩm hội họa giới thiệu trong chủ đề."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "hội họa chất liệu màu bột (hoặc chất liệu tương đương). - Nêu được quan điểm cá nhân trong trưng bày, đánh giá sản phẩm và thưởng thức tác phẩm hội họa giới thiệu trong chủ đề.",
+   "outcome_text": "– Nêu được quan điểm cá nhân trong trưng bày, đánh giá sản phẩm và thưởng thức tác phẩm hội họa giới thiệu trong chủ đề.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -8031,20 +9184,67 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được một số đặc điểm thiết kế tạo dáng công nghiệp. – Hiểu được mối quan hệ của thiết kế tạo dáng công nghiệp với đời sống. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện thiết kế đồ dùng sinh hoạt"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số đặc điểm thiết kế tạo dáng công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được mối quan hệ của thiết kế tạo dáng công nghiệp với đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được phác thảo và hoàn thiện thiết kế đồ dùng sinh hoạt bằng vật liệu sẵn có."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được một số đặc điểm thiết kế tạo dáng công nghiệp. – Hiểu được mối quan hệ của thiết kế tạo dáng công nghiệp với đời sống. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện thiết kế đồ dùng sinh hoạt",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được một số đặc điểm thiết kế tạo dáng công nghiệp. – Hiểu được mối quan hệ của thiết kế tạo dáng công nghiệp với đời sống. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được phác thảo và hoàn thiện thiết kế đồ dùng sinh hoạt bằng vật liệu sẵn có.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     59
+     59,
+     60
     ]
    }
   },
@@ -8067,14 +9267,65 @@
        "content": [
         {
          "type": "text",
-         "text": "bằng vật liệu sẵn có. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. – Thể hiện được sự kết hợp giữa giá trị thẩm mĩ và tính ứng dụng ở sản phẩm. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa tính thẩm mĩ và tính ứng dụng ở sản phẩm. – Nhận định được tầm quan trọng của thiết kế tạo dáng công nghiệp với thực tiễn đời sống."
+         "text": "Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự kết hợp giữa giá trị thẩm mĩ và tính ứng dụng ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mối quan hệ giữa tính thẩm mĩ và tính ứng dụng ở sản phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận định được tầm quan trọng của thiết kế tạo dáng công nghiệp với thực tiễn đời sống."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "bằng vật liệu sẵn có. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. – Thể hiện được sự kết hợp giữa giá trị thẩm mĩ và tính ứng dụng ở sản phẩm. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa tính thẩm mĩ và tính ứng dụng ở sản phẩm. – Nhận định được tầm quan trọng của thiết kế tạo dáng công nghiệp với thực tiễn đời sống.",
+   "outcome_text": "– Vận dụng được một số yếu tố và nguyên lí tạo hình trong thực hành, sáng tạo. – Thể hiện được sự kết hợp giữa giá trị thẩm mĩ và tính ứng dụng ở sản phẩm. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa tính thẩm mĩ và tính ứng dụng ở sản phẩm. – Nhận định được tầm quan trọng của thiết kế tạo dáng công nghiệp với thực tiễn đời sống.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -8546,20 +9797,44 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm, vai trò của thiết kế mĩ thuật website. – Xác định được chủ đề và lựa chọn công cụ, phương tiện để thực"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được đặc điểm, vai trò của thiết kế mĩ thuật website."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được chủ đề và lựa chọn công cụ, phương tiện để thực hành, sáng tạo."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm, vai trò của thiết kế mĩ thuật website. – Xác định được chủ đề và lựa chọn công cụ, phương tiện để thực",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm, vai trò của thiết kế mĩ thuật website. – Xác định được chủ đề và lựa chọn công cụ, phương tiện để thực hành, sáng tạo.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     62
+     62,
+     63
     ]
    }
   },
@@ -8582,14 +9857,88 @@
        "content": [
         {
          "type": "text",
-         "text": "hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được thao tác với phương tiện sẵn có để thiết kế mĩ thuật website. – Phác thảo được các phân trang giao diện trên giấy. – Thể hiện được ý tưởng nội dung chủ đề trong thực hành, sáng tạo. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thiết kế mĩ thuật website. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận trong quá trình thực hiện, đánh giá sản phẩm."
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được thao tác với phương tiện sẵn có để thiết kế mĩ thuật website."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phác thảo được các phân trang giao diện trên giấy."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được ý tưởng nội dung chủ đề trong thực hành, sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được một số yếu tố và nguyên lí tạo hình trong thiết kế mĩ thuật website."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích, trao đổi, thảo luận trong quá trình thực hiện, đánh giá sản phẩm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "hành, sáng tạo. Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được thao tác với phương tiện sẵn có để thiết kế mĩ thuật website. – Phác thảo được các phân trang giao diện trên giấy. – Thể hiện được ý tưởng nội dung chủ đề trong thực hành, sáng tạo. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thiết kế mĩ thuật website. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận trong quá trình thực hiện, đánh giá sản phẩm.",
+   "outcome_text": "Sáng tạo và ứng dụng thẩm mĩ: – Thực hiện được thao tác với phương tiện sẵn có để thiết kế mĩ thuật website. – Phác thảo được các phân trang giao diện trên giấy. – Thể hiện được ý tưởng nội dung chủ đề trong thực hành, sáng tạo. – Vận dụng được một số yếu tố và nguyên lí tạo hình trong thiết kế mĩ thuật website. Phân tích và đánh giá thẩm mĩ: – Phân tích, trao đổi, thảo luận trong quá trình thực hiện, đánh giá sản phẩm.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -8787,20 +10136,118 @@
        "content": [
         {
          "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được đặc điểm, cấu trúc cơ bản của tượng chân dung. – Xác định nguồn sáng và vị trí quan sát mẫu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Tiến hành được các bước thực hiện bài vẽ tượng chân dung. – Sắp xếp được bố cục trên khổ giấy. – Thể hiện được cấu trúc, diễn tả khối trong không gian bằng chất liệu chì hoặc than. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa ánh sáng, hình và khối trong"
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được đặc điểm, cấu trúc cơ bản của tượng chân dung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định nguồn sáng và vị trí quan sát mẫu để thực hành."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sáng tạo và ứng dụng thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tiến hành được các bước thực hiện bài vẽ tượng chân dung."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sắp xếp được bố cục trên khổ giấy."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được cấu trúc, diễn tả khối trong không gian bằng chất liệu chì hoặc than."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích và đánh giá thẩm mĩ:"
+        }
+       ]
+      },
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mối quan hệ giữa ánh sáng, hình và khối trong không gian."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được đặc điểm, cấu trúc cơ bản của tượng chân dung. – Xác định nguồn sáng và vị trí quan sát mẫu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Tiến hành được các bước thực hiện bài vẽ tượng chân dung. – Sắp xếp được bố cục trên khổ giấy. – Thể hiện được cấu trúc, diễn tả khối trong không gian bằng chất liệu chì hoặc than. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa ánh sáng, hình và khối trong",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Hiểu được đặc điểm, cấu trúc cơ bản của tượng chân dung. – Xác định nguồn sáng và vị trí quan sát mẫu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Tiến hành được các bước thực hiện bài vẽ tượng chân dung. – Sắp xếp được bố cục trên khổ giấy. – Thể hiện được cấu trúc, diễn tả khối trong không gian bằng chất liệu chì hoặc than. Phân tích và đánh giá thẩm mĩ: – Phân tích được mối quan hệ giữa ánh sáng, hình và khối trong không gian.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
-     64
+     64,
+     65
     ]
    }
   },
@@ -8823,14 +10270,14 @@
        "content": [
         {
          "type": "text",
-         "text": "không gian. – Đánh giá được bố cục, hình, khối, không gian ở sản phẩm."
+         "text": "Đánh giá được bố cục, hình, khối, không gian ở sản phẩm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "không gian. – Đánh giá được bố cục, hình, khối, không gian ở sản phẩm.",
+   "outcome_text": "– Đánh giá được bố cục, hình, khối, không gian ở sản phẩm.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -8997,23 +10444,8 @@
    "topic": "",
    "content": "Yếu tố và nguyên lí tạo hình",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Quan sát và nhận thức thẩm mĩ:"
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "Quan sát và nhận thức thẩm mĩ:",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
@@ -9037,6 +10469,15 @@
     {
      "type": "doc",
      "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát và nhận thức thẩm mĩ:"
+        }
+       ]
+      },
       {
        "type": "paragraph",
        "content": [
@@ -9151,12 +10592,13 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được đặc điểm tranh bố cục từ những hình khối cơ bản. – Lựa chọn được chủ đề, chất liệu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Sử dụng được chất liệu màu bột (hoặc màu nước, hoặc chất liệu tương đương) để thực hành, sáng tạo. – Bước đầu thể hiện được ý tưởng chủ đề thông qua sắp xếp hình khối ở tranh bố cục. – Thể hiện được hoà sắc cho tranh bố cục bằng chất liệu màu bột (hoặc màu nước, hoặc chất liệu tương đương). – Bước đầu thể hiện được đặc điểm của chất liệu màu bột (hoặc màu nước, chất liệu tương đương) trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Trao đổi, phân tích về tranh bố cục từ những hình khối cơ bản.",
+   "outcome_text": "Quan sát và nhận thức thẩm mĩ: – Nhận biết được đặc điểm tranh bố cục từ những hình khối cơ bản. – Lựa chọn được chủ đề, chất liệu để thực hành. Sáng tạo và ứng dụng thẩm mĩ: – Sử dụng được chất liệu màu bột (hoặc màu nước, hoặc chất liệu tương đương) để thực hành, sáng tạo. – Bước đầu thể hiện được ý tưởng chủ đề thông qua sắp xếp hình khối ở tranh bố cục. – Thể hiện được hoà sắc cho tranh bố cục bằng chất liệu màu bột (hoặc màu nước, hoặc chất liệu tương đương). – Bước đầu thể hiện được đặc điểm của chất liệu màu bột (hoặc màu nước, chất liệu tương đương) trong thực hành, sáng tạo. Phân tích và đánh giá thẩm mĩ: – Trao đổi, phân tích về tranh bố cục từ những hình khối cơ bản.",
    "source": {
     "document": "Chương trình môn Mĩ thuật (môn Nghệ thuật) ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-mithuat-official.pdf",
     "portal": "data.moet.gov.vn (share gfmseyfWU0h4OEj; ban luu Wayback khop digest)",
     "pdf_pages": [
+     65,
      66
     ]
    }
