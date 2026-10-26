@@ -453,6 +453,13 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
       .set('Authorization', `Bearer ${teacher.token}`);
     expect(removeSelf.status).toBe(400);
     expect(removeSelf.body.code).toBe('messaging.member_remove_self');
+    // Kể cả quản trị viên site (có thẩm quyền quản lý qua kiểm duyệt)
+    // cũng không gỡ được NGƯỜI TẠO nhóm — nhóm không mất chủ sở hữu
+    // qua đường này.
+    const removeCreator = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${teacher.id}`)
+      .set('Authorization', `Bearer ${admin}`);
+    expect(removeCreator.status).toBe(403);
+    expect(removeCreator.body.code).toBe('messaging.member_remove_creator');
 
     // Gỡ thật: người tạo gỡ s2 — response mang danh sách thành viên mới.
     const removed = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)
