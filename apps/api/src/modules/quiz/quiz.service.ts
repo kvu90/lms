@@ -83,7 +83,7 @@ export interface MatrixSpecification {
     nodes: {
       nodeId: string;
       nodeTitle: string;
-      /** YCCĐ thuộc ĐVK của các ô (cột YCCĐ của bản đặc tả, Phụ lục 2 CV 7991) — ô ma trận neo ĐVK, KHÔNG neo YCCĐ (issue #249). */
+      /** YCCĐ thuộc ĐVK của các ô (cột YCCĐ của bản đặc tả, Phụ lục 2 CV 7991) — ô ma trận neo ĐVK, KHÔNG neo YCCĐ (issue #249). Chỉ gồm dòng HIỆN HÀNH: dòng program đã rút và derived có gốc đã rút đều bị loại (issue #161). */
       outcomes: {
         outcomeId: string;
         content: string;
@@ -93,6 +93,19 @@ export interface MatrixSpecification {
         programContent: string | null;
         /** Bản tách mức của tổ chuyên môn khi YCCĐ là bản 'derived'. */
         derivedContent: string | null;
+        /**
+         * Vị trí của dòng trong bản ghi chương trình (đợt neo lại
+         * định danh theo vị trí, issue #161): với derived là vị trí
+         * của dòng GỐC; null khi dòng không mang vị trí chương trình.
+         */
+        position: number | null;
+        /**
+         * Mã YCCĐ vị trí `<recordId>.<position 2 số>` do BACKEND tính
+         * từ sổ đăng ký + position (một nguồn sự thật cho vị trí —
+         * web không tự suy); với derived là mã của dòng gốc; null khi
+         * node không thuộc bản ghi dataset nào.
+         */
+        code: string | null;
       }[];
       cells: {
         cellId: string;
@@ -135,9 +148,15 @@ export function flattenSpecification(spec: MatrixSpecification): {
   let index = 0;
   for (const topic of spec.topics) {
     for (const node of topic.nodes) {
-      const outcomeText = node.outcomes.map((outcome) => (outcome.derivedContent
-        ? `${outcome.programContent ?? ''}\n(Tách mức: ${outcome.derivedContent})`
-        : (outcome.programContent ?? outcome.content))).join('\n');
+      // Dòng văn của outcome program được tiền tố bằng mã YCCĐ vị
+      // trí (P2, sổ mục B) khi có mã; derived trình bày nguyên văn
+      // gốc (tiền tố mã của gốc) kèm bản tách mức như trước.
+      const outcomeText = node.outcomes.map((outcome) => {
+        const prefix = outcome.code ? `${outcome.code} ` : '';
+        return outcome.derivedContent
+          ? `${prefix}${outcome.programContent ?? ''}\n(Tách mức: ${outcome.derivedContent})`
+          : `${prefix}${outcome.programContent ?? outcome.content}`;
+      }).join('\n');
       for (const cell of node.cells) {
         index += 1;
         const slotText = cell.slotNumbers && cell.slotNumbers.length
@@ -1791,10 +1810,21 @@ export class QuizService {
       }
       return node;
     };
-    interface OutcomeAcc {
-      outcomeId: string; content: string; sourceKind: string; sourceRef: string | null;
-      programContent: string | null; derivedContent: string | null;
-    }
+    type OutcomeAcc = MatrixSpecification['topics'][number]['nodes'][number]['outcomes'][number];
+    // Mã bản ghi theo node (tra sổ đăng ký) — đệm theo node để mỗi
+    // node chỉ tra một lần trong một lượt dựng đặc tả.
+    const recordIdByNode = new Map<string, string | null>();
+    const recordIdForNode = async (nodeId: string): Promise<string | null> => {
+      let recordId = recordIdByNode.get(nodeId);
+      if (recordId === undefined) {
+        recordId = await this.curriculum.programRecordIdForNode(nodeId);
+        recordIdByNode.set(nodeId, recordId);
+      }
+      return recordId;
+    };
+    /** Mã YCCĐ vị trí từ mã bản ghi + position; null khi node không thuộc dataset. */
+    const outcomeCode = (recordId: string | null, position: number): string | null =>
+      (recordId ? `${recordId}.${String(position).padStart(2, '0')}` : null);
     type NodeCells = MatrixSpecification['topics'][number]['nodes'][number]['cells'];
     const topicMap = new Map<string, { topicId: string | null; topicTitle: string; nodes: Map<string, { nodeId: string; nodeTitle: string; outcomes: Map<string, OutcomeAcc>; cells: NodeCells }> }>();
     const byForm = new Map<string, { qtype: string; questionCount: number; score: number }>();
@@ -1822,20 +1852,31 @@ export class QuizService {
       if (!nodeAcc) {
         nodeAcc = { nodeId: node.id, nodeTitle: node.title, outcomes: new Map(), cells: [] };
         topicAcc.nodes.set(node.id, nodeAcc);
+        // listOutcomes mặc định đã loại dòng program ĐÃ RÚT. Derived
+        // mang trạng thái hiện hành của GỐC: gốc đã rút (hoặc không
+        // còn tra được) thì derived cũng rời bản đặc tả — cùng một
+        // định nghĩa "hiện hành" với pool sinh đề (issue #161).
         const outcomes = await this.curriculum.listOutcomes(actorId, node.id);
         for (const outcome of outcomes) {
           let programContent: string | null = null;
           let derivedContent: string | null = null;
+          let position: number | null = outcome.position;
+          let code: string | null = null;
           if (outcome.sourceKind === 'derived' && outcome.derivedFromId) {
             const parent = await this.curriculum.getOutcome(actorId, outcome.derivedFromId).catch(() => undefined);
-            programContent = parent?.content ?? null;
+            if (!parent || parent.retiredAt !== null) continue;
+            programContent = parent.content;
             derivedContent = outcome.content;
+            // Derived là ý tách của gốc: position/mã là của dòng gốc.
+            position = parent.position;
+            code = outcomeCode(await recordIdForNode(parent.nodeId), parent.position);
           } else {
             programContent = outcome.content;
+            code = outcomeCode(await recordIdForNode(node.id), outcome.position);
           }
           nodeAcc.outcomes.set(outcome.id, {
             outcomeId: outcome.id, content: outcome.content, sourceKind: outcome.sourceKind,
-            sourceRef: outcome.sourceRef, programContent, derivedContent,
+            sourceRef: outcome.sourceRef, programContent, derivedContent, position, code,
           });
         }
       }

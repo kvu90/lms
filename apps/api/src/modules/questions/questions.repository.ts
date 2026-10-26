@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { Database } from '../../db/database';
 import {
   curricula, curriculumNodes, learningOutcomes,
@@ -426,6 +427,18 @@ export class QuestionsRepository {
   async filterQuestionsByCurriculumLinks(filter: {
     subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
   }): Promise<QuestionRow[]> {
+    // Điều kiện HIỆN HÀNH của dòng YCCĐ trên các nhánh có join
+    // outcome (đợt neo lại định danh, issue #161): dòng đã rút
+    // (retired_at khác NULL) không còn đưa câu vào diện lọc; dòng
+    // derived chỉ hiện hành khi dòng GỐC của nó hiện hành. Cùng một
+    // định nghĩa "hiện hành" với bản đặc tả. Nhánh chỉ tra đích danh
+    // theo outcomeId (không join outcome) KHÔNG áp điều kiện này —
+    // tra theo id phải luôn tìm thấy dòng nối của nó.
+    const outcomeRoot = alias(learningOutcomes, 'learning_outcome_root');
+    const activeOutcomeConditions = [
+      isNull(learningOutcomes.retiredAt),
+      or(isNull(learningOutcomes.derivedFromId), isNull(outcomeRoot.retiredAt)),
+    ];
     const idSets: Set<string>[] = [];
     if (filter.subjectId !== undefined) {
       const viaSubjects = await this.db.select({ questionId: questionSubjects.questionId })
@@ -433,9 +446,10 @@ export class QuestionsRepository {
       const viaOutcomes = await this.db.select({ questionId: questionLearningOutcomes.questionId })
         .from(questionLearningOutcomes)
         .innerJoin(learningOutcomes, eq(learningOutcomes.id, questionLearningOutcomes.learningOutcomeId))
+        .leftJoin(outcomeRoot, eq(outcomeRoot.id, learningOutcomes.derivedFromId))
         .innerJoin(curriculumNodes, eq(curriculumNodes.id, learningOutcomes.nodeId))
         .innerJoin(curricula, eq(curricula.id, curriculumNodes.curriculumId))
-        .where(eq(curricula.subjectId, filter.subjectId));
+        .where(and(eq(curricula.subjectId, filter.subjectId), ...activeOutcomeConditions));
       idSets.push(new Set([...viaSubjects.map((r) => r.questionId), ...viaOutcomes.map((r) => r.questionId)]));
     }
     if (filter.outcomeId !== undefined || filter.nodeId !== undefined || filter.cognitiveLevel !== undefined) {
@@ -447,7 +461,8 @@ export class QuestionsRepository {
         ? await this.db.select({ questionId: questionLearningOutcomes.questionId })
           .from(questionLearningOutcomes)
           .innerJoin(learningOutcomes, eq(learningOutcomes.id, questionLearningOutcomes.learningOutcomeId))
-          .where(and(...conditions))
+          .leftJoin(outcomeRoot, eq(outcomeRoot.id, learningOutcomes.derivedFromId))
+          .where(and(...conditions, ...activeOutcomeConditions))
         : await this.db.select({ questionId: questionLearningOutcomes.questionId })
           .from(questionLearningOutcomes).where(and(...conditions));
       idSets.push(new Set(rows.map((r) => r.questionId)));

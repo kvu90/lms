@@ -41,6 +41,20 @@ interface DatasetStatus {
   lastImportedAt: string | null;
 }
 
+/** Một mục thay đổi theo từng dòng YCCĐ trong báo cáo của một lượt đồng bộ (issue #161). */
+interface ImportChange {
+  recordId: string;
+  position: number;
+  kind: 'text-changed' | 'added' | 'removed' | 'moved' | 'revived';
+  oldText?: string;
+  newText?: string;
+  generation?: number;
+  shiftSuspected?: boolean;
+  identicalTextAmbiguous?: boolean;
+  linkedQuestions?: number;
+  linkedBookMappings?: number;
+}
+
 interface ImportResult {
   created: number;
   updated: number;
@@ -48,7 +62,10 @@ interface ImportResult {
   outcomesWritten: number;
   totalRecords: number;
   orphanedNodes: number;
-  orphanedOutcomes: number;
+  retiredOutcomes: number;
+  changeCounts: { textChanged: number; added: number; removed: number; moved: number; revived: number; shiftSuspected: number };
+  changes: ImportChange[];
+  changesOmitted: number;
 }
 
 interface BookImportResult {
@@ -450,12 +467,55 @@ export function AdminCurriculumPage() {
                       {t('curriculumImportResult', {
                         created: result.created, updated: result.updated, skipped: result.skipped,
                       })}
-                      {(result.orphanedNodes ?? 0) + (result.orphanedOutcomes ?? 0) > 0
-                        ? ` · ${t('curriculumImportOrphaned', {
-                            nodes: result.orphanedNodes ?? 0, outcomes: result.orphanedOutcomes ?? 0,
+                      {(result.orphanedNodes ?? 0) + (result.retiredOutcomes ?? 0) > 0
+                        ? ` · ${t('curriculumImportRetired', {
+                            nodes: result.orphanedNodes ?? 0, outcomes: result.retiredOutcomes ?? 0,
                           })}`
                         : ''}
+                      {result.changeCounts
+                        ? ` · ${t('curriculumImportChanges', { ...result.changeCounts })}`
+                        : ''}
                     </span>
+                  ) : null}
+                  {result && result.changes && result.changes.length > 0 ? (
+                    <details className="w-full text-sm">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        {t('curriculumImportChanges', { ...result.changeCounts })}
+                      </summary>
+                      <ul className="mt-1 flex flex-col gap-1">
+                        {result.changes.map((change, i) => {
+                          // Mục cần mắt người: nghi ghép nhầm khi vừa
+                          // sửa chữ vừa xô lệch, ca mơ hồ trong nhóm
+                          // trùng hệt, hoặc dòng còn liên kết trỏ vào.
+                          const needsReview = change.shiftSuspected || change.identicalTextAmbiguous
+                            || (change.linkedQuestions ?? 0) > 0 || (change.linkedBookMappings ?? 0) > 0;
+                          const kindText = change.kind === 'text-changed'
+                            ? t('curriculumChangeTextChanged')
+                            : change.kind === 'added'
+                              ? t('curriculumChangeAdded')
+                              : change.kind === 'removed'
+                                ? t('curriculumChangeRemoved')
+                                : change.kind === 'moved'
+                                  ? t('curriculumChangeMoved')
+                                  : t('curriculumChangeRevived');
+                          return (
+                            <li key={`${change.recordId}-${change.position}-${change.kind}-${i}`}>
+                              <span className="font-medium">{change.recordId}.{String(change.position).padStart(2, '0')}</span>
+                              {` · ${kindText}`}
+                              {change.oldText ? ` · ${change.oldText.slice(0, 80)}` : ''}
+                              {change.newText && change.kind === 'text-changed' ? ` → ${change.newText.slice(0, 80)}` : ''}
+                              {change.newText && change.kind !== 'text-changed' ? ` · ${change.newText.slice(0, 80)}` : ''}
+                              {needsReview ? (
+                                <span className="ml-1 font-medium text-amber-600">{t('curriculumImportChangeFlag')}</span>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {result.changesOmitted > 0 ? (
+                        <p className="text-muted-foreground">{t('curriculumImportChangesOmitted', { count: result.changesOmitted })}</p>
+                      ) : null}
+                    </details>
                   ) : null}
                 </div>
               );

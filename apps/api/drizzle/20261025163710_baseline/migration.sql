@@ -3152,4 +3152,6 @@ ALTER TABLE "classes" ADD COLUMN "fee_cost" integer;--> statement-breakpoint
 ALTER TABLE "classes" ADD COLUMN "fee_currency" text DEFAULT 'VND' NOT NULL;--> statement-breakpoint
 ALTER TABLE "classes" ADD COLUMN "fee_payment_account_id" uuid;--> statement-breakpoint
 CREATE INDEX "classes_fee_payment_account_id_idx" ON "classes" ("fee_payment_account_id");--> statement-breakpoint
-ALTER TABLE "classes" ADD CONSTRAINT "classes_fee_payment_account_id_payment_accounts_id_fkey" FOREIGN KEY ("fee_payment_account_id") REFERENCES "payment_accounts"("id") ON DELETE RESTRICT;
+ALTER TABLE "classes" ADD CONSTRAINT "classes_fee_payment_account_id_payment_accounts_id_fkey" FOREIGN KEY ("fee_payment_account_id") REFERENCES "payment_accounts"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "learning_outcomes" ADD COLUMN "retired_at" timestamp with time zone;--> statement-breakpoint
+CREATE UNIQUE INDEX "learning_outcomes_dataset_slot_unique" ON "learning_outcomes" ("node_id","position") WHERE "source_kind" = 'program' and "source_ref" is not null and "retired_at" is null;

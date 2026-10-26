@@ -303,7 +303,7 @@ async function main(): Promise<void> {
     // fail-closed cho thấy/ghi được dữ liệu dùng chung của platform.
     const programResults = await tenantAls.run({ platform: true }, () => programImport.importAllDatasetsInternal());
     for (const r of programResults) {
-      console.log(`[seed] program ${r.datasetKey}: created=${r.created} updated=${r.updated} skipped=${r.skipped} orphanedNodes=${r.orphanedNodes} orphanedOutcomes=${r.orphanedOutcomes}`);
+      console.log(`[seed] program ${r.datasetKey}: created=${r.created} updated=${r.updated} skipped=${r.skipped} orphanedNodes=${r.orphanedNodes} retiredOutcomes=${r.retiredOutcomes} changes=${JSON.stringify(r.changeCounts)}`);
     }
     const programRecords = programResults.reduce((a, r) => a + r.totalRecords, 0);
     const programCreatedTotal = programResults.reduce((a, r) => a + r.created, 0);

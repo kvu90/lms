@@ -187,10 +187,11 @@ export function programOutcomeDocLines(doc: ProgramOutcomeDoc): string[] {
 /**
  * Text canonical của một YCCĐ: các dòng của doc nối bằng `\n`, cắt
  * khoảng trắng hai đầu. ĐÂY LÀ HÀM TRÍCH DUY NHẤT của hệ cho YCCĐ dạng
- * doc: id/hash của dòng YCCĐ tính trên text này (xem programOutcomeId)
- * và kiểm chứng toàn vẹn với `outcome_text` cũng so trên text này —
- * đổi định dạng lưu (thứ tự khoá JSON, marks) không làm đổi id, chỉ
- * đổi NỘI DUNG chữ mới đổi id.
+ * doc: kiểm chứng toàn vẹn với `outcome_text` so trên text này, và
+ * thuật toán diff của importer (ghép cặp theo vị trí + nội dung) cũng
+ * so trên text này. Định danh của dòng KHÔNG suy từ text này — id neo
+ * theo VỊ TRÍ (xem programOutcomeId): đổi định dạng lưu hay sửa chữ
+ * đều không đổi id của dòng.
  */
 export function programOutcomeDocText(doc: ProgramOutcomeDoc): string {
   return programOutcomeDocLines(doc).join('\n').trim();
@@ -383,38 +384,57 @@ export function programLessonNodeId(datasetKey: string, recordId: string): strin
   return programId('record', `${datasetKey}|${recordId}`);
 }
 
-/** sha256 hex của một dòng YCCĐ (đúng văn bản nguyên văn của dòng). */
-export function programOutcomeTextHash(text: string): string {
-  return createHash('sha256').update(text, 'utf8').digest('hex');
-}
-
 /**
  * Id xác định của một dòng YCCĐ của một bản ghi: khoá tự nhiên là
- * (dataset, mã bản ghi, sha256 nội dung dòng). Neo theo NỘI DUNG thay
- * vì số thứ tự: Bộ chèn một ý mới vào giữa danh sách thì các ý cũ giữ
- * nguyên id; sửa chữ một ý = id mới (ý cũ thành orphaned — xem luật
- * diff không-xoá ở ProgramImportService). Hai dòng trùng nội dung
- * hệt nhau trong cùng một bản ghi được phân biệt bằng hậu tố `#2`,
- * `#3`… theo thứ tự xuất hiện.
+ * (dataset, mã bản ghi, VỊ TRÍ của dòng trong bản ghi) — mô hình
+ * "YCCĐ là dòng tại vị trí" của giaokhoa, neo lại theo lệnh của Lão
+ * gia 19:41 ngày 26/10/2026 và chốt mô hình 19:57 cùng ngày (sổ quyết
+ * định mục E; hồ sơ `yccd-identity-reanchor-research-2026-10-26.md`).
+ * Khoá hash nội dung trước đây bị BÁC: sửa một chữ sinh id mới và để
+ * dòng cũ orphaned trong khi pool sinh đề không phân biệt được.
+ *
+ * KỶ LUẬT PK (bất biến): công thức này là KHOÁ TẠO DÒNG và KHOÁ HỘI
+ * TỤ — chỉ dùng khi (a) tạo dòng mới, (b) kiểm tra dòng đã tồn tại
+ * lúc nạp. Một khi dòng đã được tạo, PK của nó KHÔNG BAO GIỜ được
+ * tính lại hay thay đổi, kể cả khi cột `position` của nó đổi vì
+ * dataset chèn/bớt dòng ở chỗ khác (importer khi đó chỉ sửa cột
+ * position, giữ nguyên id — xem ProgramImportService). Vì vậy về lâu
+ * dài id là định danh mờ: vị trí thật luôn đọc từ cột `position`/mã
+ * hiển thị tại thời điểm hiển thị, không suy ngược từ id.
+ *
+ * @param position - Vị trí 1-based của dòng trong bản ghi (đúng giá
+ *   trị cột `position` mà importer ghi). Trong khoá id, position viết
+ *   dạng thập phân không đệm 0; đệm 2 số chỉ dùng cho mã hiển thị.
+ * @param generation - Thế hệ của ô vị trí đó (mặc định 1). Chỉ tăng
+ *   khi phải cấp id mới cho một ô mà id thế hệ trước đã bị một dòng
+ *   khác chiếm (dòng cũ xô vị trí mang theo id đó): hậu tố `#2`,
+ *   `#3`… chọn thế hệ trống nhỏ nhất. Trên DB trống không bao giờ có
+ *   va chạm nên seed sạch không bị hậu tố làm bẩn. Một id đã cấp cho
+ *   một nội dung thì KHÔNG BAO GIỜ được gán lại cho nội dung khác;
+ *   ca duy nhất một id "sống lại" là hồi sinh đúng dòng của nó khi
+ *   nguyên văn quay lại dataset.
  */
-export function programOutcomeId(datasetKey: string, recordId: string, text: string, occurrence = 1): string {
-  const suffix = occurrence > 1 ? `#${occurrence}` : '';
-  return programId('outcome', `${datasetKey}|${recordId}|${programOutcomeTextHash(text)}${suffix}`);
+export function programOutcomeId(datasetKey: string, recordId: string, position: number, generation = 1): string {
+  const suffix = generation > 1 ? `#${generation}` : '';
+  return programId('outcome', `${datasetKey}|${recordId}|${position}${suffix}`);
 }
 
 /**
  * Các dòng YCCĐ của một bản ghi kèm id xác định của chúng, theo đúng
  * thứ tự nguyên văn — đầu vào duy nhất của cả đường tạo mới lẫn đường
- * diff khi nạp lại. `position` là vị trí 1-based trong danh sách.
+ * diff khi nạp lại. `position` là vị trí 1-based trong danh sách; id
+ * là id ỨNG VIÊN thế hệ 1 tại vị trí đó (importer có thể phải tăng
+ * generation khi ứng viên đã bị dòng khác chiếm — xem programOutcomeId).
+ * Hai dòng trùng nội dung hệt nhau trong cùng bản ghi được phân biệt
+ * tự nhiên theo vị trí, không cần bộ đếm occurrence như mô hình hash.
  */
 export function programRecordOutcomeEntries(
   datasetKey: string,
   record: ProgramRecord,
 ): { id: string; text: string; position: number }[] {
-  const seen = new Map<string, number>();
-  return programRecordOutcomeTexts(record).map((text, i) => {
-    const occurrence = (seen.get(text) ?? 0) + 1;
-    seen.set(text, occurrence);
-    return { id: programOutcomeId(datasetKey, record.id, text, occurrence), text, position: i + 1 };
-  });
+  return programRecordOutcomeTexts(record).map((text, i) => ({
+    id: programOutcomeId(datasetKey, record.id, i + 1),
+    text,
+    position: i + 1,
+  }));
 }

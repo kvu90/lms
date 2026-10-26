@@ -81,3 +81,39 @@ các FK set-null giữ nguyên.
 - Cái giá: tầng nạp phức tạp hơn (diff thay vì xoá-tạo-lại) và
   namespace là một hằng số phải bảo toàn vĩnh viễn — đổi namespace
   tương đương đổi chuẩn định danh.
+
+## Đính chính ngày 26/10/2026 — định danh YCCĐ neo theo VỊ TRÍ thay hash nội dung (issue #161)
+
+Lệnh của Lão gia 19:41 ngày 26/10/2026 ("Research lại công văn đi rồi
+dựng lại cho đúng") và chốt mô hình 19:57 cùng ngày (sổ quyết định
+mục E). Hồ sơ căn cứ: `yccd-identity-reanchor-research-2026-10-26.md`
+(mục Q1: văn bản chương trình TT 32/2018 tổ chức YCCĐ thành các dòng
+gạch đầu dòng theo thứ tự cố định trong ô của một đơn vị nội dung —
+Bộ không ban hành mã YCCĐ, danh tính theo giấy tờ là (đơn vị nội
+dung, thứ tự dòng); mục Q2: giaokhoa mô hình YCCĐ là dòng tại vị trí
+với sửa tại chỗ). Phần subject/curriculum/node, ledger, diff không
+xoá và FK restrict của ADR này GIỮ NGUYÊN hiệu lực; chỉ các điểm sau
+thay đổi:
+
+- **Công thức outcome**: `programOutcomeId = uuidv5("outcome|<dataset>|<recordId>|<position>[#generation]")`,
+  cùng namespace đóng băng. PK là khoá tạo dòng/hội tụ, bất biến —
+  không tính lại khi vị trí xô lệch. `#generation` chỉ tăng khi id
+  thế hệ trước của ô đã bị dòng khác chiếm; cấm tái dùng id cho nội
+  dung khác.
+- **Diff ghép cặp 6 bước** thay diff theo tập id-hash: khớp (vị trí +
+  nguyên văn) → khớp nguyên văn (xô lệch chỉ sửa cột position) →
+  khớp vị trí = sửa chữ TẠI CHỖ giữ id và mọi liên kết → hồi sinh khi
+  nguyên văn quay lại → thêm mới (tăng generation khi cần) → rút
+  dòng không xoá. Ca mơ hồ gắn cờ `shiftSuspected` /
+  `identicalTextAmbiguous` trong báo cáo thay đổi của lần nạp (trần
+  500 mục, áp dụng ngay, không duyệt hai cấp).
+- **Trạng thái rút lưu ở cột `learning_outcomes.retired_at`** + partial
+  unique index cho ô (node, vị trí) hiện hành của diện dataset quản.
+  Mọi đường đọc "chương trình hiện hành" lọc `retired_at IS NULL`
+  tại repository `listOutcomes`; tra đích danh theo id vẫn thấy dòng.
+  Trường `orphanedOutcomes` trong kết quả nạp bị bỏ, thay bằng
+  `retiredOutcomes` + `changeCounts`/`changes`/`changesOmitted`.
+- **Triển khai của đợt neo lại = reset + seed**: công thức mới đổi PK
+  của mọi YCCĐ program nên DB cũ không migrate giữ dữ liệu (tập id
+  của một DB đã sống qua đính chính là hàm của lịch sử, seed sạch
+  không tái lập được).

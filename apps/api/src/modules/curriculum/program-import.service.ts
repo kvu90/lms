@@ -1,15 +1,30 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { ProgramDatasetStatus, ProgramImportResult } from '@lms/contracts';
+import type { ProgramDatasetStatus, ProgramImportChange, ProgramImportResult } from '@lms/contracts';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { CurriculumRepository, type CurriculumNodeRow } from './curriculum.repository';
+import { CurriculumRepository, type CurriculumNodeRow, type DbTx } from './curriculum.repository';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from './curriculum.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,
-  programRecordAncestors, programRecordEffectiveGrade, programRecordHash, programRecordOutcomeEntries,
+  programOutcomeId, programRecordAncestors, programRecordEffectiveGrade, programRecordHash, programRecordOutcomeEntries,
   programRecordSourceRef, programRecordTitle, programSubjectId, PROGRAM_DATASETS,
   type ProgramDatasetDef, type ProgramDatasetFile, type ProgramRecord,
 } from './program-datasets';
+
+/** Trần số mục chi tiết trong báo cáo thay đổi của một lượt nạp một dataset (đếm tổng vẫn đầy đủ ở changeCounts). */
+const IMPORT_CHANGES_CAP = 500;
+
+/**
+ * Một lệnh ghi YCCĐ mà thuật toán diff của một bản ghi sinh ra; toàn
+ * bộ lệnh của một bản ghi được áp trong MỘT transaction (xem
+ * applyOutcomeWrites cho thứ tự áp an toàn với partial unique index).
+ * `update` gộp ba ca dùng chung hình dạng patch: moved (chỉ position),
+ * text-changed (chỉ content), revived (retiredAt về null + position).
+ */
+type OutcomeWrite =
+  | { kind: 'insert'; id: string; text: string; position: number }
+  | { kind: 'update'; id: string; patch: { position?: number; content?: string; retiredAt?: Date | null } }
+  | { kind: 'retire'; id: string };
 
 /**
  * Chỉ mục cây trong bộ nhớ cho một chương trình trong một lượt nạp:
@@ -40,15 +55,17 @@ function childKey(parentId: string | null, kind: string, title: string): string 
  * nạp kiểu cũ) thì HỘI TỤ giữ id hiện hữu, không ép đổi.
  *
  * LUẬT KHÔNG-XOÁ: đường nạp KHÔNG BAO GIỜ xoá node hay YCCĐ. Nhánh
- * cập nhật là một phép DIFF theo khoá tự nhiên: node giữ id kể cả khi
- * bản ghi đổi khối lớp (chuyển `curriculum_id` tại chỗ); YCCĐ nào
- * không còn trong dataset (Bộ rút, hoặc sửa chữ — sửa chữ = hash nội
- * dung đổi = YCCĐ mới) thì GIỮ NGUYÊN dòng trong DB và đếm vào
- * `orphanedOutcomes` của kết quả nạp để con người xử lý tường minh;
- * bản ghi biến mất khỏi dataset thì node của nó đếm vào
- * `orphanedNodes`. YCCĐ `source_kind='derived'` của tổ chuyên môn
- * không thuộc dataset — phép diff chỉ áp trên YCCĐ 'program', tuyệt
- * đối không đụng derived.
+ * cập nhật là một phép DIFF GHÉP CẶP THEO VỊ TRÍ + NỘI DUNG (đợt neo
+ * lại định danh, issue #161, sổ mục E 19:57 ngày 26/10/2026 — xem
+ * diffOutcomes): sửa chữ = sửa TẠI CHỖ giữ id và mọi liên kết; dòng
+ * rời dataset thì chuyển sang trạng thái ĐÃ RÚT (cột `retired_at`,
+ * dòng còn nguyên, đường đọc hiện hành tự loại); bản ghi biến mất
+ * khỏi dataset thì node của nó đếm vào `orphanedNodes` và mọi dòng
+ * hiện hành thuộc diện dataset quản của nó bị rút theo. Mọi thay đổi
+ * theo từng dòng vào BÁO CÁO THAY ĐỔI của lần nạp cho người duyệt.
+ * YCCĐ `source_kind='derived'` của tổ chuyên môn không thuộc dataset
+ * — phép diff chỉ áp trên YCCĐ 'program' thuộc diện quản (source_ref
+ * khác NULL), tuyệt đối không đụng derived.
  *
  * Idempotent theo sổ đăng ký `curriculum_program_records`: khoá là
  * (dataset, mã bản ghi); hash nội dung khớp → bỏ qua, lệch → diff.
@@ -201,7 +218,9 @@ export class ProgramImportService {
     let updated = 0;
     let skipped = 0;
     let outcomesWritten = 0;
-    let orphanedOutcomes = 0;
+    // Báo cáo thay đổi của lần nạp: tích luỹ theo từng dòng qua mọi
+    // bản ghi (tạo mới, đính chính, rút cả bản ghi), chốt ở cuối lượt.
+    const changes: ProgramImportChange[] = [];
     for (const record of file.records) {
       const grade = programRecordEffectiveGrade(file.records, record);
       const curriculumId = curricula.get(grade)!;
@@ -217,10 +236,9 @@ export class ProgramImportService {
       const entries = programRecordOutcomeEntries(def.key, record);
       const reg = await this.repo.getProgramRecord(def.key, record.id);
       if (reg && reg.contentHash === hash) {
-        // Đã khớp nguyên văn: không ghi gì, chỉ đếm các YCCĐ 'program'
-        // hiện có mà dataset không còn chứa (orphaned của các lần
-        // đính chính trước) để báo cáo luôn phản ánh hiện trạng.
-        orphanedOutcomes += await this.countOrphanedOutcomes(reg.nodeId, entries);
+        // Đã khớp nguyên văn: không ghi gì. Trạng thái đã rút của
+        // dataset được đọc thẳng từ DB ở cuối lượt (retiredOutcomes)
+        // nên đường nhanh không cần đếm gì thêm.
         skipped += 1;
         continue;
       }
@@ -246,15 +264,18 @@ export class ProgramImportService {
         });
         created += 1;
         outcomesWritten += entries.length;
+        for (const entry of entries) {
+          changes.push({ recordId: record.id, position: entry.position, kind: 'added', newText: entry.text });
+        }
         continue;
       }
       // Bản ghi đã nạp nhưng dataset đã đính chính (hash lệch): DIFF
       // không-xoá. Node cập nhật TẠI CHỖ — đổi khối lớp là chuyển
       // curriculum_id của chính node đó (giữ id, giữ mọi tham chiếu);
-      // YCCĐ diff theo id xác định neo nội dung (xem diffOutcomes).
+      // YCCĐ diff ghép cặp theo vị trí + nội dung (xem diffOutcomes).
       const current = await this.repo.getNode(reg.nodeId);
-      const diff = await this.diffOutcomes(reg.nodeId, entries);
-      orphanedOutcomes += diff.orphaned;
+      const diff = await this.diffOutcomes({ datasetKey: def.key, recordId: record.id, nodeId: reg.nodeId, entries });
+      changes.push(...diff.changes);
       await this.repo.dbHandle.transaction(async (tx) => {
         const patch: {
           title: string; parentId?: string | null; position?: number; curriculumId?: string;
@@ -265,16 +286,7 @@ export class ProgramImportService {
           patch.position = this.takePosition(index, parentId);
         }
         await this.repo.updateNode(reg.nodeId, patch, tx as never);
-        for (const write of diff.writes) {
-          if (write.kind === 'insert') {
-            await this.repo.insertOutcome({
-              id: write.id, nodeId: reg.nodeId, content: write.text, position: write.position,
-              sourceKind: 'program', sourceRef, derivedFromId: null,
-            }, tx as never);
-          } else {
-            await this.repo.updateOutcome(write.id, { position: write.position }, tx as never);
-          }
-        }
+        await this.applyOutcomeWrites(tx as never, reg.nodeId, sourceRef, diff.writes);
         await this.repo.updateProgramRecord(reg.id, {
           subjectId: subject.id, curriculumId, nodeId: reg.nodeId, contentHash: hash, source: record.source,
         }, tx as never);
@@ -284,67 +296,275 @@ export class ProgramImportService {
       outcomesWritten += diff.writes.length;
     }
     // Bản ghi đã biến mất khỏi dataset (Bộ rút khỏi chương trình):
-    // node và YCCĐ của nó GIỮ NGUYÊN trong DB theo luật không-xoá,
-    // chỉ đếm vào orphaned để quản trị xử lý tường minh.
+    // node GIỮ NGUYÊN trong DB theo luật không-xoá và đếm vào
+    // orphanedNodes; mọi dòng hiện hành thuộc diện dataset quản của
+    // node chuyển sang ĐÃ RÚT (P5 áp cho cả bản ghi) để pool và bản
+    // đặc tả thôi đếm chúng, liên kết trỏ vào chúng còn nguyên và tra
+    // theo id vẫn ra. Bản ghi quay lại ở lần nạp sau sẽ hồi sinh
+    // từng dòng theo nguyên văn ở P4.
     const fileIds = new Set(file.records.map((r) => r.id));
     let orphanedNodes = 0;
     for (const row of await this.repo.listProgramRecords(def.key)) {
       if (fileIds.has(row.recordId)) continue;
       orphanedNodes += 1;
-      const outcomes = await this.repo.listOutcomes(row.nodeId);
-      orphanedOutcomes += outcomes.filter((o) => o.sourceKind === 'program').length;
+      const managed = await this.repo.listDatasetManagedOutcomes(row.nodeId);
+      const currentManaged = managed.filter((o) => o.retiredAt === null);
+      if (currentManaged.length === 0) continue;
+      const links = await this.repo.countOutcomeLinks(currentManaged.map((o) => o.id));
+      await this.repo.dbHandle.transaction(async (tx) => {
+        for (const outcome of currentManaged) {
+          await this.repo.updateOutcome(outcome.id, { retiredAt: new Date() }, tx as never);
+        }
+      });
+      for (const outcome of currentManaged) {
+        const link = links.get(outcome.id);
+        changes.push({
+          recordId: row.recordId, position: outcome.position, kind: 'removed', oldText: outcome.content,
+          identicalTextAmbiguous: currentManaged.filter((o) => o.content === outcome.content).length >= 2 || undefined,
+          linkedQuestions: link?.questions ?? 0, linkedBookMappings: link?.bookMappings ?? 0,
+        });
+        outcomesWritten += 1;
+      }
+    }
+    // Chốt báo cáo thay đổi: sắp theo (bản ghi, vị trí), đếm đầy đủ
+    // cả sáu đếm, danh sách chi tiết cắt ở trần đã chốt.
+    const sortedChanges = [...changes].sort(
+      (a, b) => a.recordId.localeCompare(b.recordId) || a.position - b.position,
+    );
+    const changeCounts = { textChanged: 0, added: 0, removed: 0, moved: 0, revived: 0, shiftSuspected: 0 };
+    for (const change of changes) {
+      if (change.kind === 'text-changed') changeCounts.textChanged += 1;
+      else if (change.kind === 'added') changeCounts.added += 1;
+      else if (change.kind === 'removed') changeCounts.removed += 1;
+      else if (change.kind === 'moved') changeCounts.moved += 1;
+      else changeCounts.revived += 1;
+      if (change.shiftSuspected) changeCounts.shiftSuspected += 1;
     }
     return {
       datasetKey: def.key,
       subjectId: subject.id,
       totalRecords: file.records.length,
       created, updated, skipped, outcomesWritten,
-      orphanedNodes, orphanedOutcomes,
+      orphanedNodes,
+      retiredOutcomes: await this.repo.countRetiredOutcomesForDataset(def.key),
+      changeCounts,
+      changes: sortedChanges.slice(0, IMPORT_CHANGES_CAP),
+      changesOmitted: Math.max(0, sortedChanges.length - IMPORT_CHANGES_CAP),
     };
   }
 
   /**
-   * Đếm YCCĐ 'program' đang treo ở node mà tập dòng của dataset hiện
-   * tại không còn chứa (theo id xác định): các dòng này là orphaned —
-   * được giữ nguyên, không sửa, không xoá.
+   * Áp toàn bộ lệnh ghi YCCĐ của một bản ghi trong transaction của nó
+   * theo thứ tự an toàn với partial unique index "một ô (node, vị
+   * trí) hiện hành duy nhất":
+   * - Pha A: mọi lệnh update có đổi vị trí được dời tạm tới dải vị
+   *   trí cao riêng (≥ 1.000.000) — tránh hai dòng hoán đổi vị trí
+   *   cho nhau va vào index giữa chừng.
+   * - Pha B: các lệnh rút dòng chạy TRƯỚC khi dòng mới/dòng hồi sinh
+   *   chiếm ô — ô của dòng vừa rút phải trống (ra khỏi index) trước.
+   * - Pha C: áp patch cuối cho các lệnh update (vị trí đích, nội
+   *   dung mới, hồi sinh).
+   * - Pha D: chèn dòng mới.
+   *
+   * @param tx - Transaction Drizzle của bản ghi đang nạp.
+   * @param nodeId - Node nội dung của bản ghi.
+   * @param sourceRef - Truy vết nguồn ghi trên các dòng chèn mới.
+   * @param writes - Các lệnh ghi do diffOutcomes sinh ra.
    */
-  private async countOrphanedOutcomes(
-    nodeId: string,
-    entries: { id: string }[],
-  ): Promise<number> {
-    const desired = new Set(entries.map((e) => e.id));
-    const existing = await this.repo.listOutcomes(nodeId);
-    return existing.filter((o) => o.sourceKind === 'program' && !desired.has(o.id)).length;
+  private async applyOutcomeWrites(tx: DbTx, nodeId: string, sourceRef: string, writes: OutcomeWrite[]): Promise<void> {
+    const TEMP_POSITION_BASE = 1_000_000;
+    let tempSeq = 0;
+    for (const write of writes) {
+      if (write.kind === 'update' && write.patch.position !== undefined) {
+        tempSeq += 1;
+        await this.repo.updateOutcome(write.id, { position: TEMP_POSITION_BASE + tempSeq }, tx);
+      }
+    }
+    for (const write of writes) {
+      if (write.kind === 'retire') {
+        await this.repo.updateOutcome(write.id, { retiredAt: new Date() }, tx);
+      }
+    }
+    for (const write of writes) {
+      if (write.kind === 'update') {
+        await this.repo.updateOutcome(write.id, write.patch, tx);
+      }
+    }
+    for (const write of writes) {
+      if (write.kind === 'insert') {
+        await this.repo.insertOutcome({
+          id: write.id, nodeId, content: write.text, position: write.position,
+          sourceKind: 'program', sourceRef, derivedFromId: null,
+        }, tx);
+      }
+    }
   }
 
   /**
-   * Diff YCCĐ 'program' của một node theo id xác định neo nội dung:
-   * dòng còn trong dataset → giữ id + nội dung, chỉ cập nhật position
-   * khi thứ tự đổi; dòng mới → insert với id xác định; dòng không còn
-   * → orphaned (giữ nguyên, chỉ đếm). YCCĐ 'derived' không nằm trong
-   * phép diff này và không bao giờ bị đụng.
+   * Diff YCCĐ thuộc diện dataset quản của một node: thuật toán GHÉP
+   * CẶP 6 BƯỚC theo vị trí + nội dung (hồ sơ neo lại định danh, mục
+   * Q3.3; sổ mục E 19:57 ngày 26/10/2026). Đầu vào: `entries` là các
+   * dòng mới của bản ghi từ dataset (text canonical, vị trí 1-based,
+   * id ứng viên thế hệ 1); phía DB tách hai tập — dòng HIỆN HÀNH và
+   * dòng ĐÃ RÚT — đều thuộc diện quản (program + source_ref). Thứ tự
+   * các bước là bắt buộc, mỗi bước chỉ xử lý phần còn lại của bước
+   * trước:
+   * - P1 khớp (vị trí + nguyên văn): không đổi, không ghi.
+   * - P2 khớp theo nguyên văn (bắt ca xô lệch thuần do chèn/bớt dòng
+   *   ở chỗ khác): chỉ sửa cột `position`, giữ id — phép ghép theo
+   *   nội dung là duy nhất nên ca này xác định hoàn toàn, không cờ.
+   * - P3 khớp theo vị trí còn lại = SỬA CHỮ: cập nhật `content` tại
+   *   chỗ, giữ id và mọi liên kết; gắn cờ `shiftSuspected` khi phép
+   *   ghép có thể đã bắt nhầm dòng (văn mới trùng văn cũ của dòng
+   *   khác, hoặc văn cũ xuất hiện ở vị trí khác trong dataset mới).
+   * - P4 hồi sinh (nguyên văn của dòng đã rút quay lại — sống lại
+   *   đúng id của nó) hoặc thêm mới (id ứng viên bị chiếm thì tăng
+   *   generation tới thế hệ trống nhỏ nhất; cấm tái dùng id cho nội
+   *   dung khác).
+   * - P5 rút dòng còn thừa: đặt `retired_at`, KHÔNG xoá dòng hay
+   *   liên kết; gắn `identicalTextAmbiguous` khi dòng nằm trong nhóm
+   *   trùng hệt nhau (không phân định được bằng văn bản).
+   * - P6 là chính việc gắn cờ ở P3 (không thao tác dữ liệu riêng).
+   * Số liên kết (câu hỏi + ánh xạ sách) được đếm tại thời điểm nạp
+   * cho các ca text-changed và removed. YCCĐ 'derived' và dòng
+   * program ngoài diện quản không nằm trong phép diff này.
    */
-  private async diffOutcomes(
-    nodeId: string,
-    entries: { id: string; text: string; position: number }[],
-  ): Promise<{
-    writes: ({ kind: 'insert'; id: string; text: string; position: number } | { kind: 'reposition'; id: string; position: number })[];
-    orphaned: number;
-  }> {
-    const existing = await this.repo.listOutcomes(nodeId);
-    const programExisting = existing.filter((o) => o.sourceKind === 'program');
-    const desired = new Set(entries.map((e) => e.id));
-    const orphaned = programExisting.filter((o) => !desired.has(o.id)).length;
-    const writes: ({ kind: 'insert'; id: string; text: string; position: number } | { kind: 'reposition'; id: string; position: number })[] = [];
-    for (const entry of entries) {
-      const found = programExisting.find((o) => o.id === entry.id);
-      if (!found) {
-        writes.push({ kind: 'insert', id: entry.id, text: entry.text, position: entry.position });
-      } else if (found.position !== entry.position) {
-        writes.push({ kind: 'reposition', id: entry.id, position: entry.position });
+  private async diffOutcomes(input: {
+    datasetKey: string; recordId: string; nodeId: string;
+    entries: { id: string; text: string; position: number }[];
+  }): Promise<{ writes: OutcomeWrite[]; changes: ProgramImportChange[] }> {
+    const { datasetKey, recordId, entries } = input;
+    const managed = await this.repo.listDatasetManagedOutcomes(input.nodeId);
+    const current = managed.filter((o) => o.retiredAt === null);
+    const retiredPool = managed.filter((o) => o.retiredAt !== null);
+    const writes: OutcomeWrite[] = [];
+    const changes: ProgramImportChange[] = [];
+    const takenEntries = new Set<number>();
+    const takenRows = new Set<string>();
+    // Các ca cần đếm liên kết khi chốt diff: (dòng, mục thay đổi của nó).
+    const linkTargets: { outcomeId: string; change: ProgramImportChange }[] = [];
+
+    // P1 — khớp (vị trí + nguyên văn): dòng không đổi, không ghi gì.
+    entries.forEach((entry, idx) => {
+      const row = current.find(
+        (o) => !takenRows.has(o.id) && o.position === entry.position && o.content === entry.text,
+      );
+      if (row) {
+        takenEntries.add(idx);
+        takenRows.add(row.id);
+      }
+    });
+
+    // P2 — khớp theo nguyên văn cho phần còn lại (ca xô lệch thuần):
+    // nhóm trùng ghép theo thứ tự vị trí tăng dần ở cả hai phía.
+    const groupByText = <T extends { text: string }>(items: T[]): Map<string, T[]> => {
+      const map = new Map<string, T[]>();
+      for (const item of items) map.set(item.text, [...(map.get(item.text) ?? []), item]);
+      return map;
+    };
+    const remainingEntries = entries
+      .map((entry, idx) => ({ ...entry, idx }))
+      .filter((e) => !takenEntries.has(e.idx));
+    const remainingCurrent = current.filter((o) => !takenRows.has(o.id));
+    const entryGroups = groupByText(remainingEntries);
+    const rowGroups = new Map<string, typeof remainingCurrent>();
+    for (const row of remainingCurrent) {
+      rowGroups.set(row.content, [...(rowGroups.get(row.content) ?? []), row]);
+    }
+    for (const [text, group] of entryGroups) {
+      const rows = rowGroups.get(text);
+      if (!rows) continue;
+      const sortedEntries = [...group].sort((a, b) => a.position - b.position);
+      const sortedRows = [...rows].sort((a, b) => a.position - b.position);
+      const pairs = Math.min(sortedEntries.length, sortedRows.length);
+      for (let i = 0; i < pairs; i += 1) {
+        const entry = sortedEntries[i]!;
+        const row = sortedRows[i]!;
+        takenEntries.add(entry.idx);
+        takenRows.add(row.id);
+        // Vị trí khác nhau là chắc chắn (bằng nhau + cùng văn thì P1
+        // đã ghép) — chỉ sửa cột position, giữ id và mọi liên kết.
+        writes.push({ kind: 'update', id: row.id, patch: { position: entry.position } });
+        changes.push({ recordId, position: entry.position, kind: 'moved', newText: entry.text });
       }
     }
-    return { writes, orphaned };
+
+    // P3 — khớp theo vị trí còn lại = sửa chữ tại chỗ.
+    entries.forEach((entry, idx) => {
+      if (takenEntries.has(idx)) return;
+      const row = current.find((o) => !takenRows.has(o.id) && o.position === entry.position);
+      if (!row) return;
+      takenEntries.add(idx);
+      takenRows.add(row.id);
+      writes.push({ kind: 'update', id: row.id, patch: { content: entry.text } });
+      // P6 — gắn cờ nghi lệch: văn mới trùng văn cũ của một dòng
+      // current KHÁC, hoặc văn cũ của dòng này xuất hiện ở một vị trí
+      // khác trong dataset mới (dòng mang văn đó đã không được P2
+      // ghép về chính dòng này — nó còn đứng ở đây chính là bằng chứng).
+      const shiftSuspected =
+        current.some((o) => o.id !== row.id && o.content === entry.text) ||
+        entries.some((e) => e.text === row.content && e.position !== entry.position);
+      const change: ProgramImportChange = {
+        recordId, position: entry.position, kind: 'text-changed',
+        oldText: row.content, newText: entry.text,
+        shiftSuspected: shiftSuspected || undefined,
+      };
+      changes.push(change);
+      linkTargets.push({ outcomeId: row.id, change });
+    });
+
+    // P4 — hồi sinh hoặc thêm mới cho các entry còn lại.
+    const revivedRowIds = new Set<string>();
+    for (const [idx, entry] of entries.entries()) {
+      if (takenEntries.has(idx)) continue;
+      takenEntries.add(idx);
+      const revived = retiredPool.find((o) => !revivedRowIds.has(o.id) && o.content === entry.text);
+      if (revived) {
+        revivedRowIds.add(revived.id);
+        writes.push({ kind: 'update', id: revived.id, patch: { position: entry.position, retiredAt: null } });
+        changes.push({ recordId, position: entry.position, kind: 'revived', newText: entry.text });
+        continue;
+      }
+      // Thêm mới: id ứng viên theo công thức vị trí; bị chiếm (bất
+      // kể trạng thái của dòng chiếm) thì tăng generation — cấm tái
+      // dùng một id đã cấp cho nội dung khác.
+      let generation = 1;
+      let candidate = entry.id;
+      while (await this.repo.getOutcome(candidate)) {
+        generation += 1;
+        candidate = programOutcomeId(datasetKey, recordId, entry.position, generation);
+      }
+      writes.push({ kind: 'insert', id: candidate, text: entry.text, position: entry.position });
+      changes.push({
+        recordId, position: entry.position, kind: 'added', newText: entry.text,
+        generation: generation > 1 ? generation : undefined,
+      });
+    }
+
+    // P5 — rút các dòng current không được ghép: giữ dòng + liên kết,
+    // chỉ đặt trạng thái rút. Nhóm dòng trùng hệt nhau không phân
+    // định được bằng văn bản → gắn cờ để người duyệt quyết.
+    for (const row of current) {
+      if (takenRows.has(row.id)) continue;
+      writes.push({ kind: 'retire', id: row.id });
+      const change: ProgramImportChange = {
+        recordId, position: row.position, kind: 'removed', oldText: row.content,
+        identicalTextAmbiguous: current.filter((o) => o.content === row.content).length >= 2 || undefined,
+      };
+      changes.push(change);
+      linkTargets.push({ outcomeId: row.id, change });
+    }
+
+    // Đếm liên kết tại thời điểm nạp cho các ca sửa chữ + rút dòng.
+    if (linkTargets.length > 0) {
+      const links = await this.repo.countOutcomeLinks(linkTargets.map((t) => t.outcomeId));
+      for (const target of linkTargets) {
+        const link = links.get(target.outcomeId);
+        target.change.linkedQuestions = link?.questions ?? 0;
+        target.change.linkedBookMappings = link?.bookMappings ?? 0;
+      }
+    }
+    return { writes, changes };
   }
 
   /**

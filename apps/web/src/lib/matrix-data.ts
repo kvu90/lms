@@ -79,6 +79,15 @@ export interface SpecificationOutcomeLite {
   sourceRef: string | null;
   programContent: string | null;
   derivedContent: string | null;
+  /**
+   * Vị trí của dòng trong bản ghi chương trình và mã YCCĐ vị trí
+   * `<recordId>.<position 2 số>` — cả hai do BACKEND tính (một nguồn
+   * sự thật cho vị trí, issue #161); web chỉ hiển thị, không tự suy.
+   * Với derived là vị trí/mã của dòng gốc; null khi node không thuộc
+   * bản ghi dataset nào.
+   */
+  position: number | null;
+  code: string | null;
 }
 
 /**

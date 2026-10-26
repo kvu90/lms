@@ -149,7 +149,7 @@ function stubFetch(calls: RecordedCall[], forbidden = false, tree: unknown = TRE
       }
       if (url === '/api/v1/curriculum/program-import' && method === 'GET') return respond(STATUS);
       if (url === '/api/v1/curriculum/program-import' && method === 'POST') {
-        return respond({ datasetKey: 'toan', subjectId: 'subj-toan', created: 0, updated: 0, skipped: 300, outcomesWritten: 0, totalRecords: 300, orphanedNodes: 0, orphanedOutcomes: 0 });
+        return respond({ datasetKey: 'toan', subjectId: 'subj-toan', created: 0, updated: 0, skipped: 300, outcomesWritten: 0, totalRecords: 300, orphanedNodes: 0, retiredOutcomes: 0, changeCounts: { textChanged: 0, added: 0, removed: 0, moved: 0, revived: 0, shiftSuspected: 0 }, changes: [], changesOmitted: 0 });
       }
       if (url === '/api/v1/access/contexts') return respond([{ id: 'ctx-sys', contextLevel: 10 }]);
       if (url.startsWith('/api/v1/curriculum/subjects?')) return respond([SUBJECT]);

@@ -66,34 +66,21 @@ function flattenNodes(nodes: CurriculumTreeNode[], depth = 0): { id: string; tit
 }
 
 /**
- * Suy mã vị trí hiển thị của một YCCĐ trong bản đặc tả.
+ * Mã vị trí hiển thị của một YCCĐ trong bản đặc tả.
  *
  * Mã chuẩn theo sổ quyết định mục B là `<mã bản ghi>.<số thứ tự 2 chữ
- * số>` (vd `TOAN-0001.02`; bản derived là `<mã gốc>/<mức>`). API đặc
- * tả hiện chưa trả position/mã bản ghi riêng cho từng YCCĐ nên hàm
- * này suy từ dữ kiện có sẵn, theo các bước: (1) trích mã bản ghi từ
- * đuôi `sourceRef` (dạng "… — bản ghi <mã>"); (2) đếm thứ tự của YCCĐ
- * trong nhóm anh em CÙNG bản ghi và không phải derived — API trả danh
- * sách YCCĐ của node theo position tăng dần nên thứ tự đếm khớp
- * position của bản ghi trong trường hợp dữ liệu chương trình chuẩn.
+ * số>` (vd `TOAN-0001.02`). Từ đợt neo lại định danh theo vị trí
+ * (issue #161), API đặc tả TRẢ SẴN mã này trong trường `code` (backend
+ * tính từ sổ đăng ký + position — một nguồn sự thật duy nhất cho vị
+ * trí); web chỉ hiển thị, TUYỆT ĐỐI không tự suy từ `sourceRef`/thứ
+ * tự như trước đây. `code` là null khi node không thuộc bản ghi
+ * dataset nào — khi đó không hiện tiền tố.
  *
- * Bất biến/ràng buộc: YCCĐ derived trả null (mã của nó phải suy từ
- * YCCĐ gốc + mức, API chưa cho biết liên kết gốc ở bề mặt này); YCCĐ
- * không có `sourceRef` truy được mã bản ghi cũng trả null — thà
- * không hiện tiền tố còn hơn hiện mã đoán sai.
- *
- * @param outcome - YCCĐ cần suy mã.
- * @param siblings - Toàn bộ YCCĐ của cùng ĐVK, theo đúng thứ tự API trả.
- * @returns Mã vị trí dạng tiền tố, hoặc null khi không suy được.
+ * @param outcome - YCCĐ cần lấy mã.
+ * @returns Mã vị trí dạng tiền tố, hoặc null khi API không cấp mã.
  */
-function outcomeCodePrefix(outcome: SpecificationOutcomeLite, siblings: SpecificationOutcomeLite[]): string | null {
-  const recordId = outcome.sourceRef?.match(/bản ghi\s+(\S+)\s*$/)?.[1];
-  if (!recordId || outcome.sourceKind === 'derived') return null;
-  const ordinal =
-    siblings
-      .filter((s) => s.sourceKind !== 'derived' && s.sourceRef?.match(/bản ghi\s+(\S+)\s*$/)?.[1] === recordId)
-      .findIndex((s) => s.outcomeId === outcome.outcomeId) + 1;
-  return ordinal > 0 ? `${recordId}.${String(ordinal).padStart(2, '0')}` : null;
+function outcomeCodePrefix(outcome: SpecificationOutcomeLite): string | null {
+  return outcome.code;
 }
 
 /** Màn tạo ma trận mới trong bank ma trận cá nhân (route /matrices/new). */
@@ -606,7 +593,7 @@ export function MatrixEditPage() {
                                     ) : (
                                       <ul className="flex flex-col gap-1">
                                         {node.outcomes.map((outcome) => {
-                                          const code = outcomeCodePrefix(outcome, node.outcomes);
+                                          const code = outcomeCodePrefix(outcome);
                                           return (
                                             <li key={outcome.outcomeId}>
                                               {code ? (
