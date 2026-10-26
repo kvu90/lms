@@ -1816,8 +1816,8 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     await userEvent.click(await screen.findByRole('button', { name: /Tạo nhóm/ }));
     const sheet = await screen.findByRole('dialog');
     await userEvent.type(within(sheet).getByLabelText('Tên nhóm'), 'Nhóm mới lập');
-    const contactRow = await within(sheet).findByTestId(`contact-${OTHER_ID}`);
-    await userEvent.click(contactRow);
+    const contactRow = await within(sheet).findByTestId(`group-contact-${OTHER_ID}`);
+    await userEvent.click(within(contactRow).getByRole('button'));
     await userEvent.click(within(sheet).getByRole('button', { name: /Tạo nhóm/ }));
     await waitFor(() => {
       const create = calls.find((c) => c.url === '/api/v1/messages/conversations' && c.method === 'POST');

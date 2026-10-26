@@ -297,7 +297,7 @@ export function ConversationSidebar({
         <h2 className="text-base font-semibold">
           {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
         </h2>
-        <Button type="button" size="sm" onClick={() => setNewMessageOpen(true)}>
+        <Button type="button" size="sm" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
           <Plus className="size-4" />
           {t('newMessage')}
           {incomingRequests.length > 0 ? (
@@ -320,7 +320,7 @@ export function ConversationSidebar({
       >
         <TabsList className="w-full">
           <TabsTrigger value="chats">{t('messagesTabChats')}</TabsTrigger>
-          <TabsTrigger value="groups">
+          <TabsTrigger value="groups" aria-label={t('messagesTabGroups')}>
             {t('messagesTabGroups')}
             {treeUnreadTotal > 0 ? <Badge className="ml-1.5 shrink-0">{treeUnreadTotal}</Badge> : null}
           </TabsTrigger>
