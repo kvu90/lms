@@ -231,7 +231,7 @@ export function editorFormFromView(
     form.mcCorrectFeedback = asDoc(options.correctFeedback);
     form.mcPartiallyCorrectFeedback = asDoc(options.partiallyCorrectFeedback);
     form.mcIncorrectFeedback = asDoc(options.incorrectFeedback);
-    const choices = [...view.answers]
+    const choices = [...(view.answers ?? [])]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((answer) => ({
         doc: answer.answer,
@@ -243,7 +243,7 @@ export function editorFormFromView(
 
   if (qtype === 'truefalse') {
     form.tfShowStandardInstruction = options.showStandardInstruction !== false;
-    const sorted = [...view.answers].sort((a, b) => a.sortOrder - b.sortOrder);
+    const sorted = [...(view.answers ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
     const correctAnswer = sorted.find((a) => a.fraction > 0) ?? sorted[0];
     const correctText = correctAnswer ? plainText(correctAnswer.answer).trim().toLowerCase() : '';
     const legacy = (options as { correct?: unknown }).correct;
@@ -265,7 +265,7 @@ export function editorFormFromView(
       typeof options.numericMaxLength === 'number' ? String(options.numericMaxLength) : '';
     form.saNumericAllowSign = options.numericAllowSign === true;
     form.saNumericAllowDecimal = options.numericAllowDecimal === true;
-    const answers = [...view.answers]
+    const answers = [...(view.answers ?? [])]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((answer) => ({ text: plainText(answer.answer), fraction: String(answer.fraction) }));
     if (answers.length > 0) form.saAnswers = answers;
