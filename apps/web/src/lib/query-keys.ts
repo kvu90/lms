@@ -151,6 +151,8 @@ export const queryKeys = {
   classDetail: (classId: string) => ['classes', classId, 'detail'] as const,
   /** Gói tổng quan dashboard theo lớp (GET /classes/:id/overview) — CLASS-2, issue #184. */
   classOverview: (classId: string) => ['classes', classId, 'overview'] as const,
+  /** Gói công khai của lớp cho người chưa ghi danh (GET /classes/:id/public) — CLASS-3, issue #184. */
+  classPublic: (classId: string) => ['classes', classId, 'public'] as const,
   /** Roster của lớp (GET /classes/:id/roster). */
   classRoster: (classId: string) => ['classes', classId, 'roster'] as const,
   /** Học sinh đã đình chỉ của lớp (GET /classes/:id/roster/suspended). */

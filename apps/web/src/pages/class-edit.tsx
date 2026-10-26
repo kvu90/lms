@@ -21,9 +21,10 @@ const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transpar
  * Màn sửa lớp riêng (CLASS-1, issue #184) — ngoài thông tin cơ bản, màn
  * này giữ các cài đặt vòng đời của lớp: luật rời lớp (đình chỉ giữ điểm
  * là mặc định / rút hẳn), tự báo danh + mã tham gia + xoay mã, tự duyệt
- * yêu cầu. Mọi thay đổi đi qua PATCH /classes/:id; API gác quyền tại
- * context lớp nên web không tự giấu theo vai (AGENTS.md web: giấu UI
- * không phải là gác).
+ * yêu cầu. CLASS-3 bổ sung khối HỌC PHÍ gói lớp (số tiền + đơn vị tiền +
+ * tài khoản nhận chỉ định riêng). Mọi thay đổi đi qua PATCH
+ * /classes/:id; API gác quyền tại context lớp nên web không tự giấu
+ * theo vai (AGENTS.md web: giấu UI không phải là gác).
  */
 export function ClassEditPage() {
   const { t } = useTranslation('app');
@@ -39,6 +40,11 @@ export function ClassEditPage() {
   const [onLeave, setOnLeave] = useState<'suspend' | 'unenrol'>('suspend');
   const [allowSelfReport, setAllowSelfReport] = useState(false);
   const [joinAutoApprove, setJoinAutoApprove] = useState(false);
+  // CLASS-3: học phí gói lớp — số tiền giữ dạng chuỗi trong form (để
+  // trống = tắt thu phí), chuyển số nguyên khi lưu.
+  const [feeCost, setFeeCost] = useState('');
+  const [feeCurrency, setFeeCurrency] = useState('VND');
+  const [feePaymentAccountId, setFeePaymentAccountId] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,6 +57,9 @@ export function ClassEditPage() {
     setOnLeave(cls.onLeave);
     setAllowSelfReport(cls.allowSelfReport);
     setJoinAutoApprove(cls.joinAutoApprove);
+    setFeeCost(cls.feeCost === null ? '' : String(cls.feeCost));
+    setFeeCurrency(cls.feeCurrency);
+    setFeePaymentAccountId(cls.feePaymentAccountId ?? '');
   }, [classQuery.data]);
 
   const refresh = () => {
@@ -68,6 +77,11 @@ export function ClassEditPage() {
         onLeave,
         allowSelfReport,
         joinAutoApprove,
+        // CLASS-3: chuỗi rỗng ở ô học phí = tắt thu qua hệ (gửi null);
+        // tài khoản nhận để trống = tài khoản mặc định của tenant.
+        feeCost: feeCost.trim() === '' ? null : Number(feeCost.trim()),
+        feeCurrency: feeCurrency.trim().toUpperCase() || 'VND',
+        feePaymentAccountId: feePaymentAccountId.trim() ? feePaymentAccountId.trim() : null,
       }),
     onSuccess: () => {
       setMessage(null);
@@ -178,6 +192,48 @@ export function ClassEditPage() {
                     </Button>
                   </div>
                 </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('classFee')}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <p className="text-sm text-muted-foreground">{t('classFeeHint')}</p>
+              <FieldGroup>
+                <Field>
+                  <FieldLabel htmlFor="class-fee-cost">{t('classFeeCost')}</FieldLabel>
+                  <Input
+                    id="class-fee-cost"
+                    inputMode="numeric"
+                    value={feeCost}
+                    onChange={(e) => setFeeCost(e.target.value.replace(/[^0-9]/g, ''))}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="class-fee-currency">{t('classFeeCurrency')}</FieldLabel>
+                  <Input id="class-fee-currency" value={feeCurrency} onChange={(e) => setFeeCurrency(e.target.value)} maxLength={3} />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="class-fee-account">{t('classFeeAccountId')}</FieldLabel>
+                  <Input id="class-fee-account" value={feePaymentAccountId} onChange={(e) => setFeePaymentAccountId(e.target.value)} />
+                </Field>
+              </FieldGroup>
+              <div>
+                <Button type="button" onClick={onSubmit} disabled={saveMutation.isPending}>
+                  {t('classSave')}
+                </Button>
+              </div>
+              {cls.feeCost !== null && cls.feeCost > 0 ? (
+                <p className="text-sm">
+                  {t('classPublicFeeLabel')}:{' '}
+                  <strong>
+                    {cls.feeCost.toLocaleString()} {cls.feeCurrency}
+                  </strong>{' '}
+                  — {`${window.location.origin}/classes/${cls.id}/public`}
+                </p>
               ) : null}
             </CardContent>
           </Card>

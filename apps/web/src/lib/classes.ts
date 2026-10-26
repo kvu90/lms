@@ -3,6 +3,7 @@ import type {
   ClassJoinPreview,
   ClassJoinRequest,
   ClassOverview,
+  ClassPublicView,
   ClassRosterImportReport,
   ClassRosterMember,
   ClassStaffRole,
@@ -25,6 +26,7 @@ export type {
   ClassJoinPreview,
   ClassJoinRequest,
   ClassOverview,
+  ClassPublicView,
   ClassRosterImportReport,
   ClassRosterMember,
   ClassStaffRole,
@@ -82,7 +84,12 @@ export function createClass(input: { name: string; code?: string; schoolYear?: s
 
 export function updateClass(
   classId: string,
-  input: { name?: string; code?: string | null; schoolYear?: string | null; description?: string; allowSelfReport?: boolean; joinAutoApprove?: boolean; onLeave?: 'suspend' | 'unenrol'; rotateJoinCode?: boolean },
+  input: {
+    name?: string; code?: string | null; schoolYear?: string | null; description?: string;
+    allowSelfReport?: boolean; joinAutoApprove?: boolean; onLeave?: 'suspend' | 'unenrol'; rotateJoinCode?: boolean;
+    /** CLASS-3: đặt/đổi học phí gói lớp (`feeCost` null/0 = tắt thu qua hệ; `feePaymentAccountId` null = tài khoản mặc định của tenant). */
+    feeCost?: number | null; feeCurrency?: string; feePaymentAccountId?: string | null;
+  },
 ): Promise<ClassView> {
   return apiJson<ClassView>(`/api/v1/classes/${classId}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
@@ -176,4 +183,63 @@ export async function downloadRosterTemplate(): Promise<void> {
 export function personName(p: { firstName: string; lastName: string; username: string }): string {
   const full = `${p.lastName} ${p.firstName}`.trim();
   return full || p.username;
+}
+
+// ---------------------------------------------------------------------------
+// CLASS-3 (issue #184): học phí theo lớp — gói công khai + bắt đầu thanh
+// toán gói lớp. Web chỉ trình bày và dẫn luồng; luật tiền nằm ở API.
+// ---------------------------------------------------------------------------
+
+/**
+ * Gói công khai của lớp (GET /classes/:id/public): thông tin lớp + gói
+ * học phí cho người CHƯA ghi danh, kèm cờ `isMember`/`canPurchase` do
+ * server suy cho đúng người gọi — trang mua gói dựng hiển thị thuần
+ * theo gói này (đã là thành viên thì không hiện nút mua).
+ *
+ * @param classId - Id của lớp cần xem gói.
+ * @returns Gói khớp `classPublicViewSchema` của contracts.
+ */
+export function fetchClassPublic(classId: string): Promise<ClassPublicView> {
+  return apiJson<ClassPublicView>(`/api/v1/classes/${classId}/public`);
+}
+
+/**
+ * Hình dạng payment gói lớp ở bề mặt web (PaymentView của API): trang
+ * mua gói cần trạng thái, mã thanh toán nhúng trong nội dung chuyển
+ * khoản và chuỗi payload VietQR để tự render mã QR (cùng khuôn trang
+ * khoá học với payment `enrol_fee`).
+ */
+export interface ClassFeePaymentView {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  component: string;
+  itemId: string | null;
+  paymentCode: string | null;
+  vietqrPayload: string | null;
+}
+
+/**
+ * Bắt đầu thanh toán gói lớp (POST /payments/class-fee/:classId): tạo
+ * payment `class_fee` ở trạng thái chờ. TUYỆT ĐỐI không ghi danh tại
+ * đây — ghi danh cấp lớp chỉ kích hoạt khi payment `succeeded` qua đối
+ * soát SePay/webhook ở phía API.
+ *
+ * @param classId - Id của lớp được mua gói.
+ * @returns Payment vừa tạo (kèm payload VietQR khi tài khoản nhận là SePay).
+ */
+export function createClassFeePayment(classId: string): Promise<ClassFeePaymentView> {
+  return apiJson<ClassFeePaymentView>(`/api/v1/payments/class-fee/${classId}`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+/**
+ * Đọc lại một payment của chính người dùng (GET /payments/:id) — trang
+ * mua gói poll trạng thái này sau khi hiện QR để biết đối soát đã khớp
+ * (succeeded) hay còn chờ.
+ *
+ * @param paymentId - Id của payment cần đọc trạng thái.
+ */
+export function fetchPayment(paymentId: string): Promise<ClassFeePaymentView> {
+  return apiJson<ClassFeePaymentView>(`/api/v1/payments/${paymentId}`);
 }

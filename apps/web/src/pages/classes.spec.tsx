@@ -39,6 +39,9 @@ const CLASS_VIEW = {
   onLeave: 'suspend',
   status: 'active',
   description: '',
+  feeCost: null,
+  feeCurrency: 'VND',
+  feePaymentAccountId: null,
   createdAt: '2026-10-26T00:00:00.000Z',
   updatedAt: '2026-10-26T00:00:00.000Z',
 };
