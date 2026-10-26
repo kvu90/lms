@@ -26,7 +26,7 @@ const PNG_1PX = Buffer.from(
   'base64',
 );
 
-interface BankBody { id: string; scope: string; bankKind: string; ownerId: string | null; defaultCategoryId: string | null }
+interface BankBody { id: string; scope: string; bankKind: string; ownerId: string | null; defaultCategoryId: string | null; contextId: string }
 interface CtxBody { id: string; contextLevel: number; instanceId: string }
 
 function imageSrcOf(doc: unknown): string | null {
@@ -98,11 +98,10 @@ describe('Ảnh nhúng câu hỏi: GV tải vào bank cá nhân → HS thấy tr
     const personal = (banksRes.body as BankBody[])
       .find((b) => b.scope === 'personal' && b.bankKind === 'question' && b.ownerId === teacher.id)!;
     expect(personal?.defaultCategoryId).toBeTruthy();
-    const bankCtx = ctxList.find((c) => c.instanceId === personal.id)!;
-    expect(bankCtx).toBeTruthy();
+    expect(personal?.contextId).toBeTruthy();
 
     const up = await http(app).post('/api/v1/files/question-image').set(bearer(teacher.token))
-      .field('contextId', bankCtx.id).field('fileArea', 'questiontext')
+      .field('contextId', personal.contextId).field('fileArea', 'questiontext')
       .attach('file', PNG_1PX, 'so-do.png');
     expect(up.status, JSON.stringify(up.body)).toBe(201);
     const fileId = up.body.id as string;
@@ -111,7 +110,7 @@ describe('Ảnh nhúng câu hỏi: GV tải vào bank cá nhân → HS thấy tr
 
     return {
       teacher, student, courseId: course.id, sectionId,
-      bankCtxId: bankCtx.id, personalCatId: personal.defaultCategoryId!,
+      bankCtxId: personal.contextId, personalCatId: personal.defaultCategoryId!,
       fileId, canonicalSrc,
     };
   }
