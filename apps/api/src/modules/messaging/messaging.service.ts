@@ -1723,7 +1723,6 @@ export class MessagingService {
    * @param conversation - Conversation cần resolve phạm vi lớp.
    * @returns Id lớp mà conversation thuộc về, hoặc null.
    */
-
   private async resolveConversationClassId(conversation: ConversationRow): Promise<string | null> {
     if (this.isClassLinked(conversation)) return conversation.itemId;
     if (conversation.contextId) {
