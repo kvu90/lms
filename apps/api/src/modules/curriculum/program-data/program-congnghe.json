@@ -12,7 +12,50 @@
    "topic": "",
    "content": "Tự nhiên và Công nghệ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được đối tượng tự nhiên và sản phẩm công nghệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác dụng của một số sản phẩm công nghệ trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức giữ gìn sản phẩm công nghệ trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân biệt được đối tượng tự nhiên và sản phẩm công nghệ. – Nêu được tác dụng của một số sản phẩm công nghệ trong gia đình. – Có ý thức giữ gìn sản phẩm công nghệ trong gia đình.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -33,7 +76,64 @@
    "topic": "",
    "content": "Sử dụng đèn học",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác dụng và mô tả được các bộ phận chính của đèn học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại đèn học thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định vị trí đặt đèn; bật, tắt, điều chỉnh được độ sáng của đèn học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và phòng tránh được những tình huống mất an toàn khi sử dụng đèn học."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được tác dụng và mô tả được các bộ phận chính của đèn học. – Nhận biết được một số loại đèn học thông dụng. – Xác định vị trí đặt đèn; bật, tắt, điều chỉnh được độ sáng của đèn học. – Nhận biết và phòng tránh được những tình huống mất an toàn khi sử dụng đèn học.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -54,7 +154,64 @@
    "topic": "",
    "content": "Sử dụng quạt điện",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác dụng và mô tả được các bộ phận chính của quạt điện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại quạt điện thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định vị trí đặt quạt; bật, tắt, điều chỉnh được tốc độ quạt phù hợp với yêu cầu sử dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và phòng tránh được những tình huống mất an toàn khi sử dụng quạt điện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được tác dụng và mô tả được các bộ phận chính của quạt điện. – Nhận biết được một số loại quạt điện thông dụng. – Xác định vị trí đặt quạt; bật, tắt, điều chỉnh được tốc độ quạt phù hợp với yêu cầu sử dụng. – Nhận biết và phòng tránh được những tình huống mất an toàn khi sử dụng quạt điện.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -75,7 +232,64 @@
    "topic": "",
    "content": "Sử dụng máy thu thanh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác dụng của máy thu thanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào sơ đồ khối, mô tả được mối quan hệ đơn giản giữa đài phát thanh và máy thu thanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên và nêu được nội dung phát thanh của một số chương trình phù hợp với lứa tuổi học sinh trên đài phát thanh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chọn được kênh phát thanh, thay đổi âm lượng theo ý muốn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được tác dụng của máy thu thanh. – Dựa vào sơ đồ khối, mô tả được mối quan hệ đơn giản giữa đài phát thanh và máy thu thanh. – Kể tên và nêu được nội dung phát thanh của một số chương trình phù hợp với lứa tuổi học sinh trên đài phát thanh. – Chọn được kênh phát thanh, thay đổi âm lượng theo ý muốn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -96,7 +310,78 @@
    "topic": "",
    "content": "Sử dụng máy thu hình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tác dụng của máy thu hình (ti vi) trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào sơ đồ khối, mô tả được mối quan hệ đơn giản giữa đài truyền hình và ti vi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và nêu được nội dung của một số kênh truyền hình phổ biến, phù hợp với học sinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được vị trí ngồi đảm bảo góc nhìn và khoảng cách hợp lí khi xem ti vi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chọn được kênh, điều chỉnh được âm thanh của ti vi theo ý muốn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được tác dụng của máy thu hình (ti vi) trong gia đình. – Dựa vào sơ đồ khối, mô tả được mối quan hệ đơn giản giữa đài truyền hình và ti vi. – Kể được tên và nêu được nội dung của một số kênh truyền hình phổ biến, phù hợp với học sinh. – Lựa chọn được vị trí ngồi đảm bảo góc nhìn và khoảng cách hợp lí khi xem ti vi. – Chọn được kênh, điều chỉnh được âm thanh của ti vi theo ý muốn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -117,7 +402,36 @@
    "topic": "",
    "content": "An toàn với môi trường công nghệ trong gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và phòng tránh được một số tình huống không an toàn (Ví dụ: các tình huống liên quan đến điện, nhiệt, khói, khí ga, các đồ vật sắc, nhọn,…) cho người từ môi trường công nghệ trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Báo cho người lớn biết khi có sự cố, tình huống mất an toàn xảy ra."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết và phòng tránh được một số tình huống không an toàn (Ví dụ: các tình huống liên quan đến điện, nhiệt, khói, khí ga, các đồ vật sắc, nhọn,…) cho người từ môi trường công nghệ trong gia đình. – Báo cho người lớn biết khi có sự cố, tình huống mất an toàn xảy ra.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -138,7 +452,50 @@
    "topic": "",
    "content": "Làm đồ dùng học tập",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được vật liệu làm đồ dùng học tập đúng yêu cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được các dụng cụ để làm đồ dùng học tập đúng cách, an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được một đồ dùng học tập đơn giản theo các bước cho trước, đảm bảo yêu cầu về kĩ thuật, thẩm mĩ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lựa chọn được vật liệu làm đồ dùng học tập đúng yêu cầu. – Sử dụng được các dụng cụ để làm đồ dùng học tập đúng cách, an toàn. – Làm được một đồ dùng học tập đơn giản theo các bước cho trước, đảm bảo yêu cầu về kĩ thuật, thẩm mĩ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -160,7 +517,64 @@
    "topic": "",
    "content": "Làm biển báo giao thông",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của một số biển báo giao thông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được vật liệu phù hợp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và sử dụng được dụng cụ đúng cách, an toàn để làm được một số biển báo giao thông quen thuộc dưới dạng mô hình theo các bước cho trước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức tuân thủ các quy định khi tham gia giao thông."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được ý nghĩa của một số biển báo giao thông. – Lựa chọn được vật liệu phù hợp. – Lựa chọn và sử dụng được dụng cụ đúng cách, an toàn để làm được một số biển báo giao thông quen thuộc dưới dạng mô hình theo các bước cho trước. – Có ý thức tuân thủ các quy định khi tham gia giao thông.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -181,7 +595,50 @@
    "topic": "",
    "content": "Làm đồ chơi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và sử dụng an toàn một số đồ chơi đơn giản phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được một đồ chơi đơn giản theo hướng dẫn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí cho một đồ chơi đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết và sử dụng an toàn một số đồ chơi đơn giản phù hợp với lứa tuổi. – Làm được một đồ chơi đơn giản theo hướng dẫn. – Tính toán được chi phí cho một đồ chơi đơn giản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -202,7 +659,50 @@
    "topic": "",
    "content": "Hoa và cây cảnh trong đời sống",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được lợi ích của hoa và cây cảnh đối với đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại hoa và cây cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có hứng thú với việc trồng, chăm sóc và bảo vệ hoa, cây cảnh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được lợi ích của hoa và cây cảnh đối với đời sống. – Nhận biết được một số loại hoa và cây cảnh phổ biến. – Có hứng thú với việc trồng, chăm sóc và bảo vệ hoa, cây cảnh.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -223,7 +723,22 @@
    "topic": "",
    "content": "Trồng hoa và cây cảnh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm của một số loại chậu trồng hoa và cây cảnh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được đặc điểm của một số loại chậu trồng hoa và cây cảnh.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -244,7 +759,92 @@
    "topic": "",
    "content": "trong chậu",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số loại giá thể dùng để trồng hoa và cây cảnh trong chậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được nội dung các bước gieo hạt, trồng cây con trong chậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các công việc chủ yếu để chăm sóc một số loại hoa và cây cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc gieo hạt trong chậu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ trồng hoa, cây cảnh đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trồng và chăm sóc được một số loại hoa và cây cảnh trong chậu."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được một số loại giá thể dùng để trồng hoa và cây cảnh trong chậu. – Tóm tắt được nội dung các bước gieo hạt, trồng cây con trong chậu. – Mô tả được các công việc chủ yếu để chăm sóc một số loại hoa và cây cảnh phổ biến. – Thực hiện được việc gieo hạt trong chậu. – Sử dụng được một số dụng cụ trồng hoa, cây cảnh đơn giản. – Trồng và chăm sóc được một số loại hoa và cây cảnh trong chậu.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -265,7 +865,36 @@
    "topic": "",
    "content": "Lắp ghép mô hình kĩ thuật",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên, nhận biết được các chi tiết của bộ lắp ghép mô hình kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và sử dụng được một số dụng cụ và chi tiết để lắp ghép được một số mô hình kĩ thuật đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Kể tên, nhận biết được các chi tiết của bộ lắp ghép mô hình kĩ thuật. – Lựa chọn và sử dụng được một số dụng cụ và chi tiết để lắp ghép được một số mô hình kĩ thuật đơn giản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -286,7 +915,50 @@
    "topic": "",
    "content": "Làm đồ chơi dân gian",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và sử dụng được một số đồ chơi dân gian phù hợp với lứa tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được đồ chơi dân gian phù hợp với lứa tuổi theo hướng dẫn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán chi phí cho một đồ chơi dân gian tự làm."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết và sử dụng được một số đồ chơi dân gian phù hợp với lứa tuổi. – Làm được đồ chơi dân gian phù hợp với lứa tuổi theo hướng dẫn. – Tính toán chi phí cho một đồ chơi dân gian tự làm.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -307,7 +979,36 @@
    "topic": "",
    "content": "Vai trò của công nghệ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của sản phẩm công nghệ trong đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những mặt trái khi sử dụng công nghệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của sản phẩm công nghệ trong đời sống. – Nhận biết được những mặt trái khi sử dụng công nghệ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -328,7 +1029,64 @@
    "topic": "",
    "content": "Nhà sáng chế",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò của sáng chế trong đời sống và sự phát triển của công nghệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được thông tin về một số nhà sáng chế nổi bật trong lịch sử loài người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được lịch sử sáng chế ra sản phẩm công nghệ tiêu biểu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số đức tính cần có để trở thành nhà sáng chế."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được vai trò của sáng chế trong đời sống và sự phát triển của công nghệ. – Tóm tắt được thông tin về một số nhà sáng chế nổi bật trong lịch sử loài người. – Nêu được lịch sử sáng chế ra sản phẩm công nghệ tiêu biểu. – Nêu được một số đức tính cần có để trở thành nhà sáng chế.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -349,7 +1107,64 @@
    "topic": "",
    "content": "Tìm hiểu thiết kế",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận thức được muốn tạo ra sản phẩm công nghệ cần phải thiết kế; thiết kế là một quá trình sáng tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên các công việc chính khi thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ phác thảo, nêu được ý tưởng thiết kế một sản phẩm công nghệ đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được một sản phẩm thủ công kĩ thuật đơn giản theo hướng dẫn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận thức được muốn tạo ra sản phẩm công nghệ cần phải thiết kế; thiết kế là một quá trình sáng tạo. – Kể được tên các công việc chính khi thiết kế. – Vẽ phác thảo, nêu được ý tưởng thiết kế một sản phẩm công nghệ đơn giản. – Thiết kế được một sản phẩm thủ công kĩ thuật đơn giản theo hướng dẫn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -370,7 +1185,50 @@
    "topic": "",
    "content": "Sử dụng điện thoại",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tác dụng của điện thoại; nhận biết được các bộ phận cơ bản của điện thoại; nhận biết được các biểu tượng thể hiện trạng thái và chức năng hoạt động của điện thoại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Ghi nhớ, thực hiện được cuộc gọi tới các số điện thoại của người thân và các số điện thoại khẩn cấp khi cần thiết."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng điện thoại an toàn, tiết kiệm, hiệu quả và phù hợp với quy tắc giao tiếp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được tác dụng của điện thoại; nhận biết được các bộ phận cơ bản của điện thoại; nhận biết được các biểu tượng thể hiện trạng thái và chức năng hoạt động của điện thoại. – Ghi nhớ, thực hiện được cuộc gọi tới các số điện thoại của người thân và các số điện thoại khẩn cấp khi cần thiết. – Sử dụng điện thoại an toàn, tiết kiệm, hiệu quả và phù hợp với quy tắc giao tiếp.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -391,7 +1249,64 @@
    "topic": "",
    "content": "Sử dụng tủ lạnh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tác dụng của tủ lạnh trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được vị trí, vai trò các khoang khác nhau trong tủ lạnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc sắp xếp, bảo quản thực phẩm trong tủ lạnh đúng cách, an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra được một số biểu hiện bất thường của tủ lạnh trong quá trình sử dụng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được tác dụng của tủ lạnh trong gia đình. – Nhận biết được vị trí, vai trò các khoang khác nhau trong tủ lạnh. – Thực hiện được việc sắp xếp, bảo quản thực phẩm trong tủ lạnh đúng cách, an toàn. – Nhận ra được một số biểu hiện bất thường của tủ lạnh trong quá trình sử dụng.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -412,7 +1327,22 @@
    "topic": "",
    "content": "Lắp ráp mô hình xe điện",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên, nhận biết được các chi tiết của bộ lắp ghép mô hình xe điện chạy bằng pin."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Kể tên, nhận biết được các chi tiết của bộ lắp ghép mô hình xe điện chạy bằng pin.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -433,7 +1363,22 @@
    "topic": "",
    "content": "chạy bằng pin",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp, vận hành được được mô hình xe điện chạy bằng pin."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lắp ráp, vận hành được được mô hình xe điện chạy bằng pin.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -454,7 +1399,64 @@
    "topic": "",
    "content": "Lắp ráp mô hình máy phát điện gió",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cách tạo ra điện từ gió."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và mô tả được các bộ phận chính của mô hình máy phát điện gió."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp được mô hình máy phát điện gió."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kiểm tra được hoạt động của mô hình với các tốc độ gió khác nhau."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được cách tạo ra điện từ gió. – Nhận biết và mô tả được các bộ phận chính của mô hình máy phát điện gió. – Lắp ráp được mô hình máy phát điện gió. – Kiểm tra được hoạt động của mô hình với các tốc độ gió khác nhau.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -475,7 +1477,64 @@
    "topic": "",
    "content": "Lắp ráp mô hình điện mặt trời",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cách tạo ra điện từ ánh sáng mặt trời."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và mô tả được các bộ phận chính của mô hình điện dùng năng lượng mặt trời."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp được mô hình điện mặt trời."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kiểm tra được hoạt động của mô hình với những độ sáng mặt trời khác nhau."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được cách tạo ra điện từ ánh sáng mặt trời. – Nhận biết và mô tả được các bộ phận chính của mô hình điện dùng năng lượng mặt trời. – Lắp ráp được mô hình điện mặt trời. – Kiểm tra được hoạt động của mô hình với những độ sáng mặt trời khác nhau.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -496,7 +1555,64 @@
    "topic": "",
    "content": "Nhà ở",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò và đặc điểm chung của nhà ở; một số kiến trúc nhà ở đặc trưng ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên một số vật liệu, mô tả các bước chính để xây dựng một ngôi nhà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả, nhận diện được những đặc điểm của ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số biện pháp sử dụng năng lượng trong gia đình tiết kiệm, hiệu quả."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được vai trò và đặc điểm chung của nhà ở; một số kiến trúc nhà ở đặc trưng ở Việt Nam. – Kể được tên một số vật liệu, mô tả các bước chính để xây dựng một ngôi nhà. – Mô tả, nhận diện được những đặc điểm của ngôi nhà thông minh. – Thực hiện được một số biện pháp sử dụng năng lượng trong gia đình tiết kiệm, hiệu quả.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -517,7 +1633,92 @@
    "topic": "",
    "content": "Bảo quản và chế biến thực phẩm",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số nhóm thực phẩm chính, dinh dưỡng từng loại, ý nghĩa đối với sức khoẻ con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò, ý nghĩa của bảo quản và chế biến thực phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số phương pháp bảo quản, chế biến thực phẩm phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và chế biến được món ăn đơn giản theo phương pháp không sử dụng nhiệt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hình thành thói quen ăn, uống khoa học; chế biến thực phẩm đảm bảo an toàn vệ sinh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán sơ bộ được dinh dưỡng, chi phí tài chính cho một bữa ăn gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được một số nhóm thực phẩm chính, dinh dưỡng từng loại, ý nghĩa đối với sức khoẻ con người. – Nêu được vai trò, ý nghĩa của bảo quản và chế biến thực phẩm. – Trình bày được một số phương pháp bảo quản, chế biến thực phẩm phổ biến. – Lựa chọn và chế biến được món ăn đơn giản theo phương pháp không sử dụng nhiệt. – Hình thành thói quen ăn, uống khoa học; chế biến thực phẩm đảm bảo an toàn vệ sinh. – Tính toán sơ bộ được dinh dưỡng, chi phí tài chính cho một bữa ăn gia đình.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -538,7 +1739,64 @@
    "topic": "",
    "content": "Trang phục và thời trang",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được vai trò, sự đa dạng của trang phục trong cuộc sống; các loại vải thông dụng được dùng để may trang phục."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những kiến thức cơ bản về thời trang, nhận ra và bước đầu hình thành xu hướng thời trang của bản thân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được trang phục phù hợp với đặc điểm và sở thích của bản thân, tính chất công việc và điều kiện tài chính của gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng và bảo quản được một số loại hình trang phục thông dụng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được vai trò, sự đa dạng của trang phục trong cuộc sống; các loại vải thông dụng được dùng để may trang phục. – Trình bày được những kiến thức cơ bản về thời trang, nhận ra và bước đầu hình thành xu hướng thời trang của bản thân. – Lựa chọn được trang phục phù hợp với đặc điểm và sở thích của bản thân, tính chất công việc và điều kiện tài chính của gia đình. – Sử dụng và bảo quản được một số loại hình trang phục thông dụng.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -559,7 +1817,50 @@
    "topic": "",
    "content": "Đồ dùng điện trong gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết và nêu được chức năng của các bộ phận chính, vẽ được sơ đồ khối, mô tả được nguyên lí làm việc và công dụng của một số đồ dùng điện trong gia đình (Ví dụ: nồi cơm điện, bếp điện, đèn điện, quạt điện, máy điều hoà,…)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số đồ dùng điện trong gia đình đúng cách, tiết kiệm và an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được đồ dùng điện tiết kiệm năng lượng, phù hợp với điều kiện gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết và nêu được chức năng của các bộ phận chính, vẽ được sơ đồ khối, mô tả được nguyên lí làm việc và công dụng của một số đồ dùng điện trong gia đình (Ví dụ: nồi cơm điện, bếp điện, đèn điện, quạt điện, máy điều hoà,…). – Sử dụng được một số đồ dùng điện trong gia đình đúng cách, tiết kiệm và an toàn. – Lựa chọn được đồ dùng điện tiết kiệm năng lượng, phù hợp với điều kiện gia đình.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -580,7 +1881,78 @@
    "topic": "",
    "content": "Mở đầu về trồng trọt",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, triển vọng của trồng trọt, kể tên được các nhóm cây trồng phổ biến ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số phương thức trồng trọt phổ biến ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những đặc điểm cơ bản của trồng trọt công nghệ cao."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm cơ bản của một số ngành nghề phổ biến trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận thức được sở thích, sự phù hợp của bản thân với các ngành nghề trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò, triển vọng của trồng trọt, kể tên được các nhóm cây trồng phổ biến ở Việt Nam. – Nêu được một số phương thức trồng trọt phổ biến ở Việt Nam. – Nhận biết được những đặc điểm cơ bản của trồng trọt công nghệ cao. – Trình bày được đặc điểm cơ bản của một số ngành nghề phổ biến trong trồng trọt. – Nhận thức được sở thích, sự phù hợp của bản thân với các ngành nghề trong trồng trọt.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -601,7 +1973,92 @@
    "topic": "",
    "content": "Quy trình trồng trọt",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các bước trong quy trình trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được mục đích, yêu cầu kĩ thuật của các bước trong quy trình trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc nhân giống cây trồng bằng phương pháp giâm cành."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch, tính toán được chi phí cho việc trồng và chăm sóc một loại cây trồng phổ biến trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc trong quy trình trồng và chăm sóc một loại cây trồng phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tích cực vận dụng kiến thức vào thực tiễn, có ý thức về an toàn lao động và bảo vệ môi trường trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được các bước trong quy trình trồng trọt. – Trình bày được mục đích, yêu cầu kĩ thuật của các bước trong quy trình trồng trọt. – Thực hiện được việc nhân giống cây trồng bằng phương pháp giâm cành. – Lập được kế hoạch, tính toán được chi phí cho việc trồng và chăm sóc một loại cây trồng phổ biến trong gia đình. – Thực hiện được một số công việc trong quy trình trồng và chăm sóc một loại cây trồng phổ biến. – Tích cực vận dụng kiến thức vào thực tiễn, có ý thức về an toàn lao động và bảo vệ môi trường trong trồng trọt.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -623,7 +2080,50 @@
    "topic": "",
    "content": "Trồng, chăm sóc và bảo vệ rừng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của rừng, phân biệt được các loại rừng phổ biến ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được quy trình trồng, chăm sóc cây rừng và các biện pháp bảo vệ rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức trồng, chăm sóc, bảo vệ rừng và môi trường sinh thái."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của rừng, phân biệt được các loại rừng phổ biến ở nước ta. – Tóm tắt được quy trình trồng, chăm sóc cây rừng và các biện pháp bảo vệ rừng. – Có ý thức trồng, chăm sóc, bảo vệ rừng và môi trường sinh thái.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -644,7 +2144,64 @@
    "topic": "",
    "content": "Mở đầu về chăn nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, triển vọng của chăn nuôi, nhận biết được một số vật nuôi được nuôi nhiều, các loại vật nuôi đặc trưng vùng miền ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số phương thức chăn nuôi phổ biến ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm cơ bản của một số ngành nghề phổ biến trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận thức được sở thích, sự phù hợp của bản thân với các ngành nghề trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò, triển vọng của chăn nuôi, nhận biết được một số vật nuôi được nuôi nhiều, các loại vật nuôi đặc trưng vùng miền ở nước ta. – Nêu được một số phương thức chăn nuôi phổ biến ở Việt Nam. – Trình bày được đặc điểm cơ bản của một số ngành nghề phổ biến trong chăn nuôi. – Nhận thức được sở thích, sự phù hợp của bản thân với các ngành nghề trong chăn nuôi.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -665,7 +2222,78 @@
    "topic": "",
    "content": "Nuôi dưỡng, chăm sóc và phòng, trị bệnh cho vật nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của việc nuôi dưỡng, chăm sóc và phòng, trị bệnh cho vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các công việc cơ bản trong nuôi dưỡng, chăm sóc vật nuôi non, vật nuôi đực giống, vật nuôi cái sinh sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được kĩ thuật nuôi, chăm sóc và phòng, trị bệnh cho một loại vật nuôi phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch, tính toán được chi phí cho việc nuôi dưỡng và chăm sóc một loại vật nuôi trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức vận dụng kiến thức vào thực tiễn và bảo vệ môi trường trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của việc nuôi dưỡng, chăm sóc và phòng, trị bệnh cho vật nuôi. – Nêu được các công việc cơ bản trong nuôi dưỡng, chăm sóc vật nuôi non, vật nuôi đực giống, vật nuôi cái sinh sản. – Trình bày được kĩ thuật nuôi, chăm sóc và phòng, trị bệnh cho một loại vật nuôi phổ biến. – Lập được kế hoạch, tính toán được chi phí cho việc nuôi dưỡng và chăm sóc một loại vật nuôi trong gia đình. – Có ý thức vận dụng kiến thức vào thực tiễn và bảo vệ môi trường trong chăn nuôi.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -686,7 +2314,78 @@
    "topic": "",
    "content": "Nuôi thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của thuỷ sản; nhận biết được một số thuỷ sản có giá trị kinh tế cao ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được quy trình kĩ thuật nuôi, chăm sóc, phòng, trị bệnh, thu hoạch một loại thuỷ sản phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch, tính toán được chi phí cho việc nuôi và chăm sóc một loại thuỷ sản phù hợp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đo được nhiệt độ, độ trong của nước nuôi thuỷ sản bằng phương pháp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức bảo vệ môi trường nuôi thuỷ sản và nguồn lợi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của thuỷ sản; nhận biết được một số thuỷ sản có giá trị kinh tế cao ở nước ta. – Nêu được quy trình kĩ thuật nuôi, chăm sóc, phòng, trị bệnh, thu hoạch một loại thuỷ sản phổ biến. – Lập được kế hoạch, tính toán được chi phí cho việc nuôi và chăm sóc một loại thuỷ sản phù hợp. – Đo được nhiệt độ, độ trong của nước nuôi thuỷ sản bằng phương pháp đơn giản. – Có ý thức bảo vệ môi trường nuôi thuỷ sản và nguồn lợi thuỷ sản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -708,7 +2407,78 @@
    "topic": "",
    "content": "Vẽ kĩ thuật",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được tiêu chuẩn về khổ giấy, tỉ lệ, đường nét và ghi kích thước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được hình chiếu vuông góc của một số khối đa diện, khối tròn xoay thường gặp theo phương pháp chiếu góc thứ nhất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và ghi được kích thước các hình chiếu vuông góc của vật thể đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản vẽ chi tiết, bản vẽ lắp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản vẽ nhà đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được tiêu chuẩn về khổ giấy, tỉ lệ, đường nét và ghi kích thước. – Vẽ được hình chiếu vuông góc của một số khối đa diện, khối tròn xoay thường gặp theo phương pháp chiếu góc thứ nhất. – Vẽ và ghi được kích thước các hình chiếu vuông góc của vật thể đơn giản. – Đọc được bản vẽ chi tiết, bản vẽ lắp đơn giản. – Đọc được bản vẽ nhà đơn giản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -729,7 +2499,92 @@
    "topic": "",
    "content": "Cơ khí",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số vật liệu thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nội dung cơ bản của truyền và biến đổi chuyển động; cấu tạo, nguyên lí làm việc của một số cơ cấu truyền và biến đổi chuyển động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số phương pháp và quy trình gia công cơ khí bằng tay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tháo lắp và tính toán được tỉ số truyền của một số bộ truyền và biến đổi chuyển động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số phương pháp gia công vật liệu bằng dụng cụ cầm tay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm cơ bản, nhận biết được sự phù hợp của bản thân đối với một số ngành nghề phổ biến trong lĩnh vực cơ khí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được một số vật liệu thông dụng. – Trình bày được nội dung cơ bản của truyền và biến đổi chuyển động; cấu tạo, nguyên lí làm việc của một số cơ cấu truyền và biến đổi chuyển động. – Trình bày được một số phương pháp và quy trình gia công cơ khí bằng tay. – Tháo lắp và tính toán được tỉ số truyền của một số bộ truyền và biến đổi chuyển động. – Thực hiện được một số phương pháp gia công vật liệu bằng dụng cụ cầm tay. – Trình bày được đặc điểm cơ bản, nhận biết được sự phù hợp của bản thân đối với một số ngành nghề phổ biến trong lĩnh vực cơ khí.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -751,7 +2606,64 @@
    "topic": "",
    "content": "An toàn điện",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số nguyên nhân gây tai nạn điện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số biện pháp an toàn điện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ bảo vệ an toàn điện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số động tác cơ bản sơ cứu người bị tai nạn điện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được một số nguyên nhân gây tai nạn điện. – Trình bày được một số biện pháp an toàn điện. – Sử dụng được một số dụng cụ bảo vệ an toàn điện. – Thực hiện được một số động tác cơ bản sơ cứu người bị tai nạn điện.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -772,7 +2684,64 @@
    "topic": "",
    "content": "Kĩ thuật điện",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu trúc chung của mạch điện, thành phần và chức năng của các bộ phận chính trên mạch điện (Ví dụ: các bộ phận: nguồn, tải, truyền dẫn, đóng cắt, điều khiển và bảo vệ mạch điện)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và mô tả được sơ đồ khối của mạch điện điều khiển đơn giản; phân loại và nêu được vai trò của một số mô đun cảm biến trong mạch điện điều khiển đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp được các mạch điện điều khiển đơn giản có sử dụng một mô đun cảm biến: mô đun cảm biến ánh sáng, mô đun cảm biến nhiệt độ và mô đun cảm biến độ ẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm cơ bản, nhận biết được sự phù hợp của bản thân đối với một số ngành nghề phổ biến trong lĩnh vực kĩ thuật điện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được cấu trúc chung của mạch điện, thành phần và chức năng của các bộ phận chính trên mạch điện (Ví dụ: các bộ phận: nguồn, tải, truyền dẫn, đóng cắt, điều khiển và bảo vệ mạch điện). – Vẽ và mô tả được sơ đồ khối của mạch điện điều khiển đơn giản; phân loại và nêu được vai trò của một số mô đun cảm biến trong mạch điện điều khiển đơn giản. – Lắp ráp được các mạch điện điều khiển đơn giản có sử dụng một mô đun cảm biến: mô đun cảm biến ánh sáng, mô đun cảm biến nhiệt độ và mô đun cảm biến độ ẩm. – Trình bày được đặc điểm cơ bản, nhận biết được sự phù hợp của bản thân đối với một số ngành nghề phổ biến trong lĩnh vực kĩ thuật điện.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -793,7 +2762,64 @@
    "topic": "",
    "content": "Thiết kế kĩ thuật",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được mục đích và vai trò của thiết kế kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên được một số ngành nghề chính liên quan tới thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các bước cơ bản trong thiết kế kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được một sản phẩm đơn giản theo gợi ý, hướng dẫn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được mục đích và vai trò của thiết kế kĩ thuật. – Kể tên được một số ngành nghề chính liên quan tới thiết kế. – Mô tả được các bước cơ bản trong thiết kế kĩ thuật. – Thiết kế được một sản phẩm đơn giản theo gợi ý, hướng dẫn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -815,7 +2841,36 @@
    "topic": "",
    "content": "Nghề nghiệp trong lĩnh vực kĩ thuật, công nghệ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm nghề nghiệp, tầm quan trọng của nghề nghiệp đối với con người và xã hội, ý nghĩa của việc lựa chọn đúng đắn nghề nghiệp của mỗi người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên và phân tích được đặc điểm, những yêu cầu chung của các ngành nghề trong lĩnh vực kĩ thuật, công nghệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm nghề nghiệp, tầm quan trọng của nghề nghiệp đối với con người và xã hội, ý nghĩa của việc lựa chọn đúng đắn nghề nghiệp của mỗi người. – Kể tên và phân tích được đặc điểm, những yêu cầu chung của các ngành nghề trong lĩnh vực kĩ thuật, công nghệ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -836,7 +2891,50 @@
    "topic": "",
    "content": "Giáo dục kĩ thuật, công nghệ trong hệ thống giáo dục quốc dân",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cơ cấu hệ thống giáo dục tại Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra và giải thích được các thời điểm có sự phân luồng và cơ hội lựa chọn nghề nghiệp kĩ thuật, công nghệ trong hệ thống giáo dục."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được sau khi kết thúc trung học cơ sở có những hướng đi nào liên quan tới nghề nghiệp trong lĩnh vực kĩ thuật, công nghệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được cơ cấu hệ thống giáo dục tại Việt Nam. – Nhận ra và giải thích được các thời điểm có sự phân luồng và cơ hội lựa chọn nghề nghiệp kĩ thuật, công nghệ trong hệ thống giáo dục. – Hiểu được sau khi kết thúc trung học cơ sở có những hướng đi nào liên quan tới nghề nghiệp trong lĩnh vực kĩ thuật, công nghệ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -857,7 +2955,50 @@
    "topic": "",
    "content": "Thị trường lao động kĩ thuật, công nghệ tại Việt Nam",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm về thị trường lao động, các yếu tố ảnh hưởng tới thị trường lao động, vai trò của thị trường lao động trong việc định hướng nghề nghiệp thuộc lĩnh vực kĩ thuật, công nghệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những vấn đề cơ bản của thị trường lao động tại Việt Nam hiện nay."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm kiếm được các thông tin về thị trường lao động trong lĩnh vực kĩ thuật và công nghệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm về thị trường lao động, các yếu tố ảnh hưởng tới thị trường lao động, vai trò của thị trường lao động trong việc định hướng nghề nghiệp thuộc lĩnh vực kĩ thuật, công nghệ. – Mô tả được những vấn đề cơ bản của thị trường lao động tại Việt Nam hiện nay. – Tìm kiếm được các thông tin về thị trường lao động trong lĩnh vực kĩ thuật và công nghệ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -878,7 +3019,50 @@
    "topic": "",
    "content": "Lựa chọn nghề nghiệp trong lĩnh vực kĩ thuật, công nghệ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được một số lí thuyết cơ bản về lựa chọn nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được các bước trong quy trình lựa chọn nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tự đánh giá được năng lực, sở thích, cá tính của bản thân, bối cảnh của gia đình về mức độ phù hợp với một số ngành nghề thuộc lĩnh vực kĩ thuật, công nghệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tóm tắt được một số lí thuyết cơ bản về lựa chọn nghề nghiệp. – Giải thích được các bước trong quy trình lựa chọn nghề nghiệp. – Tự đánh giá được năng lực, sở thích, cá tính của bản thân, bối cảnh của gia đình về mức độ phù hợp với một số ngành nghề thuộc lĩnh vực kĩ thuật, công nghệ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -899,7 +3083,22 @@
    "topic": "",
    "content": "Mô đun tự chọn (Học sinh lựa chọn học 1 trong 15 mô đun thuộc ba lĩnh vực công nghiệp; nông – lâm nghiệp và thủy sản; dịch vụ) Các mô đun công nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận ra và giải thích được các yếu tố ảnh hưởng tới quyết định lựa chọn nghề nghiệp của bản thân trong lĩnh vực kĩ thuật, công nghệ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận ra và giải thích được các yếu tố ảnh hưởng tới quyết định lựa chọn nghề nghiệp của bản thân trong lĩnh vực kĩ thuật, công nghệ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -920,7 +3119,134 @@
    "topic": "",
    "content": "Lắp đặt mạng điện trong nhà",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được chức năng, cấu tạo và thông số kĩ thuật của thiết bị đóng cắt, lấy điện trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ đo điện cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được sơ đồ nguyên lí và sơ đồ lắp đặt mạng điện trong nhà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được thiết bị, dụng cụ, vật liệu phù hợp cho mạng điện trong nhà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp đặt được mạng điện trong nhà theo thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kiểm tra, thử nghiệm mạng điện hoạt động đúng yêu cầu, an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí cho một mạng điện trong nhà đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được chức năng, cấu tạo và thông số kĩ thuật của thiết bị đóng cắt, lấy điện trong gia đình. – Sử dụng được một số dụng cụ đo điện cơ bản. – Thiết kế được sơ đồ nguyên lí và sơ đồ lắp đặt mạng điện trong nhà. – Lựa chọn được thiết bị, dụng cụ, vật liệu phù hợp cho mạng điện trong nhà. – Lắp đặt được mạng điện trong nhà theo thiết kế. – Kiểm tra, thử nghiệm mạng điện hoạt động đúng yêu cầu, an toàn. – Tính toán được chi phí cho một mạng điện trong nhà đơn giản. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -941,7 +3267,134 @@
    "topic": "",
    "content": "Lắp đặt mạch điện trang trí, báo hiệu",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả cấu tạo, chức năng và kiểm tra được một số linh kiện thông dụng dùng trong mạch điện trang trí, báo hiệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ đo điện cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được sơ đồ mạch điện trang trí, báo hiệu đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho mạch điện trang trí, báo hiệu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp đặt được mạch điện theo thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kiểm tra, điều chỉnh thông số của mạch đúng yêu cầu, an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí để lắp đặt một mạch điện trang trí, báo hiệu đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả cấu tạo, chức năng và kiểm tra được một số linh kiện thông dụng dùng trong mạch điện trang trí, báo hiệu. – Sử dụng được một số dụng cụ đo điện cơ bản. – Thiết kế được sơ đồ mạch điện trang trí, báo hiệu đơn giản. – Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho mạch điện trang trí, báo hiệu. – Lắp đặt được mạch điện theo thiết kế. – Kiểm tra, điều chỉnh thông số của mạch đúng yêu cầu, an toàn. – Tính toán được chi phí để lắp đặt một mạch điện trang trí, báo hiệu đơn giản. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -963,7 +3416,134 @@
    "topic": "",
    "content": "Lắp đặt hệ thống điều khiển chiếu sáng cho ngôi nhà thông minh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm cơ bản của một ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ đo điện cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số cảm biến ánh sáng, rơ le thời gian thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được một hệ thống điều khiển chiếu sáng tự động cho ngôi nhà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho hệ thống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp đặt, kiểm tra, điều chỉnh thông số của hệ thống đúng yêu cầu, an toàn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí để lắp đặt một hệ thống điều khiển chiếu sáng đơn giản cho ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được đặc điểm cơ bản của một ngôi nhà thông minh. – Sử dụng được một số dụng cụ đo điện cơ bản. – Nhận biết được một số cảm biến ánh sáng, rơ le thời gian thông dụng. – Thiết kế được một hệ thống điều khiển chiếu sáng tự động cho ngôi nhà. – Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho hệ thống. – Lắp đặt, kiểm tra, điều chỉnh thông số của hệ thống đúng yêu cầu, an toàn. – Tính toán được chi phí để lắp đặt một hệ thống điều khiển chiếu sáng đơn giản cho ngôi nhà thông minh. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -984,7 +3564,134 @@
    "topic": "",
    "content": "Lắp đặt mạng điện an ninh, bảo vệ trong ngôi nhà thông minh",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm cơ bản của một ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ đo điện cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm cảm biến, nguyên tắc hoạt động của một số loại cảm biến cơ bản: khí gas, khói, hồng ngoại, siêu âm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được mạch điện báo rò khí gas, báo cháy, báo trộm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho hệ thống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí để lắp đặt hệ thống đảm bảo an ninh, an toàn cho ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được đặc điểm cơ bản của một ngôi nhà thông minh. – Sử dụng được một số dụng cụ đo điện cơ bản. – Trình bày được khái niệm cảm biến, nguyên tắc hoạt động của một số loại cảm biến cơ bản: khí gas, khói, hồng ngoại, siêu âm. – Thiết kế được mạch điện báo rò khí gas, báo cháy, báo trộm. – Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho hệ thống. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Tính toán được chi phí để lắp đặt hệ thống đảm bảo an ninh, an toàn cho ngôi nhà thông minh. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1006,7 +3713,176 @@
    "topic": "",
    "content": "Lắp đặt mạch điện tiện ích trong gia đình sử dụng kit vi điều khiển ứng dụng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được một số dụng cụ đo điện cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nguyên tắc hoạt động của một số thiết bị đóng cắt thông dụng: Rơle điện từ, công tắc tơ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được ba thành phần cơ bản của một hệ thống điều khiển (Tín hiệu vào – Bộ điều khiển – Tín hiệu ra)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm, cảm biến ánh sáng, cảm biến siêu âm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các chân chức năng cơ bản trên kit lập trình vi điều khiển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được mạch điện tự động bơm nước, mạch điện tưới nước tự động, mạch điện điều khiển đèn chiếu sáng tự động có sử dụng kit vi điều khiển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được lưu đồ thuật toán, viết được chương trình điều khiển sử dụng các câu lệnh thông dụng của ngôn ngữ lập trình Pascal, C."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nạp được chương trình (dạng file hex) vào kit lập trình tương ứng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho hệ thống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Sử dụng được một số dụng cụ đo điện cơ bản. – Trình bày được nguyên tắc hoạt động của một số thiết bị đóng cắt thông dụng: Rơle điện từ, công tắc tơ. – Mô tả được ba thành phần cơ bản của một hệ thống điều khiển (Tín hiệu vào – Bộ điều khiển – Tín hiệu ra). – Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm, cảm biến ánh sáng, cảm biến siêu âm. – Mô tả được các chân chức năng cơ bản trên kit lập trình vi điều khiển. – Thiết kế được mạch điện tự động bơm nước, mạch điện tưới nước tự động, mạch điện điều khiển đèn chiếu sáng tự động có sử dụng kit vi điều khiển. – Vẽ được lưu đồ thuật toán, viết được chương trình điều khiển sử dụng các câu lệnh thông dụng của ngôn ngữ lập trình Pascal, C. – Nạp được chương trình (dạng file hex) vào kit lập trình tương ứng. – Lựa chọn được linh kiện, dụng cụ, vật liệu cần thiết và phù hợp cho hệ thống. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1027,7 +3903,92 @@
    "topic": "",
    "content": "Gia công gỗ Các mô đun nông nghiệp, lâm nghiệp và thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại gỗ thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn và sử dụng được dụng cụ thông thường để gia công gỗ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được bản vẽ lắp và chi tiết một số sản phẩm gỗ đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Gia công, lắp ráp và hoàn thiện được một số sản phẩm gỗ đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nhận biết được một số loại gỗ thông dụng. – Lựa chọn và sử dụng được dụng cụ thông thường để gia công gỗ. – Đọc được bản vẽ lắp và chi tiết một số sản phẩm gỗ đơn giản. – Gia công, lắp ráp và hoàn thiện được một số sản phẩm gỗ đơn giản. – Thực hiện an toàn, vệ sinh lao động. – Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1048,7 +4009,120 @@
    "topic": "",
    "content": "Trồng cây ăn quả",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của cây ăn quả."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm thực vật học, yêu cầu ngoại cảnh của một số loại cây ăn quả phổ biến ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được quy trình trồng, chăm sóc và kĩ thuật tỉa cành tạo tán, điều khiển ra hoa, đậu quả của một số loại cây ăn quả phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được kĩ thuật nhân giống vô tính một số loại cây ăn quả phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trồng và chăm sóc một loại cây ăn quả."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí và hiệu quả kinh tế khi trồng cây ăn quả."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức bảo vệ môi trường và an toàn lao động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của cây ăn quả. – Phân tích được đặc điểm thực vật học, yêu cầu ngoại cảnh của một số loại cây ăn quả phổ biến ở địa phương. – Nêu được quy trình trồng, chăm sóc và kĩ thuật tỉa cành tạo tán, điều khiển ra hoa, đậu quả của một số loại cây ăn quả phổ biến. – Thực hiện được kĩ thuật nhân giống vô tính một số loại cây ăn quả phổ biến. – Trồng và chăm sóc một loại cây ăn quả. – Tính toán được chi phí và hiệu quả kinh tế khi trồng cây ăn quả. – Có ý thức bảo vệ môi trường và an toàn lao động. – Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1069,7 +4143,106 @@
    "topic": "",
    "content": "Nuôi gà lấy thịt theo tiêu chuẩn VietGAP",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ý nghĩa, các tiêu chí của việc chăn nuôi gà lấy thịt theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được các điều kiện cần thiết để chăn nuôi gà theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được mô hình chăn nuôi thích hợp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được công việc nuôi dưỡng, chăm sóc gà và phòng, trị một số loại bệnh thường gặp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí và hiệu quả kinh tế khi nuôi gà lấy thịt theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được ý nghĩa, các tiêu chí của việc chăn nuôi gà lấy thịt theo tiêu chuẩn VietGAP. – Giải thích được các điều kiện cần thiết để chăn nuôi gà theo tiêu chuẩn VietGAP. – Lựa chọn được mô hình chăn nuôi thích hợp. – Thực hiện được công việc nuôi dưỡng, chăm sóc gà và phòng, trị một số loại bệnh thường gặp. – Tính toán được chi phí và hiệu quả kinh tế khi nuôi gà lấy thịt theo tiêu chuẩn VietGAP. – Có ý thức về an toàn lao động và bảo vệ môi trường. – Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1091,7 +4264,106 @@
    "topic": "",
    "content": "Nuôi cá nước ngọt",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò và triển vọng phát triển của nghề nuôi cá ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích đặc điểm sinh học và yêu cầu dinh dưỡng, ngoại cảnh của các loại cá nuôi phổ biến ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được công việc chuẩn bị ao/lồng nuôi cá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc chăm sóc, phòng trừ dịch bệnh cho một loại cá nuôi phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí và hiệu quả kinh tế khi nuôi cá nước ngọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò và triển vọng phát triển của nghề nuôi cá ở Việt Nam. – Phân tích đặc điểm sinh học và yêu cầu dinh dưỡng, ngoại cảnh của các loại cá nuôi phổ biến ở địa phương. – Thực hiện được công việc chuẩn bị ao/lồng nuôi cá. – Thực hiện được việc chăm sóc, phòng trừ dịch bệnh cho một loại cá nuôi phổ biến. – Tính toán được chi phí và hiệu quả kinh tế khi nuôi cá nước ngọt. – Có ý thức về an toàn lao động và bảo vệ môi trường. – Đánh giá được khả năng và sở thích của bản thân với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1112,7 +4384,92 @@
    "topic": "",
    "content": "Trồng cây rừng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, ý nghĩa của rừng và việc trồng rừng; đặc điểm, yêu cầu của công việc trồng cây rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích đặc điểm thực vật và yêu cầu ngoại cảnh của một số cây thường được dùng để trồng rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc nhân giống vô tính một loại cây rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trồng và chăm sóc một loại cây rừng phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức bảo vệ rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò, ý nghĩa của rừng và việc trồng rừng; đặc điểm, yêu cầu của công việc trồng cây rừng. – Phân tích đặc điểm thực vật và yêu cầu ngoại cảnh của một số cây thường được dùng để trồng rừng. – Thực hiện được việc nhân giống vô tính một loại cây rừng. – Trồng và chăm sóc một loại cây rừng phổ biến. – Có ý thức bảo vệ rừng. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1133,7 +4490,22 @@
    "topic": "",
    "content": "Nông nghiệp 4.0",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "– Mô tả được các thành phần cơ bản của mô hình nông nghiệp công nghệ cao trong bối cảnh"
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được các thành phần cơ bản của mô hình nông nghiệp công nghệ cao trong bối cảnh",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1154,7 +4526,22 @@
    "topic": "",
    "content": "Các mô đun dịch vụ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "cuộc cách mạng công nghiệp lần thứ tư. – Trình bày được vai trò của khoa học, kĩ thuật và công nghệ đối với những thành tựu của nền nông nghiệp. – Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm đất, cảm biến ánh sáng, cảm biến PH, thời gian thực. – Thiết kế được mạch điện ứng dụng công nghệ tưới tiêu tự động trong trồng trọt. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được xu thế phát triển của nền nông nghiệp công nghệ cao. Có ý thức vươn lên, tinh thần khởi nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "cuộc cách mạng công nghiệp lần thứ tư. – Trình bày được vai trò của khoa học, kĩ thuật và công nghệ đối với những thành tựu của nền nông nghiệp. – Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm đất, cảm biến ánh sáng, cảm biến PH, thời gian thực. – Thiết kế được mạch điện ứng dụng công nghệ tưới tiêu tự động trong trồng trọt. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được xu thế phát triển của nền nông nghiệp công nghệ cao. Có ý thức vươn lên, tinh thần khởi nghiệp.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1175,7 +4562,92 @@
    "topic": "",
    "content": "Cắt may",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được kiểu dáng trang phục phù hợp với người mặc và xu hướng thời trang."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được bản vẽ cắt may một số sản phẩm đơn giản theo mẫu thiết kế, đạt yêu cầu kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "May được một số sản phẩm đơn giản theo mẫu thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức thực hiện công việc theo quy trình công nghệ, ý thức thực hiện an toàn lao động."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích lao động, tỉ mỉ, kiên nhẫn, sáng tạo trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lựa chọn được kiểu dáng trang phục phù hợp với người mặc và xu hướng thời trang. – Lập được bản vẽ cắt may một số sản phẩm đơn giản theo mẫu thiết kế, đạt yêu cầu kĩ thuật. – May được một số sản phẩm đơn giản theo mẫu thiết kế. – Có ý thức thực hiện công việc theo quy trình công nghệ, ý thức thực hiện an toàn lao động. – Yêu thích lao động, tỉ mỉ, kiên nhẫn, sáng tạo trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1196,7 +4668,106 @@
    "topic": "",
    "content": "Chế biến thực phẩm",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của các chất dinh dưỡng và các biện pháp bảo quản chất dinh dưỡng có trong thực phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được các loại thực phẩm thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chế biến được một số món ăn đặc trưng cho các phương pháp chế biến, đạt yêu cầu kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí cho một bữa ăn theo thực đơn cho trước ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức thực hiện an toàn lao động và an toàn vệ sinh thực phẩm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích lao động, tỉ mỉ, kiên nhẫn, cẩn thận, sáng tạo trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được vai trò của các chất dinh dưỡng và các biện pháp bảo quản chất dinh dưỡng có trong thực phẩm. – Lựa chọn được các loại thực phẩm thông dụng. – Chế biến được một số món ăn đặc trưng cho các phương pháp chế biến, đạt yêu cầu kĩ thuật. – Tính toán được chi phí cho một bữa ăn theo thực đơn cho trước . – Có ý thức thực hiện an toàn lao động và an toàn vệ sinh thực phẩm. – Yêu thích lao động, tỉ mỉ, kiên nhẫn, cẩn thận, sáng tạo trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1218,7 +4789,92 @@
    "topic": "",
    "content": "Làm hoa giấy, hoa vải",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được dụng cụ, vật liệu cần thiết và phù hợp để làm sản phẩm hoa giấy, hoa vải."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Làm được một số loại hoa giấy, hoa vải đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức thực hiện công việc theo quy trình công nghệ, có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính toán được chi phí và hiệu quả kinh tế khi làm hoa giấy, hoa vải."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích lao động, kiên nhẫn, tỉ mỉ, sáng tạo trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lựa chọn được dụng cụ, vật liệu cần thiết và phù hợp để làm sản phẩm hoa giấy, hoa vải. – Làm được một số loại hoa giấy, hoa vải đơn giản. – Có ý thức thực hiện công việc theo quy trình công nghệ, có ý thức về an toàn lao động và bảo vệ môi trường. – Tính toán được chi phí và hiệu quả kinh tế khi làm hoa giấy, hoa vải. – Yêu thích lao động, kiên nhẫn, tỉ mỉ, sáng tạo trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1239,7 +4895,78 @@
    "topic": "",
    "content": "Cắm hoa nghệ thuật",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được dụng cụ, vật liệu cần thiết và phù hợp với bình hoa hoặc bó hoa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số bình hoa và bó hoa trang trí đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức thực hiện công việc theo quy trình công nghệ; có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích công việc, thể hiện óc thẩm mĩ, kiên nhẫn, sáng tạo trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Lựa chọn được dụng cụ, vật liệu cần thiết và phù hợp với bình hoa hoặc bó hoa. – Thực hiện được một số bình hoa và bó hoa trang trí đơn giản. – Có ý thức thực hiện công việc theo quy trình công nghệ; có ý thức về an toàn lao động và bảo vệ môi trường. – Yêu thích công việc, thể hiện óc thẩm mĩ, kiên nhẫn, sáng tạo trong công việc. – Đánh giá được khả năng và sở thích của bản thân đối với một số ngành nghề liên quan.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1260,7 +4987,78 @@
    "topic": "",
    "content": "Khái quát về công nghệ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các khái niệm khoa học, kĩ thuật, công nghệ và mối liên hệ giữa chúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được mối quan hệ giữa công nghệ với tự nhiên, con người và xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, cấu trúc của hệ thống kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên và tóm tắt được nội dung cơ bản của một số công nghệ phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được yêu cầu và triển vọng, những thông tin chính về thị trường lao động của một số ngành nghề trong lĩnh vực kĩ thuật, công nghệ; đánh giá được sự phù hợp của bản thân đối với những ngành nghề đó."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Nêu được các khái niệm khoa học, kĩ thuật, công nghệ và mối liên hệ giữa chúng. – Mô tả được mối quan hệ giữa công nghệ với tự nhiên, con người và xã hội. – Trình bày được khái niệm, cấu trúc của hệ thống kĩ thuật. – Kể tên và tóm tắt được nội dung cơ bản của một số công nghệ phổ biến. – Trình bày được yêu cầu và triển vọng, những thông tin chính về thị trường lao động của một số ngành nghề trong lĩnh vực kĩ thuật, công nghệ; đánh giá được sự phù hợp của bản thân đối với những ngành nghề đó.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1281,7 +5079,64 @@
    "topic": "",
    "content": "Đổi mới công nghệ",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được nội dung cơ bản, vai trò, đặc điểm của các cuộc cách mạng công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được bản chất và hướng ứng dụng của một số công nghệ mới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được các tiêu chí cơ bản trong đánh giá công nghệ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được một số sản phẩm công nghệ phổ biến."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Tóm tắt được nội dung cơ bản, vai trò, đặc điểm của các cuộc cách mạng công nghiệp. – Trình bày được bản chất và hướng ứng dụng của một số công nghệ mới. – Giải thích được các tiêu chí cơ bản trong đánh giá công nghệ. – Đánh giá được một số sản phẩm công nghệ phổ biến.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1302,7 +5157,78 @@
    "topic": "",
    "content": "Vẽ kĩ thuật",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò của bản vẽ kĩ thuật, mô tả các tiêu chuẩn trình bày bản vẽ kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được hình chiếu vuông góc; hình cắt, mặt cắt; hình chiếu trục đo; hình chiếu phối cảnh; hình biểu diễn quy ước ren của vật thể đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được một số hình biểu diễn của vật thể đơn giản với sự hỗ trợ của máy tính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và đọc được bản vẽ chi tiết đơn giản, đọc được bản vẽ lắp của vật thể đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và đọc được bản vẽ xây dựng đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, vai trò của bản vẽ kĩ thuật, mô tả các tiêu chuẩn trình bày bản vẽ kĩ thuật. – Vẽ được hình chiếu vuông góc; hình cắt, mặt cắt; hình chiếu trục đo; hình chiếu phối cảnh; hình biểu diễn quy ước ren của vật thể đơn giản. – Vẽ được một số hình biểu diễn của vật thể đơn giản với sự hỗ trợ của máy tính. – Lập và đọc được bản vẽ chi tiết đơn giản, đọc được bản vẽ lắp của vật thể đơn giản. – Lập và đọc được bản vẽ xây dựng đơn giản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1324,7 +5250,92 @@
    "topic": "",
    "content": "Thiết kế kĩ thuật",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, ý nghĩa của hoạt động thiết kế kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các nguyên tắc thiết kế kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được quy trình thiết kế kĩ thuật; trình bày được các công việc cụ thể, phương pháp thực hiện, phương tiện hỗ trợ trong từng bước của quá trình thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các yếu tố ảnh hưởng trong quá trình thiết kế kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm, tính chất của một số nghề nghiệp liên quan tới thiết kế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được sản phẩm đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò, ý nghĩa của hoạt động thiết kế kĩ thuật. – Nêu được các nguyên tắc thiết kế kĩ thuật. – Giải thích được quy trình thiết kế kĩ thuật; trình bày được các công việc cụ thể, phương pháp thực hiện, phương tiện hỗ trợ trong từng bước của quá trình thiết kế. – Phân tích được các yếu tố ảnh hưởng trong quá trình thiết kế kĩ thuật. – Mô tả được đặc điểm, tính chất của một số nghề nghiệp liên quan tới thiết kế. – Thiết kế được sản phẩm đơn giản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1346,7 +5357,50 @@
    "topic": "",
    "content": "Giới thiệu chung về cơ khí chế tạo",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò và đặc điểm của cơ khí chế tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các bước cơ bản trong quy trình chế tạo cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số ngành nghề phổ biến thuộc lĩnh vực cơ khí chế tạo."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, vai trò và đặc điểm của cơ khí chế tạo. – Mô tả được các bước cơ bản trong quy trình chế tạo cơ khí. – Nhận biết được một số ngành nghề phổ biến thuộc lĩnh vực cơ khí chế tạo.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1367,7 +5421,50 @@
    "topic": "",
    "content": "Vật liệu cơ khí",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm cơ bản và phân loại của vật liệu cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được công dụng, tính chất của một số vật liệu cơ khí thông dụng, vật liệu mới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được tính chất cơ bản của một số vật liệu phổ biến bằng phương pháp đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm cơ bản và phân loại của vật liệu cơ khí. – Mô tả được công dụng, tính chất của một số vật liệu cơ khí thông dụng, vật liệu mới. – Nhận biết được tính chất cơ bản của một số vật liệu phổ biến bằng phương pháp đơn giản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1388,7 +5485,64 @@
    "topic": "",
    "content": "Các phương pháp gia công cơ khí",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, phân loại phương pháp gia công cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được những nội dung cơ bản của một số phương pháp gia công cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được quy trình công nghệ gia công một chi tiết đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Gia công được một chi tiết cơ khí đơn giản sử dụng phương pháp gia công cắt gọt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, phân loại phương pháp gia công cơ khí. – Tóm tắt được những nội dung cơ bản của một số phương pháp gia công cơ khí. – Lập được quy trình công nghệ gia công một chi tiết đơn giản. – Gia công được một chi tiết cơ khí đơn giản sử dụng phương pháp gia công cắt gọt.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1409,7 +5563,64 @@
    "topic": "",
    "content": "Sản xuất cơ khí",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các bước của quá trình sản xuất cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được dây truyền sản xuất tự động hoá có sử dụng robot công nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được tác động của cuộc cách mạng công nghiệp 4.0 trong tự động hoá quá trình sản xuất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận thức được tầm quan trọng của an toàn lao động và bảo vệ môi trường trong sản xuất cơ khí."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Phân tích được các bước của quá trình sản xuất cơ khí. – Mô tả được dây truyền sản xuất tự động hoá có sử dụng robot công nghiệp. – Nhận biết được tác động của cuộc cách mạng công nghiệp 4.0 trong tự động hoá quá trình sản xuất. – Nhận thức được tầm quan trọng của an toàn lao động và bảo vệ môi trường trong sản xuất cơ khí.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1430,7 +5641,50 @@
    "topic": "",
    "content": "Giới thiệu chung về cơ khí động lực",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu tạo, vai trò của từng bộ phận trong hệ thống cơ khí động lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên được một số máy móc thường gặp thuộc lĩnh vực cơ khí động lực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số ngành nghề phổ biến liên quan đến cơ khí động lực."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được cấu tạo, vai trò của từng bộ phận trong hệ thống cơ khí động lực. – Kể tên được một số máy móc thường gặp thuộc lĩnh vực cơ khí động lực. – Nhận biết được một số ngành nghề phổ biến liên quan đến cơ khí động lực.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1451,7 +5705,50 @@
    "topic": "",
    "content": "Động cơ đốt trong",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, phân loại động cơ đốt trong."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cấu tạo, giải thích được nguyên lí làm việc của động cơ đốt trong."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được ý nghĩa một số thông số kĩ thuật cơ bản của động cơ đốt trong."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, phân loại động cơ đốt trong. – Mô tả được cấu tạo, giải thích được nguyên lí làm việc của động cơ đốt trong. – Giải thích được ý nghĩa một số thông số kĩ thuật cơ bản của động cơ đốt trong.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1472,7 +5769,64 @@
    "topic": "",
    "content": "Ô tô",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của ô tô trong đời sống và sản xuất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cấu tạo chung của ô tô dưới dạng sơ đồ khối."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu tạo và nguyên lí làm việc của các bộ phận chính trên ô tô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những nội dung cơ bản về sử dụng, bảo dưỡng ô tô và an toàn khi tham gia giao thông."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của ô tô trong đời sống và sản xuất. – Mô tả được cấu tạo chung của ô tô dưới dạng sơ đồ khối. – Trình bày được cấu tạo và nguyên lí làm việc của các bộ phận chính trên ô tô. – Nhận biết được những nội dung cơ bản về sử dụng, bảo dưỡng ô tô và an toàn khi tham gia giao thông.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1494,7 +5848,50 @@
    "topic": "",
    "content": "Giới thiệu chung về kĩ thuật điện",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm kĩ thuật điện."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được vị trí, vai trò và triển vọng phát triển của kĩ thuật điện trong sản xuất và đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số ngành nghề thuộc lĩnh vực kĩ thuật điện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm kĩ thuật điện. – Tóm tắt được vị trí, vai trò và triển vọng phát triển của kĩ thuật điện trong sản xuất và đời sống. – Nhận biết được một số ngành nghề thuộc lĩnh vực kĩ thuật điện.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1515,7 +5912,78 @@
    "topic": "",
    "content": "Hệ thống điện quốc gia",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm và nguyên lí tạo ra dòng điện xoay chiều ba pha; mô tả được cách nối nguồn, tải ba pha và xác định các thông số hiệu dụng của mạch điện ba pha đối xứng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và mô tả được cấu trúc chung và vai trò của từng thành phần trong hệ thống điện quốc gia."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nội dung cơ bản về một số phương pháp sản xuất điện năng chủ yếu (thuỷ điện, nhiệt điện, điện hạt nhân, điện gió, điện mặt trời), ưu điểm và hạn chế của mỗi phương pháp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cấu trúc chung, các thiết bị và vai trò của chúng trong mạng điện sản xuất quy mô nhỏ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và trình bày được sơ đồ, các thông số kĩ thuật của mạng điện hạ áp dùng trong sinh hoạt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm và nguyên lí tạo ra dòng điện xoay chiều ba pha; mô tả được cách nối nguồn, tải ba pha và xác định các thông số hiệu dụng của mạch điện ba pha đối xứng. – Vẽ và mô tả được cấu trúc chung và vai trò của từng thành phần trong hệ thống điện quốc gia. – Trình bày được nội dung cơ bản về một số phương pháp sản xuất điện năng chủ yếu (thuỷ điện, nhiệt điện, điện hạt nhân, điện gió, điện mặt trời), ưu điểm và hạn chế của mỗi phương pháp. – Mô tả được cấu trúc chung, các thiết bị và vai trò của chúng trong mạng điện sản xuất quy mô nhỏ. – Vẽ và trình bày được sơ đồ, các thông số kĩ thuật của mạng điện hạ áp dùng trong sinh hoạt.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1537,7 +6005,64 @@
    "topic": "",
    "content": "Hệ thống điện trong gia đình",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và mô tả được cấu trúc chung của hệ thống điện trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được chức năng và thông số kĩ thuật của một số thiết bị điện phổ biến được sử dụng trong hệ thống điện trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế và lắp đặt được một mạch điều khiển điện đơn giản trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được sơ đồ nguyên lí và sơ đồ lắp đặt của hệ thống điện trong gia đình; xác định thông số kĩ thuật cho thiết bị đóng cắt, bảo vệ, truyền dẫn điện trong hệ thống điện."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Vẽ và mô tả được cấu trúc chung của hệ thống điện trong gia đình. – Trình bày được chức năng và thông số kĩ thuật của một số thiết bị điện phổ biến được sử dụng trong hệ thống điện trong gia đình. – Thiết kế và lắp đặt được một mạch điều khiển điện đơn giản trong gia đình. – Vẽ được sơ đồ nguyên lí và sơ đồ lắp đặt của hệ thống điện trong gia đình; xác định thông số kĩ thuật cho thiết bị đóng cắt, bảo vệ, truyền dẫn điện trong hệ thống điện.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1558,7 +6083,50 @@
    "topic": "",
    "content": "An toàn và tiết kiệm điện năng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm an toàn điện và tiết kiệm điện năng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được các biện pháp an toàn và tiết kiệm điện năng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số biện pháp an toàn và tiết kiệm điện năng trong cuộc sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm an toàn điện và tiết kiệm điện năng. – Tóm tắt được các biện pháp an toàn và tiết kiệm điện năng. – Thực hiện được một số biện pháp an toàn và tiết kiệm điện năng trong cuộc sống.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1579,7 +6147,64 @@
    "topic": "",
    "content": "Giới thiệu chung về kĩ thuật điện tử",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm kĩ thuật điện tử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được vị trí, vai trò và triển vọng phát triển của kĩ thuật điện tử trong sản xuất và đời sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số ngành nghề thuộc lĩnh vực kĩ thuật điện tử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên và mô tả được một số dịch vụ phổ biến trong xã hội có ứng dụng kĩ thuật điện tử."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm kĩ thuật điện tử. – Tóm tắt được vị trí, vai trò và triển vọng phát triển của kĩ thuật điện tử trong sản xuất và đời sống. – Nhận biết được một số ngành nghề thuộc lĩnh vực kĩ thuật điện tử. – Kể tên và mô tả được một số dịch vụ phổ biến trong xã hội có ứng dụng kĩ thuật điện tử.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1600,7 +6225,50 @@
    "topic": "",
    "content": "Linh kiện điện tử",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được kí hiệu, trình bày được công dụng và thông số kĩ thuật của một số linh kiện điện tử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết, đọc số liệu kĩ thuật, lựa chọn, kiểm tra được một số linh kiện điện tử phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp, kiểm tra được một mạch điện tử đơn giản (Ví dụ: mạch điện tử ứng dụng, sử dụng ít nhất năm linh kiện)."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Vẽ được kí hiệu, trình bày được công dụng và thông số kĩ thuật của một số linh kiện điện tử. – Nhận biết, đọc số liệu kĩ thuật, lựa chọn, kiểm tra được một số linh kiện điện tử phổ biến. – Lắp ráp, kiểm tra được một mạch điện tử đơn giản (Ví dụ: mạch điện tử ứng dụng, sử dụng ít nhất năm linh kiện).",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1621,7 +6289,50 @@
    "topic": "",
    "content": "Điện tử tương tự",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nội dung cơ bản về tín hiệu, một số mạch xử lí tín hiệu (mạch khuếch đại, mạch điều chế, mạch giải điều chế) của điện tử tương tự."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được kí hiệu, nguyên lí làm việc và ứng dụng cơ bản của mạch khuếch đại thuật toán."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp và kiểm tra được một mạch điện tử ứng dụng khuếch đại thuật toán."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được nội dung cơ bản về tín hiệu, một số mạch xử lí tín hiệu (mạch khuếch đại, mạch điều chế, mạch giải điều chế) của điện tử tương tự. – Trình bày được kí hiệu, nguyên lí làm việc và ứng dụng cơ bản của mạch khuếch đại thuật toán. – Lắp ráp và kiểm tra được một mạch điện tử ứng dụng khuếch đại thuật toán.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1642,7 +6353,50 @@
    "topic": "",
    "content": "Điện tử số",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nội dung cơ bản về tín hiệu, một số mạch xử lí tín hiệu (thuộc mạch tổ hợp và mạch dãy) trong điện tử số."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ kí hiệu, trình bày được công dụng và nhận biết được một số cổng logic cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp ráp, kiểm tra được mạch điện tử số đơn giản dùng các cổng logic cơ bản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được nội dung cơ bản về tín hiệu, một số mạch xử lí tín hiệu (thuộc mạch tổ hợp và mạch dãy) trong điện tử số. – Vẽ kí hiệu, trình bày được công dụng và nhận biết được một số cổng logic cơ bản. – Lắp ráp, kiểm tra được mạch điện tử số đơn giản dùng các cổng logic cơ bản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1663,7 +6417,64 @@
    "topic": "",
    "content": "Vi điều khiển",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, phân loại và ứng dụng của vi điều khiển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ và giải thích được sơ đồ chức năng của vi điều khiển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được cấu trúc, ứng dụng và công cụ lập trình của một bo mạch lập trình vi điều khiển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế, lắp ráp, kiểm tra được mạch điện tử ứng dụng dùng bo mạch lập trình vi điều khiển."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, phân loại và ứng dụng của vi điều khiển. – Vẽ và giải thích được sơ đồ chức năng của vi điều khiển. – Mô tả được cấu trúc, ứng dụng và công cụ lập trình của một bo mạch lập trình vi điều khiển. – Thiết kế, lắp ráp, kiểm tra được mạch điện tử ứng dụng dùng bo mạch lập trình vi điều khiển.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1684,7 +6495,78 @@
    "topic": "",
    "content": "Giới thiệu chung về trồng trọt",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò và triển vọng của trồng trọt trong bối cảnh cuộc cách mạng công nghiệp 4.0."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân loại được các nhóm cây trồng theo nguồn gốc, đặc tính sinh vật học và mục đích sử dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mối quan hệ giữa cây trồng với các yếu tố chính trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số thành tựu nổi bật của việc ứng dụng công nghệ cao trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò và triển vọng của trồng trọt trong bối cảnh cuộc cách mạng công nghiệp 4.0. – Phân loại được các nhóm cây trồng theo nguồn gốc, đặc tính sinh vật học và mục đích sử dụng. – Phân tích được mối quan hệ giữa cây trồng với các yếu tố chính trong trồng trọt. – Nêu được một số thành tựu nổi bật của việc ứng dụng công nghệ cao trong trồng trọt. – Trình bày được những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong trồng trọt.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1705,7 +6587,78 @@
    "topic": "",
    "content": "Đất trồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, thành phần, tính chất của đất trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được cơ sở khoa học của các biện pháp sử dụng, cải tạo, bảo vệ đất trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số ứng dụng công nghệ cao trong sản xuất đất/giá thể trồng cây (Ví dụ: Sản xuất đất/giá thể trồng cây từ xơ dừa, từ trấu, từ đất sét,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được độ mặn, độ chua của đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức về sử dụng, cải tạo đất trồng vào thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, thành phần, tính chất của đất trồng. – Giải thích được cơ sở khoa học của các biện pháp sử dụng, cải tạo, bảo vệ đất trồng. – Nêu được một số ứng dụng công nghệ cao trong sản xuất đất/giá thể trồng cây (Ví dụ: Sản xuất đất/giá thể trồng cây từ xơ dừa, từ trấu, từ đất sét,...). – Xác định được độ mặn, độ chua của đất. – Vận dụng được kiến thức về sử dụng, cải tạo đất trồng vào thực tiễn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1726,7 +6679,78 @@
    "topic": "",
    "content": "Phân bón",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm về phân bón, vai trò của phân bón trong trồng trọt; đặc điểm của một số loại phân bón phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được các biện pháp sử dụng và bảo quản phân bón phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số ứng dụng của công nghệ hiện đại trong sản xuất phân bón (Ví dụ: công nghệ vi sinh, công nghệ nano)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại phân bón thông thường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức về sử dụng và bảo quản phân bón vào thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm về phân bón, vai trò của phân bón trong trồng trọt; đặc điểm của một số loại phân bón phổ biến. – So sánh được các biện pháp sử dụng và bảo quản phân bón phổ biến. – Trình bày được một số ứng dụng của công nghệ hiện đại trong sản xuất phân bón (Ví dụ: công nghệ vi sinh, công nghệ nano). – Nhận biết được một số loại phân bón thông thường. – Vận dụng được kiến thức về sử dụng và bảo quản phân bón vào thực tiễn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1748,7 +6772,64 @@
    "topic": "",
    "content": "Công nghệ giống cây trồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò của giống cây trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các phương pháp chọn, tạo và nhân giống cây trồng phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ứng dụng của công nghệ sinh học trong chọn, tạo và nhân giống cây trồng (Ví dụ: tạo cây trồng biến đổi gen, nhân giống bằng nuôi cấy mô tế bào)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc nhân giống cây trồng bằng phương pháp nhân giống vô tính."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm, vai trò của giống cây trồng. – Mô tả được các phương pháp chọn, tạo và nhân giống cây trồng phổ biến. – Trình bày được ứng dụng của công nghệ sinh học trong chọn, tạo và nhân giống cây trồng (Ví dụ: tạo cây trồng biến đổi gen, nhân giống bằng nuôi cấy mô tế bào). – Thực hiện được việc nhân giống cây trồng bằng phương pháp nhân giống vô tính.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1769,7 +6850,78 @@
    "topic": "",
    "content": "Phòng, trừ sâu, bệnh hại cây trồng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tác hại của sâu, bệnh và ý nghĩa của việc phòng, trừ sâu, bệnh hại cây trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm nhận biết, nêu được nguyên nhân và biện pháp phòng, trừ một số loại sâu, bệnh hại cây trồng thường gặp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ứng dụng công nghệ vi sinh trong phòng, trừ sâu, bệnh hại cây trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được các biện pháp an toàn cho con người và môi trường trong phòng, trừ sâu, bệnh hại cây trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại sâu, bệnh hại cây trồng thường gặp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được tác hại của sâu, bệnh và ý nghĩa của việc phòng, trừ sâu, bệnh hại cây trồng. – Mô tả được đặc điểm nhận biết, nêu được nguyên nhân và biện pháp phòng, trừ một số loại sâu, bệnh hại cây trồng thường gặp. – Nêu được ứng dụng công nghệ vi sinh trong phòng, trừ sâu, bệnh hại cây trồng. – Lựa chọn được các biện pháp an toàn cho con người và môi trường trong phòng, trừ sâu, bệnh hại cây trồng. – Nhận biết được một số loại sâu, bệnh hại cây trồng thường gặp.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1790,7 +6942,92 @@
    "topic": "",
    "content": "Kĩ thuật trồng trọt",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các bước trong quy trình trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số ứng dụng nổi bật của cơ giới hoá trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số ứng dụng công nghệ cao trong thu hoạch, bảo quản và chế biến sản phẩm trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch, tính toán được chi phí cho việc trồng và chăm sóc một loại cây trồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chế biến được một số sản phẩm trồng trọt bằng phương pháp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tham gia trồng và chăm sóc một số loại cây trồng phổ biến ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được các bước trong quy trình trồng trọt. – Nêu được một số ứng dụng nổi bật của cơ giới hoá trồng trọt. – Nêu được một số ứng dụng công nghệ cao trong thu hoạch, bảo quản và chế biến sản phẩm trồng trọt. – Lập được kế hoạch, tính toán được chi phí cho việc trồng và chăm sóc một loại cây trồng. – Chế biến được một số sản phẩm trồng trọt bằng phương pháp đơn giản. – Tham gia trồng và chăm sóc một số loại cây trồng phổ biến ở địa phương.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1812,7 +7049,50 @@
    "topic": "",
    "content": "Trồng trọt công nghệ cao",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những vấn đề cơ bản của trồng trọt công nghệ cao."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số mô hình trồng trọt công nghệ cao. Giải thích được cơ sở khoa học của các hệ thống trồng cây không dùng đất (Ví dụ: trồng cây trong nhà có mái che, công nghệ tưới nhỏ giọt, hệ thống trồng cây thông minh; hệ thống trồng cây thuỷ canh, khí canh)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc trồng cây bằng phương pháp không dùng đất."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được những vấn đề cơ bản của trồng trọt công nghệ cao. – Mô tả được một số mô hình trồng trọt công nghệ cao. Giải thích được cơ sở khoa học của các hệ thống trồng cây không dùng đất (Ví dụ: trồng cây trong nhà có mái che, công nghệ tưới nhỏ giọt, hệ thống trồng cây thông minh; hệ thống trồng cây thuỷ canh, khí canh). – Thực hiện được việc trồng cây bằng phương pháp không dùng đất.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1833,7 +7113,50 @@
    "topic": "",
    "content": "Bảo vệ môi trường trong trồng trọt",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự cần thiết phải bảo vệ môi trường trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ứng dụng của công nghệ vi sinh trong bảo vệ môi trường và xử lí chất thải trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc đơn giản trong quy trình xử lí chất thải trồng trọt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được sự cần thiết phải bảo vệ môi trường trong trồng trọt. – Nêu được ứng dụng của công nghệ vi sinh trong bảo vệ môi trường và xử lí chất thải trồng trọt. – Thực hiện được một số công việc đơn giản trong quy trình xử lí chất thải trồng trọt.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1854,7 +7177,92 @@
    "topic": "",
    "content": "Giới thiệu chung về chăn nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò và triển vọng của chăn nuôi trong bối cảnh cuộc cách mạng công nghiệp 4.0."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân loại được vật nuôi theo nguồn gốc, đặc tính sinh vật học và mục đích sử dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số thành tựu nổi bật của việc ứng dụng công nghệ cao trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các phương thức chăn nuôi chủ yếu ở nước ta; xu hướng phát triển của chăn nuôi ở Việt Nam và trên thế giới (Ví dụ: Các mô hình chăn nuôi gia súc, gia cầm sạch, mô hình chăn nuôi bền vững, phát triển chăn nuôi theo chuỗi khép kín)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được đặc điểm cơ bản của chăn nuôi bền vững, chăn nuôi thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò và triển vọng của chăn nuôi trong bối cảnh cuộc cách mạng công nghiệp 4.0. – Phân loại được vật nuôi theo nguồn gốc, đặc tính sinh vật học và mục đích sử dụng. – Nêu được một số thành tựu nổi bật của việc ứng dụng công nghệ cao trong chăn nuôi. – Nêu được các phương thức chăn nuôi chủ yếu ở nước ta; xu hướng phát triển của chăn nuôi ở Việt Nam và trên thế giới (Ví dụ: Các mô hình chăn nuôi gia súc, gia cầm sạch, mô hình chăn nuôi bền vững, phát triển chăn nuôi theo chuỗi khép kín). – Nêu được đặc điểm cơ bản của chăn nuôi bền vững, chăn nuôi thông minh. – Trình bày được những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong chăn nuôi.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1876,7 +7284,64 @@
    "topic": "",
    "content": "Công nghệ giống vật nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm và vai trò của giống trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các chỉ tiêu cơ bản và phương pháp chọn giống vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được phương pháp chọn, nhân giống phù hợp với mục đích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ứng dụng của công nghệ sinh học trong chọn và nhân giống vật nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được khái niệm và vai trò của giống trong chăn nuôi. – Nêu được các chỉ tiêu cơ bản và phương pháp chọn giống vật nuôi. – Lựa chọn được phương pháp chọn, nhân giống phù hợp với mục đích. – Phân tích được ứng dụng của công nghệ sinh học trong chọn và nhân giống vật nuôi.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1897,7 +7362,78 @@
    "topic": "",
    "content": "Công nghệ thức ăn chăn nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được nhu cầu dinh dưỡng, tiêu chuẩn ăn và khẩu phần ăn của vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được thành phần dinh dưỡng và vai trò của các nhóm thức ăn đối với vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các phương pháp sản xuất, bảo quản một số loại thức ăn chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số ứng dụng công nghệ cao trong chế biến và bảo quản thức ăn chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được việc chế biến, bảo quản một số loại thức ăn chăn nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được nhu cầu dinh dưỡng, tiêu chuẩn ăn và khẩu phần ăn của vật nuôi. – Giải thích được thành phần dinh dưỡng và vai trò của các nhóm thức ăn đối với vật nuôi. – Mô tả được các phương pháp sản xuất, bảo quản một số loại thức ăn chăn nuôi. – Trình bày được một số ứng dụng công nghệ cao trong chế biến và bảo quản thức ăn chăn nuôi. – Thực hiện được việc chế biến, bảo quản một số loại thức ăn chăn nuôi.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1918,7 +7454,78 @@
    "topic": "",
    "content": "Phòng, trị bệnh cho vật nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của phòng, trị bệnh trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm, nêu được nguyên nhân và biện pháp phòng, trị một số bệnh phổ biến trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được biện pháp an toàn cho người, vật nuôi và môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ứng dụng của công nghệ sinh học trong phòng, trị bệnh cho vật nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức về phòng, trị bệnh cho vật nuôi vào thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của phòng, trị bệnh trong chăn nuôi. – Mô tả được đặc điểm, nêu được nguyên nhân và biện pháp phòng, trị một số bệnh phổ biến trong chăn nuôi. – Đề xuất được biện pháp an toàn cho người, vật nuôi và môi trường. – Trình bày được ứng dụng của công nghệ sinh học trong phòng, trị bệnh cho vật nuôi. – Vận dụng được kiến thức về phòng, trị bệnh cho vật nuôi vào thực tiễn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1939,7 +7546,120 @@
    "topic": "",
    "content": "Công nghệ chăn nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quy trình nuôi dưỡng và chăm sóc một số loại vật nuôi phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những yêu cầu về chuồng nuôi của một số loại vật nuôi phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được một số biện pháp đảm bảo vệ sinh chuồng nuôi và bảo vệ môi trường trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được quy trình chăn nuôi theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số mô hình chăn nuôi công nghệ cao (Ví dụ: hệ thống chăn nuôi cung cấp khẩu phần ăn tự động; hệ thống chăn nuôi thu gom, phân loại trứng tự động; hệ thống chăn nuôi vắt sữa bò tự động)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số ứng dụng công nghệ cao trong bảo quản, chế biến sản phẩm chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chế biến được một số sản phẩm chăn nuôi bằng phương pháp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc đơn giản trong quy trình kĩ thuật chăn nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được quy trình nuôi dưỡng và chăm sóc một số loại vật nuôi phổ biến. – Trình bày được những yêu cầu về chuồng nuôi của một số loại vật nuôi phổ biến. – Đề xuất được một số biện pháp đảm bảo vệ sinh chuồng nuôi và bảo vệ môi trường trong chăn nuôi. – Phân tích được quy trình chăn nuôi theo tiêu chuẩn VietGAP. – Mô tả được một số mô hình chăn nuôi công nghệ cao (Ví dụ: hệ thống chăn nuôi cung cấp khẩu phần ăn tự động; hệ thống chăn nuôi thu gom, phân loại trứng tự động; hệ thống chăn nuôi vắt sữa bò tự động). – Nêu được một số ứng dụng công nghệ cao trong bảo quản, chế biến sản phẩm chăn nuôi. – Chế biến được một số sản phẩm chăn nuôi bằng phương pháp đơn giản. – Thực hiện được một số công việc đơn giản trong quy trình kĩ thuật chăn nuôi.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1960,7 +7680,64 @@
    "topic": "",
    "content": "Bảo vệ môi trường trong chăn nuôi",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự cần thiết phải bảo vệ môi trường trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số biện pháp phổ biến trong xử lí chất thải chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ứng dụng của công nghệ sinh học trong bảo vệ môi trường chăn nuôi (Ví dụ: đệm lót sinh học, các chế phẩm và quy trình thu gom, xử lí chất thải chăn nuôi)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức bảo vệ môi trường, vận dụng vào thực tiễn chăn nuôi ở gia đình và địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được sự cần thiết phải bảo vệ môi trường trong chăn nuôi. – Mô tả được một số biện pháp phổ biến trong xử lí chất thải chăn nuôi. – Nêu được ứng dụng của công nghệ sinh học trong bảo vệ môi trường chăn nuôi (Ví dụ: đệm lót sinh học, các chế phẩm và quy trình thu gom, xử lí chất thải chăn nuôi). – Có ý thức bảo vệ môi trường, vận dụng vào thực tiễn chăn nuôi ở gia đình và địa phương.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -1982,7 +7759,64 @@
    "topic": "",
    "content": "Giới thiệu chung về lâm nghiệp",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, triển vọng của lâm nghiệp đối với đời sống và môi trường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số hoạt động lâm nghiệp cơ bản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số nguyên nhân chủ yếu làm suy thoái tài nguyên rừng và giải pháp khắc phục."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các đặc trưng cơ bản của sản xuất lâm nghiệp; những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong lâm nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò, triển vọng của lâm nghiệp đối với đời sống và môi trường. – Nêu được một số hoạt động lâm nghiệp cơ bản. – Phân tích được một số nguyên nhân chủ yếu làm suy thoái tài nguyên rừng và giải pháp khắc phục. – Nêu được các đặc trưng cơ bản của sản xuất lâm nghiệp; những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong lâm nghiệp.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2003,7 +7837,50 @@
    "topic": "",
    "content": "Trồng và chăm sóc rừng",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, nhiệm vụ của việc trồng và chăm sóc rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được quy luật sinh trưởng, phát triển của cây rừng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được việc bố trí thời vụ và mô tả được kĩ thuật trồng, chăm sóc rừng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò, nhiệm vụ của việc trồng và chăm sóc rừng. – Phân tích được quy luật sinh trưởng, phát triển của cây rừng. – Giải thích được việc bố trí thời vụ và mô tả được kĩ thuật trồng, chăm sóc rừng.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2024,7 +7901,64 @@
    "topic": "",
    "content": "Bảo vệ và khai thác tài nguyên rừng bền vững",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ý nghĩa, nhiệm vụ của việc bảo vệ và khai thác tài nguyên rừng bền vững."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số biện pháp bảo vệ và khai thác tài nguyên rừng phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được thực trạng trồng, chăm sóc, bảo vệ và khai thác rừng ở địa phương."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được biện pháp nâng cao ý thức bảo vệ tài nguyên rừng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được ý nghĩa, nhiệm vụ của việc bảo vệ và khai thác tài nguyên rừng bền vững. – Mô tả được một số biện pháp bảo vệ và khai thác tài nguyên rừng phổ biến. – Đánh giá được thực trạng trồng, chăm sóc, bảo vệ và khai thác rừng ở địa phương. – Đề xuất được biện pháp nâng cao ý thức bảo vệ tài nguyên rừng.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2045,7 +7979,78 @@
    "topic": "",
    "content": "Giới thiệu chung về thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò và triển vọng của thuỷ sản trong bối cảnh cuộc cách mạng công nghiệp 4.0."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân loại được các nhóm thuỷ sản theo nguồn gốc và đặc tính sinh vật học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số phương thức nuôi thuỷ sản phổ biến ở nước ta, ưu và nhược điểm của từng phương thức."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được xu hướng phát triển của thuỷ sản ở Việt Nam và trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong thuỷ sản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò và triển vọng của thuỷ sản trong bối cảnh cuộc cách mạng công nghiệp 4.0. – Phân loại được các nhóm thuỷ sản theo nguồn gốc và đặc tính sinh vật học. – Nêu được một số phương thức nuôi thuỷ sản phổ biến ở nước ta, ưu và nhược điểm của từng phương thức. – Phân tích được xu hướng phát triển của thuỷ sản ở Việt Nam và trên thế giới. – Trình bày được những yêu cầu cơ bản với người lao động của một số ngành nghề phổ biến trong thuỷ sản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2067,7 +8072,92 @@
    "topic": "",
    "content": "Môi trường nuôi thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các yêu cầu chính của môi trường nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được các yếu tố ảnh hưởng đến môi trường nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số biện pháp cơ bản xử lí môi trường trước và sau nuôi thuỷ sản; các biện pháp quản lí môi trường nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ứng dụng công nghệ sinh học trong xử lí môi trường nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được một số chỉ tiêu cơ bản của nước nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức vận dụng kiến thức về quản lí môi trường nuôi thuỷ sản vào thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được các yêu cầu chính của môi trường nuôi thuỷ sản. – Phân tích được các yếu tố ảnh hưởng đến môi trường nuôi thuỷ sản. – Mô tả được một số biện pháp cơ bản xử lí môi trường trước và sau nuôi thuỷ sản; các biện pháp quản lí môi trường nuôi thuỷ sản. – Trình bày được ứng dụng công nghệ sinh học trong xử lí môi trường nuôi thuỷ sản. – Xác định được một số chỉ tiêu cơ bản của nước nuôi thuỷ sản. – Có ý thức vận dụng kiến thức về quản lí môi trường nuôi thuỷ sản vào thực tiễn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2088,7 +8178,78 @@
    "topic": "",
    "content": "Công nghệ giống thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của giống trong nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm sinh sản của cá và tôm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được kĩ thuật ương, nuôi cá và tôm giống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ứng dụng công nghệ sinh học trong chọn và nhân giống thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức vận dụng kiến thức về giống thuỷ sản vào thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của giống trong nuôi thuỷ sản. – Phân tích được đặc điểm sinh sản của cá và tôm. – Mô tả được kĩ thuật ương, nuôi cá và tôm giống. – Phân tích được ứng dụng công nghệ sinh học trong chọn và nhân giống thuỷ sản. – Có ý thức vận dụng kiến thức về giống thuỷ sản vào thực tiễn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2109,7 +8270,64 @@
    "topic": "",
    "content": "Công nghệ thức ăn thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được thành phần dinh dưỡng và vai trò của các nhóm thức ăn thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số phương pháp bảo quản, chế biến thức ăn thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ứng dụng công nghệ sinh học trong bảo quản, chế biến thức ăn thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một phương pháp bảo quản, chế biến thức ăn thuỷ sản ở quy mô nhỏ."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được thành phần dinh dưỡng và vai trò của các nhóm thức ăn thuỷ sản. – Mô tả được một số phương pháp bảo quản, chế biến thức ăn thuỷ sản. – Trình bày được ứng dụng công nghệ sinh học trong bảo quản, chế biến thức ăn thuỷ sản. – Thực hiện được một phương pháp bảo quản, chế biến thức ăn thuỷ sản ở quy mô nhỏ.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2130,7 +8348,64 @@
    "topic": "",
    "content": "Phòng, trị bệnh thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của việc phòng, trị bệnh thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm, nêu được nguyên nhân và biện pháp phòng, trị một số loại bệnh thuỷ sản phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ứng dụng công nghệ sinh học trong phòng, trị bệnh thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức về phòng, trị bệnh thuỷ sản vào thực tiễn."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được vai trò của việc phòng, trị bệnh thuỷ sản. – Mô tả được đặc điểm, nêu được nguyên nhân và biện pháp phòng, trị một số loại bệnh thuỷ sản phổ biến. – Trình bày được ứng dụng công nghệ sinh học trong phòng, trị bệnh thuỷ sản. – Vận dụng được kiến thức về phòng, trị bệnh thuỷ sản vào thực tiễn.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2151,7 +8426,106 @@
    "topic": "",
    "content": "Công nghệ nuôi thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quy trình nuôi, chăm sóc một số loại thuỷ sản phổ biến ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được biện pháp đảm bảo vệ sinh ao nuôi và bảo vệ môi trường trong nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được quy trình nuôi thuỷ sản theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số ứng dụng công nghệ cao trong nuôi thuỷ sản (Ví dụ: Ứng dụng công nghệ Semi-biofloc, công nghệ Biofloc)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số phương pháp thu hoạch, bảo quản và chế biến thuỷ sản phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số ứng dụng công nghệ cao trong bảo quản, chế biến thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc đơn giản trong bảo quản, chế biến và nuôi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Mô tả được quy trình nuôi, chăm sóc một số loại thuỷ sản phổ biến ở Việt Nam. – Đề xuất được biện pháp đảm bảo vệ sinh ao nuôi và bảo vệ môi trường trong nuôi thuỷ sản. – Phân tích được quy trình nuôi thuỷ sản theo tiêu chuẩn VietGAP. – Mô tả được một số ứng dụng công nghệ cao trong nuôi thuỷ sản (Ví dụ: Ứng dụng công nghệ Semi-biofloc, công nghệ Biofloc). – Trình bày được một số phương pháp thu hoạch, bảo quản và chế biến thuỷ sản phổ biến. – Nêu được một số ứng dụng công nghệ cao trong bảo quản, chế biến thuỷ sản. – Thực hiện được một số công việc đơn giản trong bảo quản, chế biến và nuôi thuỷ sản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
@@ -2172,7 +8546,50 @@
    "topic": "",
    "content": "Bảo vệ và khai thác nguồn lợi thuỷ sản",
    "kind": "content",
-   "outcomes": [],
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ý nghĩa, nhiệm vụ của việc bảo vệ, khai thác nguồn lợi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số biện pháp phổ biến trong khai thác và bảo vệ nguồn lợi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được biện pháp nâng cao ý thức bảo vệ nguồn lợi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
    "outcome_text": "– Trình bày được ý nghĩa, nhiệm vụ của việc bảo vệ, khai thác nguồn lợi thuỷ sản. – Mô tả được một số biện pháp phổ biến trong khai thác và bảo vệ nguồn lợi thuỷ sản. – Đề xuất được biện pháp nâng cao ý thức bảo vệ nguồn lợi thuỷ sản.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
