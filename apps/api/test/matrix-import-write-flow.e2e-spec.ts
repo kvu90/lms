@@ -51,7 +51,7 @@ async function countMatricesByName(name: string): Promise<number> {
 
 async function downloadTemplate(token: string): Promise<ExcelJS.Workbook> {
   const res = await http(app)
-    .get('/exam-matrices/import/template')
+    .get('/api/v1/exam-matrices/import/template')
     .set(auth(token))
     .buffer(true)
     .parse((r, cb) => {
@@ -93,14 +93,14 @@ async function toBuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
 
 function postImport(token: string, buffer: Buffer) {
   return http(app)
-    .post('/exam-matrices/import')
+    .post('/api/v1/exam-matrices/import')
     .set(auth(token))
     .attach('file', buffer, 'ma-tran.xlsx');
 }
 
 async function postPreview(token: string, buffer: Buffer) {
   const res = await http(app)
-    .post('/exam-matrices/import/preview')
+    .post('/api/v1/exam-matrices/import/preview')
     .set(auth(token))
     .attach('file', buffer, 'ma-tran.xlsx')
     .expect(200);
@@ -114,33 +114,33 @@ async function postPreview(token: string, buffer: Buffer) {
 beforeAll(async () => {
   app = await createTestApp();
   admin = await adminToken(app);
-  const ctx = await http(app).get('/access/contexts').set(auth(admin)).expect(200);
+  const ctx = await http(app).get('/api/v1/access/contexts').set(auth(admin)).expect(200);
   const system = (ctx.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
   const suffix = Date.now().toString(36);
-  const subject = await http(app).post('/curriculum/subjects').set(auth(admin))
+  const subject = await http(app).post('/api/v1/curriculum/subjects').set(auth(admin))
     .send({ contextId: system.id, name: 'Toán học', slug: `toan-i2-${suffix}` }).expect(201);
   subjectId = subject.body.id as string;
-  const curriculum = await http(app).post('/curriculum/curricula').set(auth(admin))
+  const curriculum = await http(app).post('/api/v1/curriculum/curricula').set(auth(admin))
     .send({ subjectId, grade: 10 }).expect(201);
   curriculumId = curriculum.body.id as string;
-  const node = (body: object) => http(app).post('/curriculum/nodes').set(auth(admin)).send(body).expect(201);
+  const node = (body: object) => http(app).post('/api/v1/curriculum/nodes').set(auth(admin)).send(body).expect(201);
   const topic = await node({ curriculumId, parentId: null, kind: 'topic', title: 'Hàm số', position: 1 });
   const lesson1 = await node({ curriculumId, parentId: topic.body.id, kind: 'lesson', title: 'Hàm số bậc hai', position: 1 });
   const lesson2 = await node({ curriculumId, parentId: topic.body.id, kind: 'lesson', title: 'Hàm số bậc nhất', position: 2 });
   lesson1Id = lesson1.body.id as string;
   lesson2Id = lesson2.body.id as string;
-  const outcome = (nodeId: string, content: string) => http(app).post('/curriculum/outcomes').set(auth(admin))
+  const outcome = (nodeId: string, content: string) => http(app).post('/api/v1/curriculum/outcomes').set(auth(admin))
     .send({ nodeId, content }).expect(201);
   const o1 = await outcome(lesson1Id, 'Nhận biết được hàm số bậc hai');
   await outcome(lesson1Id, 'Vẽ được đồ thị hàm số bậc hai');
   await outcome(lesson2Id, 'Nhận biết được hàm số bậc nhất');
 
-  const contexts = await http(app).get('/access/contexts').set(auth(admin)).expect(200);
+  const contexts = await http(app).get('/api/v1/access/contexts').set(auth(admin)).expect(200);
   const sys = (contexts.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
-  const category = await http(app).post('/questions/categories').set(auth(admin))
+  const category = await http(app).post('/api/v1/questions/categories').set(auth(admin))
     .send({ name: `Danh mục I-2 ${suffix}`, contextId: sys.id }).expect(201);
   for (let i = 0; i < 3; i++) {
-    const q = await http(app).post('/questions').set(auth(admin)).send({
+    const q = await http(app).post('/api/v1/questions').set(auth(admin)).send({
       categoryId: category.body.id, qtype: 'multichoice', name: `Câu I-2 ${i + 1}`,
       questionText: { format: 'html', html: `<p>2 + ${i} bằng mấy?</p>`, plainText: `2 + ${i} bằng mấy?` },
       defaultMark: 1, versionNote: null,
@@ -151,7 +151,7 @@ beforeAll(async () => {
       choices: null, correctAnswer: null, acceptedAnswers: null,
       unitHandling: null, units: null, multiAnswers: null, numericalTolerance: null,
     }).expect(201);
-    await http(app).post(`/questions/${q.body.id}/outcomes`).set(auth(admin))
+    await http(app).post(`/api/v1/questions/${q.body.id}/outcomes`).set(auth(admin))
       .send({ outcomeId: o1.body.id, cognitiveLevel: 'biet' }).expect(201);
   }
 });
@@ -207,12 +207,12 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     expect(view.warnings.some((w) => w.includes('theo mức'))).toBe(true);
 
     // Đọc lại bằng endpoint chi tiết hiện hữu: cùng một ma trận, ô khớp.
-    const detail = await http(app).get(`/exam-matrices/${matrixId}`).set(auth(admin)).expect(200);
+    const detail = await http(app).get(`/api/v1/exam-matrices/${matrixId}`).set(auth(admin)).expect(200);
     expect(detail.body.id).toBe(matrixId);
     expect(detail.body.cells).toHaveLength(9);
 
     // Availability sau ghi khớp số đếm đã tính ở bước xem trước.
-    const avail = await http(app).get(`/exam-matrices/${matrixId}/availability`).set(auth(admin)).expect(200);
+    const avail = await http(app).get(`/api/v1/exam-matrices/${matrixId}/availability`).set(auth(admin)).expect(200);
     const availBody = avail.body as { cells: { cellId: string; required: number; available: number; deficit: number }[] };
     const cellById = new Map(view.cells.map((c) => [c.id, c]));
     expect(availBody.cells).toHaveLength(9);
@@ -227,7 +227,7 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     }
 
     // Bản đặc tả hiện hữu dựng được từ ma trận vừa ghi.
-    const spec = await http(app).get(`/exam-matrices/${matrixId}/specification`).set(auth(admin)).expect(200);
+    const spec = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification`).set(auth(admin)).expect(200);
     const nodeIds = (spec.body.topics as { nodes: { nodeId: string }[] }[]).flatMap((t) => t.nodes.map((n) => n.nodeId));
     expect(nodeIds).toContain(lesson1Id);
     expect(nodeIds).toContain(lesson2Id);
@@ -238,7 +238,7 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     const res = await postImport(admin, validBuffer).expect(201);
     expect(res.body.id).toBe(matrixId);
     expect(await countMatricesByName('Ma trận nhập thử')).toBe(1);
-    const list = await http(app).get(`/exam-matrices/by-subject/${subjectId}`).set(auth(admin)).expect(200);
+    const list = await http(app).get(`/api/v1/exam-matrices/by-subject/${subjectId}`).set(auth(admin)).expect(200);
     const named = (list.body as { name: string }[]).filter((m) => m.name === 'Ma trận nhập thử');
     expect(named).toHaveLength(1);
   });
@@ -283,7 +283,7 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
   });
 
   it('thiếu file: 400 quiz.matrix_import_file_required', async () => {
-    const res = await http(app).post('/exam-matrices/import').set(auth(admin)).expect(400);
+    const res = await http(app).post('/api/v1/exam-matrices/import').set(auth(admin)).expect(400);
     expect(res.body.code).toBe('quiz.matrix_import_file_required');
   });
 });
