@@ -11,6 +11,7 @@ import '../i18n';
 import {
   fetchNotificationGroupItems,
   flattenNotificationGroups,
+  groupsUrl,
   notificationGroupKey,
   preferenceKey,
   updateNotificationGroupsCache,
@@ -28,9 +29,58 @@ import {
   type NotificationCourseOverrideView,
   type NotificationGroupFilter,
   type NotificationGroupView,
+  type NotificationGroupsPage,
   type NotificationItemView,
   type NotificationPreferenceView,
 } from '#lib/notifications';
+import { queryKeys } from '#lib/query-keys';
+import { buildSsrLoaderData, serverProbe, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
+
+/**
+ * Loader phía server (tầng SL-1 của #7): prefetch bằng cookie của
+ * chính request rồi dehydrate cho root.tsx hydrate vào cache (xem
+ * `lib/ssr-data.ts`):
+ *   - Trang ĐẦU của danh sách nhóm ở bộ lọc mặc định mà trang mở ra
+ *     (nhóm 'all', không chỉ-chưa-đọc — key `notificationGroups('all',
+ *     false)`, infinite query): cuộn tiếp/tải thêm và đổi bộ lọc vẫn
+ *     chạy phía client như trước; các bộ lọc khác không prefetch vì
+ *     key của chúng chỉ sinh khi người dùng chọn.
+ *   - Toàn bộ dòng tuỳ chọn (key `messagePreferences`) và ghi đè theo
+ *     khoá (key `messageCourseOverrides`, dữ liệu dehydrate là MẢNG
+ *     `courses` đã bóc như queryFn phía client).
+ * Không có cookie phiên thì không gọi API nào.
+ *
+ * @param request - Request đang phục vụ (nguồn cookie phiên).
+ * @returns Dehydrated state cho HydrationBoundary ở root.
+ */
+export async function loader({ request }: { request: Request }): Promise<SsrLoaderData> {
+  return buildSsrLoaderData(request, async (queryClient, req) => {
+    await Promise.all([
+      queryClient.prefetchInfiniteQuery({
+        queryKey: queryKeys.notificationGroups('all', false),
+        queryFn: ({ pageParam }) =>
+          serverQueryFn<NotificationGroupsPage>(req, groupsUrl('all', false, pageParam))(),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage: NotificationGroupsPage) => lastPage.nextCursor ?? undefined,
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.messagePreferences,
+        queryFn: serverQueryFn<NotificationPreferenceView[]>(req, '/api/v1/messages/preferences'),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.messageCourseOverrides,
+        queryFn: async () => {
+          const body = await serverProbe<{ courses: NotificationCourseOverrideView[] }>(
+            req,
+            '/api/v1/messages/preferences/courses',
+          );
+          if (body === null) throw new Error('SSR prefetch failed: /api/v1/messages/preferences/courses');
+          return body.courses;
+        },
+      }),
+    ]);
+  });
+}
 
 type GroupFilterSelection = NotificationGroupFilter | 'all';
 
@@ -84,7 +134,10 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
  * — huy hiệu chuông ở sidebar/header dùng chung khoá đó (trước đây
  * trang này không hề invalidate nên huy hiệu giữ số cũ sau khi đã
  * đọc ở đây). Các cập nhật đếm tại chỗ vẫn giữ nguyên, nay áp thẳng
- * lên cache qua setQueriesData thay cho state cục bộ.
+ * lên cache qua setQueriesData thay cho state cục bộ. Từ lát SL-1
+ * (#7), loader của route prefetch trang đầu của bộ lọc mặc định +
+ * tuỳ chọn + ghi đè theo khoá phía server (khi có cookie phiên) và
+ * trang hydrate từ cache thay vì fetch lại khi mở.
  */
 export function NotificationsPage() {
   const { t, i18n } = useTranslation('app');

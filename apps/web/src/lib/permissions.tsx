@@ -93,8 +93,12 @@ async function probe<T>(path: string): Promise<T | null> {
   }
 }
 
-/** Capability đã phân giải tại context hệ thống (luôn có trong ảnh chụp quyền). */
-function systemCapabilities(access: MyAccessView): string[] {
+/**
+ * Capability đã phân giải tại context hệ thống (luôn có trong ảnh chụp quyền).
+ * Export để loader SSR của dashboard (lát SL-1, `routes/home-index.tsx`)
+ * phân loại khối quản trị bằng ĐÚNG cùng định nghĩa này thay vì chép lại.
+ */
+export function systemCapabilities(access: MyAccessView): string[] {
   return access.contexts.find((c) => c.contextLevel === CONTEXT_LEVEL.SYSTEM)?.capabilities ?? [];
 }
 
@@ -104,8 +108,10 @@ function systemCapabilities(access: MyAccessView): string[] {
  * sau đó tới gán tại context danh mục chứa khoá, cuối cùng là context hệ
  * thống — đúng thứ tự kế thừa mà PermissionEvaluator áp dụng khi kiểm quyền
  * tại context khoá. Nhiều gán cùng cấp thì hợp nhất capability.
+ * Export để loader SSR của dashboard (lát SL-1) prefetch dữ liệu điểm
+ * cho đúng tập khoá dạy/học mà provider sẽ phân loại.
  */
-function courseCapabilities(access: MyAccessView, course: Course): string[] {
+export function courseCapabilities(access: MyAccessView, course: Course): string[] {
   const capsByContext = new Map(access.contexts.map((c) => [c.contextId, c.capabilities]));
   const levels = [
     { level: CONTEXT_LEVEL.COURSE, instanceId: course.id },
@@ -149,8 +155,10 @@ function isCourseStaff(access: MyAccessView | null, courseAccess: CourseAccess):
  * gán vai (đúng thiết kế seed: editingteacher tại context khoá, không
  * qua ghi danh) nhờ đó thấy khoá ở nhóm giảng dạy thay vì rơi vào cả
  * hai danh sách đều rỗng.
+ *
+ * Export để loader SSR của dashboard (lát SL-1) dùng chung định nghĩa.
  */
-function hasCourseAssignment(access: MyAccessView | null, course: Course): boolean {
+export function hasCourseAssignment(access: MyAccessView | null, course: Course): boolean {
   if (!access) return false;
   return access.assignments.some(
     (a) => a.contextLevel === CONTEXT_LEVEL.COURSE && a.instanceId === course.id,

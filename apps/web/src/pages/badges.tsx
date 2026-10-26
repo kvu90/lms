@@ -20,6 +20,35 @@ import {
   type BadgeView,
   type MyBadgeView,
 } from '#lib/badges';
+import { queryKeys } from '#lib/query-keys';
+import { buildSsrLoaderData, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
+
+/**
+ * Loader phía server (tầng SL-1 của #7): prefetch hai danh sách mà
+ * trang luôn tải khi mở — huy hiệu của tôi (key `myBadges`) và toàn
+ * bộ huy hiệu (key `badgesAll`) — bằng cookie của chính request rồi
+ * dehydrate cho root.tsx hydrate vào cache (xem `lib/ssr-data.ts`).
+ * Danh sách đã cấp của một badge (key `badgeIssued`) chỉ tải khi
+ * người dùng chọn xem một badge cụ thể nên KHÔNG prefetch. Không có
+ * cookie phiên thì không gọi API nào.
+ *
+ * @param request - Request đang phục vụ (nguồn cookie phiên).
+ * @returns Dehydrated state cho HydrationBoundary ở root.
+ */
+export async function loader({ request }: { request: Request }): Promise<SsrLoaderData> {
+  return buildSsrLoaderData(request, async (queryClient, req) => {
+    await Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.myBadges,
+        queryFn: serverQueryFn<MyBadgeView[]>(req, '/api/v1/badges/mine'),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.badgesAll,
+        queryFn: serverQueryFn<BadgeView[]>(req, '/api/v1/badges'),
+      }),
+    ]);
+  });
+}
 
 /**
  * Trang huy hiệu: "huy hiệu của tôi" (từ GET /badges/mine — server tự suy
@@ -33,7 +62,9 @@ import {
  * Dữ liệu qua TanStack Query (lib/badges.ts, F-01): hai danh sách là hai
  * query dùng chung cache với mọi bề mặt huy hiệu khác; các đột biến của
  * panel quản trị làm mới cả ba truy vấn (mọi huy hiệu / của tôi / đã cấp)
- * qua tiền tố khoá factory thay vì nạp lại cục bộ như trước.
+ * qua tiền tố khoá factory thay vì nạp lại cục bộ như trước. Từ lát SL-1
+ * (#7), loader của route prefetch hai danh sách phía server (khi có
+ * cookie phiên) và trang hydrate từ cache thay vì fetch lại khi mở.
  */
 export function BadgesPage() {
   const { t } = useTranslation('app');

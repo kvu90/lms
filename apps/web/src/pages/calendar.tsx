@@ -25,6 +25,7 @@ import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch } from '#lib/api';
 import {
+  currentMonthRangeIso,
   useCalendarEvents,
   useCalendarExportToken,
   useCalendarSubscriptions,
@@ -36,10 +37,47 @@ import {
   useRemindCalendarEvent,
   useRevokeCalendarExportToken,
   type CalendarEventView as EventView,
+  type CalendarExportTokenView,
+  type CalendarSubscriptionView,
 } from '#lib/calendar';
+import { queryKeys } from '#lib/query-keys';
+import { buildSsrLoaderData, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
 
 const TYPES = ['all', 'site', 'category', 'course', 'group', 'user'] as const;
 const EVENT_TYPES = ['user', 'site', 'category', 'course', 'group'] as const;
+
+/**
+ * Loader phía server (tầng SL-1 của #7): prefetch cả ba query của
+ * trang bằng cookie của chính request — sự kiện tháng hiện tại (key
+ * `calendarEvents(from, to)` với khoảng tháng từ `currentMonthRangeIso`
+ * dùng chung hai phía), đăng ký lịch ngoài và đường dẫn xuất lịch —
+ * rồi dehydrate cho root.tsx hydrate vào cache (xem `lib/ssr-data.ts`).
+ * Không có cookie phiên thì không gọi API nào (trang tải phía client
+ * như trước SL-1). Lỗi ở một endpoint chỉ làm query đó vắng mặt trong
+ * state, trang tự fetch lại đúng key đó.
+ *
+ * @param request - Request đang phục vụ (nguồn cookie phiên).
+ * @returns Dehydrated state cho HydrationBoundary ở root.
+ */
+export async function loader({ request }: { request: Request }): Promise<SsrLoaderData> {
+  const range = currentMonthRangeIso();
+  return buildSsrLoaderData(request, async (queryClient, req) => {
+    await Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.calendarEvents(range.from, range.to),
+        queryFn: serverQueryFn<EventView[]>(req, `/api/v1/calendar/events?from=${range.from}&to=${range.to}`),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.calendarSubscriptions,
+        queryFn: serverQueryFn<CalendarSubscriptionView[]>(req, '/api/v1/calendar/subscriptions'),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.calendarExportToken,
+        queryFn: serverQueryFn<CalendarExportTokenView | null>(req, '/api/v1/calendar/export-token'),
+      }),
+    ]);
+  });
+}
 
 /**
  * Lịch: xem sự kiện tháng hiện tại (lọc theo loại), tạo/xoá sự kiện, đặt
@@ -53,7 +91,10 @@ const EVENT_TYPES = ['user', 'site', 'category', 'course', 'group'] as const;
  * đúng khoá factory `calendarEvents(from, to)` đã có sẵn; subscription và
  * token xuất lịch là hai query riêng (lỗi tải giữ dữ liệu cũ như trước);
  * mọi đột biến làm mới các truy vấn lịch qua tiền tố khoá thay vì nạp lại
- * thủ công.
+ * thủ công. Từ lát SL-1 (#7), loader của route prefetch cả ba query phía
+ * server (khi có cookie phiên) và trang hydrate từ cache — khoảng tháng
+ * lấy từ `currentMonthRangeIso` (múi giờ ứng dụng) để key của trang khớp
+ * tuyệt đối với key loader đã prefetch.
  */
 export function CalendarPage() {
   const { t, i18n } = useTranslation('app');
@@ -72,11 +113,11 @@ export function CalendarPage() {
   const [subName, setSubName] = useState('');
   const [subUrl, setSubUrl] = useState('');
   const now = useMemo(() => new Date(), []);
-  const range = useMemo(() => {
-    const from = new Date(now.getFullYear(), now.getMonth(), 1);
-    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-    return { from: from.toISOString(), to: to.toISOString() };
-  }, [now]);
+  // Khoảng tháng cho query sự kiện: tính theo múi giờ ứng dụng qua
+  // helper dùng chung với loader SL-1 (trước đây tính theo giờ máy
+  // của trình duyệt — hai phía lệch múi giờ là key không bao giờ
+  // khớp để hydrate; xem `currentMonthRangeIso` ở lib/calendar.ts).
+  const range = useMemo(() => currentMonthRangeIso(), []);
 
   const eventsQuery = useCalendarEvents(range.from, range.to);
   const subscriptionsQuery = useCalendarSubscriptions();
