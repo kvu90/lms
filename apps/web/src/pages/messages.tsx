@@ -15,13 +15,17 @@ import type {
   ContactRelationship,
   ContactRequestView,
   ConversationDetailView,
+  ConversationGroupTreeView,
   ConversationStatePatch,
+  ConversationTreeClassView,
+  ConversationTreeCourseView,
   ConversationStateView,
   ConversationView,
   MessageQuoteView,
   MessageSearchResultView,
   MessageView,
   MessagingCourse,
+  PeoplePickerContext,
   PersonSummary,
   RosterMember,
   ScrollerHandle,
@@ -41,7 +45,108 @@ import { countMessageCharacters, localQuoteOf, mergeMessages } from '../componen
  * (GET/POST/DELETE /messages/contacts...). Deep-link
  * ?conversation=<id> (contextUrl của thông báo message_new, #49) mở
  * đúng cuộc trò chuyện khi trang nạp — việc nối tiếp của #33.
+ *
+ * Cấu trúc khung trái theo MSG-T3: tab Trò chuyện chỉ 1–1, tab Nhóm
+ * là cây Lớp → Khoá → Nhóm con dựng từ API cây của MSG-T1, Danh bạ
+ * hạ thành sheet "Tin nhắn mới". Tab đang chọn + hội thoại đang mở
+ * được LƯU BỀN ở localStorage (hai khoá ngay dưới đây) để quay lại
+ * màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; deep-link có mặt thì
+ * thắng ngữ cảnh đã lưu.
  */
+
+/** Khoá localStorage của tab khung trái Tin nhắn gần nhất (lát MSG-T3). */
+const MESSAGES_TAB_STORAGE_KEY = 'lms.messages.tab';
+/** Khoá localStorage của hội thoại Tin nhắn đang mở gần nhất (lát MSG-T3). */
+const MESSAGES_CONVERSATION_STORAGE_KEY = 'lms.messages.conversationId';
+/** Các tab khung trái hợp lệ — giá trị lưu hỏng thì lùi về tab Trò chuyện. */
+const MESSAGES_TABS = ['chats', 'groups', 'archived'] as const;
+
+/**
+ * Đọc tab khung trái đã lưu bền; chưa lưu hoặc giá trị hỏng thì về
+ * tab Trò chuyện như hành vi mặc định trước MSG-T3.
+ *
+ * @returns Tên tab đã lưu, hoặc 'chats'.
+ */
+function readStoredMessagesTab(): string {
+  if (typeof window === 'undefined') return 'chats';
+  try {
+    const raw = window.localStorage.getItem(MESSAGES_TAB_STORAGE_KEY);
+    return raw && (MESSAGES_TABS as readonly string[]).includes(raw) ? raw : 'chats';
+  } catch {
+    return 'chats';
+  }
+}
+
+/**
+ * Đọc id hội thoại đang mở đã lưu bền (ngữ cảnh gần nhất); chưa lưu
+ * hoặc lưu hỏng thì null — trang mở ở trạng thái chưa chọn hội thoại.
+ *
+ * @returns Id hội thoại đã lưu, hoặc null.
+ */
+function readStoredConversationId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(MESSAGES_CONVERSATION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Lưu bền tab khung trái vừa chọn (bỏ qua êm khi localStorage không dùng được). */
+function storeMessagesTab(tab: string) {
+  try {
+    window.localStorage.setItem(MESSAGES_TAB_STORAGE_KEY, tab);
+  } catch {
+    // Lưu bền là tiện ích nhớ ngữ cảnh — không được làm hỏng luồng chính.
+  }
+}
+
+/** Lưu bền hội thoại vừa mở; truyền null khi đóng hội thoại để lần sau không mở lại. */
+function storeConversationId(conversationId: string | null) {
+  try {
+    if (conversationId) window.localStorage.setItem(MESSAGES_CONVERSATION_STORAGE_KEY, conversationId);
+    else window.localStorage.removeItem(MESSAGES_CONVERSATION_STORAGE_KEY);
+  } catch {
+    // Như trên: lỗi lưu bền không chặn luồng nhắn tin.
+  }
+}
+/**
+ * Áp số chưa đọc mới của MỘT conversation lên cây nhóm (lát MSG-T3):
+ * nút lá mang conversation đó nhận số mới; số của nút khoá/lớp được
+ * tính lại bằng số của chính nút cộng tổng các nút con — đúng quy tắc
+ * cộng dồn phía server ghi ở contracts. Nhờ đó huy hiệu của tab Nhóm
+ * sống theo sự kiện realtime như danh sách phẳng trước đây, không
+ * phải chờ lần tải cây tiếp theo. Cây chưa nạp hoặc conversation
+ * không thuộc nút nào thì trả nguyên cây.
+ *
+ * @param tree - Cây nhóm hiện tại (null khi chưa nạp).
+ * @param conversationId - Conversation vừa có sự kiện cập nhật.
+ * @param unreadCount - Số chưa đọc mới nhất của conversation đó.
+ * @returns Cây mới đã áp số; trả lại chính `tree` khi không đổi.
+ */
+function withTreeUnread(
+  tree: ConversationGroupTreeView | null,
+  conversationId: string,
+  unreadCount: number,
+): ConversationGroupTreeView | null {
+  if (!tree) return tree;
+  const patchCourse = (course: ConversationTreeCourseView): ConversationTreeCourseView => {
+    const groups = course.groups.map((g) => (g.conversationId === conversationId ? { ...g, unread: unreadCount } : g));
+    const own = course.conversationId === conversationId ? unreadCount : course.unread - course.groups.reduce((sum, g) => sum + g.unread, 0);
+    return { ...course, groups, unread: own + groups.reduce((sum, g) => sum + g.unread, 0) };
+  };
+  const patchClass = (cls: ConversationTreeClassView): ConversationTreeClassView => {
+    const courses = cls.courses.map(patchCourse);
+    const own = cls.conversationId === conversationId ? unreadCount : cls.unread - cls.courses.reduce((sum, c) => sum + c.unread, 0);
+    return { ...cls, courses, unread: own + courses.reduce((sum, c) => sum + c.unread, 0) };
+  };
+  return {
+    classes: tree.classes.map(patchClass),
+    coursesOutsideClasses: tree.coursesOutsideClasses.map(patchCourse),
+    freeGroups: tree.freeGroups.map((g) => (g.conversationId === conversationId ? { ...g, unread: unreadCount } : g)),
+  };
+}
+
 export function MessagesPage() {
   const { t } = useTranslation('app');
   const { user } = useAuth();
@@ -117,10 +222,31 @@ export function MessagesPage() {
   // Tìm bạn theo KHOÁ (mô hình chốt lại 24/10/2026): khoá của tôi →
   // chọn khoá → roster thành viên (phân trang con trỏ phía server).
   const [myCourses, setMyCourses] = useState<MessagingCourse[]>([]);
-  const [rosterCourseId, setRosterCourseId] = useState<string | null>(null);
-  const [rosterMembers, setRosterMembers] = useState<RosterMember[]>([]);
-  const [rosterCursor, setRosterCursor] = useState<string | null>(null);
-  const [rosterError, setRosterError] = useState<string | null>(null);
+  /**
+   * CÂY NHÓM của tôi (lát MSG-T1 dựng ở server, MSG-T3 trình bày ở
+   * tab Nhóm): nạp cùng nhịp với danh sách hội thoại; lỗi thì giữ
+   * cây gần nhất như các đường phụ khác của trang.
+   */
+  const [groupTree, setGroupTree] = useState<ConversationGroupTreeView | null>(null);
+  /**
+   * Tab khung trái đang chọn (lát MSG-T3): giữ ở trang và LƯU BỀN
+   * cùng hội thoại đang mở — quay lại màn Tin nhắn (kể cả sau khi
+   * tải lại trang) là gặp đúng ngữ cảnh gần nhất.
+   */
+  const [sidebarTab, setSidebarTabState] = useState<string>(() => readStoredMessagesTab());
+  /**
+   * Bộ CHỌN NGƯỜI dùng chung của hai sheet Tin nhắn mới / Tạo nhóm
+   * (lát MSG-T3): ngữ cảnh đang chọn + một trang roster của ngữ
+   * cảnh đó. Roster lớp và roster khoá dùng chung một hình dạng
+   * dòng nên một bộ trạng thái phục vụ cả hai sheet (chỉ một sheet
+   * mở tại một thời điểm).
+   */
+  const [pickerContext, setPickerContext] = useState<PeoplePickerContext>({ kind: 'contacts' });
+  const [pickerMembers, setPickerMembers] = useState<RosterMember[]>([]);
+  const [pickerCursor, setPickerCursor] = useState<string | null>(null);
+  const [pickerError, setPickerError] = useState<string | null>(null);
+  /** Lỗi tạo nhóm tự do gần nhất (đã dịch từ mã lỗi server); null khi không có. */
+  const [groupCreateError, setGroupCreateError] = useState<string | null>(null);
   const [reportMessage, setReportMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   /** Tin đã chọn để gỡ hàng loạt (chỉ moderator) — chọn bằng checkbox ở từng dòng tin. */
@@ -178,6 +304,22 @@ export function MessagesPage() {
   /** Tên hiển thị của một user; chưa tra được thông tin thì lùi về chính id như trước. */
   const nameOf = useCallback((userId: string) => people[userId]?.displayName ?? userId, [people]);
 
+  /** Nạp cây nhóm cho tab Nhóm (lát MSG-T3): đường riêng, lỗi thì giữ cây gần nhất. */
+  const loadGroupTree = useCallback(async () => {
+    try {
+      const tree = await apiJson<ConversationGroupTreeView>('/api/v1/messages/group-tree');
+      setGroupTree(tree);
+    } catch {
+      // Giữ cây gần nhất.
+    }
+  }, []);
+
+  /** Đổi tab khung trái (lát MSG-T3): cập nhật state + lưu bền để lần quay lại vẫn gặp tab này. */
+  const setSidebarTab = useCallback((value: string) => {
+    setSidebarTabState(value);
+    storeMessagesTab(value);
+  }, []);
+
   const reload = useCallback(async () => {
     const [list, blockedRes] = await Promise.all([
       apiJson<ConversationView[]>('/api/v1/messages/conversations'),
@@ -220,7 +362,9 @@ export function MessagesPage() {
         if (c.lastMessageSeq > seen) lastSeqRef.current.set(c.id, c.lastMessageSeq);
       }
     }
-  }, [mergePeople, recountUnread]);
+    // Cây nhóm đi cùng nhịp nạp (tab Nhóm luôn tươi như danh sách).
+    await loadGroupTree();
+  }, [loadGroupTree, mergePeople, recountUnread]);
 
   /** Nạp mục ĐÃ LƯU (lát M5): danh sách riêng của server, lỗi thì giữ bản gần nhất. */
   const loadArchived = useCallback(async () => {
@@ -362,6 +506,37 @@ export function MessagesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkId, listLoaded, conversations]);
 
+  // Khôi phục NGỮ CẢNH GẦN NHẤT (lát MSG-T3): không có deep-link
+  // thì mở lại hội thoại đã lưu bền khi danh sách nạp xong — đúng
+  // một lần cho mỗi lần nạp trang (gác bằng ref như deep-link).
+  // Hội thoại không còn mở được (hết tư cách thành viên...) thì bỏ
+  // qua êm, trang giữ trạng thái chưa chọn như không có gì đã lưu.
+  const contextRestoredRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkId || !listLoaded || contextRestoredRef.current) return;
+    contextRestoredRef.current = true;
+    const savedId = readStoredConversationId();
+    if (!savedId) return;
+    const found = conversations.find((c) => c.id === savedId);
+    if (found) {
+      void open(found);
+      return;
+    }
+    void (async () => {
+      try {
+        const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${savedId}`);
+        const { messages: _detailMessages, hasMoreBefore: _hasMore, memberReadMarkers: _markers, ...summary } = detail;
+        setConversations((prev) => (prev.some((c) => c.id === summary.id) ? prev : [summary, ...prev]));
+        await open(summary);
+      } catch {
+        // Không còn mở được hội thoại đã lưu: bỏ qua êm.
+      }
+    })();
+    // Chạy một lần theo mốc listLoaded — `open`/`conversations` không
+    // phải dependency cần theo dõi (cùng kỷ luật với deep-link ở trên).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId, listLoaded]);
+
   // Kênh realtime: nối một lần khi trang mở; handlers đọc state mới
   // nhất qua ref nên không phải nối lại khi state đổi.
   useEffect(() => {
@@ -410,6 +585,9 @@ export function MessagesPage() {
           recountUnread(next);
           return next;
         });
+        // Cây nhóm cũng nhận số chưa đọc mới của conversation này để
+        // huy hiệu trên các nút của tab Nhóm khớp ngay (lát MSG-T3).
+        setGroupTree((prev) => withTreeUnread(prev, conversationId, activeRef.current?.id === conversationId ? 0 : unreadCount));
       },
       onMessageDeleted: ({ conversationId, messageId, deletedBy }) => {
         if (activeRef.current?.id !== conversationId) return;
@@ -494,10 +672,15 @@ export function MessagesPage() {
   /** Đóng hội thoại đang mở — nút quay lại ở mobile (issue #256); ở desktop khung phải về trạng thái trống. */
   function closeConversation() {
     setActive(null);
+    // Đóng hẳn là rời ngữ cảnh: lần quay lại không mở lại hội thoại này (lát MSG-T3).
+    storeConversationId(null);
   }
 
   async function open(conv: ConversationView) {
     setActive(conv);
+    // Lưu bền hội thoại đang mở để quay lại màn Tin nhắn là gặp
+    // đúng ngữ cảnh gần nhất (lát MSG-T3); deep-link thắng giá trị này.
+    storeConversationId(conv.id);
     setTypingUsers({});
     setReportMessage(null);
     setActionMessage(null);
@@ -761,9 +944,9 @@ export function MessagesPage() {
     realtimeRef.current?.typing(active.id);
   }
 
-  /** Cập nhật trạng thái quan hệ của một dòng roster ngay tại chỗ (không chờ tải lại). */
+  /** Cập nhật trạng thái quan hệ của một dòng roster trong bộ chọn người ngay tại chỗ (không chờ tải lại). */
   const patchRosterRelationship = useCallback((userId: string, relationship: ContactRelationship) => {
-    setRosterMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, relationship } : m)));
+    setPickerMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, relationship } : m)));
   }, []);
 
   /**
@@ -787,36 +970,49 @@ export function MessagesPage() {
     }
   }
 
-  /** Mở roster của một khoá: tải trang đầu (phân trang con trỏ phía server). */
-  async function openRoster(courseId: string) {
-    setRosterCourseId(courseId);
-    setRosterMembers([]);
-    setRosterCursor(null);
-    setRosterError(null);
+  /**
+   * Đường roster của một ngữ cảnh bộ chọn người (lát MSG-T3):
+   * roster LỚP (MSG-T2) và roster KHOÁ dùng chung một khuôn phân
+   * trang con trỏ phía server; ngữ cảnh liên hệ không có roster.
+   */
+  function pickerRosterUrl(context: PeoplePickerContext, cursor?: string): string | null {
+    if (context.kind === 'contacts') return null;
+    const base = context.kind === 'class'
+      ? `/api/v1/messages/classes/${context.id}/members?limit=50`
+      : `/api/v1/messages/courses/${context.id}/members?limit=50`;
+    return cursor ? `${base}&cursor=${encodeURIComponent(cursor)}` : base;
+  }
+
+  /** Chọn một ngữ cảnh trong bộ chọn người: liên hệ thì không nạp gì; lớp/khoá thì nạp trang roster đầu. */
+  async function openPickerContext(context: PeoplePickerContext) {
+    setPickerContext(context);
+    setPickerMembers([]);
+    setPickerCursor(null);
+    setPickerError(null);
+    const url = pickerRosterUrl(context);
+    if (!url) return;
     try {
-      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(
-        `/api/v1/messages/courses/${courseId}/members?limit=50`,
-      );
-      setRosterMembers(res.members);
-      setRosterCursor(res.nextCursor);
+      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(url);
+      setPickerMembers(res.members);
+      setPickerCursor(res.nextCursor);
       mergePeople(Object.fromEntries(res.members.map((m) => [m.userId, m])));
     } catch {
-      setRosterError(t('rosterLoadFailed'));
+      setPickerError(t('rosterLoadFailed'));
     }
   }
 
-  /** Tải trang roster tiếp theo theo con trỏ server đã phát hành. */
-  async function loadMoreRoster() {
-    if (!rosterCourseId || !rosterCursor) return;
+  /** Tải trang roster tiếp theo của ngữ cảnh đang chọn trong bộ chọn người. */
+  async function loadMorePicker() {
+    if (!pickerCursor) return;
+    const url = pickerRosterUrl(pickerContext, pickerCursor);
+    if (!url) return;
     try {
-      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(
-        `/api/v1/messages/courses/${rosterCourseId}/members?limit=50&cursor=${encodeURIComponent(rosterCursor)}`,
-      );
-      setRosterMembers((prev) => [...prev, ...res.members]);
-      setRosterCursor(res.nextCursor);
+      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(url);
+      setPickerMembers((prev) => [...prev, ...res.members]);
+      setPickerCursor(res.nextCursor);
       mergePeople(Object.fromEntries(res.members.map((m) => [m.userId, m])));
     } catch {
-      setRosterError(t('rosterLoadFailed'));
+      setPickerError(t('rosterLoadFailed'));
     }
   }
 
@@ -840,6 +1036,108 @@ export function MessagesPage() {
     });
     await reload();
     await open(conv);
+  }
+
+  /**
+   * Mở một conversation ĐÃ có id (lát MSG-T3 — nút nhóm con/nhóm tự
+   * do/chat đã ensure của cây Nhóm): có sẵn trong danh sách (chính
+   * hoặc đã lưu) thì mở như cú bấm thường; chưa có thì lấy chi tiết
+   * theo id bằng đúng cơ chế deep-link rồi mở — server là nơi thực
+   * thi quyền thành viên, không phải thành viên thì bỏ qua êm.
+   */
+  async function openConversationById(conversationId: string) {
+    const found = conversations.find((c) => c.id === conversationId)
+      ?? archivedConversations.find((c) => c.id === conversationId);
+    if (found) {
+      await open(found);
+      return;
+    }
+    try {
+      const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conversationId}`);
+      const { messages: _detailMessages, hasMoreBefore: _hasMore, memberReadMarkers: _markers, ...summary } = detail;
+      setConversations((prev) => (prev.some((c) => c.id === summary.id) ? prev : [summary, ...prev]));
+      await open(summary);
+    } catch {
+      // Không phải thành viên hoặc conversation không tồn tại: giữ nguyên màn hiện tại.
+    }
+  }
+
+  /**
+   * Mở CHAT CẤP LỚP từ nút lớp của cây Nhóm (lát MSG-T3): ensure
+   * qua endpoint lớp của MSG-T2 rồi mở ngay ở khung phải — bấm dòng
+   * lớp là vào chat lớp, tối đa 2 thao tác tính từ màn Tin nhắn.
+   * Người ngoài lớp nhận 404 ở server thì giữ nguyên màn hiện tại.
+   */
+  async function openClassChat(classId: string) {
+    try {
+      const conv = await apiJson<ConversationView>(`/api/v1/messages/classes/${classId}/conversation`);
+      await reload();
+      await open(conv);
+    } catch {
+      // Không thuộc lớp: giữ nguyên màn hiện tại.
+    }
+  }
+
+  /**
+   * Mở CHAT CẤP KHOÁ từ nút khoá của cây Nhóm (lát MSG-T3): ensure
+   * qua endpoint khoá (đường đã có từ chat cấp khoá) rồi mở ngay ở
+   * khung phải, cùng kỷ luật 2 thao tác như chat lớp.
+   */
+  async function openCourseChat(courseId: string) {
+    try {
+      const conv = await apiJson<ConversationView>(`/api/v1/messages/courses/${courseId}/conversation`);
+      await reload();
+      await open(conv);
+    } catch {
+      // Không thuộc khoá: giữ nguyên màn hiện tại.
+    }
+  }
+
+  /**
+   * Mở chat của một NHÓM CON chưa có conversation (lát MSG-T3):
+   * tạo/lấy conversation gắn course group qua đường sẵn có rồi mở —
+   * cùng đường trang quản trị khoá dùng để mở chat nhóm con.
+   */
+  async function openGroupConversation(groupId: string) {
+    try {
+      const conv = await apiJson<ConversationView>('/api/v1/messages/conversations/group', {
+        method: 'POST',
+        body: JSON.stringify({ groupId }),
+      });
+      await reload();
+      await open(conv);
+    } catch {
+      // Không thuộc nhóm/khoá chứa nhóm: giữ nguyên màn hiện tại.
+    }
+  }
+
+  /**
+   * Tạo NHÓM TỰ DO từ sheet tạo nhóm (lát MSG-T3): POST type 2 với
+   * tên + thành viên đã chọn; cổng chặn học sinh nằm ở server
+   * (`messaging.group_creation_forbidden`) — lỗi đó dịch thành câu
+   * rõ ràng hiện trong sheet, lỗi khác hiện câu chung. Thành công
+   * thì nạp lại (cây có nhóm mới) và mở ngay nhóm vừa tạo.
+   *
+   * @returns true khi tạo thành công (khung trái đóng sheet và về tab Nhóm).
+   */
+  async function createFreeGroup(name: string, memberIds: string[]): Promise<boolean> {
+    setGroupCreateError(null);
+    try {
+      const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ type: 2, name, memberIds }),
+      });
+      await reload();
+      await open(conv);
+      return true;
+    } catch (err) {
+      setGroupCreateError(
+        err instanceof ApiError && err.problem.code === 'messaging.group_creation_forbidden'
+          ? t('groupCreateForbidden')
+          : t('groupCreateFailed'),
+      );
+      return false;
+    }
   }
 
   /** Báo cáo cuộc trò chuyện đang mở — về giáo viên phụ trách + quản trị viên (Lớp B). */
@@ -962,6 +1260,20 @@ export function MessagesPage() {
   const draft = active ? (drafts[active.id] ?? '') : '';
   /** Đích trích dẫn đang chờ gửi của conversation đang mở (lát M3). */
   const replyTarget = active ? (replyTargets[active.id] ?? null) : null;
+  /** Các lớp của tôi cho ngữ cảnh theo lớp của bộ chọn người — lấy từ chính cây nhóm (lát MSG-T3). */
+  const pickerClasses = groupTree?.classes.map((c) => ({ classId: c.classId, name: c.name })) ?? [];
+  /**
+   * Có hiện nút tạo nhóm tự do hay không (lát MSG-T3): người xem có
+   * vai DẠY/STAFF ở bất kỳ nút nào của cây (dạy lớp/khoá, staff lớp,
+   * hoặc đang quản trị một nhóm tự do) thì hiện; học sinh thuần
+   * (mọi nút đều là vai học) thì ẩn. Đây chỉ là trình bày — cổng
+   * thật chặn học sinh tạo nhóm nằm ở server.
+   */
+  const canCreateFreeGroup = Boolean(groupTree && (
+    groupTree.classes.some((c) => c.myRole !== 'learning')
+    || groupTree.coursesOutsideClasses.some((c) => c.myRole !== 'learning')
+    || groupTree.freeGroups.some((g) => g.myRole === 'staff')
+  ));
 
   return (
     <PageShell fillHeight width="full">
@@ -983,32 +1295,43 @@ export function MessagesPage() {
             conversations={conversations}
             archivedConversations={archivedConversations}
             onRequestArchived={() => void loadArchived()}
+            groupTree={groupTree}
             active={active}
             unread={unread}
             error={error}
             myId={myId}
             onlineUsers={onlineUsers}
             onOpenConversation={open}
+            onOpenConversationById={(conversationId) => void openConversationById(conversationId)}
+            onOpenClassChat={(classId) => void openClassChat(classId)}
+            onOpenCourseChat={(courseId) => void openCourseChat(courseId)}
+            onOpenGroupConversation={(groupId) => void openGroupConversation(groupId)}
+            canCreateFreeGroup={canCreateFreeGroup}
+            onCreateFreeGroup={createFreeGroup}
+            groupCreateError={groupCreateError}
             onUpdateConversationState={updateConversationState}
-        stateError={stateError}
-        nameOf={nameOf}
-        myCourses={myCourses}
-        rosterCourseId={rosterCourseId}
-        rosterMembers={rosterMembers}
-        rosterError={rosterError}
-        rosterCursor={rosterCursor}
-        onOpenRoster={openRoster}
-        onLoadMoreRoster={loadMoreRoster}
-        onMessageContact={messageContact}
-        onSendContactRequest={sendContactRequestTo}
-        onRespondContactRequest={respondContactRequest}
-        contacts={contacts}
-        contactMessage={contactMessage}
-        incomingRequests={incomingRequests}
-        outgoingRequests={outgoingRequests}
-        blocked={blocked}
-        blockMessage={blockMessage}
-        onUnblockContact={unblockContact}
+            stateError={stateError}
+            nameOf={nameOf}
+            tab={sidebarTab}
+            onTabChange={setSidebarTab}
+            contacts={contacts}
+            contactMessage={contactMessage}
+            incomingRequests={incomingRequests}
+            outgoingRequests={outgoingRequests}
+            blocked={blocked}
+            blockMessage={blockMessage}
+            onMessageContact={messageContact}
+            onSendContactRequest={sendContactRequestTo}
+            onRespondContactRequest={respondContactRequest}
+            onUnblockContact={unblockContact}
+            pickerContext={pickerContext}
+            onSelectPickerContext={(context) => void openPickerContext(context)}
+            pickerClasses={pickerClasses}
+            pickerCourses={myCourses}
+            pickerMembers={pickerMembers}
+            pickerRosterError={pickerError}
+            pickerRosterCursor={pickerCursor}
+            onLoadMorePicker={() => void loadMorePicker()}
           />
         </div>
         <div className={active ? 'flex min-h-0 flex-1 flex-col' : 'hidden min-h-0 flex-1 flex-col md:flex'}>

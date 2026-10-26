@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BellOff, Pin } from 'lucide-react';
+import { BellOff, Pin, Plus } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -10,81 +10,140 @@ import { Input } from '@lms/ui/components/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@lms/ui/components/tabs';
 import { cn } from '@lms/ui/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { CreateGroupSheet } from './create-group-sheet';
+import { GroupTreeNav } from './group-tree-nav';
+import { NewMessageSheet } from './new-message-sheet';
 import type {
   ContactRequestView,
+  ConversationGroupTreeView,
   ConversationStatePatch,
   ConversationView,
   MessagingCourse,
+  PeoplePickerContext,
   RosterMember,
 } from './types';
 import { initialsOf, relativeTime } from './utils';
 
+/**
+ * Khung trái màn Tin nhắn (lát MSG-T3, issue #33) — tổ chức lại
+ * theo cấu trúc đã chốt 11:36 ngày 26/10/2026 (hồ sơ
+ * `messaging-structure-research-2026-10-26.md`), thay cấu trúc
+ * #256 cũ (danh sách phẳng trộn mọi loại + tab Danh bạ làm đường
+ * chính — cách tổ chức đã bị tuyên bố là sai phải thay):
+ *
+ * - Tab **Trò chuyện**: CHỈ hội thoại cá nhân 1–1 (`type === 1`),
+ *   giữ ô tìm theo tên hiển thị (chỉ lọc hội thoại đã có — không
+ *   phải tìm người) và chip Tất cả / Chưa đọc. Chip "Nhóm" của bản
+ *   cũ bị bỏ: hội thoại nhóm đã có nhà riêng ở tab Nhóm.
+ * - Tab **Nhóm**: cây Lớp → Khoá → Nhóm con + Khoá ngoài lớp +
+ *   Nhóm tự do do server dựng sẵn ({@link GroupTreeNav}); bấm một
+ *   nút là mở ngay chat của nút đó ở khung phải. Tab mang huy hiệu
+ *   tổng số chưa đọc của cả cây.
+ * - Tab **Đã lưu trữ**: giữ nguyên cơ chế M5 — danh sách riêng của
+ *   server, nạp lại mỗi khi mở tab; mọi loại hội thoại đã lưu đều
+ *   về đây.
+ * - Nút **Tin nhắn mới** cạnh tiêu đề mở sheet cùng tên ({@link
+ *   NewMessageSheet}): nơi tab Danh bạ cũ bị hạ xuống — lời mời kết
+ *   bạn (kèm huy hiệu số lượng trên chính nút này), chọn người từ
+ *   liên hệ/roster lớp/khoá, và mục liên hệ đã chặn.
+ *
+ * Tab đang chọn do TRANG chứa giữ (và lưu bền cùng hội thoại đang
+ * mở) để quay lại màn Tin nhắn là gặp đúng ngữ cảnh gần nhất; các
+ * trạng thái thoáng qua của riêng khung trái (chip lọc, từ khoá
+ * tìm, sheet đang mở) ở lại component này.
+ */
 interface ConversationSidebarProps {
+  /** Danh sách hội thoại CHƯA lưu của tôi (mọi loại — tab Trò chuyện tự lọc 1–1). */
   conversations: ConversationView[];
   /** Mục ĐÃ LƯU (lát M5): danh sách riêng của server, nạp khi mở tab. */
   archivedConversations: ConversationView[];
   /** Nạp (lại) mục đã lưu từ server — gọi mỗi khi người dùng mở tab Đã lưu trữ. */
   onRequestArchived: () => void;
+  /** Cây nhóm của tôi do server dựng (lát MSG-T1) cho tab Nhóm. */
+  groupTree: ConversationGroupTreeView | null;
   active: ConversationView | null;
   unread: number;
   error: string | null;
   myId: string | undefined;
   onlineUsers: Record<string, boolean>;
   onOpenConversation: (conversation: ConversationView) => void;
+  /** Mở một conversation theo id (nút cây đã có conversationId). */
+  onOpenConversationById: (conversationId: string) => void;
+  /** Mở chat cấp lớp từ nút lớp của cây (trang chứa ensure). */
+  onOpenClassChat: (classId: string) => void;
+  /** Mở chat cấp khoá từ nút khoá của cây (trang chứa ensure). */
+  onOpenCourseChat: (courseId: string) => void;
+  /** Mở chat của một nhóm con chưa có conversation (trang chứa tạo/lấy). */
+  onOpenGroupConversation: (groupId: string) => void;
+  /** Người xem có vai dạy/staff trên cây — quyết định hiện nút tạo nhóm tự do. */
+  canCreateFreeGroup: boolean;
+  /** Tạo nhóm tự do (trang chứa gọi API); resolve true khi tạo thành công để khung trái đóng sheet. */
+  onCreateFreeGroup: (name: string, memberIds: string[]) => Promise<boolean>;
+  /** Lỗi tạo nhóm gần nhất (trang chứa dịch từ mã lỗi server); null khi không có. */
+  groupCreateError: string | null;
   /** Đặt một cờ trạng thái cá nhân (ghim/lưu/tắt tiếng) cho một cuộc trò chuyện (lát M5). */
   onUpdateConversationState: (conversation: ConversationView, patch: ConversationStatePatch) => void;
   /** Lỗi của lần đổi trạng thái gần nhất (lát M5); null khi không có. */
   stateError: string | null;
   nameOf: (userId: string) => string;
-  myCourses: MessagingCourse[];
-  rosterCourseId: string | null;
-  rosterMembers: RosterMember[];
-  rosterError: string | null;
-  rosterCursor: string | null;
-  onOpenRoster: (courseId: string) => void;
-  onLoadMoreRoster: () => void;
-  onMessageContact: (userId: string) => void;
-  onSendContactRequest: (userId: string) => void;
-  onRespondContactRequest: (userId: string, action: 'accept' | 'decline') => void;
+  /** Tab đang chọn — trang chứa giữ để nhớ ngữ cảnh gần nhất. */
+  tab: string;
+  /** Đổi tab (trang chứa lưu bền giá trị mới). */
+  onTabChange: (tab: string) => void;
+  // --- Dữ kiện + sự kiện cho hai sheet (trang chứa giữ, khung trái trình bày) ---
   contacts: string[];
   contactMessage: string | null;
   incomingRequests: ContactRequestView[];
   outgoingRequests: ContactRequestView[];
   blocked: string[];
   blockMessage: string | null;
+  onMessageContact: (userId: string) => void;
+  onSendContactRequest: (userId: string) => void;
+  onRespondContactRequest: (userId: string, action: 'accept' | 'decline') => void;
   onUnblockContact: (userId: string) => void;
+  /** Ngữ cảnh chọn người đang chọn trong bộ chọn của hai sheet. */
+  pickerContext: PeoplePickerContext;
+  /** Đổi ngữ cảnh chọn người (trang chứa nạp roster tương ứng). */
+  onSelectPickerContext: (context: PeoplePickerContext) => void;
+  /** Các lớp của tôi cho ngữ cảnh theo lớp của bộ chọn. */
+  pickerClasses: { classId: string; name: string }[];
+  /** Các khoá của tôi cho ngữ cảnh theo khoá của bộ chọn. */
+  pickerCourses: MessagingCourse[];
+  /** Một trang roster của ngữ cảnh lớp/khoá đang chọn trong bộ chọn. */
+  pickerMembers: RosterMember[];
+  /** Lỗi nạp roster của bộ chọn; null khi không có. */
+  pickerRosterError: string | null;
+  /** Con trỏ trang roster kế của bộ chọn; null là đã hết trang. */
+  pickerRosterCursor: string | null;
+  /** Tải trang roster tiếp theo cho bộ chọn. */
+  onLoadMorePicker: () => void;
 }
 
-type ConversationFilterChip = 'all' | 'unread' | 'groups';
+type ConversationFilterChip = 'all' | 'unread';
 
 /**
- * Khung trái màn Tin nhắn (issue #256): ba tab theo chuẩn app nhắn
- * tin — Trò chuyện (danh sách hội thoại + chip lọc), Danh bạ (liên
- * hệ, yêu cầu chờ, roster khoá/lớp, đã chặn) và Đã lưu trữ. Danh sách
- * chính và mục đã lưu là hai danh sách riêng của server (lát M5);
- * chuyển tab Đã lưu trữ là xin nạp lại mục đó cho tươi.
+ * Trình bày khung trái Tin nhắn: tiêu đề + nút Tin nhắn mới, ba
+ * tab Trò chuyện / Nhóm / Đã lưu trữ, và hai sheet (Tin nhắn mới,
+ * Tạo nhóm).
+ *
+ * @param props - Dữ kiện và sự kiện do trang Tin nhắn đưa xuống.
+ * @returns Khung trái hoàn chỉnh của màn master–detail.
  */
 export function ConversationSidebar({
-  conversations, archivedConversations, onRequestArchived, active, unread, error, myId, onlineUsers,
-  onOpenConversation, onUpdateConversationState, stateError, nameOf, myCourses, rosterCourseId,
-  rosterMembers, rosterError, rosterCursor, onOpenRoster, onLoadMoreRoster, onMessageContact,
-  onSendContactRequest, onRespondContactRequest, contacts, contactMessage, incomingRequests,
-  outgoingRequests, blocked, blockMessage, onUnblockContact,
+  conversations, archivedConversations, onRequestArchived, groupTree, active, unread, error, myId, onlineUsers,
+  onOpenConversation, onOpenConversationById, onOpenClassChat, onOpenCourseChat, onOpenGroupConversation,
+  canCreateFreeGroup, onCreateFreeGroup, groupCreateError,
+  onUpdateConversationState, stateError, nameOf, tab, onTabChange,
+  contacts, contactMessage, incomingRequests, outgoingRequests, blocked, blockMessage,
+  onMessageContact, onSendContactRequest, onRespondContactRequest, onUnblockContact,
+  pickerContext, onSelectPickerContext, pickerClasses, pickerCourses, pickerMembers,
+  pickerRosterError, pickerRosterCursor, onLoadMorePicker,
 }: ConversationSidebarProps) {
   const { t } = useTranslation('app');
   const open = onOpenConversation;
-  const openRoster = onOpenRoster;
-  const loadMoreRoster = onLoadMoreRoster;
-  /** Nhắn tin từ Danh bạ thì khung trái tự về tab Trò chuyện để thấy hội thoại vừa mở. */
-  const messageContact = (userId: string) => {
-    setTab('chats');
-    onMessageContact(userId);
-  };
-  const sendContactRequestTo = onSendContactRequest;
-  const respondContactRequest = onRespondContactRequest;
-  const unblockContact = onUnblockContact;
-  const [tab, setTab] = useState('chats');
   const [chip, setChip] = useState<ConversationFilterChip>('all');
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
   /**
    * Lọc danh sách hội thoại theo TÊN HIỂN THỊ (lát M4, issue #237):
    * lọc ngay tại client trên danh sách đã tải — tên hiển thị là đúng
@@ -93,17 +152,45 @@ export function ConversationSidebar({
    * CÓ — không phải tìm người theo tên.
    */
   const [conversationFilter, setConversationFilter] = useState('');
+  /** Từ khoá lọc cây nhóm theo tên lớp/khoá/nhóm (chỉ lọc cây đã có — cùng luật M4). */
+  const [groupFilter, setGroupFilter] = useState('');
+  /**
+   * Nhắn tin từ sheet Tin nhắn mới thì đóng sheet, khung trái về
+   * tab Trò chuyện để thấy hội thoại 1–1 vừa mở ở khung phải.
+   */
+  const messageContact = (userId: string) => {
+    setNewMessageOpen(false);
+    onTabChange('chats');
+    onMessageContact(userId);
+  };
+  /** Tạo nhóm thành công thì đóng sheet tạo nhóm và về tab Nhóm để thấy nhóm vừa tạo trong cây. */
+  const createFreeGroup = async (name: string, memberIds: string[]) => {
+    const created = await onCreateFreeGroup(name, memberIds);
+    if (created) {
+      setCreateGroupOpen(false);
+      onTabChange('groups');
+    }
+  };
   const labelOf = (c: ConversationView) =>
     c.name ?? t('conversationWithUser', { members: c.members.map((id) => nameOf(id)).join(', ') });
   const filterNeedle = conversationFilter.trim().toLocaleLowerCase('vi');
   const matchesFilter = (c: ConversationView) =>
     !filterNeedle || labelOf(c).toLocaleLowerCase('vi').includes(filterNeedle);
-  const visibleConversations = conversations.filter(matchesFilter).filter((c) => {
-    if (chip === 'unread') return (c.unread ?? 0) > 0;
-    if (chip === 'groups') return c.type === 2;
-    return true;
-  });
+  // Tab Trò chuyện CHỈ chứa hội thoại cá nhân 1–1 (cấu trúc MSG-T3):
+  // mọi hội thoại type 2 (nhóm tự do/nhóm con/chat khoá/chat lớp)
+  // đều thuộc tab Nhóm, không trộn vào đây theo bất kỳ chip nào.
+  const visibleConversations = conversations
+    .filter((c) => c.type === 1)
+    .filter(matchesFilter)
+    .filter((c) => (chip === 'unread' ? (c.unread ?? 0) > 0 : true));
   const visibleArchived = archivedConversations.filter(matchesFilter);
+  // Tổng chưa đọc của cả cây — huy hiệu trên tab Nhóm (nút lớp đã
+  // mang tổng của các nút con trong nó theo hợp đồng MSG-T1).
+  const treeUnreadTotal = groupTree
+    ? groupTree.classes.reduce((sum, c) => sum + c.unread, 0)
+      + groupTree.coursesOutsideClasses.reduce((sum, c) => sum + c.unread, 0)
+      + groupTree.freeGroups.reduce((sum, g) => sum + g.unread, 0)
+    : 0;
 
   /** Một dòng hội thoại chuẩn app nhắn tin: avatar + tên + trích đoạn/giờ + huy hiệu + menu trạng thái M5. */
   const renderConversationItem = (c: ConversationView) => {
@@ -202,29 +289,41 @@ export function ConversationSidebar({
   const chips: { key: ConversationFilterChip; label: string }[] = [
     { key: 'all', label: t('messagesFilterAll') },
     { key: 'unread', label: t('messagesFilterUnread') },
-    { key: 'groups', label: t('messagesFilterGroups') },
   ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between px-4 pt-3">
+      <div className="flex items-center justify-between gap-2 px-4 pt-3">
         <h2 className="text-base font-semibold">
           {t('messagesTitle')} {unread > 0 ? t('unreadSuffix', { count: unread }) : ''}
         </h2>
+        <Button type="button" size="sm" aria-label={t('newMessage')} onClick={() => setNewMessageOpen(true)}>
+          <Plus className="size-4" />
+          {t('newMessage')}
+          {incomingRequests.length > 0 ? (
+            <>
+              <Badge className="shrink-0">{incomingRequests.length}</Badge>
+              <span className="sr-only">{t('incomingRequestsTitle')}</span>
+            </>
+          ) : null}
+        </Button>
       </div>
       {error ? <p role="alert" className="px-4 pt-2 text-sm">{error}</p> : null}
       {stateError ? <p role="alert" className="px-4 pt-2 text-sm">{stateError}</p> : null}
       <Tabs
         value={tab}
         onValueChange={(value) => {
-          setTab(value);
+          onTabChange(value);
           if (value === 'archived') onRequestArchived();
         }}
         className="min-h-0 flex-1 px-2 pt-2"
       >
         <TabsList className="w-full">
           <TabsTrigger value="chats">{t('messagesTabChats')}</TabsTrigger>
-          <TabsTrigger value="contacts">{t('messagesTabContacts')}</TabsTrigger>
+          <TabsTrigger value="groups" aria-label={t('messagesTabGroups')}>
+            {t('messagesTabGroups')}
+            {treeUnreadTotal > 0 ? <Badge className="ml-1.5 shrink-0">{treeUnreadTotal}</Badge> : null}
+          </TabsTrigger>
           <TabsTrigger value="archived">{t('archivedConversationsTitle')}</TabsTrigger>
         </TabsList>
         <TabsContent value="chats" className="flex min-h-0 flex-1 flex-col">
@@ -259,165 +358,96 @@ export function ConversationSidebar({
                   ? t('conversationSearchNoResults')
                   : chip === 'unread'
                     ? t('conversationsUnreadEmpty')
-                    : chip === 'groups'
-                      ? t('conversationsGroupsEmpty')
-                      : t('conversationsEmpty')}
+                    : t('conversationsEmpty')}
               </p>
             ) : (
               <ul className="space-y-0.5">{visibleConversations.map(renderConversationItem)}</ul>
             )}
           </div>
         </TabsContent>
-        <TabsContent value="contacts" className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-5 px-2 py-2">
-            <div className="space-y-2">
-              <h3 className="font-medium">{t('findFriendsTitle')}</h3>
-              <p className="text-sm text-muted-foreground">{t('findFriendsHint')}</p>
-              {myCourses.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('myCoursesEmpty')}</p>
-              ) : (
-                <ul className="space-y-1">
-                  {myCourses.map((c) => (
-                    <li key={c.courseId}>
-                      <Button
-                        type="button"
-                        variant={rosterCourseId === c.courseId ? 'default' : 'outline'}
-                        onClick={() => void openRoster(c.courseId)}
-                      >
-                        {c.fullName}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {rosterError ? <p role="alert">{rosterError}</p> : null}
-              {rosterCourseId ? (
-                rosterMembers.length > 0 ? (
-                  <ul className="space-y-1">
-                    {rosterMembers.map((m) => (
-                      <li key={m.userId} data-testid={`roster-member-${m.userId}`} className="flex items-center gap-2">
-                        <Avatar>
-                          <AvatarFallback>{initialsOf(m.displayName)}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">
-                          {m.displayName} <span className="text-muted-foreground">@{m.username}</span>
-                        </span>
-                        <Badge variant="secondary">
-                          {m.role === 'teacher' ? t('rosterTeacher') : t('rosterStudent')}
-                        </Badge>
-                        {m.canDirectMessage && m.relationship !== 'contact' ? (
-                          <Button type="button" variant="outline" onClick={() => void messageContact(m.userId)}>
-                            {t('messageWithContact')}
-                          </Button>
-                        ) : null}
-                        {m.relationship === 'none' ? (
-                          <Button type="button" variant="outline" onClick={() => void sendContactRequestTo(m.userId)}>
-                            {t('addContact')}
-                          </Button>
-                        ) : null}
-                        {m.relationship === 'pending_outgoing' ? (
-                          <span className="text-sm text-muted-foreground">{t('contactRequestPendingSuffix')}</span>
-                        ) : null}
-                        {m.relationship === 'pending_incoming' ? (
-                          <>
-                            <Button type="button" variant="outline" onClick={() => void respondContactRequest(m.userId, 'accept')}>
-                              {t('acceptContactRequest')}
-                            </Button>
-                            <Button type="button" variant="outline" onClick={() => void respondContactRequest(m.userId, 'decline')}>
-                              {t('declineContactRequest')}
-                            </Button>
-                          </>
-                        ) : null}
-                        {m.relationship === 'contact' ? (
-                          <Button type="button" variant="outline" onClick={() => void messageContact(m.userId)}>
-                            {t('messageWithContact')}
-                          </Button>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">{t('rosterEmpty')}</p>
-                )
-              ) : null}
-              {rosterCourseId && rosterCursor ? (
-                <Button type="button" variant="outline" onClick={() => void loadMoreRoster()}>
-                  {t('rosterLoadMore')}
-                </Button>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-medium">{t('contactsTitle')}</h3>
-              {contactMessage ? <p role="status">{contactMessage}</p> : null}
-              <ul className="space-y-1">
-                {contacts.map((userId) => (
-                  <li key={userId} data-testid={`contact-${userId}`} className="flex items-center gap-2">
-                    <span className="text-sm">{nameOf(userId)}</span>
-                    <Button type="button" variant="outline" onClick={() => void messageContact(userId)}>
-                      {t('messageWithContact')}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              {contacts.length === 0 ? <p className="text-sm text-muted-foreground">{t('noContacts')}</p> : null}
-              {incomingRequests.length > 0 ? (
-                <>
-                  <h4 className="text-sm font-medium">{t('incomingRequestsTitle')}</h4>
-                  <ul className="space-y-1">
-                    {incomingRequests.map((r) => (
-                      <li key={r.userId} data-testid={`incoming-request-${r.userId}`} className="flex items-center gap-2">
-                        <span className="text-sm">{r.displayName ?? nameOf(r.userId)}</span>
-                        <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'accept')}>
-                          {t('acceptContactRequest')}
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => void respondContactRequest(r.userId, 'decline')}>
-                          {t('declineContactRequest')}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-              {outgoingRequests.length > 0 ? (
-                <>
-                  <h4 className="text-sm font-medium">{t('outgoingRequestsTitle')}</h4>
-                  <ul className="space-y-1">
-                    {outgoingRequests.map((r) => (
-                      <li key={r.userId} className="text-sm">
-                        {r.displayName ?? nameOf(r.userId)} {t('contactRequestPendingSuffix')}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              <h3 className="font-medium">{t('blockedContactsTitle')}</h3>
-              {blockMessage ? <p role="status">{blockMessage}</p> : null}
-              <ul className="space-y-1">
-                {blocked.map((userId) => (
-                  <li key={userId} data-testid={`blocked-${userId}`} className="flex items-center gap-2">
-                    <span className="text-sm">{nameOf(userId)}</span>
-                    <Button type="button" variant="outline" onClick={() => void unblockContact(userId)}>
-                      {t('unblockContact')}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-              {blocked.length === 0 ? <p className="text-sm text-muted-foreground">{t('noBlockedContacts')}</p> : null}
-            </div>
+        <TabsContent value="groups" className="flex min-h-0 flex-1 flex-col">
+          <div className="px-2 pt-1">
+            <Input
+              type="search"
+              aria-label={t('groupTreeSearchPlaceholder')}
+              placeholder={t('groupTreeSearchPlaceholder')}
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+            />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
+            <GroupTreeNav
+              tree={groupTree}
+              filter={groupFilter}
+              activeConversationId={active?.id ?? null}
+              onOpenConversationById={onOpenConversationById}
+              onOpenClassChat={onOpenClassChat}
+              onOpenCourseChat={onOpenCourseChat}
+              onOpenGroupConversation={onOpenGroupConversation}
+              canCreateFreeGroup={canCreateFreeGroup}
+              onCreateFreeGroup={() => setCreateGroupOpen(true)}
+            />
           </div>
         </TabsContent>
         <TabsContent value="archived" className="flex min-h-0 flex-1 flex-col">
+          <div className="px-2 pt-1">
+            <Input
+              type="search"
+              aria-label={t('conversationSearchLabel')}
+              placeholder={t('conversationSearchPlaceholder')}
+              value={conversationFilter}
+              onChange={(e) => setConversationFilter(e.target.value)}
+            />
+          </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-1 py-2">
             {visibleArchived.length === 0 ? (
-              <p className="px-2 text-sm text-muted-foreground">{t('archivedEmpty')}</p>
+              <p className="px-2 text-sm text-muted-foreground">
+                {filterNeedle ? t('conversationSearchNoResults') : t('archivedEmpty')}
+              </p>
             ) : (
               <ul className="space-y-0.5">{visibleArchived.map(renderConversationItem)}</ul>
             )}
           </div>
         </TabsContent>
       </Tabs>
+      <NewMessageSheet
+        open={newMessageOpen}
+        onOpenChange={setNewMessageOpen}
+        incomingRequests={incomingRequests}
+        outgoingRequests={outgoingRequests}
+        contacts={contacts}
+        contactMessage={contactMessage}
+        blocked={blocked}
+        blockMessage={blockMessage}
+        nameOf={nameOf}
+        onMessageContact={messageContact}
+        onSendContactRequest={onSendContactRequest}
+        onRespondContactRequest={onRespondContactRequest}
+        onUnblockContact={onUnblockContact}
+        pickerContext={pickerContext}
+        onSelectPickerContext={onSelectPickerContext}
+        pickerClasses={pickerClasses}
+        pickerCourses={pickerCourses}
+        pickerMembers={pickerMembers}
+        pickerRosterError={pickerRosterError}
+        pickerRosterCursor={pickerRosterCursor}
+        onLoadMorePicker={onLoadMorePicker}
+      />
+      <CreateGroupSheet
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        onCreateGroup={(name, memberIds) => void createFreeGroup(name, memberIds)}
+        createError={groupCreateError}
+        pickerContext={pickerContext}
+        onSelectPickerContext={onSelectPickerContext}
+        pickerClasses={pickerClasses}
+        pickerCourses={pickerCourses}
+        pickerMembers={pickerMembers}
+        pickerRosterError={pickerRosterError}
+        pickerRosterCursor={pickerRosterCursor}
+        onLoadMorePicker={onLoadMorePicker}
+        contactEntries={contacts.map((userId) => ({ userId, displayName: nameOf(userId) }))}
+      />
     </div>
   );
 }

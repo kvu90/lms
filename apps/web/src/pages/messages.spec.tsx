@@ -103,6 +103,25 @@ function stubFetch(calls: RecordedCall[]) {
   );
 }
 
+/**
+ * Mở một hội thoại nhóm từ cây của tab Nhóm (lát MSG-T3): chuyển sang
+ * tab Nhóm rồi bấm dòng của nhóm trong cây — đúng đường người dùng đi
+ * từ khi hội thoại nhóm rời khỏi danh sách phẳng.
+ */
+async function openGroupFromTree(name: RegExp) {
+  await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+  await userEvent.click(await screen.findByRole('button', { name }));
+}
+
+/**
+ * Mở sheet "Tin nhắn mới" từ nút ở đầu khung trái (lát MSG-T3) và trả
+ * phần tử dialog của sheet để các ca giới hạn truy vấn trong sheet.
+ */
+async function openNewMessageSheet() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Tin nhắn mới' }));
+  return screen.findByRole('dialog');
+}
+
 /** Render trang tin nhắn trong AuthProvider như ứng dụng thật (cây provider như root: QueryClientProvider bọc ngoài). */
 function renderMessages(entry = '/messages') {
   const router = createMemoryRouter([{ path: '/messages', element: <MessagesPage /> }], {
@@ -139,9 +158,10 @@ describe('Messages page — block and unblock contacts', () => {
       ),
     );
 
-    // Danh sách đã chặn nằm ở tab Danh bạ của khung trái (issue #256).
-    await userEvent.click(screen.getByRole('tab', { name: 'Danh bạ' }));
-    const blockedRow = await screen.findByTestId(`blocked-${OTHER_ID}`);
+    // Danh sách đã chặn nằm trong sheet "Tin nhắn mới" (lát MSG-T3:
+    // Danh bạ hạ thành sheet, không còn là tab của khung trái).
+    const sheet = await openNewMessageSheet();
+    const blockedRow = await within(sheet).findByTestId(`blocked-${OTHER_ID}`);
     expect(blockedRow).toHaveTextContent(OTHER_ID);
     expect(await screen.findByText('Đã chặn liên hệ này.')).toBeInTheDocument();
     // Trong cuộc trò chuyện, nút chặn đã thay bằng trạng thái đã chặn + bỏ chặn.
@@ -193,6 +213,17 @@ function stubRealtimeFetch(calls: RecordedCall[]) {
           },
         ]);
       if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      // Cây nhóm của MSG-T1: hai hội thoại nhóm của bộ dữ kiện này là
+      // nhóm tự do do tôi quản trị — tab Nhóm hiện chúng từ cây này.
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [],
+          freeGroups: [
+            { id: CONV_ID, name: 'Nhóm một', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
+            { id: CONV2_ID, name: 'Nhóm hai', myRole: 'staff', conversationId: CONV2_ID, unread: 2 },
+          ],
+        });
       if (url === `/api/v1/messages/conversations/${CONV_ID}`)
         return respond({
           id: CONV_ID, type: 2, name: 'Nhóm một', members: [ME_ID, OTHER_ID],
@@ -232,7 +263,7 @@ describe('Messages page — optimistic send and realtime updates', () => {
     stubRealtimeFetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    await openGroupFromTree(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -277,7 +308,7 @@ describe('Messages page — optimistic send and realtime updates', () => {
     stubRealtimeFetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    await openGroupFromTree(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
     const detailCallsBefore = calls.filter((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}`).length;
@@ -324,6 +355,9 @@ describe('Messages page — optimistic send and realtime updates', () => {
     stubRealtimeFetch(calls);
     renderMessages();
 
+    // Từ lát MSG-T3, số chưa đọc của nhóm hiện trên nút của cây ở
+    // tab Nhóm — chuyển sang tab đó trước khi quan sát huy hiệu.
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
     await screen.findByRole('button', { name: /Nhóm một/ });
     const updatedPayload = (seq: number, text: string, unreadCount: number) => ({
       conversationId: CONV2_ID,
@@ -340,22 +374,21 @@ describe('Messages page — optimistic send and realtime updates', () => {
       unreadCount,
     }) as never;
 
-    // Sự kiện mới (seq 2) áp bình thường: huy hiệu 5, xem trước là tin seq 2.
+    // Sự kiện mới (seq 2) áp bình thường: huy hiệu của nút cây lên 5.
+    // (Cây không hiện xem trước nội dung tin — khẳng định xem trước
+    // của danh sách phẳng cũ không còn bề mặt tương ứng ở MSG-T3.)
     act(() => {
       realtime.handlers?.onConversationUpdated(updatedPayload(2, 'tin mới nhất nhóm hai', 5));
     });
     expect(await screen.findByRole('button', { name: /Nhóm hai.*5 chưa đọc/ })).toBeInTheDocument();
-    expect(await screen.findByText('tin mới nhất nhóm hai')).toBeInTheDocument();
 
-    // Sự kiện cũ hơn (seq 1) đến muộn: bị bỏ qua — huy hiệu không nhảy
-    // lùi lên 9 theo số của thời điểm cũ, xem trước giữ nguyên tin seq 2.
+    // Sự kiện cũ hơn (seq 1) đến muộn: bị bỏ qua — huy hiệu không
+    // nhảy lùi lên 9 theo số của thời điểm cũ.
     act(() => {
       realtime.handlers?.onConversationUpdated(updatedPayload(1, 'tin cũ nhóm hai', 9));
     });
     expect(screen.getByRole('button', { name: /Nhóm hai.*5 chưa đọc/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Nhóm hai.*9 chưa đọc/ })).not.toBeInTheDocument();
-    expect(screen.getByText('tin mới nhất nhóm hai')).toBeInTheDocument();
-    expect(screen.queryByText('tin cũ nhóm hai')).not.toBeInTheDocument();
   });
 });
 
@@ -417,6 +450,15 @@ function stubDomainFetch(calls: RecordedCall[]) {
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET')
         return respond([{ id: CONV_ID, type: 2, name: 'Nhóm lớp', members: [ME_ID, OTHER_ID], unread: 0, lastMessageSeq: 2, lastMessage: null }]);
+      // Cây nhóm MSG-T1: 'Nhóm lớp' là nhóm tự do — mở qua tab Nhóm.
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [],
+          freeGroups: [
+            { id: CONV_ID, name: 'Nhóm lớp', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
+          ],
+        });
       if (url === '/api/v1/messages/contacts')
         return respond({
           contacts: state.contacts,
@@ -491,35 +533,39 @@ describe('Messages page — Lớp B contacts (request–accept)', () => {
     stubDomainFetch(calls);
     renderMessages();
 
-    // Yêu cầu đang chờ hiện ở tab Danh bạ (issue #256) — bằng TÊN
-    // người gửi, không phải UUID; chấp nhận qua đúng endpoint.
-    await userEvent.click(await screen.findByRole('tab', { name: 'Danh bạ' }));
-    const incomingRow = await screen.findByTestId(`incoming-request-${OTHER_ID}`);
+    // Yêu cầu đang chờ hiện trong sheet "Tin nhắn mới" (lát MSG-T3 —
+    // Danh bạ không còn là tab): nút mở sheet mang huy hiệu 1 lời
+    // mời; trong sheet, lời mời hiện bằng TÊN người gửi, không phải
+    // UUID; chấp nhận qua đúng endpoint.
+    expect(await screen.findByRole('button', { name: /Tin nhắn mới/ })).toHaveTextContent('1');
+    const sheet = await openNewMessageSheet();
+    const incomingRow = await within(sheet).findByTestId(`incoming-request-${OTHER_ID}`);
     expect(incomingRow).toHaveTextContent('Bạn Học');
     expect(incomingRow).not.toHaveTextContent(OTHER_ID);
     await userEvent.click(within(incomingRow).getByRole('button', { name: 'Chấp nhận' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/contacts/requests/${OTHER_ID}/accept` && c.method === 'POST')).toBe(true),
     );
-    // Quan hệ hình thành: liên hệ xuất hiện trong danh bạ đã duyệt (hiện tên), hàng chờ sạch.
-    const contactRow = await screen.findByTestId(`contact-${OTHER_ID}`);
+    // Quan hệ hình thành: liên hệ xuất hiện trong mục liên hệ của
+    // sheet (hiện tên), hàng chờ sạch.
+    const contactRow = await within(sheet).findByTestId(`contact-${OTHER_ID}`);
     expect(contactRow).toHaveTextContent('Bạn Học');
-    expect(screen.queryByTestId(`incoming-request-${OTHER_ID}`)).not.toBeInTheDocument();
+    expect(within(sheet).queryByTestId(`incoming-request-${OTHER_ID}`)).not.toBeInTheDocument();
 
     // Tìm bạn theo KHOÁ (không còn tìm theo tên, không còn form nhập
-    // ID): mở khoá của mình → dòng roster hiện tên + username → bấm
-    // Kết bạn → POST contacts/:userId, trạng thái chờ duyệt hiện ra
-    // bằng tên người nhận.
-    await userEvent.click(await screen.findByRole('button', { name: 'Khoá học mẫu' }));
-    const resultRow = await screen.findByTestId(`roster-member-${THIRD_ID}`);
+    // ID): chọn ngữ cảnh khoá trong sheet → dòng roster hiện tên +
+    // username → bấm Kết bạn → POST contacts/:userId, trạng thái chờ
+    // duyệt hiện ra bằng tên người nhận.
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Khoá học mẫu' }));
+    const resultRow = await within(sheet).findByTestId(`roster-member-${THIRD_ID}`);
     expect(resultRow).toHaveTextContent('Người Thứ Ba');
     expect(resultRow).toHaveTextContent('@thirduser');
     await userEvent.click(within(resultRow).getByRole('button', { name: 'Kết bạn' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/messages/contacts/${THIRD_ID}` && c.method === 'POST')).toBe(true),
     );
-    expect(await screen.findByText('Đã gửi yêu cầu kết bạn — chờ phía kia chấp nhận.')).toBeInTheDocument();
-    expect(await screen.findByText(/Người Thứ Ba \(đang chờ duyệt\)/)).toBeInTheDocument();
+    expect(await within(sheet).findByText('Đã gửi yêu cầu kết bạn — chờ phía kia chấp nhận.')).toBeInTheDocument();
+    expect(await within(sheet).findByText(/Người Thứ Ba \(đang chờ duyệt\)/)).toBeInTheDocument();
     // Không còn bất kỳ ô nhập ID người dùng nào trên trang.
     expect(screen.queryByLabelText(/ID người dùng/)).not.toBeInTheDocument();
   });
@@ -538,7 +584,7 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
     stubDomainFetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm lớp/ }));
+    await openGroupFromTree(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
     expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
@@ -641,10 +687,14 @@ describe('Messages page — notification deep-link (việc nối tiếp #33)', (
     renderMessages(`/messages?conversation=${CONV3_ID}`);
 
     // Conversation không có trong danh sách đã nạp: trang lấy chi
-    // tiết thẳng theo id, chèn nó vào danh sách và mở ra.
+    // tiết thẳng theo id, chèn nó vào danh sách và mở ra. Từ lát
+    // MSG-T3, hội thoại nhóm không còn hiện ở tab Trò chuyện nên
+    // khẳng định "có mặt trong danh sách" cũ được thay bằng khẳng
+    // định khung phải đã mở đúng hội thoại (phần GET + đánh dấu đã
+    // đọc ở dưới giữ nguyên).
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin mở bằng deep-link')).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /Nhóm deep-link/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Nhóm deep-link/ })).not.toBeInTheDocument();
     expect(
       calls.some((c) => c.url === `/api/v1/messages/conversations/${CONV3_ID}` && c.method === 'GET'),
     ).toBe(true);
@@ -689,11 +739,11 @@ describe('Messages page — create conversation contract', () => {
     renderMessages();
 
     // Bắt đầu cuộc trò chuyện từ dòng roster của một liên hệ trong khoá
-    // của mình (tìm theo tên và form nhập ID đều đã bỏ) — roster nằm ở
-    // tab Danh bạ của khung trái (issue #256).
-    await userEvent.click(await screen.findByRole('tab', { name: 'Danh bạ' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Khoá học mẫu' }));
-    const resultRow = await screen.findByTestId(`roster-member-${OTHER_ID}`);
+    // của mình (tìm theo tên và form nhập ID đều đã bỏ) — roster nằm
+    // trong sheet "Tin nhắn mới", ngữ cảnh theo khoá (lát MSG-T3).
+    const sheet = await openNewMessageSheet();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Khoá học mẫu' }));
+    const resultRow = await within(sheet).findByTestId(`roster-member-${OTHER_ID}`);
     expect(resultRow).toHaveTextContent('Bạn Học');
     await userEvent.click(within(resultRow).getByRole('button', { name: 'Nhắn tin' }));
 
@@ -748,10 +798,10 @@ describe('Messages page — create conversation contract', () => {
     );
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('tab', { name: 'Danh bạ' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Khoá học mẫu' }));
-    const directRow = await screen.findByTestId(`roster-member-${OTHER_ID}`);
-    const plainRow = await screen.findByTestId(`roster-member-${THIRD_ID}`);
+    const sheet = await openNewMessageSheet();
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Khoá học mẫu' }));
+    const directRow = await within(sheet).findByTestId(`roster-member-${OTHER_ID}`);
+    const plainRow = await within(sheet).findByTestId(`roster-member-${THIRD_ID}`);
     // Dòng được gắn cờ: có nút "Nhắn tin" ngay cả khi chưa kết bạn
     // (nút Kết bạn vẫn còn bên cạnh — nhắn thẳng không ép qua kết bạn).
     expect(within(directRow).getByRole('button', { name: 'Nhắn tin' })).toBeInTheDocument();
@@ -783,7 +833,7 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
     stubDomainFetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm lớp/ }));
+    await openGroupFromTree(/Nhóm lớp/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
 
@@ -1330,6 +1380,16 @@ function stubFetchM4(calls: RecordedCall[], opts: { failSearch?: boolean } = {})
         return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
       if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
       if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      // Cây nhóm MSG-T1: 'Lớp Toán 10A1' là nhóm tự do — tab Nhóm
+      // hiện nó từ cây này (lát MSG-T3).
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [],
+          freeGroups: [
+            { id: CONV_CLASS, name: 'Lớp Toán 10A1', myRole: 'staff', conversationId: CONV_CLASS, unread: 0 },
+          ],
+        });
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -1347,22 +1407,31 @@ describe('Messages page — M4: tìm kiếm (issue #237)', () => {
     stubFetchM4(calls);
     renderMessages();
 
+    // Tab Trò chuyện: ô tìm lọc các hội thoại 1–1 theo tên hiển thị.
+    // ('Lớp Toán 10A1' là hội thoại nhóm — từ lát MSG-T3 nó chỉ còn
+    // ở cây của tab Nhóm, được kiểm ở phần sau của ca này.)
     expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Lớp Toán 10A1/ })).not.toBeInTheDocument();
 
     const filter = screen.getByLabelText('Tìm cuộc trò chuyện');
     await userEvent.type(filter, 'toán');
     expect(screen.queryByRole('button', { name: /Hội thoại A/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+    expect(await screen.findByText('Không có cuộc trò chuyện nào khớp.')).toBeInTheDocument();
 
     await userEvent.clear(filter);
     await userEvent.type(filter, 'không tồn tại đâu');
     expect(await screen.findByText('Không có cuộc trò chuyện nào khớp.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Lớp Toán 10A1/ })).not.toBeInTheDocument();
 
     await userEvent.clear(filter);
     expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+
+    // Tab Nhóm có ô tìm riêng lọc cây theo tên.
+    await userEvent.click(screen.getByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: /Lớp Toán 10A1/ })).toBeInTheDocument();
+    const treeFilter = screen.getByLabelText('Tìm lớp, khoá, nhóm…');
+    await userEvent.type(treeFilter, 'không tồn tại đâu');
+    expect(screen.queryByRole('button', { name: /Lớp Toán 10A1/ })).not.toBeInTheDocument();
+    expect(await screen.findByText('Không có lớp, khoá hay nhóm nào khớp.')).toBeInTheDocument();
   });
 
   it('tìm trong hội thoại: gửi đúng từ khoá lên API, hiện kết quả, bấm kết quả thì xin cửa sổ quanh seq và hiện tin đích', async () => {
@@ -1580,14 +1649,89 @@ describe('Messages page — M5: ghim / lưu trữ / tắt tiếng (issue #240)',
   });
 });
 
+const T3_DM_A = '01900000-0000-7000-8000-0000000000a1';
+const T3_DM_B = '01900000-0000-7000-8000-0000000000b1';
+const T3_CLASS_ID = '01900000-0000-7000-8000-0000000000c1';
+const T3_COURSE_ID = '01900000-0000-7000-8000-0000000000c2';
+const T3_CLASS_CONV = '01900000-0000-7000-8000-0000000000d1';
+const T3_COURSE_CONV = '01900000-0000-7000-8000-0000000000d2';
+const T3_GROUP_CONV = '01900000-0000-7000-8000-0000000000d5';
+
 /**
- * Issue #256 — bề mặt nhắn tin theo chuẩn app nhắn tin: khung trái có
- * ba tab (Trò chuyện / Danh bạ / Đã lưu trữ), tab Trò chuyện có chip
- * lọc Tất cả / Chưa đọc / Nhóm, và khung chat có nút quay lại về danh
- * sách (mobile). Stub realtime: "Nhóm một" là nhóm có 1 chưa đọc,
- * "Nhóm hai" là nhóm đã đọc hết.
+ * Stub fetch cho các ca MSG-T3: hai hội thoại 1–1 (một chưa đọc),
+ * một hội thoại nhóm tự do chỉ thuộc cây, và cây Lớp → Khoá → Nhóm
+ * con theo vai DẠY. `studentView` đổi mọi vai của cây thành HỌC và
+ * bỏ nút tạo nhóm khỏi tầm tay học sinh.
  */
-describe('Messages page — #256: tab, chip lọc, quay lại', () => {
+function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean } = {}) {
+  const role = opts.studentView ? 'learning' : 'teaching';
+  const dmMessage = {
+    id: '01900000-0000-7000-8000-0000000000e1', conversationId: T3_DM_A, userIdFrom: OTHER_ID,
+    subject: '', fullMessage: 'tin của bạn một', createdAt: '2026-01-01T00:00:00.000Z', seq: 1, clientMessageId: null,
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown) =>
+        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations' && method === 'GET')
+        return respond([
+          { id: T3_DM_A, type: 1, name: 'Bạn Một', members: [ME_ID, OTHER_ID], unread: 1, lastReadSeq: 0, lastMessageSeq: 1, lastMessage: dmMessage },
+          { id: T3_DM_B, type: 1, name: 'Bạn Hai', members: [ME_ID, THIRD_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
+          { id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null },
+        ]);
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [{
+            classId: T3_CLASS_ID, name: 'Lớp 10A1', myRole: role, conversationId: T3_CLASS_CONV, unread: 1,
+            courses: [{
+              courseId: T3_COURSE_ID, name: 'Toán 10', myRole: role, conversationId: T3_COURSE_CONV, unread: 1,
+              groups: [{ groupId: '01900000-0000-7000-8000-0000000000c3', name: 'Nhóm 1', myRole: role, conversationId: null, unread: 0 }],
+            }],
+          }],
+          coursesOutsideClasses: [],
+          freeGroups: opts.studentView
+            ? []
+            : [{ id: T3_GROUP_CONV, name: 'Nhóm Riêng', myRole: 'staff', conversationId: T3_GROUP_CONV, unread: 0 }],
+        });
+      if (url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)
+        return respond({ id: T3_CLASS_CONV, type: 2, name: 'Lớp 10A1', members: [ME_ID, OTHER_ID] });
+      if (url === `/api/v1/messages/courses/${T3_COURSE_ID}/conversation`)
+        return respond({ id: T3_COURSE_CONV, type: 2, name: 'Toán 10', members: [ME_ID, OTHER_ID] });
+      if (url === `/api/v1/messages/conversations/${T3_DM_A}`)
+        return respond({ id: T3_DM_A, type: 1, name: 'Bạn Một', members: [ME_ID, OTHER_ID], messages: [dmMessage], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/conversations/${T3_CLASS_CONV}`)
+        return respond({ id: T3_CLASS_CONV, type: 2, name: 'Lớp 10A1', members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/conversations/${T3_COURSE_CONV}`)
+        return respond({ id: T3_COURSE_CONV, type: 2, name: 'Toán 10', members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/conversations/${T3_GROUP_CONV}`)
+        return respond({ id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === '/api/v1/messages/conversations' && method === 'POST')
+        return respond({ id: T3_GROUP_CONV, type: 2, name: 'Nhóm mới lập', members: [ME_ID, OTHER_ID] });
+      if (url === '/api/v1/messages/unread-count') return respond({ conversations: 1, notifications: 0 });
+      if (url === '/api/v1/messages/contacts')
+        return respond({ contacts: [OTHER_ID], profiles: { [OTHER_ID]: { userId: OTHER_ID, displayName: 'Bạn Học', username: 'otheruser' } } });
+      if (url === '/api/v1/messages/contacts/requests') return respond({ incoming: [], outgoing: [], profiles: {} });
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [], profiles: {} });
+      if (url === '/api/v1/messages/courses') return respond({ courses: [] });
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+/**
+ * Lát MSG-T3 (chuỗi cấu trúc nhắn tin của issue #33, tiếp nối bề mặt
+ * #256): khung trái có ba tab Trò chuyện / Nhóm / Đã lưu trữ — Trò
+ * chuyện CHỈ chứa hội thoại 1–1, hội thoại nhóm sống ở cây của tab
+ * Nhóm, Danh bạ hạ thành sheet "Tin nhắn mới". Các ca dưới khoá đúng
+ * các quyết định đó: đổi cấu trúc tab là các ca này phải đỏ.
+ */
+describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mới', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -1595,15 +1739,15 @@ describe('Messages page — #256: tab, chip lọc, quay lại', () => {
     realtime.handlers = null;
   });
 
-  it('khung trái có đủ ba tab; tab Đã lưu trữ nạp danh sách riêng và hiện trạng thái rỗng', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
+  it('khung trái có ba tab Trò chuyện / Nhóm / Đã lưu trữ, không còn tab Danh bạ; tab Đã lưu trữ nạp danh sách riêng', async () => {
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
 
     expect(await screen.findByRole('tab', { name: 'Trò chuyện' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Danh bạ' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Nhóm' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Đã lưu trữ' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Danh bạ' })).not.toBeInTheDocument();
 
     // Mở tab Đã lưu trữ: trang xin đúng đường ?archived=true; stub
     // không có mục nào nên hiện trạng thái rỗng của mục đã lưu.
@@ -1612,39 +1756,116 @@ describe('Messages page — #256: tab, chip lọc, quay lại', () => {
       expect(calls.some((c) => c.method === 'GET' && c.url === '/api/v1/messages/conversations?archived=true')).toBe(true);
     });
     expect(await screen.findByText('Chưa có cuộc trò chuyện nào được lưu trữ.')).toBeInTheDocument();
-    // Danh sách trò chuyện không còn hiện khi đang ở tab Đã lưu trữ.
-    expect(screen.queryByRole('button', { name: /Nhóm một/ })).not.toBeInTheDocument();
   });
 
-  it('chip Chưa đọc chỉ giữ hội thoại còn chưa đọc; chip Nhóm giữ hội thoại nhóm; Tất cả trả lại đủ', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
+  it('tab Trò chuyện chỉ chứa hội thoại 1–1; chip Chưa đọc lọc trong các hội thoại 1–1', async () => {
     const calls: RecordedCall[] = [];
-    stubRealtimeFetch(calls);
+    stubMsgT3Fetch(calls);
     renderMessages();
 
-    expect(await screen.findByRole('button', { name: /Nhóm một/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Nhóm hai/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bạn Hai/ })).toBeInTheDocument();
+    // Hội thoại nhóm KHÔNG còn ở danh sách Trò chuyện.
+    expect(screen.queryByRole('button', { name: /Nhóm Riêng/ })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Chưa đọc' }));
-    expect(screen.getByRole('button', { name: /Nhóm một/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Nhóm hai/ })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Nhóm' }));
-    expect(screen.getByRole('button', { name: /Nhóm một/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Nhóm hai/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Bạn Hai/ })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Tất cả' }));
-    expect(screen.getByRole('button', { name: /Nhóm một/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Nhóm hai/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bạn Một/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Bạn Hai/ })).toBeInTheDocument();
+  });
+
+  it('tab Nhóm hiện cây Lớp → Khoá → Nhóm con theo vai; bấm dòng khoá và dòng lớp mở ngay chat qua ensure', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    // Huy hiệu của tab Nhóm là tổng chưa đọc của cây (lớp: 1).
+    expect(screen.getByRole('tab', { name: 'Nhóm' })).toHaveTextContent('1');
+    // Tên truy cập của dòng cây gồm chữ viết tắt avatar + tên nút +
+    // nhãn vai/số chưa đọc; nút chevron của chính dòng đó mang tên
+    // "Mở rộng: <tên>"/"Thu gọn: <tên>" nên các truy vấn ở ca này
+    // dùng mẫu loại trừ hai tiền tố chevron để không bắt nhầm nó.
+    const classRow = await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ });
+    expect(classRow).toHaveTextContent('Đang dạy');
+
+    // Mở nút lớp: khoá con hiện ra; mở tiếp nút khoá thì nhóm con
+    // của khoá hiện ra — cây đủ ba tầng Lớp → Khoá → Nhóm con.
+    await userEvent.click(within(classRow.parentElement as HTMLElement).getByRole('button', { name: /Mở rộng/ }));
+    const courseRow = await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ });
+    await userEvent.click(within(courseRow.parentElement as HTMLElement).getByRole('button', { name: /Mở rộng/ }));
+    expect(await screen.findByRole('button', { name: /Nhóm 1/ })).toBeInTheDocument();
+    // Nhóm tự do nằm ở mục riêng của cây.
+    expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
+
+    // Bấm dòng khoá: ensure conversation của khoá rồi mở khung phải.
+    await userEvent.click(screen.getByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/courses/${T3_COURSE_ID}/conversation`)).toBe(true),
+    );
+    expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
+
+    // Bấm dòng lớp: ensure conversation của lớp rồi mở khung phải.
+    await userEvent.click(screen.getByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)).toBe(true),
+    );
+  });
+
+  it('giáo viên tạo được nhóm tự do từ sheet Tạo nhóm; học sinh không thấy nút tạo nhóm', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Tạo nhóm/ }));
+    const sheet = await screen.findByRole('dialog');
+    await userEvent.type(within(sheet).getByLabelText('Tên nhóm'), 'Nhóm mới lập');
+    const contactRow = await within(sheet).findByTestId(`group-contact-${OTHER_ID}`);
+    await userEvent.click(within(contactRow).getByRole('button'));
+    await userEvent.click(within(sheet).getByRole('button', { name: /Tạo nhóm/ }));
+    await waitFor(() => {
+      const create = calls.find((c) => c.url === '/api/v1/messages/conversations' && c.method === 'POST');
+      expect(create?.body).toEqual({ type: 2, name: 'Nhóm mới lập', memberIds: [OTHER_ID] });
+    });
+
+    cleanup();
+    const studentCalls: RecordedCall[] = [];
+    stubMsgT3Fetch(studentCalls, { studentView: true });
+    renderMessages();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
+    expect(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tạo nhóm/ })).not.toBeInTheDocument();
+  });
+
+  it('nhớ tab và hội thoại gần nhất: nạp lại trang thì gặp lại đúng ngữ cảnh, không cần bấm lại', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT3Fetch(calls);
+    renderMessages();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Bạn Một/ }));
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin của bạn một')).toBeInTheDocument();
+
+    cleanup();
+    const calls2: RecordedCall[] = [];
+    stubMsgT3Fetch(calls2);
+    renderMessages();
+
+    // Không bấm gì: hội thoại gần nhất tự mở lại.
+    const thread2 = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread2).findByText('tin của bạn một')).toBeInTheDocument();
   });
 
   it('mở hội thoại rồi bấm quay lại thì khung phải về trạng thái chưa chọn', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubRealtimeFetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    await openGroupFromTree(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
     expect(screen.queryByText('Chọn một cuộc hội thoại ở cột trái để đọc và trả lời.')).not.toBeInTheDocument();
@@ -1690,6 +1911,15 @@ function stubDupSendFetch(calls: RecordedCall[]) {
           },
         ]);
       if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      // Cây nhóm MSG-T1: 'Nhóm một' là nhóm tự do — mở qua tab Nhóm.
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [],
+          freeGroups: [
+            { id: CONV_ID, name: 'Nhóm một', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
+          ],
+        });
       if (url === `/api/v1/messages/conversations/${CONV_ID}`)
         return respond({
           id: CONV_ID, type: 2, name: 'Nhóm một', members: [ME_ID, OTHER_ID],
@@ -1740,7 +1970,7 @@ describe('Messages page — fix nhân đôi tin: khoá idempotency theo bản nh
     const { releaseSend } = stubDupSendFetch(calls);
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    await openGroupFromTree(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 
@@ -1780,7 +2010,7 @@ describe('Messages page — fix nhân đôi tin: khoá idempotency theo bản nh
     releaseSend();
     renderMessages();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    await openGroupFromTree(/Nhóm một/);
     const thread = await screen.findByLabelText('Tin nhắn');
     expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
 

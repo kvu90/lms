@@ -196,3 +196,17 @@ export interface ConversationGroupTreeView {
   coursesOutsideClasses: ConversationTreeCourseView[];
   freeGroups: ConversationTreeFreeGroupView[];
 }
+
+/**
+ * Ngữ cảnh CHỌN NGƯỜI trong sheet "Tin nhắn mới" và sheet "Tạo nhóm"
+ * (lát MSG-T3, issue #33): người chỉ được khám phá từ đúng ba nguồn
+ * đã chốt — liên hệ đã kết bạn, roster của MỘT lớp của tôi, roster của
+ * MỘT khoá của tôi. Không tồn tại ngữ cảnh "tìm người toàn hệ" (quyết
+ * bỏ hẳn tìm người theo tên). Roster lớp và roster khoá dùng chung
+ * một hình dạng dòng ({@link RosterMember}) nên một ngữ cảnh chỉ cần
+ * mang loại + id + tên hiển thị của lớp/khoá.
+ */
+export type PeoplePickerContext =
+  | { kind: 'contacts' }
+  | { kind: 'class'; id: string; name: string }
+  | { kind: 'course'; id: string; name: string };
