@@ -1,6 +1,6 @@
 import type { Icon } from '@tabler/icons-react';
 import { ChevronRightIcon } from 'lucide-react';
-import { Link, useLocation } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 
 import { Badge } from '@lms/ui/components/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@lms/ui/components/collapsible';
@@ -55,6 +55,16 @@ export interface NavGroupItem {
   children: NavItem[];
 }
 
+/**
+ * className cho NavLink của các mục điều hướng chính (F-14, rà soát
+ * #133): trong lúc router đang tải trang đích của chính mục này
+ * (`isPending`), mục mờ nhẹ ngay từ cú bấm — phản hồi tức thì tại
+ * link, bổ sung cho chỉ báo toàn cục ở khung.
+ */
+function navPendingClassName({ isPending }: { isPending: boolean }): string | undefined {
+  return isPending ? 'opacity-50 transition-opacity' : undefined;
+}
+
 /** Một dòng trong cây điều hướng: hoặc mục lá (có `url`), hoặc mục cha (có `children`). */
 export type NavEntry = NavItem | NavGroupItem;
 
@@ -92,7 +102,7 @@ function NavLeafButton({ item, pathname, search }: { item: NavItem; pathname: st
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        render={<Link to={item.url} />}
+        render={<NavLink to={item.url} className={navPendingClassName} />}
         tooltip={item.title}
         isActive={isPathActive(item.url, pathname, search)}
       >
@@ -146,7 +156,7 @@ function NavGroupCollapsible({
     <SidebarMenuSub>
       {item.children.map((child) => (
         <SidebarMenuSubItem key={child.url}>
-          <SidebarMenuSubButton render={<Link to={child.url} />} isActive={isPathActive(child.url, pathname, search)}>
+          <SidebarMenuSubButton render={<NavLink to={child.url} className={navPendingClassName} />} isActive={isPathActive(child.url, pathname, search)}>
             {child.icon && <child.icon />}
             <span>{child.title}</span>
           </SidebarMenuSubButton>
@@ -161,7 +171,7 @@ function NavGroupCollapsible({
   if (item.url && item.children.length === 0) {
     return (
       <SidebarMenuItem>
-        <SidebarMenuButton render={<Link to={item.url} />} tooltip={item.title} isActive={isPathActive(item.url, pathname, search)}>
+        <SidebarMenuButton render={<NavLink to={item.url} className={navPendingClassName} />} tooltip={item.title} isActive={isPathActive(item.url, pathname, search)}>
           {item.icon && <item.icon />}
           <span>{item.title}</span>
         </SidebarMenuButton>
@@ -176,7 +186,7 @@ function NavGroupCollapsible({
       <Collapsible open={open} onOpenChange={handleOpenChange} className="group/collapsible" render={<SidebarMenuItem />}>
         <div className="flex w-full items-center gap-1">
           <SidebarMenuButton
-            render={<Link to={item.url} />}
+            render={<NavLink to={item.url} className={navPendingClassName} />}
             tooltip={item.title}
             isActive={isPathActive(item.url, pathname, search)}
             className="min-w-0 flex-1"

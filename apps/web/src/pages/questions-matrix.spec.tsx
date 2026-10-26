@@ -5,14 +5,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { QuestionsPage } from './questions';
-import { MatrixNewPage } from './question-matrix';
+import { MatrixEditPage, MatrixNewPage } from './question-matrix';
 
 /**
  * Ngân hàng ma trận (MB-1, issue #111) ở tầng UI:
  *  - collapse riêng "Ma trận của tôi" liệt kê ma trận cá nhân + Thêm mới;
  *  - section "Ngân hàng ma trận chung" trong Ngân hàng hệ thống: chọn
  *    bank → thấy mẫu → Copy về ngân hàng của tôi gọi đúng endpoint;
- *  - màn tạo ma trận riêng (§9) gửi bankId = bank ma trận cá nhân.
+ *  - màn tạo ma trận riêng (§9) gửi bankId = bank ma trận cá nhân;
+ *  - màn sửa ma trận: thêm ô neo ĐƠN VỊ KIẾN THỨC — body POST mang
+ *    curriculumNodeId của node đã chọn, không còn learningOutcomeId
+ *    (ma trận neo ĐVK theo #249/#259).
  */
 
 const PROFILE = {
@@ -36,6 +39,8 @@ const MY_MATRIX = '01900000-0000-7000-8000-000000000111';
 const TEMPLATE_MATRIX = '01900000-0000-7000-8000-000000000112';
 const SUBJECT_ID = '01900000-0000-7000-8000-000000000121';
 const CURRICULUM_ID = '01900000-0000-7000-8000-000000000122';
+const TOPIC_NODE_ID = '01900000-0000-7000-8000-000000000131';
+const LEAF_NODE_ID = '01900000-0000-7000-8000-000000000132';
 
 interface RecordedCall {
   url: string;
@@ -120,6 +125,44 @@ function stubFetch(calls: RecordedCall[]) {
         return respond([{ id: CURRICULUM_ID, subjectId: SUBJECT_ID, grade: 9 }]);
       }
       if (url === '/api/v1/exam-matrices' && method === 'POST') return respond(matrixView(MY_MATRIX, 'Mới'));
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+/** Stub cho màn SỬA ma trận: chi tiết ma trận + cây chương trình (chủ đề → ĐVK) + khả dụng. */
+function stubFetchEdit(calls: RecordedCall[]) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities')
+        return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+      if (url === '/api/v1/courses') return respond([]);
+      if (url === `/api/v1/exam-matrices/${MY_MATRIX}`) {
+        return respond({
+          id: MY_MATRIX, name: 'Ma trận ôn tập của tôi', subjectId: SUBJECT_ID, curriculumId: CURRICULUM_ID,
+          bankId: PERSONAL_MATRIX_BANK, status: 'draft', isTemplate: false, version: 1,
+          presetKind: 'cv7991_periodic', levelSet: 'three', totalScore: 10, cells: [],
+        });
+      }
+      if (url === `/api/v1/curriculum/curricula/${CURRICULUM_ID}/tree`) {
+        return respond([
+          {
+            id: TOPIC_NODE_ID, title: 'Chủ đề 1: Số tự nhiên', outcomes: [],
+            children: [{ id: LEAF_NODE_ID, title: 'Đơn vị kiến thức: Phép cộng', outcomes: [], children: [] }],
+          },
+        ]);
+      }
+      if (url === `/api/v1/exam-matrices/${MY_MATRIX}/availability`) return respond({ sufficient: true, cells: [] });
+      if (url === `/api/v1/exam-matrices/${MY_MATRIX}/cells` && method === 'POST') {
+        return respond({ id: `${MY_MATRIX}-cell-new` });
+      }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -210,5 +253,42 @@ describe('Matrix bank UI (MB-1)', () => {
       bankId: PERSONAL_MATRIX_BANK,
     });
     expect(await screen.findByText('Danh sách ngân hàng')).toBeInTheDocument();
+  });
+
+  it('màn sửa ma trận: thêm ô gửi curriculumNodeId của ĐVK đã chọn, không còn learningOutcomeId', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchEdit(calls);
+    const router = createMemoryRouter(
+      [{ path: '/matrices/:matrixId/edit', element: <MatrixEditPage /> }],
+      { initialEntries: [`/matrices/${MY_MATRIX}/edit`] },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    // Bộ chọn ô là bộ chọn ĐƠN VỊ KIẾN THỨC (node của cây chương trình),
+    // chọn node lá rồi thêm ô với mức/dạng mặc định. Cây chương trình là
+    // query riêng sau chi tiết — chờ option của node lá xuất hiện đã.
+    const nodeSelect = await screen.findByLabelText('Đơn vị kiến thức');
+    await waitFor(() =>
+      expect(nodeSelect.querySelector(`option[value="${LEAF_NODE_ID}"]`)).not.toBeNull(),
+    );
+    await userEvent.selectOptions(nodeSelect, LEAF_NODE_ID);
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm ô' }));
+
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/exam-matrices/${MY_MATRIX}/cells` && c.method === 'POST')).toBe(true),
+    );
+    const addCall = calls.find((c) => c.url === `/api/v1/exam-matrices/${MY_MATRIX}/cells` && c.method === 'POST');
+    expect(addCall?.body).toMatchObject({
+      curriculumNodeId: LEAF_NODE_ID,
+      cognitiveLevel: 'biet',
+      qtype: 'multichoice',
+      questionCount: 1,
+      cellScore: 1,
+    });
+    expect(addCall?.body).not.toHaveProperty('learningOutcomeId');
   });
 });

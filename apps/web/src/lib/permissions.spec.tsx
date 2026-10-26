@@ -1,9 +1,11 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { TestProviders } from '#test/providers';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { usePermissions } from './permissions';
+import { useCourseGradeData, useCoursesGradeData } from './course-grade-data';
 
 /**
  * Bảo chứng phân loại khoá dạy/học theo định nghĩa “thuộc khoá” đã chốt
@@ -232,9 +234,10 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
     vi.unstubAllGlobals();
   });
 
-  it('phân loại chỉ tốn 2 request; dữ liệu điểm chỉ tải cho khoá thuộc về, không còn enrolments/me', async () => {
-    const OTHER_1 = { ...COURSE, id: '01900000-0000-7000-8000-000000000011', shortName: 'OTHER1' };
-    const OTHER_2 = { ...COURSE, id: '01900000-0000-7000-8000-000000000012', shortName: 'OTHER2' };
+  const OTHER_1 = { ...COURSE, id: '01900000-0000-7000-8000-000000000011', shortName: 'OTHER1' };
+  const OTHER_2 = { ...COURSE, id: '01900000-0000-7000-8000-000000000012', shortName: 'OTHER2' };
+
+  function stubTeacherApp(courseList: unknown[]) {
     fetchCalls.length = 0;
     vi.stubGlobal(
       'fetch',
@@ -245,33 +248,127 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
         if (isGetSessionUrl(url)) return respond(200, baSessionBody({ id: TEACHER_ID, username: 'teacher1' }));
         if (url === '/api/v1/users/me') return respond(200, profile(TEACHER_ID, 'teacher1'));
         if (url === '/api/v1/users/me/capabilities') return respond(200, accessView('teacher-assigned'));
-        if (url === '/api/v1/courses') return respond(200, [COURSE, OTHER_1, OTHER_2]);
-        if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(200, {});
-        if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return respond(200, {});
+        if (url === '/api/v1/courses') return respond(200, courseList);
+        if (url.endsWith('/grades/report')) return respond(200, { rows: [], items: [] });
+        if (url.endsWith('/gradebook')) return respond(200, { activities: [] });
         return respond(404, {});
       }),
     );
-    const router = createMemoryRouter([{ path: '/', element: <ClassificationProbe /> }]);
+  }
+
+  function renderApp(element: ReactNode) {
+    const router = createMemoryRouter([{ path: '/', element }]);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+  }
+
+  it('nạp app chỉ tốn đúng 2 request của provider (capabilities + courses), 0 request theo khoá', async () => {
+    stubTeacherApp([COURSE, OTHER_1, OTHER_2]);
+    renderApp(<ClassificationProbe />);
+    await waitFor(() => {
+      expect(screen.getByTestId('course-count')).toHaveTextContent('3');
+      expect(screen.getByTestId('teaching')).toHaveTextContent('DEMO101');
+    });
+    // Cho mọi query đang bay cơ hội lộ diện trước khi kết luận số request.
+    await waitFor(() => {
+      expect(screen.getByTestId('ready')).toHaveTextContent('true');
+    });
+    // Trước thay đổi này: provider tự dò thêm report + gradebook cho
+    // từng khoá thuộc về (tổng 2 + 2N request; N=1 ở fixture này → 4).
+    // Nay dữ liệu điểm KHÔNG còn qua provider: 0 request theo khoá.
+    const perCourseCalls = fetchCalls.filter((u) => /\/courses\/[0-9a-f-]{36}\//.test(u));
+    expect(perCourseCalls).toEqual([]);
+    expect(fetchCalls).not.toEqual(expect.arrayContaining([expect.stringContaining('enrolments/me')]));
+    // Request phiên get-session là của AuthProvider (sau cutover cookie
+    // #257 nó luôn đi kèm khi nạp app), không phải của provider quyền —
+    // loại khỏi số đếm; khẳng định về provider quyền giữ nguyên.
+    const providerCalls = fetchCalls.filter((u) => u !== '/api/v1/users/me' && !isGetSessionUrl(u));
+    expect(providerCalls.sort()).toEqual(['/api/v1/courses', '/api/v1/users/me/capabilities']);
+  });
+
+  function GradeProbe() {
+    const many = useCoursesGradeData([COURSE_ID, OTHER_1.id]);
+    const single = useCourseGradeData(COURSE_ID);
+    return (
+      <div>
+        <div data-testid="many-report">{many.get(COURSE_ID)?.report ? 'yes' : 'no'}</div>
+        <div data-testid="single-report">{single.data?.report ? 'yes' : 'no'}</div>
+      </div>
+    );
+  }
+
+  it('dữ liệu điểm tải lười tại bề mặt tiêu thụ: đúng khoá được yêu cầu, hai hook cùng khoá dedupe còn 1 lượt', async () => {
+    stubTeacherApp([COURSE, OTHER_1, OTHER_2]);
+    renderApp(<GradeProbe />);
+    await waitFor(() => {
+      expect(screen.getByTestId('many-report')).toHaveTextContent('yes');
+      expect(screen.getByTestId('single-report')).toHaveTextContent('yes');
+    });
+    const callsFor = (id: string, suffix: string) =>
+      fetchCalls.filter((u) => u === `/api/v1/courses/${id}${suffix}`).length;
+    // Khoá được yêu cầu: mỗi endpoint đúng 1 lượt dù hai hook cùng đọc.
+    expect(callsFor(COURSE_ID, '/grades/report')).toBe(1);
+    expect(callsFor(COURSE_ID, '/gradebook')).toBe(1);
+    expect(callsFor(OTHER_1.id, '/grades/report')).toBe(1);
+    expect(callsFor(OTHER_1.id, '/gradebook')).toBe(1);
+    // Khoá không bề mặt nào yêu cầu: không tốn request nào.
+    expect(callsFor(OTHER_2.id, '/grades/report')).toBe(0);
+    expect(callsFor(OTHER_2.id, '/gradebook')).toBe(0);
+  });
+});
+
+describe('F-15: provider phơi trạng thái lỗi của query capabilities', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  function ErrorProbe() {
+    const p = usePermissions();
+    return (
+      <div>
+        <div data-testid="ready">{String(p.ready)}</div>
+        <div data-testid="capabilities-error">{p.capabilitiesError ? p.capabilitiesError.message : 'none'}</div>
+        <div data-testid="teaching-count">{p.teaching.length}</div>
+        <div data-testid="can-view-users">{String(p.canViewUsers)}</div>
+      </div>
+    );
+  }
+
+  it('capabilities trả 500: capabilitiesError khác null, phân loại vẫn suy biến mềm về rỗng', async () => {
+    fetchCalls.length = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        fetchCalls.push(url);
+        const respond = (status: number, body: unknown) =>
+          new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(200, baSessionBody({ id: TEACHER_ID, username: 'teacher1' }));
+        if (url === '/api/v1/users/me') return respond(200, profile(TEACHER_ID, 'teacher1'));
+        if (url === '/api/v1/users/me/capabilities')
+          return respond(500, { type: 'about:blank', title: 'Lỗi máy chủ', status: 500, detail: 'boom', code: 'test.boom' });
+        if (url === '/api/v1/courses') return respond(200, [COURSE]);
+        return respond(404, {});
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/', element: <ErrorProbe /> }]);
     render(
       <TestProviders>
         <RouterProvider router={router} />
       </TestProviders>,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('course-count')).toHaveTextContent('3');
-      expect(screen.getByTestId('teaching')).toHaveTextContent('DEMO101');
+      expect(screen.getByTestId('ready')).toHaveTextContent('true');
+      expect(screen.getByTestId('capabilities-error')).toHaveTextContent('boom');
     });
-    // Chờ query dữ liệu điểm của khoá thành viên chạy xong mới đếm.
-    await waitFor(() => {
-      expect(fetchCalls).toContain(`/api/v1/courses/${COURSE_ID}/gradebook`);
-    });
-    // Trước F-02: 2 + 3×3 = 11 request (mỗi khoá đủ enrolments/me +
-    // report + gradebook). Nay: phân loại = capabilities + courses;
-    // dữ liệu điểm chỉ 2 request cho đúng khoá thuộc về.
-    expect(fetchCalls).not.toEqual(expect.arrayContaining([expect.stringContaining('enrolments/me')]));
-    const perCourseCalls = fetchCalls.filter((u) => /\/courses\/[0-9a-f-]{36}\//.test(u));
-    expect(perCourseCalls.sort()).toEqual(
-      [`/api/v1/courses/${COURSE_ID}/gradebook`, `/api/v1/courses/${COURSE_ID}/grades/report`].sort(),
-    );
+    // Suy biến mềm giữ nguyên: không cờ nào bật, không khoá nào được xếp loại.
+    expect(screen.getByTestId('teaching-count')).toHaveTextContent('0');
+    expect(screen.getByTestId('can-view-users')).toHaveTextContent('false');
   });
 });

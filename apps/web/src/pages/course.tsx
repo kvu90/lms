@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import type { Course, CourseContent, EnrolInstance } from '@lms/contracts';
+import type { CourseContent } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -10,76 +10,19 @@ import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
-
-/** Ghi danh của chính người dùng trong khoá (GET /courses/:id/enrolments/me). */
-interface MyEnrolmentView {
-  courseId: string;
-  userId: string;
-  enrolled: boolean;
-  active: boolean;
-}
-
-/**
- * Thanh toán của chính người dùng (GET /payments/me — PaymentRow ở tầng
- * API). Trang chỉ cần các trường để lọc theo `itemId` (chính là enrol
- * instance id của payment phí ghi danh) và hiển thị trạng thái thật.
- */
-interface MyPaymentView {
-  id: string;
-  userId: string;
-  amount: number;
-  currency: string;
-  status: string;
-  component: string;
-  itemId: string | null;
-}
-
-/** Một dòng tiến độ hoạt động trong GET /courses/:id/completion/me. */
-interface CompletionActivityView {
-  cmId: string;
-  state: number;
-  viewed: boolean;
-}
-
-/**
- * Shape thật của GET /courses/:id/completion/me (completion.controller):
- * `{ activities, course }` — activities là trạng thái từng cm của chính
- * người xem, course là bản ghi hoàn thành khoá (mang userId của người xem,
- * dùng làm userId khi đánh dấu thủ công lúc chưa có enrolments/me).
- */
-interface MyCompletionView {
-  activities: CompletionActivityView[];
-  course: { id: string; userId: string; course: string; status: string; timeCompleted: string | null };
-}
+import {
+  coursePageQueryOptions,
+  myPaymentsQueryOptions,
+  useCoursePage,
+  useMyPayments,
+  usePayFee,
+  useSelfEnrol,
+  useToggleManualCompletion,
+} from '#lib/course-data';
+import { queryClient } from '#lib/query-client';
 
 /** Một course module trong nội dung khoá học (kiểu `CourseModule` của contracts, đã gồm `completionManual`). */
 type CourseModuleView = CourseContent['sections'][number]['modules'][number];
-
-/** Tiến độ học của tôi trong khoá (GET /courses/:id/progress/me — K2). */
-interface MyProgressView {
-  percent: number | null;
-  completed: number;
-  total: number;
-  sections: {
-    sectionId: string; percent: number | null; completed: number; total: number;
-    items: { cmId: string; completion: number; done: boolean }[];
-  }[];
-  resume: { cmId: string; reason: string } | null;
-}
-
-/** Mốc "lớp đã học tới đây" theo từng lớp (GET /courses/:id/progress/class-markers — K2). */
-interface ClassMarkersView {
-  markers: { groupId: string | null; groupName: string; markerCmId: string | null }[];
-}
-
-/** Tải một endpoint phụ một cách độc lập: lỗi thì trả null thay vì sập cả trang. */
-async function probe<T>(path: string): Promise<T | null> {
-  try {
-    return await apiJson<T>(path);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Module có cho phép đánh dấu thủ công hay không — khớp đúng điều kiện
@@ -107,63 +50,36 @@ export function CoursePage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
   const navigate = useNavigate();
-  const [course, setCourse] = useState<Course | null>(null);
-  const [content, setContent] = useState<CourseContent | null>(null);
-  const [enrolment, setEnrolment] = useState<MyEnrolmentView | null>(null);
-  const [instances, setInstances] = useState<EnrolInstance[]>([]);
-  const [payments, setPayments] = useState<MyPaymentView[]>([]);
-  const [completion, setCompletion] = useState<MyCompletionView | null>(null);
-  const [progress, setProgress] = useState<MyProgressView | null>(null);
-  const [classMarkers, setClassMarkers] = useState<ClassMarkersView | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const [busyInstanceId, setBusyInstanceId] = useState<string | null>(null);
-  const [busyCmId, setBusyCmId] = useState<string | null>(null);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): clientLoader đã prefetch
+  // gói trang + thanh toán của tôi vào cùng khoá factory trước khi
+  // mount; các hành động ghi danh/thanh toán/đánh dấu hoàn thành đi qua
+  // mutation — thành công tự invalidate đúng query thay cho nạp lại
+  // thủ công. Gói trang vẫn tải từng endpoint độc lập (lỗi một đầu
+  // không sập cả trang) đúng nhịp thủ công trước đây.
+  const pageQuery = useCoursePage(id);
+  const page = pageQuery.data;
+  const course = page?.course ?? null;
+  const content = page?.content ?? null;
+  const enrolment = page?.enrolment ?? null;
+  const instances = page?.instances ?? [];
+  const completion = page?.completion ?? null;
+  const progress = page?.progress ?? null;
+  const classMarkers = page?.classMarkers ?? null;
+  const { payments } = useMyPayments();
+  const selfEnrolMutation = useSelfEnrol(id);
+  const payFeeMutation = usePayFee();
+  const toggleMutation = useToggleManualCompletion(id);
+  const busyInstanceId = selfEnrolMutation.isPending
+    ? (selfEnrolMutation.variables ?? null)
+    : payFeeMutation.isPending
+      ? (payFeeMutation.variables ?? null)
+      : null;
+  const busyCmId = toggleMutation.isPending ? (toggleMutation.variables?.cmId ?? null) : null;
   const [chatBusy, setChatBusy] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [completionError, setCompletionError] = useState<string | null>(null);
-
-  /**
-   * Nạp lại toàn bộ trạng thái trang từ API: thông tin khoá, instance,
-   * ghi danh của tôi và thanh toán của tôi tải độc lập (endpoint nào lỗi
-   * cũng không chặn các endpoint còn lại); nội dung chỉ có khi người xem
-   * thật sự truy cập được khoá, tiến độ hoàn thành chỉ tải khi đã có nội
-   * dung (endpoint completion/me cũng qua cổng truy cập khoá phía server).
-   */
-  const reload = useCallback(async () => {
-    const [courseRes, instancesRes, enrolmentRes, paymentsRes, contentRes] = await Promise.all([
-      probe<Course>(`/api/v1/courses/${id}`),
-      probe<EnrolInstance[]>(`/api/v1/courses/${id}/enrol/instances`),
-      probe<MyEnrolmentView>(`/api/v1/courses/${id}/enrolments/me`),
-      probe<MyPaymentView[]>('/api/v1/payments/me'),
-      probe<CourseContent>(`/api/v1/courses/${id}/content`),
-    ]);
-    setCourse(courseRes);
-    setInstances(instancesRes ?? []);
-    setEnrolment(enrolmentRes);
-    setPayments(paymentsRes ?? []);
-    setContent(contentRes);
-    if (contentRes) {
-      const [completionRes, progressRes, markersRes] = await Promise.all([
-        probe<MyCompletionView>(`/api/v1/courses/${id}/completion/me`),
-        probe<MyProgressView>(`/api/v1/courses/${id}/progress/me`),
-        probe<ClassMarkersView>(`/api/v1/courses/${id}/progress/class-markers`),
-      ]);
-      setCompletion(completionRes);
-      setProgress(progressRes);
-      setClassMarkers(markersRes);
-    } else {
-      setCompletion(null);
-      setProgress(null);
-      setClassMarkers(null);
-    }
-    setLoaded(true);
-  }, [id]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
 
   /**
    * Mở chat toàn lớp của khoá: GET ensure conversation cấp khoá phía
@@ -183,19 +99,15 @@ export function CoursePage() {
     }
   }
 
-  /** Tự ghi danh qua instance self: POST không body, xong nạp lại trạng thái/nội dung. */
+  /** Tự ghi danh qua instance self: POST không body, mutation invalidate gói trang để nạp lại trạng thái/nội dung. */
   async function selfEnrol(instanceId: string) {
-    setBusyInstanceId(instanceId);
     setActionError(null);
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${id}/enrol/instances/${instanceId}/self-enrol`, { method: 'POST' });
+      await selfEnrolMutation.mutateAsync(instanceId);
       setMessage(t('enrolSuccess'));
-      await reload();
     } catch {
       setActionError(t('enrolFailed'));
-    } finally {
-      setBusyInstanceId(null);
     }
   }
 
@@ -203,21 +115,16 @@ export function CoursePage() {
    * Tạo payment cho instance fee. Tuyệt đối không gọi self-enrol ở đây:
    * server trả enrol.payment_required cho fee — ghi danh chỉ kích hoạt
    * sau khi webhook của cổng thanh toán xác nhận payment thành công.
-   * Sau khi tạo, hiển thị trạng thái thật từ GET /payments/me.
+   * Mutation invalidate query thanh toán của tôi để hiển thị trạng thái thật.
    */
   async function payFee(instanceId: string) {
-    setBusyInstanceId(instanceId);
     setActionError(null);
     setMessage(null);
     try {
-      await apiJson(`/api/v1/payments/fee/${instanceId}`, { method: 'POST' });
-      const mine = await probe<MyPaymentView[]>('/api/v1/payments/me');
-      if (mine) setPayments(mine);
+      await payFeeMutation.mutateAsync(instanceId);
       setMessage(t('enrolPaymentCreated'));
     } catch {
       setActionError(t('enrolPaymentFailed'));
-    } finally {
-      setBusyInstanceId(null);
     }
   }
 
@@ -233,22 +140,17 @@ export function CoursePage() {
       setCompletionError(t('completionMarkFailed'));
       return;
     }
-    setBusyCmId(cmId);
     setCompletionError(null);
     try {
-      await apiJson(`/api/v1/courses/${id}/modules/${cmId}/completion/manual`, {
-        method: 'POST',
-        body: JSON.stringify({ userId, complete }),
-      });
-      setCompletion(await probe<MyCompletionView>(`/api/v1/courses/${id}/completion/me`));
+      await toggleMutation.mutateAsync({ cmId, userId, complete });
     } catch {
       setCompletionError(t('completionMarkFailed'));
-    } finally {
-      setBusyCmId(null);
     }
   }
 
-  if (!loaded)
+  // Chờ lần tải đầu chuẩn hoá trên isPending của query với skeleton sẵn
+  // có (F-14): gói trang chưa về thì hiện khung chờ, không trang trắng.
+  if (pageQuery.isPending)
     return (
       <PageShell width="wide">
         <div className="space-y-3" aria-label={t('courseLoading')}>
@@ -548,6 +450,21 @@ export function CoursePage() {
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default CoursePage;
+
+/**
+ * clientLoader (F-01 đợt 1 + bổ sung clientLoader, rà soát #133):
+ * prefetch gói trang khoá học + thanh toán của tôi vào QueryClient
+ * singleton dùng chung, đúng khoá factory, trước khi component mount.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.id) {
+    await Promise.all([
+      queryClient.prefetchQuery(coursePageQueryOptions(params.id)),
+      queryClient.prefetchQuery(myPaymentsQueryOptions()),
+    ]);
+  }
+  return null;
+}
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';

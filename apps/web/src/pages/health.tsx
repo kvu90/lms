@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLoaderData } from 'react-router';
 import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
 import { healthStatusSchema } from '@lms/contracts';
 import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
+import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -30,38 +31,57 @@ export function HealthPage({ initialHealth }: { initialHealth?: HealthStatus | n
   const [state, setState] = useState<State>(() =>
     initialHealth ? { kind: 'ready', health: initialHealth } : { kind: 'loading' },
   );
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** Một lượt fetch phía client: dùng cho luồng dự phòng khi loader
+   * không có dữ liệu và cho nút kiểm tra lại thủ công (F-09). */
+  const loadHealth = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch('/api/v1/health');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const health = (await res.json()) as HealthStatus;
+      setState({ kind: 'ready', health });
+    } catch (error: unknown) {
+      setState({
+        kind: 'error',
+        message: error instanceof Error ? error.message : t('unknownError'),
+      });
+    }
+  }, [t]);
 
   useEffect(() => {
     // Loader đã cấp dữ liệu (SSR) thì KHÔNG fetch lại khi mount — request
     // trùng làm mất giá trị của loader (F-09 trong rà soát #133). Chỉ khi
     // loader không với tới được API (initialHealth null) mới rơi về luồng
-    // fetch phía client như trước.
+    // fetch phía client như trước; sau đó trang chỉ fetch lại khi người
+    // dùng bấm nút kiểm tra lại.
     if (initialHealth) return;
-    let cancelled = false;
-    fetch('/api/v1/health')
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return (await res.json()) as HealthStatus;
-      })
-      .then((health) => {
-        if (!cancelled) setState({ kind: 'ready', health });
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setState({
-            kind: 'error',
-            message: error instanceof Error ? error.message : t('unknownError'),
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [initialHealth]);
+    void loadHealth();
+  }, [initialHealth, loadHealth]);
+
+  const reload = async () => {
+    setRefreshing(true);
+    try {
+      await loadHealth();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <PageShell width="narrow">
       <PageHeader title={t('healthTitle')} description={t('healthDescription')} />
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={refreshing || state.kind === 'loading'}
+          onClick={() => void reload()}
+        >
+          {t('checkApiHealth')}
+        </Button>
+      </div>
       <Card>
         <CardContent>
           {state.kind === 'loading' && (

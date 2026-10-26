@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth';
 import { useSidebarDefaultOpen } from '../lib/sidebar-default-open';
 import { AppSidebar } from '../components/app-sidebar';
 import { AppShellSkeleton } from '../components/app-shell-skeleton';
+import { NavigationProgressBar, useNavigationPending } from '../components/navigation-progress';
 import { SiteHeader } from '../components/site-header';
 import { SidebarInset, SidebarProvider } from '@lms/ui/components/sidebar';
 
@@ -27,6 +28,11 @@ function AuthenticatedShell() {
   // Chỉ là giá trị khởi tạo (defaultOpen); các lần bật/tắt sau do
   // ui/sidebar tự ghi lại cookie.
   const sidebarDefaultOpen = useSidebarDefaultOpen();
+  // Chỉ báo chờ điều hướng toàn cục (F-14): router đang tải trang đích
+  // (clientLoader của trang đích đang nạp dữ liệu) thì thanh tiến
+  // trình mảnh hiện ở đỉnh và vùng nội dung mờ nhẹ — người dùng thấy
+  // ngay hệ đang chuyển trang thay vì tưởng bấm mà không ăn.
+  const navigationPending = useNavigationPending();
   return (
     <SidebarProvider
       defaultOpen={sidebarDefaultOpen}
@@ -37,8 +43,12 @@ function AuthenticatedShell() {
         } as CSSProperties
       }
     >
+      <NavigationProgressBar active={navigationPending} />
       <AppSidebar variant="inset" />
-      <SidebarInset>
+      <SidebarInset
+        aria-busy={navigationPending || undefined}
+        className={`transition-opacity duration-200 ${navigationPending ? 'opacity-60' : ''}`}
+      >
         <SiteHeader />
         <Outlet />
       </SidebarInset>

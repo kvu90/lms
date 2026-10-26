@@ -29,6 +29,8 @@ import {
 } from '../lib/question-files';
 import '../i18n';
 import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { clearQuestionBankListCache } from '#lib/questions-data';
 import {
   COGNITIVE_LEVELS,
   LEVEL_LABEL_KEYS,
@@ -599,6 +601,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<'draft' | 'ready' | null>(null);
+  const queryClient = useQueryClient();
   const editOptionsRequestRef = useRef(0);
   // Gắn kết chương trình (issue #20 Chặng 2) của câu hỏi đang sửa.
   const [links, setLinks] = useState<CurriculumLinksView | null>(null);
@@ -752,6 +755,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           }),
         });
         await applyStatus(editing.question.id, entryStatus(updated) ?? entryStatus(editing), target);
+        clearQuestionBankListCache(queryClient);
         navigate('/questions', {
           state: {
             notice:
@@ -784,6 +788,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           createdCount += 1;
           await applyStatus(created.question.id, entryStatus(created), target);
         }
+        clearQuestionBankListCache(queryClient);
         navigate('/questions', { state: { notice: t('questionClusterCreated', { count: createdCount }) } });
         return;
       }

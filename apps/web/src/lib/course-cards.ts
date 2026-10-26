@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   COURSE_CARD_COLORS,
   type CourseCardColor,
@@ -51,6 +51,24 @@ export async function saveCourseCardPref(
   return apiJson<CourseCardPrefView>(`/api/v1/dashboard/course-cards/${courseId}`, {
     method: 'PUT',
     body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Mutation lưu pref thẻ khoá (F-04, rà soát #133): lưu qua
+ * `useMutation` thay vì async thủ công ở component; thành công thì
+ * invalidate khoá `courseCards` để mọi bề mặt đọc pref (dashboard,
+ * danh sách khoá) tự tươi lại. Component vẫn nhận pref vừa lưu qua
+ * callback `onSuccess` của lần mutate để cập nhật tại chỗ.
+ */
+export function useSaveCourseCardPref() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: {
+      courseId: string;
+      body: { color: CourseCardColor | null; nickname: string | null };
+    }) => saveCourseCardPref(vars.courseId, vars.body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.courseCards }),
   });
 }
 

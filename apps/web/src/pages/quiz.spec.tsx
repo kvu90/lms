@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { QuizPage } from './quiz';
 import { QuizAttemptPage } from './quiz-attempt';
 import { QuizResultsPage } from './quiz-results';
@@ -117,7 +118,13 @@ describe('Pin page — pinned exam surface (#226)', () => {
     const router = createMemoryRouter([{ path: '/courses/:id/exams/:pinId', element: <QuizPage /> }], {
       initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    // Trang lần ghim đã chuyển sang TanStack Query (F-01 đợt 1, #133):
+    // render qua TestProviders để có QueryClient như cây provider thật.
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     // Slot đã ghim hiện tên câu + điểm, CHỈ ĐỌC (không còn ô sửa điểm/soạn slot trong khoá).
     const slotEl = await screen.findByTestId(`slot-${SLOT_ID}`);
@@ -211,7 +218,13 @@ describe('Quiz attempt page — real endpoints', () => {
     const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
       initialEntries: [`/quiz-attempts/${ATTEMPT_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    // Trang lần ghim đã chuyển sang TanStack Query (F-01 đợt 1, #133):
+    // render qua TestProviders để có QueryClient như cây provider thật.
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     await userEvent.click(await screen.findByRole('radio', { name: 'Paris' }));
     await userEvent.click(screen.getByRole('button', { name: 'Lưu câu trả lời' }));
@@ -285,7 +298,13 @@ describe('Quiz attempt page — real endpoints', () => {
     const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
       initialEntries: [`/quiz-attempts/${ATTEMPT_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    // Trang lần ghim đã chuyển sang TanStack Query (F-01 đợt 1, #133):
+    // render qua TestProviders để có QueryClient như cây provider thật.
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     expect(await screen.findByText(/Nhận xét cho đáp án của bạn: Nhận xét riêng cho đáp án Paris\./)).toBeInTheDocument();
     expect(screen.getByText(/Nhận xét của giáo viên: Cô đã đọc bài của em\./)).toBeInTheDocument();
@@ -351,7 +370,13 @@ describe('Quiz results page — manual grading', () => {
       [{ path: '/courses/:id/exams/:pinId/results', element: <QuizResultsPage /> }],
       { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/results`] },
     );
-    render(<RouterProvider router={router} />);
+    // Trang kết quả đã chuyển sang TanStack Query (F-01 đợt 1, #133):
+    // render qua TestProviders để có QueryClient như cây provider thật.
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     expect(await screen.findByText('My essay text')).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Điểm'), '2');
@@ -416,7 +441,11 @@ describe('Quiz results page — manual grading', () => {
       [{ path: '/courses/:id/exams/:pinId/results', element: <QuizResultsPage /> }],
       { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/results`] },
     );
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     // Câu sai nhiều nhất (API đã xếp slot 1 lên đầu) kèm tên học sinh sai.
     const first = await screen.findByTestId('question-stat-1');
@@ -503,7 +532,13 @@ describe('Quiz overrides — teacher surface (#182)', () => {
     const router = createMemoryRouter([{ path: '/courses/:id/exams/:pinId', element: <QuizPage /> }], {
       initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    // Trang lần ghim đã chuyển sang TanStack Query (F-01 đợt 1, #133):
+    // render qua TestProviders để có QueryClient như cây provider thật.
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     return { calls };
   }
 
@@ -605,7 +640,13 @@ describe('Quiz page — student sees their effective (overridden) settings (#182
     const router = createMemoryRouter([{ path: '/courses/:id/exams/:pinId', element: <QuizPage /> }], {
       initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}`],
     });
-    render(<RouterProvider router={router} />);
+    // Trang lần ghim đã chuyển sang TanStack Query (F-01 đợt 1, #133):
+    // render qua TestProviders để có QueryClient như cây provider thật.
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     expect(await screen.findByText('Đang áp dụng ghi đè riêng cho bạn — cửa sổ và giới hạn dưới đây là của riêng bạn.')).toBeInTheDocument();
     // Giới hạn hiệu lực 45 phút (ghi đè) chứ không phải 30 phút (cài đặt chung); số lần làm 2 chứ không phải 1.
@@ -643,7 +684,11 @@ describe('Quiz results page — makeup badge (#182)', () => {
       [{ path: '/courses/:id/exams/:pinId/results', element: <QuizResultsPage /> }],
       { initialEntries: [`/courses/${COURSE_ID}/exams/${QUIZ_ID}/results`] },
     );
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
 
     const makeupRow = await screen.findByTestId(`result-attempt-${ATTEMPT_ID}`);
     expect(makeupRow).toHaveTextContent('Kiểm tra bù');

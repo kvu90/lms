@@ -74,7 +74,7 @@ export function AdminUsersPage() {
 
   /** Sau mỗi thao tác ghi: nạp lại mọi trang danh sách người dùng đang cache. */
   async function invalidateUsers() {
-    await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsersRoot });
   }
 
   async function suspend(id: string, suspended: boolean) {
@@ -217,7 +217,7 @@ export function AdminUserNewPage() {
     setError(null);
     try {
       await apiJson('/api/v1/users', { method: 'POST', body: JSON.stringify(draft) });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsersRoot });
       navigate('/admin/users');
     } catch {
       setError(t('userCreateFailed'));
@@ -282,7 +282,7 @@ export function AdminUserEditPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const userQuery = useQuery({
-    queryKey: ['admin', 'users', 'detail', userId],
+    queryKey: queryKeys.adminUserDetail(userId ?? ''),
     queryFn: () => apiJson<UserProfile>(`/api/v1/users/${userId}`),
     enabled: Boolean(userId),
   });
@@ -311,7 +311,7 @@ export function AdminUserEditPage() {
           ...(form.password ? { password: form.password } : {}),
         }),
       });
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsersRoot });
       navigate('/admin/users');
     } catch {
       setError(t('userUpdateFailed'));

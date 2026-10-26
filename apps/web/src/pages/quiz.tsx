@@ -20,29 +20,19 @@ import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson, ApiError } from '#lib/api';
-
-/** Hình dạng trả về của GET /exam-pins/:id (trang thông tin theo người xem). */
-interface QuizForUser {
-  quiz: QuizView;
-  myAttempts: QuizAttemptSummary[];
-  myGrade: number | null;
-  canAttempt: boolean;
-  attemptBlockedReason: string | null;
-  inProgressAttemptId: string | null;
-  /** Cài đặt hiệu lực của chính người xem sau khi hợp nhất ghi đè (API trả sẵn). */
-  effective: {
-    timeOpen: string | null;
-    timeClose: string | null;
-    timeLimitSeconds: number | null;
-    attemptsAllowed: number;
-    passwordRequired: boolean;
-    nextAttemptAt: string | null;
-  };
-  permissions: { manage: boolean; manageOverrides: boolean; grade: boolean; viewReports: boolean; preview: boolean; attempt: boolean };
-}
+import {
+  examPinQueryOptions,
+  useCourseRoster,
+  useExamPin,
+  useExamPinOverrides,
+  useExamSource,
+} from '#lib/quiz-data';
+import { courseGroupsQueryOptions } from '#lib/progress-report-data';
+import { queryClient } from '#lib/query-client';
 
 function plainText(doc: RichTextDocument | null | undefined): string {
   return doc ? extractRichTextPlainText(doc) : '';
@@ -67,8 +57,18 @@ export function QuizPage() {
   const { t } = useTranslation('app');
   const { id: courseId, pinId: quizId } = useParams();
   const navigate = useNavigate();
-  const [data, setData] = useState<QuizForUser | null>(null);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): lần ghim là một query
+  // (clientLoader đã prefetch cùng khoá); lỗi tải đầu hiển thị qua
+  // trạng thái lỗi của query như reload() thủ công trước đây (F-14).
+  const pinQuery = useExamPin(quizId ?? '');
+  const data = pinQuery.data?.view ?? null;
+  const slotNames = pinQuery.data?.slotNames ?? {};
+  const { refetch } = pinQuery;
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pinQuery.isError) setError(t('quizLoadFailed'));
+  }, [pinQuery.isError, pinQuery.errorUpdatedAt, t]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -83,16 +83,25 @@ export function QuizPage() {
   const [grade, setGrade] = useState('10');
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
 
-  /** Tên câu của các slot đã ghim (tra từ ngân hàng để hiển thị). */
-  const [slotNames, setSlotNames] = useState<Record<string, string>>({});
-  /** Thông tin ĐỀ nguồn của lần ghim (tên + version hiện hành ở bank) — nạp khi có quyền manage. */
-  const [examInfo, setExamInfo] = useState<{ name: string; version: number; currentVersionId: string; status: string } | null>(null);
+  // Thông tin ĐỀ nguồn của lần ghim (tên + version hiện hành ở bank) — chỉ tải khi có quyền manage.
+  const examInfo = useExamSource(data?.quiz.examId, !!data?.permissions.manage).data ?? null;
 
   // Ghi đè (chỉ người có quiz:manageoverrides dùng): danh sách + dữ liệu chọn đích + form tạo/sửa dùng chung.
-  const [overrides, setOverrides] = useState<QuizOverrideView[]>([]);
-  const [overridesLoaded, setOverridesLoaded] = useState(false);
-  const [roster, setRoster] = useState<CourseRosterMember[]>([]);
-  const [groups, setGroups] = useState<CourseGroup[]>([]);
+  // Ghi đè + danh sách thành viên đích: chỉ tải khi có quyền quản ghi
+  // đè. Nhóm của khoá dùng chung khoá factory courseGroups (F-03).
+  const overridesQuery = useExamPinOverrides(quizId ?? '', !!data?.permissions.manageOverrides);
+  const overrides = overridesQuery.data ?? [];
+  const overridesLoaded = overridesQuery.isSuccess || overridesQuery.isError;
+  const { refetch: refetchOverrides } = overridesQuery;
+  const roster = useCourseRoster(courseId ?? '', !!data?.permissions.manageOverrides).data ?? [];
+  const groups = useQuery({
+    ...courseGroupsQueryOptions(courseId ?? ''),
+    enabled: !!courseId && !!(data?.permissions.manage || data?.permissions.manageOverrides),
+  }).data ?? [];
+
+  useEffect(() => {
+    if (overridesQuery.isError) setOvError(t('quizOverridesLoadFailed'));
+  }, [overridesQuery.isError, overridesQuery.errorUpdatedAt, t]);
   const [editingOverride, setEditingOverride] = useState<QuizOverrideView | null>(null);
   const [ovTargetKind, setOvTargetKind] = useState<'user' | 'group'>('user');
   const [ovUserId, setOvUserId] = useState('');
@@ -105,69 +114,33 @@ export function QuizPage() {
   const [ovReason, setOvReason] = useState('');
   const [ovError, setOvError] = useState<string | null>(null);
 
+  // Khởi tạo form cài đặt từ dữ liệu lần ghim mỗi khi dữ liệu (lại)
+  // tải về — đúng phần khởi tạo của reload() thủ công trước đây.
+  useEffect(() => {
+    if (!data) return;
+    setName(data.quiz.name);
+    setIntro(data.quiz.intro);
+    setTimeOpen(toLocalInput(data.quiz.timeOpen));
+    setTimeClose(toLocalInput(data.quiz.timeClose));
+    setTimeLimitMinutes(data.quiz.timeLimitSeconds ? String(Math.round(data.quiz.timeLimitSeconds / 60)) : '');
+    setAttemptsAllowed(String(data.quiz.attemptsAllowed));
+    setGradeMethod(data.quiz.gradeMethod);
+    setGrade(String(data.quiz.grade));
+    setShuffleAnswers(data.quiz.shuffleAnswers);
+  }, [data]);
+
+  // Các thao tác ghi gọi reload()/reloadOverrides() như cũ — nay là
+  // refetch của query tương ứng; lỗi refetch vẫn ném ra để các nhánh
+  // bắt lỗi cũ chạy nguyên trạng.
   const reload = useCallback(async () => {
-    const fresh = await apiJson<QuizForUser>(`/api/v1/exam-pins/${quizId}`);
-    setData(fresh);
-    setName(fresh.quiz.name);
-    setIntro(fresh.quiz.intro);
-    setTimeOpen(toLocalInput(fresh.quiz.timeOpen));
-    setTimeClose(toLocalInput(fresh.quiz.timeClose));
-    setTimeLimitMinutes(fresh.quiz.timeLimitSeconds ? String(Math.round(fresh.quiz.timeLimitSeconds / 60)) : '');
-    setAttemptsAllowed(String(fresh.quiz.attemptsAllowed));
-    setGradeMethod(fresh.quiz.gradeMethod);
-    setGrade(String(fresh.quiz.grade));
-    setShuffleAnswers(fresh.quiz.shuffleAnswers);
-    // Tra tên cho slot cố định/slot ngẫu nhiên để bảng dựng đề đọc được.
-    const names: Record<string, string> = {};
-    await Promise.all(
-      fresh.quiz.slots.map(async (s) => {
-        try {
-          if (s.questionId) {
-            const q = await apiJson<QuestionView>(`/api/v1/questions/${s.questionId}`);
-            names[s.id] = q.question.name;
-          }
-        } catch { /* tên chỉ để hiển thị */ }
-      }),
-    );
-    setSlotNames(names);
-  }, [quizId]);
-
-  useEffect(() => {
-    void reload().catch(() => setError(t('quizLoadFailed')));
-  }, [reload, t]);
-
-  // Nạp thông tin đề nguồn (để hiện version + nút nâng version) và
-  // danh sách nhóm của khoá (hiện tên nhóm đích của lần ghim).
-  useEffect(() => {
-    if (!data?.permissions.manage || !data.quiz.examId) return;
-    void apiJson<{ version: { id: string; version: number; name: string }; paper: { status: string } }>(`/api/v1/exams/${data.quiz.examId}`)
-      .then((view) => setExamInfo({
-        name: view.version.name, version: view.version.version,
-        currentVersionId: view.version.id, status: view.paper.status,
-      }))
-      .catch(() => setExamInfo(null));
-    void apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`)
-      .then(setGroups)
-      .catch(() => undefined);
-  }, [data?.permissions.manage, data?.quiz.examId, courseId]);
+    const result = await refetch();
+    if (result.error) throw result.error;
+  }, [refetch]);
 
   const reloadOverrides = useCallback(async () => {
-    const rows = await apiJson<QuizOverrideView[]>(`/api/v1/exam-pins/${quizId}/overrides`);
-    setOverrides(rows);
-  }, [quizId]);
-
-  useEffect(() => {
-    if (!data?.permissions.manageOverrides) return;
-    void reloadOverrides()
-      .catch(() => setOvError(t('quizOverridesLoadFailed')))
-      .finally(() => setOverridesLoaded(true));
-    void apiJson<{ members: CourseRosterMember[] }>(`/api/v1/messages/courses/${courseId}/members?limit=100`)
-      .then((res) => setRoster(res.members))
-      .catch(() => undefined);
-    void apiJson<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`)
-      .then(setGroups)
-      .catch(() => undefined);
-  }, [data?.permissions.manageOverrides, reloadOverrides, courseId, t]);
+    const result = await refetchOverrides();
+    if (result.error) throw result.error;
+  }, [refetchOverrides]);
 
   function resetOverrideForm() {
     setEditingOverride(null);
@@ -719,6 +692,19 @@ export function QuizPage() {
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default function QuizRoute() {
   return <QuizPage />;
+}
+
+/**
+ * clientLoader (F-01 đợt 1 + bổ sung clientLoader, rà soát #133):
+ * prefetch lần ghim (kèm tên slot) vào QueryClient singleton (đúng
+ * khoá factory) trước khi component mount. prefetchQuery không ném
+ * lỗi: tải hỏng thì component tự xử lý qua useQuery.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.pinId) {
+    await queryClient.prefetchQuery(examPinQueryOptions(params.pinId));
+  }
+  return null;
 }
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).

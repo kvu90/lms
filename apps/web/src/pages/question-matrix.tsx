@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -12,6 +12,17 @@ import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
+import {
+  useAddMatrixCell,
+  useCurriculaBySubject,
+  useCurriculumSubjects,
+  useCurriculumTree,
+  useDeleteMatrixCell,
+  useMatrixAvailability,
+  useMatrixBanks,
+  useMatrixDetail,
+  useUpdateMatrix,
+} from '#lib/matrix-data';
 import { usePermissions } from '#lib/permissions';
 import {
   COGNITIVE_LEVELS, LEVEL_LABEL_KEYS, QTYPES, QTYPE_LABEL_KEYS, withApiReason,
@@ -25,46 +36,6 @@ import {
  * Ma trận tạo từ đây luôn thuộc bank ma trận CÁ NHÂN của giáo viên
  * (bank_id gửi kèm; API gác quyền phụ trách tại chính bank đó).
  */
-
-interface SubjectLite {
-  id: string;
-  name: string;
-}
-interface CurriculumLite {
-  id: string;
-  subjectId: string;
-  grade: number;
-}
-interface BankLite {
-  id: string;
-  scope: string;
-}
-interface CellLite {
-  id: string;
-  curriculumNodeId: string;
-  cognitiveLevel: string;
-  qtype: string;
-  questionCount: number;
-  cellScore: number;
-}
-interface MatrixLite {
-  id: string;
-  name: string;
-  subjectId: string;
-  curriculumId: string;
-  bankId: string | null;
-  status: string;
-  isTemplate: boolean;
-  version: number;
-  presetKind: string;
-  levelSet: string;
-  totalScore: number;
-  cells: CellLite[];
-}
-interface AvailabilityLite {
-  sufficient: boolean;
-  cells: { cellId: string; required: number; available: number; deficit: number }[];
-}
 
 const SELECT_CLASS = 'h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs';
 
@@ -83,54 +54,36 @@ export function MatrixNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
   const perms = usePermissions();
-  const [personalBankId, setPersonalBankId] = useState<string | null>(null);
-  const [bankLoaded, setBankLoaded] = useState(false);
-  const [subjects, setSubjects] = useState<SubjectLite[]>([]);
-  const [curricula, setCurricula] = useState<CurriculumLite[]>([]);
+  // Dữ liệu nền qua TanStack (F-01 đợt 1): bank ma trận + môn học chỉ
+  // tải khi quyền đã rõ (clientLoader của route new đã prefetch cùng
+  // khoá); chương trình theo môn đang chọn qua query keyed theo môn.
+  const canLoad = perms.ready && perms.canUseQuestionBank;
+  const banksQuery = useMatrixBanks(canLoad);
+  const personalBankId = banksQuery.data?.find((b) => b.scope === 'personal')?.id ?? null;
+  const bankLoaded = banksQuery.isSuccess || banksQuery.isError;
+  const subjects = useCurriculumSubjects(canLoad).data ?? [];
   const [name, setName] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [curriculumId, setCurriculumId] = useState('');
+  const curriculaQuery = useCurriculaBySubject(subjectId);
+  const curricula = curriculaQuery.data ?? [];
   const [includeAdvanced, setIncludeAdvanced] = useState(false);
   const [totalScore, setTotalScore] = useState('10');
   const [isTemplate, setIsTemplate] = useState(false);
   const [status, setStatus] = useState('draft');
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    void (async () => {
-      try {
-        const banks = await apiJson<BankLite[]>('/api/v1/question-banks?kind=matrix');
-        setPersonalBankId(banks.find((b) => b.scope === 'personal')?.id ?? null);
-      } catch {
-        setPersonalBankId(null);
-      } finally {
-        setBankLoaded(true);
-      }
-      try {
-        setSubjects(await apiJson<SubjectLite[]>('/api/v1/curriculum/subjects'));
-      } catch {
-        setSubjects([]);
-      }
-    })();
-  }, [perms.ready, perms.canUseQuestionBank]);
-
+  // Đổi môn: giữ lựa chọn chương trình nếu còn thuộc môn mới, không
+  // thì tự chọn chương trình đầu (đúng nhịp effect thủ công trước đây).
   useEffect(() => {
     if (!subjectId) {
-      setCurricula([]);
       setCurriculumId('');
       return;
     }
-    void (async () => {
-      try {
-        const rows = await apiJson<CurriculumLite[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}`);
-        setCurricula(rows);
-        setCurriculumId((prev) => (rows.some((c) => c.id === prev) ? prev : (rows[0]?.id ?? '')));
-      } catch {
-        setCurricula([]);
-      }
-    })();
-  }, [subjectId]);
+    const rows = curriculaQuery.data;
+    if (!rows) return;
+    setCurriculumId((prev) => (rows.some((c) => c.id === prev) ? prev : (rows[0]?.id ?? '')));
+  }, [subjectId, curriculaQuery.data]);
 
   async function createMatrix(event: FormEvent) {
     event.preventDefault();
@@ -266,9 +219,16 @@ export function MatrixEditPage() {
   const navigate = useNavigate();
   const perms = usePermissions();
   const { matrixId } = useParams<{ matrixId: string }>();
-  const [matrix, setMatrix] = useState<MatrixLite | null>(null);
-  const [nodes, setNodes] = useState<{ id: string; title: string }[]>([]);
-  const [availability, setAvailability] = useState<AvailabilityLite | null>(null);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): chi tiết ma trận là query
+  // chính (clientLoader của route edit đã prefetch cùng khoá); cây
+  // chương trình + khả dụng là query phụ; chờ tải đầu qua trạng thái
+  // chưa có dữ liệu chi tiết như trước (F-14).
+  const canLoad = perms.ready && perms.canUseQuestionBank;
+  const detailQuery = useMatrixDetail(matrixId, canLoad);
+  const matrix = detailQuery.data ?? null;
+  const treeQuery = useCurriculumTree(matrix?.curriculumId, !!matrix);
+  const nodes = treeQuery.data ? flattenNodes(treeQuery.data) : [];
+  const availability = useMatrixAvailability(matrixId, canLoad && !!matrix).data ?? null;
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [status, setStatus] = useState('draft');
@@ -280,42 +240,35 @@ export function MatrixEditPage() {
   const [cellCount, setCellCount] = useState('1');
   const [cellScore, setCellScore] = useState('1');
 
-  const loadMatrix = useCallback(async () => {
-    if (!matrixId) return;
-    const row = await apiJson<MatrixLite>(`/api/v1/exam-matrices/${matrixId}`);
-    setMatrix(row);
+  const updateMutation = useUpdateMatrix();
+  const addCellMutation = useAddMatrixCell();
+  const deleteCellMutation = useDeleteMatrixCell();
+
+  // Nạp hỏng chi tiết: báo lỗi tải như nhịp loadMatrix thủ công cũ.
+  useEffect(() => {
+    if (detailQuery.isError) setMessage(t('matrixLoadFailed'));
+  }, [detailQuery.isError, t]);
+
+  // Khởi tạo các trường form từ bản ghi mỗi khi chi tiết (lại) tải về —
+  // đúng nhịp loadMatrix cũ, vốn chạy lại sau mỗi đột biến thành công.
+  useEffect(() => {
+    if (!detailQuery.data) return;
+    const row = detailQuery.data;
     setName(row.name);
     setStatus(row.status);
     setIsTemplate(row.isTemplate);
     setTotalScore(String(row.totalScore));
-    try {
-      const tree = await apiJson<CurriculumTreeNode[]>(`/api/v1/curriculum/curricula/${row.curriculumId}/tree`);
-      setNodes(flattenNodes(tree));
-    } catch {
-      setNodes([]);
-    }
-    try {
-      setAvailability(await apiJson<AvailabilityLite>(`/api/v1/exam-matrices/${matrixId}/availability`));
-    } catch {
-      setAvailability(null);
-    }
-  }, [matrixId]);
-
-  useEffect(() => {
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    void loadMatrix().catch(() => setMessage(t('matrixLoadFailed')));
-  }, [loadMatrix, perms.ready, perms.canUseQuestionBank, t]);
+  }, [detailQuery.data]);
 
   async function saveMatrix(event: FormEvent) {
     event.preventDefault();
     if (!matrix) return;
     try {
-      await apiJson(`/api/v1/exam-matrices/${matrix.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name, status, isTemplate, totalScore: Number(totalScore) || 10 }),
+      await updateMutation.mutateAsync({
+        matrixId: matrix.id,
+        body: { name, status, isTemplate, totalScore: Number(totalScore) || 10 },
       });
       setMessage(t('matrixSaved'));
-      await loadMatrix();
     } catch (err) {
       setMessage(withApiReason(t('matrixSaveFailed'), err));
     }
@@ -325,14 +278,13 @@ export function MatrixEditPage() {
     event.preventDefault();
     if (!matrix || !cellNodeId) return;
     try {
-      await apiJson(`/api/v1/exam-matrices/${matrix.id}/cells`, {
-        method: 'POST',
-        body: JSON.stringify({
+      await addCellMutation.mutateAsync({
+        matrixId: matrix.id,
+        body: {
           curriculumNodeId: cellNodeId, cognitiveLevel: cellLevel, qtype: cellQtype,
           questionCount: Number(cellCount) || 1, cellScore: Number(cellScore) || 1,
-        }),
+        },
       });
-      await loadMatrix();
     } catch (err) {
       setMessage(withApiReason(t('matrixCellAddFailed'), err));
     }
@@ -341,8 +293,7 @@ export function MatrixEditPage() {
   async function deleteCell(cellId: string) {
     if (!matrix) return;
     try {
-      await apiJson(`/api/v1/exam-matrices/${matrix.id}/cells/${cellId}`, { method: 'DELETE' });
-      await loadMatrix();
+      await deleteCellMutation.mutateAsync({ matrixId: matrix.id, cellId });
     } catch (err) {
       setMessage(withApiReason(t('matrixCellDeleteFailed'), err));
     }

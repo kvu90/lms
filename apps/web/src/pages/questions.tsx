@@ -30,8 +30,42 @@ import { BankAreaTabs } from '../components/bank-area-tabs';
 import { CollapsibleSection } from '../components/collapsible-section';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, apiJson, ApiError } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
+import { queryKeys } from '#lib/query-keys';
+import {
+  questionAttributionQueryOptions,
+  questionDetailQueryOptions,
+  questionDiscoveryQueryOptions,
+  questionVersionsQueryOptions,
+  useBankDossiers,
+  useBankExamContributions,
+  useBankExams,
+  useBankMatrices,
+  useBankMatrixContributions,
+  useBankQuestionContributions,
+  useCategoryQuestions,
+  useCategoryStimuli,
+  useMyBankQuestions,
+  useMyDossiers,
+  useQuestionBanks,
+  clearQuestionBankListCache,
+  useQuestionCategories,
+  type AttributionLite,
+  type BankLite,
+  type ContributionLite,
+  type DiscoveryItemLite,
+  type DossierSpecLite,
+  type ExamContributionLite,
+  type ExamDossierLite,
+  type MatrixContributionLite,
+  type MatrixLite,
+  type PaperSummaryLite,
+} from '#lib/questions-data';
+import { useCurriculumSubjects } from '#lib/matrix-data';
+import { courseContentQueryOptions, coursesListQueryOptions } from '#lib/course-builder-data';
+import { courseGroupsQueryOptions } from '#lib/progress-report-data';
 import { DataTable, type DataColumn } from '#components/data-table';
 
 /**
@@ -89,112 +123,14 @@ export interface CurriculumTreeNode {
   children: CurriculumTreeNode[];
 }
 
-/** Bank như API lớp bank trả về (feat Ngân hàng câu hỏi chung, issue #70; bankKind + capabilities.matrix* là của MB-1, issue #111). */
-interface BankLite {
-  id: string;
-  name: string;
-  scope: string;
-  bankKind: string;
-  defaultCategoryId: string | null;
-  categoryIds: string[];
-  capabilities: {
-    use: boolean; add: boolean; moderate: boolean; copy: boolean;
-    matrixView?: boolean; matrixManage?: boolean; matrixCopy?: boolean; matrixShare?: boolean; matrixModerate?: boolean;
-  };
-}
 
-/** Một ma trận trong ngân hàng ma trận (MB-1) — hình dạng ExamMatrixView của API. */
-interface MatrixLite {
-  id: string;
-  name: string;
-  subjectId: string;
-  curriculumId: string;
-  bankId: string | null;
-  status: string;
-  isTemplate: boolean;
-  derivedFromMatrixId: string | null;
-  version: number;
-  presetKind: string;
-  cells: { id: string }[];
-}
 
-/** Một đề xuất đóng góp ma trận trong hàng chờ duyệt (MB-1). */
-interface MatrixContributionLite {
-  id: string;
-  matrixId: string;
-  matrixName: string | null;
-  proposerName: string | null;
-  status: string;
-  note: string;
-  rejectReason: string | null;
-}
 
-/** Dòng ghi công của một câu copy (GET /questions/:id/attribution). */
-interface AttributionLite {
-  originalAuthorName: string | null;
-  sourceBankName: string | null;
-}
 
-/** Một dòng tóm tắt đề trong ngân hàng đề (GET /exam-papers/banks/:bankId/papers). */
-interface PaperSummaryLite {
-  id: string;
-  bankId: string;
-  kind: string;
-  status: string;
-  name: string;
-  examKind: string | null;
-  slotCount: number;
-  latestVersion: number;
-  createdBy: string;
-  copyCount: number;
-  capabilities: { edit: boolean; copy: boolean; deploy: boolean; moderate: boolean };
-}
 
-/** Một đề xuất đóng góp ĐỀ trong hàng chờ của một bank đề (EB-1). */
-interface ExamContributionLite {
-  id: string;
-  paperId: string;
-  paperName: string | null;
-  status: string;
-  proposerId: string;
-}
 
-/** Một mốc duyệt trong vết của bộ hồ sơ (EB-3). */
-interface ExamDossierReviewLite {
-  level: number;
-  reviewerName: string | null;
-  decision: string;
-  reason: string | null;
-}
 
-/** Một BỘ HỒ SƠ đề (EB-3): ma trận + đề + đặc tả ghim tại lúc nộp, duyệt theo bộ (có thể hai cấp). */
-interface ExamDossierLite {
-  id: string;
-  paperId: string;
-  paperName: string | null;
-  targetBankId: string;
-  proposerName: string | null;
-  note: string;
-  status: string;
-  paperVersionNumber: number | null;
-  matrixName: string | null;
-  matrixVersion: number | null;
-  boardApprovalRequired: boolean;
-  resultPaperId: string | null;
-  reviews: ExamDossierReviewLite[];
-}
 
-/** Bản đặc tả đã chụp trong bộ hồ sơ — chỉ phần cần để hiển thị tóm tắt trong hàng chờ (EB-3). */
-interface DossierSpecLite {
-  totals: { totalQuestions: number; totalScore: number };
-  topics: {
-    nodes: {
-      outcomes: {
-        cells: { cognitiveLevel: string; questionCount: number; cellScore: number; slotNumbers: number[] | null }[];
-      }[];
-    }[];
-  }[];
-}
 
 /** Khoá học cho hộp thoại triển khai đề vào quiz. */
 interface CourseLite {
@@ -208,32 +144,7 @@ interface CourseGroupLite {
   name: string;
 }
 
-/** Một dòng của trang khám phá ngân hàng chung (GET /questions/discovery). */
-interface DiscoveryItemLite {
-  questionId: string;
-  name: string;
-  qtype: string;
-  status: string;
-  bankId: string;
-  bankName: string;
-  bankScope: string;
-  authorName: string | null;
-  originalAuthorName: string | null;
-  useCount: number;
-  copyCount: number;
-}
 
-/** Một đề xuất đóng góp trong hàng chờ duyệt (QB-4). */
-interface ContributionLite {
-  id: string;
-  questionId: string;
-  questionName: string | null;
-  proposerName: string | null;
-  status: string;
-  mode: string;
-  note: string;
-  nearDuplicateOf: string | null;
-}
 
 /** Một dòng đáp án đang soạn trong form (fraction giữ dạng chuỗi để nhập liệu tự do). */
 interface AnswerDraft {
@@ -473,10 +384,10 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
   const perms = usePermissions();
+  // Client theo context (root gắn singleton phía client; test gắn
+  // client riêng) — invalidate/fetchQuery phải đi qua client này.
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string[]>([]);
-  const [categories, setCategories] = useState<QuestionCategory[]>([]);
-  const [questions, setQuestions] = useState<QuestionView[]>([]);
-  const [stimuli, setStimuli] = useState<StimulusView[]>([]);
   const [versionsOf, setVersionsOf] = useState<{
     questionId: string;
     versions: { version: number; questionText: RichTextDocument }[];
@@ -486,82 +397,104 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const [stimulusContent, setStimulusContent] = useState('');
   const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
   const [loading, setLoading] = useState(true);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): danh mục + câu hỏi/ngữ
+  // liệu theo danh mục là các query theo khoá factory (clientLoader
+  // của route module đã prefetch); vai không có capability ngân
+  // hàng thì không query nào chạy (giữ chặn theo vai như trước).
+  const bankGate = perms.ready && perms.canUseQuestionBank;
+  const categoriesQuery = useQuestionCategories(bankGate);
+  const categories = categoriesQuery.data ?? [];
+  const questions = useCategoryQuestions(qCategory, bankGate).data ?? [];
+  const stimuliQuery = useCategoryStimuli(qCategory, bankGate);
+  const stimuli = stimuliQuery.data ?? [];
+
+  useEffect(() => {
+    if (!categoriesQuery.isPending) setLoading(false);
+  }, [categoriesQuery.isPending]);
+
+  useEffect(() => {
+    if (categoriesQuery.isError) setMessage(t('questionBankLoadFailed'));
+  }, [categoriesQuery.isError, categoriesQuery.errorUpdatedAt, t]);
+
+  useEffect(() => {
+    if (stimuliQuery.isError) setMessage(t('stimulusLoadFailed'));
+  }, [stimuliQuery.isError, stimuliQuery.errorUpdatedAt, t]);
+
+  useEffect(() => {
+    if (categories.length && !qCategory) setQCategory(String(categories[0]!.id));
+  }, [categories, qCategory]);
   // Lớp bank của feat Ngân hàng câu hỏi chung (issue #70): khu vực ngân
   // hàng riêng của giáo viên + khu vực Ngân hàng hệ thống (bank chung).
-  const [banks, setBanks] = useState<BankLite[]>([]);
+  const banks = useQuestionBanks('question').data ?? [];
   // Khu vực của chính trang này mở sẵn (nó LÀ nội dung của trang);
   // các khu vực khác không render ở route này nữa.
   const [myOpen, setMyOpen] = useState(area === 'my-questions');
   const [systemOpen, setSystemOpen] = useState(area.startsWith('system'));
-  const [myQuestions, setMyQuestions] = useState<QuestionView[]>([]);
   const [attributions, setAttributions] = useState<Record<string, AttributionLite>>({});
   const [discBankId, setDiscBankId] = useState('');
   const [discKeyword, setDiscKeyword] = useState('');
   const [discQtype, setDiscQtype] = useState('');
   const [discResults, setDiscResults] = useState<DiscoveryItemLite[]>([]);
-  const [contributions, setContributions] = useState<ContributionLite[]>([]);
+  const contributions = useBankQuestionContributions(discBankId).data ?? [];
   const [previewItem, setPreviewItem] = useState<QuestionView | null>(null);
   const [proposeQuestionId, setProposeQuestionId] = useState('');
   const [proposeBankId, setProposeBankId] = useState('');
   // Ngân hàng ma trận (MB-1, issue #111): khu riêng "Ma trận của tôi" +
   // section ma trận chung trong Ngân hàng hệ thống — cùng khuôn hai khu
   // vực phân biệt của ngân hàng câu hỏi.
-  const [matrixBanks, setMatrixBanks] = useState<BankLite[]>([]);
+  const matrixBanks = useQuestionBanks('matrix').data ?? [];
   const [myMatrixOpen, setMyMatrixOpen] = useState(area === 'my-matrices');
-  const [myMatrices, setMyMatrices] = useState<MatrixLite[]>([]);
-  const [subjects, setSubjects] = useState<{ id: string; name: string }[]>([]);
+  const subjects = useCurriculumSubjects(true).data ?? [];
   const [sharedMatrixBankId, setSharedMatrixBankId] = useState('');
-  const [sharedMatrices, setSharedMatrices] = useState<MatrixLite[]>([]);
+  const sharedMatrices = useBankMatrices(sharedMatrixBankId || undefined).data ?? [];
   const [matrixSubjectFilter, setMatrixSubjectFilter] = useState('');
-  const [matrixContributions, setMatrixContributions] = useState<MatrixContributionLite[]>([]);
+  const matrixContributions = useBankMatrixContributions(sharedMatrixBankId).data ?? [];
   const [proposeMatrixId, setProposeMatrixId] = useState('');
   const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
 
   // Ngân hàng đề (EB-1, issue #113): bank đề dùng chung khuôn bank đa
   // loại (kind=exam); "Đề của tôi" là collapse riêng song song "Ngân
   // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
-  const [examBanks, setExamBanks] = useState<BankLite[]>([]);
+  const examBanks = useQuestionBanks('exam').data ?? [];
   const [myPapersOpen, setMyPapersOpen] = useState(area === 'my-exams');
-  const [myPapers, setMyPapers] = useState<PaperSummaryLite[]>([]);
   const [systemExamBankId, setSystemExamBankId] = useState('');
-  const [systemPapers, setSystemPapers] = useState<PaperSummaryLite[]>([]);
-  const [paperContributions, setPaperContributions] = useState<ExamContributionLite[]>([]);
+  const systemPapers = useBankExams(systemExamBankId || undefined).data ?? [];
+  const paperContributions = (useBankExamContributions(systemExamBankId).data ?? []).filter(
+    (c) => c.status === 'pending',
+  );
   const [proposePaperId, setProposePaperId] = useState('');
   const [proposePaperBankId, setProposePaperBankId] = useState('');
   // Bộ hồ sơ đề (EB-3, issue #165): hàng chờ của bank đích đang chọn,
   // danh sách bộ của chính giáo viên, form nộp bộ và bản đặc tả đang mở.
-  const [bankDossiers, setBankDossiers] = useState<ExamDossierLite[]>([]);
-  const [myDossiers, setMyDossiers] = useState<ExamDossierLite[]>([]);
+  const bankDossiers = (useBankDossiers(systemExamBankId).data ?? []).filter(
+    (d) => d.status === 'pending' || d.status === 'pending_board',
+  );
+  const myDossiers = useMyDossiers().data ?? [];
   const [dossierPaperId, setDossierPaperId] = useState('');
   const [dossierBankId, setDossierBankId] = useState('');
   const [openDossierSpec, setOpenDossierSpec] = useState<{ dossierId: string; spec: DossierSpecLite } | null>(null);
   const [deployPaper, setDeployPaper] = useState<PaperSummaryLite | null>(null);
-  const [deployCourses, setDeployCourses] = useState<CourseLite[]>([]);
+  const deployCourses = useQuery({ ...coursesListQueryOptions(), enabled: !!deployPaper }).data ?? [];
   const [deployCourseId, setDeployCourseId] = useState('');
-  const [deploySections, setDeploySections] = useState<{ id: string; name: string }[]>([]);
+  const deployContentQuery = useQuery({
+    ...courseContentQueryOptions(deployCourseId),
+    enabled: !!deployCourseId,
+  });
+  const deploySections = deployContentQuery.data?.sections ?? [];
   const [deploySectionId, setDeploySectionId] = useState('');
-  const [deployGroups, setDeployGroups] = useState<CourseGroupLite[]>([]);
+  const deployGroups = useQuery({ ...courseGroupsQueryOptions(deployCourseId), enabled: !!deployCourseId }).data ?? [];
   const [deployGroupId, setDeployGroupId] = useState('');
   const [deployVariantCount, setDeployVariantCount] = useState('1');
 
-  const loadQuestions = useCallback(async (categoryId: string) => {
-    const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
-    setQuestions(rows);
-  }, []);
-  const loadStimuli = useCallback(async (categoryId: string) => {
-    const rows = await apiJson<StimulusView[]>(`/api/v1/stimuli?categoryId=${categoryId}`);
-    setStimuli(rows);
-  }, []);
-  const reload = useCallback(async () => {
-    const cats = await apiJson<QuestionCategory[]>('/api/v1/questions/categories');
-    setCategories(cats);
-    if (cats.length) {
-      const effective = qCategory || String(cats[0]!.id);
-      setQCategory((prev) => prev || String(cats[0]!.id));
-      await loadQuestions(effective);
-      await loadStimuli(effective).catch(() => setMessage(t('stimulusLoadFailed')));
+  // Chọn chương đầu tiên khi nội dung khoá đích tải về (nhịp của
+  // loadDeployQuizzes thủ công trước đây).
+  useEffect(() => {
+    if (deployContentQuery.data && !deploySectionId) {
+      setDeploySectionId(deployContentQuery.data.sections[0]?.id ?? '');
     }
-  }, [loadQuestions, loadStimuli, qCategory, t]);
+  }, [deployContentQuery.data, deploySectionId]);
+
+
 
   // Thông báo mang về từ màn sửa riêng (vd "Đã lưu thành phiên bản N…"
   // sau khi sửa câu hỏi) qua router state — giữ phản hồi lưu thành công
@@ -576,17 +509,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // khu vực nay do PATH quyết định — xem BankArea ở đầu component.
   // URL cũ được lớp tương thích ở route module chuyển hướng sang.)
 
-  useEffect(() => {
-    // Vai không có capability ngân hàng: không gọi API dữ liệu nào cả —
-    // trang render trạng thái không-có-quyền ở dưới (issue #55 mục 1).
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    void reload()
-      .catch(() => setMessage(t('questionBankLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, perms.ready, perms.canUseQuestionBank]);
+
 
   const personalBank = banks.find((b) => b.scope === 'personal');
   const sharedBanks = banks.filter((b) => b.scope !== 'personal');
+  const myQuestions = useMyBankQuestions(personalBank).data ?? [];
 
   const loadAttributionsFor = useCallback(async (views: QuestionView[]) => {
     const derived = views.filter(
@@ -595,7 +522,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     for (const v of derived) {
       if (attributions[v.question.id]) continue;
       try {
-        const a = await apiJson<AttributionLite>(`/api/v1/questions/${v.question.id}/attribution`);
+        const a = await queryClient.fetchQuery(questionAttributionQueryOptions(v.question.id));
         setAttributions((prev) => ({ ...prev, [v.question.id]: a }));
       } catch {
         // Không có dòng ghi công thì thôi — không chặn danh sách.
@@ -603,105 +530,30 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }, [attributions]);
 
-  const loadMyQuestions = useCallback(async (bankList: BankLite[]) => {
-    const mine = bankList.find((b) => b.scope === 'personal');
-    if (!mine) return;
-    const all: QuestionView[] = [];
-    for (const categoryId of mine.categoryIds) {
-      try {
-        const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${categoryId}/questions`);
-        all.push(...rows);
-      } catch {
-        // Bỏ qua category lỗi.
-      }
-    }
-    setMyQuestions(all);
-    void loadAttributionsFor(all);
-  }, [loadAttributionsFor]);
-
-  const loadBanks = useCallback(async () => {
-    try {
-      const rows = await apiJson<BankLite[]>('/api/v1/question-banks');
-      setBanks(rows);
-      await loadMyQuestions(rows);
-    } catch {
-      setBanks([]);
-    }
-  }, [loadMyQuestions]);
-
+  // Ghi công cho các câu copy trong bank cá nhân (trước đây do
+  // loadMyQuestions gọi nối tiếp ngay sau khi nạp danh sách).
   useEffect(() => {
-    void loadBanks();
-  }, [loadBanks]);
+    if (myQuestions.length) void loadAttributionsFor(myQuestions);
+  }, [myQuestions, loadAttributionsFor]);
+
+
 
   // --- ngân hàng ma trận (MB-1) -------------------------------------------------
 
   const personalMatrixBank = matrixBanks.find((b) => b.scope === 'personal');
   const sharedMatrixBanks = matrixBanks.filter((b) => b.scope !== 'personal');
+  const myMatrices = useBankMatrices(personalMatrixBank?.id).data ?? [];
 
-  const loadMyMatrices = useCallback(async (bankList: BankLite[]) => {
-    const mine = bankList.find((b) => b.scope === 'personal');
-    if (!mine) {
-      setMyMatrices([]);
-      return;
-    }
-    try {
-      setMyMatrices(await apiJson<MatrixLite[]>(`/api/v1/question-banks/${mine.id}/matrices`));
-    } catch {
-      setMyMatrices([]);
-    }
-  }, []);
 
-  const loadMatrixBanks = useCallback(async () => {
-    try {
-      const rows = await apiJson<BankLite[]>('/api/v1/question-banks?kind=matrix');
-      setMatrixBanks(rows);
-      await loadMyMatrices(rows);
-    } catch {
-      setMatrixBanks([]);
-    }
-  }, [loadMyMatrices]);
 
-  useEffect(() => {
-    void loadMatrixBanks();
-  }, [loadMatrixBanks]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        setSubjects(await apiJson<{ id: string; name: string }[]>('/api/v1/curriculum/subjects'));
-      } catch {
-        setSubjects([]);
-      }
-    })();
-  }, []);
-
-  /** Nạp ma trận + hàng chờ đóng góp của một bank ma trận chung đang chọn. */
-  async function loadSharedMatrices(bankId: string) {
-    if (!bankId) {
-      setSharedMatrices([]);
-      setMatrixContributions([]);
-      return;
-    }
-    try {
-      setSharedMatrices(await apiJson<MatrixLite[]>(`/api/v1/question-banks/${bankId}/matrices`));
-    } catch {
-      setSharedMatrices([]);
-    }
-    try {
-      setMatrixContributions(
-        await apiJson<MatrixContributionLite[]>(`/api/v1/question-banks/${bankId}/matrix-contributions?status=pending`),
-      );
-    } catch {
-      setMatrixContributions([]);
-    }
-  }
 
   /** Copy một ma trận chung về ngân hàng ma trận cá nhân (cầu nối hai khu vực, MB-1). */
   async function copyMatrixToMyBank(matrixId: string) {
     try {
       await apiJson(`/api/v1/exam-matrices/${matrixId}/copy`, { method: 'POST', body: '{}' });
       setMessage(t('matrixCopiedToMyBank'));
-      await loadMatrixBanks();
+      refreshMatrixBanks();
     } catch {
       setMessage(t('matrixCopyFailed'));
     }
@@ -713,7 +565,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     try {
       await apiJson(`/api/v1/exam-matrices/${matrixId}`, { method: 'DELETE' });
       setMessage(t('matrixDeleted'));
-      await loadMatrixBanks();
+      refreshMatrixBanks();
     } catch {
       setMessage(t('matrixDeleteFailed'));
     }
@@ -749,7 +601,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           body: JSON.stringify({ reason }),
         });
       }
-      await loadSharedMatrices(bankId);
+      refreshSharedMatrices(bankId);
     } catch {
       setMessage(t('proposeFailed'));
     }
@@ -769,66 +621,48 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   const personalExamBank = examBanks.find((b) => b.scope === 'personal');
   const sharedExamBanks = examBanks.filter((b) => b.scope !== 'personal');
+  const myPapers = useBankExams(personalExamBank?.id).data ?? [];
 
-  const loadMyPapers = useCallback(async (bankList: BankLite[]) => {
-    const mine = bankList.find((b) => b.scope === 'personal');
-    if (!mine) { setMyPapers([]); return; }
-    try {
-      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exams/banks/${mine.id}/exams`);
-      setMyPapers(rows);
-    } catch {
-      setMyPapers([]);
-    }
-  }, []);
 
-  const loadExamBanks = useCallback(async () => {
-    try {
-      const rows = await apiJson<BankLite[]>('/api/v1/question-banks?kind=exam');
-      setExamBanks(rows);
-      await loadMyPapers(rows);
-      await loadMyDossiers();
-    } catch {
-      setExamBanks([]);
-    }
-  }, [loadMyPapers]);
 
-  useEffect(() => {
-    void loadExamBanks();
-  }, [loadExamBanks]);
-
-  /** Danh sách đề + hàng chờ đóng góp của một bank đề trong Ngân hàng hệ thống. */
-  async function loadSystemPapers(bankId: string) {
-    setSystemExamBankId(bankId);
-    if (!bankId) { setSystemPapers([]); setPaperContributions([]); return; }
-    try {
-      const rows = await apiJson<PaperSummaryLite[]>(`/api/v1/exams/banks/${bankId}/exams`);
-      setSystemPapers(rows);
-    } catch {
-      setSystemPapers([]);
-    }
-    try {
-      const rows = await apiJson<ExamContributionLite[]>(`/api/v1/exams/banks/${bankId}/contributions`);
-      setPaperContributions(rows.filter((c) => c.status === 'pending'));
-    } catch {
-      setPaperContributions([]);
-    }
-    try {
-      const rows = await apiJson<ExamDossierLite[]>(`/api/v1/exams/banks/${bankId}/dossiers`);
-      setBankDossiers(rows.filter((d) => d.status === 'pending' || d.status === 'pending_board'));
-    } catch {
-      setBankDossiers([]);
-    }
-  }
-
-  /** Mọi bộ hồ sơ của chính giáo viên (theo dõi duyệt + lý do từ chối). */
-  async function loadMyDossiers() {
-    try {
-      const rows = await apiJson<ExamDossierLite[]>('/api/v1/exams/dossiers/mine');
-      setMyDossiers(rows);
-    } catch {
-      setMyDossiers([]);
-    }
-  }
+  // Làm mới theo cụm sau mỗi đột biến: invalidate đúng khoá
+  // factory của cụm (thay cho các hàm load* thủ công trước đây —
+  // query đang hiển thị tự tải lại, các bề mặt khác dùng chung
+  // khoá cũng được cập nhật).
+  const refreshBanks = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.questionBanks('question') });
+    if (personalBank) void queryClient.invalidateQueries({ queryKey: queryKeys.myBankQuestions(personalBank.id) });
+  };
+  const refreshMatrixBanks = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.questionBanks('matrix') });
+    if (personalMatrixBank) void queryClient.invalidateQueries({ queryKey: queryKeys.bankMatrices(personalMatrixBank.id) });
+  };
+  const refreshExamBanks = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.questionBanks('exam') });
+    if (personalExamBank) void queryClient.invalidateQueries({ queryKey: queryKeys.bankExams(personalExamBank.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.myDossiers });
+  };
+  const refreshSharedMatrices = (bankId: string) => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bankMatrices(bankId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bankMatrixContributions(bankId) });
+  };
+  const refreshSystemPapers = (bankId: string) => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bankExams(bankId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bankExamContributions(bankId) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bankDossiers(bankId) });
+  };
+  const refreshMyDossiers = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.myDossiers });
+  };
+  const refreshContributions = (bankId: string) => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.bankQuestionContributions(bankId) });
+  };
+  const refreshCategoryQuestions = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.categoryQuestions(qCategory) });
+  };
+  const refreshCategoryStimuli = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.categoryStimuli(qCategory) });
+  };
 
   /** Nộp một BỘ HỒ SƠ: lập hồ sơ cho đề ready có ma trận rồi nộp ngay (ghim version + chụp đặc tả ở phía API). */
   async function proposeDossier() {
@@ -840,8 +674,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       });
       await apiJson(`/api/v1/exams/dossiers/${created.id}/submit`, { method: 'POST', body: '{}' });
       setMessage(t('dossierProposedOk'));
-      await loadMyDossiers();
-      if (systemExamBankId) await loadSystemPapers(systemExamBankId);
+      refreshMyDossiers();
+      if (systemExamBankId) refreshSystemPapers(systemExamBankId);
     } catch (err) {
       setMessage(withApiReason(t('dossierFailed'), err));
     }
@@ -860,8 +694,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           body: JSON.stringify({ reason }),
         });
       }
-      if (systemExamBankId) await loadSystemPapers(systemExamBankId);
-      await loadMyDossiers();
+      if (systemExamBankId) refreshSystemPapers(systemExamBankId);
+      refreshMyDossiers();
     } catch (err) {
       setMessage(withApiReason(t('dossierFailed'), err));
     }
@@ -900,7 +734,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     try {
       await apiJson(`/api/v1/exams/${paperId}/copy`, { method: 'POST', body: '{}' });
       setMessage(t('paperCopiedToMyBank'));
-      await loadExamBanks();
+      refreshExamBanks();
     } catch (err) {
       setMessage(withApiReason(t('examPaperCopyFailed'), err));
     }
@@ -909,8 +743,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function setPaperStatus(paperId: string, status: 'ready' | 'hidden' | 'draft') {
     try {
       await apiJson(`/api/v1/exams/${paperId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
-      await loadExamBanks();
-      if (systemExamBankId) await loadSystemPapers(systemExamBankId);
+      refreshExamBanks();
+      if (systemExamBankId) refreshSystemPapers(systemExamBankId);
     } catch (err) {
       setMessage(withApiReason(t('examPaperSaveFailed'), err));
     }
@@ -921,7 +755,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     try {
       await apiJson(`/api/v1/exams/${paperId}`, { method: 'DELETE' });
       setMessage(t('examPaperDeleted'));
-      await loadExamBanks();
+      refreshExamBanks();
     } catch (err) {
       setMessage(withApiReason(t('examPaperDeleteFailed'), err));
     }
@@ -954,45 +788,20 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           body: JSON.stringify({ reason }),
         });
       }
-      await loadSystemPapers(bankId);
+      refreshSystemPapers(bankId);
     } catch (err) {
       setMessage(withApiReason(t('proposeFailed'), err));
     }
   }
 
-  /** Mở hộp thoại GHIM: nạp danh sách khoá học cho giáo viên chọn khoá đích. */
-  async function openDeploy(paper: PaperSummaryLite) {
+  /** Mở hộp thoại GHIM: danh sách khoá học là query dùng chung khoá
+   *  factory courses (bật khi hộp thoại mở); invalidate để danh sách
+   *  tươi như nhịp tải lại mỗi lần mở trước đây. */
+  function openDeploy(paper: PaperSummaryLite) {
     setDeployPaper(paper);
     setDeploySectionId('');
-    setDeploySections([]);
-    setDeployGroups([]);
     setDeployGroupId('');
-    try {
-      const courses = await apiJson<CourseLite[]>('/api/v1/courses');
-      setDeployCourses(courses);
-    } catch {
-      setDeployCourses([]);
-    }
-  }
-
-  /** Chọn khoá đích: nạp section (chương) + nhóm của khoá cho form ghim. */
-  async function loadDeployQuizzes(courseId: string) {
-    setDeployCourseId(courseId);
-    setDeploySectionId('');
-    setDeployGroupId('');
-    if (!courseId) { setDeploySections([]); setDeployGroups([]); return; }
-    try {
-      const content = await apiJson<{ sections: { id: string; name: string }[] }>(`/api/v1/courses/${courseId}/content`);
-      setDeploySections(content.sections);
-      setDeploySectionId(content.sections[0]?.id ?? '');
-    } catch {
-      setDeploySections([]);
-    }
-    try {
-      setDeployGroups(await apiJson<CourseGroupLite[]>(`/api/v1/courses/${courseId}/groups`));
-    } catch {
-      setDeployGroups([]);
-    }
+    void queryClient.invalidateQueries({ queryKey: queryKeys.courses });
   }
 
   /** Ghim đề vào khoá đã chọn (toàn khoá hoặc một nhóm đích) — một thao tác exam-pins. */
@@ -1026,19 +835,10 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       if (discBankId) params.set('bankId', discBankId);
       if (discKeyword.trim()) params.set('keyword', discKeyword.trim());
       if (discQtype) params.set('qtype', discQtype);
-      const rows = await apiJson<DiscoveryItemLite[]>(`/api/v1/questions/discovery?${params.toString()}`);
+      const rows = await queryClient.fetchQuery(questionDiscoveryQueryOptions(params.toString()));
       setDiscResults(rows);
     } catch {
       setDiscResults([]);
-    }
-  }
-
-  async function loadContributions(bankId: string) {
-    try {
-      const rows = await apiJson<ContributionLite[]>(`/api/v1/question-banks/${bankId}/contributions?status=pending`);
-      setContributions(rows);
-    } catch {
-      setContributions([]);
     }
   }
 
@@ -1047,7 +847,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     try {
       await apiJson(`/api/v1/questions/${questionId}/copy`, { method: 'POST', body: '{}' });
       setMessage(t('copiedToMyBank'));
-      await loadBanks();
+      refreshBanks();
     } catch {
       setMessage(t('copyFailed'));
     }
@@ -1079,7 +879,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           body: JSON.stringify({ reason }),
         });
       }
-      await loadContributions(bankId);
+      refreshContributions(bankId);
     } catch {
       setMessage(t('proposeFailed'));
     }
@@ -1091,8 +891,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     try {
       await apiJson(`/api/v1/questions/${questionId}`, { method: 'DELETE' });
       setMessage(t('questionDeleted'));
-      await loadBanks();
-      await loadQuestions(qCategory).catch(() => undefined);
+      refreshBanks();
+      refreshCategoryQuestions();
     } catch {
       setMessage(t('deleteFailed'));
     }
@@ -1114,8 +914,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         });
         setMessage(t('questionWithdrawn'));
       }
-      await loadBanks();
-      await loadQuestions(qCategory).catch(() => undefined);
+      refreshBanks();
+      refreshCategoryQuestions();
     } catch {
       setMessage(t('proposeFailed'));
     }
@@ -1143,7 +943,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         });
         setEditingStimulus(null);
         setStimulusContent('');
-        await loadStimuli(qCategory);
+        refreshCategoryStimuli();
       } catch {
         setMessage(t('stimulusSaveFailed'));
       }
@@ -1155,7 +955,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         body: JSON.stringify({ categoryId: qCategory, content: stimulusContent }),
       });
       setStimulusContent('');
-      await loadStimuli(qCategory);
+      refreshCategoryStimuli();
     } catch {
       setMessage(t('stimulusCreateFailed'));
     }
@@ -1168,7 +968,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         setEditingStimulus(null);
         setStimulusContent('');
       }
-      await loadStimuli(qCategory);
+      refreshCategoryStimuli();
     } catch {
       setMessage(t('stimulusDeleteFailed'));
     }
@@ -1203,16 +1003,14 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       await apiJson(`/api/v1/questions/${view.question.id}`, { method: 'DELETE' });
       setMessage(t('questionDeleted'));
       setSelected((prev) => prev.filter((qid) => qid !== view.question.id));
-      await loadQuestions(qCategory);
+      refreshCategoryQuestions();
     } catch {
       setMessage(t('questionDeleteFailed'));
     }
   }
 
   async function showVersions(view: QuestionView) {
-    const versions = await apiJson<{ version: number; questionText: RichTextDocument }[]>(
-      `/api/v1/questions/${view.question.id}/versions`,
-    );
+    const versions = await queryClient.fetchQuery(questionVersionsQueryOptions(view.question.id));
     setVersionsOf({ questionId: view.question.id, versions });
   }
 
@@ -1339,7 +1137,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Xem trước một câu trong trang khám phá ngân hàng chung. */
   async function previewDiscoveryItem(questionId: string) {
     try {
-      const view = await apiJson<QuestionView>(`/api/v1/questions/${questionId}`);
+      const view = await queryClient.fetchQuery(questionDetailQueryOptions(questionId));
       setPreviewItem(view);
     } catch {
       setPreviewItem(null);
@@ -1525,7 +1323,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         open={myMatrixOpen}
         onOpenChange={(open) => {
           setMyMatrixOpen(open);
-          if (open) void loadMatrixBanks();
+          if (open) refreshMatrixBanks();
         }}
       >
             <Button type="button" onClick={() => navigate('/matrices/new')} disabled={!personalMatrixBank}>
@@ -1688,7 +1486,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     id="deploy-course"
                     className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
                     value={deployCourseId}
-                    onChange={(e) => void loadDeployQuizzes(e.target.value)}
+                    onChange={(e) => {
+                    setDeployCourseId(e.target.value);
+                    setDeploySectionId('');
+                    setDeployGroupId('');
+                  }}
                   >
                     <option value="">—</option>
                     {deployCourses.map((c) => (
@@ -1890,8 +1692,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     value={discBankId}
                     onChange={(e) => {
                       setDiscBankId(e.target.value);
-                      if (e.target.value) void loadContributions(e.target.value);
-                      else setContributions([]);
                     }}
                   >
                     <option value="">{t('allSharedBanks')}</option>
@@ -2010,7 +1810,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     id="exam-bank-pick"
                     className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
                     value={systemExamBankId}
-                    onChange={(e) => void loadSystemPapers(e.target.value)}
+                    onChange={(e) => setSystemExamBankId(e.target.value)}
                   >
                     <option value="">—</option>
                     {sharedExamBanks.map((bank) => (
@@ -2166,7 +1966,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     value={sharedMatrixBankId}
                     onChange={(e) => {
                       setSharedMatrixBankId(e.target.value);
-                      void loadSharedMatrices(e.target.value);
                     }}
                   >
                     <option value="">—</option>
@@ -2275,8 +2074,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
             onOpenChange={(open) => {
               if (open) {
                 setQCategory(String(cat.id));
-                void loadQuestions(cat.id);
-                void loadStimuli(cat.id).catch(() => setMessage(t('stimulusLoadFailed')));
               }
             }}
             paddedContent={false}
@@ -2408,6 +2205,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 export function QuestionCategoryNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const perms = usePermissions();
   const [catName, setCatName] = useState('');
   const [contextId, setContextId] = useState('');
@@ -2462,6 +2260,7 @@ export function QuestionCategoryNewPage() {
         method: 'POST',
         body: JSON.stringify({ name: catName, contextId: contextId }),
       });
+      clearQuestionBankListCache(queryClient);
       navigate('/questions');
     } catch (err) {
       setMessage(withApiReason(t('categoryCreateFailedShort'), err));

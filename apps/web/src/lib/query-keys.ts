@@ -10,12 +10,76 @@ export const queryKeys = {
   capabilities: ['capabilities'] as const,
   /** Danh sách toàn bộ khoá học (GET /courses). */
   courses: ['courses'] as const,
-  /** Dữ liệu hiển thị theo từng khoá: ghi danh của tôi + báo cáo điểm + sổ điểm của tôi. */
+  /** Kết quả + hàng đợi chấm tay của một quiz (trang quiz-results). */
+  quizResults: (quizId: string) => ['quizzes', quizId, 'results'] as const,
+  /** Gói dữ liệu trang một khoá học (thông tin/instance/ghi danh/nội dung/tiến độ — trang course). */
+  coursePage: (courseId: string) => ['courses', courseId, 'page'] as const,
+  playerView: (courseId: string, cmId: string) => ['courses', courseId, 'player', cmId] as const,
+  /** Cây danh mục câu hỏi (GET /questions/categories — trang questions). */
+  questionCategories: ['questions', 'categories'] as const,
+  /** Câu hỏi của một danh mục (GET /questions/categories/:id/questions — trang questions). */
+  categoryQuestions: (categoryId: string) => ['questions', 'categories', categoryId, 'questions'] as const,
+  /** Ngữ liệu của một danh mục (GET /stimuli?categoryId= — trang questions). */
+  categoryStimuli: (categoryId: string) => ['stimuli', 'by-category', categoryId] as const,
+  /** Dòng ghi công của một câu copy (GET /questions/:id/attribution — trang questions). */
+  questionAttribution: (questionId: string) => ['questions', questionId, 'attribution'] as const,
+  /** Các phiên bản của một câu (GET /questions/:id/versions — trang questions). */
+  questionVersions: (questionId: string) => ['questions', questionId, 'versions'] as const,
+  /** Chi tiết một câu (GET /questions/:id — xem trước ở trang questions). */
+  questionDetail: (questionId: string) => ['questions', questionId, 'detail'] as const,
+  /** Kết quả khám phá ngân hàng chung (GET /questions/discovery — trang questions). */
+  questionDiscovery: (params: string) => ['questions', 'discovery', params] as const,
+  /** Danh sách bank theo loại (GET /question-banks[?kind=] — trang questions; kind: 'question' | 'matrix' | 'exam'). */
+  questionBanks: (kind: string) => ['question-banks', kind] as const,
+  /** Mọi câu hỏi trong bank cá nhân, gộp theo từng danh mục của bank (trang questions). */
+  myBankQuestions: (bankId: string) => ['question-banks', bankId, 'all-questions'] as const,
+  /** Ma trận của một bank (GET /question-banks/:id/matrices — trang questions). */
+  bankMatrices: (bankId: string) => ['question-banks', bankId, 'matrices'] as const,
+  /** Hàng chờ đóng góp ma trận của một bank (trang questions). */
+  bankMatrixContributions: (bankId: string) => ['question-banks', bankId, 'matrix-contributions'] as const,
+  /** Hàng chờ đóng góp câu hỏi của một bank (trang questions). */
+  bankQuestionContributions: (bankId: string) => ['question-banks', bankId, 'contributions'] as const,
+  /** Đề của một bank đề (GET /exams/banks/:id/exams — trang questions). */
+  bankExams: (bankId: string) => ['exam-banks', bankId, 'exams'] as const,
+  /** Hàng chờ đóng góp đề của một bank đề (trang questions). */
+  bankExamContributions: (bankId: string) => ['exam-banks', bankId, 'contributions'] as const,
+  /** Hàng chờ bộ hồ sơ của một bank đề (trang questions). */
+  bankDossiers: (bankId: string) => ['exam-banks', bankId, 'dossiers'] as const,
+  /** Mọi bộ hồ sơ của chính giáo viên (GET /exams/dossiers/mine — trang questions). */
+  myDossiers: ['exams', 'dossiers', 'mine'] as const,
+  /** Trang lần ghim đề (GET /exam-pins/:id + tên câu của các slot — trang quiz). */
+  examPin: (pinId: string) => ['exam-pins', pinId] as const,
+  /** Ghi đè của lần ghim (GET /exam-pins/:id/overrides — trang quiz). */
+  examPinOverrides: (pinId: string) => ['exam-pins', pinId, 'overrides'] as const,
+  /** Thông tin đề nguồn của lần ghim (GET /exams/:id — trang quiz). */
+  examSource: (examId: string) => ['exams', examId] as const,
+  /** Danh sách thành viên khoá cho bộ chọn đích ghi đè (GET /messages/courses/:id/members — trang quiz). */
+  courseRosterMembers: (courseId: string) => ['courses', courseId, 'roster-members'] as const,
+  /** Gói dữ liệu trang xây dựng khoá học (thông tin/nội dung/điểm mục/tiêu chí/nhóm — trang course-builder). */
+  courseBuilder: (courseId: string) => ['courses', courseId, 'builder'] as const,
+  /** Nội dung (outline) của một khoá (GET /courses/:id/content) — khối dùng lại nội dung ở trang builder. */
+  courseContent: (courseId: string) => ['courses', courseId, 'content'] as const,
+  /** Thanh toán của chính người dùng (GET /payments/me). */
+  myPayments: ['payments', 'me'] as const,
+  /** Chi tiết một bài tập nộp tệp (trang assignment). */
+  assignmentDetail: (assignmentId: string) => ['assignments', assignmentId] as const,
+  /** Dữ liệu điểm hiển thị theo từng khoá (báo cáo điểm + điểm theo bài của tôi) — tải lười tại bề mặt tiêu thụ qua lib/course-grade-data.ts. */
   courseAccess: (courseId: string) => ['course-access', courseId] as const,
   /** Danh sách người dùng cho khối quản trị (phân trang + tìm kiếm phía server). */
+  /** Gốc khu người dùng quản trị — tiền tố invalidate cho mọi query con (danh sách + chi tiết). */
+  adminUsersRoot: ['admin', 'users'] as const,
   adminUsers: (page: number, pageSize: number, search = '') => ['admin', 'users', page, pageSize, search] as const,
+  /** Chi tiết một người dùng ở khu quản trị (F-05, rà soát #133). */
+  adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
   /** Cây danh mục khoá học cho khối quản trị. */
   categoryTree: ['courses', 'categories', 'tree'] as const,
+  /** Tiến độ học của chính người dùng trong một khoá (% hoàn thành; probe lỗi → null). */
+  courseMyProgress: (courseId: string) => ['courses', courseId, 'progress', 'me'] as const,
+  /** Báo cáo tiến độ lớp của một khoá theo nhóm lọc (trang progress-report; probe lỗi → null = không có quyền). */
+  courseProgressReport: (courseId: string, groupId: string) =>
+    ['courses', courseId, 'progress', 'report', groupId] as const,
+  /** Các nhóm (lớp) của một khoá — bộ lọc của báo cáo tiến độ. */
+  courseGroups: (courseId: string) => ['courses', courseId, 'groups'] as const,
   /** Danh sách vai trò cho khối quản trị. */
   roles: ['access', 'roles'] as const,
   /** Gốc khoá phân quyền — tiền tố làm mới mọi truy vấn access sau đột biến gán vai. */
@@ -101,6 +165,18 @@ export const queryKeys = {
   guardianResults: (studentId: string) => ['guardian', 'results', studentId] as const,
   /** Tuỳ chọn tần suất digest của phụ huynh cho một con (GET/PUT /guardian/students/:id/digest-preference) — PH-2. */
   guardianDigestPreference: (studentId: string) => ['guardian', 'digest-preference', studentId] as const,
+  /** Danh sách ngân hàng theo loại (GET /question-banks?kind=…) — trang ma trận dùng kind=matrix. */
+  questionBanksByKind: (kind: string) => ['question-banks', kind] as const,
+  /** Danh sách môn học chương trình (GET /curriculum/subjects). */
+  curriculumSubjects: ['curriculum', 'subjects'] as const,
+  /** Các chương trình của một môn (GET /curriculum/curricula?subjectId=…). */
+  curriculaBySubject: (subjectId: string) => ['curriculum', 'curricula', subjectId] as const,
+  /** Cây chương trình của một chương trình (GET /curriculum/curricula/:id/tree). */
+  curriculumTree: (curriculumId: string) => ['curriculum', 'tree', curriculumId] as const,
+  /** Chi tiết một ma trận đề (GET /exam-matrices/:id). */
+  matrixDetail: (matrixId: string) => ['exam-matrices', matrixId] as const,
+  /** Khả dụng kho câu cho các ô của một ma trận (GET /exam-matrices/:id/availability). */
+  matrixAvailability: (matrixId: string) => ['exam-matrices', matrixId, 'availability'] as const,
   /** Cấu hình site (GET /site-config) — gốc khoá, kiêm tiền tố làm mới cả audit sau đột biến. */
   siteConfig: ['site-config'] as const,
   /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */

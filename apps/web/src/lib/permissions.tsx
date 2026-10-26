@@ -1,6 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
-import type { Course, CourseActivityGrid, MyAccessView, MyActivityGrades } from '@lms/contracts';
+import { useQuery } from '@tanstack/react-query';
+import type { Course, MyAccessView } from '@lms/contracts';
 import { apiJson } from './api';
 import { useAuth } from './auth';
 import { queryKeys } from './query-keys';
@@ -19,10 +19,6 @@ export interface CourseAccess {
    * ảnh chụp quyền (API vẫn là nơi thực thi quyền thật).
    */
   capabilities: string[];
-  /** Lưới điểm theo bài toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
-  report: CourseActivityGrid | null;
-  /** Điểm theo từng bài của chính người dùng trong khoá (null nếu không truy cập được). */
-  gradebook: MyActivityGrades | null;
 }
 
 /** Cấp context theo quy ước của hệ thống quyền (khớp CONTEXT_LEVELS phía API). */
@@ -53,6 +49,14 @@ export interface PermissionsState {
   ready: boolean;
   /** Toàn bộ ảnh chụp quyền từ API (null khi chưa tải được). */
   access: MyAccessView | null;
+  /**
+   * Lỗi của query capabilities khi tải ảnh chụp quyền thất bại (F-15, rà
+   * soát #133): provider vẫn suy biến mềm (access = null, mọi cờ false)
+   * nhưng phơi lỗi này ra để bề mặt/log phân biệt được "API lỗi" với
+   * "người dùng không có quyền/không có dữ liệu". null khi chưa lỗi —
+   * gồm cả trạng thái chưa đăng nhập (không phải lỗi).
+   */
+  capabilitiesError: Error | null;
   /** Có user:viewdetails tại context hệ thống (hoặc là site admin). */
   canViewUsers: boolean;
   /** Có role:manage tại context hệ thống (hoặc là site admin). */
@@ -153,39 +157,15 @@ function hasCourseAssignment(access: MyAccessView | null, course: Course): boole
   );
 }
 
-/** Dữ liệu điểm hiển thị của một khoá mà dashboard cần (không quyết định phân loại). */
-export interface CourseGradeData {
-  /** Lưới điểm theo bài toàn lớp (dữ liệu cho khối giảng dạy; null nếu không tải được). */
-  report: CourseActivityGrid | null;
-  /** Điểm theo từng bài của chính người dùng trong khoá (null nếu không truy cập được). */
-  gradebook: MyActivityGrades | null;
-}
-
-/**
- * Hai lượt dò dữ liệu điểm của một khoá, chạy song song trong một query
- * (khoá TanStack `courseAccess`). Dùng chung cho PermissionsProvider
- * (chỉ tải cho khoá người dùng thuộc về) và trang grades (đọc qua đúng
- * khoá này để dedupe thay vì fetch riêng — F-03, rà soát #133). Mỗi
- * endpoint lỗi độc lập thì phần đó null, không sập cả query.
- */
-export async function fetchCourseGradeData(courseId: string): Promise<CourseGradeData> {
-  const [report, gradebook] = await Promise.all([
-    probe<CourseActivityGrid>(`/api/v1/courses/${courseId}/grades/report`),
-    probe<MyActivityGrades>(`/api/v1/courses/${courseId}/gradebook`),
-  ]);
-  return { report, gradebook };
-}
-
 /**
  * Nạp ảnh chụp quyền cho người đang đăng nhập bằng TanStack Query: ảnh
  * chụp quyền và danh sách khoá chạy song song ngay từ đầu — HAI request
- * này là toàn bộ đầu vào của việc phân loại (F-02, rà soát #133; trước
- * đây provider fan-out 2 + 3N request vì dò enrolments/me + report +
- * gradebook cho mọi khoá trong hệ). Dữ liệu điểm theo khoá (report +
- * gradebook, thuần hiển thị cho dashboard) là các query độc lập
- * (useQueries) CHỈ chạy cho khoá người dùng thuộc về theo ảnh chụp, và
- * lấp vào trạng thái ngay khi từng khoá xong — không còn thác nước nối
- * tiếp chờ tất cả mới hiển thị một lần như trước. Phân loại quản trị/
+ * này là TOÀN BỘ những gì provider tải khi nạp app (F-02, rà soát
+ * #133; trước đây provider fan-out thêm dữ liệu điểm theo khoá). Dữ
+ * liệu điểm theo khoá (report + gradebook, thuần hiển thị) KHÔNG còn
+ * nằm trong provider: các bề mặt cần nó (dashboard, trang grades) tải
+ * lười qua hook ở `lib/course-grade-data.ts` với đúng khoá
+ * `courseAccess` dùng chung. Phân loại quản trị/
  * giảng dạy/học viên suy ra hoàn toàn từ capability và gán vai đã phân
  * giải trong ảnh chụp; các tải dữ liệu thất bại độc lập và chỉ làm
  * rỗng đúng phần dữ liệu đó. Kết quả được cache theo staleTime của
@@ -205,9 +185,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const enabled = !!user;
 
+  // Query capabilities KHÔNG nuốt lỗi vào null như probe thường lệ:
+  // lỗi phải nổi lên query error state để provider phơi ra qua
+  // `capabilitiesError` (F-15) — bề mặt vẫn suy biến mềm vì access
+  // được đọc từ data (undefined khi lỗi → null).
   const capabilitiesQuery = useQuery({
     queryKey: queryKeys.capabilities,
-    queryFn: () => probe<MyAccessView>('/api/v1/users/me/capabilities'),
+    queryFn: () => apiJson<MyAccessView>('/api/v1/users/me/capabilities'),
     enabled,
     staleTime: 60_000,
   });
@@ -218,28 +202,13 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
   });
   const courseList = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
   const accessSnapshot = capabilitiesQuery.data ?? null;
-  // Khoá người dùng thuộc về (có gán vai tại context khoá) — suy ngay
-  // từ ảnh chụp, là tập duy nhất còn phải tải dữ liệu điểm hiển thị.
-  const memberCourses = useMemo(
-    () => courseList.filter((course) => hasCourseAssignment(accessSnapshot, course)),
-    [courseList, accessSnapshot],
-  );
-  const courseDataQueries = useQueries({
-    queries: memberCourses.map((course) => ({
-      queryKey: queryKeys.courseAccess(course.id),
-      queryFn: () => fetchCourseGradeData(course.id),
-    })),
-  });
-  const gradeDataByCourse = useMemo(
-    () => new Map(memberCourses.map((course, i) => [course.id, courseDataQueries[i]?.data])),
-    [memberCourses, courseDataQueries],
-  );
 
   const value = useMemo<PermissionsState>(() => {
     if (!user) {
       return {
         ready: true,
         access: null,
+        capabilitiesError: null,
         canViewUsers: false,
         canManageRoles: false,
         canAdminister: false,
@@ -251,15 +220,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       };
     }
     const access = accessSnapshot;
-    const courses: CourseAccess[] = courseList.map((course) => {
-      const data = gradeDataByCourse.get(course.id);
-      return {
-        course,
-        report: data?.report ?? null,
-        gradebook: data?.gradebook ?? null,
-        capabilities: access ? courseCapabilities(access, course) : [],
-      };
-    });
+    const courses: CourseAccess[] = courseList.map((course) => ({
+      course,
+      capabilities: access ? courseCapabilities(access, course) : [],
+    }));
     const sysCaps = access ? systemCapabilities(access) : [];
     const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('user:viewdetails');
     const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('role:manage');
@@ -272,6 +236,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     return {
       ready: !capabilitiesQuery.isPending && !coursesQuery.isPending,
       access,
+      capabilitiesError: capabilitiesQuery.error ?? null,
       canViewUsers,
       canManageRoles,
       // Cổng mở UI quản trị KHÔNG được tính user:viewdetails: đó
@@ -297,9 +262,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     user,
     accessSnapshot,
     capabilitiesQuery.isPending,
+    capabilitiesQuery.error,
     coursesQuery.isPending,
     courseList,
-    gradeDataByCourse,
   ]);
 
   return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
