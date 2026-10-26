@@ -367,14 +367,18 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     expect(docText(restoredVersions.body[1].questionText)).toBe(
       ['Version two text.', 'Version two text. — ý 1', 'Version two text. — ý 2', 'Version two text. — ý 3', 'Version two text. — ý 4'].join('\n'),
     );
-    // Nội dung chấm của version khôi phục (đáp án + trỏ true/false) đi theo
-    // archive: trueAnswer trỏ vào dòng đáp án 'True', phía đúng nằm ở cờ
-    // isCorrect (version 2 của câu này có đáp án đúng là False nên True
-    // mang isCorrect false, False mang isCorrect true).
-    expect(restoredQuestions.body[0].answers.map((a: { isCorrect: boolean }) => a.isCorrect)).toEqual([false, true]);
-    expect(restoredQuestions.body[0].options.trueAnswer).toBe(
-      restoredQuestions.body[0].answers.find((a: { id: string; answer: never }) => docText(a.answer) === 'True')?.id,
-    );
+    // Nội dung chấm của version khôi phục đi theo archive ở dạng TF-A:
+    // KHÔNG có dòng question_answers (đáp án nằm ở thân câu + solution
+    // phía answerKey) và không có options trueAnswer kiểu TF-B cũ —
+    // version 2 của câu này có solution [Sai, Đúng, Sai, Đúng].
+    expect(restoredQuestions.body[0].answers).toHaveLength(0);
+    expect(restoredQuestions.body[0].options).toBeNull();
+    expect((restoredQuestions.body[0].answerKey.solution as { answers: { statementId: string; value: boolean }[] }).answers).toEqual([
+      { statementId: 's1', value: false },
+      { statementId: 's2', value: true },
+      { statementId: 's3', value: false },
+      { statementId: 's4', value: true },
+    ]);
     // Badges: badge mới thuộc khoá mới; criteria của B trỏ đúng khoá/cm/badge mới, competency giữ nguyên (thực thể site dùng chung).
     const newBadgeAId = mapOf('badge', badgeA.body.id)?.newId;
     const newBadgeBId = mapOf('badge', badgeB.body.id)?.newId;
