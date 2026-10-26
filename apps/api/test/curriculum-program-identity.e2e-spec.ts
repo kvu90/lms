@@ -443,10 +443,15 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     const step1 = structuredClone(file) as ProgramDatasetFile;
     step1.records.find((r) => r.id === recF.id)!.outcomes = [twin, twin, third];
     await svc.importDatasetFileInternal(DATASET_KEY, step1);
-    const rows = await outcomesOf(lessonF);
+    const allRows = await outcomesOf(lessonF);
+    // Luật không-xoá: các dòng gốc bị thay thế nằm lại ở trạng thái
+    // đã rút; tập HIỆN HÀNH phải đúng 3 dòng mới theo thứ tự dataset.
+    const rows = allRows.filter((r) => r.retired_at === null);
     expect(rows.length).toBe(3);
+    expect(rows.map((r) => r.content)).toEqual([twin, twin, third]);
     expect(rows[0]!.content).toBe(twin);
     expect(rows[1]!.content).toBe(twin);
+    expect(rows[2]!.content).toBe(third);
     expect(rows[0]!.id).not.toBe(rows[1]!.id);
     for (const r of rows) expect(r.id).toMatch(UUID_V7);
 
@@ -458,10 +463,10 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(removed!.identicalTextAmbiguous).toBe(true);
 
     const after = await outcomesOf(lessonF);
-    const activeTwin = after.find((r) => r.content === twin && r.retired_at === null);
-    expect(activeTwin!.id).toBe(rows[0]!.id); // quy ước: giữ dòng ở vị trí thấp
-    const retiredTwin = after.find((r) => r.retired_at !== null);
-    expect(retiredTwin!.id).toBe(rows[1]!.id);
+    const keptTwin = after.find((r) => r.id === rows[0]!.id);
+    expect(keptTwin!.retired_at).toBeNull(); // quy ước: giữ dòng ở vị trí thấp
+    const retiredTwin = after.find((r) => r.id === rows[1]!.id);
+    expect(retiredTwin!.retired_at).not.toBeNull();
   }, 180_000);
 
   it('removing a whole record retires all its lines; the record returning revives the same rows', async () => {

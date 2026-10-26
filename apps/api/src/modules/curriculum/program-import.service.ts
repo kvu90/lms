@@ -244,11 +244,20 @@ export class ProgramImportService {
       const entries = programRecordOutcomeEntries(record);
       const reg = await this.repo.getProgramRecord(def.key, record.id);
       if (reg && reg.contentHash === hash) {
-        // Đã khớp nguyên văn: không ghi gì. Trạng thái đã rút của
-        // dataset được đọc thẳng từ DB ở cuối lượt (retiredOutcomes)
-        // nên đường nhanh không cần đếm gì thêm.
-        skipped += 1;
-        continue;
+        // Đã khớp nguyên văn theo hash — nhưng phải loại trừ ca bản
+        // ghi vừa QUAY LẠI sau khi bị rút cả bản ghi: các dòng của nó
+        // đang ở trạng thái đã rút trong khi nguyên văn của chúng
+        // nằm trong dataset hiện tại; ca này phải rơi xuống nhánh
+        // diff để P4 hồi sinh đúng các dòng đó. Trạng thái ổn định
+        // (dòng đã rút vì bị bỏ khỏi dataset, nguyên văn không còn
+        // trong bản ghi) thì giữ đường nhanh bỏ qua như cũ.
+        const managed = await this.repo.listDatasetManagedOutcomes(reg.nodeId);
+        const entryTexts = new Set(entries.map((e) => e.text));
+        const revivable = managed.some((o) => o.retiredAt !== null && entryTexts.has(o.content));
+        if (!revivable) {
+          skipped += 1;
+          continue;
+        }
       }
       const sourceRef = programRecordSourceRef(record);
       if (!reg) {
