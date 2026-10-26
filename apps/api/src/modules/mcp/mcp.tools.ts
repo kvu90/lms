@@ -87,6 +87,24 @@ function errorShape(error: unknown): { code: string; message: string } {
   return { code: 'mcp.internal_error', message: error instanceof Error ? error.message : 'Internal error' };
 }
 
+/**
+ * Lỗi schema Zod của payload tạo câu: schema mới kiểm luật đáp án theo
+ * qtype ngay tại parse (multichoice đúng 4 lựa chọn + đúng một đáp án
+ * đúng, shortanswer không đáp án sai...) nên lỗi này là lỗi nghiệp vụ
+ * của payload, KHÔNG phải lỗi nội bộ — dịch sang
+ * `question.bad_answer_data` kèm fieldPath từ issue đầu tiên. Chỉ dùng
+ * ở hai đường tạo (lõi đơn + nhóm ngữ liệu); đường đọc giữ nguyên
+ * `errorShape` để lỗi parse view vẫn là lỗi nội bộ.
+ */
+function asZodIssue(error: unknown): { message: string; fieldPath: string } | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const issues = (error as { issues?: unknown }).issues;
+  if (!Array.isArray(issues) || issues.length === 0) return null;
+  const first = issues[0] as { path?: unknown; message?: unknown };
+  if (!Array.isArray(first.path) || typeof first.message !== 'string') return null;
+  return { message: first.message, fieldPath: `/${first.path.join('/')}` };
+}
+
 /** Mã lỗi nghiệp vụ của tầng service → trường payload gây lỗi, để model tự sửa đúng chỗ (research Phần 3.3). */
 const FIELDPATH_BY_CODE: Record<string, string> = {
   'question.bad_answer_data': '/answers',
@@ -410,6 +428,11 @@ async function createDraftQuestionCore(
     const parsed = createQuestionSchema.parse(serviceInput);
     view = await deps.questions.createQuestion(actor.userId, parsed);
   } catch (error) {
+    const zod = asZodIssue(error);
+    if (zod) {
+      await auditCall(deps, actor, tool, { result: 'error', code: 'question.bad_answer_data', bankId: bank.id });
+      return { kind: 'error', code: 'question.bad_answer_data', message: zod.message, fieldPath: zod.fieldPath };
+    }
     const { code, message } = errorShape(error);
     await auditCall(deps, actor, tool, { result: 'error', code, bankId: bank.id });
     return { kind: 'error', code, message, fieldPath: FIELDPATH_BY_CODE[code] };
@@ -992,6 +1015,11 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
           questions: serviceQuestions,
         });
       } catch (error) {
+        const zod = asZodIssue(error);
+        if (zod) {
+          await auditCall(deps, actor, 'create_stimulus_with_questions', { result: 'error', code: 'question.bad_answer_data', bankId });
+          return errResult('question.bad_answer_data', zod.message, zod.fieldPath);
+        }
         const { code, message } = errorShape(error);
         await auditCall(deps, actor, 'create_stimulus_with_questions', { result: 'error', code, bankId });
         return errResult(code, message, FIELDPATH_BY_CODE[code]);
