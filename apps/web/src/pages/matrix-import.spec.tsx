@@ -186,10 +186,18 @@ function renderImport(calls: RecordedCall[], previewBody: unknown, mode: ImportM
   return router;
 }
 
+/** Chờ option của một select xuất hiện rồi mới chọn — query môn/chương trình là bất đồng bộ, chọn ngay khi label vừa hiện sẽ gặp select còn rỗng. */
+async function selectWithOptions(label: string, value: string) {
+  const select = await screen.findByLabelText(label);
+  await waitFor(() =>
+    expect(select.querySelector(`option[value="${value}"]`)).not.toBeNull(),
+  );
+  await userEvent.selectOptions(select, value);
+}
+
 async function goToUploadStep() {
-  await userEvent.selectOptions(await screen.findByLabelText('Môn học'), SUBJECT_ID);
-  await waitFor(() => expect(screen.getByLabelText('Chương trình (lớp)')).not.toBeDisabled());
-  await userEvent.selectOptions(screen.getByLabelText('Chương trình (lớp)'), CURRICULUM_ID);
+  await selectWithOptions('Môn học', SUBJECT_ID);
+  await selectWithOptions('Chương trình (lớp)', CURRICULUM_ID);
   await userEvent.click(screen.getByRole('button', { name: 'Tiếp tục' }));
   expect(await screen.findByLabelText('Chọn file .xlsx đã điền')).toBeInTheDocument();
 }
@@ -213,9 +221,8 @@ describe('Matrix import wizard (I-3)', () => {
       downloadedName = this.download;
     });
     try {
-      await userEvent.selectOptions(await screen.findByLabelText('Môn học'), SUBJECT_ID);
-      await waitFor(() => expect(screen.getByLabelText('Chương trình (lớp)')).not.toBeDisabled());
-      await userEvent.selectOptions(screen.getByLabelText('Chương trình (lớp)'), CURRICULUM_ID);
+      await selectWithOptions('Môn học', SUBJECT_ID);
+      await selectWithOptions('Chương trình (lớp)', CURRICULUM_ID);
       await userEvent.click(screen.getByRole('button', { name: 'Tải file mẫu' }));
       await waitFor(() =>
         expect(calls.some((c) => c.url.startsWith('/api/v1/exam-matrices/template?') && c.url.includes('levelSet=three'))).toBe(true),
@@ -295,9 +302,12 @@ describe('Matrix import wizard (I-3)', () => {
       </TestProviders>,
     );
 
-    const checkbox = await screen.findByLabelText('Thêm mức Vận dụng cao');
-    expect((checkbox as HTMLInputElement).checked).toBe(false);
+    // Checkbox Base UI: nhãn + phần tử role=checkbox đều mang cùng
+    // chuỗi, nên chọn theo role + tên (findByLabelText gặp trùng).
+    const checkbox = await screen.findByRole('checkbox', { name: 'Thêm mức Vận dụng cao' });
+    expect(checkbox.getAttribute('aria-checked')).toBe('false');
     await userEvent.click(checkbox);
+    await waitFor(() => expect(checkbox.getAttribute('aria-checked')).toBe('true'));
     await userEvent.click(screen.getByRole('button', { name: 'Sửa ma trận' }));
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/exam-matrices/${MY_MATRIX}` && c.method === 'PATCH')).toBe(true),
