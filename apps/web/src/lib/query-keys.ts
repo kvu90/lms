@@ -14,6 +14,7 @@ export const queryKeys = {
   quizResults: (quizId: string) => ['quizzes', quizId, 'results'] as const,
   /** Gói dữ liệu trang một khoá học (thông tin/instance/ghi danh/nội dung/tiến độ — trang course). */
   coursePage: (courseId: string) => ['courses', courseId, 'page'] as const,
+  playerView: (courseId: string, cmId: string) => ['courses', courseId, 'player', cmId] as const,
   /** Thanh toán của chính người dùng (GET /payments/me). */
   myPayments: ['payments', 'me'] as const,
   /** Chi tiết một bài tập nộp tệp (trang assignment). */

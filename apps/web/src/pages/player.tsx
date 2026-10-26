@@ -5,42 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/car
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
-
-/** Một mục trong outline của player (từ progress/me). */
-interface PlayerOutlineItem {
-  cmId: string;
-  name: string;
-  component: string;
-  completion: number;
-  state: number;
-  viewed: boolean;
-  done: boolean;
-}
-
-/** Dữ liệu player từ GET /courses/:id/player/:cmId. */
-interface PlayerView {
-  course: { id: string; fullName: string; shortName: string };
-  cm: { id: string; name: string; component: string; instanceId: string | null };
-  content:
-    | { type: 'page'; page: { id: string; name: string; content: string } }
-    | {
-        type: 'resource';
-        resource: { id: string; name: string; kind: string; url: string | null; transcript: string | null };
-        file: { id: string; fileName: string; mimeType: string | null; fileSize: number; signedUrl: string } | null;
-        embedUrl: string | null;
-      }
-    | { type: 'other'; component: string };
-  completion: { state: number; viewed: boolean; mode: 'view' | 'manual' | 'progress' | 'none' };
-  itemProgress: { percent: number; positionSeconds: number | null; page: number | null } | null;
-  progress: {
-    percent: number | null;
-    completed: number;
-    total: number;
-    sections: { sectionId: string; name: string | null; section: number; percent: number | null; items: PlayerOutlineItem[] }[];
-  };
-  prevCmId: string | null;
-  nextCmId: string | null;
-}
+import { playerViewQueryOptions, usePlayerView } from '#lib/player-data';
+import { queryClient } from '#lib/query-client';
 
 /** Tải một endpoint phụ độc lập: lỗi thì trả null. */
 async function probe<T>(path: string): Promise<T | null> {
@@ -125,7 +91,13 @@ const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5, 2];
 export function PlayerPage() {
   const { t } = useTranslation('app');
   const { id, cmId } = useParams();
-  const [data, setData] = useState<PlayerView | null>(null);
+  // Dữ liệu trang qua TanStack (F-01 đợt 1): clientLoader của route đã
+  // prefetch cùng khoá trước khi mount; chờ tải đầu trên isPending của
+  // query (F-14). queryFn giữ semantics probe: lỗi tải → data null,
+  // trang báo lỗi tải như trước.
+  const viewQuery = usePlayerView(id, cmId);
+  const data = viewQuery.data ?? null;
+  const { refetch } = viewQuery;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -134,30 +106,24 @@ export function PlayerPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastProgressSentAt = useRef(0);
 
-  const load = useCallback(async () => {
-    if (!id || !cmId) return;
-    await flushEventQueue();
-    const view = await probe<PlayerView>(`/api/v1/courses/${id}/player/${cmId}`);
-    if (!view) {
-      setError(t('playerLoadFailed'));
-      return;
-    }
-    setError(null);
-    setData(view);
-    // Tự ghi nhận đã xem qua endpoint /view sẵn có — một lần cho mỗi mục.
-    if (view.completion.mode === 'view' && !view.completion.viewed && viewedPostedFor.current !== cmId) {
-      viewedPostedFor.current = cmId;
-      const sent = await postLearningEvent(`/api/v1/courses/${id}/modules/${cmId}/view`, {});
-      if (sent) {
-        const refreshed = await probe<PlayerView>(`/api/v1/courses/${id}/player/${cmId}`);
-        if (refreshed) setData(refreshed);
-      }
-    }
-  }, [id, cmId, t]);
-
+  // Gửi bù hàng đợi sự kiện học mỗi khi mở một mục (nhịp flush mà
+  // load() thủ công trước đây chạy trước khi tải dữ liệu).
   useEffect(() => {
-    void load();
-  }, [load]);
+    void flushEventQueue();
+  }, [cmId]);
+
+  // Tự ghi nhận đã xem qua endpoint /view sẵn có — một lần cho mỗi
+  // mục: dữ liệu về mà completion kiểu view và chưa xem thì gửi sự
+  // kiện, gửi thành công thì refetch để nhận trạng thái viewed mới.
+  useEffect(() => {
+    if (!data || !id || !cmId) return;
+    if (data.completion.mode !== 'view' || data.completion.viewed || viewedPostedFor.current === cmId) return;
+    viewedPostedFor.current = cmId;
+    void (async () => {
+      const sent = await postLearningEvent(`/api/v1/courses/${id}/modules/${cmId}/view`, {});
+      if (sent) void refetch();
+    })();
+  }, [data, id, cmId, refetch]);
 
   // Có mạng trở lại thì gửi bù hàng đợi sự kiện học.
   useEffect(() => {
@@ -236,7 +202,8 @@ export function PlayerPage() {
         body: JSON.stringify({ userId, complete: true }),
       });
       viewedPostedFor.current = null;
-      await load();
+      setError(null);
+      await refetch();
     } catch {
       setError(t('completionMarkFailed'));
     } finally {
@@ -244,10 +211,10 @@ export function PlayerPage() {
     }
   }
 
-  if (error && !data) {
+  if (!data && !viewQuery.isPending) {
     return (
       <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 lg:px-6">
-        <p role="alert">{error}</p>
+        <p role="alert">{t('playerLoadFailed')}</p>
         <Link to={`/courses/${id}`}>{t('playerBackToCourse')}</Link>
       </main>
     );
@@ -411,6 +378,19 @@ export function PlayerPage() {
 
 /** Route module là chính trang này (src/routes.ts trỏ thẳng vào file): cần default export để framework mode coi đây là route có component — thiếu nó, request tài liệu phía server bị xếp vào resource route và trả 400 (GĐ4 của issue #7 phát hiện khi rà SSR toàn bộ route). */
 export default PlayerPage;
+
+/**
+ * clientLoader (F-01 đợt 1 + bổ sung clientLoader, rà soát #133):
+ * prefetch query chính vào QueryClient singleton dùng chung (đúng
+ * khoá factory) trước khi component mount. prefetchQuery không ném
+ * lỗi: tải hỏng thì component tự xử lý qua useQuery như trước.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.id && params.cmId) {
+    await queryClient.prefetchQuery(playerViewQueryOptions(params.id, params.cmId));
+  }
+  return null;
+}
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
