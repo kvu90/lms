@@ -71,6 +71,24 @@ export const messageConversationMembers = pgTable(
      * số chưa đọc — đã bỏ ở issue #33.)
      */
     lastReadSeq: integer('last_read_seq').notNull().default(0),
+    /**
+     * Ba trạng thái THEO TỪNG THÀNH VIÊN trên conversation (lát M5,
+     * issue #240) — trạng thái cá nhân của dòng thành viên này, không
+     * ảnh hưởng thành viên khác:
+     * - `pinnedAt`: mốc GHIM — danh sách xếp các conversation đã ghim
+     *   lên đầu (trong nhóm ghim vẫn theo hoạt động gần nhất); null =
+     *   không ghim.
+     * - `archivedAt`: mốc LƯU TRỮ — conversation đã lưu mặc định ẩn
+     *   khỏi danh sách chính; tin mới vào conversation thì server TỰ
+     *   BỎ LƯU cho các thành viên còn lại (trừ người gửi) ngay trong
+     *   transaction gửi tin, để hội thoại hiện lại. null = không lưu.
+     * - `muted`: TẮT TIẾNG — consumer thông báo bỏ qua thành viên này
+     *   khi sinh `message_new`, và số huy hiệu điều hướng không tính
+     *   conversation này; tin vẫn tới và đọc được bình thường.
+     */
+    pinnedAt: timestamp('pinned_at', { withTimezone: true }),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    muted: boolean('muted').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

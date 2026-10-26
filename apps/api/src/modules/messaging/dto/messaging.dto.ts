@@ -4,6 +4,7 @@ import {
   createConversationSchema,
   createGroupConversationSchema,
   hardDeleteMessageSchema,
+  listConversationsQuerySchema,
   listCourseRosterQuerySchema,
   listMessagesQuerySchema,
   listNotificationGroupsQuerySchema,
@@ -16,6 +17,7 @@ import {
   setNotificationCourseOverrideSchema,
   setNotificationPreferenceSchema,
   updateConversationSchema,
+  updateConversationStateSchema,
   updateReportStatusSchema,
   type BulkRemoveMessages,
   type CreateConversation,
@@ -29,6 +31,7 @@ import {
   type SetNotificationCourseOverride,
   type SetNotificationPreference,
   type UpdateConversation,
+  type UpdateConversationState,
   type UpdateReportStatus,
 } from '@lms/contracts';
 
@@ -36,7 +39,7 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQuerySchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateReportStatusSchema };
+export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQuerySchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
@@ -44,6 +47,7 @@ export type SetPreferenceDto = SetNotificationPreference;
 export type SetCourseOverrideDto = SetNotificationCourseOverride;
 export type NotifyDto = NotifyUser;
 export type UpdateConversationDto = UpdateConversation;
+export type UpdateConversationStateDto = UpdateConversationState;
 export type ReportConversationDto = ReportConversation;
 export type UpdateReportStatusDto = UpdateReportStatus;
 export type HardDeleteMessageDto = HardDeleteMessage;
@@ -110,3 +114,14 @@ export const listNotificationItemsQueryServerSchema = listNotificationItemsQuery
 export type ListNotificationItemsQueryDto = z.infer<typeof listNotificationItemsQueryServerSchema>;
 
 export type ReadNotificationGroupDto = ReadNotificationGroup;
+
+/**
+ * Schema phía server cho query danh sách conversation (lát M5):
+ * `archived` đến từ query string — chỉ chuỗi 'true' mới mở mục đã
+ * lưu trữ, vắng mặt/'false' là danh sách chính (xem queryBooleanSchema
+ * ở trên: `z.coerce.boolean` không dùng được cho cờ này).
+ */
+export const listConversationsQueryServerSchema = listConversationsQuerySchema.extend({
+  archived: queryBooleanSchema,
+});
+export type ListConversationsQueryDto = z.infer<typeof listConversationsQueryServerSchema>;

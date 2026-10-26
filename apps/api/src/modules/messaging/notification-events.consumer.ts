@@ -512,8 +512,13 @@ export class NotificationEventsConsumer implements OnModuleInit, OnModuleDestroy
     // Membership chốt TẠI THỜI ĐIỂM XỬ LÝ (kỷ luật F1 như consumer
     // realtime): thành viên đã rời conversation không nhận thông báo.
     const memberIds = await this.repo.listMembers(message.conversationId);
+    // Lát M5 (issue #240): thành viên đã TẮT TIẾNG conversation này
+    // thì KHÔNG sinh thông báo message_new cho họ — kiểm cờ tại đây,
+    // TRƯỚC khi notify, đúng một điểm như luật tắt tiếng theo khoá.
+    const mutedMemberIds = new Set(await this.repo.listMutedMemberIds(message.conversationId));
     for (const memberId of memberIds) {
       if (memberId === message.userIdFrom) continue;
+      if (mutedMemberIds.has(memberId)) continue;
       // Người nhận đã chặn người gửi thì không bị làm phiền bởi tin
       // của người đó (gửi vốn đã bị cổng chặn; đây là lớp bảo vệ phụ
       // cho các tin phát trước khi chặn).
