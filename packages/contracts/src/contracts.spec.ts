@@ -25,6 +25,25 @@ describe('contracts', () => {
     expect(parsed.status).toBe(404);
   });
 
+  it('ProblemDetails của ghi nhập ma trận bị từ chối mang lỗi cứng định vị (I-2, #233)', () => {
+    // Luật nghiệp vụ của hình dạng: từ chối ghi phải mang đủ vị trí
+    // (sheet/dòng/cột) + mã lỗi cho từng lỗi cứng để web hiển thị lại
+    // bảng lỗi như bước xem trước — một lỗi thiếu mã là hình dạng sai.
+    const parsed = problemDetailsSchema.parse({
+      type: 'about:blank', title: 'Unprocessable Entity', status: 422, code: 'quiz.matrix_import_invalid',
+      matrixImportIssues: [
+        { sheet: 'Ma trận', row: 15, column: 'F', code: 'quiz.matrix_import_cell_value_invalid', message: 'Ô F15 phải là số nguyên ≥ 0.' },
+        { sheet: null, row: null, column: null, code: 'quiz.matrix_import_matrix_empty', message: 'Ma trận rỗng.' },
+      ],
+    });
+    expect(parsed.matrixImportIssues).toHaveLength(2);
+    expect(parsed.matrixImportIssues![0]).toMatchObject({ row: 15, column: 'F' });
+    expect(() => problemDetailsSchema.parse({
+      type: 'about:blank', title: 'Unprocessable Entity', status: 422, code: 'quiz.matrix_import_invalid',
+      matrixImportIssues: [{ sheet: 'Ma trận', row: 15, column: 'F', message: 'thiếu mã lỗi' }],
+    })).toThrow();
+  });
+
   it('rejects an invalid health payload', () => {
     expect(() => healthStatusSchema.parse({ status: 'ok' })).toThrow();
   });

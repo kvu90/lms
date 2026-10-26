@@ -1191,6 +1191,135 @@ export class QuizService {
     return this.matrixView(row);
   }
 
+  /**
+   * Chữ ký nội dung chuẩn hoá của một ma trận (dự thảo nhập hoặc bản
+   * ghi đã lưu): tên + môn + chương trình + bộ mức + tổng điểm + ghi
+   * chú phạm vi + tập ĐVK phạm vi (không thứ tự) + toàn bộ ô (không
+   * thứ tự; điểm ô làm tròn 4 chữ số thập phân như đường parse của
+   * lát I-1). Hai nội dung cho cùng một chữ ký là TRÙNG TOÀN BỘ theo
+   * nghĩa nghiệp vụ của đường nhập file — cơ sở cho chống ghi trùng
+   * của {@link createMatrixFromImport}.
+   */
+  private importedMatrixSignature(input: {
+    name: string; subjectId: string; curriculumId: string;
+    levelSet: string; totalScore: number; scopeNote: string | null;
+    scopeNodeIds: string[] | null;
+    cells: { curriculumNodeId: string; cognitiveLevel: string; qtype: string; questionCount: number; cellScore: number }[];
+  }): string {
+    const norm = (n: number) => Math.round(n * 10000) / 10000;
+    return JSON.stringify({
+      name: input.name, subjectId: input.subjectId, curriculumId: input.curriculumId,
+      levelSet: input.levelSet, totalScore: norm(input.totalScore), scopeNote: input.scopeNote,
+      scopeNodeIds: [...(input.scopeNodeIds ?? [])].sort(),
+      cells: input.cells
+        .map((c) => [c.curriculumNodeId, c.cognitiveLevel, c.qtype, c.questionCount, norm(c.cellScore)].join('|'))
+        .sort(),
+    });
+  }
+
+  /**
+   * Ghi NGUYÊN TỬ một ma trận từ kết quả parse HỢP LỆ của đường nhập
+   * file (lát I-2, issue #233) — đầu ghi duy nhất của luồng nhập:
+   *
+   * 1. Đối chiếu cặp môn/chương trình như {@link createMatrix}; cổng
+   *    `quiz:managematrix` tại context môn đã được chạy lại ở bước
+   *    parse của chính request ghi (MatrixImportService.previewImport)
+   *    nên tới đây người gọi đã có quyền tạo ma trận tại môn đó.
+   * 2. Bank đích = bank ma trận CÁ NHÂN của người nhập (tạo lười như
+   *    đường copy mẫu); quyền ghi tại bank chốt bằng bộ quyền
+   *    bank-local như nhánh gắn bank của createMatrix; `tenant_id`
+   *    của ma trận suy từ bank (schema đã chốt: tenant suy từ bank
+   *    chủ). Ma trận vào bank ở trạng thái `draft`, không phải mẫu —
+   *    cùng vị thế với ma trận tạo tay, muốn lên bank chung phải đi
+   *    đường copy/đóng góp hiện có.
+   * 3. CHỐNG GHI TRÙNG: đối chiếu chữ ký nội dung với các ma trận
+   *    chính người nhập đã có trong bank đích — trùng toàn bộ thì trả
+   *    ngay ma trận đã có, KHÔNG tạo bản thứ hai (gửi lại cùng một
+   *    file do double submit/retry không nhân đôi dữ liệu). Phạm vi
+   *    không đổi schema nên không có khoá duy nhất ở DB: hai request
+   *    trùng chạy ĐỒNG THỜI tuyệt đối vẫn là cửa sổ đua lý thuyết —
+   *    ghi nhận thẳng, xử lý khi có quyết định đổi schema riêng.
+   * 4. Ghi ma trận + toàn bộ ô trong MỘT transaction: bất kỳ lỗi nào
+   *    giữa chừng (khoá ngoại, ràng buộc duy nhất của ô, check của
+   *    DB) đều rollback toàn bộ — không để lại ma trận mồ côi hay ô
+   *    ghi dở. Sự kiện outbox `exam_matrix_created` phát SAU khi
+   *    transaction đã commit, như createMatrix.
+   *
+   * @param actorId - Người nhập (chủ bank đích).
+   * @param input - Dự thảo đã parse hợp lệ: thông tin chung + phạm vi
+   *   (ĐVK theo thứ tự hàng trong file) + các ô kèm `position` = số
+   *   thứ tự hàng của ĐVK trong file (hồ sơ import: position của ô là
+   *   STT của hàng).
+   * @returns View ma trận (mới tạo, hoặc bản đã có khi trùng nội dung).
+   * @throws BadRequestException khi chương trình không thuộc môn.
+   * @throws ForbiddenException khi người nhập không có quyền phụ
+   *   trách bank cá nhân của mình (bộ quyền bank-local).
+   */
+  async createMatrixFromImport(actorId: string, input: {
+    name: string; subjectId: string; curriculumId: string;
+    levelSet: 'three' | 'four'; totalScore: number; scopeNote: string | null;
+    scopeNodeIds: string[];
+    cells: { curriculumNodeId: string; cognitiveLevel: string; qtype: string; questionCount: number; cellScore: number; position: number }[];
+  }): Promise<ExamMatrixView> {
+    const subject = await this.curriculum.getSubject(actorId, input.subjectId);
+    const curriculum = await this.curriculum.getCurriculum(actorId, input.curriculumId);
+    if (curriculum.subjectId !== subject.id) {
+      throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
+    }
+    const bank = await this.banks.ensurePersonalBank(actorId, 'matrix');
+    await this.banks.syncBankMembership(bank);
+    const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+    if (!caps.manage) {
+      throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+    }
+    // Bước chống ghi trùng: chỉ đối chiếu ma trận của CHÍNH người
+    // nhập trong bank đích có cùng định danh thô (tên/môn/chương
+    // trình) rồi mới so chữ ký đầy đủ kèm ô — tránh nạp ô của mọi ma
+    // trận trong bank.
+    const signature = this.importedMatrixSignature(input);
+    const candidates = (await this.repo.listMatricesByBank(bank.id))
+      .filter((r) => r.createdBy === actorId && r.name === input.name
+        && r.subjectId === subject.id && r.curriculumId === curriculum.id);
+    for (const candidate of candidates) {
+      const existingCells = await this.repo.listMatrixCells(candidate.id);
+      if (this.importedMatrixSignature({ ...candidate, cells: existingCells }) === signature) {
+        return this.matrixView(candidate);
+      }
+    }
+    // Khuôn ma trận duy nhất là CV 7991 như createMatrix: tỉ lệ tham
+    // chiếu chụp từ hằng cấu hình của preset duy nhất còn hiệu lực.
+    const preset = MATRIX_PRESETS['cv7991_periodic'];
+    const row = await this.repo.dbHandle.transaction(async (tx) => {
+      const matrix = await this.repo.insertMatrix({
+        tenantId: bank.tenantId,
+        name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
+        contextId: subject.contextId, presetKind: 'cv7991_periodic',
+        targetFormPercents: preset?.targetFormPercents ?? null,
+        targetLevelPercents: preset?.targetLevelPercents ?? null,
+        levelSet: input.levelSet,
+        scopeNote: input.scopeNote,
+        scopeNodeIds: input.scopeNodeIds,
+        totalScore: input.totalScore,
+        createdBy: actorId,
+        bankId: bank.id,
+        status: 'draft',
+        isTemplate: false,
+        derivedFromMatrixId: null,
+      }, tx);
+      for (const cell of input.cells) {
+        await this.repo.insertMatrixCell({
+          matrixId: matrix.id, curriculumNodeId: cell.curriculumNodeId,
+          cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
+          questionCount: cell.questionCount, cellScore: cell.cellScore,
+          minutes: null, tfScale: null, position: cell.position,
+        }, tx);
+      }
+      return matrix;
+    });
+    await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_created', payload: { matrixId: row.id, subjectId: subject.id, actorId } });
+    return this.matrixView(row);
+  }
+
   /** Đọc một ma trận kèm ô và cảnh báo lệch tỉ lệ (quiz:viewmatrix). */
   async getMatrix(actorId: string, matrixId: string): Promise<ExamMatrixView> {
     const row = await this.getMatrixRow(matrixId);
