@@ -13,6 +13,7 @@ import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 import {
+  downloadMatrixSpecification,
   useAddMatrixCell,
   useCurriculaBySubject,
   useCurriculumSubjects,
@@ -21,7 +22,9 @@ import {
   useMatrixAvailability,
   useMatrixBanks,
   useMatrixDetail,
+  useMatrixSpecification,
   useUpdateMatrix,
+  type SpecificationOutcomeLite,
 } from '#lib/matrix-data';
 import { usePermissions } from '#lib/permissions';
 import {
@@ -35,6 +38,19 @@ import {
  * của tôi" ở trang ngân hàng) chỉ có nút Thêm mới và Sửa/Xoá tại dòng.
  * Ma trận tạo từ đây luôn thuộc bank ma trận CÁ NHÂN của giáo viên
  * (bank_id gửi kèm; API gác quyền phụ trách tại chính bank đó).
+ *
+ * Flow tổng thể của file: route module prefetch dữ liệu nền qua các
+ * queryOptions của `lib/matrix-data.ts` → trang đọc lại bằng cùng
+ * khoá qua hooks (chi tiết ma trận là query chính; cây chương trình +
+ * khả dụng kho câu là query phụ) → form sửa gửi qua các mutation của
+ * cùng module dữ liệu, mutation thành công thì invalidate để trang
+ * nạp lại trạng thái mới.
+ *
+ * Mục BẢN ĐẶC TẢ (SPEC-1, issue #233) ở cuối trang sửa: dữ liệu vào là
+ * view model đặc tả do API SUY RA từ các ô của ma trận → trang chỉ
+ * trình bày (bảng phẳng một dòng = một ô, cột YCCĐ lấy từ ĐVK của ô)
+ * và xuất file qua endpoint export sẵn có; trang KHÔNG có thao tác
+ * nhập/sửa đặc tả vì đặc tả không phải dữ liệu nhập riêng.
  */
 
 const SELECT_CLASS = 'h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs';
@@ -47,6 +63,37 @@ function flattenNodes(nodes: CurriculumTreeNode[], depth = 0): { id: string; tit
     out.push(...flattenNodes(node.children ?? [], depth + 1));
   }
   return out;
+}
+
+/**
+ * Suy mã vị trí hiển thị của một YCCĐ trong bản đặc tả.
+ *
+ * Mã chuẩn theo sổ quyết định mục B là `<mã bản ghi>.<số thứ tự 2 chữ
+ * số>` (vd `TOAN-0001.02`; bản derived là `<mã gốc>/<mức>`). API đặc
+ * tả hiện chưa trả position/mã bản ghi riêng cho từng YCCĐ nên hàm
+ * này suy từ dữ kiện có sẵn, theo các bước: (1) trích mã bản ghi từ
+ * đuôi `sourceRef` (dạng "… — bản ghi <mã>"); (2) đếm thứ tự của YCCĐ
+ * trong nhóm anh em CÙNG bản ghi và không phải derived — API trả danh
+ * sách YCCĐ của node theo position tăng dần nên thứ tự đếm khớp
+ * position của bản ghi trong trường hợp dữ liệu chương trình chuẩn.
+ *
+ * Bất biến/ràng buộc: YCCĐ derived trả null (mã của nó phải suy từ
+ * YCCĐ gốc + mức, API chưa cho biết liên kết gốc ở bề mặt này); YCCĐ
+ * không có `sourceRef` truy được mã bản ghi cũng trả null — thà
+ * không hiện tiền tố còn hơn hiện mã đoán sai.
+ *
+ * @param outcome - YCCĐ cần suy mã.
+ * @param siblings - Toàn bộ YCCĐ của cùng ĐVK, theo đúng thứ tự API trả.
+ * @returns Mã vị trí dạng tiền tố, hoặc null khi không suy được.
+ */
+function outcomeCodePrefix(outcome: SpecificationOutcomeLite, siblings: SpecificationOutcomeLite[]): string | null {
+  const recordId = outcome.sourceRef?.match(/bản ghi\s+(\S+)\s*$/)?.[1];
+  if (!recordId || outcome.sourceKind === 'derived') return null;
+  const ordinal =
+    siblings
+      .filter((s) => s.sourceKind !== 'derived' && s.sourceRef?.match(/bản ghi\s+(\S+)\s*$/)?.[1] === recordId)
+      .findIndex((s) => s.outcomeId === outcome.outcomeId) + 1;
+  return ordinal > 0 ? `${recordId}.${String(ordinal).padStart(2, '0')}` : null;
 }
 
 /** Màn tạo ma trận mới trong bank ma trận cá nhân (route /matrices/new). */
@@ -244,6 +291,32 @@ export function MatrixEditPage() {
   const addCellMutation = useAddMatrixCell();
   const deleteCellMutation = useDeleteMatrixCell();
 
+  // Bản đặc tả (SPEC-1, issue #233): mục riêng trong trang sửa ma trận,
+  // chỉ tải khi giáo viên mở xem — đặc tả là bảng SUY RA từ các ô nên
+  // luôn khớp trạng thái ma trận hiện tại, không có thao tác sửa ở đây.
+  const [specOpen, setSpecOpen] = useState(false);
+  const specQuery = useMatrixSpecification(matrixId, canLoad && !!matrix && specOpen);
+  const spec = specQuery.data ?? null;
+
+  /**
+   * Xuất bản đặc tả của ma trận đang sửa ra file và tải về máy.
+   *
+   * Flow: uỷ thác toàn bộ lượt tải cho `downloadMatrixSpecification`
+   * (tầng dữ liệu lo endpoint + tên file của server); lỗi HTTP thì
+   * bắt tại đây và báo lên banner của trang kèm lý do API, theo đúng
+   * khuôn báo lỗi của các thao tác khác trong trang.
+   *
+   * @param format - 'xlsx' cho bản Excel, 'docx' cho bản Word.
+   */
+  async function exportSpec(format: 'xlsx' | 'docx') {
+    if (!matrix) return;
+    try {
+      await downloadMatrixSpecification(matrix.id, format);
+    } catch (err) {
+      setMessage(withApiReason(t('specExportFailed'), err));
+    }
+  }
+
   // Nạp hỏng chi tiết: báo lỗi tải như nhịp loadMatrix thủ công cũ.
   useEffect(() => {
     if (detailQuery.isError) setMessage(t('matrixLoadFailed'));
@@ -310,6 +383,14 @@ export function MatrixEditPage() {
       </PageShell>
     );
   }
+
+  // Các dòng phẳng của bản đặc tả: một dòng = một ô ma trận, STT chạy
+  // toàn bảng như bản xuất xlsx/docx.
+  const specRows = spec
+    ? spec.topics.flatMap((topic) =>
+        topic.nodes.flatMap((node) => node.cells.map((cell) => ({ topic, node, cell }))),
+      )
+    : [];
 
   const nodeLabel = (id: string) => nodes.find((n) => n.id === id)?.title ?? id.slice(0, 8);
   const availabilityOf = (cellId: string) => availability?.cells.find((c) => c.cellId === cellId);
@@ -456,6 +537,122 @@ export function MatrixEditPage() {
                 {t('matrixAddCell')}
               </Button>
             </form>
+          </div>
+
+          {/*
+            Mục BẢN ĐẶC TẢ (SPEC-1): ba trạng thái hiển thị theo nhịp
+            tải lười — chưa mở thì chỉ có nút Xem + hai nút xuất (xuất
+            không cần mở xem vì endpoint export tự dựng lại đặc tả ở
+            server); đang tải thì khung xương; lỗi thì banner tại chỗ;
+            có dữ liệu thì bảng phẳng + dòng tổng. Ma trận chưa có ô
+            nào thì API trả topics rỗng → hiện câu trạng thái rỗng
+            thay cho bảng.
+          */}
+          <div className="space-y-3">
+            <h3 className="font-medium">{t('specSectionTitle')}</h3>
+            <p className="text-sm text-muted-foreground">{t('specSectionHint')}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" onClick={() => setSpecOpen((open) => !open)}>
+                {specOpen ? t('specHide') : t('specView')}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void exportSpec('xlsx')}>
+                {t('specExportExcel')}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => void exportSpec('docx')}>
+                {t('specExportWord')}
+              </Button>
+            </div>
+            {specOpen ? (
+              specQuery.isPending ? (
+                <div className="space-y-2" aria-label={t('loading')}>
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              ) : specQuery.isError ? (
+                <Alert>
+                  <AlertDescription>{t('specLoadFailed')}</AlertDescription>
+                </Alert>
+              ) : spec ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">{spec.purpose}</p>
+                  {spec.topics.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t('specEmpty')}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left">
+                            <th className="p-2">{t('specIndex')}</th>
+                            <th className="p-2">{t('specTopic')}</th>
+                            <th className="p-2">{t('matrixCellNode')}</th>
+                            <th className="p-2">{t('specOutcome')}</th>
+                            <th className="p-2">{t('matrixCellLevel')}</th>
+                            <th className="p-2">{t('matrixCellQtype')}</th>
+                            <th className="p-2">{t('matrixCellCount')}</th>
+                            <th className="p-2">{t('specScore')}</th>
+                            <th className="p-2">{t('specSlot')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {specRows.map(({ topic, node, cell }, rowIndex) => (
+                                <tr key={cell.cellId} className="border-b align-top">
+                                  <td className="p-2">{rowIndex + 1}</td>
+                                  <td className="p-2">{topic.topicTitle}</td>
+                                  <td className="p-2">{node.nodeTitle}</td>
+                                  {/* Cột YCCĐ đọc từ NODE chứ không từ ô: mọi ô của cùng một ĐVK dùng chung danh sách YCCĐ của ĐVK đó (mô hình #249). */}
+                                  <td className="p-2">
+                                    {node.outcomes.length === 0 ? (
+                                      <span className="text-muted-foreground">—</span>
+                                    ) : (
+                                      <ul className="flex flex-col gap-1">
+                                        {node.outcomes.map((outcome) => {
+                                          const code = outcomeCodePrefix(outcome, node.outcomes);
+                                          return (
+                                            <li key={outcome.outcomeId}>
+                                              {code ? (
+                                                <span className="mr-1 text-xs font-medium text-muted-foreground">{code}</span>
+                                              ) : null}
+                                              <span>{outcome.programContent ?? outcome.content}</span>
+                                              {outcome.derivedContent ? (
+                                                <span className="block text-xs text-muted-foreground">
+                                                  {t('specDerivedNote', { content: outcome.derivedContent })}
+                                                </span>
+                                              ) : null}
+                                            </li>
+                                          );
+                                        })}
+                                      </ul>
+                                    )}
+                                  </td>
+                                  <td className="p-2">
+                                    {t(LEVEL_LABEL_KEYS[cell.cognitiveLevel as (typeof COGNITIVE_LEVELS)[number]] ?? 'levelBiet')}
+                                  </td>
+                                  <td className="p-2">
+                                    {t(QTYPE_LABEL_KEYS[cell.qtype as (typeof QTYPES)[number]] ?? 'qtypeMultichoice')}
+                                  </td>
+                                  {/* Số câu theo đúng cách đếm của bản xuất: câu Đúng–Sai chùm tính 4 ý. */}
+                                  <td className="p-2">{cell.qtype === 'truefalse' ? cell.questionCount * 4 : cell.questionCount}</td>
+                                  <td className="p-2">{cell.cellScore}</td>
+                                  {/* Số thứ tự câu chỉ có khi đặc tả dựng theo một lần ghim cụ thể; đặc tả theo ma trận thuần luôn vắng → hiện ghi chú rút (nếu có) hoặc dấu —. */}
+                                  <td className="p-2">
+                                    {cell.slotNumbers && cell.slotNumbers.length
+                                      ? cell.drawNote
+                                        ? `${cell.drawNote} (${t('dossierSpecSlots', { slots: cell.slotNumbers.join(', ') })})`
+                                        : cell.slotNumbers.join(', ')
+                                      : (cell.drawNote ?? '—')}
+                                  </td>
+                                </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="text-sm font-medium">
+                    {t('dossierSpecTotals', { count: spec.totals.totalQuestions, score: spec.totals.totalScore })}
+                  </p>
+                </div>
+              ) : null
+            ) : null}
           </div>
         </CardContent>
       </Card>

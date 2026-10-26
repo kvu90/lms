@@ -163,6 +163,58 @@ function stubFetchEdit(calls: RecordedCall[]) {
       if (url === `/api/v1/exam-matrices/${MY_MATRIX}/cells` && method === 'POST') {
         return respond({ id: `${MY_MATRIX}-cell-new` });
       }
+      if (url === `/api/v1/exam-matrices/${MY_MATRIX}/specification`) {
+        // Bản đặc tả SUY RA: hai ô ở hai ĐVK khác nhau; cột YCCĐ của mỗi
+        // ô = mọi YCCĐ thuộc ĐVK của ô đó (ô không neo YCCĐ — #249).
+        const outcome = (id: string, content: string, record: string) => ({
+          outcomeId: id, content, sourceKind: 'program',
+          sourceRef: `Thông tư 32/2018/TT-BGDĐT — chuong-trinh.pdf, trang 5 — bản ghi ${record}`,
+          programContent: content, derivedContent: null,
+        });
+        return respond({
+          matrix: { id: MY_MATRIX, name: 'Ma trận ôn tập của tôi', totalScore: 6, levelSet: 'three' },
+          subject: { id: SUBJECT_ID, name: 'Toán học' },
+          curriculum: { id: CURRICULUM_ID, grade: 9 },
+          purpose: 'Đề kiểm tra định kỳ môn Toán học theo Công văn 7991.',
+          topics: [{
+            topicId: TOPIC_NODE_ID, topicTitle: 'Chủ đề 1: Số tự nhiên',
+            nodes: [
+              {
+                nodeId: LEAF_NODE_ID, nodeTitle: 'Phép cộng',
+                outcomes: [
+                  outcome('oc-1', 'Nhận biết được phép cộng trong phạm vi 10.', 'TOAN-0001'),
+                  outcome('oc-2', 'Thực hiện được phép cộng trong phạm vi 10.', 'TOAN-0001'),
+                ],
+                cells: [{
+                  cellId: 'cell-spec-1', cognitiveLevel: 'biet', qtype: 'multichoice',
+                  questionCount: 2, cellScore: 2, minutes: null, slotNumbers: null, drawNote: null,
+                }],
+              },
+              {
+                nodeId: '01900000-0000-7000-8000-000000000133', nodeTitle: 'Phép trừ',
+                outcomes: [outcome('oc-3', 'Nhận biết được phép trừ trong phạm vi 10.', 'TOAN-0002')],
+                cells: [{
+                  cellId: 'cell-spec-2', cognitiveLevel: 'hieu', qtype: 'truefalse',
+                  questionCount: 1, cellScore: 4, minutes: null, slotNumbers: null, drawNote: null,
+                }],
+              },
+            ],
+          }],
+          totals: { totalQuestions: 6, totalScore: 6 },
+        });
+      }
+      if (url === `/api/v1/exam-matrices/${MY_MATRIX}/specification/export?format=xlsx`) {
+        // Bản xuất thật là file nhị phân (xlsx là zip, mở đầu "PK") kèm
+        // Content-Disposition mang tên file server đặt — ca test xuất
+        // đặc tả khẳng định web giữ đúng tên này khi tải về.
+        return new Response(new Blob(['PK']), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': 'attachment; filename="ban-dac-ta-01900000.xlsx"',
+          },
+        });
+      }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -290,5 +342,67 @@ describe('Matrix bank UI (MB-1)', () => {
       cellScore: 1,
     });
     expect(addCall?.body).not.toHaveProperty('learningOutcomeId');
+  });
+
+  it('màn sửa ma trận: xem bản đặc tả thấy YCCĐ đúng ĐVK của từng ô (kèm mã vị trí) và xuất Excel gọi đúng endpoint, giữ tên file server trả', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchEdit(calls);
+    let downloadedName: string | null = null;
+    const originalCreateObjectURL = URL.createObjectURL;
+    URL.createObjectURL = vi.fn(() => 'blob:spec-export');
+    URL.revokeObjectURL = vi.fn();
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      downloadedName = this.download;
+    });
+    try {
+      const router = createMemoryRouter(
+        [{ path: '/matrices/:matrixId/edit', element: <MatrixEditPage /> }],
+        { initialEntries: [`/matrices/${MY_MATRIX}/edit`] },
+      );
+      render(
+        <TestProviders>
+          <RouterProvider router={router} />
+        </TestProviders>,
+      );
+
+      // Đặc tả chỉ tải khi giáo viên mở mục Bản đặc tả ở trang ma trận.
+      await screen.findByLabelText('Đơn vị kiến thức');
+      expect(calls.some((c) => c.url === `/api/v1/exam-matrices/${MY_MATRIX}/specification`)).toBe(false);
+      await userEvent.click(screen.getByRole('button', { name: 'Xem bản đặc tả' }));
+      await waitFor(() =>
+        expect(calls.some((c) => c.url === `/api/v1/exam-matrices/${MY_MATRIX}/specification` && c.method === 'GET')).toBe(true),
+      );
+
+      // Dòng của ô "Phép cộng" mang đúng hai YCCĐ thuộc ĐVK Phép cộng
+      // (kèm mã vị trí tiền tố), KHÔNG lẫn YCCĐ của ĐVK Phép trừ.
+      const addRow = (await screen.findByText('Phép cộng')).closest('tr');
+      expect(addRow?.textContent).toContain('Nhận biết được phép cộng trong phạm vi 10.');
+      expect(addRow?.textContent).toContain('Thực hiện được phép cộng trong phạm vi 10.');
+      expect(addRow?.textContent).toContain('TOAN-0001.01');
+      expect(addRow?.textContent).toContain('TOAN-0001.02');
+      expect(addRow?.textContent).not.toContain('phép trừ');
+      expect(addRow?.textContent).toContain('Biết');
+      expect(addRow?.textContent).toContain('Trắc nghiệm');
+
+      const subRow = screen.getByText('Phép trừ').closest('tr');
+      expect(subRow?.textContent).toContain('Nhận biết được phép trừ trong phạm vi 10.');
+      expect(subRow?.textContent).toContain('TOAN-0002.01');
+      // Câu Đúng–Sai chùm: 1 ô × 4 ý như cách đếm của bản xuất.
+      expect(subRow?.textContent).toContain('4');
+      expect(await screen.findByText('Tổng: 6 câu · 6 điểm')).toBeInTheDocument();
+
+      // Xuất bản đặc tả: gọi đúng endpoint export xlsx và tải file với
+      // đúng tên server trả trong Content-Disposition.
+      await userEvent.click(screen.getByRole('button', { name: 'Xuất Excel' }));
+      await waitFor(() =>
+        expect(
+          calls.some((c) => c.url === `/api/v1/exam-matrices/${MY_MATRIX}/specification/export?format=xlsx` && c.method === 'GET'),
+        ).toBe(true),
+      );
+      await waitFor(() => expect(downloadedName).toBe('ban-dac-ta-01900000.xlsx'));
+    } finally {
+      clickSpy.mockRestore();
+      URL.createObjectURL = originalCreateObjectURL;
+    }
   });
 });
