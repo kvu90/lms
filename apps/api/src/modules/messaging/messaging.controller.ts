@@ -380,10 +380,11 @@ export class NotificationsController {
   /**
    * GET /notifications/unread-count/stream — stream SSE số chưa đọc của
    * chính user: sự kiện `unread-count` đầu tiên là số hiện tại, các sự
-   * kiện sau đẩy mỗi khi số thay đổi; heartbeat giữ kết nối. EventSource
-   * không đặt được header Authorization nên riêng route này JWT strategy
-   * nhận thêm access token qua query `access_token` (xem strategies.ts
-   * của module auth) — Bearer header vẫn được ưu tiên khi có.
+   * kiện sau đẩy mỗi khi số thay đổi; heartbeat giữ kết nối. Xác thực
+   * qua chuỗi guard như mọi route (GĐ5, issue #7): cookie phiên Better
+   * Auth (EventSource cùng nguồn tự gửi kèm) hoặc Bearer header.
+   * Ngoại lệ token-qua-query `access_token` cho route này ĐÃ GỠ ở
+   * GĐ5 — token trong URL không còn được chấp nhận ở đâu cả.
    */
   unreadCountStream(@CurrentUser() actor: AuthenticatedUser): Observable<MessageEvent> {
     return this.messaging.unreadCountStream(actor.id);

@@ -10,9 +10,10 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
  *  - có thông báo mới → server đẩy số tăng qua Redis pub/sub;
  *  - đánh dấu đã đọc / đọc tất cả → server đẩy số giảm;
  *  - stream của user khác không nhận sự kiện của user này;
- *  - xác thực: access token qua query `access_token` (EventSource không
- *    đặt được header) hoặc Bearer header như mọi route khác; thiếu
- *    token thì 401.
+ *  - xác thực: Bearer header như mọi route khác, hoặc cookie phiên
+ *    Better Auth qua chuỗi guard (GĐ5, issue #7). Ngoại lệ token qua
+ *    query `access_token` cho route stream ĐÃ GỠ ở GĐ5 — token trong
+ *    URL bị từ chối 401 ở mọi route; thiếu token thì 401.
  */
 
 interface StreamEvent { type: string; data: unknown }
@@ -130,14 +131,14 @@ describe('Notification unread count SSE stream', () => {
     return res.body.notificationId as string;
   }
 
-  it('mở stream bằng query token: sự kiện đầu tiên là snapshot số hiện tại (0)', async () => {
-    streamA = await openStream(`${base}/api/v1/notifications/unread-count/stream?access_token=${encodeURIComponent(tokenA)}`);
+  it('mở stream bằng Bearer header: sự kiện đầu tiên là snapshot số hiện tại (0)', async () => {
+    streamA = await openStream(`${base}/api/v1/notifications/unread-count/stream`, { Authorization: `Bearer ${tokenA}` });
     await streamA.waitForUnread(0);
     expect(streamA.unreadEvents()[0]).toBe(0);
   });
 
   it('thông báo mới cho A: stream của A đẩy số tăng, stream của B không đổi', async () => {
-    streamB = await openStream(`${base}/api/v1/notifications/unread-count/stream?access_token=${encodeURIComponent(tokenB)}`);
+    streamB = await openStream(`${base}/api/v1/notifications/unread-count/stream`, { Authorization: `Bearer ${tokenB}` });
     await streamB.waitForUnread(0);
 
     await sendNotificationTo(userA.id, 'Huy hiệu cho A');
@@ -173,6 +174,12 @@ describe('Notification unread count SSE stream', () => {
     const stream = await openStream(`${base}/api/v1/notifications/unread-count/stream`, { Authorization: `Bearer ${tokenB}` });
     await stream.waitForUnread(0);
     stream.close();
+  });
+
+  it('query token KHÔNG còn được chấp nhận ở route stream (GĐ5 gỡ ngoại lệ)', async () => {
+    const res = await fetch(`${base}/api/v1/notifications/unread-count/stream?access_token=${encodeURIComponent(tokenA)}`);
+    expect(res.status).toBe(401);
+    await res.text().catch(() => undefined);
   });
 
   it('thiếu token thì stream bị từ chối 401', async () => {
