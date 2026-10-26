@@ -7,6 +7,7 @@ import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { BadgesPage } from './badges';
 import { NotificationsPage } from './notifications';
+import { SettingsNotificationsPage } from './settings-notifications';
 
 /**
  * Engagement web tests (Testing Library): the two DoD-adjacent behaviours —
@@ -39,52 +40,33 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
   );
 }
 
-describe('Notifications page', () => {
+describe('Settings — notification preferences (moved off the centre page, #288)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
   });
 
-  // Hình dạng thật của GET /messages/preferences ở mô hình v2 (NB-2):
-  // MỘT dòng cho mỗi provider, nhãn/mô tả vi/en từ registry ở API,
-  // popup bật/tắt + tần suất email; không còn trục loggedin/loggedoff,
-  // không có kênh push.
+  // Hình dạng thật của GET /messages/preferences ở mô hình v2 (NB-2 +
+  // trường siteEnabled của NB-7): MỘT dòng cho mỗi provider, nhãn/mô
+  // tả vi/en từ registry ở API, popup bật/tắt + tần suất email; không
+  // còn trục loggedin/loggedoff, không có kênh push. Từ #288 các dòng
+  // này sống ở lớp 2 "Tuỳ chỉnh từng loại" của /settings/notifications
+  // — ba ca dưới đây là ca gốc của trang /notifications cũ, chuyển
+  // nguyên ý đồ sang bề mặt mới.
   const PREF_ROW = {
     provider: 'badge_awarded', component: 'core_badges', group: 'people',
     label: { vi: 'Huy hiệu mới', en: 'New badge' },
     description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
     teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false,
+    siteEnabled: true,
   };
   const PREF_ROWS = [PREF_ROW];
-  // Hình dạng thật của GET /notifications ở trung tâm v2 (issue #51):
-  // phong bì { items: [dòng GỘP], nextCursor } thay cho mảng phẳng cũ.
-  const NOTIFICATION_PAGE = {
-    items: [
-      {
-        eventType: 'badge_awarded',
-        component: 'core_badges',
-        group: 'people',
-        contextUrl: null,
-        day: '2026-10-22',
-        count: 1,
-        unreadCount: 1,
-        latest: {
-          id: '01900000-0000-7000-8000-000000000001',
-          subject: 'Badge awarded',
-          smallMessage: 'You earned Finisher',
-          contextUrlName: null,
-          createdAt: '2026-10-22T00:00:00.000Z',
-          timeRead: null,
-        },
-      },
-    ],
-    nextCursor: null,
-  };
 
-  // Trang v2 dùng useNavigate (deep-link theo contextUrl) nên render
-  // qua memory router như test Badges ở dưới.
-  function renderNotificationsPage() {
-    const router = createMemoryRouter([{ path: '/notifications', element: <NotificationsPage /> }], { initialEntries: ['/notifications'] });
+  function renderSettingsPage() {
+    const router = createMemoryRouter(
+      [{ path: '/settings/notifications', element: <SettingsNotificationsPage /> }],
+      { initialEntries: ['/settings/notifications'] },
+    );
     render(
       <TestProviders>
         <RouterProvider router={router} />
@@ -93,10 +75,14 @@ describe('Notifications page', () => {
     return router;
   }
 
+  /** Mở lớp 2 "Tuỳ chỉnh từng loại" — các dòng theo provider chỉ dựng khi mục này mở. */
+  async function openCustomize() {
+    await userEvent.click(await screen.findByText('Tuỳ chỉnh từng loại'));
+  }
+
   it('renders the v2 provider row with its registry label and PUTs exactly the popup patch', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
-      if (url.startsWith('/api/v1/notifications?')) return NOTIFICATION_PAGE;
       if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
         const body = JSON.parse(String(init.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
         puts.push(body);
@@ -108,10 +94,10 @@ describe('Notifications page', () => {
       if (url === '/api/v1/messages/preferences/courses') return { courses: [] };
       return undefined;
     });
-    renderNotificationsPage();
-    await waitFor(() => expect(screen.getByText('Badge awarded')).toBeInTheDocument());
+    renderSettingsPage();
+    await openCustomize();
     // Nhãn hiển thị là nhãn registry (vi), không còn khoá thô nào.
-    expect(screen.getByText('Huy hiệu mới')).toBeInTheDocument();
+    expect(await screen.findByText('Huy hiệu mới')).toBeInTheDocument();
     expect(screen.queryByText('badge_awarded')).not.toBeInTheDocument();
     expect(screen.queryByText(/loggedin|loggedoff/)).not.toBeInTheDocument();
     const toggle = screen.getByLabelText('Huy hiệu mới — Trong ứng dụng');
@@ -125,7 +111,6 @@ describe('Notifications page', () => {
   it('changing the email frequency PUTs that patch only, and the unavailable-channel note is shown', async () => {
     const puts: unknown[] = [];
     stubFetch((url, init) => {
-      if (url.startsWith('/api/v1/notifications?')) return NOTIFICATION_PAGE;
       if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
         const body = JSON.parse(String(init.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
         puts.push(body);
@@ -136,7 +121,8 @@ describe('Notifications page', () => {
       if (url === '/api/v1/messages/preferences/courses') return { courses: [] };
       return undefined;
     });
-    renderNotificationsPage();
+    renderSettingsPage();
+    await openCustomize();
     const select = await screen.findByLabelText('Huy hiệu mới — Email');
     expect(select).toHaveValue('immediate');
     // Trung thực kênh: email chưa gửi thật thì phải có ghi chú, và
@@ -153,8 +139,6 @@ describe('Notifications page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
-        if (url.startsWith('/api/v1/notifications?'))
-          return new Response(JSON.stringify(NOTIFICATION_PAGE), { status: 200, headers: { 'Content-Type': 'application/json' } });
         if (url === '/api/v1/messages/preferences' && init?.method === 'PUT')
           return new Response(
             JSON.stringify({ type: 'about:blank', title: 'Bad Request', status: 400, code: 'messaging.unknown_provider' }),
@@ -169,7 +153,8 @@ describe('Notifications page', () => {
         return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
       }),
     );
-    renderNotificationsPage();
+    renderSettingsPage();
+    await openCustomize();
     const toggle = await screen.findByLabelText('Huy hiệu mới — Trong ứng dụng');
     expect(toggle).toBeChecked();
     await userEvent.click(toggle);
