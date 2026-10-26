@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, MatrixImportCellAvailability, PaperSlotLayout, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, MatrixImportCellAvailability, PaperSlotLayout, QuestionSolution, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import { extractRichTextPlainText } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -204,8 +205,25 @@ export interface QuizAttemptQuestionView {
   questionAttemptId: string;
   questionId: string;
   qtype: string;
-  name: string;
+  /** Trích đoạn nội dung thân câu (text thuần, cắt 120 ký tự) — câu hỏi không có trường tên (quyết 12:04 ngày 26/10/2026) nên bề mặt cần nhãn hiển thị dùng trích đoạn này. */
+  questionExcerpt: string;
   questionText: RichTextDocument;
+  /**
+   * Hướng dẫn (guidance) của version đã pin — hiện KÈM câu hỏi ngay
+   * trong lúc làm bài như khối "Hướng dẫn" của loigiaihay (điểm quyết
+   * D-4): KHÔNG qua cổng xem lại; chỉ vắng khi version không có hướng
+   * dẫn. Hướng dẫn ≠ lời giải: nó gợi ý cách làm, không chứa đáp án.
+   */
+  guidance: RichTextDocument | null;
+  /**
+   * Lời giải/đáp án đúng dạng cấu trúc của version đã pin, suy từ phía
+   * đáp án: multichoice/truefalse = `{correctAnswerId}` của dòng đáp
+   * án đúng; shortanswer = `{acceptedAnswers}` các đáp án được chấp
+   * nhận; essay = lời giải mẫu `{answer}` lưu ở bản ghi phía đáp án.
+   * Chỉ lộ khi cổng `reviewRightAnswer` của lần ghim cho phép tại cửa
+   * sổ hiện tại — cùng cổng với `rightAnswer` dạng chữ.
+   */
+  solution: QuestionSolution | null;
   stimulus: { id: string; content: RichTextDocument } | null;
   answers: { id: string; text: RichTextDocument }[];
   options: Record<string, unknown> | null;
@@ -2463,10 +2481,17 @@ export class QuizService {
       let stimulus: QuizAttemptQuestionView['stimulus'] = qv.stimulus ? { id: qv.stimulus.id, content: qv.stimulus.content as RichTextDocument } : null;
       let feedbackByAnswerId = new Map(qv.answers.map((x) => [x.id, (x.feedback ?? null) as RichTextDocument | null]));
       let generalFeedback = (qv.latestVersion.generalFeedback ?? null) as RichTextDocument | null;
+      // Phía đáp án của version đang dùng cho câu này (guidance +
+      // solution lưu trữ): mặc định lấy của version mới nhất, có
+      // version đã pin thì lấy đúng của version đã pin.
+      let pinnedAnswers = qv.answers;
+      let answerKey = qv.answerKey;
       if (a.questionVersionId) {
         const pinned = await this.questions.getVersionContent(a.questionId, a.questionVersionId);
         questionText = pinned.version.questionText as RichTextDocument;
         answers = pinned.answers.map((x) => ({ id: x.id, text: x.answer as RichTextDocument }));
+        pinnedAnswers = pinned.answers;
+        answerKey = pinned.answerKey;
         options = pinned.options;
         feedbackByAnswerId = new Map(pinned.answers.map((x) => [x.id, (x.feedback ?? null) as RichTextDocument | null]));
         generalFeedback = (pinned.version.generalFeedback ?? null) as RichTextDocument | null;
@@ -2485,14 +2510,36 @@ export class QuizService {
         .sort((x, y) => x.sequenceNumber - y.sequenceNumber)
         .reverse()
         .find((s) => s.data.gradedBy != null && typeof s.data.comment === 'string' && s.data.comment !== '');
+      // Solution HIỂN THỊ suy từ phía đáp án của version: đáp án đúng
+      // của multichoice/truefalse/shortanswer nằm ở cờ isCorrect của
+      // các dòng answers; riêng essay lời giải mẫu nằm ở bản ghi phía
+      // đáp án. Chỉ tính khi cổng reviewRightAnswer mở — cổng đóng thì
+      // trường này null, dữ liệu đáp án đúng không rời server.
+      let solution: QuestionSolution | null = null;
+      if (aspectOn(quiz.reviewRightAnswer)) {
+        if (qv.question.qtype === 'essay') {
+          solution = (answerKey.solution as QuestionSolution | null) ?? null;
+        } else if (qv.question.qtype === 'shortanswer') {
+          const accepted = pinnedAnswers.filter((x) => x.isCorrect)
+            .map((x) => extractRichTextPlainText(x.answer as RichTextDocument).trim())
+            .filter((x) => x !== '');
+          solution = accepted.length ? { acceptedAnswers: accepted } : null;
+        } else {
+          const correctRow = pinnedAnswers.find((x) => x.isCorrect);
+          solution = correctRow ? { correctAnswerId: correctRow.id } : null;
+        }
+      }
+      const excerptText = extractRichTextPlainText(questionText).trim();
       questions.push({
         slot: a.slot,
         page: pageBySlot.get(a.slot) ?? 1,
         questionAttemptId: a.id,
         questionId: a.questionId,
         qtype: qv.question.qtype,
-        name: qv.question.name,
+        questionExcerpt: excerptText.length > 120 ? `${excerptText.slice(0, 120)}…` : excerptText,
         questionText,
+        guidance: (answerKey.guidance ?? null) as RichTextDocument | null,
+        solution,
         stimulus,
         answers,
         options,
@@ -2526,6 +2573,13 @@ export class QuizService {
       if (q.stimulus) q.stimulus = { ...q.stimulus, content: await this.files.resolveQuestionImageUrls(q.stimulus.content) };
       q.feedback = await this.files.resolveQuestionImageUrls(q.feedback);
       q.generalFeedback = await this.files.resolveQuestionImageUrls(q.generalFeedback);
+      // Hướng dẫn hiện kèm câu hỏi cho chính người làm bài này nên ảnh
+      // nhúng trong đó cũng phải được phát URL ký theo cùng cổng của
+      // attempt; lời giải mẫu của essay (biến thể {answer}) cũng vậy.
+      q.guidance = await this.files.resolveQuestionImageUrls(q.guidance);
+      if (q.solution && 'answer' in q.solution) {
+        q.solution = { answer: await this.files.resolveQuestionImageUrls(q.solution.answer) };
+      }
     }
     const { pendingManual } = this.syncFromUsage(usage, quiz, slots);
     // Tầng feedback thứ tư: nhận xét tổng quát theo dải % điểm.
@@ -2936,7 +2990,10 @@ export class QuizService {
       if (questionId) {
         if (!questionNameById.has(questionId)) {
           const view = await this.questions.getQuestion(questionId).catch(() => undefined);
-          questionNameById.set(questionId, view?.question.name ?? '');
+          // Câu hỏi không còn trường tên: nhãn của câu trong thống kê
+          // là trích đoạn nội dung thân câu của version mới nhất.
+          const text = view ? extractRichTextPlainText(view.latestVersion.questionText as RichTextDocument).trim() : '';
+          questionNameById.set(questionId, text.length > 120 ? `${text.slice(0, 120)}…` : text);
         }
         questionName = questionNameById.get(questionId) || null;
       }

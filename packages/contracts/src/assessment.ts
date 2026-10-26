@@ -761,6 +761,71 @@ export const quizAttemptSummarySchema = z.object({
 });
 export type QuizAttemptSummary = z.infer<typeof quizAttemptSummarySchema>;
 
+/**
+ * Một câu trong lượt làm quiz như học sinh/người xem lại nhận được:
+ * nội dung của version ĐÃ PIN trong lần ghim. Hai trường phía đáp án
+ * theo mô hình giaokhoa (đợt port #248, lát P3):
+ * - `guidance` (hướng dẫn) hiện KÈM câu hỏi ngay trong lúc làm — điểm
+ *   quyết D-4 — nên KHÔNG qua cổng xem lại nào;
+ * - `solution` (lời giải/đáp án đúng dạng cấu trúc, xem
+ *   `questionSolutionSchema`) chỉ có mặt khi cổng `reviewRightAnswer`
+ *   của lần ghim cho phép tại cửa sổ xem lại hiện tại; cổng đóng thì
+ *   trường này là `null` và dữ liệu đáp án đúng không rời server. Các
+ *   khía cạnh xem lại còn lại giữ cổng riêng như cũ: `rightAnswer`
+ *   dạng chữ cùng cổng với `solution`, `feedback` theo cổng
+ *   reviewSpecificFeedback, `generalFeedback` theo cổng
+ *   reviewGeneralFeedback — khối "Lời giải" ở bề mặt học sinh là hợp
+ *   của generalFeedback + feedback của đáp án đã chọn + solution.
+ * Câu hỏi không có tên: `questionExcerpt` là trích đoạn nội dung thân
+ * câu cho các bề mặt cần nhãn hiển thị.
+ * Schema view này (như mọi view schema khác của contracts) KHÔNG
+ * strict: nó mô tả hình dạng API TRẢ VỀ do chính service dựng, trường
+ * lạ bị loại khi parse thay vì báo lỗi.
+ */
+export const quizAttemptQuestionViewSchema = z.object({
+  slot: z.number().int(),
+  page: z.number().int(),
+  questionAttemptId: uuidIdSchema,
+  questionId: uuidIdSchema,
+  qtype: z.string(),
+  questionExcerpt: z.string(),
+  questionText: richTextDocumentSchema,
+  guidance: richTextDocumentSchema.nullable(),
+  solution: questionSolutionSchema.nullable(),
+  stimulus: z.object({ id: uuidIdSchema, content: richTextDocumentSchema }).nullable(),
+  answers: z.array(z.object({ id: uuidIdSchema, text: richTextDocumentSchema })),
+  options: questionOptionsViewSchema,
+  maxMark: z.number(),
+  state: z.string(),
+  response: z.string().nullable(),
+  fraction: z.number().nullable(),
+  mark: z.number().nullable(),
+  rightAnswer: z.string().nullable(),
+  feedback: richTextDocumentSchema.nullable(),
+  generalFeedback: richTextDocumentSchema.nullable(),
+  manualComment: z.string().nullable(),
+  cluster: z.object({
+    correctCount: z.number().int(),
+    totalCount: z.number().int(),
+    percent: z.number(),
+    mark: z.number().nullable(),
+    summary: z.string(),
+  }).nullable(),
+});
+export type QuizAttemptQuestionView = z.infer<typeof quizAttemptQuestionViewSchema>;
+
+/** View đầy đủ của một lượt làm quiz: tóm tắt lượt + cấu hình lần ghim + từng câu (đã nhóm theo trang qua trường `page`). */
+export const quizAttemptViewSchema = z.object({
+  attempt: quizAttemptSummarySchema,
+  quiz: quizViewSchema,
+  questions: z.array(quizAttemptQuestionViewSchema),
+  totalMax: z.number(),
+  pendingManualCount: z.number().int(),
+  closedDueToTimeLimit: z.boolean(),
+  overallFeedback: z.string().nullable(),
+});
+export type QuizAttemptView = z.infer<typeof quizAttemptViewSchema>;
+
 /** Các trường quy tắc thi dùng chung cho tạo/sửa quiz (Chặng 2): mật khẩu dạng rõ ở biên API, tầng nghiệp vụ băm trước khi lưu. */
 const pinAccessRuleFields = {
   /** Mật khẩu vào thi; `null` = gỡ mật khẩu (khi sửa) / không đặt (khi tạo). */

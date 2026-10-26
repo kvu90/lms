@@ -6,26 +6,23 @@ import { ContextsService } from '../access/contexts.service';
 import { FilesService } from '../files/files.service';
 import { BEHAVIOURS, canTransition, gradedStateForFraction, usageState, type GradingData, type QuestionState } from './domain/question-engine';
 import {
-  QuestionsRepository, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
+  QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
   type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
 } from './questions.repository';
 
-/** Một đáp án trong payload cấu trúc theo qtype (đầu vào của API). */
+/** Một đáp án trong payload cấu trúc theo qtype (đầu vào của API): cờ `correct` đúng/sai NHỊ PHÂN — tỉ trọng fraction đã bỏ hẳn (quyết 12:04 ngày 26/10/2026). */
 export interface QuestionAnswerInput {
   text: RichTextInput;
-  fraction: number;
+  correct?: boolean;
   feedback?: RichTextInput;
 }
 
 /** Options trong payload theo qtype — mỗi qtype chỉ dùng phần trường của nó (service kiểm chứng). */
 export interface QuestionOptionsInput {
-  single?: boolean;
   shuffleAnswers?: boolean;
   answerNumbering?: string;
-  showNumCorrect?: boolean;
   showStandardInstruction?: boolean;
   correctFeedback?: RichTextInput;
-  partiallyCorrectFeedback?: RichTextInput;
   incorrectFeedback?: RichTextInput;
   useCase?: boolean;
   numericAnswer?: boolean;
@@ -45,14 +42,15 @@ export interface QuestionOptionsInput {
 export interface QuestionContentInput {
   questionText?: RichTextInput;
   generalFeedback?: RichTextInput;
+  /** Hướng dẫn (guidance) — ghi vào bản ghi phía đáp án `question_answer_keys` của version, KHÔNG còn nằm trên dòng version (quyết 12:12 ngày 26/10/2026). */
   guidance?: RichTextInput;
   defaultMark?: number;
   penalty?: number;
   stimulusId?: string | null;
   answers?: QuestionAnswerInput[];
   options?: QuestionOptionsInput;
-  /** Dạng payload cũ (truefalse {correct}; shortanswer {answers, casesensitive?}) — vẫn nhận và ánh xạ sang answers/options. */
-  answer?: Record<string, unknown>;
+  /** Lời giải mẫu do người soạn gửi lên — đợt port này chỉ essay dùng; tầng nghiệp vụ ghi vào `question_answer_keys.solution` dạng `{answer}`. */
+  solution?: { answer: RichTextInput };
 }
 
 export interface QuestionView {
@@ -60,6 +58,8 @@ export interface QuestionView {
   entry: EntryRow;
   latestVersion: VersionRow;
   answers: AnswerRow[];
+  /** Bản ghi phía đáp án của version (guidance + solution); luôn có mặt ở view — version không có dòng `question_answer_keys` thì cả hai trường đều null. */
+  answerKey: { guidance: unknown; solution: unknown };
   options: Record<string, unknown> | null;
   stimulus: StimulusRow | null;
 }
@@ -83,15 +83,16 @@ export type SupportedQtype = (typeof SUPPORTED_QTYPES)[number];
 
 /** Nội dung đã chuẩn hoá, sẵn sàng ghi xuống question_answers + bảng options. */
 interface NormalisedContent {
-  answers: { answer: RichTextDocument; fraction: number; feedback: RichTextDocument | null }[];
-  multichoice?: { single: boolean; shuffleAnswers: boolean; answerNumbering: string; correctFeedback: RichTextDocument | null; partiallyCorrectFeedback: RichTextDocument | null; incorrectFeedback: RichTextDocument | null; showNumCorrect: boolean; showStandardInstruction: boolean };
-  truefalseCorrect?: boolean;
+  answers: { answer: RichTextDocument; isCorrect: boolean; feedback: RichTextDocument | null }[];
+  multichoice?: { shuffleAnswers: boolean; answerNumbering: string; correctFeedback: RichTextDocument | null; incorrectFeedback: RichTextDocument | null; showStandardInstruction: boolean };
+  /** Vị trí (index trong `answers`) của dòng phía Đúng — đường ghi options truefalse trỏ trueAnswer vào dòng này. */
+  truefalseTrueIndex?: number;
   truefalseShowStandardInstruction?: boolean;
   shortanswer?: { useCase: boolean; numericAnswer: boolean; numericMaxLength: number | null; numericAllowSign: boolean; numericAllowDecimal: boolean };
   essay?: { responseFormat: string; responseRequired: boolean; responseFieldLines: number; minWordLimit: number | null; maxWordLimit: number | null; graderInfo: RichTextDocument | null; responseTemplate: RichTextDocument | null };
+  /** Nội dung phía đáp án ghi vào `question_answer_keys` cùng giao dịch với version: guidance (mọi qtype) + solution (chỉ essay ở đợt này, dạng `{answer}`). Cả hai null thì không chèn dòng nào. */
+  answerKey: { guidance: RichTextDocument | null; solution: { answer: RichTextDocument } | null };
 }
-
-const FRACTION_SUM_TOLERANCE = 0.000001;
 
 /** Bóc lỗi vi phạm unique của PostgreSQL (23505) dù Drizzle có bọc qua cause hay không. */
 function isUniqueViolation(err: unknown): boolean {
@@ -115,11 +116,14 @@ function badAnswerData(message: string): BadRequestException {
  * entry's latest pointer; usages created later resolve the new version,
  * attempts already started keep theirs.
  *
- * Content storage mirrors Moodle: answers live in question_answers
- * (fraction + per-answer feedback), options in the per-qtype table, and
- * questionText/generalFeedback are Tiptap documents on the version row.
- * The API accepts ONE structured payload per qtype; the service spreads
- * it into those tables when saving.
+ * Lưu trữ nội dung theo mô hình giaokhoa (quyết 12:04 + 12:12 ngày
+ * 26/10/2026): đáp án nằm ở question_answers (cờ `isCorrect` nhị phân +
+ * feedback theo đáp án — KHÔNG còn tỉ trọng), options ở bảng riêng của
+ * qtype, questionText/generalFeedback là tài liệu Tiptap trên dòng
+ * version, còn guidance + solution nằm ở bản ghi phía đáp án
+ * `question_answer_keys` (1-1 với version, cùng giao dịch ghi). Câu hỏi
+ * KHÔNG có tên — nhãn hiển thị là trích đoạn nội dung. API nhận MỘT
+ * payload cấu trúc theo qtype; service bung payload ra các bảng khi lưu.
  *
  * Engine invariants (questionusagebyactivity_test): a usage groups attempts
  * per (component, instanceId); starting an attempt PINS the current latest
@@ -427,19 +431,38 @@ export class QuestionsService {
   }
 
   /**
-   * Chuẩn hoá phần đáp án/options của payload thành nội dung ghi xuống bảng.
-   * Kiểm chứng theo ngữ nghĩa qtype chuẩn Moodle:
-   *  - multichoice: ít nhất 2 lựa chọn; tổng fraction dương phải bằng 1
-   *    (quy tắc của form multichoice của Moodle: tổng tỷ trọng đúng = 100%).
-   *  - truefalse: đáp án đúng/sai suy từ payload cũ {correct} — hai dòng
-   *    'True'/'False' với fraction 1 ở phía đúng, 0 ở phía sai.
-   *  - shortanswer: ít nhất 1 đáp án mẫu; fraction trong [0, 1]; useCase
-   *    lấy từ options hoặc từ trường casesensitive của payload cũ.
-   *  - essay: không có đáp án; options mang cấu hình trả lời + graderInfo
-   *    + responseTemplate; giới hạn từ phải hợp lệ (min ≤ max).
+   * Chuẩn hoá phần đáp án/options của payload thành nội dung ghi xuống
+   * bảng, theo luật mô hình giaokhoa (quyết 12:04 + các điểm quyết D
+   * ngày 26/10/2026 — cùng luật mà `createQuestionSchema` của contracts
+   * kiểm ở cửa HTTP; service kiểm LẠI ở đây vì các đường nội bộ (MCP,
+   * nhân bản) không đi qua schema HTTP):
+   *  - multichoice: đúng 4 lựa chọn (D-3) và đúng MỘT đáp án đúng.
+   *  - truefalse: đúng 2 phía và đúng MỘT phía đúng, truyền qua chính
+   *    danh sách `answers` — KHÔNG còn đường `answer.correct` cấp câu.
+   *    Dòng phía Đúng được nhận diện bằng nhãn text của nó ("Đúng" /
+   *    "True"); không nhận diện được thì lấy dòng đầu tiên là phía Đúng.
+   *  - shortanswer: ít nhất 1 đáp án được chấp nhận; MỌI dòng liệt kê
+   *    đều là đáp án được chấp nhận (dòng `correct: false` bị từ chối —
+   *    đáp án sai không có chỗ trong danh sách này).
+   *  - essay: không có dòng đáp án; options mang cấu hình trả lời +
+   *    graderInfo + responseTemplate; giới hạn từ phải hợp lệ
+   *    (min ≤ max). Lời giải mẫu đi qua `solution.answer`.
+   * guidance đi vào `answerKey` (bản ghi phía đáp án) cho MỌI qtype.
+   *
+   * @param qtype - dạng câu đã qua `assertSupportedQtype`.
+   * @param input - payload cấu trúc của người soạn.
+   * @returns Nội dung đã chuẩn hoá, sẵn sàng cho `writeVersionContent`.
+   * @throws BadRequestException `question.bad_answer_data` khi phần đáp
+   *   án/options vi phạm luật của qtype.
    */
   private normaliseContent(qtype: SupportedQtype, input: QuestionContentInput): NormalisedContent {
     const options = input.options ?? {};
+    const answerKey: NormalisedContent['answerKey'] = {
+      guidance: this.docOrNull(input.guidance),
+      solution: qtype === 'essay' && input.solution !== undefined
+        ? { answer: toRichTextDocument(input.solution.answer) }
+        : null,
+    };
     if (qtype === 'essay') {
       if (input.answers && input.answers.length > 0) throw badAnswerData('essay questions do not carry answers; the response is graded manually');
       const min = options.minWordLimit ?? null;
@@ -455,93 +478,91 @@ export class QuestionsService {
           graderInfo: this.docOrNull(options.graderInfo),
           responseTemplate: this.docOrNull(options.responseTemplate),
         },
+        answerKey,
       };
     }
-    if (qtype === 'truefalse') {
-      const correct = input.answer?.correct;
-      if (typeof correct !== 'boolean') throw badAnswerData('truefalse requires answer data {correct: boolean}');
-      return {
-        answers: [
-          { answer: toRichTextDocument('True'), fraction: correct ? 1 : 0, feedback: null },
-          { answer: toRichTextDocument('False'), fraction: correct ? 0 : 1, feedback: null },
-        ],
-        truefalseCorrect: correct,
-        truefalseShowStandardInstruction: options.showStandardInstruction ?? true,
-      };
-    }
-    // multichoice / shortanswer dùng danh sách answers — từ payload cấu trúc
-    // mới hoặc ánh xạ từ payload cũ của shortanswer.
-    let rawAnswers: QuestionAnswerInput[] | undefined = input.answers;
-    let useCase = options.useCase ?? false;
-    if (!rawAnswers && qtype === 'shortanswer' && input.answer) {
-      const legacy = input.answer.answers;
-      if (!Array.isArray(legacy) || legacy.length === 0) throw badAnswerData('shortanswer answer data requires {answers: string[]}');
-      rawAnswers = legacy.map((text) => ({ text: String(text), fraction: 1 }));
-      useCase = input.answer.casesensitive === true;
-    }
+    const rawAnswers = input.answers;
     if (!rawAnswers || rawAnswers.length === 0) {
       throw badAnswerData(`${qtype} requires at least one answer in the structured answers list`);
     }
     const answers = rawAnswers.map((a) => ({
       answer: toRichTextDocument(a.text),
-      fraction: a.fraction,
+      isCorrect: a.correct === true,
       feedback: a.feedback === undefined ? null : toRichTextDocument(a.feedback),
     }));
+    const correctCount = answers.filter((a) => a.isCorrect).length;
+    if (qtype === 'truefalse') {
+      if (answers.length !== 2) throw badAnswerData('truefalse requires exactly two answers (the True and False sides)');
+      if (correctCount !== 1) throw badAnswerData('truefalse requires exactly one correct side');
+      // Nhận diện dòng phía Đúng bằng nhãn text thuần của đáp án (mẫu
+      // seed dùng "Đúng"/"Sai", mẫu Moodle dùng "True"/"False") — đường
+      // ghi options truefalse cần biết dòng nào là phía Đúng để trỏ
+      // trueAnswer/falseAnswer; học sinh chọn phía nào thì engine so
+      // phía đó với phía mang isCorrect. Không dòng nào mang nhãn Đúng
+      // thì quy ước dòng đầu tiên là phía Đúng (thứ tự soạn chuẩn).
+      const trueIndex = answers.findIndex(
+        (a) => ['đúng', 'true'].includes(extractRichTextPlainText(a.answer).trim().toLowerCase()),
+      );
+      return {
+        answers,
+        truefalseTrueIndex: trueIndex >= 0 ? trueIndex : 0,
+        truefalseShowStandardInstruction: options.showStandardInstruction ?? true,
+        answerKey,
+      };
+    }
     if (qtype === 'shortanswer') {
-      for (const a of answers) {
-        if (!(a.fraction >= 0 && a.fraction <= 1)) throw badAnswerData('shortanswer answer fractions must be within [0, 1]');
+      if (answers.some((a) => !a.isCorrect)) {
+        throw badAnswerData('shortanswer answers are all accepted answers; a listed answer cannot be marked incorrect');
       }
-      if (!answers.some((a) => a.fraction > 0)) throw badAnswerData('shortanswer requires at least one answer with a positive fraction');
       return {
         answers,
         shortanswer: {
-          useCase,
+          useCase: options.useCase ?? false,
           numericAnswer: options.numericAnswer ?? false,
           numericMaxLength: options.numericMaxLength ?? null,
           numericAllowSign: options.numericAllowSign ?? true,
           numericAllowDecimal: options.numericAllowDecimal ?? true,
         },
+        answerKey,
       };
     }
     // multichoice
-    if (answers.length < 2) throw badAnswerData('multichoice requires at least two choices');
-    for (const a of answers) {
-      if (!(a.fraction >= -1 && a.fraction <= 1)) throw badAnswerData('multichoice answer fractions must be within [-1, 1]');
-    }
-    const positiveSum = answers.filter((a) => a.fraction > 0).reduce((sum, a) => sum + a.fraction, 0);
-    if (Math.abs(positiveSum - 1) > FRACTION_SUM_TOLERANCE) {
-      throw badAnswerData('multichoice positive fractions must add up to 1 (100%)');
-    }
+    if (answers.length !== 4) throw badAnswerData('multichoice requires exactly four choices');
+    if (correctCount !== 1) throw badAnswerData('multichoice requires exactly one correct answer');
     return {
       answers,
       multichoice: {
-        single: options.single ?? true,
         shuffleAnswers: options.shuffleAnswers ?? false,
         answerNumbering: options.answerNumbering ?? 'abc',
         correctFeedback: this.docOrNull(options.correctFeedback),
-        partiallyCorrectFeedback: this.docOrNull(options.partiallyCorrectFeedback),
         incorrectFeedback: this.docOrNull(options.incorrectFeedback),
-        showNumCorrect: options.showNumCorrect ?? false,
         showStandardInstruction: options.showStandardInstruction ?? true,
       },
+      answerKey,
     };
   }
 
-  /** Ghi answers + options của một version trong cùng giao dịch tạo version. */
+  /**
+   * Ghi answers + options + bản ghi phía đáp án của một version trong
+   * cùng giao dịch tạo version. Bản ghi phía đáp án
+   * (`question_answer_keys`) chỉ được chèn khi có guidance hoặc
+   * solution — version không có dòng nào thì phía đọc quy về cả hai
+   * null (xem `answerKeyOf`).
+   */
   private async writeVersionContent(tx: DbTx, qtype: SupportedQtype, versionId: string, content: NormalisedContent): Promise<void> {
     const inserted: AnswerRow[] = [];
     for (const [index, a] of content.answers.entries()) {
       inserted.push(await this.repo.insertAnswer({
-        questionVersionId: versionId, answer: a.answer as never, fraction: a.fraction,
+        questionVersionId: versionId, answer: a.answer as never, isCorrect: a.isCorrect,
         feedback: a.feedback as never, sortOrder: index,
       }, tx));
     }
     if (content.multichoice) {
       await this.repo.insertMultichoiceOptions({ questionVersionId: versionId, ...content.multichoice } as never, tx);
     }
-    if (content.truefalseCorrect !== undefined) {
-      const trueRow = inserted[0]!;
-      const falseRow = inserted[1]!;
+    if (content.truefalseTrueIndex !== undefined) {
+      const trueRow = inserted[content.truefalseTrueIndex]!;
+      const falseRow = inserted[1 - content.truefalseTrueIndex]!;
       await this.repo.insertTruefalseOptions({
         questionVersionId: versionId, trueAnswer: trueRow.id, falseAnswer: falseRow.id,
         showStandardInstruction: content.truefalseShowStandardInstruction ?? true,
@@ -557,15 +578,28 @@ export class QuestionsService {
     if (content.essay) {
       await this.repo.insertEssayOptions({ questionVersionId: versionId, ...content.essay } as never, tx);
     }
+    if (content.answerKey.guidance !== null || content.answerKey.solution !== null) {
+      await this.repo.insertAnswerKey({
+        questionVersionId: versionId,
+        guidance: content.answerKey.guidance as never,
+        solution: content.answerKey.solution as never,
+      }, tx);
+    }
   }
 
-  /** Nhân bản answers + options của một version sang version khác (khi sửa câu hỏi mà không đổi phần đáp án). */
-  private async cloneVersionContent(tx: DbTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string): Promise<void> {
+  /**
+   * Nhân bản answers + options + bản ghi phía đáp án của một version
+   * sang version khác (khi sửa câu hỏi mà không đổi phần đáp án, và khi
+   * deep copy câu hỏi giữa các bank): nội dung phía đáp án (guidance +
+   * solution) đi cùng answers/options như một khối — bản copy thiếu
+   * guidance/solution của bản gốc là mất dữ liệu.
+   */
+  private async cloneVersionContent(tx: DbTx, qtype: SupportedQtype, fromVersionId: string, toVersionId: string, skipAnswerKey = false): Promise<void> {
     const answers = await this.repo.listAnswers(fromVersionId);
     const idMap = new Map<string, string>();
     for (const a of answers) {
       const row = await this.repo.insertAnswer({
-        questionVersionId: toVersionId, answer: a.answer as never, fraction: a.fraction,
+        questionVersionId: toVersionId, answer: a.answer as never, isCorrect: a.isCorrect,
         feedback: a.feedback as never, sortOrder: a.sortOrder,
       }, tx);
       idMap.set(a.id, row.id);
@@ -573,10 +607,10 @@ export class QuestionsService {
     if (qtype === 'multichoice') {
       const o = await this.repo.getMultichoiceOptions(fromVersionId);
       if (o) await this.repo.insertMultichoiceOptions({
-        questionVersionId: toVersionId, single: o.single, shuffleAnswers: o.shuffleAnswers,
+        questionVersionId: toVersionId, shuffleAnswers: o.shuffleAnswers,
         answerNumbering: o.answerNumbering, correctFeedback: o.correctFeedback as never,
-        partiallyCorrectFeedback: o.partiallyCorrectFeedback as never, incorrectFeedback: o.incorrectFeedback as never,
-        showNumCorrect: o.showNumCorrect, showStandardInstruction: o.showStandardInstruction,
+        incorrectFeedback: o.incorrectFeedback as never,
+        showStandardInstruction: o.showStandardInstruction,
       }, tx);
     } else if (qtype === 'truefalse') {
       const o = await this.repo.getTruefalseOptions(fromVersionId);
@@ -599,6 +633,14 @@ export class QuestionsService {
         graderInfo: o.graderInfo as never, responseTemplate: o.responseTemplate as never,
       }, tx);
     }
+    if (!skipAnswerKey) {
+      const key = await this.repo.getAnswerKey(fromVersionId);
+      if (key) {
+        await this.repo.insertAnswerKey({
+          questionVersionId: toVersionId, guidance: key.guidance as never, solution: key.solution as never,
+        }, tx);
+      }
+    }
   }
 
   /**
@@ -616,9 +658,8 @@ export class QuestionsService {
       const o = await this.repo.getMultichoiceOptions(versionId);
       if (!o) return null;
       return {
-        single: o.single, shuffleAnswers: o.shuffleAnswers, answerNumbering: o.answerNumbering,
-        correctFeedback: o.correctFeedback, partiallyCorrectFeedback: o.partiallyCorrectFeedback,
-        incorrectFeedback: o.incorrectFeedback, showNumCorrect: o.showNumCorrect,
+        shuffleAnswers: o.shuffleAnswers, answerNumbering: o.answerNumbering,
+        correctFeedback: o.correctFeedback, incorrectFeedback: o.incorrectFeedback,
         showStandardInstruction: o.showStandardInstruction,
       };
     }
@@ -648,12 +689,24 @@ export class QuestionsService {
     return null;
   }
 
-  /** Lắp view đầy đủ của một version: answers, options và stimulus đã gắn. */
+  /**
+   * Bản ghi phía đáp án của một version dưới dạng view: version không
+   * có dòng `question_answer_keys` (không guidance, không solution)
+   * thì trả cả hai null — view LUÔN mang trường `answerKey` để bề mặt
+   * tiêu thụ không phải phân biệt "không có dòng" với "có dòng rỗng".
+   */
+  async answerKeyOf(versionId: string): Promise<{ guidance: unknown; solution: unknown }> {
+    const key: AnswerKeyRow | undefined = await this.repo.getAnswerKey(versionId);
+    return { guidance: key?.guidance ?? null, solution: key?.solution ?? null };
+  }
+
+  /** Lắp view đầy đủ của một version: answers, bản ghi phía đáp án, options và stimulus đã gắn. */
   private async assembleView(question: QuestionRow, entry: EntryRow, version: VersionRow): Promise<QuestionView> {
     const answers = await this.repo.listAnswers(version.id);
+    const answerKey = await this.answerKeyOf(version.id);
     const options = await this.optionsView(question.qtype, version.id);
     const stimulus = version.stimulusId ? (await this.repo.getStimulus(version.stimulusId)) ?? null : null;
-    return { question, entry, latestVersion: version, answers, options, stimulus };
+    return { question, entry, latestVersion: version, answers, answerKey, options, stimulus };
   }
 
   /** Kiểm chứng stimulus được gắn: phải tồn tại và cùng category với câu hỏi (phạm vi chia sẻ). */
@@ -681,12 +734,12 @@ export class QuestionsService {
     tx: DbTx,
     actorId: string,
     category: QCategoryRow,
-    input: { qtype: string; name: string; sourceKind?: string; sourceRef?: string } & QuestionContentInput,
+    input: { qtype: string; sourceKind?: string; sourceRef?: string } & QuestionContentInput,
     content: NormalisedContent,
     stimulusId: string | null,
   ): Promise<{ q: QuestionRow; entry: EntryRow; version: VersionRow }> {
     const q = await this.repo.insertQuestion({
-      category: category.id, qtype: input.qtype, name: input.name, createdBy: actorId, modifiedBy: actorId,
+      category: category.id, qtype: input.qtype, createdBy: actorId, modifiedBy: actorId,
       sourceKind: input.sourceKind ?? 'manual', sourceRef: input.sourceRef ?? null,
     }, tx);
     const entry = await this.repo.insertEntry({ questionCategoryId: category.id, questionId: q.id, latestVersion: 1 }, tx);
@@ -694,7 +747,6 @@ export class QuestionsService {
       questionBankEntryId: entry.id, questionId: q.id, version: 1,
       questionText: toRichTextDocument(input.questionText ?? '') as never,
       generalFeedback: this.docOrNull(input.generalFeedback) as never,
-      guidance: this.docOrNull(input.guidance) as never,
       defaultMark: input.defaultMark ?? 1, penalty: input.penalty ?? 0,
       stimulusId,
     }, tx);
@@ -707,7 +759,7 @@ export class QuestionsService {
    * bung ra question_answers + bảng options của qtype trong cùng giao dịch.
    */
   async createQuestion(actorId: string, input: {
-    categoryId: string; qtype: string; name: string;
+    categoryId: string; qtype: string;
     /** Nguồn ngoài hệ thống (truy vết nội bộ); vắng thì mặc định 'manual' — giáo viên tự soạn. */
     sourceKind?: string; sourceRef?: string;
   } & QuestionContentInput): Promise<QuestionView> {
@@ -742,7 +794,7 @@ export class QuestionsService {
       categoryId: string;
       content: RichTextInput;
       questions: ({
-        qtype: string; name: string;
+        qtype: string;
         sourceKind?: string; sourceRef?: string;
       } & QuestionContentInput)[];
     },
@@ -828,10 +880,22 @@ export class QuestionsService {
       answer: await this.files.resolveQuestionImageUrls(a.answer),
       feedback: await this.files.resolveQuestionImageUrls(a.feedback),
     })));
+    // Guidance + lời giải mẫu của essay cũng là tài liệu rich text có
+    // thể nhúng ảnh — phát URL ký cùng cổng đọc với thân câu (guidance
+    // hiện cho học sinh lúc làm bài qua attempt view, cổng của nó nằm ở
+    // bề mặt quiz; ở đây mới chỉ là đường đọc ngân hàng có cổng
+    // question:useall).
+    const guidance = await this.files.resolveQuestionImageUrls(view.answerKey.guidance as never);
+    let solution: unknown = view.answerKey.solution;
+    const solutionAnswer = (solution as { answer?: unknown } | null)?.answer;
+    if (solutionAnswer !== undefined) {
+      solution = { ...(solution as Record<string, unknown>), answer: await this.files.resolveQuestionImageUrls(solutionAnswer as never) };
+    }
     return {
       ...view,
       latestVersion: { ...view.latestVersion, questionText, generalFeedback },
       answers,
+      answerKey: { guidance, solution },
       stimulus: view.stimulus && stimulusContent ? { ...view.stimulus, content: stimulusContent } : view.stimulus,
     };
   }
@@ -844,7 +908,14 @@ export class QuestionsService {
   /**
    * Nội dung một version cụ thể (answers + options) — dùng cho hiển thị và kiểm chứng theo version.
    */
-  async getVersionContent(questionId: string, versionId: string): Promise<{ version: VersionRow; answers: AnswerRow[]; options: Record<string, unknown> | null }> {
+  /**
+   * Nội dung một version CỤ THỂ (answers + options + bản ghi phía đáp
+   * án) — bề mặt quiz dựng attempt view từ version ĐÃ PIN bằng hàm
+   * này: guidance của bản ghi phía đáp án hiện kèm câu hỏi trong lúc
+   * làm (điểm quyết D-4), solution chỉ lộ theo cổng xem lại của lần
+   * ghim ở tầng quiz.
+   */
+  async getVersionContent(questionId: string, versionId: string): Promise<{ version: VersionRow; answers: AnswerRow[]; answerKey: { guidance: unknown; solution: unknown }; options: Record<string, unknown> | null }> {
     const q = await this.repo.getQuestion(questionId);
     if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     const version = await this.repo.getVersion(versionId);
@@ -852,8 +923,9 @@ export class QuestionsService {
       throw new NotFoundException({ message: `Question version ${versionId} not found`, code: 'question.version_missing' });
     }
     const answers = await this.repo.listAnswers(version.id);
+    const answerKey = await this.answerKeyOf(version.id);
     const options = await this.optionsView(q.qtype, version.id);
-    return { version, answers, options };
+    return { version, answers, answerKey, options };
   }
 
   /** Editing creates a NEW version; existing versions (and attempts pinned to them) are untouched. */
@@ -862,16 +934,38 @@ export class QuestionsService {
    * đáp án/options không được gửi lên thì nhân bản nguyên từ version trước
    * sang version mới; stimulusId = null gỡ gắn ngữ liệu, không gửi thì giữ.
    */
-  async updateQuestion(actorId: string, questionId: string, input: {
-    name?: string;
-  } & QuestionContentInput): Promise<QuestionView> {
+  /**
+   * Sửa câu hỏi = tạo version mới và nâng latestVersion của entry. Phần
+   * đáp án/options không được gửi lên thì nhân bản nguyên từ version
+   * trước sang version mới; stimulusId = null gỡ gắn ngữ liệu, không
+   * gửi thì giữ. Guidance/solution (bản ghi phía đáp án) không được gửi
+   * lên thì KẾ THỪA từ version trước — cùng ngữ nghĩa kế thừa từng
+   * trường của thân câu; gửi lên thì thay bằng giá trị mới trong cùng
+   * giao dịch tạo version.
+   *
+   * @param actorId - người sửa; phải có `question:editall` tại context
+   *   của category chứa câu (và không phải bank personal của người khác).
+   * @param input - payload sửa theo `QuestionContentInput`; luật phía
+   *   đáp án kiểm theo qtype ĐÃ LƯU của câu qua `normaliseContent`.
+   * @returns View đầy đủ của version mới nhất sau khi sửa.
+   */
+  async updateQuestion(actorId: string, questionId: string, input: QuestionContentInput): Promise<QuestionView> {
     const { question: q, entry, latestVersion } = await this.getQuestion(questionId);
     const category = await this.getCategory(q.category);
     await this.assertCategoryNotForeignPersonal(actorId, category, () => this.questionNotFound(questionId));
     await this.requireCap(actorId, 'question:editall', category.contextId);
     this.assertSupportedQtype(q.qtype);
-    const hasNewContent = input.answers !== undefined || input.answer !== undefined || input.options !== undefined;
+    const hasNewContent = input.answers !== undefined || input.options !== undefined;
     const content = hasNewContent ? this.normaliseContent(q.qtype, input) : null;
+    const touchesAnswerKey = input.guidance !== undefined || input.solution !== undefined;
+    // Kế thừa phía đáp án của version trước cho các trường payload
+    // không nhắc tới (chỉ khi version mới có nội dung đáp án mới hoặc
+    // payload chủ động đổi phía đáp án).
+    const prevKey = (content || touchesAnswerKey) ? await this.answerKeyOf(latestVersion.id) : null;
+    if (content) {
+      if (input.guidance === undefined) content.answerKey.guidance = prevKey!.guidance as RichTextDocument | null;
+      if (input.solution === undefined) content.answerKey.solution = prevKey!.solution as { answer: RichTextDocument } | null;
+    }
     let stimulusId = latestVersion.stimulusId;
     if (input.stimulusId !== undefined) {
       stimulusId = input.stimulusId === null ? null : (await this.resolveStimulus(input.stimulusId, category.id)).id;
@@ -883,16 +977,30 @@ export class QuestionsService {
         questionBankEntryId: entry.id, questionId: q.id, version: nextVersion,
         questionText: (input.questionText !== undefined ? toRichTextDocument(input.questionText) : latestVersion.questionText) as never,
         generalFeedback: (input.generalFeedback !== undefined ? toRichTextDocument(input.generalFeedback) : latestVersion.generalFeedback) as never,
-        guidance: (input.guidance !== undefined ? toRichTextDocument(input.guidance) : latestVersion.guidance) as never,
         defaultMark: input.defaultMark ?? latestVersion.defaultMark,
         penalty: input.penalty ?? latestVersion.penalty,
         stimulusId: stimulusId,
       }, tx);
-      if (content) await this.writeVersionContent(tx, q.qtype as SupportedQtype, version.id, content);
-      else await this.cloneVersionContent(tx, q.qtype as SupportedQtype, latestVersion.id, version.id);
+      if (content) {
+        await this.writeVersionContent(tx, q.qtype as SupportedQtype, version.id, content);
+      } else if (touchesAnswerKey) {
+        // Chỉ đổi phía đáp án: nhân bản answers/options, bỏ qua bản ghi
+        // phía đáp án cũ rồi ghi bản ghi mới (trường không gửi lên lấy
+        // lại từ bản ghi trước).
+        await this.cloneVersionContent(tx, q.qtype as SupportedQtype, latestVersion.id, version.id, true);
+        const guidance = input.guidance !== undefined ? this.docOrNull(input.guidance) : (prevKey!.guidance as RichTextDocument | null);
+        const solution = input.solution !== undefined
+          ? (q.qtype === 'essay' ? { answer: toRichTextDocument(input.solution.answer) } : null)
+          : (prevKey!.solution as { answer: RichTextDocument } | null);
+        if (guidance !== null || solution !== null) {
+          await this.repo.insertAnswerKey({ questionVersionId: version.id, guidance: guidance as never, solution: solution as never }, tx);
+        }
+      } else {
+        await this.cloneVersionContent(tx, q.qtype as SupportedQtype, latestVersion.id, version.id);
+      }
     });
     await this.repo.updateEntry(entry.id, { latestVersion: nextVersion });
-    await this.repo.updateQuestion(q.id, { name: input.name ?? q.name, modifiedBy: actorId });
+    await this.repo.updateQuestion(q.id, { modifiedBy: actorId });
     await this.outbox.enqueueStandalone({ aggregate: 'question', type: 'question_updated', payload: { questionId: q.id, version: nextVersion } });
     return this.getQuestion(q.id);
   }
@@ -1241,20 +1349,17 @@ export class QuestionsService {
     return response;
   }
 
-  /** Dựng dữ liệu chấm của một version đã pin từ question_answers + options. */
+  /** Dựng dữ liệu chấm của một version đã pin từ question_answers (cờ isCorrect) + options của qtype. */
   private async gradingDataFor(version: VersionRow, qtype: string): Promise<GradingData> {
     const answers = await this.repo.listAnswers(version.id);
     const data: GradingData = {
       answers: answers.map((a) => ({
         id: a.id,
         text: extractRichTextPlainText(a.answer as RichTextDocument),
-        fraction: a.fraction,
+        isCorrect: a.isCorrect,
       })),
     };
-    if (qtype === 'multichoice') {
-      const o = await this.repo.getMultichoiceOptions(version.id);
-      data.multichoice = { single: o?.single ?? true };
-    } else if (qtype === 'truefalse') {
+    if (qtype === 'truefalse') {
       const o = await this.repo.getTruefalseOptions(version.id);
       if (o) data.truefalse = { trueanswerId: o.trueAnswer, falseanswerId: o.falseAnswer };
     } else if (qtype === 'shortanswer') {

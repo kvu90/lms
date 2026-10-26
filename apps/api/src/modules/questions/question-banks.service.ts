@@ -769,7 +769,7 @@ export class QuestionBanksService {
    * đời copy; tăng copy_count cho câu nguồn và phát `question_copied`.
    * Sau copy hai bản độc lập tuyệt đối.
    */
-  async deepCopyQuestion(actorId: string, source: QuestionView, targetCategory: QCategoryRow, opts?: { name?: string }): Promise<QuestionView> {
+  async deepCopyQuestion(actorId: string, source: QuestionView, targetCategory: QCategoryRow): Promise<QuestionView> {
     const sourceQ = source.question;
     const sourceVersion = source.latestVersion;
     const sourceCategory = await this.questionsRepo.getCategory(sourceQ.category);
@@ -788,7 +788,7 @@ export class QuestionBanksService {
         }
       }
       const q = await this.questionsRepo.insertQuestion({
-        category: targetCategory.id, qtype: sourceQ.qtype, name: opts?.name ?? sourceQ.name,
+        category: targetCategory.id, qtype: sourceQ.qtype,
         createdBy: actorId, modifiedBy: actorId,
         derivedFromQuestionId: sourceQ.id,
         derivedFromVersionId: sourceVersion.id,
@@ -807,10 +807,11 @@ export class QuestionBanksService {
         questionBankEntryId: entry.id, questionId: q.id, version: 1,
         questionText: sourceVersion.questionText as never,
         generalFeedback: sourceVersion.generalFeedback as never,
-        guidance: sourceVersion.guidance as never,
         defaultMark: sourceVersion.defaultMark, penalty: sourceVersion.penalty,
         stimulusId,
       }, tx);
+      // cloneVersionContentTx nhân bản cả bản ghi phía đáp án
+      // (guidance + solution) của version nguồn — xem QuestionsService.
       await this.questions.cloneVersionContentTx(tx, sourceQ.qtype as SupportedQtype, sourceVersion.id, version.id);
       for (const link of await this.questionsRepo.listQuestionSubjectLinks(sourceQ.id)) {
         await this.questionsRepo.insertQuestionSubjectLink({ questionId: q.id, subjectId: link.subjectId }, tx);
@@ -872,7 +873,7 @@ export class QuestionBanksService {
    * nhân của người copy; category đích mặc định là category mặc định
    * của bank đích. Cổng đích: `question:add` tại context của category đích.
    */
-  async copyQuestion(actorId: string, questionId: string, input: { targetBankId?: string; targetCategoryId?: string; name?: string }): Promise<QuestionView & { attribution: AttributionView }> {
+  async copyQuestion(actorId: string, questionId: string, input: { targetBankId?: string; targetCategoryId?: string }): Promise<QuestionView & { attribution: AttributionView }> {
     const source = await this.questions.getQuestion(questionId);
     await this.assertCanCopySource(actorId, source);
     const targetBank = input.targetBankId
@@ -891,7 +892,7 @@ export class QuestionBanksService {
       targetCategory = await this.defaultCategoryOfBank(targetBank);
     }
     await this.evaluator.requireCapability(actorId, 'question:add', targetCategory.contextId);
-    const view = await this.deepCopyQuestion(actorId, source, targetCategory, { name: input.name });
+    const view = await this.deepCopyQuestion(actorId, source, targetCategory);
     return { ...view, attribution: await this.getAttribution(view.question.id) };
   }
 
@@ -1015,7 +1016,7 @@ export class QuestionBanksService {
 
   /**
    * Hash nội dung của một version: sha256 trên (qtype + thân câu đã
-   * chuẩn hoá + tập đáp án kèm fraction đã sắp xếp). Hai câu trùng hoàn
+   * chuẩn hoá + tập đáp án kèm cờ đúng/sai đã sắp xếp). Hai câu trùng hoàn
    * toàn có cùng hash; trùng thân câu khác đáp án cho textHash trùng —
    * gần trùng để cảnh báo người duyệt.
    */
@@ -1027,10 +1028,10 @@ export class QuestionBanksService {
    * (hồ sơ research MCP Phần 3.1 lớp 3: dấu tiếng Việt dạng tổ hợp
    * không lách được chống trùng).
    */
-  private contentHashes(qtype: string, textPlain: string, answers: { textPlain: string; fraction: number }[]): { hash: string; textHash: string } {
+  private contentHashes(qtype: string, textPlain: string, answers: { textPlain: string; isCorrect: boolean }[]): { hash: string; textHash: string } {
     const textPart = this.normaliseForHash(textPlain.normalize('NFC'));
     const answerPart = answers
-      .map((a) => `${this.normaliseForHash(a.textPlain.normalize('NFC'))}:${a.fraction}`)
+      .map((a) => `${this.normaliseForHash(a.textPlain.normalize('NFC'))}:${a.isCorrect ? 1 : 0}`)
       .sort()
       .join('|');
     const hash = createHash('sha256').update(`${qtype}|${textPart}|${answerPart}`).digest('hex');
@@ -1043,7 +1044,7 @@ export class QuestionBanksService {
     return this.contentHashes(
       qtype,
       extractRichTextPlainText(questionText as RichTextDocument),
-      answers.map((a) => ({ textPlain: extractRichTextPlainText(a.answer as RichTextDocument), fraction: a.fraction })),
+      answers.map((a) => ({ textPlain: extractRichTextPlainText(a.answer as RichTextDocument), isCorrect: a.isCorrect })),
     );
   }
 
@@ -1084,9 +1085,9 @@ export class QuestionBanksService {
    * bước chuẩn hoá gộp mọi khoảng trắng về một dấu cách).
    */
   async findDuplicatesForPayload(bank: QuestionBankRow, payload: {
-    qtype: string; questionText: string; answers: { text: string; fraction: number }[];
+    qtype: string; questionText: string; answers: { text: string; correct: boolean }[];
   }): Promise<{ exactId: string | null; nearId: string | null }> {
-    const source = this.contentHashes(payload.qtype, payload.questionText, payload.answers.map((a) => ({ textPlain: a.text, fraction: a.fraction })));
+    const source = this.contentHashes(payload.qtype, payload.questionText, payload.answers.map((a) => ({ textPlain: a.text, isCorrect: a.correct })));
     return this.scanDuplicatesInBank(bank, source);
   }
 
@@ -1103,9 +1104,51 @@ export class QuestionBanksService {
     if (!entry) {
       throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
     }
+    // Luật READY (mô hình giaokhoa): câu chỉ được phát hành khi phần
+    // đáp án của version mới nhất ĐẠT luật theo qtype — cùng luật mà
+    // đường soạn kiểm lúc tạo/sửa, kiểm lại ở cổng phát hành vì câu
+    // draft có thể được tạo qua các đường nạp không qua kiểm đó trọn
+    // vẹn (vd nạp hàng loạt). Chuyển về draft không cần kiểm.
+    if (status === 'ready') await this.assertReadyContent(questionId, entry.latestVersion);
     await this.questionsRepo.updateEntry(entry.id, { status });
     const version = await this.questionsRepo.getVersionByNumber(entry.id, entry.latestVersion);
     if (version) await this.questionsRepo.updateVersion(version.id, { status });
+  }
+
+  /**
+   * Kiểm luật phía đáp án cho cổng phát hành `ready`: multichoice đúng
+   * 4 lựa chọn + đúng 1 đáp án đúng; truefalse đúng 2 phía + đúng 1
+   * phía đúng; shortanswer ít nhất 1 đáp án và mọi dòng đều được chấp
+   * nhận; essay không có yêu cầu phía đáp án (chấm tay).
+   *
+   * @param questionId - câu sắp phát hành.
+   * @param latestVersion - số version mới nhất trên entry của câu.
+   * @throws BadRequestException `question.bad_answer_data` khi phần đáp
+   *   án chưa đạt luật của qtype.
+   */
+  private async assertReadyContent(questionId: string, latestVersion: number): Promise<void> {
+    const q = await this.questionsRepo.getQuestion(questionId);
+    if (!q) {
+      throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
+    }
+    const entry = await this.questionsRepo.getEntryByQuestion(questionId);
+    const version = entry ? await this.questionsRepo.getVersionByNumber(entry.id, latestVersion) : undefined;
+    if (!version) {
+      throw new NotFoundException({ message: `Question ${questionId} latest version missing`, code: 'question.version_missing' });
+    }
+    const answers = await this.questionsRepo.listAnswers(version.id);
+    const correctCount = answers.filter((a) => a.isCorrect).length;
+    const bad = (message: string): BadRequestException => new BadRequestException({ message, code: 'question.bad_answer_data' });
+    if (q.qtype === 'multichoice') {
+      if (answers.length !== 4) throw bad('A ready multichoice question needs exactly four choices');
+      if (correctCount !== 1) throw bad('A ready multichoice question needs exactly one correct answer');
+    } else if (q.qtype === 'truefalse') {
+      if (answers.length !== 2) throw bad('A ready truefalse question needs exactly two answers (the True and False sides)');
+      if (correctCount !== 1) throw bad('A ready truefalse question needs exactly one correct side');
+    } else if (q.qtype === 'shortanswer') {
+      if (answers.length === 0) throw bad('A ready shortanswer question needs at least one accepted answer');
+      if (correctCount !== answers.length) throw bad('Every listed shortanswer answer must be an accepted answer');
+    }
   }
 
   /**
@@ -1228,7 +1271,19 @@ export class QuestionBanksService {
     const out: (ContributionRow & { proposerName: string | null; questionName: string | null })[] = [];
     for (const row of rows) {
       const q = await this.questionsRepo.getQuestion(row.questionId);
-      out.push({ ...row, proposerName: names.get(row.proposerId) ?? null, questionName: q?.name ?? null });
+      // Câu hỏi không còn trường tên (quyết 12:04 ngày 26/10/2026):
+      // nhãn hiển thị của đề xuất là TRÍCH ĐOẠN nội dung thân câu của
+      // version mới nhất, cắt ở 120 ký tự.
+      let questionName: string | null = null;
+      if (q) {
+        const entry = await this.questionsRepo.getEntryByQuestion(q.id);
+        const version = entry ? await this.questionsRepo.getVersionByNumber(entry.id, entry.latestVersion) : undefined;
+        if (version) {
+          const text = extractRichTextPlainText(version.questionText as RichTextDocument).trim();
+          questionName = text.length > 120 ? `${text.slice(0, 120)}…` : text;
+        }
+      }
+      out.push({ ...row, proposerName: names.get(row.proposerId) ?? null, questionName });
     }
     return out;
   }
@@ -1274,10 +1329,11 @@ export class QuestionBanksService {
           questionBankEntryId: targetView.entry.id, questionId: targetView.question.id, version: nextVersion,
           questionText: source.latestVersion.questionText as never,
           generalFeedback: source.latestVersion.generalFeedback as never,
-          guidance: source.latestVersion.guidance as never,
           defaultMark: source.latestVersion.defaultMark, penalty: source.latestVersion.penalty,
           stimulusId,
         }, tx);
+        // cloneVersionContentTx nhân bản cả bản ghi phía đáp án
+        // (guidance + solution) của version nguồn sang version mới.
         await this.questions.cloneVersionContentTx(tx, targetView.question.qtype as SupportedQtype, source.latestVersion.id, version.id);
       });
       await this.questionsRepo.updateEntry(targetView.entry.id, { latestVersion: nextVersion });
@@ -1413,17 +1469,15 @@ export class QuestionBanksService {
       const privileged = q.createdBy === actorId || (moderatorByBank.get(bank.id) ?? false);
       if (entry.status !== 'ready' && !privileged) continue;
       const version = await this.questionsRepo.getVersionByNumber(entry.id, entry.latestVersion);
-      if (keyword) {
-        const inName = q.name.toLowerCase().includes(keyword);
-        const inText = version
-          ? extractRichTextPlainText(version.questionText as RichTextDocument).toLowerCase().includes(keyword)
-          : false;
-        if (!inName && !inText) continue;
-      }
+      // Câu hỏi không còn trường tên: từ khoá chỉ khớp trên nội dung
+      // thân câu, và nhãn hiển thị của dòng khám phá là trích đoạn
+      // chính nội dung đó (cắt 120 ký tự).
+      const textPlain = version ? extractRichTextPlainText(version.questionText as RichTextDocument).trim() : '';
+      if (keyword && !textPlain.toLowerCase().includes(keyword)) continue;
       const subjectLinks = await this.questionsRepo.listQuestionSubjectLinks(q.id);
       const outcomeLinks = await this.questionsRepo.listQuestionOutcomeLinks(q.id);
       out.push({
-        questionId: q.id, name: q.name, qtype: q.qtype, status: entry.status,
+        questionId: q.id, excerpt: textPlain.length > 120 ? `${textPlain.slice(0, 120)}…` : textPlain, qtype: q.qtype, status: entry.status,
         latestVersion: entry.latestVersion,
         idnumber: q.idnumber,
         bankId: bank.id, bankName: bank.name, bankScope: bank.scope,
@@ -1442,10 +1496,10 @@ export class QuestionBanksService {
   }
 }
 
-/** Một dòng của trang khám phá (QB-4). */
+/** Một dòng của trang khám phá (QB-4): `excerpt` là trích đoạn nội dung thân câu — câu hỏi không có trường tên (quyết 12:04 ngày 26/10/2026). */
 export interface DiscoveryItem {
   questionId: string;
-  name: string;
+  excerpt: string;
   qtype: string;
   status: string;
   latestVersion: number;
