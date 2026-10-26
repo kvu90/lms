@@ -1,8 +1,9 @@
-import { useEffect, useState, type Dispatch, type FormEvent, type RefObject, type SetStateAction } from 'react';
+import { useEffect, useState, type Dispatch, type FormEvent, type ReactNode, type RefObject, type SetStateAction } from 'react';
+import { ArrowLeft, Info, MessageCircle, Search } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
+import { Badge } from '@lms/ui/components/badge';
 import { Bubble, BubbleContent } from '@lms/ui/components/bubble';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Textarea } from '@lms/ui/components/textarea';
 import {
@@ -36,6 +37,10 @@ interface ChatPanelProps {
   active: ConversationView | null;
   myId: string | undefined;
   onlineUsers: Record<string, boolean>;
+  /** Mốc đã đọc theo từng thành viên của conversation đang mở (memberReadMarkers của API) — nguồn cho panel thông tin "ai đã xem" (N7). */
+  readMarkers: Record<string, number>;
+  /** Quay lại danh sách hội thoại (chỉ hiện nút ở mobile, issue #256). */
+  onBack: () => void;
   blocked: string[];
   onUnblockContact: (userId: string) => void;
   onBlockContact: (userId: string) => void;
@@ -82,9 +87,9 @@ interface ChatPanelProps {
   onJumpToSearchResult: (result: MessageSearchResultView) => void;
 }
 
-/** Cột phải trang Tin nhắn: khung hội thoại đang mở (thành viên, luồng tin, soạn tin). */
+/** Khung phải màn Tin nhắn (issue #256): header hội thoại + luồng tin + composer dính đáy. */
 export function ChatPanel({
-  active, myId, onlineUsers, blocked, onUnblockContact, onBlockContact, onReportConversation,
+  active, myId, onlineUsers, readMarkers, onBack, blocked, onUnblockContact, onBlockContact, onReportConversation,
   onToggleChat, reportMessage, actionMessage, hasMoreBefore, onLoadOlder, selectedForBulk,
   setSelectedForBulk, onBulkRemove, visibleMessages, nameOf, onRetrySend, onDeleteMessage,
   canRecall, onRecallMessage, onHardDeleteMessage, seenByAllOthers, typingNames, draft,
@@ -107,305 +112,424 @@ export function ChatPanel({
   const send = onSend;
   /** Ô nhập từ khoá tìm trong conversation (lát M4): nháp cục bộ của panel, gửi lên trang chạy tìm. */
   const [searchDraft, setSearchDraft] = useState('');
-  return (
-      <Card className="md:col-span-2">
-        <CardHeader>
-          <CardTitle>{active ? (active.name ?? t('conversationFallback')) : t('selectConversation')}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {active ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                {active.members
-                  .filter((memberId) => memberId !== myId)
-                  .map((memberId) => (
-                    <span key={memberId} className="flex items-center gap-2">
-                      {onlineUsers[memberId] ? (
-                        <span className="text-xs text-muted-foreground">● {t('onlineNow')}</span>
-                      ) : null}
-                      {blocked.includes(memberId) ? (
-                        <span className="flex items-center gap-2 text-sm">
-                          {nameOf(memberId)} {t('blockedSuffix')}
-                          <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>
-                            {t('unblockContact')}
-                          </Button>
-                        </span>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void blockContact(memberId)}
-                        >
-                          {t('blockContact')}
-                        </Button>
-                      )}
-                    </span>
-                  ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" onClick={() => void reportActiveConversation()}>
-                  {t('reportConversation')}
-                </Button>
-                {active.canManage ? (
-                  <Button type="button" variant="outline" onClick={() => void toggleActiveChat()}>
-                    {(active.enabled ?? true) ? t('disableChat') : t('enableChat')}
-                  </Button>
-                ) : null}
-                {reportMessage ? <p role="status">{reportMessage}</p> : null}
-                {actionMessage ? <p role="alert">{actionMessage}</p> : null}
-              </div>
-              {hasMoreBefore ? (
-                <Button type="button" variant="outline" onClick={() => void loadOlder()}>
-                  {t('loadOlderMessages')}
-                </Button>
-              ) : null}
-              {active.canModerate && selectedForBulk.size > 0 ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">{t('bulkSelectedCount', { count: selectedForBulk.size })}</span>
-                  <Button type="button" variant="destructive" onClick={() => void bulkRemoveSelected()}>
-                    {t('bulkRemoveMessages')}
-                  </Button>
-                </div>
-              ) : null}
-              <div className="space-y-2">
-                <form
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    onSearchMessages(searchDraft);
-                  }}
+  /** Tìm trong hội thoại ẩn sau nút bật/tắt ở header (chuẩn app nhắn tin, issue #256). */
+  const [searchOpen, setSearchOpen] = useState(false);
+  /** Panel thông tin cuộc trò chuyện (thành viên + ai đã xem, N7) — bật/tắt ở header. */
+  const [infoOpen, setInfoOpen] = useState(false);
+  useEffect(() => {
+    setSearchOpen(false);
+    setInfoOpen(false);
+    setSearchDraft('');
+  }, [active?.id]);
+
+  if (!active) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+        <MessageCircle className="size-10 text-muted-foreground" aria-hidden />
+        <p className="font-medium">{t('selectConversation')}</p>
+        <p className="text-sm text-muted-foreground">{t('pickConversation')}</p>
+      </div>
+    );
+  }
+
+  const others = active.members.filter((memberId) => memberId !== myId);
+  const isGroup = active.type === 2;
+  const otherId = !isGroup ? others[0] : undefined;
+  const otherOnline = otherId ? Boolean(onlineUsers[otherId]) : false;
+  const title = active.name ?? t('conversationWithUser', { members: active.members.map((id) => nameOf(id)).join(', ') });
+  const avatarLabel = active.name ?? (otherId ? nameOf(otherId) : title);
+  const subtitle = typingNames.length > 0
+    ? t('typingIndicator', { userId: nameOf(typingNames[0]!) })
+    : isGroup
+      ? t('conversationMembersCount', { count: active.members.length })
+      : otherOnline
+        ? t('onlineNow')
+        : '';
+  /** Seq tin mới nhất đang có — mốc so "đã xem" của từng thành viên ở panel thông tin. */
+  const newestSeq = visibleMessages.reduce((max, m) => Math.max(max, m.seq), 0) || active.lastMessageSeq || 0;
+
+  const dayKeyOf = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  };
+  const dayLabelOf = (iso: string) => {
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const diffDays = Math.round((startOfDay(new Date()) - startOfDay(new Date(iso))) / 86_400_000);
+    if (diffDays <= 0) return t('messagesToday');
+    if (diffDays === 1) return t('messagesYesterday');
+    return new Date(iso).toLocaleDateString();
+  };
+  /** Luồng tin kèm ngăn cách theo ngày (chuẩn app nhắn tin): pill ngày chèn trước tin đầu tiên của mỗi ngày. */
+  const threadItems: ReactNode[] = [];
+  let lastDayKey = '';
+  for (const m of visibleMessages) {
+    const dayKey = dayKeyOf(m.createdAt);
+    if (dayKey !== lastDayKey) {
+      lastDayKey = dayKey;
+      threadItems.push(
+        <div key={`day-${dayKey}`} className="flex justify-center">
+          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">{dayLabelOf(m.createdAt)}</span>
+        </div>,
+      );
+    }
+    const mine = m.userIdFrom === myId;
+    threadItems.push(
+      <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={mine}>
+        <Message align={mine ? 'end' : 'start'}>
+          <MessageAvatar>
+            <Avatar>
+              <AvatarFallback>{initialsOf(nameOf(m.userIdFrom))}</AvatarFallback>
+            </Avatar>
+          </MessageAvatar>
+          <MessageContent>
+            {!mine ? <MessageHeader>{nameOf(m.userIdFrom)}</MessageHeader> : null}
+            <Bubble
+              variant={m.deletedAt || m.recalledAt ? 'destructive' : mine ? 'default' : 'muted'}
+              align={mine ? 'end' : 'start'}
+              className={m.id === highlightedMessageId ? 'rounded-lg ring-2 ring-primary ring-offset-1' : undefined}
+            >
+              {m.replyTo ? (
+                <button
+                  type="button"
+                  data-testid={`quote-block-${m.id}`}
+                  className="mx-1 mt-1 max-w-full cursor-pointer rounded-md border-l-4 border-primary/60 bg-background/60 px-2 py-1 text-left"
+                  onClick={() => onJumpToQuote(m.replyTo!)}
                 >
-                  <Input
-                    type="search"
-                    aria-label={t('messageSearchLabel')}
-                    placeholder={t('messageSearchPlaceholder')}
-                    value={searchDraft}
-                    onChange={(e) => setSearchDraft(e.target.value)}
-                  />
-                  <Button type="submit" variant="outline">{t('messageSearchButton')}</Button>
-                  {messageSearch.submitted ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setSearchDraft('');
-                        onClearMessageSearch();
-                      }}
-                    >
-                      {t('messageSearchClear')}
-                    </Button>
-                  ) : null}
-                </form>
-                {messageSearch.loading ? (
-                  <p className="text-sm text-muted-foreground">{t('messageSearchLoading')}</p>
-                ) : null}
-                {messageSearch.failed ? (
-                  <p role="alert" className="text-sm">{t('messageSearchFailed')}</p>
-                ) : null}
-                {messageSearch.submitted && !messageSearch.loading && !messageSearch.failed
-                  && messageSearch.results.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('messageSearchNoResults')}</p>
-                  ) : null}
-                {messageSearch.results.length > 0 ? (
-                  <ul className="space-y-1">
-                    {messageSearch.results.map((r) => (
-                      <li key={r.id}>
-                        <button
-                          type="button"
-                          data-testid={`search-result-${r.id}`}
-                          className="w-full rounded-md border px-2 py-1 text-left hover:bg-muted"
-                          onClick={() => onJumpToSearchResult(r)}
-                        >
-                          <span className="block text-xs font-medium">{nameOf(r.userIdFrom)}</span>
-                          <span className="block truncate text-sm">{r.excerpt}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-              <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
-                <ScrollerBridge bridgeRef={scrollerRef} />
-                <MessageScroller className="h-[30rem] rounded-md border">
-                  <MessageScrollerViewport aria-label={t('messagesListLabel')}>
-                    <MessageScrollerContent className="gap-4 p-4">
-                      {visibleMessages.map((m) => {
-                        const mine = m.userIdFrom === myId;
-                        return (
-                          <MessageScrollerItem key={m.id} messageId={m.id} scrollAnchor={mine}>
-                            <Message align={mine ? 'end' : 'start'}>
-                              <MessageAvatar>
-                                <Avatar>
-                                  <AvatarFallback>{initialsOf(nameOf(m.userIdFrom))}</AvatarFallback>
-                                </Avatar>
-                              </MessageAvatar>
-                              <MessageContent>
-                                {!mine ? <MessageHeader>{nameOf(m.userIdFrom)}</MessageHeader> : null}
-                                <Bubble
-                                  variant={m.deletedAt || m.recalledAt ? 'destructive' : mine ? 'default' : 'muted'}
-                                  align={mine ? 'end' : 'start'}
-                                  className={m.id === highlightedMessageId ? 'rounded-lg ring-2 ring-primary ring-offset-1' : undefined}
-                                >
-                                  {m.replyTo ? (
-                                    <button
-                                      type="button"
-                                      data-testid={`quote-block-${m.id}`}
-                                      className="mx-1 mt-1 max-w-full cursor-pointer rounded-md border-l-4 border-primary/60 bg-background/60 px-2 py-1 text-left"
-                                      onClick={() => onJumpToQuote(m.replyTo!)}
-                                    >
-                                      <span className="block text-xs font-medium">{nameOf(m.replyTo.userIdFrom)}</span>
-                                      <span className="block truncate text-xs opacity-80">
-                                        {m.replyTo.unavailable ? t('quotedMessageUnavailable') : m.replyTo.excerpt}
-                                      </span>
-                                    </button>
-                                  ) : null}
-                                  <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
-                                </Bubble>
-                                <MessageFooter className="flex-wrap gap-2">
-                                  <span>{new Date(m.createdAt).toLocaleString()}</span>
-                                  {m.deletedAt ? (
-                                    <span className="italic">
-                                      {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
-                                    </span>
-                                  ) : null}
-                                  {m.recalledAt ? (
-                                    <span className="italic">
-                                      {t('messageRecalledBy', { userId: m.recalledBy ? nameOf(m.recalledBy) : '' })}
-                                    </span>
-                                  ) : null}
-                                  {m.localStatus === 'sending' ? <span>{t('messageSending')}</span> : null}
-                                  {m.localStatus === 'failed' ? (
-                                    <span className="flex items-center gap-2">
-                                      <span>{t('messageSendFailed')}</span>
-                                      <Button type="button" variant="outline" onClick={() => void retrySend(m)}>
-                                        {t('retrySend')}
-                                      </Button>
-                                    </span>
-                                  ) : null}
-                                  {!m.deletedAt && !m.localStatus ? (
-                                    <Button type="button" variant="outline" onClick={() => onStartReply(m)}>
-                                      {t('replyToMessage')}
-                                    </Button>
-                                  ) : null}
-                                  {!m.deletedAt && !m.localStatus && m.userIdFrom === myId ? (
-                                    <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
-                                      {t('deleteMessage')}
-                                    </Button>
-                                  ) : null}
-                                  {canRecall(m) ? (
-                                    <Button type="button" variant="outline" onClick={() => void recallMessage(m)}>
-                                      {t('recallMessage')}
-                                    </Button>
-                                  ) : null}
-                                  {active.canModerate && !m.localStatus ? (
-                                    <>
-                                      <input
-                                        type="checkbox"
-                                        aria-label={t('selectMessageForBulk')}
-                                        checked={selectedForBulk.has(m.id)}
-                                        onChange={() => setSelectedForBulk((prev) => {
-                                          const next = new Set(prev);
-                                          if (next.has(m.id)) next.delete(m.id);
-                                          else next.add(m.id);
-                                          return next;
-                                        })}
-                                      />
-                                      <Button type="button" variant="destructive" onClick={() => void hardDeleteMessage(m)}>
-                                        {t('hardDeleteMessage')}
-                                      </Button>
-                                    </>
-                                  ) : null}
-                                </MessageFooter>
-                              </MessageContent>
-                            </Message>
-                          </MessageScrollerItem>
-                        );
-                      })}
-                    </MessageScrollerContent>
-                  </MessageScrollerViewport>
-                  <MessageScrollerButton />
-                </MessageScroller>
-              </MessageScrollerProvider>
-              {seenByAllOthers ? (
-                <p data-testid="seen-status" className="text-xs text-muted-foreground">{t('seenByMembers')}</p>
+                  <span className="block text-xs font-medium">{nameOf(m.replyTo.userIdFrom)}</span>
+                  <span className="block truncate text-xs opacity-80">
+                    {m.replyTo.unavailable ? t('quotedMessageUnavailable') : m.replyTo.excerpt}
+                  </span>
+                </button>
               ) : null}
-              {typingNames.map((userId) => (
-                <p key={userId} data-testid="typing-indicator" className="text-xs text-muted-foreground">
-                  {t('typingIndicator', { userId: nameOf(userId) })}
-                </p>
-              ))}
-              {active.enabled === false && !active.canManage ? (
-                <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledNotice')}</p>
-              ) : (
+              <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
+            </Bubble>
+            <MessageFooter className="flex-wrap gap-2">
+              <span>{new Date(m.createdAt).toLocaleString()}</span>
+              {m.deletedAt ? (
+                <span className="italic">
+                  {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
+                </span>
+              ) : null}
+              {m.recalledAt ? (
+                <span className="italic">
+                  {t('messageRecalledBy', { userId: m.recalledBy ? nameOf(m.recalledBy) : '' })}
+                </span>
+              ) : null}
+              {m.localStatus === 'sending' ? <span>{t('messageSending')}</span> : null}
+              {m.localStatus === 'failed' ? (
+                <span className="flex items-center gap-2">
+                  <span>{t('messageSendFailed')}</span>
+                  <Button type="button" variant="outline" onClick={() => void retrySend(m)}>
+                    {t('retrySend')}
+                  </Button>
+                </span>
+              ) : null}
+              {!m.deletedAt && !m.localStatus ? (
+                <Button type="button" variant="outline" onClick={() => onStartReply(m)}>
+                  {t('replyToMessage')}
+                </Button>
+              ) : null}
+              {!m.deletedAt && !m.localStatus && m.userIdFrom === myId ? (
+                <Button type="button" variant="outline" onClick={() => void deleteMessage(m)}>
+                  {t('deleteMessage')}
+                </Button>
+              ) : null}
+              {canRecall(m) ? (
+                <Button type="button" variant="outline" onClick={() => void recallMessage(m)}>
+                  {t('recallMessage')}
+                </Button>
+              ) : null}
+              {active.canModerate && !m.localStatus ? (
                 <>
-                  {active.enabled === false ? (
-                    <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
-                  ) : null}
-                  {replyTarget ? (
-                    <div
-                      data-testid="reply-chip"
-                      className="flex items-center gap-2 rounded-md border-l-4 border-primary/60 bg-muted px-3 py-2"
-                    >
-                      <span className="min-w-0 flex-1 truncate text-sm">
-                        <span className="font-medium">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
-                        {': '}
-                        {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        aria-label={t('cancelReply')}
-                        onClick={() => onCancelReply()}
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  ) : null}
-                  <form onSubmit={(e) => void send(e)} className="flex gap-2">
-                    <Textarea
-                      aria-label={t('messageText')}
-                      value={draft}
-                      onChange={(e) => {
-                        // Nháp ghi theo conversation đang mở (lát M1,
-                        // issue #204) — soạn dở ở conversation này
-                        // không lẫn sang conversation khác.
-                        setDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
-                        noteTyping();
-                      }}
-                      onKeyDown={(e) => {
-                        // Enter gửi, Shift+Enter xuống dòng (lát M1,
-                        // issue #204) — ngữ nghĩa chuẩn app nhắn tin
-                        // cho composer nhiều dòng.
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          e.currentTarget.form?.requestSubmit();
-                        }
-                      }}
-                    />
-                    <Button type="submit">{t('send')}</Button>
-                  </form>
-                  <div className="flex items-center justify-between gap-2">
-                    {sendError ? (
-                      <p role="alert" className="text-sm text-destructive">{sendError}</p>
-                    ) : (
-                      <span />
-                    )}
-                    <p
-                      data-testid="message-char-count"
-                      className={countMessageCharacters(draft) > MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT
-                        ? 'text-xs text-destructive'
-                        : 'text-xs text-muted-foreground'}
-                    >
-                      {countMessageCharacters(draft)}/{MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT}
-                    </p>
-                  </div>
+                  <input
+                    type="checkbox"
+                    aria-label={t('selectMessageForBulk')}
+                    checked={selectedForBulk.has(m.id)}
+                    onChange={() => setSelectedForBulk((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(m.id)) next.delete(m.id);
+                      else next.add(m.id);
+                      return next;
+                    })}
+                  />
+                  <Button type="button" variant="destructive" onClick={() => void hardDeleteMessage(m)}>
+                    {t('hardDeleteMessage')}
+                  </Button>
                 </>
+              ) : null}
+            </MessageFooter>
+          </MessageContent>
+        </Message>
+      </MessageScrollerItem>,
+    );
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center gap-2 border-b px-3 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          aria-label={t('messagesBackToList')}
+          onClick={() => onBack()}
+        >
+          <ArrowLeft aria-hidden />
+        </Button>
+        <span className="relative shrink-0">
+          <Avatar>
+            <AvatarFallback>{initialsOf(avatarLabel)}</AvatarFallback>
+          </Avatar>
+          {otherOnline ? (
+            <span className="absolute right-0 bottom-0 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+          ) : null}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{title}</p>
+          {subtitle ? <p className="truncate text-xs text-muted-foreground">{subtitle}</p> : null}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t('messageSearchLabel')}
+          aria-pressed={searchOpen}
+          onClick={() => setSearchOpen((prev) => !prev)}
+        >
+          <Search aria-hidden />
+        </Button>
+        {isGroup ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t('conversationInfoTitle')}
+            aria-pressed={infoOpen}
+            onClick={() => setInfoOpen((prev) => !prev)}
+          >
+            <Info aria-hidden />
+          </Button>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+        {others.map((memberId) => (
+          <span key={memberId} className="flex items-center gap-2">
+            {onlineUsers[memberId] ? (
+              <span className="text-xs text-muted-foreground">● {t('onlineNow')}</span>
+            ) : null}
+            {blocked.includes(memberId) ? (
+              <span className="flex items-center gap-2 text-sm">
+                {nameOf(memberId)} {t('blockedSuffix')}
+                <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>
+                  {t('unblockContact')}
+                </Button>
+              </span>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void blockContact(memberId)}
+              >
+                {t('blockContact')}
+              </Button>
+            )}
+          </span>
+        ))}
+        <Button type="button" variant="outline" onClick={() => void reportActiveConversation()}>
+          {t('reportConversation')}
+        </Button>
+        {active.canManage ? (
+          <Button type="button" variant="outline" onClick={() => void toggleActiveChat()}>
+            {(active.enabled ?? true) ? t('disableChat') : t('enableChat')}
+          </Button>
+        ) : null}
+        {reportMessage ? <p role="status">{reportMessage}</p> : null}
+        {actionMessage ? <p role="alert">{actionMessage}</p> : null}
+      </div>
+      {isGroup && infoOpen ? (
+        <div className="space-y-2 border-b px-3 py-2">
+          <h3 className="text-sm font-medium">{t('conversationMembersTitle')}</h3>
+          <ul className="space-y-1">
+            {active.members.map((memberId) => {
+              const seen = newestSeq > 0 && (readMarkers[memberId] ?? 0) >= newestSeq;
+              return (
+                <li key={memberId} className="flex items-center gap-2">
+                  <Avatar>
+                    <AvatarFallback>{initialsOf(nameOf(memberId))}</AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1 truncate text-sm">{nameOf(memberId)}</span>
+                  <Badge variant={seen ? 'secondary' : 'outline'}>
+                    {seen ? t('memberSeenState') : t('memberNotSeenState')}
+                  </Badge>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+      {searchOpen ? (
+        <div className="space-y-2 border-b px-3 py-2">
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSearchMessages(searchDraft);
+            }}
+          >
+            <Input
+              type="search"
+              aria-label={t('messageSearchLabel')}
+              placeholder={t('messageSearchPlaceholder')}
+              value={searchDraft}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+            <Button type="submit" variant="outline">{t('messageSearchButton')}</Button>
+            {messageSearch.submitted ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setSearchDraft('');
+                  onClearMessageSearch();
+                }}
+              >
+                {t('messageSearchClear')}
+              </Button>
+            ) : null}
+          </form>
+          {messageSearch.loading ? (
+            <p className="text-sm text-muted-foreground">{t('messageSearchLoading')}</p>
+          ) : null}
+          {messageSearch.failed ? (
+            <p role="alert" className="text-sm">{t('messageSearchFailed')}</p>
+          ) : null}
+          {messageSearch.submitted && !messageSearch.loading && !messageSearch.failed
+            && messageSearch.results.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('messageSearchNoResults')}</p>
+            ) : null}
+          {messageSearch.results.length > 0 ? (
+            <ul className="space-y-1">
+              {messageSearch.results.map((r) => (
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    data-testid={`search-result-${r.id}`}
+                    className="w-full rounded-md border px-2 py-1 text-left hover:bg-muted"
+                    onClick={() => onJumpToSearchResult(r)}
+                  >
+                    <span className="block text-xs font-medium">{nameOf(r.userIdFrom)}</span>
+                    <span className="block truncate text-sm">{r.excerpt}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+      {hasMoreBefore ? (
+        <div className="px-3 pt-2">
+          <Button type="button" variant="outline" onClick={() => void loadOlder()}>
+            {t('loadOlderMessages')}
+          </Button>
+        </div>
+      ) : null}
+      {active.canModerate && selectedForBulk.size > 0 ? (
+        <div className="flex items-center gap-2 px-3 pt-2">
+          <span className="text-sm text-muted-foreground">{t('bulkSelectedCount', { count: selectedForBulk.size })}</span>
+          <Button type="button" variant="destructive" onClick={() => void bulkRemoveSelected()}>
+            {t('bulkRemoveMessages')}
+          </Button>
+        </div>
+      ) : null}
+      <MessageScrollerProvider key={active.id} autoScroll defaultScrollPosition="end">
+        <ScrollerBridge bridgeRef={scrollerRef} />
+        <MessageScroller className="min-h-0 flex-1">
+          <MessageScrollerViewport aria-label={t('messagesListLabel')}>
+            <MessageScrollerContent className="gap-4 p-4">
+              {threadItems}
+            </MessageScrollerContent>
+          </MessageScrollerViewport>
+          <MessageScrollerButton />
+        </MessageScroller>
+      </MessageScrollerProvider>
+      <div className="space-y-2 border-t px-3 py-2">
+        {seenByAllOthers ? (
+          <p data-testid="seen-status" className="text-xs text-muted-foreground">{t('seenByMembers')}</p>
+        ) : null}
+        {typingNames.map((userId) => (
+          <p key={userId} data-testid="typing-indicator" className="text-xs text-muted-foreground">
+            {t('typingIndicator', { userId: nameOf(userId) })}
+          </p>
+        ))}
+        {active.enabled === false && !active.canManage ? (
+          <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledNotice')}</p>
+        ) : (
+          <>
+            {active.enabled === false ? (
+              <p role="status" className="text-sm text-muted-foreground">{t('chatDisabledForMembers')}</p>
+            ) : null}
+            {replyTarget ? (
+              <div
+                data-testid="reply-chip"
+                className="flex items-center gap-2 rounded-md border-l-4 border-primary/60 bg-muted px-3 py-2"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  <span className="font-medium">{t('replyingTo', { user: nameOf(replyTarget.userIdFrom) })}</span>
+                  {': '}
+                  {replyTarget.recalledAt ? t('quotedMessageUnavailable') : quoteExcerptOfText(replyTarget.fullMessage)}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-label={t('cancelReply')}
+                  onClick={() => onCancelReply()}
+                >
+                  ✕
+                </Button>
+              </div>
+            ) : null}
+            <form onSubmit={(e) => void send(e)} className="flex gap-2">
+              <Textarea
+                aria-label={t('messageText')}
+                value={draft}
+                onChange={(e) => {
+                  // Nháp ghi theo conversation đang mở (lát M1,
+                  // issue #204) — soạn dở ở conversation này
+                  // không lẫn sang conversation khác.
+                  setDrafts((prev) => ({ ...prev, [active.id]: e.target.value }));
+                  noteTyping();
+                }}
+                onKeyDown={(e) => {
+                  // Enter gửi, Shift+Enter xuống dòng (lát M1,
+                  // issue #204) — ngữ nghĩa chuẩn app nhắn tin
+                  // cho composer nhiều dòng.
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    e.currentTarget.form?.requestSubmit();
+                  }
+                }}
+              />
+              <Button type="submit">{t('send')}</Button>
+            </form>
+            <div className="flex items-center justify-between gap-2">
+              {sendError ? (
+                <p role="alert" className="text-sm text-destructive">{sendError}</p>
+              ) : (
+                <span />
               )}
-            </>
-          ) : (
-            <p>{t('pickConversation')}</p>
-          )}
-        </CardContent>
-      </Card>
+              <p
+                data-testid="message-char-count"
+                className={countMessageCharacters(draft) > MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT
+                  ? 'text-xs text-destructive'
+                  : 'text-xs text-muted-foreground'}
+              >
+                {countMessageCharacters(draft)}/{MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
