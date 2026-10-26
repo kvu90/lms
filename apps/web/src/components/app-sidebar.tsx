@@ -13,7 +13,6 @@ import {
   IconNotebook,
   IconQuestionMark,
   IconReport,
-  IconSearch,
   IconSettings,
   IconShieldLock,
   IconUsers,
@@ -66,8 +65,12 @@ function readStoredOpenGroups(): string[] {
  * người đang đăng nhập (hồ sơ UI/UX §4 — cây nhóm thay cho 3 nhóm phẳng
  * của khung dashboard-01 trước đây):
  *
- * - 6 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông báo,
- *   Tìm kiếm): các trang mọi người dùng đăng nhập đều tự phục vụ được.
+ * - 5 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông
+ *   báo): các trang mọi người dùng đăng nhập đều tự phục vụ được.
+ *   Mục "Tìm kiếm" KHÔNG còn ở sidebar: Lão gia chốt 23:52 ngày
+ *   26/10/2026 (issue #303) đưa ô tìm kiếm ra GIỮA header theo khuôn
+ *   Facebook/YouTube; trang kết quả /search vẫn tới được từ ô đó và
+ *   từ bảng lệnh ⌘K (mục màn hình của bảng lệnh giữ khoá navSearch).
  * - Nhóm "Học tập" thu/mở được: Huy hiệu, Kế hoạch học tập — chỉ
  *   hiện khi người dùng có dấu chân học tập (issue #176, quy tắc M+A:
  *   đang là học viên ở ≥1 khoá HOẶC có hiện vật học tập của chính mình
@@ -94,8 +97,8 @@ function readStoredOpenGroups(): string[] {
  *   render — không render rồi disable, không để link dẫn tới trang 403.
  * - Mục Thông báo mang huy hiệu số chưa đọc: số ban đầu từ GET
  *   /notifications/unread-count, sau đó được stream SSE đẩy cập nhật
- *   thời gian thực (không polling) — đây là chỗ duy nhất báo tin chưa
- *   đọc trong khung đã đăng nhập, header không còn chuông thông báo.
+ *   thời gian thực (không polling) — số này dùng chung đúng một khoá
+ *   truy vấn với chuông thông báo ở header (lát NB-3, issue #174).
  * - Mục Tin nhắn mang huy hiệu SỐ CONVERSATION chưa đọc (lát M1,
  *   issue #204): nguồn GET /messages/unread-count (trường
  *   `conversations` — phía server đếm bằng countUnreadConversations,
@@ -172,7 +175,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ...(hasGuardianChildren
       ? [{ title: t('app:navGuardian'), url: '/guardian', icon: IconUsers }]
       : []),
-    { title: t('app:navSearch'), url: '/search', icon: IconSearch },
     ...(perms.hasLearnerFootprint
       ? [
           {

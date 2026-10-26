@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router';
 import '../i18n';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
@@ -20,17 +21,49 @@ interface SearchDoc {
 /**
  * Tìm kiếm toàn cục (platform services): kết quả đã được server lọc theo quyền của người
  * tìm tại thời điểm truy vấn — client không tự lọc thêm.
+ *
+ * Nguồn từ khoá có hai đường, hợp nhất ở `runSearch`:
+ * 1. Tham số `q` trên URL — đường chính từ ô tìm kiếm giữa header
+ *    (chốt 23:52 ngày 26/10/2026, issue #303): vào trang có `q` (kể
+ *    cả khi `q` đổi trong lúc đang ở trang) thì ô của trang điền
+ *    đúng `q` đó và chạy tìm NGAY, không chờ người dùng bấm nút.
+ *    `q` rỗng/trắng thì dọn về trạng thái chưa tìm thay vì gọi API
+ *    bằng từ khoá trống.
+ * 2. Form ngay trong trang — giữ nguyên hành vi cũ: gõ tiếp rồi bấm
+ *    "Tìm kiếm" là chạy lại bằng chữ đang có trong ô, không đổi URL.
  */
 export function SearchPage() {
   const { t: t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const urlQ = searchParams.get('q');
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SearchDoc[]>([]);
   const [searched, setSearched] = useState(false);
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const docs = await apiJson<SearchDoc[]>(`/api/v1/search?q=${encodeURIComponent(q)}`);
+
+  /** Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ đã tìm. */
+  const runSearch = useCallback(async (keyword: string) => {
+    const docs = await apiJson<SearchDoc[]>(`/api/v1/search?q=${encodeURIComponent(keyword)}`);
     setResults(docs);
     setSearched(true);
+  }, []);
+
+  // Đồng bộ theo q trên URL: chạy mỗi lần q xuất hiện/đổi (lần vào
+  // trang đầu tiên cũng là một lần q "xuất hiện"). Không có tham số
+  // q (vào /search trần) thì giữ nguyên trạng thái khởi tạo.
+  useEffect(() => {
+    if (urlQ === null) return;
+    setQ(urlQ);
+    if (urlQ.trim()) {
+      void runSearch(urlQ);
+    } else {
+      setResults([]);
+      setSearched(false);
+    }
+  }, [urlQ, runSearch]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await runSearch(q);
   }
   return (
     <PageShell width="narrow">

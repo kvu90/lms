@@ -1,6 +1,9 @@
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
+import { IconSearch } from '@tabler/icons-react';
 
+import { Input } from '@lms/ui/components/input';
 import { Separator } from '@lms/ui/components/separator';
 import { SidebarTrigger } from '@lms/ui/components/sidebar';
 import { CommandPalette } from '#components/command-palette';
@@ -39,15 +42,84 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
 ];
 
 /**
- * Header trên cùng của khu vực đã đăng nhập (khung block dashboard-01):
- * nút thu/mở sidebar và tiêu đề trang hiện tại (tra catalog i18n theo
- * route); góc phải là nút mở bảng lệnh tìm nhanh Cmd+K (bảng lệnh tự
- * chứa lớp phủ và phím tắt toàn cục, xem command-palette.tsx) và
- * chuông thông báo kèm dropdown xem nhanh (lát NB-3, issue #174 —
- * xem notification-bell.tsx; số chưa đọc dùng chung khoá với huy
- * hiệu ở mục Thông báo trên sidebar). Site chỉ dành cho người Việt nên không có bộ chọn
- * ngôn ngữ trên giao diện — i18n chỉ quản lý chuỗi tập trung, locale
- * cố định tiếng Việt.
+ * Ô tìm kiếm nội dung ở GIỮA header (Lão gia chốt 23:52 ngày
+ * 26/10/2026, issue #303 — khuôn Facebook/YouTube: header ba vùng,
+ * ô tìm kiếm nằm giữa). Đây là tìm kiếm NỘI DUNG toàn cục, khác hẳn
+ * bảng lệnh ⌘K ở vùng phải (bảng lệnh chỉ điều hướng nhanh tới màn
+ * hình/khoá học) — hai công cụ giữ hai vai riêng, không gộp.
+ *
+ * Flow:
+ * 1. Người dùng gõ vào ô (trạng thái chữ sống cục bộ trong component
+ *    này, gõ không làm điều hướng hay gọi API).
+ * 2. Enter / submit form: từ khoá sau khi cắt khoảng trắng mà RỖNG
+ *    thì KHÔNG điều hướng (ở yên trang hiện tại — tránh đẩy người
+ *    dùng tới một trang kết quả trống vô nghĩa); có chữ thì điều
+ *    hướng tới `/search?q=<từ khoá đã mã hoá URL>` và trang kết quả
+ *    tự đọc `q` chạy tìm ngay (xem pages/platform-search.tsx).
+ * 3. Đồng bộ ngược từ URL: khi đang ở `/search`, ô luôn hiển thị
+ *    đúng từ khoá của tham số `q` hiện tại (kể cả khi `q` đổi do
+ *    điều hướng từ nơi khác); rời khỏi `/search` thì giữ nguyên chữ
+ *    người dùng đã gõ để quay lại trang kết quả là thấy đúng ngữ
+ *    cảnh tìm trước đó.
+ */
+function HeaderSearch() {
+  const { t } = useTranslation(['platform']);
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  // Từ khoá chuẩn theo URL khi đang ở trang kết quả; null = không ở
+  // /search (không đồng bộ gì, giữ chữ người dùng đang gõ dở).
+  const urlKeyword = pathname === '/search' ? (new URLSearchParams(search).get('q') ?? '') : null;
+  const [keyword, setKeyword] = useState(urlKeyword ?? '');
+
+  // URL là nguồn sự thật khi ở /search: q đổi (gửi lại từ chính ô
+  // này, đi từ bảng lệnh, hay dán link) thì ô phải khớp theo.
+  useEffect(() => {
+    if (urlKeyword !== null) setKeyword(urlKeyword);
+  }, [urlKeyword]);
+
+  function onSubmit(event: FormEvent) {
+    event.preventDefault();
+    const trimmed = keyword.trim();
+    if (!trimmed) return;
+    void navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+  }
+
+  return (
+    <form role="search" onSubmit={onSubmit} className="w-full">
+      <div className="relative">
+        <IconSearch className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder={t('platform:searchPlaceholder')}
+          aria-label={t('platform:searchQuery')}
+          className="rounded-full pl-9"
+        />
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Header trên cùng của khu vực đã đăng nhập (khung block
+ * dashboard-01), bố cục BA VÙNG theo chốt 23:52 ngày 26/10/2026
+ * (issue #303, khuôn Facebook/YouTube):
+ *
+ * - VÙNG TRÁI: nút thu/mở sidebar + tiêu đề trang hiện tại (tra
+ *   catalog i18n theo route bằng TITLE_KEYS ở trên).
+ * - VÙNG GIỮA: ô tìm kiếm nội dung toàn cục (component HeaderSearch
+ *   cùng file) — vùng co giãn linh hoạt ở giữa, ô có bề rộng tối đa
+ *   cố định và tự co khi bề ngang hẹp để không đẩy vùng phải tràn
+ *   hàng. Mục "Tìm kiếm" ở sidebar đã BỎ từ cùng chốt này.
+ * - VÙNG PHẢI: nút mở bảng lệnh tìm nhanh Cmd+K (điều hướng nhanh —
+ *   bảng lệnh tự chứa lớp phủ và phím tắt toàn cục, xem
+ *   command-palette.tsx) và chuông thông báo kèm dropdown xem nhanh
+ *   (lát NB-3, issue #174 — xem notification-bell.tsx; số chưa đọc
+ *   dùng chung khoá với huy hiệu ở mục Thông báo trên sidebar).
+ *
+ * Site chỉ dành cho người Việt nên không có bộ chọn ngôn ngữ trên
+ * giao diện — i18n chỉ quản lý chuỗi tập trung, locale cố định
+ * tiếng Việt.
  */
 export function SiteHeader() {
   const { t } = useTranslation(['app', 'dashboard']);
@@ -58,12 +130,28 @@ export function SiteHeader() {
       : TITLE_KEYS.find((entry) => pathname.startsWith(entry.prefix));
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-all ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
-      <div className="flex w-full items-center gap-1 pr-4 pl-3 lg:gap-2 lg:px-6">
-        <SidebarTrigger />
-        <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
-        <h1 className="text-base font-medium">{match ? t(`${match.ns}:${match.key}`) : 'LMS'}</h1>
-        <CommandPalette />
-        <NotificationBell />
+      <div className="flex w-full items-center gap-2 pr-4 pl-3 lg:px-6">
+        {/* Vùng trái: nút mở sidebar + tiêu đề trang. min-w-0 +
+            truncate để tiêu đề dài tự cắt thay vì đẩy vùng giữa. */}
+        <div className="flex min-w-0 items-center gap-1 lg:gap-2">
+          <SidebarTrigger />
+          <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
+          <h1 className="truncate text-base font-medium">{match ? t(`${match.ns}:${match.key}`) : 'LMS'}</h1>
+        </div>
+        {/* Vùng giữa: ô tìm kiếm chiếm phần linh hoạt còn lại và căn
+            giữa trong phần đó; max-w-xl giữ ô không bè ra quá rộng
+            trên màn hình lớn, min-w-0 cho phép co khi hẹp. */}
+        <div className="flex min-w-0 flex-1 justify-center px-1 lg:px-4">
+          <div className="w-full max-w-xl min-w-0">
+            <HeaderSearch />
+          </div>
+        </div>
+        {/* Vùng phải: bảng lệnh + chuông, shrink-0 để không bị vùng
+            giữa ép méo; thứ tự và vai trò giữ nguyên như trước. */}
+        <div className="flex shrink-0 items-center gap-1 lg:gap-2">
+          <CommandPalette />
+          <NotificationBell />
+        </div>
       </div>
     </header>
   );
