@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { GuardianPage } from './guardian';
 
 const GUARDIAN_ID = '01900000-0000-7000-8000-0000000000p1'.replace('p', 'a');
@@ -119,6 +120,7 @@ const savedFrequencies = new Map<string, string>();
 
 function baseHandler(withChildren: boolean): Handler {
   return (url, init) => {
+    if (isGetSessionUrl(url)) return ok(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
     if (url === '/api/v1/users/me') return ok(PROFILE);
     if (url === '/api/v1/users/me/capabilities') return ok(ACCESS_VIEW);
     if (url === '/api/v1/guardian-links/mine/students') return ok(withChildren ? STUDENTS : []);
@@ -141,7 +143,6 @@ function baseHandler(withChildren: boolean): Handler {
 }
 
 function renderPage(entry = '/guardian') {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter([{ path: '/guardian', element: <GuardianPage /> }], { initialEntries: [entry] });
   render(
     <TestProviders>

@@ -9,6 +9,7 @@ import { useAuth } from '../lib/auth';
 import { usePermissions } from '../lib/permissions';
 import { queryClient } from '../lib/query-client';
 import { queryKeys } from '../lib/query-keys';
+import { baNoSessionResponse, baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test kiểm soát state cho khung route (bước kiểm soát state của đợt
@@ -27,8 +28,9 @@ import { queryKeys } from '../lib/query-keys';
  *   provider (nay bọc ở root) — usePermissions trả ảnh chụp rỗng sẵn
  *   sàng thay vì ném "must be used inside PermissionsProvider" như lỗi
  *   sập trang /courses trên bản live.
- * - Đăng xuất: token bị xoá và toàn bộ Query cache (gồm ảnh chụp
- *   quyền của phiên trước) bị dọn sạch.
+ * - Đăng xuất: phiên cookie bị huỷ phía server và toàn bộ Query
+ *   cache (gồm ảnh chụp quyền của phiên trước) bị dọn sạch; web
+ *   không còn giữ token nào ở localStorage (cutover GĐ2, issue #7).
  */
 
 const ADMIN_ID = '01900000-0000-7000-8000-0000000000a1';
@@ -111,26 +113,31 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * Stub fetch toàn cục: GET /users/me treo cho tới khi test chủ động
- * resolve (phiên resolve chậm); các endpoint còn lại trả ngay — ảnh
- * chụp quyền của site admin, danh sách khoá rỗng, refresh thất bại
- * (để nhánh 401 không vòng lặp), logout thành công.
+ * Stub fetch toàn cục: get-session của Better Auth trả phiên ngay,
+ * nhưng GET /users/me (khâu nạp hồ sơ của AuthProvider) treo cho tới
+ * khi test chủ động resolve — tái hiện phiên resolve chậm. Trạng
+ * thái phiên phía "server" của stub lật khi sign-out được gọi: từ
+ * đó get-session trả null và các endpoint dữ liệu trả 401 như API
+ * thật khi request không còn cookie phiên.
  */
 function stubFetchWithSlowSession() {
   const me = deferred<Response>();
+  let signedIn = true;
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string, init?: RequestInit) => {
+    vi.fn(async (url: string) => {
+      if (isGetSessionUrl(url)) {
+        return signedIn
+          ? baSessionResponse({ id: ADMIN_ID, username: 'admin', email: 'admin@example.com' })
+          : baNoSessionResponse();
+      }
       if (url === '/api/v1/users/me') return me.promise;
-      if (url === '/api/v1/auth/refresh') return jsonResponse({}, 401);
-      // Hai endpoint dữ liệu quyền hành xử như API thật: không có
-      // Authorization (đã đăng xuất) thì 401 — nhờ vậy test kiểm được
-      // rằng sau đăng xuất không còn payload của người trước trong
-      // cache, kể cả khi query đang quan sát tự nạp lại sau clear().
-      const authed = new Headers(init?.headers).get('Authorization') != null;
-      if (url === '/api/v1/users/me/capabilities') return authed ? jsonResponse(ACCESS) : jsonResponse({}, 401);
-      if (url === '/api/v1/courses') return authed ? jsonResponse([]) : jsonResponse({}, 401);
-      if (url === '/api/v1/auth/logout') return jsonResponse({});
+      if (String(url).endsWith('/api/v1/auth/sign-out')) {
+        signedIn = false;
+        return jsonResponse({ success: true });
+      }
+      if (url === '/api/v1/users/me/capabilities') return signedIn ? jsonResponse(ACCESS) : jsonResponse({}, 401);
+      if (url === '/api/v1/courses') return signedIn ? jsonResponse([]) : jsonResponse({}, 401);
       return jsonResponse({}, 404);
     }),
   );
@@ -182,17 +189,10 @@ afterEach(() => {
   queryClient.clear();
 });
 
-/** Đặt sẵn cặp token như một lần F5 còn phiên đăng nhập. */
-function seedSession() {
-  localStorage.setItem('lms.accessToken', 'access-test');
-  localStorage.setItem('lms.refreshToken', 'refresh-test');
-}
-
 describe('cổng chờ phiên — vào thẳng/F5 từng route với phiên resolve chậm', () => {
   it.each(ROUTE_CASES)(
     'route $pattern: chưa mount trang con, không lóe khung công khai; resolve xong thì mount trong provider',
     async (routeCase) => {
-      seedSession();
       const me = stubFetchWithSlowSession();
       const { container } = renderAt(routeCase.url);
 
@@ -219,7 +219,6 @@ describe('vào thẳng từng route khi phiên resolve ra CHƯA đăng nhập', 
   it.each(ROUTE_CASES)(
     'route $pattern: trang con vẫn mount trong provider ở root, usePermissions trả ảnh chụp rỗng thay vì ném lỗi',
     async (routeCase) => {
-      seedSession();
       const me = stubFetchWithSlowSession();
       renderAt(routeCase.url);
 
@@ -237,8 +236,7 @@ describe('vào thẳng từng route khi phiên resolve ra CHƯA đăng nhập', 
 });
 
 describe('dọn dẹp khi đăng xuất', () => {
-  it('xoá token và toàn bộ Query cache của phiên trước', async () => {
-    seedSession();
+  it('huỷ phiên cookie và dọn toàn bộ Query cache của phiên trước', async () => {
     const me = stubFetchWithSlowSession();
     renderAt('/courses');
     me.resolve(jsonResponse(PROFILE));
@@ -246,12 +244,12 @@ describe('dọn dẹp khi đăng xuất', () => {
     const probe = await screen.findByTestId('route-probe');
     await waitFor(() => expect(probe.dataset.ready).toBe('true'));
     expect(queryClient.getQueryCache().findAll().length).toBeGreaterThan(0);
-    expect(localStorage.getItem('lms.accessToken')).toBe('access-test');
+    // Hợp đồng sau cutover: web không giữ token nào ở localStorage.
+    expect(localStorage.getItem('lms.accessToken')).toBeNull();
+    expect(localStorage.getItem('lms.refreshToken')).toBeNull();
 
     await userEvent.click(screen.getByTestId('probe-logout'));
 
-    await waitFor(() => expect(localStorage.getItem('lms.accessToken')).toBeNull());
-    expect(localStorage.getItem('lms.refreshToken')).toBeNull();
     // Bất biến dọn dẹp: giao diện thôi mang quyền của người trước, và
     // cache không còn giữ payload của phiên trước — query đang quan
     // sát có thể tự nạp lại sau clear() nhưng chỉ với trạng thái chưa

@@ -11,17 +11,17 @@ import {
   type RealtimePresencePayload,
   type RealtimeTypingPayload,
 } from '@lms/contracts';
-import { tokenStore } from './api';
 
 /**
  * Kênh realtime của tin nhắn (issue #33, chặng A1): Socket.IO namespace
  * `/messaging`. Đây là điểm chạm duy nhất của web với socket — trang
  * tin nhắn chỉ biết interface handlers/handle dưới đây.
  *
- * Xác thực bằng access token đăng nhập hiện tại: `auth` dạng callback
- * nên mỗi lần (tự) nối lại đều lấy token mới nhất từ tokenStore (sau
- * refresh token không bị kẹt token cũ). Server ngắt ngay kết nối
- * không xác thực được.
+ * Xác thực bằng cookie phiên (issue #7, GĐ2): kết nối mở với
+ * `withCredentials` nên handshake mang cookie phiên Better Auth cùng
+ * nguồn; gateway phía API chấp nhận cookie ở handshake là điều kiện
+ * của đợt GĐ5 (đi cùng cutover). Server ngắt ngay kết nối không xác
+ * thực được.
  *
  * Sự kiện nghiệp vụ (tin mới/đã đọc) đến từ server qua đường outbox →
  * consumer phân phối — client chỉ việc áp vào state, chống trùng bằng
@@ -61,7 +61,7 @@ export interface MessagingRealtimeHandle {
 /** Mở kết nối realtime cho trang tin nhắn; trả handle điều khiển + đăng ký handlers. */
 export function connectMessagingRealtime(handlers: MessagingRealtimeHandlers): MessagingRealtimeHandle {
   const socket: Socket = io('/messaging', {
-    auth: (callback) => callback({ token: tokenStore.access ?? '' }),
+    withCredentials: true,
     transports: ['websocket', 'polling'],
   });
   let connectedOnce = false;

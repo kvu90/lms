@@ -149,7 +149,6 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   });
 
   it('mark-all-read invalidates the shared unread-count query so the badge drops to 0', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = { unread: 3, allRead: false, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
@@ -173,7 +172,6 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   });
 
   it('preference toggle PUTs exactly one provider patch and keeps the saved value', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
@@ -192,7 +190,6 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   });
 
   it('settings show registry labels only — no raw keys, no push, mandatory type locked on (NB-2)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = { unread: 0, allRead: true, prefEnabled: true, courses: [] as CourseOverrideState[] };
     stubFetch(calls, state);
@@ -214,7 +211,6 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   });
 
   it('course exceptions: lists my courses, shows muted state, toggling PUTs the new mode (NB-4)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = {
       unread: 0, allRead: true, prefEnabled: true,
@@ -249,7 +245,6 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
   });
 
   it('student minimal surface: no per-type rows, minimal note shown, course exceptions remain (NB-7)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     const state = {
       unread: 0, allRead: true, prefEnabled: true, minimalPrefs: true,

@@ -118,7 +118,6 @@ describe('Quiz paper page — CAM-0 queues', () => {
   });
 
   it('loads batches and queues, then assigns identity, resolves an ambiguous answer and records a grade', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     // jsdom thiếu URL.createObjectURL cho ảnh phiếu: gắn trực tiếp lên
     // class URL (thay cả global URL sẽ làm hỏng constructor của router).
@@ -192,7 +191,6 @@ describe('Quiz paper page — unbatched sheet in the identity queue', () => {
   });
 
   it('shows an unrouted sheet as unbatched and assigns a print batch from the queue', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
     const urlStatics = URL as unknown as { createObjectURL: () => string; revokeObjectURL: () => void };
     urlStatics.createObjectURL = () => 'blob:fake';

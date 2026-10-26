@@ -198,7 +198,6 @@ function stubFetch(calls: RecordedCall[]) {
 
 /** Render trang quản trị khoá trong đúng khung provider của ứng dụng thật. */
 function renderCourseAdmin() {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter([{ path: '/courses/:id/admin', element: <CourseAdminPage /> }], {
     initialEntries: [`/courses/${COURSE_ID}/admin`],
   });

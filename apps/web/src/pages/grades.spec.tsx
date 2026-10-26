@@ -135,7 +135,6 @@ describe('Question bank page', () => {
     // Trang ngân hàng nay đọc usePermissions() (cổng issue #55): phải bọc
     // TestProviders và stub ảnh chụp quyền có quyền ngân hàng, nếu không
     // trang ném lỗi thiếu PermissionsProvider (lỗi CI của PR #61).
-    localStorage.setItem('lms.accessToken', 'test-token');
     let edited = false;
     const questionView = (version: number) => ({
       question: {
@@ -260,7 +259,6 @@ describe('Question bank page', () => {
   it('renders a usage with attempt states, steps and the pinned version', async () => {
     // Trang usage cũng đọc usePermissions() (cổng issue #55): cùng cách bọc
     // và stub quyền như test ngân hàng ở trên.
-    localStorage.setItem('lms.accessToken', 'test-token');
     stubFetch((url) => {
       if (url === '/api/v1/users/me')
         return {
@@ -502,7 +500,6 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
   }
 
   function renderAsTeacher() {
-    localStorage.setItem('lms.accessToken', 'test-token');
     renderGradebook();
   }
 

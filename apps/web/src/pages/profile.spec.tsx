@@ -66,8 +66,6 @@ function problemResponse(code: string, detail: string, status = 400) {
 }
 
 function renderProfile() {
-  localStorage.setItem('lms.accessToken', 'access-1');
-  localStorage.setItem('lms.refreshToken', 'refresh-1');
   const router = createMemoryRouter([{ path: '/profile', element: <ProfilePage /> }], {
     initialEntries: ['/profile'],
   });

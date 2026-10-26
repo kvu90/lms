@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import App from '../root';
 import Shell from '../routes/shell';
 import { queryClient } from '../lib/query-client';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test hồi quy cho menu tài khoản ở chân sidebar (NavUser): trên bản
@@ -46,10 +47,11 @@ function stubFetch() {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      // Phiên cookie Better Auth: get-session báo danh tính admin.
+      if (isGetSessionUrl(url)) return baSessionResponse({ id: ADMIN_ID, username: 'admin', email: 'admin@example.com' });
       if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(ACCESS);
       if (url === '/api/v1/courses') return jsonResponse([]);
-      if (url === '/api/v1/auth/refresh') return jsonResponse({}, 401);
       return jsonResponse({}, 404);
     }),
   );
@@ -105,8 +107,6 @@ afterEach(() => {
 
 describe('menu tài khoản ở chân sidebar', () => {
   it('bấm mở menu: hiện mục Hồ sơ và Đăng xuất, không sập màn hình', async () => {
-    localStorage.setItem('lms.accessToken', 'access-test');
-    localStorage.setItem('lms.refreshToken', 'refresh-test');
     stubFetch();
     const user = userEvent.setup();
     renderShell();

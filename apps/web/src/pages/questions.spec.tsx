@@ -175,7 +175,6 @@ describe('Question usage flow — real endpoints', () => {
   });
 
   it('creates a usage from selected questions and navigates to the usage page', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(
@@ -203,7 +202,6 @@ describe('Question usage flow — real endpoints', () => {
   });
 
   it('submits an answer via POST submit and only shows the fraction after POST finish', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
@@ -240,7 +238,6 @@ describe('Question usage flow — real endpoints', () => {
   });
 
   it('creates a category on its own screen through the context select, defaulting to the system context (issue #55, §9)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(
@@ -295,7 +292,6 @@ describe('Question bank page — role gate (issue #55)', () => {
   });
 
   it('renders no bank data and calls no bank endpoint for a role without question capabilities', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     vi.stubGlobal(
       'fetch',
@@ -417,7 +413,6 @@ describe('Question bank page — admin parity (issue #70)', () => {
   }
 
   async function expectFullBankSurface() {
-    localStorage.setItem('lms.accessToken', 'test-token');
     // Câu hỏi của tôi (/questions): chỉ có collapse riêng và mở sẵn;
     // hai khu riêng còn lại KHÔNG nằm chung trang nữa (chuẩn #221).
     renderArea('my-questions');
@@ -547,7 +542,6 @@ describe('Question bank areas — by path (issue #221)', () => {
 
   for (const areaCase of AREA_CASES) {
     it(`${areaCase.path} chỉ render khu vực ${areaCase.area}, collapse của khu mở sẵn`, async () => {
-      localStorage.setItem('lms.accessToken', 'test-token');
       stubAreaFetch();
       const router = createMemoryRouter([{ path: areaCase.path, element: <QuestionsPage area={areaCase.area} /> }], {
         initialEntries: [areaCase.path],
@@ -573,7 +567,6 @@ describe('Question bank areas — by path (issue #221)', () => {
   }
 
   it('/questions/stimuli render thẻ Ngữ liệu với neo #stimuli', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     stubAreaFetch();
     const router = createMemoryRouter(
       [{ path: '/questions/stimuli', element: <QuestionsPage area="stimuli" /> }],
@@ -589,7 +582,6 @@ describe('Question bank areas — by path (issue #221)', () => {
   });
 
   it('mỗi trang /system-bank/* chỉ render đúng phần của nó với neo id tương ứng', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     stubAreaFetch();
     const parts: Array<{ area: BankArea; path: string; id: string }> = [
       { area: 'system-questions', path: '/system-bank/questions', id: 'system-questions' },
@@ -671,7 +663,6 @@ describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
 
   for (const redirectCase of REDIRECT_CASES) {
     it(`${redirectCase.from} → ${redirectCase.toPath}`, async () => {
-      localStorage.setItem('lms.accessToken', 'test-token');
       stubRedirectFetch();
       const router = createMemoryRouter(
         [

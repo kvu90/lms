@@ -33,17 +33,20 @@ function parseSidebarState(cookie: string): boolean {
 }
 
 /**
- * Loader gốc (SSR, Giai đoạn 3–4 của issue #7): chỉ lấy DANH TÍNH TỐI
- * THIỂU cho vỏ trang. Khi request mang cookie phiên `lms_session` (luồng
- * phiên cookie sẵn có của API), loader chuyển nguyên Cookie sang API
- * nội bộ gọi GET /auth/session/me; không có cookie thì mặc định ẩn danh
- * và KHÔNG gọi API. Nhờ vậy HTML phía server và lần render đầu phía
- * client dùng chung một trạng thái phiên khởi tạo (không lệch hydrate),
- * và hai tài khoản khác nhau không bao giờ nhận HTML của nhau: HTML
- * chứa dữ liệu riêng chỉ sinh khi request mang đúng cookie của chủ
- * phiên. Token ở localStorage (luồng chính hiện tại) không đọc được
- * phía server — người dùng luồng đó vẫn được client resolve như trước
- * ngay sau hydrate; chuyển hẳn sang phiên cookie là Giai đoạn 2.
+ * Loader gốc (SSR, Giai đoạn 3–4 của issue #7; danh tính chuyển sang
+ * phiên Better Auth ở Giai đoạn 2): chỉ lấy DANH TÍNH TỐI THIỂU cho vỏ
+ * trang. Khi request mang cookie phiên Better Auth
+ * (`better-auth.session_token`, bản https có tiền tố `__Secure-`),
+ * loader chuyển nguyên Cookie sang API nội bộ gọi GET /users/me —
+ * guard phía API dịch cookie phiên thành danh tính cho mọi endpoint
+ * (xem `fetchApiJsonForRequest`); không có cookie thì mặc định ẩn
+ * danh và KHÔNG gọi API. Nhờ vậy HTML phía server và lần render đầu
+ * phía client dùng chung một trạng thái phiên khởi tạo (không lệch
+ * hydrate), và hai tài khoản khác nhau không bao giờ nhận HTML của
+ * nhau: HTML chứa dữ liệu riêng chỉ sinh khi request mang đúng cookie
+ * của chủ phiên. Đây là khâu chữa gốc hiện tượng sidebar hiện muộn:
+ * vỏ trang đã biết người dùng ngay từ HTML đầu thay vì chờ client
+ * resolve phiên sau khi tải xong.
  *
  * Loader còn trả `sidebarDefaultOpen`: trạng thái thu/mở sidebar đọc
  * từ cookie `sidebar_state` CỦA CHÍNH REQUEST (F-11 của #133, việc
@@ -58,8 +61,8 @@ export async function loader({
 }): Promise<{ initialUser: UserProfile | null; sidebarDefaultOpen: boolean }> {
   const cookie = request.headers.get('Cookie') ?? '';
   const sidebarDefaultOpen = parseSidebarState(cookie);
-  if (!/(?:^|;\s*)lms_session=/.test(cookie)) return { initialUser: null, sidebarDefaultOpen };
-  const body = await fetchApiJson('/api/v1/auth/session/me', { Cookie: cookie });
+  if (!/(?:^|;\s*)(?:__Secure-)?better-auth\.session_token=/.test(cookie)) return { initialUser: null, sidebarDefaultOpen };
+  const body = await fetchApiJson('/api/v1/users/me', { Cookie: cookie });
   const parsed = userProfileSchema.safeParse(body);
   return { initialUser: parsed.success ? parsed.data : null, sidebarDefaultOpen };
 }

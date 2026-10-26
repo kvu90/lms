@@ -62,7 +62,6 @@ describe('Admin roles page — TanStack queries + assignment invalidation (F-01)
   });
 
   it('loads roles, capabilities and contexts through the access queries', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -74,7 +73,6 @@ describe('Admin roles page — TanStack queries + assignment invalidation (F-01)
   });
 
   it('assignment POSTs to /access/assignments and invalidates the access queries', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();

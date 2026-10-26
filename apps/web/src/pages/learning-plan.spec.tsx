@@ -167,7 +167,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('creates a framework via POST with the real contracts DTO body', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -189,7 +188,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('exports a framework as JSON via GET /frameworks/:id/export and downloads it', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     const createObjectURL = vi.fn(() => 'blob:mock-url');
@@ -212,7 +210,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('imports a framework by posting the parsed file JSON to /frameworks/import', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     renderPage();
@@ -234,7 +231,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('shows the API integrity error verbatim when the import document is rejected', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     renderPage();
@@ -250,7 +246,6 @@ describe('Learning plan page — competency administration', () => {
   });
 
   it('approves an in-review plan from the review queue via POST /plans/:id/approve', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();

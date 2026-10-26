@@ -131,7 +131,6 @@ describe('Matrix bank UI (MB-1)', () => {
   });
 
   it('hai khu vực phân biệt: trang /matrices có ma trận của tôi; trang /system-bank/matrices có mẫu chung và copy về được', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     // Khu riêng ở path riêng (chuẩn đường dẫn #221): collapse "Ma trận
@@ -177,7 +176,6 @@ describe('Matrix bank UI (MB-1)', () => {
   });
 
   it('màn tạo ma trận riêng gửi đúng bankId của bank ma trận cá nhân (§9)', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(

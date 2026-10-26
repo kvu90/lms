@@ -158,7 +158,6 @@ function questionForm(submitName = 'Tạo câu hỏi') {
 }
 
 function renderBank() {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter(
     [
       { path: '/questions', element: <QuestionsPage /> },
@@ -578,7 +577,6 @@ describe('Stimulus in the question bank UI', () => {
         return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
       }),
     );
-    localStorage.setItem('lms.accessToken', 'test-token');
     const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
       initialEntries: [`/question-usages/${USAGE_ID}`],
     });

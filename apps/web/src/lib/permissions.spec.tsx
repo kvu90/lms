@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { usePermissions } from './permissions';
 
 /**
@@ -140,6 +141,8 @@ function stubFetch(scenario: Scenario) {
       fetchCalls.push(url);
       const respond = (status: number, body: unknown) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      // Phiên cookie Better Auth: id phiên khớp hồ sơ của kịch bản.
+      if (isGetSessionUrl(url)) return respond(200, baSessionBody({ id: me.id, username: me.username, email: me.email }));
       if (url === '/api/v1/users/me') return respond(200, me);
       if (url === '/api/v1/users/me/capabilities') return respond(200, accessView(scenario));
       if (url === '/api/v1/courses') return respond(200, [COURSE]);
@@ -165,7 +168,6 @@ function ClassificationProbe() {
 
 async function renderClassification(scenario: Scenario) {
   stubFetch(scenario);
-  localStorage.setItem('lms.accessToken', 'test-token');
   // AuthProvider cần context router (giống dashboard.spec): thiếu router
   // thì phiên không dựng được, provider quyền trả trạng thái rỗng.
   const router = createMemoryRouter([{ path: '/', element: <ClassificationProbe /> }]);
@@ -240,6 +242,7 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
         fetchCalls.push(url);
         const respond = (status: number, body: unknown) =>
           new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(200, baSessionBody({ id: TEACHER_ID, username: 'teacher1' }));
         if (url === '/api/v1/users/me') return respond(200, profile(TEACHER_ID, 'teacher1'));
         if (url === '/api/v1/users/me/capabilities') return respond(200, accessView('teacher-assigned'));
         if (url === '/api/v1/courses') return respond(200, [COURSE, OTHER_1, OTHER_2]);
@@ -248,7 +251,6 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
         return respond(404, {});
       }),
     );
-    localStorage.setItem('lms.accessToken', 'test-token');
     const router = createMemoryRouter([{ path: '/', element: <ClassificationProbe /> }]);
     render(
       <TestProviders>

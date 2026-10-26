@@ -176,7 +176,6 @@ function stubFetch(calls: RecordedCall[]) {
 }
 
 function renderBank() {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter(
     [
       { path: '/questions', element: <QuestionsPage /> },

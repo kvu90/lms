@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import App from '../root';
 import Shell from '../routes/shell';
 import { queryClient } from '../lib/query-client';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test cho số thông báo chưa đọc ở mục Thông báo trên sidebar: số
@@ -49,6 +50,7 @@ function stubFetch(unread: number, counter?: { unreadCalls: number }) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      if (isGetSessionUrl(url)) return baSessionResponse({ id: ADMIN_ID, username: 'admin', email: 'admin@example.com' });
       if (url === '/api/v1/users/me') return jsonResponse(PROFILE);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(ACCESS);
       if (url === '/api/v1/courses') return jsonResponse([]);
@@ -130,11 +132,6 @@ function renderShell() {
   return render(<RouterProvider router={router} />);
 }
 
-function seedTokens() {
-  localStorage.setItem('lms.accessToken', 'access-test');
-  localStorage.setItem('lms.refreshToken', 'refresh-test');
-}
-
 beforeAll(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -158,7 +155,6 @@ afterEach(() => {
 
 describe('số thông báo chưa đọc trên sidebar', () => {
   it('hiện huy hiệu đúng số chưa đọc cạnh mục Thông báo khi còn tin chưa đọc', async () => {
-    seedTokens();
     stubFetch(3);
     renderShell();
 
@@ -168,7 +164,6 @@ describe('số thông báo chưa đọc trên sidebar', () => {
   });
 
   it('không hiện huy hiệu khi không còn thông báo chưa đọc', async () => {
-    seedTokens();
     stubFetch(0);
     renderShell();
 
@@ -179,7 +174,6 @@ describe('số thông báo chưa đọc trên sidebar', () => {
   });
 
   it('header có nút chuông thông báo (NB-3) và không có bộ chọn ngôn ngữ', async () => {
-    seedTokens();
     stubFetch(3);
     renderShell();
 
@@ -192,7 +186,6 @@ describe('số thông báo chưa đọc trên sidebar', () => {
   });
 
   it('sự kiện stream SSE cập nhật huy hiệu ngay mà không gọi lại REST', async () => {
-    seedTokens();
     const counter = { unreadCalls: 0 };
     stubFetch(1, counter);
     const EventSourceFake = stubEventSource();
@@ -201,11 +194,12 @@ describe('số thông báo chưa đọc trên sidebar', () => {
     const item = await screen.findByRole('link', { name: /Thông báo/ });
     expect(await within(item).findByText('1')).toBeInTheDocument();
 
-    // Stream được mở đúng route, mang access token qua query.
+    // Stream được mở đúng route và KHÔNG còn mang token qua query —
+    // xác thực đi bằng cookie phiên cùng nguồn (cutover GĐ2).
     expect(EventSourceFake.instances).toHaveLength(1);
     const source = EventSourceFake.instances[0]!;
-    expect(source.url).toContain('/api/v1/notifications/unread-count/stream');
-    expect(source.url).toContain('access_token=access-test');
+    expect(source.url).toBe('/api/v1/notifications/unread-count/stream');
+    expect(source.url).not.toContain('access_token');
 
     // Server đẩy số mới → huy hiệu đổi theo, REST không bị gọi thêm.
     act(() => { source.emitUnread(5); });
@@ -217,7 +211,6 @@ describe('số thông báo chưa đọc trên sidebar', () => {
     vi.useFakeTimers();
     const counter = { unreadCalls: 0 };
     try {
-      seedTokens();
       stubFetch(2, counter);
       stubEventSource();
       renderShell();

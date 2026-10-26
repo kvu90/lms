@@ -264,7 +264,6 @@ function stubFetch(calls: RecordedCall[], content: unknown = CONTENT, bankItems:
 
 /** Render trang builder trong đúng khung provider của ứng dụng thật. */
 function renderCourseBuilder() {
-  localStorage.setItem('lms.accessToken', 'test-token');
   const router = createMemoryRouter(
     [
       { path: '/courses/:id/builder', element: <CourseBuilderPage /> },

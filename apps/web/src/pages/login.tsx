@@ -4,7 +4,7 @@ import { useLoaderData, useNavigate, useSearchParams } from 'react-router';
 import type { OAuthProvidersResponse } from '@lms/contracts';
 import { fetchApiJson } from '#lib/server-api';
 import type { OAuthIssuer } from '@lms/contracts';
-import { oauthAuthorizeResponseSchema, oauthProvidersResponseSchema } from '@lms/contracts';
+import { oauthProvidersResponseSchema } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -13,14 +13,14 @@ import { Label } from '@lms/ui/components/label';
 import { PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { ApiError, apiJson, MfaChallengeError, redirectToExternalUrl } from '#lib/api';
+import { ApiError, apiJson, TwoFactorRedirectError } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { queryKeys } from '#lib/query-keys';
 
 /**
- * Map mã lỗi OAuth mà callback của backend gắn vào `?oauthError=` sang
- * khoá i18n tương ứng; mã lạ rơi về thông báo chung để không lộ chi
- * tiết kỹ thuật của nhà cung cấp lên giao diện.
+ * Map mã lỗi OAuth mà callback gắn vào `?oauthError=` sang khoá i18n
+ * tương ứng; mã lạ rơi về thông báo chung để không lộ chi tiết kỹ
+ * thuật của nhà cung cấp lên giao diện.
  */
 const OAUTH_ERROR_KEYS: Record<string, string> = {
   'auth.account_inactive': 'oauthErrorAccountInactive',
@@ -48,26 +48,36 @@ export async function loader(): Promise<{ providers: OAuthProvidersResponse | nu
   return { providers: parsed.success ? parsed.data : null };
 }
 
+/** Các bước của trang: form mật khẩu → bước hai MFA; hoặc luồng OTP email hai nhịp (xin mã → nhập mã). */
+type LoginStep = 'password' | 'mfa' | 'otp-email' | 'otp-code';
+
 export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvidersResponse | null } = {}) {
   const { t } = useTranslation('app');
-  const { login, completeMfaLogin } = useAuth();
+  const { login, completeMfaLogin, requestEmailOtp, loginWithEmailOtp, loginWithSocial } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [step, setStep] = useState<LoginStep>('password');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Bước MFA: khi login trả thách thức thì giữ challengeToken tại đây
-  // và chuyển form sang nhập mã TOTP; quay lại thì xoá hẳn challenge.
-  const [challengeToken, setChallengeToken] = useState<string | null>(null);
+  // Bước MFA: sign-in trả twoFactorRedirect (chưa có phiên nào) thì
+  // chuyển sang nhập mã TOTP/mã dự phòng để hoàn tất qua plugin.
   const [mfaCode, setMfaCode] = useState('');
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaBusy, setMfaBusy] = useState(false);
+  // Luồng OTP email: giữ email đã xin mã để bước nhập mã dùng lại.
+  const [otpEmail, setOtpEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpBusy, setOtpBusy] = useState(false);
 
   /**
    * Danh sách issuer đang bật lấy từ endpoint công khai: issuer chưa
    * được quản trị cấu hình (enabled=false) thì KHÔNG hiện nút — đúng
-   * hành vi của Moodle với issuer chưa bật ở trang login.
+   * hành vi của Moodle với issuer chưa bật ở trang login. Từ GĐ2 nút
+   * này khởi động luồng social của Better Auth (client tự chuyển
+   * hướng tới nhà cung cấp sau khi API cấp URL authorize).
    */
   const providersQuery = useQuery({
     queryKey: queryKeys.oauthProviders,
@@ -80,7 +90,13 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
   const enabledIssuers = (providersQuery.data?.providers ?? []).filter((p) => p.enabled).map((p) => p.issuer);
 
   const oauthErrorCode = searchParams.get('oauthError');
-  const oauthError = oauthErrorCode ? t(OAUTH_ERROR_KEYS[oauthErrorCode] ?? 'oauthFailedGeneric') : null;
+  const oauthError = oauthErrorCode
+    ? t(OAUTH_ERROR_KEYS[oauthErrorCode] ?? 'oauthFailedGeneric')
+    : // Callback của Better Auth khi thất bại đưa về trang này kèm
+      // `?error=` — chỉ hiện thông báo chung, không lộ mã kỹ thuật.
+      searchParams.get('error')
+      ? t('oauthFailedGeneric')
+      : null;
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -90,12 +106,12 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
       await login(username, password);
       navigate('/profile');
     } catch (err) {
-      // Thách thức MFA không phải lỗi: chuyển bước, giữ nguyên phiên
-      // đang dở bằng challengeToken để bước sau hoàn tất đăng nhập.
-      if (err instanceof MfaChallengeError) {
-        setChallengeToken(err.challenge.challengeToken);
+      // Thách thức hai lớp không phải lỗi: chuyển bước nhập mã, phiên
+      // chưa tồn tại cho tới khi bước hai qua (đúng hợp đồng BA).
+      if (err instanceof TwoFactorRedirectError) {
         setMfaCode('');
         setMfaError(null);
+        setStep('mfa');
       } else {
         setError(err instanceof ApiError ? (err.problem.detail ?? err.problem.title) : t('loginFailed'));
       }
@@ -106,11 +122,10 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
 
   async function onMfaSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!challengeToken) return;
     setMfaBusy(true);
     setMfaError(null);
     try {
-      await completeMfaLogin(challengeToken, mfaCode);
+      await completeMfaLogin(mfaCode);
       navigate('/profile');
     } catch (err) {
       setMfaError(err instanceof ApiError ? (err.problem.detail ?? err.problem.title) : t('mfaFailed'));
@@ -119,22 +134,53 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
     }
   }
 
+  /** Bước 1 của luồng OTP: xin hệ thống gửi mã 6 số tới email. */
+  async function onOtpRequestSubmit(event: FormEvent) {
+    event.preventDefault();
+    setOtpBusy(true);
+    setOtpError(null);
+    try {
+      await requestEmailOtp(otpEmail);
+      setOtpCode('');
+      setStep('otp-code');
+    } catch {
+      setOtpError(t('emailOtpSendFailed'));
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
+  /** Bước 2 của luồng OTP: đăng nhập bằng mã vừa nhận qua email. */
+  async function onOtpVerifySubmit(event: FormEvent) {
+    event.preventDefault();
+    setOtpBusy(true);
+    setOtpError(null);
+    try {
+      await loginWithEmailOtp(otpEmail, otpCode);
+      navigate('/profile');
+    } catch {
+      setOtpError(t('emailOtpInvalidCode'));
+    } finally {
+      setOtpBusy(false);
+    }
+  }
+
   /**
-   * Bắt đầu luồng OAuth: xin URL authorize của backend rồi chuyển
-   * hướng toàn trang tới nhà cung cấp (không mở popup — nhà cung cấp
-   * sẽ redirect về callback của backend, backend mới đưa về SPA).
+   * Bắt đầu luồng đăng nhập ngoài: client Better Auth xin URL
+   * authorize và tự chuyển hướng toàn trang tới nhà cung cấp; callback
+   * phía server đặt cookie phiên rồi đưa về `/oauth/callback`. Lỗi ở
+   * bước xin URL (provider chưa bật phía server) hiện tại trang này.
    */
   async function startOAuth(issuer: OAuthIssuer) {
     setError(null);
     try {
-      const data = oauthAuthorizeResponseSchema.parse(await apiJson(`/api/v1/auth/oauth/${issuer}/authorize`));
-      redirectToExternalUrl(data.authorizeUrl);
+      await loginWithSocial(issuer);
     } catch {
       setError(t('oauthFailedGeneric'));
     }
   }
 
-  if (challengeToken) {
+  if (step === 'mfa') {
     return (
       <PageShell width="narrow" contentClassName="mx-auto w-full max-w-md">
         <Card>
@@ -148,10 +194,9 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
                 <Label htmlFor="mfa-code">{t('mfaCode')}</Label>
                 <Input
                   id="mfa-code"
-                  inputMode="numeric"
+                  inputMode="text"
                   autoComplete="one-time-code"
-                  pattern="\d{6}"
-                  maxLength={6}
+                  maxLength={32}
                   value={mfaCode}
                   onChange={(e) => setMfaCode(e.target.value)}
                   required
@@ -170,13 +215,87 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
                 variant="outline"
                 className="w-full"
                 onClick={() => {
-                  setChallengeToken(null);
+                  setStep('password');
                   setMfaError(null);
                 }}
               >
                 {t('mfaBack')}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
+  if (step === 'otp-email' || step === 'otp-code') {
+    return (
+      <PageShell width="narrow" contentClassName="mx-auto w-full max-w-md">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('signInWithEmailOtp')}</CardTitle>
+            <CardDescription>{t('emailOtpDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {step === 'otp-email' ? (
+              <form onSubmit={onOtpRequestSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="otp-email">{t('email')}</Label>
+                  <Input
+                    id="otp-email"
+                    type="email"
+                    autoComplete="email"
+                    value={otpEmail}
+                    onChange={(e) => setOtpEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                {otpError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{otpError}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" disabled={otpBusy} className="w-full">
+                  {otpBusy ? t('emailOtpSending') : t('emailOtpSend')}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={onOtpVerifySubmit} className="space-y-4">
+                <p className="text-sm text-muted-foreground">{t('emailOtpSentNotice', { email: otpEmail })}</p>
+                <div className="space-y-2">
+                  <Label htmlFor="otp-code">{t('emailOtpCodeLabel')}</Label>
+                  <Input
+                    id="otp-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="\d{6}"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    required
+                  />
+                </div>
+                {otpError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{otpError}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" disabled={otpBusy} className="w-full">
+                  {otpBusy ? t('emailOtpVerifying') : t('emailOtpVerify')}
+                </Button>
+              </form>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 w-full"
+              onClick={() => {
+                setStep('password');
+                setOtpError(null);
+              }}
+            >
+              {t('emailOtpBack')}
+            </Button>
           </CardContent>
         </Card>
       </PageShell>
@@ -227,6 +346,17 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
               {busy ? t('signingIn') : t('signIn')}
             </Button>
           </form>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 w-full"
+            onClick={() => {
+              setOtpError(null);
+              setStep('otp-email');
+            }}
+          >
+            {t('signInWithEmailOtp')}
+          </Button>
           {enabledIssuers.length > 0 && (
             <div className="mt-6 space-y-3">
               <p className="text-center text-sm text-muted-foreground">{t('oauthOrContinueWith')}</p>

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { BadgesPage } from './badges';
 import { NotificationsPage } from './notifications';
@@ -322,8 +323,8 @@ describe('Badges page', () => {
   });
 
   it('renders my issued badges with their assertion hashes, including revoked ones', async () => {
-    localStorage.setItem('lms.accessToken', 'test-token');
     stubFetch((url) => {
+      if (isGetSessionUrl(url)) return baSessionBody({ id: PROFILE.id, username: PROFILE.username });
       if (url === '/api/v1/users/me') return PROFILE;
       // Điểm dò quyền của PermissionsProvider: học viên thường bị từ chối
       // (404 → probe null) nên panel quản trị phải ẩn, phần của tôi vẫn hiện.
