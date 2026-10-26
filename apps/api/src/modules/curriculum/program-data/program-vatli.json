@@ -1391,14 +1391,42 @@
        "content": [
         {
          "type": "text",
-         "text": "rω2, v2/r. – Vận dụng được biểu thức gia tốc hướng tâm a = a = mrω2, mv2/r. – Vận dụng được biểu thức lực hướng tâm F = F = – Thảo luận và đề xuất giải pháp an toàn cho một số tình huống chuyển động tròn trong thực tế."
+         "text": "Vận dụng được biểu thức gia tốc hướng tâm a = rω2, a = v2/r."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được biểu thức lực hướng tâm F = mrω2, F = mv2/r."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thảo luận và đề xuất giải pháp an toàn cho một số tình huống chuyển động tròn trong thực tế."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "rω2, v2/r. – Vận dụng được biểu thức gia tốc hướng tâm a = a = mrω2, mv2/r. – Vận dụng được biểu thức lực hướng tâm F = F = – Thảo luận và đề xuất giải pháp an toàn cho một số tình huống chuyển động tròn trong thực tế.",
+   "outcome_text": "– Vận dụng được biểu thức gia tốc hướng tâm a = rω2, a = v2/r. – Vận dụng được biểu thức lực hướng tâm F = mrω2, F = mv2/r. – Thảo luận và đề xuất giải pháp an toàn cho một số tình huống chuyển động tròn trong thực tế.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -1427,20 +1455,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thực hiện thí nghiệm đơn giản (hoặc sử dụng tài liệu đa phương tiện), nêu được sự biến dạng kéo,"
+         "text": "Thực hiện thí nghiệm đơn giản (hoặc sử dụng tài liệu đa phương tiện), nêu được sự biến dạng kéo, biến dạng nén; mô tả được các đặc tính của lò xo: giới hạn đàn hồi, độ dãn, độ cứng."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thực hiện thí nghiệm đơn giản (hoặc sử dụng tài liệu đa phương tiện), nêu được sự biến dạng kéo,",
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản (hoặc sử dụng tài liệu đa phương tiện), nêu được sự biến dạng kéo, biến dạng nén; mô tả được các đặc tính của lò xo: giới hạn đàn hồi, độ dãn, độ cứng.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
     "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
     "pdf_pages": [
-     14
+     14,
+     15
     ]
    }
   },
@@ -1454,23 +1483,8 @@
    "topic": "Động lượng",
    "content": "Đặc tính của lò xo.",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "biến dạng nén; mô tả được các đặc tính của lò xo: giới hạn đàn hồi, độ dãn, độ cứng."
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "biến dạng nén; mô tả được các đặc tính của lò xo: giới hạn đàn hồi, độ dãn, độ cứng.",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -1710,20 +1724,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Mô tả được ví dụ thực tế về việc sử dụng kiến thức vật lí trong một số lĩnh vực (Quân sự; Công nghiệp hạt nhân; Khí tượng; Nông nghiệp, Lâm nghiệp; Tài chính; Điện tử; Cơ khí, tự động hoá;"
+         "text": "Mô tả được ví dụ thực tế về việc sử dụng kiến thức vật lí trong một số lĩnh vực (Quân sự; Công nghiệp hạt nhân; Khí tượng; Nông nghiệp, Lâm nghiệp; Tài chính; Điện tử; Cơ khí, tự động hoá; Thông tin, truyền thông; Nghiên cứu khoa học)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Mô tả được ví dụ thực tế về việc sử dụng kiến thức vật lí trong một số lĩnh vực (Quân sự; Công nghiệp hạt nhân; Khí tượng; Nông nghiệp, Lâm nghiệp; Tài chính; Điện tử; Cơ khí, tự động hoá;",
+   "outcome_text": "– Mô tả được ví dụ thực tế về việc sử dụng kiến thức vật lí trong một số lĩnh vực (Quân sự; Công nghiệp hạt nhân; Khí tượng; Nông nghiệp, Lâm nghiệp; Tài chính; Điện tử; Cơ khí, tự động hoá; Thông tin, truyền thông; Nghiên cứu khoa học).",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
     "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
     "pdf_pages": [
-     15
+     15,
+     16
     ]
    }
   },
@@ -1737,23 +1752,8 @@
    "topic": "Động lượng",
    "content": "một số ngành nghề",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Thông tin, truyền thông; Nghiên cứu khoa học)."
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "Thông tin, truyền thông; Nghiên cứu khoa học).",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -1987,20 +1987,115 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu: + Tác động của việc sử dụng năng lượng hiện nay đối với môi trường, kinh tế và khí hậu Việt Nam. + Sơ lược về các chất ô nhiễm trong nhiên liệu hoá thạch, mưa axit, năng lượng hạt nhân, sự suy giảm tầng ozon, sự biến đổi khí hậu. – Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu:"
+         "text": "Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Tác động của việc sử dụng năng lượng hiện nay đối với môi trường, kinh tế và khí hậu Việt Nam."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Sơ lược về các chất ô nhiễm trong nhiên liệu hoá thạch, mưa axit, năng lượng hạt nhân, sự suy giảm tầng ozon, sự biến đổi khí hậu."
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Phân loại năng lượng hoá thạch và năng lượng tái tạo."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Vai trò của năng lượng tái tạo."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Một số công nghệ cơ bản để thu được năng lượng tái tạo."
+            }
+           ]
+          }
+         ]
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu: + Tác động của việc sử dụng năng lượng hiện nay đối với môi trường, kinh tế và khí hậu Việt Nam. + Sơ lược về các chất ô nhiễm trong nhiên liệu hoá thạch, mưa axit, năng lượng hạt nhân, sự suy giảm tầng ozon, sự biến đổi khí hậu. – Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu:",
+   "outcome_text": "– Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu: + Tác động của việc sử dụng năng lượng hiện nay đối với môi trường, kinh tế và khí hậu Việt Nam. + Sơ lược về các chất ô nhiễm trong nhiên liệu hoá thạch, mưa axit, năng lượng hạt nhân, sự suy giảm tầng ozon, sự biến đổi khí hậu. – Thảo luận, đề xuất, chọn phương án và thực hiện được Nhiệm vụ học tập tìm hiểu: + Phân loại năng lượng hoá thạch và năng lượng tái tạo. + Vai trò của năng lượng tái tạo. + Một số công nghệ cơ bản để thu được năng lượng tái tạo.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
     "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
     "pdf_pages": [
-     16
+     16,
+     17
     ]
    }
   },
@@ -2014,23 +2109,8 @@
    "topic": "",
    "content": "Dao động",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "+ Phân loại năng lượng hoá thạch và năng lượng tái tạo. + Vai trò của năng lượng tái tạo. + Một số công nghệ cơ bản để thu được năng lượng tái tạo."
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "+ Phân loại năng lượng hoá thạch và năng lượng tái tạo. + Vai trò của năng lượng tái tạo. + Một số công nghệ cơ bản để thu được năng lượng tái tạo.",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -2059,14 +2139,98 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thực hiện thí nghiệm đơn giản tạo ra được dao động và mô tả được một số ví dụ đơn giản về dao động tự do. – Dùng đồ thị li độ – thời gian có dạng hình sin (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), nêu được định nghĩa: biên độ, chu kì, tần số, tần số góc, độ lệch pha. – Vận dụng được các khái niệm: biên độ, chu kì, tần số, tần số góc, độ lệch pha để mô tả dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để xác định được: độ dịch chuyển, vận tốc và gia tốc trong dao động điều hoà. – Vận dụng được các phương trình về li độ và vận tốc, gia tốc của dao động điều hoà. 2x – Vận dụng được phương trình a = – của dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để mô tả được sự chuyển hoá động năng và thế năng trong dao động điều hoà."
+         "text": "Thực hiện thí nghiệm đơn giản tạo ra được dao động và mô tả được một số ví dụ đơn giản về dao động tự do."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dùng đồ thị li độ – thời gian có dạng hình sin (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), nêu được định nghĩa: biên độ, chu kì, tần số, tần số góc, độ lệch pha."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được các khái niệm: biên độ, chu kì, tần số, tần số góc, độ lệch pha để mô tả dao động điều hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để xác định được: độ dịch chuyển, vận tốc và gia tốc trong dao động điều hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được các phương trình về li độ và vận tốc, gia tốc của dao động điều hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được phương trình a = –ω2x của dao động điều hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để mô tả được sự chuyển hoá động năng và thế năng trong dao động điều hoà."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thực hiện thí nghiệm đơn giản tạo ra được dao động và mô tả được một số ví dụ đơn giản về dao động tự do. – Dùng đồ thị li độ – thời gian có dạng hình sin (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), nêu được định nghĩa: biên độ, chu kì, tần số, tần số góc, độ lệch pha. – Vận dụng được các khái niệm: biên độ, chu kì, tần số, tần số góc, độ lệch pha để mô tả dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để xác định được: độ dịch chuyển, vận tốc và gia tốc trong dao động điều hoà. – Vận dụng được các phương trình về li độ và vận tốc, gia tốc của dao động điều hoà. 2x – Vận dụng được phương trình a = – của dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để mô tả được sự chuyển hoá động năng và thế năng trong dao động điều hoà.",
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản tạo ra được dao động và mô tả được một số ví dụ đơn giản về dao động tự do. – Dùng đồ thị li độ – thời gian có dạng hình sin (tạo ra bằng thí nghiệm, hoặc hình vẽ cho trước), nêu được định nghĩa: biên độ, chu kì, tần số, tần số góc, độ lệch pha. – Vận dụng được các khái niệm: biên độ, chu kì, tần số, tần số góc, độ lệch pha để mô tả dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để xác định được: độ dịch chuyển, vận tốc và gia tốc trong dao động điều hoà. – Vận dụng được các phương trình về li độ và vận tốc, gia tốc của dao động điều hoà. – Vận dụng được phương trình a = –ω2x của dao động điều hoà. – Sử dụng đồ thị, phân tích và thực hiện phép tính cần thiết để mô tả được sự chuyển hoá động năng và thế năng trong dao động điều hoà.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -2538,14 +2702,42 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thực hiện thí nghiệm hoặc bằng ví dụ thực tế, mô tả được sự hút (hoặc đẩy) của một điện tích vào một điện tích khác. – Phát biểu được định luật Coulomb và nêu được đơn vị đo điện tích. r2, – Sử dụng biểu thức F = q q /4πε tính và mô tả được lực tương tác giữa hai điện tích điểm đặt 1 2 o trong chân không (hoặc trong không khí)."
+         "text": "Thực hiện thí nghiệm hoặc bằng ví dụ thực tế, mô tả được sự hút (hoặc đẩy) của một điện tích vào một điện tích khác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phát biểu được định luật Coulomb và nêu được đơn vị đo điện tích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng biểu thức F = q1q2/4πεor2, tính và mô tả được lực tương tác giữa hai điện tích điểm đặt trong chân không (hoặc trong không khí)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thực hiện thí nghiệm hoặc bằng ví dụ thực tế, mô tả được sự hút (hoặc đẩy) của một điện tích vào một điện tích khác. – Phát biểu được định luật Coulomb và nêu được đơn vị đo điện tích. r2, – Sử dụng biểu thức F = q q /4πε tính và mô tả được lực tương tác giữa hai điện tích điểm đặt 1 2 o trong chân không (hoặc trong không khí).",
+   "outcome_text": "– Thực hiện thí nghiệm hoặc bằng ví dụ thực tế, mô tả được sự hút (hoặc đẩy) của một điện tích vào một điện tích khác. – Phát biểu được định luật Coulomb và nêu được đơn vị đo điện tích. – Sử dụng biểu thức F = q1q2/4πεor2, tính và mô tả được lực tương tác giữa hai điện tích điểm đặt trong chân không (hoặc trong không khí).",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -2574,14 +2766,70 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được khái niệm điện trường là trường lực được tạo ra bởi điện tích, là dạng vật chất tồn tại quanh điện tích và truyền tương tác giữa các điện tích. r2, – Sử dụng biểu thức E = Q/4πε tính và mô tả được cường độ điện trường do một điện tích điểm Q o đặt trong chân không hoặc trong không khí gây ra tại một điểm cách nó một khoảng r. – Nêu được ý nghĩa của cường độ điện trường và định nghĩa được cường độ điện trường tại một điểm được đo bằng tỉ số giữa lực tác dụng lên một điện tích dương đặt tại điểm đó và độ lớn của điện tích đó. – Dùng dụng cụ tạo ra (hoặc vẽ) được điện phổ trong một số trường hợp đơn giản. r2. – Vận dụng được biểu thức E = Q/4πε o"
+         "text": "Nêu được khái niệm điện trường là trường lực được tạo ra bởi điện tích, là dạng vật chất tồn tại quanh điện tích và truyền tương tác giữa các điện tích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng biểu thức E = Q/4πεor2, tính và mô tả được cường độ điện trường do một điện tích điểm Q đặt trong chân không hoặc trong không khí gây ra tại một điểm cách nó một khoảng r."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của cường độ điện trường và định nghĩa được cường độ điện trường tại một điểm được đo bằng tỉ số giữa lực tác dụng lên một điện tích dương đặt tại điểm đó và độ lớn của điện tích đó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dùng dụng cụ tạo ra (hoặc vẽ) được điện phổ trong một số trường hợp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được biểu thức E = Q/4πεor2."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm điện trường là trường lực được tạo ra bởi điện tích, là dạng vật chất tồn tại quanh điện tích và truyền tương tác giữa các điện tích. r2, – Sử dụng biểu thức E = Q/4πε tính và mô tả được cường độ điện trường do một điện tích điểm Q o đặt trong chân không hoặc trong không khí gây ra tại một điểm cách nó một khoảng r. – Nêu được ý nghĩa của cường độ điện trường và định nghĩa được cường độ điện trường tại một điểm được đo bằng tỉ số giữa lực tác dụng lên một điện tích dương đặt tại điểm đó và độ lớn của điện tích đó. – Dùng dụng cụ tạo ra (hoặc vẽ) được điện phổ trong một số trường hợp đơn giản. r2. – Vận dụng được biểu thức E = Q/4πε o",
+   "outcome_text": "– Nêu được khái niệm điện trường là trường lực được tạo ra bởi điện tích, là dạng vật chất tồn tại quanh điện tích và truyền tương tác giữa các điện tích. – Sử dụng biểu thức E = Q/4πεor2, tính và mô tả được cường độ điện trường do một điện tích điểm Q đặt trong chân không hoặc trong không khí gây ra tại một điểm cách nó một khoảng r. – Nêu được ý nghĩa của cường độ điện trường và định nghĩa được cường độ điện trường tại một điểm được đo bằng tỉ số giữa lực tác dụng lên một điện tích dương đặt tại điểm đó và độ lớn của điện tích đó. – Dùng dụng cụ tạo ra (hoặc vẽ) được điện phổ trong một số trường hợp đơn giản. – Vận dụng được biểu thức E = Q/4πεor2.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -3122,14 +3370,28 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được: Khi xét trường hấp dẫn ở một điểm ngoài quả cầu đồng nhất, khối lượng của quả cầu có thể xem như tập trung ở tâm của nó. /r2 – Vận dụng được định luật Newton về hấp dẫn F = Gm m cho một số trường hợp chuyển động đơn giản trong trường hấp dẫn."
+         "text": "Nêu được: Khi xét trường hấp dẫn ở một điểm ngoài quả cầu đồng nhất, khối lượng của quả cầu có thể xem như tập trung ở tâm của nó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được định luật Newton về hấp dẫn F = Gm1m2/r2 cho một số trường hợp chuyển động đơn giản trong trường hấp dẫn."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được: Khi xét trường hấp dẫn ở một điểm ngoài quả cầu đồng nhất, khối lượng của quả cầu có thể xem như tập trung ở tâm của nó. /r2 – Vận dụng được định luật Newton về hấp dẫn F = Gm m cho một số trường hợp chuyển động đơn giản trong trường hấp dẫn.",
+   "outcome_text": "– Nêu được: Khi xét trường hấp dẫn ở một điểm ngoài quả cầu đồng nhất, khối lượng của quả cầu có thể xem như tập trung ở tâm của nó. – Vận dụng được định luật Newton về hấp dẫn F = Gm1m2/r2 cho một số trường hợp chuyển động đơn giản trong trường hấp dẫn.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -3158,14 +3420,56 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được định nghĩa cường độ trường hấp dẫn. – Từ định luật hấp dẫn và định nghĩa cường độ trường hấp dẫn, rút ra được phương trình GM/r2 g = cho trường hợp đơn giản. GM/r2 – Vận dụng được phương trình g = để đánh giá một số hiện tượng đơn giản về trường hấp dẫn. – Nêu được tại mỗi vị trí ở gần bề mặt của Trái Đất, trong một phạm vi độ cao không lớn lắm, g là hằng số."
+         "text": "Nêu được định nghĩa cường độ trường hấp dẫn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Từ định luật hấp dẫn và định nghĩa cường độ trường hấp dẫn, rút ra được phương trình g = GM/r2 cho trường hợp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được phương trình g = GM/r2 để đánh giá một số hiện tượng đơn giản về trường hấp dẫn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tại mỗi vị trí ở gần bề mặt của Trái Đất, trong một phạm vi độ cao không lớn lắm, g là hằng số."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được định nghĩa cường độ trường hấp dẫn. – Từ định luật hấp dẫn và định nghĩa cường độ trường hấp dẫn, rút ra được phương trình GM/r2 g = cho trường hợp đơn giản. GM/r2 – Vận dụng được phương trình g = để đánh giá một số hiện tượng đơn giản về trường hấp dẫn. – Nêu được tại mỗi vị trí ở gần bề mặt của Trái Đất, trong một phạm vi độ cao không lớn lắm, g là hằng số.",
+   "outcome_text": "– Nêu được định nghĩa cường độ trường hấp dẫn. – Từ định luật hấp dẫn và định nghĩa cường độ trường hấp dẫn, rút ra được phương trình g = GM/r2 cho trường hợp đơn giản. – Vận dụng được phương trình g = GM/r2 để đánh giá một số hiện tượng đơn giản về trường hấp dẫn. – Nêu được tại mỗi vị trí ở gần bề mặt của Trái Đất, trong một phạm vi độ cao không lớn lắm, g là hằng số.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -3754,14 +4058,56 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thực hiện thí nghiệm đơn giản, thảo luận để nêu được sự chênh lệch nhiệt độ giữa hai vật tiếp xúc nhau có thể cho ta biết chiều truyền năng lượng nhiệt giữa chúng; từ đó nêu được khi hai vật tiếp xúc với nhau, ở cùng nhiệt độ, sẽ không có sự truyền năng lượng nhiệt giữa chúng. (1oC) – Thảo luận để nêu được mỗi độ chia trong thang Celsius bằng 1/100 của khoảng cách giữa nhiệt độ tan chảy của nước tinh khiết đóng băng và nhiệt độ sôi của nước tinh khiết (ở áp suất tiêu chuẩn), mỗi độ chia (1 K) trong thang Kelvin bằng 1/(273,16) của khoảng cách giữa nhiệt độ không tuyệt đối và nhiệt độ điểm mà nước tinh khiết tồn tại đồng thời ở thể rắn, lỏng và hơi (ở áp suất tiêu chuẩn). – Nêu được nhiệt độ không tuyệt đối là nhiệt độ mà tại đó tất cả các chất có động năng chuyển động nhiệt của các phân tử hoặc nguyên tử bằng không và thế năng của chúng là tối thiểu. – Chuyển đổi được nhiệt độ đo theo thang Celsius sang nhiệt độ đo theo thang Kelvin và ngược lại."
+         "text": "Thực hiện thí nghiệm đơn giản, thảo luận để nêu được sự chênh lệch nhiệt độ giữa hai vật tiếp xúc nhau có thể cho ta biết chiều truyền năng lượng nhiệt giữa chúng; từ đó nêu được khi hai vật tiếp xúc với nhau, ở cùng nhiệt độ, sẽ không có sự truyền năng lượng nhiệt giữa chúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thảo luận để nêu được mỗi độ chia (1°C) trong thang Celsius bằng 1/100 của khoảng cách giữa nhiệt độ tan chảy của nước tinh khiết đóng băng và nhiệt độ sôi của nước tinh khiết (ở áp suất tiêu chuẩn), mỗi độ chia (1 K) trong thang Kelvin bằng 1/(273,16) của khoảng cách giữa nhiệt độ không tuyệt đối và nhiệt độ điểm mà nước tinh khiết tồn tại đồng thời ở thể rắn, lỏng và hơi (ở áp suất tiêu chuẩn)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nhiệt độ không tuyệt đối là nhiệt độ mà tại đó tất cả các chất có động năng chuyển động nhiệt của các phân tử hoặc nguyên tử bằng không và thế năng của chúng là tối thiểu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chuyển đổi được nhiệt độ đo theo thang Celsius sang nhiệt độ đo theo thang Kelvin và ngược lại."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thực hiện thí nghiệm đơn giản, thảo luận để nêu được sự chênh lệch nhiệt độ giữa hai vật tiếp xúc nhau có thể cho ta biết chiều truyền năng lượng nhiệt giữa chúng; từ đó nêu được khi hai vật tiếp xúc với nhau, ở cùng nhiệt độ, sẽ không có sự truyền năng lượng nhiệt giữa chúng. (1oC) – Thảo luận để nêu được mỗi độ chia trong thang Celsius bằng 1/100 của khoảng cách giữa nhiệt độ tan chảy của nước tinh khiết đóng băng và nhiệt độ sôi của nước tinh khiết (ở áp suất tiêu chuẩn), mỗi độ chia (1 K) trong thang Kelvin bằng 1/(273,16) của khoảng cách giữa nhiệt độ không tuyệt đối và nhiệt độ điểm mà nước tinh khiết tồn tại đồng thời ở thể rắn, lỏng và hơi (ở áp suất tiêu chuẩn). – Nêu được nhiệt độ không tuyệt đối là nhiệt độ mà tại đó tất cả các chất có động năng chuyển động nhiệt của các phân tử hoặc nguyên tử bằng không và thế năng của chúng là tối thiểu. – Chuyển đổi được nhiệt độ đo theo thang Celsius sang nhiệt độ đo theo thang Kelvin và ngược lại.",
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản, thảo luận để nêu được sự chênh lệch nhiệt độ giữa hai vật tiếp xúc nhau có thể cho ta biết chiều truyền năng lượng nhiệt giữa chúng; từ đó nêu được khi hai vật tiếp xúc với nhau, ở cùng nhiệt độ, sẽ không có sự truyền năng lượng nhiệt giữa chúng. – Thảo luận để nêu được mỗi độ chia (1°C) trong thang Celsius bằng 1/100 của khoảng cách giữa nhiệt độ tan chảy của nước tinh khiết đóng băng và nhiệt độ sôi của nước tinh khiết (ở áp suất tiêu chuẩn), mỗi độ chia (1 K) trong thang Kelvin bằng 1/(273,16) của khoảng cách giữa nhiệt độ không tuyệt đối và nhiệt độ điểm mà nước tinh khiết tồn tại đồng thời ở thể rắn, lỏng và hơi (ở áp suất tiêu chuẩn). – Nêu được nhiệt độ không tuyệt đối là nhiệt độ mà tại đó tất cả các chất có động năng chuyển động nhiệt của các phân tử hoặc nguyên tử bằng không và thế năng của chúng là tối thiểu. – Chuyển đổi được nhiệt độ đo theo thang Celsius sang nhiệt độ đo theo thang Kelvin và ngược lại.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -3969,20 +4315,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Giải thích được chuyển động của các phân tử ảnh hưởng như thế nào đến áp suất tác dụng lên"
+         "text": "Giải thích được chuyển động của các phân tử ảnh hưởng như thế nào đến áp suất tác dụng lên thành bình và từ đó rút ra được hệ thức p = (1/3)nmv2 với n là số phân tử trong một đơn vị thể tích (dùng mô hình va chạm một chiều đơn giản, rồi mở rộng ra cho trường hợp ba chiều bằng cách sử dụng hệ thức (1/3)v2 = v2x, không yêu cầu chứng minh một cách chính xác và chi tiết)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Giải thích được chuyển động của các phân tử ảnh hưởng như thế nào đến áp suất tác dụng lên",
+   "outcome_text": "– Giải thích được chuyển động của các phân tử ảnh hưởng như thế nào đến áp suất tác dụng lên thành bình và từ đó rút ra được hệ thức p = (1/3)nmv2 với n là số phân tử trong một đơn vị thể tích (dùng mô hình va chạm một chiều đơn giản, rồi mở rộng ra cho trường hợp ba chiều bằng cách sử dụng hệ thức (1/3)v2 = v2x, không yêu cầu chứng minh một cách chính xác và chi tiết).",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
     "portal": "data.moet.gov.vn (share LYZDcWOm7QJqgdR; ban luu Wayback khop digest)",
     "pdf_pages": [
-     25
+     25,
+     26
     ]
    }
   },
@@ -3996,23 +4343,8 @@
    "topic": "",
    "content": "hình động học phân tử",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "thành bình và từ đó rút ra được hệ thức p=( )nmv2 với n là số phân tử trong một đơn vị thể tích (dùng mô hình va chạm một chiều đơn giản, rồi mở rộng ra cho trường hợp ba chiều bằng cách sử )v2 v2 dụng hệ thức ( = , không yêu cầu chứng minh một cách chính xác và chi tiết). x"
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "thành bình và từ đó rút ra được hệ thức p=( )nmv2 với n là số phân tử trong một đơn vị thể tích (dùng mô hình va chạm một chiều đơn giản, rồi mở rộng ra cho trường hợp ba chiều bằng cách sử )v2 v2 dụng hệ thức ( = , không yêu cầu chứng minh một cách chính xác và chi tiết). x",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -4446,14 +4778,70 @@
        "content": [
         {
          "type": "text",
-         "text": "– Viết được đúng phương trình phân rã hạt nhân đơn giản. mc2, – Thảo luận hệ thức E = nêu được liên hệ giữa khối lượng và năng lượng. – Nêu được mối liên hệ giữa năng lượng liên kết riêng và độ bền vững của hạt nhân. – Nêu được sự phân hạch và sự tổng hợp hạt nhân. – Thảo luận để đánh giá được vai trò của một số ngành công nghiệp hạt nhân trong đời sống."
+         "text": "Viết được đúng phương trình phân rã hạt nhân đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thảo luận hệ thức E = mc2, nêu được liên hệ giữa khối lượng và năng lượng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được mối liên hệ giữa năng lượng liên kết riêng và độ bền vững của hạt nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự phân hạch và sự tổng hợp hạt nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thảo luận để đánh giá được vai trò của một số ngành công nghiệp hạt nhân trong đời sống."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Viết được đúng phương trình phân rã hạt nhân đơn giản. mc2, – Thảo luận hệ thức E = nêu được liên hệ giữa khối lượng và năng lượng. – Nêu được mối liên hệ giữa năng lượng liên kết riêng và độ bền vững của hạt nhân. – Nêu được sự phân hạch và sự tổng hợp hạt nhân. – Thảo luận để đánh giá được vai trò của một số ngành công nghiệp hạt nhân trong đời sống.",
+   "outcome_text": "– Viết được đúng phương trình phân rã hạt nhân đơn giản. – Thảo luận hệ thức E = mc2, nêu được liên hệ giữa khối lượng và năng lượng. – Nêu được mối liên hệ giữa năng lượng liên kết riêng và độ bền vững của hạt nhân. – Nêu được sự phân hạch và sự tổng hợp hạt nhân. – Thảo luận để đánh giá được vai trò của một số ngành công nghiệp hạt nhân trong đời sống.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
@@ -4483,14 +4871,98 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được bản chất tự phát và ngẫu nhiên của sự phân rã phóng xạ. – Định nghĩa được độ phóng xạ, hằng số phóng xạ và vận dụng được liên hệ H = λN. e–t, – Vận dụng được công thức x = x với x là độ phóng xạ, số hạt chưa phân rã hoặc tốc độ số hạt đếm được. – Định nghĩa được chu kì bán rã. – Mô tả được sơ lược một số tính chất của các phóng xạ α, β và γ. – Nhận biết được dấu hiệu vị trí có phóng xạ thông qua các biển báo. – Nêu được các nguyên tắc an toàn phóng xạ; tuân thủ quy tắc an toàn phóng xạ."
+         "text": "Nêu được bản chất tự phát và ngẫu nhiên của sự phân rã phóng xạ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Định nghĩa được độ phóng xạ, hằng số phóng xạ và vận dụng được liên hệ H = λN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được công thức x = x0e–λt, với x là độ phóng xạ, số hạt chưa phân rã hoặc tốc độ số hạt đếm được."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Định nghĩa được chu kì bán rã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sơ lược một số tính chất của các phóng xạ α, β và γ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được dấu hiệu vị trí có phóng xạ thông qua các biển báo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các nguyên tắc an toàn phóng xạ; tuân thủ quy tắc an toàn phóng xạ."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được bản chất tự phát và ngẫu nhiên của sự phân rã phóng xạ. – Định nghĩa được độ phóng xạ, hằng số phóng xạ và vận dụng được liên hệ H = λN. e–t, – Vận dụng được công thức x = x với x là độ phóng xạ, số hạt chưa phân rã hoặc tốc độ số hạt đếm được. – Định nghĩa được chu kì bán rã. – Mô tả được sơ lược một số tính chất của các phóng xạ α, β và γ. – Nhận biết được dấu hiệu vị trí có phóng xạ thông qua các biển báo. – Nêu được các nguyên tắc an toàn phóng xạ; tuân thủ quy tắc an toàn phóng xạ.",
+   "outcome_text": "– Nêu được bản chất tự phát và ngẫu nhiên của sự phân rã phóng xạ. – Định nghĩa được độ phóng xạ, hằng số phóng xạ và vận dụng được liên hệ H = λN. – Vận dụng được công thức x = x0e–λt, với x là độ phóng xạ, số hạt chưa phân rã hoặc tốc độ số hạt đếm được. – Định nghĩa được chu kì bán rã. – Mô tả được sơ lược một số tính chất của các phóng xạ α, β và γ. – Nhận biết được dấu hiệu vị trí có phóng xạ thông qua các biển báo. – Nêu được các nguyên tắc an toàn phóng xạ; tuân thủ quy tắc an toàn phóng xạ.",
    "source": {
     "document": "Chương trình môn Vật lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-vatli-official.pdf",
