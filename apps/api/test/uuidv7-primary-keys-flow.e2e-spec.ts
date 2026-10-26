@@ -168,7 +168,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + class_join_requests (đợt CLASS-1, issue #184 — hàng chờ duyệt
     // tự báo danh của lớp, PK id uuidv7) → 188 bảng tổng, 174 bảng có
     // PK mặc định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(174); (feat(classes): CLASS-1 nền API — nạp roster theo định danh + import Excel, phân quyền 3 vai tại lớp, tự báo danh + hàng chờ duyệt (Refs #184))
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(174);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
@@ -196,12 +196,12 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // của CLASS-1, issue #184; đã trừ 4
     // bảng blog bị gỡ ở issue #173, 8 bảng điểm của mô hình cũ bị gỡ ở
     // issue #224 và trừ ròng 3 bảng của feat gộp Đề #226: −8 bảng
-    // quiz/triển khai cũ +5 bảng họ pin mới) + ĐÚNG (feat(classes): CLASS-1 nền API — nạp roster theo định danh + import Excel, phân quyền 3 vai tại lớp, tự báo danh + hàng chờ duyệt (Refs #184))
+    // quiz/triển khai cũ +5 bảng họ pin mới) + ĐÚNG
     // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(176); (feat(classes): CLASS-1 nền API — nạp roster theo định danh + import Excel, phân quyền 3 vai tại lớp, tự báo danh + hàng chờ duyệt (Refs #184))
+    expect(defaults.rows.length).toBe(176);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {
