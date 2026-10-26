@@ -37,11 +37,15 @@ export interface NavItem {
  * - KHÔNG có `url`: cha là nút thu/mở thuần — bấm chỉ mở/đóng danh sách
  *   mục con (vd "Học tập", "Cài đặt hệ thống").
  * - CÓ `url`: thân mục cha là LINK điều hướng tới trang danh sách của
- *   chính nó (vd "Ngân hàng câu hỏi" → /questions), kèm
- *   nút chevron riêng (`toggleLabel` là nhãn aria của nút đó) chỉ để
- *   thu/mở danh sách mục con khi nhóm có mục con. Nhóm có `url` mà chưa
- *   có mục con vẫn render thành mục cấp cao nhất điều hướng được — chờ
- *   bổ sung mục con sau (đính chính sidebar ngân hàng, issue #70).
+ *   chính nó (vd "Ngân hàng câu hỏi" → /questions); khi nhóm có mục
+ *   con, chevron thu/mở GẮN Ở CUỐI CÙNG MỘT bề mặt nút với nhãn
+ *   (trigger định vị tuyệt đối bên trong SidebarMenuItem, `toggleLabel`
+ *   là nhãn aria của trigger đó) — KHÔNG tách thành một nút chevron
+ *   riêng đứng cạnh nhãn, để hai biến thể trình bày giống nhau (chốt
+ *   sổ quyết định [26/10 23:16], việc nối tiếp issue #70). Nhóm có
+ *   `url` mà chưa có mục con vẫn render thành mục cấp cao nhất điều
+ *   hướng được, không chevron — chờ bổ sung mục con sau (đính chính
+ *   sidebar ngân hàng, issue #70).
  *
  * `groupId` là định danh ổn định để lưu trạng thái mở của nhóm (xem
  * AppSidebar).
@@ -179,28 +183,38 @@ function NavGroupCollapsible({
     );
   }
 
-  // Biến thể thân mục là LINK và có mục con: nút chính điều hướng, nút
-  // chevron riêng (aria-label riêng) chỉ thu/mở danh sách con.
+  // Biến thể thân mục là LINK và có mục con: thân là nút điều hướng
+  // (NavLink) chiếm trọn bề mặt hàng; chevron thu/mở gắn ở CUỐI CÙNG
+  // MỘT bề mặt nút đó — trigger định vị tuyệt đối lồng trong
+  // SidebarMenuItem (phần tử `relative`), trong suốt, không nền hover
+  // riêng và không khoảng tách riêng, đúng cách trình bày của biến
+  // thể không URL ở dưới (chevron `ml-auto` nằm trong chính nút) và
+  // khuôn sidebar-07. Lý do phải giống nhau (chốt sổ quyết định
+  // [26/10 23:16]): người dùng nhìn sidebar chỉ thấy MỘT nút liền có
+  // chevron ở cuối; việc một nhóm có URL điều hướng không được làm
+  // chevron của nó trông như một nút khác tách rời khỏi nhãn. Nút
+  // điều hướng chừa `pr-8` ở cuối để nhãn không chạy xuống dưới vùng
+  // chevron; bấm vùng chevron chỉ thu/mở danh sách con (trigger là
+  // phần tử riêng chồng lên cuối nút nên không kích điều hướng), bấm
+  // phần còn lại của nút thì điều hướng tới URL của nhóm.
   if (item.url) {
     return (
       <Collapsible open={open} onOpenChange={handleOpenChange} className="group/collapsible" render={<SidebarMenuItem />}>
-        <div className="flex w-full items-center gap-1">
-          <SidebarMenuButton
-            render={<NavLink to={item.url} className={navPendingClassName} />}
-            tooltip={item.title}
-            isActive={isPathActive(item.url, pathname, search)}
-            className="min-w-0 flex-1"
-          >
-            {item.icon && <item.icon />}
-            <span>{item.title}</span>
-          </SidebarMenuButton>
-          <CollapsibleTrigger
-            aria-label={item.toggleLabel ?? item.title}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden"
-          >
-            <ChevronRightIcon className="size-4 transition-transform duration-200 group-data-open/collapsible:rotate-90" />
-          </CollapsibleTrigger>
-        </div>
+        <SidebarMenuButton
+          render={<NavLink to={item.url} className={navPendingClassName} />}
+          tooltip={item.title}
+          isActive={isPathActive(item.url, pathname, search)}
+          className="pr-8"
+        >
+          {item.icon && <item.icon />}
+          <span>{item.title}</span>
+        </SidebarMenuButton>
+        <CollapsibleTrigger
+          aria-label={item.toggleLabel ?? item.title}
+          className="absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md text-sidebar-foreground/70 ring-sidebar-ring outline-hidden focus-visible:ring-2 group-data-[collapsible=icon]:hidden"
+        >
+          <ChevronRightIcon className="size-4 transition-transform duration-200 group-data-open/collapsible:rotate-90" />
+        </CollapsibleTrigger>
         <CollapsibleContent>{subMenu}</CollapsibleContent>
       </Collapsible>
     );
