@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { Check, Info, MessageCircle, Trash, UserPlus, X } from 'lucide-react';
+import { Ban, Check, Info, MessageCircle, Trash, UserPlus, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@lms/ui/components/avatar';
 import { Badge } from '@lms/ui/components/badge';
 import {
@@ -34,9 +34,11 @@ import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf } from './uti
  *    quan hệ đã chốt (nhắn riêng khi đã là liên hệ / có cờ nhắn
  *    thẳng GV→HS / đã có hội thoại 1–1 mở trước; chưa quan hệ thì
  *    Kết bạn; chặn thì không hiện nhắn riêng), cộng Xem thông tin
- *    (hồ sơ rút gọn trong phạm vi ngữ cảnh chung) và hành động quản
- *    trị theo loại nhóm (nhóm cấu trúc dẫn về màn roster, nhóm tự
- *    do gỡ thành viên tại chỗ qua API).
+ *    (hồ sơ rút gọn trong phạm vi ngữ cảnh chung), Chặn/Bỏ chặn
+ *    theo từng người (quyết 23:16 ngày 26/10/2026 — đường chặn
+ *    duy nhất ở chat nhóm, handler do khung chat luồn vào gói) và
+ *    hành động quản trị theo loại nhóm (nhóm cấu trúc dẫn về màn
+ *    roster, nhóm tự do gỡ thành viên tại chỗ qua API).
  *
  * Bất biến: thành viên nhóm CẤU TRÚC không bao giờ bị gỡ/sửa ngay
  * trong chat — nguồn sự thật là roster lớp/khoá; menu của nhóm cấu
@@ -63,6 +65,17 @@ export interface MemberPanelBundle {
   onRespondContactRequest: (userId: string, action: 'accept' | 'decline') => void;
   /** Gỡ một thành viên khỏi nhóm tự do (chỉ trang/API mới thực thi cổng canManage). */
   onRemoveMember: (userId: string) => void;
+  /**
+   * Tập user TÔI đã chặn — khung chat bổ sung từ props của trang
+   * khi đưa gói xuống panel (quyết 23:16 ngày 26/10/2026: chặn ở
+   * chat nhóm đi qua menu thành viên). Trang dựng gói không đặt
+   * trường này; thiếu thì menu không hiện mục bỏ chặn.
+   */
+  blockedIds?: ReadonlySet<string>;
+  /** Chặn một thành viên ngay từ menu hành động của họ (handler của trang, khung chat luồn vào gói). */
+  onBlockContact?: (userId: string) => void;
+  /** Bỏ chặn một thành viên ngay từ menu hành động của họ (handler của trang, khung chat luồn vào gói). */
+  onUnblockContact?: (userId: string) => void;
 }
 
 /**
@@ -124,6 +137,12 @@ interface MemberActionMenuProps {
   onRemoveMember: (userId: string) => void;
   /** Mở hồ sơ rút gọn của thành viên (sheet ở khung chat). */
   onViewProfile: (entry: MemberPanelEntry) => void;
+  /** Thành viên này đang bị CHÍNH TÔI chặn hay không (danh sách đã chặn của trang, nơi gọi luồn vào). */
+  isBlockedByMe?: boolean;
+  /** Chặn thành viên này (handler của trang) — menu chỉ hiện mục khi được cấp handler. */
+  onBlockContact?: (userId: string) => void;
+  /** Bỏ chặn thành viên này (handler của trang) — menu chỉ hiện mục khi được cấp handler. */
+  onUnblockContact?: (userId: string) => void;
 }
 
 /**
@@ -143,6 +162,12 @@ interface MemberActionMenuProps {
  *   nhận/Từ chối; đang chờ đi thì một mục mờ ghi trạng thái.
  * - "Xem thông tin" luôn có (trừ khi bị chặn hai chiều — dòng đó
  *   vốn đã bị ẩn khỏi roster/panel ở tầng dữ liệu).
+ * - Chặn/Bỏ chặn (quyết Lão gia 23:16 ngày 26/10/2026 — chặn ở
+ *   chat nhóm đi qua menu này, không còn nút ở header): chưa bị
+ *   tôi chặn thì có mục "Chặn liên lạc"; người TÔI đã chặn thì
+ *   menu rút gọn còn "Bỏ chặn" + "Xem thông tin" để còn đường
+ *   mở lại, dù quan hệ đang là `blocked`. Chỉ hiện khi nơi gọi
+ *   cấp handler chặn (khung chat luồn từ props của trang).
  * - Mục quản trị chỉ khi `canManage`: nhóm cấu trúc dẫn về màn
  *   roster (không gỡ tay trong chat); nhóm tự do gỡ thành viên tại
  *   chỗ, trừ người tạo nhóm và trừ chính mình.
@@ -153,12 +178,14 @@ interface MemberActionMenuProps {
 export function MemberActionMenu({
   entry, myId, context, canManage, hasDirectConversation, children, triggerClassName,
   triggerLabel, onMessageMember, onSendContactRequest, onRespondContactRequest,
-  onRemoveMember, onViewProfile,
+  onRemoveMember, onViewProfile, isBlockedByMe, onBlockContact, onUnblockContact,
 }: MemberActionMenuProps) {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
   const isSelf = entry.userId === myId;
   const blocked = entry.relationship === 'blocked';
+  /** Người này do CHÍNH TÔI chặn — khác với `blocked` hai chiều ở chỗ tôi còn đường bỏ chặn qua menu. */
+  const blockedByMe = Boolean(isBlockedByMe);
   /** Nhánh cho phép nhắn riêng ngay — xem TSDoc của component; chặn thắng tất cả. */
   const canMessageNow = !blocked && !isSelf
     && (entry.relationship === 'contact' || entry.canDirectMessage || hasDirectConversation);
@@ -169,9 +196,13 @@ export function MemberActionMenu({
       ? `/courses/${context.id}`
       : null;
 
-  // Bị chặn hai chiều: dòng thành viên không mang menu nào cả —
-  // giữ đúng luật "liên hệ đã chặn ẩn khỏi mọi bề mặt nhắn tin".
-  if (blocked) return <>{children}</>;
+  // Bị chặn hai chiều mà KHÔNG phải do tôi chặn: dòng thành viên
+  // không mang menu nào cả — giữ đúng luật "liên hệ đã chặn ẩn
+  // khỏi mọi bề mặt nhắn tin". Ngoại lệ duy nhất: người do chính
+  // tôi chặn thì menu vẫn mở ở dạng rút gọn (mục Bỏ chặn bên
+  // dưới), vì bỏ chặn cũng đi qua chính menu này theo quyết
+  // 23:16 — chặn một chiều không được tự khoá đường mở lại.
+  if (blocked && !blockedByMe) return <>{children}</>;
 
   return (
     <DropdownMenu>
@@ -188,13 +219,13 @@ export function MemberActionMenu({
             {t('directMessageAction')}
           </DropdownMenuItem>
         ) : null}
-        {!isSelf && entry.relationship === 'none' && !entry.canDirectMessage && !hasDirectConversation ? (
+        {!isSelf && !blockedByMe && entry.relationship === 'none' && !entry.canDirectMessage && !hasDirectConversation ? (
           <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onSendContactRequest(entry.userId)}>
             <UserPlus aria-hidden />
             {t('addContact')}
           </DropdownMenuItem>
         ) : null}
-        {!isSelf && entry.relationship === 'pending_incoming' ? (
+        {!isSelf && !blockedByMe && entry.relationship === 'pending_incoming' ? (
           <>
             <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onRespondContactRequest(entry.userId, 'accept')}>
               <Check aria-hidden />
@@ -206,7 +237,7 @@ export function MemberActionMenu({
             </DropdownMenuItem>
           </>
         ) : null}
-        {!isSelf && entry.relationship === 'pending_outgoing' ? (
+        {!isSelf && !blockedByMe && entry.relationship === 'pending_outgoing' ? (
           <DropdownMenuItem disabled className={CHAT_MENU_ITEM_CLASS}>
             {t('memberRequestPending')}
           </DropdownMenuItem>
@@ -215,6 +246,18 @@ export function MemberActionMenu({
           <Info aria-hidden />
           {t('memberViewProfile')}
         </DropdownMenuItem>
+        {!isSelf && !blockedByMe && !blocked && onBlockContact ? (
+          <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onBlockContact(entry.userId)}>
+            <Ban aria-hidden />
+            {t('blockContact')}
+          </DropdownMenuItem>
+        ) : null}
+        {!isSelf && blockedByMe && onUnblockContact ? (
+          <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onUnblockContact(entry.userId)}>
+            <Ban aria-hidden />
+            {t('unblockContact')}
+          </DropdownMenuItem>
+        ) : null}
         {canManage && rosterHref ? (
           <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => navigate(rosterHref)}>
             {context.kind === 'class' ? t('memberManageClassRoster') : t('memberManageCourseRoster')}
@@ -377,6 +420,9 @@ export function MemberPanel({
           onRespondContactRequest={bundle.onRespondContactRequest}
           onRemoveMember={bundle.onRemoveMember}
           onViewProfile={onViewProfile}
+          isBlockedByMe={bundle.blockedIds?.has(entry.userId)}
+          onBlockContact={bundle.onBlockContact}
+          onUnblockContact={bundle.onUnblockContact}
         >
           <span className="relative shrink-0">
             <Avatar>
