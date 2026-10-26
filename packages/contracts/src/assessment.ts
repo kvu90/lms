@@ -98,13 +98,14 @@ export const questionCategorySchema = z.object({
 export type QuestionCategory = z.infer<typeof questionCategorySchema>;
 
 /**
- * Một phiên bản nội dung câu hỏi như API trả về: `questionText`,
- * `generalFeedback` và `guidance` luôn là tài liệu Tiptap (đầu vào dạng
- * chuỗi đã được chuẩn hoá ở tầng nghiệp vụ). `guidance` là hướng dẫn mở
- * rộng cho học viên — Moodle không có trường chuẩn tương đương.
- * `stimulusId` trỏ tới ngữ liệu dùng chung mà phiên bản tham chiếu
- * (`null` khi câu hỏi không gắn ngữ liệu); đáp án và options KHÔNG nằm ở
- * đây mà tách ra ở cấp view (xem `questionViewSchema`).
+ * Một phiên bản nội dung câu hỏi như API trả về: `questionText` và
+ * `generalFeedback` luôn là tài liệu Tiptap (đầu vào dạng chuỗi đã được
+ * chuẩn hoá ở tầng nghiệp vụ). `guidance` KHÔNG còn nằm ở phiên bản:
+ * hướng dẫn đã chuyển sang phía đáp án (`questionAnswerKeyViewSchema`)
+ * theo quyết 12:12 ngày 26/10/2026. `stimulusId` trỏ tới ngữ liệu dùng
+ * chung mà phiên bản tham chiếu (`null` khi câu hỏi không gắn ngữ
+ * liệu); đáp án và options KHÔNG nằm ở đây mà tách ra ở cấp view (xem
+ * `questionViewSchema`).
  */
 export const questionVersionSchema = z.object({
   id: uuidIdSchema,
@@ -113,7 +114,6 @@ export const questionVersionSchema = z.object({
   version: z.number().int(),
   questionText: richTextDocumentSchema,
   generalFeedback: richTextDocumentSchema.nullable(),
-  guidance: richTextDocumentSchema.nullable(),
   defaultMark: z.number(),
   penalty: z.number(),
   stimulusId: uuidIdSchema.nullable(),
@@ -121,20 +121,84 @@ export const questionVersionSchema = z.object({
 export type QuestionVersion = z.infer<typeof questionVersionSchema>;
 
 /**
- * Một đáp án của một phiên bản câu hỏi như API trả về (Moodle
+ * Một đáp án của một phiên bản câu hỏi như API trả về (bảng
  * `question_answers` dùng chung mọi qtype): nội dung đáp án và feedback
- * đều là tài liệu Tiptap; `fraction` là tỷ trọng đúng/sai tương đối trong
- * nội bộ câu hỏi, không phải điểm tuyệt đối.
+ * đều là tài liệu Tiptap; `isCorrect` là cờ đúng/sai NHỊ PHÂN — tỉ
+ * trọng (fraction) đã BỎ HẲN theo quyết 12:04 ngày 26/10/2026 (đáp án
+ * chỉ đúng hoặc sai; multichoice đúng một đáp án đúng).
  */
 export const questionAnswerViewSchema = z.object({
   id: uuidIdSchema,
   questionVersionId: uuidIdSchema,
   answer: richTextDocumentSchema,
-  fraction: z.number(),
+  isCorrect: z.boolean(),
   feedback: richTextDocumentSchema.nullable(),
   sortOrder: z.number().int(),
 });
 export type QuestionAnswerView = z.infer<typeof questionAnswerViewSchema>;
+
+/**
+ * Lời giải (solution) của một phiên bản câu hỏi theo qtype — phần TÁCH
+ * RIÊNG khỏi nội dung câu hỏi (quyết 12:04 ngày 26/10/2026; hướng dẫn
+ * và lời giải là hai chuyện khác nhau). Hình dạng theo qtype:
+ * - multichoice / truefalse một mệnh đề: `correctAnswerId` là id của
+ *   dòng đáp án đúng — hình dạng HIỂN THỊ cho bề mặt xem lại (phía lưu
+ *   trữ, đáp án đúng nằm ở `isCorrect` của các dòng answers).
+ * - truefalse chùm nguyên bản (lát P5): `statements` là đáp án đúng/sai
+ *   của từng mệnh đề trong thân câu.
+ * - shortanswer: `acceptedAnswers` là các đáp án được chấp nhận (hiển
+ *   thị xem lại; phía lưu trữ là chính các dòng answers).
+ * - essay: `answer` là lời giải mẫu; dạng nhiều ý `answers` (đáp án
+ *   theo `partId`) đã CHỪA SẴN hình dạng nhưng chưa thi công (điểm
+ *   quyết D-6: hoãn essay nhiều ý).
+ * Phía lưu trữ (`question_answer_keys.solution`) chỉ dùng biến thể
+ * essay (và truefalse chùm ở P5); multichoice/truefalse/shortanswer
+ * để null vì đáp án đúng đã nằm ở `isCorrect`.
+ */
+export const questionSolutionSchema = z.union([
+  z.strictObject({ correctAnswerId: uuidIdSchema }),
+  z.strictObject({
+    statements: z
+      .array(z.strictObject({ statementId: z.string().min(1), value: z.boolean() }))
+      .min(1),
+  }),
+  z.strictObject({ acceptedAnswers: z.array(z.string().min(1)).min(1) }),
+  z.strictObject({ answer: richTextDocumentSchema }),
+  z.strictObject({
+    answers: z
+      .array(z.strictObject({ partId: z.string().min(1), content: richTextDocumentSchema }))
+      .min(1),
+  }),
+]);
+export type QuestionSolution = z.infer<typeof questionSolutionSchema>;
+
+/**
+ * Bản ghi phía đáp án của một phiên bản câu hỏi (bảng
+ * `question_answer_keys`, quan hệ 1-1 với version — quyết 12:12 ngày
+ * 26/10/2026): `guidance` là HƯỚNG DẪN (gợi ý cách làm cho học sinh,
+ * hiện kèm câu hỏi trong lúc làm bài — điểm quyết D-4), `solution` là
+ * LỜI GIẢI đầy đủ (chỉ hiện ở màn xem lại theo cổng xem lại của lần
+ * ghim). Cả hai nằm CÙNG ngữ cảnh phân quyền với đáp án: bản ghi này
+ * chỉ đi trong view dành cho phía có quyền đáp án, học sinh không bao
+ * giờ nhận nó qua question view.
+ */
+export const questionAnswerKeyViewSchema = z.object({
+  guidance: richTextDocumentSchema.nullable(),
+  solution: questionSolutionSchema.nullable(),
+});
+export type QuestionAnswerKeyView = z.infer<typeof questionAnswerKeyViewSchema>;
+
+/**
+ * Lời giải mẫu do người soạn GỬI LÊN trong payload tạo/sửa câu hỏi:
+ * đợt port này chỉ essay dùng — `answer` là tài liệu lời giải mẫu,
+ * tầng nghiệp vụ ghi vào `question_answer_keys.solution`.
+ * Multichoice/truefalse/shortanswer KHÔNG gửi solution: đáp án đúng
+ * đi qua cờ `correct` của từng dòng answers.
+ */
+export const questionSolutionInputSchema = z.strictObject({
+  answer: richTextInputSchema,
+});
+export type QuestionSolutionInput = z.infer<typeof questionSolutionInputSchema>;
 
 /**
  * Options của một phiên bản câu hỏi ở view: bản ghi phẳng theo qtype do
@@ -160,16 +224,18 @@ export type StimulusView = z.infer<typeof stimulusViewSchema>;
 
 /**
  * View đầy đủ của một câu hỏi: định danh + phiên bản mới nhất, kèm danh
- * sách đáp án và options của chính phiên bản đó, và `stimulus` là ngữ
- * liệu đã gắn của phiên bản mới nhất (tầng nghiệp vụ nạp sẵn từ
+ * sách đáp án, options và bản ghi phía đáp án (`answerKey`: guidance +
+ * solution) của chính phiên bản đó, và `stimulus` là ngữ liệu đã gắn
+ * của phiên bản mới nhất (tầng nghiệp vụ nạp sẵn từ
  * `latestVersion.stimulusId`; `null` khi phiên bản không gắn ngữ liệu).
+ * Câu hỏi KHÔNG có trường tên (quyết 11:28 + 12:04 ngày 26/10/2026):
+ * nhãn hiển thị ở các bề mặt là trích đoạn nội dung câu hỏi.
  */
 export const questionViewSchema = z.object({
   question: z.object({
     id: uuidIdSchema,
     category: uuidIdSchema,
     qtype: z.string(),
-    name: z.string(),
   }),
   entry: z.object({
     id: uuidIdSchema,
@@ -179,6 +245,7 @@ export const questionViewSchema = z.object({
   }),
   latestVersion: questionVersionSchema,
   answers: z.array(questionAnswerViewSchema),
+  answerKey: questionAnswerKeyViewSchema,
   options: questionOptionsViewSchema,
   stimulus: stimulusViewSchema.nullable(),
 });
@@ -351,13 +418,17 @@ export const createQuestionCategorySchema = z.strictObject({
 export type CreateQuestionCategory = z.infer<typeof createQuestionCategorySchema>;
 
 /**
- * Một đáp án trong payload tạo/sửa câu hỏi: nội dung rich text, `fraction`
- * là tỷ trọng đúng/sai tương đối trong nội bộ câu hỏi (không phải điểm),
- * `feedback` rich text tuỳ chọn hiện riêng cho đáp án này.
+ * Một đáp án trong payload tạo/sửa câu hỏi: nội dung rich text, cờ
+ * `correct` cho biết đáp án này là đáp án ĐÚNG (vắng mặt = không
+ * đúng) — đáp án chỉ đúng/sai nhị phân, KHÔNG còn tỉ trọng
+ * `fraction` (quyết 12:04 ngày 26/10/2026). `feedback` rich text tuỳ
+ * chọn hiện riêng cho đáp án này. Riêng shortanswer: mọi đáp án liệt
+ * kê đều là đáp án ĐƯỢC CHẤP NHẬN (khớp = đúng trọn), không có khái
+ * niệm đáp án đúng một phần.
  */
 export const questionAnswerInputSchema = z.strictObject({
   text: richTextInputSchema,
-  fraction: z.number(),
+  correct: z.boolean().optional(),
   feedback: richTextInputSchema.optional(),
 });
 export type QuestionAnswerInput = z.infer<typeof questionAnswerInputSchema>;
@@ -365,19 +436,21 @@ export type QuestionAnswerInput = z.infer<typeof questionAnswerInputSchema>;
 /**
  * Options theo qtype trong payload tạo/sửa câu hỏi — mọi trường đều tuỳ
  * chọn, tầng nghiệp vụ chỉ lấy các trường thuộc về qtype của câu hỏi:
- * multichoice (`single`, `shuffleAnswers`, `answerNumbering`,
- * `showNumCorrect`, `showStandardInstruction`, ba feedback theo mức đúng),
- * truefalse (`showStandardInstruction`), shortanswer (`useCase` + cờ đáp
- * án số `numericAnswer`/`numericMaxLength`/`numericAllowSign`/
+ * multichoice (`shuffleAnswers`, `answerNumbering`,
+ * `showStandardInstruction`, feedback đúng/sai theo mức câu), truefalse
+ * (`showStandardInstruction`), shortanswer (`useCase` + cờ đáp án số
+ * `numericAnswer`/`numericMaxLength`/`numericAllowSign`/
  * `numericAllowDecimal` — mặc định tắt, điểm 6.3.3 issue #30), essay
  * (`responseFormat`, `responseRequired`, `responseFieldLines`,
  * `minWordLimit`, `maxWordLimit`, `graderInfo`, `responseTemplate`).
+ * Đã BỎ hẳn theo mô hình giaokhoa (quyết 12:04 + điểm quyết D-5 ngày
+ * 26/10/2026): `single` (multichoice luôn chọn MỘT đáp án — không còn
+ * chế độ chọn nhiều), `showNumCorrect` và `partiallyCorrectFeedback`
+ * (chỉ có nghĩa khi còn điểm từng phần theo tỉ trọng).
  */
 export const questionOptionsInputSchema = z.strictObject({
-  single: z.boolean().optional(),
   shuffleAnswers: z.boolean().optional(),
   answerNumbering: z.string().optional(),
-  showNumCorrect: z.boolean().optional(),
   showStandardInstruction: z.boolean().optional(),
   useCase: z.boolean().optional(),
   numericAnswer: z.boolean().optional(),
@@ -392,50 +465,120 @@ export const questionOptionsInputSchema = z.strictObject({
   graderInfo: richTextInputSchema.optional(),
   responseTemplate: richTextInputSchema.optional(),
   correctFeedback: richTextInputSchema.optional(),
-  partiallyCorrectFeedback: richTextInputSchema.optional(),
   incorrectFeedback: richTextInputSchema.optional(),
 });
 export type QuestionOptionsInput = z.infer<typeof questionOptionsInputSchema>;
 
 /**
- * Payload tạo câu hỏi theo bốn qtype chuẩn Moodle (`multichoice`,
- * `truefalse`, `shortanswer`, `essay`): `questionText` nhận chuỗi thuần
- * hoặc tài liệu Tiptap; đáp án truyền qua `answers` + `options` theo
+ * Payload tạo câu hỏi theo bốn qtype (`multichoice`, `truefalse`,
+ * `shortanswer`, `essay`) — mô hình giaokhoa (quyết 12:04 ngày
+ * 26/10/2026): câu hỏi KHÔNG có tên; `questionText` nhận chuỗi thuần
+ * hoặc tài liệu Tiptap; đáp án truyền qua `answers` (mỗi đáp án mang
+ * cờ `correct` đúng/sai nhị phân, KHÔNG tỉ trọng) + `options` theo
  * qtype và được tầng nghiệp vụ bung ra các bảng đáp án/options riêng.
- * Trường `answer` là dạng payload CŨ còn giữ để tương thích client/test
- * hiện hữu (truefalse: {correct: boolean}; shortanswer: {answers:
- * string[], casesensitive?: boolean}) — tầng nghiệp vụ ánh xạ nó sang
- * `answers`/`options`. Tầng nghiệp vụ bắt buộc payload mang một trong hai
- * dạng (`answers`/`options` mới hoặc `answer` cũ) tuỳ theo qtype.
+ * `guidance` là HƯỚNG DẪN (tầng nghiệp vụ ghi vào bản ghi phía đáp án
+ * `question_answer_keys`, quyết 12:12); `solution` là LỜI GIẢI mẫu —
+ * đợt này chỉ essay dùng. Dạng payload cũ `answer` (truefalse
+ * {correct} / shortanswer {answers}) đã BỎ HẲN — đáp án đi thống nhất
+ * qua `answers`.
+ *
+ * Luật phía đáp án kiểm ngay tại schema (thay luật "tổng fraction =
+ * 1" của mô hình cũ):
+ * - multichoice: đúng 4 lựa chọn (điểm quyết D-3) và đúng MỘT đáp án
+ *   đúng;
+ * - truefalse: đúng 2 phía (Đúng/Sai) và đúng MỘT phía đúng;
+ * - shortanswer: ít nhất 1 đáp án được chấp nhận; mọi đáp án liệt kê
+ *   đều được chấp nhận (không đánh dấu `correct: false`) và việc chấm
+ *   là khớp CHÍNH XÁC sau chuẩn hoá — KHÔNG còn ký tự đại diện
+ *   wildcard `*` (điểm quyết D-2);
+ * - essay: không có dòng đáp án (chấm tay; lời giải mẫu qua
+ *   `solution`).
  */
 /** Nguồn gốc ngoài hệ thống của câu hỏi (truy vết nội bộ — không hiển thị cho học viên, quy tắc bản quyền 24/10/2026). */
 export const QUESTION_SOURCE_KINDS = ['book', 'exam', 'manual', 'import', 'ai'] as const;
-export const createQuestionSchema = z.strictObject({
-  categoryId: uuidIdSchema,
-  qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
-  name: z.string().min(1),
-  sourceKind: z.enum(QUESTION_SOURCE_KINDS).optional(),
-  sourceRef: z.string().min(1).optional(),
-  questionText: richTextInputSchema,
-  generalFeedback: richTextInputSchema.optional(),
-  guidance: richTextInputSchema.optional(),
-  defaultMark: z.number().optional(),
-  penalty: z.number().optional(),
-  stimulusId: uuidIdSchema.optional(),
-  answers: z.array(questionAnswerInputSchema).optional(),
-  options: questionOptionsInputSchema.optional(),
-  answer: z.record(z.string(), z.unknown()).optional(),
-});
+export const createQuestionSchema = z
+  .strictObject({
+    categoryId: uuidIdSchema,
+    qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
+    sourceKind: z.enum(QUESTION_SOURCE_KINDS).optional(),
+    sourceRef: z.string().min(1).optional(),
+    questionText: richTextInputSchema,
+    generalFeedback: richTextInputSchema.optional(),
+    guidance: richTextInputSchema.optional(),
+    defaultMark: z.number().optional(),
+    penalty: z.number().optional(),
+    stimulusId: uuidIdSchema.optional(),
+    answers: z.array(questionAnswerInputSchema).optional(),
+    options: questionOptionsInputSchema.optional(),
+    solution: questionSolutionInputSchema.optional(),
+  })
+  .superRefine((input, ctx) => {
+    const answers = input.answers ?? [];
+    const correctCount = answers.filter((a) => a.correct === true).length;
+    if (input.qtype === 'multichoice') {
+      if (answers.length !== 4) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answers'],
+          message: 'Câu trắc nghiệm phải có đúng 4 lựa chọn',
+        });
+      }
+      if (correctCount !== 1) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answers'],
+          message: 'Câu trắc nghiệm phải có đúng một đáp án đúng',
+        });
+      }
+    } else if (input.qtype === 'truefalse') {
+      if (answers.length !== 2) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answers'],
+          message: 'Câu đúng/sai phải có đúng hai phía Đúng và Sai',
+        });
+      }
+      if (correctCount !== 1) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answers'],
+          message: 'Câu đúng/sai phải có đúng một phía đúng',
+        });
+      }
+    } else if (input.qtype === 'shortanswer') {
+      if (answers.length < 1) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answers'],
+          message: 'Câu trả lời ngắn phải có ít nhất một đáp án được chấp nhận',
+        });
+      }
+      if (answers.some((a) => a.correct === false)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answers'],
+          message: 'Mọi đáp án liệt kê của câu trả lời ngắn đều được chấp nhận, không đánh dấu correct: false',
+        });
+      }
+    } else if (input.qtype === 'essay' && answers.length > 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['answers'],
+        message: 'Câu tự luận không có dòng đáp án; lời giải mẫu truyền qua solution',
+      });
+    }
+  });
 export type CreateQuestion = z.infer<typeof createQuestionSchema>;
 
 /**
- * Payload sửa câu hỏi (tạo phiên bản mới ở tầng nghiệp vụ; mọi trường đều
- * tuỳ chọn, ngữ nghĩa từng trường như payload tạo). `stimulusId` nhận
- * `null` để gỡ gắn ngữ liệu khỏi phiên bản mới; `answer` là dạng payload
- * cũ như ở payload tạo.
+ * Payload sửa câu hỏi (tạo phiên bản mới ở tầng nghiệp vụ; mọi trường
+ * đều tuỳ chọn, ngữ nghĩa từng trường như payload tạo). `stimulusId`
+ * nhận `null` để gỡ gắn ngữ liệu khỏi phiên bản mới. Payload sửa
+ * KHÔNG mang `qtype` (qtype của câu đã cố định) nên luật phía đáp án
+ * theo qtype (đúng một đáp án đúng…) do tầng nghiệp vụ kiểm theo qtype
+ * đã lưu của câu — cùng luật với payload tạo.
  */
 export const updateQuestionSchema = z.strictObject({
-  name: z.string().optional(),
   questionText: richTextInputSchema.optional(),
   generalFeedback: richTextInputSchema.optional(),
   guidance: richTextInputSchema.optional(),
@@ -444,7 +587,7 @@ export const updateQuestionSchema = z.strictObject({
   stimulusId: uuidIdSchema.nullable().optional(),
   answers: z.array(questionAnswerInputSchema).optional(),
   options: questionOptionsInputSchema.optional(),
-  answer: z.record(z.string(), z.unknown()).optional(),
+  solution: questionSolutionInputSchema.optional(),
 });
 export type UpdateQuestion = z.infer<typeof updateQuestionSchema>;
 

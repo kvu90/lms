@@ -7,8 +7,9 @@ import {
   paymentWebhookSchema, restoreCourseSchema,
   createGradeItemSchema,
   richTextDocumentSchema, richTextInputSchema, toRichTextDocument, extractRichTextPlainText, emptyRichTextDocument,
-  createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema,
+  createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema, questionAnswerViewSchema, questionAnswerKeyViewSchema,
   createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
+  mcpCreateQuestionInputSchema, mcpAnswerInputSchema, mcpBatchQuestionItemSchema, mcpStimulusQuestionItemSchema, mcpQuestionOptionsInputSchema,
   searchMessagesQuerySchema, messageSearchResultSchema,
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
@@ -478,47 +479,133 @@ describe('rich text contracts', () => {
   });
 });
 
-describe('question payload contracts (Moodle qtypes + stimulus)', () => {
+describe('question payload contracts (port giaokhoa: cờ đúng/sai, không tên, không tỉ trọng + stimulus)', () => {
   const categoryId = '01900000-0000-7000-8000-000000000001';
   const stimulusId = '01900000-0000-7000-8000-000000000099';
+  const mcAnswers = [
+    { text: 'Hà Nội', correct: true, feedback: 'Đúng' },
+    { text: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] } },
+    { text: 'Đà Nẵng' },
+    { text: 'Cần Thơ' },
+  ];
 
-  it('accepts a multichoice payload with answers and options, questionText as string or document', () => {
+  it('accepts a multichoice payload: exactly 4 choices, exactly one correct, questionText as string or document', () => {
     const parsed = createQuestionSchema.parse({
-      categoryId, qtype: 'multichoice', name: 'Thủ đô', questionText: 'Thủ đô của Việt Nam là?',
+      categoryId, qtype: 'multichoice', questionText: 'Thủ đô của Việt Nam là?',
       stimulusId,
-      answers: [
-        { text: 'Hà Nội', fraction: 1, feedback: 'Đúng' },
-        { text: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] }, fraction: 0 },
-      ],
-      options: { single: true, shuffleAnswers: true, answerNumbering: 'abc', showNumCorrect: true, correctFeedback: 'Chính xác' },
+      answers: mcAnswers,
+      options: { shuffleAnswers: true, answerNumbering: 'abc', correctFeedback: 'Chính xác' },
     });
-    expect(parsed.answers).toHaveLength(2);
-    expect(parsed.options?.single).toBe(true);
+    expect(parsed.answers).toHaveLength(4);
+    expect(parsed.answers?.filter((a) => a.correct === true)).toHaveLength(1);
+    expect(parsed.options?.shuffleAnswers).toBe(true);
     const withDocText = createQuestionSchema.parse({
-      categoryId, qtype: 'essay', name: 'Tự luận',
+      categoryId, qtype: 'essay',
       questionText: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hãy phân tích...' }] }] },
       options: { responseFormat: 'editor', responseRequired: true, responseFieldLines: 15, minWordLimit: null, maxWordLimit: 500, graderInfo: 'Chấm theo rubric' },
+      solution: { answer: 'Lời giải mẫu...' },
     });
     expect(withDocText.options?.maxWordLimit).toBe(500);
+    expect(withDocText.solution?.answer).toBe('Lời giải mẫu...');
   });
 
-  it('keeps the legacy free-form answer payload working for truefalse and shortanswer', () => {
+  it('locks the multichoice answer shape: 4 choices with exactly one correct (D-3 + bỏ tỉ trọng)', () => {
+    // Hai đáp án đúng -> từ chối (mô hình cũ cho tổng fraction, mô hình mới đúng MỘT đáp án đúng).
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: mcAnswers.map((a, i) => (i === 1 ? { ...a, correct: true } : a)),
+    })).toThrow();
+    // Không đáp án đúng nào -> từ chối.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: mcAnswers.map((a) => ({ text: a.text })),
+    })).toThrow();
+    // 3 hoặc 5 lựa chọn -> từ chối (khoá đúng 4 như giaokhoa).
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?', answers: mcAnswers.slice(0, 3),
+    })).toThrow();
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?', answers: [...mcAnswers, { text: 'Hải Phòng' }],
+    })).toThrow();
+    // Thiếu hẳn answers -> từ chối.
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'multichoice', questionText: '?' })).toThrow();
+    // Tỉ trọng fraction trong đáp án -> từ chối (strictObject).
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?',
+      answers: mcAnswers.map((a, i) => (i === 0 ? { text: a.text, fraction: 1 } : a)),
+    })).toThrow();
+  });
+
+  it('locks truefalse to two sides with exactly one correct side, via the unified answers shape', () => {
     const tf = createQuestionSchema.parse({
-      categoryId, qtype: 'truefalse', name: 'Đúng sai', questionText: 'Trái đất quay quanh mặt trời.', answer: { correct: true },
+      categoryId, qtype: 'truefalse', questionText: 'Trái đất quay quanh mặt trời.',
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai' }],
     });
-    expect(tf.answer).toEqual({ correct: true });
+    expect(tf.answers).toHaveLength(2);
+    // Hai phía cùng đúng / không phía nào đúng -> từ chối.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: '?',
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: true }],
+    })).toThrow();
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: '?', answers: [{ text: 'Đúng' }, { text: 'Sai' }],
+    })).toThrow();
+    // Dạng payload cũ answer:{correct} đã bỏ hẳn.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'truefalse', questionText: '?', answer: { correct: true },
+    })).toThrow();
+  });
+
+  it('locks shortanswer to listed accepted answers only (no wildcard semantics, no partial answers)', () => {
     const sa = createQuestionSchema.parse({
-      categoryId, qtype: 'shortanswer', name: 'Điền đáp án', questionText: '2 + 2 = ?', answer: { answers: ['4', 'bốn'], casesensitive: false },
+      categoryId, qtype: 'shortanswer', questionText: '2 + 2 = ?',
+      answers: [{ text: '4' }, { text: 'bốn' }],
+      options: { useCase: false },
     });
-    expect(sa.answer).toEqual({ answers: ['4', 'bốn'], casesensitive: false });
+    expect(sa.answers).toHaveLength(2);
+    // Không có đáp án chấp nhận nào -> từ chối.
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'shortanswer', questionText: '?', answers: [] })).toThrow();
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'shortanswer', questionText: '?' })).toThrow();
+    // Đáp án liệt kê mà đánh dấu không chấp nhận (correct: false) -> từ chối:
+    // mọi đáp án liệt kê đều được chấp nhận, khớp chính xác sau chuẩn hoá (D-2).
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'shortanswer', questionText: '?', answers: [{ text: '4', correct: false }],
+    })).toThrow();
+    // Dạng payload cũ answer:{answers} đã bỏ hẳn.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'shortanswer', questionText: '?', answer: { answers: ['4', 'bốn'], casesensitive: false },
+    })).toThrow();
+  });
+
+  it('rejects answer rows on essay, a question name anywhere, and the removed multichoice options (D-5)', () => {
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'essay', questionText: '?', answers: [{ text: 'x' }],
+    })).toThrow();
+    // Câu hỏi không có trường tên (strictObject từ chối name ở tạo/sửa).
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?', name: 'Thủ đô', answers: mcAnswers,
+    })).toThrow();
+    expect(() => updateQuestionSchema.parse({ name: 'X' })).toThrow();
+    // Options đã bỏ: single / showNumCorrect / partiallyCorrectFeedback.
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?', answers: mcAnswers, options: { single: true },
+    })).toThrow();
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?', answers: mcAnswers, options: { showNumCorrect: true },
+    })).toThrow();
+    expect(() => createQuestionSchema.parse({
+      categoryId, qtype: 'multichoice', questionText: '?', answers: mcAnswers, options: { partiallyCorrectFeedback: 'Gần đúng' },
+    })).toThrow();
+    // Payload sửa: đáp án mang fraction -> từ chối; stimulusId null gỡ gắn vẫn hợp lệ.
+    expect(() => updateQuestionSchema.parse({ answers: [{ text: 'x', fraction: 0.5 }] })).toThrow();
     expect(updateQuestionSchema.parse({ stimulusId: null }).stimulusId).toBeNull();
-    expect(updateQuestionSchema.parse({ answers: [{ text: 'x', fraction: 0.5 }] }).answers).toHaveLength(1);
+    expect(updateQuestionSchema.parse({ answers: [{ text: 'x', correct: true }] }).answers).toHaveLength(1);
   });
 
   it('rejects an unknown qtype and unknown payload fields', () => {
-    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'matching', name: 'X', questionText: '?' })).toThrow();
-    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'essay', name: 'X', questionText: '?', evil: 1 })).toThrow();
-    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'multichoice', name: 'X', questionText: '?', options: { bogus: true } })).toThrow();
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'matching', questionText: '?' })).toThrow();
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'essay', questionText: '?', evil: 1 })).toThrow();
+    expect(() => createQuestionSchema.parse({ categoryId, qtype: 'multichoice', questionText: '?', answers: mcAnswers, options: { bogus: true } })).toThrow();
   });
 
   it('accepts stimulus create/update payloads and parses a stimulus view', () => {
@@ -535,34 +622,57 @@ describe('question payload contracts (Moodle qtypes + stimulus)', () => {
 });
 
 describe('question view contracts', () => {
-  it('parses a question view whose version carries a Tiptap document, answers and options', () => {
+  it('parses a question view: no name, answers carry isCorrect, answerKey carries guidance + solution', () => {
     const questionText = { type: 'doc' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Thủ đô của Việt Nam là?' }] }] };
+    const guidanceDoc = { type: 'doc' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Nhớ lại bản đồ hành chính' }] }] };
     const view = questionViewSchema.parse({
-      question: { id: '01900000-0000-7000-8000-000000000004', category: '01900000-0000-7000-8000-000000000001', qtype: 'multichoice', name: 'Thủ đô' },
+      question: { id: '01900000-0000-7000-8000-000000000004', category: '01900000-0000-7000-8000-000000000001', qtype: 'multichoice' },
       entry: { id: '01900000-0000-7000-8000-000000000006', questionCategoryId: '01900000-0000-7000-8000-000000000001', questionId: '01900000-0000-7000-8000-000000000004', latestVersion: 1 },
       latestVersion: {
         id: '01900000-0000-7000-8000-000000000008', questionBankEntryId: '01900000-0000-7000-8000-000000000006', questionId: '01900000-0000-7000-8000-000000000004', version: 1,
-        questionText, generalFeedback: null, guidance: null, defaultMark: 1, penalty: 0, stimulusId: '01900000-0000-7000-8000-000000000099',
+        questionText, generalFeedback: null, defaultMark: 1, penalty: 0, stimulusId: '01900000-0000-7000-8000-000000000099',
       },
       answers: [
-        { id: '01900000-0000-7000-8000-000000000011', questionVersionId: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hà Nội' }] }] }, fraction: 1, feedback: null, sortOrder: 0 },
-        { id: '01900000-0000-7000-8000-000000000012', questionVersionId: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] }, fraction: 0, feedback: null, sortOrder: 1 },
+        { id: '01900000-0000-7000-8000-000000000011', questionVersionId: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hà Nội' }] }] }, isCorrect: true, feedback: null, sortOrder: 0 },
+        { id: '01900000-0000-7000-8000-000000000012', questionVersionId: '01900000-0000-7000-8000-000000000008', answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Huế' }] }] }, isCorrect: false, feedback: null, sortOrder: 1 },
       ],
-      options: { single: true, shuffleAnswers: false, answerNumbering: 'abc' },
+      answerKey: { guidance: guidanceDoc, solution: { correctAnswerId: '01900000-0000-7000-8000-000000000011' } },
+      options: { shuffleAnswers: false, answerNumbering: 'abc' },
       stimulus: {
         id: '01900000-0000-7000-8000-000000000099', categoryId: '01900000-0000-7000-8000-000000000001', createdBy: null,
         content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Đoạn văn ngữ liệu' }] }] },
       },
     });
     expect(view.answers).toHaveLength(2);
+    expect(view.answers.filter((a) => a.isCorrect)).toHaveLength(1);
+    expect(view.answerKey.guidance).toEqual(guidanceDoc);
+    expect(view.answerKey.solution).toEqual({ correctAnswerId: '01900000-0000-7000-8000-000000000011' });
     expect(view.latestVersion.questionText).toEqual(questionText);
     expect(view.latestVersion.stimulusId).toBe('01900000-0000-7000-8000-000000000099');
     expect(view.stimulus?.id).toBe('01900000-0000-7000-8000-000000000099');
     expect(extractRichTextPlainText(view.stimulus!.content)).toBe('Đoạn văn ngữ liệu');
     expect(questionViewSchema.parse({ ...view, stimulus: null }).stimulus).toBeNull();
+    // Essay: answerKey.solution mang lời giải mẫu dạng tài liệu.
+    const essayKey = questionAnswerKeyViewSchema.parse({
+      guidance: null,
+      solution: { answer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Lời giải mẫu' }] }] } },
+    });
+    expect(essayKey.solution).toBeDefined();
   });
 
-  it('rejects the old version shape (string questionText carrying answerdata)', () => {
+  it('rejects the old view shapes: fraction answers, guidance on the version, missing answerKey', () => {
+    // Đáp án kiểu cũ (fraction, không isCorrect) -> từ chối.
+    expect(() => questionAnswerViewSchema.parse({
+      id: '01900000-0000-7000-8000-000000000011', questionVersionId: '01900000-0000-7000-8000-000000000008',
+      answer: { type: 'doc', content: [{ type: 'paragraph' }] }, fraction: 1, feedback: null, sortOrder: 0,
+    })).toThrow();
+    // guidance không còn là trường của version: parse version mang guidance thì guidance bị loại khỏi kết quả.
+    const version = questionVersionSchema.parse({
+      id: '01900000-0000-7000-8000-000000000008', questionBankEntryId: '01900000-0000-7000-8000-000000000006', questionId: '01900000-0000-7000-8000-000000000004', version: 1,
+      questionText: { type: 'doc', content: [{ type: 'paragraph' }] }, generalFeedback: null,
+      guidance: { type: 'doc', content: [{ type: 'paragraph' }] }, defaultMark: 1, penalty: 0, stimulusId: null,
+    });
+    expect('guidance' in version).toBe(false);
     expect(() => questionVersionSchema.parse({
       id: '01900000-0000-7000-8000-000000000008', questionBankEntryId: '01900000-0000-7000-8000-000000000006', questionId: '01900000-0000-7000-8000-000000000004', version: 1,
       questionText: 'chuỗi cũ', defaultMark: 1, answerdata: { correct: true },
@@ -648,5 +758,40 @@ describe('class fee contracts (CLASS-3, #184)', () => {
     expect(parsed.canPurchase).toBe(true);
     expect(() => classPublicViewSchema.parse({ ...pub, status: 'deleted' })).toThrow();
     expect(() => classPublicViewSchema.parse({ ...pub, feeCost: 1.5 })).toThrow();
+  });
+});
+
+describe('mcp question contracts (biên AI: không fraction, không tên)', () => {
+  const bankId = '01900000-0000-7000-8000-000000000050';
+  const categoryId = '01900000-0000-7000-8000-000000000001';
+
+  it('accepts a create_question input with correct-flag answers and no name', () => {
+    const parsed = mcpCreateQuestionInputSchema.parse({
+      bankId, categoryId, qtype: 'multichoice', questionText: 'Thủ đô của Việt Nam là?',
+      answers: [
+        { text: 'Hà Nội', correct: true },
+        { text: 'Huế' },
+        { text: 'Đà Nẵng' },
+        { text: 'Cần Thơ' },
+      ],
+      idempotencyKey: 'key-1',
+    });
+    expect(parsed.answers?.filter((a) => a.correct === true)).toHaveLength(1);
+  });
+
+  it('rejects fraction on an MCP answer and a question name on MCP create/batch/stimulus inputs', () => {
+    expect(() => mcpAnswerInputSchema.parse({ text: 'Hà Nội', fraction: 1 })).toThrow();
+    expect(() => mcpCreateQuestionInputSchema.parse({
+      bankId, categoryId, qtype: 'essay', name: 'Tự luận', questionText: '?', idempotencyKey: 'k',
+    })).toThrow();
+    expect(() => mcpBatchQuestionItemSchema.parse({
+      clientItemId: 'i1', qtype: 'essay', name: 'Tự luận', questionText: '?',
+    })).toThrow();
+    expect(() => mcpStimulusQuestionItemSchema.parse({
+      qtype: 'essay', name: 'Tự luận', questionText: '?',
+    })).toThrow();
+    // Options đã bỏ ở biên MCP (D-5): partiallyCorrectFeedback bị từ chối.
+    expect(() => mcpQuestionOptionsInputSchema.parse({ partiallyCorrectFeedback: 'Gần đúng' })).toThrow();
+    expect(() => mcpQuestionOptionsInputSchema.parse({ single: true })).toThrow();
   });
 });
