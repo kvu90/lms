@@ -430,9 +430,12 @@ describe('class teacher surface (CLASS-1, #184)', () => {
     ) as Overview;
     expect(restoredView.courses.map((c) => c.id)).toEqual([courseId]);
 
-    // Người ngoài lớp (chưa từng vào lớp này): 404 như mọi đường đọc
-    // của lớp, không lộ sự tồn tại của lớp.
-    const outsider = await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(joinerC));
+    // Người ngoài lớp (tài khoản mới, chưa từng có quan hệ gì với
+    // lớp này): 404 như mọi đường đọc của lớp, không lộ sự tồn tại
+    // của lớp.
+    const outsiderUser = await createUserViaApi(app, admin);
+    const outsiderToken = (await login(app, outsiderUser.username, STRONG_PASSWORD)).accessToken;
+    const outsider = await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(outsiderToken));
     expect(outsider.status).toBe(404);
   });
 });
