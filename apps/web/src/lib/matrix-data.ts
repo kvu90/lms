@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ExamMatrixView, MatrixImportPreview } from '@lms/contracts';
 import { apiFetch, apiJson } from './api';
 import { queryKeys } from './query-keys';
 
@@ -296,13 +297,18 @@ export async function downloadMatrixSpecification(matrixId: string, format: 'xls
   URL.revokeObjectURL(url);
 }
 
-/** Lưu thông tin chung của ma trận: xong thì invalidate chi tiết để trang nạp bản mới (thay loadMatrix thủ công). */
+/**
+ * Lưu thông tin chung của ma trận: xong thì invalidate chi tiết để trang nạp bản mới (thay loadMatrix thủ công).
+ * `levelSet` là trường tuỳ chọn do checkbox Vận dụng cao ở màn sửa điều khiển (I-3, issue #233): tick = 'four',
+ * không tick = 'three'. Server tự chặn hạ xuống 'three' khi còn ô Vận dụng cao (400 `quiz.matrix_level_in_use`) nên
+ * web không cần tự kiểm tập ô trước khi gửi.
+ */
 export function useUpdateMatrix() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (vars: {
       matrixId: string;
-      body: { name: string; status: string; isTemplate: boolean; totalScore: number };
+      body: { name: string; status: string; isTemplate: boolean; totalScore: number; levelSet?: 'three' | 'four' };
     }) =>
       apiJson(`/api/v1/exam-matrices/${vars.matrixId}`, {
         method: 'PATCH',
@@ -355,4 +361,99 @@ export function useDeleteMatrixCell() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.matrixSpecification(vars.matrixId) });
     },
   });
+}
+
+/**
+ * Nhập ma trận từ file (lát I-3, issue #233) — ba thao tác web dùng,
+ * đều đi qua API đã có của I-1/I-2, web không tự tính lại luật nào:
+ *
+ * Flow: (1) `downloadMatrixImportTemplate` tải workbook mẫu do server
+ * sinh cho đúng (môn, chương trình, bộ mức) — giáo viên điền số vào
+ * file này; (2) `previewMatrixImport` gửi file lên bước xem trước
+ * (server parse + kiểm lỗi định vị + cảnh báo + khả dụng, KHÔNG ghi
+ * DB); (3) `commitMatrixImport` gửi lại CHÍNH file đó lên bước ghi —
+ * server parse lại từ đầu rồi mới ghi nguyên tử (lát I-2), nên web
+ * không được gửi kèm kết quả xem trước như bằng chứng hợp lệ.
+ * File là nguồn sự thật duy nhất ở cả hai bước sau.
+ */
+
+/**
+ * Tải workbook mẫu nhập ma trận cho một (môn, chương trình, bộ mức).
+ *
+ * Flow: gọi endpoint template bằng `apiFetch` (giữ Response để đọc
+ * header) → HTTP không ok thì ném lỗi ngay, không tải file rác →
+ * đọc blob, giữ đúng tên file server trả trong Content-Disposition
+ * (rơi xuống tên dự phòng cùng quy ước khi header vắng) → kích hoạt
+ * tải xuống bằng thẻ neo ẩn rồi thu hồi URL tạm.
+ *
+ * Side-effect: phát một request GET và kích hoạt một lượt tải file;
+ * không đổi trạng thái nào phía server/client.
+ *
+ * @param input - Môn + chương trình đã chọn; `includeAdvanced` tick
+ *   thì mẫu có thêm cột Vận dụng cao (levelSet=four), không tick thì
+ *   mẫu chỉ 3 mức CV 7991 (levelSet=three).
+ * @returns Promise hoàn tất sau khi lượt tải đã được kích hoạt.
+ */
+export async function downloadMatrixImportTemplate(input: {
+  subjectId: string;
+  curriculumId: string;
+  includeAdvanced: boolean;
+}): Promise<void> {
+  const params = new URLSearchParams({
+    subjectId: input.subjectId,
+    curriculumId: input.curriculumId,
+    levelSet: input.includeAdvanced ? 'four' : 'three',
+  });
+  const res = await apiFetch(`/api/v1/exam-matrices/template?${params.toString()}`);
+  if (!res.ok) throw new Error(String(res.status));
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename =
+    /filename="([^"]+)"/.exec(disposition)?.[1] ?? `mau-ma-tran-${input.subjectId.slice(0, 8)}.xlsx`;
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Xem trước file nhập ma trận (bước 3 của wizard I-3).
+ *
+ * Gửi file trong multipart trường `file` (để trình duyệt tự đặt
+ * Content-Type kèm boundary — ép JSON sẽ hỏng tải lên). Server luôn
+ * trả 200 kể cả khi file sai khuôn: lỗi nằm trong payload
+ * (`valid=false` + `errors[]` định vị theo sheet/dòng/cột), web hiển
+ * thị bảng lỗi đó và khoá nút xác nhận — không tự kết luận hợp lệ
+ * từ status HTTP.
+ *
+ * @param file - File .xlsx giáo viên đã điền (đúng file mẫu hệ sinh).
+ * @returns Kết quả xem trước `MatrixImportPreview` của contracts.
+ */
+export async function previewMatrixImport(file: File): Promise<MatrixImportPreview> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiJson<MatrixImportPreview>('/api/v1/exam-matrices/import/preview', { method: 'POST', body: form });
+}
+
+/**
+ * Ghi ma trận từ file đã xem trước (bước 4 của wizard I-3).
+ *
+ * Gửi lại CHÍNH file đã xem trước (không gửi kèm kết quả xem trước):
+ * server parse lại từ đầu tại thời điểm ghi — file bị sửa tay sau
+ * xem trước mà vi phạm luật thì server từ chối 422
+ * `quiz.matrix_import_invalid` kèm `matrixImportIssues` định vị và
+ * KHÔNG ghi một phần; gửi lại cùng nội dung thì server trả ma trận
+ * đã có thay vì tạo bản thứ hai (chống ghi trùng của I-2).
+ *
+ * @param file - Cùng file .xlsx đã qua bước xem trước.
+ * @returns View ma trận đã ghi (hoặc bản đã có khi trùng nội dung).
+ * @throws ApiError 422 kèm `problem.matrixImportIssues` khi file
+ *   không còn hợp lệ tại thời điểm ghi; 403 khi thiếu quyền tại môn.
+ */
+export async function commitMatrixImport(file: File): Promise<ExamMatrixView> {
+  const form = new FormData();
+  form.append('file', file);
+  return apiJson<ExamMatrixView>('/api/v1/exam-matrices/import', { method: 'POST', body: form });
 }
