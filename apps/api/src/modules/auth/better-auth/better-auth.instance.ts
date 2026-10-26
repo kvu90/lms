@@ -127,6 +127,7 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
             }: {
               user: { id: string; email: string };
               url: string;
+              token: string;
             }): Promise<void> => {
               await deps.authMail!.sendPasswordResetEmail({ userId: user.id, email: user.email, url });
             },
