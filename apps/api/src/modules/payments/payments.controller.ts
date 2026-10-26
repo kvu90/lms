@@ -28,6 +28,16 @@ export class PaymentsController {
   async createFee(@Param('instanceId', { schema: uuidIdSchema }) instanceId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.createFeePayment(actor.id, instanceId);
   }
+  /**
+   * POST /payments/class-fee/:classId — bắt đầu thanh toán GÓI LỚP
+   * (CLASS-3, #184): tạo payment `component = 'class_fee'` theo cấu
+   * hình học phí trên lớp; ghi danh cấp lớp chỉ kích hoạt khi payment
+   * succeeded qua webhook/IPN đã xác thực, không ghi danh tại đây.
+   */
+  @Post('class-fee/:classId')
+  async createClassFee(@Param('classId', { schema: uuidIdSchema }) classId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.createClassFeePayment(actor.id, classId);
+  }
   @Get('me')
   async mine(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listPaymentsForUser(actor.id); }
   @Get(':id')

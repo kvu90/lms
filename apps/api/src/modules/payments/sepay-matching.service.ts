@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { ClassesService } from '../classes/classes.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { PaymentsRepository, type ProviderEventRow } from './payments.repository';
 
@@ -16,6 +17,12 @@ import { PaymentsRepository, type ProviderEventRow } from './payments.repository
  * `needs_review`, KHÔNG kích hoạt gì (§5.7). Biến động debit không qua
  * matching tiền vào — đối khớp lệnh chi hoàn thuộc lát 3; ở lát 1 sự kiện
  * debit được đánh dấu `ignored` nhưng vẫn nằm trong sổ làm bằng chứng.
+ *
+ * CLASS-3 (#184): payment `class_fee` khớp đủ 3 điều kiện cũng đi đúng
+ * đường này — succeeded → kích hoạt ghi danh CẤP LỚP qua
+ * `ClassesService.activatePaidClassEnrol` (vào backing cohort, cohort
+ * sync vật chất hoá xuống mọi khoá của lớp); thiếu điều kiện →
+ * `needs_review` và KHÔNG vào lớp, như enrol_fee.
  */
 @Injectable()
 export class SepayMatchingService {
@@ -25,6 +32,7 @@ export class SepayMatchingService {
     private readonly repo: PaymentsRepository,
     private readonly outbox: OutboxService,
     private readonly enrol: EnrolService,
+    private readonly classes: ClassesService,
   ) {}
 
   /** Quét một nhịp: xử lý tối đa `limit` sự kiện đang chờ. Trả số sự kiện đã xử lý. */
@@ -82,6 +90,10 @@ export class SepayMatchingService {
       });
       if (succeeded!.component === 'enrol_fee' && succeeded!.itemId) {
         await this.enrol.activatePaidEnrol(succeeded!.itemId, succeeded!.userId);
+      }
+      // CLASS-3: gói lớp — kích hoạt ghi danh cấp lớp (idempotent).
+      if (succeeded!.component === 'class_fee' && succeeded!.itemId) {
+        await this.classes.activatePaidClassEnrol(succeeded!.itemId, succeeded!.userId);
       }
       await this.repo.updateProviderEvent(event.id, { matchStatus: 'matched', matchedPaymentId: payment.id });
       return;
