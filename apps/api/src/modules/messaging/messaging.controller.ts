@@ -99,6 +99,30 @@ export class MessagingController {
   async updateConversation(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateConversationSchema }) dto: UpdateConversationDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.updateConversation(actor.id, id, dto);
   }
+  @Delete('conversations/:id/members/:userId')
+  /**
+   * DELETE /messages/conversations/:id/members/:userId — gỡ một
+   * thành viên khỏi NHÓM TỰ DO (lát MSG-T4, issue #33; hành động
+   * quản trị trong panel thành viên của khung chat).
+   *
+   * Chỉ áp cho nhóm tự do: thành viên nhóm cấu trúc (lớp/khoá/nhóm
+   * con) suy ra từ roster nên server trả 400
+   * `messaging.member_remove_structural` để client dẫn về màn
+   * roster. Cổng thẩm quyền + các biên bất biến (không tự gỡ mình,
+   * không gỡ người tạo nhóm) nằm ở service
+   * ({@link MessagingService.removeConversationMember}).
+   *
+   * @param id - Id conversation (nhóm tự do).
+   * @param userId - Id thành viên bị gỡ.
+   * @returns Conversation sau khi gỡ, kèm danh sách thành viên mới.
+   */
+  async removeConversationMember(
+    @Param('id', { schema: uuidIdSchema }) id: string,
+    @Param('userId', { schema: uuidIdSchema }) userId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.messaging.removeConversationMember(actor.id, id, userId);
+  }
   @Post('conversations/:id/report')
   /**
    * POST /messages/conversations/:id/report — báo cáo một conversation

@@ -1800,6 +1800,72 @@ export class MessagingService {
   }
 
   /**
+   * Gỡ một thành viên khỏi NHÓM TỰ DO (lát MSG-T4, issue #33 — hành
+   * động quản trị trong panel thành viên của khung chat).
+   *
+   * Flow:
+   * 1. Nạp conversation; không có thì 404 như mọi đường theo id.
+   * 2. Cổng LOẠI conversation: chỉ nhóm tự do (type 2, không gắn
+   *    cấu trúc lớp/khoá/nhóm con) mới gỡ tay được ở đây. Thành viên
+   *    nhóm cấu trúc suy ra từ roster/ghi danh — gỡ tại chat sẽ bị
+   *    đồng bộ lười lắp lại ngay, nên server từ chối thẳng bằng
+   *    400 `messaging.member_remove_structural` để client dẫn người
+   *    dùng về màn roster thay vì báo thành công giả.
+   * 3. Cổng THẨM QUYỀN: chỉ người có thẩm quyền quản lý conversation
+   *    (canManageConversation — người tạo nhóm tự do hoặc người có
+   *    thẩm quyền kiểm duyệt) mới gỡ được; người ngoài nhận 403
+   *    `messaging.conversation_manage_forbidden` như đường bật/tắt
+   *    chat.
+   * 4. Hai biên bất biến: không tự gỡ chính mình (rời nhóm là luồng
+   *    khác, không thuộc lát này) và không gỡ NGƯỜI TẠO nhóm (nhóm
+   *    không thể mất chủ sở hữu qua đường này).
+   * 5. Xoá dòng thành viên (kèm luôn trạng thái cá nhân ghim/lưu/
+   *    tắt tiếng + mốc đã đọc của người đó trên conversation, vì
+   *    chúng sống trên cùng dòng) rồi trả conversation kèm danh
+   *    sách thành viên mới — cùng hình dạng đường bật/tắt chat.
+   *
+   * @param actorId - Người gọi (phải có thẩm quyền quản lý).
+   * @param conversationId - Nhóm tự do cần gỡ thành viên.
+   * @param targetUserId - Thành viên bị gỡ.
+   * @returns Conversation sau khi gỡ, kèm danh sách thành viên mới.
+   * @throws 404 `messaging.conversation_not_found` khi conversation
+   *   không tồn tại; 404 `messaging.member_not_found` khi người bị
+   *   gỡ không còn là thành viên; 400
+   *   `messaging.member_remove_structural` cho nhóm cấu trúc; 400
+   *   `messaging.member_remove_self` khi tự gỡ mình; 403
+   *   `messaging.conversation_manage_forbidden` khi thiếu thẩm
+   *   quyền; 403 `messaging.member_remove_creator` khi gỡ người tạo.
+   */
+  async removeConversationMember(actorId: string, conversationId: string, targetUserId: string): Promise<ConversationRow & { members: string[] }> {
+    const conversation = await this.repo.getConversation(conversationId);
+    if (!conversation) throw new NotFoundException({ message: `Conversation ${conversationId} not found`, code: 'messaging.conversation_not_found' });
+    if (!(await this.canManageConversation(actorId, conversation))) {
+      throw new ForbiddenException({
+        message: 'Only the teacher in charge, course staff, an administrator, or the group creator can change this conversation',
+        code: 'messaging.conversation_manage_forbidden',
+      });
+    }
+    if (conversation.type !== 2 || this.isGroupLinked(conversation) || this.isCourseLinked(conversation) || this.isClassLinked(conversation)) {
+      throw new BadRequestException({
+        message: 'Members of a class, course or course-group conversation come from its roster — manage them on the roster screen, not in chat',
+        code: 'messaging.member_remove_structural',
+      });
+    }
+    if (targetUserId === actorId) {
+      throw new BadRequestException({ message: 'You cannot remove yourself from the group', code: 'messaging.member_remove_self' });
+    }
+    if (conversation.createdBy !== null && conversation.createdBy === targetUserId) {
+      throw new ForbiddenException({ message: 'The group creator cannot be removed', code: 'messaging.member_remove_creator' });
+    }
+    if (!(await this.repo.isMember(conversationId, targetUserId))) {
+      throw new NotFoundException({ message: `User ${targetUserId} is not a member of conversation ${conversationId}`, code: 'messaging.member_not_found' });
+    }
+    await this.repo.removeMember(conversationId, targetUserId);
+    const updated = await this.repo.getConversation(conversationId);
+    return { ...updated!, members: await this.repo.listMembers(conversationId) };
+  }
+
+  /**
    * Đặt trạng thái cá nhân của CHÍNH thành viên trên một conversation
    * (lát M5, issue #240): ghim / lưu trữ / tắt tiếng — ba cờ độc lập,
    * chỉ trường có mặt mới đổi. Cổng như các đường theo id của thành
