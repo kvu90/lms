@@ -20,6 +20,7 @@ const CLASS_ID = '01900000-0000-7000-8000-0000000000c1';
 const OWNER_ID = '01900000-0000-7000-8000-0000000000b1';
 const STUDENT_ID = '01900000-0000-7000-8000-0000000000e1';
 const SUSPENDED_ID = '01900000-0000-7000-8000-0000000000e2';
+const CONVERSATION_ID = '01900000-0000-7000-8000-0000000000aa';
 const REQUEST_ID = '01900000-0000-7000-8000-0000000000f1';
 const REQUESTER_ID = '01900000-0000-7000-8000-0000000000e3';
 const GRADER_ID = '01900000-0000-7000-8000-0000000000b2';
@@ -110,6 +111,7 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === `/api/v1/classes/${CLASS_ID}/roster/suspended`) return respond(SUSPENDED);
       if (url === `/api/v1/classes/${CLASS_ID}/staff` && method === 'GET') return respond(STAFF);
       if (url === `/api/v1/classes/${CLASS_ID}/staff` && method === 'POST') return respond(STAFF);
+      if (url === `/api/v1/messages/classes/${CLASS_ID}/conversation`) return respond({ id: CONVERSATION_ID, type: 2, itemType: 'class', itemId: CLASS_ID, members: [OWNER_ID, STUDENT_ID] });
       if (url === `/api/v1/classes/${CLASS_ID}/join-requests` && method === 'GET') return respond(REQUESTS);
       if (url === `/api/v1/classes/${CLASS_ID}/join-requests/${REQUEST_ID}/approve` && method === 'POST')
         return respond({ ...REQUESTS[0], status: 'approved', decidedAt: '2026-10-26T02:00:00.000Z' });
@@ -205,6 +207,47 @@ describe('Chi tiết lớp — roster và các luồng quản trị (CLASS-1)', 
     await waitFor(() => expect(calls.some((c) => c.url.endsWith('/roster') && c.method === 'POST')).toBe(true));
     const call = calls.find((c) => c.url.endsWith('/roster') && c.method === 'POST');
     expect(call?.body).toEqual({ userId: SUSPENDED_ID });
+  });
+});
+
+/**
+ * Luồng nút "Chat lớp" ở trang chi tiết lớp (MSG-T2, issue #184):
+ * người dùng bấm nút → trang gọi đúng endpoint ensure chat cấp lớp
+ * phía messages → điều hướng sang trang Tin nhắn với tham số mở
+ * đúng conversation mà server trả. Đổi endpoint hoặc deep-link thì
+ * ca này phải đỏ.
+ */
+describe('Chi tiết lớp — nút Chat lớp (MSG-T2)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it('nút "Chat lớp" gọi ensure chat cấp lớp phía messages rồi điều hướng sang Tin nhắn mở đúng conversation', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const router = createMemoryRouter(
+      [
+        { path: '/classes/:id', element: <ClassDetailPage /> },
+        { path: '/messages', element: <div>Trang tin nhắn</div> },
+      ],
+      { initialEntries: [`/classes/${CLASS_ID}`] },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    expect(await screen.findByText('Nguyễn Văn An')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: 'Chat lớp' }));
+
+    expect(await screen.findByText('Trang tin nhắn')).toBeTruthy();
+    expect(calls.some((c) => c.url === `/api/v1/messages/classes/${CLASS_ID}/conversation` && c.method === 'GET')).toBe(true);
+    expect(router.state.location.pathname).toBe('/messages');
+    expect(router.state.location.search).toBe(`?conversation=${CONVERSATION_ID}`);
   });
 });
 
