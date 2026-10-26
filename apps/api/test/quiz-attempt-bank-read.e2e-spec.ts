@@ -201,7 +201,7 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
     const mc = view.questions.find((x) => x.questionId === mcId)!;
     expect(mc).toBeTruthy();
     expect(plain(mc.questionText)).toContain(`THAN-CAU-${marker}`);
-    expect(mc.answers).toHaveLength(2);
+    expect(mc.answers).toHaveLength(4); // MC theo mô hình mới: đúng 4 lựa chọn
     expect(mc.answers.some((a) => plain(a.text).includes(`DUNG-${marker}`))).toBe(true);
     expect(mc.answers.some((a) => plain(a.text).includes(`SAI-${marker}`))).toBe(true);
     // Bề mặt học sinh không lộ fraction của đáp án khi đang làm.

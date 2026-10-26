@@ -342,7 +342,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(stats).toHaveLength(3);
     // Câu 1 sai nhiều nhất (2/2) phải đứng đầu.
     expect(stats[0]).toMatchObject({
-      slot: 1, questionId: ctx.qMc, questionName: 'Capital', maxMark: 5,
+      slot: 1, questionId: ctx.qMc, questionName: 'Capital of France?', // Không còn tên câu hỏi: nhãn thống kê là trích đoạn nội dung maxMark: 5,
       attemptsCount: 2, gradedCount: 2, pendingCount: 0, wrongCount: 2, fullyWrongCount: 2,
     });
     expect(stats[0]!.wrongStudents.map((w) => w.userId).sort()).toEqual([ctx.student.id, studentB.id].sort());

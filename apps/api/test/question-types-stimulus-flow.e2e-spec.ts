@@ -285,7 +285,7 @@ describe('Question types & stimulus', () => {
     const exact = await runAttempt(qid, 'FROG');
     expect(exact).toMatchObject({ state: 'gradedright', fraction: 1 });
     // Đáp án đúng hiển thị là đáp án được chấp nhận đầu tiên theo thứ tự lưu.
-    expect((exact as { rightAnswer: string }).rightAnswer).toBe('frog');
+    expect((exact as unknown as { rightAnswer: string }).rightAnswer).toBe('frog');
     // Mẫu 'F*og' KHÔNG còn khớp như wildcard: học sinh gõ nguyên văn
     // 'F*og' hay 'Fat dog' đều không ăn điểm.
     const wild = await runAttempt(qid, 'F*og');

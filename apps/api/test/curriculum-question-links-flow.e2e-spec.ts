@@ -79,10 +79,10 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
   async function mkQuestion(categoryId: string, qtype: 'multichoice' | 'truefalse'): Promise<string> {
     const body = qtype === 'multichoice'
       ? {
-          categoryId, qtype, name: uniqueName('qmc'), questionText: 'Thủ đô của Pháp là?',
+          categoryId, qtype, questionText: 'Thủ đô của Pháp là?',
           answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
         }
-      : { categoryId, qtype, name: uniqueName('qtf'), questionText: 'Trời đang mưa.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] };
+      : { categoryId, qtype, questionText: 'Trời đang mưa.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] };
     const res = await http(app).post('/api/v1/questions').set(bearer(admin)).send(body);
     expect(res.status).toBeLessThan(300);
     return (res.body as { question: { id: string } }).question.id;
