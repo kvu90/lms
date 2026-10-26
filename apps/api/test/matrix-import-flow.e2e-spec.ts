@@ -106,7 +106,7 @@ describe('Matrix import I-1 (template + preview, no DB write)', () => {
       });
     if (res.status !== 200) throw new Error(`template failed: ${res.status}`);
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(res.body as unknown as Buffer);
+    await wb.xlsx.load(res.body as unknown as ExcelJS.Buffer);
     return wb;
   }
 
