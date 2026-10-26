@@ -13,6 +13,7 @@ import { UsersModule } from '../users/users.module';
 import { ExamMatricesController, QuizAttemptsController } from './quiz.controller';
 import { ExamMatrixBankController, QuestionBankMatricesController } from './matrix-banks.controller';
 import { MatrixBanksService } from './matrix-banks.service';
+import { MatrixImportService } from './matrix-import.service';
 import { QuizRepository } from './quiz.repository';
 import { QuizService } from './quiz.service';
 
@@ -27,7 +28,7 @@ import { QuizService } from './quiz.service';
 @Module({
   imports: [AccessModule, CoursesModule, QuestionsModule, GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule, EnrolModule, FilesModule],
   controllers: [QuizAttemptsController, ExamMatricesController, ExamMatrixBankController, QuestionBankMatricesController],
-  providers: [QuizRepository, QuizService, MatrixBanksService],
+  providers: [QuizRepository, QuizService, MatrixBanksService, MatrixImportService],
   exports: [QuizService, MatrixBanksService],
 })
 /** Module hoạt động Quiz (đề thi trong khoá học). */

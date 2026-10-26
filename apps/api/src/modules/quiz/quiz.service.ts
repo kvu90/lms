@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, PaperSlotLayout, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, MatrixImportCellAvailability, PaperSlotLayout, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -1376,7 +1376,7 @@ export class QuizService {
    * dòng nối câu × YCCĐ; issue #249). Chưa xét quyền dùng ngân hàng
    * của người gọi.
    */
-  private async cellCandidates(cell: ExamMatrixCellRow): Promise<QuestionView[]> {
+  private async cellCandidates(cell: Pick<ExamMatrixCellRow, 'curriculumNodeId' | 'cognitiveLevel' | 'qtype'>): Promise<QuestionView[]> {
     return this.questions.listQuestionsByCurriculumFilter({
       nodeId: cell.curriculumNodeId, cognitiveLevel: cell.cognitiveLevel,
       qtype: cell.qtype, status: 'ready',
@@ -1388,7 +1388,7 @@ export class QuizService {
    * question:useall tại context của category chứa câu (cùng quy tắc
    * quyền ngân hàng hiện hành).
    */
-  private async cellCandidatesForUser(actorId: string, cell: ExamMatrixCellRow): Promise<QuestionView[]> {
+  private async cellCandidatesForUser(actorId: string, cell: Pick<ExamMatrixCellRow, 'curriculumNodeId' | 'cognitiveLevel' | 'qtype'>): Promise<QuestionView[]> {
     const all = await this.cellCandidates(cell);
     const out: QuestionView[] = [];
     const usableByContext = new Map<string, boolean>();
@@ -1421,7 +1421,7 @@ export class QuizService {
   }
 
   /** Số đơn vị khả dụng của một ô cho một người dùng: ô thường đếm câu; ô truefalse đếm CHÙM. */
-  private async cellAvailableCount(actorId: string, cell: ExamMatrixCellRow): Promise<number> {
+  private async cellAvailableCount(actorId: string, cell: Pick<ExamMatrixCellRow, 'curriculumNodeId' | 'cognitiveLevel' | 'qtype'>): Promise<number> {
     const candidates = await this.cellCandidatesForUser(actorId, cell);
     return cell.qtype === 'truefalse' ? this.tfClustersOf(candidates).length : candidates.length;
   }
@@ -1440,6 +1440,28 @@ export class QuizService {
       out.push({ cellId: cell.id, required: cell.questionCount, available, deficit: Math.max(0, cell.questionCount - available) });
     }
     return { matrixId: matrix.id, cells: out, sufficient: out.every((c) => c.deficit === 0) };
+  }
+
+  /**
+   * Khả dụng ngân hàng cho các ô DỰ THẢO của đường nhập ma trận từ
+   * file (lát I-1, issue #233): ô chưa có bản ghi DB nên không có
+   * cellId — kết quả neo theo bộ ba (ĐVK, mức, dạng) của ô dự thảo.
+   * Cùng một cơ chế đếm ứng viên với {@link matrixAvailability} (câu
+   * ready gắn bất kỳ YCCĐ nào thuộc ĐVK ở đúng mức, lọc theo quyền
+   * dùng ngân hàng của người gọi; Đúng–Sai đếm theo chùm).
+   */
+  async importAvailability(actorId: string, cells: { curriculumNodeId: string; cognitiveLevel: string; qtype: string; questionCount: number }[]): Promise<MatrixImportCellAvailability[]> {
+    const out: MatrixImportCellAvailability[] = [];
+    for (const cell of cells) {
+      const available = await this.cellAvailableCount(actorId, cell);
+      out.push({
+        curriculumNodeId: cell.curriculumNodeId,
+        cognitiveLevel: cell.cognitiveLevel as MatrixImportCellAvailability['cognitiveLevel'],
+        qtype: cell.qtype as MatrixImportCellAvailability['qtype'],
+        required: cell.questionCount, available, deficit: Math.max(0, cell.questionCount - available),
+      });
+    }
+    return out;
   }
 
   /** Trộn ngẫu nhiên một bản sao của mảng (Fisher–Yates) cho các phép rút câu. */
