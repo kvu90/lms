@@ -2239,20 +2239,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được khái niệm dinh dưỡng ở thực vật và vai trò sinh lí của một số nguyên tố khoáng"
+         "text": "Nêu được khái niệm dinh dưỡng ở thực vật và vai trò sinh lí của một số nguyên tố khoáng đối với thực vật (cụ thể một số nguyên tố đa lượng, vi lượng)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm dinh dưỡng ở thực vật và vai trò sinh lí của một số nguyên tố khoáng",
+   "outcome_text": "– Nêu được khái niệm dinh dưỡng ở thực vật và vai trò sinh lí của một số nguyên tố khoáng đối với thực vật (cụ thể một số nguyên tố đa lượng, vi lượng).",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
     "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
     "pdf_pages": [
-     25
+     25,
+     26
     ]
    }
   },
@@ -2275,14 +2276,14 @@
        "content": [
         {
          "type": "text",
-         "text": "đối với thực vật (cụ thể một số nguyên tố đa lượng, vi lượng). – Quan sát và nhận biết được một số biểu hiện của cây do thiếu khoáng."
+         "text": "Quan sát và nhận biết được một số biểu hiện của cây do thiếu khoáng."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "đối với thực vật (cụ thể một số nguyên tố đa lượng, vi lượng). – Quan sát và nhận biết được một số biểu hiện của cây do thiếu khoáng.",
+   "outcome_text": "– Quan sát và nhận biết được một số biểu hiện của cây do thiếu khoáng.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
@@ -7930,20 +7931,82 @@
        "content": [
         {
          "type": "text",
-         "text": "– Phát biểu được khái niệm hệ sinh thái. Phân biệt được các thành phần cấu trúc của hệ sinh thái và các kiểu hệ sinh thái chủ yếu của Trái Đất, bao gồm các hệ sinh thái tự nhiên (hệ sinh thái trên cạn, dưới nước) và các hệ sinh thái nhân tạo. – Phân tích được quá trình trao đổi vật chất và chuyển hoá năng lượng trong hệ sinh thái, bao gồm:"
+         "text": "Phát biểu được khái niệm hệ sinh thái. Phân biệt được các thành phần cấu trúc của hệ sinh thái và các kiểu hệ sinh thái chủ yếu của Trái Đất, bao gồm các hệ sinh thái tự nhiên (hệ sinh thái trên cạn, dưới nước) và các hệ sinh thái nhân tạo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được quá trình trao đổi vật chất và chuyển hoá năng lượng trong hệ sinh thái, bao gồm:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Trình bày được dòng năng lượng trong một hệ sinh thái (bao gồm: phân bố năng lượng trên Trái Đất, sơ đồ khái quát về dòng năng lượng trong hệ sinh thái, sơ đồ khái quát năng lượng chuyển qua các bậc dinh dưỡng trong hệ sinh thái)."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nêu được khái niệm hiệu suất sinh thái (sản lượng sơ cấp, sản lượng thứ cấp); tháp sinh thái. Phân biệt được các dạng tháp sinh thái. Tính được hiệu suất sinh thái của một hệ sinh thái."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Giải thích được ý nghĩa của nghiên cứu hiệu suất sinh thái và tháp sinh thái trong thực tiễn."
+            }
+           ]
+          }
+         ]
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Phát biểu được khái niệm hệ sinh thái. Phân biệt được các thành phần cấu trúc của hệ sinh thái và các kiểu hệ sinh thái chủ yếu của Trái Đất, bao gồm các hệ sinh thái tự nhiên (hệ sinh thái trên cạn, dưới nước) và các hệ sinh thái nhân tạo. – Phân tích được quá trình trao đổi vật chất và chuyển hoá năng lượng trong hệ sinh thái, bao gồm:",
+   "outcome_text": "– Phát biểu được khái niệm hệ sinh thái. Phân biệt được các thành phần cấu trúc của hệ sinh thái và các kiểu hệ sinh thái chủ yếu của Trái Đất, bao gồm các hệ sinh thái tự nhiên (hệ sinh thái trên cạn, dưới nước) và các hệ sinh thái nhân tạo. – Phân tích được quá trình trao đổi vật chất và chuyển hoá năng lượng trong hệ sinh thái, bao gồm: + Trình bày được dòng năng lượng trong một hệ sinh thái (bao gồm: phân bố năng lượng trên Trái Đất, sơ đồ khái quát về dòng năng lượng trong hệ sinh thái, sơ đồ khái quát năng lượng chuyển qua các bậc dinh dưỡng trong hệ sinh thái). + Nêu được khái niệm hiệu suất sinh thái (sản lượng sơ cấp, sản lượng thứ cấp); tháp sinh thái. Phân biệt được các dạng tháp sinh thái. Tính được hiệu suất sinh thái của một hệ sinh thái. + Giải thích được ý nghĩa của nghiên cứu hiệu suất sinh thái và tháp sinh thái trong thực tiễn.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",
     "portal": "data.moet.gov.vn (share hfw2YvlABVuYdhY; ban luu Wayback khop digest)",
     "pdf_pages": [
-     51
+     51,
+     52
     ]
    }
   },
@@ -7966,14 +8029,61 @@
        "content": [
         {
          "type": "text",
-         "text": "+ Trình bày được dòng năng lượng trong một hệ sinh thái (bao gồm: phân bố năng lượng trên Trái Đất, sơ đồ khái quát về dòng năng lượng trong hệ sinh thái, sơ đồ khái quát năng lượng chuyển qua các bậc dinh dưỡng trong hệ sinh thái). + Nêu được khái niệm hiệu suất sinh thái (sản lượng sơ cấp, sản lượng thứ cấp); tháp sinh thái. Phân biệt được các dạng tháp sinh thái. Tính được hiệu suất sinh thái của một hệ sinh thái. + Giải thích được ý nghĩa của nghiên cứu hiệu suất sinh thái và tháp sinh thái trong thực tiễn. – Phát biểu được khái niệm chu trình sinh – địa – hoá các chất. Vẽ được sơ đồ khái quát chu trình trao đổi chất trong tự nhiên. Trình bày được chu trình sinh – địa – hoá của một số chất: nước, carbon, nitơ (nitrogen) và ý nghĩa sinh học của các chu trình đó, đồng thời vận dụng kiến thức về các chu trình đó vào giải thích các vấn đề của thực tiễn. – Phân tích được sự biến động của hệ sinh thái, bao gồm: + Nêu được khái niệm diễn thế sinh thái. Phân biệt được các dạng diễn thế sinh thái, từ đó nêu được dạng nào có bản chất là sự tiến hoá thiết lập trạng thái thích nghi cân bằng của quần xã. Phân tích được nguyên nhân và tầm quan trọng của diễn thế sinh thái trong tự nhiên và trong thực tiễn. + Phân tích được diễn thế sinh thái ở một hệ sinh thái tại địa phương. Đề xuất được một số biện pháp bảo tồn hệ sinh thái đó."
+         "text": "Phát biểu được khái niệm chu trình sinh – địa – hoá các chất. Vẽ được sơ đồ khái quát chu trình trao đổi chất trong tự nhiên. Trình bày được chu trình sinh – địa – hoá của một số chất: nước, carbon, nitơ (nitrogen) và ý nghĩa sinh học của các chu trình đó, đồng thời vận dụng kiến thức về các chu trình đó vào giải thích các vấn đề của thực tiễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sự biến động của hệ sinh thái, bao gồm:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nêu được khái niệm diễn thế sinh thái. Phân biệt được các dạng diễn thế sinh thái, từ đó nêu được dạng nào có bản chất là sự tiến hoá thiết lập trạng thái thích nghi cân bằng của quần xã. Phân tích được nguyên nhân và tầm quan trọng của diễn thế sinh thái trong tự nhiên và trong thực tiễn."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Phân tích được diễn thế sinh thái ở một hệ sinh thái tại địa phương. Đề xuất được một số biện pháp bảo tồn hệ sinh thái đó."
+            }
+           ]
+          }
+         ]
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "+ Trình bày được dòng năng lượng trong một hệ sinh thái (bao gồm: phân bố năng lượng trên Trái Đất, sơ đồ khái quát về dòng năng lượng trong hệ sinh thái, sơ đồ khái quát năng lượng chuyển qua các bậc dinh dưỡng trong hệ sinh thái). + Nêu được khái niệm hiệu suất sinh thái (sản lượng sơ cấp, sản lượng thứ cấp); tháp sinh thái. Phân biệt được các dạng tháp sinh thái. Tính được hiệu suất sinh thái của một hệ sinh thái. + Giải thích được ý nghĩa của nghiên cứu hiệu suất sinh thái và tháp sinh thái trong thực tiễn. – Phát biểu được khái niệm chu trình sinh – địa – hoá các chất. Vẽ được sơ đồ khái quát chu trình trao đổi chất trong tự nhiên. Trình bày được chu trình sinh – địa – hoá của một số chất: nước, carbon, nitơ (nitrogen) và ý nghĩa sinh học của các chu trình đó, đồng thời vận dụng kiến thức về các chu trình đó vào giải thích các vấn đề của thực tiễn. – Phân tích được sự biến động của hệ sinh thái, bao gồm: + Nêu được khái niệm diễn thế sinh thái. Phân biệt được các dạng diễn thế sinh thái, từ đó nêu được dạng nào có bản chất là sự tiến hoá thiết lập trạng thái thích nghi cân bằng của quần xã. Phân tích được nguyên nhân và tầm quan trọng của diễn thế sinh thái trong tự nhiên và trong thực tiễn. + Phân tích được diễn thế sinh thái ở một hệ sinh thái tại địa phương. Đề xuất được một số biện pháp bảo tồn hệ sinh thái đó.",
+   "outcome_text": "– Phát biểu được khái niệm chu trình sinh – địa – hoá các chất. Vẽ được sơ đồ khái quát chu trình trao đổi chất trong tự nhiên. Trình bày được chu trình sinh – địa – hoá của một số chất: nước, carbon, nitơ (nitrogen) và ý nghĩa sinh học của các chu trình đó, đồng thời vận dụng kiến thức về các chu trình đó vào giải thích các vấn đề của thực tiễn. – Phân tích được sự biến động của hệ sinh thái, bao gồm: + Nêu được khái niệm diễn thế sinh thái. Phân biệt được các dạng diễn thế sinh thái, từ đó nêu được dạng nào có bản chất là sự tiến hoá thiết lập trạng thái thích nghi cân bằng của quần xã. Phân tích được nguyên nhân và tầm quan trọng của diễn thế sinh thái trong tự nhiên và trong thực tiễn. + Phân tích được diễn thế sinh thái ở một hệ sinh thái tại địa phương. Đề xuất được một số biện pháp bảo tồn hệ sinh thái đó.",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",

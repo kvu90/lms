@@ -462,20 +462,91 @@
        "content": [
         {
          "type": "text",
-         "text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về các nền văn minh cổ đại phương Đông. – Giải thích được cơ sở hình thành văn minh Ai Cập cổ đại: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu chính của văn minh Ai Cập: chữ viết, khoa học tự nhiên, kiến trúc, điêu khắc,... – Phân tích được cơ sở hình thành văn minh Trung Hoa: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Trung Hoa: chữ viết, văn học nghệ thuật, sử học, khoa học tự nhiên, y học, thiên văn học, lịch pháp, tư tưởng, tôn giáo,... – Phân tích được cơ sở hình thành văn minh Ấn Độ: điều"
+         "text": "Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về các nền văn minh cổ đại phương Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được cơ sở hình thành văn minh Ai Cập cổ đại: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của những thành tựu chính của văn minh Ai Cập: chữ viết, khoa học tự nhiên, kiến trúc, điêu khắc,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được cơ sở hình thành văn minh Trung Hoa: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Trung Hoa: chữ viết, văn học nghệ thuật, sử học, khoa học tự nhiên, y học, thiên văn học, lịch pháp, tư tưởng, tôn giáo,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được cơ sở hình thành văn minh Ấn Độ: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,..."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về các nền văn minh cổ đại phương Đông. – Giải thích được cơ sở hình thành văn minh Ai Cập cổ đại: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu chính của văn minh Ai Cập: chữ viết, khoa học tự nhiên, kiến trúc, điêu khắc,... – Phân tích được cơ sở hình thành văn minh Trung Hoa: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Trung Hoa: chữ viết, văn học nghệ thuật, sử học, khoa học tự nhiên, y học, thiên văn học, lịch pháp, tư tưởng, tôn giáo,... – Phân tích được cơ sở hình thành văn minh Ấn Độ: điều",
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về các nền văn minh cổ đại phương Đông. – Giải thích được cơ sở hình thành văn minh Ai Cập cổ đại: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu chính của văn minh Ai Cập: chữ viết, khoa học tự nhiên, kiến trúc, điêu khắc,... – Phân tích được cơ sở hình thành văn minh Trung Hoa: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Trung Hoa: chữ viết, văn học nghệ thuật, sử học, khoa học tự nhiên, y học, thiên văn học, lịch pháp, tư tưởng, tôn giáo,... – Phân tích được cơ sở hình thành văn minh Ấn Độ: điều kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,...",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
     "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
     "pdf_pages": [
-     15
+     15,
+     16
     ]
    }
   },
@@ -498,14 +569,14 @@
        "content": [
         {
          "type": "text",
-         "text": "kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Ấn Độ: chữ viết, văn học nghệ thuật, khoa học tự nhiên, tư tưởng, tôn giáo,..."
+         "text": "Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Ấn Độ: chữ viết, văn học nghệ thuật, khoa học tự nhiên, tư tưởng, tôn giáo,..."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "kiện tự nhiên, dân cư, sự phát triển kinh tế, chính trị – xã hội,... – Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Ấn Độ: chữ viết, văn học nghệ thuật, khoa học tự nhiên, tư tưởng, tôn giáo,...",
+   "outcome_text": "– Nêu được ý nghĩa của những thành tựu cơ bản của văn minh Ấn Độ: chữ viết, văn học nghệ thuật, khoa học tự nhiên, tư tưởng, tôn giáo,...",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -1944,20 +2015,49 @@
        "content": [
         {
          "type": "text",
-         "text": "– Phân tích được bối cảnh ra đời của Nhà nước Việt Nam Dân chủ Cộng hoà. – Nêu được ý nghĩa của việc ra đời Nhà nước Việt Nam Dân chủ Cộng hoà. – Phân tích được đặc điểm và tính chất của Nhà nước Việt"
+         "text": "Phân tích được bối cảnh ra đời của Nhà nước Việt Nam Dân chủ Cộng hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của việc ra đời Nhà nước Việt Nam Dân chủ Cộng hoà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm và tính chất của Nhà nước Việt Nam Dân chủ Cộng hoà."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Phân tích được bối cảnh ra đời của Nhà nước Việt Nam Dân chủ Cộng hoà. – Nêu được ý nghĩa của việc ra đời Nhà nước Việt Nam Dân chủ Cộng hoà. – Phân tích được đặc điểm và tính chất của Nhà nước Việt",
+   "outcome_text": "– Phân tích được bối cảnh ra đời của Nhà nước Việt Nam Dân chủ Cộng hoà. – Nêu được ý nghĩa của việc ra đời Nhà nước Việt Nam Dân chủ Cộng hoà. – Phân tích được đặc điểm và tính chất của Nhà nước Việt Nam Dân chủ Cộng hoà.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
     "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
     "pdf_pages": [
-     29
+     29,
+     30
     ]
    }
   },
@@ -1980,14 +2080,14 @@
        "content": [
         {
          "type": "text",
-         "text": "Nam Dân chủ Cộng hoà. – Nêu được vai trò của Nhà nước Việt Nam Dân chủ Cộng hoà trong quá trình kháng chiến chống giặc ngoại xâm và xây dựng đất nước thời kì 1945 – 1976."
+         "text": "Nêu được vai trò của Nhà nước Việt Nam Dân chủ Cộng hoà trong quá trình kháng chiến chống giặc ngoại xâm và xây dựng đất nước thời kì 1945 – 1976."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Nam Dân chủ Cộng hoà. – Nêu được vai trò của Nhà nước Việt Nam Dân chủ Cộng hoà trong quá trình kháng chiến chống giặc ngoại xâm và xây dựng đất nước thời kì 1945 – 1976.",
+   "outcome_text": "– Nêu được vai trò của Nhà nước Việt Nam Dân chủ Cộng hoà trong quá trình kháng chiến chống giặc ngoại xâm và xây dựng đất nước thời kì 1945 – 1976.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -3612,20 +3712,77 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được nét chính về nguyên nhân, đặc điểm của Chiến tranh lạnh. – Đánh giá được những hậu quả của cuộc Chiến tranh lạnh đối với thế giới nói chung và Việt Nam nói riêng. – Phân tích được nguyên nhân kết thúc Chiến tranh lạnh và tác động đối với thế giới nói chung và Việt Nam nói riêng. – Giải thích được vì sao sau Chiến tranh lạnh, các cuộc chiến tranh, xung đột vẫn tiếp diễn thông qua ví dụ cụ thể: sự kiện ngày 11 tháng 9 năm 2001, cuộc chiến chống khủng bố toàn cầu của Mỹ, chiến tranh Iraq, Afghanistan, các cuộc chiến tranh ở khu vực Trung Đông,... – Sưu tầm tư liệu để tìm hiểu về cuộc đấu tranh vì hoà bình"
+         "text": "Nêu được nét chính về nguyên nhân, đặc điểm của Chiến tranh lạnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được những hậu quả của cuộc Chiến tranh lạnh đối với thế giới nói chung và Việt Nam nói riêng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được nguyên nhân kết thúc Chiến tranh lạnh và tác động đối với thế giới nói chung và Việt Nam nói riêng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được vì sao sau Chiến tranh lạnh, các cuộc chiến tranh, xung đột vẫn tiếp diễn thông qua ví dụ cụ thể: sự kiện ngày 11 tháng 9 năm 2001, cuộc chiến chống khủng bố toàn cầu của Mỹ, chiến tranh Iraq, Afghanistan, các cuộc chiến tranh ở khu vực Trung Đông,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm tư liệu để tìm hiểu về cuộc đấu tranh vì hoà bình của nhân dân thế giới trong Chiến tranh lạnh: Đại hội hoà bình thế giới ngày 26 tháng 4 năm 1949 (Paris), sự thành lập Hội đồng Hoà bình thế giới và các hoạt động chính."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được nét chính về nguyên nhân, đặc điểm của Chiến tranh lạnh. – Đánh giá được những hậu quả của cuộc Chiến tranh lạnh đối với thế giới nói chung và Việt Nam nói riêng. – Phân tích được nguyên nhân kết thúc Chiến tranh lạnh và tác động đối với thế giới nói chung và Việt Nam nói riêng. – Giải thích được vì sao sau Chiến tranh lạnh, các cuộc chiến tranh, xung đột vẫn tiếp diễn thông qua ví dụ cụ thể: sự kiện ngày 11 tháng 9 năm 2001, cuộc chiến chống khủng bố toàn cầu của Mỹ, chiến tranh Iraq, Afghanistan, các cuộc chiến tranh ở khu vực Trung Đông,... – Sưu tầm tư liệu để tìm hiểu về cuộc đấu tranh vì hoà bình",
+   "outcome_text": "– Nêu được nét chính về nguyên nhân, đặc điểm của Chiến tranh lạnh. – Đánh giá được những hậu quả của cuộc Chiến tranh lạnh đối với thế giới nói chung và Việt Nam nói riêng. – Phân tích được nguyên nhân kết thúc Chiến tranh lạnh và tác động đối với thế giới nói chung và Việt Nam nói riêng. – Giải thích được vì sao sau Chiến tranh lạnh, các cuộc chiến tranh, xung đột vẫn tiếp diễn thông qua ví dụ cụ thể: sự kiện ngày 11 tháng 9 năm 2001, cuộc chiến chống khủng bố toàn cầu của Mỹ, chiến tranh Iraq, Afghanistan, các cuộc chiến tranh ở khu vực Trung Đông,... – Sưu tầm tư liệu để tìm hiểu về cuộc đấu tranh vì hoà bình của nhân dân thế giới trong Chiến tranh lạnh: Đại hội hoà bình thế giới ngày 26 tháng 4 năm 1949 (Paris), sự thành lập Hội đồng Hoà bình thế giới và các hoạt động chính.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
     "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
     "pdf_pages": [
-     47
+     47,
+     48
     ]
    }
   },
@@ -3648,14 +3805,42 @@
        "content": [
         {
          "type": "text",
-         "text": "của nhân dân thế giới trong Chiến tranh lạnh: Đại hội hoà bình thế giới ngày 26 tháng 4 năm 1949 (Paris), sự thành lập Hội đồng Hoà bình thế giới và các hoạt động chính. – Nêu được nét chính về phong trào quốc tế ủng hộ cuộc đấu tranh giải phóng dân tộc, ủng hộ cuộc kháng chiến chống Mỹ, cứu nước của nhân dân Việt Nam thông qua ví dụ cụ thể. – Giải thích được vì sao cuộc đấu tranh vì hoà bình của nhân dân thế giới vẫn tiếp diễn sau khi Chiến tranh lạnh kết thúc. – Có ý thức trân trọng và góp phần tham gia vào cuộc đấu tranh vì hoà bình của nhân dân thế giới."
+         "text": "Nêu được nét chính về phong trào quốc tế ủng hộ cuộc đấu tranh giải phóng dân tộc, ủng hộ cuộc kháng chiến chống Mỹ, cứu nước của nhân dân Việt Nam thông qua ví dụ cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được vì sao cuộc đấu tranh vì hoà bình của nhân dân thế giới vẫn tiếp diễn sau khi Chiến tranh lạnh kết thúc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức trân trọng và góp phần tham gia vào cuộc đấu tranh vì hoà bình của nhân dân thế giới."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "của nhân dân thế giới trong Chiến tranh lạnh: Đại hội hoà bình thế giới ngày 26 tháng 4 năm 1949 (Paris), sự thành lập Hội đồng Hoà bình thế giới và các hoạt động chính. – Nêu được nét chính về phong trào quốc tế ủng hộ cuộc đấu tranh giải phóng dân tộc, ủng hộ cuộc kháng chiến chống Mỹ, cứu nước của nhân dân Việt Nam thông qua ví dụ cụ thể. – Giải thích được vì sao cuộc đấu tranh vì hoà bình của nhân dân thế giới vẫn tiếp diễn sau khi Chiến tranh lạnh kết thúc. – Có ý thức trân trọng và góp phần tham gia vào cuộc đấu tranh vì hoà bình của nhân dân thế giới.",
+   "outcome_text": "– Nêu được nét chính về phong trào quốc tế ủng hộ cuộc đấu tranh giải phóng dân tộc, ủng hộ cuộc kháng chiến chống Mỹ, cứu nước của nhân dân Việt Nam thông qua ví dụ cụ thể. – Giải thích được vì sao cuộc đấu tranh vì hoà bình của nhân dân thế giới vẫn tiếp diễn sau khi Chiến tranh lạnh kết thúc. – Có ý thức trân trọng và góp phần tham gia vào cuộc đấu tranh vì hoà bình của nhân dân thế giới.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
