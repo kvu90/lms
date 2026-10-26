@@ -616,6 +616,135 @@ describe('Question bank areas — by path (issue #221)', () => {
 });
 
 /**
+ * Thanh tab Cá nhân | Hệ thống trên màn danh sách ngân hàng (chốt
+ * trình bày của Lão gia 11:40 ngày 26/10/2026, issue #228 — thay mục
+ * "Ngân hàng hệ thống" ở sidebar): cả 6 màn danh sách (câu hỏi / đề /
+ * ma trận × cá nhân / hệ thống) dùng CHUNG một thanh tab ở đầu vùng
+ * danh sách; tab đang đứng mang aria-current="page", bấm tab là điều
+ * hướng sang route của khu vực kia (path riêng, không query định danh
+ * khu vực). Vào từ sidebar luôn là tab Cá nhân.
+ */
+describe('Bank area tabs — Cá nhân | Hệ thống (issue #228)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const PERSONAL_BANK_ID = '01900000-0000-7000-8000-0000000000b1';
+  const SCHOOL_BANK_ID = '01900000-0000-7000-8000-0000000000b2';
+  const CAPS = {
+    use: true, add: true, edit: true, manageCategory: true, copy: true, share: true, moderate: true,
+    matrixView: true, matrixManage: true, matrixCopy: true, matrixShare: true, matrixModerate: true,
+  };
+  const bankRow = (id: string, scope: string, kind: string) => ({
+    id, name: scope === 'personal' ? 'Ngân hàng của tôi' : 'Ngân hàng trường', scope, bankKind: kind,
+    ownerId: scope === 'personal' ? PROFILE.id : null, scopeRefId: null, contextId: SYSTEM_CTX_ID,
+    status: 'active', createdBy: PROFILE.id, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    capabilities: CAPS, defaultCategoryId: kind === 'question' ? CATEGORY_ID : null,
+    categoryIds: kind === 'question' ? [CATEGORY_ID] : [],
+  });
+
+  function stubTabFetch() {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/questions/categories')
+          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
+        if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) return respond([]);
+        if (url === '/api/v1/question-banks')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'question'), bankRow(SCHOOL_BANK_ID, 'school', 'question')]);
+        if (url === '/api/v1/question-banks?kind=matrix')
+          return respond([bankRow(PERSONAL_BANK_ID, 'personal', 'matrix'), bankRow(SCHOOL_BANK_ID, 'school', 'matrix')]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  function renderBankRoutes(initialPath: string) {
+    // Dùng đúng route module thật như app (mỗi route là một component
+    // riêng nên điều hướng qua tab remount trang đích — trạng thái
+    // collapse của khu vực đích khởi tạo đúng theo area của nó).
+    const router = createMemoryRouter(
+      [
+        { path: '/questions', element: <QuestionsRoute /> },
+        { path: '/system-bank/questions', element: <SystemBankQuestionsRoute /> },
+        { path: '/exams', element: <ExamsRoute /> },
+        { path: '/system-bank/exams', element: <SystemBankExamsRoute /> },
+        { path: '/matrices', element: <MatricesRoute /> },
+        { path: '/system-bank/matrices', element: <SystemBankMatricesRoute /> },
+      ],
+      { initialEntries: [initialPath] },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    return router;
+  }
+
+  it('ở trang hệ thống (câu hỏi): tab Hệ thống active; bấm tab Cá nhân về đúng /questions', async () => {
+    stubTabFetch();
+    const router = renderBankRoutes('/system-bank/questions');
+
+    const systemTab = await screen.findByRole('link', { name: 'Hệ thống' });
+    expect(systemTab).toHaveAttribute('href', '/system-bank/questions');
+    expect(systemTab).toHaveAttribute('aria-current', 'page');
+    const personalTab = screen.getByRole('link', { name: 'Cá nhân' });
+    expect(personalTab).toHaveAttribute('href', '/questions');
+    expect(personalTab).not.toHaveAttribute('aria-current');
+
+    await userEvent.click(personalTab);
+    // Đã sang trang cá nhân thật: section ngân hàng riêng render và
+    // tab Cá nhân thành tab đang đứng.
+    expect(
+      await screen.findByRole('button', { name: /Ngân hàng riêng của tôi/ }, { timeout: 10_000 }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/questions');
+    expect(screen.getByRole('link', { name: 'Cá nhân' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Hệ thống' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('ở trang cá nhân (đề): tab Cá nhân active; bấm tab Hệ thống sang đúng /system-bank/exams', async () => {
+    stubTabFetch();
+    const router = renderBankRoutes('/exams');
+
+    const personalTab = await screen.findByRole('link', { name: 'Cá nhân' });
+    expect(personalTab).toHaveAttribute('href', '/exams');
+    expect(personalTab).toHaveAttribute('aria-current', 'page');
+    const systemTab = screen.getByRole('link', { name: 'Hệ thống' });
+    expect(systemTab).toHaveAttribute('href', '/system-bank/exams');
+    expect(systemTab).not.toHaveAttribute('aria-current');
+
+    await userEvent.click(systemTab);
+    // Đã sang trang hệ thống của đề: phần hệ thống render đúng neo.
+    await waitFor(() => expect(document.getElementById('system-papers')).not.toBeNull(), { timeout: 10_000 });
+    expect(router.state.location.pathname).toBe('/system-bank/exams');
+    expect(screen.getByRole('link', { name: 'Hệ thống' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('ở trang hệ thống (ma trận): tab Hệ thống active, tab Cá nhân trỏ đúng /matrices', async () => {
+    stubTabFetch();
+    renderBankRoutes('/system-bank/matrices');
+
+    const systemTab = await screen.findByRole('link', { name: 'Hệ thống' });
+    expect(systemTab).toHaveAttribute('href', '/system-bank/matrices');
+    expect(systemTab).toHaveAttribute('aria-current', 'page');
+    const personalTab = screen.getByRole('link', { name: 'Cá nhân' });
+    expect(personalTab).toHaveAttribute('href', '/matrices');
+    expect(personalTab).not.toHaveAttribute('aria-current');
+  });
+});
+
+/**
  * Lớp tương thích đường dẫn cũ (chuẩn đường dẫn #221, mục 3.5 của
  * hồ sơ): URL cũ ?bank=...&section=... và /questions/matrices/* phải
  * CHUYỂN HƯỚNG THAY THẾ sang path mới tương ứng — kiểm bằng route

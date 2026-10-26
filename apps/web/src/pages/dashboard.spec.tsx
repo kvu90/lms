@@ -400,12 +400,13 @@ describe('Dashboard theo vai trò', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Người dùng & quyền' }));
     expect(await screen.findByText('Người dùng')).toBeInTheDocument();
     expect(screen.getByText('Vai trò')).toBeInTheDocument();
-    // Ngân hàng được phép với admin — theo đính chính #70 là bốn mục
-    // CẤP CAO NHẤT ngay sau nhóm Học tập (không còn nút cha "Ngân
-    // hàng câu hỏi"): ba mục "của tôi" là link, "Ngân hàng hệ thống"
-    // là nút thu/mở — hiện ngay ở sidebar, không phải mở nhóm mới thấy.
-    expect(await screen.findByText('Câu hỏi của tôi')).toBeInTheDocument();
-    expect(screen.getByText('Ngân hàng hệ thống')).toBeInTheDocument();
+    // Ngân hàng được phép với admin — ba mục ngân hàng CẤP CAO NHẤT
+    // ngay sau nhóm Học tập (chốt lại 26/10/2026, issue #228: bỏ hẳn
+    // mục "Ngân hàng hệ thống" ở sidebar, khu hệ thống thành tab
+    // trong trang danh sách): ba mục là link, hiện ngay ở sidebar.
+    expect(await screen.findByText('Ngân hàng câu hỏi')).toBeInTheDocument();
+    expect(screen.getByText('Ngân hàng đề')).toBeInTheDocument();
+    expect(screen.queryByText('Ngân hàng hệ thống')).not.toBeInTheDocument();
   });
 
   it('sidebar của student không có mục quản trị và không có ngân hàng câu hỏi', async () => {
@@ -415,7 +416,7 @@ describe('Dashboard theo vai trò', () => {
     expect(screen.getByText('Khoá học')).toBeInTheDocument();
     expect(screen.queryByText('Người dùng')).not.toBeInTheDocument();
     expect(screen.queryByText('Vai trò')).not.toBeInTheDocument();
-    expect(screen.queryByText('Câu hỏi của tôi')).not.toBeInTheDocument();
+    expect(screen.queryByText('Ngân hàng câu hỏi')).not.toBeInTheDocument();
     expect(screen.queryByText('Ngân hàng hệ thống')).not.toBeInTheDocument();
   });
 });
