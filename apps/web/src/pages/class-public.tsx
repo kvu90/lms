@@ -36,7 +36,7 @@ import { queryKeys } from '#lib/query-keys';
  * dấu đã thanh toán — mọi trạng thái đều đọc từ API.
  */
 export function ClassPublicPage() {
-  const { t } = useTranslation('app');
+  const { t, i18n } = useTranslation('app');
   const { id } = useParams<{ id: string }>();
   const classId = id ?? '';
   const queryClient = useQueryClient();
@@ -130,8 +130,11 @@ export function ClassPublicPage() {
               <div className="flex flex-col gap-3">
                 <p className="text-base">
                   {t('classPublicFeeLabel')}:{' '}
+                  {/* Ghim locale theo ngôn ngữ giao diện: số tiền phải
+                      phân nhóm nhất quán (vd 1.500.000 ở vi), không phụ
+                      thuộc locale mặc định của máy chạy. */}
                   <strong>
-                    {(pub.feeCost ?? 0).toLocaleString()} {pub.feeCurrency}
+                    {(pub.feeCost ?? 0).toLocaleString(i18n.language)} {pub.feeCurrency}
                   </strong>
                 </p>
                 <p className="text-sm text-muted-foreground">{t('classPublicBuyHint')}</p>
