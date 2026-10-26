@@ -167,7 +167,9 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(res.orphanedNodes).toBe(0);
     expect(res.retiredOutcomes).toBe(0);
     expect(res.changeCounts.added).toBeGreaterThan(0);
-    expect(res.changesOmitted).toBeGreaterThan(0); // 116 bản ghi lần đầu vượt trần 500 mục chi tiết
+    // GDCD có dưới 500 dòng YCCĐ: toàn bộ thay đổi nằm trong danh sách chi tiết, không cắt.
+    expect(res.changesOmitted).toBe(0);
+    expect(res.changes.length).toBe(res.changeCounts.added);
 
     const subjects = await sql<{ id: string }>(`select id from subjects where slug = $1`, [SLUG]);
     expect(subjects[0]!.id).toBe(programSubjectId(SLUG));
@@ -216,20 +218,19 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(dumpSql).toContain('DUMP ĐÔNG CỨNG');
 
     await wipeSubject();
-    const first = await dumpSvc.restoreIfEmpty();
-    expect(first.restored).toBe(true);
+    await dumpSvc.restoreDumpSql(dumpSql);
     const afterFirst = await snapshotIds();
     expect(afterFirst).toEqual(before);
 
-    // DB đã có dữ liệu chương trình: restore bỏ qua, không nhân đôi.
+    // DB đã có dữ liệu chương trình: restoreIfEmpty bỏ qua (đây là
+    // đường seed của các môi trường — không nhân đôi, không ghi đè).
     const second = await dumpSvc.restoreIfEmpty();
     expect(second.restored).toBe(false);
     expect(await snapshotIds()).toEqual(before);
 
     // Xoá trắng lần nữa, restore lại từ CÙNG artifact: vẫn khớp 100%.
     await wipeSubject();
-    const third = await dumpSvc.restoreIfEmpty();
-    expect(third.restored).toBe(true);
+    await dumpSvc.restoreDumpSql(dumpSql);
     expect(await snapshotIds()).toEqual(before);
 
     // Importer trên DB đã restore là no-op tuyệt đối (sổ + hash khớp).

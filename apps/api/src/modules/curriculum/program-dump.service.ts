@@ -44,6 +44,15 @@ export class ProgramDumpService {
   }
 
   /**
+   * Restore một bản dump cho trước vào DB hiện tại (một transaction).
+   * Đường nội bộ của {@link restoreIfEmpty}; phơi ra cho kiểm chứng
+   * vòng xuất → restore trên cùng một artifact vừa sản xuất.
+   */
+  async restoreDumpSql(dumpSql: string): Promise<void> {
+    await restoreProgramDumpSql(this.db, dumpSql);
+  }
+
+  /**
    * Xuất dump của DB hiện tại ra file artifact (đường sản xuất ở
    * trung tâm — CLI export-program-dump; DB nguồn phải là DB chuẩn
    * chỉ chứa dữ liệu chương trình do importer sản xuất).
