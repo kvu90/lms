@@ -663,20 +663,49 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được khái niệm tế bào, chức năng của tế bào. – Nêu được hình dạng và kích thước của một số loại tế bào. – Trình bày được cấu tạo tế bào và chức năng mỗi thành phần (ba thành phần chính:"
+         "text": "Nêu được khái niệm tế bào, chức năng của tế bào."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được hình dạng và kích thước của một số loại tế bào."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu tạo tế bào và chức năng mỗi thành phần (ba thành phần chính: màng tế bào, chất tế bào, nhân tế bào); nhận biết được lục lạp là bào quan thực hiện chức năng quang hợp ở cây xanh."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm tế bào, chức năng của tế bào. – Nêu được hình dạng và kích thước của một số loại tế bào. – Trình bày được cấu tạo tế bào và chức năng mỗi thành phần (ba thành phần chính:",
+   "outcome_text": "– Nêu được khái niệm tế bào, chức năng của tế bào. – Nêu được hình dạng và kích thước của một số loại tế bào. – Trình bày được cấu tạo tế bào và chức năng mỗi thành phần (ba thành phần chính: màng tế bào, chất tế bào, nhân tế bào); nhận biết được lục lạp là bào quan thực hiện chức năng quang hợp ở cây xanh.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
     "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
     "pdf_pages": [
-     25
+     25,
+     26
     ]
    }
   },
@@ -699,14 +728,70 @@
        "content": [
         {
          "type": "text",
-         "text": "màng tế bào, chất tế bào, nhân tế bào); nhận biết được lục lạp là bào quan thực hiện chức năng quang hợp ở cây xanh. – Nhận biết được tế bào là đơn vị cấu trúc của sự sống. – Phân biệt được tế bào động vật, tế bào thực vật; tế bào nhân thực, tế bào nhân sơ thông qua quan sát hình ảnh. – Dựa vào sơ đồ, nhận biết được sự lớn lên và sinh sản của tế bào (từ 1 tế bào → 2 tế bào → 4 tế bào... → n tế bào). – Nêu được ý nghĩa của sự lớn lên và sinh sản của tế bào. – Thực hành quan sát tế bào lớn bằng mắt thường và tế bào nhỏ dưới kính lúp và kính hiển vi quang học."
+         "text": "Nhận biết được tế bào là đơn vị cấu trúc của sự sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được tế bào động vật, tế bào thực vật; tế bào nhân thực, tế bào nhân sơ thông qua quan sát hình ảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào sơ đồ, nhận biết được sự lớn lên và sinh sản của tế bào (từ 1 tế bào → 2 tế bào → 4 tế bào... → n tế bào)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của sự lớn lên và sinh sản của tế bào."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành quan sát tế bào lớn bằng mắt thường và tế bào nhỏ dưới kính lúp và kính hiển vi quang học."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "màng tế bào, chất tế bào, nhân tế bào); nhận biết được lục lạp là bào quan thực hiện chức năng quang hợp ở cây xanh. – Nhận biết được tế bào là đơn vị cấu trúc của sự sống. – Phân biệt được tế bào động vật, tế bào thực vật; tế bào nhân thực, tế bào nhân sơ thông qua quan sát hình ảnh. – Dựa vào sơ đồ, nhận biết được sự lớn lên và sinh sản của tế bào (từ 1 tế bào → 2 tế bào → 4 tế bào... → n tế bào). – Nêu được ý nghĩa của sự lớn lên và sinh sản của tế bào. – Thực hành quan sát tế bào lớn bằng mắt thường và tế bào nhỏ dưới kính lúp và kính hiển vi quang học.",
+   "outcome_text": "– Nhận biết được tế bào là đơn vị cấu trúc của sự sống. – Phân biệt được tế bào động vật, tế bào thực vật; tế bào nhân thực, tế bào nhân sơ thông qua quan sát hình ảnh. – Dựa vào sơ đồ, nhận biết được sự lớn lên và sinh sản của tế bào (từ 1 tế bào → 2 tế bào → 4 tế bào... → n tế bào). – Nêu được ý nghĩa của sự lớn lên và sinh sản của tế bào. – Thực hành quan sát tế bào lớn bằng mắt thường và tế bào nhỏ dưới kính lúp và kính hiển vi quang học.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -1420,20 +1505,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được vai trò của đa dạng sinh học trong tự nhiên và trong thực tiễn (làm thuốc,"
+         "text": "Nêu được vai trò của đa dạng sinh học trong tự nhiên và trong thực tiễn (làm thuốc, làm thức ăn, chỗ ở, bảo vệ môi trường,...)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được vai trò của đa dạng sinh học trong tự nhiên và trong thực tiễn (làm thuốc,",
+   "outcome_text": "– Nêu được vai trò của đa dạng sinh học trong tự nhiên và trong thực tiễn (làm thuốc, làm thức ăn, chỗ ở, bảo vệ môi trường,...).",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
     "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
     "pdf_pages": [
-     29
+     29,
+     30
     ]
    }
   },
@@ -1447,23 +1533,8 @@
    "topic": "Đa dạng thế giới sống",
    "content": "trong tự nhiên",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "làm thức ăn, chỗ ở, bảo vệ môi trường,...)."
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "làm thức ăn, chỗ ở, bảo vệ môi trường,...).",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -4450,14 +4521,84 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được khái niệm về mol (nguyên tử, phân tử). – Tính được khối lượng mol (M); Chuyển đổi được giữa số mol (n) và khối lượng (m) – Nêu được khái niệm tỉ khối, viết được công thức tính tỉ khối của chất khí. – So sánh được chất khí này nặng hay nhẹ hơn chất khí khác dựa vào công thức tính tỉ khối. – Nêu được khái niệm thể tích mol của chất khí ở áp suất 1 bar và 25 – Sử dụng được công thức để chuyển đổi giữa số mol và thể tích n(mol) 24,79(L/mol) chất khí ở điều kiện chuẩn: áp suất 1 bar ở 25"
+         "text": "Nêu được khái niệm về mol (nguyên tử, phân tử)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính được khối lượng mol (M); Chuyển đổi được giữa số mol (n) và khối lượng (m)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái niệm tỉ khối, viết được công thức tính tỉ khối của chất khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "So sánh được chất khí này nặng hay nhẹ hơn chất khí khác dựa vào công thức tính tỉ khối."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái niệm thể tích mol của chất khí ở áp suất 1 bar và 25 °C."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được công thức n(mol) = V(L)/24,79(L/mol) để chuyển đổi giữa số mol và thể tích chất khí ở điều kiện chuẩn: áp suất 1 bar ở 25 °C."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm về mol (nguyên tử, phân tử). – Tính được khối lượng mol (M); Chuyển đổi được giữa số mol (n) và khối lượng (m) – Nêu được khái niệm tỉ khối, viết được công thức tính tỉ khối của chất khí. – So sánh được chất khí này nặng hay nhẹ hơn chất khí khác dựa vào công thức tính tỉ khối. – Nêu được khái niệm thể tích mol của chất khí ở áp suất 1 bar và 25 – Sử dụng được công thức để chuyển đổi giữa số mol và thể tích n(mol) 24,79(L/mol) chất khí ở điều kiện chuẩn: áp suất 1 bar ở 25",
+   "outcome_text": "– Nêu được khái niệm về mol (nguyên tử, phân tử). – Tính được khối lượng mol (M); Chuyển đổi được giữa số mol (n) và khối lượng (m) – Nêu được khái niệm tỉ khối, viết được công thức tính tỉ khối của chất khí. – So sánh được chất khí này nặng hay nhẹ hơn chất khí khác dựa vào công thức tính tỉ khối. – Nêu được khái niệm thể tích mol của chất khí ở áp suất 1 bar và 25 °C. – Sử dụng được công thức n(mol) = V(L)/24,79(L/mol) để chuyển đổi giữa số mol và thể tích chất khí ở điều kiện chuẩn: áp suất 1 bar ở 25 °C.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -4486,7 +4627,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Tính được lượng chất trong phương trình hóa học theo số mol, khối lượng hoặc thể tích ở điều kiện 1 bar và 25"
+         "text": "Tính được lượng chất trong phương trình hóa học theo số mol, khối lượng hoặc thể tích ở điều kiện 1 bar và 25 °C"
         }
        ]
       }
@@ -4507,7 +4648,7 @@
      ]
     }
    ],
-   "outcome_text": "– Tính được lượng chất trong phương trình hóa học theo số mol, khối lượng hoặc thể tích ở điều kiện 1 bar và 25 – Nêu được khái niệm hiệu suất của phản ứng và tính được hiệu suất của một phản ứng dựa vào lượng sản phẩm thu được theo lí thuyết và lượng sản phẩm thu được theo thực tế.",
+   "outcome_text": "– Tính được lượng chất trong phương trình hóa học theo số mol, khối lượng hoặc thể tích ở điều kiện 1 bar và 25 °C – Nêu được khái niệm hiệu suất của phản ứng và tính được hiệu suất của một phản ứng dựa vào lượng sản phẩm thu được theo lí thuyết và lượng sản phẩm thu được theo thực tế.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -5988,20 +6129,22 @@
        "content": [
         {
          "type": "text",
-         "text": "– Nêu được khái niệm dinh dưỡng, chất dinh dưỡng. Nêu được mối quan hệ giữa tiêu hoá"
+         "text": "Nêu được khái niệm dinh dưỡng, chất dinh dưỡng. Nêu được mối quan hệ giữa tiêu hoá và dinh dưỡng."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm dinh dưỡng, chất dinh dưỡng. Nêu được mối quan hệ giữa tiêu hoá",
+   "outcome_text": "– Nêu được khái niệm dinh dưỡng, chất dinh dưỡng. Nêu được mối quan hệ giữa tiêu hoá và dinh dưỡng.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
     "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
     "pdf_pages": [
-     50
+     50,
+     51,
+     52
     ]
    }
   },
@@ -6024,14 +6167,201 @@
        "content": [
         {
          "type": "text",
-         "text": "và dinh dưỡng. – Trình bày được chức năng của hệ tiêu hoá. – Quan sát hình vẽ (hoặc mô hình, sơ đồ khái quát) hệ tiêu hoá ở người, kể tên được các cơ quan của hệ tiêu hoá. Nêu được chức năng của mỗi cơ quan và sự phối hợp các cơ quan thể hiện chức năng của cả hệ tiêu hoá. – Trình bày được chế độ dinh dưỡng của con người ở các độ tuổi. – Nêu được nguyên tắc lập khẩu phần thức ăn cho con người. Thực hành xây dựng chế độ dinh dưỡng cho bản thân và những người trong gia đình. – Nêu được một số bệnh về đường tiêu hoá và cách phòng và chống (bệnh răng, miệng; bệnh dạ dày; bệnh đường ruột, ...). – Vận dụng được hiểu biết về dinh dưỡng và tiêu hoá để phòng và chống các bệnh về tiêu hoá cho bản thân và gia đình. – Trình bày được một số vấn đề về an toàn thực phẩm, cụ thể: + Nêu được khái niệm an toàn thực phẩm. Trình bày được một số điều cần biết về vệ sinh thực phẩm; + Nêu được một số nguyên nhân chủ yếu gây ngộ độc thực phẩm. Lấy được ví dụ minh hoạ. Kể được tên một số loại thực phẩm dễ bị mất an toàn vệ sinh thực phẩm do sinh vật, hoá chất, bảo quản, chế biến; + Kể được tên một số hoá chất (độc tố), cách chế biến, cách bảo quản gây mất an toàn vệ sinh thực phẩm; + Trình bày được cách bảo quản, chế biến thực phẩm an toàn; + Trình bày được một số bệnh do mất vệ sinh an toàn thực phẩm và cách phòng và chống các bệnh này. – Vận dụng được hiểu biết về an toàn vệ sinh thực phẩm để đề xuất các biện pháp lựa chọn, bảo quản, chế biến, chế độ ăn uống an toàn cho bản thân và gia đình; đọc và hiểu được ý nghĩa của các thông tin ghi trên nhãn hiệu bao bì thực phẩm và biết cách sử dụng thực phẩm đó một cách phù hợp. – Thực hiện được dự án điều tra về vệ sinh an toàn thực phẩm tại địa phương; dự án điều tra một số bệnh đường tiêu hoá trong trường học hoặc tại địa phương (bệnh sâu răng, bệnh dạ dày,...)."
+         "text": "Trình bày được chức năng của hệ tiêu hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát hình vẽ (hoặc mô hình, sơ đồ khái quát) hệ tiêu hoá ở người, kể tên được các cơ quan của hệ tiêu hoá. Nêu được chức năng của mỗi cơ quan và sự phối hợp các cơ quan thể hiện chức năng của cả hệ tiêu hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được chế độ dinh dưỡng của con người ở các độ tuổi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nguyên tắc lập khẩu phần thức ăn cho con người. Thực hành xây dựng chế độ dinh dưỡng cho bản thân và những người trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số bệnh về đường tiêu hoá và cách phòng và chống (bệnh răng, miệng; bệnh dạ dày; bệnh đường ruột, ...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được hiểu biết về dinh dưỡng và tiêu hoá để phòng và chống các bệnh về tiêu hoá cho bản thân và gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số vấn đề về an toàn thực phẩm, cụ thể:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nêu được khái niệm an toàn thực phẩm. Trình bày được một số điều cần biết về vệ sinh thực phẩm;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nêu được một số nguyên nhân chủ yếu gây ngộ độc thực phẩm. Lấy được ví dụ minh hoạ. Kể được tên một số loại thực phẩm dễ bị mất an toàn vệ sinh thực phẩm do sinh vật, hoá chất, bảo quản, chế biến;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Kể được tên một số hoá chất (độc tố), cách chế biến, cách bảo quản gây mất an toàn vệ sinh thực phẩm;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Trình bày được cách bảo quản, chế biến thực phẩm an toàn;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Trình bày được một số bệnh do mất vệ sinh an toàn thực phẩm và cách phòng và chống các bệnh này."
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được hiểu biết về an toàn vệ sinh thực phẩm để đề xuất các biện pháp lựa chọn, bảo quản, chế biến, chế độ ăn uống an toàn cho bản thân và gia đình; đọc và hiểu được ý nghĩa của các thông tin ghi trên nhãn hiệu bao bì thực phẩm và biết cách sử dụng thực phẩm đó một cách phù hợp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được dự án điều tra về vệ sinh an toàn thực phẩm tại địa phương; dự án điều tra một số bệnh đường tiêu hoá trong trường học hoặc tại địa phương (bệnh sâu răng, bệnh dạ dày,...)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "và dinh dưỡng. – Trình bày được chức năng của hệ tiêu hoá. – Quan sát hình vẽ (hoặc mô hình, sơ đồ khái quát) hệ tiêu hoá ở người, kể tên được các cơ quan của hệ tiêu hoá. Nêu được chức năng của mỗi cơ quan và sự phối hợp các cơ quan thể hiện chức năng của cả hệ tiêu hoá. – Trình bày được chế độ dinh dưỡng của con người ở các độ tuổi. – Nêu được nguyên tắc lập khẩu phần thức ăn cho con người. Thực hành xây dựng chế độ dinh dưỡng cho bản thân và những người trong gia đình. – Nêu được một số bệnh về đường tiêu hoá và cách phòng và chống (bệnh răng, miệng; bệnh dạ dày; bệnh đường ruột, ...). – Vận dụng được hiểu biết về dinh dưỡng và tiêu hoá để phòng và chống các bệnh về tiêu hoá cho bản thân và gia đình. – Trình bày được một số vấn đề về an toàn thực phẩm, cụ thể: + Nêu được khái niệm an toàn thực phẩm. Trình bày được một số điều cần biết về vệ sinh thực phẩm; + Nêu được một số nguyên nhân chủ yếu gây ngộ độc thực phẩm. Lấy được ví dụ minh hoạ. Kể được tên một số loại thực phẩm dễ bị mất an toàn vệ sinh thực phẩm do sinh vật, hoá chất, bảo quản, chế biến; + Kể được tên một số hoá chất (độc tố), cách chế biến, cách bảo quản gây mất an toàn vệ sinh thực phẩm; + Trình bày được cách bảo quản, chế biến thực phẩm an toàn; + Trình bày được một số bệnh do mất vệ sinh an toàn thực phẩm và cách phòng và chống các bệnh này. – Vận dụng được hiểu biết về an toàn vệ sinh thực phẩm để đề xuất các biện pháp lựa chọn, bảo quản, chế biến, chế độ ăn uống an toàn cho bản thân và gia đình; đọc và hiểu được ý nghĩa của các thông tin ghi trên nhãn hiệu bao bì thực phẩm và biết cách sử dụng thực phẩm đó một cách phù hợp. – Thực hiện được dự án điều tra về vệ sinh an toàn thực phẩm tại địa phương; dự án điều tra một số bệnh đường tiêu hoá trong trường học hoặc tại địa phương (bệnh sâu răng, bệnh dạ dày,...).",
+   "outcome_text": "– Trình bày được chức năng của hệ tiêu hoá. – Quan sát hình vẽ (hoặc mô hình, sơ đồ khái quát) hệ tiêu hoá ở người, kể tên được các cơ quan của hệ tiêu hoá. Nêu được chức năng của mỗi cơ quan và sự phối hợp các cơ quan thể hiện chức năng của cả hệ tiêu hoá. – Trình bày được chế độ dinh dưỡng của con người ở các độ tuổi. – Nêu được nguyên tắc lập khẩu phần thức ăn cho con người. Thực hành xây dựng chế độ dinh dưỡng cho bản thân và những người trong gia đình. – Nêu được một số bệnh về đường tiêu hoá và cách phòng và chống (bệnh răng, miệng; bệnh dạ dày; bệnh đường ruột, ...). – Vận dụng được hiểu biết về dinh dưỡng và tiêu hoá để phòng và chống các bệnh về tiêu hoá cho bản thân và gia đình. – Trình bày được một số vấn đề về an toàn thực phẩm, cụ thể: + Nêu được khái niệm an toàn thực phẩm. Trình bày được một số điều cần biết về vệ sinh thực phẩm; + Nêu được một số nguyên nhân chủ yếu gây ngộ độc thực phẩm. Lấy được ví dụ minh hoạ. Kể được tên một số loại thực phẩm dễ bị mất an toàn vệ sinh thực phẩm do sinh vật, hoá chất, bảo quản, chế biến; + Kể được tên một số hoá chất (độc tố), cách chế biến, cách bảo quản gây mất an toàn vệ sinh thực phẩm; + Trình bày được cách bảo quản, chế biến thực phẩm an toàn; + Trình bày được một số bệnh do mất vệ sinh an toàn thực phẩm và cách phòng và chống các bệnh này. – Vận dụng được hiểu biết về an toàn vệ sinh thực phẩm để đề xuất các biện pháp lựa chọn, bảo quản, chế biến, chế độ ăn uống an toàn cho bản thân và gia đình; đọc và hiểu được ý nghĩa của các thông tin ghi trên nhãn hiệu bao bì thực phẩm và biết cách sử dụng thực phẩm đó một cách phù hợp. – Thực hiện được dự án điều tra về vệ sinh an toàn thực phẩm tại địa phương; dự án điều tra một số bệnh đường tiêu hoá trong trường học hoặc tại địa phương (bệnh sâu răng, bệnh dạ dày,...).",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -8061,20 +8391,35 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thực hiện thí nghiệm đơn giản để nêu được điện trở có tác dụng cản trở dòng điện trong mạch. – Nêu được (không yêu cầu thành lập): Công thức tính điện trở của một đoạn dây dẫn (theo"
+         "text": "Thực hiện thí nghiệm đơn giản để nêu được điện trở có tác dụng cản trở dòng điện trong mạch."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được (không yêu cầu thành lập): Công thức tính điện trở của một đoạn dây dẫn (theo độ dài, tiết diện, điện trở suất); công thức tính điện trở tương đương của đoạn mạch một chiều nối tiếp, song song."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thực hiện thí nghiệm đơn giản để nêu được điện trở có tác dụng cản trở dòng điện trong mạch. – Nêu được (không yêu cầu thành lập): Công thức tính điện trở của một đoạn dây dẫn (theo",
+   "outcome_text": "– Thực hiện thí nghiệm đơn giản để nêu được điện trở có tác dụng cản trở dòng điện trong mạch. – Nêu được (không yêu cầu thành lập): Công thức tính điện trở của một đoạn dây dẫn (theo độ dài, tiết diện, điện trở suất); công thức tính điện trở tương đương của đoạn mạch một chiều nối tiếp, song song.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
     "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
     "pdf_pages": [
-     61
+     61,
+     62
     ]
    }
   },
@@ -8097,14 +8442,126 @@
        "content": [
         {
          "type": "text",
-         "text": "độ dài, tiết diện, điện trở suất); công thức tính điện trở tương đương của đoạn mạch một chiều nối tiếp, song song. – Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn, điện trở tương đương của đoạn mạch một chiều nối tiếp, song song trong một số trường hợp đơn giản. – Thực hiện thí nghiệm để xây dựng được định luật Ohm: cường độ dòng điện đi qua một đoạn dây dẫn tỉ lệ thuận với hiệu điện thế giữa hai đầu đoạn dây và tỉ lệ nghịch với điện trở của nó. – Thực hiện thí nghiệm để rút ra được: Trong đoạn mạch điện mắc nối tiếp, cường độ dòng điện là như nhau cho mọi điểm; trong đoạn mạch điện mắc song song, tổng cường độ dòng điện trong các nhánh bằng cường độ dòng điện chạy trong mạch chính. – Tính được cường độ dòng điện trong đoạn mạch một chiều mắc nối tiếp, mắc song song, trong một số trường hợp đơn giản. – Nêu được công suất điện định mức của dụng cụ điện (công suất mà dụng cụ tiêu thụ khi hoạt động bình thường). – Lấy ví dụ để chứng tỏ được dòng điện có năng lượng. – Tính được năng lượng của dòng điện và công suất điện trong trường hợp đơn giản. – Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc nối tiếp. – Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc song song."
+         "text": "Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn, điện trở tương đương của đoạn mạch một chiều nối tiếp, song song trong một số trường hợp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện thí nghiệm để xây dựng được định luật Ohm: cường độ dòng điện đi qua một đoạn dây dẫn tỉ lệ thuận với hiệu điện thế giữa hai đầu đoạn dây và tỉ lệ nghịch với điện trở của nó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện thí nghiệm để rút ra được: Trong đoạn mạch điện mắc nối tiếp, cường độ dòng điện là như nhau cho mọi điểm; trong đoạn mạch điện mắc song song, tổng cường độ dòng điện trong các nhánh bằng cường độ dòng điện chạy trong mạch chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính được cường độ dòng điện trong đoạn mạch một chiều mắc nối tiếp, mắc song song, trong một số trường hợp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được công suất điện định mức của dụng cụ điện (công suất mà dụng cụ tiêu thụ khi hoạt động bình thường)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lấy ví dụ để chứng tỏ được dòng điện có năng lượng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính được năng lượng của dòng điện và công suất điện trong trường hợp đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc nối tiếp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc song song."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "độ dài, tiết diện, điện trở suất); công thức tính điện trở tương đương của đoạn mạch một chiều nối tiếp, song song. – Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn, điện trở tương đương của đoạn mạch một chiều nối tiếp, song song trong một số trường hợp đơn giản. – Thực hiện thí nghiệm để xây dựng được định luật Ohm: cường độ dòng điện đi qua một đoạn dây dẫn tỉ lệ thuận với hiệu điện thế giữa hai đầu đoạn dây và tỉ lệ nghịch với điện trở của nó. – Thực hiện thí nghiệm để rút ra được: Trong đoạn mạch điện mắc nối tiếp, cường độ dòng điện là như nhau cho mọi điểm; trong đoạn mạch điện mắc song song, tổng cường độ dòng điện trong các nhánh bằng cường độ dòng điện chạy trong mạch chính. – Tính được cường độ dòng điện trong đoạn mạch một chiều mắc nối tiếp, mắc song song, trong một số trường hợp đơn giản. – Nêu được công suất điện định mức của dụng cụ điện (công suất mà dụng cụ tiêu thụ khi hoạt động bình thường). – Lấy ví dụ để chứng tỏ được dòng điện có năng lượng. – Tính được năng lượng của dòng điện và công suất điện trong trường hợp đơn giản. – Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc nối tiếp. – Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc song song.",
+   "outcome_text": "– Sử dụng công thức đã cho để tính được điện trở của một đoạn dây dẫn, điện trở tương đương của đoạn mạch một chiều nối tiếp, song song trong một số trường hợp đơn giản. – Thực hiện thí nghiệm để xây dựng được định luật Ohm: cường độ dòng điện đi qua một đoạn dây dẫn tỉ lệ thuận với hiệu điện thế giữa hai đầu đoạn dây và tỉ lệ nghịch với điện trở của nó. – Thực hiện thí nghiệm để rút ra được: Trong đoạn mạch điện mắc nối tiếp, cường độ dòng điện là như nhau cho mọi điểm; trong đoạn mạch điện mắc song song, tổng cường độ dòng điện trong các nhánh bằng cường độ dòng điện chạy trong mạch chính. – Tính được cường độ dòng điện trong đoạn mạch một chiều mắc nối tiếp, mắc song song, trong một số trường hợp đơn giản. – Nêu được công suất điện định mức của dụng cụ điện (công suất mà dụng cụ tiêu thụ khi hoạt động bình thường). – Lấy ví dụ để chứng tỏ được dòng điện có năng lượng. – Tính được năng lượng của dòng điện và công suất điện trong trường hợp đơn giản. – Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc nối tiếp. – Lắp được mạch điện và đo được giá trị cường độ dòng điện trong một đoạn mạch điện mắc song song.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -8133,20 +8590,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Thực hiện thí nghiệm để rút ra được: Khi số đường sức từ xuyên qua tiết diện của cuộn dây"
+         "text": "Thực hiện thí nghiệm để rút ra được: Khi số đường sức từ xuyên qua tiết diện của cuộn dây dẫn kín biến thiên thì trong cuộn dây đó xuất hiện dòng điện cảm ứng."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Thực hiện thí nghiệm để rút ra được: Khi số đường sức từ xuyên qua tiết diện của cuộn dây",
+   "outcome_text": "– Thực hiện thí nghiệm để rút ra được: Khi số đường sức từ xuyên qua tiết diện của cuộn dây dẫn kín biến thiên thì trong cuộn dây đó xuất hiện dòng điện cảm ứng.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
     "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
     "pdf_pages": [
-     62
+     62,
+     63
     ]
    }
   },
@@ -8169,14 +8627,28 @@
        "content": [
         {
          "type": "text",
-         "text": "dẫn kín biến thiên thì trong cuộn dây đó xuất hiện dòng điện cảm ứng. – Thực hiện thí nghiệm để nêu được nguyên tắc tạo ra dòng điện xoay chiều (dòng điện luân phiên đổi chiều). – Lấy được ví dụ chứng tỏ dòng điện xoay chiều có tác dụng nhiệt, phát sáng, tác dụng từ, tác dụng sinh lí."
+         "text": "Thực hiện thí nghiệm để nêu được nguyên tắc tạo ra dòng điện xoay chiều (dòng điện luân phiên đổi chiều)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lấy được ví dụ chứng tỏ dòng điện xoay chiều có tác dụng nhiệt, phát sáng, tác dụng từ, tác dụng sinh lí."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "dẫn kín biến thiên thì trong cuộn dây đó xuất hiện dòng điện cảm ứng. – Thực hiện thí nghiệm để nêu được nguyên tắc tạo ra dòng điện xoay chiều (dòng điện luân phiên đổi chiều). – Lấy được ví dụ chứng tỏ dòng điện xoay chiều có tác dụng nhiệt, phát sáng, tác dụng từ, tác dụng sinh lí.",
+   "outcome_text": "– Thực hiện thí nghiệm để nêu được nguyên tắc tạo ra dòng điện xoay chiều (dòng điện luân phiên đổi chiều). – Lấy được ví dụ chứng tỏ dòng điện xoay chiều có tác dụng nhiệt, phát sáng, tác dụng từ, tác dụng sinh lí.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -10619,20 +11091,35 @@
        "content": [
         {
          "type": "text",
-         "text": "– Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình nguyên phân nêu được khái niệm nguyên phân. – Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình giảm phân nêu được khái niệm"
+         "text": "Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình nguyên phân nêu được khái niệm nguyên phân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình giảm phân nêu được khái niệm giảm phân."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình nguyên phân nêu được khái niệm nguyên phân. – Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình giảm phân nêu được khái niệm",
+   "outcome_text": "– Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình nguyên phân nêu được khái niệm nguyên phân. – Dựa vào hình vẽ (hoặc sơ đồ, học liệu điện tử) về quá trình giảm phân nêu được khái niệm giảm phân.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
     "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
     "pdf_pages": [
-     73
+     73,
+     74
     ]
    }
   },
@@ -10655,14 +11142,98 @@
        "content": [
         {
          "type": "text",
-         "text": "giảm phân. – Phân biệt được nguyên phân và giảm phân; nêu được ý nghĩa của nguyên phân, giảm phân trong di truyền và mối quan hệ giữa hai quá trình này trong sinh sản hữu tính. – Nêu được nhiễm sắc thể vừa là vật chất mang thông tin di truyền vừa là đơn vị truyền đạt vật chất di truyền qua các thế hệ tế bào và cơ thể. – Trình bày được cơ chế biến dị tổ hợp thông qua sơ đồ đơn giản về quá trình giảm phân và thụ tinh (minh hoạ bằng sơ đồ lai 2 cặp gene). – Trình bày được các ứng dụng và lấy được ví dụ của nguyên phân và giảm phân trong thực tiễn. – Nêu khái niệm nhiễm sắc thể giới tính và nhiễm sắc thể thường. – Trình bày được cơ chế xác định giới tính. Nêu được một số yếu tố ảnh hưởng đến sự phân hoá giới tính. – Dựa vào sơ đồ phép lai trình bày được khái niệm di truyền liên kết và phân biệt với quy luật phân li độc lập. Nêu được một số ứng dụng về di truyền liên kết trong thực tiễn."
+         "text": "Phân biệt được nguyên phân và giảm phân; nêu được ý nghĩa của nguyên phân, giảm phân trong di truyền và mối quan hệ giữa hai quá trình này trong sinh sản hữu tính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nhiễm sắc thể vừa là vật chất mang thông tin di truyền vừa là đơn vị truyền đạt vật chất di truyền qua các thế hệ tế bào và cơ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cơ chế biến dị tổ hợp thông qua sơ đồ đơn giản về quá trình giảm phân và thụ tinh (minh hoạ bằng sơ đồ lai 2 cặp gene)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được các ứng dụng và lấy được ví dụ của nguyên phân và giảm phân trong thực tiễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu khái niệm nhiễm sắc thể giới tính và nhiễm sắc thể thường."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cơ chế xác định giới tính. Nêu được một số yếu tố ảnh hưởng đến sự phân hoá giới tính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào sơ đồ phép lai trình bày được khái niệm di truyền liên kết và phân biệt với quy luật phân li độc lập. Nêu được một số ứng dụng về di truyền liên kết trong thực tiễn."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "giảm phân. – Phân biệt được nguyên phân và giảm phân; nêu được ý nghĩa của nguyên phân, giảm phân trong di truyền và mối quan hệ giữa hai quá trình này trong sinh sản hữu tính. – Nêu được nhiễm sắc thể vừa là vật chất mang thông tin di truyền vừa là đơn vị truyền đạt vật chất di truyền qua các thế hệ tế bào và cơ thể. – Trình bày được cơ chế biến dị tổ hợp thông qua sơ đồ đơn giản về quá trình giảm phân và thụ tinh (minh hoạ bằng sơ đồ lai 2 cặp gene). – Trình bày được các ứng dụng và lấy được ví dụ của nguyên phân và giảm phân trong thực tiễn. – Nêu khái niệm nhiễm sắc thể giới tính và nhiễm sắc thể thường. – Trình bày được cơ chế xác định giới tính. Nêu được một số yếu tố ảnh hưởng đến sự phân hoá giới tính. – Dựa vào sơ đồ phép lai trình bày được khái niệm di truyền liên kết và phân biệt với quy luật phân li độc lập. Nêu được một số ứng dụng về di truyền liên kết trong thực tiễn.",
+   "outcome_text": "– Phân biệt được nguyên phân và giảm phân; nêu được ý nghĩa của nguyên phân, giảm phân trong di truyền và mối quan hệ giữa hai quá trình này trong sinh sản hữu tính. – Nêu được nhiễm sắc thể vừa là vật chất mang thông tin di truyền vừa là đơn vị truyền đạt vật chất di truyền qua các thế hệ tế bào và cơ thể. – Trình bày được cơ chế biến dị tổ hợp thông qua sơ đồ đơn giản về quá trình giảm phân và thụ tinh (minh hoạ bằng sơ đồ lai 2 cặp gene). – Trình bày được các ứng dụng và lấy được ví dụ của nguyên phân và giảm phân trong thực tiễn. – Nêu khái niệm nhiễm sắc thể giới tính và nhiễm sắc thể thường. – Trình bày được cơ chế xác định giới tính. Nêu được một số yếu tố ảnh hưởng đến sự phân hoá giới tính. – Dựa vào sơ đồ phép lai trình bày được khái niệm di truyền liên kết và phân biệt với quy luật phân li độc lập. Nêu được một số ứng dụng về di truyền liên kết trong thực tiễn.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",

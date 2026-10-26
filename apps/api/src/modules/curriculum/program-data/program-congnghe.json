@@ -4499,20 +4499,21 @@
        "content": [
         {
          "type": "text",
-         "text": "– Mô tả được các thành phần cơ bản của mô hình nông nghiệp công nghệ cao trong bối cảnh"
+         "text": "Mô tả được các thành phần cơ bản của mô hình nông nghiệp công nghệ cao trong bối cảnh cuộc cách mạng công nghiệp lần thứ tư."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Mô tả được các thành phần cơ bản của mô hình nông nghiệp công nghệ cao trong bối cảnh",
+   "outcome_text": "– Mô tả được các thành phần cơ bản của mô hình nông nghiệp công nghệ cao trong bối cảnh cuộc cách mạng công nghiệp lần thứ tư.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-congnghe-official.pdf",
     "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
     "pdf_pages": [
-     27
+     27,
+     28
     ]
    }
   },
@@ -4535,14 +4536,84 @@
        "content": [
         {
          "type": "text",
-         "text": "cuộc cách mạng công nghiệp lần thứ tư. – Trình bày được vai trò của khoa học, kĩ thuật và công nghệ đối với những thành tựu của nền nông nghiệp. – Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm đất, cảm biến ánh sáng, cảm biến PH, thời gian thực. – Thiết kế được mạch điện ứng dụng công nghệ tưới tiêu tự động trong trồng trọt. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được xu thế phát triển của nền nông nghiệp công nghệ cao. Có ý thức vươn lên, tinh thần khởi nghiệp."
+         "text": "Trình bày được vai trò của khoa học, kĩ thuật và công nghệ đối với những thành tựu của nền nông nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm đất, cảm biến ánh sáng, cảm biến PH, thời gian thực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được mạch điện ứng dụng công nghệ tưới tiêu tự động trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được xu thế phát triển của nền nông nghiệp công nghệ cao. Có ý thức vươn lên, tinh thần khởi nghiệp."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "cuộc cách mạng công nghiệp lần thứ tư. – Trình bày được vai trò của khoa học, kĩ thuật và công nghệ đối với những thành tựu của nền nông nghiệp. – Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm đất, cảm biến ánh sáng, cảm biến PH, thời gian thực. – Thiết kế được mạch điện ứng dụng công nghệ tưới tiêu tự động trong trồng trọt. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được xu thế phát triển của nền nông nghiệp công nghệ cao. Có ý thức vươn lên, tinh thần khởi nghiệp.",
+   "outcome_text": "– Trình bày được vai trò của khoa học, kĩ thuật và công nghệ đối với những thành tựu của nền nông nghiệp. – Nhận biết được một số loại cảm biến thông dụng: cảm biến nhiệt độ, cảm biến độ ẩm đất, cảm biến ánh sáng, cảm biến PH, thời gian thực. – Thiết kế được mạch điện ứng dụng công nghệ tưới tiêu tự động trong trồng trọt. – Lắp đặt, kiểm tra, hiệu chỉnh sự hoạt động của mạch điện theo yêu cầu. – Thực hiện an toàn, vệ sinh lao động, nghiêm túc, trách nhiệm trong công việc. – Đánh giá được xu thế phát triển của nền nông nghiệp công nghệ cao. Có ý thức vươn lên, tinh thần khởi nghiệp.",
    "source": {
     "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-congnghe-official.pdf",
