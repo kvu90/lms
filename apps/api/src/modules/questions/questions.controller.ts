@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuestionBanksService } from './question-banks.service';
 import { QuestionsService } from './questions.service';
-import { attachQuestionOutcomeSchema, attachQuestionSubjectSchema, copyQuestionSchema, copyQuestionsBatchSchema, createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, submitQuestionResponseSchema, updateQuestionOutcomeLinkSchema, updateQuestionSchema, updateStimulusSchema, withdrawQuestionSchema, type AttachQuestionOutcomeDto, type AttachQuestionSubjectDto, type CopyQuestionDto, type CopyQuestionsBatchDto, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateQuestionOutcomeLinkDto, type UpdateStimulusDto, type WithdrawQuestionDto } from './dto/questions.dto';
+import { attachQuestionOutcomeSchema, attachQuestionSubjectSchema, copyQuestionSchema, copyQuestionsBatchSchema, createQuestionCategorySchema, createQuestionSchema, createQuestionUsageSchema, createStimulusSchema, setQuestionStatusSchema, submitQuestionResponseSchema, updateQuestionOutcomeLinkSchema, updateQuestionSchema, updateStimulusSchema, withdrawQuestionSchema, type AttachQuestionOutcomeDto, type AttachQuestionSubjectDto, type CopyQuestionDto, type CopyQuestionsBatchDto, type CreateQuestionCategoryDto, type CreateQuestionDto, type CreateStimulusDto, type CreateUsageDto, type SetQuestionStatusDto, type SubmitResponseDto, type UpdateQuestionDto, type UpdateQuestionOutcomeLinkDto, type UpdateStimulusDto, type WithdrawQuestionDto } from './dto/questions.dto';
 
 @ApiTags('questions')
 @Controller({ path: 'questions', version: '1' })
@@ -195,6 +195,16 @@ export class QuestionsController {
    */
   async restore(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.banks.restoreQuestion(actor.id, id);
+  }
+  @Post(':id/status')
+  /**
+   * POST /questions/:id/status — chuyển trạng thái phát hành draft ↔
+   * ready (màn soạn/duyệt câu hỏi trên web, issue #248; cùng nghiệp vụ
+   * mà đường MCP dùng để duyệt draft, gác bằng cổng govern như
+   * withdraw/restore). Không tạo phiên bản mới.
+   */
+  async setStatus(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setQuestionStatusSchema }) dto: SetQuestionStatusDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.setQuestionStatusForActor(actor.id, id, dto.status);
   }
   @Delete(':id')
   /**

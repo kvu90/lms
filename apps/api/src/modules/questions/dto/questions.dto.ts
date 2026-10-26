@@ -11,6 +11,7 @@ import {
   createQuestionUsageSchema,
   createStimulusSchema,
   rejectContributionSchema,
+  setQuestionStatusSchema,
   submitQuestionResponseSchema,
   updateQuestionOutcomeLinkSchema,
   updateQuestionSchema,
@@ -28,6 +29,7 @@ import {
   type CreateQuestionUsage,
   type CreateStimulus,
   type RejectContribution,
+  type SetQuestionStatus,
   type SubmitQuestionResponse,
   type UpdateQuestion,
   type UpdateQuestionOutcomeLink,
@@ -52,6 +54,7 @@ export {
   createQuestionUsageSchema,
   createStimulusSchema,
   rejectContributionSchema,
+  setQuestionStatusSchema,
   submitQuestionResponseSchema,
   updateQuestionOutcomeLinkSchema,
   updateQuestionSchema,
@@ -75,3 +78,4 @@ export type WithdrawQuestionDto = WithdrawQuestion;
 export type CreateContributionDto = CreateContribution;
 export type ApproveContributionDto = ApproveContribution;
 export type RejectContributionDto = RejectContribution;
+export type SetQuestionStatusDto = SetQuestionStatus;
