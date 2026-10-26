@@ -254,7 +254,10 @@ describe('cây điều hướng sidebar — admin', () => {
     // sidebar-menu-item — chevron gắn ở cuối cùng bề mặt nút của nhãn,
     // không còn là hộp trigger 32px (h-8 w-8) tách riêng đứng cạnh
     // (chốt sổ quyết định [26/10 23:16], issue #70).
-    const item = label.closest('[data-slot="sidebar-menu-item"]');
+    // Lưu ý: li của nhóm collapse mang data-slot="collapsible" (gốc
+    // Collapsible ghi đè data-slot của SidebarMenuItem) nên neo theo
+    // data-sidebar="menu-item" mới ổn định.
+    const item = label.closest('li[data-sidebar="menu-item"]');
     expect(item).not.toBeNull();
     expect(item!.contains(toggle)).toBe(true);
     expect(toggle.className).not.toMatch(/\bh-8\b/);
