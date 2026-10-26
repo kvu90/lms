@@ -166,10 +166,13 @@ function stubFetchEdit(calls: RecordedCall[]) {
       if (url === `/api/v1/exam-matrices/${MY_MATRIX}/specification`) {
         // Bản đặc tả SUY RA: hai ô ở hai ĐVK khác nhau; cột YCCĐ của mỗi
         // ô = mọi YCCĐ thuộc ĐVK của ô đó (ô không neo YCCĐ — #249).
-        const outcome = (id: string, content: string, record: string) => ({
+        // API đặc tả là nguồn sự thật duy nhất cho mã YCCĐ: mỗi
+        // outcome mang sẵn position + code (đợt #161), web chỉ hiển thị.
+        const outcome = (id: string, content: string, record: string, position: number) => ({
           outcomeId: id, content, sourceKind: 'program',
           sourceRef: `Thông tư 32/2018/TT-BGDĐT — chuong-trinh.pdf, trang 5 — bản ghi ${record}`,
           programContent: content, derivedContent: null,
+          position, code: `${record}.${String(position).padStart(2, '0')}`,
         });
         return respond({
           matrix: { id: MY_MATRIX, name: 'Ma trận ôn tập của tôi', totalScore: 6, levelSet: 'three' },
@@ -182,8 +185,8 @@ function stubFetchEdit(calls: RecordedCall[]) {
               {
                 nodeId: LEAF_NODE_ID, nodeTitle: 'Phép cộng',
                 outcomes: [
-                  outcome('oc-1', 'Nhận biết được phép cộng trong phạm vi 10.', 'TOAN-0001'),
-                  outcome('oc-2', 'Thực hiện được phép cộng trong phạm vi 10.', 'TOAN-0001'),
+                  outcome('oc-1', 'Nhận biết được phép cộng trong phạm vi 10.', 'TOAN-0001', 1),
+                  outcome('oc-2', 'Thực hiện được phép cộng trong phạm vi 10.', 'TOAN-0001', 2),
                 ],
                 cells: [{
                   cellId: 'cell-spec-1', cognitiveLevel: 'biet', qtype: 'multichoice',
@@ -192,7 +195,7 @@ function stubFetchEdit(calls: RecordedCall[]) {
               },
               {
                 nodeId: '01900000-0000-7000-8000-000000000133', nodeTitle: 'Phép trừ',
-                outcomes: [outcome('oc-3', 'Nhận biết được phép trừ trong phạm vi 10.', 'TOAN-0002')],
+                outcomes: [outcome('oc-3', 'Nhận biết được phép trừ trong phạm vi 10.', 'TOAN-0002', 1)],
                 cells: [{
                   cellId: 'cell-spec-2', cognitiveLevel: 'hieu', qtype: 'truefalse',
                   questionCount: 1, cellScore: 4, minutes: null, slotNumbers: null, drawNote: null,
