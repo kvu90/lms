@@ -17,6 +17,8 @@ import type {
   ConversationDetailView,
   ConversationGroupTreeView,
   ConversationStatePatch,
+  ConversationTreeClassView,
+  ConversationTreeCourseView,
   ConversationStateView,
   ConversationView,
   MessageQuoteView,
@@ -108,6 +110,43 @@ function storeConversationId(conversationId: string | null) {
     // Như trên: lỗi lưu bền không chặn luồng nhắn tin.
   }
 }
+/**
+ * Áp số chưa đọc mới của MỘT conversation lên cây nhóm (lát MSG-T3):
+ * nút lá mang conversation đó nhận số mới; số của nút khoá/lớp được
+ * tính lại bằng số của chính nút cộng tổng các nút con — đúng quy tắc
+ * cộng dồn phía server ghi ở contracts. Nhờ đó huy hiệu của tab Nhóm
+ * sống theo sự kiện realtime như danh sách phẳng trước đây, không
+ * phải chờ lần tải cây tiếp theo. Cây chưa nạp hoặc conversation
+ * không thuộc nút nào thì trả nguyên cây.
+ *
+ * @param tree - Cây nhóm hiện tại (null khi chưa nạp).
+ * @param conversationId - Conversation vừa có sự kiện cập nhật.
+ * @param unreadCount - Số chưa đọc mới nhất của conversation đó.
+ * @returns Cây mới đã áp số; trả lại chính `tree` khi không đổi.
+ */
+function withTreeUnread(
+  tree: ConversationGroupTreeView | null,
+  conversationId: string,
+  unreadCount: number,
+): ConversationGroupTreeView | null {
+  if (!tree) return tree;
+  const patchCourse = (course: ConversationTreeCourseView): ConversationTreeCourseView => {
+    const groups = course.groups.map((g) => (g.conversationId === conversationId ? { ...g, unread: unreadCount } : g));
+    const own = course.conversationId === conversationId ? unreadCount : course.unread - course.groups.reduce((sum, g) => sum + g.unread, 0);
+    return { ...course, groups, unread: own + groups.reduce((sum, g) => sum + g.unread, 0) };
+  };
+  const patchClass = (cls: ConversationTreeClassView): ConversationTreeClassView => {
+    const courses = cls.courses.map(patchCourse);
+    const own = cls.conversationId === conversationId ? unreadCount : cls.unread - cls.courses.reduce((sum, c) => sum + c.unread, 0);
+    return { ...cls, courses, unread: own + courses.reduce((sum, c) => sum + c.unread, 0) };
+  };
+  return {
+    classes: tree.classes.map(patchClass),
+    coursesOutsideClasses: tree.coursesOutsideClasses.map(patchCourse),
+    freeGroups: tree.freeGroups.map((g) => (g.conversationId === conversationId ? { ...g, unread: unreadCount } : g)),
+  };
+}
+
 export function MessagesPage() {
   const { t } = useTranslation('app');
   const { user } = useAuth();
@@ -546,6 +585,9 @@ export function MessagesPage() {
           recountUnread(next);
           return next;
         });
+        // Cây nhóm cũng nhận số chưa đọc mới của conversation này để
+        // huy hiệu trên các nút của tab Nhóm khớp ngay (lát MSG-T3).
+        setGroupTree((prev) => withTreeUnread(prev, conversationId, activeRef.current?.id === conversationId ? 0 : unreadCount));
       },
       onMessageDeleted: ({ conversationId, messageId, deletedBy }) => {
         if (activeRef.current?.id !== conversationId) return;
