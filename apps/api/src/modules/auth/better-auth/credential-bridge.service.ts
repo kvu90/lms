@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import type { BetterAuthOptions } from 'better-auth';
 import { makeSignature } from 'better-auth/crypto';
@@ -49,6 +49,13 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
 @Injectable()
 export class CredentialBridgeService {
   constructor(
+    // forwardRef: vòng import/provider khép kín chỉ xuất hiện khi hai
+    // lát GĐ2 gặp nhau — cầu nối → BetterAuthService → LoginLockoutService
+    // → UsersService → cầu nối (UsersService đồng bộ credential từ
+    // chặng 2.6, LoginLockoutService là của điểm 2.4). Mọi cạnh của
+    // vòng đều khai forwardRef để metadata không bắt phải tham chiếu
+    // chưa nạp tuỳ thứ tự nạp module.
+    @Inject(forwardRef(() => BetterAuthService))
     private readonly betterAuth: BetterAuthService,
     @InjectDrizzle() private readonly db: Database,
   ) {}

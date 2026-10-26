@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq } from 'drizzle-orm';
@@ -84,7 +84,11 @@ export class BetterAuthService {
     // như authMail — nơi dựng tay không truyền thì instance chạy
     // không gắn hooks lockout (đúng nghĩa "thiếu = không gắn" của
     // factory); app thật luôn có LoginLockoutService từ AuthModule.
-    @Optional() lockout?: LoginLockoutService,
+    // forwardRef: một cạnh của vòng provider với cầu nối/UsersService
+    // (xem ghi chú tại CredentialBridgeService).
+    @Optional()
+    @Inject(forwardRef(() => LoginLockoutService))
+    lockout?: LoginLockoutService,
   ) {
     this.enabled = config.get<boolean>('BETTER_AUTH_ENABLED') ?? false;
     this.mcpAsEnabled = config.get<boolean>('MCP_AS_ENABLED') ?? false;

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { MyAccessView } from '@lms/contracts';
 import { and, eq } from 'drizzle-orm';
 import { badgeIssued, learningPlans } from '../../db/schema';
@@ -44,6 +44,9 @@ export class UsersService {
     private readonly roles: RolesService,
     private readonly customFields: CustomFieldsService,
     private readonly outbox: OutboxService,
+    // forwardRef: một cạnh của vòng provider với cầu nối/BetterAuth/
+    // lockout (xem ghi chú tại CredentialBridgeService).
+    @Inject(forwardRef(() => CredentialBridgeService))
     private readonly credentialBridge: CredentialBridgeService,
   ) {}
 
