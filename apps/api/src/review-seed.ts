@@ -264,14 +264,21 @@ async function main(): Promise<void> {
       if (!myQBank?.defaultCategoryId) throw new Error('teacher1 personal question bank not found');
       const q1 = must(await call('POST', '/questions', teacherToken, {
         categoryId: myQBank.defaultCategoryId, qtype: 'multichoice',
-        name: 'Câu mẫu 1', questionText: '2 + 3 bằng mấy?',
-        answers: [{ text: '5', fraction: 1 }, { text: '6', fraction: 0 }],
-        options: { single: true },
+        questionText: '2 + 3 bằng mấy?',
+        answers: [
+          { text: '5', correct: true },
+          { text: '6', correct: false },
+          { text: '4', correct: false },
+          { text: '7', correct: false },
+        ],
       }), 'create sample question 1') as { question: { id: string } };
       const q2 = must(await call('POST', '/questions', teacherToken, {
         categoryId: myQBank.defaultCategoryId, qtype: 'truefalse',
-        name: 'Câu mẫu 2', questionText: 'Trái Đất quay quanh Mặt Trời.',
-        answer: { correct: true },
+        questionText: 'Trái Đất quay quanh Mặt Trời.',
+        answers: [
+          { text: 'Đúng', correct: true },
+          { text: 'Sai', correct: false },
+        ],
       }), 'create sample question 2') as { question: { id: string } };
       const eBanks = must(await call('GET', '/question-banks?kind=exam', teacherToken), 'list exam banks') as { id: string; scope: string }[];
       const myEBank = eBanks.find((b) => b.scope === 'personal');

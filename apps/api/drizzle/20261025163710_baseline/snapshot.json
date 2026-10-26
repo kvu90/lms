@@ -1501,6 +1501,26 @@
       "statementTarget": [
         "table",
         "public",
+        "question_answer_keys"
+      ],
+      "writes": [
+        "s|tbl|public.question_answer_keys",
+        "n|tbl|public.question_answer_keys",
+        "e|tbl|public.question_answer_keys",
+        "n|rel|public.question_answer_keys",
+        "n|type|public.question_answer_keys",
+        "n|rel|public.question_answer_keys_pkey",
+        "n|rel|public.question_answer_keys_version_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "question_attempt_step_data"
       ],
       "writes": [
@@ -5887,6 +5907,26 @@
         "n|tbl|public.question_answers",
         "n|sch|public",
         "n|col|public.question_answers.question_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "question_answer_keys",
+        "question_answer_keys_question_version_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.question_answer_keys_question_version_id_idx",
+        "n|idx|public.question_answer_keys_question_version_id_idx",
+        "e|idx|public.question_answer_keys_question_version_id_idx",
+        "n|rel|public.question_answer_keys_question_version_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.question_answer_keys",
+        "n|sch|public",
+        "n|col|public.question_answer_keys.question_version_id"
       ]
     },
     {
@@ -13131,6 +13171,29 @@
       "statementTarget": [
         "table",
         "public",
+        "question_answer_keys"
+      ],
+      "writes": [
+        "s|fk|public.question_answer_keys.question_answer_keys_Nr4KxZsPcPZl_fkey",
+        "n|fk|public.question_answer_keys.question_answer_keys_Nr4KxZsPcPZl_fkey",
+        "e|fk|public.question_answer_keys.question_answer_keys_Nr4KxZsPcPZl_fkey",
+        "n|con|public.question_answer_keys.question_answer_keys_Nr4KxZsPcPZl_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.question_answer_keys",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.question_answer_keys.question_version_id",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
         "question_attempt_step_data"
       ],
       "writes": [
@@ -17197,6 +17260,12 @@
     {
       "schema": "public",
       "name": "question_answers",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "question_answer_keys",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -26330,19 +26399,6 @@
     {
       "schema": "public",
       "table": "qtype_multichoice_options",
-      "name": "single",
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "true",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "qtype_multichoice_options",
       "name": "shuffle_answers",
       "type": "boolean",
       "typeSchema": null,
@@ -26382,38 +26438,12 @@
     {
       "schema": "public",
       "table": "qtype_multichoice_options",
-      "name": "partially_correct_feedback",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "qtype_multichoice_options",
       "name": "incorrect_feedback",
       "type": "jsonb",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "qtype_multichoice_options",
-      "name": "show_num_correct",
-      "type": "boolean",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "false",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -26552,19 +26582,6 @@
       "schema": "public",
       "table": "question",
       "name": "qtype",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "question",
-      "name": "name",
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -26772,12 +26789,12 @@
     {
       "schema": "public",
       "table": "question_answers",
-      "name": "fraction",
-      "type": "double precision",
+      "name": "is_correct",
+      "type": "boolean",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": "0",
+      "default": "false",
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -26804,6 +26821,58 @@
       "notNull": true,
       "dimensions": 0,
       "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answer_keys",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answer_keys",
+      "name": "question_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answer_keys",
+      "name": "guidance",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "question_answer_keys",
+      "name": "solution",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -28060,19 +28129,6 @@
       "schema": "public",
       "table": "question_versions",
       "name": "general_feedback",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "question_versions",
-      "name": "guidance",
       "type": "jsonb",
       "typeSchema": null,
       "notNull": false,
@@ -43053,6 +43109,27 @@
     },
     {
       "schema": "public",
+      "table": "question_answer_keys",
+      "name": "question_answer_keys_question_version_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "question_attempt_steps",
       "name": "question_attempt_steps_user_id_idx",
       "nameExplicit": true,
@@ -50125,6 +50202,23 @@
     },
     {
       "schema": "public",
+      "table": "question_answer_keys",
+      "name": "question_answer_keys_Nr4KxZsPcPZl_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "question_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
       "table": "question_attempt_step_data",
       "name": "question_attempt_step_data_IY7k9FtOXqko_fkey",
       "nameExplicit": false,
@@ -53335,6 +53429,16 @@
     },
     {
       "schema": "public",
+      "table": "question_answer_keys",
+      "name": "question_answer_keys_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
       "table": "question_attempt_step_data",
       "name": "question_attempt_step_data_pkey",
       "columns": [
@@ -54750,6 +54854,17 @@
       "schema": "public",
       "table": "qtype_shortanswer_options",
       "name": "qtype_shortanswer_options_version_unique",
+      "nameExplicit": true,
+      "columns": [
+        "question_version_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "question_answer_keys",
+      "name": "question_answer_keys_version_unique",
       "nameExplicit": true,
       "columns": [
         "question_version_id"
