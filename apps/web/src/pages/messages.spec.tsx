@@ -1708,6 +1708,8 @@ function stubMsgT3Fetch(calls: RecordedCall[], opts: { studentView?: boolean } =
         return respond({ id: T3_CLASS_CONV, type: 2, name: 'Lớp 10A1', members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
       if (url === `/api/v1/messages/conversations/${T3_COURSE_CONV}`)
         return respond({ id: T3_COURSE_CONV, type: 2, name: 'Toán 10', members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
+      if (url === `/api/v1/messages/conversations/${T3_GROUP_CONV}`)
+        return respond({ id: T3_GROUP_CONV, type: 2, name: 'Nhóm Riêng', members: [ME_ID, OTHER_ID], messages: [], hasMoreBefore: false, memberReadMarkers: [] });
       if (/^\/api\/v1\/messages\/conversations\/[^/]+\/read$/.test(url)) return respond({ marked: 0, lastReadSeq: 0 });
       if (url === '/api/v1/messages/conversations' && method === 'POST')
         return respond({ id: T3_GROUP_CONV, type: 2, name: 'Nhóm mới lập', members: [ME_ID, OTHER_ID] });
