@@ -8,6 +8,10 @@
    bộ token ở đây: component của package và mã nguồn của apps/web. */
 @source "../components";
 @source "../../../../apps/web/src";
+/* Package editor (lát E1 #248) dùng class Tailwind trong chính
+   component của nó (panel công thức, toolbar) — phải nằm trong diện
+   quét thì các class đó mới sinh CSS ở bản dựng của apps/web. */
+@source "../../../../packages/editor/src";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -21,13 +21,11 @@ import {
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { QuestionImagePicker } from '../components/question-image-picker';
 import {
   QUESTION_IMAGE_ACCEPT,
   QuestionImageError,
   uploadQuestionImage,
   type QuestionFileArea,
-  type QuestionImageUploadResult,
 } from '../lib/question-files';
 import '../i18n';
 import { apiJson } from '#lib/api';
@@ -101,16 +99,6 @@ function docHasContent(doc: Doc | null | undefined): boolean {
 /** Bỏ qua tài liệu rỗng khi dựng payload (trường tuỳ chọn không gửi doc rỗng). */
 function docOrUndefined(doc: Doc | undefined): Doc | undefined {
   return docHasContent(doc) ? doc : undefined;
-}
-
-/**
- * Gắn node ảnh vào CUỐI tài liệu sau khi bộ chọn ảnh tải lên xong (đường
- * bọc ngoài; đường qua toolbar của editor thì editor tự chèn tại con
- * trỏ). Node `image` đã có trong schema rich text của contracts (QE-1).
- */
-function appendImageNode(doc: Doc, result: QuestionImageUploadResult): Doc {
-  const imageNode = { type: 'image', attrs: { src: result.src, alt: result.alt } };
-  return { type: 'doc', content: [...(doc.content ?? []), imageNode] } as unknown as Doc;
 }
 
 /** Trạng thái bank của một view như API trả về (contracts chưa khai `status` ở entry). */
@@ -413,13 +401,14 @@ function pickImageFile(): Promise<File | null> {
 }
 
 /**
- * Một trường nội dung rich text: trình soạn của @lms/editor bọc trong bộ
- * chọn ảnh của lát files. Hai đường chèn ảnh đều đi qua
- * `uploadQuestionImage` của lát files và lưu định danh bền vào tài liệu:
- * (1) nút "Chèn ảnh"/kéo thả của bộ chọn ảnh bọc ngoài — ảnh gắn vào
- * CUỐI tài liệu; (2) callback `onRequestImage` của chính editor (nút ảnh
- * trên toolbar, dán và kéo-thả vào vùng soạn) — editor tự chèn node
- * `image` tại con trỏ bằng định danh bền mà callback trả về.
+ * Một trường nội dung rich text của form câu hỏi. Chèn ảnh chỉ còn MỘT
+ * đường qua chính editor (lát E3 #248, theo mô hình một-toolbar của
+ * giaokhoa): nút ảnh trên toolbar của editor đang active, dán và
+ * kéo-thả vào vùng soạn — cả ba đều gọi callback `onRequestImage` ở
+ * dưới, tải qua `uploadQuestionImage` của lát files và editor tự chèn
+ * node `image` tại con trỏ bằng định danh bền mà callback trả về. Hàng
+ * chọn ảnh riêng bọc ngoài từng trường (QuestionImagePicker) đã bỏ —
+ * trước lát này mỗi trường mang một hàng như vậy, lặp 10 lần trên form.
  */
 function RichField({
   label,
@@ -428,6 +417,7 @@ function RichField({
   fileArea,
   contextId,
   itemId,
+  size = 'compact',
 }: {
   label: string;
   value: Doc | undefined;
@@ -435,6 +425,8 @@ function RichField({
   fileArea: QuestionFileArea;
   contextId?: string;
   itemId?: string;
+  /** Cỡ vùng soạn của editor: trường thân câu là `default`, còn lại `compact`. */
+  size?: 'default' | 'compact';
 }) {
   const { t } = useTranslation('app');
   const [imageError, setImageError] = useState<string | null>(null);
@@ -446,7 +438,7 @@ function RichField({
    * khi người soạn dán/kéo-thả ảnh — tải thẳng tệp đó; gọi không kèm
    * tệp khi bấm nút ảnh — mở trình chọn tệp trước. Chưa có context của
    * bank đích hoặc tải ảnh lỗi thì trả `null` (editor không chèn gì);
-   * lỗi tải ảnh hiện ngay dưới trường như ở bộ chọn ảnh bọc ngoài.
+   * lỗi tải ảnh hiện ngay dưới trường.
    */
   const handleRequestImage = useCallback(
     async (file?: File): Promise<RichTextImagePick | null> => {
@@ -474,20 +466,13 @@ function RichField({
   return (
     <Field>
       <FieldLabel>{label}</FieldLabel>
-      <QuestionImagePicker
-        contextId={contextId ?? ''}
-        fileArea={fileArea}
-        itemId={itemId}
-        disabled={!contextId}
-        onPick={(result) => onChange(appendImageNode(doc, result))}
-      >
-        <RichTextEditor
-          value={doc}
-          onChange={onChange}
-          ariaLabel={label}
-          onRequestImage={contextId ? handleRequestImage : undefined}
-        />
-      </QuestionImagePicker>
+      <RichTextEditor
+        value={doc}
+        onChange={onChange}
+        ariaLabel={label}
+        size={size}
+        onRequestImage={contextId ? handleRequestImage : undefined}
+      />
       {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
     </Field>
   );
@@ -930,7 +915,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
   if (loading) {
     return (
-      <PageShell width="wide">
+      <PageShell width="full">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
         <div className="space-y-2" aria-label={t('loading')}>
           <Skeleton className="h-9 w-full" />
@@ -942,7 +927,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   }
   if (loadError) {
     return (
-      <PageShell width="wide">
+      <PageShell width="full">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
         <Alert variant="destructive">
           <AlertDescription>{loadError}</AlertDescription>
@@ -1075,8 +1060,16 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   ));
 
   return (
-    <PageShell width="wide">
+    <PageShell width="full">
       <PageHeader title={mode === 'edit' ? t('editQuestionTitle', { name: editing?.question.name ?? '' }) : t('newQuestion')} />
+      {/* Slot toolbar của editor (lát E3 #248, theo cơ chế
+          #editor-toolbar-slot của giaokhoa): editor đang active portal
+          toolbar duy nhất của nó vào đây; chưa editor nào active thì
+          slot rỗng và tự ẩn. */}
+      <div
+        id="editor-toolbar-slot"
+        className="sticky top-2 z-30 mb-2 min-h-11 rounded-lg border bg-background shadow-sm empty:hidden"
+      />
       <form onSubmit={onSubmit}>
         <Card>
           <CardContent className="space-y-4 pt-6">
@@ -1108,7 +1101,11 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                 <AlertDescription>{message}</AlertDescription>
               </Alert>
             ) : null}
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+            {/* Bố cục 2 cột BẰNG NHAU như giaokhoa (grid gap-6
+                lg:grid-cols-2) + trang dùng toàn bề rộng (PageShell
+                width="full" ở trên): trái soạn, phải xem trước. Trước
+                lát E3 cột xem trước bị bó cố định 360px. */}
+            <div className="grid items-start gap-6 lg:grid-cols-2">
               <FieldGroup>
                 {!editing && (
                   <Field>
@@ -1198,6 +1195,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                     label={t('questionText')}
                     value={form.questionText}
                     onChange={(questionText) => patchForm({ questionText })}
+                    size="default"
                     fileArea="questiontext"
                     contextId={contextId}
                     itemId={editing?.question.id}

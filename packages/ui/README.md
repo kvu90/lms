@@ -69,6 +69,11 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
 - `src/styles/globals.css`: thêm hai dòng `@source` trỏ tới cây nguồn
   của package và của `apps/web` — Tailwind v4 cần khai báo tường minh
   vì file CSS không còn nằm trong cây của app.
+- `src/styles/globals.css` (lát E1, issue #248): thêm dòng `@source`
+  thứ ba trỏ tới cây nguồn của `packages/editor` — từ lát này package
+  editor dùng class Tailwind trong component của chính nó (panel công
+  thức dạng overlay, toolbar), không khai báo thì các class đó không
+  sinh CSS ở bản dựng của `apps/web`.
 - `src/styles/globals.css`: khối `body { font-family: ui-sans-system
   ... }` của CSS thời tiền-package (không phải hàng shadcn) đã bị xoá
   khi áp preset Base Vega — khối đó không nằm trong layer nên thắng

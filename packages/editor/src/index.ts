@@ -1,4 +1,5 @@
 export { plainTextExtensions } from './extensions.js';
+export { contentForSave, ensureTerminalContinuation } from './document-continuation.js';
 export { RichTextEditor } from './RichTextEditor.js';
 export type { RichTextEditorProps, RichTextImagePick } from './RichTextEditor.js';
 export { RichTextView } from './RichTextView.js';

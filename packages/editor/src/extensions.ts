@@ -10,6 +10,7 @@ import Paragraph from '@tiptap/extension-paragraph';
 import Strike from '@tiptap/extension-strike';
 import Text from '@tiptap/extension-text';
 import Underline from '@tiptap/extension-underline';
+import { UndoRedo } from '@tiptap/extensions';
 import { NodeSelection, TextSelection } from '@tiptap/pm/state';
 import './math.js';
 
@@ -93,7 +94,9 @@ const ContinuableImage = Image.extend({
  * `text`, các mark định dạng chữ cơ bản (`bold`, `italic`, `strike`,
  * `code`, `underline`), danh sách không thứ tự (`bulletList`/`listItem`),
  * công thức toán (`inlineMath`/`blockMath` của extension Mathematics,
- * render bằng KaTeX) và ảnh (`image`).
+ * render bằng KaTeX), ảnh (`image`), và lịch sử soạn thảo (`UndoRedo`
+ * từ `@tiptap/extensions` — chỉ là hành vi soạn, không đổi hình dạng
+ * tài liệu).
  *
  * Bộ này là nguồn sự thật duy nhất về hình dạng tài liệu mà trình soạn
  * thảo ({@link RichTextEditor}) và trình hiển thị chỉ-đọc
@@ -106,6 +109,7 @@ export const plainTextExtensions: Extensions = [
   Document,
   Paragraph,
   Text,
+  UndoRedo,
   Bold,
   Italic,
   Strike,
