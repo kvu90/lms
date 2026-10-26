@@ -6,11 +6,16 @@ import {
   MultipleChoiceEditor,
   RichTextEditor,
   RichTextView,
+  TrueFalseEditor,
   composeMultipleChoiceDocument,
+  composeTrueFalseDocument,
   createEmptyMultipleChoiceDocument,
+  createEmptyTrueFalseDocument,
   splitMultipleChoiceDocument,
+  splitTrueFalseDocument,
   type MultipleChoiceDocumentJson,
   type RichTextImagePick,
+  type TrueFalseDocumentJson,
 } from '@lms/editor';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -19,7 +24,6 @@ import { Checkbox } from '@lms/ui/components/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { RadioGroup, RadioGroupItem } from '@lms/ui/components/radio-group';
 import {
   Select,
   SelectContent,
@@ -61,7 +65,8 @@ import {
  *    mục; khi sửa, nạp view câu hỏi rồi `editorFormFromView` lắp thành
  *    trạng thái form (options thiếu thì tìm thêm ở endpoint versions).
  * 2. Soạn: form riêng cho từng loại trong 4 loại — multichoice,
- *    truefalse (gồm dạng chùm mệnh đề Đ/S bám cùng ngữ liệu),
+ *    truefalse (TF-A: MỘT câu chùm gồm thân chung + 4 mệnh đề soạn
+ *    trong một tài liệu thống nhất với đáp án Đ/S theo từng mệnh đề),
  *    shortanswer (kèm cờ đáp án số, mặc định TẮT) và essay. Câu hỏi
  *    KHÔNG có trường tên (quyết 11:28 ngày 26/10/2026): nhãn hiển thị
  *    ở mọi bề mặt là trích đoạn nội dung câu hỏi.
@@ -142,12 +147,6 @@ function entryStatus(view: QuestionView | null | undefined): string | undefined 
 // Mô hình form
 // ---------------------------------------------------------------------------
 
-/** Một mệnh đề Đ/S trong chùm truefalse: nội dung + đáp án đúng của mệnh đề. */
-interface TrueFalseStatementDraft {
-  doc: Doc;
-  correct: boolean;
-}
-
 /**
  * Trạng thái form của màn soạn. Ranh giới dữ liệu theo mô hình port
  * giaokhoa (quyết 12:04 + 12:12 ngày 26/10/2026):
@@ -156,6 +155,10 @@ interface TrueFalseStatementDraft {
  *   choice, nằm NGOÀI tài liệu); phản hồi theo lựa chọn là map theo
  *   id choice (`mcChoiceFeedbacks`) vì nó là metadata của dòng đáp
  *   án, không phải nội dung lựa chọn.
+ * - truefalse (TF-A): thân câu + 4 mệnh đề sống trong MỘT tài liệu
+ *   (`tfDocument` — cũng chính là tài liệu lưu trữ); đáp án Đ/S của
+ *   từng mệnh đề là map theo id mệnh đề (`tfAnswers`, nằm NGOÀI tài
+ *   liệu), khi lưu thành `solution.answers` ở phía đáp án.
  * - `guidance` (hướng dẫn) và `essaySolution` (lời giải mẫu của tự
  *   luận) là trường soạn riêng cho MỌI/loại tương ứng — khi lưu
  *   chúng đi ở cấp `guidance`/`solution` của payload (phía đáp án),
@@ -177,9 +180,9 @@ export interface QuestionEditorFormState {
   mcShowStandardInstruction: boolean;
   mcCorrectFeedback: Doc | undefined;
   mcIncorrectFeedback: Doc | undefined;
-  // truefalse: danh sách mệnh đề (sửa một câu thì danh sách có đúng 1 mệnh đề)
-  tfStatements: TrueFalseStatementDraft[];
-  tfShowStandardInstruction: boolean;
+  // truefalse TF-A: tài liệu thống nhất (thân + 4 mệnh đề) + đáp án theo mệnh đề
+  tfDocument: TrueFalseDocumentJson;
+  tfAnswers: Record<string, boolean>;
   // shortanswer: đáp án là mẫu khớp nên giữ chuỗi thuần; mọi mẫu đều được chấp nhận
   saUseCase: boolean;
   saNumericAnswer: boolean;
@@ -214,8 +217,8 @@ export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFor
     mcShowStandardInstruction: true,
     mcCorrectFeedback: undefined,
     mcIncorrectFeedback: undefined,
-    tfStatements: [{ doc: emptyDoc(), correct: true }],
-    tfShowStandardInstruction: true,
+    tfDocument: createEmptyTrueFalseDocument(),
+    tfAnswers: {},
     saUseCase: false,
     saNumericAnswer: false,
     saNumericMaxLength: '',
@@ -273,19 +276,22 @@ export function editorFormFromView(
   }
 
   if (qtype === 'truefalse') {
-    form.tfShowStandardInstruction = options.showStandardInstruction !== false;
-    const sorted = [...(view.answers ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-    // Phía đúng của câu = nội dung của dòng answers mang isCorrect:
-    // nhãn của nó là "Đúng"/"True" thì mệnh đề đúng, là "Sai"/"False"
-    // thì mệnh đề sai (cùng cách nhận diện nhãn như tầng nghiệp vụ).
-    const correctAnswer = sorted.find((a) => a.isCorrect);
-    const correctText = correctAnswer ? plainText(correctAnswer.answer).trim().toLowerCase() : '';
-    form.tfStatements = [
-      {
-        doc: view.latestVersion.questionText ?? emptyDoc(),
-        correct: correctText === 'true' || correctText === 'đúng',
-      },
-    ];
+    // TF-A: thân câu đã lưu CHÍNH LÀ tài liệu soạn (thân + danh sách
+    // mệnh đề trong cùng một tài liệu); đáp án từng mệnh đề nạp từ
+    // phía đáp án của version (answerKey.solution dạng {answers}).
+    form.tfDocument = composeTrueFalseDocument(view.latestVersion.questionText);
+    const solution = view.answerKey?.solution;
+    form.tfAnswers =
+      solution && 'answers' in solution
+        ? Object.fromEntries(
+            (solution.answers as unknown[])
+              .filter(
+                (a): a is { statementId: string; value: boolean } =>
+                  typeof a === 'object' && a !== null && 'statementId' in a,
+              )
+              .map((a) => [a.statementId, a.value]),
+          )
+        : {};
   }
 
   if (qtype === 'shortanswer') {
@@ -339,10 +345,10 @@ function numberOrUndefined(value: string): number | undefined {
  *   đúng thứ tự trong tài liệu thành một dòng `answers` (`correct`
  *   khi id của choice khớp đáp án đúng đã chọn; phản hồi lấy từ map
  *   theo id choice).
- * - Truefalse: MỘT mệnh đề thành một câu với hai dòng answers
- *   "Đúng"/"Sai", cờ `correct` đặt ở phía đúng (đường `answer:
- *   {correct}` cấp câu đã bỏ hẳn ở hợp đồng); chùm nhiều mệnh đề được
- *   nơi gọi tách thành nhiều lần tạo.
+ * - Truefalse (TF-A): tài liệu thống nhất đi thẳng vào
+ *   `questionText` (thân + 4 mệnh đề); đáp án Đ/S theo từng mệnh đề
+ *   thành `solution: {answers}` ở phía đáp án theo đúng thứ tự mệnh
+ *   đề trong tài liệu; KHÔNG có dòng answers.
  * - Shortanswer: mọi mẫu liệt kê đều là đáp án được chấp nhận
  *   (`correct: true`) — chấm khớp chính xác, không tỉ trọng.
  * - Essay: không dòng answers; lời giải mẫu (khi có) đi qua
@@ -383,16 +389,22 @@ export function editorFormContent(form: QuestionEditorFormState): Record<string,
   }
 
   if (form.qtype === 'truefalse') {
-    const statement = form.tfStatements[0] ?? { doc: emptyDoc(), correct: true };
+    const { statements } = splitTrueFalseDocument(form.tfDocument);
     return {
-      questionText: statement.doc,
+      questionText: form.tfDocument as Doc,
       ...(generalFeedback ? { generalFeedback } : {}),
       ...(guidance ? { guidance } : {}),
-      answers: [
-        { text: 'Đúng', correct: statement.correct },
-        { text: 'Sai', correct: !statement.correct },
-      ],
-      options: { showStandardInstruction: form.tfShowStandardInstruction },
+      solution: {
+        // Chỉ gửi các mệnh đề ĐÃ chọn Đ/S: mệnh đề chưa chọn làm
+        // payload thiếu phủ tập mệnh đề và bị API từ chối với lỗi rõ
+        // ràng — tuyệt đối không mặc định "Sai" cho mệnh đề chưa chọn.
+        answers: statements
+          .filter((statement) => typeof form.tfAnswers[statement.attrs.id] === 'boolean')
+          .map((statement) => ({
+            statementId: statement.attrs.id,
+            value: form.tfAnswers[statement.attrs.id] === true,
+          })),
+      },
     };
   }
 
@@ -607,6 +619,52 @@ function McDocumentField({
   );
 }
 
+/**
+ * Trường soạn Đúng/Sai trên tài liệu thống nhất TF-A: thân chung +
+ * đúng 4 mệnh đề trong MỘT editor (`TrueFalseEditor` của @lms/editor),
+ * cặp radio Đ/S gắn tại từng mệnh đề để chọn đáp án của mệnh đề đó
+ * (đáp án sống ngoài tài liệu qua `answers`/`onAnswerChange`). Đường
+ * chèn ảnh dùng chung một handler cho cả tài liệu như trường MC.
+ */
+function TfDocumentField({
+  label,
+  value,
+  answers,
+  onChange,
+  onAnswerChange,
+  contextId,
+  itemId,
+}: {
+  label: string;
+  value: TrueFalseDocumentJson;
+  answers: Record<string, boolean | undefined>;
+  onChange: (doc: TrueFalseDocumentJson) => void;
+  onAnswerChange: (statementId: string, value: boolean) => void;
+  contextId?: string;
+  itemId?: string;
+}) {
+  const { handleRequestImage, imageError } = useQuestionImageHandler(
+    contextId,
+    'questiontext',
+    itemId,
+  );
+
+  return (
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <TrueFalseEditor
+        value={value}
+        onChange={onChange}
+        answers={answers}
+        onAnswerChange={onAnswerChange}
+        ariaLabel={label}
+        onRequestImage={contextId ? handleRequestImage : undefined}
+      />
+      {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
+    </Field>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Xem trước như học sinh
 // ---------------------------------------------------------------------------
@@ -645,6 +703,8 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
   const { t } = useTranslation('app');
   const mcSplit =
     form.qtype === 'multichoice' ? splitMultipleChoiceDocument(form.mcDocument) : null;
+  const tfSplit =
+    form.qtype === 'truefalse' ? splitTrueFalseDocument(form.tfDocument) : null;
   return (
     <Card className="lg:sticky lg:top-4">
       <CardHeader>
@@ -662,6 +722,8 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
         ) : null}
         {form.qtype === 'multichoice' && mcSplit ? (
           <RichTextView value={mcSplit.question as Doc} />
+        ) : form.qtype === 'truefalse' && tfSplit ? (
+          <RichTextView value={tfSplit.stem as Doc} />
         ) : form.qtype !== 'truefalse' ? (
           <RichTextView value={form.questionText} />
         ) : null}
@@ -686,11 +748,16 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
             ))}
           </div>
         ) : null}
-        {form.qtype === 'truefalse' ? (
+        {form.qtype === 'truefalse' && tfSplit ? (
           <div className="space-y-3">
-            {form.tfStatements.map((statement, index) => (
-              <div key={index} className="space-y-1">
-                <RichTextView value={statement.doc} />
+            {tfSplit.statements.map((statement, index) => (
+              <div key={statement.attrs.id} className="space-y-1">
+                <div className="flex items-start gap-2">
+                  <span className="font-medium">{`${'abcd'[index] ?? index + 1})`}</span>
+                  <span className="min-w-0 flex-1">
+                    <RichTextView value={{ type: 'doc', content: statement.content ?? [] } as Doc} />
+                  </span>
+                </div>
                 <div className="flex gap-4 text-sm">
                   <span className="flex items-center gap-1">
                     <input type="radio" disabled /> {t('questionTrue')}
@@ -734,7 +801,8 @@ function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; sti
  * ở các bề mặt cần nhãn (tiêu đề màn sửa) vì câu hỏi không còn trường
  * tên (quyết 11:28 ngày 26/10/2026). Nguồn trích đoạn theo loại:
  * multichoice lấy phần thân câu của tài liệu thống nhất đã tách,
- * truefalse lấy mệnh đề đầu của chùm, hai loại còn lại lấy thân câu.
+ * truefalse lấy phần thân chung của tài liệu TF-A đã tách, hai loại
+ * còn lại lấy thân câu.
  *
  * @param form - Trạng thái form hiện tại.
  * @returns Chuỗi thuần tối đa 80 ký tự đầu của nội dung câu hỏi.
@@ -744,8 +812,11 @@ function formExcerpt(form: QuestionEditorFormState): string {
     const { question } = splitMultipleChoiceDocument(form.mcDocument);
     return plainText(question as Doc).slice(0, 80);
   }
-  const source = form.qtype === 'truefalse' ? form.tfStatements[0]?.doc : form.questionText;
-  return source ? plainText(source).slice(0, 80) : '';
+  if (form.qtype === 'truefalse') {
+    const { stem } = splitTrueFalseDocument(form.tfDocument);
+    return plainText(stem as Doc).slice(0, 80);
+  }
+  return plainText(form.questionText).slice(0, 80);
 }
 
 export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
@@ -926,31 +997,6 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                 : t('questionSavedAsVersion', { version: updated.entry.latestVersion }),
           },
         });
-        return;
-      }
-      // Tạo chùm Đ/S: mỗi mệnh đề là một câu truefalse bám cùng ngữ liệu —
-      // đúng mô hình của hệ (đường MCP cũng tạo mỗi mệnh đề một câu).
-      if (form.qtype === 'truefalse' && form.tfStatements.length > 1) {
-        let createdCount = 0;
-        for (const statement of form.tfStatements) {
-          const single: QuestionEditorFormState = {
-            ...effective,
-            tfStatements: [statement],
-          };
-          const created = await apiJson<QuestionView>('/api/v1/questions', {
-            method: 'POST',
-            body: JSON.stringify({
-              categoryId,
-              qtype: 'truefalse',
-              ...editorFormContent(single),
-              ...(form.stimulusId ? { stimulusId: form.stimulusId } : {}),
-            }),
-          });
-          createdCount += 1;
-          await applyStatus(created.question.id, entryStatus(created), target);
-        }
-        clearQuestionBankListCache(queryClient);
-        navigate('/questions', { state: { notice: t('questionClusterCreated', { count: createdCount }) } });
         return;
       }
       const created = await apiJson<QuestionView>('/api/v1/questions', {
@@ -1391,95 +1437,23 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
                 {form.qtype === 'truefalse' && (
                   <fieldset className="space-y-3">
-                    <legend className="text-sm font-medium">{t('tfStatementsHeading')}</legend>
-                    <p className="text-sm text-muted-foreground">{t('tfClusterHint')}</p>
-                    {form.tfStatements.map((statement, index) => (
-                      <div key={index} className="space-y-2 rounded-md border p-3">
-                        <RichField
-                          label={t('tfStatement', { index: index + 1 })}
-                          value={statement.doc}
-                          onChange={(doc) =>
-                            patchForm({
-                              tfStatements: form.tfStatements.map((s, i) => (i === index ? { ...s, doc } : s)),
-                            })
-                          }
-                          fileArea="questiontext"
-                          contextId={contextId}
-                          itemId={editing?.question.id}
-                        />
-                        <RadioGroup
-                          value={statement.correct ? 'true' : 'false'}
-                          onValueChange={(v) =>
-                            patchForm({
-                              tfStatements: form.tfStatements.map((s, i) =>
-                                i === index ? { ...s, correct: v === 'true' } : s,
-                              ),
-                            })
-                          }
-                        >
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem id={`q-tf-${index}-true`} value="true" />
-                            <Label htmlFor={`q-tf-${index}-true`}>{t('correctAnswerIsTrue')}</Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <RadioGroupItem id={`q-tf-${index}-false`} value="false" />
-                            <Label htmlFor={`q-tf-${index}-false`}>{t('correctAnswerIsFalse')}</Label>
-                          </div>
-                        </RadioGroup>
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={index === 0}
-                            aria-label={t('questionMoveUp')}
-                            onClick={() => patchForm({ tfStatements: moveItem(form.tfStatements, index, -1) })}
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={index === form.tfStatements.length - 1}
-                            aria-label={t('questionMoveDown')}
-                            onClick={() => patchForm({ tfStatements: moveItem(form.tfStatements, index, 1) })}
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={form.tfStatements.length <= 1}
-                            onClick={() =>
-                              patchForm({ tfStatements: form.tfStatements.filter((_, i) => i !== index) })
-                            }
-                          >
-                            {t('removeStatement', { index: index + 1 })}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        patchForm({ tfStatements: [...form.tfStatements, { doc: emptyDoc(), correct: true }] })
+                    <legend className="sr-only">{t('tfStatementsHeading')}</legend>
+                    {/* Soạn thống nhất kiểu giaokhoa (TF-A): thân
+                        chung + đúng 4 mệnh đề trong một tài liệu; đáp
+                        án Đ/S của từng mệnh đề chọn bằng cặp radio
+                        gắn tại mệnh đề trong chính editor. */}
+                    <TfDocumentField
+                      label={t('questionText')}
+                      value={form.tfDocument}
+                      answers={form.tfAnswers}
+                      onChange={(tfDocument) => patchForm({ tfDocument })}
+                      onAnswerChange={(statementId, value) =>
+                        patchForm({ tfAnswers: { ...form.tfAnswers, [statementId]: value } })
                       }
-                    >
-                      {t('addStatement')}
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="q-tf-instruction"
-                        checked={form.tfShowStandardInstruction}
-                        onCheckedChange={(checked) =>
-                          patchForm({ tfShowStandardInstruction: checked === true })
-                        }
-                      />
-                      <Label htmlFor="q-tf-instruction">{t('showStandardInstruction')}</Label>
-                    </div>
+                      contextId={contextId}
+                      itemId={editing?.question.id}
+                    />
+                    <p className="text-sm text-muted-foreground">{t('tfAuthoringHint')}</p>
                   </fieldset>
                 )}
 

@@ -32,6 +32,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
+  getTrueFalseStatements,
   type QuestionSolution,
   type QuizView,
   type RichTextDocument,
@@ -167,27 +168,40 @@ function solutionModelAnswer(q: AttemptQuestion): RichTextDocument | null {
 }
 
 /**
- * Phía đúng của câu truefalse suy từ `solution.correctAnswerId`:
- * đối chiếu id đáp án đúng với hai phía trong options của qtype
- * (`trueanswerId`/`falseanswerId` do API dựng từ bảng options);
- * options thiếu hai khóa đó thì rơi về so văn bản thuần của dòng
- * đáp án đúng ("Đúng"/"True").
+ * Đáp án Đ/S của từng mệnh đề trong câu truefalse TF-A từ
+ * `solution.statements` (màn xem lại hiện đúng/sai TỪNG Ý).
  *
  * @param q - Câu truefalse trong lượt làm.
- * @returns 'true' / 'false' khi xác định được phía đúng; null khi
- *   cổng xem lại đóng hoặc không đối chiếu được.
+ * @returns Danh sách `{statementId, value}` theo thứ tự mệnh đề, hoặc
+ *   null khi cổng xem lại đóng / câu không phải TF-A.
  */
-function solutionCorrectSide(q: AttemptQuestion): 'true' | 'false' | null {
-  const correctId = solutionCorrectAnswerId(q);
-  if (!correctId) return null;
-  if (q.options?.trueanswerId === correctId) return 'true';
-  if (q.options?.falseanswerId === correctId) return 'false';
-  const row = q.answers.find((a) => a.id === correctId);
-  if (!row) return null;
-  const text = plainText(row.text).trim().toLowerCase();
-  if (text === 'đúng' || text === 'true') return 'true';
-  if (text === 'sai' || text === 'false') return 'false';
-  return null;
+function solutionTrueFalseStatements(
+  q: AttemptQuestion,
+): { statementId: string; value: boolean }[] | null {
+  return q.solution && 'statements' in q.solution ? q.solution.statements : null;
+}
+
+/**
+ * Giải mã response của câu TF-A: chuỗi JSON của bản đồ
+ * `statementId → boolean` (ý chưa trả lời vắng mặt trong bản đồ).
+ * Chuỗi không phải JSON/bản đồ thì coi như chưa trả lời ý nào — cùng
+ * quy ước toàn phần với engine chấm phía API.
+ *
+ * @param value - Response đã lưu của lượt làm.
+ * @returns Bản đồ đáp án theo mệnh đề (có thể rỗng).
+ */
+function parseTrueFalseResponse(value: string): Record<string, boolean> {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, boolean> = {};
+    for (const [key, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === 'boolean') out[key] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 /** Xáo trộn ổn định trong phiên (seeded theo id) để thứ tự đáp án không nhảy mỗi lần render. */
@@ -386,7 +400,20 @@ export function QuizAttemptPage() {
                 <p className="text-sm whitespace-pre-wrap">{plainText(q.stimulus.content)}</p>
               </div>
             ) : null}
-            <p className="text-sm whitespace-pre-wrap">{plainText(q.questionText)}</p>
+            {q.qtype === 'truefalse' ? (
+              // TF-A: chỉ hiện THÂN CHUNG ở đây; từng mệnh đề hiện
+              // trong bộ nhập kèm cặp Đ/S của chính nó.
+              <RichTextView
+                value={
+                  {
+                    type: 'doc',
+                    content: (q.questionText.content ?? []).slice(0, -1),
+                  } as RichTextDocument
+                }
+              />
+            ) : (
+              <p className="text-sm whitespace-pre-wrap">{plainText(q.questionText)}</p>
+            )}
             {/* Hướng dẫn (guidance) hiện kèm câu hỏi ngay trong lúc làm — điểm quyết D-4;
                 khối này giữ nguyên ở màn xem lại, cùng vị trí như lúc làm. */}
             {hasRichTextContent(q.guidance) ? (
@@ -402,7 +429,7 @@ export function QuizAttemptPage() {
               value={responses[q.questionAttemptId] ?? q.response ?? ''}
               onChange={(value) => setResponses((prev) => ({ ...prev, [q.questionAttemptId]: value }))}
               correctAnswerId={submitted ? solutionCorrectAnswerId(q) : null}
-              correctSide={submitted ? solutionCorrectSide(q) : null}
+              tfSolution={submitted ? solutionTrueFalseStatements(q) : null}
             />
             {inProgress ? (
               <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void saveResponse(q)}>
@@ -467,18 +494,20 @@ export function QuizAttemptPage() {
 
 /**
  * Bộ nhập câu trả lời theo qtype — response luôn là chuỗi theo quy ước
- * của question engine (multichoice: id của đáp án được chọn; truefalse:
- * 'true'/'false'; shortanswer/essay: văn bản trả lời).
+ * của question engine (multichoice: id của đáp án được chọn; truefalse
+ * TF-A: chuỗi JSON của bản đồ `statementId → boolean`; shortanswer/
+ * essay: văn bản trả lời).
  *
  * Multichoice LUÔN là radio chọn một: mô hình giaokhoa khoá đúng một
  * đáp án đúng cho mỗi câu (quyết 12:04 ngày 26/10/2026) nên không còn
  * nhánh checkbox chọn-nhiều.
  *
  * Ở màn xem lại (lượt đã nộp), `correctAnswerId` (multichoice) /
- * `correctSide` (truefalse) mang đáp án đúng suy từ `solution` —
- * trang cha chỉ truyền hai prop này khi lượt đã nộp và API đã trả
- * solution (cổng reviewRightAnswer ở phía API); lựa chọn/phía đúng
- * được đánh dấu trực tiếp bằng nhãn "Đáp án đúng" cạnh nội dung.
+ * `tfSolution` (truefalse) mang đáp án đúng suy từ `solution` — trang
+ * cha chỉ truyền hai prop này khi lượt đã nộp và API đã trả solution
+ * (cổng reviewRightAnswer ở phía API); phía đúng của từng ý được đánh
+ * dấu trực tiếp bằng nhãn "Đáp án đúng" cạnh nội dung, và mỗi mệnh đề
+ * mang phán quyết đúng/sai của chính nó.
  */
 function QuestionAnswerInput(props: {
   q: AttemptQuestion;
@@ -488,11 +517,11 @@ function QuestionAnswerInput(props: {
   onChange: (value: string) => void;
   /** Id đáp án đúng để đánh dấu ở màn xem lại; null = không đánh dấu. */
   correctAnswerId: string | null;
-  /** Phía đúng của truefalse để đánh dấu ở màn xem lại; null = không đánh dấu. */
-  correctSide: 'true' | 'false' | null;
+  /** Đáp án Đ/S từng mệnh đề của truefalse ở màn xem lại; null = không đánh dấu. */
+  tfSolution: { statementId: string; value: boolean }[] | null;
 }) {
   const { t } = useTranslation('app');
-  const { q, disabled, value, onChange, correctAnswerId, correctSide } = props;
+  const { q, disabled, value, onChange, correctAnswerId, tfSolution } = props;
   const optionShuffle = q.options?.shuffleAnswers === true;
   const answers = useMemo(
     () => (props.quizShuffle || optionShuffle ? shuffled(q.answers, q.questionAttemptId) : q.answers),
@@ -529,28 +558,64 @@ function QuestionAnswerInput(props: {
     );
   }
   if (q.qtype === 'truefalse') {
+    // TF-A: mỗi mệnh đề một cặp radio Đ/S riêng; response là chuỗi
+    // JSON của bản đồ statementId → boolean (ý chưa chọn vắng mặt).
+    const statements = getTrueFalseStatements(q.questionText) ?? [];
+    const chosen = parseTrueFalseResponse(value);
+    const correctById = new Map((tfSolution ?? []).map((s) => [s.statementId, s.value]));
     return (
-      <div className="space-y-2">
-        {(['true', 'false'] as const).map((side) => {
-          const isCorrect = correctSide !== null && correctSide === side;
+      <div className="space-y-3">
+        {statements.map((statement, index) => {
+          const correct = correctById.get(statement.id);
+          const picked = chosen[statement.id];
+          const verdict =
+            correct === undefined
+              ? undefined
+              : picked === undefined
+                ? 'unanswered'
+                : picked === correct
+                  ? 'correct'
+                  : 'incorrect';
           return (
-            <label
-              key={side}
-              className="flex items-center gap-2 text-sm"
-              data-correct={isCorrect ? 'true' : undefined}
+            <div
+              key={statement.id}
+              className="space-y-1"
+              data-testid={`quiz-tf-statement-${q.slot}-${index}`}
+              data-verdict={verdict}
             >
-              <input
-                type="radio"
-                name={`q-${q.questionAttemptId}`}
-                checked={value === side}
-                disabled={disabled}
-                onChange={() => onChange(side)}
-              />
-              {side === 'true' ? t('quizTrueLabel') : t('quizFalseLabel')}
-              {isCorrect ? (
-                <span className="text-xs font-medium text-emerald-700">{t('quizCorrectAnswerBadge')}</span>
-              ) : null}
-            </label>
+              <div className="flex items-start gap-2 text-sm">
+                <span className="font-medium">{`${'abcd'[index] ?? index + 1})`}</span>
+                <span className="min-w-0 flex-1 whitespace-pre-wrap">{statement.text}</span>
+              </div>
+              <div className="flex gap-4">
+                {([true, false] as const).map((side) => {
+                  const isCorrectSide = correct !== undefined && correct === side;
+                  return (
+                    <label
+                      key={String(side)}
+                      className="flex items-center gap-2 text-sm"
+                      data-correct={isCorrectSide ? 'true' : undefined}
+                    >
+                      <input
+                        type="radio"
+                        name={`q-${q.questionAttemptId}-${statement.id}`}
+                        checked={picked === side}
+                        disabled={disabled}
+                        onChange={() =>
+                          onChange(JSON.stringify({ ...chosen, [statement.id]: side }))
+                        }
+                      />
+                      {side ? t('quizTrueLabel') : t('quizFalseLabel')}
+                      {isCorrectSide ? (
+                        <span className="text-xs font-medium text-emerald-700">
+                          {t('quizCorrectAnswerBadge')}
+                        </span>
+                      ) : null}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>
