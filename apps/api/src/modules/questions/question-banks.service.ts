@@ -1109,6 +1109,33 @@ export class QuestionBanksService {
   }
 
   /**
+   * Chuyển trạng thái draft ↔ ready qua đường web (màn soạn/duyệt câu
+   * hỏi, issue #248): cùng nghiệp vụ `setQuestionStatus` mà đường MCP
+   * dùng, thêm cổng govern như withdraw/restore (tác giả, moderator
+   * hoặc editall tại context của bank; bank cá nhân của người khác bị
+   * chặn). Câu đang `hidden` (đã rút) không chuyển qua đường này —
+   * phải restore trước. Đổi trạng thái không tạo phiên bản mới.
+   */
+  async setQuestionStatusForActor(actorId: string, questionId: string, status: 'draft' | 'ready'): Promise<{ questionId: string; status: string }> {
+    await this.assertCanGovernQuestion(actorId, questionId);
+    const entry = await this.questionsRepo.getEntryByQuestion(questionId);
+    if (!entry) {
+      throw new NotFoundException({ message: `Question ${questionId} has no bank entry`, code: 'question.entry_missing' });
+    }
+    if (entry.status === 'hidden') {
+      throw new ConflictException({ message: 'Question is withdrawn; restore it before changing its publish status', code: 'question.status_withdrawn' });
+    }
+    if (entry.status !== status) {
+      await this.setQuestionStatus(questionId, status);
+      await this.outbox.enqueueStandalone({
+        aggregate: 'question', type: status === 'ready' ? 'question_published' : 'question_unpublished',
+        payload: { questionId, actorId },
+      });
+    }
+    return { questionId, status };
+  }
+
+  /**
    * Đề xuất đóng góp một câu vào bank đích (QB-4): cần `question:share`
    * tại bank/context nguồn; câu phải ở trạng thái `ready`; trùng hoàn
    * toàn trong bank đích thì chặn ngay và trỏ câu đã có; gần trùng thì

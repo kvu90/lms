@@ -448,6 +448,17 @@ export const updateQuestionSchema = z.strictObject({
 });
 export type UpdateQuestion = z.infer<typeof updateQuestionSchema>;
 
+/**
+ * Payload chuyển trạng thái phát hành của một câu hỏi giữa `draft`
+ * (bản nháp — chưa dùng được trong đề) và `ready` (sẵn sàng dùng).
+ * Trạng thái `hidden` (đã rút) không đi qua payload này: hoàn rút dùng
+ * đường restore riêng. Đổi trạng thái KHÔNG tạo phiên bản mới.
+ */
+export const setQuestionStatusSchema = z.strictObject({
+  status: z.enum(['draft', 'ready']),
+});
+export type SetQuestionStatus = z.infer<typeof setQuestionStatusSchema>;
+
 /** Payload tạo ngữ liệu dùng chung (stimulus) gắn với một question category; `content` nhận chuỗi thuần hoặc tài liệu Tiptap. */
 export const createStimulusSchema = z.strictObject({
   categoryId: uuidIdSchema,
