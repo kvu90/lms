@@ -1,9 +1,9 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Database } from '../../../db/database';
-import { users } from '../../../db/schema';
+import { authAccount, users } from '../../../db/schema';
 import { PasswordService } from '../../users/password.service';
 import { AuthMailService } from '../../mail/auth-mail.service';
 import { LoginLockoutService } from '../login-lockout.service';
@@ -42,6 +42,8 @@ export type AuthCutoverStage = 'off' | 'bake';
  */
 @Injectable()
 export class BetterAuthService {
+  private readonly logger = new Logger(BetterAuthService.name);
+
   readonly enabled: boolean;
   /** Cờ riêng của lát MCP-1: instance có compose máy chủ OAuth hay không. */
   readonly mcpAsEnabled: boolean;
@@ -160,16 +162,33 @@ export class BetterAuthService {
       // có cổng — chính sách khoá là của tài khoản, không phải của cờ.
       lockout: lockout ?? null,
       // Cửa sổ bake (chặng 2.7 bước A): mọi lần Better Auth ghi mật
-      // khẩu credential mới (đổi mật khẩu, đặt lại qua reset) đều
-      // đồng bộ ngược CÙNG MỘT hash về `users.password_hash` — điều
-      // kiện để tắt AUTH_CUTOVER_STAGE về 'off' là quay lại luồng cũ
-      // trọn vẹn (rollback trước bước B). Ngoài cửa sổ bake: không
-      // hook, hành vi như hiện tại.
+      // khẩu credential mới (đổi mật khẩu, đặt lại qua reset, tạo
+      // credential) đều đồng bộ ngược hash hiện hành về
+      // `users.password_hash` — điều kiện để tắt AUTH_CUTOVER_STAGE
+      // về 'off' là quay lại luồng cũ trọn vẹn (rollback trước bước
+      // B). Ngoài cửa sổ bake: không hook, hành vi như hiện tại.
       legacyPasswordSync:
         this.cutoverStage === 'bake'
           ? {
-              syncPasswordHash: async (userId: string, passwordHash: string): Promise<void> => {
-                await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+              syncFromCredentialAccount: async (userId: string): Promise<void> => {
+                // Hash nguồn là hash ĐANG NẰM ở dòng credential —
+                // đọc tại thời điểm gọi (sau khi phía Better Auth đã
+                // ghi xong) nên không cần biết đường nào vừa ghi.
+                // Lỗi đồng bộ không được làm hỏng thao tác auth vừa
+                // thành công (mật khẩu mới đã là sự thật ở phía BA)
+                // — nhưng phải kêu to trong log thay vì âm thầm để
+                // hai hệ lệch mật khẩu trong cửa sổ bake.
+                try {
+                  const [row] = await db
+                    .select({ password: authAccount.password })
+                    .from(authAccount)
+                    .where(and(eq(authAccount.userId, userId), eq(authAccount.providerId, 'credential')))
+                    .limit(1);
+                  if (!row?.password) return;
+                  await db.update(users).set({ passwordHash: row.password }).where(eq(users.id, userId));
+                } catch (err) {
+                  this.logger.warn(`legacy password sync failed for user ${userId}: ${String(err)}`);
+                }
               },
             }
           : null,
