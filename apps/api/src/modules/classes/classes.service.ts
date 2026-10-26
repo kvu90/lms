@@ -11,6 +11,7 @@ import type {
   AddRosterStudentResult,
   ClassJoinRequest as ClassJoinRequestView,
   ClassOverview,
+  ClassPublicView,
   ClassRosterImportReport,
   ClassRosterMember,
   ClassStaffRole,
@@ -84,7 +85,7 @@ function generateJoinCode(): string {
   return Array.from(bytes, (b) => JOIN_CODE_ALPHABET[b % JOIN_CODE_ALPHABET.length]).join('');
 }
 
-/** Hình dạng lớp ở bề mặt API; `joinCode` chỉ lộ cho người có quyền quản roster (bí mật như enrolment_key). */
+/** Hình dạng lớp ở bề mặt API; `joinCode` chỉ lộ cho người có quyền quản roster (bí mật như enrolment_key). Học phí (`fee*`, CLASS-3) là thông tin gói công khai của lớp nên đi kèm mọi hình dạng lớp. */
 export function toClassDto(row: ClassRow, canSeeJoinCode: boolean): ClassView {
   return {
     id: row.id,
@@ -100,9 +101,26 @@ export function toClassDto(row: ClassRow, canSeeJoinCode: boolean): ClassView {
     onLeave: row.onLeave as ClassView['onLeave'],
     status: row.status as ClassView['status'],
     description: row.description,
+    feeCost: row.feeCost,
+    feeCurrency: row.feeCurrency,
+    feePaymentAccountId: row.feePaymentAccountId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Đích thu học phí của một lớp (CLASS-3) — gói dữ kiện PaymentsService
+ * cần để tạo payment `class_fee`: tenant sở hữu lớp (căn cứ chọn tài
+ * khoản nhận + cổng tenant của payment), số tiền và đơn vị tiền của gói.
+ * Trả về từ `resolveClassFeePurchase` sau khi đã qua mọi cổng phía lớp.
+ */
+export interface ClassFeeTarget {
+  classId: string;
+  tenantId: string;
+  feeCost: number;
+  feeCurrency: string;
+  feePaymentAccountId: string | null;
 }
 
 @Injectable()
@@ -366,7 +384,7 @@ export class ClassesService implements OnModuleInit {
     };
   }
 
-  /** Sửa lớp; đổi `onLeave` thì đẩy xuống mọi instance cohort hiện có của lớp; xoay mã tham gia làm mã cũ mất hiệu lực ngay. */
+  /** Sửa lớp; đổi `onLeave` thì đẩy xuống mọi instance cohort hiện có của lớp; xoay mã tham gia làm mã cũ mất hiệu lực ngay. Đặt/đổi học phí gói lớp (CLASS-3) cũng qua đường này — cùng cổng `class:update` tại context lớp. */
   async updateClass(actorId: string, id: string, input: UpdateClass): Promise<ClassView> {
     const row = await this.getClassRow(id);
     const ctxId = await this.classContextId(id);
@@ -387,6 +405,12 @@ export class ClassesService implements OnModuleInit {
     if (input.onLeave !== undefined) patch.onLeave = input.onLeave;
     if (input.allowSelfReport !== undefined) patch.allowSelfReport = input.allowSelfReport;
     if (input.joinAutoApprove !== undefined) patch.joinAutoApprove = input.joinAutoApprove;
+    // CLASS-3: đặt/đổi học phí gói lớp đi qua đúng PATCH này (gác
+    // `class:update` ở trên — chủ lớp giữ sẵn qua vai editingteacher).
+    // feeCurrency chuẩn hoá chữ hoa như mọi mã tiền tệ của payments.
+    if (input.feeCost !== undefined) patch.feeCost = input.feeCost;
+    if (input.feeCurrency !== undefined) patch.feeCurrency = input.feeCurrency.toUpperCase();
+    if (input.feePaymentAccountId !== undefined) patch.feePaymentAccountId = input.feePaymentAccountId;
     if (input.rotateJoinCode || (patch.allowSelfReport === true && !row.joinCode)) {
       patch.joinCode = generateJoinCode();
     }
@@ -938,6 +962,165 @@ export class ClassesService implements OnModuleInit {
         username: u?.username ?? '',
         email: u?.email ?? '',
       };
+    });
+  }
+
+  // --- học phí theo lớp (CLASS-3) ----------------------------------------------
+
+  /**
+   * Gói CÔNG KHAI của lớp cho người chưa ghi danh (bề mặt mua gói lớp):
+   * bất kỳ người dùng đã đăng nhập nào trong tenant hiệu lực cũng xem
+   * được — đây là trang bán gói của lớp, khác các đường đọc nội bộ vốn
+   * chỉ mở cho người có quan hệ với lớp. Gói chỉ mang thông tin người
+   * mua cần (tên lớp, chủ lớp, học phí) + hai cờ suy cho đúng người gọi
+   * (`isMember`, `canPurchase`); tuyệt đối không mang cohort, mã tham
+   * gia hay tài khoản nhận tiền.
+   *
+   * @param actorId - Người gọi đã xác thực.
+   * @param id - Id của lớp.
+   * @returns Gói khớp `classPublicViewSchema` phía contracts.
+   * @throws NotFoundException `class.not_found` khi lớp không thuộc
+   *   tenant hiệu lực (giữ nguyên tắc không lộ sự tồn tại xuyên tenant).
+   */
+  async getClassPublic(actorId: string, id: string): Promise<ClassPublicView> {
+    const row = await this.getClassRow(id);
+    const owner = await this.users.getByIdOrUndefined(row.ownerId);
+    const isMember = await this.groups.isCohortMember(row.cohortId, actorId);
+    const feeEnabled = row.feeCost !== null && row.feeCost > 0;
+    return {
+      classId: row.id,
+      name: row.name,
+      code: row.code,
+      schoolYear: row.schoolYear,
+      description: row.description,
+      ownerName: owner ? this.displayNameOf(owner) : '',
+      status: row.status as ClassPublicView['status'],
+      feeCost: row.feeCost,
+      feeCurrency: row.feeCurrency,
+      feeEnabled,
+      isMember,
+      // Đã ghi danh ACTIVE (thuộc roster) thì không bị mời mua lại;
+      // lớp đã lưu trữ đóng băng ghi danh mới nên cũng không bán nữa.
+      canPurchase: feeEnabled && !isMember && row.status === 'active',
+    };
+  }
+
+  /**
+   * Cổng phía lớp cho việc TẠO payment `class_fee` — PaymentsService
+   * gọi trước khi chọn tài khoản và tạo payment. Mọi luật thuộc về lớp
+   * nằm ở đây; luật tiền (chọn tài khoản, cổng tenant của account, sinh
+   * mã/QR) nằm ở PaymentsService, cùng khuôn `createFeePayment` của
+   * `enrol_fee`:
+   *  1. Lớp phải thuộc tenant hiệu lực (trang mua gói nằm trong tenant)
+   *     — lớp của tenant khác nhận 404 như không tồn tại.
+   *  2. Lớp đã lưu trữ → 400 `class.archived` (roster đóng băng, không
+   *     bán ghi danh mới vào lớp đã đóng).
+   *  3. Lớp không bật thu học phí (`feeCost` null/0) → 400
+   *     `payment.no_fee` (cùng mã lỗi với instance fee không có phí).
+   *  4. Người mua đã thuộc roster → 409 `class.already_member`: đã ghi
+   *     danh ACTIVE thì không mua lại gói lớp.
+   *
+   * @param classId - Id của lớp được mua gói.
+   * @param userId - Người mua.
+   * @returns Đích thu học phí của lớp (tenant + số tiền + tài khoản chỉ định riêng nếu có).
+   */
+  async resolveClassFeePurchase(classId: string, userId: string): Promise<ClassFeeTarget> {
+    const row = await this.getClassRow(classId);
+    if (row.status === 'archived') {
+      throw new BadRequestException({ message: 'Class is archived; enrolment is frozen', code: 'class.archived' });
+    }
+    if (row.feeCost === null || row.feeCost <= 0) {
+      throw new BadRequestException({ message: 'Class has no fee configured', code: 'payment.no_fee' });
+    }
+    if (await this.groups.isCohortMember(row.cohortId, userId)) {
+      throw new ConflictException({ message: 'User is already a member of this class', code: 'class.already_member' });
+    }
+    return {
+      classId: row.id,
+      tenantId: row.tenantId,
+      feeCost: row.feeCost,
+      feeCurrency: row.feeCurrency,
+      feePaymentAccountId: row.feePaymentAccountId,
+    };
+  }
+
+  /**
+   * Kích hoạt ghi danh cấp lớp sau khi payment `class_fee` thành công —
+   * hàm song song với `EnrolService.activatePaidEnrol`, chỉ
+   * PaymentsService gọi sau khi payment đã `succeeded` qua đường đã xác
+   * thực (webhook manual đã verify / matching SePay khớp đủ 3 điều
+   * kiện). Quyết định cho vào đã nằm ở payment thành công nên đường này
+   * đi qua cổng HỆ THỐNG của cohort, không gác capability của một actor.
+   *
+   * Flow:
+   *  1. Chạy trong ngữ cảnh platform tường minh: webhook/IPN không có
+   *     ngữ cảnh tenant của request, lớp đích có thể thuộc tenant khác
+   *     tenant nền — cùng tiền lệ tra mã tham gia của CLASS-1.
+   *  2. Đảm bảo tư cách thành viên tenant của lớp cho người mua (học
+   *     sinh tự do ở trang chính mua lớp của trung tâm thì được cấp
+   *     membership của trung tâm ở bước này, như đường tự báo danh).
+   *  3. Thêm vào backing cohort qua `addCohortMemberInternal` — cohort
+   *     sync vật chất hoá ghi danh xuống MỌI khoá của lớp.
+   *
+   * Idempotent: đã thuộc roster thì đường cohort tự bỏ qua (không phát
+   * sự kiện, không ghi danh trùng) — webhook replay / matching chạy lại
+   * / tiêu thụ outbox lặp đều an toàn.
+   *
+   * @param classId - Id của lớp (chính là `item_id` của payment).
+   * @param userId - Người mua (chính là `user_id` của payment).
+   * @throws NotFoundException `class.not_found` khi lớp không tồn tại.
+   * @throws BadRequestException `class.archived` khi lớp đã lưu trữ —
+   *   payment đã thu tiền nhưng roster đóng băng: vận hành xử lý bằng
+   *   hoàn tiền, không tự phá luật đóng băng của CLASS-0.
+   */
+  async activatePaidClassEnrol(classId: string, userId: string): Promise<void> {
+    await this.tenantContext.run({ platform: true }, async () => {
+      const row = await this.repo.getClass(classId);
+      if (!row) {
+        throw new NotFoundException({ message: `Class ${classId} not found`, code: 'class.not_found' });
+      }
+      if (row.status === 'archived') {
+        throw new BadRequestException({ message: 'Class is archived; roster is frozen', code: 'class.archived' });
+      }
+      // Đã thuộc roster (kích hoạt lặp / webhook replay) → dừng tại
+      // đây: không phát lại sự kiện vào lớp, không ghi danh trùng.
+      if (await this.groups.isCohortMember(row.cohortId, userId)) return;
+      await this.tenants.ensureActiveMembership(row.tenantId, userId);
+      await this.groups.addCohortMemberInternal(row.cohortId, userId);
+      await this.outbox.enqueueStandalone({
+        aggregate: 'class', type: 'class_member_joined',
+        payload: { classId: row.id, tenantId: row.tenantId, userId, via: 'class_fee' },
+        tenantId: row.tenantId,
+      });
+    });
+  }
+
+  /**
+   * Đảo quyền lợi khi payment `class_fee` bị hoàn TOÀN BỘ — đối tác của
+   * `activatePaidClassEnrol`, chỉ PaymentsService gọi từ đường refund
+   * (đã gác `payment:manageaccounts` ở đó, kèm lệnh chi đã xác nhận).
+   *
+   * Cơ chế: gỡ người học khỏi backing cohort qua đường hệ thống —
+   * cohort sync áp chế độ rời của từng instance cohort của lớp xuống
+   * mọi khoá; chế độ mặc định của lớp là `suspend` nên ghi danh thành
+   * SUSPENDED, GIỮ NGUYÊN điểm và dữ liệu học tập (luật rời lớp mặc
+   * định của mô hình lớp). Học sinh rơi vào danh sách "đã đình chỉ"
+   * của lớp và được kích hoạt lại nguyên trạng nếu vào lại roster.
+   *
+   * Khác đường gỡ roster thủ công ở hai điểm có chủ đích: (1) không
+   * gác capability của actor — quyết định nằm ở lệnh hoàn tiền đã xác
+   * thực; (2) lớp ĐÃ LƯU TRỮ vẫn gỡ được — hoàn tiền là giao dịch bù
+   * trừ tài chính, không phải thao tác sửa roster, nên luật đóng băng
+   * roster không chặn nó. Không thuộc roster thì bỏ qua (idempotent).
+   *
+   * @param classId - Id của lớp (chính là `item_id` của payment).
+   * @param userId - Người bị đình chỉ (chính là `user_id` của payment).
+   */
+  async suspendPaidClassMember(classId: string, userId: string): Promise<void> {
+    await this.tenantContext.run({ platform: true }, async () => {
+      const row = await this.repo.getClass(classId);
+      if (!row) return;
+      await this.groups.removeCohortMemberInternal(row.cohortId, userId);
     });
   }
 
