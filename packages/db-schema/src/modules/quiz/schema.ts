@@ -14,7 +14,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
-import { curricula, learningOutcomes, subjects } from '../curriculum/schema';
+import { curricula, curriculumNodes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
 import { question, questionBanks, questionCategories, questionUsages } from '../questions/schema';
 import { examVersions, exams } from '../exams/schema';
@@ -28,9 +28,9 @@ import { tenants } from '../tenants/schema';
  * 'custom'. target_*_percents là tỉ lệ % ĐIỂM mục tiêu CHỤP lúc tạo từ
  * preset (sửa preset về sau không đổi ma trận đã tạo); lệch tỉ lệ chỉ
  * CẢNH BÁO, không khoá cứng. level_set: 'three' (Biết/Hiểu/Vận dụng)
- * hoặc 'four' (thêm Vận dụng cao). scope_outcome_ids: phạm vi đã dạy
- * cắt từ tầng ánh xạ SGK — khi đặt, ma trận chỉ thêm ô cho outcome
- * trong phạm vi. context_id là context của môn (neo quyền như
+ * hoặc 'four' (thêm Vận dụng cao). scope_node_ids: phạm vi đã dạy
+ * theo ĐƠN VỊ KIẾN THỨC — khi đặt, ma trận chỉ thêm ô cho ĐVK trong
+ * phạm vi. context_id là context của môn (neo quyền như
  * curriculum). Đây là nền cho "ngân hàng ma trận" về sau.
  */
 export const examMatrices = pgTable('exam_matrices', {
@@ -65,7 +65,7 @@ export const examMatrices = pgTable('exam_matrices', {
   targetLevelPercents: jsonb('target_level_percents').$type<Record<string, number>>(),
   levelSet: text('level_set').notNull().default('three'),
   scopeNote: text('scope_note'),
-  scopeOutcomeIds: jsonb('scope_outcome_ids').$type<string[]>(),
+  scopeNodeIds: jsonb('scope_node_ids').$type<string[]>(),
   totalScore: doublePrecision('total_score').notNull().default(10),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -82,17 +82,23 @@ export const examMatrices = pgTable('exam_matrices', {
   ]);
 
 /**
- * Một ô của ma trận = YCCĐ × mức nhận thức × dạng câu (mục C.1). Riêng
+ * Một ô của ma trận = ĐƠN VỊ KIẾN THỨC × mức nhận thức × dạng câu
+ * (mục C.1; đính chính theo Phụ lục 1 CV 7991, issue #249): ma trận
+ * chỉ là lưới số Chủ đề × ĐVK × dạng × mức, KHÔNG có cột YCCĐ — YCCĐ
+ * chỉ thuộc BẢN ĐẶC TẢ (Phụ lục 2), là bảng suy ra dùng chung lưới số
+ * của ma trận và thêm cột YCCĐ = các YCCĐ thuộc ĐVK của ô. Riêng
  * truefalse, question_count là số CHÙM (mỗi chùm 4 câu quanh một
  * stimulus, xem C.4). cell_score là tổng điểm của ô; điểm mỗi câu =
  * cell_score / question_count (riêng chùm: điểm chùm = cell_score /
  * số chùm, mỗi câu con mang điểm danh nghĩa = điểm chùm / 4). tf_scale
- * là thang Đ–S riêng của ô; null = thang của quiz/mặc định.
+ * là thang Đ–S riêng của ô; null = thang của quiz/mặc định. Sinh đề
+ * theo ô rút câu gắn BẤT KỲ YCCĐ nào thuộc ĐVK của ô ở đúng mức của
+ * ô (mức nằm trên dòng nối câu × YCCĐ).
  */
 export const examMatrixCells = pgTable('exam_matrix_cells', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   matrixId: uuid('matrix_id').notNull().references(() => examMatrices.id, { onDelete: 'cascade' }),
-  learningOutcomeId: uuid('learning_outcome_id').notNull().references(() => learningOutcomes.id, { onDelete: 'restrict' }),
+  curriculumNodeId: uuid('curriculum_node_id').notNull().references(() => curriculumNodes.id, { onDelete: 'restrict' }),
   cognitiveLevel: text('cognitive_level').notNull(),
   qtype: text('qtype').notNull(),
   questionCount: integer('question_count').notNull(),
@@ -105,8 +111,8 @@ export const examMatrixCells = pgTable('exam_matrix_cells', {
 },
   (table) => [
       index('exam_matrix_cells_matrix_idx').on(table.matrixId),
-      index('exam_matrix_cells_learning_outcome_idx').on(table.learningOutcomeId),
-      unique('exam_matrix_cells_unique').on(table.matrixId, table.learningOutcomeId, table.cognitiveLevel, table.qtype),
+      index('exam_matrix_cells_curriculum_node_idx').on(table.curriculumNodeId),
+      unique('exam_matrix_cells_unique').on(table.matrixId, table.curriculumNodeId, table.cognitiveLevel, table.qtype),
       check('exam_matrix_cells_level_check', sql`${table.cognitiveLevel} in ('biet', 'hieu', 'van_dung', 'van_dung_cao')`),
       check('exam_matrix_cells_qtype_check', sql`${table.qtype} in ('multichoice', 'truefalse', 'shortanswer', 'essay')`),
       check('exam_matrix_cells_count_check', sql`${table.questionCount} > 0`),
