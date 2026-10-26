@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import QuizPaperPage from './quiz-paper';
 
 /**
@@ -65,6 +66,7 @@ function stubFetch(calls: RecordedCall[], state: { scans: Record<string, unknown
     if (method !== 'GET' || url.includes('/image/')) {
       calls.push({ url, method, body: init?.body && typeof init.body === 'string' ? JSON.parse(init.body) : undefined });
     }
+    if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
     if (url === '/api/v1/users/me') return respond(PROFILE);
     if (url === '/api/v1/users/me/capabilities') return respond({ userId: TEACHER_ID, isSiteAdmin: false, assignments: [], contexts: [] });
     if (url.startsWith('/api/v1/users?')) return respond({ users: [PROFILE], total: 1, page: 1, pageSize: 1 });

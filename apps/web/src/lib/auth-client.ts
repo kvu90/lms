@@ -34,8 +34,14 @@ export const authClient = createAuthClient({
      * khôi phục ngữ nghĩa mặc định của better-fetch (tra fetch tại
      * thời điểm gọi): trên trình duyệt hành vi không đổi, còn test
      * stub được fetch ở biên như mọi lời gọi khác của web.
+     *
+     * better-fetch truyền URL dưới dạng object `URL`; chuẩn hoá về
+     * chuỗi trước khi uỷ thác để mọi lời gọi của web tới fetch đều
+     * mang URL chuỗi như nhau (trình duyệt xử lý hai dạng tương
+     * đương, còn biên ghi nhận/quan sát lời gọi khỏi phải phân biệt).
      */
-    customFetchImpl: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init),
+    customFetchImpl: (input: RequestInfo | URL, init?: RequestInit) =>
+      globalThis.fetch(input instanceof URL ? input.toString() : input, init),
   },
 });
 

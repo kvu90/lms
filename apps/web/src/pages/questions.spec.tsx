@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { QuestionCategoryNewPage, QuestionsPage, QuestionUsagePage } from './questions';
 import QuestionsRoute from '../routes/questions';
 import StimuliRoute from '../routes/question-stimuli';
@@ -97,6 +98,7 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/users/me/capabilities')
         return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
@@ -300,6 +302,7 @@ describe('Question bank page — role gate (issue #55)', () => {
         calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'student1' });
         if (url === '/api/v1/users/me/capabilities')
           return respond({
@@ -373,6 +376,7 @@ describe('Question bank page — admin parity (issue #70)', () => {
         const method = init?.method ?? 'GET';
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond({ ...PROFILE, username });
         if (url === '/api/v1/users/me/capabilities') return respond(capabilitiesBody);
         if (url === '/api/v1/courses') return respond([]);
@@ -512,6 +516,7 @@ describe('Question bank areas — by path (issue #221)', () => {
       vi.fn(async (url: string) => {
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
         if (url === '/api/v1/users/me/capabilities')
           return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
@@ -630,6 +635,7 @@ describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
       vi.fn(async (url: string) => {
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
         if (url === '/api/v1/users/me/capabilities')
           return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });

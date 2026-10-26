@@ -73,6 +73,17 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
     void applySession(session.data?.user?.id ?? null);
   }, [session.data, session.isPending, applySession]);
 
+  /**
+   * Khi KHÔNG có initialUser (resolve hoàn toàn phía client — test,
+   * nhúng ngoài cây route), chủ động nạp lại phiên một lần lúc mount:
+   * atom phiên của Better Auth có nhịp dedupe riêng theo vòng đời
+   * mount của nó (giữ trạng thái lần fetch gần nhất trong một khoảng
+   * ngắn sau khi mất subscriber), nên chỉ dựa vào atom thì một
+   * provider mới mount có thể kẹt ở trạng thái phiên cũ/đang dở.
+   * `getSession` gọi thẳng endpoint nên lần resolve này là dứt khoát
+   * theo cookie hiện tại. Có initialUser (đường SSR thật) thì loader
+   * đã xác thực cookie phía server rồi — không gọi thêm.
+   */
   const reload = useCallback(async () => {
     const { data } = await authClient.getSession();
     // Buộc nạp lại hồ sơ kể cả khi id không đổi (phiên được gia hạn /
@@ -80,6 +91,13 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
     syncedForRef.current = undefined;
     await applySession(data?.user?.id ?? null);
   }, [applySession]);
+
+  const mountReloadedRef = useRef(false);
+  useEffect(() => {
+    if (initialUser !== undefined || mountReloadedRef.current) return;
+    mountReloadedRef.current = true;
+    void reload();
+  }, [initialUser, reload]);
 
   /**
    * Khâu chung sau khi một đường đăng nhập của Better Auth đã tạo

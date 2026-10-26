@@ -125,8 +125,8 @@ describe('Badges page — real endpoints', () => {
 
     expect((await screen.findAllByText('Finisher')).length).toBeGreaterThan(0);
     expect(calls.some((c) => c.url === '/api/v1/badges/mine' && c.method === 'GET')).toBe(true);
-    expect(calls.some((c) => c.url.includes('/badges/users/'))).toBe(false);
-    expect(calls.some((c) => c.url.includes('/activate'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/badges/users/'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/activate'))).toBe(false);
   });
 
   it('activates a badge via POST /badges/:id/status with { status: 1 }', async () => {
@@ -142,7 +142,7 @@ describe('Badges page — real endpoints', () => {
     const statusCall = calls.find((c) => c.url === `/api/v1/badges/${BADGE_ID}/status`);
     expect(statusCall?.method).toBe('POST');
     expect(statusCall?.body).toEqual({ status: 1 });
-    expect(calls.some((c) => c.url.includes('/activate'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/activate'))).toBe(false);
   });
 
   it('invalidates the badge queries after activation so the list refetches with the new status (F-01)', async () => {

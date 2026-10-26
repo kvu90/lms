@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
+import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { MessagesPage } from './messages';
 
 /**
@@ -71,6 +72,7 @@ function stubFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/courses')
         return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
@@ -175,6 +177,7 @@ function stubRealtimeFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body });
       const respond = (payload: unknown) =>
         new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations')
         return respond([
@@ -408,6 +411,7 @@ function stubDomainFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET')
         return respond([{ id: CONV_ID, type: 2, name: 'Nhóm lớp', members: [ME_ID, OTHER_ID], unread: 0, lastMessageSeq: 2, lastMessage: null }]);
@@ -582,6 +586,7 @@ function stubDeepLinkFetch(calls: RecordedCall[]) {
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown) =>
         new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations')
         return respond([
@@ -708,6 +713,7 @@ describe('Messages page — create conversation contract', () => {
         calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
         const respond = (body: unknown) =>
           new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond(PROFILE);
         if (url === '/api/v1/messages/courses')
           return respond({ courses: [{ courseId: COURSE_ID, fullName: 'Khoá học mẫu', shortName: 'KHOA' }] });
@@ -834,6 +840,7 @@ function stubFetchM1(calls: RecordedCall[]) {
       calls.push({ url, method, body });
       const respond = (payload: unknown) =>
         new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET') return respond(summaries);
       if (url === `/api/v1/messages/conversations/${CONV_A}`)
@@ -1029,6 +1036,7 @@ describe('Messages page — M2: trần ký tự + lỗi gửi rõ ràng', () => 
         calls.push({ url, method, body });
         const respond = (payload: unknown, status = 200) =>
           new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
         if (url === '/api/v1/users/me') return respond(PROFILE);
         if (url === '/api/v1/messages/conversations' && method === 'GET') {
           return respond([
@@ -1117,6 +1125,7 @@ function stubFetchM3(calls: RecordedCall[], detailMessages: unknown[]) {
       calls.push({ url, method, body });
       const respond = (payload: unknown) =>
         new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET') return respond([summary]);
       if (url === `/api/v1/messages/conversations/${CONV_A}` && method === 'GET')
@@ -1291,6 +1300,7 @@ function stubFetchM4(calls: RecordedCall[], opts: { failSearch?: boolean } = {})
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (payload: unknown, status = 200) =>
         new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
       if (url === '/api/v1/users/me') return respond(PROFILE);
       if (url === '/api/v1/messages/conversations' && method === 'GET') return respond(summaries);
       if (url === `/api/v1/messages/conversations/${CONV_A}` && method === 'GET')
