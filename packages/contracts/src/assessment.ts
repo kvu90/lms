@@ -886,6 +886,87 @@ export const matrixCellAvailabilitySchema = z.object({
 });
 export type MatrixCellAvailability = z.infer<typeof matrixCellAvailabilitySchema>;
 
+/** Các dạng câu của lưới ma trận theo đúng thứ tự cột trong file mẫu nhập (Phụ lục 1 CV 7991). */
+export const MATRIX_QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
+export type MatrixQtype = (typeof MATRIX_QTYPES)[number];
+
+/** Một lỗi cứng khi nhập ma trận từ file (lát I-1, issue #233): định vị theo sheet/dòng/cột để giáo viên sửa file; `row`/`column` null khi lỗi thuộc toàn file hoặc khối thông tin chung không định vị được một ô. */
+export const matrixImportIssueSchema = z.object({
+  sheet: z.string().nullable(),
+  row: z.number().int().nullable(),
+  column: z.string().nullable(),
+  code: z.string(),
+  message: z.string(),
+});
+export type MatrixImportIssue = z.infer<typeof matrixImportIssueSchema>;
+
+/** Một ô dự thảo trong kết quả xem trước nhập ma trận: neo ĐƠN VỊ KIẾN THỨC × mức × dạng (ma trận KHÔNG gắn YCCĐ — issue #249); với truefalse, `questionCount` là số CHÙM 4 ý. */
+export const matrixImportPreviewCellSchema = z.object({
+  curriculumNodeId: uuidIdSchema,
+  cognitiveLevel: z.enum(COGNITIVE_LEVELS),
+  qtype: z.enum(MATRIX_QTYPES),
+  questionCount: z.number().int(),
+  cellScore: z.number(),
+});
+export type MatrixImportPreviewCell = z.infer<typeof matrixImportPreviewCellSchema>;
+
+/** Khả dụng ngân hàng cho một ô dự thảo nhập (chưa có cellId vì chưa ghi DB): cần / có / thiếu, truefalse đếm theo chùm. */
+export const matrixImportCellAvailabilitySchema = z.object({
+  curriculumNodeId: uuidIdSchema,
+  cognitiveLevel: z.enum(COGNITIVE_LEVELS),
+  qtype: z.enum(MATRIX_QTYPES),
+  required: z.number().int(),
+  available: z.number().int(),
+  deficit: z.number().int(),
+});
+export type MatrixImportCellAvailability = z.infer<typeof matrixImportCellAvailabilitySchema>;
+
+/** Một hàng ĐVK trong kết quả xem trước nhập ma trận, kèm các YCCĐ thuộc ĐVK để đối chiếu (YCCĐ chỉ để xem — ô không neo YCCĐ). */
+export const matrixImportPreviewRowSchema = z.object({
+  nodeId: uuidIdSchema,
+  topicTitle: z.string(),
+  nodeTitle: z.string(),
+  position: z.number().int(),
+  outcomes: z.array(z.object({ id: uuidIdSchema, content: z.string() })),
+});
+export type MatrixImportPreviewRow = z.infer<typeof matrixImportPreviewRowSchema>;
+
+/**
+ * Kết quả XEM TRƯỚC nhập ma trận từ file (lát I-1, issue #233): hệ parse
+ * + kiểm lỗi hai tầng, KHÔNG ghi DB (ghi nguyên tử là lát I-2).
+ * `valid=false` kèm `errors` định vị từng lỗi cứng; các trường dự thảo
+ * (name/cells/totals/…) chỉ có ý nghĩa khi đọc được file — vẫn trả kèm
+ * phần đọc được để giáo viên đối chiếu, nhưng web phải khoá nút lưu khi
+ * `valid=false`.
+ */
+export const matrixImportPreviewSchema = z.object({
+  valid: z.boolean(),
+  errors: z.array(matrixImportIssueSchema),
+  warnings: z.array(z.string()),
+  name: z.string().nullable(),
+  subjectId: uuidIdSchema.nullable(),
+  curriculumId: uuidIdSchema.nullable(),
+  levelSet: z.enum(['three', 'four']).nullable(),
+  totalScore: z.number().nullable(),
+  scopeNote: z.string().nullable(),
+  /** Điểm mỗi câu theo dạng như khai trong file (truefalse = điểm mỗi chùm); null khi dạng không khai. */
+  perFormScores: z.record(z.string(), z.number().nullable()),
+  rows: z.array(matrixImportPreviewRowSchema),
+  cells: z.array(matrixImportPreviewCellSchema),
+  totals: z.object({
+    byForm: z.array(z.object({
+      qtype: z.enum(MATRIX_QTYPES), questionCount: z.number().int(), score: z.number(), percent: z.number(),
+    })),
+    byLevel: z.array(z.object({
+      cognitiveLevel: z.enum(COGNITIVE_LEVELS), questionCount: z.number().int(), score: z.number(), percent: z.number(),
+    })),
+    totalScore: z.number(),
+    totalQuestions: z.number().int(),
+  }),
+  availability: z.array(matrixImportCellAvailabilitySchema),
+});
+export type MatrixImportPreview = z.infer<typeof matrixImportPreviewSchema>;
+
 /** Payload sinh đề từ ma trận: `fixed` = một bộ câu chung; `per_student` = mỗi học sinh rút theo ô lúc bắt đầu lượt. */
 export const generateFromMatrixSchema = z.strictObject({
   courseId: uuidIdSchema,

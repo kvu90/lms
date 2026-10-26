@@ -1,10 +1,12 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
+import { MatrixImportService } from './matrix-import.service';
 import {
   createExamMatrixCellSchema, createExamMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema,
   recordQuizAttemptEventSchema, submitQuizResponseSchema, updateExamMatrixCellSchema, updateExamMatrixSchema,
@@ -30,7 +32,10 @@ import {
  * trận trong khu vực Ngân hàng hệ thống về sau.
  */
 export class ExamMatricesController {
-  constructor(private readonly quiz: QuizService) {}
+  constructor(
+    private readonly quiz: QuizService,
+    private readonly matrixImport: MatrixImportService,
+  ) {}
 
   @Post()
   /**
@@ -38,6 +43,51 @@ export class ExamMatricesController {
    */
   async create(@Body({ schema: createExamMatrixSchema }) dto: CreateExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.createMatrix(actor.id, dto);
+  }
+  @Get('template')
+  /**
+   * GET /exam-matrices/template?subjectId&curriculumId&levelSet&scopeNodeIds —
+   * tải workbook MẪU nhập ma trận (.xlsx, lát I-1 của issue #233):
+   * hệ sinh sẵn hàng theo đơn vị kiến thức của chương trình + cột khoá
+   * "Mã ĐVK", giáo viên chỉ điền số. `scopeNodeIds` truyền dạng danh
+   * sách id phân tách bằng dấu phẩy. Route tĩnh phải đứng trước
+   * `@Get(':id')` để không bị nuốt thành id.
+   */
+  async template(@Query('subjectId') subjectId: string | undefined, @Query('curriculumId') curriculumId: string | undefined, @Query('levelSet') levelSet: string | undefined, @Query('scopeNodeIds') scopeNodeIds: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    if (!subjectId || !uuidIdSchema.safeParse(subjectId).success || !curriculumId || !uuidIdSchema.safeParse(curriculumId).success) {
+      throw new BadRequestException({ message: 'subjectId and curriculumId query parameters must be uuids', code: 'quiz.matrix_import_query_invalid' });
+    }
+    if (levelSet !== undefined && levelSet !== 'three' && levelSet !== 'four') {
+      throw new BadRequestException({ message: 'levelSet must be three or four', code: 'quiz.matrix_import_query_invalid' });
+    }
+    let scope: string[] | null = null;
+    if (scopeNodeIds) {
+      scope = scopeNodeIds.split(',').map((x) => x.trim()).filter((x) => x !== '');
+      if (scope.some((x) => !uuidIdSchema.safeParse(x).success)) {
+        throw new BadRequestException({ message: 'scopeNodeIds must be a comma-separated list of uuids', code: 'quiz.matrix_import_query_invalid' });
+      }
+    }
+    const { filename, contentType, buffer } = await this.matrixImport.buildTemplate(actor.id, {
+      subjectId, curriculumId, levelSet: levelSet as 'three' | 'four' | undefined, scopeNodeIds: scope,
+    });
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  }
+  @Post('import/preview')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  /**
+   * POST /exam-matrices/import/preview (multipart, trường `file`) —
+   * parse file mẫu đã điền và trả XEM TRƯỚC (lát I-1, issue #233):
+   * dự thảo ma trận + lỗi cứng định vị theo sheet/dòng/cột + cảnh báo
+   * tỉ lệ + khả dụng ngân hàng theo ô. KHÔNG ghi DB — ghi nguyên tử
+   * là lát I-2. Route tĩnh phải đứng trước `@Post(':id/cells')`.
+   */
+  async importPreview(@UploadedFile() file: { buffer: Buffer } | undefined, @CurrentUser() actor: AuthenticatedUser) {
+    if (!file) {
+      throw new BadRequestException({ message: 'An .xlsx file is required in the multipart field "file"', code: 'quiz.matrix_import_file_required' });
+    }
+    return this.matrixImport.previewImport(actor.id, file.buffer);
   }
   @Get('by-subject/:subjectId')
   /**
