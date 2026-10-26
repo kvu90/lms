@@ -113,6 +113,28 @@ describe('Grades & questions', () => {
     expect(teacherView.activities.map((i) => i.item.itemName)).toContain('Secret');
   });
 
+
+  // Payload TF-A của spec: thân + 4 mệnh đề với đáp án cho trước.
+  const tfBody = (stem: string, values: boolean[]) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: values.map((v, i) => ({
+            type: 'statement',
+            attrs: { id: `s${i + 1}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i + 1}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: values.map((v, i) => ({ statementId: `s${i + 1}`, value: v })) },
+  });
+  const TF_ALL_TRUE = JSON.stringify({ s1: true, s2: true, s3: true, s4: true });
+
   it('question bank versioning: editing a question creates a new version and bumps the entry pointer; old versions stay intact', async () => {
     const systemCtxRes = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
     const systemCtx = (systemCtxRes.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
@@ -120,12 +142,12 @@ describe('Grades & questions', () => {
       .send({ name: 'Bank cat', contextId: systemCtx.id });
     expect(catRes.status).toBeLessThan(300);
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: catRes.body.id, qtype: 'truefalse', questionText: 'The sky is blue.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
+      .send({ categoryId: catRes.body.id, ...tfBody('The sky is blue.', [true, false, true, false]) });
     expect(qRes.status).toBeLessThan(300);
     const qid = qRes.body.question.id as string;
     expect(qRes.body.entry.latestVersion).toBe(1);
     const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: 'The sky is green.', answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
+      .send({ questionText: tfBody('The sky is green.', [false, true, false, true]).questionText, solution: tfBody('The sky is green.', [false, true, false, true]).solution });
     expect(edit.status).toBe(200);
     expect(edit.body.entry.latestVersion).toBe(2);
     expect(edit.body.latestVersion.version).toBe(2);
@@ -135,22 +157,24 @@ describe('Grades & questions', () => {
     const docText = (doc: { content: { content?: { text?: string }[] }[] }) => doc.content[0]?.content?.[0]?.text;
     expect(docText(versions.body[0].questionText)).toBe('The sky is blue.');
     expect(docText(versions.body[1].questionText)).toBe('The sky is green.');
-    // Đáp án đã tách sang question_answers: v1 giữ nguyên (phía True
-    // is_correct), v2 mang đáp án đã sửa (phía False is_correct) —
-    // kiểm chứng thẳng ở DB.
-    const v1Answers = await pg.query(
-      `select a.is_correct from question_answers a join question_versions v on v.id = a.question_version_id
-        where v.id = $1 and a.answer->'content'->0->'content'->0->>'text' = 'True'`,
-      [versions.body[0].id]);
-    expect((v1Answers.rows[0] as { is_correct: boolean }).is_correct).toBe(true);
+    // Đáp án TF-A nằm ở phía đáp án (question_answer_keys.solution)
+    // theo TỪNG VERSION: v1 giữ nguyên đáp án gốc, v2 mang đáp án đã
+    // lật — kiểm chứng thẳng ở DB và qua view.
+    const keyOf = async (versionId: string) => {
+      const rows = await pg.query(
+        'select solution from question_answer_keys where question_version_id = $1', [versionId]);
+      return (rows.rows[0] as { solution: { answers: { statementId: string; value: boolean }[] } }).solution;
+    };
+    expect((await keyOf(versions.body[0].id)).answers[0]).toEqual({ statementId: 's1', value: true });
+    expect((await keyOf(versions.body[1].id)).answers[0]).toEqual({ statementId: 's1', value: false });
     const view = await http(app).get(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`);
-    const trueRowV2 = (view.body.answers as { id: string; answer: unknown; isCorrect: boolean }[])
-      .find((a) => docText(a.answer as never) === 'True');
-    const falseRowV2 = (view.body.answers as { id: string; answer: unknown; isCorrect: boolean }[])
-      .find((a) => docText(a.answer as never) === 'False');
-    expect(trueRowV2?.isCorrect).toBe(false);
-    expect(falseRowV2?.isCorrect).toBe(true);
-    expect(view.body.options.trueAnswer).toBe(trueRowV2?.id);
+    expect(view.body.answers).toHaveLength(0);
+    expect(view.body.answerKey.solution.answers).toEqual([
+      { statementId: 's1', value: false },
+      { statementId: 's2', value: true },
+      { statementId: 's3', value: false },
+      { statementId: 's4', value: true },
+    ]);
   });
 
   it('INVARIANT: an attempt started on version 1 is graded by version 1 even after the question is edited to version 2', async () => {
@@ -159,7 +183,7 @@ describe('Grades & questions', () => {
     const catRes = await http(app).post('/api/v1/questions/categories').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Invariant cat', contextId: systemCtx.id });
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: catRes.body.id, qtype: 'truefalse', questionText: 'Water is wet.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
+      .send({ categoryId: catRes.body.id, ...tfBody('Water is wet.', [true, true, true, true]) });
     const qid = qRes.body.question.id as string;
     const student = await createUserViaApi(app, admin);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
@@ -178,9 +202,9 @@ describe('Grades & questions', () => {
     const v1Id = qRes.body.latestVersion.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`).set('Authorization', `Bearer ${studentToken}`);
     // NOW the teacher edits the question: correct answer flips in v2.
-    await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`).send({ answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
+    await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`).send({ solution: tfBody('Water is wet.', [false, false, false, false]).solution });
     // Student answers 'true' and finishes: graded by v1 ⇒ right.
-    const submit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: 'true' });
+    const submit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: TF_ALL_TRUE });
     expect(submit.body.state).toBe('complete');
     const finished = await http(app).post(`/api/v1/question-usages/${usageId}/finish`).set('Authorization', `Bearer ${studentToken}`);
     expect(finished.body.state).toBe('finished');
@@ -190,7 +214,7 @@ describe('Grades & questions', () => {
     expect(attempt.fraction).toBe(1);
     // Steps record every transition: todo → complete → gradedright.
     expect(attempt.steps.map((s: { state: string }) => s.state)).toEqual(['todo', 'complete', 'gradedright']);
-    expect(attempt.steps[1].data.answer).toBe('true');
+    expect(attempt.steps[1].data.answer).toBe(TF_ALL_TRUE);
     // A NEW usage pins v2: the same answer is now wrong.
     const created2 = await app.get(QuestionsService).createUsage(student.id, {
       component: 'mod_quiz', instanceId: '01900000-0000-7000-8000-000000000042', slots: [{ questionId: qid }],
@@ -198,7 +222,7 @@ describe('Grades & questions', () => {
     const usage2Id = created2.usage.id as string;
     const attempt2Id = created2.attempts[0].id as string;
     await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/start`).set('Authorization', `Bearer ${studentToken}`);
-    await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: 'true' });
+    await http(app).post(`/api/v1/question-usages/${usage2Id}/attempts/${attempt2Id}/submit`).set('Authorization', `Bearer ${studentToken}`).send({ response: TF_ALL_TRUE });
     const finished2 = await http(app).post(`/api/v1/question-usages/${usage2Id}/finish`).set('Authorization', `Bearer ${studentToken}`);
     expect(finished2.body.attempts[0].state).toBe('gradedwrong');
   });

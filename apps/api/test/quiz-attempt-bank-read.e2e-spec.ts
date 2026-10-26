@@ -83,8 +83,23 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
 
   async function createTfWithStimulus(token: string, categoryId: string, marker: string, stimulusId: string): Promise<string> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'truefalse', questionText: `THAN-CAU-TF-${marker}: đoạn văn nói đúng nội dung?`,
-      defaultMark: 1, stimulusId, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
+      categoryId, qtype: 'truefalse',
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: `THAN-CAU-TF-${marker}: đoạn văn nói đúng nội dung?` }] },
+          {
+            type: 'statementList',
+            content: [1, 2, 3, 4].map((i) => ({
+              type: 'statement',
+              attrs: { id: `s${i}` },
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i} của ${marker}` }] }],
+            })),
+          },
+        ],
+      },
+      defaultMark: 1, stimulusId,
+      solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body.question.id as string;

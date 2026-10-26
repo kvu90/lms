@@ -18,6 +18,26 @@ import { PrivacyService } from '../src/modules/privacy/privacy.service';
  * - privacy/tests/manager_test.php (request lifecycle + phê duyệt) và provider registry §2#28
  */
 describe('Platform services: backup→restore equivalence, payment webhook idempotency, privacy completeness', () => {
+
+  const tfBody = (stem: string, values: boolean[]) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: values.map((v, i) => ({
+            type: 'statement',
+            attrs: { id: `s${i + 1}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i + 1}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: values.map((v, i) => ({ statementId: `s${i + 1}`, value: v })) },
+  });
+
   let app: INestApplication;
   let admin: string;
 
@@ -229,11 +249,11 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       .send({ name: `Bank child ${suffix}`, contextId: courseCtx, parent: parentCat.body.id });
     expect(childCat.status).toBeLessThan(300);
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: childCat.body.id, qtype: 'truefalse', questionText: 'Version one text.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
+      .send({ categoryId: childCat.body.id, ...tfBody('Version one text.', [true, false, true, false]) });
     expect(qRes.status).toBeLessThan(300);
     const qid = qRes.body.question.id as string;
     const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: 'Version two text.', answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
+      .send({ questionText: tfBody('Version two text.', [false, true, false, true]).questionText, solution: tfBody('Version two text.', [false, true, false, true]).solution });
     expect(edit.body.entry.latestVersion).toBe(2);
     // --- Competency dùng chung mức site (lá competency trỏ vào đây; KHÔNG nằm trong archive).
     const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)

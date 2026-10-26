@@ -82,7 +82,24 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
           categoryId, qtype, questionText: 'Thủ đô của Pháp là?',
           answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
         }
-      : { categoryId, qtype, questionText: 'Trời đang mưa.', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] };
+      : {
+          categoryId, qtype,
+          questionText: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Trời đang mưa.' }] },
+              {
+                type: 'statementList',
+                content: [1, 2, 3, 4].map((i) => ({
+                  type: 'statement',
+                  attrs: { id: `s${i}` },
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: `Trời đang mưa — ý ${i}` }] }],
+                })),
+              },
+            ],
+          },
+          solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
+        };
     const res = await http(app).post('/api/v1/questions').set(bearer(admin)).send(body);
     expect(res.status).toBeLessThan(300);
     return (res.body as { question: { id: string } }).question.id;

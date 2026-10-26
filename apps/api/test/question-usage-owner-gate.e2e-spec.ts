@@ -40,6 +40,27 @@ describe('Question usage owner gate (issue #60)', () => {
     userIdA: string;
   }
 
+
+  // Câu TF-A của spec: thân + 4 mệnh đề đều ĐÚNG; response đúng là
+  // JSON map cả 4 ý true.
+  const TF_TEXT = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Water is wet.' }] },
+      {
+        type: 'statementList',
+        content: [1, 2, 3, 4].map((i) => ({
+          type: 'statement',
+          attrs: { id: `s${i}` },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: `Water is wet — ý ${i}` }] }],
+        })),
+      },
+    ],
+  };
+  const TF_SOLUTION = { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) };
+  const TF_ALL_TRUE = JSON.stringify({ s1: true, s2: true, s3: true, s4: true });
+  const TF_ALL_FALSE = JSON.stringify({ s1: false, s2: false, s3: false, s4: false });
+  const TF_RIGHT_ANSWER = 'Đúng, Đúng, Đúng, Đúng';
   /** Khoá + giáo viên + hai học sinh ghi danh + quiz 1 slot truefalse (đáp án đúng: true). */
   async function setup(): Promise<Scenario> {
     const cat = await createCategory(app, admin);
@@ -70,8 +91,8 @@ describe('Question usage owner gate (issue #60)', () => {
       .send({ name: 'Gate bank', contextId: systemCtx.id });
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
       .send({
-        categoryId: bankRes.body.id, qtype: 'truefalse', questionText: 'Water is wet.',
-        defaultMark: 1, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
+        categoryId: bankRes.body.id, qtype: 'truefalse', questionText: TF_TEXT,
+        defaultMark: 1, solution: TF_SOLUTION,
       });
     const questionId = qRes.body.question.id as string;
 
@@ -89,7 +110,7 @@ describe('Question usage owner gate (issue #60)', () => {
     return { quizId, questionId, tokenA, tokenB, userIdA };
   }
 
-  /** Học sinh bắt đầu lượt quiz và trả lời 'true' qua kênh quiz; trả view hiện tại. */
+  /** Học sinh bắt đầu lượt quiz và trả lời TF-A (JSON 4 ý đúng) qua kênh quiz; trả view hiện tại. */
   async function startAndAnswer(token: string, quizId: string): Promise<QuizView> {
     const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
     expect(start.status).toBe(201);
@@ -98,7 +119,7 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(view.questions[0]!.rightAnswer).toBeNull();
     const answered = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ questionAttemptId: view.questions[0]!.questionAttemptId, response: 'true' });
+      .send({ questionAttemptId: view.questions[0]!.questionAttemptId, response: TF_ALL_TRUE });
     expect(answered.status).toBeLessThan(300);
     return answered.body as QuizView;
   }
@@ -111,7 +132,7 @@ describe('Question usage owner gate (issue #60)', () => {
 
     // (a) B submit đáp án vào attempt của A qua route thô → 404 attempt_not_found.
     const bSubmit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${questionAttemptId}/submit`)
-      .set('Authorization', `Bearer ${s.tokenB}`).send({ response: 'false' });
+      .set('Authorization', `Bearer ${s.tokenB}`).send({ response: TF_ALL_FALSE });
     expect(bSubmit.status).toBe(404);
     expect(bSubmit.body.code).toBe('question.attempt_not_found');
     // B start / finish attempt của A → cùng 404.
@@ -134,12 +155,12 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(ghost.status).toBe(404);
     expect(ghost.body.code).toBe(bFinish.body.code);
 
-    // Lượt của A nguyên vẹn: vẫn inprogress, đáp án 'true' còn nguyên, đáp án đúng chưa lộ.
+    // Lượt của A nguyên vẹn: vẫn inprogress, đáp án TF-A còn nguyên, đáp án đúng chưa lộ.
     const after = await http(app).get(`/api/v1/quiz-attempts/${view.attempt.id}`).set('Authorization', `Bearer ${s.tokenA}`);
     expect(after.status).toBe(200);
     const afterView = after.body as QuizView;
     expect(afterView.attempt.state).toBe('inprogress');
-    expect(afterView.questions[0]!.response).toBe('true');
+    expect(afterView.questions[0]!.response).toBe(TF_ALL_TRUE);
     expect(afterView.questions[0]!.rightAnswer).toBeNull();
 
     // A nộp bài qua luồng quiz bình thường: chốt điểm và đáp án mới lộ.
@@ -149,7 +170,7 @@ describe('Question usage owner gate (issue #60)', () => {
     const submitted = submit.body as QuizView;
     expect(submitted.attempt.state).toBe('finished');
     expect(submitted.questions[0]!.fraction).toBe(1);
-    expect(submitted.questions[0]!.rightAnswer).toBe('True');
+    expect(submitted.questions[0]!.rightAnswer).toBe(TF_RIGHT_ANSWER);
   });
 
   it('owner cannot finish or submit early through the raw routes while the quiz attempt is in progress', async () => {
@@ -166,7 +187,7 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(JSON.stringify(aFinish.body)).not.toContain('rightAnswer');
     // A submit / finish attempt / start usage qua route thô → cùng khoá 403.
     const aSubmit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${questionAttemptId}/submit`)
-      .set('Authorization', `Bearer ${s.tokenA}`).send({ response: 'false' });
+      .set('Authorization', `Bearer ${s.tokenA}`).send({ response: TF_ALL_FALSE });
     expect(aSubmit.status).toBe(403);
     expect(aSubmit.body.code).toBe('question.usage_managed_by_quiz');
     const aFinishAttempt = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${questionAttemptId}/finish`)
@@ -179,7 +200,7 @@ describe('Question usage owner gate (issue #60)', () => {
     const after = await http(app).get(`/api/v1/quiz-attempts/${view.attempt.id}`).set('Authorization', `Bearer ${s.tokenA}`);
     const afterView = after.body as QuizView;
     expect(afterView.attempt.state).toBe('inprogress');
-    expect(afterView.questions[0]!.response).toBe('true');
+    expect(afterView.questions[0]!.response).toBe(TF_ALL_TRUE);
     expect(afterView.questions[0]!.rightAnswer).toBeNull();
 
     // Nộp qua quiz thì chốt bình thường và đáp án lộ đúng chính sách.
@@ -188,7 +209,7 @@ describe('Question usage owner gate (issue #60)', () => {
     const submitted = submit.body as QuizView;
     expect(submitted.attempt.state).toBe('finished');
     expect(submitted.questions[0]!.fraction).toBe(1);
-    expect(submitted.questions[0]!.rightAnswer).toBe('True');
+    expect(submitted.questions[0]!.rightAnswer).toBe(TF_RIGHT_ANSWER);
   });
 
   it('free bank usage: the owner runs the full raw flow; strangers get 404 and a mismatched path is not found', async () => {
@@ -210,7 +231,7 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(bStart.status).toBe(404);
     expect(bStart.body.code).toBe('question.usage_not_found');
     const bSubmit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`)
-      .set('Authorization', `Bearer ${s.tokenB}`).send({ response: 'true' });
+      .set('Authorization', `Bearer ${s.tokenB}`).send({ response: TF_ALL_TRUE });
     expect(bSubmit.status).toBe(404);
     expect(bSubmit.body.code).toBe('question.attempt_not_found');
     const bFinish = await http(app).post(`/api/v1/question-usages/${usageId}/finish`).set('Authorization', `Bearer ${s.tokenB}`);
@@ -230,7 +251,7 @@ describe('Question usage owner gate (issue #60)', () => {
     const started = await http(app).post(`/api/v1/question-usages/${usageId}/start`).set('Authorization', `Bearer ${s.tokenA}`);
     expect(started.status).toBeLessThan(300);
     const submitted = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`)
-      .set('Authorization', `Bearer ${s.tokenA}`).send({ response: 'true' });
+      .set('Authorization', `Bearer ${s.tokenA}`).send({ response: TF_ALL_TRUE });
     expect(submitted.status).toBeLessThan(300);
     expect(submitted.body.state).toBe('complete');
     const finished = await http(app).post(`/api/v1/question-usages/${usageId}/finish`).set('Authorization', `Bearer ${s.tokenA}`);
@@ -238,6 +259,6 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(finished.body.state).toBe('finished');
     expect(finished.body.attempts[0].state).toBe('gradedright');
     expect(finished.body.attempts[0].fraction).toBe(1);
-    expect(finished.body.attempts[0].rightAnswer).toBe('True');
+    expect(finished.body.attempts[0].rightAnswer).toBe(TF_RIGHT_ANSWER);
   });
 });

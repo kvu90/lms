@@ -36,6 +36,25 @@ interface QuestionViewBody {
   latestVersion: { id: string; version: number; questionText: unknown };
 }
 
+const tfBody = (stem: string) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: [1, 2, 3, 4].map((i) => ({
+            type: 'statement',
+            attrs: { id: `s${i}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
+  });
+
 describe('Shared question bank (feat #70)', () => {
   let app: INestApplication;
   let admin: string;
@@ -272,7 +291,7 @@ describe('Shared question bank (feat #70)', () => {
     expect((copied.body as QuestionViewBody).question.derivedFromQuestionId).toBe(q.question.id);
     // Thành viên KHÔNG thêm thẳng câu vào bank tổ.
     const memberAdd = await http(app).post('/api/v1/questions').set(bearer(member.token)).send({
-      categoryId: bank.defaultCategoryId, qtype: 'truefalse', questionText: 'X?', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
+      categoryId: bank.defaultCategoryId, ...tfBody('X?'),
     });
     expect(memberAdd.status).toBe(403);
     // Người ngoài: không thấy bank, không vào được bank, không copy được.
@@ -303,7 +322,7 @@ describe('Shared question bank (feat #70)', () => {
     expect(copied.status, JSON.stringify(copied.body)).toBe(201);
     // Giáo viên không thêm thẳng vào bank trường.
     const add = await http(app).post('/api/v1/questions').set(bearer(teacher.token)).send({
-      categoryId: school.defaultCategoryId, qtype: 'truefalse', questionText: 'X?', answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }],
+      categoryId: school.defaultCategoryId, ...tfBody('X?'),
     });
     expect(add.status).toBe(403);
     // Học sinh: không thấy bank trường, vào thẳng bị 403, khám phá theo bank bị 403, copy bị 403.

@@ -21,6 +21,26 @@ import { createCategory as createCourseCategory, createCourse } from './course-e
  * start/submit/finish) không đổi.
  */
 describe('Question bank read gate (issue #55)', () => {
+
+  const tfBody = (stem: string, value = true) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: [1, 2, 3, 4].map((i) => ({
+            type: 'statement',
+            attrs: { id: `s${i}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value })) },
+  });
+
   let app: INestApplication;
   let admin: string;
   let teacher: string;
@@ -70,16 +90,16 @@ describe('Question bank read gate (issue #55)', () => {
     systemCatId = systemCat.body.id as string;
 
     const q = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: courseCatId, qtype: 'truefalse', questionText: SECRET_TEXT, answers: [{ text: 'True', correct: true }, { text: 'False', correct: false }] });
+      .send({ categoryId: courseCatId, ...tfBody(SECRET_TEXT) });
     expect(q.status).toBeLessThan(300);
     questionId = q.body.question.id as string;
     // Version 2 để endpoint versions có dữ liệu thật.
     const edit = await http(app).patch(`/api/v1/questions/${questionId}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: `${SECRET_TEXT} v2` });
+      .send({ questionText: tfBody(`${SECRET_TEXT} v2`).questionText });
     expect(edit.status).toBe(200);
 
     const sysQ = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: systemCatId, qtype: 'truefalse', questionText: SYSTEM_SECRET, answers: [{ text: 'True', correct: false }, { text: 'False', correct: true }] });
+      .send({ categoryId: systemCatId, ...tfBody(SYSTEM_SECRET, false) });
     expect(sysQ.status).toBeLessThan(300);
     systemQuestionId = sysQ.body.question.id as string;
 

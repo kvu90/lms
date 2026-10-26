@@ -11,16 +11,18 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
  *    fraction của đáp án; chấm tự động là nhị phân 1/0.
  *  - multichoice: đúng 4 lựa chọn, đúng MỘT đáp án đúng, chọn một đáp
  *    án; chọn nhiều đáp án bị chấm 0.
- *  - truefalse: hai phía Đúng/Sai truyền qua chính danh sách answers.
+ *  - truefalse (TF-A): MỘT câu gồm thân chung + đúng 4 mệnh đề trong
+ *    thân câu; đáp án Đ/S của từng mệnh đề ở `solution.answers` phía
+ *    đáp án; chấm theo thang Đ–S của lần dùng.
  *  - shortanswer: khớp CHÍNH XÁC sau chuẩn hoá (hoa/thường theo
  *    useCase) — ký tự đại diện `*` đã bỏ hẳn (điểm quyết D-2).
  *  - essay: không tự chấm → needsgrading; guidance nằm ở bản ghi phía
  *    đáp án (`answerKey`) cùng lời giải mẫu, KHÔNG còn trên version.
- *  - Stimulus + chùm câu quanh ngữ liệu: mô hình của repo giaokhoa của
- *    Lão gia (stimulus độc lập, bất biến khi đã được tham chiếu) — bên
- *    LMS diễn đạt chùm bằng 1 stimulus + nhiều câu truefalse đơn cùng
- *    tham chiếu, và tính bất biến do chuỗi pin attempt → version →
- *    stimulus bảo đảm (không cần snapshot riêng).
+ *  - Stimulus quanh ngữ liệu: mô hình của repo giaokhoa của Lão gia
+ *    (stimulus độc lập, bất biến khi đã được tham chiếu); nhiều câu
+ *    (kể cả câu TF-A) cùng tham chiếu một stimulus và chấm độc lập,
+ *    tính bất biến do chuỗi pin attempt → version → stimulus bảo đảm
+ *    (không cần snapshot riêng).
  *  - Điểm tuyệt đối gắn lúc ra đề: maxMark của slot, fallback
  *    defaultMark của câu.
  */
@@ -52,6 +54,30 @@ describe('Question types & stimulus', () => {
     expect(res.status).toBeLessThan(300);
     return res.body.id as string;
   }
+
+
+  // Payload câu TF-A: thân là `stem`, 4 mệnh đề mang cùng giá trị
+  // `allValue`; response đúng toàn phần là JSON map cả 4 ý theo giá trị đó.
+  const tfBody = (stem: string, allValue: boolean, stimulusId?: string) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: [1, 2, 3, 4].map((i) => ({
+            type: 'statement',
+            attrs: { id: `s${i}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: allValue })) },
+    ...(stimulusId ? { stimulusId } : {}),
+  });
+  const tfResponse = (value: boolean) => JSON.stringify({ s1: value, s2: value, s3: value, s4: value });
 
   async function createQuestion(body: Record<string, unknown>): Promise<{ status: number; body: never }> {
     const res = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`).send(body);
@@ -94,9 +120,7 @@ describe('Question types & stimulus', () => {
     expect(stimRes.body.categoryId).toBe(categoryId);
 
     const q = await createQuestion({
-      categoryId, qtype: 'truefalse', questionText: 'Đoạn văn nói trời đang mưa.',
-      stimulusId,
-      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }],
+      categoryId, ...tfBody('Đoạn văn nói trời đang mưa.', true, stimulusId),
     });
     expect(q.status).toBeLessThan(300);
     expect((q.body as { stimulus: { id: string } }).stimulus.id).toBe(stimulusId);
@@ -131,9 +155,7 @@ describe('Question types & stimulus', () => {
     const stim = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: catA, content: 'Ngữ liệu của A.' });
     const res = await createQuestion({
-      categoryId: catB, qtype: 'truefalse', questionText: 'X?',
-      stimulusId: stim.body.id,
-      answers: [{ text: 'Đúng', correct: false }, { text: 'Sai', correct: true }],
+      categoryId: catB, ...tfBody('X?', false, stim.body.id),
     });
     expect(res.status).toBe(400);
     expect((res.body as { code: string }).code).toBe('question.stimulus_category_mismatch');
@@ -143,14 +165,13 @@ describe('Question types & stimulus', () => {
     expect(forbidden.status).toBe(403);
   });
 
-  it('a stimulus cluster: several single truefalse questions share one stimulus and grade independently', async () => {
+  it('a stimulus cluster: several TF-A questions share one stimulus and grade independently', async () => {
     const categoryId = await createCategory('Cluster cat');
     const stim = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId, content: 'Trời mưa to. Đường phố ngập nước. Mọi người ở trong nhà.' });
     const stimulusId = stim.body.id as string;
     const mk = (text: string, correct: boolean) => createQuestion({
-      categoryId, qtype: 'truefalse', questionText: text, stimulusId,
-      answers: [{ text: 'Đúng', correct }, { text: 'Sai', correct: !correct }],
+      categoryId, ...tfBody(text, correct, stimulusId),
     });
     const q1 = await mk('Trời đang mưa.', true);
     const q2 = await mk('Đường phố khô ráo.', false);
@@ -164,7 +185,7 @@ describe('Question types & stimulus', () => {
     });
     const usageId = created.usage.id as string;
     await http(app).post(`/api/v1/question-usages/${usageId}/start`).set('Authorization', `Bearer ${studentToken}`);
-    const answers: Record<string, string> = { [ids[0]!]: 'true', [ids[1]!]: 'false', [ids[2]!]: 'true' };
+    const answers: Record<string, string> = { [ids[0]!]: tfResponse(true), [ids[1]!]: tfResponse(false), [ids[2]!]: tfResponse(true) };
     for (const attempt of created.attempts as { id: string; questionId: string }[]) {
       await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attempt.id}/submit`)
         .set('Authorization', `Bearer ${studentToken}`).send({ response: answers[attempt.questionId] });

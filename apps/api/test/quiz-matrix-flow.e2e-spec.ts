@@ -20,7 +20,7 @@ import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
  *    QĐ 764 mặc định [0,10,25,50,100]% — KHÔNG cộng tuyến tính;
  *  - bản đặc tả theo Mẫu 2 CV 7991 + xuất xlsx/docx.
  */
-describe('Quiz matrix generation + cluster grading + specification (stage 3)', () => {
+describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -33,7 +33,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
   });
   afterAll(async () => { await pg.end(); await app.close(); });
 
-  interface SlotBody { id: string; slot: number; questionId: string | null; categoryId: string | null; matrixCellId: string | null; clusterId: string | null; maxMark: number }
+  interface SlotBody { id: string; slot: number; questionId: string | null; categoryId: string | null; matrixCellId: string | null; maxMark: number }
   interface QuizBody { id: string; matrixId: string | null; tfScale: number[] | null; slots: SlotBody[]; sumGrades: number }
   interface AttemptViewBody {
     attempt: { id: string; state: string; sumGrades: number | null };
@@ -55,7 +55,8 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     mcPool: string[];
     mcCross: string;
     mcPoolHieu: string[];
-    tfClusterQuestions: string[];
+    tfQuestion: string;
+    tfCorrects: boolean[];
     mkQuestion: (body: Record<string, unknown>) => Promise<string>;
   }
 
@@ -155,24 +156,36 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       });
       await tag(q, outcomeOther, 'biet');
     }
-    // Chùm Đ–S: một stimulus + 4 câu truefalse cùng gắn outcome/mức Hiểu.
+    // Câu Đ–S TF-A: MỘT câu gồm thân chung + 4 mệnh đề (đáp án
+    // [Đ, S, Đ, S]) gắn cùng stimulus và outcome/mức Hiểu — chùm là
+    // chính câu hỏi, không còn 4 câu rời gom ở tầng ghim/sinh đề.
     const stimRes = await http(app).post('/api/v1/stimuli').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: bankCatId, content: 'Cho hàm số y = x² − 2x + 1. Xét tính đúng sai của các mệnh đề sau.' });
     if (stimRes.status !== 201 && stimRes.status !== 200) throw new Error(`stimulus failed: ${stimRes.status} ${JSON.stringify(stimRes.body)}`);
     const stimulusId = stimRes.body.id as string;
-    const tfClusterQuestions: string[] = [];
-    const corrects = [true, false, true, false];
-    for (let i = 0; i < 4; i++) {
-      const q = await mkQuestion({
-        qtype: 'truefalse', questionText: `Mệnh đề ${i + 1}`, defaultMark: 1,
-        answers: [{ text: 'True', correct: corrects[i]! }, { text: 'False', correct: !corrects[i] }], stimulusId,
-      });
-      await tag(q, outcomeHieu, 'hieu');
-      tfClusterQuestions.push(q);
-    }
+    const tfCorrects = [true, false, true, false];
+    const tfQuestion = await mkQuestion({
+      qtype: 'truefalse', defaultMark: 1, stimulusId,
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Cho hàm số y = x² − 2x + 1. Xét tính đúng sai của các mệnh đề sau.' }] },
+          {
+            type: 'statementList',
+            content: tfCorrects.map((v, i) => ({
+              type: 'statement',
+              attrs: { id: `s${i + 1}` },
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i + 1}` }] }],
+            })),
+          },
+        ],
+      },
+      solution: { answers: tfCorrects.map((v, i) => ({ statementId: `s${i + 1}`, value: v })) },
+    });
+    await tag(tfQuestion, outcomeHieu, 'hieu');
     return {
       courseId: course.id, sectionId, subjectId, curriculumId, outcomeBiet, outcomeHieu, lessonId,
-      bankCatId, student: s1.token, studentId: s1.id, student2: s2.token, mcPool, mcCross, mcPoolHieu, tfClusterQuestions,
+      bankCatId, student: s1.token, studentId: s1.id, student2: s2.token, mcPool, mcCross, mcPoolHieu, tfQuestion, tfCorrects,
       mkQuestion,
     };
   }
@@ -196,17 +209,17 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     if (r.status !== 200 && r.status !== 201) throw new Error(`answer failed: ${r.status} ${JSON.stringify(r.body)}`);
     return r.body as AttemptViewBody;
   }
-  async function playClusterQuiz(token: string, quizId: string, correctCount: number, tfIds: string[]): Promise<AttemptViewBody> {
+  async function playTfQuiz(token: string, quizId: string, correctCount: number, tfId: string, corrects: boolean[]): Promise<AttemptViewBody> {
     const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${token}`).send({});
     if (start.status !== 201 && start.status !== 200) throw new Error(`start failed: ${start.status} ${JSON.stringify(start.body)}`);
     let view = start.body as AttemptViewBody;
-    // Thứ tự đúng của chùm trong setup: [true, false, true, false] — trả đúng correctCount câu đầu.
-    const correctAnswers = ['true', 'false', 'true', 'false'];
+    // Đáp án đúng của 4 mệnh đề là `corrects` — trả đúng correctCount
+    // ý đầu, các ý còn lại trả ngược phía; response là JSON theo ý.
+    const map: Record<string, boolean> = {};
     for (let i = 0; i < 4; i++) {
-      const wantCorrect = i < correctCount;
-      const response = wantCorrect ? correctAnswers[i]! : (correctAnswers[i] === 'true' ? 'false' : 'true');
-      view = await answerAttempt(token, view.attempt.id, view, tfIds[i]!, response);
+      map[`s${i + 1}`] = i < correctCount ? corrects[i]! : !corrects[i]!;
     }
+    view = await answerAttempt(token, view.attempt.id, view, tfId, JSON.stringify(map));
     const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${token}`).send({});
     if (submit.status !== 200 && submit.status !== 201) throw new Error(`submit failed: ${submit.status} ${JSON.stringify(submit.body)}`);
     return submit.body as AttemptViewBody;
@@ -269,7 +282,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(mcCell.available).toBe(4);
     expect(mcCell.deficit).toBe(1);
     const tfCell = (avail.body.cells as { required: number; available: number }[]).find((c) => c.required === 1)!;
-    expect(tfCell.available).toBe(1); // đúng 1 chùm 4 câu
+    expect(tfCell.available).toBe(1); // đúng 1 CÂU TF-A (mỗi câu là một chùm 4 ý)
 
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
       .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thiếu câu' });
@@ -280,7 +293,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(detailText).toContain('required 5, available 4, deficit 1');
   });
 
-  it('generate fixed: slots follow cells, TF cell becomes one cluster of 4 slots with nominal marks', async () => {
+  it('generate fixed: slots follow cells, TF cell counts TF-A QUESTIONS (one slot per question, full cell marks)', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 6 });
     await addCell(matrix.id, {
@@ -296,24 +309,22 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(gen.status === 200 || gen.status === 201).toBe(true);
     const quiz = gen.body as QuizBody;
     expect(quiz.matrixId).toBe(matrix.id);
-    expect(quiz.slots).toHaveLength(6);
+    expect(quiz.slots).toHaveLength(3);
     expect(quiz.sumGrades).toBeCloseTo(6, 6);
-    const mcSlots = quiz.slots.filter((s) => s.matrixCellId && s.questionId && !s.clusterId);
+    const mcSlots = quiz.slots.filter((s) => s.matrixCellId && s.questionId && s.questionId !== ctx.tfQuestion);
     expect(mcSlots).toHaveLength(2);
     expect(new Set(mcSlots.map((s) => s.questionId)).size).toBe(2);
     // Pool của ô Biết = mọi câu multichoice mức Biết thuộc ĐVK (gồm cả
     // câu gắn YCCĐ khác của cùng ĐVK — ctx.mcCross).
     for (const s of mcSlots) expect([...ctx.mcPool, ctx.mcCross]).toContain(s.questionId);
-    const tfSlots = quiz.slots.filter((s) => s.clusterId);
-    expect(tfSlots).toHaveLength(4);
-    expect(new Set(tfSlots.map((s) => s.clusterId)).size).toBe(1);
-    for (const s of tfSlots) {
-      expect(s.maxMark).toBeCloseTo(1, 6); // điểm chùm 4 / 4 slot
-      expect(ctx.tfClusterQuestions).toContain(s.questionId);
-    }
+    // Ô TF questionCount=1 → ĐÚNG MỘT slot mang cả câu TF-A với
+    // trọn điểm của ô (không còn bẻ chùm thành 4 slot danh nghĩa).
+    const tfSlots = quiz.slots.filter((s) => s.questionId === ctx.tfQuestion);
+    expect(tfSlots).toHaveLength(1);
+    expect(tfSlots[0]!.maxMark).toBeCloseTo(4, 6);
   });
 
-  it('cluster grading follows the QD764 progressive scale, not linear addition', async () => {
+  it('TF-A grading follows the QD764 progressive scale, not linear addition', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 4 });
     await addCell(matrix.id, {
@@ -324,11 +335,11 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm' });
     const quiz = gen.body as QuizBody;
     // 2/4 ý đúng → thang QĐ 764 cho 25% × 4 = 1 điểm (tuyến tính sẽ là 2).
-    const two = await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
+    const two = await playTfQuiz(ctx.student, quiz.id, 2, ctx.tfQuestion, ctx.tfCorrects);
     expect(two.attempt.state).toBe('finished');
     expect(two.attempt.sumGrades).toBeCloseTo(1, 6);
     // 3/4 ý đúng → 50% × 4 = 2 điểm (tuyến tính sẽ là 3).
-    const three = await playClusterQuiz(ctx.student2, quiz.id, 3, ctx.tfClusterQuestions);
+    const three = await playTfQuiz(ctx.student2, quiz.id, 3, ctx.tfQuestion, ctx.tfCorrects);
     expect(three.attempt.sumGrades).toBeCloseTo(2, 6);
     // Điểm bài đã ghi: thang grade của quiz = 4 nên điểm = sumGrades.
     const info = await http(app).get(`/api/v1/exam-pins/${quiz.id}`).set('Authorization', `Bearer ${ctx.student}`);
@@ -357,7 +368,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const quiz = gen.body as QuizBody & { examId: string };
     // Mọi slot đều đã ghim câu cụ thể ngay từ lúc sinh đề (không còn
     // slot chỉ mang ô chờ rút lúc attempt).
-    expect(quiz.slots).toHaveLength(7);
+    expect(quiz.slots).toHaveLength(4);
     expect(quiz.slots.every((x) => x.questionId !== null)).toBe(true);
     const mcFromA = quiz.slots.filter((x) => x.matrixCellId === cellA);
     expect(mcFromA).toHaveLength(2);
@@ -378,7 +389,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     const start1 = await http(app).post(`/api/v1/exam-pins/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
     expect(start1.status === 200 || start1.status === 201).toBe(true);
     const view1 = start1.body as AttemptViewBody;
-    expect(view1.questions).toHaveLength(7);
+    expect(view1.questions).toHaveLength(4);
     const start2 = await http(app).post(`/api/v1/exam-pins/${quiz.id}/attempts`).set('Authorization', `Bearer ${ctx.student2}`).send({});
     expect(start2.status === 200 || start2.status === 201).toBe(true);
     const view2 = start2.body as AttemptViewBody;
@@ -427,7 +438,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     ]));
     expect(specNode.cells).toHaveLength(2);
     expect(spec.body.totals.totalScore).toBeCloseTo(6, 6);
-    expect(spec.body.totals.totalQuestions).toBe(6);
+    expect(spec.body.totals.totalQuestions).toBe(3); // 2 MC + 1 câu TF-A (ô TF đếm theo CÂU)
     expect(spec.body.quiz).toBeNull();
 
     const specWithQuiz = await http(app).get(`/api/v1/exam-matrices/${matrix.id}/specification?pinId=${quiz.id}`).set('Authorization', `Bearer ${admin}`);
@@ -455,22 +466,15 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(pdf.body.code).toBe('quiz.spec_export_format');
   });
 
-  it('hand-made cluster: grouping 4 TF slots of one stimulus applies the exam tf scale', async () => {
+  it('hand-made TF-A slot: a single TF-A slot in a hand-built exam grades by the tf scale on its own', async () => {
     const ctx = await setup();
-    // Gom chùm ngay khi soạn đề: 4 slot mang cùng clusterId (một UUID
-    // do người soạn đặt qua setSlots của đề).
-    const clusterId = '11111111-1111-4111-8111-111111111111';
-    const draft = await createExamDraft(app, admin, 'Đề tay chùm', 4);
-    for (const q of ctx.tfClusterQuestions) {
-      draft.slots.push({ questionId: q, maxMark: 1, clusterId } as never);
-    }
-    const putRes = await http(app).put(`/api/v1/exams/${draft.examId}/slots`).set('Authorization', `Bearer ${admin}`)
-      .send({ slots: draft.slots });
-    expect(putRes.status === 200 || putRes.status === 201).toBe(true);
-    expect(new Set((putRes.body.slots as SlotBody[]).map((x) => x.clusterId)).size).toBe(1);
+    // Không còn cơ chế gom chùm ở tầng ghim: đề tay chỉ gồm MỘT slot
+    // TF-A; thang áp ngay trên chính slot đó.
+    const draft = await createExamDraft(app, admin, 'Đề tay TF-A', 4);
+    await addExamSlot(app, admin, draft, { questionId: ctx.tfQuestion, maxMark: 4 });
     const pin = await pinExam(app, admin, ctx.courseId, draft, { sectionId: ctx.sectionId });
     // 1/4 ý đúng → thang mặc định QĐ 764: 10% × 4 = 0,4 (tuyến tính = 1).
-    const one = await playClusterQuiz(ctx.student, pin.id as string, 1, ctx.tfClusterQuestions);
+    const one = await playTfQuiz(ctx.student, pin.id as string, 1, ctx.tfQuestion, ctx.tfCorrects);
     expect(one.attempt.sumGrades).toBeCloseTo(0.4, 6);
   });
 
@@ -511,7 +515,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(cellDel.body.version).toBe(5);
   });
 
-  it('cluster review presentation (Q-a): per-item fractions, no per-item marks, one summary line naming the scale', async () => {
+  it('TF-A review presentation (Q-a): one question, scale fraction and mark, per-statement solution, no cluster block', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
     await addCell(matrix.id, {
@@ -519,25 +523,29 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề chùm review' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề TF-A review' });
     const quiz = gen.body as QuizBody;
-    const played = await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
+    const played = await playTfQuiz(ctx.student, quiz.id, 2, ctx.tfQuestion, ctx.tfCorrects);
     const view = await http(app).get(`/api/v1/quiz-attempts/${played.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
     const qs = view.body.questions as {
       fraction: number | null; mark: number | null;
-      cluster: { correctCount: number; totalCount: number; percent: number; mark: number | null; summary: string } | null;
+      solution: { statements: { statementId: string; value: boolean }[] } | null;
+      rightAnswer: string | null;
     }[];
-    expect(qs).toHaveLength(4);
-    // Đúng/sai vẫn theo TỪNG Ý.
-    expect(qs.map((q) => q.fraction).sort()).toEqual([0, 0, 1, 1]);
-    for (const q of qs) {
-      expect(q.mark).toBeNull(); // không hiện điểm lẻ từng ý
-      expect(q.cluster).not.toBeNull();
-      expect(q.cluster!.correctCount).toBe(2);
-      expect(q.cluster!.percent).toBe(25);
-      expect(q.cluster!.mark).toBeCloseTo(1, 6); // 25% × 4
-      expect(q.cluster!.summary).toBe('Đúng 2/4 ý = 25% điểm câu theo thang QĐ 764');
-    }
+    // Câu TF-A là MỘT question attempt: 2/4 ý đúng → fraction 0,25
+    // theo thang, điểm = 25% × 4 = 1; không còn khối cluster.
+    expect(qs).toHaveLength(1);
+    const q = qs[0]!;
+    expect(q.fraction).toBeCloseTo(0.25, 6);
+    expect(q.mark).toBeCloseTo(1, 6);
+    expect(q).not.toHaveProperty('cluster');
+    expect(q.solution?.statements).toEqual([
+      { statementId: 's1', value: true },
+      { statementId: 's2', value: false },
+      { statementId: 's3', value: true },
+      { statementId: 's4', value: false },
+    ]);
+    expect(q.rightAnswer).toBe('Đúng, Sai, Đúng, Sai');
   });
 
   it('grade-by-question (Q-b): queue lists every submitted attempt for one question; bulk grading finishes the attempts', async () => {
@@ -600,7 +608,7 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
     expect(bands.body).toHaveLength(2);
   });
 
-  it('cluster statistics (Q-d): per-item right/wrong counts and the correct-count distribution', async () => {
+  it('TF-A statistics: the removed cluster endpoint is gone; per-question stats count the TF-A slot as one question', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
     await addCell(matrix.id, {
@@ -608,26 +616,21 @@ describe('Quiz matrix generation + cluster grading + specification (stage 3)', (
       questionCount: 1, cellScore: 4,
     });
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
-      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thống kê chùm' });
+      .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề thống kê TF-A' });
     const quiz = gen.body as QuizBody;
-    await playClusterQuiz(ctx.student, quiz.id, 2, ctx.tfClusterQuestions);
-    await playClusterQuiz(ctx.student2, quiz.id, 4, ctx.tfClusterQuestions);
-    const stats = await http(app).get(`/api/v1/exam-pins/${quiz.id}/cluster-statistics`).set('Authorization', `Bearer ${admin}`);
-    expect(stats.status).toBe(200);
-    expect(stats.body).toHaveLength(1);
-    const cluster = stats.body[0] as {
-      attemptsCount: number;
-      items: { position: number; correctCount: number; wrongCount: number }[];
-      correctDistribution: { correctCount: number; attempts: number }[];
-    };
-    expect(cluster.attemptsCount).toBe(2);
-    // Học sinh 1 đúng 2 ý, học sinh 2 đúng cả 4: hai ý có 2 lượt đúng,
-    // hai ý còn lại 1 đúng/1 sai (không phụ thuộc thứ tự slot ↔ câu).
-    expect(cluster.items.map((i) => i.correctCount).sort()).toEqual([1, 1, 2, 2]);
-    expect(cluster.items.map((i) => i.wrongCount).sort()).toEqual([0, 0, 1, 1]);
-    expect(cluster.correctDistribution).toEqual([
-      { correctCount: 2, attempts: 1 },
-      { correctCount: 4, attempts: 1 },
-    ]);
+    await playTfQuiz(ctx.student, quiz.id, 2, ctx.tfQuestion, ctx.tfCorrects);
+    await playTfQuiz(ctx.student2, quiz.id, 4, ctx.tfQuestion, ctx.tfCorrects);
+    // Endpoint thống kê chùm đã xoá hẳn cùng cơ chế chùm.
+    const gone = await http(app).get(`/api/v1/exam-pins/${quiz.id}/cluster-statistics`).set('Authorization', `Bearer ${admin}`);
+    expect(gone.status).toBe(404);
+    // Thống kê theo câu: slot TF-A là MỘT câu — 2 lượt làm, 1 lượt
+    // chưa trọn (2/4 ý), không lượt nào sai toàn phần.
+    const results = await http(app).get(`/api/v1/exam-pins/${quiz.id}/results`).set('Authorization', `Bearer ${admin}`);
+    expect(results.status).toBe(200);
+    const stats = results.body.questionStats as { questionId: string | null; attemptsCount: number; wrongCount: number; fullyWrongCount: number }[];
+    const tfStat = stats.find((x) => x.questionId === ctx.tfQuestion)!;
+    expect(tfStat.attemptsCount).toBe(2);
+    expect(tfStat.wrongCount).toBe(1);
+    expect(tfStat.fullyWrongCount).toBe(0);
   });
 });
