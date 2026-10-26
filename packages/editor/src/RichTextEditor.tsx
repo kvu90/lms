@@ -1,9 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
+import {
+  Bold,
+  Code,
+  ImagePlus,
+  Italic,
+  List,
+  Redo2,
+  Sigma,
+  Strikethrough,
+  Underline,
+  Undo2,
+  type LucideIcon,
+} from 'lucide-react';
 import type { RichTextDocument } from '@lms/contracts';
 import { plainTextExtensions } from './extensions.js';
+import {
+  contentForSave,
+  ensureTerminalContinuation,
+} from './document-continuation.js';
 import { MathEditorPanel, type MathNodeKind } from './MathEditorPanel.js';
 import { validateMathLatex } from './math.js';
 
@@ -19,13 +37,18 @@ const EMPTY_DOCUMENT: RichTextDocument = {
 /** Tên các mark mà thanh công cụ của trình soạn thảo bật/tắt được. */
 type ToolbarMark = 'bold' | 'italic' | 'strike' | 'code' | 'underline';
 
-/** Mô tả một nút trên thanh công cụ: mark nó điều khiển và nhãn hiển thị. */
-const TOOLBAR_MARKS: readonly { mark: ToolbarMark; label: string; title: string }[] = [
-  { mark: 'bold', label: 'B', title: 'Chữ đậm' },
-  { mark: 'italic', label: 'I', title: 'Chữ nghiêng' },
-  { mark: 'strike', label: 'S', title: 'Gạch ngang chữ' },
-  { mark: 'code', label: '<>', title: 'Mã nội tuyến' },
-  { mark: 'underline', label: 'U', title: 'Gạch chân' },
+/**
+ * Mô tả một nút mark trên thanh công cụ: mark nó điều khiển, tiêu đề
+ * (dùng cho cả `title` lẫn `aria-label`) và icon lucide hiển thị —
+ * từ lát E1 toolbar dùng nút ICON như editor giaokhoa, thay cho các
+ * nút chữ trần `B`/`I`/`S`/`<>`/`U` trước đây.
+ */
+const TOOLBAR_MARKS: readonly { mark: ToolbarMark; title: string; Icon: LucideIcon }[] = [
+  { mark: 'bold', title: 'Chữ đậm', Icon: Bold },
+  { mark: 'italic', title: 'Chữ nghiêng', Icon: Italic },
+  { mark: 'strike', title: 'Gạch ngang chữ', Icon: Strikethrough },
+  { mark: 'code', title: 'Mã nội tuyến', Icon: Code },
+  { mark: 'underline', title: 'Gạch chân', Icon: Underline },
 ];
 
 /**
@@ -82,6 +105,20 @@ export interface RichTextEditorProps {
   /** Nhãn truy cập (aria-label) đặt trên vùng nhập liệu. */
   ariaLabel?: string;
   /**
+   * Cỡ vùng soạn: `default` là trường chính (chiều cao tối thiểu
+   * ~20rem như editor giaokhoa), `compact` là trường phụ (phương án,
+   * feedback... — chiều cao tối thiểu ~6rem như GuidanceEditor của
+   * giaokhoa). Mặc định `default`.
+   */
+  size?: 'default' | 'compact';
+  /**
+   * Id của phần tử slot ở header trang mà toolbar của editor đang
+   * active được portal vào (mặc định `editor-toolbar-slot`, theo đúng
+   * cơ chế của editor giaokhoa). Trang không có slot này thì toolbar
+   * neo sticky ngay trên editor đang active.
+   */
+  toolbarSlotId?: string;
+  /**
    * Đường chèn ảnh do bề mặt chứa cung cấp. Editor gọi callback này khi
    * người soạn bấm nút chèn ảnh (không kèm tệp) và khi người soạn dán
    * hoặc kéo-thả tệp ảnh vào vùng soạn (kèm đúng tệp đó); bề mặt chứa xử
@@ -100,13 +137,28 @@ export interface RichTextEditorProps {
  * trong LMS, dựng trên Tiptap với bộ extension của hợp đồng
  * ({@link plainTextExtensions}).
  *
- * Thanh công cụ gồm: năm nút bật/tắt mark (đậm, nghiêng, gạch ngang, mã
- * nội tuyến, gạch chân), nút danh sách không thứ tự, nút công thức mở
- * panel LaTeX (xem trước trực tiếp, chặn xác nhận khi LaTeX sai cú pháp),
- * và — khi bề mặt chứa truyền `onRequestImage` — nút ảnh. Nhấp đúp vào
- * một công thức đã chèn mở lại panel để sửa đúng công thức đó (đổi được
- * cả dạng trong dòng/tách dòng, xoá được tại panel). Dán hoặc kéo-thả
- * tệp ảnh cũng đi qua `onRequestImage` như nút ảnh.
+ * Thanh công cụ dùng nút icon lucide (lát E1): hoàn tác/làm lại (lát
+ * E2, trạng thái disabled theo `can()`), năm nút bật/tắt mark (đậm,
+ * nghiêng, gạch ngang, mã nội tuyến, gạch chân — trạng thái đang bật
+ * hiển thị qua `aria-pressed` + CSS), nút danh sách không thứ tự, nút
+ * công thức mở panel LaTeX dạng overlay nổi (xem trước trực tiếp, chặn
+ * xác nhận khi LaTeX sai cú pháp), và — khi bề mặt chứa truyền
+ * `onRequestImage` — nút ảnh. Nhấp đúp vào một công thức đã chèn mở lại
+ * panel để sửa đúng công thức đó (đổi được cả dạng trong dòng/tách
+ * dòng, xoá được tại panel). Dán hoặc kéo-thả tệp ảnh cũng đi qua
+ * `onRequestImage` như nút ảnh.
+ *
+ * Mô hình một toolbar (lát E3, theo editor giaokhoa): toolbar CHỈ hiện
+ * khi editor đang active (được focus) và được portal vào slot ở header
+ * trang (`#editor-toolbar-slot`) nếu trang có slot — một trang nhiều
+ * editor vẫn chỉ một toolbar cho editor đang focus; trang không có
+ * slot thì toolbar neo sticky ngay trên editor. Tương tác ra ngoài
+ * editor (kể cả ra ngoài panel công thức của nó) thì toolbar ẩn và
+ * panel đóng. Nội dung phát qua `onChange` luôn ở dạng đem-lưu
+ * ({@link contentForSave}: paragraph tiếp nối rỗng sau block nguyên tử
+ * ở cuối tài liệu bị dọn), và tài liệu nạp vào luôn được bảo đảm có
+ * paragraph tiếp nối khi kết thúc bằng block nguyên tử
+ * ({@link ensureTerminalContinuation}).
  *
  * Khi `value` do cha quản lý thay đổi từ bên ngoài, nội dung được đồng bộ
  * vào editor — chỉ ghi lại khi thật khác nội dung hiện tại để tránh vòng
@@ -120,9 +172,14 @@ export function RichTextEditor({
   onChange,
   editable = true,
   ariaLabel,
+  size = 'default',
+  toolbarSlotId = 'editor-toolbar-slot',
   onRequestImage,
 }: RichTextEditorProps) {
   const [mathPanel, setMathPanel] = useState<MathPanelState | null>(null);
+  const [active, setActive] = useState(false);
+  const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
+  const ownerId = useId();
   const onRequestImageRef = useRef(onRequestImage);
   onRequestImageRef.current = onRequestImage;
 
@@ -141,6 +198,7 @@ export function RichTextEditor({
       return false;
     }
     const kind = node.type.name as MathNodeKind;
+    setActive(true);
     setMathPanel({
       latex: typeof node.attrs.latex === 'string' ? node.attrs.latex : '',
       kind,
@@ -152,8 +210,11 @@ export function RichTextEditor({
 
   const editor = useEditor({
     extensions: plainTextExtensions,
-    content: value ?? EMPTY_DOCUMENT,
+    content: ensureTerminalContinuation(value ?? EMPTY_DOCUMENT),
     editable,
+    onFocus: () => {
+      setActive(true);
+    },
     editorProps: {
       attributes: {
         role: 'textbox',
@@ -203,21 +264,32 @@ export function RichTextEditor({
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
-      onChange?.(currentEditor.getJSON() as unknown as RichTextDocument);
+      onChange?.(contentForSave(currentEditor.getJSON() as unknown as RichTextDocument));
     },
   });
 
   const toolbarState = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => ({
-      bold: currentEditor.isActive('bold'),
-      italic: currentEditor.isActive('italic'),
-      strike: currentEditor.isActive('strike'),
-      code: currentEditor.isActive('code'),
-      underline: currentEditor.isActive('underline'),
-      bulletList: currentEditor.isActive('bulletList'),
+      bold: currentEditor?.isActive('bold') ?? false,
+      italic: currentEditor?.isActive('italic') ?? false,
+      strike: currentEditor?.isActive('strike') ?? false,
+      code: currentEditor?.isActive('code') ?? false,
+      underline: currentEditor?.isActive('underline') ?? false,
+      bulletList: currentEditor?.isActive('bulletList') ?? false,
+      canUndo: currentEditor?.can().chain().undo().run() ?? false,
+      canRedo: currentEditor?.can().chain().redo().run() ?? false,
     }),
-  });
+  }) ?? {
+    bold: false,
+    italic: false,
+    strike: false,
+    code: false,
+    underline: false,
+    bulletList: false,
+    canUndo: false,
+    canRedo: false,
+  };
 
   useEffect(() => {
     editor.setEditable(editable);
@@ -228,10 +300,45 @@ export function RichTextEditor({
       return;
     }
     const nextDocument = value ?? EMPTY_DOCUMENT;
-    if (JSON.stringify(editor.getJSON()) !== JSON.stringify(nextDocument)) {
-      editor.commands.setContent(nextDocument, { emitUpdate: false });
+    // So ở dạng đem-lưu: editor có thể đang giữ paragraph tiếp nối kỹ
+    // thuật mà `value` (đã qua contentForSave) không có — hai dạng đó
+    // là MỘT nội dung, không được setContent lại (sẽ cướp con trỏ).
+    const currentSaved = contentForSave(editor.getJSON() as unknown as RichTextDocument);
+    if (JSON.stringify(currentSaved) !== JSON.stringify(contentForSave(nextDocument))) {
+      editor.commands.setContent(ensureTerminalContinuation(nextDocument), {
+        emitUpdate: false,
+      });
     }
   }, [editor, value]);
+
+  // Một toolbar cho editor đang active (lát E3, theo giaokhoa): khi
+  // editor active, tìm slot ở header trang để portal toolbar vào;
+  // tương tác (pointerdown/focusin) ra ngoài mọi phần tử mang
+  // data-editor-owner của CHÍNH editor này (vùng soạn, toolbar, panel
+  // công thức) thì tắt active + đóng panel.
+  useEffect(() => {
+    if (!active) {
+      setHeaderTarget(null);
+      return undefined;
+    }
+    setHeaderTarget(document.getElementById(toolbarSlotId));
+    const belongsToEditor = (target: EventTarget | null) =>
+      target instanceof Element &&
+      target.closest('[data-editor-owner]')?.getAttribute('data-editor-owner') === ownerId;
+    const deactivate = (event: Event) => {
+      if (belongsToEditor(event.target)) {
+        return;
+      }
+      setActive(false);
+      setMathPanel(null);
+    };
+    document.addEventListener('pointerdown', deactivate, true);
+    document.addEventListener('focusin', deactivate, true);
+    return () => {
+      document.removeEventListener('pointerdown', deactivate, true);
+      document.removeEventListener('focusin', deactivate, true);
+    };
+  }, [active, ownerId, toolbarSlotId]);
 
   /**
    * Bật/tắt một mark trên vùng chọn hiện tại rồi trả focus về vùng nhập.
@@ -378,60 +485,108 @@ export function RichTextEditor({
     setMathPanel(null);
   }
 
+  const toolbar =
+    editable && active ? (
+      <div
+        className={
+          headerTarget
+            ? 'lms-editor-toolbar'
+            : 'lms-editor-toolbar lms-editor-toolbar--sticky'
+        }
+        role="toolbar"
+        aria-label="Công cụ chỉnh sửa"
+        data-editor-owner={ownerId}
+      >
+        <button
+          type="button"
+          className="lms-editor-toolbar__button"
+          title="Hoàn tác"
+          aria-label="Hoàn tác"
+          disabled={!toolbarState.canUndo}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => editor.chain().focus().undo().run()}
+        >
+          <Undo2 />
+        </button>
+        <button
+          type="button"
+          className="lms-editor-toolbar__button"
+          title="Làm lại"
+          aria-label="Làm lại"
+          disabled={!toolbarState.canRedo}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => editor.chain().focus().redo().run()}
+        >
+          <Redo2 />
+        </button>
+        <span className="lms-editor-toolbar__separator" aria-hidden="true" />
+        {TOOLBAR_MARKS.map(({ mark, title, Icon }) => (
+          <button
+            key={mark}
+            type="button"
+            className="lms-editor-toolbar__button"
+            title={title}
+            aria-label={title}
+            aria-pressed={toolbarState[mark]}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => toggleMark(mark)}
+          >
+            <Icon />
+          </button>
+        ))}
+        <button
+          type="button"
+          className="lms-editor-toolbar__button"
+          title="Danh sách không thứ tự"
+          aria-label="Danh sách không thứ tự"
+          aria-pressed={toolbarState.bulletList}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={toggleBulletList}
+        >
+          <List />
+        </button>
+        <span className="lms-editor-toolbar__separator" aria-hidden="true" />
+        <button
+          type="button"
+          className="lms-editor-toolbar__button"
+          title="Chèn công thức"
+          aria-label="Chèn công thức"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={openMathPanel}
+        >
+          <Sigma />
+        </button>
+        {onRequestImage ? (
+          <button
+            type="button"
+            className="lms-editor-toolbar__button"
+            title="Chèn ảnh"
+            aria-label="Chèn ảnh"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => void insertImagesFromHost([])}
+          >
+            <ImagePlus />
+          </button>
+        ) : null}
+      </div>
+    ) : null;
+
   return (
-    <div className="lms-rich-text-editor">
-      {editable ? (
-        <div className="lms-rich-text-editor__toolbar" role="toolbar">
-          {TOOLBAR_MARKS.map(({ mark, label, title }) => (
-            <button
-              key={mark}
-              type="button"
-              title={title}
-              aria-label={title}
-              aria-pressed={toolbarState[mark]}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => toggleMark(mark)}
-            >
-              {label}
-            </button>
-          ))}
-          <button
-            type="button"
-            title="Danh sách không thứ tự"
-            aria-label="Danh sách không thứ tự"
-            aria-pressed={toolbarState.bulletList}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={toggleBulletList}
-          >
-            &bull;
-          </button>
-          <button
-            type="button"
-            title="Chèn công thức"
-            aria-label="Chèn công thức"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={openMathPanel}
-          >
-            &Sigma;
-          </button>
-          {onRequestImage ? (
-            <button
-              type="button"
-              title="Chèn ảnh"
-              aria-label="Chèn ảnh"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => void insertImagesFromHost([])}
-            >
-              &#128247;
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+    <div
+      className={
+        size === 'compact'
+          ? 'lms-rich-text-editor lms-rich-text-editor--compact'
+          : 'lms-rich-text-editor'
+      }
+      data-editor-owner={ownerId}
+    >
+      {toolbar && headerTarget ? createPortal(toolbar, headerTarget) : toolbar}
       {editable && mathPanel ? (
         <MathEditorPanel
           latex={mathPanel.latex}
           kind={mathPanel.kind}
           error={mathPanel.error}
+          ownerId={ownerId}
           onLatexChange={(latex) =>
             setMathPanel((current) =>
               current ? { ...current, latex, error: undefined } : current,
@@ -445,7 +600,9 @@ export function RichTextEditor({
           onDelete={mathPanel.targetPos !== null ? deleteMathTarget : undefined}
         />
       ) : null}
-      <EditorContent editor={editor} />
+      <div className="lms-rich-text-editor__frame">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }

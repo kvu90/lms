@@ -1,0 +1,162 @@
+/*
+ * Vỏ trình bày của @lms/editor (lát E1, issue #248).
+ *
+ * Trước lát này package editor không có một rule CSS nào: nút toolbar là
+ * <button> trần không class, vùng soạn không khung/không chiều cao tối
+ * thiểu, panel công thức là khối inline không style. File này lo đúng
+ * phần ProseMirror/toolbar/panel không làm bằng Tailwind ở phía app
+ * được — theo đúng cách editor giaokhoa tách `editor.css` riêng khỏi
+ * Tailwind (115 dòng cho tay resize/selectedCell/bảng; ở đây chỉ gồm
+ * các trục đã có: khung vùng soạn, trạng thái pressed của toolbar,
+ * panel công thức dạng overlay nổi).
+ *
+ * Bề mặt chứa phải nạp file này một lần (apps/web nạp ở root:
+ * `@lms/editor/editor.css`). Các biến màu (--background, --border,
+ * --muted, --primary, --destructive...) lấy từ bộ token của @lms/ui.
+ */
+
+/* --- Khung vùng soạn: vùng soạn như một trang giấy (giaokhoa:
+       rounded-xl border bg-background, min-h-80 cho trường chính) --- */
+
+.lms-rich-text-editor__frame {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--background);
+}
+
+.lms-rich-text-editor .ProseMirror {
+  min-height: 20rem;
+  padding: 0.75rem 1rem;
+  outline: none;
+}
+
+/* Trường phụ (phương án, feedback, grader info...): bản nhỏ như
+   GuidanceEditor của giaokhoa (min-h-24). */
+.lms-rich-text-editor--compact .ProseMirror {
+  min-height: 6rem;
+}
+
+.lms-rich-text-editor .ProseMirror p {
+  margin: 0.25rem 0;
+}
+
+.lms-rich-text-editor .ProseMirror ul {
+  margin: 0.25rem 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+}
+
+.lms-rich-text-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Node nguyên tử đang được chọn (ảnh/công thức tách dòng) phải nhìn
+   thấy được là đang chọn. */
+.lms-rich-text-editor .ProseMirror .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+  border-radius: 0.25rem;
+}
+
+/* --- Thanh công cụ: nút icon cỡ size-8 kiểu Button/Toggle ghost của
+       @lms/ui (giaokhoa: size="icon-sm", h-11, gap-1, px-2) --- */
+
+.lms-editor-toolbar {
+  display: flex;
+  height: 2.75rem;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  overflow-x: auto;
+}
+
+/* Khi không có slot ở header trang, toolbar neo sticky ngay trên
+   editor đang active. */
+.lms-editor-toolbar--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-bottom: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.lms-editor-toolbar__button {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.lms-editor-toolbar__button:hover {
+  background: var(--muted);
+}
+
+.lms-editor-toolbar__button:focus-visible {
+  border-color: var(--ring);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* Trạng thái mark đang bật phải NHÌN THẤY được — trước lát này
+   aria-pressed đã khai nhưng không CSS nào hiển thị. */
+.lms-editor-toolbar__button[aria-pressed='true'] {
+  background: var(--muted);
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.lms-editor-toolbar__button:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.lms-editor-toolbar__button svg {
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
+}
+
+.lms-editor-toolbar__separator {
+  flex-shrink: 0;
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: var(--border);
+}
+
+/* --- Panel công thức: overlay nổi giữa đầu trang như giaokhoa
+       (fixed top-16, max-w-xl, shadow-2xl) thay cho khối inline đẩy
+       nội dung form xuống --- */
+
+.lms-math-panel {
+  position: fixed;
+  top: 4rem;
+  left: 50%;
+  z-index: 60;
+  width: calc(100% - 2rem);
+  max-width: 36rem;
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--background);
+  padding: 1.25rem;
+  box-shadow:
+    0 25px 50px -12px rgb(0 0 0 / 0.25),
+    0 8px 16px -8px rgb(0 0 0 / 0.15);
+}

@@ -1,8 +1,21 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { richTextDocumentSchema, type RichTextDocument } from '@lms/contracts';
+import { contentForSave, ensureTerminalContinuation } from './document-continuation.js';
 import { RichTextEditor } from './RichTextEditor.js';
 import { RichTextView } from './RichTextView.js';
+
+/**
+ * Đưa editor vào trạng thái active bằng cách focus vùng soạn — từ lát
+ * E3 toolbar chỉ hiện cho editor đang active, nên các ca bấm nút
+ * toolbar phải focus trước như người dùng thật.
+ */
+async function focusEditor(container: HTMLElement): Promise<void> {
+  const editable = container.querySelector('.ProseMirror');
+  expect(editable).not.toBeNull();
+  fireEvent.focus(editable as Element);
+  await screen.findByRole('button', { name: 'Hoàn tác' });
+}
 
 afterEach(() => {
   cleanup();
@@ -161,7 +174,8 @@ describe('RichTextEditor', () => {
 
   it('inserts an inline math node through the LaTeX panel', async () => {
     const { onChange, lastChange } = collectChanges();
-    render(<RichTextEditor onChange={onChange} />);
+    const { container } = render(<RichTextEditor onChange={onChange} />);
+    await focusEditor(container);
 
     fireEvent.click(screen.getByRole('button', { name: 'Chèn công thức' }));
     fireEvent.change(screen.getByLabelText('Mã LaTeX'), {
@@ -187,7 +201,8 @@ describe('RichTextEditor', () => {
 
   it('inserts a block math node when the panel toggle is on', async () => {
     const { onChange, lastChange } = collectChanges();
-    render(<RichTextEditor onChange={onChange} />);
+    const { container } = render(<RichTextEditor onChange={onChange} />);
+    await focusEditor(container);
 
     fireEvent.click(screen.getByRole('button', { name: 'Chèn công thức' }));
     fireEvent.click(screen.getByRole('button', { name: 'Tách dòng' }));
@@ -207,7 +222,8 @@ describe('RichTextEditor', () => {
 
   it('blocks saving invalid LaTeX and keeps the panel open with an error', async () => {
     const { onChange, changes } = collectChanges();
-    render(<RichTextEditor onChange={onChange} />);
+    const { container } = render(<RichTextEditor onChange={onChange} />);
+    await focusEditor(container);
 
     fireEvent.click(screen.getByRole('button', { name: 'Chèn công thức' }));
     fireEvent.change(screen.getByLabelText('Mã LaTeX'), {
@@ -271,7 +287,8 @@ describe('RichTextEditor', () => {
       ],
     };
     const { onChange, lastChange } = collectChanges();
-    render(<RichTextEditor value={initial} onChange={onChange} />);
+    const { container } = render(<RichTextEditor value={initial} onChange={onChange} />);
+    await focusEditor(container);
 
     fireEvent.click(screen.getByRole('button', { name: 'Danh sách không thứ tự' }));
 
@@ -286,7 +303,10 @@ describe('RichTextEditor', () => {
       alt: 'Đồ thị hàm số',
     }));
     const { onChange, lastChange } = collectChanges();
-    render(<RichTextEditor onChange={onChange} onRequestImage={onRequestImage} />);
+    const { container } = render(
+      <RichTextEditor onChange={onChange} onRequestImage={onRequestImage} />,
+    );
+    await focusEditor(container);
 
     fireEvent.click(screen.getByRole('button', { name: 'Chèn ảnh' }));
 
@@ -302,9 +322,143 @@ describe('RichTextEditor', () => {
     expect(onRequestImage).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the image button when the host provides no image callback', () => {
-    render(<RichTextEditor />);
+  it('hides the image button when the host provides no image callback', async () => {
+    const { container } = render(<RichTextEditor />);
+    await focusEditor(container);
 
     expect(screen.queryByRole('button', { name: 'Chèn ảnh' })).toBeNull();
+  });
+
+  it('shows the toolbar only while the editor is active (focused)', async () => {
+    const { container } = render(<RichTextEditor />);
+
+    // Chưa focus: không toolbar nào — trước lát E3 toolbar luôn hiện
+    // trên mọi editor của form.
+    expect(screen.queryByRole('toolbar')).toBeNull();
+
+    await focusEditor(container);
+    expect(screen.getByRole('toolbar')).toBeInTheDocument();
+
+    // Tương tác ra ngoài editor: toolbar ẩn đi.
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => {
+      expect(screen.queryByRole('toolbar')).toBeNull();
+    });
+  });
+
+  it('keeps a single toolbar for the focused editor when several editors share a page', async () => {
+    const first = render(<RichTextEditor ariaLabel="Trường một" />);
+    const second = render(<RichTextEditor ariaLabel="Trường hai" />);
+
+    await focusEditor(first.container);
+    expect(screen.getAllByRole('toolbar')).toHaveLength(1);
+
+    await focusEditor(second.container);
+    expect(screen.getAllByRole('toolbar')).toHaveLength(1);
+  });
+
+  it('undoes and redoes an insertion from the toolbar (Hoàn tác / Làm lại)', async () => {
+    const { onChange, lastChange } = collectChanges();
+    const { container } = render(<RichTextEditor onChange={onChange} />);
+    await focusEditor(container);
+
+    // Chưa có gì để hoàn tác: cả hai nút đều disabled theo can().
+    expect(screen.getByRole('button', { name: 'Hoàn tác' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Làm lại' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chèn công thức' }));
+    fireEvent.change(screen.getByLabelText('Mã LaTeX'), {
+      target: { value: 'a + b' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Xong' }));
+    await waitFor(() => {
+      expect(JSON.stringify(lastChange())).toContain('inlineMath');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hoàn tác' }));
+    await waitFor(() => {
+      expect(JSON.stringify(lastChange())).not.toContain('inlineMath');
+    });
+    expect(screen.getByRole('button', { name: 'Làm lại' })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Làm lại' }));
+    await waitFor(() => {
+      expect(JSON.stringify(lastChange())).toContain('inlineMath');
+    });
+  });
+
+  it('saves a document ending in a block formula without the technical trailing paragraph', async () => {
+    const { onChange, lastChange } = collectChanges();
+    const { container } = render(<RichTextEditor onChange={onChange} />);
+    await focusEditor(container);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chèn công thức' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tách dòng' }));
+    fireEvent.change(screen.getByLabelText('Mã LaTeX'), {
+      target: { value: 'x^2' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Xong' }));
+
+    await waitFor(() => {
+      expect(lastChange()?.content.at(-1)?.type).toBe('blockMath');
+    });
+    expect(richTextDocumentSchema.parse(lastChange())).toEqual(lastChange());
+  });
+});
+
+/**
+ * Vệ sinh tài liệu (lát E3, theo `contentForSave`/`ensureTerminal
+ * Continuations` của giaokhoa): paragraph tiếp nối sau block nguyên tử
+ * là hạ tầng soạn thảo, không phải nội dung — dạng đem lưu phải dọn nó,
+ * dạng nạp vào phải có nó để người soạn viết tiếp được.
+ */
+describe('document continuation helpers', () => {
+  it('strips only the empty continuation paragraph after a trailing atomic block', () => {
+    const document: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Đề bài' }] },
+        { type: 'blockMath', attrs: { latex: 'x^2' } },
+        { type: 'paragraph' },
+      ],
+    };
+
+    expect(contentForSave(document).content).toEqual([
+      { type: 'paragraph', content: [{ type: 'text', text: 'Đề bài' }] },
+      { type: 'blockMath', attrs: { latex: 'x^2' } },
+    ]);
+  });
+
+  it('keeps a trailing empty paragraph that does not follow an atomic block', () => {
+    const document: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Đề bài' }] },
+        { type: 'paragraph' },
+      ],
+    };
+
+    expect(contentForSave(document).content).toHaveLength(2);
+  });
+
+  it('appends a continuation paragraph when loading a document ending in an atomic block', () => {
+    const document: RichTextDocument = {
+      type: 'doc',
+      content: [{ type: 'blockMath', attrs: { latex: 'x^2' } }],
+    };
+
+    expect(ensureTerminalContinuation(document).content).toEqual([
+      { type: 'blockMath', attrs: { latex: 'x^2' } },
+      { type: 'paragraph' },
+    ]);
+    // Đã có paragraph chốt đuôi thì giữ nguyên tham chiếu.
+    const withParagraph: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'blockMath', attrs: { latex: 'x^2' } },
+        { type: 'paragraph', content: [{ type: 'text', text: 'tiếp' }] },
+      ],
+    };
+    expect(ensureTerminalContinuation(withParagraph)).toBe(withParagraph);
   });
 });
