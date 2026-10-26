@@ -2427,10 +2427,12 @@ describe('Messages page — MSG-T4 phía học sinh: không nới luật nhắn 
  * khi kiểm tra production): hai lỗi TRÌNH BÀY đã chốt cách sửa —
  * (1) avatar phải neo ở ĐẦU dòng tin, không còn neo đáy + hack
  * translate theo footer khiến avatar nằm ngang hàng hàng tuỳ chọn
- * dưới bong bóng; (2) hai menu nổi ở bề mặt chat (menu ⋯ trên tin và
- * menu quan hệ trên avatar/tên thành viên) phải có bề rộng tử tế và
- * từng mục nằm trên MỘT dòng, thay cho bề rộng mặc định bị ghim theo
- * nút gọt hẹp. Các ca dưới khoá đúng hai hợp đồng trình bày này qua
+ * dưới bong bóng; (2) các menu nổi ở bề mặt nhắn tin (menu ⋯ trên
+ * tin, menu quan hệ trên avatar/tên thành viên, và — lát bổ sung sau
+ * ghi nhận của đội đánh giá PR #298 — menu ⋯ trên từng hội thoại ở
+ * danh sách) phải có bề rộng tử tế và từng mục nằm trên MỘT dòng,
+ * thay cho bề rộng mặc định bị ghim theo nút gọt hẹp. Các ca dưới
+ * khoá đúng hai hợp đồng trình bày này qua
  * DOM người dùng thật sự nhận được; hành vi/handler không đổi nên
  * các describe cũ ở trên vẫn là nơi gác luồng nghiệp vụ.
  */
@@ -2513,6 +2515,21 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
     // "Chọn tin để gỡ hàng loạt" — nhãn dài nhất của menu này.
     await userEvent.click(screen.getByTestId('message-actions-01900000-0000-7000-8000-0000000000f6'));
     expect(await screen.findByRole('menuitemcheckbox', { name: 'Chọn tin để gỡ hàng loạt' })).toBeInTheDocument();
+    expectOpenMenuTidy();
+  });
+
+  it('menu ⋯ trên hội thoại ở danh sách: bề rộng tử tế, mọi mục một dòng', async () => {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const calls: RecordedCall[] = [];
+    stubFetchM5(calls);
+    renderMessages();
+
+    expect(await screen.findByRole('button', { name: /Hội thoại A/ })).toBeInTheDocument();
+
+    // Trạng thái chưa ghim: nhãn "Ghim cuộc trò chuyện" là nhãn bị bẻ
+    // hai dòng khi menu còn bề rộng mặc định (điểm sót lát trước).
+    await userEvent.click(screen.getByTestId(`conversation-actions-${M5_CONV_A}`));
+    expect(await screen.findByRole('menuitem', { name: 'Ghim cuộc trò chuyện' })).toBeInTheDocument();
     expectOpenMenuTidy();
   });
 });

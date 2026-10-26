@@ -22,7 +22,7 @@ import type {
   PeoplePickerContext,
   RosterMember,
 } from './types';
-import { initialsOf, relativeTime } from './utils';
+import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf, relativeTime } from './utils';
 
 /**
  * Khung trái màn Tin nhắn (lát MSG-T3, issue #33) — tổ chức lại
@@ -269,14 +269,14 @@ export function ConversationSidebar({
             >
               …
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={4}>
-              <DropdownMenuItem onClick={() => onUpdateConversationState(c, { pinned: !c.pinnedAt })}>
+            <DropdownMenuContent align="end" sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
+              <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onUpdateConversationState(c, { pinned: !c.pinnedAt })}>
                 {c.pinnedAt ? t('unpinConversation') : t('pinConversation')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUpdateConversationState(c, { archived: !c.archivedAt })}>
+              <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onUpdateConversationState(c, { archived: !c.archivedAt })}>
                 {c.archivedAt ? t('unarchiveConversation') : t('archiveConversation')}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUpdateConversationState(c, { muted: !c.muted })}>
+              <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onUpdateConversationState(c, { muted: !c.muted })}>
                 {c.muted ? t('unmuteConversation') : t('muteConversation')}
               </DropdownMenuItem>
             </DropdownMenuContent>
