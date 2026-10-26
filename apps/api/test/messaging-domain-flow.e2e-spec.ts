@@ -467,12 +467,16 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(removed.status).toBe(200);
     expect(new Set(removed.body.members as string[])).toEqual(new Set([teacher.id, s1.id]));
 
-    // Người bị gỡ mất quyền NGAY: đọc lại conversation → 404, gửi tin → bị chặn ở cổng thành viên.
+    // Người bị gỡ mất quyền NGAY: đọc lại conversation bị cổng thành
+    // viên của đường đọc chặn 403 messaging.not_member (đúng hành vi
+    // sẵn có của đường đọc chi tiết với người không còn là thành
+    // viên), gửi tin cũng bị chặn ở cùng cổng.
     const viewAfter = await http(app).get(`/api/v1/messages/conversations/${freeId}`)
       .set('Authorization', `Bearer ${s2.token}`);
-    expect(viewAfter.status).toBe(404);
+    expect(viewAfter.status).toBe(403);
+    expect(viewAfter.body.code).toBe('messaging.not_member');
     const sendAfter = await send(s2.token, freeId, 'em còn gửi được không');
-    expect(sendAfter.status).not.toBe(201);
+    expect(sendAfter.status).toBe(403);
 
     // Gỡ lại người đã không còn là thành viên → 404 member_not_found.
     const removeAgain = await http(app).delete(`/api/v1/messages/conversations/${freeId}/members/${s2.id}`)

@@ -2179,9 +2179,11 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     expect(screen.getByRole('button', { name: 'Tắt chat' })).toBeInTheDocument();
     // Roster được nạp hết trang từ endpoint roster của khoá.
     expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/courses/${COURSE_ID}/members?limit=100`)).toBe(true);
-    // Phân nhóm đúng vai: đồng GV ở nhóm Giáo viên, hai HS ở nhóm Học sinh.
-    expect(screen.getByText('Giáo viên')).toBeInTheDocument();
-    expect(screen.getByText('Học sinh')).toBeInTheDocument();
+    // Phân nhóm đúng vai: đồng GV ở nhóm Giáo viên, hai HS ở nhóm
+    // Học sinh. Tiêu đề mục là thẻ <p> — huy hiệu vai trên từng dòng
+    // mang cùng chữ nên phải neo theo selector.
+    expect(screen.getByText('Giáo viên', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('Học sinh', { selector: 'p' })).toBeInTheDocument();
     const teacherRow = screen.getByTestId(`member-panel-row-${THIRD_ID}`);
     expect(within(teacherRow).getByText('Cô Đồng Nghiệp')).toBeInTheDocument();
     const studentRow = screen.getByTestId(`member-panel-row-${OTHER_ID}`);
@@ -2295,8 +2297,9 @@ describe('Messages page — MSG-T4: panel thành viên + menu avatar', () => {
     // Loại "Nhóm tự do" khẳng định trong phạm vi panel (cây bên trái
     // cũng có một tiêu đề mục cùng chữ).
     expect(within(screen.getByTestId('member-panel')).getByText('Nhóm tự do')).toBeInTheDocument();
-    expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
-    expect(screen.getByText('Thành viên')).toBeInTheDocument();
+    // Tiêu đề hai mục phân vai (thẻ <p>; huy hiệu vai trên dòng mang cùng chữ).
+    expect(screen.getByText('Quản trị viên', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('Thành viên', { selector: 'p' })).toBeInTheDocument();
     // Người tạo nhóm là tôi: dòng của tôi mang huy hiệu Người tạo nhóm.
     const myRow = screen.getByTestId(`member-panel-row-${ME_ID}`);
     expect(within(myRow).getByText('Người tạo nhóm')).toBeInTheDocument();
