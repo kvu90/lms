@@ -32,16 +32,16 @@ import type { ResendMailService } from '../src/modules/mail/resend-mail.service'
  * tin; đặt lại mật khẩu bằng OTP; tài khoản bị đình chỉ vẫn bị chặn ở
  * guard dù đăng nhập OTP thành công.
  *
- * NGOẠI LỆ ĐÃ BIẾT (blocker thuộc BA-1, đã báo main chat): user do
- * bridge GĐ1 tạo có email_verified = false; khi user như vậy đăng
- * nhập OTP, Better Auth 1.7.12 chạy revokeUnprovenAccountAccess →
- * reserveVerificationValue ép id tất định dạng base64url vào cột
- * verification.id kiểu uuid (instance ghim generateId: false nên
- * encodeDeterministicId không sinh dạng UUID) → Postgres 22P02 →
- * HTTP 500. Ca đó được ghim bằng it.fails riêng bên dưới: khi BA-1
- * sửa gốc (khuyến nghị: đổi ghim sang generateId "uuid" — adapter
- * drizzle khai supportsUUIDs nên DB vẫn tự sinh UUIDv7), ca ghim sẽ
- * tự đỏ để nhắc gỡ .fails.
+ * BA-1 — chốt semantics revokeUnprovenAccountAccess (comment
+ * 6405565755 trên #7, thi công cùng PR này): user do cầu nối tạo là
+ * user do bên tin cậy tạo cho mailbox đã biết nên được tạo với
+ * email_verified = true, và instance ghim generateId "uuid" (id
+ * thường vẫn do PostgreSQL tự sinh UUIDv7 vì adapter drizzle khai
+ * supportsUUIDs; chỉ id tất định của verification lock mới đổi sang
+ * dạng UUID, hết lỗi 22P02). Nhờ đó đăng nhập OTP cho user bridge
+ * không còn chạy đường revoke xoá credential: ca bên dưới khẳng định
+ * credential mật khẩu còn nguyên và đăng nhập username/mật khẩu vẫn
+ * chạy sau khi đăng nhập OTP.
  *
  * Biến môi trường phải tồn tại TRƯỚC khi AppModule được nạp — như
  * spec nền better-auth-flow.
@@ -255,8 +255,9 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
   it('email OTP sign-in end-to-end: wrong code rejected, right code creates a working session, code is single-use', async () => {
     const user = await createMailUser('bamailotp');
     // User đã chứng minh email (trạng thái sau xác minh) — đường
-    // đăng nhập OTP chuẩn. User bridge chưa xác minh dính blocker
-    // BA-1, ghim riêng ở ca it.fails ngay dưới.
+    // đăng nhập OTP chuẩn. User bridge nay được tạo với
+    // email_verified = true (chốt semantics BA-1), nên đường này
+    // không còn chạm revokeUnprovenAccountAccess.
     await markEmailVerified(user.id);
     const sent = await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
@@ -317,12 +318,16 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect(attempt.status).toBe(400);
   });
 
-  // GHIM BLOCKER (BA-1): xem khối chú thích đầu file. User bridge
-  // (email_verified = false) đăng nhập OTP hiện trả 500 vì
-  // reserveVerificationValue ép id base64url vào cột uuid. Kỳ vọng
-  // ĐÚNG là 200; it.fails giữ ca này đỏ-có-chủ-đích cho tới khi BA-1
-  // sửa ghim generateId — lúc đó gỡ .fails và ca thành test thường.
-  it.fails('OTP sign-in for a not-yet-verified bridged user promotes them instead of erroring (BA-1 blocker)', async () => {
+  // BA-1 — chốt semantics revokeUnprovenAccountAccess (comment
+  // 6405565755 trên #7): user do cầu nối tạo là user do bên tin cậy
+  // tạo cho mailbox đã biết nên được tạo với email_verified = true;
+  // đường revoke của Better Auth thành no-op với user đó. Ca này
+  // (trước đây ghim bằng it.fails vì blocker generateId) giờ là
+  // test thường và siết thêm hai assertion bảo vệ semantics: sau
+  // đăng nhập OTP, credential mật khẩu của user vẫn còn nguyên trong
+  // bảng account và đăng nhập bằng username/mật khẩu vẫn chạy — tức
+  // OTP không xoá credential đã migrate.
+  it('OTP sign-in for a bridged user succeeds and keeps the password credential (BA-1 semantics)', async () => {
     const user = await createMailUser('bamailotpunv');
     const sent = await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
@@ -337,6 +342,12 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
       .set('Origin', TRUSTED_ORIGIN)
       .send({ email: user.email, otp });
     expect(ok.status).toBe(200);
+    const accounts = await pg.query(
+      "select count(*)::int as n from account where user_id = $1 and provider_id = 'credential'",
+      [user.id],
+    );
+    expect(accounts.rows[0].n).toBe(1);
+    expect((await signInByUsername(user.username, OLD_PASSWORD)).status).toBe(200);
   });
 
   it('password reset by email OTP works with the same mail pipeline', async () => {

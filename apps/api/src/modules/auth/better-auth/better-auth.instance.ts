@@ -7,7 +7,9 @@
  * - ghim exact `better-auth@1.7.12` + `@better-auth/drizzle-adapter@1.7.12`
  *   (khai trong package.json, không dùng dải ^);
  * - adapter Drizzle `transaction: true`, ánh xạ lên bảng `users` hiện hữu
- *   với `generateId: false` — PostgreSQL tự sinh UUIDv7 cho mọi bảng;
+ *   với `generateId: "uuid"` — xem ghi chú tại `advanced.database`
+ *   bên dưới (BA-1): id thường vẫn do PostgreSQL tự sinh UUIDv7, chỉ
+ *   các id tất định (verification lock) mới đổi sang dạng UUID;
  * - mật khẩu uỷ thác gói argon2 của dự án qua `PasswordService`: chiều
  *   `hash` chạy `validatePolicy` trước khi băm, chiều `verify` kiểm hash
  *   PHC argon2id do hệ hiện tại sinh ra — không ép đặt lại mật khẩu;
@@ -322,7 +324,21 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     },
     advanced: {
       disableOriginCheck: false,
-      database: { generateId: false },
+      // BA-1 (chốt blocker của BA-2, comment 6405565755 trên #7):
+      // `generateId: "uuid"` thay cho `false` trước đây. Đã đối chiếu
+      // mã nguồn 1.7.12 (`@better-auth/core` get-id-field):
+      // - id tất định (SHA-256 của identifier) chỉ định dạng thành
+      //   UUID khi generateId là "uuid" — với `false` nó thành chuỗi
+      //   base64url và Postgres ném 22P02 khi chèn vào cột
+      //   `verification.id` kiểu uuid (đường revokeUnprovenAccountAccess
+      //   khi user chưa xác minh đăng nhập OTP → HTTP 500);
+      // - id thường vẫn do PostgreSQL tự sinh UUIDv7 như trước: với
+      //   "uuid" và adapter drizzle khai `supportsUUIDs: true` cho pg,
+      //   `shouldGenerateId` = false nên field id không có defaultValue
+      //   phía ứng dụng, default uuidv7() của cột vẫn thắng.
+      // Thay đổi bề mặt hẹp nhưng đã kiểm chứng lại toàn bề mặt auth
+      // (xem spec better-auth-mail-flow + better-auth-flow).
+      database: { generateId: 'uuid' },
     },
   });
 }
