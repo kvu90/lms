@@ -162,11 +162,51 @@ export const programDatasetStatusSchema = z.object({
 export type ProgramDatasetStatus = z.infer<typeof programDatasetStatusSchema>;
 
 /**
+ * Loại thay đổi của một dòng YCCĐ trong một lượt nạp dataset (đợt neo
+ * lại định danh theo vị trí, issue #161): `text-changed` = sửa chữ tại
+ * chỗ giữ id và mọi liên kết; `added` = dòng mới của dataset;
+ * `removed` = dòng rời chương trình hiện hành (được rút, không xoá);
+ * `moved` = văn không đổi, chỉ xô vị trí vì chèn/bớt dòng khác;
+ * `revived` = dòng đã rút được hồi sinh vì nguyên văn quay lại.
+ */
+export const programImportChangeKindSchema = z.enum(['text-changed', 'added', 'removed', 'moved', 'revived']);
+export type ProgramImportChangeKind = z.infer<typeof programImportChangeKindSchema>;
+
+/**
+ * Một mục thay đổi theo từng dòng YCCĐ trong báo cáo của một lượt nạp
+ * — sản phẩm cho người duyệt đối chiếu "lần nạp này Bộ đã sửa những
+ * dòng nào" (áp dụng ngay rồi báo cáo, KHÔNG duyệt hai cấp). `position`
+ * là vị trí trong dataset MỚI; với `removed` là vị trí cuối cùng trước
+ * khi rút. `shiftSuspected` gắn khi ca sửa chữ có thể đã ghép nhầm
+ * dòng vì vừa sửa chữ vừa xô lệch; `identicalTextAmbiguous` gắn ở ca
+ * rút trong nhóm dòng trùng hệt nhau (không phân định được bằng văn
+ * bản — quy ước giữ dòng ở vị trí thấp). Số liên kết chỉ đếm tại thời
+ * điểm nạp cho `removed` và `text-changed` — hai ca người duyệt phải
+ * nhìn thấy ảnh hưởng lên câu hỏi/ánh xạ sách đang trỏ vào dòng.
+ */
+export const programImportChangeSchema = z.object({
+  recordId: z.string(),
+  position: z.number().int(),
+  kind: programImportChangeKindSchema,
+  oldText: z.string().optional(),
+  newText: z.string().optional(),
+  shiftSuspected: z.boolean().optional(),
+  identicalTextAmbiguous: z.boolean().optional(),
+  linkedQuestions: z.number().int().optional(),
+  linkedBookMappings: z.number().int().optional(),
+});
+export type ProgramImportChange = z.infer<typeof programImportChangeSchema>;
+
+/**
  * Kết quả một lượt nạp dataset: tạo mới / cập nhật (dataset đính
- * chính) / bỏ qua (đã khớp) + hai đếm orphaned của luật không-xoá
- * (GDPT-SEED): node của bản ghi đã rút khỏi dataset và YCCĐ 'program'
- * không còn trong dataset — cả hai được GIỮ NGUYÊN trong DB, chỉ báo
- * cáo để quản trị xử lý tường minh.
+ * chính) / bỏ qua (đã khớp) + báo cáo thay đổi của lần nạp. Luật
+ * không-xoá giữ nguyên: node của bản ghi đã rút khỏi dataset đếm ở
+ * `orphanedNodes` và được GIỮ NGUYÊN trong DB; YCCĐ rời dataset nay
+ * chuyển sang trạng thái ĐÃ RÚT lưu ở DB (`retiredOutcomes` là tổng số
+ * dòng đang rút của dataset sau lần nạp) thay cho đếm orphaned cũ —
+ * pool sinh đề và bản đặc tả nhờ đó phân biệt được hiện hành/đã rút.
+ * `changes` bị cắt ở trần 500 mục mỗi lượt nạp một dataset (số bị cắt
+ * ở `changesOmitted`); `changeCounts` luôn đầy đủ cả sáu đếm.
  */
 export const programImportResultSchema = z.object({
   datasetKey: z.string(),
@@ -177,7 +217,17 @@ export const programImportResultSchema = z.object({
   skipped: z.number().int(),
   outcomesWritten: z.number().int(),
   orphanedNodes: z.number().int(),
-  orphanedOutcomes: z.number().int(),
+  retiredOutcomes: z.number().int(),
+  changeCounts: z.object({
+    textChanged: z.number().int(),
+    added: z.number().int(),
+    removed: z.number().int(),
+    moved: z.number().int(),
+    revived: z.number().int(),
+    shiftSuspected: z.number().int(),
+  }),
+  changes: z.array(programImportChangeSchema),
+  changesOmitted: z.number().int(),
 });
 export type ProgramImportResult = z.infer<typeof programImportResultSchema>;
 

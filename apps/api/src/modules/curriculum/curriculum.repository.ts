@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { question, questionBankEntries } from '../../db/schema';
 import { curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, questionLearningOutcomes, subjects } from '../../db/schema';
@@ -113,16 +113,89 @@ export class CurriculumRepository {
   async getOutcome(id: string): Promise<LearningOutcomeRow | undefined> {
     const [row] = await this.db.select().from(learningOutcomes).where(eq(learningOutcomes.id, id)); return row;
   }
-  /** Liệt kê yêu cầu cần đạt của một node. */
-  async listOutcomes(nodeId: string): Promise<LearningOutcomeRow[]> {
-    return this.db.select().from(learningOutcomes).where(eq(learningOutcomes.nodeId, nodeId))
+  /**
+   * Liệt kê yêu cầu cần đạt HIỆN HÀNH của một node — ĐIỂM LỌC DUY
+   * NHẤT của trạng thái rút (đợt neo lại định danh, issue #161): mặc
+   * định loại các dòng đã rút (`retired_at` khác NULL); mọi bề mặt
+   * "chương trình hiện hành" (cây quản trị, bản đặc tả qua tầng
+   * service, khung nạp vào khoá) đều kế thừa mặc định này. Chỉ đường
+   * nội bộ cần thấy cả dòng đã rút (gác xoá node, importer) mới
+   * truyền `includeRetired: true`. Tra cứu đích danh theo id
+   * (getOutcome) KHÔNG lọc — id là địa chỉ lịch sử hợp lệ.
+   */
+  async listOutcomes(nodeId: string, opts?: { includeRetired?: boolean }): Promise<LearningOutcomeRow[]> {
+    const conditions = [eq(learningOutcomes.nodeId, nodeId)];
+    if (!opts?.includeRetired) conditions.push(isNull(learningOutcomes.retiredAt));
+    return this.db.select().from(learningOutcomes).where(and(...conditions))
       .orderBy(asc(learningOutcomes.position), asc(learningOutcomes.createdAt));
   }
-  /** Toàn bộ outcomes của nhiều node (dùng khi dựng cây của một chương trình). */
-  async listOutcomesForNodes(nodeIds: string[]): Promise<LearningOutcomeRow[]> {
+  /** Toàn bộ outcomes hiện hành của nhiều node (dựng cây của một chương trình); `includeRetired` như listOutcomes. */
+  async listOutcomesForNodes(nodeIds: string[], opts?: { includeRetired?: boolean }): Promise<LearningOutcomeRow[]> {
     if (nodeIds.length === 0) return [];
-    return this.db.select().from(learningOutcomes).where(inArray(learningOutcomes.nodeId, nodeIds))
+    const conditions = [inArray(learningOutcomes.nodeId, nodeIds)];
+    if (!opts?.includeRetired) conditions.push(isNull(learningOutcomes.retiredAt));
+    return this.db.select().from(learningOutcomes).where(and(...conditions))
       .orderBy(asc(learningOutcomes.position), asc(learningOutcomes.createdAt));
+  }
+  /**
+   * Toàn bộ dòng YCCĐ thuộc DIỆN DATASET QUẢN của một node — đường
+   * đọc riêng của importer: `source_kind = 'program'` VÀ `source_ref`
+   * khác NULL (dòng dataset luôn ghi kèm source_ref của bản ghi; dòng
+   * program do admin tạo tay có source_ref NULL nên không thuộc diện
+   * quản, importer không bao giờ đụng), GỒM CẢ dòng đã rút để thuật
+   * toán diff ghép cặp phân hai tập hiện hành / đã rút. Dòng `derived`
+   * không nằm trong diện này.
+   */
+  async listDatasetManagedOutcomes(nodeId: string): Promise<LearningOutcomeRow[]> {
+    return this.db.select().from(learningOutcomes)
+      .where(and(
+        eq(learningOutcomes.nodeId, nodeId),
+        eq(learningOutcomes.sourceKind, 'program'),
+        sql`${learningOutcomes.sourceRef} is not null`,
+      ))
+      .orderBy(asc(learningOutcomes.position), asc(learningOutcomes.createdAt));
+  }
+  /**
+   * Đếm liên kết đang trỏ vào từng YCCĐ trong một tập (gắn câu hỏi +
+   * ánh xạ sách theo outcome) — số liệu importer ghi vào báo cáo thay
+   * đổi cho các ca rút dòng/sửa chữ để người duyệt thấy ảnh hưởng.
+   * Trả Map theo outcomeId; id không có liên kết nào thì vắng khỏi Map.
+   */
+  async countOutcomeLinks(outcomeIds: string[]): Promise<Map<string, { questions: number; bookMappings: number }>> {
+    const out = new Map<string, { questions: number; bookMappings: number }>();
+    if (outcomeIds.length === 0) return out;
+    const linkRows = await this.db.select({
+      outcomeId: questionLearningOutcomes.learningOutcomeId, n: sql<number>`count(*)::int`,
+    }).from(questionLearningOutcomes)
+      .where(inArray(questionLearningOutcomes.learningOutcomeId, outcomeIds))
+      .groupBy(questionLearningOutcomes.learningOutcomeId);
+    for (const row of linkRows) {
+      out.set(row.outcomeId, { questions: row.n, bookMappings: 0 });
+    }
+    const mappingRows = await this.db.select({
+      outcomeId: bookMappings.learningOutcomeId, n: sql<number>`count(*)::int`,
+    }).from(bookMappings)
+      .where(inArray(bookMappings.learningOutcomeId, outcomeIds))
+      .groupBy(bookMappings.learningOutcomeId);
+    for (const row of mappingRows) {
+      if (row.outcomeId === null) continue;
+      const entry = out.get(row.outcomeId) ?? { questions: 0, bookMappings: 0 };
+      entry.bookMappings = row.n;
+      out.set(row.outcomeId, entry);
+    }
+    return out;
+  }
+  /** Tổng số dòng YCCĐ đang ở trạng thái đã rút của một dataset (đọc từ sổ: node của các bản ghi thuộc dataset). */
+  async countRetiredOutcomesForDataset(datasetKey: string): Promise<number> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(learningOutcomes)
+      .innerJoin(curriculumProgramRecords, eq(curriculumProgramRecords.nodeId, learningOutcomes.nodeId))
+      .where(and(
+        eq(curriculumProgramRecords.datasetKey, datasetKey),
+        eq(learningOutcomes.sourceKind, 'program'),
+        sql`${learningOutcomes.sourceRef} is not null`,
+        sql`${learningOutcomes.retiredAt} is not null`,
+      ));
+    return row?.n ?? 0;
   }
   /** Sửa yêu cầu cần đạt (đường nạp truyền tx để diff commit nguyên tử cùng node + dòng sổ). */
   async updateOutcome(id: string, v: Partial<typeof learningOutcomes.$inferInsert>, tx?: DbTx): Promise<void> {
@@ -180,7 +253,10 @@ export class CurriculumRepository {
     subjectName: string;
     subjectContextId: string;
   }[]> {
-    const conditions = [sql`${learningOutcomes.content} ILIKE ${`%${input.query}%`}`];
+    // Tìm kiếm là đường đọc "chương trình hiện hành": dòng đã rút
+    // (retired_at khác NULL) không được xuất hiện — cùng luật với
+    // listOutcomes, áp ngay tại truy vấn này vì nó không qua listOutcomes.
+    const conditions = [sql`${learningOutcomes.content} ILIKE ${`%${input.query}%`}`, isNull(learningOutcomes.retiredAt)];
     if (input.subjectId) conditions.push(eq(subjects.id, input.subjectId));
     if (input.grade !== undefined) conditions.push(eq(curricula.grade, input.grade));
     const rows = await this.db
@@ -228,10 +304,21 @@ export class CurriculumRepository {
 
   // --- sổ đăng ký nạp dữ liệu chuẩn (K0a) --------------------------------
 
+  /** Tổng số dòng sổ đăng ký — căn cứ xét "DB đã có dữ liệu chương trình chưa" cho đường restore dump khi seed. */
+  async countProgramRecords(): Promise<number> {
+    const [row] = await this.db.select({ n: sql<number>`count(*)::int` }).from(curriculumProgramRecords);
+    return row?.n ?? 0;
+  }
   /** Tra một bản ghi đã nạp theo định danh ổn định (dataset, mã bản ghi). */
   async getProgramRecord(datasetKey: string, recordId: string): Promise<ProgramRecordRow | undefined> {
     const [row] = await this.db.select().from(curriculumProgramRecords)
       .where(and(eq(curriculumProgramRecords.datasetKey, datasetKey), eq(curriculumProgramRecords.recordId, recordId)));
+    return row;
+  }
+  /** Tra dòng sổ theo node nội dung — phục vụ suy mã bản ghi (mã YCCĐ vị trí) cho một node thuộc dataset. */
+  async getProgramRecordByNodeId(nodeId: string): Promise<ProgramRecordRow | undefined> {
+    const [row] = await this.db.select().from(curriculumProgramRecords)
+      .where(eq(curriculumProgramRecords.nodeId, nodeId));
     return row;
   }
   /** Toàn bộ dòng sổ của một dataset (phục vụ trạng thái nạp + đối chiếu). */

@@ -115,6 +115,17 @@ export const curriculumNodes = pgTable('curriculum_nodes', {
  * trích dẫn nguồn nguyên văn (ví dụ "TT 32/2018/TT-BGDĐT — CT môn Toán,
  * lớp 12"). Định danh trình bày cho người dùng là vị trí trong chương
  * trình, không hiển thị uuid và không có "mã YCCĐ" (Bộ không ban hành mã).
+ *
+ * Trạng thái rút (đợt neo lại định danh theo vị trí, issue #161, sổ
+ * quyết định mục E dòng 19:57 ngày 26/10/2026): `retired_at` khác NULL
+ * nghĩa là dòng YCCĐ `program` do dataset quản đã rời khỏi chương
+ * trình hiện hành (Bộ rút dòng hoặc rút cả bản ghi) — dòng được GIỮ
+ * NGUYÊN trong DB cùng mọi liên kết trỏ vào nó (diff không xoá, FK
+ * restrict), chỉ rời khỏi mọi đường đọc "chương trình hiện hành"
+ * (lọc tại `CurriculumRepository.listOutcomes`). Chỉ importer được
+ * ghi cột này: đặt khi rút, xoá về NULL khi dòng được hồi sinh vì
+ * nguyên văn quay lại dataset. Dòng do admin tạo tay và dòng
+ * `derived` luôn có `retired_at` NULL.
  */
 export const learningOutcomes = pgTable('learning_outcomes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -126,6 +137,8 @@ export const learningOutcomes = pgTable('learning_outcomes', {
   sourceKind: text('source_kind').notNull().default('program'),
   sourceRef: text('source_ref'),
   derivedFromId: uuid('derived_from_id').references((): AnyPgColumn => learningOutcomes.id, { onDelete: 'set null' }),
+  /** Thời điểm dòng bị rút khỏi chương trình hiện hành bởi importer; NULL = đang hiện hành (xem ghi chú đầu bảng). */
+  retiredAt: timestamp('retired_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -135,6 +148,15 @@ export const learningOutcomes = pgTable('learning_outcomes', {
       index('learning_outcomes_tenant_id_idx').on(table.tenantId),
       index('learning_outcomes_node_id_idx').on(table.nodeId, table.position),
       index('learning_outcomes_derived_from_id_idx').on(table.derivedFromId),
+      // Chốt chặn ở tầng DB cho bất biến "một ô (node, vị trí) của diện
+      // dataset quản có tối đa MỘT dòng hiện hành": thuật toán diff của
+      // importer duy trì bất biến này, index biến lỗi diff thành lỗi ồn
+      // ào ngay ở lần nạp thay vì lặng lẽ nhân đôi ô. Dòng ngoài diện
+      // quản (source_ref NULL — kể cả dòng program admin tạo tay) nằm
+      // ngoài index, không bị ảnh hưởng.
+      uniqueIndex('learning_outcomes_dataset_slot_unique')
+        .on(table.nodeId, table.position)
+        .where(sql`${table.sourceKind} = 'program' and ${table.sourceRef} is not null and ${table.retiredAt} is null`),
   ]);
 
 /**

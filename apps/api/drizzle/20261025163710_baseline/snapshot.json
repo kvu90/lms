@@ -16708,6 +16708,45 @@
         "n|col|public.payment_accounts.id",
         "e|uniqueness|public.payment_accounts.id"
       ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "learning_outcomes",
+        "retired_at"
+      ],
+      "writes": [
+        "s|col|public.learning_outcomes.retired_at",
+        "n|col|public.learning_outcomes.retired_at",
+        "e|col|public.learning_outcomes.retired_at"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "learning_outcomes",
+        "learning_outcomes_dataset_slot_unique"
+      ],
+      "writes": [
+        "s|idx|public.learning_outcomes_dataset_slot_unique",
+        "n|idx|public.learning_outcomes_dataset_slot_unique",
+        "e|idx|public.learning_outcomes_dataset_slot_unique",
+        "n|rel|public.learning_outcomes_dataset_slot_unique"
+      ],
+      "reads": [
+        "n|tbl|public.learning_outcomes",
+        "n|sch|public",
+        "n|col|public.learning_outcomes.node_id",
+        "n|col|public.learning_outcomes.position"
+      ]
     }
   ],
   "ddl": [
@@ -56342,6 +56381,47 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "retired_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "learning_outcomes",
+      "name": "learning_outcomes_dataset_slot_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "node_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "position",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"source_kind\" = 'program' and \"source_ref\" is not null and \"retired_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
     }
   ]
 }

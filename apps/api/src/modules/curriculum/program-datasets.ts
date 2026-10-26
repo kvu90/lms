@@ -187,10 +187,13 @@ export function programOutcomeDocLines(doc: ProgramOutcomeDoc): string[] {
 /**
  * Text canonical của một YCCĐ: các dòng của doc nối bằng `\n`, cắt
  * khoảng trắng hai đầu. ĐÂY LÀ HÀM TRÍCH DUY NHẤT của hệ cho YCCĐ dạng
- * doc: id/hash của dòng YCCĐ tính trên text này (xem programOutcomeId)
- * và kiểm chứng toàn vẹn với `outcome_text` cũng so trên text này —
- * đổi định dạng lưu (thứ tự khoá JSON, marks) không làm đổi id, chỉ
- * đổi NỘI DUNG chữ mới đổi id.
+ * doc: kiểm chứng toàn vẹn với `outcome_text` so trên text này, và
+ * thuật toán diff của importer (ghép cặp theo vị trí + nội dung) cũng
+ * so trên text này. Text này KHÔNG phải định danh của dòng: id của
+ * dòng là uuidv7 mờ do DB cấp một lần khi tạo dòng, không suy từ bất
+ * kỳ thuộc tính nào — không từ text này, không từ vị trí (xem
+ * programRecordOutcomeEntries) — nên đổi định dạng lưu hay sửa chữ
+ * đều không đổi id của dòng.
  */
 export function programOutcomeDocText(doc: ProgramOutcomeDoc): string {
   return programOutcomeDocLines(doc).join('\n').trim();
@@ -331,7 +334,7 @@ export function programRecordEffectiveGrade(records: readonly ProgramRecord[], r
 
 /**
  * Namespace UUIDv5 cho TOÀN BỘ dữ liệu chuẩn do dataset sinh ra
- * (môn, chương trình, node, YCCĐ của tầng chương trình GDPT).
+ * (môn, chương trình, node của tầng chương trình GDPT — YCCĐ KHÔNG thuộc diện này: id uuidv7 mờ, xem programRecordOutcomeEntries).
  *
  * ⚠️ HẰNG SỐ ĐÓNG BĂNG VĨNH VIỄN — sinh ngẫu nhiên một lần khi chuẩn
  * này được thiết lập (GDPT-SEED, 25/10/2026). Đổi giá trị này = đổi
@@ -383,38 +386,30 @@ export function programLessonNodeId(datasetKey: string, recordId: string): strin
   return programId('record', `${datasetKey}|${recordId}`);
 }
 
-/** sha256 hex của một dòng YCCĐ (đúng văn bản nguyên văn của dòng). */
-export function programOutcomeTextHash(text: string): string {
-  return createHash('sha256').update(text, 'utf8').digest('hex');
-}
-
 /**
- * Id xác định của một dòng YCCĐ của một bản ghi: khoá tự nhiên là
- * (dataset, mã bản ghi, sha256 nội dung dòng). Neo theo NỘI DUNG thay
- * vì số thứ tự: Bộ chèn một ý mới vào giữa danh sách thì các ý cũ giữ
- * nguyên id; sửa chữ một ý = id mới (ý cũ thành orphaned — xem luật
- * diff không-xoá ở ProgramImportService). Hai dòng trùng nội dung
- * hệt nhau trong cùng một bản ghi được phân biệt bằng hậu tố `#2`,
- * `#3`… theo thứ tự xuất hiện.
- */
-export function programOutcomeId(datasetKey: string, recordId: string, text: string, occurrence = 1): string {
-  const suffix = occurrence > 1 ? `#${occurrence}` : '';
-  return programId('outcome', `${datasetKey}|${recordId}|${programOutcomeTextHash(text)}${suffix}`);
-}
-
-/**
- * Các dòng YCCĐ của một bản ghi kèm id xác định của chúng, theo đúng
- * thứ tự nguyên văn — đầu vào duy nhất của cả đường tạo mới lẫn đường
- * diff khi nạp lại. `position` là vị trí 1-based trong danh sách.
+ * ĐỊNH DANH CỦA YCCĐ — CHỐT CUỐI (Lão gia chốt 20:09 ngày 26/10/2026,
+ * sổ quyết định mục E, THAY mọi công thức v5 cho YCCĐ trước đó):
+ * YCCĐ program KHÔNG có hàm tính id nào cả. Id của một dòng là
+ * **uuidv7 mờ do DB cấp MỘT LẦN khi tạo dòng** (DEFAULT của cột —
+ * đúng mô hình giaokhoa), không suy từ bất kỳ thuộc tính nào (không
+ * hash nội dung, không vị trí, không khoá tự nhiên): sửa chữ = sửa
+ * `content` tại chỗ trên cùng dòng, id và mọi liên kết giữ nguyên;
+ * thêm dòng = chèn dòng mới (id mới) rồi set lại `position`. Tính
+ * nhất quán ID giữa các môi trường KHÔNG đến từ công thức mà đến từ
+ * DUMP ĐÔNG CỨNG (xem program-dump.ts): mọi môi trường restore cùng
+ * một artifact nên mang đúng các id literal của DB chuẩn.
+ *
+ * Các dòng YCCĐ của một bản ghi theo đúng thứ tự nguyên văn — đầu
+ * vào duy nhất của cả đường tạo mới lẫn đường diff của importer
+ * (công cụ sản xuất dump ở trung tâm). `position` là vị trí 1-based
+ * trong danh sách; phép ghép cặp của importer chạy trên (vị trí +
+ * nguyên văn) của các dòng ĐANG CÓ trong DB, không trên id tính.
  */
 export function programRecordOutcomeEntries(
-  datasetKey: string,
   record: ProgramRecord,
-): { id: string; text: string; position: number }[] {
-  const seen = new Map<string, number>();
-  return programRecordOutcomeTexts(record).map((text, i) => {
-    const occurrence = (seen.get(text) ?? 0) + 1;
-    seen.set(text, occurrence);
-    return { id: programOutcomeId(datasetKey, record.id, text, occurrence), text, position: i + 1 };
-  });
+): { text: string; position: number }[] {
+  return programRecordOutcomeTexts(record).map((text, i) => ({
+    text,
+    position: i + 1,
+  }));
 }

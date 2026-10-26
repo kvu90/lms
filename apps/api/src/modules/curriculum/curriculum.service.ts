@@ -245,7 +245,9 @@ export class CurriculumService implements OnModuleInit {
     }
     const nodeIds = [id];
     for (let i = 0; i < nodeIds.length; i += 1) nodeIds.push(...(childrenByParent.get(nodeIds[i]!) ?? []));
-    const outcomes = await this.repo.listOutcomesForNodes(nodeIds);
+    // Gác xoá phải thấy CẢ dòng đã rút: chúng vẫn mang liên kết cứng
+    // (FK restrict) dù đã rời các đường đọc hiện hành.
+    const outcomes = await this.repo.listOutcomesForNodes(nodeIds, { includeRetired: true });
     await this.assertNotReferenced(nodeIds, outcomes.map((o) => o.id), `node ${id}`);
     await this.repo.deleteNode(id);
   }
@@ -344,11 +346,28 @@ export class CurriculumService implements OnModuleInit {
       sourceKind: input.sourceKind ?? 'program', sourceRef: input.sourceRef ?? null, derivedFromId: input.derivedFromId ?? null,
     });
   }
-  /** Liệt kê yêu cầu cần đạt của một node. */
-  async listOutcomes(actorId: string, nodeId: string): Promise<LearningOutcomeRow[]> {
+  /**
+   * Liệt kê yêu cầu cần đạt của một node. Mặc định chỉ dòng HIỆN
+   * HÀNH (loại dòng đã rút — điểm lọc duy nhất ở repository);
+   * `includeRetired` chỉ dành cho đường nội bộ cần thấy cả dòng đã
+   * rút. Mọi bề mặt tiêu thụ (bản đặc tả, cây, picker) dùng mặc định.
+   */
+  async listOutcomes(actorId: string, nodeId: string, opts?: { includeRetired?: boolean }): Promise<LearningOutcomeRow[]> {
     const { subject } = await this.nodeChainOr404(nodeId);
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
-    return this.repo.listOutcomes(nodeId);
+    return this.repo.listOutcomes(nodeId, opts);
+  }
+  /**
+   * Mã bản ghi chương trình của một node thuộc dataset (null khi node
+   * không thuộc bản ghi dataset nào) — căn cứ suy MÃ YCCĐ VỊ TRÍ
+   * `<recordId>.<position 2 số>` cho bản đặc tả (một nguồn sự thật
+   * cho vị trí: backend tính, web không tự suy). Đường nội bộ cho
+   * tầng quiz, không có cổng capability riêng — caller đã gác quyền
+   * của bề mặt của nó trước khi gọi.
+   */
+  async programRecordIdForNode(nodeId: string): Promise<string | null> {
+    const row = await this.repo.getProgramRecordByNodeId(nodeId);
+    return row?.recordId ?? null;
   }
   /** Lấy yêu cầu cần đạt theo id. */
   async getOutcome(actorId: string, id: string): Promise<LearningOutcomeRow> {

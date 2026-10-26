@@ -81,3 +81,47 @@ các FK set-null giữ nguyên.
 - Cái giá: tầng nạp phức tạp hơn (diff thay vì xoá-tạo-lại) và
   namespace là một hằng số phải bảo toàn vĩnh viễn — đổi namespace
   tương đương đổi chuẩn định danh.
+
+## Đính chính ngày 26/10/2026 — YCCĐ: id uuidv7 mờ + phân phối bằng DUMP ĐÔNG CỨNG (issue #161)
+
+Lệnh của Lão gia 19:41 ngày 26/10/2026 ("Research lại công văn đi
+rồi dựng lại cho đúng"), research ở hồ sơ
+`yccd-identity-reanchor-research-2026-10-26.md` (mục Q1: văn bản
+chương trình TT 32/2018 tổ chức YCCĐ thành các dòng gạch đầu dòng
+theo thứ tự cố định trong ô của một đơn vị nội dung — Bộ không ban
+hành mã YCCĐ; mục Q2: giaokhoa mô hình YCCĐ là dòng tại vị trí với
+sửa tại chỗ và id mờ), và CHỐT CUỐI của Lão gia 20:09 cùng ngày (sổ
+quyết định mục E — bản này THAY bản chốt 19:57 dùng UUIDv5 theo vị
+trí, vốn không còn hiệu lực). Các điểm đổi:
+
+- **Định danh YCCĐ program: BỎ HẲN UUIDv5** (cả khoá hash nội dung
+  lẫn khoá vị trí). Id là **uuidv7 mờ, DB cấp MỘT LẦN khi tạo dòng,
+  không tính từ bất kỳ thuộc tính nào, không bao giờ đổi**. Sửa chữ
+  = sửa text tại chỗ, id và mọi liên kết giữ nguyên; thêm dòng =
+  chèn dòng mới (id mới) rồi set lại `position`.
+- **Phân phối bằng DUMP ĐÔNG CỨNG thay cơ chế hội tụ v5**: nạp
+  dataset một lần vào DB chuẩn → dump các bảng chương trình thành
+  artifact SQL có version trong repo
+  (`program-data-dump/program-dump.sql`, version ở
+  `PROGRAM_DUMP_VERSION`) → mọi môi trường RESTORE dump khi seed,
+  KHÔNG chạy importer. ID trong dump là hằng số literal nên khớp
+  100% giữa các môi trường bất kể lịch sử nạp.
+- **Importer giữ vai công cụ sản xuất dump ở trung tâm**: patch DB
+  chuẩn tại chỗ theo ngữ nghĩa trên — ghép dòng theo (bản ghi + vị
+  trí + nguyên văn) trên chính DB đó (không theo id tính), thuật
+  toán ghép cặp 6 bước (khớp vị trí+nguyên văn → khớp nguyên văn/xô
+  lệch chỉ sửa position → sửa chữ tại chỗ → hồi sinh → thêm mới →
+  rút không xoá, ca mơ hồ gắn cờ `shiftSuspected` /
+  `identicalTextAmbiguous`) — sinh **báo cáo thay đổi** cho người
+  duyệt (`retiredOutcomes` + `changeCounts` / `changes` trần 500 /
+  `changesOmitted` trong kết quả nạp; trường `orphanedOutcomes` cũ
+  bị bỏ), rồi dump lại bản mới.
+- **Trạng thái rút lưu ở cột `learning_outcomes.retired_at`** +
+  partial unique index cho ô (node, vị trí) hiện hành của diện
+  dataset quản. Mọi đường đọc "chương trình hiện hành" lọc
+  `retired_at IS NULL` tại repository `listOutcomes`; bản đặc tả
+  trả `position`/`code` và bản xuất in mã YCCĐ tiền tố (backend là
+  nguồn sự thật duy nhất cho vị trí).
+- Phần subject/curriculum/node, ledger và FK restrict của ADR này
+  giữ nguyên hiệu lực. Triển khai của đợt này = reset + restore
+  dump.
