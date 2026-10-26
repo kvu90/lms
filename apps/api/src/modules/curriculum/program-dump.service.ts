@@ -38,9 +38,13 @@ export class ProgramDumpService {
     return { restored: true, version: PROGRAM_DUMP_VERSION };
   }
 
-  /** Toàn văn dump của DB hiện tại (đường sản xuất ở trung tâm + kiểm chứng dùng chung). */
-  async buildDumpSql(): Promise<string> {
-    return buildProgramDumpSql(this.db);
+  /**
+   * Toàn văn dump của DB hiện tại (đường sản xuất ở trung tâm xuất
+   * toàn bộ; kiểm chứng trong suite dùng chung DB truyền `datasetKey`
+   * để giới hạn phạm vi theo một dataset).
+   */
+  async buildDumpSql(opts?: { datasetKey?: string }): Promise<string> {
+    return buildProgramDumpSql(this.db, opts);
   }
 
   /**

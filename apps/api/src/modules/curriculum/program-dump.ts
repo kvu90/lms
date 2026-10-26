@@ -105,22 +105,43 @@ function orderOutcomesTopologically<T extends { id: string; derivedFromId: strin
 }
 
 /**
- * Xuất toàn bộ các bảng chương trình của DB hiện tại thành artifact
- * SQL đông cứng. Thứ tự bảng tôn trọng FK: subjects → curricula →
+ * Xuất các bảng chương trình của DB hiện tại thành artifact SQL
+ * đông cứng. Thứ tự bảng tôn trọng FK: subjects → curricula →
  * curriculum_nodes (cha trước con) → learning_outcomes (gốc trước
- * derived) → curriculum_program_records. DB nguồn PHẢI là DB chuẩn
- * chỉ chứa dữ liệu chương trình do importer sản xuất — hàm này xuất
- * toàn bộ nội dung các bảng trên, không lọc theo dataset.
+ * derived) → curriculum_program_records.
  *
- * @param db - Kết nối DB chuẩn cần xuất dump.
+ * Phạm vi xuất:
+ * - Mặc định (đường sản xuất ở trung tâm): TOÀN BỘ các bảng — DB
+ *   nguồn PHẢI là DB chuẩn chỉ chứa dữ liệu chương trình do
+ *   importer sản xuất.
+ * - `datasetKey` (đường kiểm chứng trong suite dùng chung DB): chỉ
+ *   xuất cây của đúng dataset đó — môn/chương trình suy từ sổ đăng
+ *   ký của dataset, node theo các chương trình đó, YCCĐ theo các
+ *   node đó — để vòng xuất → restore không đụng dữ liệu của các
+ *   suite khác đang ở chung DB.
+ *
+ * @param db - Kết nối DB cần xuất dump.
+ * @param opts - `datasetKey` để giới hạn phạm vi theo một dataset.
  * @returns Toàn văn file SQL (kèm header version + số dòng từng bảng).
  */
-export async function buildProgramDumpSql(db: Database): Promise<string> {
-  const subjectRows = await db.select().from(subjects);
-  const curriculaRows = await db.select().from(curricula);
-  const nodeRows = orderNodesTopologically(await db.select().from(curriculumNodes));
-  const outcomeRows = orderOutcomesTopologically(await db.select().from(learningOutcomes));
-  const recordRows = await db.select().from(curriculumProgramRecords);
+export async function buildProgramDumpSql(db: Database, opts?: { datasetKey?: string }): Promise<string> {
+  let subjectRows = await db.select().from(subjects);
+  let curriculaRows = await db.select().from(curricula);
+  let nodeRows = await db.select().from(curriculumNodes);
+  let outcomeRows = await db.select().from(learningOutcomes);
+  let recordRows = await db.select().from(curriculumProgramRecords);
+  if (opts?.datasetKey) {
+    recordRows = recordRows.filter((r) => r.datasetKey === opts.datasetKey);
+    const subjectIds = new Set(recordRows.map((r) => r.subjectId));
+    const curriculumIds = new Set(recordRows.map((r) => r.curriculumId));
+    const nodeIds = new Set(nodeRows.filter((n) => curriculumIds.has(n.curriculumId)).map((n) => n.id));
+    subjectRows = subjectRows.filter((r) => subjectIds.has(r.id));
+    curriculaRows = curriculaRows.filter((r) => curriculumIds.has(r.id));
+    nodeRows = nodeRows.filter((n) => nodeIds.has(n.id));
+    outcomeRows = outcomeRows.filter((o) => nodeIds.has(o.nodeId));
+  }
+  nodeRows = orderNodesTopologically(nodeRows);
+  outcomeRows = orderOutcomesTopologically(outcomeRows);
 
   const lines: string[] = [
     '-- =====================================================================',

@@ -214,7 +214,10 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(before.nodes.length).toBeGreaterThan(116);
     expect(before.outcomes.length).toBeGreaterThan(300);
 
-    const dumpSql = await dumpSvc.buildDumpSql();
+    // Suite chạy trên DB dùng chung với các spec khác: dump phải
+    // giới hạn ở cây của GDCD (đường sản xuất ở trung tâm dùng DB
+    // chuyên dụng nên xuất toàn bộ — cùng một hàm, khác phạm vi).
+    const dumpSql = await dumpSvc.buildDumpSql({ datasetKey: DATASET_KEY });
     expect(dumpSql).toContain('DUMP ĐÔNG CỨNG');
 
     await wipeSubject();
