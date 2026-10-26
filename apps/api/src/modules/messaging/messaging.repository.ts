@@ -1390,7 +1390,13 @@ export class MessagingRepository {
   // tại context lớp mức 45 hoặc tổ tiên) — đọc trực tiếp qua barrel
   // schema như phần cây nhóm ở dưới, không import ClassesModule.
 
-  /** Tóm tắt một lớp (cho đường ensure + roster phía messages). */
+  /**
+   * Tóm tắt một lớp (cho đường ensure + roster phía messages).
+   *
+   * @param classId - Id lớp cần tra.
+   * @returns Tên, chủ lớp, cohort đỡ roster, tenant và trạng thái
+   *   của lớp; `undefined` khi lớp không tồn tại.
+   */
   async getClassSummary(classId: string): Promise<{ classId: string; name: string; ownerId: string; cohortId: string; tenantId: string; status: string } | undefined> {
     const [row] = await this.db.select({
       classId: classes.id, name: classes.name, ownerId: classes.ownerId,
@@ -1403,6 +1409,10 @@ export class MessagingRepository {
    * tổ tiên của nó — tập "giáo viên của lớp" (chủ lớp có editingteacher
    * tại context lớp nên nằm trong tập này), khớp
    * {@link listCourseStaffUserIds} ở cấp khoá.
+   *
+   * @param classId - Id lớp làm phạm vi.
+   * @returns Danh sách id người dùng thuộc tập staff của lớp (rỗng
+   *   khi lớp chưa có context).
    */
   async listClassStaffUserIds(classId: string): Promise<string[]> {
     const [classCtx] = await this.db.select().from(context)
@@ -1424,6 +1434,10 @@ export class MessagingRepository {
    * không — "giáo viên của lớp" theo cùng định nghĩa roster khoá dùng
    * cho cờ nhắn thẳng GV–HS (chủ lớp mang editingteacher tại context
    * lớp nên qua được kiểm này).
+   *
+   * @param classId - Id lớp làm phạm vi.
+   * @param userId - Người cần kiểm.
+   * @returns `true` khi có gán vai staff ngay tại context lớp.
    */
   async isClassTeachingStaff(classId: string, userId: string): Promise<boolean> {
     const [classCtx] = await this.db.select({ id: context.id }).from(context)
@@ -1440,7 +1454,13 @@ export class MessagingRepository {
       .limit(1);
     return rows.length > 0;
   }
-  /** Thành viên roster hiệu lực của lớp (≡ cohort_members của backing cohort). */
+  /**
+   * Thành viên roster hiệu lực của lớp (≡ cohort_members của backing
+   * cohort).
+   *
+   * @param classId - Id lớp.
+   * @returns Danh sách id thành viên roster (rỗng khi lớp không còn).
+   */
   async listClassRosterMemberIds(classId: string): Promise<string[]> {
     const cls = await this.getClassSummary(classId);
     if (!cls) return [];
@@ -1450,7 +1470,12 @@ export class MessagingRepository {
   }
   /**
    * Tập thành viên của conversation cấp lớp: roster lớp hiệu lực ∪
-   * chủ lớp ∪ staff của lớp.
+   * chủ lớp ∪ staff của lớp. Đây là TẬP ĐÍCH duy nhất mà mọi đường
+   * đồng bộ lười của chat lớp hướng về — roster lớp là nguồn sự
+   * thật, thành viên chat chỉ là hình chiếu của nó.
+   *
+   * @param classId - Id lớp.
+   * @returns Danh sách id thành viên (đã khử trùng) của chat lớp.
    */
   async listClassConversationMemberIds(classId: string): Promise<string[]> {
     const cls = await this.getClassSummary(classId);
@@ -1464,6 +1489,10 @@ export class MessagingRepository {
    * không: thành viên roster, chủ lớp, hoặc có BẤT KỲ gán vai nào tại
    * context lớp (gán vai tại lớp cũng là quan hệ thuộc lớp, như định
    * nghĩa thành viên khoá gồm gán vai tại context khoá).
+   *
+   * @param classId - Id lớp.
+   * @param userId - Người cần kiểm.
+   * @returns `true` khi người dùng thuộc lớp theo bất kỳ vế nào.
    */
   async isClassMember(classId: string, userId: string): Promise<boolean> {
     const cls = await this.getClassSummary(classId);
@@ -1485,6 +1514,11 @@ export class MessagingRepository {
    * Conversation gắn với chính một lớp qua (component, itemType,
    * itemId). Nhận tx tuỳ chọn để re-check TRONG transaction đã giữ
    * khoá advisory (xem {@link acquireClassConversationLock}).
+   *
+   * @param classId - Id lớp.
+   * @param tx - Transaction đang chạy (khi re-check trong ensure),
+   *   bỏ trống thì đọc bằng kết nối thường.
+   * @returns Conversation cấp lớp của lớp, hoặc `undefined`.
    */
   async findClassConversation(classId: string, tx?: DbTx): Promise<ConversationRow | undefined> {
     const [row] = await (tx ?? this.db).select().from(messageConversations).where(and(
@@ -1499,6 +1533,9 @@ export class MessagingRepository {
    * conversation cấp lớp — cùng khuôn khoá cấp khoá, giữ bất biến
    * "mỗi lớp đúng một conversation cấp lớp" mà không cần unique trên
    * schema.
+   *
+   * @param tx - Transaction sẽ giữ khoá tới khi commit/rollback.
+   * @param classId - Id lớp làm khoá.
    */
   async acquireClassConversationLock(tx: DbTx, classId: string): Promise<void> {
     const key = `messaging:core_class:${classId}`;
@@ -1509,6 +1546,10 @@ export class MessagingRepository {
    * lớp / staff tại context lớp / thành viên roster — đúng tập lớp
    * của cây nhóm) — để thao tác liệt kê cũng kích hoạt đồng bộ lười
    * như đường khoá.
+   *
+   * @param userId - Người đang liệt kê.
+   * @returns Các conversation cấp lớp đã tồn tại của những lớp mà
+   *   người dùng có quan hệ (chưa ensure thì lớp chưa có dòng nào).
    */
   async listClassConversationsForMember(userId: string): Promise<ConversationRow[]> {
     const relations = await this.listTreeClassesForUser(userId);
@@ -1527,6 +1568,14 @@ export class MessagingRepository {
    * ∪ gán vai tại context lớp (cờ `staff` = archetype staff tại
    * context lớp); tài khoản đã xoá/tạm ngưng/khách, chính người xem
    * và quan hệ chặn hai chiều bị loại ngay tại SQL.
+   *
+   * @param classId - Id lớp.
+   * @param actorId - Người xem (bị loại khỏi kết quả).
+   * @param cursor - Mốc (displayName, username, id) của dòng cuối
+   *   trang trước; null khi lấy trang đầu.
+   * @param limit - Số dòng tối đa (service truyền limit + 1 để dò
+   *   còn trang sau hay không).
+   * @returns Các dòng roster của trang, đã sắp xếp ổn định.
    */
   async listClassRosterPage(classId: string, actorId: string, cursor: { displayName: string; username: string; userId: string } | null, limit: number): Promise<{
     userId: string; username: string; firstName: string; lastName: string; displayName: string; staff: boolean; enrolled: boolean;
@@ -1596,6 +1645,10 @@ export class MessagingRepository {
    * lớp mang editingteacher tại context lớp nên nằm trong vế này) và
    * phía KIA là thành viên roster hiệu lực của chính lớp đó. Trả id
    * lớp đầu tiên khớp, không có thì null.
+   *
+   * @param userA - Một phía của cặp.
+   * @param userB - Phía còn lại của cặp.
+   * @returns Id lớp chung đầu tiên theo quan hệ GV–HS, hoặc null.
    */
   async findTeacherStudentSharedClassId(userA: string, userB: string): Promise<string | null> {
     const rows = await this.db.select({ classId: context.instanceId })

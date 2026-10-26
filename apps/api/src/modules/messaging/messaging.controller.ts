@@ -249,6 +249,11 @@ export class MessagingController {
    * lớp nhận 404 y hệt lớp không tồn tại. Mỗi dòng kèm dấu hiệu vai
    * trò, trạng thái quan hệ với người xem và cờ canDirectMessage
    * khớp cổng nhắn riêng GV↔HS theo quan hệ lớp.
+   *
+   * @param classId - Id lớp (path).
+   * @param query - Phân trang con trỏ (dùng lại schema roster khoá).
+   * @returns Một trang roster kèm con trỏ trang kế.
+   * @throws 404 `messaging.class_not_found` cho người ngoài lớp.
    */
   async classRoster(
     @Param('classId', { schema: uuidIdSchema }) classId: string,
@@ -266,6 +271,14 @@ export class MessagingController {
    * "Chat lớp" ở trang lớp và cho nút lớp của cây nhóm. Chỉ người
    * thuộc lớp hoặc staff lớp mở được; người ngoài nhận 404 như lớp
    * không tồn tại.
+   *
+   * Side-effect: lần mở đầu tiên của một lớp GHI conversation +
+   * thành viên khởi tạo vào DB (ensure lười); các lần sau chỉ đồng
+   * bộ lười thành viên.
+   *
+   * @param classId - Id lớp (path).
+   * @returns Conversation cấp lớp kèm danh sách thành viên.
+   * @throws 404 `messaging.class_not_found` cho người ngoài lớp.
    */
   async classConversation(
     @Param('classId', { schema: uuidIdSchema }) classId: string,

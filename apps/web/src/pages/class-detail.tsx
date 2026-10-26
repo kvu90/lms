@@ -59,10 +59,16 @@ export function ClassDetailPage() {
   const [chatError, setChatError] = useState<string | null>(null);
 
   /**
-   * Mở chat cấp lớp: GET ensure conversation của lớp phía messaging
-   * (cấp phát lười phía server, lát MSG-T2) rồi điều hướng sang trang
+   * Mở chat cấp lớp (lát MSG-T2).
+   *
+   * Flow: bấm nút "Chat lớp" → GET ensure conversation của lớp phía
+   * messaging (cấp phát lười phía server) → điều hướng sang trang
    * Tin nhắn mở đúng conversation qua deep-link `?conversation=` sẵn
-   * có — cùng khuôn nút chat ở trang khoá.
+   * có — cùng khuôn nút chat ở trang khoá. Trang này KHÔNG tự gác
+   * quyền: người ngoài lớp bị API trả 404 và luồng rơi vào nhánh lỗi
+   * hiển thị thông báo.
+   *
+   * Side-effect: lần mở đầu tiên của lớp tạo conversation ở server.
    */
   async function openClassChat() {
     setChatBusy(true);

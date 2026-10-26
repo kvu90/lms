@@ -945,18 +945,29 @@ export class MessagingService {
    * KHÔNG đi qua cổng này.
    *
    * NGOẠI LỆ duy nhất (Lão gia chốt bổ sung 25/10/2026 trên issue
-   * #33): cặp GIÁO VIÊN của khoá ↔ HỌC SINH đang ghi danh chính khoá
-   * đó nhắn riêng trực tiếp không cần kết bạn — cả mở hội thoại mới
+   * #33): cặp GIÁO VIÊN ↔ HỌC SINH thuộc cùng một đơn vị học tập
+   * nhắn riêng trực tiếp không cần kết bạn — cả mở hội thoại mới
    * lẫn gửi vào hội thoại cũ, cả hai chiều (học sinh trả lời được).
-   * Căn cứ là quan hệ khoá thật (gán vai dạy tại context khoá +
-   * ghi danh hiệu lực — xem
-   * {@link MessagingRepository.findTeacherStudentSharedCourseId}),
-   * tính lại tại MỖI lần kiểm: hết ghi danh hoặc hết vai dạy thì
-   * cổng đóng lại ngay, lịch sử cũ vẫn đọc được như luật gỡ liên hệ.
+   * Ngoại lệ có HAI căn cứ quan hệ thật, tính lại tại MỖI lần kiểm:
+   * (a) cấp KHOÁ — gán vai dạy tại context khoá + ghi danh hiệu lực
+   * (xem {@link MessagingRepository.findTeacherStudentSharedCourseId});
+   * (b) cấp LỚP — gán vai dạy tại context lớp + thành viên roster
+   * hiệu lực, bổ sung ở lát MSG-T2 theo sổ quyết định mục D ("HS
+   * thuộc khoá/LỚP của mình") (xem
+   * {@link MessagingRepository.findTeacherStudentSharedClassId}).
+   * Hết quan hệ (rời lớp/hết ghi danh/hết vai dạy) thì cổng đóng
+   * lại ngay, lịch sử cũ vẫn đọc được như luật gỡ liên hệ.
    * Quan hệ CHẶN vẫn thắng ngoại lệ này ở cả hai chiều: đã chặn thì
    * cặp GV–HS cũng không qua được (đường gửi vốn đã chặn bằng mã
    * `messaging.contact_blocked` trước khi tới đây; kiểm thêm tại đây
    * để đường MỞ hội thoại mới khép cùng một luật).
+   *
+   * @param senderId - Người mở hội thoại/gửi tin.
+   * @param recipientId - Người nhận.
+   * @returns Không trả dữ liệu; trở về bình thường nghĩa là cổng mở.
+   * @throws {ForbiddenException} `messaging.not_a_contact` khi hai
+   *   người không phải liên hệ đã duyệt và không có quan hệ GV–HS
+   *   hiệu lực ở cấp khoá lẫn cấp lớp (hoặc đã chặn nhau).
    */
   private async assertCanContact(senderId: string, recipientId: string): Promise<void> {
     if (await this.repo.isContact(recipientId, senderId)) return;
@@ -1232,6 +1243,20 @@ export class MessagingService {
    * (staff tại context lớp — chủ lớp mang editingteacher tại đó) và
    * thành viên đang thuộc roster hiệu lực thì nhắn trực tiếp được
    * theo ngoại lệ GV–HS ở cấp lớp (sổ mục D).
+   *
+   * Flow: kiểm lớp tồn tại + đang hoạt động + người xem thuộc lớp →
+   * đọc một trang (limit + 1 dòng để biết còn trang sau) → gắn quan
+   * hệ liên hệ và cờ nhắn thẳng cho từng dòng → mã hoá con trỏ
+   * trang kế từ dòng cuối trang.
+   *
+   * @param actorId - Người xem (phải thuộc lớp).
+   * @param classId - Lớp cần lấy roster.
+   * @param query - `limit` (kẹp trong [1, trần trang]) và `cursor`
+   *   mờ của trang trước, nếu có.
+   * @returns Một trang thành viên kèm `nextCursor` (null khi hết).
+   * @throws {NotFoundException} `messaging.class_not_found` khi lớp
+   *   không tồn tại, đã lưu trữ, hoặc người xem không thuộc lớp —
+   *   ba trường hợp không phân biệt được với nhau.
    */
   async listClassRoster(actorId: string, classId: string, query: { limit?: number; cursor?: string }): Promise<{
     members: ClassRosterMemberView[];
@@ -1425,7 +1450,23 @@ export class MessagingService {
     return this.syncLinkedConversationMembers(conversation, await this.repo.listCourseConversationMemberIds(conversation.itemId!));
   }
 
-  /** Đồng bộ thành viên theo roster lớp hiệu lực ∪ chủ lớp ∪ staff của lớp hiện tại. */
+  /**
+   * Đồng bộ thành viên chat cấp lớp về tập đích hiện tại (nguồn sự
+   * thật duy nhất là roster lớp — xem
+   * {@link MessagingRepository.listClassConversationMemberIds}).
+   *
+   * Bất biến: lớp đã mất hoặc đã lưu trữ thì GIỮ NGUYÊN membership
+   * hiện tại thay vì gỡ sạch — danh sách lớp đóng băng khi lưu trữ
+   * nên tư cách chat cũng đóng băng theo, đồng bộ chỉ chạy trên lớp
+   * đang hoạt động.
+   *
+   * Side-effect: qua {@link syncLinkedConversationMembers} — thêm/gỡ
+   * dòng thành viên trong DB và đẩy socket của người bị gỡ ra khỏi
+   * room ngay.
+   *
+   * @param conversation - Conversation cấp lớp cần đồng bộ.
+   * @returns Danh sách id thành viên sau đồng bộ.
+   */
   private async syncClassConversationMembers(conversation: ConversationRow): Promise<string[]> {
     // Lớp đã mất (xoá/lưu trữ dứt điểm): giữ nguyên membership hiện
     // tại thay vì gỡ sạch — đồng bộ chỉ chạy trên lớp đang hoạt động.
@@ -1473,6 +1514,10 @@ export class MessagingService {
    * Staff của lớp: site admin, hoặc thuộc tập staff của lớp (gán vai
    * archetype staff tại context lớp hoặc tổ tiên — chủ lớp mang
    * editingteacher tại context lớp nên thuộc tập này).
+   *
+   * @param userId - Người cần kiểm.
+   * @param classId - Lớp làm phạm vi.
+   * @returns `true` khi người dùng có thẩm quyền staff trên lớp.
    */
   private async isClassStaff(userId: string, classId: string): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(userId)) return true;
@@ -1574,6 +1619,25 @@ export class MessagingService {
    * không tồn tại (không rò tồn tại). Đua ensure song song: giữ
    * `pg_advisory_xact_lock` theo classId rồi re-check trong cùng
    * transaction như đường khoá.
+   *
+   * Flow: tra lớp + cổng thuộc lớp → đã có conversation thì đồng bộ
+   * lười thành viên rồi trả; chưa có thì trong MỘT transaction: giữ
+   * khoá advisory theo classId → re-check → insert conversation +
+   * toàn bộ thành viên khởi tạo.
+   *
+   * Bất biến: mỗi lớp có ĐÚNG MỘT conversation cấp lớp; gọi lại bao
+   * nhiêu lần (kể cả đồng thời) vẫn trả cùng một conversation.
+   *
+   * Side-effect: ghi DB (insert conversation + dòng thành viên) ở
+   * lần mở đầu tiên; các lần sau ghi thêm/gỡ dòng thành viên khi
+   * đồng bộ lười thấy roster đã đổi.
+   *
+   * @param actorId - Người mở chat lớp (phải thuộc lớp hoặc staff).
+   * @param classId - Lớp cần mở chat.
+   * @returns Conversation cấp lớp kèm danh sách thành viên hiện tại.
+   * @throws {NotFoundException} `messaging.class_not_found` khi lớp
+   *   không tồn tại, đã lưu trữ, hoặc người mở không thuộc lớp —
+   *   ba trường hợp không phân biệt được với nhau.
    */
   async ensureClassConversation(actorId: string, classId: string): Promise<ConversationRow & { members: string[] }> {
     const cls = await this.repo.getClassSummary(classId);
@@ -1655,7 +1719,11 @@ export class MessagingService {
    * lớp (mức 45) thì là lớp đó; còn lại không thuộc lớp nào. Dùng để
    * resolve thẩm quyền kiểm duyệt/quản lý qua context lớp — song
    * song với {@link resolveConversationCourseId} ở cấp khoá.
+   *
+   * @param conversation - Conversation cần resolve phạm vi lớp.
+   * @returns Id lớp mà conversation thuộc về, hoặc null.
    */
+
   private async resolveConversationClassId(conversation: ConversationRow): Promise<string | null> {
     if (this.isClassLinked(conversation)) return conversation.itemId;
     if (conversation.contextId) {
@@ -1673,6 +1741,10 @@ export class MessagingService {
    * của LỚP mà conversation thuộc về (cùng khuôn ở cấp lớp — lát
    * MSG-T2: staff lớp và quản trị tenant tổ tiên có thẩm quyền trên
    * chat lớp như thiết kế).
+   *
+   * @param userId - Người cần kiểm thẩm quyền.
+   * @param conversation - Conversation đang xét.
+   * @returns `true` khi có thẩm quyền kiểm duyệt trên conversation.
    */
   private async canModerateConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
     if (await this.evaluator.isSiteAdmin(userId)) return true;
@@ -1692,7 +1764,14 @@ export class MessagingService {
   /**
    * Người có thẩm quyền QUẢN LÝ conversation (bật/tắt chat, gửi khi
    * chat tắt): mọi người có thẩm quyền kiểm duyệt, cộng người tạo —
-   * nhưng chỉ với conversation không gắn cấu trúc lớp/khoá.
+   * nhưng chỉ với conversation không gắn cấu trúc lớp/khoá. Hệ quả
+   * ở chat cấp lớp (MSG-T2): học sinh bấm mở chat lớp đầu tiên chỉ
+   * là người tạo BẢN GHI, không thành người quản lý — quản lý thuộc
+   * về staff lớp qua đường kiểm duyệt.
+   *
+   * @param userId - Người cần kiểm thẩm quyền.
+   * @param conversation - Conversation đang xét.
+   * @returns `true` khi có thẩm quyền quản lý conversation.
    */
   private async canManageConversation(userId: string, conversation: ConversationRow): Promise<boolean> {
     if (await this.canModerateConversation(userId, conversation)) return true;
