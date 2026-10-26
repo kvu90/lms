@@ -475,16 +475,19 @@ describe('Shared question bank (feat #70)', () => {
     const q = await createQuestion(alice.token, bank.defaultCategoryId!, 'Câu chuyển trạng thái', 'Thân câu chuyển trạng thái?');
     expect(q.entry.status).toBe('ready');
 
-    // Về draft: đổi trạng thái entry, KHÔNG tạo phiên bản mới.
+    // Về draft: endpoint xác nhận { questionId, status }; trạng thái thật
+    // kiểm qua GET — đổi trạng thái KHÔNG tạo phiên bản mới.
     const toDraft = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'draft' });
     expect(toDraft.status, JSON.stringify(toDraft.body)).toBe(201);
-    expect((toDraft.body as QuestionViewBody).entry.status).toBe('draft');
-    expect((toDraft.body as QuestionViewBody).entry.latestVersion).toBe(q.entry.latestVersion);
+    expect(toDraft.body).toEqual({ questionId: q.question.id, status: 'draft' });
+    const draftView = await http(app).get(`/api/v1/questions/${q.question.id}`).set(bearer(alice.token));
+    expect((draftView.body as QuestionViewBody).entry.status).toBe('draft');
+    expect((draftView.body as QuestionViewBody).entry.latestVersion).toBe(q.entry.latestVersion);
 
     // Idempotent: gọi lại cùng trạng thái đích vẫn thành công.
     const again = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'draft' });
     expect(again.status, JSON.stringify(again.body)).toBe(201);
-    expect((again.body as QuestionViewBody).entry.status).toBe('draft');
+    expect(again.body).toEqual({ questionId: q.question.id, status: 'draft' });
 
     // Người ngoài bank cá nhân không govern được câu → 403.
     const bobTry = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(bob.token)).send({ status: 'ready' });
@@ -493,7 +496,9 @@ describe('Shared question bank (feat #70)', () => {
     // Về ready lại (đường "Lưu & sẵn sàng" / công bố câu draft MCP từ màn soạn).
     const toReady = await http(app).post(`/api/v1/questions/${q.question.id}/status`).set(bearer(alice.token)).send({ status: 'ready' });
     expect(toReady.status, JSON.stringify(toReady.body)).toBe(201);
-    expect((toReady.body as QuestionViewBody).entry.status).toBe('ready');
+    expect(toReady.body).toEqual({ questionId: q.question.id, status: 'ready' });
+    const readyView = await http(app).get(`/api/v1/questions/${q.question.id}`).set(bearer(alice.token));
+    expect((readyView.body as QuestionViewBody).entry.status).toBe('ready');
 
     // Câu đã rút (hidden): endpoint trạng thái từ chối 409 — phải restore trước.
     const withdraw = await http(app).post(`/api/v1/questions/${q.question.id}/withdraw`).set(bearer(alice.token)).send({ reason: 'Rút để kiểm cổng trạng thái' });
