@@ -280,6 +280,11 @@ export function MatrixEditPage() {
   const [name, setName] = useState('');
   const [status, setStatus] = useState('draft');
   const [isTemplate, setIsTemplate] = useState(false);
+  // Checkbox Vận dụng cao (I-3, issue #233): màn tạo đã có checkbox
+  // này từ trước; màn sửa bổ sung cùng một điều khiển thay cho mọi
+  // lựa chọn levelSet dạng select (không còn select nào trên web) —
+  // tick = levelSet 'four', không tick = 'three'.
+  const [includeAdvanced, setIncludeAdvanced] = useState(false);
   const [totalScore, setTotalScore] = useState('10');
   const [cellNodeId, setCellNodeId] = useState('');
   const [cellLevel, setCellLevel] = useState('biet');
@@ -330,6 +335,7 @@ export function MatrixEditPage() {
     setName(row.name);
     setStatus(row.status);
     setIsTemplate(row.isTemplate);
+    setIncludeAdvanced(row.levelSet === 'four');
     setTotalScore(String(row.totalScore));
   }, [detailQuery.data]);
 
@@ -339,7 +345,10 @@ export function MatrixEditPage() {
     try {
       await updateMutation.mutateAsync({
         matrixId: matrix.id,
-        body: { name, status, isTemplate, totalScore: Number(totalScore) || 10 },
+        body: {
+          name, status, isTemplate, totalScore: Number(totalScore) || 10,
+          levelSet: includeAdvanced ? 'four' : 'three',
+        },
       });
       setMessage(t('matrixSaved'));
     } catch (err) {
@@ -439,6 +448,10 @@ export function MatrixEditPage() {
               <div className="flex items-center gap-2">
                 <Checkbox id="edit-matrix-template" checked={isTemplate} onCheckedChange={(v) => setIsTemplate(v === true)} />
                 <Label htmlFor="edit-matrix-template">{t('matrixIsTemplate')}</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="edit-matrix-advanced" checked={includeAdvanced} onCheckedChange={(v) => setIncludeAdvanced(v === true)} />
+                <Label htmlFor="edit-matrix-advanced">{t('matrixIncludeAdvanced')}</Label>
               </div>
               <div className="flex gap-2">
                 <Button type="submit">{t('matrixEditTitle')}</Button>
