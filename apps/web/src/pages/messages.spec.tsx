@@ -1785,27 +1785,29 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     expect(screen.getByRole('tab', { name: 'Nhóm' })).toHaveTextContent('1');
     // Tên truy cập của dòng cây gồm chữ viết tắt avatar + tên nút +
     // nhãn vai/số chưa đọc; nút chevron của chính dòng đó mang tên
-    // "Mở rộng: <tên>" nên các truy vấn ở ca này dùng mẫu loại trừ
-    // tiền tố chevron để không bắt nhầm nút chevron.
-    const classRow = await screen.findByRole('button', { name: /^(?!Mở rộng:).*Lớp 10A1/ });
+    // "Mở rộng: <tên>"/"Thu gọn: <tên>" nên các truy vấn ở ca này
+    // dùng mẫu loại trừ hai tiền tố chevron để không bắt nhầm nó.
+    const classRow = await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ });
     expect(classRow).toHaveTextContent('Đang dạy');
 
-    // Mở nút lớp: khoá con và nhóm con hiện ra theo đúng cây.
+    // Mở nút lớp: khoá con hiện ra; mở tiếp nút khoá thì nhóm con
+    // của khoá hiện ra — cây đủ ba tầng Lớp → Khoá → Nhóm con.
     await userEvent.click(within(classRow.parentElement as HTMLElement).getByRole('button', { name: /Mở rộng/ }));
-    expect(await screen.findByRole('button', { name: /^(?!Mở rộng:).*Toán 10/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Nhóm 1/ })).toBeInTheDocument();
+    const courseRow = await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ });
+    await userEvent.click(within(courseRow.parentElement as HTMLElement).getByRole('button', { name: /Mở rộng/ }));
+    expect(await screen.findByRole('button', { name: /Nhóm 1/ })).toBeInTheDocument();
     // Nhóm tự do nằm ở mục riêng của cây.
     expect(screen.getByRole('button', { name: /Nhóm Riêng/ })).toBeInTheDocument();
 
     // Bấm dòng khoá: ensure conversation của khoá rồi mở khung phải.
-    await userEvent.click(screen.getByRole('button', { name: /^(?!Mở rộng:).*Toán 10/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Toán 10/ }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/courses/${T3_COURSE_ID}/conversation`)).toBe(true),
     );
     expect(await screen.findByLabelText('Tin nhắn')).toBeInTheDocument();
 
     // Bấm dòng lớp: ensure conversation của lớp rồi mở khung phải.
-    await userEvent.click(screen.getByRole('button', { name: /^(?!Mở rộng:).*Lớp 10A1/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ }));
     await waitFor(() =>
       expect(calls.some((c) => c.method === 'GET' && c.url === `/api/v1/messages/classes/${T3_CLASS_ID}/conversation`)).toBe(true),
     );
@@ -1833,7 +1835,7 @@ describe('Messages page — MSG-T3: phân tab, cây nhóm, sheet Tin nhắn mớ
     stubMsgT3Fetch(studentCalls, { studentView: true });
     renderMessages();
     await userEvent.click(await screen.findByRole('tab', { name: 'Nhóm' }));
-    expect(await screen.findByRole('button', { name: /^(?!Mở rộng:).*Lớp 10A1/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^(?!(Mở rộng|Thu gọn):).*Lớp 10A1/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Tạo nhóm/ })).not.toBeInTheDocument();
   });
 
