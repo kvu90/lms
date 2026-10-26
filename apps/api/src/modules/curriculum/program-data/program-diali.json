@@ -156,14 +156,56 @@
        "content": [
         {
          "type": "text",
-         "text": "– Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất. – Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa. – Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ). – Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian"
+         "text": "Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian ngày đêm."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất. – Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa. – Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ). – Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian",
+   "outcome_text": "– Trình bày được nguồn gốc hình thành Trái Đất, đặc điểm của vỏ Trái Đất, các vật liệu cấu tạo vỏ Trái Đất. – Trình bày được khái quát thuyết kiến tạo mảng; vận dụng để giải thích được nguyên nhân hình thành các vùng núi trẻ, các vành đai động đất, núi lửa. – Phân tích được hệ quả địa lí của các chuyển động chính của Trái Đất: Chuyển động tự quay (sự luân phiên ngày đêm, giờ trên Trái Đất); chuyển động quanh Mặt Trời (các mùa trong năm, ngày đêm dài ngắn theo vĩ độ). – Liên hệ được thực tế địa phương về các mùa trong năm và chênh lệch thời gian ngày đêm.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -192,14 +234,14 @@
        "content": [
         {
          "type": "text",
-         "text": "ngày đêm. – Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất."
+         "text": "Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "ngày đêm. – Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất.",
+   "outcome_text": "– Sử dụng hình vẽ, lược đồ để phân tích được các hệ quả chuyển động của Trái Đất.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -1423,14 +1465,56 @@
        "content": [
         {
          "type": "text",
-         "text": "– Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người. – Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước. – Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước. – Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác"
+         "text": "Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác nhau."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người. – Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước. – Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước. – Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác",
+   "outcome_text": "– Phân biệt được các nước trên thế giới theo trình độ phát triển kinh tế: nước phát triển và nước đang phát triển với các chỉ tiêu về thu nhập bình quân (tính theo GNI/người); cơ cấu kinh tế và chỉ số phát triển con người. – Trình bày được sự khác biệt về kinh tế và một số khía cạnh xã hội của các nhóm nước. – Sử dụng được bản đồ để xác định sự phân bố các nhóm nước, phân tích được bảng số liệu về kinh tế - xã hội của các nhóm nước. – Thu thập được tư liệu về kinh tế - xã hội của một số nước từ các nguồn khác nhau.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -1450,23 +1534,8 @@
    "topic": "",
    "content": "Toàn cầu hoá, khu vực hoá kinh tế và an ninh toàn cầu",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "nhau."
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "nhau.",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -3075,14 +3144,56 @@
        "content": [
         {
          "type": "text",
-         "text": "– Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị. – Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội. – Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta. – Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc"
+         "text": "Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc làm, đô thị hoá) ở Việt Nam."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị. – Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội. – Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta. – Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc",
+   "outcome_text": "– Trình bày được đặc điểm đô thị hoá ở Việt Nam và sự phân bố mạng lưới đô thị. – Phân tích được ảnh hưởng của đô thị hoá đến phát triển kinh tế - xã hội. – Sử dụng được atlat địa lí Việt Nam, bản đồ dân cư Việt Nam, số liệu thống kê để nhận xét và giải thích về đô thị hoá ở nước ta. – Viết được báo cáo giới thiệu về một trong các chủ đề (dân số, lao động và việc làm, đô thị hoá) ở Việt Nam.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -3102,23 +3213,8 @@
    "topic": "",
    "content": "Chuyển dịch cơ cấu kinh tế",
    "kind": "content",
-   "outcomes": [
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "làm, đô thị hoá) ở Việt Nam."
-        }
-       ]
-      }
-     ]
-    }
-   ],
-   "outcome_text": "làm, đô thị hoá) ở Việt Nam.",
+   "outcomes": [],
+   "outcome_text": "",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -4000,14 +4096,98 @@
        "content": [
         {
          "type": "text",
-         "text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng. – Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long. – Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng. – Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng. – Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó. – Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các"
+         "text": "Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng. – Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long. – Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng. – Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng. – Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó. – Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các",
+   "outcome_text": "– Trình bày được vị trí địa lí, phạm vi lãnh thổ và dân số của vùng. – Chứng minh được các thế mạnh, hạn chế để phát triển kinh tế của vùng; trình bày được hướng sử dụng hợp lí tự nhiên của vùng. – Giải thích được tại sao phải sử dụng hợp lí tự nhiên ở Đồng bằng sông Cửu Long. – Trình bày được vai trò, tình hình phát triển sản xuất lương thực và thực phẩm của vùng. – Trình bày được tài nguyên du lịch và tình hình phát triển du lịch của vùng. – Thu thập được tài liệu và viết báo cáo về ảnh hưởng của biến đổi khí hậu đối với Đồng bằng sông Cửu Long, các giải pháp ứng phó. – Sử dụng atlat địa lí Việt Nam, bản đồ, số liệu thống kê, tư liệu, trình bày được các thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -4036,14 +4216,14 @@
        "content": [
         {
          "type": "text",
-         "text": "thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng. – Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích."
+         "text": "Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "thế mạnh, tình hình phát triển sản xuất lương thực, thực phẩm, du lịch của vùng. – Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích.",
+   "outcome_text": "– Vẽ được biểu đồ kinh tế - xã hội, nhận xét và giải thích.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
@@ -4203,7 +4383,7 @@
    "stream": "",
    "section": "Thực Hành Tìm Hiểu Địa Lí Địa Phương",
    "topic": "",
-   "content": "– Những vấn đề chung – Một số thiên tai, nguyên nhân, hậu",
+   "content": "– Những vấn đề chung – Một số thiên tai, nguyên nhân, hậu quả, biện pháp phòng chống",
    "kind": "content",
    "outcomes": [
     {
@@ -4214,34 +4394,12 @@
        "content": [
         {
          "type": "text",
-         "text": "– Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai. – Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các"
+         "text": "Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai."
         }
        ]
       }
      ]
-    }
-   ],
-   "outcome_text": "– Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai. – Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các",
-   "source": {
-    "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
-    "file": "ct-diali-official.pdf",
-    "portal": "data.moet.gov.vn (share dqHM63jZJSkcVp6; ban luu Wayback khop digest)",
-    "pdf_pages": [
-     38
-    ]
-   }
-  },
-  {
-   "id": "DL-0061",
-   "subject": "Địa lí",
-   "grade": 12,
-   "level": "THPT",
-   "stream": "",
-   "section": "Thực Hành Tìm Hiểu Địa Lí Địa Phương",
-   "topic": "",
-   "content": "quả, biện pháp phòng chống",
-   "kind": "content",
-   "outcomes": [
+    },
     {
      "type": "doc",
      "content": [
@@ -4250,19 +4408,62 @@
        "content": [
         {
          "type": "text",
-         "text": "thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống. – Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp). – Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta. – Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống."
+         "text": "Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống. – Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp). – Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta. – Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống.",
+   "outcome_text": "– Trình bày được quan niệm, đặc điểm, nguyên nhân, phân loại thiên tai. – Trình bày được một số thiên tai và nơi thường xảy ra (bão, lũ lụt, hạn hán, các thiên tai khác); phân tích được nguyên nhân, hậu quả của mỗi loại và xác định được các biện pháp phòng chống. – Liên hệ, tìm hiểu được về một thiên tai cụ thể tại địa phương (hiện trạng, nguyên nhân, hậu quả, giải pháp). – Thu thập được tranh ảnh, số liệu, video clip,... để trưng bày một số chủ đề về thiên tai ở nước ta. – Viết được đoạn văn ngắn tuyên truyền mọi người trong cộng đồng về thiên tai và các biện pháp phòng chống.",
    "source": {
     "document": "Chương trình môn Địa lí ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-diali-official.pdf",
     "portal": "data.moet.gov.vn (share dqHM63jZJSkcVp6; ban luu Wayback khop digest)",
     "pdf_pages": [
+     38,
      39
     ]
    }
