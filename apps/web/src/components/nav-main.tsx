@@ -35,9 +35,9 @@ export interface NavItem {
  * sidebar-07). Hai biến thể:
  *
  * - KHÔNG có `url`: cha là nút thu/mở thuần — bấm chỉ mở/đóng danh sách
- *   mục con (vd "Học tập", "Ngân hàng hệ thống").
+ *   mục con (vd "Học tập", "Cài đặt hệ thống").
  * - CÓ `url`: thân mục cha là LINK điều hướng tới trang danh sách của
- *   chính nó (vd "Câu hỏi của tôi" → /questions), kèm
+ *   chính nó (vd "Ngân hàng câu hỏi" → /questions), kèm
  *   nút chevron riêng (`toggleLabel` là nhãn aria của nút đó) chỉ để
  *   thu/mở danh sách mục con khi nhóm có mục con. Nhóm có `url` mà chưa
  *   có mục con vẫn render thành mục cấp cao nhất điều hướng được — chờ
@@ -65,10 +65,10 @@ function isNavGroup(entry: NavEntry): entry is NavGroupItem {
 /**
  * Mục đang chọn: khớp chính xác, hoặc route con của nó (riêng trang
  * chủ chỉ khớp chính xác) — nhờ vậy các khu vực ngân hàng theo path
- * riêng (chuẩn đường dẫn #221: /questions, /exams, /matrices,
- * /system-bank/*) active đúng trang của chúng và nhóm cha tự mở đúng
+ * riêng (chuẩn đường dẫn #221: /questions, /exams, /matrices)
+ * active đúng trang của chúng và nhóm cha tự mở đúng
  * khi đang ở trang đích hay route con của nó (vd /questions/stimuli
- * làm sáng cả mục cha "Câu hỏi của tôi" lẫn mục con "Ngữ liệu"). URL
+ * làm sáng cả mục cha "Ngân hàng câu hỏi" lẫn mục con "Ngữ liệu"). URL
  * có query (trạng thái nội bộ của một trang, kiểu ?conversation=...)
  * thì chỉ active khi pathname khớp VÀ mọi tham số trong query của
  * URL đều có mặt với đúng giá trị trong query hiện tại.

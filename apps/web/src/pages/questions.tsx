@@ -26,6 +26,7 @@ import {
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
+import { BankAreaTabs } from '../components/bank-area-tabs';
 import { CollapsibleSection } from '../components/collapsible-section';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -1368,19 +1369,19 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     );
   }
 
-  // Tiêu đề trang theo khu vực (chuẩn đường dẫn #221): trang Câu hỏi
-  // giữ nguyên tiêu đề + hai nút tạo như bản cũ; các trang tách ra
-  // (Đề / Ma trận / Ngân hàng hệ thống) mang tiêu đề của chính khu vực,
-  // nút tạo của chúng nằm trong section như trước.
+  // Tiêu đề trang theo khu vực (chuẩn đường dẫn #221): tiêu đề là tên
+  // ngân hàng của loại thực thể (Câu hỏi / Đề / Ma trận); khu vực Cá
+  // nhân hay Hệ thống thể hiện bằng thanh tab ngay dưới tiêu đề (chốt
+  // trình bày ngân hàng 11:40 ngày 26/10/2026, issue #228). Nút tạo
+  // của trang Câu hỏi nằm ở header như bản cũ; nút tạo của Đề / Ma
+  // trận nằm trong section như trước.
   const isQuestionArea = area === 'my-questions' || area === 'stimuli';
   const headerTitle =
-    area === 'my-exams'
-      ? t('myExamBank')
-      : area === 'my-matrices'
-        ? t('myMatrixBank')
-        : area.startsWith('system')
-          ? t('systemBank')
-          : t('questionBank');
+    area === 'my-exams' || area === 'system-exams'
+      ? t('examBank')
+      : area === 'my-matrices' || area === 'system-matrices'
+        ? t('matrixBank')
+        : t('questionBank');
   const headerDescription =
     area === 'my-exams'
       ? t('myExamBankDescription')
@@ -1408,6 +1409,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           ) : undefined
         }
       />
+      <BankAreaTabs area={area} />
       {message ? (
         <Alert>
           <AlertDescription>{message}</AlertDescription>

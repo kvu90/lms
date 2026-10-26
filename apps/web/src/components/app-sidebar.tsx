@@ -74,19 +74,19 @@ function readStoredOpenGroups(): string[] {
  *   qua cờ hasLearnerFootprint). Ẩn điều hướng ≠ khoá trang: gõ thẳng
  *   /badges hay /learning-plan vẫn vào được, API hai trang vốn chỉ trả
  *   dữ liệu của chính người gọi.
- * - Bốn mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (đính
- *   chính issue #70, Lão gia chốt 25/10/2026 — KHÔNG còn nhóm cha
- *   "Ngân hàng câu hỏi" bọc ngoài): "Câu hỏi của tôi" (thân mục dẫn
- *   tới /questions, thu/mở ra mục con "Ngữ liệu" ở
- *   /questions/stimuli), "Đề của tôi" (/exams) và "Ma trận của
- *   tôi" (/matrices) — thân hai mục này dẫn thẳng tới trang danh
- *   sách, chờ bổ sung mục con sau; "Ngân hàng hệ thống" là mục cha
- *   thu/mở thuần, mở ra đúng 3 mục con (Câu hỏi / Đề / Ma trận hệ
- *   thống ở /system-bank/questions|exams|matrices). Mỗi khu vực có
- *   PATH RIÊNG theo chuẩn đường dẫn (issue #221, lát R1 — trước đây
- *   cả cụm dùng chung /questions?bank=&section=). Cả bốn chỉ hiện
- *   khi API cho phép dùng ngân hàng câu hỏi (canUseQuestionBank) —
- *   học viên thuần không nhìn thấy.
+ * - Ba mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (Lão gia
+ *   chốt lại 11:40 ngày 26/10/2026, issue #228 — BỎ hẳn mục "Ngân
+ *   hàng hệ thống" ở sidebar): "Ngân hàng câu hỏi" (thân mục dẫn tới
+ *   /questions, thu/mở ra mục con "Ngữ liệu" ở /questions/stimuli),
+ *   "Ngân hàng đề" (/exams) và "Ngân hàng ma trận" (/matrices) —
+ *   thân hai mục này dẫn thẳng tới trang danh sách. Khu hệ thống
+ *   không còn là mục sidebar riêng: mỗi màn danh sách ngân hàng có
+ *   thanh tab Cá nhân | Hệ thống ở đầu vùng danh sách, bấm tab là
+ *   điều hướng giữa path cá nhân và /system-bank/* tương ứng (mỗi
+ *   khu vực vẫn một PATH RIÊNG theo chuẩn đường dẫn, issue #221 —
+ *   trước đây cả cụm dùng chung /questions?bank=&section=). Cả ba
+ *   chỉ hiện khi API cho phép dùng ngân hàng câu hỏi
+ *   (canUseQuestionBank) — học viên thuần không nhìn thấy.
  * - Hai nhóm quản trị ("Người dùng & quyền", "Cài đặt hệ thống") chỉ
  *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
  *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
@@ -213,16 +213,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             url: '/matrices',
             toggleLabel: t('app:navExpandGroup', { name: t('app:navMyMatrices') }),
             children: [],
-          },
-          {
-            groupId: 'system-bank',
-            title: t('app:navBankSystem'),
-            icon: IconDatabase,
-            children: [
-              { title: t('app:navSystemQuestions'), url: '/system-bank/questions', icon: IconQuestionMark },
-              { title: t('app:navSystemPapers'), url: '/system-bank/exams', icon: IconNotebook },
-              { title: t('app:navSystemMatrices'), url: '/system-bank/matrices', icon: IconChartBar },
-            ],
           },
         ]
       : []),

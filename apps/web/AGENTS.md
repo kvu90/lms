@@ -26,7 +26,7 @@
   bố cho HS/PH — kể cả khi API lỡ trả thừa trường (lọc ở tầng hiển thị + báo API sửa).
 - Cấm dựng lại bề mặt blog/hỏi-đáp (đã gỡ theo chốt 25/10/2026) và cấm thêm mục điều
   hướng ngoài cấu trúc sidebar đã chốt trong sổ quyết định.
-- Cấm đổi cấu trúc sidebar ngân hàng khác 4 mục top-level đã chốt (sổ mục B).
+- Cấm đổi cấu trúc sidebar ngân hàng khác 3 mục top-level + tab Cá nhân/Hệ thống trong từng màn danh sách đã chốt (sổ mục B, chốt lại 26/10/2026 11:40).
 
 ## Kiểm chứng bắt buộc
 

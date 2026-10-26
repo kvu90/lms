@@ -1,11 +1,11 @@
 import { QuestionsPage } from '../pages/questions';
 
-// Route Ngân hàng hệ thống — Ma trận (/system-bank/matrices —
+// Route Ngân hàng ma trận — tab Hệ thống (/system-bank/matrices —
 // chuẩn đường dẫn #221, lát R1).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
-import { titleMeta } from '../lib/route-meta';
+import { appKeyMeta } from '../lib/route-meta';
 export function meta() {
-  return titleMeta('Ma trận hệ thống');
+  return appKeyMeta('navMyMatrices');
 }
 
 export default function SystemBankMatricesRoute() {

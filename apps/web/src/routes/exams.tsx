@@ -1,6 +1,6 @@
 import { QuestionsPage } from '../pages/questions';
 
-// Route danh sách Đề của tôi (/exams — chuẩn đường dẫn #221,
+// Route danh sách Ngân hàng đề (/exams — chuẩn đường dẫn #221,
 // lát R1): trước đây khu vực này núp trong trang /questions dưới dạng
 // collapse ?bank=my-papers; nay là trang riêng theo path của chính
 // tài nguyên đề — tên tài nguyên là "exams" (chốt của Lão gia tối
@@ -8,9 +8,9 @@ import { QuestionsPage } from '../pages/questions';
 // /exams/:paperId/edit; path cũ /exam-papers* có lớp tương thích
 // chuyển hướng (routes/legacy-exam-papers*.tsx).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
-import { titleMeta } from '../lib/route-meta';
+import { appKeyMeta } from '../lib/route-meta';
 export function meta() {
-  return titleMeta('Đề của tôi');
+  return appKeyMeta('navMyPapers');
 }
 
 export default function ExamsRoute() {
