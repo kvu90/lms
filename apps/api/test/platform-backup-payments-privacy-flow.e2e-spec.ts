@@ -353,9 +353,20 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     const restoredVersions = await http(app).get(`/api/v1/questions/${newQ!.newId}/versions`).set('Authorization', `Bearer ${admin}`);
     expect(restoredVersions.body).toHaveLength(2);
     // questionText nay là tài liệu Tiptap: trích text thuần để so với bản gốc.
-    const docText = (doc: { content?: { content?: { text?: string }[] }[] }) =>
-      (doc.content ?? []).map((p) => (p.content ?? []).map((n) => n.text ?? '').join('')).join('\n');
-    expect(docText(restoredVersions.body[1].questionText)).toBe('Version two text.');
+    // Trích ĐỆ QUY qua mọi khối lồng nhau: statementList chứa các
+    // statement, mỗi statement chứa paragraph — helper cũ chỉ map một
+    // cấp nên mệnh đề TF-A đóng góp dòng rỗng ('Version two text.\n').
+    const blockTexts = (block: { type?: string; text?: string; content?: { type?: string; text?: string; content?: never[] }[] }): string[] => {
+      if (block.type === 'text') return [block.text ?? ''];
+      if (block.type === 'statementList') return (block.content ?? []).flatMap((s) => blockTexts(s as never));
+      if (Array.isArray(block.content)) return [block.content.flatMap((n) => blockTexts(n as never)).join('')];
+      return [];
+    };
+    const docText = (doc: { content?: { type?: string; text?: string; content?: never[] }[] }) =>
+      (doc.content ?? []).flatMap((b) => blockTexts(b as never)).join('\n');
+    expect(docText(restoredVersions.body[1].questionText)).toBe(
+      ['Version two text.', 'Version two text. — ý 1', 'Version two text. — ý 2', 'Version two text. — ý 3', 'Version two text. — ý 4'].join('\n'),
+    );
     // Nội dung chấm của version khôi phục (đáp án + trỏ true/false) đi theo
     // archive: trueAnswer trỏ vào dòng đáp án 'True', phía đúng nằm ở cờ
     // isCorrect (version 2 của câu này có đáp án đúng là False nên True

@@ -458,8 +458,10 @@ export class QuestionsService {
    *    đó và được sắp lại theo đúng thứ tự mệnh đề trong thân câu khi
    *    ghi vào `question_answer_keys.solution`. Đường sửa chỉ gửi
    *    thân câu mới mà không gửi `solution` thì phía đáp án kế thừa
-   *    của version trước do `updateQuestion` ghép sau bước này (bề
-   *    mặt soạn luôn gửi kèm đáp án cùng thân câu).
+   *    của version trước do `updateQuestion` ghép sau bước này — NHƯNG
+   *    chỉ khi tập statementId của thân mới == tập solution cũ phủ,
+   *    khác thì `updateQuestion` từ chối 400 (bề mặt soạn luôn gửi kèm
+   *    đáp án cùng thân câu nên không đi qua đường kế thừa này).
    *  - shortanswer: ít nhất 1 đáp án được chấp nhận; MỌI dòng liệt kê
    *    đều là đáp án được chấp nhận (dòng `correct: false` bị từ chối —
    *    đáp án sai không có chỗ trong danh sách này).
@@ -979,7 +981,12 @@ export class QuestionsService {
    * gửi thì giữ. Guidance/solution (bản ghi phía đáp án) không được gửi
    * lên thì KẾ THỪA từ version trước — cùng ngữ nghĩa kế thừa từng
    * trường của thân câu; gửi lên thì thay bằng giá trị mới trong cùng
-   * giao dịch tạo version.
+   * giao dịch tạo version. Ngoại lệ TF-A: solution cũ chỉ kế thừa khi
+   * tập statementId của thân mới == tập statementId solution cũ phủ;
+   * thân mới đổi tập id mà không gửi solution thì từ chối 400
+   * (`question.bad_answer_data`) thay vì ghi version mang solution
+   * lệch tập — engine dựng danh sách ý từ solution nên lệch tập sẽ
+   * chấm sai âm thầm.
    *
    * @param actorId - người sửa; phải có `question:editall` tại context
    *   của category chứa câu (và không phải bank personal của người khác).
@@ -1005,7 +1012,28 @@ export class QuestionsService {
     const prevKey = (content || touchesAnswerKey) ? await this.answerKeyOf(latestVersion.id) : null;
     if (content) {
       if (input.guidance === undefined) content.answerKey.guidance = prevKey!.guidance as RichTextDocument | null;
-      if (input.solution === undefined) content.answerKey.solution = prevKey!.solution as StoredSolution | null;
+      if (input.solution === undefined) {
+        // TF-A — chặn kế thừa solution lệch tập mệnh đề (khe S6):
+        // thân mới đổi tập statementId (xoá/thêm mệnh đề) mà giữ
+        // solution cũ thì engine dựng danh sách ý từ solution nên các
+        // ý mới không khớp, chấm sai âm thầm. Chỉ kế thừa khi tập id
+        // cũ == tập id mới; khác thì từ chối rõ ràng, bắt người sửa
+        // gửi kèm solution.answers phủ đúng tập mới. Thân không đổi
+        // thì tập id không đổi nên kế thừa an toàn (đường sửa chỉ đổi
+        // stem/guidance của read-gate vẫn đi qua đây).
+        if (q.qtype === 'truefalse' && input.questionText !== undefined) {
+          const newStatements = getTrueFalseStatements(toRichTextDocument(input.questionText));
+          const prevAnswers = (prevKey!.solution as { answers?: { statementId: string }[] } | null)?.answers;
+          if (prevAnswers && newStatements) {
+            const prevIds = new Set(prevAnswers.map((a) => a.statementId));
+            const newIds = new Set(newStatements.map((s) => s.id));
+            if (prevIds.size !== newIds.size || [...prevIds].some((id) => !newIds.has(id))) {
+              throw badAnswerData('truefalse solution inheritance requires the new question text to carry exactly the statements covered by the previous solution; send solution.answers covering the new statements');
+            }
+          }
+        }
+        content.answerKey.solution = prevKey!.solution as StoredSolution | null;
+      }
     }
     let stimulusId = latestVersion.stimulusId;
     if (input.stimulusId !== undefined) {

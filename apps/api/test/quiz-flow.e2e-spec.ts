@@ -375,9 +375,11 @@ describe('Quiz activity (mod_quiz)', () => {
       expect(w.attemptNumber).toBe(1);
     }
     // Câu 2 và câu 3 cùng sai 1 — hoà thì theo số slot tăng dần.
-    expect(stats[1]).toMatchObject({ slot: 2, questionId: ctx.qTf, questionName: 'Water', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
+    // Không còn tên câu hỏi (quyết 11:28): nhãn thống kê là trích đoạn
+    // nội dung — câu TF-A gồm stem + cả 4 mệnh đề; câu SA là thân câu.
+    expect(stats[1]).toMatchObject({ slot: 2, questionId: ctx.qTf, questionName: 'Water is wet.\nWater is wet. — ý 1\nWater is wet. — ý 2\nWater is wet. — ý 3\nWater is wet. — ý 4', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
     expect(stats[1]!.wrongStudents.map((w) => w.userId)).toEqual([ctx.student.id]);
-    expect(stats[2]).toMatchObject({ slot: 3, questionId: ctx.qSa, questionName: 'Capital VN', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
+    expect(stats[2]).toMatchObject({ slot: 3, questionId: ctx.qSa, questionName: 'Capital of Vietnam?', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
     expect(stats[2]!.wrongStudents.map((w) => w.userId)).toEqual([studentB.id]);
   });
 

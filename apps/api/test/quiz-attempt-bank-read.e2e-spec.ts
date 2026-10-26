@@ -240,8 +240,11 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
     const ansMc = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set(bearer(ctx.student.token))
       .send({ questionAttemptId: mc.questionAttemptId, response: correct.id });
     expect(ansMc.status, JSON.stringify(ansMc.body)).toBeLessThan(300);
+    // Câu TF-A 4 mệnh đề, solution toàn Đúng: response phải là map
+    // statementId→boolean khớp solution — 'true' là định dạng TF-B cũ,
+    // chấm 0 ý đúng nên sumGrades chỉ còn điểm MC.
     const ansTf = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set(bearer(ctx.student.token))
-      .send({ questionAttemptId: tf.questionAttemptId, response: 'true' });
+      .send({ questionAttemptId: tf.questionAttemptId, response: JSON.stringify({ s1: true, s2: true, s3: true, s4: true }) });
     expect(ansTf.status, JSON.stringify(ansTf.body)).toBeLessThan(300);
 
     const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set(bearer(ctx.student.token)).send({});

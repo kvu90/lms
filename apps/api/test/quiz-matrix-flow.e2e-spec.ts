@@ -525,6 +525,15 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     const gen = await http(app).post(`/api/v1/exam-matrices/${matrix.id}/generate`).set('Authorization', `Bearer ${admin}`)
       .send({ courseId: ctx.courseId, sectionId: ctx.sectionId, name: 'Đề TF-A review' });
     const quiz = gen.body as QuizBody;
+    // Pin sinh từ ma trận mang reviewRightAnswer mặc định DB = 272
+    // (laterWhileOpen 256 + afterClose 16, KHÔNG có bit immediatelyAfter
+    // 4096) nên GET ngay sau nộp — trong cửa sổ 2 phút sau khi nộp —
+    // sẽ bị cổng reviewRightAnswer đóng và solution = null là ĐÚNG
+    // chính sách. Ca này kiểm solution nên mở cổng ngay sau nộp:
+    // 4368 = 272 + immediatelyAfter 4096.
+    const openReview = await http(app).patch(`/api/v1/exam-pins/${quiz.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ reviewRightAnswer: 4368 });
+    expect(openReview.status).toBeLessThan(300);
     const played = await playTfQuiz(ctx.student, quiz.id, 2, ctx.tfQuestion, ctx.tfCorrects);
     const view = await http(app).get(`/api/v1/quiz-attempts/${played.attempt.id}`).set('Authorization', `Bearer ${ctx.student}`);
     const qs = view.body.questions as {
