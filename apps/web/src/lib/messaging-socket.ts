@@ -17,11 +17,13 @@ import {
  * `/messaging`. Đây là điểm chạm duy nhất của web với socket — trang
  * tin nhắn chỉ biết interface handlers/handle dưới đây.
  *
- * Xác thực bằng cookie phiên (issue #7, GĐ2): kết nối mở với
- * `withCredentials` nên handshake mang cookie phiên Better Auth cùng
- * nguồn; gateway phía API chấp nhận cookie ở handshake là điều kiện
- * của đợt GĐ5 (đi cùng cutover). Server ngắt ngay kết nối không xác
- * thực được.
+ * Xác thực hai đường (GĐ5 của issue #7): phía client gửi cookie
+ * phiên Better Auth cùng nguồn nhờ `withCredentials` — server ưu
+ * tiên phiên cookie như chuỗi guard HTTP. Đường dự phòng còn lại
+ * là access token ở phía server (gateway vẫn chấp nhận token từ
+ * handshake cho client chưa chạy cookie, cho tới cutover); phía web
+ * từ GĐ2 (#257) không còn tokenStore/access token nên không gửi
+ * token nữa — không dựng lại đường token ở client.
  *
  * Sự kiện nghiệp vụ (tin mới/đã đọc) đến từ server qua đường outbox →
  * consumer phân phối — client chỉ việc áp vào state, chống trùng bằng

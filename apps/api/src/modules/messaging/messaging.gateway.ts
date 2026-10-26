@@ -10,7 +10,7 @@ import {
 import type { Server, Socket } from 'socket.io';
 import { Public } from '../../common/public.decorator';
 import { blankRecalledContent, MessagingRepository } from './messaging.repository';
-import { JwtMessagingSocketAuth } from './messaging-socket-auth';
+import { MessagingSocketAuth } from './messaging-socket-auth';
 import { conversationRoom, MessagingRealtimeService, toWireMessage, userRoom } from './messaging-realtime.service';
 
 /** Số tin tối đa trả cho mỗi conversation trong một lần đồng bộ (client xin tiếp nếu còn thiếu). */
@@ -22,11 +22,12 @@ const SYNC_MAX_CONVERSATIONS = 50;
  * Gateway realtime của messaging (issue #33, chặng A1) — Socket.IO,
  * namespace `/messaging`, chạy cùng HTTP server với REST.
  *
- * Xác thực handshake bằng access token đăng nhập hiện tại, qua lớp
- * mỏng {@link JwtMessagingSocketAuth} (điểm chạm duy nhất với cơ chế
- * auth — khi issue #7 đổi authn chỉ sửa lớp đó). Token lấy từ
- * `handshake.auth.token` (client chính thức) hoặc header
- * Authorization Bearer. Kết nối không xác thực được thì ngắt ngay.
+ * Xác thực handshake qua lớp mỏng {@link MessagingSocketAuth} (điểm
+ * chạm duy nhất với cơ chế auth): cookie phiên Better Auth đi kèm
+ * request bắt tay được ưu tiên như chuỗi guard HTTP (GĐ5 của issue
+ * #7), access token (`handshake.auth.token` hoặc header Authorization
+ * Bearer) là đường dự phòng cho tới cutover. Kết nối không xác thực
+ * được thì ngắt ngay.
  *
  * Khi nối, socket vào room riêng `user:<id>` và room của mọi
  * conversation mình là thành viên. Sự kiện tin mới/đã đọc KHÔNG phát
@@ -50,7 +51,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
   private readonly server!: Server;
 
   constructor(
-    private readonly auth: JwtMessagingSocketAuth,
+    private readonly auth: MessagingSocketAuth,
     private readonly repo: MessagingRepository,
     private readonly realtime: MessagingRealtimeService,
   ) {}
@@ -70,8 +71,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       resolveAuth = resolve;
     });
     try {
-      const token = extractHandshakeToken(client);
-      const identity = await this.auth.authenticate(token);
+      const identity = await this.auth.authenticateHandshake(client.handshake);
       if (!identity) {
         client.disconnect(true);
         return;
@@ -233,13 +233,4 @@ async function awaitConnectionUser(client: Socket): Promise<string | undefined> 
   const settled = client.data.authSettled as Promise<void> | undefined;
   if (settled) await settled;
   return client.data.userId as string | undefined;
-}
-
-/** Token từ handshake: ưu tiên `auth.token` (socket.io client chính thức), dự phòng header Bearer. */
-function extractHandshakeToken(client: Socket): string | undefined {
-  const authToken = (client.handshake.auth as { token?: unknown } | undefined)?.token;
-  if (typeof authToken === 'string' && authToken.length > 0) return authToken;
-  const header = client.handshake.headers.authorization;
-  if (typeof header === 'string' && header.startsWith('Bearer ')) return header.slice('Bearer '.length);
-  return undefined;
 }
