@@ -240,6 +240,52 @@ export class MessagingController {
   async groupTree(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.getGroupTree(actor.id);
   }
+  @Get('classes/:classId/members')
+  /**
+   * GET /messages/classes/:classId/members — một trang roster thành
+   * viên của LỚP (bản cấp lớp của roster khoá, lát MSG-T2 — phân trang
+   * con trỏ cùng khuôn, trần 100 dòng/trang). Chỉ người thuộc lớp
+   * (roster/chủ lớp/gán vai tại context lớp) xem được; người ngoài
+   * lớp nhận 404 y hệt lớp không tồn tại. Mỗi dòng kèm dấu hiệu vai
+   * trò, trạng thái quan hệ với người xem và cờ canDirectMessage
+   * khớp cổng nhắn riêng GV↔HS theo quan hệ lớp.
+   *
+   * @param classId - Id lớp (path).
+   * @param query - Phân trang con trỏ (dùng lại schema roster khoá).
+   * @returns Một trang roster kèm con trỏ trang kế.
+   * @throws 404 `messaging.class_not_found` cho người ngoài lớp.
+   */
+  async classRoster(
+    @Param('classId', { schema: uuidIdSchema }) classId: string,
+    @Query({ schema: listCourseRosterQueryServerSchema }) query: ListCourseRosterQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.messaging.listClassRoster(actor.id, classId, query);
+  }
+  @Get('classes/:classId/conversation')
+  /**
+   * GET /messages/classes/:classId/conversation — mở (ensure) CHAT
+   * CẤP LỚP: cấp phát lười idempotent conversation riêng của lớp
+   * (type 2, gắn itemType 'class' — không dùng lại nhóm con "Cả lớp"
+   * của khoá) và trả conversation kèm members — đầu vào cho nút
+   * "Chat lớp" ở trang lớp và cho nút lớp của cây nhóm. Chỉ người
+   * thuộc lớp hoặc staff lớp mở được; người ngoài nhận 404 như lớp
+   * không tồn tại.
+   *
+   * Side-effect: lần mở đầu tiên của một lớp GHI conversation +
+   * thành viên khởi tạo vào DB (ensure lười); các lần sau chỉ đồng
+   * bộ lười thành viên.
+   *
+   * @param classId - Id lớp (path).
+   * @returns Conversation cấp lớp kèm danh sách thành viên.
+   * @throws 404 `messaging.class_not_found` cho người ngoài lớp.
+   */
+  async classConversation(
+    @Param('classId', { schema: uuidIdSchema }) classId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.messaging.ensureClassConversation(actor.id, classId);
+  }
   @Get('courses')
   /**
    * GET /messages/courses — các khoá TÔI thuộc về (ghi danh hiệu lực
