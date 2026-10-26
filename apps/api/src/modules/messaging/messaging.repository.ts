@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, n
 import type { Database } from '../../db/database';
 import { tenantAls } from '../tenants/tenant-als';
 import {
-  assignments, assignGrades, assignSubmissions, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
+  assignments, assignGrades, assignSubmissions, classes, cohortMembers, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
   notificationDispatchLog, notifications, examAttempts, examPins, examVersions, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
 } from '../../db/schema';
@@ -1377,6 +1377,138 @@ export class MessagingRepository {
       eq(messageConversations.component, 'core_course'),
       eq(messageConversations.itemType, 'course'),
       inArray(messageConversations.itemId, courseIds),
+    ));
+  }
+
+  // --- cây nhóm theo vai (lát MSG-T1, issue #33) ------------------------------
+  // Cây dựng hoàn toàn ở server từ classes + enrol + conversations.
+  // Messaging KHÔNG import ClassesModule (tránh vòng lặp module như
+  // tiền lệ enrol ở trên): quan hệ của user với lớp đọc trực tiếp qua
+  // barrel schema — chủ lớp (ownerId), gán vai tại context lớp (mức
+  // 45), và roster lớp ≡ cohort_members của backing cohort (định
+  // nghĩa của module classes). Lớp đã lưu trữ (status 'archived')
+  // không thuộc cây đang hoạt động nên bị loại ở mọi đường.
+
+  /** Quan hệ của user với MỘT lớp: chủ lớp hay có gán vai archetype staff tại context lớp (mức 45) hay không. */
+  async listTreeClassesForUser(userId: string): Promise<{ classId: string; name: string; isOwner: boolean; isClassStaff: boolean; isRosterMember: boolean }[]> {
+    const owned = await this.db.select({ classId: classes.id, name: classes.name }).from(classes)
+      .where(and(eq(classes.ownerId, userId), eq(classes.status, 'active')));
+    const staffRows = await this.db.selectDistinct({ classId: context.instanceId, name: classes.name })
+      .from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .innerJoin(context, eq(context.id, roleAssignments.contextId))
+      .innerJoin(classes, eq(classes.id, context.instanceId))
+      .where(and(
+        eq(roleAssignments.userId, userId),
+        eq(context.contextLevel, 45),
+        inArray(role.archetype, [...STAFF_ARCHETYPES]),
+        eq(classes.status, 'active'),
+      ));
+    const rosterRows = await this.db.selectDistinct({ classId: classes.id, name: classes.name })
+      .from(cohortMembers)
+      .innerJoin(classes, eq(classes.cohortId, cohortMembers.cohortId))
+      .where(and(eq(cohortMembers.userId, userId), eq(classes.status, 'active')));
+    const byId = new Map<string, { classId: string; name: string; isOwner: boolean; isClassStaff: boolean; isRosterMember: boolean }>();
+    const ensure = (classId: string | null, name: string) => {
+      if (!classId) return undefined;
+      let entry = byId.get(classId);
+      if (!entry) {
+        entry = { classId, name, isOwner: false, isClassStaff: false, isRosterMember: false };
+        byId.set(classId, entry);
+      }
+      return entry;
+    };
+    for (const r of owned) { const e = ensure(r.classId, r.name); if (e) e.isOwner = true; }
+    for (const r of staffRows) { const e = ensure(r.classId, r.name); if (e) e.isClassStaff = true; }
+    for (const r of rosterRows) { const e = ensure(r.classId, r.name); if (e) e.isRosterMember = true; }
+    return [...byId.values()];
+  }
+
+  /** Mọi khoá THẬT (không phải mẫu) thuộc một tập lớp — để neo cây theo quan hệ lớp–khoá. */
+  async listCoursesByClassIds(classIds: string[]): Promise<{ courseId: string; fullName: string; classId: string }[]> {
+    if (!classIds.length) return [];
+    const rows = await this.db.select({ courseId: course.id, fullName: course.fullName, classId: course.classId })
+      .from(course)
+      .where(and(inArray(course.classId, classIds), eq(course.isTemplate, false)));
+    return rows.filter((r): r is { courseId: string; fullName: string; classId: string } => r.classId !== null);
+  }
+
+  /** Lớp chứa từng khoá trong tập cho trước (khoá không thuộc lớp nào thì vắng khỏi kết quả). */
+  async listClassesOfCourses(courseIds: string[]): Promise<{ courseId: string; classId: string; className: string; classStatus: string }[]> {
+    if (!courseIds.length) return [];
+    const rows = await this.db.select({ courseId: course.id, classId: course.classId, className: classes.name, classStatus: classes.status })
+      .from(course)
+      .innerJoin(classes, eq(classes.id, course.classId))
+      .where(inArray(course.id, courseIds));
+    return rows.filter((r): r is { courseId: string; classId: string; className: string; classStatus: string } => r.classId !== null);
+  }
+
+  /** Tên hiển thị của một tập khoá (cho các nút khoá của cây). */
+  async listCourseNames(courseIds: string[]): Promise<{ courseId: string; fullName: string }[]> {
+    if (!courseIds.length) return [];
+    return this.db.select({ courseId: course.id, fullName: course.fullName }).from(course)
+      .where(inArray(course.id, courseIds));
+  }
+
+  /**
+   * Các khoá trong tập cho trước mà user có gán vai archetype staff
+   * TẠI context khoá (mức 50) — căn cứ vai "đang dạy" của nút khoá,
+   * cùng định nghĩa "giáo viên của khoá" với roster.
+   */
+  async listTeachingCourseIds(userId: string, courseIds: string[]): Promise<string[]> {
+    if (!courseIds.length) return [];
+    const rows = await this.db.selectDistinct({ courseId: context.instanceId })
+      .from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .innerJoin(context, eq(context.id, roleAssignments.contextId))
+      .where(and(
+        eq(roleAssignments.userId, userId),
+        eq(context.contextLevel, 50),
+        inArray(context.instanceId, courseIds),
+        inArray(role.archetype, [...STAFF_ARCHETYPES]),
+      ));
+    return rows.map((r) => r.courseId).filter((id): id is string => id !== null);
+  }
+
+  /** Tên của một tập course group (cho các nút nhóm con của cây). */
+  async listGroupNames(groupIds: string[]): Promise<{ groupId: string; name: string; courseId: string }[]> {
+    if (!groupIds.length) return [];
+    return this.db.select({ groupId: courseGroups.id, name: courseGroups.name, courseId: courseGroups.courseId })
+      .from(courseGroups)
+      // Nhóm cấu trúc "Cả lớp" (CLASS_WHOLE_GROUP_NAME của module
+      // classes — kênh cả khoá do hệ tự tạo cho khoá thuộc lớp,
+      // roster vật chất hoá vào đó) KHÔNG phải nhóm con do GV chia
+      // nên không hiện ở mức nhóm con của cây.
+      .where(and(inArray(courseGroups.id, groupIds), ne(courseGroups.name, 'Cả lớp')));
+  }
+
+  /** Conversation CẤP KHOÁ của một tập khoá (itemType 'course') — tra "đã ensure hay chưa" cho nút cây. */
+  async listCourseConversationsByCourseIds(courseIds: string[]): Promise<ConversationRow[]> {
+    if (!courseIds.length) return [];
+    return this.db.select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_course'),
+      eq(messageConversations.itemType, 'course'),
+      inArray(messageConversations.itemId, courseIds),
+    ));
+  }
+
+  /** Conversation CẤP LỚP của một tập lớp (itemType 'class' — có từ MSG-T2; ở MSG-T1 thường rỗng). */
+  async listClassConversations(classIds: string[]): Promise<ConversationRow[]> {
+    if (!classIds.length) return [];
+    return this.db.select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_class'),
+      eq(messageConversations.itemType, 'class'),
+      inArray(messageConversations.itemId, classIds),
+    ));
+  }
+
+  /** Conversation NHÓM CON của một tập group (itemType 'groups'). */
+  async listGroupConversationsByGroupIds(groupIds: string[]): Promise<ConversationRow[]> {
+    if (!groupIds.length) return [];
+    return this.db.select().from(messageConversations).where(and(
+      eq(messageConversations.component, 'core_group'),
+      eq(messageConversations.itemType, 'groups'),
+      inArray(messageConversations.itemId, groupIds),
     ));
   }
 

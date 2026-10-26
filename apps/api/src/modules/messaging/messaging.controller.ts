@@ -227,6 +227,19 @@ export class MessagingController {
   async setCourseOverride(@Body({ schema: setNotificationCourseOverrideSchema }) dto: SetCourseOverrideDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.setCourseNotificationOverride(actor.id, dto);
   }
+  @Get('group-tree')
+  /**
+   * GET /messages/group-tree — CÂY NHÓM của chính tôi (lát MSG-T1,
+   * issue #33): Lớp → Khoá → Nhóm con theo vai của tôi (đang dạy /
+   * đang học / staff) + mục Nhóm tự do, dựng hoàn toàn ở server từ
+   * classes + enrol + conversations. Mỗi nút kèm conversationId
+   * (null = chat chưa được ensure) và số chưa đọc của chính tôi. Cây
+   * chỉ chứa lớp/khoá/nhóm tôi có quan hệ — quan hệ của người khác
+   * không lộ qua cây này.
+   */
+  async groupTree(@CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.getGroupTree(actor.id);
+  }
   @Get('courses')
   /**
    * GET /messages/courses — các khoá TÔI thuộc về (ghi danh hiệu lực

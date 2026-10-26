@@ -163,6 +163,53 @@ export interface MessagingCourseView {
   shortName: string;
 }
 
+/** Vai của người gọi tại một nút cây nhóm (hợp đồng ở @lms/contracts, lát MSG-T1). */
+export type ConversationTreeRole = 'teaching' | 'learning' | 'staff';
+
+/** Nút NHÓM CON của cây nhóm: chat chưa ensure thì conversationId null + unread 0. */
+export interface ConversationTreeGroupView {
+  groupId: string;
+  name: string;
+  myRole: ConversationTreeRole;
+  conversationId: string | null;
+  unread: number;
+}
+
+/** Nút NHÓM TỰ DO của cây nhóm (conversation luôn đã tồn tại). */
+export interface ConversationTreeFreeGroupView {
+  conversationId: string;
+  name: string;
+  myRole: ConversationTreeRole;
+  unread: number;
+}
+
+/** Nút KHOÁ của cây nhóm: unread gồm chat khoá + các nhóm con của nó. */
+export interface ConversationTreeCourseView {
+  courseId: string;
+  name: string;
+  myRole: ConversationTreeRole;
+  conversationId: string | null;
+  unread: number;
+  groups: ConversationTreeGroupView[];
+}
+
+/** Nút LỚP của cây nhóm: unread là tổng của nút lớp + mọi nút con. */
+export interface ConversationTreeClassView {
+  classId: string;
+  name: string;
+  myRole: ConversationTreeRole;
+  conversationId: string | null;
+  unread: number;
+  courses: ConversationTreeCourseView[];
+}
+
+/** CÂY NHÓM của chính người gọi (GET /messages/group-tree, lát MSG-T1). */
+export interface ConversationGroupTreeView {
+  classes: ConversationTreeClassView[];
+  coursesOutsideClasses: ConversationTreeCourseView[];
+  freeGroups: ConversationTreeFreeGroupView[];
+}
+
 /** Tên hiển thị của một user: "firstName lastName" đã cắt khoảng trắng; cả hai trống thì lùi về username. */
 export function displayNameOf(user: { firstName: string; lastName: string; username: string }): string {
   const name = `${user.firstName} ${user.lastName}`.trim();
@@ -928,6 +975,154 @@ export class MessagingService {
       if (summary) out.push(summary);
     }
     return out.sort((a, b) => a.fullName.localeCompare(b.fullName) || a.shortName.localeCompare(b.shortName));
+  }
+
+  /**
+   * CÂY NHÓM của chính người gọi (lát MSG-T1, issue #33 — thiết kế
+   * cấu trúc nhắn tin chốt 11:36 ngày 26/10/2026): Lớp → Khoá → Nhóm
+   * con theo VAI của người xem, cộng mục Nhóm tự do. Cây dựng hoàn
+   * toàn ở server (classes + enrol + conversations): lớp tôi chỉ
+   * thuộc QUA một khoá (không có quan hệ trực tiếp với lớp) vẫn xuất
+   * hiện đúng vị trí cha của khoá đó — phần "chỉ qua khoá" được tổng
+   * hợp thành khoá nằm NGOÀI các lớp trực tiếp của tôi
+   * (`coursesOutsideClasses`) để client không mất khoá nào.
+   *
+   * Mỗi nút: `conversationId` null khi chat của nút CHƯA được ensure
+   * (bấm vào mới ensure ở MSG-T3/T2), unread khi đó là 0; đã ensure
+   * thì unread là số chưa đọc của chính người gọi trên conversation
+   * đó. Unread của nút khoá gồm chat khoá + các nhóm con của nó;
+   * unread của nút lớp là tổng của nút lớp + mọi nút con — để nhìn
+   * lướt là biết lớp/khoá nào đang có tin. Chat cấp lớp có từ MSG-T2
+   * nên ở lát này nút lớp luôn conversationId null. Đồng bộ lười
+   * membership được kích hoạt như ở danh sách conversation để số
+   * chưa đọc bám đúng tư cách thành viên hiện tại.
+   */
+  async getGroupTree(actorId: string): Promise<ConversationGroupTreeView> {
+    // Đồng bộ lười membership như listConversations: group/khoá tôi
+    // mới gia nhập (hoặc đã rời) phải phản ánh đúng trước khi đếm.
+    for (const c of await this.repo.listGroupConversationsForGroupMember(actorId)) {
+      await this.syncGroupConversationMembers(c);
+    }
+    for (const c of await this.repo.listCourseConversationsForMember(actorId)) {
+      await this.syncCourseConversationMembers(c);
+    }
+
+    const classRelations = await this.repo.listTreeClassesForUser(actorId);
+    const myClassIds = new Set(classRelations.map((r) => r.classId));
+    // Khoá dạng MẪU (is_template) không phải khoá đang dạy/học — loại
+    // ở cả hai đường (qua lớp và qua thành viên khoá).
+    const membershipCourseIds = await this.repo.listMembershipCourseIds(actorId);
+    const myCourseNameRows = await this.repo.listCourseNames(membershipCourseIds);
+    const myCourseIds = new Set(myCourseNameRows.map((r) => r.courseId));
+    const coursesInMyClasses = (await this.repo.listCoursesByClassIds([...myClassIds]))
+      .filter((c) => myCourseIds.has(c.courseId));
+    // Lớp chứa các khoá tôi thuộc về nhưng tôi không có quan hệ trực
+    // tiếp: các khoá đó nằm ở coursesOutsideClasses (giữ nguyên
+    // classId của chúng trong dữ liệu nguồn — client MSG-T3 trình
+    // bày phẳng phần này, không ngắt quan hệ lớp–khoá ở dữ liệu).
+    const parentRows = await this.repo.listClassesOfCourses(
+      [...myCourseIds].filter((id) => !coursesInMyClasses.some((c) => c.courseId === id)),
+    );
+    const outsideCourseIds = parentRows
+      .filter((r) => !myClassIds.has(r.classId) && r.classStatus === 'active')
+      .map((r) => r.courseId);
+    const detachedCourseIds = [...myCourseIds].filter((id) => !coursesInMyClasses.some((c) => c.courseId === id) && !parentRows.some((r) => r.courseId === id));
+    const outsideAll = [...outsideCourseIds, ...detachedCourseIds];
+
+    const allCourseIds = [...new Set([...coursesInMyClasses.map((c) => c.courseId), ...outsideAll])];
+    const teachingIds = new Set(await this.repo.listTeachingCourseIds(actorId, allCourseIds));
+    const nameOfCourse = new Map(myCourseNameRows.map((r) => [r.courseId, r.fullName]));
+
+    // Số chưa đọc theo conversation của chính tôi (một truy vấn tổng
+    // hợp như danh sách conversation; conversation đã lưu trữ vẫn
+    // tính ở cây — cây là cấu trúc điều hướng, không phải hộp thư).
+    const summaries = await this.repo.listConversationSummaries(actorId, {});
+    const summariesArchived = await this.repo.listConversationSummaries(actorId, { archivedOnly: true });
+    const unreadByConversation = new Map<string, number>();
+    for (const s of [...summaries, ...summariesArchived]) {
+      unreadByConversation.set(s.conversation.id, s.unreadCount);
+    }
+    // conversationId của nút cấu trúc tra TRỰC TIẾP theo item (đã
+    // ensure hay chưa là sự thật ở bảng conversation, không phụ
+    // thuộc việc tôi đã là thành viên conversation hay chưa); số chưa
+    // đọc mới là phần theo người xem (không có dòng thành viên thì 0).
+    const courseConvByCourse = new Map(
+      (await this.repo.listCourseConversationsByCourseIds(allCourseIds)).map((c) => [c.itemId!, c.id]),
+    );
+    const classConvByClass = new Map(
+      (await this.repo.listClassConversations([...myClassIds])).map((c) => [c.itemId!, c.id]),
+    );
+
+    // Nhóm con: các group tôi là thành viên, chỉ giữ group thuộc các
+    // khoá có mặt trong cây.
+    const myGroupIds = await this.repo.listGroupIdsForUser(actorId);
+    const groupRows = (await this.repo.listGroupNames(myGroupIds))
+      .filter((g) => allCourseIds.includes(g.courseId));
+    const groupConvByGroup = new Map(
+      (await this.repo.listGroupConversationsByGroupIds(groupRows.map((g) => g.groupId))).map((c) => [c.itemId!, c.id]),
+    );
+
+    const buildCourseNode = (courseId: string, name: string, myRole: ConversationTreeRole): ConversationTreeCourseView => {
+      const convId = courseConvByCourse.get(courseId) ?? null;
+      let unread = convId ? (unreadByConversation.get(convId) ?? 0) : 0;
+      const groups: ConversationTreeGroupView[] = groupRows
+        .filter((g) => g.courseId === courseId)
+        .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+        .map((g) => {
+          const gConvId = groupConvByGroup.get(g.groupId) ?? null;
+          const gUnread = gConvId ? (unreadByConversation.get(gConvId) ?? 0) : 0;
+          unread += gUnread;
+          return { groupId: g.groupId, name: g.name, myRole, conversationId: gConvId, unread: gUnread };
+        });
+      return { courseId, name, myRole, conversationId: convId, unread, groups };
+    };
+
+    const classNodes: ConversationTreeClassView[] = [];
+    for (const rel of classRelations) {
+      const myRole: ConversationTreeRole = rel.isOwner ? 'teaching' : rel.isClassStaff ? 'staff' : 'learning';
+      // Vai tại khoá suy từ vai tại lớp khi tôi có vai công tác ở
+      // lớp: chủ lớp/staff lớp dạy các khoá trong lớp của mình; thành
+      // viên roster thuần tuý thì học các khoá đó trừ khoá mình có
+      // gán vai staff riêng (đã tính ở teachingIds).
+      const courseNodes = coursesInMyClasses
+        .filter((c) => c.classId === rel.classId)
+        .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'))
+        .map((c) => buildCourseNode(
+          c.courseId,
+          c.fullName,
+          teachingIds.has(c.courseId) || rel.isOwner || rel.isClassStaff ? 'teaching' : 'learning',
+        ));
+      const classConvId = classConvByClass.get(rel.classId) ?? null;
+      const ownUnread = classConvId ? (unreadByConversation.get(classConvId) ?? 0) : 0;
+      const totalUnread = ownUnread + courseNodes.reduce((sum, n) => sum + n.unread, 0);
+      classNodes.push({
+        classId: rel.classId, name: rel.name, myRole, conversationId: classConvId, unread: totalUnread, courses: courseNodes,
+      });
+    }
+    classNodes.sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+
+    const outsideNodes = outsideAll
+      .sort((a, b) => (nameOfCourse.get(a) ?? '').localeCompare(nameOfCourse.get(b) ?? '', 'vi'))
+      .map((courseId) => buildCourseNode(
+        courseId,
+        nameOfCourse.get(courseId) ?? courseId,
+        teachingIds.has(courseId) ? 'teaching' : 'learning',
+      ));
+
+    // Nhóm tự do: conversation type 2 KHÔNG gắn cấu trúc mà tôi là
+    // thành viên (đúng tập listConversationSummaries trả về — đã qua
+    // cổng hiển thị của danh sách).
+    const freeGroups: ConversationTreeFreeGroupView[] = [...summaries, ...summariesArchived]
+      .filter((s) => s.conversation.type === 2 && !s.conversation.itemType)
+      .sort((a, b) => b.conversation.updatedAt.getTime() - a.conversation.updatedAt.getTime())
+      .map((s) => ({
+        conversationId: s.conversation.id,
+        name: s.conversation.name ?? '',
+        myRole: (s.conversation.createdBy === actorId ? 'staff' : 'learning') as ConversationTreeRole,
+        unread: s.unreadCount,
+      }));
+
+    return { classes: classNodes, coursesOutsideClasses: outsideNodes, freeGroups };
   }
 
   /** Giải mã con trỏ phân trang roster; con trỏ hỏng → 400 rõ ràng thay vì lặng lẽ về trang đầu. */
