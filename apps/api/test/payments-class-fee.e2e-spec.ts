@@ -169,6 +169,14 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     expect(byTeacher.status).toBe(200);
     expect((byTeacher.body as { feeCost: number }).feeCost).toBe(FEE);
 
+    // Ghim tài khoản nhận SePay cho lớp A (cùng khuôn instance fee ghim
+    // paymentAccountId): các ca IPN phía dưới cần payment sinh mã + QR
+    // trên ĐÚNG tài khoản này — đường tài khoản mặc định của tenant
+    // không có thứ tự xác định trong DB dùng chung của suite.
+    const pinned = await setFee(classA, { feePaymentAccountId: sepayAccountId });
+    expect(pinned.status).toBe(200);
+    expect((pinned.body as { feePaymentAccountId: string }).feePaymentAccountId).toBe(sepayAccountId);
+
     const pub = await publicView(classA, buyer.token);
     expect(pub.feeEnabled).toBe(true);
     expect(pub.feeCost).toBe(FEE);
