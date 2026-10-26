@@ -526,4 +526,23 @@ export class GroupsService implements OnModuleInit {
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_added', payload: { cohortId, userId } });
     await this.emitter.emitAsync('cohort_member_added', { cohortId, userId });
   }
+  /**
+   * Gỡ thành viên cohort theo đường HỆ THỐNG — đối tác của
+   * `addCohortMemberInternal`, dùng cho luồng mà quyết định gỡ đã được
+   * gác ở tầng nghiệp vụ phía trên: hoàn tiền học phí lớp (CLASS-3,
+   * issue #184) — lệnh hoàn đã gác bằng `payment:manageaccounts` ở
+   * PaymentsService, người bị gỡ là học sinh vốn không giữ
+   * `cohort:manage`. Phát đúng cùng cặp sự kiện như
+   * `removeCohortMember` để cohort sync đình chỉ/rút ghi danh ở mọi
+   * khoá theo chế độ rời của từng instance. Không phải thành viên thì
+   * im lặng bỏ qua (idempotent — tiêu thụ lặp sự kiện hoàn tiền không
+   * phát sự kiện hai lần).
+   */
+  async removeCohortMemberInternal(cohortId: string, userId: string): Promise<void> {
+    await this.getCohort(cohortId);
+    const removed = await this.repo.removeCohortMember(cohortId, userId);
+    if (!removed) return;
+    await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
+    await this.emitter.emitAsync('cohort_member_removed', { cohortId, userId });
+  }
 }

@@ -14,6 +14,7 @@ import {
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
   conversationGroupTreeSchema,
   classOverviewSchema,
+  classPublicViewSchema, classSchema, updateClassSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -557,7 +558,8 @@ describe('class overview contracts (CLASS-2, #184)', () => {
       name: 'Lớp 10A1', code: '10A1', schoolYear: '2026-2027',
       ownerId: '01900000-0000-7000-8000-0000000000b1', cohortId: '01900000-0000-7000-8000-0000000000d1',
       allowSelfReport: true, joinCode: null, joinAutoApprove: false, onLeave: 'suspend', status: 'active',
-      description: '', createdAt: '2026-10-26T00:00:00.000Z', updatedAt: '2026-10-26T00:00:00.000Z',
+      description: '', feeCost: null, feeCurrency: 'VND', feePaymentAccountId: null,
+      createdAt: '2026-10-26T00:00:00.000Z', updatedAt: '2026-10-26T00:00:00.000Z',
     },
     viewerRole: 'member',
     canManageRoster: false,
@@ -584,5 +586,48 @@ describe('class overview contracts (CLASS-2, #184)', () => {
 
   it('rejects a negative rosterCount (số học sinh của lớp không thể âm)', () => {
     expect(() => classOverviewSchema.parse({ ...overview, rosterCount: -1 })).toThrow();
+  });
+});
+
+describe('class fee contracts (CLASS-3, #184)', () => {
+  const classView = {
+    id: '01900000-0000-7000-8000-0000000000c1', tenantId: '01900000-0000-7000-8000-0000000000a1',
+    name: 'Lớp 10A1', code: '10A1', schoolYear: '2026-2027',
+    ownerId: '01900000-0000-7000-8000-0000000000b1', cohortId: '01900000-0000-7000-8000-0000000000d1',
+    allowSelfReport: true, joinCode: null, joinAutoApprove: false, onLeave: 'suspend', status: 'active',
+    description: '', feeCost: 1500000, feeCurrency: 'VND', feePaymentAccountId: null,
+    createdAt: '2026-10-26T00:00:00.000Z', updatedAt: '2026-10-26T00:00:00.000Z',
+  };
+
+  it('parses a class view carrying the fee package (học phí là số nguyên đơn vị nhỏ nhất)', () => {
+    const parsed = classSchema.parse(classView);
+    expect(parsed.feeCost).toBe(1500000);
+    expect(parsed.feeCurrency).toBe('VND');
+    expect(parsed.feePaymentAccountId).toBeNull();
+  });
+
+  it('rejects a fractional feeCost (tiền không có phần lẻ ở đơn vị nhỏ nhất — cùng bất biến payments)', () => {
+    expect(() => classSchema.parse({ ...classView, feeCost: 1500000.5 })).toThrow();
+    expect(updateClassSchema.safeParse({ feeCost: 100.5 }).success).toBe(false);
+  });
+
+  it('rejects a negative fee in the update contract (đặt học phí âm là lỗi nhập liệu, tắt thu phí là null/0)', () => {
+    expect(updateClassSchema.safeParse({ feeCost: -1 }).success).toBe(false);
+    expect(updateClassSchema.safeParse({ feeCost: 0 }).success).toBe(true);
+    expect(updateClassSchema.safeParse({ feeCost: null }).success).toBe(true);
+    expect(updateClassSchema.safeParse({ feeCurrency: 'VND' }).success).toBe(true);
+    expect(updateClassSchema.safeParse({ feeCurrency: 'VN' }).success).toBe(false);
+  });
+
+  it('parses the public package view and rejects unknown class status (gói công khai không mang trạng thái lạ)', () => {
+    const pub = {
+      classId: classView.id, name: classView.name, code: '10A1', schoolYear: '2026-2027',
+      description: '', ownerName: 'Nguyễn Văn A', status: 'active',
+      feeCost: 1500000, feeCurrency: 'VND', feeEnabled: true, isMember: false, canPurchase: true,
+    };
+    const parsed = classPublicViewSchema.parse(pub);
+    expect(parsed.canPurchase).toBe(true);
+    expect(() => classPublicViewSchema.parse({ ...pub, status: 'deleted' })).toThrow();
+    expect(() => classPublicViewSchema.parse({ ...pub, feeCost: 1.5 })).toThrow();
   });
 });

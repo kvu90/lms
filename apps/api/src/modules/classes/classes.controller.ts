@@ -32,7 +32,9 @@ const ROSTER_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
  * đồng quyền tại context lớp; CLASS-1 bổ sung bề mặt giáo viên — nạp
  * roster theo định danh/import Excel, phân quyền đồng GV, tự báo danh
  * bằng mã tham gia, thành viên đã đình chỉ; CLASS-2 bổ sung gói tổng
- * quan cho dashboard theo lớp (`:id/overview`). Các route đặc thù
+ * quan cho dashboard theo lớp (`:id/overview`); CLASS-3 bổ sung gói
+ * công khai của lớp cho người chưa ghi danh (`:id/public`) — bề mặt
+ * xem và mua gói học phí theo lớp. Các route đặc thù
  * (join/join-preview/roster-template) khai TRƯỚC route `:id` để không
  * bị nuốt bởi tham số đường dẫn.
  */
@@ -82,6 +84,12 @@ export class ClassesController {
   /** GET /classes/:id/overview — gói tổng quan cho dashboard theo lớp (CLASS-2): quan hệ của người gọi với lớp + số học sinh + khoá đã lọc theo vai (học sinh chỉ nhận khoá mình đang ghi danh ACTIVE). */
   async overview(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.classes.getClassOverview(actor.id, id);
+  }
+
+  @Get(':id/public')
+  /** GET /classes/:id/public — gói công khai của lớp (CLASS-3): thông tin lớp + gói học phí cho người CHƯA ghi danh xem và bắt đầu thanh toán; cờ `isMember`/`canPurchase` do server suy cho đúng người gọi (đã ghi danh ACTIVE thì không bị mời mua lại). */
+  async publicView(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.classes.getClassPublic(actor.id, id);
   }
 
   @Patch(':id')

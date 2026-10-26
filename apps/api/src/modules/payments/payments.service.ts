@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { ClassesService } from '../classes/classes.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
@@ -83,6 +84,11 @@ export interface SepayIpnInput {
  * payments gắn tenant sở hữu; payment trên account SePay đã liên kết được
  * sinh mã thanh toán + QR động; tiền về qua IPN SePay chỉ kích hoạt khi
  * khớp đủ 3 điều kiện ở khâu matching bất đồng bộ (SepayMatchingService).
+ *
+ * CLASS-3 (#184): component `class_fee` (item_id = classes.id) chạy trên
+ * đúng pipeline này — tạo payment qua cấu hình học phí trên lớp
+ * (`createClassFeePayment`), kích hoạt ghi danh cấp lớp khi succeeded,
+ * đình chỉ khỏi lớp khi hoàn đủ; không có pipeline thanh toán riêng.
  */
 @Injectable()
 export class PaymentsService {
@@ -92,6 +98,7 @@ export class PaymentsService {
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
     private readonly enrol: EnrolService,
+    private readonly classes: ClassesService,
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
@@ -259,6 +266,40 @@ export class PaymentsService {
   }
 
   /**
+   * Tạo payment cho GÓI LỚP (CLASS-3, issue #184) — hàm song song với
+   * `createFeePayment` của `enrol_fee`, dùng đúng seam
+   * `component`/`item_id` sẵn có: payment mang `component = 'class_fee'`,
+   * `item_id = classes.id`. Số tiền/đơn vị tiền lấy từ cấu hình học phí
+   * trên lớp; mọi cổng phía lớp (lớp tồn tại trong tenant hiệu lực /
+   * chưa lưu trữ / có bật thu phí / người mua chưa thuộc roster) do
+   * `ClassesService.resolveClassFeePurchase` gác.
+   *
+   * Chọn tài khoản nhận theo luật hai dòng tiền tách bạch (sổ quyết
+   * định mục E): tài khoản chỉ định riêng trên lớp nếu có, không thì
+   * tài khoản enabled đầu tiên CỦA TENANT SỞ HỮU LỚP — lớp của trung
+   * tâm thu về tài khoản của chính trung tâm, lớp của GV tự do ở trang
+   * chính (tenant nền tảng) thu về tài khoản platform; account của
+   * tenant khác bị chặn ở đây và chặn lần nữa ở `createPaymentInTenant`
+   * (mã `payment.account_tenant_mismatch`).
+   */
+  async createClassFeePayment(userId: string, classId: string): Promise<PaymentView> {
+    const target = await this.classes.resolveClassFeePurchase(classId, userId);
+    let accountId = target.feePaymentAccountId ?? undefined;
+    if (accountId) {
+      const account = await this.repo.getAccount(accountId);
+      if (!account) throw new BadRequestException({ message: 'Configured payment account no longer exists', code: 'payment.no_account' });
+      if (account.tenantId !== target.tenantId) {
+        throw new BadRequestException({ message: 'Payment account belongs to a different tenant than the class', code: 'payment.account_tenant_mismatch' });
+      }
+    } else {
+      const own = (await this.repo.listAccounts()).filter((a) => a.tenantId === target.tenantId && a.enabled);
+      accountId = own[0]?.id;
+    }
+    if (!accountId) throw new BadRequestException({ message: 'No payment account configured for this class fee', code: 'payment.no_account' });
+    return this.createPaymentInTenant(userId, { accountId, amount: target.feeCost, currency: target.feeCurrency || 'VND', component: 'class_fee', itemId: target.classId }, target.tenantId);
+  }
+
+  /**
    * Xử lý webhook. CỔNG XÁC THỰC CHẠY TRƯỚC TIÊN (vá H1, issue #134):
    * resolve gateway theo `input.gateway` rồi gọi `gateway.verify` — gateway
    * lạ ⇒ 400; verify fail ⇒ 401. Cả hai đều xảy ra TRƯỚC mọi đọc/ghi trạng
@@ -293,6 +334,11 @@ export class PaymentsService {
     // Nghiệp vụ hưởng lợi: enrol có phí chỉ active sau PaymentSucceeded đã xác thực.
     if (succeeded.component === 'enrol_fee' && succeeded.itemId) {
       await this.enrol.activatePaidEnrol(succeeded.itemId, succeeded.userId);
+    }
+    // CLASS-3: gói lớp — vào roster của lớp, cohort sync vật chất hoá
+    // xuống mọi khoá của lớp (idempotent như activatePaidEnrol).
+    if (succeeded.component === 'class_fee' && succeeded.itemId) {
+      await this.classes.activatePaidClassEnrol(succeeded.itemId, succeeded.userId);
     }
     return { status: 'succeeded', payment: succeeded };
   }
@@ -363,6 +409,8 @@ export class PaymentsService {
    * Đảo quyền lợi (§5.6, tiêu chí 6.4.7): hoàn TOÀN BỘ + lệnh chi đã xác
    * nhận (externalTransactionId đi kèm) → đình chỉ ghi danh qua
    * `EnrolService.setSuspended`; hoàn một phần giữ nguyên quyền lợi.
+   * CLASS-3: cùng khuôn cho gói lớp — hoàn toàn bộ → đình chỉ khỏi lớp
+   * qua `ClassesService.suspendPaidClassMember`.
    */
   async refund(actorId: string, paymentId: string, input: { amount: number; reason?: string; externalTransactionId?: string }): Promise<RefundRow> {
     await this.requireManageAccounts(actorId);
@@ -383,6 +431,13 @@ export class PaymentsService {
       await this.repo.updatePayment(payment.id, { status: 'refunded' });
       if (input.externalTransactionId && payment.component === 'enrol_fee' && payment.itemId) {
         await this.enrol.setSuspended(actorId, payment.itemId, payment.userId, true);
+      }
+      // CLASS-3: hoàn đủ gói lớp → đình chỉ khỏi lớp (gỡ backing
+      // cohort; cohort sync đình chỉ mọi khoá, giữ điểm/dữ liệu theo
+      // chế độ rời mặc định của lớp). Hoàn một phần giữ nguyên quyền
+      // lợi như enrol_fee.
+      if (input.externalTransactionId && payment.component === 'class_fee' && payment.itemId) {
+        await this.classes.suspendPaidClassMember(payment.itemId, payment.userId);
       }
     }
     return refund;

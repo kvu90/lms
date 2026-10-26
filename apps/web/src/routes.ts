@@ -40,6 +40,8 @@ export default [
     route('classes/join', 'pages/class-join.tsx'),
     route('classes/:id', 'pages/class-detail.tsx'),
     route('classes/:id/edit', 'pages/class-edit.tsx'),
+    // Trang công khai mua gói học phí của lớp (CLASS-3, issue #184).
+    route('classes/:id/public', 'pages/class-public.tsx'),
     route('courses/:id', 'pages/course.tsx'),
     route('courses/:id/builder', 'pages/course-builder.tsx'),
     route('courses/:id/learn/:cmId', 'pages/player.tsx'),
