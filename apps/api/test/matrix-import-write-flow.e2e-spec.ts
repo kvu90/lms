@@ -140,19 +140,16 @@ beforeAll(async () => {
   const category = await http(app).post('/api/v1/questions/categories').set(auth(admin))
     .send({ name: `Danh mục I-2 ${suffix}`, contextId: sys.id }).expect(201);
   for (let i = 0; i < 3; i++) {
-    const q = await http(app).post('/api/v1/questions').set(auth(admin)).send({
+    const r = await http(app).post('/api/v1/questions').set(auth(admin)).send({
       categoryId: category.body.id, qtype: 'multichoice', name: `Câu I-2 ${i + 1}`,
-      questionText: { format: 'html', html: `<p>2 + ${i} bằng mấy?</p>`, plainText: `2 + ${i} bằng mấy?` },
-      defaultMark: 1, versionNote: null,
-      answers: [
-        { text: { format: 'html', html: `<p>${2 + i}</p>`, plainText: `${2 + i}` }, fraction: 1, feedback: null },
-        { text: { format: 'html', html: '<p>0</p>', plainText: '0' }, fraction: 0, feedback: null },
-      ],
-      choices: null, correctAnswer: null, acceptedAnswers: null,
-      unitHandling: null, units: null, multiAnswers: null, numericalTolerance: null,
-    }).expect(201);
-    await http(app).post(`/api/v1/questions/${q.body.id}/outcomes`).set(auth(admin))
-      .send({ outcomeId: o1.body.id, cognitiveLevel: 'biet' }).expect(201);
+      questionText: `Câu I-2 ${i + 1}: chọn đáp án đúng.`, defaultMark: 1,
+      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+    });
+    if (r.status !== 201 && r.status !== 200) throw new Error(`question failed: ${r.status} ${JSON.stringify(r.body)}`);
+    const qid = r.body.question.id as string;
+    const tag = await http(app).post(`/api/v1/questions/${qid}/outcomes`).set(auth(admin))
+      .send({ outcomeId: o1.body.id, cognitiveLevel: 'biet' });
+    if (tag.status !== 201 && tag.status !== 200) throw new Error(`tag failed: ${tag.status} ${JSON.stringify(tag.body)}`);
   }
 });
 
