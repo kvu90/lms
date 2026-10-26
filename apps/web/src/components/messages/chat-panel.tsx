@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
 import type { ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, ScrollerHandle } from './types';
 import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, type MemberPanelBundle } from './member-panel';
-import { countMessageCharacters, initialsOf, quoteExcerptOfText } from './utils';
+import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, countMessageCharacters, initialsOf, quoteExcerptOfText } from './utils';
 
 /**
  * Cầu nối tới handle cuộn của MessageScroller: hook chỉ gọi được
@@ -289,21 +289,23 @@ export function ChatPanel({
                     >
                       <Ellipsis aria-hidden />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align={mine ? 'end' : 'start'} sideOffset={4}>
+                    {/* Bề rộng + không xuống dòng theo hằng ở utils: mặc định của @lms/ui ghim bề rộng theo nút ⋯ hẹp làm nhãn bẻ nhiều dòng. */}
+                    <DropdownMenuContent align={mine ? 'end' : 'start'} sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
                       {showRecallAction ? (
-                        <DropdownMenuItem onClick={() => void recallMessage(m)}>
+                        <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void recallMessage(m)}>
                           <Undo2 aria-hidden />
                           {t('recallMessage')}
                         </DropdownMenuItem>
                       ) : null}
                       {showDeleteMineAction ? (
-                        <DropdownMenuItem onClick={() => void deleteMessage(m)}>
+                        <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => void deleteMessage(m)}>
                           <Trash aria-hidden />
                           {t('deleteMessage')}
                         </DropdownMenuItem>
                       ) : null}
                       {showModerateActions ? (
                         <DropdownMenuCheckboxItem
+                          className={CHAT_MENU_ITEM_CLASS}
                           checked={selectedForBulk.has(m.id)}
                           onCheckedChange={() => setSelectedForBulk((prev) => {
                             const next = new Set(prev);
@@ -316,7 +318,7 @@ export function ChatPanel({
                         </DropdownMenuCheckboxItem>
                       ) : null}
                       {showModerateActions ? (
-                        <DropdownMenuItem variant="destructive" onClick={() => void hardDeleteMessage(m)}>
+                        <DropdownMenuItem variant="destructive" className={CHAT_MENU_ITEM_CLASS} onClick={() => void hardDeleteMessage(m)}>
                           <Eraser aria-hidden />
                           {t('hardDeleteMessage')}
                         </DropdownMenuItem>

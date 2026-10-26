@@ -2421,3 +2421,98 @@ describe('Messages page — MSG-T4 phía học sinh: không nới luật nhắn 
     expect(screen.queryByRole('menuitem', { name: 'Nhắn riêng' })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Lát dọn gọn UI nhắn tin (nối tiếp issue #33 — phàn nàn của Lão gia
+ * khi kiểm tra production): hai lỗi TRÌNH BÀY đã chốt cách sửa —
+ * (1) avatar phải neo ở ĐẦU dòng tin, không còn neo đáy + hack
+ * translate theo footer khiến avatar nằm ngang hàng hàng tuỳ chọn
+ * dưới bong bóng; (2) hai menu nổi ở bề mặt chat (menu ⋯ trên tin và
+ * menu quan hệ trên avatar/tên thành viên) phải có bề rộng tử tế và
+ * từng mục nằm trên MỘT dòng, thay cho bề rộng mặc định bị ghim theo
+ * nút gọt hẹp. Các ca dưới khoá đúng hai hợp đồng trình bày này qua
+ * DOM người dùng thật sự nhận được; hành vi/handler không đổi nên
+ * các describe cũ ở trên vẫn là nơi gác luồng nghiệp vụ.
+ */
+describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + menu không xuống dòng)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  /** Mọi avatar trong khung chat: neo đầu dòng (self-start), hết hack translate theo footer và hết neo đáy. */
+  function expectAvatarsAnchoredToMessageTop(thread: HTMLElement) {
+    const avatars = thread.querySelectorAll('[data-slot="message-avatar"]');
+    expect(avatars.length).toBeGreaterThan(0);
+    for (const avatar of avatars) {
+      expect(avatar.className).toContain('self-start');
+      expect(avatar.className).not.toContain('self-end');
+      expect(avatar.className).not.toContain('-translate-y-8');
+      expect(avatar.className).not.toContain('message-footer');
+    }
+  }
+
+  /** Menu nổi đang mở: content mang bề rộng đã chốt (không còn bề rộng theo nút gọt) và mọi mục không xuống dòng. */
+  function expectOpenMenuTidy() {
+    const content = document.querySelector('[data-slot="dropdown-menu-content"]');
+    expect(content).not.toBeNull();
+    expect(content!.className).toContain('w-max');
+    expect(content!.className).toContain('min-w-52');
+    expect(content!.className).toContain('max-w-[calc(100vw-2rem)]');
+    expect(content!.className).not.toContain('w-(--anchor-width)');
+    const items = [
+      ...screen.getAllByRole('menuitem'),
+      ...screen.queryAllByRole('menuitemcheckbox'),
+    ];
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) {
+      expect(item.className).toContain('whitespace-nowrap');
+    }
+  }
+
+  it('avatar neo đầu dòng tin cho cả tin của mình và tin người khác', async () => {
+    const calls: RecordedCall[] = [];
+    stubDomainFetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm lớp/);
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin của tôi sẽ xoá')).toBeInTheDocument();
+    expect(await within(thread).findByText('tin của bạn học')).toBeInTheDocument();
+    expectAvatarsAnchoredToMessageTop(thread);
+  });
+
+  it('menu quan hệ mở từ avatar trên dòng tin: bề rộng tử tế, mọi mục một dòng', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('em chào cô')).toBeInTheDocument();
+    expectAvatarsAnchoredToMessageTop(thread);
+
+    await userEvent.click(within(thread).getByRole('button', { name: 'Thao tác với Bạn Học' }));
+    expect(await screen.findByRole('menuitem', { name: 'Nhắn riêng' })).toBeInTheDocument();
+    expectOpenMenuTidy();
+  });
+
+  it('menu ⋯ trên tin (gồm mục checkbox chọn hàng loạt): bề rộng tử tế, mọi mục một dòng', async () => {
+    const calls: RecordedCall[] = [];
+    stubMsgT4Fetch(calls);
+    renderMessages();
+
+    await openT4CourseChat();
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('em chào cô')).toBeInTheDocument();
+
+    // Tin của HS trong khoá người xem quản lý: menu ⋯ có mục checkbox
+    // "Chọn tin để gỡ hàng loạt" — nhãn dài nhất của menu này.
+    await userEvent.click(screen.getByTestId('message-actions-01900000-0000-7000-8000-0000000000f6'));
+    expect(await screen.findByRole('menuitemcheckbox', { name: 'Chọn tin để gỡ hàng loạt' })).toBeInTheDocument();
+    expectOpenMenuTidy();
+  });
+});

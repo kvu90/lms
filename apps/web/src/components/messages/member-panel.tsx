@@ -9,7 +9,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@lms/ui/components/sheet';
 import { useTranslation } from 'react-i18next';
 import type { ConversationView, MemberPanelContext, MemberPanelEntry } from './types';
-import { initialsOf } from './utils';
+import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, initialsOf } from './utils';
 
 /**
  * Panel THÀNH VIÊN + menu trên avatar/tên của khung chat nhóm (lát
@@ -180,47 +180,48 @@ export function MemberActionMenu({
       >
         {children}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={4}>
+      {/* Bề rộng + không xuống dòng theo hằng ở utils: mặc định của @lms/ui ghim bề rộng theo avatar hẹp làm nhãn bẻ nhiều dòng. */}
+      <DropdownMenuContent align="start" sideOffset={4} className={CHAT_MENU_CONTENT_CLASS}>
         {canMessageNow ? (
-          <DropdownMenuItem onClick={() => onMessageMember(entry.userId)}>
+          <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onMessageMember(entry.userId)}>
             <MessageCircle aria-hidden />
             {t('directMessageAction')}
           </DropdownMenuItem>
         ) : null}
         {!isSelf && entry.relationship === 'none' && !entry.canDirectMessage && !hasDirectConversation ? (
-          <DropdownMenuItem onClick={() => onSendContactRequest(entry.userId)}>
+          <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onSendContactRequest(entry.userId)}>
             <UserPlus aria-hidden />
             {t('addContact')}
           </DropdownMenuItem>
         ) : null}
         {!isSelf && entry.relationship === 'pending_incoming' ? (
           <>
-            <DropdownMenuItem onClick={() => onRespondContactRequest(entry.userId, 'accept')}>
+            <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onRespondContactRequest(entry.userId, 'accept')}>
               <Check aria-hidden />
               {t('acceptContactRequest')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRespondContactRequest(entry.userId, 'decline')}>
+            <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onRespondContactRequest(entry.userId, 'decline')}>
               <X aria-hidden />
               {t('declineContactRequest')}
             </DropdownMenuItem>
           </>
         ) : null}
         {!isSelf && entry.relationship === 'pending_outgoing' ? (
-          <DropdownMenuItem disabled>
+          <DropdownMenuItem disabled className={CHAT_MENU_ITEM_CLASS}>
             {t('memberRequestPending')}
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem onClick={() => onViewProfile(entry)}>
+        <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => onViewProfile(entry)}>
           <Info aria-hidden />
           {t('memberViewProfile')}
         </DropdownMenuItem>
         {canManage && rosterHref ? (
-          <DropdownMenuItem onClick={() => navigate(rosterHref)}>
+          <DropdownMenuItem className={CHAT_MENU_ITEM_CLASS} onClick={() => navigate(rosterHref)}>
             {context.kind === 'class' ? t('memberManageClassRoster') : t('memberManageCourseRoster')}
           </DropdownMenuItem>
         ) : null}
         {canManage && context.kind === 'free' && !isSelf && !entry.isCreator ? (
-          <DropdownMenuItem variant="destructive" onClick={() => onRemoveMember(entry.userId)}>
+          <DropdownMenuItem variant="destructive" className={CHAT_MENU_ITEM_CLASS} onClick={() => onRemoveMember(entry.userId)}>
             <Trash aria-hidden />
             {t('memberRemoveFromGroup')}
           </DropdownMenuItem>

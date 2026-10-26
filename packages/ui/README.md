@@ -78,3 +78,13 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   ... }` của CSS thời tiền-package (không phải hàng shadcn) đã bị xoá
   khi áp preset Base Vega — khối đó không nằm trong layer nên thắng
   cả `@apply font-sans` của preset và chặn font Inter.
+- `src/components/message.tsx` (lát dọn gọn UI nhắn tin, nối tiếp
+  issue #33): `MessageAvatar` đổi `self-end` thành `self-start` và bỏ
+  hack `group-has-data-[slot=message-footer]/message:-translate-y-8`.
+  Lý do: `MessageAvatar` là component riêng của hệ (không có trong bộ
+  shadcn upstream), cột nội dung cạnh avatar xếp header → bong bóng →
+  hàng hành động → footer nên neo đáy + translate theo footer làm
+  avatar lệch xuống ngang hàng tuỳ chọn dưới tin nhắn; neo đầu dòng
+  mới khớp trình bày chuẩn của các app nhắn tin. Khi đồng bộ upstream:
+  giữ nguyên thay đổi này (file không bị CLI ghi đè vì upstream không
+  có component `message`).
