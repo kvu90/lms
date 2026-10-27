@@ -187,7 +187,7 @@ export function ContentBankLibraryPage() {
           <p className="text-sm text-muted-foreground">{t('librarySubtitle')}</p>
         </div>
         <Link
-          to="/contentbank/new"
+          to="/content-bank/new"
           className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
         >
           {t('libraryNew')}
@@ -320,7 +320,7 @@ export function ContentBankLibraryPage() {
                               </Button>
                             ) : null}
                             <Link
-                              to={`/contentbank/${item.id}/edit`}
+                              to={`/content-bank/${item.id}/edit`}
                               className="inline-flex h-8 items-center rounded-md border border-input bg-transparent px-3 text-sm"
                             >
                               {t('libraryEdit')}

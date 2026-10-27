@@ -114,9 +114,15 @@ export default [
     route('backup', 'routes/backup.tsx'),
     route('insights', 'routes/insights.tsx'),
     route('reports', 'routes/reports.tsx'),
-    route('contentbank', 'routes/contentbank.tsx'),
-    route('contentbank/new', 'routes/contentbank-new.tsx'),
-    route('contentbank/:id/edit', 'routes/contentbank-edit.tsx'),
+    // Kho học liệu (chuẩn đường dẫn #221, lát R3): tên tài nguyên
+    // viết tách là /content-bank; cả ba path cũ viết dính giữ làm
+    // lớp tương thích chuyển hướng thay thế sang path mới.
+    route('content-bank', 'routes/contentbank.tsx'),
+    route('content-bank/new', 'routes/contentbank-new.tsx'),
+    route('content-bank/:id/edit', 'routes/contentbank-edit.tsx'),
+    route('contentbank', 'routes/legacy-contentbank.tsx'),
+    route('contentbank/new', 'routes/legacy-contentbank-new.tsx'),
+    route('contentbank/:id/edit', 'routes/legacy-contentbank-edit.tsx'),
     route('privacy', 'routes/privacy.tsx'),
   ]),
   // Hai trang mỏng của luồng uỷ quyền MCP (lát MCP-1, issue #163):
