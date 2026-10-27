@@ -203,4 +203,8 @@ export const queryKeys = {
   platformReports: ['reports'] as const,
   /** Kết quả chạy một báo cáo (GET /reports/:id/run) — trang reports nền tảng. */
   reportRun: (reportId: string) => ['reports', reportId, 'run'] as const,
+  /** Kế hoạch học tập của một người dùng (GET /competencies/plans/user/:userId) — trang learning-plan. */
+  userLearningPlans: (userId: string) => ['competencies', 'plans', 'user', userId] as const,
+  /** Chi tiết một kế hoạch học tập (GET /competencies/plans/:id) — trang learning-plan. */
+  learningPlanDetail: (planId: string) => ['competencies', 'plans', planId] as const,
 };

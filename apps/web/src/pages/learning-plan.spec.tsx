@@ -266,3 +266,86 @@ describe('Learning plan page — competency administration', () => {
     );
   });
 });
+
+/**
+ * Phần NGƯỜI HỌC của trang kế hoạch sau khi chuyển khuôn TanStack
+ * Query (F-01 của #133): danh sách kế hoạch của chính người dùng hiện
+ * đúng trạng thái, mở xem được chi tiết năng lực, yêu cầu duyệt cả kế
+ * hoạch và gửi một năng lực đi duyệt đều gọi đúng endpoint và hiện
+ * dòng xác nhận như bản fetch thủ công.
+ */
+describe('Learning plan page — learner side', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  function stubFetchLearner(calls: RecordedCall[]) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url))
+          return respond(baSessionBody({ id: LEARNER.id, username: LEARNER.username, email: LEARNER.email }));
+        if (url === '/api/v1/users/me') return respond(LEARNER);
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: LEARNER_ID, isSiteAdmin: false, assignments: [], contexts: [] });
+        if (url === `/api/v1/competencies/plans/user/${LEARNER_ID}`)
+          return respond([{ id: PLAN_ID, name: 'Kế hoạch toán', status: 1, templateId: null, userId: LEARNER_ID }]);
+        if (url === `/api/v1/competencies/plans/${PLAN_ID}` && method === 'GET')
+          return respond({
+            plan: { id: PLAN_ID, name: 'Kế hoạch toán', status: 1, templateId: null },
+            competencies: [
+              {
+                competency: { id: 'comp-1', shortName: 'NL-1' },
+                usercomp: { id: 'uc-1', grade: null, proficiency: null, status: 0 },
+              },
+            ],
+            reviews: [],
+          });
+        if (url === `/api/v1/competencies/plans/${PLAN_ID}/request-review` && method === 'POST') return respond({});
+        if (url === '/api/v1/competencies/usercomp/uc-1/evidence' && method === 'POST') return respond({});
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  it('shows my plans, opens the detail and sends review requests for the plan and one competency', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchLearner(calls);
+    renderPage();
+
+    expect(await screen.findByText('Kế hoạch toán')).toBeInTheDocument();
+    expect(screen.getByText('đang thực hiện')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Yêu cầu duyệt kế hoạch' }));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/competencies/plans/${PLAN_ID}/request-review` && c.method === 'POST'),
+      ).toBe(true),
+    );
+    expect(await screen.findByText('Đã yêu cầu duyệt.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Xem' }));
+    expect(await screen.findByText('Kế hoạch toán — các năng lực')).toBeInTheDocument();
+    expect(await screen.findByText('NL-1')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi duyệt' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === '/api/v1/competencies/usercomp/uc-1/evidence' && c.method === 'POST')).toBe(
+        true,
+      ),
+    );
+    const evidence = calls.find((c) => c.url === '/api/v1/competencies/usercomp/uc-1/evidence');
+    expect(evidence?.body).toEqual({
+      action: 'evidence',
+      description: 'Vui lòng duyệt bằng chứng của tôi',
+      sendForReview: true,
+    });
+    expect(await screen.findByText('Đã gửi năng lực để duyệt.')).toBeInTheDocument();
+  });
+});
