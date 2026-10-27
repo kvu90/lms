@@ -13,10 +13,10 @@ import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 
 /**
- * Enrol instances per course (Moodle `enrol`). method: manual|cohort|self|guest.
- * status: 0=enabled, 1=disabled. For cohort instances custom_int1 = cohort id,
- * custom_int2 = group id to add members to (0=none), custom_text1 = sync mode
- * ('suspend'|'unenrol') applied when a user leaves the cohort.
+ * Các instance ghi danh theo từng khoá học (Moodle `enrol`). method: manual|cohort|self|guest.
+ * status: 0=enabled, 1=disabled. Đối với instance cohort, custom_int1 = id của cohort,
+ * custom_int2 = id của nhóm để thêm thành viên vào (0=không có), custom_text1 = chế độ đồng bộ
+ * ('suspend'|'unenrol') được áp dụng khi một user rời khỏi cohort.
  */
 export const enrol = pgTable('enrol', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -31,7 +31,7 @@ export const enrol = pgTable('enrol', {
   customInt1: uuid('custom_int1'),
   customInt2: uuid('custom_int2'),
   customText1: text('custom_text1').notNull().default('suspend'),
-  /** Fee enrol: cost in smallest currency unit (0 = free), currency ISO code, payment account id. */
+  /** Ghi danh thu phí: chi phí tính bằng đơn vị tiền tệ nhỏ nhất (0 = miễn phí), mã ISO của đơn vị tiền, id tài khoản thanh toán. */
   cost: integer('cost').notNull().default(0),
   currency: text('currency').notNull().default(''),
   paymentAccountId: uuid('payment_account_id'),
@@ -62,10 +62,10 @@ export const enrol = pgTable('enrol', {
 
 
 /**
- * User enrolments (Moodle `user_enrolments`).
- * status: 0=ACTIVE, 1=SUSPENDED, 2=WITHDRAWN (soft state used on unenrol when
- * the user still has related data — grades/completion/files — that must be
- * kept; the row is never hard-deleted in that case, report §2#5).
+ * Ghi danh của user (Moodle `user_enrolments`).
+ * status: 0=ACTIVE, 1=SUSPENDED, 2=WITHDRAWN (trạng thái mềm dùng khi rút ghi danh khi
+ * user vẫn còn dữ liệu liên quan — grades/completion/files — phải được
+ * giữ lại; dòng không bao giờ bị xoá cứng trong trường hợp đó, report §2#5).
  */
 export const userEnrolments = pgTable(
   'user_enrolments',

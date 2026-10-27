@@ -13,11 +13,11 @@ import {
 import { sql } from 'drizzle-orm';
 
 /**
- * Competency frameworks (Moodle `competency_framework`). The scale is
- * CONFIGURATION, not a table join: `scale_configuration` jsonb =
- * { values: string[] (lowest first), proficient: number[] (indexes into
- * values that count as proficient) }. Proficiency is read off THIS scale —
- * never inferred from grades (report §2#15).
+ * Khung năng lực (Moodle `competency_framework`). Thang đo là
+ * CẤU HÌNH, không phải phép nối bảng: `scale_configuration` jsonb =
+ * { values: string[] (thấp nhất trước), proficient: number[] (các chỉ số trong
+ * values được tính là đạt) }. Mức đạt được đọc từ CHÍNH thang đo này —
+ * không bao giờ suy ra từ điểm số (report §2#15).
  */
 export const competencyFramework = pgTable('competency_framework', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -38,12 +38,12 @@ export const competencyFramework = pgTable('competency_framework', {
 
 
 /**
- * Competencies form a tree inside a framework (Moodle `competency`): path/depth like contexts.
- * Rule fields mirror Moodle's `competency.ruletype`/`ruleconfig`/`ruleoutcome`:
- * `rule_type` is 'points' (Moodle `competency_rule_points`) or null; `rule_config`
+ * Các năng lực tạo thành một cây bên trong một khung (Moodle `competency`): path/depth giống như các context.
+ * Các trường quy tắc phản ánh `competency.ruletype`/`ruleconfig`/`ruleoutcome` của Moodle:
+ * `rule_type` là 'points' (Moodle `competency_rule_points`) hoặc null; `rule_config`
  * jsonb = { pointsRequired: number, entries: [{ competencyId, points, required }] }
- * where the entries are DIRECT children of this competency; `rule_outcome` is
- * what happens when the rule matches: 'complete' | 'attach-evidence' | 'nothing'.
+ * trong đó các entries là các năng lực con TRỰC TIẾP của năng lực này; `rule_outcome` là
+ * điều xảy ra khi quy tắc khớp: 'complete' | 'attach-evidence' | 'nothing'.
  */
 export const competency = pgTable('competency', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -68,8 +68,8 @@ export const competency = pgTable('competency', {
 
 
 /**
- * Course ↔ competency link (Moodle `competency_coursecomp`). rule_outcome is
- * EXPLICIT configuration applied when the course is completed:
+ * Liên kết khoá học ↔ năng lực (Moodle `competency_coursecomp`). rule_outcome là
+ * cấu hình TƯỜNG MINH được áp dụng khi khoá học được hoàn thành:
  * 'complete' | 'attach-evidence' | 'nothing'.
  */
 export const competencyCourseComp = pgTable(
@@ -86,7 +86,7 @@ export const competencyCourseComp = pgTable(
       index('competency_course_comp_competency_id_idx').on(table.competencyId),unique('competency_course_comp_unique').on(table.courseId, table.competencyId)],
 );
 
-/** Activity (cm) ↔ competency link (Moodle `competency_modulecomp`); rule_outcome applies when the activity completes. */
+/** Liên kết hoạt động (cm) ↔ năng lực (Moodle `competency_modulecomp`); rule_outcome áp dụng khi hoạt động hoàn thành. */
 export const competencyModuleComp = pgTable(
   'competency_module_comp',
   {
@@ -101,7 +101,7 @@ export const competencyModuleComp = pgTable(
       index('competency_module_comp_competency_id_idx').on(table.competencyId),unique('competency_module_comp_unique').on(table.courseModuleId, table.competencyId)],
 );
 
-/** Learning plan templates (Moodle `competency_template`). status: 0=draft(hidden), 1=active. */
+/** Mẫu kế hoạch học tập (Moodle `competency_template`). status: 0=draft (ẩn), 1=active. */
 export const competencyTemplate = pgTable('competency_template', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   shortName: text('short_name').notNull(),
@@ -118,7 +118,7 @@ export const competencyTemplate = pgTable('competency_template', {
   ]);
 
 
-/** Template ↔ competency links (Moodle `competency_templatecomp`). */
+/** Liên kết mẫu ↔ năng lực (Moodle `competency_templatecomp`). */
 export const competencyTemplateComp = pgTable(
   'competency_template_comp',
   {
@@ -132,7 +132,7 @@ export const competencyTemplateComp = pgTable(
       index('competency_template_comp_competency_id_idx').on(table.competencyId),unique('competency_template_comp_unique').on(table.templateId, table.competencyId)],
 );
 
-/** Template ↔ cohort links (Moodle `competency_templatecohort`): plans are generated for cohort members. */
+/** Liên kết mẫu ↔ cohort (Moodle `competency_templatecohort`): kế hoạch được sinh cho các thành viên của cohort. */
 export const competencyTemplateCohort = pgTable(
   'competency_template_cohort',
   {
@@ -146,7 +146,7 @@ export const competencyTemplateCohort = pgTable(
 );
 
 /**
- * Learning plans per user (Moodle `competency_plan` → `learning_plans`).
+ * Kế hoạch học tập theo từng user (Moodle `competency_plan` → `learning_plans`).
  * status: 0=draft, 1=active, 2=waitingforreview, 3=inreview, 4=complete.
  */
 export const learningPlans = pgTable('learning_plans', {
@@ -168,7 +168,7 @@ export const learningPlans = pgTable('learning_plans', {
   ]);
 
 
-/** Plan ↔ competency links for plans not (or no longer) bound to a template (Moodle `competency_plancomp`). */
+/** Liên kết kế hoạch ↔ năng lực cho các kế hoạch không (hoặc không còn) gắn với một mẫu (Moodle `competency_plancomp`). */
 export const competencyPlanComp = pgTable(
   'competency_plan_comp',
   {
@@ -182,7 +182,7 @@ export const competencyPlanComp = pgTable(
       index('competency_plan_comp_competency_id_idx').on(table.competencyId),unique('competency_plan_comp_unique').on(table.planId, table.competencyId)],
 );
 
-/** Review history of a learning plan: every lifecycle transition is a row (request/start/stop/approve/unapprove/complete). */
+/** Lịch sử duyệt của một kế hoạch học tập: mỗi lần chuyển đổi vòng đời là một dòng (request/start/stop/approve/unapprove/complete). */
 export const competencyPlanReview = pgTable('competency_plan_review', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   planId: uuid('plan_id').notNull().references(() => learningPlans.id, { onDelete: 'cascade' }),
@@ -200,12 +200,12 @@ export const competencyPlanReview = pgTable('competency_plan_review', {
 
 
 /**
- * A user's standing on one competency (Moodle `competency_usercomp`).
- * `grade` is an INDEX into the framework scale; `proficiency` is derived
- * from the scale configuration, never from course grades. Review status:
- * 0=none, 1=waitingforreview, 2=inreview. Exactly one of plan_id/course_id
- * scopes the row (plan-based and course-based user competencies are
- * separate records in Moodle too).
+ * Vị thế của một user trên một năng lực (Moodle `competency_usercomp`).
+ * `grade` là một CHỈ SỐ vào thang đo của khung; `proficiency` được suy ra
+ * từ cấu hình thang đo, không bao giờ từ điểm của khoá học. Trạng thái duyệt:
+ * 0=none, 1=waitingforreview, 2=inreview. Đúng một trong plan_id/course_id
+ * xác định phạm vi của dòng (năng lực của user theo kế hoạch và theo khoá học cũng là
+ * các bản ghi tách biệt trong Moodle).
  */
 export const competencyUserComp = pgTable(
   'competency_user_comp',
@@ -230,10 +230,10 @@ export const competencyUserComp = pgTable(
 );
 
 /**
- * Evidence log for a user competency (Moodle `competency_evidence`). Every
- * material event is a row: manual evidence, course-completion evidence,
- * review requests and review outcomes — together they ARE the review
- * history. `grade` here is a scale index snapshot (nullable).
+ * Nhật ký bằng chứng cho một năng lực của user (Moodle `competency_evidence`). Mỗi
+ * sự kiện trọng yếu là một dòng: bằng chứng thủ công, bằng chứng hoàn thành khoá học,
+ * yêu cầu duyệt và kết quả duyệt — gộp lại chúng CHÍNH LÀ lịch sử
+ * duyệt. `grade` ở đây là bản chụp chỉ số trên thang đo (có thể null).
  */
 export const competencyEvidence = pgTable('competency_evidence', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
