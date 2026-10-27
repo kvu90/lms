@@ -1,36 +1,42 @@
-import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query, Res, UseInterceptors } from '@nestjs/common';
-import { generateFromMatrixSchema, uuidIdSchema } from '@lms/contracts';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
+import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { ExamDossiersService } from './exam-dossiers.service';
 import { ExamsService } from './exams.service';
-import { ExamPapersDeprecationInterceptor } from './deprecation.interceptor';
-import type { GenerateFromMatrixDto } from '../quiz/dto/quiz.dto';
 import {
-  approveExamContributionSchema, copyExamSchema, createExamContributionSchema,
-  createExamSchema, rejectExamContributionSchema,
+  approveExamContributionSchema, approveExamDossierSchema, copyExamSchema, createExamContributionSchema,
+  createExamDossierSchema, createExamSchema, rejectExamContributionSchema, rejectExamDossierSchema,
   setExamSlotsSchema, setExamStatusSchema, swapExamSlotSchema, updateExamSchema,
   withdrawExamSchema,
-  type ApproveExamContributionDto, type CopyExamDto, type CreateExamContributionDto,
-  type CreateExamDto, type RejectExamContributionDto,
+  type ApproveExamContributionDto, type ApproveExamDossierDto, type CopyExamDto, type CreateExamContributionDto,
+  type CreateExamDossierDto, type CreateExamDto, type RejectExamContributionDto, type RejectExamDossierDto,
   type SetExamSlotsDto, type SetExamStatusDto, type SwapExamSlotDto, type UpdateExamDto,
   type WithdrawExamDto,
 } from './dto/exams.dto';
 
 @ApiTags('exams')
-@Controller({ path: ['exams', 'exam-papers'], version: '1' })
-@UseInterceptors(ExamPapersDeprecationInterceptor)
+@Controller({ path: 'exams', version: '1' })
 /**
  * API lớp Ngân hàng đề (feat issue #113, EB-1; hợp nhất #226): thực
  * thể ĐỀ trong các bank `bank_kind='exam'` — soạn đề tự do, version
- * hoá, copy deep copy truy vết, đóng góp/duyệt khuôn QB-4. Đường
- * canonical là `/exams`; alias `/exam-papers` giữ kèm header
- * Deprecation/Sunset. Ghim đề vào khoá đi qua `/exam-pins` (xem
- * ExamPinsController) — không còn endpoint deploy riêng. Mọi cổng
- * quyền neo tại context của bank đề (capability exam:*).
+ * hoá, copy deep copy truy vết, đóng góp/duyệt khuôn QB-4 — cộng bề
+ * mặt duyệt BỘ HỒ SƠ đề (EB-3, issue #165) ở nửa sau của lớp. Đây là
+ * controller sở hữu duy nhất của tiền tố `/exams`: bề mặt hồ sơ đề
+ * trước đây nằm ở một controller riêng cùng khai tiền tố này, đã gộp
+ * về đây để mỗi tiền tố có đúng một chủ sở hữu (issue #343). Đường
+ * `/exams` là canonical; alias `/exam-papers` của toàn bộ bề mặt này
+ * nằm ở `ExamPapersAliasController` kèm interceptor deprecation.
+ * Ghim đề vào khoá đi qua `/exam-pins` (xem ExamPinsController) —
+ * không còn endpoint deploy riêng. Mọi cổng quyền neo tại context
+ * của bank đề (capability exam:*).
  */
 export class ExamsController {
-  constructor(private readonly exams: ExamsService) {}
+  constructor(
+    private readonly exams: ExamsService,
+    private readonly dossiers: ExamDossiersService,
+  ) {}
 
   @Get('banks/:bankId/exams')
   /**
@@ -216,24 +222,116 @@ export class ExamsController {
   async print(@Param('id', { schema: uuidIdSchema }) id: string, @Query('pinId') pinId: string | undefined, @Query('variantCode') variantCode: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.printPaperHtml(actor.id, id, pinId ?? '', variantCode ?? '');
   }
-}
 
-@ApiTags('exam-matrices')
-@Controller({ path: 'exam-matrices', version: '1' })
-/**
- * Generate hai bước (EB-2, điểm E-3): POST /exam-matrices/:id/generate
- * giữ nguyên URL + payload của Chặng 3 nhưng điều phối ở lớp ngân
- * hàng đề: matrix → exams (snapshot) → ghim vào khoá qua
- * exam-pins. Thiếu câu ở bất kỳ ô nào trả 422 kèm chi tiết từng ô.
- */
-export class ExamMatrixGenerateController {
-  constructor(private readonly exams: ExamsService) {}
+  // --- Bề mặt duyệt BỘ HỒ SƠ đề (EB-3, issue #165) -------------------------
+  // Các handler dưới đây trước đây nằm ở ExamDossiersController riêng
+  // cùng khai tiền tố `exams`; đã gộp về lớp này để tiền tố `exams`
+  // có đúng một controller sở hữu (issue #343). Mọi cổng quyền nằm ở
+  // service: cấp 1 = exam:moderate tại context bank đích, cấp 2
+  // (BGH) = exam:moderate tại context hệ thống.
 
-  @Post(':id/generate')
+  @Get('dossiers/mine')
   /**
-   * POST /exam-matrices/:id/generate — sinh đề từ ma trận (một thao tác): rút một bộ câu cố định thành đề snapshot rồi ghim vào khoá.
+   * GET /exams/dossiers/mine — mọi bộ hồ sơ của chính người dùng (theo dõi trạng thái + lý do từ chối xuyên bank).
    */
-  async generate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: generateFromMatrixSchema }) dto: GenerateFromMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.exams.generateFromMatrix(actor.id, id, dto);
+  async listMine(@CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.listMyDossiers(actor.id);
+  }
+
+  @Get('banks/:bankId/dossiers')
+  /**
+   * GET /exams/banks/:bankId/dossiers — hàng chờ bộ hồ sơ của một bank đích (người duyệt thấy tất cả; người khác chỉ thấy bộ của mình).
+   */
+  async listBankDossiers(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.listBankDossiers(actor.id, bankId);
+  }
+
+  @Get('dossiers/:dossierId')
+  /**
+   * GET /exams/dossiers/:dossierId — chi tiết một bộ hồ sơ kèm vết duyệt từng cấp.
+   */
+  async getDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.getDossier(actor.id, dossierId);
+  }
+
+  @Get('dossiers/:dossierId/specification')
+  /**
+   * GET /exams/dossiers/:dossierId/specification — bản đặc tả ĐÃ CHỤP tại lúc nộp (tổ trưởng mở ngay trong hàng chờ; lần mở của người duyệt ghi audit).
+   */
+  async getDossierSpecification(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.getDossierSpecification(actor.id, dossierId);
+  }
+
+  @Get('dossiers/:dossierId/specification/export')
+  @Header('content-disposition', 'attachment')
+  /**
+   * GET /exams/dossiers/:dossierId/specification/export?format=xlsx|docx — xuất bản đặc tả đã chụp của bộ hồ sơ.
+   */
+  async exportDossierSpecification(
+    @Param('dossierId', { schema: uuidIdSchema }) dossierId: string,
+    @Query('format') format: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const file = await this.dossiers.exportDossierSpecification(actor.id, dossierId, format ?? 'xlsx');
+    res.setHeader('Content-Type', file.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${file.filename}"`);
+    res.send(file.buffer);
+  }
+
+  @Post('dossiers/:dossierId/submit')
+  /**
+   * POST /exams/dossiers/:dossierId/submit — nộp bộ hồ sơ: ghim phiên bản đề/ma trận + chụp bản đặc tả tại thời điểm nộp.
+   */
+  async submitDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.submitDossier(actor.id, dossierId);
+  }
+
+  @Delete('dossiers/:dossierId')
+  /**
+   * DELETE /exams/dossiers/:dossierId — xoá bộ hồ sơ NHÁP (chưa nộp).
+   */
+  async deleteDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.deleteDossier(actor.id, dossierId);
+  }
+
+  @Post('dossiers/:dossierId/approve')
+  /**
+   * POST /exams/dossiers/:dossierId/approve — duyệt cấp 1 (tổ trưởng/moderate bank đích; khi bật cấp 2 thì đây chỉ là mốc trung gian sang pending_board).
+   */
+  async approveDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: approveExamDossierSchema }) _dto: ApproveExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.approveDossier(actor.id, dossierId);
+  }
+
+  @Post('dossiers/:dossierId/reject')
+  /**
+   * POST /exams/dossiers/:dossierId/reject — từ chối cấp 1, lý do bắt buộc.
+   */
+  async rejectDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: rejectExamDossierSchema }) dto: RejectExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.rejectDossier(actor.id, dossierId, dto);
+  }
+
+  @Post('dossiers/:dossierId/board-approve')
+  /**
+   * POST /exams/dossiers/:dossierId/board-approve — duyệt cấp 2 (ban giám hiệu): mốc chốt, đề vào bank đích.
+   */
+  async boardApproveDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: approveExamDossierSchema }) _dto: ApproveExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.boardApproveDossier(actor.id, dossierId);
+  }
+
+  @Post('dossiers/:dossierId/board-reject')
+  /**
+   * POST /exams/dossiers/:dossierId/board-reject — từ chối cấp 2 (ban giám hiệu), lý do bắt buộc.
+   */
+  async boardRejectDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: rejectExamDossierSchema }) dto: RejectExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.boardRejectDossier(actor.id, dossierId, dto);
+  }
+
+  @Post(':id/dossiers')
+  /**
+   * POST /exams/:id/dossiers — lập bộ hồ sơ (nháp) cho một đề vào bank đích dùng chung.
+   */
+  async createDossier(@Param('id', { schema: uuidIdSchema }) paperId: string, @Body({ schema: createExamDossierSchema }) dto: CreateExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.dossiers.createDossier(actor.id, paperId, dto);
   }
 }
