@@ -17,9 +17,9 @@
 ## Điều cấm package-specific
 
 - Cấm tạo bảng nghiệp vụ thiếu `tenant_id`/ngoài khuôn RLS fail-closed đã chốt, trừ
-  bảng nền tảng được nêu đích danh trong quyết định/ADR.
+  bảng nền tảng được nêu đích danh trong quyết định đã chốt.
 - Cấm đổi khoá chính sang kiểu khác UUIDv7 cho bảng nghiệp vụ mới (ngoại lệ phải có
-  ADR).
+  quyết định riêng).
 - Cấm regen/gộp baseline làm mất SQL RLS viết tay: baseline chứa các câu RLS mà
   drizzle-kit không sinh lại được — gộp phải giữ nguyên và kiểm chứng cây MERGE
   chứa đúng MỘT thư mục `*_baseline` (đếm THƯ MỤC, không đếm file).

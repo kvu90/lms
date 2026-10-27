@@ -16,7 +16,7 @@ import {
   userEnrolments, users,
 } from '../../db/schema';
 
-/** Định dạng archive riêng có version (ADR-007) — không phải .mbz. */
+/** Định dạng archive riêng có version — không phải .mbz. */
 export const BACKUP_FORMAT = 'lms-backup';
 export const BACKUP_FORMAT_VERSION = 1;
 

@@ -2,21 +2,18 @@
 
 A from-scratch TypeScript LMS whose business scope is equivalent to Moodle's
 core subsystems (backend only; no backward compatibility with Moodle's DB,
-file formats or protocols — see the research report and `docs/adr/`).
+file formats or protocols — see the research report).
 
 ## Layout
 
 ```
 apps/
-  api/      NestJS 12 REST API (TypeScript 6 — ADR-003), Drizzle ORM, BullMQ, Redis cache
+  api/      NestJS 12 REST API (TypeScript 6), Drizzle ORM, BullMQ, Redis cache
   worker/   NestJS 12 background process: BullMQ processors, outbox relay, scheduled jobs
   web/      React + Vite + React Router SPA (TypeScript 7), shadcn/ui + Tailwind
 packages/
   contracts/  Shared zod schemas (Problem Details, health, …) — the only api↔web contract
   config/     Shared tsconfig bases
-docs/
-  adr/                Architecture decision records
-  business-traceability.md  Moodle test-suite → our-test mapping (per phase)
 ```
 
 Dependency rule: `web` depends only on `contracts`; `api`/`worker` share the
@@ -26,7 +23,7 @@ backend code or DB schema.
 ## Prerequisites
 
 - Node 24 (`.nvmrc`), pnpm 12.14
-- PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function (ADR-013)
+- PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function
 - Redis at `localhost:6379`
 
 ## Run
@@ -47,8 +44,7 @@ pnpm --filter @lms/web dev                   # web on :5173 (proxies /api → :3
 
 ### Deployed review instance (primary)
 
-The full stack runs on Heroku as app `kvu-lms` (buildpack deployment,
-see `docs/adr/015-heroku-buildpack-deployment.md`):
+The full stack runs on Heroku as app `kvu-lms` (buildpack deployment):
 
 - App: https://kvu-lms-573c864b6f10.herokuapp.com/ (login at `/login`)
 - Health: `GET https://kvu-lms-573c864b6f10.herokuapp.com/api/v1/health`
@@ -59,8 +55,7 @@ see `docs/adr/015-heroku-buildpack-deployment.md`):
 - Known issue: the Key-Value Store (Redis) mini data plane currently
   refuses TLS handshakes from the app dynos, so health reports
   `redis: down` while `database: up`. Login, course data and the UI
-  work; cache/queue-backed features are degraded. Evidence and options
-  are recorded in ADR-015.
+  work; cache/queue-backed features are degraded.
 
 Use the demo accounts in the table below to sign in.
 
@@ -115,7 +110,7 @@ so a database built from the baseline + `pnpm seed` already contains
 the complete programme tree — **no manual "import" step in the admin
 UI is needed after a reset** (the admin page keeps re-sync only as a
 utility). Programme rows carry deterministic UUIDv5 identities derived
-from natural keys (see `docs/adr/017-deterministic-ids-for-reference-data.md`),
+from natural keys,
 so the id sets are identical in every environment; re-running the
 seed is a no-op for the programme (0 created / 0 updated). On a local
 machine the programme phase of the seed takes roughly 10–17 seconds.
@@ -141,29 +136,24 @@ turbo run build typecheck test
 
 ## Operations
 
-See `docs/operations-runbook.md` for the operator runbook: JWT secret
-rotation, outbox replay, orphan file cleanup, audit-trail queries,
-backup/restore, PostgreSQL upgrades, and the hot-path performance
-baseline (`apps/api/scripts/benchmark-hot-paths.mjs`).
-
-HTTP edge protection (ADR-014): standard security headers on every
+HTTP edge protection: standard security headers on every
 response, CORS restricted to `CORS_ORIGINS`, and two-layer per-IP rate
 limiting via the official `@nestjs/throttler` — a global
 `RATE_LIMIT_PER_MINUTE` plus a stricter `RATE_LIMIT_AUTH_PER_MINUTE`
-for credential-checking auth routes. Tune them with the school-NAT
-warning in the runbook before tightening.
+for credential-checking auth routes. Tune them with care before
+tightening: schools behind NAT share one public IP.
 
 ## Version policy
 
 Always the latest release of every dependency, except where a documented
-blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
+blocker forces a pin (recorded below). Current pins/blocks:
 
 - NestJS apps (`api`, `worker`): TypeScript **6.0.3** — `nest build`/Nest
-  toolchain does not support TypeScript 7 yet (ADR-003). Everything else: 7.0.2.
+  toolchain does not support TypeScript 7 yet. Everything else: 7.0.2.
 - Drizzle: `drizzle-orm@rc` / `drizzle-kit@rc` (1.0.0-rc.5) via the official
   `@nestjs/drizzle` integration, exactly as in the official NestJS Drizzle
-  chapter (ADR-002).
-- Test runner: Vitest everywhere — no Jest (ADR-005).
+  chapter.
+- Test runner: Vitest everywhere — no Jest.
 
 ## Known simplifications
 
@@ -174,15 +164,15 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
 
-## Conventions (official — see `docs/adr/`)
+## Conventions (official)
 
-- **I18n is mandatory and centralized** (ADR-008): no hardcoded display
+- **I18n is mandatory and centralized**: no hardcoded display
   strings. Backend/worker use the official **@nestjs/i18n** (pinned exact
   `0.0.1`) with JSON catalogs in `src/i18n/<locale>/` — default locale
   **Vietnamese**, English alongside; errors carry stable English `code`s and
   their display text is looked up by code. Frontend uses i18next +
   react-i18next with centralized resources (`apps/web/src/i18n.ts`).
-- **Validation is Zod-only** (ADR-009): base schemas live in
+- **Validation is Zod-only**: base schemas live in
   `packages/contracts` and are the single source of truth for the API
   (Standard Schema pipe) and React forms; server-only fields extend the
   base schema. class-validator/class-transformer are removed from the repo entirely.
@@ -190,22 +180,21 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
   error codes in English; **comments in Vietnamese in TSDoc style**
   (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
   public API and for non-obvious business logic.
-- **Database schema is split by bounded context** (ADR-010): each module
+- **Database schema is split by bounded context**: each module
   owns its Drizzle tables in `apps/api/src/modules/<module>/schema.ts`;
   platform-infrastructure tables live in `apps/api/src/db/infrastructure.schema.ts`;
   `apps/api/src/db/schema.ts` is only a barrel re-exporting everything for
   `drizzle.config.ts` and the Drizzle module. Table/column names never
   change when a schema file moves.
-- **Naming & repo hygiene** (ADR-010): everything is named after the
+- **Naming & repo hygiene**: everything is named after the
   business / bounded context — **no phase labels** in code, comments, test
   names or commit subjects; **never commit compiled output** (`dist/`,
   stray `.js`/`.d.ts` next to sources). This is a writing discipline,
   upheld by authoring code correctly in the first place and by review —
   there is deliberately no automated enforcement for it.
-- **Feature acceptance** (ADR-011): a feature is done only when its
+- **Feature acceptance**: a feature is done only when its
   backend business flow is covered by a flow test translated from the
-  Moodle PHPUnit oracle, with the mapping recorded in
-  `docs/business-traceability.md`.
-- **Versions are latest-first** (ADR-012): always the newest release;
-  pin or downgrade only for a documented blocker recorded in an ADR
-  (current blocker: TypeScript 6 for the NestJS apps — ADR-003).
+  Moodle PHPUnit oracle.
+- **Versions are latest-first**: always the newest release;
+  pin or downgrade only for a documented blocker recorded above
+  (current blocker: TypeScript 6 for the NestJS apps).

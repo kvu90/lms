@@ -409,7 +409,7 @@ export const noteSchema = z.object({
 });
 export type Note = z.infer<typeof noteSchema>;
 
-/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất) ---- */
 
 /** Payload tạo cuộc hội thoại: type 1 = cá nhân, 2 = nhóm. */
 export const createConversationSchema = z.strictObject({

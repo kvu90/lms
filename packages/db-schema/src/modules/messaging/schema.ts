@@ -245,7 +245,7 @@ export const messageContacts = pgTable(
  * hệ chuyển thành hai dòng trong `message_contacts` và dòng yêu cầu bị
  * xoá; từ chối thì chỉ xoá dòng yêu cầu. PK phức hợp (from, to) — cặp
  * có hướng là định danh tự nhiên của một yêu cầu (bảng nối thuần tuý,
- * không khoá thay thế theo ADR-013).
+ * không khoá thay thế).
  */
 export const messageContactRequests = pgTable(
   'message_contact_requests',

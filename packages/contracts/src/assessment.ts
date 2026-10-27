@@ -305,7 +305,7 @@ export const questionUsageSchema = z.object({
 });
 export type QuestionUsage = z.infer<typeof questionUsageSchema>;
 
-/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất) ---- */
 
 /**
  * Một tiêu chí hoàn thành khoá học: loại tiêu chí + tham số riêng theo loại
