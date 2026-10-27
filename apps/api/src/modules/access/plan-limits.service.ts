@@ -154,9 +154,11 @@ export class PlanLimitsService {
    * Phân giải hạn mức hiệu lực của một bên hưởng gói tại thời điểm
    * hiện tại, theo đúng luật đã duyệt: quyền lợi `active` còn trong
    * cửa sổ [startsAt, expiresAt) → hạn mức gói; không còn quyền lợi
-   * đang hoạt động nhưng quyền lợi gần nhất hết hạn chưa quá
-   * `plangracedays` ngày → vẫn hạn mức gói (ân hạn); ngoài ra → mức
-   * nền. Quyền lợi đã bị đình chỉ (hoàn tiền) không mở ân hạn.
+   * đang hoạt động nhưng quyền lợi đã thật sự hết hạn gần nhất (mốc
+   * hết hạn không muộn hơn hiện tại) chưa quá `plangracedays` ngày
+   * → vẫn hạn mức gói (ân hạn); ngoài ra → mức nền. Quyền lợi có cửa
+   * sổ hoàn toàn trong tương lai chưa bắt đầu nên không phải mốc tính
+   * ân hạn. Quyền lợi đã bị đình chỉ (hoàn tiền) không mở ân hạn.
    */
   private async effectiveLimit(
     component: 'tenant_plan' | 'teacher_plan',
@@ -181,10 +183,14 @@ export class PlanLimitsService {
     if (rows.some((r) => r.startsAt.getTime() <= now && now < r.expiresAt.getTime())) {
       return { limit: planLimit, inGracePeriod: false, hasActivePlan: true };
     }
-    const lastExpiry = rows.reduce<number | null>(
-      (max, r) => (max === null || r.expiresAt.getTime() > max ? r.expiresAt.getTime() : max),
-      null,
-    );
+    // Ân hạn chỉ neo vào quyền lợi đã thật sự hết hạn. Không lấy mốc
+    // hết hạn của quyền lợi có cửa sổ trong tương lai: cửa sổ đó có
+    // thể phát sinh từ lần mua nối tiếp cộng dồn thời hạn, nhưng khi
+    // chưa bắt đầu thì không thể gia hạn hiệu lực cho hiện tại.
+    const lastExpiry = rows
+      .map((r) => r.expiresAt.getTime())
+      .filter((expiry) => expiry <= now)
+      .reduce<number | null>((max, expiry) => (max === null || expiry > max ? expiry : max), null);
     if (lastExpiry !== null && now < lastExpiry + graceDays * 86_400_000) {
       return { limit: planLimit, inGracePeriod: true, hasActivePlan: false };
     }

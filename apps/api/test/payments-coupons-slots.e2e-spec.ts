@@ -22,7 +22,9 @@ import { createCategory, createEnrolInstance, enrolUser } from './course-enrolme
  *   chỉ tài khoản) bị chặn và thực thể đang có nguyên vẹn; nâng mức
  *   nền qua Cài đặt hệ thống thì tạo thêm được; gói đang hoạt động
  *   hoặc còn trong ân hạn 7 ngày thì áp hạn mức gói (30), hết ân hạn
- *   rơi về mức nền.
+ *   rơi về mức nền. Ân hạn chỉ tính từ quyền lợi đã thật sự hết hạn;
+ *   quyền lợi tương lai chưa bắt đầu không tự mở hạn mức gói khi
+ *   quyền lợi hiện hành đã bị đình chỉ.
  * - Slot gói giáo viên: mức nền 1 khoá học làm chủ tại tenant
  *   platform; tạo khoá thứ hai bị chặn; mua gói giáo viên thành công
  *   thì tạo tiếp được; vai trò giảng dạy nhận qua ghi danh (dạy
@@ -137,14 +139,24 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     return { tenantId, ctxId, users };
   }
 
-  /** Gắn một quyền lợi gói trung tâm chế tác (cửa sổ tuỳ ý) cho tenant — neo vào một payment gói có thật. */
-  async function craftTenantEntitlement(tenantId: string, startsAt: Date, expiresAt: Date) {
+  /**
+   * Gắn một quyền lợi gói trung tâm chế tác (cửa sổ và trạng thái tuỳ
+   * ý) cho tenant — neo vào một payment gói có thật. Trạng thái mặc
+   * định là `active`; ca hồi quy ân hạn dùng `suspended` để mô phỏng
+   * quyền lợi hiện hành đã bị đình chỉ do hoàn đủ.
+   */
+  async function craftTenantEntitlement(
+    tenantId: string,
+    startsAt: Date,
+    expiresAt: Date,
+    status: 'active' | 'suspended' = 'active',
+  ) {
     const { token } = await createBuyer();
     const payment = await buyPlan(token, 'tenant_plan');
     await pg.query(
       `insert into plan_entitlements (tenant_id, user_id, component, payment_id, starts_at, expires_at, status)
-       values ($1, null, 'tenant_plan', $2, $3, $4, 'active')`,
-      [tenantId, payment.id, startsAt.toISOString(), expiresAt.toISOString()],
+       values ($1, null, 'tenant_plan', $2, $3, $4, $5)`,
+      [tenantId, payment.id, startsAt.toISOString(), expiresAt.toISOString(), status],
     );
   }
 
@@ -384,6 +396,30 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
       expect(res.status).toBeLessThan(300);
     }
     const blocked = await assignRoleRaw(expired.users[3]!.id, editingteacherRoleId, expired.ctxId);
+    expect(blocked.status).toBe(400);
+    expect((blocked.body as { code: string }).code).toBe('plan.tenant_slot_limit_reached');
+  });
+
+  it('slot trung tâm — ân hạn không tính quyền lợi tương lai: quyền lợi hiện hành đã đình chỉ và quyền lợi cũ đã qua ân hạn thì áp mức nền', async () => {
+    const { tenantId, ctxId, users } = await schoolWithMembers(4);
+    const now = Date.now();
+
+    // Quyền lợi hiện hành bị đình chỉ do hoàn đủ: cửa sổ của nó vẫn
+    // kéo dài về tương lai nhưng trạng thái đã đình chỉ nên không
+    // được tính là gói đang hoạt động và không mở ân hạn.
+    await craftTenantEntitlement(tenantId, new Date(now - DAY_MS), new Date(now + 364 * DAY_MS), 'suspended');
+    // Quyền lợi đã thật sự hết hạn 10 ngày trước — qua ân hạn 7 ngày.
+    await craftTenantEntitlement(tenantId, new Date(now - 375 * DAY_MS), new Date(now - 10 * DAY_MS));
+    // Quyền lợi mua nối tiếp có cửa sổ hoàn toàn trong tương lai.
+    // Mốc hết hạn xa của nó không được dùng để kết luận hiện tại còn
+    // ân hạn; nếu dùng sai, giáo viên thứ 4 sẽ được gán ở hạn mức gói.
+    await craftTenantEntitlement(tenantId, new Date(now + DAY_MS), new Date(now + 365 * DAY_MS));
+
+    for (const t of users.slice(0, 3)) {
+      const res = await assignRoleRaw(t.id, editingteacherRoleId, ctxId);
+      expect(res.status).toBeLessThan(300);
+    }
+    const blocked = await assignRoleRaw(users[3]!.id, editingteacherRoleId, ctxId);
     expect(blocked.status).toBe(400);
     expect((blocked.body as { code: string }).code).toBe('plan.tenant_slot_limit_reached');
   });
