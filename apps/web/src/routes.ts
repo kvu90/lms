@@ -99,6 +99,13 @@ export default [
     route('system-bank/matrices', 'routes/system-bank-matrices.tsx'),    route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),
     route('guardian', 'pages/guardian.tsx'),
+    // Khu vực phụ huynh theo từng con (chuẩn đường dẫn #221, lát
+    // R2): đối tượng chính của khu vực (đứa con đang xem) nằm trong
+    // path, không còn định danh bằng ?student=; link cũ dạng
+    // /guardian?student=<id> được chính trang guardian chuyển hướng
+    // thay thế sang path này (id không thuộc các con đang liên kết
+    // thì về gốc /guardian).
+    route('guardian/students/:studentId', 'pages/guardian.tsx'),
     route('calendar', 'pages/calendar.tsx'),
     route('badges', 'pages/badges.tsx'),
     route('learning-plan', 'pages/learning-plan.tsx'),
