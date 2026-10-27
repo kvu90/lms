@@ -131,7 +131,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
 
     const { student, token } = await setupStudent(courseB.id, instB.id);
     await enrolUser(app, admin, courseA.id, instA.id, student.id);
-    // A not yet evaluated for this user ⇒ B must not be complete.
+    // A chưa được đánh giá cho người dùng này ⇒ B không được hoàn thành.
     expect(await userStatus(courseB.id, student.id)).not.toBe('complete');
     // Hoàn thành A (tổng hợp lại lười biếng khi đọc) lan truyền vào B.
     expect(await myStatus(token, courseA.id)).toBe('complete');
