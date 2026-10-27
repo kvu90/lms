@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
-/** Registers the repeatable activity due-soon reminder sweep (every 5 minutes, BullMQ job scheduler). The job itself is idempotent (dedupe tại phía phát trên outbox). */
+/** Đăng ký lượt quét nhắc sắp đến hạn nộp lặp lại (mỗi 5 phút, BullMQ job scheduler). Bản thân job có tính idempotent (dedupe tại phía phát trên outbox). */
 @Injectable()
 /**
  * Lập lịch quét nhắc hạn nộp theo chu kỳ (đưa job activity-due-reminders vào queue).

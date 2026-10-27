@@ -17,10 +17,10 @@ export interface FileCleanupJobData { contentHash: string }
 export interface FileCleanupResult { contentHash: string; removed: boolean; refcount: number }
 
 /**
- * Orphan file cleanup (Moodle filestorage cron semantics): physical bytes of
- * a content hash are removed ONLY when no logical `files` record references
- * the hash anymore — the refcount is re-checked at execution time, never
- * trusted from enqueue time.
+ * Dọn file mồ côi (ngữ nghĩa cron filestorage của Moodle): các byte vật lý của
+ * một content hash chỉ bị xoá khi KHÔNG còn bản ghi `files` logic nào tham chiếu
+ * tới hash đó nữa — refcount được kiểm tra lại tại thời điểm thực thi, không bao giờ
+ * tin vào giá trị tại thời điểm đưa vào queue.
  */
 @Processor('file-cleanup')
 /**
