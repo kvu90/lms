@@ -8,8 +8,9 @@ import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
 import { systemCapabilities, usePermissions } from '#lib/permissions';
+import { globalSearchQueryOptions } from '#lib/search-data';
 import { globalSearchTarget, type GlobalSearchDoc } from '#lib/search-target';
 
 /** Khoá nhãn loại kết quả theo `area` của API tìm kiếm; area lạ chưa có nhãn thì hiển thị nguyên mã area. */
@@ -49,6 +50,7 @@ const AREA_LABEL_KEYS: Record<string, string> = {
  */
 export function SearchPage() {
   const { t: t } = useTranslation();
+  const queryClient = useQueryClient();
   const perms = usePermissions();
   // Quyền quản trị người dùng của chính người đang tìm, suy từ ảnh
   // chụp quyền: điều kiện duy nhất để kết quả `users` gắn đích màn
@@ -64,12 +66,19 @@ export function SearchPage() {
   const [results, setResults] = useState<GlobalSearchDoc[]>([]);
   const [searched, setSearched] = useState(false);
 
-  /** Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ đã tìm. */
+  /**
+   * Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ
+   * đã tìm. Đọc qua tầng TanStack Query (`fetchQuery` với options của
+   * `lib/search-data.ts`, khoá `globalSearch` — F-01 của rà soát
+   * #133): trang giữ máy trạng thái riêng nên không đổi sang
+   * `useQuery` khai báo; options đặt `staleTime: 0` để mỗi lượt chạy
+   * tìm gọi API thật như bản fetch thủ công.
+   */
   const runSearch = useCallback(async (keyword: string) => {
-    const docs = await apiJson<GlobalSearchDoc[]>(`/api/v1/search?q=${encodeURIComponent(keyword)}`);
+    const docs = await queryClient.fetchQuery(globalSearchQueryOptions(keyword));
     setResults(docs);
     setSearched(true);
-  }, []);
+  }, [queryClient]);
 
   // Đồng bộ theo q trên URL: chạy mỗi lần q xuất hiện/đổi (lần vào
   // trang đầu tiên cũng là một lần q "xuất hiện"). Không có tham số
