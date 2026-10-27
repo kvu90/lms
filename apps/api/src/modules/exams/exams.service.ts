@@ -21,9 +21,18 @@ import {
 } from './exams.repository';
 import type { ExamMatrixCellRow } from '../quiz/quiz.repository';
 
-/** Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI context của bank đề (một nguồn quyền duy nhất là bank). */
+/**
+ * Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI
+ * context của bank đề (một nguồn quyền duy nhất là bank). Tên đã
+ * chuẩn hoá về khuôn use/add/edit/copy/share/moderate ở đợt đồng bộ
+ * khuôn ngân hàng (issue #228, lát S3): `view` giữ làm khoá nội bộ
+ * nhưng capability thật là `exam:use` (bản đồ tên cũ exam:view đã bỏ
+ * hẳn khỏi registry); `add` gác mọi đường TẠO đề mới (tạo tay, sinh
+ * từ ma trận, copy vào bank đích), `edit` chỉ còn gác sửa đề đã có.
+ */
 export const EXAM_CAPABILITIES = {
-  view: 'exam:view',
+  view: 'exam:use',
+  add: 'exam:add',
   edit: 'exam:edit',
   copy: 'exam:copy',
   share: 'exam:share',
@@ -34,15 +43,15 @@ export const EXAM_CAPABILITIES = {
 /** Các loại đề thuộc diện ĐỊNH KỲ/THI THỬ — nội dung ready của chúng tại bank trường là tài liệu mật theo nghĩa nghiệp vụ (lớp bảo mật A.3.4, EB-3). */
 export const PERIODIC_EXAM_KINDS = ['midterm', 'final', 'mock'] as const;
 
-/** exam:* cấp cho hai vai bank dùng chung tại context của MỖI bank đề: thành viên = xem + copy; chủ/tổ trưởng = toàn bộ. */
+/** exam:* cấp cho hai vai bank dùng chung tại context của MỖI bank đề: thành viên = xem + copy; chủ/tổ trưởng = toàn bộ (gồm cả exam:add). */
 const MEMBER_EXAM_CAPS = [EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.copy];
 const LEAD_EXAM_CAPS = [
-  EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.edit, EXAM_CAPABILITIES.copy,
+  EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.add, EXAM_CAPABILITIES.edit, EXAM_CAPABILITIES.copy,
   EXAM_CAPABILITIES.share, EXAM_CAPABILITIES.moderate, EXAM_CAPABILITIES.deploy,
 ];
 
 export interface ExamCapabilitiesView {
-  view: boolean; edit: boolean; copy: boolean; share: boolean; moderate: boolean; deploy: boolean;
+  view: boolean; add: boolean; edit: boolean; copy: boolean; share: boolean; moderate: boolean; deploy: boolean;
 }
 
 export interface ExamSlotView {
@@ -199,14 +208,14 @@ export class ExamsService {
 
   private async capabilitiesAt(actorId: string, bank: QuestionBankRow): Promise<ExamCapabilitiesView> {
     const at = (cap: string) => this.evaluator.hasCapability(actorId, cap, bank.contextId);
-    const [view, edit, copy, share, moderate, deploy] = await Promise.all([
-      at(EXAM_CAPABILITIES.view), at(EXAM_CAPABILITIES.edit), at(EXAM_CAPABILITIES.copy),
+    const [view, add, edit, copy, share, moderate, deploy] = await Promise.all([
+      at(EXAM_CAPABILITIES.view), at(EXAM_CAPABILITIES.add), at(EXAM_CAPABILITIES.edit), at(EXAM_CAPABILITIES.copy),
       at(EXAM_CAPABILITIES.share), at(EXAM_CAPABILITIES.moderate), at(EXAM_CAPABILITIES.deploy),
     ]);
-    return { view, edit, copy, share, moderate, deploy };
+    return { view, add, edit, copy, share, moderate, deploy };
   }
 
-  /** Đề ở trạng thái ready thì người có exam:view thấy; draft/hidden chỉ tác giả hoặc người duyệt của bank thấy. */
+  /** Đề ở trạng thái ready thì người có exam:use thấy; draft/hidden chỉ tác giả hoặc người duyệt của bank thấy. */
   private async assertCanViewPaper(actorId: string, paper: ExamRow, bank: QuestionBankRow): Promise<void> {
     if ((await this.evaluator.isSiteAdmin(actorId))) return;
     if (paper.status === 'ready') {
@@ -479,10 +488,10 @@ export class ExamsService {
     }));
   }
 
-  /** Tạo đề snapshot mới trong bank đề (metadata + slots tuỳ chọn; rỗng = đề trắng để soạn tiếp). */
+  /** Tạo đề snapshot mới trong bank đề (metadata + slots tuỳ chọn; rỗng = đề trắng để soạn tiếp). Cổng tạo là exam:add (khuôn S3) — exam:edit chỉ gác sửa đề đã có. */
   async createPaper(actorId: string, bankId: string, input: CreateExam): Promise<ExamView> {
     const bank = await this.getExamBank(actorId, bankId);
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, bank.contextId);
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, bank.contextId);
     const slots = await this.resolveSlots(input.slots ?? []);
     let paper: ExamRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
@@ -642,7 +651,9 @@ export class ExamsService {
       await this.ensureExamGrants(row);
       target = row;
     }
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, target.contextId);
+    // Ghi một đề MỚI vào bank đích = cổng tạo exam:add tại bank đích
+    // (khuôn S3); quyền sửa đề đã có (exam:edit) không thay cho cổng tạo.
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, target.contextId);
 
     const copied = await this.deepCopyInto(actorId, source, target, input.name);
     await this.outbox.enqueueStandalone({
@@ -914,7 +925,8 @@ export class ExamsService {
 
     const bankRow = await this.banks.ensurePersonalBank(actorId, 'exam');
     await this.ensureExamGrants(bankRow);
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, bankRow.contextId);
+    // Sinh đề là TẠO một đề mới trong bank cá nhân → cổng exam:add (khuôn S3).
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, bankRow.contextId);
 
     // Ghim version ready cho từng câu đã rút (đúng kỷ luật ghim của
     // đề: version tại thời điểm chụp) — phân giải trước khi ghi.

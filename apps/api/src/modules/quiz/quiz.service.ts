@@ -29,8 +29,17 @@ export const QUIZ_CAPABILITIES = {
   attempt: 'quiz:attempt',
   manage: 'quiz:manage',
   manageOverrides: 'quiz:manageoverrides',
-  viewMatrix: 'quiz:viewmatrix',
-  manageMatrix: 'quiz:managematrix',
+  /**
+   * Quyền ma trận đã về area `matrix:*` ở đợt đồng bộ khuôn ngân
+   * hàng (issue #228, lát S3) — KHÔNG còn neo vào quiz:*: viewMatrix
+   * = matrix:use (xem/dùng), addMatrix = matrix:add (tạo mới: tạo
+   * tay, nhập file, copy vào bank đích), manageMatrix = matrix:edit
+   * (sửa ma trận và các ô đã có). Khoá nội bộ giữ nguyên tên để các
+   * điểm gác không đổi hình dạng.
+   */
+  viewMatrix: 'matrix:use',
+  addMatrix: 'matrix:add',
+  manageMatrix: 'matrix:edit',
   grade: 'quiz:grade',
   gradePaper: 'quiz:gradepaper',
   viewReports: 'quiz:viewreports',
@@ -1454,11 +1463,11 @@ export class QuizService {
    * theo bank đó; context môn (matrix.contextId) chỉ là PHẠM VI DỮ
    * LIỆU. MB-1 (issue #111) đã cắm bank, với hai lưu ý thực thi:
    * - Quyền tại bank đọc từ HAI VAI CHUYÊN DỤNG tại context bank
-   *   (QuestionBanksService.bankLocalMatrixCaps: quiz:viewmatrix ↔
-   *   thành viên + phụ trách; quiz:managematrix ↔ phụ trách), KHÔNG
-   *   qua PermissionEvaluator — evaluator kế thừa mặc định archetype
-   *   từ mọi context tổ tiên nên giáo viên có vai ở context hệ thống
-   *   sẽ lọt cổng bank kín của tổ dù không phải thành viên.
+   *   (QuestionBanksService.bankLocalMatrixCaps: matrix:use ↔ thành
+   *   viên + phụ trách; matrix:add và matrix:edit ↔ phụ trách),
+   *   KHÔNG qua PermissionEvaluator — evaluator kế thừa mặc định
+   *   archetype từ mọi context tổ tiên nên giáo viên có vai ở context
+   *   hệ thống sẽ lọt cổng bank kín của tổ dù không phải thành viên.
    * - Ma trận chưa thuộc bank nào (hoặc bank đã bị xoá) giữ hành vi
    *   Chặng 3: PermissionEvaluator tại context môn.
    */
@@ -1473,7 +1482,9 @@ export class QuizService {
         }
         await this.banks.syncBankMembership(bank);
         const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
-        const ok = capability === QUIZ_CAPABILITIES.viewMatrix ? caps.view : caps.manage;
+        const ok = capability === QUIZ_CAPABILITIES.viewMatrix ? caps.view
+          : capability === QUIZ_CAPABILITIES.addMatrix ? caps.add
+          : caps.manage;
         if (!ok) {
           throw new ForbiddenException({ message: `Missing capability ${capability} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
         }
@@ -1521,11 +1532,12 @@ export class QuizService {
 
   /**
    * Tạo ma trận: quyền ghi MỘT nguồn duy nhất (E-8) — khi gắn vào một
-   * bank ma trận (MB-1) thì gác quiz:managematrix tại CONTEXT CỦA BANK
-   * (bank phải tồn tại và đúng bank_kind='matrix'); không gắn bank thì
-   * giữ hành vi Chặng 3: quiz:managematrix tại context của môn. Tỉ lệ
-   * mục tiêu không được cho thì CHỤP từ preset tại lúc tạo — về sau
-   * preset có đổi thì ma trận đã tạo không đổi theo.
+   * bank ma trận (MB-1) thì gác matrix:add tại CONTEXT CỦA BANK
+   * (bank phải tồn tại và đúng bank_kind='matrix'); không gắn bank
+   * thì gác matrix:add tại context của môn. Tạo mới dùng cổng ADD
+   * (khuôn S3 của #228) — matrix:edit chỉ gác sửa ma trận đã có. Tỉ
+   * lệ mục tiêu không được cho thì CHỤP từ preset tại lúc tạo — về
+   * sau preset có đổi thì ma trận đã tạo không đổi theo.
    */
   async createMatrix(actorId: string, input: CreateExamMatrixDto): Promise<ExamMatrixView> {
     const subject = await this.curriculum.getSubject(actorId, input.subjectId);
@@ -1542,13 +1554,13 @@ export class QuizService {
         throw new BadRequestException({ message: 'Target bank is not a matrix bank', code: 'quiz.matrix_bank_kind_mismatch' });
       }
       await this.banks.syncBankMembership(bank);
-      // Ghi vào bank = quyền phụ trách bank (bank-local, xem requireMatrixCap).
+      // Ghi ma trận MỚI vào bank = cổng tạo bank-local (caps.add, xem requireMatrixCap).
       const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
-      if (!caps.manage) {
-        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+      if (!caps.add) {
+        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.addMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
       }
     } else {
-      await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.manageMatrix, subject.contextId);
+      await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.addMatrix, subject.contextId);
     }
     // Khuôn ma trận duy nhất là CV 7991 (bỏ hẳn chọn preset): tỉ lệ
     // tham chiếu chụp từ hằng cấu hình khi GV không cho tỉ lệ riêng.
@@ -1617,7 +1629,7 @@ export class QuizService {
    * file (lát I-2, issue #233) — đầu ghi duy nhất của luồng nhập:
    *
    * 1. Đối chiếu cặp môn/chương trình như {@link createMatrix}; cổng
-   *    `quiz:managematrix` tại context môn đã được chạy lại ở bước
+   *    `matrix:add` tại context môn đã được chạy lại ở bước
    *    parse của chính request ghi (MatrixImportService.previewImport)
    *    nên tới đây người gọi đã có quyền tạo ma trận tại môn đó.
    * 2. Bank đích = bank ma trận CÁ NHÂN của người nhập (tạo lười như
@@ -1664,8 +1676,8 @@ export class QuizService {
     const bank = await this.banks.ensurePersonalBank(actorId, 'matrix');
     await this.banks.syncBankMembership(bank);
     const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
-    if (!caps.manage) {
-      throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+    if (!caps.add) {
+      throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.addMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
     }
     // Bước chống ghi trùng: chỉ đối chiếu ma trận của CHÍNH người
     // nhập trong bank đích có cùng định danh thô (tên/môn/chương
@@ -1720,7 +1732,7 @@ export class QuizService {
     return this.matrixView(row);
   }
 
-  /** Đọc một ma trận kèm ô và cảnh báo lệch tỉ lệ (quiz:viewmatrix). */
+  /** Đọc một ma trận kèm ô và cảnh báo lệch tỉ lệ (matrix:use). */
   async getMatrix(actorId: string, matrixId: string): Promise<ExamMatrixView> {
     const row = await this.getMatrixRow(matrixId);
     // Ma trận thuộc tenant khác với tenant hiệu lực → 404 đồng nhất (TENANT-0, #168).
@@ -1788,7 +1800,7 @@ export class QuizService {
     return this.repo.listExamVersionsByMatrix(matrixId);
   }
 
-  /** Các ma trận của một môn (quiz:viewmatrix tại context của môn).
+  /** Các ma trận của một môn (matrix:use tại context của môn).
    * Ma trận thuộc bank personal của người khác bị loại khỏi danh sách
    * (issue #123) — danh sách theo môn không được rò ma trận riêng. */
   async listMatrices(actorId: string, subjectId: string): Promise<ExamMatrixView[]> {
@@ -1812,12 +1824,14 @@ export class QuizService {
     return out;
   }
 
-  /** Sửa ma trận (quiz:managematrix); thu hẹp bộ mức khi đã có ô dùng mức bị loại thì bị từ chối. */
+  /** Sửa ma trận (matrix:edit); thu hẹp bộ mức khi đã có ô dùng mức bị loại thì bị từ chối. */
   async updateMatrix(actorId: string, matrixId: string, input: UpdateExamMatrixDto): Promise<ExamMatrixView> {
     const row = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
-    // MB-1: CHUYỂN ma trận sang bank khác qua PATCH phải có thêm quyền
-    // ghi tại bank đích — quyền ở bank nguồn không tự mang sang bank lạ.
+    // MB-1: CHUYỂN ma trận sang bank khác qua PATCH phải có thêm
+    // quyền GHI VÀO bank đích (cổng tạo matrix:add tại bank đích —
+    // chuyển sang là thêm một ma trận vào bank đó) — quyền ở bank
+    // nguồn không tự mang sang bank lạ.
     if (input.bankId !== undefined && input.bankId !== null && input.bankId !== row.bankId) {
       const target = await this.banks.findBankById(input.bankId);
       if (!target) throw new NotFoundException({ message: `Matrix bank ${input.bankId} not found`, code: 'quiz.matrix_bank_not_found' });
@@ -1826,8 +1840,8 @@ export class QuizService {
       }
       await this.banks.syncBankMembership(target);
       const targetCaps = await this.banks.bankLocalMatrixCaps(actorId, target);
-      if (!targetCaps.manage) {
-        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${target.id}`, code: 'access.capability_denied' });
+      if (!targetCaps.add) {
+        throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.addMatrix} in matrix bank ${target.id}`, code: 'access.capability_denied' });
       }
     }
     if (input.levelSet === 'three' && row.levelSet !== 'three') {
@@ -1879,7 +1893,7 @@ export class QuizService {
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
 
-  /** Xoá ma trận (quiz:managematrix); đề đã sinh từ ma trận giữ nguyên, chỉ mất vết matrix_id (FK set null). */
+  /** Xoá ma trận (matrix:edit); đề đã sinh từ ma trận giữ nguyên, chỉ mất vết matrix_id (FK set null). */
   async deleteMatrix(actorId: string, matrixId: string): Promise<void> {
     const row = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
@@ -1983,7 +1997,7 @@ export class QuizService {
   }
 
   /**
-   * Thêm ô vào ma trận (quiz:managematrix): ĐƠN VỊ KIẾN THỨC phải
+   * Thêm ô vào ma trận (matrix:edit): ĐƠN VỊ KIẾN THỨC phải
    * thuộc chương trình của ma trận (ô neo ĐVK — issue #249, ma trận
    * không gắn YCCĐ), mức phải thuộc bộ mức của ma trận, và khi ma
    * trận có phạm vi đã dạy (scope_node_ids) thì ĐVK phải nằm trong
@@ -2030,7 +2044,7 @@ export class QuizService {
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
 
-  /** Sửa một ô (quiz:managematrix) — khoá ĐVK/mức/dạng không đổi qua sửa; muốn đổi thì xoá ô tạo lại. */
+  /** Sửa một ô (matrix:edit) — khoá ĐVK/mức/dạng không đổi qua sửa; muốn đổi thì xoá ô tạo lại. */
   async updateMatrixCell(actorId: string, matrixId: string, cellId: string, input: UpdateExamMatrixCellDto): Promise<ExamMatrixView> {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
@@ -2062,7 +2076,7 @@ export class QuizService {
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
 
-  /** Xoá một ô khỏi ma trận (quiz:managematrix). */
+  /** Xoá một ô khỏi ma trận (matrix:edit). */
   async deleteMatrixCell(actorId: string, matrixId: string, cellId: string): Promise<ExamMatrixView> {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
@@ -2137,7 +2151,7 @@ export class QuizService {
   }
 
   /**
-   * Khả dụng ngân hàng theo từng ô cho người gọi (quiz:viewmatrix):
+   * Khả dụng ngân hàng theo từng ô cho người gọi (matrix:use):
    * cần / có / thiếu. Generate khoá cứng khi bất kỳ ô nào thiếu.
    */
   async matrixAvailability(actorId: string, matrixId: string): Promise<{ matrixId: string; cells: MatrixCellAvailability[]; sufficient: boolean }> {
@@ -2209,7 +2223,7 @@ export class QuizService {
   // --- Facade cho EB-2 (generate hai bước matrix → paper → deploy) -------------
 
   /**
-   * Đọc ma trận cho generate (cổng quiz:managematrix tại context của
+   * Đọc ma trận cho generate (cổng matrix:edit tại context của
    * bank — E-8 qua requireMatrixCap) + các ô. EB-2: ExamsService
    * là phía điều phối generate; QuizService chỉ còn là nguồn dữ liệu
    * ma trận/pool và phía ghi slots vào quiz.

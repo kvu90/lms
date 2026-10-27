@@ -26,10 +26,17 @@ export interface MatrixAttributionView {
   useCount: number;
 }
 
-/** Bộ capability của lớp ngân hàng ma trận (MB-1): xem/sửa là quyền Chặng 3, copy/share/moderate là matrix:* — tất cả đánh giá TẠI CONTEXT CỦA BANK (E-8). */
+/**
+ * Bộ capability của lớp ngân hàng ma trận — đủ bộ matrix:*
+ * use/add/edit/copy/share/moderate sau đợt đồng bộ khuôn ngân hàng
+ * (issue #228, lát S3; MB-1 của issue #111 mở đầu bằng
+ * copy/share/moderate và còn neo xem/sửa vào quiz:* của Chặng 3).
+ * Tất cả đánh giá TẠI CONTEXT CỦA BANK (E-8).
+ */
 export const MATRIX_BANK_CAPS = {
-  view: 'quiz:viewmatrix',
-  manage: 'quiz:managematrix',
+  view: 'matrix:use',
+  add: 'matrix:add',
+  manage: 'matrix:edit',
   copy: 'matrix:copy',
   share: 'matrix:share',
   moderate: 'matrix:moderate',
@@ -85,7 +92,7 @@ export class MatrixBanksService {
    * context môn (hành vi Chặng 3).
    */
   private async sourceCapsOf(actorId: string, matrix: ExamMatrixRow): Promise<{
-    view: boolean; manage: boolean; copy: boolean; share: boolean; moderate: boolean;
+    view: boolean; add: boolean; manage: boolean; copy: boolean; share: boolean; moderate: boolean;
   }> {
     if (matrix.bankId) {
       const bank = await this.banks.findBankById(matrix.bankId);
@@ -95,11 +102,11 @@ export class MatrixBanksService {
       }
     }
     const at = async (cap: string) => this.evaluator.hasCapability(actorId, cap, matrix.contextId);
-    const [view, manage, copy, share, moderate] = await Promise.all([
-      at(MATRIX_BANK_CAPS.view), at(MATRIX_BANK_CAPS.manage), at(MATRIX_BANK_CAPS.copy),
+    const [view, add, manage, copy, share, moderate] = await Promise.all([
+      at(MATRIX_BANK_CAPS.view), at(MATRIX_BANK_CAPS.add), at(MATRIX_BANK_CAPS.manage), at(MATRIX_BANK_CAPS.copy),
       at(MATRIX_BANK_CAPS.share), at(MATRIX_BANK_CAPS.moderate),
     ]);
-    return { view, manage, copy, share, moderate };
+    return { view, add, manage, copy, share, moderate };
   }
 
   /**
@@ -201,9 +208,9 @@ export class MatrixBanksService {
   /**
    * Copy một ma trận về bank đích (mặc định bank ma trận cá nhân của
    * người copy): cổng nguồn là matrix:copy trên nguồn (bank-local khi
-   * nguồn trong bank), cổng đích là quyền phụ trách bank đích
-   * (bank-local). Ma trận hidden chỉ chủ sở hữu/người duyệt mới copy
-   * được.
+   * nguồn trong bank), cổng đích là cổng TẠO matrix:add tại bank đích
+   * (bank-local; copy là ghi một ma trận mới vào bank đích — khuôn
+   * S3). Ma trận hidden chỉ chủ sở hữu/người duyệt mới copy được.
    */
   async copyMatrix(actorId: string, matrixId: string, input: CopyExamMatrixDto): Promise<ExamMatrixView> {
     const source = await this.getMatrixRow(matrixId);
@@ -219,8 +226,8 @@ export class MatrixBanksService {
       : await this.banks.ensurePersonalBank(actorId, 'matrix', { forCopy: true });
     await this.banks.syncBankMembership(target);
     const targetCaps = await this.banks.bankLocalMatrixCaps(actorId, target);
-    if (!targetCaps.manage) {
-      throw new ForbiddenException({ message: 'No quiz:managematrix on the target matrix bank', code: 'quiz.matrix_copy_target_forbidden' });
+    if (!targetCaps.add) {
+      throw new ForbiddenException({ message: 'No matrix:add on the target matrix bank', code: 'quiz.matrix_copy_target_forbidden' });
     }
     const copy = await this.deepCopyMatrix(actorId, source, target, { status: 'draft', isTemplate: false, name: input.name });
     await this.outbox.enqueueStandalone({

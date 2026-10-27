@@ -155,7 +155,7 @@ export class ExamMatricesController {
   }
   @Patch(':id')
   /**
-   * PATCH /exam-matrices/:id — sửa ma trận (quiz:managematrix).
+   * PATCH /exam-matrices/:id — sửa ma trận (matrix:edit).
    */
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateExamMatrixSchema }) dto: UpdateExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.updateMatrix(actor.id, id, dto);
