@@ -16810,6 +16810,132 @@
         "n|col|public.learning_outcomes.node_id",
         "n|col|public.learning_outcomes.position"
       ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|tbl|public.plan_entitlements",
+        "n|tbl|public.plan_entitlements",
+        "e|tbl|public.plan_entitlements",
+        "n|rel|public.plan_entitlements",
+        "n|type|public.plan_entitlements",
+        "n|rel|public.plan_entitlements_pkey",
+        "n|rel|public.plan_entitlements_payment_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_tenant_id_idx",
+        "n|idx|public.plan_entitlements_tenant_id_idx",
+        "e|idx|public.plan_entitlements_tenant_id_idx",
+        "n|rel|public.plan_entitlements_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_user_id_idx",
+        "n|idx|public.plan_entitlements_user_id_idx",
+        "e|idx|public.plan_entitlements_user_id_idx",
+        "n|rel|public.plan_entitlements_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_payment_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_payment_id_idx",
+        "n|idx|public.plan_entitlements_payment_id_idx",
+        "e|idx|public.plan_entitlements_payment_id_idx",
+        "n|rel|public.plan_entitlements_payment_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.payment_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "n|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "e|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "n|con|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "n|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "e|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "n|con|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.payment_id",
+        "n|col|public.payments.id",
+        "e|uniqueness|public.payments.id"
+      ]
     }
   ],
   "ddl": [
@@ -56537,6 +56663,260 @@
       "method": "btree",
       "concurrently": false,
       "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "name": "plan_entitlements",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "component",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "payment_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "starts_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "payment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_payments_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "payment_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "payments",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "payment_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
     }
   ]
 }
