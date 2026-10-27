@@ -197,7 +197,7 @@ export class MessagingContactsService {
    * đo 0,018 ms — không nghẽn). Notification hệ thống (`notify`)
    * KHÔNG đi qua cổng này.
    *
-   * NGOẠI LỆ duy nhất (Lão gia chốt bổ sung 25/10/2026 trên issue
+   * NGOẠI LỆ duy nhất (chốt bổ sung 25/10/2026 trên issue
    * #33): cặp GIÁO VIÊN ↔ HỌC SINH thuộc cùng một đơn vị học tập
    * nhắn riêng trực tiếp không cần kết bạn — cả mở hội thoại mới
    * lẫn gửi vào hội thoại cũ, cả hai chiều (học sinh trả lời được).

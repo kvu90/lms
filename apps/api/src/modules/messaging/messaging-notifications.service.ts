@@ -165,7 +165,7 @@ export class MessagingNotificationsService {
 
   /**
    * User có được toàn bộ bề mặt tuỳ chọn theo loại (v2) hay chỉ bề
-   * mặt tối thiểu của học sinh (NB-7, issue #174 — quyết của Lão gia:
+   * mặt tối thiểu của học sinh (NB-7, issue #174 — quy định:
    * học sinh chỉ tuỳ chọn TỐI THIỂU). Đầy đủ = site admin, hoặc có bất
    * kỳ gán vai nhân sự (archetype manager/coursecreator/
    * editingteacher/teacher) tại bất kỳ context nào. Còn lại — học
