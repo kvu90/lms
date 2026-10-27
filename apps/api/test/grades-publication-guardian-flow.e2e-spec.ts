@@ -75,15 +75,15 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     expect(leaf?.publication).toEqual({ policy: 'auto', published: true });
 
     // Học sinh không tự đặt policy / không tự công bố được.
-    const selfPolicy = await http(app).put(`/api/v1/courses/grades/items/${item.id}/posting-policy`)
+    const selfPolicy = await http(app).put(`/api/v1/grade-items/${item.id}/posting-policy`)
       .set('Authorization', `Bearer ${studentToken}`).send({ policy: 'manual' });
     expect(selfPolicy.status).toBe(403);
-    const selfPublish = await http(app).post(`/api/v1/courses/grades/items/${item.id}/publish`)
+    const selfPublish = await http(app).post(`/api/v1/grade-items/${item.id}/publish`)
       .set('Authorization', `Bearer ${studentToken}`).send({});
     expect(selfPublish.status).toBe(403);
 
     // GV đặt policy manual → điểm + lời phê của bài bị che phía học sinh.
-    const setPolicy = await http(app).put(`/api/v1/courses/grades/items/${item.id}/posting-policy`)
+    const setPolicy = await http(app).put(`/api/v1/grade-items/${item.id}/posting-policy`)
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
     expect(setPolicy.status).toBe(200);
     mine = (await getGradebook(app, studentToken, course.id)).activities;
@@ -96,7 +96,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     expect(teacherBook.find((g) => g.item.id === item.id)?.grade?.finalGrade).toBe(8);
 
     // Công bố → học sinh thấy lại điểm + lời phê.
-    const pub = await http(app).post(`/api/v1/courses/grades/items/${item.id}/publish`)
+    const pub = await http(app).post(`/api/v1/grade-items/${item.id}/publish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect(pub.status).toBe(201);
     expect(pub.body.published).toBe(true);
@@ -106,7 +106,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     expect(leaf?.grade?.feedback).toBe('Làm tốt');
 
     // Rút công bố → mất quyền thấy lại.
-    const unpub = await http(app).post(`/api/v1/courses/grades/items/${item.id}/unpublish`)
+    const unpub = await http(app).post(`/api/v1/grade-items/${item.id}/unpublish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect(unpub.status).toBe(201);
     expect(unpub.body.published).toBe(false);
@@ -114,7 +114,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     expect(mine.find((g) => g.item.id === item.id)?.grade).toBeNull();
 
     // Audit: publish vào event_log; sửa điểm sau công bố cũng có vết riêng.
-    const repub = await http(app).post(`/api/v1/courses/grades/items/${item.id}/publish`)
+    const repub = await http(app).post(`/api/v1/grade-items/${item.id}/publish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect(repub.status).toBe(201);
     await setGrade(app, teacher, item.id, student.id, 9);
@@ -140,7 +140,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     const manualItem = await createGradeItem(app, admin, course.id, { itemName: 'Kiểm tra định kỳ', gradeMax: 10 });
     await setGrade(app, admin, autoItem.id, student.id, 7);
     await setGrade(app, admin, manualItem.id, student.id, 5);
-    await http(app).put(`/api/v1/courses/grades/items/${manualItem.id}/posting-policy`)
+    await http(app).put(`/api/v1/grade-items/${manualItem.id}/posting-policy`)
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
 
     // Chưa có liên kết: phụ huynh không đọc được gì của học sinh.

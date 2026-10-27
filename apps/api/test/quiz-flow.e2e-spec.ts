@@ -663,11 +663,11 @@ describe('Quiz activity (mod_quiz)', () => {
     quizId = quiz.id;
 
     // Khoá grade item của hoạt động qua API sổ điểm.
-    const items = await http(app).get(`/api/v1/courses/${ctx.course.id}/grades/items`).set('Authorization', `Bearer ${admin}`);
+    const items = await http(app).get(`/api/v1/courses/${ctx.course.id}/grade-items`).set('Authorization', `Bearer ${admin}`);
     const item = (items.body as { id: string; itemType: string; itemInstance: string | null }[])
       .find((i) => i.itemType === 'mod' && i.itemInstance === quiz.cmId)!;
     expect(item).toBeTruthy();
-    const lock = await http(app).patch(`/api/v1/courses/grades/items/${item.id}`).set('Authorization', `Bearer ${admin}`)
+    const lock = await http(app).patch(`/api/v1/grade-items/${item.id}`).set('Authorization', `Bearer ${admin}`)
       .send({ locked: true });
     expect(lock.status).toBe(200);
 

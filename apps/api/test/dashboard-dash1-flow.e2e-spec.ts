@@ -164,7 +164,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
     const manualItem = await createGradeItem(app, admin, ctx.course.id, { itemName: 'Điểm manual dash', gradeMax: 10 });
     const autoItem = await createGradeItem(app, admin, ctx.course.id, { itemName: 'Điểm auto dash', gradeMax: 10 });
     await setGrade(app, admin, manualItem.id, ctx.student.id, 8, 'Chưa công bố');
-    const policy = await http(app).put(`/api/v1/courses/grades/items/${manualItem.id}/posting-policy`)
+    const policy = await http(app).put(`/api/v1/grade-items/${manualItem.id}/posting-policy`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({ policy: 'manual' });
     expect(policy.status).toBe(200);
 
@@ -186,7 +186,7 @@ describe('DASH1: dashboard việc cần làm (issue #121)', () => {
 
     // GV công bố item manual → điểm hiện tại lần xem sau, dù điểm chấm
     // TRƯỚC thời điểm công bố (thời điểm hiệu lực = lúc công bố).
-    const publish = await http(app).post(`/api/v1/courses/grades/items/${manualItem.id}/publish`)
+    const publish = await http(app).post(`/api/v1/grade-items/${manualItem.id}/publish`)
       .set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect([200, 201]).toContain(publish.status);
     const third = await overview(ctx.studentToken);
