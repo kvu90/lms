@@ -317,7 +317,7 @@ function stubHomeApi(access: unknown) {
     '/api/v1/badges/mine': { body: [] },
     '/api/v1/notifications/unread-count': { body: { unread: 3 } },
     '/api/v1/calendar/events': { body: CALENDAR_EVENTS },
-    '/api/v1/courses/course-1/grades/report': { body: GRADE_REPORT },
+    '/api/v1/courses/course-1/gradebook/report': { body: GRADE_REPORT },
     '/api/v1/courses/course-1/gradebook': { body: GRADEBOOK },
     '/api/v1/users': { body: { users: [], total: 0 } },
     '/api/v1/courses/categories/tree': { body: [] },

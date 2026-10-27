@@ -17,6 +17,7 @@ import {
   classOverviewSchema,
   classPublicViewSchema, classSchema, updateClassSchema,
   createCouponSchema, purchasePlanSchema, updateCouponSchema,
+  exportGradesSchema, exportGradesVneduSchema, gradeExportProviderSchema,
   createRefundSchema, paymentRefundStatusSchema, rejectRefundSchema, resolvePaymentReviewSchema, settleRefundSchema,
 } from './index.js';
 
@@ -890,6 +891,42 @@ describe('coupon + purchase plan contracts (phần còn lại của lát 2, #189
     expect(updateCouponSchema.parse({ isActive: false }).isActive).toBe(false);
     expect(updateCouponSchema.parse({ maxRedemptions: null }).maxRedemptions).toBeNull();
     expect(() => updateCouponSchema.parse({ code: 'NEWCODE' })).toThrow();
+  });
+});
+
+describe('grade export contracts (chuẩn đường dẫn module điểm, #342)', () => {
+  const vneduPayload = {
+    regularItemIds: ['01900000-0000-7000-8000-000000000011'],
+    midtermItemId: '01900000-0000-7000-8000-000000000012',
+    finalItemId: '01900000-0000-7000-8000-000000000013',
+    semester: 1 as const,
+  };
+
+  it('accepts the canonical export payload with the provider carried in the body', () => {
+    const parsed = exportGradesSchema.parse({ provider: 'vnedu', ...vneduPayload });
+    expect(parsed.provider).toBe('vnedu');
+    expect(parsed.regularItemIds).toEqual(vneduPayload.regularItemIds);
+    expect(parsed.semester).toBe(1);
+  });
+
+  it('rejects the canonical export payload when the provider is missing', () => {
+    expect(() => exportGradesSchema.parse(vneduPayload)).toThrow();
+  });
+
+  it('rejects providers outside the closed provider set', () => {
+    expect(gradeExportProviderSchema.parse('vnedu')).toBe('vnedu');
+    expect(() => exportGradesSchema.parse({ provider: 'smas', ...vneduPayload })).toThrow();
+    expect(() => gradeExportProviderSchema.parse('')).toThrow();
+  });
+
+  it('rejects unknown extra fields in the canonical export payload', () => {
+    expect(() => exportGradesSchema.parse({ provider: 'vnedu', ...vneduPayload, format: 'pdf' })).toThrow();
+  });
+
+  it('keeps the legacy vnedu payload shape provider-less for the alias path', () => {
+    const parsed = exportGradesVneduSchema.parse(vneduPayload);
+    expect(parsed.midtermItemId).toBe(vneduPayload.midtermItemId);
+    expect(() => exportGradesVneduSchema.parse({ provider: 'vnedu', ...vneduPayload })).toThrow();
   });
 });
 

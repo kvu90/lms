@@ -193,7 +193,7 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     // --- Khối (b): item manual chấm TRƯỚC lần xem đầu — lần đầu không dội "mới".
     const manualItem = await createGradeItem(app, admin, course.id, { itemName: 'Điểm manual PH1', gradeMax: 10 });
     await setGrade(app, admin, manualItem.id, student.id, 6, 'Bí mật chưa công bố');
-    const policy = await http(app).put(`/api/v1/courses/grades/items/${manualItem.id}/posting-policy`)
+    const policy = await http(app).put(`/api/v1/grade-items/${manualItem.id}/posting-policy`)
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
     expect(policy.status).toBe(200);
 
@@ -232,7 +232,7 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     // Công bố item manual + chấm thêm item auto SAU mốc → lần xem sau có cả hai.
     const autoItem = await createGradeItem(app, admin, course.id, { itemName: 'Điểm auto PH1', gradeMax: 10 });
     await setGrade(app, teacher, autoItem.id, student.id, 7);
-    const publish = await http(app).post(`/api/v1/courses/grades/items/${manualItem.id}/publish`)
+    const publish = await http(app).post(`/api/v1/grade-items/${manualItem.id}/publish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect([200, 201]).toContain(publish.status);
     const second = await overview(guardianToken, student.id);
@@ -256,7 +256,7 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     // Bài B: chính sách manual, đã chấm nhưng CHƯA công bố.
     const manualItem = await createGradeItem(app, admin, course.id, { itemName: 'Bài chưa công bố PH1', gradeMax: 10 });
     await setGrade(app, teacher, manualItem.id, student.id, 5);
-    const policy = await http(app).put(`/api/v1/courses/grades/items/${manualItem.id}/posting-policy`)
+    const policy = await http(app).put(`/api/v1/grade-items/${manualItem.id}/posting-policy`)
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
     expect(policy.status).toBe(200);
 
@@ -271,7 +271,7 @@ describe('PH-1: bề mặt phụ huynh chỉ-xem (issue #130)', () => {
     expect(JSON.stringify(body1)).not.toContain(manualItem.id);
 
     // Công bố bài B → PH thấy cả hai bài.
-    const pubItem = await http(app).post(`/api/v1/courses/grades/items/${manualItem.id}/publish`)
+    const pubItem = await http(app).post(`/api/v1/grade-items/${manualItem.id}/publish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect([200, 201]).toContain(pubItem.status);
     const res2 = await results(guardianToken, student.id);

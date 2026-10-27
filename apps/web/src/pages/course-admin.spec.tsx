@@ -154,7 +154,7 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === '/api/v1/courses' && method === 'GET') return respond([COURSE]);
       if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`)
         return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(REPORT);
+      if (url === `/api/v1/courses/${COURSE_ID}/gradebook/report`) return respond(REPORT);
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook`)
         return respond({ courseId: COURSE_ID, userId: TEACHER_ID, activities: [] });
       if (url === `/api/v1/courses/${COURSE_ID}` && method === 'GET')
@@ -179,7 +179,7 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === `/api/v1/courses/${COURSE_ID}/sections/${SECTION_ID}` && method === 'PATCH')
         return respond({ ...CONTENT.sections[0], modules: undefined });
       if (url === `/api/v1/courses/${COURSE_ID}/groupings`) return respond([]);
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/grade-items`) return respond([]);
       // Các khu cũ của trang quản trị khoá: trả danh sách rỗng.
       if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([]);
       if (url === '/api/v1/cohorts') return respond([]);
@@ -289,7 +289,7 @@ function stubFetchGroups(calls: RecordedCall[]) {
       if (url === '/api/v1/courses' && method === 'GET') return respond([COURSE]);
       if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`)
         return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return respond(REPORT);
+      if (url === `/api/v1/courses/${COURSE_ID}/gradebook/report`) return respond(REPORT);
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook`)
         return respond({ courseId: COURSE_ID, userId: TEACHER_ID, activities: [] });
       if (url === `/api/v1/courses/${COURSE_ID}` && method === 'GET')
@@ -328,7 +328,7 @@ function stubFetchGroups(calls: RecordedCall[]) {
       if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/enrolments`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/completion`) return respond([]);
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/grade-items`) return respond([]);
       return respond({}, 404);
     }),
   );
@@ -529,7 +529,7 @@ function stubFetchGroupAdmin(calls: RecordedCall[], opts?: { manageGroups?: bool
       if (url === `/api/v1/courses/${COURSE_ID}/enrol/instances`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/enrolments`) return respond(enrolmentRows);
       if (url === `/api/v1/courses/${COURSE_ID}/completion`) return respond([]);
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/grade-items`) return respond([]);
       return respond({}, 404);
     }),
   );

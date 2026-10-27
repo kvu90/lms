@@ -101,7 +101,7 @@ export async function loader({ request }: { request: Request }): Promise<SsrLoad
         queryKey: queryKeys.courseAccess(course.id),
         queryFn: async (): Promise<CourseGradeData> => {
           const [report, gradebook] = await Promise.all([
-            serverProbe<CourseActivityGrid>(req, `/api/v1/courses/${course.id}/grades/report`),
+            serverProbe<CourseActivityGrid>(req, `/api/v1/courses/${course.id}/gradebook/report`),
             serverProbe<MyActivityGrades>(req, `/api/v1/courses/${course.id}/gradebook`),
           ]);
           return { report, gradebook };

@@ -33,7 +33,7 @@ async function probe<T>(path: string): Promise<T | null> {
  */
 export async function fetchCourseGradeData(courseId: string): Promise<CourseGradeData> {
   const [report, gradebook] = await Promise.all([
-    probe<CourseActivityGrid>(`/api/v1/courses/${courseId}/grades/report`),
+    probe<CourseActivityGrid>(`/api/v1/courses/${courseId}/gradebook/report`),
     probe<MyActivityGrades>(`/api/v1/courses/${courseId}/gradebook`),
   ]);
   return { report, gradebook };
@@ -111,7 +111,7 @@ export function gradeItemHistoryQueryOptions(itemId: string, userId: string) {
   return queryOptions({
     queryKey: queryKeys.gradeItemHistory(itemId, userId),
     queryFn: () =>
-      apiJson<GradeHistoryView[]>(`/api/v1/courses/grades/items/${itemId}/users/${userId}/history`),
+      apiJson<GradeHistoryView[]>(`/api/v1/grade-items/${itemId}/users/${userId}/history`),
   });
 }
 
@@ -127,12 +127,12 @@ function useGradeMutation<TVars>(
   });
 }
 
-/** Đột biến nhập/sửa điểm một bài cho một học sinh (POST /courses/grades/items/:itemId/grades). */
+/** Đột biến nhập/sửa điểm một bài cho một học sinh (POST /grade-items/:itemId/grades). */
 export function useSubmitGrade(courseId: string) {
   return useGradeMutation(
     courseId,
     (vars: { gradeItemId: string; userId: string; rawGrade: number | null; feedback?: string }) =>
-      apiJson(`/api/v1/courses/grades/items/${vars.gradeItemId}/grades`, {
+      apiJson(`/api/v1/grade-items/${vars.gradeItemId}/grades`, {
         method: 'POST',
         body: JSON.stringify({
           userId: vars.userId,
@@ -143,37 +143,37 @@ export function useSubmitGrade(courseId: string) {
   );
 }
 
-/** Đột biến tạo mục điểm nhập tay mới cho khoá (POST /courses/:id/grades/items). */
+/** Đột biến tạo mục điểm nhập tay mới cho khoá (POST /courses/:id/grade-items). */
 export function useCreateGradeItem(courseId: string) {
   return useGradeMutation(courseId, (vars: { itemName: string; gradeMax: number }) =>
-    apiJson(`/api/v1/courses/${courseId}/grades/items`, {
+    apiJson(`/api/v1/courses/${courseId}/grade-items`, {
       method: 'POST',
       body: JSON.stringify(vars),
     }),
   );
 }
 
-/** Đột biến lưu sửa tên/thang điểm của một mục (PATCH /courses/grades/items/:id). */
+/** Đột biến lưu sửa tên/thang điểm của một mục (PATCH /grade-items/:id). */
 export function useUpdateGradeItem(courseId: string) {
   return useGradeMutation(courseId, (vars: { itemId: string; itemName: string; gradeMax: number }) =>
-    apiJson(`/api/v1/courses/grades/items/${vars.itemId}`, {
+    apiJson(`/api/v1/grade-items/${vars.itemId}`, {
       method: 'PATCH',
       body: JSON.stringify({ itemName: vars.itemName, gradeMax: vars.gradeMax }),
     }),
   );
 }
 
-/** Đột biến xoá một mục điểm và mọi điểm của nó (DELETE /courses/grades/items/:id). */
+/** Đột biến xoá một mục điểm và mọi điểm của nó (DELETE /grade-items/:id). */
 export function useDeleteGradeItem(courseId: string) {
   return useGradeMutation(courseId, (itemId: string) =>
-    apiJson(`/api/v1/courses/grades/items/${itemId}`, { method: 'DELETE' }),
+    apiJson(`/api/v1/grade-items/${itemId}`, { method: 'DELETE' }),
   );
 }
 
-/** Đột biến đặt chính sách công bố của một bài (PUT /courses/grades/items/:id/posting-policy). */
+/** Đột biến đặt chính sách công bố của một bài (PUT /grade-items/:id/posting-policy). */
 export function useSetGradePostingPolicy(courseId: string) {
   return useGradeMutation(courseId, (vars: { itemId: string; policy: 'auto' | 'manual' }) =>
-    apiJson(`/api/v1/courses/grades/items/${vars.itemId}/posting-policy`, {
+    apiJson(`/api/v1/grade-items/${vars.itemId}/posting-policy`, {
       method: 'PUT',
       body: JSON.stringify({ policy: vars.policy }),
     }),
@@ -183,7 +183,7 @@ export function useSetGradePostingPolicy(courseId: string) {
 /** Đột biến công bố/thu hồi công bố điểm của một bài (POST .../publish | .../unpublish). */
 export function useSetGradeItemPublished(courseId: string) {
   return useGradeMutation(courseId, (vars: { itemId: string; published: boolean }) =>
-    apiJson(`/api/v1/courses/grades/items/${vars.itemId}/${vars.published ? 'publish' : 'unpublish'}`, {
+    apiJson(`/api/v1/grade-items/${vars.itemId}/${vars.published ? 'publish' : 'unpublish'}`, {
       method: 'POST',
       body: JSON.stringify({}),
     }),

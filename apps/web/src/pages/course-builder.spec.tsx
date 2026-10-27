@@ -243,7 +243,7 @@ function stubFetch(calls: RecordedCall[], content: unknown = CONTENT, bankItems:
         return respond({ id: '01900000-0000-7000-8000-00000000aa02', courseId: COURSE_ID, name: 'Bài tập mới' });
       if (url === `/api/v1/courses/${COURSE_ID}/groupings`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([]);
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/items`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/grade-items`) return respond([]);
       if (url === `/api/v1/courses/${COURSE_ID}/completion/criteria`) {
         if (init?.method === 'PUT') return respond({ method: 1, criteria: [] });
         return respond({ method: 1, criteria: [] });

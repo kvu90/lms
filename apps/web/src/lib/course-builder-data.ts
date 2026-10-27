@@ -42,7 +42,7 @@ async function fetchCourseBuilder(courseId: string): Promise<CourseBuilderData> 
   const [course, content, gradeItems, criteria, groups, groupings] = await Promise.all([
     probe<Course>(`/api/v1/courses/${courseId}`),
     probe<CourseContent>(`/api/v1/courses/${courseId}/content`),
-    probe<GradeItem[]>(`/api/v1/courses/${courseId}/grades/items`),
+    probe<GradeItem[]>(`/api/v1/courses/${courseId}/grade-items`),
     probe<BuilderCriteriaView>(`/api/v1/courses/${courseId}/completion/criteria`),
     probe<CourseGroup[]>(`/api/v1/courses/${courseId}/groups`),
     probe<CourseGrouping[]>(`/api/v1/courses/${courseId}/groupings`),
