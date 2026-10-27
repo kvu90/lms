@@ -230,7 +230,7 @@ function stubFetch(calls: RecordedCall[], content: unknown = CONTENT, bankItems:
       if (url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && method === 'DELETE') return respond({ deleted: true });
       if (url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}` && method === 'PATCH')
         return respond({ ...moduleRow(MODULE_ID, 'Welcome page') });
-      if (url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}/duplicate` && method === 'POST')
+      if (url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}/copy` && method === 'POST')
         return respond({ ...moduleRow('01900000-0000-7000-8000-000000001099', 'Welcome page') });
       if (url === `/api/v1/courses/${COURSE_ID}/sections/${SECTION_ID}` && method === 'PATCH')
         return respond({ ...(content as typeof CONTENT).sections[0], modules: undefined });
@@ -437,7 +437,7 @@ describe('Builder Outline K1 (teacher)', () => {
     expect(call?.body).toEqual({ sectionIds: [SECTION2_ID, SECTION_ID] });
   });
 
-  it('nhân bản module tại dòng gọi POST /modules/:cmId/duplicate', async () => {
+  it('nhân bản module tại dòng gọi POST /modules/:cmId/copy', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderCourseBuilder();
@@ -447,7 +447,7 @@ describe('Builder Outline K1 (teacher)', () => {
 
     await waitFor(() =>
       expect(
-        calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}/duplicate` && c.method === 'POST'),
+        calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/modules/${MODULE_ID}/copy` && c.method === 'POST'),
       ).toBe(true),
     );
   });

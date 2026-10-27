@@ -213,11 +213,11 @@ export function CalendarPage() {
     });
   }
 
-  /** Tải tệp ICS của chính user qua GET /calendar/export.ics (endpoint đòi đăng nhập nên phải fetch kèm token rồi tải blob, không dùng link trực tiếp). */
+  /** Tải tệp ICS của chính user qua GET /calendar/exports?format=ics (endpoint đòi đăng nhập nên phải fetch kèm token rồi tải blob, không dùng link trực tiếp). */
   async function downloadIcs() {
     setMessage(null);
     try {
-      const response = await apiFetch('/api/v1/calendar/export.ics');
+      const response = await apiFetch('/api/v1/calendar/exports?format=ics');
       if (!response.ok) throw new Error('export failed');
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);

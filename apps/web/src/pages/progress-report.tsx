@@ -35,11 +35,11 @@ export function ProgressReportPage() {
   const groupsQuery = useCourseGroups(id);
   const groups = groupsQuery.data ?? [];
 
-  /** Tải CSV qua fetch có xác thực rồi lưu bằng blob URL. */
+  /** Tải CSV qua fetch có xác thực rồi lưu bằng blob URL (đích xuất chuẩn: định dạng `csv` truyền qua tham số truy vấn `format`). */
   async function downloadCsv() {
     if (!id) return;
-    const query = groupId ? `?groupId=${groupId}` : '';
-    const res = await apiFetch(`/api/v1/courses/${id}/progress/report.csv${query}`);
+    const query = groupId ? `?format=csv&groupId=${groupId}` : '?format=csv';
+    const res = await apiFetch(`/api/v1/courses/${id}/progress/reports${query}`);
     if (!res.ok) return;
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
