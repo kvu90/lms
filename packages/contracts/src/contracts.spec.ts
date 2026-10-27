@@ -13,6 +13,9 @@ import {
   searchMessagesQuerySchema, messageSearchResultSchema,
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
+  createExamContributionSchema, withdrawExamSchema, withdrawExamMatrixSchema,
+  examMatrixViewSchema, examMatrixContributionViewSchema,
+  mcpSubmitContributionInputSchema, mcpSubmitContributionOutputSchema,
   conversationGroupTreeSchema,
   classOverviewSchema,
   classPublicViewSchema, classSchema, updateClassSchema,
@@ -846,5 +849,87 @@ describe('mcp question contracts (biên AI: không fraction, không tên)', () =
     // Options đã bỏ ở biên MCP (D-5): partiallyCorrectFeedback bị từ chối.
     expect(() => mcpQuestionOptionsInputSchema.parse({ partiallyCorrectFeedback: 'Gần đúng' })).toThrow();
     expect(() => mcpQuestionOptionsInputSchema.parse({ single: true })).toThrow();
+  });
+});
+
+describe('bank sync contracts (issue #228: đóng góp đề khuôn QB-4 + truy vết rút + MCP đối xứng)', () => {
+  const bankId = '01900000-0000-7000-8000-000000000050';
+  const examId = '01900000-0000-7000-8000-000000000060';
+  const matrixId = '01900000-0000-7000-8000-000000000070';
+  const questionId = '01900000-0000-7000-8000-000000000080';
+
+  it('createExamContributionSchema: mode chỉ nhận new/update, mode lạ và khoá lạ bị từ chối', () => {
+    // Không gửi mode = mode 'new' ở tầng service (payload cũ nguyên vẹn).
+    expect(createExamContributionSchema.parse({ examId }).examId).toBe(examId);
+    const update = createExamContributionSchema.parse({ examId, mode: 'update', targetExamId: examId, withDossier: true });
+    expect(update.mode).toBe('update');
+    expect(update.targetExamId).toBe(examId);
+    expect(update.withDossier).toBe(true);
+    expect(() => createExamContributionSchema.parse({ examId, mode: 'replace' })).toThrow();
+    expect(() => createExamContributionSchema.parse({ examId, targetExamId: 'khong-phai-uuid' })).toThrow();
+    expect(() => createExamContributionSchema.parse({ examId, unknownField: 1 })).toThrow();
+  });
+
+  it('withdrawExamSchema/withdrawExamMatrixSchema: lý do rút bắt buộc, chuỗi toàn khoảng trắng không tính là lý do', () => {
+    expect(withdrawExamSchema.parse({ reason: '  Đề trùng nội dung  ' }).reason).toBe('Đề trùng nội dung');
+    expect(() => withdrawExamSchema.parse({ reason: '' })).toThrow();
+    expect(() => withdrawExamSchema.parse({ reason: '   ' })).toThrow();
+    expect(withdrawExamMatrixSchema.parse({ reason: 'Sai cấu trúc' }).reason).toBe('Sai cấu trúc');
+    expect(() => withdrawExamMatrixSchema.parse({ reason: '  ' })).toThrow();
+  });
+
+  it('mcpSubmitContributionInputSchema: ít nhất một trong ba danh sách phải có phần tử', () => {
+    // Payload cũ chỉ-câu-hỏi vẫn hợp lệ nguyên vẹn.
+    expect(mcpSubmitContributionInputSchema.parse({ targetBankId: bankId, questionIds: [questionId], idempotencyKey: 'k1' }).questionIds).toEqual([questionId]);
+    // Chỉ đề / chỉ ma trận cũng hợp lệ (đối xứng ba thực thể).
+    expect(mcpSubmitContributionInputSchema.parse({ targetBankId: bankId, examIds: [examId], idempotencyKey: 'k2' }).examIds).toEqual([examId]);
+    expect(mcpSubmitContributionInputSchema.parse({ targetBankId: bankId, matrixIds: [matrixId], idempotencyKey: 'k3' }).matrixIds).toEqual([matrixId]);
+    // Không danh sách nào / trần 50 phần tử / thiếu khoá idempotency đều bị từ chối.
+    expect(() => mcpSubmitContributionInputSchema.parse({ targetBankId: bankId, idempotencyKey: 'k4' })).toThrow();
+    expect(() => mcpSubmitContributionInputSchema.parse({ targetBankId: bankId, examIds: [], idempotencyKey: 'k5' })).toThrow();
+    expect(() => mcpSubmitContributionInputSchema.parse({
+      targetBankId: bankId,
+      examIds: Array.from({ length: 51 }, () => examId),
+      idempotencyKey: 'k6',
+    })).toThrow();
+    expect(() => mcpSubmitContributionInputSchema.parse({ targetBankId: bankId, examIds: [examId] })).toThrow();
+  });
+
+  it('mcpSubmitContributionOutputSchema: bản ghi idempotency cũ (chưa có examResults/matrixResults) vẫn hợp lệ với mặc định rỗng', () => {
+    const legacy = mcpSubmitContributionOutputSchema.parse({
+      targetBankId: bankId,
+      results: [{ questionId, status: 'pending', contributionId: examId, code: null, message: null }],
+      created: 1,
+      failed: 0,
+    });
+    expect(legacy.examResults).toEqual([]);
+    expect(legacy.matrixResults).toEqual([]);
+  });
+
+  it('examMatrixViewSchema: mang đủ bộ ba truy vết rút (thiếu là sai hình dạng)', () => {
+    const view = {
+      id: matrixId, name: 'Ma trận mẫu', subjectId: examId, curriculumId: examId, contextId: examId,
+      presetKind: 'cv7991_periodic', targetFormPercents: null, targetLevelPercents: null, levelSet: 'three',
+      scopeNote: null, scopeNodeIds: null, totalScore: 10, createdBy: null,
+      bankId: bankId, status: 'hidden', isTemplate: false, derivedFromMatrixId: null,
+      derivedFromBankId: null, originalAuthorId: null, copyCount: 0,
+      withdrawnReason: 'Sai cấu trúc', withdrawnBy: examId, withdrawnAt: '2026-10-27T00:00:00.000Z',
+      version: 1, cells: [], warnings: [],
+    };
+    expect(examMatrixViewSchema.parse(view).withdrawnReason).toBe('Sai cấu trúc');
+    const { withdrawnReason: _omit, ...missingField } = view;
+    expect(() => examMatrixViewSchema.parse(missingField)).toThrow();
+  });
+
+  it('examMatrixContributionViewSchema: mang vết chống trùng contentHash + nearDuplicateOf', () => {
+    const row = {
+      id: examId, matrixId, matrixName: 'Ma trận mẫu', targetBankId: bankId,
+      proposerId: examId, proposerName: null, note: '', contentHash: 'abc123', nearDuplicateOf: matrixId,
+      status: 'pending', rejectReason: null, reviewerId: null, resultMatrixId: null,
+      createdAt: '2026-10-27T00:00:00.000Z', updatedAt: '2026-10-27T00:00:00.000Z',
+    };
+    expect(examMatrixContributionViewSchema.parse(row).nearDuplicateOf).toBe(matrixId);
+    const { contentHash: _omit, ...missingHash } = row;
+    expect(() => examMatrixContributionViewSchema.parse(missingHash)).toThrow();
   });
 });
