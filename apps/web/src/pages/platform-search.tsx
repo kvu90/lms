@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import '../i18n';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
@@ -9,14 +9,14 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { apiJson } from '#lib/api';
+import { globalSearchTarget, type GlobalSearchDoc } from '#lib/search-target';
 
-interface SearchDoc {
-  id: string;
-  area: string;
-  itemId: string;
-  title: string;
-  content: string;
-}
+/** Khoá nhãn loại kết quả theo `area` của API tìm kiếm; area lạ chưa có nhãn thì hiển thị nguyên mã area. */
+const AREA_LABEL_KEYS: Record<string, string> = {
+  courses: 'searchAreaCourses',
+  users: 'searchAreaUsers',
+  contentbank: 'searchAreaContentBank',
+};
 
 /**
  * Tìm kiếm toàn cục (platform services): kết quả đã được server lọc theo quyền của người
@@ -31,18 +31,26 @@ interface SearchDoc {
  *    bằng từ khoá trống.
  * 2. Form ngay trong trang — giữ nguyên hành vi cũ: gõ tiếp rồi bấm
  *    "Tìm kiếm" là chạy lại bằng chữ đang có trong ô, không đổi URL.
+ *
+ * Mỗi kết quả ĐIỀU HƯỚNG ĐƯỢC vào đúng item (chốt gộp tìm kiếm ngày
+ * 27/10/2026 — trước đó danh sách chỉ là chữ tĩnh không bấm được):
+ * đích lấy từ ánh xạ dùng chung lib/search-target (khoá học →
+ * trang khoá, người dùng → màn quản trị người dùng, học liệu →
+ * màn của học liệu đó), cùng ánh xạ với nhóm "Nội dung" của bề mặt
+ * Ctrl/Cmd+K. Kết quả thuộc area chưa có route đích thì giữ dạng
+ * khối thông tin không liên kết, không bịa đường dẫn.
  */
 export function SearchPage() {
   const { t: t } = useTranslation();
   const [searchParams] = useSearchParams();
   const urlQ = searchParams.get('q');
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<SearchDoc[]>([]);
+  const [results, setResults] = useState<GlobalSearchDoc[]>([]);
   const [searched, setSearched] = useState(false);
 
   /** Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ đã tìm. */
   const runSearch = useCallback(async (keyword: string) => {
-    const docs = await apiJson<SearchDoc[]>(`/api/v1/search?q=${encodeURIComponent(keyword)}`);
+    const docs = await apiJson<GlobalSearchDoc[]>(`/api/v1/search?q=${encodeURIComponent(keyword)}`);
     setResults(docs);
     setSearched(true);
   }, []);
@@ -83,15 +91,29 @@ export function SearchPage() {
             <Button type="submit">{t('searchButton')}</Button>
           </form>
           <ul aria-label={t('searchResults')} className="space-y-2">
-            {results.map((d) => (
-              <li key={d.id} className="rounded border p-2">
-                <p className="font-medium">{d.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {d.area} · item {d.itemId}
-                </p>
-                <p className="text-sm">{d.content}</p>
-              </li>
-            ))}
+            {results.map((d) => {
+              const target = globalSearchTarget(d);
+              const body = (
+                <>
+                  <p className="font-medium">{d.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {AREA_LABEL_KEYS[d.area] ? t(AREA_LABEL_KEYS[d.area]) : d.area}
+                  </p>
+                  <p className="text-sm">{d.content}</p>
+                </>
+              );
+              return (
+                <li key={d.id}>
+                  {target ? (
+                    <Link to={target} className="block rounded border p-2 hover:bg-accent" data-testid={`search-result-${d.id}`}>
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="rounded border p-2">{body}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           {searched && results.length === 0 ? (
             <Empty className="p-6">

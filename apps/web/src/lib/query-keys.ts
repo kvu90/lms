@@ -8,6 +8,8 @@
 export const queryKeys = {
   /** Ảnh chụp quyền của người đang đăng nhập (GET /users/me/capabilities). */
   capabilities: ['capabilities'] as const,
+  /** Kết quả tìm kiếm toàn cục theo từ khoá (GET /search — nhóm Nội dung của bề mặt tìm kiếm hợp nhất ở header). */
+  globalSearch: (keyword: string) => ['global-search', keyword] as const,
   /** Danh sách toàn bộ khoá học (GET /courses). */
   courses: ['courses'] as const,
   /** Kết quả + hàng đợi chấm tay của một quiz (trang quiz-results). */

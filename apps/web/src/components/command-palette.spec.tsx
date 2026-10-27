@@ -67,6 +67,16 @@ const TEACHER_ACCESS = {
   hasLearnerArtifacts: true,
 };
 
+/** Kết quả nội dung mẫu của GET /api/v1/search: khoá học không thuộc "khoá học của tôi". */
+const CONTENT_COURSE_ID = '01900000-0000-7000-8000-0000000000e9';
+const CONTENT_DOC = {
+  id: 'doc-search-1',
+  area: 'courses',
+  itemId: CONTENT_COURSE_ID,
+  title: 'Toán nâng cao',
+  content: 'TOANNC Nội dung khoá toán nâng cao',
+};
+
 const COURSE = {
   id: COURSE_ID,
   category: CATEGORY_ID,
@@ -99,6 +109,9 @@ function stubFetch(profile: unknown, access: unknown) {
       if (url === '/api/v1/users/me') return jsonResponse(profile);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(access);
       if (url === '/api/v1/courses') return jsonResponse([COURSE]);
+      // Tìm kiếm toàn cục cho nhóm "Nội dung": một khoá học khác với
+      // khoá của người dùng, để phân biệt với nhóm "Đi tới".
+      if (url.startsWith('/api/v1/search?q=')) return jsonResponse([CONTENT_DOC]);
       if (url === '/api/v1/notifications/unread-count') return jsonResponse({ unread: 0 });
       if (url === '/api/v1/auth/refresh') return jsonResponse({}, 401);
       return jsonResponse({}, 404);
@@ -129,10 +142,22 @@ function renderShell() {
 }
 
 async function openPaletteWithKeyboard() {
-  // Chờ header (nơi mount CommandPalette + listener phím toàn cục) dựng
-  // xong rồi mới bắn phím — bắn sớm hơn thì listener chưa gắn.
-  await screen.findByTestId('command-palette-trigger');
-  fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+  // Chờ shell (nơi mount SiteHeader chứa CommandPalette + listener
+  // phím toàn cục) dựng xong rồi mới bắn phím. Bề mặt hợp nhất
+  // không còn nút mở riêng nên dấu hiệu chờ là trang chủ đã dựng
+  // trong cùng cây shell. DOM hiện vẫn có thể sớm hơn nhịp gắn
+  // listener (hiệu ứng thụ động chạy sau commit, cây quản trị nặng
+  // càng rõ) nên lần bắn đầu có thể rơi: bắn lại chừng nào bề mặt
+  // chưa mở — mỗi lần bắn được kiểm tra đồng bộ ngay sau đó (sự
+  // kiện đã flush) nên lần bắn thừa không bao giờ đóng nhầm bề mặt
+  // vừa mở.
+  await screen.findByTestId('probe-index');
+  for (let attempt = 0; attempt < 20 && !screen.queryByTestId('command-palette'); attempt++) {
+    fireEvent.keyDown(document, { key: 'k', ctrlKey: true });
+    if (!screen.queryByTestId('command-palette')) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
 }
 
 beforeAll(() => {
@@ -173,7 +198,7 @@ describe('bảng lệnh Cmd+K — học viên', () => {
     expect(screen.queryByTestId('palette-item-screen-questions')).not.toBeInTheDocument();
 
     // Gõ không dấu vẫn khớp tên khoá có dấu; Enter đi thẳng tới khoá.
-    const input = screen.getByPlaceholderText(/Tới màn hình hoặc khoá học/);
+    const input = screen.getByPlaceholderText(/Tìm nội dung hoặc đi tới/);
     fireEvent.change(input, { target: { value: 'toan' } });
     expect(await screen.findByTestId(`palette-item-course-${COURSE_ID}`)).toBeInTheDocument();
     expect(screen.queryByTestId('palette-item-screen-courses')).not.toBeInTheDocument();
@@ -187,18 +212,19 @@ describe('bảng lệnh Cmd+K — học viên', () => {
     renderShell();
 
     await openPaletteWithKeyboard();
-    const input = await screen.findByPlaceholderText(/Tới màn hình hoặc khoá học/);
+    const input = await screen.findByPlaceholderText(/Tìm nội dung hoặc đi tới/);
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
   });
 });
 
 describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
-  it('admin mở bằng nút ở header và thấy mục quản trị', async () => {
+  it('admin mở bằng Ctrl+K và thấy mục quản trị (không còn nút mở riêng)', async () => {
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     renderShell();
 
-    fireEvent.click(await screen.findByTestId('command-palette-trigger'));
+    expect(screen.queryByTestId('command-palette-trigger')).not.toBeInTheDocument();
+    await openPaletteWithKeyboard();
     expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
     expect(await screen.findByTestId('palette-item-screen-admin-users')).toHaveTextContent('Người dùng');
     expect(await screen.findByTestId('palette-item-screen-contentbank')).toBeInTheDocument();
@@ -212,6 +238,32 @@ describe('bảng lệnh Cmd+K — quản trị và giáo viên', () => {
     expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
     expect(await screen.findByTestId('palette-item-screen-questions')).toHaveTextContent('Ngân hàng câu hỏi');
     expect(screen.queryByTestId('palette-item-screen-admin-users')).not.toBeInTheDocument();
+  });
+});
+
+describe('bề mặt hợp nhất — nhóm Nội dung (chốt gộp tìm kiếm 27/10/2026)', () => {
+  it('mở bằng Ctrl+K thấy hai nhóm; kết quả nội dung bấm mở được item; mục Tìm kiếm trần không còn', async () => {
+    stubFetch(profileOf(STUDENT_ID, 'student'), STUDENT_ACCESS);
+    renderShell();
+
+    await openPaletteWithKeyboard();
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+    // Nhóm "Đi tới" hiện ngay khi mở; mục "Tìm kiếm" trỏ /search trần đã bỏ.
+    expect(screen.getByText('Đi tới')).toBeInTheDocument();
+    expect(screen.queryByTestId('palette-item-screen-search')).not.toBeInTheDocument();
+
+    // Gõ từ khoá → nhóm "Nội dung" gọi /api/v1/search và hiện kết quả.
+    const input = screen.getByPlaceholderText(/Tìm nội dung hoặc đi tới/);
+    fireEvent.change(input, { target: { value: 'toán' } });
+    expect(await screen.findByText('Nội dung')).toBeInTheDocument();
+    const contentItem = await screen.findByTestId('palette-item-content-doc-search-1');
+    expect(contentItem).toHaveTextContent('Toán nâng cao');
+    expect(contentItem).toHaveTextContent('Khoá học');
+
+    // Bấm kết quả nội dung → đi thẳng tới trang của khoá đó, bề mặt đóng.
+    fireEvent.click(contentItem);
+    expect(await screen.findByTestId('probe-course')).toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
   });
 });
 
