@@ -197,7 +197,7 @@ export class QuestionsRepository {
     return rows.length;
   }
 
-  // --- answers & options ---------------------------------------------------------
+  // --- đáp án & tuỳ chọn ---------------------------------------------------------
 
   /**
    * Chèn một đáp án của version (question_answers).

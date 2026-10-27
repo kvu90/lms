@@ -3,9 +3,9 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { FilesService } from './files.service';
 
 /**
- * FilesModule's own cleanup handler for `cm_deleted` (report §2#4: deleting
- * a cm must clean up the subsystems that own data under it — here, the file
- * records in the cm's context). Idempotent: a replay finds no records.
+ * Handler dọn dẹp riêng của FilesModule cho `cm_deleted` (report §2#4: xoá
+ * một cm phải dọn dẹp các hệ thống con sở hữu dữ liệu dưới nó — ở đây là các bản ghi
+ * file trong context của cm). Có tính idempotent: phát lại sẽ không thấy bản ghi nào.
  */
 @Injectable()
 /**

@@ -17,9 +17,9 @@ import { MessagingSocketAuth } from './messaging-socket-auth';
 import { NotificationUnreadStreamService } from './notification-unread-stream.service';
 
 /**
- * MessagingModule facade: MessagingService (conversations, messages,
- * notifications, provider preferences, blocked contacts). Other modules
- * notify users ONLY through this facade (report §3.12).
+ * Facade của MessagingModule: MessagingService (conversations, messages,
+ * notifications, tuỳ chọn provider, blocked contacts). Các module khác
+ * thông báo cho người dùng CHỈ thông qua facade này (report §3.12).
  */
 @Module({
   imports: [

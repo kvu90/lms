@@ -3,9 +3,9 @@ import { UsersModule } from '../users/users.module';
 import { AvailabilityService } from './availability.service';
 
 /**
- * AvailabilityModule facade: AvailabilityService. Leaf evaluators for
- * completion/group/grouping are registered by their owning modules at
- * bootstrap (registry pattern — no repository imports across modules).
+ * Facade của AvailabilityModule: AvailabilityService. Các evaluator lá cho
+ * completion/group/grouping được đăng ký bởi module sở hữu chúng tại
+ * lúc khởi động (mẫu registry — không import repository xuyên module).
  */
 @Module({
   imports: [UsersModule],

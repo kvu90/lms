@@ -2263,7 +2263,7 @@ export const appResources = {
       curriculumLoading: 'Đang tải…',
       curriculumImportTitle: 'Đồng bộ dữ liệu chuẩn',
       curriculumImportDescription:
-        'Tiện ích đồng bộ lại dữ liệu chuẩn sau khi dataset trong hệ thống được đính chính. Bình thường không cần dùng: toàn bộ 21 dataset chương trình GDPT 2018 (2.126 bản ghi đã kiểm chứng nguyên văn với văn bản của Bộ) đã được nạp sẵn khi seed cơ sở dữ liệu, với định danh ổn định theo khoá tự nhiên. Đồng bộ lại an toàn theo luật không-xoá: bản ghi đã có không nhân đôi, node giữ nguyên định danh kể cả khi đổi khối, YCCĐ bị rút khỏi dataset được giữ lại và báo ở dòng kết quả.',
+        'Tiện ích đồng bộ lại dữ liệu chuẩn sau khi dataset trong hệ thống được đính chính. Bình thường không cần dùng: toàn bộ 21 dataset chương trình GDPT 2018 (2.115 bản ghi đã kiểm chứng nguyên văn với văn bản của Bộ) đã được nạp sẵn khi seed cơ sở dữ liệu qua dump đông cứng, định danh cố định theo bản dump chuẩn. Đồng bộ lại an toàn theo luật không-xoá: bản ghi đã có không nhân đôi, node giữ nguyên định danh kể cả khi đổi khối, YCCĐ bị rút khỏi dataset được giữ lại và báo ở dòng kết quả.',
       curriculumImportState: 'đã nạp {{imported}}/{{total}} bản ghi',
       curriculumImportGrades: 'khối {{grades}}',
       curriculumImportRun: 'Đồng bộ lại',
@@ -3374,7 +3374,7 @@ export const appResources = {
       sharedExamBank: 'Shared exam bank',
       sharedMatrixBank: 'Shared matrix bank',
       comingSoon: 'Not built yet — waiting for the Quiz matrix foundation.',
-      // MB-1 (issue #111): matrix bank.
+      // MB-1 (issue #111): ngân hàng ma trận.
       matrixBank: 'Matrix bank',
       myMatrixBank: 'My matrices',
       myMatrixBankDescription: 'Your own exam matrices. A matrix copied here from a shared template is your working copy — edit its cells freely, the template never changes.',
@@ -3495,7 +3495,7 @@ export const appResources = {
       examPinsTitle: 'Pins of this exam',
       matrixCv7991Note: 'Matrix per CV 7991 specification (3 levels by default: Know / Understand / Apply).',
       matrixIncludeAdvanced: 'Add the Advanced application level',
-      // I-3 (issue #233): 5-step matrix import wizard from file.
+      // I-3 (issue #233): wizard nhập ma trận 5 bước từ file.
       matrixImport: 'Import matrix from file',
       matrixImportFromFile: 'Import from file',
       matrixImportStep1: '1. Choose subject and download template',
@@ -4442,7 +4442,7 @@ export const appResources = {
       curriculumLoading: 'Loading…',
       curriculumImportTitle: 'Standard data sync',
       curriculumImportDescription:
-        'Utility to re-sync the standard data after a bundled dataset is corrected. Normally unnecessary: all 21 GDPT 2018 programme datasets (2,126 records verified verbatim against the Ministry’s documents) are loaded by the database seed with stable natural-key identities. Re-syncing is safe under the no-delete rule: existing records are not duplicated, nodes keep their identity even when a record changes grade, and outcomes withdrawn from the dataset are kept and reported in the result line.',
+        'Utility to re-sync the standard data after a bundled dataset is corrected. Normally unnecessary: all 21 GDPT 2018 programme datasets (2,115 records verified verbatim against the Ministry’s documents) are loaded by the database seed from the frozen standard-data dump, with identities fixed by the dump. Re-syncing is safe under the no-delete rule: existing records are not duplicated, nodes keep their identity even when a record changes grade, and outcomes withdrawn from the dataset are kept and reported in the result line.',
       curriculumImportState: 'imported {{imported}}/{{total}} records',
       curriculumImportGrades: 'grades {{grades}}',
       curriculumImportRun: 'Re-sync',

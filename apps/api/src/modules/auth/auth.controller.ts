@@ -50,8 +50,8 @@ export class AuthController {
    */
   async login(@Req() req: Request & { user: { id: string; username: string } }, @Body({ schema: loginSchema }) _dto: LoginDto) {
     const user = await this.users.getUser(req.user.id);
-    // validateCredentials already ran inside the local strategy; the shared
-    // completion step issues a fresh token family — or an MFA challenge.
+    // validateCredentials đã chạy bên trong local strategy; bước hoàn tất
+    // dùng chung sẽ cấp một family token mới — hoặc một thử thách MFA.
     return loginResponse(await this.auth.completePasswordLogin(user, { ip: clientIpOf(req), userAgent: req.headers['user-agent'] }));
   }
 
@@ -194,7 +194,7 @@ export class AuthController {
     return { user: { id: user.id, username: user.username }, ...outcome.tokens, loginAs: { byUserId: actor.id, tenantId } };
   }
 
-  // --- Redis web sessions (cookie carries only the signed-less opaque id; the record lives server-side) ---
+  // --- Phiên web Redis (cookie chỉ mang id opaque không ký; bản ghi nằm phía server) ---
   @Public()
   @Post('session/login')
   /**
@@ -242,7 +242,7 @@ export class AuthController {
     return { loggedOut: true };
   }
 
-  // --- My sessions (report_usersessions: my profile navigation) -------------
+  // --- Phiên của tôi (report_usersessions: điều hướng hồ sơ của tôi) -------------
   @Get('sessions')
   /**
    * GET /auth/sessions — mọi phiên đang hoạt động của chính người gọi

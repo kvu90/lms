@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
 
-/** Identity & Access contracts — the single shape source between api and web. */
+/** Contract Danh tính & Truy cập — nguồn shape duy nhất giữa api và web. */
 
 export const tokenPairSchema = z.object({
   accessToken: z.string().min(1),
@@ -27,7 +27,7 @@ export const customFieldValueSchema = z.object({
 });
 export type CustomFieldValue = z.infer<typeof customFieldValueSchema>;
 
-/** Profile view: `email` is an identity field — absent unless the viewer holds site:viewuseridentity (or is the owner/admin). */
+/** View hồ sơ: `email` là trường danh tính — vắng mặt trừ khi người xem nắm giữ site:viewuseridentity (hoặc là chủ sở hữu/admin). */
 export const userProfileSchema = z.object({
   id: uuidIdSchema,
   username: z.string(),
@@ -70,7 +70,7 @@ export const capabilitySchema = z.object({
 });
 export type Capability = z.infer<typeof capabilitySchema>;
 
-/** Moodle permission constants shared by the roles admin UI. */
+/** Các hằng số quyền của Moodle dùng chung cho UI quản trị role. */
 export const CAP = { PROHIBIT: -1000, PREVENT: -1, INHERIT: 0, ALLOW: 1 } as const;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất cho validation ở

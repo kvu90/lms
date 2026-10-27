@@ -36,8 +36,8 @@ import type {
 import { countMessageCharacters, localQuoteOf, mergeMessages } from '../components/messages/utils';
 
 /**
- * Messages: conversation list with unread count, message thread and
- * sending. Tin nhắn hiển thị/gửi theo mô hình mới (issue #33): seq
+ * Tin nhắn: danh sách cuộc trò chuyện với số chưa đọc, luồng tin nhắn và
+ * việc gửi. Tin nhắn hiển thị/gửi theo mô hình mới (issue #33): seq
  * đơn điệu theo conversation là mốc phân trang/đồng bộ; gửi LẠC QUAN
  * với clientMessageId (server chống trùng — thử lại không nhân đôi);
  * tin mới/đã đọc đến qua WebSocket (sự kiện được server phân phối từ

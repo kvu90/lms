@@ -4,7 +4,7 @@ import * as argon2 from 'argon2';
 
 export interface PasswordPolicy { minLength: number; minDigits: number; minLower: number; minUpper: number; minNonAlnum: number }
 
-/** Password hashing (argon2id) + configurable policy (Moodle auth policy — config, never hard-coded rules). */
+/** Băm mật khẩu (argon2id) + chính sách có thể cấu hình (chính sách auth của Moodle — là cấu hình, không bao giờ fix cứng luật trong code). */
 @Injectable()
 /**
  * Chính sách và băm mật khẩu.
@@ -26,7 +26,7 @@ export class PasswordService {
       minNonAlnum: this.config.get<number>('PASSWORD_MIN_NONALNUM') ?? 0,
     };
   }
-  /** Returns a list of policy violations (empty = acceptable). */
+  /** Trả về danh sách các vi phạm chính sách (rỗng = chấp nhận được). */
   /**
    * Kiểm tra mật khẩu theo chính sách; trả danh sách lý do không đạt (rỗng = đạt).
    */

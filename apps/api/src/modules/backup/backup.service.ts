@@ -72,7 +72,7 @@ export function remapBadgeCriteriaParams(
 }
 
 /**
- * BackupModule facade (Moodle core_backup, §2#22).
+ * Facade của BackupModule (Moodle core_backup, §2#22).
  * Backup là một kế hoạch nhiều bước theo contributor; restore map lại mọi id
  * qua backup_id_mappings — không bao giờ giữ id gốc. Ba chế độ: new/merge/replace.
  */
@@ -263,8 +263,8 @@ export class BackupService {
         const cmComp = cms.length ? await db.select().from(courseModulesCompletion).where(inArray(courseModulesCompletion.courseModuleId, cms.map((c) => c.id))) : [];
         const courseComp = await db.select().from(courseCompletions).where(eq(courseCompletions.course, courseId));
         const criteria = await db.select().from(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
-        // Manual-mark evidence (self/role crit_compl) travels with the
-        // criteria it belongs to, like Moodle's backup of crit_compl rows.
+        // Bằng chứng đánh dấu thủ công (self/role crit_compl) đi kèm với
+        // tiêu chí mà nó thuộc về, giống bản backup các dòng crit_compl của Moodle.
         const critCompl = criteria.length ? await db.select().from(courseCompletionCritCompl).where(inArray(courseCompletionCritCompl.criteriaId, criteria.map((c) => c.id))) : [];
         const [settings] = await db.select().from(courseCompletionSettings).where(eq(courseCompletionSettings.course, courseId));
         const scrub = <T extends { userId: string }>(rows: T[]): T[] => anonymize ? rows.map((r) => ({ ...r, userId: 0 })) : rows;
@@ -286,8 +286,8 @@ export class BackupService {
           const moduleInstance = crit.moduleInstance ? mapping.get('cm', crit.moduleInstance) ?? null : null;
           const [inserted] = await db.insert(courseCompletionCriteria).values({
             course: targetCourseId, criteriaType: crit.criteriaType, moduleInstance, date: crit.date,
-            // courseInstance/roleId reference objects OUTSIDE this course's
-            // backup (prerequisite course, system role) and are kept as-is.
+            // courseInstance/roleId tham chiếu tới các đối tượng NGOÀI bản backup của
+            // khoá học này (khoá học tiên quyết, role hệ thống) và được giữ nguyên như cũ.
             courseInstance: crit.courseInstance ?? null, enrolPeriodDays: crit.enrolPeriodDays ?? null, roleId: crit.roleId ?? null,
             sortOrder: crit.sortOrder,
           }).returning();
@@ -362,7 +362,7 @@ export class BackupService {
         }
       },
     });
-    // --- question bank ---------------------------------------------------------
+    // --- ngân hàng câu hỏi ---------------------------------------------------------
     // Ngân hàng câu hỏi bám theo CONTEXT (bản model hiện hữu): category của
     // khoá nằm ở context của khoá (level 50), category mức site nằm ở context
     // hệ thống (level 10). Export cây category + question + bank entry + MỌI

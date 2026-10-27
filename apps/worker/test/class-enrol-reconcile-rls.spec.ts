@@ -1,11 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { and, eq, sql } from 'drizzle-orm';
-import { Client, Pool } from 'pg';
+import { Pool } from 'pg';
 import { ClassEnrolReconcileProcessor } from '../src/processors/class-enrol-reconcile.processor';
 import { TaskLogService } from '../src/task-log.service';
 import { TenantAwarePool } from '../src/db/tenant-pool';
 import { relations } from '../src/db/relations';
+import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from './ordinary-role';
 import {
   classes, cohort, cohortMembers, context, course, courseGroups, enrol,
   role, roleAssignments, userEnrolments, users,
@@ -35,10 +36,14 @@ import {
  * Trên code TRƯỚC fix, ca dương FAIL vì `classesChecked = 0`; sau fix
  * phải PASS. Đây là test luồng nghiệp vụ đối soát, không kiểm chi
  * tiết triển khai của processor.
+ *
+ * Từ lát PR-294.1 (issue #294), việc dựng role + cấp quyền của spec
+ * này đi qua harness dùng chung `test/ordinary-role.ts` thay vì dựng
+ * inline trong `beforeAll` như bản đầu — khẳng định nghiệp vụ của
+ * spec không đổi, đây là ca mẫu cho các spec RLS/tenant còn lại của
+ * suite worker chuyển sang harness ở các lát tiếp theo của #294.
  */
 describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
-  const RLS_ROLE = 'lms_recon_rls';
-  const RLS_PASSWORD = 'lms-recon-rls-test-password';
   const suffix = `${Date.now() % 100000000}`;
   // ID fixture mang dấu lượt chạy để spec chạy lại trên cùng DB không
   // đụng khoá chính của lượt trước (DB CI luôn mới, DB local thì không).
@@ -68,21 +73,12 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
   }
 
   beforeAll(async () => {
-    const adminUrl = process.env.DATABASE_URL;
-    if (!adminUrl) throw new Error('DATABASE_URL chưa được đặt cho suite worker');
+    const adminUrl = adminDatabaseUrl();
 
-    // Role ứng dụng không BYPASSRLS — tạo idempotent (role là đối
-    // tượng cấp cụm, chạy lại suite không được vỡ).
-    const admin = new Client({ connectionString: adminUrl });
-    await admin.connect();
-    await admin.query(
-      `DO $$ BEGIN CREATE ROLE ${RLS_ROLE} LOGIN PASSWORD '${RLS_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-    );
-    await admin.query(`ALTER ROLE ${RLS_ROLE} WITH LOGIN PASSWORD '${RLS_PASSWORD}' NOSUPERUSER NOBYPASSRLS`);
-    await admin.query(`GRANT USAGE ON SCHEMA public TO ${RLS_ROLE}`);
-    await admin.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${RLS_ROLE}`);
-    await admin.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${RLS_ROLE}`);
-    await admin.end();
+    // Role ứng dụng không BYPASSRLS: dựng qua harness dùng chung của
+    // suite worker (issue #294) — tạo idempotent + cấp quyền tối thiểu
+    // trên schema public, cùng một role cho mọi spec đụng RLS/tenant.
+    await ensureOrdinaryRole(adminUrl);
 
     adminPool = new Pool({ connectionString: adminUrl });
     adminDb = drizzle({ client: adminPool, relations });
@@ -139,10 +135,7 @@ describe('Worker class enrol reconcile dưới RLS (hồi quy #292)', () => {
     });
 
     // Processor chạy bằng role thường qua đúng TenantAwarePool của worker.
-    const rlsUrl = new URL(adminUrl);
-    rlsUrl.username = RLS_ROLE;
-    rlsUrl.password = RLS_PASSWORD;
-    rlsPool = new TenantAwarePool({ connectionString: rlsUrl.toString() });
+    rlsPool = new TenantAwarePool({ connectionString: ordinaryRoleUrl(adminUrl) });
     rlsDb = drizzle({ client: rlsPool, relations });
     processor = new ClassEnrolReconcileProcessor(
       rlsDb as never,

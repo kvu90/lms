@@ -1,8 +1,8 @@
 import { Injectable, Scope } from '@nestjs/common';
 
 /**
- * MUC "request" mode: a plain in-memory Map bound to one request's lifecycle
- * via a REQUEST-scoped provider. Never touches Redis.
+ * Chế độ "request" của MUC: một Map thuần trong bộ nhớ, gắn với vòng đời của một request,
+ * thông qua provider theo phạm vi REQUEST. Không bao giờ chạm vào Redis.
  */
 @Injectable({ scope: Scope.REQUEST })
 export class RequestCacheService {

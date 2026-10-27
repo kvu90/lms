@@ -1,4 +1,4 @@
-/** Moodle capability permission constants (lib/accesslib.php). */
+/** Các hằng số quyền capability của Moodle (lib/accesslib.php). */
 export const CAP_INHERIT = 0;
 export const CAP_ALLOW = 1;
 export const CAP_PREVENT = -1;
@@ -10,11 +10,11 @@ export interface RoleOverridePoint {
 }
 
 /**
- * Pure Moodle permission evaluation for ONE role (accesslib semantics):
- * walk from the leaf context up to the root; the nearest non-INHERIT override
- * wins — EXCEPT that a PROHIBIT at ANY ancestor is absolute and cannot be
- * removed by an override closer to the leaf.
- * `pointsLeafToRoot` must be ordered leaf → root.
+ * Đánh giá quyền thuần kiểu Moodle cho MỘT role (ngữ nghĩa accesslib):
+ * đi từ context lá lên tới gốc; override gần nhất mà không phải INHERIT sẽ
+ * thắng — NGOẠI TRỪ một PROHIBIT ở BẤT KỲ tổ tiên nào là tuyệt đối và không thể bị
+ * gỡ bỏ bởi một override gần lá hơn.
+ * `pointsLeafToRoot` phải được sắp theo thứ tự lá → gốc.
  */
 export function evaluateSingleRole(pointsLeafToRoot: RoleOverridePoint[]): number {
   let result = CAP_INHERIT;
@@ -27,7 +27,7 @@ export function evaluateSingleRole(pointsLeafToRoot: RoleOverridePoint[]): numbe
   return result;
 }
 
-/** Multi-role aggregation: allowed iff at least one role ALLOWs and no role PROHIBITs. */
+/** Tổng hợp nhiều role: được phép khi và chỉ khi có ít nhất một role ALLOW và không role nào PROHIBIT. */
 export function aggregateRoleResults(roleResults: number[]): boolean {
   if (roleResults.some((r) => r === CAP_PROHIBIT)) return false;
   return roleResults.some((r) => r === CAP_ALLOW);

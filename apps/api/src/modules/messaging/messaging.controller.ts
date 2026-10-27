@@ -481,8 +481,8 @@ export class NotificationsController {
   }
   @Post('send')
   async send(@Body({ schema: notifyUserSchema }) dto: NotifyDto, @CurrentUser() actor: AuthenticatedUser) {
-    // System-trigger endpoint (used by other subsystems/tests): site admins
-    // only; delivery law lives in MessagingService.notify.
+    // Endpoint kích hoạt bởi hệ thống (các hệ thống con/test khác dùng): chỉ admin
+    // của site; luật phân phối nằm trong MessagingService.notify.
     return this.messaging.sendSystemNotification(actor.id, dto);
   }
   @Post('read-all')

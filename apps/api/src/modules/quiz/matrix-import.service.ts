@@ -404,7 +404,7 @@ export class MatrixImportService {
 
   /**
    * Parse một file .xlsx đã điền và trả kết quả XEM TRƯỚC — không ghi
-   * DB. Flow:
+   * DB. Luồng:
    * 1. Đọc workbook bằng exceljs; lỗi đọc/thiếu sheet `Ma trận`/thiếu
    *    hàng tiêu đề lưới → lỗi cứng cấp file, dừng sớm.
    * 2. Trích khối thông tin chung theo nhãn cố định; kiểm các trường

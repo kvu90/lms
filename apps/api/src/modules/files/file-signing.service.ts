@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { OBJECT_STORAGE, supportsPresignedDownloads, type ObjectStorage } from './storage';
 
-/** HMAC-signed, short-lived download tokens for local storage; when the storage adapter supports presigned URLs (S3), download targets are presigned URLs to the store instead. */
+/** Token tải xuống ngắn hạn được ký bằng HMAC cho lưu trữ cục bộ; khi adapter lưu trữ hỗ trợ URL presigned (S3), đích tải xuống thay vào đó là URL presigned trỏ thẳng tới kho lưu trữ. */
 @Injectable()
 /**
  * Ký URL tải file có thời hạn: HMAC qua API cho kho local; adapter có năng lực presigned (S3)

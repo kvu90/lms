@@ -6,9 +6,9 @@ export interface FieldConfig { required?: boolean; options?: string[]; defaultva
 export const FIELD_TYPES: CustomFieldType[] = ['text', 'textarea', 'select', 'checkbox', 'date'];
 
 /**
- * CustomFields facade (Moodle core_customfield). Definitions are metadata —
- * business tables are never altered. Values are validated against the field
- * declaration whenever the owning entity (user profile) is saved.
+ * Facade của CustomFields (Moodle core_customfield). Các định nghĩa là metadata —
+ * các bảng nghiệp vụ không bao giờ bị thay đổi. Giá trị được kiểm chứng đối chiếu với khai báo
+ * của trường mỗi khi thực thể sở hữu (hồ sơ người dùng) được lưu.
  */
 @Injectable()
 /**
@@ -69,7 +69,7 @@ export class CustomFieldsService {
     await this.repo.deleteField(id);
   }
 
-  /** Validate a value against its field declaration; returns an error message or null. Pure business rule per type. */
+  /** Kiểm chứng một giá trị đối chiếu với khai báo trường của nó; trả về thông báo lỗi hoặc null. Luật nghiệp vụ thuần theo từng kiểu. */
   /**
    * Kiểm một giá trị theo định nghĩa field (bắt buộc, độ dài, danh sách lựa chọn của select, định dạng datetime).
    */
@@ -93,7 +93,7 @@ export class CustomFieldsService {
     }
   }
 
-  /** Validate-only pass (no writes) — callers run this BEFORE persisting the owning entity so a bad profile never leaves a half-created record. */
+  /** Lượt chỉ kiểm chứng (không ghi) — bên gọi chạy bước này TRƯỚC khi lưu thực thể sở hữu để một hồ sơ lỗi không bao giờ để lại một bản ghi tạo dở. */
   /**
    * Kiểm toàn bộ bộ giá trị của một instance trước khi ghi.
    */
@@ -107,7 +107,7 @@ export class CustomFieldsService {
     if (errors.length) throw new BadRequestException({ message: errors.join('; '), code: 'customfield.validation_failed' });
   }
 
-  /** Validate + persist all values for an instance (e.g. a user id). Throws 400 listing every violation. */
+  /** Kiểm chứng + lưu mọi giá trị cho một instance (ví dụ một id người dùng). Ném lỗi 400 liệt kê mọi vi phạm. */
   /**
    * Ghi các giá trị field cho instance sau khi kiểm hợp lệ.
    */

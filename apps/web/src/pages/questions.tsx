@@ -200,10 +200,10 @@ export function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | unde
 }
 
 /**
- * Question bank: categories, questions with their CURRENT version
- * badge, create/edit. Editing creates a new version server-side — the badge
- * increments and the version history shows every version (attempts already
- * started keep the version they pinned; that invariant is API-side).
+ * Ngân hàng câu hỏi: các danh mục, các câu hỏi với huy hiệu phiên bản HIỆN TẠI
+ * của chúng, tạo/sửa. Việc sửa tạo một phiên bản mới phía server — huy hiệu
+ * tăng lên và lịch sử phiên bản hiển thị mọi phiên bản (các lượt làm đã
+ * bắt đầu giữ phiên bản chúng đã ghim; bất biến đó nằm phía API).
  */
 /**
  * Khu vực ngân hàng mà trang này đang phục vụ (chuẩn đường dẫn, issue

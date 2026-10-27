@@ -7,7 +7,7 @@
  * điểm import cũ không đổi.
  */
 
-/** Delivery channels are PORTS. 'popup' (in-app) is the only real channel. */
+/** Các kênh phân phối là các PORT. 'popup' (trong ứng dụng) là kênh thật duy nhất. */
 export const MESSAGE_CHANNELS = ['popup', 'email', 'push'] as const;
 export type MessageChannel = (typeof MESSAGE_CHANNELS)[number];
 export type LoginState = 'loggedin' | 'loggedoff';
@@ -81,9 +81,9 @@ export interface MessageProviderDefinition {
 }
 
 /**
- * Message providers are registered IN CODE (like Moodle's db/messages.php).
- * Each provider produces NOTIFICATIONS (system messages) — never confused
- * with user-to-user messages, which live in conversations (report §2#12).
+ * Các provider tin nhắn được đăng ký TRONG CODE (giống db/messages.php của Moodle).
+ * Mỗi provider sinh ra các NOTIFICATION (tin nhắn hệ thống) — không bao giờ nhầm lẫn
+ * với tin nhắn giữa người dùng với nhau, vốn nằm trong các cuộc trò chuyện (report §2#12).
  *
  * LUẬT SỐNG THẬT (lát N1, issue #49): một provider chỉ được đăng ký ở
  * đây khi đã có nơi phát thật vào `notify()` — provider chưa nối dây

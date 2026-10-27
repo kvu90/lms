@@ -141,7 +141,7 @@ export function ClassDetailPage() {
     addStudentMutation.mutate();
   }
 
-  // --- Import Excel ---
+  // --- Nhập từ Excel ---
   const fileRef = useRef<HTMLInputElement>(null);
   const [importReport, setImportReport] = useState<ClassRosterImportReport | null>(null);
   const importMutation = useMutation({

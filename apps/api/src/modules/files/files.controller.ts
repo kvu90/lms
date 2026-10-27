@@ -17,8 +17,8 @@ import { questionImageMetaServerSchema, uploadMetaServerSchema, type QuestionIma
 export class FilesController {
   constructor(private readonly files: FilesService) {}
 
-  // No @RequireCapability here: guards run before the multipart interceptor
-  // parses the body, so the target context is checked in the handler instead.
+  // Không có @RequireCapability tại đây: các guard chạy trước khi interceptor multipart
+  // phân tích body, nên context đích được kiểm tra trong handler thay thế.
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   /**
@@ -34,8 +34,8 @@ export class FilesController {
     return { id: row.id, contentHash: row.contentHash, fileSize: row.fileSize, fileName: row.fileName, contextId: row.contextId };
   }
 
-  // Same guard shape as the root upload: capability is checked in the
-  // handler because the target context only exists after multipart parsing.
+  // Cùng dạng guard như upload ở gốc: capability được kiểm tra trong
+  // handler vì context đích chỉ tồn tại sau khi phân tích multipart.
   @Post('question-image')
   @UseInterceptors(FileInterceptor('file'))
   /**
@@ -57,7 +57,7 @@ export class FilesController {
 
   @Get(':id')
   /**
-   * GET /files/:id — metadata file.
+   * GET /files/:id — metadata của file.
    */
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const f = await this.files.getFile(id);
@@ -65,7 +65,7 @@ export class FilesController {
     return { id: f.id, contentHash: f.contentHash, fileSize: f.fileSize, fileName: f.fileName, contextId: f.contextId, component: f.component, fileArea: f.fileArea, mimeType: f.mimeType };
   }
 
-  /** Ask for a short-lived signed download URL — denied (403 Problem Details) without the file-context capability. */
+  /** Xin một URL tải xuống đã ký ngắn hạn — bị từ chối (403 Problem Details) nếu không có capability của context file. */
   @Post(':id/signed-url')
   /**
    * POST /files/:id/signed-url — tạo URL tải ký tạm thời.
@@ -84,7 +84,7 @@ export class FilesController {
     return this.files.deleteFile(id);
   }
 
-  /** Signed download: the ONLY public route — possession of an unexpired signature (issued after a capability check) is the credential. */
+  /** Tải xuống đã ký: route public DUY NHẤT — việc sở hữu một chữ ký chưa hết hạn (được cấp sau khi kiểm tra capability) chính là thông tin xác thực. */
   @Public()
   @Get(':id/download')
   /**
@@ -98,14 +98,14 @@ export class FilesController {
     res.send(data);
   }
 
-  /** Guarded stream (alternative to signed URL): capability checked on the file's own context. */
+  /** Luồng stream có guard (thay thế cho URL đã ký): capability được kiểm tra trên chính context của file. */
   @Get(':id/content')
   /**
    * GET /files/content — phục vụ nội dung qua URL đã ký.
    */
   async content(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
     const probe = await this.files.getFile(id);
-    await this.files.createSignedUrl(id, actor.id, actor.username === 'guest'); // throws 403 when not allowed
+    await this.files.createSignedUrl(id, actor.id, actor.username === 'guest'); // ném 403 khi không được phép
     void probe;
     const { file, data } = await this.files.readContent(id);
     res.setHeader('Content-Type', file.mimeType ?? 'application/octet-stream');

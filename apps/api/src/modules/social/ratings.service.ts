@@ -17,13 +17,13 @@ export interface RatingAggregate {
 }
 
 /**
- * RatingsModule (Moodle core_rating): polymorphic ratings over
- * (component, ratingArea, itemId, contextId) against a SCALE. Aggregation
- * (average/count/sum/min/max) is computed over the ratings OF THIS ITEM
- * only (oracle: rating/tests/rating_test test_get_ratings_sql — items with
- * ratings 1,3 aggregate to 2; 1,4 to 2.5; 3,5 to 4). Capabilities:
- * rating:rate to rate, rating:view for aggregates, rating:viewall
- * for the individual rating list — three separate gates, as in Moodle.
+ * RatingsModule (Moodle core_rating): các đánh giá đa hình trên
+ * (component, ratingArea, itemId, contextId) đối chiếu với một SCALE. Việc tổng hợp
+ * (average/count/sum/min/max) được tính trên các đánh giá CỦA CHÍNH MỤC NÀY
+ * mà thôi (oracle: rating/tests/rating_test test_get_ratings_sql — các mục có
+ * các đánh giá 1,3 tổng hợp thành 2; 1,4 thành 2.5; 3,5 thành 4). Các capability:
+ * rating:rate để đánh giá, rating:view cho các giá trị tổng hợp, rating:viewall
+ * cho danh sách đánh giá riêng lẻ — ba cổng riêng biệt, như trong Moodle.
  */
 @Injectable()
 /**
@@ -39,7 +39,7 @@ export class RatingsService {
     private readonly courses: CoursesService,
   ) {}
 
-  /** Course/module contexts additionally require real course access (enrolled or staff). */
+  /** Context của khoá học/module còn yêu cầu thêm quyền truy cập khoá học thật (đã ghi danh hoặc nhân sự). */
   private async assertItemAccess(actorId: string, contextId: string): Promise<void> {
     const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
     if (!ctx) return;

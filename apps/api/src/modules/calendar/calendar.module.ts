@@ -9,7 +9,7 @@ import { CalendarController } from './calendar.controller';
 import { CalendarRepository } from './calendar.repository';
 import { CALENDAR_IMPORT_QUEUE, CALENDAR_REMINDER_QUEUE, CalendarService } from './calendar.service';
 
-/** CalendarModule facade: CalendarService. Visibility is computed from Courses/Enrol/Groups facades only. */
+/** Facade của CalendarModule: CalendarService. Khả năng hiển thị chỉ được tính từ các facade Courses/Enrol/Groups. */
 @Module({
   imports: [
     AccessModule, CoursesModule, EnrolModule, GroupsModule, EventsModule,

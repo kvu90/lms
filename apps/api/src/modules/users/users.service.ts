@@ -17,7 +17,7 @@ export const USER_AREA = 'user';
 
 export interface UserProfileView {
   id: string; username: string; firstName: string; lastName: string;
-  email?: string; // identity field — only present when the viewer may see it
+  email?: string; // trường danh tính — chỉ xuất hiện khi người xem được phép thấy nó
   suspended: boolean; deleted: boolean; isGuest: boolean; forcePasswordChange: boolean;
   lastLogin: Date | null; createdAt: Date;
   customFields: { shortName: string; name: string; type: string; value: string | null }[];
@@ -25,7 +25,7 @@ export interface UserProfileView {
 
 export function normalizeIdentity(value: string): string { return value.trim().toLowerCase(); }
 
-/** UsersModule facade. Authentication ≠ enrolment ≠ role assignment: this service only owns identity/profile data. */
+/** Facade của UsersModule. Xác thực ≠ ghi danh ≠ gán role: service này chỉ sở hữu dữ liệu danh tính/hồ sơ. */
 @Injectable()
 /**
  * Quản lý tài khoản người dùng: tạo, hồ sơ, đình chỉ, xoá mềm và tuỳ chọn cá nhân.
@@ -163,7 +163,7 @@ export class UsersService {
     return user;
   }
 
-  /** The special guest account: no password login for enrolment purposes, never assigned roles directly (Moodle rule). */
+  /** Tài khoản guest đặc biệt: không đăng nhập bằng mật khẩu cho mục đích ghi danh, không bao giờ được gán role trực tiếp (luật của Moodle). */
   /**
    * Đảm bảo tài khoản khách (guest) tồn tại cho các luồng truy cập công khai; idempotent.
    */
@@ -283,7 +283,7 @@ export class UsersService {
     return this.getUser(id);
   }
 
-  /** Soft delete (Moodle semantics): the row stays for log/grade traceability, marked deleted and identity-mangled so the originals can be reused. */
+  /** Xoá mềm (ngữ nghĩa Moodle): dòng vẫn ở lại để truy vết log/điểm, được đánh dấu đã xoá và danh tính bị xáo trộn để các giá trị gốc có thể được dùng lại. */
   /**
    * Xoá mềm tài khoản.
    */
@@ -326,9 +326,9 @@ export class UsersService {
   async getPreference(userId: string, name: string): Promise<string | null | undefined> { return this.repo.getPreference(userId, name); }
 
   /**
-   * Profile view with Moodle's privacy-by-capability rule: identity fields
-   * (email) are exposed only to the owner, site admins, or viewers holding
-   * `site:viewuseridentity` — enforced here, not in the UI.
+   * View hồ sơ với luật riêng tư theo capability của Moodle: các trường danh tính
+   * (email) chỉ được phơi bày cho chủ sở hữu, admin của site, hoặc người xem nắm giữ
+   * `site:viewuseridentity` — được thực thi tại đây, không phải trong UI.
    */
   /**
    * Dựng dữ liệu hiển thị hồ sơ: email chỉ lộ khi người xem có capability xem định danh.
@@ -350,7 +350,7 @@ export class UsersService {
     };
   }
 
-  /** Guard helper for profile mutation: self-service or holders of user:update. */
+  /** Hàm hỗ trợ guard cho việc sửa hồ sơ: tự phục vụ hoặc người nắm giữ user:update. */
   /**
    * Chặn cập nhật hồ sơ người khác khi thiếu capability user:update.
    */

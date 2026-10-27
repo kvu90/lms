@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { evaluateTree, leafFromMap, parseAvailabilityTree, type AvailabilityNode } from './availability-tree';
 
 /**
- * GOLDEN availability tests.
+ * Các test availability dạng GOLDEN.
  * Oracle: Moodle availability/tests/tree_test.php ::test_check_available
- * (MOODLE_503_STABLE, public/availability/tests/tree_test.php) — the mock
- * conditions there (a=true/false, m=message) become leaves keyed by `id`
- * here; assertions on availability + information visibility follow the
- * original scenario order.
+ * (MOODLE_503_STABLE, public/availability/tests/tree_test.php) — các điều kiện mock
+ * ở đó (a=true/false, m=message) trở thành các lá được khoá theo `id`
+ * tại đây; các assertion về availability + khả năng hiển thị thông tin đi theo
+ * đúng thứ tự kịch bản gốc.
  */
 const ev = (tree: AvailabilityNode, values: Record<string, boolean>) =>
   evaluateTree(tree, leafFromMap(values, { a: 'A', b: 'B', c1: 'C1' }));
@@ -73,9 +73,9 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
   });
 
   it('nested: NOT-AND root containing a nested NOT-AND (Moodle nested NOT case)', async () => {
-    // tree_test: outer op is !& (carried from the previous case), child is a
-    // nested !& tree with one true condition: inner = !(true) = false,
-    // outer = !(false) = true. With the leaf false: inner=true, outer=false.
+    // tree_test: op ngoài là !& (mang sang từ ca trước), nút con là một
+    // cây !& lồng nhau với một điều kiện đúng: trong = !(true) = false,
+    // ngoài = !(false) = true. Khi lá là false: trong=true, ngoài=false.
     const tree: AvailabilityNode = { op: '!&', show: true, c: [{ op: '!&', c: [{ type: 'mock', id: 'a' }] }] };
     expect((await ev(tree, { a: true })).available).toBe(true);
     expect((await ev(tree, { a: false })).available).toBe(false);
@@ -96,13 +96,13 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
   });
 
   it('GOLDEN required case: AND nested inside !| with showc matches the truth table', async () => {
-    // !| ( completion AND group )  — available only when NOT(both complete&grouped)
+    // !| ( completion AND group )  — chỉ khả dụng khi NOT(cả hai complete&grouped)
     const tree: AvailabilityNode = {
       op: '!|', show: true, showc: [true],
       c: [{ op: '&', showc: [true, true], c: [{ type: 'completion', id: 'comp' }, { type: 'group', id: 'grp' }] }],
     };
     const cases: [boolean, boolean, boolean][] = [
-      // comp, grp, expected available
+      // comp, grp, khả dụng kỳ vọng
       [false, false, true],
       [true, false, true],
       [false, true, true],
@@ -111,10 +111,10 @@ describe('AvailabilityTree golden (tree_test.php::test_check_available)', () => 
     for (const [comp, grp, expected] of cases) {
       const r = await evaluateTree(tree, leafFromMap({ comp, grp }));
       expect(r.available, `comp=${comp} grp=${grp}`).toBe(expected);
-      // show=true at root: even when unavailable, the item stays visible with info.
+      // show=true ở gốc: ngay cả khi không khả dụng, mục vẫn hiển thị kèm thông tin.
       expect(r.visible).toBe(true);
     }
-    // Same tree with show=false: unavailable ⇒ hidden entirely, but still unavailable (access blocked either way).
+    // Cùng cây với show=false: không khả dụng ⇒ bị ẩn hoàn toàn, nhưng vẫn không khả dụng (truy cập bị chặn trong cả hai trường hợp).
     const hidden = await evaluateTree({ ...tree, show: false }, leafFromMap({ comp: true, grp: true }));
     expect(hidden.available).toBe(false);
     expect(hidden.visible).toBe(false);

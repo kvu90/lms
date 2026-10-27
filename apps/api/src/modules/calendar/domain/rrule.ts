@@ -1,8 +1,8 @@
 /**
- * Minimal RRULE support (report §2#13: a series is ONE logical series with
- * exceptions, not N unrelated events). Supported: FREQ=DAILY|WEEKLY|MONTHLY
- * with COUNT or UNTIL — the subset Moodle's repeat UI exposes
- * (repeat every day/week/month, N times or until a date).
+ * Hỗ trợ RRULE tối thiểu (report §2#13: một chuỗi là MỘT chuỗi logic duy nhất với
+ * các ngoại lệ, không phải N sự kiện rời rạc). Hỗ trợ: FREQ=DAILY|WEEKLY|MONTHLY
+ * với COUNT hoặc UNTIL — tập con mà UI lặp lại của Moodle phơi bày
+ * (lặp lại mỗi ngày/tuần/tháng, N lần hoặc cho tới một ngày).
  */
 /**
  * Đặc tả lặp của sự kiện lịch: tần suất (DAILY/WEEKLY/MONTHLY/YEARLY), số lần (count) hoặc hạn cuối (until).
@@ -60,7 +60,7 @@ export function addStep(date: Date, freq: RruleSpec['freq']): Date {
   return next;
 }
 
-/** Occurrence start times for a series beginning at `start` (the first occurrence is `start` itself). */
+/** Các thời điểm bắt đầu của các lần xuất hiện trong một chuỗi bắt đầu tại `start` (lần xuất hiện đầu tiên chính là `start`). */
 /**
  * Sinh danh sách thời điểm bắt đầu của các occurrence trong chuỗi lặp, có hard cap chống lặp vô hạn.
  */
@@ -72,7 +72,7 @@ export function occurrenceStarts(start: Date, spec: RruleSpec, hardCap = 366): D
     if (spec.until && current > spec.until) break;
     out.push(new Date(current));
     current = addStep(current, spec.freq);
-    if (!spec.count && !spec.until) break; // no count/until: single occurrence
+    if (!spec.count && !spec.until) break; // không có count/until: chỉ một lần xuất hiện
   }
   return out;
 }
