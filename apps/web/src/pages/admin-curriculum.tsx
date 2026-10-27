@@ -23,7 +23,7 @@ import '../i18n';
  * theo mạch). Tạo/sửa môn, chương trình, node và YCCĐ đều là MÀN
  * RIÊNG; Sửa/Xoá nằm ngay tại dòng (§9). Panel đồng bộ dữ liệu chuẩn
  * nằm cuối trang như tiện ích phụ: chương trình đã được seed tự động
- * khi dựng DB (định danh xác định UUIDv5), panel chỉ để đồng bộ lại
+ * khi dựng DB (restore từ dump đông cứng, định danh cố định theo dump), panel chỉ để đồng bộ lại
  * khi dataset được đính chính — nạp lại không nhân đôi và không xoá
  * (sổ đăng ký + luật không-xoá phía API quyết định). Mọi lời gọi bị
  * API gác bằng curriculum:manage tại context hệ thống: 403 thì trang
