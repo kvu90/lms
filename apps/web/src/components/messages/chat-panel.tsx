@@ -169,6 +169,31 @@ export function ChatPanel({
    * giữ dạng tĩnh như trước.
    */
   const panelEntryById = new Map((memberPanel?.entries ?? []).map((entry) => [entry.userId, entry]));
+  /**
+   * Gói panel BỔ SUNG chặn/bỏ chặn (quyết Lão gia 23:16 ngày
+   * 26/10/2026, sổ quyết định mục D): chặn là hành động theo từng
+   * người — ở chat nhóm nó đi qua menu hành động của thành viên,
+   * không còn nằm ở thanh header. Trang chỉ đưa handler chặn xuống
+   * ChatPanel (props `blocked`/`onBlockContact`/`onUnblockContact`),
+   * nên khung chat luồn chúng vào gói panel tại đây để MemberPanel
+   * và menu trên avatar dòng tin dùng chung một đường, thay vì sửa
+   * bề mặt dựng gói ở trang.
+   */
+  const memberPanelBundle: MemberPanelBundle | null = memberPanel
+    ? {
+      ...memberPanel,
+      blockedIds: new Set(blocked),
+      onBlockContact: blockContact,
+      onUnblockContact: unblockContact,
+    }
+    : null;
+  /**
+   * Id tin CUỐI CÙNG trong danh sách đang xem — căn cứ cho quy tắc
+   * "dòng thời gian chỉ hiện ở tin nhắn cuối" (cùng quyết 23:16 ở
+   * trên): footer giờ chỉ render ở tin này; tin khác chỉ còn footer
+   * khi mang ghi chú trạng thái gắn riêng của chính nó.
+   */
+  const lastVisibleMessageId = visibleMessages[visibleMessages.length - 1]?.id;
 
   const dayKeyOf = (iso: string) => {
     const d = new Date(iso);
@@ -195,10 +220,20 @@ export function ChatPanel({
       );
     }
     const mine = m.userIdFrom === myId;
+    /** Tin này có phải tin cuối đang xem — quyết định hiện dòng thời gian (xem `lastVisibleMessageId`). */
+    const isLastMessage = m.id === lastVisibleMessageId;
+    /**
+     * Ghi chú trạng thái GẮN RIÊNG tin này (đã xoá/đã thu hồi bởi
+     * ai, đang gửi/gửi lỗi): luôn ở tại tin đó bất kể vị trí — chỉ
+     * phần GIỜ của footer mới tuân quy tắc tin cuối.
+     */
+    const hasOwnStatusNote = Boolean(m.deletedAt || m.recalledAt || m.localStatus);
     /** Dòng panel của tác giả tin này (lát MSG-T4) — có thì avatar dòng tin thành nút mở menu quan hệ. */
     const authorEntry = isGroup && !mine ? panelEntryById.get(m.userIdFrom) : undefined;
     // Cụm hành động trên tin (chốt Lão gia 26/10, sổ quyết định mục D):
-    // icon nhỏ hiện khi hover/focus tin thay cho hàng nút chữ luôn hiện.
+    // icon nhỏ hiện khi hover/focus tin thay cho hàng nút chữ luôn hiện
+    // (dòng 11:20); cách ĐẶT đã thay theo dòng 23:16 — toolbar NỔI
+    // cạnh bong bóng, bỏ hẳn khỏi luồng dọc (xem khối render dưới).
     // Điều kiện hiển thị từng hành động GIỮ NGUYÊN như trước — chỉ đổi
     // cách trình bày/kích hoạt.
     const showReplyAction = !m.deletedAt && !m.localStatus;
@@ -224,6 +259,9 @@ export function ChatPanel({
                 onRespondContactRequest={memberPanel.onRespondContactRequest}
                 onRemoveMember={memberPanel.onRemoveMember}
                 onViewProfile={memberProfile.open}
+                isBlockedByMe={blocked.includes(authorEntry.userId)}
+                onBlockContact={blockContact}
+                onUnblockContact={unblockContact}
               >
                 <Avatar>
                   <AvatarFallback>{initialsOf(authorEntry.displayName)}</AvatarFallback>
@@ -256,12 +294,31 @@ export function ChatPanel({
                 </button>
               ) : null}
               <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
-            </Bubble>
-            {showReplyAction || showMoreMenu ? (
-              <div
-                data-slot="message-actions"
-                className="flex items-center gap-0.5 px-1 opacity-100 transition-opacity focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:focus-within:opacity-100 [@media(hover:none)]:opacity-60"
-              >
+              {/*
+                Toolbar hành động NỔI (quyết Lão gia 23:16 ngày
+                26/10/2026, sổ quyết định mục D — theo cách
+                Messenger): cụm icon nằm NGOÀI luồng dọc, định vị
+                tuyệt đối theo chính bong bóng (Bubble là
+                `relative`) và canh theo ĐẦU bong bóng — tin của
+                mình nổi ở phía TRÁI bong bóng, tin người khác nổi
+                ở phía PHẢI, tức luôn ở phía đối diện chiều căn
+                lề. Lý do bỏ khỏi luồng: khi còn là một hàng
+                trong MessageContent, cụm này chiếm chiều cao
+                của MỌI dòng tin kể cả lúc opacity-0 chưa hover;
+                ở dạng nổi nó không đẩy chiều cao dòng tin nữa.
+                Bong bóng bị giới hạn max-w-[80%] nên phía nổi
+                luôn còn khoảng trống của cột nội dung, không
+                tràn mép khung cuộn. Điều kiện hiển thị (hover/
+                focus-within cả dòng tin; thiết bị không hover
+                thì mờ 60% như trước) và handler/quyền/testid
+                giữ nguyên.
+              */}
+              {showReplyAction || showMoreMenu ? (
+                <div
+                  data-slot="message-actions"
+                  data-placement="floating"
+                  className={`absolute top-0 z-10 flex items-center gap-0.5 opacity-100 transition-opacity focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/message:opacity-100 [@media(hover:hover)]:focus-within:opacity-100 [@media(hover:none)]:opacity-60 ${mine ? 'right-full mr-1' : 'left-full ml-1'}`}
+                >
                 {showReplyAction ? (
                   <Button
                     type="button"
@@ -326,10 +383,20 @@ export function ChatPanel({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
-              </div>
-            ) : null}
-            <MessageFooter className="flex-wrap gap-2">
-              <span>{new Date(m.createdAt).toLocaleString()}</span>
+                </div>
+              ) : null}
+            </Bubble>
+            {/*
+              Footer dòng tin: phần GIỜ chỉ ở tin cuối đang xem
+              (quyết 23:16 — danh sách dài không còn lặp giờ dưới
+              từng tin); các ghi chú trạng thái gắn riêng tin này
+              thì render bất kể vị trí. Tin không phải tin cuối và
+              không có ghi chú trạng thái thì KHÔNG render footer
+              — tránh để lại một dòng trống trong luồng.
+            */}
+            {isLastMessage || hasOwnStatusNote ? (
+              <MessageFooter className="flex-wrap gap-2">
+                {isLastMessage ? <span>{new Date(m.createdAt).toLocaleString()}</span> : null}
               {m.deletedAt ? (
                 <span className="italic">
                   {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}
@@ -349,7 +416,8 @@ export function ChatPanel({
                   </Button>
                 </span>
               ) : null}
-            </MessageFooter>
+              </MessageFooter>
+            ) : null}
           </MessageContent>
         </Message>
       </MessageScrollerItem>,
@@ -405,29 +473,42 @@ export function ChatPanel({
         ) : null}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-        {others.map((memberId) => (
-          <span key={memberId} className="flex items-center gap-2">
-            {onlineUsers[memberId] ? (
+        {/*
+          Đoạn theo TỪNG NGƯỜI chỉ dành cho chat 1–1 (quyết Lão
+          gia 23:16 ngày 26/10/2026, sổ quyết định mục D — sửa
+          bug đã kiểm chứng): bản cũ map qua MỌI thành viên khác
+          và render một nút "Chặn liên lạc" không kèm tên cho mỗi
+          người, nên chat nhóm 4 người hiện 3 nút giống hệt nhau.
+          Nay: 1–1 chỉ ĐÚNG MỘT nút chặn/bỏ chặn KÈM TÊN người
+          đối thoại; chat nhóm bỏ hẳn đoạn này khỏi header —
+          chặn/bỏ chặn từng thành viên đi qua menu hành động
+          của thành viên (panel thông tin + menu trên avatar
+          dòng tin), chấm trực tuyến của từng thành viên ở nhóm
+          cũng xem tại panel đó.
+        */}
+        {!isGroup && otherId ? (
+          <span className="flex items-center gap-2">
+            {otherOnline ? (
               <span className="text-xs text-muted-foreground">● {t('onlineNow')}</span>
             ) : null}
-            {blocked.includes(memberId) ? (
+            {blocked.includes(otherId) ? (
               <span className="flex items-center gap-2 text-sm">
-                {nameOf(memberId)} {t('blockedSuffix')}
-                <Button type="button" variant="outline" onClick={() => void unblockContact(memberId)}>
-                  {t('unblockContact')}
+                {nameOf(otherId)} {t('blockedSuffix')}
+                <Button type="button" variant="outline" onClick={() => void unblockContact(otherId)}>
+                  {t('unblockContact')} {nameOf(otherId)}
                 </Button>
               </span>
             ) : (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void blockContact(memberId)}
+                onClick={() => void blockContact(otherId)}
               >
-                {t('blockContact')}
+                {t('blockContact')} {nameOf(otherId)}
               </Button>
             )}
           </span>
-        ))}
+        ) : null}
         <Button type="button" variant="outline" onClick={() => void reportActiveConversation()}>
           {t('reportConversation')}
         </Button>
@@ -439,10 +520,10 @@ export function ChatPanel({
         {reportMessage ? <p role="status">{reportMessage}</p> : null}
         {actionMessage ? <p role="alert">{actionMessage}</p> : null}
       </div>
-      {isGroup && infoOpen && memberPanel ? (
+      {isGroup && infoOpen && memberPanelBundle ? (
         <MemberPanel
           conversation={active}
-          bundle={memberPanel}
+          bundle={memberPanelBundle}
           myId={myId}
           onlineUsers={onlineUsers}
           readMarkers={readMarkers}

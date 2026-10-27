@@ -9,9 +9,11 @@ import { MatrixEditPage, MatrixNewPage } from './question-matrix';
 
 /**
  * Ngân hàng ma trận (MB-1, issue #111) ở tầng UI:
- *  - collapse riêng "Ma trận của tôi" liệt kê ma trận cá nhân + Thêm mới;
+ *  - trang /matrices liệt kê ma trận cá nhân hiện thẳng (không bọc
+ *    thẻ thu/mở — chốt 23:43 ngày 26/10/2026) + nút Ma trận mới ở
+ *    PageHeader;
  *  - section "Ngân hàng ma trận chung" trong Ngân hàng hệ thống: chọn
- *    bank → thấy mẫu → Copy về ngân hàng của tôi gọi đúng endpoint;
+ *    bank → thấy mẫu → nút "Lấy về" gọi đúng endpoint;
  *  - màn tạo ma trận riêng (§9) gửi bankId = bank ma trận cá nhân;
  *  - màn sửa ma trận: thêm ô neo ĐƠN VỊ KIẾN THỨC — body POST mang
  *    curriculumNodeId của node đã chọn, không còn learningOutcomeId
@@ -233,8 +235,10 @@ describe('Matrix bank UI (MB-1)', () => {
   it('hai khu vực phân biệt: trang /matrices có ma trận của tôi; trang /system-bank/matrices có mẫu chung và copy về được', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
-    // Khu riêng ở path riêng (chuẩn đường dẫn #221): collapse "Ma trận
-    // của tôi" mở sẵn ở /matrices → thấy ma trận cá nhân + Thêm mới.
+    // Khu riêng ở path riêng (chuẩn đường dẫn #221): danh sách ma
+    // trận cá nhân hiện THẲNG ở /matrices (không bọc thẻ thu/mở —
+    // chốt 23:43 ngày 26/10/2026) → thấy ma trận cá nhân + nút Ma
+    // trận mới ở PageHeader, không còn nút Thêm mới trong danh sách.
     // (Tên ma trận cũng xuất hiện ở <option> của select đề xuất đóng góp
     // nên đếm mọi phần tử khớp thay vì findByText đơn nhất.)
     const myRouter = createMemoryRouter([{ path: '/matrices', element: <QuestionsPage area="my-matrices" /> }], {
@@ -246,7 +250,8 @@ describe('Matrix bank UI (MB-1)', () => {
       </TestProviders>,
     );
     expect((await screen.findAllByText('Ma trận ôn tập của tôi')).length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Thêm mới' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ma trận mới' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thêm mới' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Sửa' })).toBeInTheDocument();
     cleanup();
 
@@ -268,7 +273,12 @@ describe('Matrix bank UI (MB-1)', () => {
     expect(await screen.findByText('Mẫu giữa kỳ Toán 9')).toBeInTheDocument();
     expect(screen.getByText('Mẫu')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Copy về ngân hàng của tôi' }));
+    // Nút tại dòng mang nhãn gọn "Lấy về" và tên đầy đủ cho
+    // title/aria-label (ủy quyền quyết chữ của Lão gia, 26/10/2026).
+    const copyButton = screen.getByRole('button', { name: 'Lấy về ngân hàng của tôi' });
+    expect(copyButton).toHaveTextContent('Lấy về');
+    expect(copyButton).toHaveAttribute('title', 'Lấy về ngân hàng của tôi');
+    await userEvent.click(copyButton);
     await waitFor(() =>
       expect(calls.some((c) => c.url === `/api/v1/exam-matrices/${TEMPLATE_MATRIX}/copy` && c.method === 'POST')).toBe(true),
     );

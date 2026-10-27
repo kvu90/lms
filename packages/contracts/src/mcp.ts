@@ -12,24 +12,31 @@ import { questionViewSchema } from './assessment.js';
  * tài liệu Tiptap, server chuẩn hoá qua cùng đường `toRichTextDocument`
  * như REST), KHÔNG nhận dạng payload cũ `answer`, KHÔNG nhận
  * sourceKind/sourceRef (server tự ghi `source_kind='ai'`), mọi chuỗi có
- * maxLength, mọi mảng có maxItems, fraction ∈ [0,1] ngay tại schema.
+ * maxLength, mọi mảng có maxItems, đáp án chỉ mang cờ `correct`
+ * đúng/sai nhị phân (tỉ trọng `fraction` đã BỎ HẲN — quyết 12:04
+ * ngày 26/10/2026) và câu hỏi KHÔNG có trường tên (nhãn hiển thị là
+ * trích đoạn nội dung câu hỏi).
  * Sau lớp schema này, payload vẫn chạy qua ĐÚNG `createQuestionSchema`
  * + `QuestionsService` như REST — không tồn tại validator song song.
  */
 
+/**
+ * Một đáp án ở biên MCP: nội dung chuỗi thuần + cờ `correct` (đáp án
+ * này là đáp án ĐÚNG; vắng mặt = không đúng). Đáp án chỉ đúng/sai nhị
+ * phân — KHÔNG còn `fraction` (quyết 12:04 ngày 26/10/2026). Riêng
+ * shortanswer, mọi đáp án liệt kê đều là đáp án được chấp nhận.
+ */
 export const mcpAnswerInputSchema = z.strictObject({
   text: z.string().min(1).max(5000),
-  fraction: z.number().min(0).max(1),
+  correct: z.boolean().optional(),
   feedback: z.string().max(5000).optional(),
 });
 export type McpAnswerInput = z.infer<typeof mcpAnswerInputSchema>;
 
-/** Options theo qtype ở biên MCP: các trường rich text của hợp đồng gốc thu về chuỗi thuần. */
+/** Options theo qtype ở biên MCP: các trường rich text của hợp đồng gốc thu về chuỗi thuần. Đã bỏ `single`/`showNumCorrect`/`partiallyCorrectFeedback` cùng hợp đồng gốc (điểm quyết D-5). */
 export const mcpQuestionOptionsInputSchema = z.strictObject({
-  single: z.boolean().optional(),
   shuffleAnswers: z.boolean().optional(),
   answerNumbering: z.string().max(50).optional(),
-  showNumCorrect: z.boolean().optional(),
   showStandardInstruction: z.boolean().optional(),
   useCase: z.boolean().optional(),
   responseFormat: z.string().max(50).optional(),
@@ -40,7 +47,6 @@ export const mcpQuestionOptionsInputSchema = z.strictObject({
   graderInfo: z.string().max(5000).optional(),
   responseTemplate: z.string().max(5000).optional(),
   correctFeedback: z.string().max(5000).optional(),
-  partiallyCorrectFeedback: z.string().max(5000).optional(),
   incorrectFeedback: z.string().max(5000).optional(),
 });
 export type McpQuestionOptionsInput = z.infer<typeof mcpQuestionOptionsInputSchema>;
@@ -56,7 +62,6 @@ export const mcpCreateQuestionInputSchema = z.strictObject({
   bankId: uuidIdSchema,
   categoryId: uuidIdSchema,
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
-  name: z.string().min(1).max(255),
   questionText: z.string().min(1).max(20000),
   generalFeedback: z.string().max(5000).optional(),
   guidance: z.string().max(5000).optional(),
@@ -199,7 +204,6 @@ export type McpSubmitContributionOutput = z.infer<typeof mcpSubmitContributionOu
 export const mcpBatchQuestionItemSchema = z.strictObject({
   clientItemId: z.string().min(1).max(64),
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
-  name: z.string().min(1).max(255),
   questionText: z.string().min(1).max(20000),
   generalFeedback: z.string().max(5000).optional(),
   guidance: z.string().max(5000).optional(),
@@ -275,7 +279,6 @@ export type McpCreateQuestionsBatchOutput = z.infer<typeof mcpCreateQuestionsBat
 /** Một câu trong nhóm của `create_stimulus_with_questions`: hình của create_question trừ bank/category/key; stimulus là ngữ liệu của chính tool này nên không có stimulusId/Ref. */
 export const mcpStimulusQuestionItemSchema = z.strictObject({
   qtype: z.enum(['multichoice', 'truefalse', 'shortanswer', 'essay']),
-  name: z.string().min(1).max(255),
   questionText: z.string().min(1).max(20000),
   generalFeedback: z.string().max(5000).optional(),
   guidance: z.string().max(5000).optional(),
@@ -337,9 +340,10 @@ export type McpPublishQuestionsOutput = z.infer<typeof mcpPublishQuestionsOutput
 
 /**
  * Tool `search_questions`: tìm câu trong MỘT bank mà chủ token xem
- * được, theo chuỗi con trong tên/thân câu (đã chuẩn hoá NFC + thường
+ * được, theo chuỗi con trong thân câu (đã chuẩn hoá NFC + thường
  * hoá hai phía như cổng chống trùng) và lọc qtype tuỳ chọn. Chỉ trả
- * SIÊU DỮ LIỆU (không đáp án) — muốn nội dung đầy đủ dùng get_question.
+ * SIÊU DỮ LIỆU (không đáp án, không tên — câu hỏi không có trường
+ * tên, nhãn hiển thị là trích đoạn nội dung lấy qua get_question).
  */
 export const mcpSearchQuestionsInputSchema = z.strictObject({
   bankId: uuidIdSchema,
@@ -354,7 +358,6 @@ export const mcpSearchQuestionsOutputSchema = z.object({
   questions: z.array(
     z.object({
       id: uuidIdSchema,
-      name: z.string(),
       qtype: z.string(),
       status: z.string(),
       categoryId: uuidIdSchema,

@@ -264,14 +264,43 @@ async function main(): Promise<void> {
       if (!myQBank?.defaultCategoryId) throw new Error('teacher1 personal question bank not found');
       const q1 = must(await call('POST', '/questions', teacherToken, {
         categoryId: myQBank.defaultCategoryId, qtype: 'multichoice',
-        name: 'Câu mẫu 1', questionText: '2 + 3 bằng mấy?',
-        answers: [{ text: '5', fraction: 1 }, { text: '6', fraction: 0 }],
-        options: { single: true },
+        questionText: '2 + 3 bằng mấy?',
+        answers: [
+          { text: '5', correct: true },
+          { text: '6', correct: false },
+          { text: '4', correct: false },
+          { text: '7', correct: false },
+        ],
       }), 'create sample question 1') as { question: { id: string } };
+      // Câu đúng/sai mẫu theo mô hình TF-A (P5): MỘT câu chùm — thân
+      // chung + 4 mệnh đề trong questionText, đáp án từng mệnh đề qua
+      // solution.answers (không còn hai dòng answers Đúng/Sai).
+      const tfStatementIds = ['seed-tf-s1', 'seed-tf-s2', 'seed-tf-s3', 'seed-tf-s4'];
+      const tfStatements: [string, boolean][] = [
+        ['Trái Đất quay quanh Mặt Trời.', true],
+        ['Mặt Trăng là một ngôi sao.', false],
+        ['Nước sôi ở 100°C trong điều kiện áp suất khí quyển tiêu chuẩn.', true],
+        ['Mùa hè ở bán cầu Nam bắt đầu vào tháng 6.', false],
+      ];
       const q2 = must(await call('POST', '/questions', teacherToken, {
         categoryId: myQBank.defaultCategoryId, qtype: 'truefalse',
-        name: 'Câu mẫu 2', questionText: 'Trái Đất quay quanh Mặt Trời.',
-        answer: { correct: true },
+        questionText: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Xét các mệnh đề sau:' }] },
+            {
+              type: 'statementList',
+              content: tfStatements.map(([text], i) => ({
+                type: 'statement',
+                attrs: { id: tfStatementIds[i]! },
+                content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+              })),
+            },
+          ],
+        },
+        solution: {
+          answers: tfStatements.map(([, value], i) => ({ statementId: tfStatementIds[i]!, value })),
+        },
       }), 'create sample question 2') as { question: { id: string } };
       const eBanks = must(await call('GET', '/question-banks?kind=exam', teacherToken), 'list exam banks') as { id: string; scope: string }[];
       const myEBank = eBanks.find((b) => b.scope === 'personal');

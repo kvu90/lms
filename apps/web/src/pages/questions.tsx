@@ -144,96 +144,39 @@ interface CourseGroupLite {
   name: string;
 }
 
-
-
-/** Một dòng đáp án đang soạn trong form (fraction giữ dạng chuỗi để nhập liệu tự do). */
-interface AnswerDraft {
-  text: string;
-  fraction: string;
-}
-
-/**
- * State của editor câu hỏi: dùng chung cho tạo mới và sửa. Phần đáp án của
- * cả bốn dạng sống cạnh nhau; khi lưu chỉ phần thuộc qtype đang chọn được
- * đóng gói vào payload theo đúng hợp đồng `createQuestionSchema` /
- * `updateQuestionSchema` (answers + options theo qtype; truefalse dùng
- * dạng payload `answer: { correct }` mà tầng nghiệp vụ yêu cầu).
- */
-export interface QuestionFormState {
-  qtype: Qtype;
-  name: string;
-  questionText: string;
-  stimulusId: string;
-  mcSingle: boolean;
-  mcShuffleAnswers: boolean;
-  mcAnswerNumbering: string;
-  mcShowNumCorrect: boolean;
-  mcShowStandardInstruction: boolean;
-  mcCorrectFeedback: RichTextDocument | undefined;
-  mcPartiallyCorrectFeedback: RichTextDocument | undefined;
-  mcIncorrectFeedback: RichTextDocument | undefined;
-  mcChoices: AnswerDraft[];
-  tfCorrect: boolean;
-  tfShowStandardInstruction: boolean;
-  saUseCase: boolean;
-  saAnswers: AnswerDraft[];
-  essayResponseFormat: string;
-  essayResponseRequired: boolean;
-  essayResponseFieldLines: string;
-  essayMinWords: string;
-  essayMaxWords: string;
-  essayGraderInfo: string;
-  essayResponseTemplate: string;
-}
-
 export function plainText(doc: RichTextDocument | null | undefined): string {
   return doc ? extractRichTextPlainText(doc) : '';
 }
 
-export function emptyForm(qtype: Qtype): QuestionFormState {
-  return {
-    qtype,
-    name: '',
-    questionText: '',
-    stimulusId: '',
-    mcSingle: true,
-    mcShuffleAnswers: false,
-    mcAnswerNumbering: 'abc',
-    mcShowNumCorrect: false,
-    mcShowStandardInstruction: true,
-    mcCorrectFeedback: undefined,
-    mcPartiallyCorrectFeedback: undefined,
-    mcIncorrectFeedback: undefined,
-    mcChoices: [
-      { text: '', fraction: '1' },
-      { text: '', fraction: '0' },
-    ],
-    tfCorrect: true,
-    tfShowStandardInstruction: true,
-    saUseCase: false,
-    saAnswers: [{ text: '', fraction: '1' }],
-    essayResponseFormat: 'editor',
-    essayResponseRequired: true,
-    essayResponseFieldLines: '15',
-    essayMinWords: '',
-    essayMaxWords: '',
-    essayGraderInfo: '',
-    essayResponseTemplate: '',
-  };
+/**
+ * Nhãn hiển thị của một câu hỏi = TRÍCH ĐOẠN nội dung thân câu của
+ * phiên bản mới nhất (tối đa 120 ký tự). Câu hỏi không còn trường tên
+ * (quyết 11:28 ngày 26/10/2026) nên mọi bề mặt cần nhãn — danh sách,
+ * hộp xác nhận xoá, bộ chọn, panel xem trước — đều dùng trích đoạn
+ * này thay cho tên.
+ *
+ * @param view - View câu hỏi như API trả về.
+ * @returns Chuỗi thuần trích từ thân câu.
+ */
+export function questionExcerpt(view: QuestionView): string {
+  return plainText(view.latestVersion.questionText).slice(0, 120);
 }
 
 export type OptionsRecord = Record<string, unknown>;
 
-/** Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form sẽ tìm thêm ở endpoint versions. */
+/**
+ * Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form
+ * sẽ tìm thêm ở endpoint versions. Multichoice chỉ còn các trường của
+ * mô hình mới — `single`, `showNumCorrect` và `partiallyCorrectFeedback`
+ * đã bỏ hẳn cùng tỉ trọng đáp án (quyết 12:04 + điểm quyết D-5 ngày
+ * 26/10/2026).
+ */
 const OPTION_KEYS_BY_QTYPE: Record<Qtype, string[]> = {
   multichoice: [
-    'single',
     'shuffleAnswers',
     'answerNumbering',
-    'showNumCorrect',
     'showStandardInstruction',
     'correctFeedback',
-    'partiallyCorrectFeedback',
     'incorrectFeedback',
   ],
   truefalse: ['showStandardInstruction'],
@@ -254,108 +197,6 @@ export function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | unde
   return OPTION_KEYS_BY_QTYPE[qtype].every(
     (key) => Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined,
   );
-}
-
-function richTextDocument(value: unknown): RichTextDocument | undefined {
-  return value !== null && typeof value === 'object' ? (value as RichTextDocument) : undefined;
-}
-
-/** Nạp một câu hỏi có sẵn vào editor: đáp án/options lấy từ view của phiên bản mới nhất. */
-export function formFromView(view: QuestionView, fallbackOptions?: OptionsRecord | null): QuestionFormState {
-  const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
-    ? (view.question.qtype as Qtype)
-    : 'truefalse';
-  const base = emptyForm(qtype);
-  const options: OptionsRecord = { ...(fallbackOptions ?? {}) };
-  for (const [key, value] of Object.entries((view.options ?? {}) as OptionsRecord)) {
-    if (value !== undefined) options[key] = value;
-  }
-  const answers = (view.answers ?? []).map((a) => ({ text: plainText(a.answer), fraction: String(a.fraction) }));
-  const trueAnswer = (view.answers ?? []).find((a) => plainText(a.answer) === 'True');
-  return {
-    ...base,
-    name: view.question.name,
-    questionText: plainText(view.latestVersion.questionText),
-    stimulusId: view.latestVersion.stimulusId ?? '',
-    mcSingle: typeof options.single === 'boolean' ? options.single : true,
-    mcShuffleAnswers: typeof options.shuffleAnswers === 'boolean' ? options.shuffleAnswers : false,
-    mcAnswerNumbering: typeof options.answerNumbering === 'string' ? options.answerNumbering : 'abc',
-    mcShowNumCorrect: typeof options.showNumCorrect === 'boolean' ? options.showNumCorrect : false,
-    mcShowStandardInstruction:
-      typeof options.showStandardInstruction === 'boolean' ? options.showStandardInstruction : true,
-    mcCorrectFeedback: richTextDocument(options.correctFeedback),
-    mcPartiallyCorrectFeedback: richTextDocument(options.partiallyCorrectFeedback),
-    mcIncorrectFeedback: richTextDocument(options.incorrectFeedback),
-    mcChoices: qtype === 'multichoice' && answers.length > 0 ? answers : base.mcChoices,
-    tfCorrect: trueAnswer ? trueAnswer.fraction >= 1 : true,
-    tfShowStandardInstruction:
-      typeof options.showStandardInstruction === 'boolean' ? options.showStandardInstruction : true,
-    saUseCase: options.useCase === true,
-    saAnswers: qtype === 'shortanswer' && answers.length > 0 ? answers : base.saAnswers,
-    essayResponseFormat: typeof options.responseFormat === 'string' ? options.responseFormat : 'editor',
-    essayResponseRequired: typeof options.responseRequired === 'boolean' ? options.responseRequired : true,
-    essayResponseFieldLines:
-      typeof options.responseFieldLines === 'number' ? String(options.responseFieldLines) : '15',
-    essayMinWords: typeof options.minWordLimit === 'number' ? String(options.minWordLimit) : '',
-    essayMaxWords: typeof options.maxWordLimit === 'number' ? String(options.maxWordLimit) : '',
-    essayGraderInfo: plainText(options.graderInfo as RichTextDocument | null | undefined),
-    essayResponseTemplate: plainText(options.responseTemplate as RichTextDocument | null | undefined),
-  };
-}
-
-/**
- * Đóng gói phần nội dung của form thành payload theo qtype. Rich text giữ
- * ở mức văn bản thuần (chuỗi) như lát hiện tại — hợp đồng API nhận chuỗi
- * và tự chuẩn hoá thành tài liệu Tiptap.
- */
-export function formContent(form: QuestionFormState, preserveExistingOptions = false): Record<string, unknown> {
-  const common = { name: form.name, questionText: form.questionText };
-  switch (form.qtype) {
-    case 'multichoice': {
-      const options: Record<string, unknown> = { single: form.mcSingle };
-      if (preserveExistingOptions) {
-        options.shuffleAnswers = form.mcShuffleAnswers;
-        options.answerNumbering = form.mcAnswerNumbering;
-        options.showNumCorrect = form.mcShowNumCorrect;
-        options.showStandardInstruction = form.mcShowStandardInstruction;
-        // Feedback là rich text: gửi lại nguyên tài liệu đã nạp, không ép về text thuần.
-        if (form.mcCorrectFeedback) options.correctFeedback = form.mcCorrectFeedback;
-        if (form.mcPartiallyCorrectFeedback) options.partiallyCorrectFeedback = form.mcPartiallyCorrectFeedback;
-        if (form.mcIncorrectFeedback) options.incorrectFeedback = form.mcIncorrectFeedback;
-      }
-      return {
-        ...common,
-        answers: form.mcChoices.map((c) => ({ text: c.text, fraction: Number(c.fraction) || 0 })),
-        options,
-      };
-    }
-    case 'truefalse':
-      return {
-        ...common,
-        answer: { correct: form.tfCorrect },
-        ...(preserveExistingOptions ? { options: { showStandardInstruction: form.tfShowStandardInstruction } } : {}),
-      };
-    case 'shortanswer':
-      return {
-        ...common,
-        answers: form.saAnswers.map((a) => ({ text: a.text, fraction: Number(a.fraction) || 0 })),
-        options: { useCase: form.saUseCase },
-      };
-    case 'essay':
-      return {
-        ...common,
-        options: {
-          responseFormat: form.essayResponseFormat,
-          responseRequired: form.essayResponseRequired,
-          responseFieldLines:
-            form.essayResponseFieldLines.trim() === '' ? 15 : Number(form.essayResponseFieldLines) || 15,
-          minWordLimit: form.essayMinWords.trim() === '' ? null : Number(form.essayMinWords),
-          maxWordLimit: form.essayMaxWords.trim() === '' ? null : Number(form.essayMaxWords),
-          graderInfo: form.essayGraderInfo,
-          responseTemplate: form.essayResponseTemplate,
-        },
-      };
-  }
 }
 
 /**
@@ -426,10 +267,10 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // Lớp bank của feat Ngân hàng câu hỏi chung (issue #70): khu vực ngân
   // hàng riêng của giáo viên + khu vực Ngân hàng hệ thống (bank chung).
   const banks = useQuestionBanks('question').data ?? [];
-  // Khu vực của chính trang này mở sẵn (nó LÀ nội dung của trang);
-  // các khu vực khác không render ở route này nữa.
-  const [myOpen, setMyOpen] = useState(area === 'my-questions');
-  const [systemOpen, setSystemOpen] = useState(area.startsWith('system'));
+  // (Không còn state mở/đóng cho các khu vực ngân hàng: từ chốt
+  // 23:43 ngày 26/10/2026 — sổ quyết định mục B — danh sách của khu
+  // vực render THẲNG trong trang, không bọc thẻ thu/mở nữa; mỗi
+  // route chỉ render đúng khu vực của path đó.)
   const [attributions, setAttributions] = useState<Record<string, AttributionLite>>({});
   const [discBankId, setDiscBankId] = useState('');
   const [discKeyword, setDiscKeyword] = useState('');
@@ -443,7 +284,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // section ma trận chung trong Ngân hàng hệ thống — cùng khuôn hai khu
   // vực phân biệt của ngân hàng câu hỏi.
   const matrixBanks = useQuestionBanks('matrix').data ?? [];
-  const [myMatrixOpen, setMyMatrixOpen] = useState(area === 'my-matrices');
   const subjects = useCurriculumSubjects(true).data ?? [];
   const [sharedMatrixBankId, setSharedMatrixBankId] = useState('');
   const sharedMatrices = useBankMatrices(sharedMatrixBankId || undefined).data ?? [];
@@ -453,10 +293,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
 
   // Ngân hàng đề (EB-1, issue #113): bank đề dùng chung khuôn bank đa
-  // loại (kind=exam); "Đề của tôi" là collapse riêng song song "Ngân
+  // loại (kind=exam); "Đề của tôi" là khu riêng song song "Ngân
   // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
   const examBanks = useQuestionBanks('exam').data ?? [];
-  const [myPapersOpen, setMyPapersOpen] = useState(area === 'my-exams');
   const [systemExamBankId, setSystemExamBankId] = useState('');
   const systemPapers = useBankExams(systemExamBankId || undefined).data ?? [];
   const paperContributions = (useBankExamContributions(systemExamBankId).data ?? []).filter(
@@ -922,12 +761,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   }
 
 
-  /** "Thêm mới" trong collapse ngân hàng riêng: mở màn soạn riêng (§9) với category mặc định của bank cá nhân. */
-  function addNewMine() {
-    if (!personalBank?.defaultCategoryId) return;
-    navigate(`/questions/new?category=${personalBank.defaultCategoryId}`);
-  }
-
   /** Sửa một câu trong ngân hàng riêng: mở màn sửa riêng của câu đó. */
   function editMine(view: QuestionView) {
     navigate(`/questions/${view.question.id}/edit?category=${view.question.category}`);
@@ -997,7 +830,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   /** Xoá một câu hỏi qua DELETE /questions/:id sau khi xác nhận (§9: Xoá ngay tại dòng). */
   async function deleteQuestion(view: QuestionView) {
-    if (!window.confirm(t('confirmDeleteQuestion', { name: view.question.name }))) return;
+    if (!window.confirm(t('confirmDeleteQuestion', { name: questionExcerpt(view) }))) return;
     setMessage(null);
     try {
       await apiJson(`/api/v1/questions/${view.question.id}`, { method: 'DELETE' });
@@ -1026,9 +859,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /**
    * Cột của bảng ngân hàng câu hỏi trên DataTable dùng chung (TanStack
    * Table): chọn câu hỏi để làm bài vẫn là state của trang (checkbox ở
-   * cột đầu ghi vào `selected`), tên/phiên bản sắp xếp được, ô lọc toàn
-   * bảng quét theo tên và nội dung câu hỏi. Trước đây danh sách này là
-   * một <ul> tự chế không sắp xếp/lọc/phân trang.
+   * cột đầu ghi vào `selected`), trích đoạn nội dung/phiên bản sắp xếp
+   * được, ô lọc toàn bảng quét theo trích đoạn và nội dung câu hỏi
+   * (câu hỏi không còn trường tên — nhãn là trích đoạn, xem
+   * `questionExcerpt`). Trước đây danh sách này là một <ul> tự chế
+   * không sắp xếp/lọc/phân trang.
    */
   const questionColumns: DataColumn<QuestionView>[] = [
     {
@@ -1036,7 +871,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       header: '',
       cell: (view) => (
         <Checkbox
-          aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
+          aria-label={t('selectQuestionForAttempt', { name: questionExcerpt(view) })}
           checked={selected.includes(view.question.id)}
           onCheckedChange={(checked) =>
             setSelected((prev) =>
@@ -1047,16 +882,16 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       ),
     },
     {
-      id: 'name',
-      header: t('name'),
+      id: 'excerpt',
+      header: t('questionText'),
       cell: (view) => {
         // Dòng ghi công KHÔNG tắt được cho câu copy (QB-2): hiện ngay
-        // dưới tên câu khi đã nạp được attribution; câu đã rút có nhãn.
+        // dưới trích đoạn câu khi đã nạp được attribution; câu đã rút có nhãn.
         const a = attributions[view.question.id];
         const isCopy = Boolean((view.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId);
         return (
           <span>
-            {view.question.name}
+            {questionExcerpt(view)}
             {(view.entry as { status?: string }).status === 'hidden' ? (
               <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
             ) : null}
@@ -1068,8 +903,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           </span>
         );
       },
-      sortValue: (view) => view.question.name,
-      filterValue: (view) => view.question.name,
+      sortValue: (view) => questionExcerpt(view),
+      filterValue: (view) => questionExcerpt(view),
     },
     {
       id: 'qtype',
@@ -1123,7 +958,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           <Button type="button" variant="destructive" onClick={() => void deleteQuestion(view)}>
             {t('deleteAction')}
           </Button>
-          <Button type="button" variant="outline" onClick={() => void copyToMyBank(view.question.id)}>
+          <Button
+            type="button"
+            variant="outline"
+            title={t('copyToMyBankFull')}
+            aria-label={t('copyToMyBankFull')}
+            onClick={() => void copyToMyBank(view.question.id)}
+          >
             {t('copyToMyBank')}
           </Button>
           <Button type="button" variant="outline" onClick={() => void toggleWithdraw(view)}>
@@ -1171,8 +1012,10 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // ngân hàng của loại thực thể (Câu hỏi / Đề / Ma trận); khu vực Cá
   // nhân hay Hệ thống thể hiện bằng thanh tab ngay dưới tiêu đề (chốt
   // trình bày ngân hàng 11:40 ngày 26/10/2026, issue #228). Nút tạo
-  // của trang Câu hỏi nằm ở header như bản cũ; nút tạo của Đề / Ma
-  // trận nằm trong section như trước.
+  // nằm ở PageHeader cho ĐỦ CẢ BA màn khu cá nhân (chốt 23:43 ngày
+  // 26/10/2026 — sổ quyết định mục B): Câu hỏi giữ hai nút cũ (Danh
+  // mục mới + Câu hỏi mới), Đề có "Đề mới", Ma trận có "Ma trận mới"
+  // + "Nhập từ file"; khu Hệ thống không có nút tạo (chỉ xem/copy về).
   const isQuestionArea = area === 'my-questions' || area === 'stimuli';
   const headerTitle =
     area === 'my-exams' || area === 'system-exams'
@@ -1197,11 +1040,39 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         actions={
           isQuestionArea ? (
             <>
-            <Button type="button" variant="outline" render={<Link to="/questions/categories/new" />}>
-              {t('newCategory')}
-            </Button>
+              <Button type="button" variant="outline" render={<Link to="/questions/categories/new" />}>
+                {t('newCategory')}
+              </Button>
               <Button type="button" render={<Link to={`/questions/new?category=${qCategory}`} />}>
                 {t('newQuestion')}
+              </Button>
+            </>
+          ) : area === 'my-exams' ? (
+            // Đích + điều kiện disabled giữ nguyên nút "Thêm mới" từng
+            // nằm trong danh sách: cần id bank đề cá nhân để màn tạo
+            // biết ghi vào bank nào; chưa có bank thì nút khoá.
+            <Button
+              type="button"
+              disabled={!personalExamBank}
+              onClick={() => personalExamBank && navigate(`/exams/new?bank=${personalExamBank.id}`)}
+            >
+              {t('newExam')}
+            </Button>
+          ) : area === 'my-matrices' ? (
+            <>
+              <Button type="button" onClick={() => navigate('/matrices/new')} disabled={!personalMatrixBank}>
+                {t('newMatrix')}
+              </Button>
+              {/*
+                Nút nhập từ file (I-3, issue #233): KHÔNG khoá theo
+                personalMatrixBank như nút Ma trận mới — đường ghi I-2
+                tự tạo lười bank ma trận cá nhân (ensurePersonalBank)
+                nên giáo viên chưa có bank vẫn nhập được; cổng quyền
+                thật nằm ở API (quiz:managematrix tại môn) và ở trang
+                import (canUseQuestionBank), không giấu nút ở đây.
+              */}
+              <Button type="button" variant="outline" onClick={() => navigate('/matrices/import')}>
+                {t('matrixImportFromFile')}
               </Button>
             </>
           ) : undefined
@@ -1216,17 +1087,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       {area === 'my-questions' ? (
         <>
       {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính của Lão gia):
-          tách hẳn khỏi Ngân hàng hệ thống; mở collapse là danh sách câu
-          của chính giáo viên + Thêm mới ngay trong collapse (§9). */}
-      <CollapsibleSection
-        title={t('myQuestionBank')}
-        description={t('myQuestionBankDescription')}
-        open={myOpen}
-        onOpenChange={setMyOpen}
-      >
-            <Button type="button" onClick={addNewMine} disabled={!personalBank?.defaultCategoryId}>
-              {t('addNew')}
-            </Button>
+          tách hẳn khỏi Ngân hàng hệ thống. Danh sách câu của chính
+          giáo viên hiện THẲNG trong trang, không bọc thẻ thu/mở —
+          chốt 23:43 ngày 26/10/2026 (sổ quyết định mục B); nút tạo
+          câu nằm ở PageHeader, không lặp trong danh sách. */}
+      <div className="space-y-4">
             {myQuestions.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
             ) : (
@@ -1239,7 +1104,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                   return (
                     <li key={view.question.id} className="flex flex-wrap items-center gap-2">
                       <span className="min-w-0 flex-1">
-                        {view.question.name}
+                        {questionExcerpt(view)}
                         {(view.entry as { status?: string }).status === 'hidden' ? (
                           <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
                         ) : null}
@@ -1277,7 +1142,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     <option value="">—</option>
                     {myQuestions.map((view) => (
                       <option key={view.question.id} value={view.question.id}>
-                        {view.question.name}
+                        {questionExcerpt(view)}
                       </option>
                     ))}
                   </select>
@@ -1307,39 +1172,22 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                 </Button>
               </div>
             ) : null}
-      </CollapsibleSection>
+      </div>
         </>
       ) : null}
 
       {area === 'my-matrices' ? (
         <>
-      {/* Khu vực RIÊNG — Ma trận của tôi (MB-1, issue #111): collapse
-          riêng phân biệt hẳn với Ngân hàng hệ thống, cùng hành vi §9
-          như ngân hàng riêng: mở ra là danh sách ma trận của chính giáo
-          viên + Thêm mới ngay trong collapse, Sửa/Xoá tại dòng. */}
-      <CollapsibleSection
-        title={t('myMatrixBank')}
-        description={t('myMatrixBankDescription')}
-        open={myMatrixOpen}
-        onOpenChange={(open) => {
-          setMyMatrixOpen(open);
-          if (open) refreshMatrixBanks();
-        }}
-      >
-            <Button type="button" onClick={() => navigate('/matrices/new')} disabled={!personalMatrixBank}>
-              {t('addNew')}
-            </Button>
-            {/*
-              Nút nhập từ file (I-3, issue #233): KHÔNG khoá theo
-              personalMatrixBank như nút Thêm mới — đường ghi I-2 tự
-              tạo lười bank ma trận cá nhân (ensurePersonalBank) nên
-              giáo viên chưa có bank vẫn nhập được; cổng quyền thật
-              nằm ở API (quiz:managematrix tại môn) và ở trang import
-              (canUseQuestionBank), không giấu nút ở đây.
-            */}
-            <Button type="button" variant="outline" onClick={() => navigate('/matrices/import')}>
-              {t('matrixImportFromFile')}
-            </Button>
+      {/* Khu vực RIÊNG — Ma trận của tôi (MB-1, issue #111): phân
+          biệt hẳn với Ngân hàng hệ thống. Danh sách ma trận của
+          chính giáo viên hiện THẲNG trong trang, không bọc thẻ
+          thu/mở — chốt 23:43 ngày 26/10/2026 (sổ quyết định mục
+          B); nút Ma trận mới + Nhập từ file nằm ở PageHeader,
+          Sửa/Xoá tại dòng. Dữ liệu nạp ngay khi vào trang qua các
+          query của component (trước đây mở thẻ còn gọi
+          refreshMatrixBanks — các đột biến trong trang vẫn tự
+          refresh như cũ). */}
+      <div className="space-y-4">
             {myMatrices.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
             ) : (
@@ -1416,29 +1264,19 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                 <p className="text-xs text-muted-foreground">{t('matrixProposeHint')}</p>
               </div>
             ) : null}
-      </CollapsibleSection>
+      </div>
         </>
       ) : null}
 
       {area === 'my-exams' ? (
         <>
-      {/* Collapse "Đề của tôi" (EB-1): khu vực riêng của giáo viên cho
-          ĐỀ — song song collapse câu hỏi ở trên theo mô hình hai khu
-          vực đã chốt; mở collapse là danh sách đề của chính giáo viên
-          + Thêm mới ngay trong collapse (§9), Sửa/Xoá tại dòng. */}
-      <CollapsibleSection
-        title={t('myExamBank')}
-        description={t('myExamBankDescription')}
-        open={myPapersOpen}
-        onOpenChange={setMyPapersOpen}
-      >
-            <Button
-              type="button"
-              disabled={!personalExamBank}
-              onClick={() => personalExamBank && navigate(`/exams/new?bank=${personalExamBank.id}`)}
-            >
-              {t('addNew')}
-            </Button>
+      {/* Khu vực "Đề của tôi" (EB-1): khu vực riêng của giáo viên
+          cho ĐỀ — song song khu câu hỏi ở trên theo mô hình hai khu
+          vực đã chốt. Danh sách đề của chính giáo viên hiện THẲNG
+          trong trang, không bọc thẻ thu/mở — chốt 23:43 ngày
+          26/10/2026 (sổ quyết định mục B); nút Đề mới nằm ở
+          PageHeader, Sửa/Xoá tại dòng. */}
+      <div className="space-y-4">
             {myPapers.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('examPaperEmpty')}</p>
             ) : (
@@ -1672,25 +1510,22 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                 </ul>
               )}
             </div>
-      </CollapsibleSection>
+      </div>
         </>
       ) : null}
 
       {area.startsWith('system') ? (
         <>
-      {/* Khu vực Ngân hàng hệ thống: MỘT collapse chứa ba ngân hàng CHUNG
-          (câu hỏi / đề / ma trận) — cả ba đã thi công: câu hỏi chung
-          (feat #70), đề chung (EB-1, issue #113), ma trận chung
-          (MB-1, issue #111). Mỗi trang /system-bank/* chỉ render đúng
-          phần của nó (chuẩn đường dẫn #221 — trước đây cả ba phần
-          chung một trang, sidebar cuộn neo tới từng phần). */}
-      <CollapsibleSection
-        title={t('systemBank')}
-        description={t('systemBankDescription')}
-        open={systemOpen}
-        onOpenChange={setSystemOpen}
-        contentClassName="space-y-6"
-      >
+      {/* Khu vực Ngân hàng hệ thống: ba ngân hàng CHUNG (câu hỏi /
+          đề / ma trận) — cả ba đã thi công: câu hỏi chung (feat
+          #70), đề chung (EB-1, issue #113), ma trận chung (MB-1,
+          issue #111). Mỗi trang /system-bank/* chỉ render đúng phần
+          của nó (chuẩn đường dẫn #221 — trước đây cả ba phần chung
+          một trang, sidebar cuộn neo tới từng phần) và phần đó hiện
+          THẲNG trong trang, không bọc thẻ thu/mở — chốt 23:43 ngày
+          26/10/2026 (sổ quyết định mục B) áp cùng khuôn với khu cá
+          nhân. Các neo #system-* trên từng <section> giữ nguyên. */}
+      <div className="space-y-6">
             {area === 'system-questions' ? (
             <section id="system-questions" className="space-y-3 scroll-mt-24">
               <h3 className="font-medium">{t('sharedQuestionBank')}</h3>
@@ -1748,7 +1583,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                   {discResults.map((item) => (
                     <li key={item.questionId} className="flex flex-wrap items-center gap-2">
                       <span className="min-w-0 flex-1">
-                        {item.name}
+                        {item.excerpt}
                         <span className="block text-xs text-muted-foreground">
                           {item.bankName} · {item.authorName ?? '—'} · {t('usedTimes', { count: item.useCount })} ·{' '}
                           {t('copiedTimes', { count: item.copyCount })}
@@ -1757,7 +1592,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                       <Button type="button" variant="outline" onClick={() => void previewDiscoveryItem(item.questionId)}>
                         {t('previewQuestion')}
                       </Button>
-                      <Button type="button" variant="outline" onClick={() => void copyToMyBank(item.questionId)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        title={t('copyToMyBankFull')}
+                        aria-label={t('copyToMyBankFull')}
+                        onClick={() => void copyToMyBank(item.questionId)}
+                      >
                         {t('copyToMyBank')}
                       </Button>
                     </li>
@@ -1766,7 +1607,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
               )}
               {previewItem ? (
                 <div className="rounded-md border p-3">
-                  <p className="font-medium">{previewItem.question.name}</p>
+                  <p className="font-medium">{questionExcerpt(previewItem)}</p>
                   <p className="text-sm text-muted-foreground">{plainText(previewItem.latestVersion.questionText)}</p>
                 </div>
               ) : null}
@@ -1850,7 +1691,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                           {t('editRow')}
                         </Button>
                       ) : null}
-                      <Button type="button" variant="outline" onClick={() => void copyPaperToMine(paper.id)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        title={t('copyToMyBankFull')}
+                        aria-label={t('copyToMyBankFull')}
+                        onClick={() => void copyPaperToMine(paper.id)}
+                      >
                         {t('copyPaperToMyBank')}
                       </Button>
                     </li>
@@ -2023,7 +1870,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                           {subjectName(m.subjectId)} · {t('matrixCellsCount', { count: m.cells.length })}
                         </span>
                       </span>
-                      <Button type="button" variant="outline" onClick={() => void copyMatrixToMyBank(m.id)}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        title={t('copyToMyBankFull')}
+                        aria-label={t('copyToMyBankFull')}
+                        onClick={() => void copyMatrixToMyBank(m.id)}
+                      >
                         {t('copyToMyBank')}
                       </Button>
                     </li>
@@ -2067,7 +1920,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
               ) : null}
             </section>
             ) : null}
-      </CollapsibleSection>
+      </div>
         </>
       ) : null}
 

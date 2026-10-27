@@ -21,6 +21,14 @@ import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, r
  *  - Dữ liệu tuỳ chọn CŨ (khoá provider × kênh × trạng thái) được suy
  *    về giá trị tương đương ở hậu trường: hàng cũ giữ nguyên không
  *    bị ghi đè, khoá v2 khi đã đặt thì thắng hàng cũ.
+ *  - Phân chia theo vai + context (việc nối tiếp của issue #288):
+ *    GET chỉ trả provider thuộc AUDIENCE của user — registry ở API
+ *    là nguồn sự thật, audience chốt bằng truy vết điểm phát notify()
+ *    thật. Giáo viên thuần không thấy loại chỉ học sinh nhận (báo
+ *    điểm là ca bị bắt tại trận) hay loại của phụ huynh; người hai
+ *    vai dạy + học thấy cả phía học sinh; nhân sự có liên kết giám
+ *    hộ hiệu lực thấy thêm loại phụ huynh; site admin đủ 20. PUT
+ *    ngoài audience bị server từ chối 403 — không chỉ giấu giao diện.
  */
 describe('Notification preferences v2 (NB-2, issue #174)', () => {
   let app: INestApplication;
@@ -54,6 +62,39 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     return { id: user.id, token };
   }
 
+  /**
+   * Người dùng HAI VAI dạy + học: teacher và student cùng gán ở
+   * context hệ thống → có cả context nhân sự lẫn context học sinh
+   * (nhánh gán-vai của phép xác định context học sinh). Các ca cơ
+   * chế tuỳ chọn đụng loại phía học sinh (grade_updated…) dùng
+   * fixture này; ca nguyên mẫu giáo viên thuần dùng freshUser().
+   */
+  async function freshDualUser(): Promise<{ id: string; token: string }> {
+    const user = await createUserViaApi(app, admin);
+    const sys = await systemContextId(app, admin);
+    await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'teacher'), sys);
+    await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'student'), sys);
+    const token = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
+    return { id: user.id, token };
+  }
+
+  /**
+   * Nhân sự kiêm PHỤ HUYNH: vai teacher như freshUser() cộng một
+   * liên kết giám hộ đang hiệu lực (chèn thẳng hàng guardian_links
+   * với tenant nền tảng đã seed — cùng kỷ luật chèn dữ liệu fixture
+   * qua pg của suite này).
+   */
+  async function freshGuardianStaffUser(): Promise<{ id: string; token: string }> {
+    const { id, token } = await freshUser();
+    const child = await createUserViaApi(app, admin);
+    const tenant = await pg.query(`select id from tenants order by created_at asc limit 1`);
+    await pg.query(
+      `insert into guardian_links (tenant_id, guardian_user_id, student_user_id, relationship, created_by) values ($1, $2, $3, 'Cha', $2)`,
+      [tenant.rows[0].id, id, child.id],
+    );
+    return { id, token };
+  }
+
   async function preferencesOf(token: string): Promise<PrefRow[]> {
     const res = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
@@ -67,10 +108,19 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
     return (res.body as { channels: { popup?: string; email?: string } }).channels;
   }
 
-  it('GET returns one labelled v2 row per provider — no raw keys, no push, no login-state axis', async () => {
+  it('GET returns one labelled v2 row per provider in the pure-teacher audience — no raw keys, no push, no login-state axis', async () => {
     const { token } = await freshUser();
     const rows = await preferencesOf(token);
-    expect(rows).toHaveLength(20);
+    // Audience theo vai (issue #288): giáo viên THUẦN chỉ thấy phía
+    // nhân sự + mọi-vai = 10 trong 20 loại. Tám loại chỉ học sinh
+    // nhận (grade_updated là ca bị bắt tại trận) và hai loại của phụ
+    // huynh nằm ngoài bề mặt của họ; bề mặt đầy đủ nằm ở ca nguyên
+    // mẫu audience bên dưới.
+    expect(rows.map((r) => r.provider).sort()).toEqual([
+      'admin_announcement', 'assignment_submitted', 'badge_awarded', 'calendar_reminder',
+      'competency_review_requested', 'contact_request', 'conversation_reported',
+      'message_new', 'quiz_attempt_finished', 'report_scheduled',
+    ]);
     for (const row of rows) {
       expect(row.label.vi.length).toBeGreaterThan(0);
       expect(row.label.en.length).toBeGreaterThan(0);
@@ -84,22 +134,65 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
       expect(row.emailAvailable).toBe(false);
     }
     const byName = new Map(rows.map((r) => [r.provider, r]));
-    // Mặc định tần suất theo P1: học tập = tổng hợp ngày, tin nhắn = ngay.
-    expect(byName.get('grade_updated')).toMatchObject({ group: 'learning', teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'daily' });
+    // Mặc định tần suất theo P1: nhóm Lớp & mọi người = ngay.
     expect(byName.get('message_new')).toMatchObject({ group: 'people', emailFrequency: 'immediate' });
-    // Provider không có kênh email → emailFrequency null.
-    expect(byName.get('course_completed')?.emailFrequency).toBeNull();
-    // Nhãn theo vai: hai loại chỉ GV nhận.
+    // Nhãn theo vai (suy ra từ audience): hai loại chỉ phía nhân
+    // sự/quản trị nhận mang nhãn "chỉ giáo viên"; loại hai phía thì không.
     expect(byName.get('quiz_attempt_finished')?.teacherOnly).toBe(true);
     expect(byName.get('conversation_reported')?.teacherOnly).toBe(true);
     expect(byName.get('assignment_submitted')?.teacherOnly).toBe(false);
-    // P2: đúng hai loại bắt buộc, đều ở kênh trong-app.
-    expect(rows.filter((r) => r.mandatoryInApp).map((r) => r.provider).sort()).toEqual(['admin_announcement', 'enrol_expiry_warning']);
+    // P2 trong bề mặt giáo viên thuần: chỉ admin_announcement thuộc
+    // audience của họ — loại bắt buộc phía học sinh
+    // (enrol_expiry_warning) không hiện ở đây (đủ cả hai ở ca admin).
+    expect(rows.filter((r) => r.mandatoryInApp).map((r) => r.provider)).toEqual(['admin_announcement']);
     expect(byName.get('admin_announcement')).toMatchObject({ group: 'system', popupEnabled: true, emailFrequency: 'immediate' });
   });
 
+  it('audience prototypes (issue #288): dual role sees the student side, guardian staff sees guardian types, admin sees all 20', async () => {
+    // Hai vai dạy + học: thấy cả phía học sinh (18 loại), chưa có
+    // phía phụ huynh.
+    const dual = await freshDualUser();
+    const dualRows = await preferencesOf(dual.token);
+    const dualNames = dualRows.map((r) => r.provider);
+    expect(dualNames).toHaveLength(18);
+    expect(dualNames).toContain('grade_updated');
+    expect(dualNames).toContain('enrol_expiry_warning');
+    expect(dualNames).not.toContain('guardian_digest');
+    expect(dualNames).not.toContain('guardian_overdue_alert');
+    const dualByName = new Map(dualRows.map((r) => [r.provider, r]));
+    // Mặc định tần suất P1 phía học tập = tổng hợp ngày; provider
+    // không có kênh email → emailFrequency null.
+    expect(dualByName.get('grade_updated')).toMatchObject({ group: 'learning', teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'daily' });
+    expect(dualByName.get('course_completed')?.emailFrequency).toBeNull();
+
+    // Nhân sự + liên kết giám hộ hiệu lực: thêm đúng hai loại phụ huynh.
+    const guardianStaff = await freshGuardianStaffUser();
+    const guardianNames = (await preferencesOf(guardianStaff.token)).map((r) => r.provider);
+    expect(guardianNames).toHaveLength(12);
+    expect(guardianNames).toContain('guardian_digest');
+    expect(guardianNames).toContain('guardian_overdue_alert');
+    const guardianPut = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${guardianStaff.token}`)
+      .send({ provider: 'guardian_digest', popupEnabled: false });
+    expect(guardianPut.status).toBe(200);
+    expect((guardianPut.body as PrefRow).popupEnabled).toBe(false);
+
+    // Site admin: context admin phủ mọi phía — đủ 20 loại.
+    expect(await preferencesOf(admin)).toHaveLength(20);
+  });
+
+  it('audience gate on PUT (issue #288): a pure teacher is refused 403 for student-only and guardian types', async () => {
+    const { token } = await freshUser();
+    for (const provider of ['grade_updated', 'guardian_digest']) {
+      const refused = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`)
+        .send({ provider, popupEnabled: false });
+      expect(refused.status).toBe(403);
+      expect((refused.body as { code?: string }).code).toBe('messaging.preference_audience');
+    }
+  });
+
   it('changes take effect on the very next dispatch; email off keeps popup independent', async () => {
-    const { id, token } = await freshUser();
+    // Hai vai: grade_updated là loại phía học sinh (#288).
+    const { id, token } = await freshDualUser();
     // Mặc định: popup giao thật, email xếp hàng (tần suất daily vẫn
     // xếp hàng job log-only cho tới NB-5 — chỉ 'off' mới chặn).
     expect(await send(id, 'grade_updated')).toMatchObject({ popup: 'delivered', email: 'queued' });
@@ -127,7 +220,8 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
   });
 
   it('mandatory providers refuse popup off (400) but allow email off, and popup still delivers', async () => {
-    const { id, token } = await freshUser();
+    // Hai vai: enrol_expiry_warning là loại phía học sinh (#288).
+    const { id, token } = await freshDualUser();
     for (const provider of ['enrol_expiry_warning', 'admin_announcement']) {
       const refused = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`)
         .send({ provider, popupEnabled: false });
@@ -144,7 +238,8 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
   });
 
   it('legacy v1 rows are honoured by derivation, never rewritten; a v2 write wins over legacy', async () => {
-    const { id, token } = await freshUser();
+    // Hai vai: grade_updated là loại phía học sinh (#288).
+    const { id, token } = await freshDualUser();
     // Gieo đúng hình dạng dữ liệu cũ: khoá provider × kênh × trạng thái.
     await pg.query(
       `insert into user_preferences (user_id, name, value) values ($1, 'message_provider_grade_updated_popup_loggedin', '0'), ($1, 'message_provider_grade_updated_email_loggedin', '0')`,
@@ -172,7 +267,10 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
   });
 
   it('validation: unknown provider, empty patch, and email frequency on a provider without email are 400', async () => {
-    const { token } = await freshUser();
+    // Hai vai để các ca kiểm chứng payload tới được đúng tầng
+    // validation (provider phía học sinh ngoài audience của giáo
+    // viên thuần sẽ dừng ở 403 audience trước — ca đó ở ca PUT gate).
+    const { token } = await freshDualUser();
     const unknown = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`)
       .send({ provider: 'khong_ton_tai', popupEnabled: true });
     expect(unknown.status).toBe(400);

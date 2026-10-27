@@ -37,6 +37,8 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     feedback: unknown;
     generalFeedback: unknown;
     manualComment: string | null;
+    guidance: unknown;
+    solution: { correctAnswerId?: string; answer?: unknown } | null;
   }
   interface AttemptViewBody {
     attempt: { id: string; state: string; sumGrades: number | null };
@@ -59,16 +61,20 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
       return r.body.question.id as string;
     };
     const mcId = await mkQuestion({
-      qtype: 'multichoice', name: 'MC feedback', questionText: '2 + 2 = ?', defaultMark: 1,
+      qtype: 'multichoice', questionText: '2 + 2 = ?', defaultMark: 1,
+      guidance: 'Gợi ý: tách thành hai lần cộng 2.',
       generalFeedback: 'Lời giải: cộng hai số tự nhiên, 2 + 2 = 4.',
       answers: [
-        { text: '4', fraction: 1, feedback: 'Chính xác, 2 + 2 = 4.' },
-        { text: '5', fraction: 0, feedback: 'Chưa đúng, hãy cộng lại.' },
+        { text: '4', correct: true, feedback: 'Chính xác, 2 + 2 = 4.' },
+        { text: '5', correct: false, feedback: 'Chưa đúng, hãy cộng lại.' },
+        { text: '6', correct: false },
+        { text: '3', correct: false },
       ],
-      options: { single: true },
     });
     const essayId = await mkQuestion({
-      qtype: 'essay', name: 'Essay feedback', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
+      qtype: 'essay', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
+      guidance: 'Gợi ý: viết 3–4 câu, có câu mở đoạn.',
+      solution: { answer: 'Bài mẫu: đoạn văn mẫu đạt yêu cầu.' },
     });
 
     const cat = await createCategory(app, admin);
@@ -80,7 +86,7 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     const student = (await login(app, u.username, STRONG_PASSWORD)).accessToken;
 
     const teacherView = await http(app).get(`/api/v1/questions/${mcId}`).set('Authorization', `Bearer ${admin}`);
-    const wrongAnswerId = (teacherView.body.answers as { id: string; fraction: number }[]).find((a) => a.fraction === 0)!.id;
+    const wrongAnswerId = (teacherView.body.answers as { id: string; isCorrect: boolean }[]).find((a) => !a.isCorrect)!.id;
 
     return { courseId: course.id, sectionId, student, mcId, essayId, wrongAnswerId };
   }
@@ -142,6 +148,58 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     expect(essay.manualComment).toBe(MANUAL_COMMENT);
     // 0 (MC sai) + 2 (essay) trên tổng 3 → 66,7% rơi vào dải 0–100.
     expect(view.overallFeedback).toBe(BAND_TEXT);
+  });
+
+  it('guidance hiện kèm câu hỏi NGAY trong lúc làm (D-4); solution chỉ lộ theo cổng reviewRightAnswer', async () => {
+    const ctx = await setup();
+    // Mask 4368 = đủ các cửa sổ sau nộp (ngay sau nộp + trong lúc mở +
+    // sau đóng) như preset 'regular' — mặc định DB của reviewRightAnswer
+    // (272) không gồm cửa sổ "ngay sau nộp" nên phải mở tường minh.
+    const quizId = await mkQuiz(ctx, 'Đề hướng dẫn + lời giải', { reviewRightAnswer: 4368 });
+
+    // Đang làm bài: học sinh thấy guidance của cả hai câu; solution
+    // (đáp án đúng/lời giải mẫu) chưa lộ ở bất kỳ dạng nào.
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    expect(start.status === 200 || start.status === 201).toBe(true);
+    const inProgress = start.body as AttemptViewBody;
+    const mcDoing = inProgress.questions.find((q) => q.questionId === ctx.mcId)!;
+    const essayDoing = inProgress.questions.find((q) => q.questionId === ctx.essayId)!;
+    expect(JSON.stringify(mcDoing.guidance)).toContain('Gợi ý: tách thành hai lần cộng 2.');
+    expect(JSON.stringify(essayDoing.guidance)).toContain('Gợi ý: viết 3–4 câu');
+    expect(mcDoing.solution).toBeNull();
+    expect(essayDoing.solution).toBeNull();
+
+    // Sau khi nộp + chấm (cổng reviewRightAnswer mặc định mở): solution
+    // của MC trỏ đúng dòng đáp án đúng; của essay là lời giải mẫu.
+    const attemptId = (inProgress.attempt as { id: string }).id;
+    const mc = inProgress.questions.find((q) => q.questionId === ctx.mcId)!;
+    await http(app).post(`/api/v1/quiz-attempts/${attemptId}/responses`).set('Authorization', `Bearer ${ctx.student}`)
+      .send({ questionAttemptId: mc.questionAttemptId, response: ctx.wrongAnswerId });
+    const essay = inProgress.questions.find((q) => q.questionId === ctx.essayId)!;
+    await http(app).post(`/api/v1/quiz-attempts/${attemptId}/responses`).set('Authorization', `Bearer ${ctx.student}`)
+      .send({ questionAttemptId: essay.questionAttemptId, response: 'Bài viết của học sinh.' });
+    await http(app).post(`/api/v1/quiz-attempts/${attemptId}/submit`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    const teacherQ = await http(app).get(`/api/v1/questions/${ctx.mcId}`).set('Authorization', `Bearer ${admin}`);
+    const correctAnswerId = (teacherQ.body.answers as { id: string; isCorrect: boolean }[]).find((a) => a.isCorrect)!.id;
+    const reviewed = await getView(attemptId, ctx.student);
+    const mcDone = reviewed.questions.find((q) => q.questionId === ctx.mcId)!;
+    const essayDone = reviewed.questions.find((q) => q.questionId === ctx.essayId)!;
+    expect(mcDone.solution).toEqual({ correctAnswerId });
+    expect(JSON.stringify(essayDone.solution?.answer)).toContain('Bài mẫu: đoạn văn mẫu đạt yêu cầu.');
+    // Guidance vẫn hiện ở màn xem lại như trong lúc làm.
+    expect(JSON.stringify(mcDone.guidance)).toContain('Gợi ý: tách thành hai lần cộng 2.');
+  });
+
+  it('cổng reviewRightAnswer đóng: solution null ở cả MC và essay sau nộp, nhưng guidance vẫn hiện (guidance không qua cổng xem lại)', async () => {
+    const ctx = await setup();
+    const quizId = await mkQuiz(ctx, 'Đề đóng cổng đáp án đúng', { reviewRightAnswer: 0 });
+    const attemptId = await playAndGrade(ctx, quizId, MANUAL_COMMENT);
+    const view = await getView(attemptId, ctx.student);
+    const mc = view.questions.find((q) => q.questionId === ctx.mcId)!;
+    const essay = view.questions.find((q) => q.questionId === ctx.essayId)!;
+    expect(mc.solution).toBeNull();
+    expect(essay.solution).toBeNull();
+    expect(JSON.stringify(mc.guidance)).toContain('Gợi ý: tách thành hai lần cộng 2.');
   });
 
   it('cổng đóng (masks = 0): cả 4 tầng đều null phía HS dù GV đã chấm kèm nhận xét; GV vẫn thấy đủ', async () => {

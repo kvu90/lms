@@ -139,6 +139,29 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(screen.getByText('Tuỳ chỉnh từng loại')).toBeInTheDocument();
   });
 
+  it('a group left empty by the API audience filter renders no section in either layer (issue #288)', async () => {
+    const calls: RecordedCall[] = [];
+    // API đã lọc theo vai + context: chỉ còn nhóm Lớp & mọi người.
+    // Hai nhóm rỗng không được dựng section nào — cả ở lớp tổng hợp
+    // theo nhóm lẫn ở lớp "Tuỳ chỉnh từng loại".
+    stubFetch(calls, {
+      rows: [
+        row({ provider: 'message_new', group: 'people', label: { vi: 'Tin nhắn mới', en: 'New message' }, emailFrequency: 'immediate' }),
+        row({ provider: 'badge_awarded', group: 'people', label: { vi: 'Huy hiệu mới', en: 'New badge' }, emailFrequency: 'immediate' }),
+      ],
+      courses: [],
+    });
+    renderPage();
+
+    expect(await screen.findByLabelText('Lớp & mọi người — Trong ứng dụng')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Học tập — Trong ứng dụng')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hệ thống — Trong ứng dụng')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByText('Tuỳ chỉnh từng loại'));
+    expect(await screen.findByLabelText('Tin nhắn mới — Trong ứng dụng')).toBeInTheDocument();
+    expect(screen.queryByText('Học tập', { selector: 'h3' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Hệ thống', { selector: 'h3' })).not.toBeInTheDocument();
+  });
+
   it('turning a group popup off PUTs every provider in the group except the mandatory one', async () => {
     const calls: RecordedCall[] = [];
     const state = { rows: teacherRows(), courses: [] as CourseOverrideState[] };

@@ -85,8 +85,16 @@ describe('Matrix import I-1 (template + preview, no DB write)', () => {
     const bankCatId = bankRes.body.id as string;
     for (const name of ['MI1', 'MI2', 'MI3']) {
       const r = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`).send({
-        categoryId: bankCatId, qtype: 'multichoice', name, questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
-        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+        categoryId: bankCatId, qtype: 'multichoice', questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
+        // Mô hình mới (quyết 12:04/12:12 ngày 26/10/2026): không còn
+        // name/fraction/single — MC đúng 4 lựa chọn, đúng một đáp án
+        // đúng đánh dấu bằng correct.
+        answers: [
+          { text: 'Đúng', correct: true },
+          { text: 'Sai 1', correct: false },
+          { text: 'Sai 2', correct: false },
+          { text: 'Sai 3', correct: false },
+        ],
       });
       if (r.status !== 201 && r.status !== 200) throw new Error(`question failed: ${r.status} ${JSON.stringify(r.body)}`);
       const qid = r.body.question.id as string;

@@ -28,8 +28,8 @@ import { createExamDraft } from './exam-pin-helpers';
  *    trạng thái draft, source_kind='ai' + source_ref='client:<id>'
  *    (kiểm bằng SQL); draft KHÔNG rút được vào usage/slot ngẫu
  *    nhiên/slot quiz/startAttempt; phát hành ready thì dùng được và
- *    chấm đúng (gồm truefalse cả hai chiều correct qua dạng answers
- *    chuẩn của MCP).
+ *    chấm đúng (gồm truefalse chùm TF-A 4 mệnh đề qua dạng answers
+ *    chuẩn của MCP: thân câu + 4 mệnh đề kèm giá trị Đúng/Sai).
  *  - validate: lỗi nghiệp vụ kèm fieldPath; trường lạ bị schema chặn;
  *    nội dung HTML lưu thành text thuần; ký tự điều khiển bị từ chối.
  *  - phân quyền: học viên / giáo viên khác bị từ chối (bank của người
@@ -154,6 +154,16 @@ describe('MCP server (MCP-0, issue #110)', () => {
     return res.rows[0] as T;
   }
 
+  /** Đếm câu theo thân câu của version mới nhất (câu hỏi không còn trường tên — không đếm theo tên được nữa). */
+  async function countQuestionsWithText(text: string): Promise<number> {
+    const row = await sqlOne<{ n: number }>(
+      `select count(*)::int as n from question_versions v join question_bank_entries e on e.id = v.question_bank_entry_id
+        where v.version = e.latest_version and v.question_text::text like $1`,
+      [`%${text}%`],
+    );
+    return row.n;
+  }
+
   beforeAll(async () => {
     app = await createMountedMcpApp();
     admin = await adminToken(app);
@@ -242,11 +252,15 @@ describe('MCP server (MCP-0, issue #110)', () => {
 
   let draftMcId = '';
   it('create_question multichoice: vào draft, source_kind=ai (SQL), có vết outbox', async () => {
-    const name = uniqueName('mcpMc');
     const res = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'multichoice', name,
+      bankId: bankA, categoryId: catA, qtype: 'multichoice',
       questionText: 'Thủ đô của Pháp là gì?',
-      answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
+      answers: [
+        { text: 'Paris', correct: true },
+        { text: 'London', correct: false },
+        { text: 'Berlin', correct: false },
+        { text: 'Madrid', correct: false },
+      ],
       idempotencyKey: uniqueName('key'),
     });
     expect(res.isError).toBe(false);
@@ -299,7 +313,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(start.status).toBeLessThan(300);
     const correct = await sqlOne<{ id: string }>(
       `select a.id from question_answers a join question_versions v on v.id = a.question_version_id
-        where v.question_bank_entry_id = (select id from question_bank_entries where question_id = $1) and a.fraction = 1`,
+        where v.question_bank_entry_id = (select id from question_bank_entries where question_id = $1) and a.is_correct`,
       [draftMcId],
     );
     const submit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`)
@@ -325,36 +339,35 @@ describe('MCP server (MCP-0, issue #110)', () => {
     return finished.body.attempts[0] as { state: string; fraction: number | null };
   }
 
-  it('truefalse qua dạng answers chuẩn: correct=false chấm đúng khi trả lời False (và ngược lại)', async () => {
-    const mkTf = async (text: string, trueFraction: number) => {
-      const res = await callTool(app, teacherA.token, 'create_question', {
-        bankId: bankA, categoryId: catA, qtype: 'truefalse', name: uniqueName('mcpTf'),
-        questionText: text,
-        answers: [
-          { text: 'True', fraction: trueFraction },
-          { text: 'False', fraction: trueFraction === 1 ? 0 : 1 },
-        ],
-        idempotencyKey: uniqueName('key'),
-      });
-      expect(res.isError).toBe(false);
-      const qid = res.structured!.questionId as string;
-      await banks.setQuestionStatus(qid, 'ready');
-      return qid;
-    };
-    // Mệnh đề SAI ("Mặt Trời quay quanh Trái Đất") — đáp án đúng là False.
-    const tfFalse = await mkTf('Mặt Trời quay quanh Trái Đất.', 0);
-    expect(await gradeViaUsage(tfFalse, 'false')).toMatchObject({ state: 'gradedright', fraction: 1 });
-    expect(await gradeViaUsage(tfFalse, 'true')).toMatchObject({ state: 'gradedwrong', fraction: 0 });
-    // Mệnh đề ĐÚNG — đáp án đúng là True.
-    const tfTrue = await mkTf('Trái Đất quay quanh Mặt Trời.', 1);
-    expect(await gradeViaUsage(tfTrue, 'true')).toMatchObject({ state: 'gradedright', fraction: 1 });
+  it('truefalse chùm TF-A qua dạng answers chuẩn: map Đúng/Sai đủ 4 mệnh đề chấm đúng (và ngược lại)', async () => {
+    // TF-A (lát P5): thân câu + 4 mệnh đề, mỗi mệnh đề kèm giá trị
+    // Đúng/Sai; tool MCP dựng statementList id s1..s4 theo thứ tự gửi.
+    const res = await callTool(app, teacherA.token, 'create_question', {
+      bankId: bankA, categoryId: catA, qtype: 'truefalse',
+      questionText: 'Xét các mệnh đề về Mặt Trời.',
+      answers: [
+        { text: 'Mặt Trời là một ngôi sao.', correct: true },
+        { text: 'Mặt Trời quay quanh Trái Đất.', correct: false },
+        { text: 'Ánh sáng Mặt Trời mất khoảng 8 phút tới Trái Đất.', correct: true },
+        { text: 'Mặt Trời mọc ở phía tây.', correct: false },
+      ],
+      idempotencyKey: uniqueName('key'),
+    });
+    expect(res.isError).toBe(false);
+    const qid = res.structured!.questionId as string;
+    await banks.setQuestionStatus(qid, 'ready');
+    // Trả lời khớp toàn bộ 4 mệnh đề → đúng trọn; trả lời ngược toàn bộ → sai trọn.
+    const allRight = JSON.stringify({ s1: true, s2: false, s3: true, s4: false });
+    const allWrong = JSON.stringify({ s1: false, s2: true, s3: false, s4: true });
+    expect(await gradeViaUsage(qid, allRight)).toMatchObject({ state: 'gradedright', fraction: 1 });
+    expect(await gradeViaUsage(qid, allWrong)).toMatchObject({ state: 'gradedwrong', fraction: 0 });
   });
 
   it('shortanswer + essay tạo được; essay chấm tay (needsgrading), shortanswer chấm đúng', async () => {
     const sa = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'shortanswer', name: uniqueName('mcpSa'),
+      bankId: bankA, categoryId: catA, qtype: 'shortanswer',
       questionText: 'Thủ đô của Việt Nam là gì?',
-      answers: [{ text: 'Hà Nội', fraction: 1 }],
+      answers: [{ text: 'Hà Nội', correct: true }],
       idempotencyKey: uniqueName('key'),
     });
     expect(sa.isError).toBe(false);
@@ -363,7 +376,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(await gradeViaUsage(saId, 'Hà Nội')).toMatchObject({ state: 'gradedright', fraction: 1 });
 
     const essay = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpEssay'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Hãy tả quê hương em.',
       idempotencyKey: uniqueName('key'),
     });
@@ -386,7 +399,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     const draft0 = await createExamDraft(app, teacherA.token, uniqueName('mcpExam'));
 
     const draftRes = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpSlotDraft'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Câu draft cho slot đề.',
       idempotencyKey: uniqueName('key'),
     });
@@ -413,7 +426,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(catRes.status).toBeLessThan(300);
     const poolCat = catRes.body.id as string;
     const draftRes = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: poolCat, qtype: 'essay', name: uniqueName('mcpPoolDraft'),
+      bankId: bankA, categoryId: poolCat, qtype: 'essay',
       questionText: 'Draft duy nhất trong pool.',
       idempotencyKey: uniqueName('key'),
     });
@@ -437,8 +450,8 @@ describe('MCP server (MCP-0, issue #110)', () => {
     const catRes = await http(app).post('/api/v1/questions/categories').set(bearer(admin))
       .send({ name: uniqueName('mcpGateCat'), contextId: systemCtx });
     const qRes = await http(app).post('/api/v1/questions').set(bearer(admin)).send({
-      categoryId: catRes.body.id, qtype: 'truefalse', name: uniqueName('mcpGateQ'),
-      questionText: 'Câu kiểm cổng startAttempt.', answer: { correct: true },
+      categoryId: catRes.body.id, qtype: 'essay',
+      questionText: 'Câu kiểm cổng startAttempt.',
     });
     expect(qRes.status).toBeLessThan(300);
     const qid = qRes.body.question.id as string;
@@ -454,44 +467,43 @@ describe('MCP server (MCP-0, issue #110)', () => {
   });
 
   it('validate: lỗi nghiệp vụ kèm fieldPath; trường lạ/quá dài bị schema chặn; ký tự cấm bị từ chối', async () => {
-    const badFraction = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'multichoice', name: uniqueName('mcpBad'),
-      questionText: 'Tổng fraction sai.',
-      answers: [{ text: 'A', fraction: 0.5 }, { text: 'B', fraction: 0.4 }],
+    // Multichoice sai luật đáp án (chỉ 2 lựa chọn thay vì đúng 4) -> lỗi nghiệp vụ kèm fieldPath.
+    const badAnswers = await callTool(app, teacherA.token, 'create_question', {
+      bankId: bankA, categoryId: catA, qtype: 'multichoice',
+      questionText: 'Trắc nghiệm thiếu lựa chọn.',
+      answers: [{ text: 'A', correct: true }, { text: 'B', correct: false }],
       idempotencyKey: uniqueName('key'),
     });
-    expect(badFraction.isError).toBe(true);
-    expect(badFraction.structured!.error.code).toBe('question.bad_answer_data');
-    expect(badFraction.structured!.error.fieldPath).toBe('/answers');
+    expect(badAnswers.isError).toBe(true);
+    expect(badAnswers.structured!.error.code).toBe('question.bad_answer_data');
+    expect(badAnswers.structured!.error.fieldPath).toBe('/answers');
 
     const essayAnswers = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpBad'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Essay không mang answers.',
-      answers: [{ text: 'X', fraction: 1 }],
+      answers: [{ text: 'X', correct: true }],
       idempotencyKey: uniqueName('key'),
     });
     expect(essayAnswers.isError).toBe(true);
     expect(essayAnswers.structured!.error.code).toBe('question.bad_answer_data');
 
-    const badName = uniqueName('mcpBadField');
     const extraField = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: badName,
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Trường lạ phải bị chặn.', hackField: 'x',
       idempotencyKey: uniqueName('key'),
     } as Record<string, unknown>);
     expect(extraField.isError).toBe(true);
-    const extraCount = await sqlOne<{ n: number }>('select count(*)::int as n from question where name = $1', [badName]);
-    expect(extraCount.n).toBe(0);
+    expect(await countQuestionsWithText('Trường lạ phải bị chặn.')).toBe(0);
 
     const tooLong = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpBad'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'x'.repeat(20001),
       idempotencyKey: uniqueName('key'),
     });
     expect(tooLong.isError).toBe(true);
 
     const control = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpBad'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Ký tự điều khiển  ở đây.',
       idempotencyKey: uniqueName('key'),
     });
@@ -500,19 +512,19 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(control.structured!.error.fieldPath).toBe('/questionText');
 
     const zeroWidth = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: `Tên​lạ`,
-      questionText: 'Zero-width trong tên.',
+      bankId: bankA, categoryId: catA, qtype: 'essay',
+      questionText: 'Zero-width ​trong thân câu.',
       idempotencyKey: uniqueName('key'),
     });
     expect(zeroWidth.isError).toBe(true);
     expect(zeroWidth.structured!.error.code).toBe('question.invalid_content');
-    expect(zeroWidth.structured!.error.fieldPath).toBe('/name');
+    expect(zeroWidth.structured!.error.fieldPath).toBe('/questionText');
   });
 
   it('nội dung HTML/script được lưu thành TEXT thuần (không thành node HTML)', async () => {
     const rawText = '<script>alert(1)</script> Câu hỏi <b>đậm</b> & "ngoặc"';
     const res = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpHtml'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: rawText,
       idempotencyKey: uniqueName('key'),
     });
@@ -537,10 +549,18 @@ describe('MCP server (MCP-0, issue #110)', () => {
 
   it('idempotency: phát lại trả kết quả cũ; cùng key khác payload → conflict; trùng exact → verdict, không nhân đôi', async () => {
     const key = uniqueName('key');
+    // Thân câu duy nhất theo lượt chạy (đếm theo thân câu nên phải
+    // phân biệt được với dữ liệu của lượt chạy trước trên cùng DB).
+    const idemText = `Câu kiểm idempotency ${uniqueName('mcpIdem')}.`;
     const payload = {
-      bankId: bankA, categoryId: catA, qtype: 'multichoice', name: uniqueName('mcpIdem'),
-      questionText: 'Câu kiểm idempotency.',
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }],
+      bankId: bankA, categoryId: catA, qtype: 'multichoice',
+      questionText: idemText,
+      answers: [
+        { text: 'Đúng', correct: true },
+        { text: 'Sai', correct: false },
+        { text: 'Sai khác 1', correct: false },
+        { text: 'Sai khác 2', correct: false },
+      ],
       idempotencyKey: key,
     };
     const first = await callTool(app, teacherA.token, 'create_question', payload);
@@ -550,10 +570,9 @@ describe('MCP server (MCP-0, issue #110)', () => {
     const replay = await callTool(app, teacherA.token, 'create_question', payload);
     expect(replay.isError).toBe(false);
     expect(replay.structured!.questionId).toBe(qid);
-    const count = await sqlOne<{ n: number }>('select count(*)::int as n from question where name = $1', [payload.name]);
-    expect(count.n).toBe(1);
+    expect(await countQuestionsWithText(idemText)).toBe(1);
 
-    const conflict = await callTool(app, teacherA.token, 'create_question', { ...payload, name: uniqueName('mcpIdemOther') });
+    const conflict = await callTool(app, teacherA.token, 'create_question', { ...payload, questionText: `${idemText} khác.` });
     expect(conflict.isError).toBe(true);
     expect(conflict.structured!.error.code).toBe('question.idempotency_conflict');
 
@@ -561,14 +580,17 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(dup.isError).toBe(false);
     expect(dup.structured!.status).toBe('duplicate_exact');
     expect(dup.structured!.existingQuestionId).toBe(qid);
-    const count2 = await sqlOne<{ n: number }>('select count(*)::int as n from question where name = $1', [payload.name]);
-    expect(count2.n).toBe(1);
+    expect(await countQuestionsWithText(idemText)).toBe(1);
 
     // Gần trùng: cùng thân câu, đáp án khác → vẫn tạo nhưng gắn cờ near.
     const near = await callTool(app, teacherA.token, 'create_question', {
       ...payload,
-      name: uniqueName('mcpNear'),
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai khác', fraction: 0 }],
+      answers: [
+        { text: 'Đúng', correct: true },
+        { text: 'Sai khác', correct: false },
+        { text: 'Sai khác 1', correct: false },
+        { text: 'Sai khác 2', correct: false },
+      ],
       idempotencyKey: uniqueName('key'),
     });
     expect(near.isError).toBe(false);
@@ -578,32 +600,30 @@ describe('MCP server (MCP-0, issue #110)', () => {
   });
 
   it('phạm vi ghi: học viên + giáo viên khác bị từ chối ở bank của teacherA, 0 bản ghi', async () => {
-    const nameStu = uniqueName('mcpStuHack');
     const stu = await callTool(app, student.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: nameStu,
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Học viên không được tạo.',
       idempotencyKey: uniqueName('key'),
     });
     expect(stu.isError).toBe(true);
     expect(stu.structured!.error.code).toBe('question.bank_not_found');
 
-    const nameB = uniqueName('mcpBHack');
     const other = await callTool(app, teacherB.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: nameB,
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Giáo viên khác không ghi vào bank của người khác.',
       idempotencyKey: uniqueName('key'),
     });
     expect(other.isError).toBe(true);
     expect(other.structured!.error.code).toBe('question.bank_not_found');
 
-    const created = await sqlOne<{ n: number }>('select count(*)::int as n from question where name in ($1, $2)', [nameStu, nameB]);
-    expect(created.n).toBe(0);
+    expect(await countQuestionsWithText('Học viên không được tạo.')).toBe(0);
+    expect(await countQuestionsWithText('Giáo viên khác không ghi vào bank của người khác.')).toBe(0);
 
     // Bank trường (dùng chung) cũng KHÔNG phải đích ghi của MCP-0.
     const banksRes = await callTool(app, teacherA.token, 'list_my_banks', {});
     const school = (banksRes.structured!.banks as any[]).find((b) => b.scope === 'school');
     const intoSchool = await callTool(app, teacherA.token, 'create_question', {
-      bankId: school.id, categoryId: school.defaultCategoryId, qtype: 'essay', name: uniqueName('mcpSchoolHack'),
+      bankId: school.id, categoryId: school.defaultCategoryId, qtype: 'essay',
       questionText: 'Không ghi thẳng vào bank chung.',
       idempotencyKey: uniqueName('key'),
     });
@@ -639,7 +659,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
 
     const mkReady = async (n: number): Promise<string> => {
       const res = await callTool(app, teacherA.token, 'create_question', {
-        bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName(`mcpContrib${n}`),
+        bankId: bankA, categoryId: catA, qtype: 'essay',
         questionText: `Câu đóng góp số ${n} của giáo viên A.`,
         idempotencyKey: uniqueName('key'),
       });
@@ -714,7 +734,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
 
   it('submit_contribution: chặn câu chưa ready / câu của người khác / đích bank personal / câu không tồn tại', async () => {
     const draftRes = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpContribDraft'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Câu nháp chưa phát hành.', idempotencyKey: uniqueName('key'),
     });
     const draftId = draftRes.structured!.questionId as string;
@@ -731,7 +751,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     const personalB = (banksB.structured!.banks as any[]).find((b) => b.scope === 'personal' && b.ownerId === teacherB.id);
     const qB = await callTool(app, teacherB.token, 'create_question', {
       bankId: personalB.id, categoryId: personalB.defaultCategoryId, qtype: 'essay',
-      name: uniqueName('mcpContribB'), questionText: 'Câu ready của giáo viên B.', idempotencyKey: uniqueName('key'),
+      questionText: 'Câu ready của giáo viên B.', idempotencyKey: uniqueName('key'),
     });
     const qBId = qB.structured!.questionId as string;
     await banks.setQuestionStatus(qBId, 'ready');
@@ -768,7 +788,7 @@ describe('MCP server (MCP-0, issue #110)', () => {
     }, 'legacy');
     expect(init.jsonrpcError).toBeUndefined();
     const res = await callTool(app, teacherA.token, 'create_question', {
-      bankId: bankA, categoryId: catA, qtype: 'essay', name: uniqueName('mcpLegacy'),
+      bankId: bankA, categoryId: catA, qtype: 'essay',
       questionText: 'Câu tạo qua kỷ nguyên legacy.',
       idempotencyKey: uniqueName('key'),
     }, 'legacy');
@@ -804,7 +824,7 @@ describe('MCP rate limit (app riêng, hạn tạo = 2/giờ)', () => {
     const personal = (banksRes.structured!.banks as any[]).find((b) => b.scope === 'personal' && b.ownerId === u.id);
     const mk = (n: number) => callTool(app2, session.accessToken, 'create_question', {
       bankId: personal.id, categoryId: personal.defaultCategoryId, qtype: 'essay',
-      name: `${uniqueName('mcpRate')}${n}`, questionText: `Câu rate ${n}.`,
+      questionText: `Câu rate ${n}.`,
       idempotencyKey: uniqueName('key'),
     });
     expect((await mk(1)).isError).toBe(false);

@@ -21,6 +21,26 @@ import { createCategory as createCourseCategory, createCourse } from './course-e
  * start/submit/finish) không đổi.
  */
 describe('Question bank read gate (issue #55)', () => {
+
+  const tfBody = (stem: string, value = true) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: [1, 2, 3, 4].map((i) => ({
+            type: 'statement',
+            attrs: { id: `s${i}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value })) },
+  });
+
   let app: INestApplication;
   let admin: string;
   let teacher: string;
@@ -70,16 +90,16 @@ describe('Question bank read gate (issue #55)', () => {
     systemCatId = systemCat.body.id as string;
 
     const q = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: courseCatId, qtype: 'truefalse', name: SECRET_NAME, questionText: SECRET_TEXT, answer: { correct: true } });
+      .send({ categoryId: courseCatId, ...tfBody(SECRET_TEXT) });
     expect(q.status).toBeLessThan(300);
     questionId = q.body.question.id as string;
     // Version 2 để endpoint versions có dữ liệu thật.
     const edit = await http(app).patch(`/api/v1/questions/${questionId}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: `${SECRET_TEXT} v2` });
+      .send({ questionText: tfBody(`${SECRET_TEXT} v2`).questionText });
     expect(edit.status).toBe(200);
 
     const sysQ = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: systemCatId, qtype: 'truefalse', name: 'System bank q', questionText: SYSTEM_SECRET, answer: { correct: false } });
+      .send({ categoryId: systemCatId, ...tfBody(SYSTEM_SECRET, false) });
     expect(sysQ.status).toBeLessThan(300);
     systemQuestionId = sysQ.body.question.id as string;
 
@@ -159,7 +179,17 @@ describe('Question bank read gate (issue #55)', () => {
     const detail = await http(app).get(`/api/v1/questions/${questionId}`).set('Authorization', `Bearer ${teacher}`);
     expect(detail.status).toBe(200);
     expect(detail.body.question.id).toBe(questionId);
-    expect((detail.body.answers as unknown[]).length).toBeGreaterThan(0);
+    // Câu dùng chung là TF-A: TF-A KHÔNG có dòng question_answers
+    // (đáp án nằm ở thân câu + solution phía answerKey) nên answers
+    // rỗng là đúng mô hình — khẳng định solution từng mệnh đề thay
+    // vì đếm answers. Version 2 chỉ đổi stem, giữ nguyên tập id nên
+    // solution kế thừa từ version 1 (toàn Đúng) theo luật S6.
+    expect((detail.body.answerKey.solution as { answers: { statementId: string; value: boolean }[] }).answers).toEqual([
+      { statementId: 's1', value: true },
+      { statementId: 's2', value: true },
+      { statementId: 's3', value: true },
+      { statementId: 's4', value: true },
+    ]);
 
     const versions = await http(app).get(`/api/v1/questions/${questionId}/versions`).set('Authorization', `Bearer ${teacher}`);
     expect(versions.status).toBe(200);
@@ -238,13 +268,51 @@ describe('Question bank read gate (issue #55)', () => {
     const start = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/start`)
       .set('Authorization', `Bearer ${student}`);
     expect(start.status).toBeLessThan(300);
+    // Câu dùng chung là TF-A 4 mệnh đề (solution toàn Đúng): response
+    // phải là map statementId→boolean, không phải 'true' của TF-B cũ —
+    // 'true' chấm 0 ý đúng nên lượt này sẽ gradedwrong thay vì gradedright.
+    const tfAllTrue = JSON.stringify({ s1: true, s2: true, s3: true, s4: true });
     const submit = await http(app).post(`/api/v1/question-usages/${usageId}/attempts/${attemptId}/submit`)
-      .set('Authorization', `Bearer ${student}`).send({ response: 'true' });
+      .set('Authorization', `Bearer ${student}`).send({ response: tfAllTrue });
     expect(submit.status).toBeLessThan(300);
     const finished = await http(app).post(`/api/v1/question-usages/${usageId}/finish`)
       .set('Authorization', `Bearer ${student}`);
     expect(finished.status).toBeLessThan(300);
     expect(finished.body.state).toBe('finished');
     expect(finished.body.attempts[0].state).toBe('gradedright');
+  });
+
+  it('TF-A solution inheritance (S6): same statement set without solution inherits; changed set without solution is rejected 400', async () => {
+    // Câu TF-A mới: 4 mệnh đề s1–s4, đáp án toàn Đúng.
+    const q = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
+      .send({ categoryId: courseCatId, ...tfBody('S6 inheritance stem') });
+    expect(q.status).toBeLessThan(300);
+    const qid = q.body.question.id as string;
+    // Nhánh 1 — đổi stem nhưng giữ nguyên tập id, không gửi solution:
+    // kế thừa được, version mới vẫn mang solution cũ (toàn Đúng).
+    const same = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
+      .send({ questionText: tfBody('S6 inheritance stem v2').questionText });
+    expect(same.status).toBe(200);
+    expect(same.body.entry.latestVersion).toBe(2);
+    const sameDetail = await http(app).get(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`);
+    expect((sameDetail.body.answerKey.solution as { answers: { statementId: string; value: boolean }[] }).answers).toEqual([
+      { statementId: 's1', value: true },
+      { statementId: 's2', value: true },
+      { statementId: 's3', value: true },
+      { statementId: 's4', value: true },
+    ]);
+    // Nhánh 2 — đổi tập id (s5 thay s4) mà không gửi solution: 400,
+    // không tạo version mới mang solution cũ lệch tập (lệch tập sẽ
+    // làm engine chấm sai âm thầm vì nó dựng danh sách ý từ solution).
+    const changedText = JSON.parse(JSON.stringify(tfBody('S6 inheritance stem v3').questionText)) as {
+      content: { content: { attrs: { id: string } }[] }[];
+    };
+    changedText.content[1]!.content[3]!.attrs.id = 's5';
+    const changed = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
+      .send({ questionText: changedText });
+    expect(changed.status).toBe(400);
+    expect((changed.body as { code: string }).code).toBe('question.bad_answer_data');
+    const after = await http(app).get(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`);
+    expect(after.body.entry.latestVersion).toBe(2);
   });
 });

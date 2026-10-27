@@ -19,6 +19,8 @@ import { tenantAls } from '../tenants/tenant-als';
 import {
   MESSAGE_PROVIDERS,
   providerByName,
+  providerVisibleToAudiences,
+  isTeacherOnlyProvider,
   eventTypesOfGroup,
   groupOfEventType,
   preferenceName,
@@ -34,6 +36,7 @@ import {
   type MessageProviderGroup,
   type EmailFrequency,
   type MessageProviderDefinition,
+  type NotificationAudience,
   type NotificationPreferenceView,
   type NotifyResult,
   type NotificationCourseOverrideMode,
@@ -43,6 +46,8 @@ export {
   MESSAGE_CHANNELS,
   MESSAGE_PROVIDERS,
   providerByName,
+  providerVisibleToAudiences,
+  isTeacherOnlyProvider,
   preferenceName,
   preferenceNameV2,
   coursePreferenceName,
@@ -56,6 +61,7 @@ export {
   type MessageProviderGroup,
   type EmailFrequency,
   type MessageProviderDefinition,
+  type NotificationAudience,
   type NotificationPreferenceView,
   type NotifyResult,
   type NotificationCourseOverrideMode,
@@ -342,6 +348,41 @@ export class MessagingService {
   }
 
   /**
+   * Tập CONTEXT VAI thật của user cho tầng phân chia tuỳ chọn thông
+   * báo theo audience (việc nối tiếp của issue #288): registry khai
+   * mỗi provider thuộc phía người nhận nào (học sinh / nhân sự / phụ
+   * huynh / admin / mọi vai — truy vết tại điểm phát), còn tập này
+   * trả lời user đang đứng ở những phía nào THẬT:
+   *
+   * - `'admin'` + mọi phía còn lại khi user là site admin: context
+   *   quản trị phủ mọi audience — admin là người cấu hình chính sách
+   *   phát cấp site cho cả 20 loại (NB-7) và `admin_announcement`
+   *   có thể gửi đích danh cho bất kỳ ai kể cả chính admin, nên bề
+   *   mặt của admin giữ nguyên đầy đủ như trước lát này.
+   * - `'staff'` khi có gán vai nhân sự — CÙNG nguồn với cổng bề mặt
+   *   đầy đủ ở trên (`hasStaffRoleAssignment`), không cơ chế song song.
+   * - `'student'` khi có context học sinh thật (ghi danh hiệu lực ∪
+   *   gán vai archetype student — `repo.hasStudentContext`): giáo
+   *   viên thuần không có context này nên không thấy loại chỉ học
+   *   sinh nhận; người vừa dạy vừa học thì có cả hai phía.
+   * - `'guardian'` khi có liên kết giám hộ đang hiệu lực trong vai
+   *   phụ huynh (`repo.hasActiveGuardianLink`).
+   *
+   * @param userId - User cần tính tập context vai.
+   * @returns Tập audience mà user có ít nhất một context thuộc về.
+   */
+  async resolvePreferenceAudiences(userId: string): Promise<Set<NotificationAudience>> {
+    if (await this.evaluator.isSiteAdmin(userId)) {
+      return new Set<NotificationAudience>(['student', 'staff', 'guardian', 'admin', 'all']);
+    }
+    const audiences = new Set<NotificationAudience>();
+    if (await this.repo.hasStaffRoleAssignment(userId)) audiences.add('staff');
+    if (await this.repo.hasStudentContext(userId)) audiences.add('student');
+    if (await this.repo.hasActiveGuardianLink(userId)) audiences.add('guardian');
+    return audiences;
+  }
+
+  /**
    * Kênh có đang bật cho provider này theo tuỳ chọn của user (phân biệt logged-in/logged-off) hay không.
    * CHỈ còn dùng cho kênh push (chưa có mô hình v2 — push ẩn khỏi trang
    * cài đặt cho tới khi có app native) và làm nền suy giá trị cũ.
@@ -404,7 +445,9 @@ export class MessagingService {
     return {
       provider: provider.name, component: provider.component, group: provider.group,
       label: provider.label, description: provider.description,
-      teacherOnly: provider.teacherOnly ?? false, mandatoryInApp: provider.mandatoryInApp ?? false,
+      // teacherOnly là giá trị SUY RA từ audience của registry (hàm
+      // isTeacherOnlyProvider) — registry không còn cờ khai riêng.
+      teacherOnly: isTeacherOnlyProvider(provider), mandatoryInApp: provider.mandatoryInApp ?? false,
       popupEnabled: resolved.popupEnabled, emailFrequency: resolved.emailFrequency,
       emailAvailable: EMAIL_CHANNEL_AVAILABLE,
       siteEnabled: await this.isProviderEnabledBySitePolicy(provider),
@@ -413,15 +456,23 @@ export class MessagingService {
 
   /**
    * Tuỳ chọn notification v2 của user: một dòng cho mỗi provider đã
-   * đăng ký (NB-2 — không còn ma trận provider × kênh × trạng thái).
-   * Học sinh (NB-7) chỉ nhận phần tối thiểu: danh sách theo loại rỗng —
-   * bề mặt tuỳ chọn duy nhất của họ là ngoại lệ theo khoá (NB-4) ở
-   * endpoint riêng.
+   * đăng ký (NB-2 — không còn ma trận provider × kênh × trạng thái),
+   * LỌC theo audience của registry giao với context vai thật của
+   * user (lát phân chia theo vai, issue #288): giáo viên thuần không
+   * còn thấy loại chỉ học sinh nhận (báo điểm, bài mới giao…) hay
+   * loại của phụ huynh; người nhiều vai thấy hợp nhất các phía của
+   * mình. Học sinh thuần (NB-7) giữ nguyên hành vi cũ: danh sách
+   * theo loại rỗng — bề mặt tuỳ chọn duy nhất của họ là ngoại lệ
+   * theo khoá (NB-4) ở endpoint riêng; cổng NB-7 chạy TRƯỚC tầng
+   * audience và không đổi.
    */
   async getPreferences(userId: string): Promise<NotificationPreferenceView[]> {
     if (!(await this.hasFullNotificationPreferences(userId))) return [];
+    const audiences = await this.resolvePreferenceAudiences(userId);
     const out: NotificationPreferenceView[] = [];
-    for (const provider of MESSAGE_PROVIDERS) out.push(await this.preferenceView(userId, provider));
+    for (const provider of MESSAGE_PROVIDERS) {
+      if (providerVisibleToAudiences(provider, audiences)) out.push(await this.preferenceView(userId, provider));
+    }
     return out;
   }
 
@@ -429,7 +480,10 @@ export class MessagingService {
    * Đặt tuỳ chọn v2 cho MỘT provider (popup và/hoặc tần suất email).
    * Ghi khoá v2 mới; khoá cũ không bị xoá hay ghi đè. Tắt popup của
    * loại bắt buộc (P2) bị từ chối — kênh ngoài của loại bắt buộc vẫn
-   * tắt được tuyệt đối qua emailFrequency='off'.
+   * tắt được tuyệt đối qua emailFrequency='off'. Hai cổng chặn ở
+   * server chạy trước khi ghi: cổng bề mặt NB-7 (chỉ nhân sự/admin —
+   * 403 `messaging.preference_staff_only`) và cổng audience theo
+   * vai + context (issue #288 — 403 `messaging.preference_audience`).
    */
   async setPreference(userId: string, input: { provider: string; popupEnabled?: boolean; emailFrequency?: EmailFrequency }): Promise<NotificationPreferenceView> {
     // Phân tầng bề mặt (NB-7): tuỳ chọn theo loại chỉ dành cho giáo
@@ -444,6 +498,19 @@ export class MessagingService {
     }
     const provider = providerByName(input.provider);
     if (!provider) throw new BadRequestException({ message: `Unknown message provider ${input.provider}`, code: 'messaging.unknown_provider' });
+    // Phân chia theo vai + context (issue #288): provider ngoài
+    // audience của user bị từ chối ngay ở server (403, cùng họ với
+    // cổng staff-only ở trên) — không chỉ giấu ở giao diện, để client
+    // nào gọi thẳng API cũng không đặt được tuỳ chọn cho loại thông
+    // báo mà vai của mình không bao giờ nhận. Chạy ngay sau khi tra
+    // được provider (provider không tồn tại vẫn là 400 ở trên, vì
+    // không có audience để đối chiếu) và trước các kiểm chứng payload.
+    if (!providerVisibleToAudiences(provider, await this.resolvePreferenceAudiences(userId))) {
+      throw new ForbiddenException({
+        message: `Notification type ${input.provider} is not available for your roles`,
+        code: 'messaging.preference_audience',
+      });
+    }
     if (input.popupEnabled === undefined && input.emailFrequency === undefined) {
       throw new BadRequestException({ message: 'Nothing to update: provide popupEnabled and/or emailFrequency', code: 'messaging.preference_empty' });
     }

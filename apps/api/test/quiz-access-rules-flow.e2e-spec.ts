@@ -74,13 +74,12 @@ describe('Quiz access rules + overrides (stage 2)', () => {
       .send({ name: 'Stage2 bank', contextId: systemCtx.id });
     const bankCatId = bankRes.body.id as string;
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`).send({
-      categoryId: bankCatId, qtype: 'multichoice', name: 'Capital', questionText: 'Capital of France?', defaultMark: 1,
-      answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
-      options: { single: true },
+      categoryId: bankCatId, qtype: 'multichoice', questionText: 'Capital of France?', defaultMark: 1,
+      answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     if (qRes.status !== 201 && qRes.status !== 200) throw new Error(`create question failed: ${qRes.status} ${JSON.stringify(qRes.body)}`);
     const qMc = qRes.body.question.id as string;
-    const correctAnswerId = (qRes.body.answers as { id: string; fraction: number }[]).find((a) => a.fraction === 1)!.id;
+    const correctAnswerId = (qRes.body.answers as { id: string; isCorrect: boolean }[]).find((a) => a.isCorrect)!.id;
     return {
       courseId: course.id, sectionId, teacher,
       studentId: s1.id, student: s1.token, student2Id: s2.id, student2: s2.token,

@@ -15,13 +15,17 @@ import { notificationPolicySettingName } from './notification-providers';
  *   bật; API site-config cũng từ chối đặt false cho chúng).
  * - Học sinh (không gán vai nhân sự, không phải site admin): PUT tuỳ
  *   chọn theo loại → 403 ở server; GET preferences chỉ trả phần tối
- *   thiểu (rỗng). Giáo viên/nhân sự giữ nguyên hành vi v2.
+ *   thiểu (rỗng). Giáo viên/nhân sự giữ hành vi v2 ở phía vai của
+ *   mình; tầng audience theo vai + context (issue #288) lọc tiếp bên
+ *   trong bề mặt đó — các ca audience nằm ở cuối file này.
  */
 describe('MessagingService — admin site policy + student minimal preferences (NB-7)', () => {
   function buildService(opts: {
     disabledProviders?: string[];
     staffAssignment?: boolean;
     siteAdmin?: boolean;
+    studentContext?: boolean;
+    guardianLink?: boolean;
   } = {}) {
     const disabled = new Set(opts.disabledProviders ?? []);
     const inserted: Record<string, unknown>[] = [];
@@ -33,6 +37,10 @@ describe('MessagingService — admin site policy + student minimal preferences (
       insertNotification: vi.fn(async (v: Record<string, unknown>) => { inserted.push(v); return { id: 'notif-1', ...v }; }),
       insertDispatchLog: vi.fn(async (v: Record<string, unknown>) => { logs.push(v); return {}; }),
       hasStaffRoleAssignment: vi.fn(async () => opts.staffAssignment ?? false),
+      // Hai context vai của tầng audience (issue #288): học sinh
+      // (ghi danh/gán vai student) và phụ huynh (liên kết giám hộ).
+      hasStudentContext: vi.fn(async () => opts.studentContext ?? false),
+      hasActiveGuardianLink: vi.fn(async () => opts.guardianLink ?? false),
     };
     const users = {
       getByIdOrUndefined: vi.fn(async (id: string) => ({ id, suspended: false, deleted: false })),
@@ -104,20 +112,61 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(error2).toBeInstanceOf(ForbiddenException);
   });
 
-  it('teaching staff keep the full v2 surface (GET rows + PUT works)', async () => {
+  it('teaching staff keep the v2 surface for their side (GET rows + PUT works on staff types)', async () => {
     const { service, storedPrefs } = buildService({ staffAssignment: true });
     const rows = await service.getPreferences('teacher-1');
-    expect(rows).toHaveLength(20);
-    const view = await service.setPreference('teacher-1', { provider: 'grade_updated', popupEnabled: false });
+    // Giáo viên thuần: chỉ phía nhân sự + mọi-vai (10 loại) — phần
+    // còn lại của ca này nằm ở các ca audience ngay dưới đây.
+    expect(rows.map((r) => r.provider).sort()).toEqual([
+      'admin_announcement', 'assignment_submitted', 'badge_awarded', 'calendar_reminder',
+      'competency_review_requested', 'contact_request', 'conversation_reported',
+      'message_new', 'quiz_attempt_finished', 'report_scheduled',
+    ]);
+    const view = await service.setPreference('teacher-1', { provider: 'assignment_submitted', popupEnabled: false });
     expect(view.popupEnabled).toBe(false);
-    expect(storedPrefs.get('message_provider_grade_updated_popup_v2')).toBe('0');
+    expect(storedPrefs.get('message_provider_assignment_submitted_popup_v2')).toBe('0');
+  });
+
+  it('audience split (issue #288): a pure teacher neither sees nor can set student-only or guardian types', async () => {
+    const { service } = buildService({ staffAssignment: true });
+    const names = (await service.getPreferences('teacher-1')).map((r) => r.provider);
+    // Loại chỉ học sinh nhận (báo điểm là ca Lão gia bắt tại trận) và
+    // loại của phụ huynh đều vắng khỏi bề mặt của giáo viên thuần.
+    for (const hidden of ['grade_updated', 'assignment_assigned', 'assignment_returned', 'quiz_available', 'enrol_welcome', 'guardian_digest', 'guardian_overdue_alert']) {
+      expect(names).not.toContain(hidden);
+    }
+    // PUT thẳng qua API cũng bị server chặn 403 — không chỉ giấu UI.
+    for (const provider of ['grade_updated', 'guardian_digest']) {
+      const error = await service.setPreference('teacher-1', { provider, popupEnabled: false })
+        .catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ForbiddenException);
+      expect((error as ForbiddenException).getResponse()).toMatchObject({ code: 'messaging.preference_audience' });
+    }
+  });
+
+  it('audience split (issue #288): a dual-role user (teaches + learns) sees both sides, guardians only with a guardian link', async () => {
+    const dual = buildService({ staffAssignment: true, studentContext: true });
+    const dualNames = (await dual.service.getPreferences('dual-1')).map((r) => r.provider);
+    expect(dualNames).toContain('grade_updated');
+    expect(dualNames).toHaveLength(18);
+    expect(dualNames).not.toContain('guardian_digest');
+    const put = await dual.service.setPreference('dual-1', { provider: 'grade_updated', popupEnabled: false });
+    expect(put.popupEnabled).toBe(false);
+
+    const guardian = buildService({ staffAssignment: true, guardianLink: true });
+    const guardianNames = (await guardian.service.getPreferences('guardian-1')).map((r) => r.provider);
+    expect(guardianNames).toContain('guardian_digest');
+    expect(guardianNames).toContain('guardian_overdue_alert');
+    expect(guardianNames).toHaveLength(12);
   });
 
   it('preference rows expose the site policy as siteEnabled so the settings page can lock admin-disabled types (#288)', async () => {
     // Trang Cài đặt thông báo chỉ HIỂN THỊ được "Admin đã tắt ở cấp
     // site" khi dòng tuỳ chọn mang đúng trạng thái chính sách mà
     // notify() tôn trọng — cùng một hàm đọc chính sách, không suy diễn.
-    const { service } = buildService({ staffAssignment: true, disabledProviders: ['grade_updated', 'enrol_expiry_warning'] });
+    // Fixture hai vai (dạy + học) để cả hai loại phía học sinh đều
+    // nằm trong bề mặt — ca này kiểm siteEnabled, không kiểm audience.
+    const { service } = buildService({ staffAssignment: true, studentContext: true, disabledProviders: ['grade_updated', 'enrol_expiry_warning'] });
     const rows = await service.getPreferences('teacher-1');
     const byProvider = new Map(rows.map((r) => [r.provider, r]));
     expect(byProvider.get('grade_updated')?.siteEnabled).toBe(false);

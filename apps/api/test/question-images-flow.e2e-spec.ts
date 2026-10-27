@@ -134,10 +134,9 @@ describe('Ảnh nhúng câu hỏi: GV tải vào bank cá nhân → HS thấy tr
 
     // GV tạo câu trong bank cá nhân (API nhận thân câu dạng chuỗi thường).
     const created = await http(app).post('/api/v1/questions').set(bearer(f.teacher.token)).send({
-      categoryId: f.personalCatId, qtype: 'multichoice', name: 'Câu có hình 248',
+      categoryId: f.personalCatId, qtype: 'multichoice', 
       questionText: 'Nhìn hình rồi chọn đáp án đúng?', defaultMark: 1,
-      answers: [{ text: 'Đáp án đúng', fraction: 1 }, { text: 'Đáp án sai', fraction: 0 }],
-      options: { single: true },
+      answers: [{ text: 'Đáp án đúng', correct: true }, { text: 'Đáp án sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const questionId = created.body.question.id as string;

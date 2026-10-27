@@ -124,8 +124,8 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     const bankCatId = bankRes.body.id as string;
     const mkQuestion = async (name: string): Promise<string> => {
       const r = await http(app).post('/api/v1/questions').set(bearer(admin)).send({
-        categoryId: bankCatId, qtype: 'multichoice', name, questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
-        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+        categoryId: bankCatId, qtype: 'multichoice', questionText: `${name}: chọn đáp án đúng.`, defaultMark: 1,
+        answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
       });
       if (r.status !== 201 && r.status !== 200) throw new Error(`question failed: ${r.status} ${JSON.stringify(r.body)}`);
       return (r.body as { question: { id: string } }).question.id;
