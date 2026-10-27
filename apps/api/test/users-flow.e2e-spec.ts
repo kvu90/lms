@@ -4,9 +4,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId, uniqueName } from './identity-access-helpers';
 
 /**
- * Users & profile flow tests.
+ * Kiểm thử luồng Users & profile.
  * Oracle: lib/tests/user_test.php (MOODLE_503_STABLE) — test_search_no_identity_fields,
- * test_search_deleted_users, test_validate; report §2#2 (soft delete, guest, identity-by-capability).
+ * test_search_deleted_users, test_validate; báo cáo §2#2 (xoá mềm, guest, định danh theo capability).
  */
 describe('Users: identity rules, soft delete, preferences, outbox events', () => {
   let app: INestApplication;
@@ -97,13 +97,13 @@ describe('Users: identity rules, soft delete, preferences, outbox events', () =>
 });
 
 /**
- * Self-service access view (GET /users/me/capabilities).
- * Oracle: Access subsystem (blueprint §2#1 + report §3.3) — capability
- * resolution is the PermissionEvaluator's job; this endpoint only exposes
- * the CALLER's own resolved view (site-admin flag, role assignments with
- * context info, resolved capabilities per related context) so clients
- * render exactly what the user can operate instead of probing endpoints.
- * It takes no user parameter: another user's data is unreachable here.
+ * Góc nhìn truy cập tự phục vụ (GET /users/me/capabilities).
+ * Oracle: Hệ con Access (blueprint §2#1 + báo cáo §3.3) — việc phân giải capability
+ * là việc của PermissionEvaluator; endpoint này chỉ phơi bày
+ * góc nhìn đã phân giải của chính NGƯỜI GỌI (cờ site-admin, các lần gán vai kèm
+ * thông tin context, capability đã phân giải theo từng context liên quan) để client
+ * hiển thị đúng những gì người dùng thao tác được thay vì dò endpoint.
+ * Nó không nhận tham số người dùng: dữ liệu của người dùng khác không tới được ở đây.
  */
 describe('Users: self-service capabilities view', () => {
   let app: INestApplication;
@@ -117,7 +117,7 @@ describe('Users: self-service capabilities view', () => {
     const bob = await createUserViaApi(app, admin);
     const studentRole = await roleIdByShortname(app, admin, 'student');
     await assignRole(app, admin, alice.id, studentRole, systemId);
-    // Bob gets a distinctive custom role; it must never leak into Alice's view.
+    // Bob nhận một vai tuỳ chỉnh đặc trưng; nó không bao giờ được rò rỉ vào góc nhìn của Alice.
     const bobRole = await createRoleViaApi(app, admin);
     await assignRole(app, admin, bob.id, bobRole, systemId);
 
@@ -139,7 +139,7 @@ describe('Users: self-service capabilities view', () => {
     const systemView = (res.body.contexts as { contextId: string; capabilities: string }[])
       .find((c) => c.contextId === systemId);
     expect(systemView).toBeDefined();
-    // Student archetype resolves at the system context; admin-only caps do not.
+    // Nguyên mẫu học viên phân giải tại context hệ thống; các cap chỉ dành cho admin thì không.
     expect(systemView!.capabilities).toContain('files:view');
     expect(systemView!.capabilities).not.toContain('site:config');
   });

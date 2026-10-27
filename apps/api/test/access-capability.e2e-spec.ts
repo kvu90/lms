@@ -12,7 +12,7 @@ const CAP = 'course:update';
 const ALLOW = 1, PREVENT = -1, PROHIBIT = -1000;
 
 /**
- * GOLDEN capability flow tests.
+ * Kiểm thử luồng capability CHUẨN VÀNG (GOLDEN).
  * Oracle: lib/tests/accesslib_test.php (MOODLE_503_STABLE) —
  * test_permission_evaluation, test_assign_capability, test_role_assign,
  * test_is_siteadmin, test_get_guest_role.
@@ -110,9 +110,9 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     const users = app.get(UsersService);
     const evaluator = app.get(PermissionEvaluator);
     const guest = await users.ensureGuestUser();
-    // Seeded archetype default: guest role ALLOWs course:view at system.
+    // Mặc định nguyên mẫu đã seed: vai guest ALLOW course:view tại hệ thống.
     expect(await evaluator.hasCapability(guest.id, 'course:view', systemId, { isGuest: true })).toBe(true);
-    // …but the guest role grants nothing else, and the authenticated-user default must NOT leak in.
+    // …nhưng vai guest không cấp gì khác, và mặc định của người dùng đã xác thực KHÔNG được rò rỉ vào.
     expect(await evaluator.hasCapability(guest.id, 'user:viewdetails', systemId, { isGuest: true })).toBe(false);
   });
 
@@ -120,7 +120,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     const { userId, roleId } = await freshUserAndRole();
     await assignRole(app, admin, userId, roleId, systemId);
     await setOverride(app, admin, roleId, CAP, courseId, ALLOW);
-    expect(await hasCapability(app, admin, userId, CAP, courseId)).toBe(true); // primes the cache
+    expect(await hasCapability(app, admin, userId, CAP, courseId)).toBe(true); // làm nóng bộ nhớ đệm (cache)
     await setOverride(app, admin, roleId, CAP, courseId, PREVENT);
     expect(await hasCapability(app, admin, userId, CAP, courseId)).toBe(false);
     await setOverride(app, admin, roleId, CAP, courseId, ALLOW);

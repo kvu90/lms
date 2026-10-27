@@ -9,19 +9,19 @@ import {
 } from './engagement-helpers';
 
 /**
- * Badges + Competencies flow tests.
- * Oracles (Moodle MOODLE_503_STABLE, read 2026-10-22):
+ * Kiểm thử luồng Badges + Competencies.
+ * Oracle (Moodle MOODLE_503_STABLE, đọc ngày 2026-10-22):
  *  - public/badges/tests/badgeslib_test.php: test_create_badge_criteria,
- *    test_badge_awards, test_clone_badge (duplicate = the way to edit),
- *    test_delete_badge (delete = archive). Report §2#14: criteria tree
- *    ALL/ANY; criteria FROZEN once issued/active; assertions immutable;
+ *    test_badge_awards, test_clone_badge (duplicate = cách để sửa),
+ *    test_delete_badge (delete = archive). Báo cáo §2#14: cây tiêu chí
+ *    ALL/ANY; tiêu chí bị ĐÔNG CỨNG khi đã cấp/đang hoạt động; assertion bất biến;
  *    revoke ≠ delete.
- *  - Behat (badges/tests/behat): criteria_cohort.feature (cohort leaf),
- *    criteria_profile.feature (profile leaf), award_badge.feature /
+ *  - Behat (badges/tests/behat): criteria_cohort.feature (lá cohort),
+ *    criteria_profile.feature (lá profile), award_badge.feature /
  *    "Badge awarded depending on the course completion by-date"
- *    (coursecompletion leaf honours its by-date parameter). The UI steps
- *    of those scenarios are skipped per convention; the business steps
- *    and expected award outcomes are asserted through the API below.
+ *    (lá coursecompletion tôn trọng tham số by-date của nó). Các bước UI
+ *    của những kịch bản đó được bỏ qua theo quy ước; các bước nghiệp vụ
+ *    và kết quả cấp huy hiệu kỳ vọng được khẳng định qua API bên dưới.
  *  - public/competency/tests/api_test.php: test_list_frameworks,
  *    test_create_plan_from_template, test_create_template_cohort,
  *    test_complete_plan, test_plan_request_review / test_plan_start_review /
@@ -29,8 +29,8 @@ import {
  *    test_add_evidence_complete, test_add_evidence_and_send_for_review,
  *    test_validate_grade_in_user_competency,
  *    test_set_ruleoutcome_course_competency,
- *    test_observe_course_completed. Report §2#15: proficiency comes from
- *    the framework SCALE, never from grades.
+ *    test_observe_course_completed. Báo cáo §2#15: mức thành thạo (proficiency) đến từ
+ *    THANG (SCALE) của framework, không bao giờ từ điểm số.
  */
 describe('Badges & competencies', () => {
   let app: INestApplication;
@@ -70,7 +70,7 @@ describe('Badges & competencies', () => {
     const badgeRes = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: 'Finisher', type: 1, issuerName: 'LMS HQ' });
     const badgeId = badgeRes.body.id as string;
-    // Cannot activate without criteria.
+    // Không thể kích hoạt khi không có tiêu chí.
     const early = await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     expect(early.status).toBe(400);
     expect(early.body.code).toBe('badges.no_criteria');
@@ -80,16 +80,16 @@ describe('Badges & competencies', () => {
     await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'activitycompletion', params: { cmId: cm.id } }, { criteriaType: 'coursecompletion', params: { courseId: course.id } }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
-    // Frozen while active.
+    // Bị đông cứng khi đang hoạt động.
     const frozen = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 2, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(frozen.status).toBe(403);
     expect(frozen.body.code).toBe('badges.criteria_frozen');
-    // Before completion: not satisfied under ALL.
+    // Trước khi hoàn thành: chưa thoả mãn theo ALL.
     let evaluation = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect(evaluation.body.satisfied).toBe(false);
-    // Completing the activity completes the course → both leaves hold →
-    // the completion hook auto-awards the badge.
+    // Hoàn thành hoạt động thì hoàn thành khoá học → cả hai lá đều đúng →
+    // hook hoàn thành tự động cấp huy hiệu.
     await markCmComplete(app, admin, course.id, cm.id, student.id);
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${studentToken}`);
@@ -100,7 +100,7 @@ describe('Badges & competencies', () => {
     expect(awarded!.snapshot.criteria).toHaveLength(2);
     evaluation = await http(app).post(`/api/v1/badges/${badgeId}/evaluate`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect(evaluation.body.satisfied).toBe(true);
-    // And the award produced a badge_awarded notification for the student.
+    // Và việc cấp đó tạo ra một thông báo badge_awarded cho học viên.
     const notifications = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${studentToken}`);
     expect((notifications.body.items as { eventType: string }[]).some((n) => n.eventType === 'badge_awarded')).toBe(true);
   });
@@ -114,7 +114,7 @@ describe('Badges & competencies', () => {
       .send({ method: 2, criteria: [{ criteriaType: 'competency', params: { competencyId: competency.id } }] });
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 1 });
     const user = await createUserViaApi(app, admin);
-    // Becoming proficient (review approve) triggers the competency listener → auto-award.
+    // Trở nên thành thạo (duyệt review) kích hoạt listener của competency → tự động cấp.
     const evidence = await http(app).post('/api/v1/competencies/evidence').set('Authorization', `Bearer ${admin}`)
       .send({ userId: user.id, competencyId: competency.id, description: 'Portfolio', sendForReview: true });
     const usercompId = evidence.body.usercomp.id as string;
@@ -124,19 +124,19 @@ describe('Badges & competencies', () => {
     const mine = await http(app).get('/api/v1/badges/mine').set('Authorization', `Bearer ${userToken}`);
     const assertion = (mine.body as { id: string; badgeId: string }[]).find((r) => r.badgeId === badgeId);
     expect(assertion).toBeTruthy();
-    // Deactivate, then try to edit criteria: still frozen because awards exist.
+    // Huỷ kích hoạt, rồi thử sửa tiêu chí: vẫn bị đông cứng vì đã có lần cấp.
     await http(app).post(`/api/v1/badges/${badgeId}/status`).set('Authorization', `Bearer ${admin}`).send({ status: 0 });
     const frozen = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(frozen.status).toBe(403);
-    // Duplicate is the sanctioned edit path: the copy is inactive and editable.
+    // Nhân bản (duplicate) là đường sửa được phép: bản sao không hoạt động và sửa được.
     const copy = await http(app).post(`/api/v1/badges/${badgeId}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
     expect(copy.status).toBe(201);
     expect(copy.body.status).toBe(0);
     const editCopy = await http(app).put(`/api/v1/badges/${copy.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(editCopy.status).toBe(200);
-    // Revoke: assertion row survives, marked revoked.
+    // Thu hồi (revoke): dòng assertion vẫn sống sót, được đánh dấu đã thu hồi.
     const revoked = await http(app).post(`/api/v1/badges/issued/${assertion!.id}/revoke`).set('Authorization', `Bearer ${admin}`).send({});
     expect(revoked.status).toBe(201);
     expect(revoked.body.revoked).toBe(true);
@@ -195,7 +195,7 @@ describe('Badges & competencies', () => {
     const member = await createUserViaApi(app, admin);
     const outsider = await createUserViaApi(app, admin);
     await addCohortMember(app, admin, cohort.id, member.id);
-    // A cohort leaf without its cohort reference is refused at criteria time.
+    // Lá cohort thiếu tham chiếu cohort của nó bị từ chối tại thời điểm đặt tiêu chí.
     const probe = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`).send({ name: 'Cohort probe', type: 1 });
     const badParams = await http(app).put(`/api/v1/badges/${probe.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'cohort', params: {} }] });
@@ -205,7 +205,7 @@ describe('Badges & competencies', () => {
     const badgeId = await activeBadgeWithCriteria('Cohort member badge', [{ criteriaType: 'cohort', params: { cohortId: cohort.id } }]);
     expect((await evaluateLeaves(badgeId, member.id)).satisfied).toBe(true);
     expect((await evaluateLeaves(badgeId, outsider.id)).satisfied).toBe(false);
-    // Auto-award path: evaluating the member's badges issues it; the outsider gets nothing.
+    // Đường tự động cấp: đánh giá huy hiệu của thành viên sẽ cấp nó; người ngoài không nhận được gì.
     await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: member.id });
     await http(app).post('/api/v1/badges/evaluate-user').set('Authorization', `Bearer ${admin}`).send({ userId: outsider.id });
     const memberToken = (await login(app, member.username, STRONG_PASSWORD)).accessToken;
@@ -223,10 +223,10 @@ describe('Badges & competencies', () => {
     const field = await http(app).post('/api/v1/custom-fields/fields').set('Authorization', `Bearer ${admin}`)
       .send({ categoryId: cat.body.id, shortName, name: 'Badge department', type: 'text', configData: {} });
     expect(field.status).toBe(201);
-    // The api test DB persists across runs and is shared by this suite's
-    // specs: another spec may have declared REQUIRED core_user fields
-    // (e.g. a select `department`), and user creation validates every
-    // required field — satisfy them generically.
+    // DB kiểm thử của api tồn tại qua các lượt chạy và được dùng chung bởi các spec của suite này
+    // : một spec khác có thể đã khai báo các trường core_user BẮT BUỘC
+    // (ví dụ một select `department`), và việc tạo người dùng kiểm chứng mọi
+    // trường bắt buộc — hãy thoả mãn chúng theo cách tổng quát.
     const fieldsRes = await http(app).get('/api/v1/custom-fields/fields?component=core_user&area=user').set('Authorization', `Bearer ${admin}`);
     expect(fieldsRes.status).toBe(200);
     const requiredValues: Record<string, string> = {};
@@ -246,12 +246,12 @@ describe('Badges & competencies', () => {
     const matchingToken = (await login(app, matching.username, STRONG_PASSWORD)).accessToken;
     expect(await issuedBadgeIdsFor(matching.id, matchingToken)).toContain(badgeId);
 
-    // Standard profile fields work through the same leaf (no `value` ⇒ the field must be filled).
+    // Các trường hồ sơ chuẩn hoạt động qua cùng một lá (không có `value` ⇒ trường phải được điền).
     const stdBadgeId = await activeBadgeWithCriteria('Has a last name', [{ criteriaType: 'profile', params: { field: 'lastName' } }]);
     expect((await evaluateLeaves(stdBadgeId, matching.id)).satisfied).toBe(true);
     const stdValueBadgeId = await activeBadgeWithCriteria('Last name is User', [{ criteriaType: 'profile', params: { field: 'lastName', value: 'User' } }]);
     expect((await evaluateLeaves(stdValueBadgeId, matching.id)).satisfied).toBe(true);
-    expect((await evaluateLeaves(stdValueBadgeId, different.id)).satisfied).toBe(true); // helper default lastName is also 'User'
+    expect((await evaluateLeaves(stdValueBadgeId, different.id)).satisfied).toBe(true); // lastName mặc định của helper cũng là 'User'
     const stdMissBadgeId = await activeBadgeWithCriteria('Last name is Nobody', [{ criteriaType: 'profile', params: { field: 'lastName', value: 'Nobody' } }]);
     expect((await evaluateLeaves(stdMissBadgeId, matching.id)).satisfied).toBe(false);
   });
@@ -260,7 +260,7 @@ describe('Badges & competencies', () => {
     const { course, instance, cm } = await completableCourse();
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student.id);
-    // Complete the course NOW, before either badge exists.
+    // Hoàn thành khoá học NGAY BÂY GIỜ, trước khi bất kỳ huy hiệu nào tồn tại.
     await markCmComplete(app, admin, course.id, cm.id, student.id);
     const now = Date.now();
     const futureCutoff = new Date(now + 30 * 86400_000).toISOString();
@@ -299,10 +299,10 @@ describe('Badges & competencies', () => {
     const rows = usercomps.body as { competencyId: string; proficiency: boolean | null; grade: number | null; id: string }[];
     const completeRow = rows.find((r) => r.competencyId === competency.id);
     expect(completeRow?.proficiency).toBe(true);
-    expect(completeRow?.grade).toBe(1); // first proficient index of the scale
+    expect(completeRow?.grade).toBe(1); // chỉ số thành thạo đầu tiên của thang
     const evidenceRow = rows.find((r) => r.competencyId === competency2.id);
     expect(evidenceRow).toBeTruthy();
-    expect(evidenceRow?.proficiency).not.toBe(true); // evidence does NOT set proficiency
+    expect(evidenceRow?.proficiency).not.toBe(true); // bằng chứng (evidence) KHÔNG đặt mức thành thạo
     const evidence = await http(app).get(`/api/v1/competencies/usercomp/${evidenceRow!.id}/evidence`).set('Authorization', `Bearer ${admin}`);
     expect((evidence.body as { action: string }[]).some((e) => e.action === 'course_completed')).toBe(true);
   });
@@ -320,7 +320,7 @@ describe('Badges & competencies', () => {
       .send({ cohortId: cohort.id });
     const created = await http(app).post(`/api/v1/competencies/templates/${template.body.id}/create-plans`).set('Authorization', `Bearer ${admin}`).send({});
     expect(created.body.created).toBe(1);
-    // Idempotent: a second run creates nothing new.
+    // Lũy đẳng (idempotent): lượt chạy thứ hai không tạo gì mới.
     const again = await http(app).post(`/api/v1/competencies/templates/${template.body.id}/create-plans`).set('Authorization', `Bearer ${admin}`).send({});
     expect(again.body.created).toBe(0);
     const memberToken = (await login(app, member.username, STRONG_PASSWORD)).accessToken;
@@ -340,20 +340,20 @@ describe('Badges & competencies', () => {
       .send({ name: 'My growth plan' });
     const planId = plan.body.id as string;
     expect(plan.body.status).toBe(0);
-    // Bad transition: cannot request review from draft.
+    // Chuyển đổi sai: không thể yêu cầu review từ trạng thái draft.
     const badReq = await http(app).post(`/api/v1/competencies/plans/${planId}/request-review`).set('Authorization', `Bearer ${ownerToken}`).send({});
     expect(badReq.status).toBe(400);
     await http(app).post(`/api/v1/competencies/plans/${planId}/activate`).set('Authorization', `Bearer ${ownerToken}`).send({});
     const requested = await http(app).post(`/api/v1/competencies/plans/${planId}/request-review`).set('Authorization', `Bearer ${ownerToken}`).send({});
     expect(requested.body.status).toBe(2);
-    // The owner cannot review their own plan (no review capability) — a
-    // teacher with the review capability at a real assignment can.
+    // Chủ sở hữu không thể review kế hoạch của chính mình (không có capability review) — một
+    // giáo viên có capability review tại một assignment thật thì có thể.
     const startByOwner = await http(app).post(`/api/v1/competencies/plans/${planId}/start-review`).set('Authorization', `Bearer ${ownerToken}`).send({});
     expect(startByOwner.status).toBe(403);
     const started = await http(app).post(`/api/v1/competencies/plans/${planId}/start-review`).set('Authorization', `Bearer ${admin}`).send({});
     expect(started.body.status).toBe(3);
     const approved = await http(app).post(`/api/v1/competencies/plans/${planId}/approve`).set('Authorization', `Bearer ${admin}`).send({});
-    expect(approved.body.status).toBe(1); // approve returns the plan to active (Moodle approve_plan)
+    expect(approved.body.status).toBe(1); // approve đưa kế hoạch trở về active (Moodle approve_plan)
     const completed = await http(app).post(`/api/v1/competencies/plans/${planId}/complete`).set('Authorization', `Bearer ${ownerToken}`).send({});
     expect(completed.body.status).toBe(4);
     const view = await http(app).get(`/api/v1/competencies/plans/${planId}`).set('Authorization', `Bearer ${ownerToken}`);
@@ -365,7 +365,7 @@ describe('Badges & competencies', () => {
     const { competency } = await frameworkWithCompetency();
     const learner = await createUserViaApi(app, admin);
     const learnerToken = (await login(app, learner.username, STRONG_PASSWORD)).accessToken;
-    // Grade outside the scale (scale has indexes 0..1) is refused (test_validate_grade_in_user_competency).
+    // Điểm nằm ngoài thang (thang có các chỉ số 0..1) bị từ chối (test_validate_grade_in_user_competency).
     const badGrade = await http(app).post('/api/v1/competencies/usercomp/grade').set('Authorization', `Bearer ${admin}`)
       .send({ userId: learner.id, competencyId: competency.id, grade: 5 });
     expect(badGrade.status).toBe(400);
@@ -375,22 +375,22 @@ describe('Badges & competencies', () => {
       .send({ userId: learner.id, competencyId: competency.id, description: 'My portfolio', sendForReview: true });
     expect(evidence.status).toBe(201);
     const usercompId = evidence.body.usercomp.id as string;
-    expect(evidence.body.usercomp.status).toBe(1); // waiting for review
-    expect(evidence.body.usercomp.proficiency).toBeNull(); // self-evidence never self-certifies
+    expect(evidence.body.usercomp.status).toBe(1); // đang chờ review
+    expect(evidence.body.usercomp.proficiency).toBeNull(); // bằng chứng tự nộp không bao giờ tự chứng nhận
 
     await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/start-review`).set('Authorization', `Bearer ${admin}`).send({});
     const rejected = await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/reject`).set('Authorization', `Bearer ${admin}`).send({ note: 'Not enough evidence' });
     expect(rejected.body.status).toBe(0);
     expect(rejected.body.proficiency).not.toBe(true);
 
-    // Resubmit and approve with the proficient scale value.
+    // Nộp lại và duyệt với giá trị thang thành thạo.
     await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/request-review`).set('Authorization', `Bearer ${learnerToken}`).send({});
     await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/start-review`).set('Authorization', `Bearer ${admin}`).send({});
     const approved = await http(app).post(`/api/v1/competencies/usercomp/${usercompId}/approve`).set('Authorization', `Bearer ${admin}`).send({ grade: 1 });
     expect(approved.body.proficiency).toBe(true);
     expect(approved.body.grade).toBe(1);
     expect(approved.body.status).toBe(0);
-    // The evidence log is the full history.
+    // Nhật ký bằng chứng là toàn bộ lịch sử.
     const history = await http(app).get(`/api/v1/competencies/usercomp/${usercompId}/evidence`).set('Authorization', `Bearer ${admin}`);
     const actions = (history.body as { action: string }[]).map((e) => e.action);
     expect(actions).toContain('evidence');
@@ -431,18 +431,18 @@ describe('Badges & competencies', () => {
   it('competency rule points: parent auto-attains proficiency when the children reach the required points, not before (Moodle competency_rule_points; config shape from api_test test_duplicate_framework)', async () => {
     const { framework, parent, childA, childB } = await parentChildFramework(`${Date.now()}-pts`);
     const ruleUrl = `/api/v1/competencies/frameworks/${framework.id}/competencies/${parent.id}/rule`;
-    // Unreachable rule (required points above the children's total) is refused at set time (validate_config).
+    // Luật không thể đạt (điểm yêu cầu cao hơn tổng của các con) bị từ chối tại thời điểm đặt (validate_config).
     const unreachable = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
       .send({ outcome: 'complete', pointsRequired: 99, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
     expect(unreachable.status).toBe(400);
     expect(unreachable.body.code).toBe('competency.rule_invalid');
-    // A non-child cannot contribute points.
+    // Một phần tử không phải con không thể đóng góp điểm.
     const { competency: stranger } = await frameworkWithCompetency();
     const nonChild = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
       .send({ outcome: 'complete', pointsRequired: 1, entries: [{ competencyId: stranger.id, points: 1, required: false }] });
     expect(nonChild.status).toBe(400);
     expect(nonChild.body.code).toBe('competency.rule_invalid');
-    // Moodle's own test config shape: base 4 points; child A = 3 (optional), child B = 2 (required).
+    // Hình dạng cấu hình kiểm thử của chính Moodle: cơ sở 4 điểm; con A = 3 (tuỳ chọn), con B = 2 (bắt buộc).
     const set = await http(app).post(ruleUrl).set('Authorization', `Bearer ${admin}`)
       .send({ outcome: 'complete', pointsRequired: 4, entries: [{ competencyId: childA.id, points: 3, required: false }, { competencyId: childB.id, points: 2, required: true }] });
     expect(set.status).toBe(201);
@@ -457,15 +457,15 @@ describe('Badges & competencies', () => {
       return (rows.body as { competencyId: string; proficiency: boolean | null; grade: number | null; id: string }[])
         .find((r) => r.competencyId === parent.id);
     };
-    // Required child B approved (2 points < 4 required): parent NOT proficient yet.
+    // Con B bắt buộc được duyệt (2 điểm < 4 điểm yêu cầu): cha CHƯA thành thạo.
     await approveChild(learner.id, childB.id);
     expect((await parentRow())?.proficiency).not.toBe(true);
-    // Child A approved too (2 + 3 = 5 >= 4, required met): parent auto-attains proficiency from the scale.
+    // Con A cũng được duyệt (2 + 3 = 5 >= 4, điều kiện bắt buộc đã thoả): cha tự động đạt mức thành thạo từ thang.
     await approveChild(learner.id, childA.id);
     const parentUc = await parentRow();
     expect(parentUc?.proficiency).toBe(true);
     expect(parentUc?.grade).toBe(1);
-    // Idempotent: re-grading a child re-evaluates the rule but writes no second rule evidence.
+    // Lũy đẳng: chấm lại một con sẽ đánh giá lại luật nhưng không ghi bằng chứng luật thứ hai.
     await http(app).post('/api/v1/competencies/usercomp/grade').set('Authorization', `Bearer ${admin}`)
       .send({ userId: learner.id, competencyId: childA.id, grade: 1 });
     const evidence = await http(app).get(`/api/v1/competencies/usercomp/${parentUc!.id}/evidence`).set('Authorization', `Bearer ${admin}`);

@@ -6,14 +6,14 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { contextIdByLevelInstance, courseContextId, setCourseCompletionCriteria } from './engagement-helpers';
 
 /**
- * Course completion criteria — the full set of 8 Moodle types (issue #23).
- * Oracles: MOODLE_503_STABLE completion/criteria/* (completion_criteria_self,
+ * Tiêu chí hoàn thành khoá học — trọn bộ 8 loại của Moodle (issue #23).
+ * Oracle: MOODLE_503_STABLE completion/criteria/* (completion_criteria_self,
  * completion_criteria_course, completion_criteria_duration,
- * completion_criteria_role, completion_criteria_unenrol) and the course
- * completion settings form (course/completion_form.php): self = learner
- * marks themselves; role = holders of the named role mark learners
- * ("manual completion by others"); course = prerequisite course complete;
- * duration = N days after enrolment; unenrol = complete once unenrolled.
+ * completion_criteria_role, completion_criteria_unenrol) và biểu mẫu
+ * cài đặt hoàn thành khoá học (course/completion_form.php): self = người học
+ * tự đánh dấu cho mình; role = người giữ vai được nêu tên đánh dấu cho người học
+ * ("manual completion by others"); course = khoá tiên quyết đã hoàn thành;
+ * duration = N ngày sau khi ghi danh; unenrol = hoàn thành khi đã huỷ ghi danh.
  */
 describe('Completion criteria — full 8 Moodle types', () => {
   let app: INestApplication;
@@ -68,7 +68,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     res = await put([{ criteriaType: 'nonsense' }]);
     expect(res.status).toBe(400); expect(res.body.code).toBe('completion.bad_criteria_type');
 
-    // All 8 types at once, fully parameterised: accepted and persisted.
+    // Cả 8 loại cùng lúc, được tham số hoá đầy đủ: được chấp nhận và lưu bền vững.
     const other = await createCourse(app, admin, (await createCategory(app, admin)).id);
     const teacherRoleId = await roleIdByShortname(app, admin, 'teacher');
     res = await put([
@@ -125,7 +125,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     const courseB = await createCourse(app, admin, cat.id);
     const instA = await createEnrolInstance(app, admin, courseA.id);
     const instB = await createEnrolInstance(app, admin, courseB.id);
-    // A completes by a past date; B requires A.
+    // A hoàn thành theo một ngày trong quá khứ; B yêu cầu A.
     await setCourseCompletionCriteria(app, admin, courseA.id, [{ criteriaType: 'date', date: '2020-01-01T00:00:00.000Z' }]);
     await setCourseCompletionCriteria(app, admin, courseB.id, [{ criteriaType: 'course', courseInstance: courseA.id }]);
 
@@ -133,11 +133,11 @@ describe('Completion criteria — full 8 Moodle types', () => {
     await enrolUser(app, admin, courseA.id, instA.id, student.id);
     // A not yet evaluated for this user ⇒ B must not be complete.
     expect(await userStatus(courseB.id, student.id)).not.toBe('complete');
-    // Completing A (lazy reaggregation on read) propagates into B.
+    // Hoàn thành A (tổng hợp lại lười biếng khi đọc) lan truyền vào B.
     expect(await myStatus(token, courseA.id)).toBe('complete');
     expect(await myStatus(token, courseB.id)).toBe('complete');
 
-    // A second learner enrolled in B only never completes B.
+    // Người học thứ hai chỉ ghi danh vào B thì không bao giờ hoàn thành B.
     const only = await setupStudent(courseB.id, instB.id);
     expect(await myStatus(only.token, courseB.id)).not.toBe('complete');
   });
@@ -165,13 +165,13 @@ describe('Completion criteria — full 8 Moodle types', () => {
     const { student, token } = await setupStudent(course.id, instance.id);
     expect(await myStatus(token, course.id)).not.toBe('complete');
 
-    // The learner does not hold the teacher role: marking is forbidden.
+    // Người học không giữ vai giáo viên: việc đánh dấu bị cấm.
     const selfMark = await http(app).post(`/api/v1/courses/${course.id}/completion/criteria/${criteriaId}/mark`)
       .set('Authorization', `Bearer ${token}`).send({ userId: student.id, complete: true });
     expect(selfMark.status).toBe(403);
     expect(selfMark.body.code).toBe('completion.role_marker_forbidden');
 
-    // An approver holding the teacher role at the course context can mark.
+    // Người duyệt giữ vai giáo viên tại context khoá học thì đánh dấu được.
     const approver = await createUserViaApi(app, admin);
     await assignRole(app, admin, approver.id, teacherRoleId, await courseContextId(app, admin, course.id));
     const approverToken = (await login(app, approver.username, STRONG_PASSWORD)).accessToken;
@@ -181,7 +181,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(marked.body.status).toBe('complete');
     expect(await myStatus(token, course.id)).toBe('complete');
 
-    // Unmarking reopens the course.
+    // Bỏ đánh dấu mở lại khoá học.
     const unmarked = await http(app).post(`/api/v1/courses/${course.id}/completion/criteria/${criteriaId}/mark`)
       .set('Authorization', `Bearer ${approverToken}`).send({ userId: student.id, complete: false });
     expect(unmarked.status).toBeLessThan(300);
@@ -199,9 +199,9 @@ describe('Completion criteria — full 8 Moodle types', () => {
       .post(`/api/v1/courses/${course.id}/completion/criteria/${criteriaId}/mark`)
       .set('Authorization', `Bearer ${bearer}`).send({ userId: student.id, complete });
 
-    // A marker holding the teacher role at the SYSTEM context (root of the
-    // course context's ancestor path) may mark — Moodle role_assign inherits
-    // down the tree, exactly like PermissionEvaluator resolves capabilities.
+    // Người đánh dấu giữ vai giáo viên tại context HỆ THỐNG (gốc của
+    // đường tổ tiên của context khoá học) có thể đánh dấu — role_assign của Moodle kế thừa
+    // xuống cây, đúng như cách PermissionEvaluator phân giải capability.
     const sysMarker = await createUserViaApi(app, admin);
     await assignRole(app, admin, sysMarker.id, teacherRoleId, await systemContextId(app, admin));
     const sysToken = (await login(app, sysMarker.username, STRONG_PASSWORD)).accessToken;
@@ -213,7 +213,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(unBySystem.status).toBeLessThan(300);
     expect(await myStatus(token, course.id)).not.toBe('complete');
 
-    // Same for an assignment at the course's CLASS context (the middle
+    // Tương tự với một lần gán tại context LỚP (CLASS) của khoá (phần giữa
     // of the path since CLASS-0, PR #200): context khoá neo dưới context
     // lớp nên gán vai tại lớp phủ mọi khoá trong lớp.
     const classMarker = await createUserViaApi(app, admin);
@@ -237,8 +237,8 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(byCategory.status).toBe(403);
     expect(byCategory.body.code).toBe('completion.role_marker_forbidden');
 
-    // And an assignment in an UNRELATED branch (a different category) is
-    // not on this course's path either: still forbidden.
+    // Và một lần gán trong một nhánh KHÔNG LIÊN QUAN (một danh mục khác) cũng
+    // không nằm trên đường của khoá này: vẫn bị cấm.
     const otherCat = await createCategory(app, admin);
     const strayMarker = await createUserViaApi(app, admin);
     await assignRole(app, admin, strayMarker.id, teacherRoleId, await contextIdByLevelInstance(app, admin, 40, otherCat.id));
@@ -258,13 +258,13 @@ describe('Completion criteria — full 8 Moodle types', () => {
     const del = await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${student.id}`)
       .set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBeLessThan(300);
-    // The unenrol hook re-evaluated the user synchronously.
+    // Hook unenrol đã đánh giá lại người dùng một cách đồng bộ.
     expect(await userStatus(course.id, student.id)).toBe('complete');
   });
 
   it('aggregation still governs the new types: ALL needs every criterion, ANY needs one', async () => {
     const { course, instance } = await setupCourse();
-    // duration 0 days is satisfied immediately after enrolment; self is not.
+    // duration 0 ngày được thoả mãn ngay sau khi ghi danh; self thì không.
     await setCourseCompletionCriteria(app, admin, course.id, [
       { criteriaType: 'duration', enrolPeriodDays: 0 },
       { criteriaType: 'self' },
