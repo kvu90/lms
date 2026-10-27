@@ -1,6 +1,9 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CourseRosterMember,
+  PinRegradeLogEntry,
+  PinRegradeResult,
+  PinVersionUpdatePreview,
   QuestionSolution,
   QuestionView,
   QuizAttemptSummary,
@@ -270,4 +273,171 @@ export function useSubmitQuizAttempt() {
 export async function quizAttemptPageClientLoader(attemptId: string) {
   await queryClient.prefetchQuery(quizAttemptQueryOptions(attemptId));
   return null;
+}
+
+// --- Nhật ký chấm lại, ghi đè, cài đặt và lượt làm của trang lần ghim ----------
+//
+// Phần còn lại của trang lần ghim (F-01 của rà soát #133): nhật ký
+// chấm lại là hai query bật theo quyền; xem trước cập nhật version và
+// danh sách version của câu chấm lại là đọc theo yêu cầu (trang gọi
+// fetchQuery, giữ nhịp trạng thái tại chỗ); mọi thao tác ghi là đột
+// biến làm mới đúng cụm khoá của bề mặt bị ảnh hưởng.
+
+/** Tuỳ chọn truy vấn nhật ký chấm lại của lần ghim (GET /exam-pins/:id/regrades). */
+export function examPinRegradesQueryOptions(pinId: string) {
+  return queryOptions({
+    queryKey: queryKeys.examPinRegrades(pinId),
+    queryFn: () => apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${pinId}/regrades`),
+  });
+}
+
+/** Hook đọc nhật ký chấm lại — chỉ bật khi người xem có quyền chấm. */
+export function useExamPinRegrades(pinId: string, enabled: boolean) {
+  return useQuery({ ...examPinRegradesQueryOptions(pinId), enabled });
+}
+
+/** Tuỳ chọn truy vấn lịch sử chấm lại của chính người xem (GET /exam-pins/:id/my-regrades). */
+export function examPinMyRegradesQueryOptions(pinId: string) {
+  return queryOptions({
+    queryKey: queryKeys.examPinMyRegrades(pinId),
+    queryFn: () => apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${pinId}/my-regrades`),
+  });
+}
+
+/** Hook đọc lịch sử chấm lại của chính người xem (API tự gác cổng công bố: chưa công bố thì rỗng). */
+export function useExamPinMyRegrades(pinId: string) {
+  return useQuery({ ...examPinMyRegradesQueryOptions(pinId), enabled: pinId !== '' });
+}
+
+/** Tuỳ chọn truy vấn xem trước cập nhật version (GET /exam-pins/:id/version-update) — đọc theo yêu cầu qua fetchQuery. */
+export function examPinVersionUpdateQueryOptions(pinId: string) {
+  return queryOptions({
+    queryKey: queryKeys.examPinVersionUpdate(pinId),
+    queryFn: () => apiJson<PinVersionUpdatePreview>(`/api/v1/exam-pins/${pinId}/version-update`),
+  });
+}
+
+/** Một version của câu hỏi theo hình dạng panel chấm lại cần (id + số version + trạng thái). */
+export interface RegradeQuestionVersion {
+  id: string;
+  version: number;
+  status: string;
+}
+
+/**
+ * Tuỳ chọn truy vấn các version của một câu cho panel chấm lại: dùng
+ * chung khoá factory `questionVersions` với trang ngân hàng câu hỏi —
+ * hai bề mặt chỉ đọc các trường khác nhau của cùng một đáp ứng.
+ */
+export function regradeQuestionVersionsQueryOptions(questionId: string) {
+  return queryOptions({
+    queryKey: queryKeys.questionVersions(questionId),
+    queryFn: () => apiJson<RegradeQuestionVersion[]>(`/api/v1/questions/${questionId}/versions`),
+  });
+}
+
+/** Thân lưu cài đặt tổ chức của lần ghim (PATCH /exam-pins/:id). */
+export interface ExamPinSettingsPayload {
+  name: string;
+  intro: string;
+  timeOpen: string | null;
+  timeClose: string | null;
+  timeLimitSeconds: number | null;
+  attemptsAllowed: number;
+  gradeMethod: string;
+  grade: number;
+  shuffleAnswers: boolean;
+  versionMode: 'pinned' | 'float_latest_ready';
+}
+
+/** Đột biến lưu cài đặt lần ghim — thành công thì làm mới view lần ghim. */
+export function useUpdateExamPinSettings(pinId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ExamPinSettingsPayload) =>
+      apiJson(`/api/v1/exam-pins/${pinId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.examPin(pinId) }),
+  });
+}
+
+/** Đột biến áp cập nhật version lên đúng exam version đã xem trước (POST /exam-pins/:id/version-update). */
+export function useApplyExamPinVersionUpdate(pinId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (toExamVersionId: string) =>
+      apiJson(`/api/v1/exam-pins/${pinId}/version-update`, {
+        method: 'POST',
+        body: JSON.stringify({ toExamVersionId }),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.examPin(pinId) }),
+  });
+}
+
+/** Các trường ghi đè dùng chung cho tạo mới và sửa (đích chỉ có ở tạo mới). */
+export interface ExamPinOverrideFields {
+  timeOpen: string | null;
+  timeClose: string | null;
+  timeLimitSeconds: number | null;
+  attempts: number | null;
+  password?: string;
+  reason?: string;
+}
+
+/** Đột biến tạo ghi đè cho một đích (POST /exam-pins/:id/overrides). */
+export function useCreateExamPinOverride(pinId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: ExamPinOverrideFields & { userId?: string; groupId?: string }) =>
+      apiJson(`/api/v1/exam-pins/${pinId}/overrides`, { method: 'POST', body: JSON.stringify(body) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.examPinOverrides(pinId) }),
+  });
+}
+
+/** Đột biến sửa một ghi đè (PATCH /exam-pin-overrides/:id). */
+export function useUpdateExamPinOverride(pinId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ overrideId, fields }: { overrideId: string; fields: ExamPinOverrideFields }) =>
+      apiJson(`/api/v1/exam-pin-overrides/${overrideId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(fields),
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.examPinOverrides(pinId) }),
+  });
+}
+
+/** Đột biến xoá một ghi đè (DELETE /exam-pin-overrides/:id). */
+export function useDeleteExamPinOverride(pinId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (overrideId: string) =>
+      apiJson(`/api/v1/exam-pin-overrides/${overrideId}`, { method: 'DELETE' }),
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.examPinOverrides(pinId) }),
+  });
+}
+
+/**
+ * Đột biến chạy chấm lại theo đáp án (POST /exam-pins/:id/regrades):
+ * dryRun=true chỉ xem trước điểm đổi; áp thật thì trang tự nạp lại
+ * nhật ký + view lần ghim sau khi đột biến xong.
+ */
+export function useRunExamPinRegrade(pinId: string) {
+  return useMutation({
+    mutationFn: (vars: { questionId: string; toVersionId: string; dryRun: boolean }) =>
+      apiJson<PinRegradeResult>(`/api/v1/exam-pins/${pinId}/regrades`, {
+        method: 'POST',
+        body: JSON.stringify(vars),
+      }),
+  });
+}
+
+/** Đột biến bắt đầu một lượt làm (POST /exam-pins/:id/attempts) — trả về id lượt để điều hướng sang trang làm bài. */
+export function useStartExamPinAttempt(pinId: string) {
+  return useMutation({
+    mutationFn: (preview: boolean) =>
+      apiJson<{ attempt: { id: string } }>(`/api/v1/exam-pins/${pinId}/attempts`, {
+        method: 'POST',
+        body: JSON.stringify({ preview }),
+      }),
+  });
 }

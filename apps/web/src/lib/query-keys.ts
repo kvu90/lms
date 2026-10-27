@@ -280,4 +280,10 @@ export const queryKeys = {
   /** Lịch sử điểm của một học viên trên một mục điểm (GET /courses/grades/items/:id/users/:userId/history) — trang bảng điểm. */
   gradeItemHistory: (itemId: string, userId: string) =>
     ['grades', 'items', itemId, 'users', userId, 'history'] as const,
+  /** Nhật ký chấm lại của một lần ghim (GET /exam-pins/:id/regrades) — trang lần ghim. */
+  examPinRegrades: (pinId: string) => ['exam-pins', pinId, 'regrades'] as const,
+  /** Lịch sử chấm lại của chính người xem trên một lần ghim (GET /exam-pins/:id/my-regrades) — trang lần ghim. */
+  examPinMyRegrades: (pinId: string) => ['exam-pins', pinId, 'my-regrades'] as const,
+  /** Xem trước cập nhật version của một lần ghim (GET /exam-pins/:id/version-update) — trang lần ghim. */
+  examPinVersionUpdate: (pinId: string) => ['exam-pins', pinId, 'version-update'] as const,
 };
