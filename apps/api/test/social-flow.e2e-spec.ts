@@ -6,20 +6,20 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
 
 /**
- * Social (Tag / Comment / Rating / Notes) flow tests — every
- * sub-system is POLYMORPHIC (component + itemType/area + itemId +
- * contextId, no hard FK), proven by running the SAME API over two
- * different item kinds, with capability checks at the item's context.
- * Oracles (Moodle MOODLE_503_STABLE, read 2026-10-22):
+ * Kiểm thử luồng Social (Tag / Comment / Rating / Notes) — mọi
+ * hệ con đều ĐA HÌNH (POLYMORPHIC) (component + itemType/area + itemId +
+ * contextId, không có FK cứng), được chứng minh bằng cách chạy CÙNG MỘT API trên hai
+ * loại item khác nhau, với kiểm tra capability tại context của item.
+ * Oracle (Moodle MOODLE_503_STABLE, đọc ngày 2026-10-22):
  *  - tag/tests/taglib_test.php: test_add_remove_item_tag,
  *    test_add_tag_ordering_calculation.
  *  - comment/tests/externallib_test.php: test_get_comments,
- *    test_add_comments_single (comment/tests/comment_test.php 404s in 5.3).
- *  - rating/tests/rating_test.php: test_get_ratings_sql — per-item
- *    aggregates: (1,3)→2, (1,4)→2.5, (3,5)→4, count=2 each.
- *  - notes/tests/lib_test.php covers only profile navigation in 5.3; the
- *    note visibility law follows report §2#16 + the social spec (course notes
- *    are for the course's teachers).
+ *    test_add_comments_single (comment/tests/comment_test.php trả 404 ở bản 5.3).
+ *  - rating/tests/rating_test.php: test_get_ratings_sql — bản tổng hợp theo từng item
+ *    : (1,3)→2, (1,4)→2.5, (3,5)→4, mỗi cái count=2.
+ *  - notes/tests/lib_test.php chỉ bao phủ điều hướng hồ sơ ở bản 5.3; luật
+ *    hiển thị ghi chú tuân theo báo cáo §2#16 + đặc tả social (ghi chú khoá học
+ *    dành cho giáo viên của khoá).
  */
 describe('Social: tags, comments, ratings, notes', () => {
   let app: INestApplication;
@@ -50,20 +50,20 @@ describe('Social: tags, comments, ratings, notes', () => {
     expect(setCourse.body.tags.map((t: { name: string }) => t.name)).toEqual(['science', 'stem']);
     expect(setCourse.body.tags.map((t: { ordering: number }) => t.ordering)).toEqual([1, 2]);
 
-    // Same API, different item kind: a badge (its context is the owner's user context).
+    // Cùng API, loại item khác: một huy hiệu (context của nó là context người dùng của chủ sở hữu).
     const badgeItemId = uuidv7();
     const userCtx = await contextIdByLevelInstance(app, admin, 30, student.id);
     const setPost = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'core_badges', itemType: 'badge', itemId: badgeItemId, contextId: userCtx, tags: ['science', 'fieldwork'] });
     expect(setPost.status).toBe(201);
-    // Ordering restarts at 1 for a different item (oracle ordering case).
+    // Thứ tự (ordering) bắt đầu lại từ 1 cho một item khác (trường hợp ordering của oracle).
     expect(setPost.body.tags.map((t: { ordering: number }) => t.ordering)).toEqual([1, 2]);
 
     const courseTags = await http(app).get('/api/v1/tags/items').query({ component: 'core', itemType: 'course', itemId: course.id }).set('Authorization', `Bearer ${studentToken}`);
     expect(courseTags.body).toHaveLength(2);
     const postTags = await http(app).get('/api/v1/tags/items').query({ component: 'core_badges', itemType: 'badge', itemId: badgeItemId }).set('Authorization', `Bearer ${studentToken}`);
     expect(postTags.body.map((t: { name: string }) => t.name)).toEqual(['science', 'fieldwork']);
-    // 'science' is shared: its correlation set links the co-occurring tags of both items.
+    // 'science' được dùng chung: tập tương quan của nó liên kết các tag đồng xuất hiện của cả hai item.
     const science = (courseTags.body as { id: string; name: string }[]).find((t) => t.name === 'science')!;
     const corr = await http(app).get(`/api/v1/tags/${science.id}/correlated`).set('Authorization', `Bearer ${studentToken}`);
     const corrNames: string[] = [];
@@ -74,12 +74,12 @@ describe('Social: tags, comments, ratings, notes', () => {
     }
     expect(corrNames).toContain('stem');
     expect(corrNames).toContain('fieldwork');
-    // Unregistered areas are refused.
+    // Các area chưa đăng ký bị từ chối.
     const bad = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'mod_nope', itemType: 'gadget', itemId: '01900000-0000-7000-8000-000000000042', contextId: ctxId, tags: ['x'] });
     expect(bad.status).toBe(400);
     expect(bad.body.code).toBe('tags.area_not_registered');
-    // set_item_tags replaces: removing all tags empties the item (test_add_remove_item_tag).
+    // set_item_tags thay thế: loại bỏ mọi tag làm rỗng item (test_add_remove_item_tag).
     const emptied = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'core', itemType: 'course', itemId: course.id, contextId: ctxId, tags: [] });
     expect(emptied.body.tags).toHaveLength(0);
@@ -90,7 +90,7 @@ describe('Social: tags, comments, ratings, notes', () => {
     const c1 = await http(app).post('/api/v1/comments').set('Authorization', `Bearer ${studentToken}`)
       .send({ contextId: ctxId, component: 'core', commentArea: 'course', itemId: course.id, content: 'Great course' });
     expect(c1.status).toBe(201);
-    // Same API shape on a completely different item kind (forum post).
+    // Cùng hình dạng API trên một loại item hoàn toàn khác (bài đăng forum).
     const forumItemId = uuidv7();
     const userCtx = await contextIdByLevelInstance(app, admin, 30, student.id);
     const c2 = await http(app).post('/api/v1/comments').set('Authorization', `Bearer ${studentToken}`)
@@ -102,13 +102,13 @@ describe('Social: tags, comments, ratings, notes', () => {
     expect(list.body.canpost).toBe(true);
     expect(list.body.comments[0].content).toBe('Great course');
 
-    // A user with no footing in the course context cannot post there.
+    // Người dùng không có chỗ đứng trong context khoá học thì không đăng được ở đó.
     const stranger = await createUserViaApi(app, admin);
     const strangerToken = (await login(app, stranger.username, STRONG_PASSWORD)).accessToken;
     const denied = await http(app).post('/api/v1/comments').set('Authorization', `Bearer ${strangerToken}`)
       .send({ contextId: ctxId, component: 'core', commentArea: 'course', itemId: course.id, content: 'spam' });
     expect(denied.status).toBe(403);
-    // Nor delete someone else's comment; the author can delete their own.
+    // Cũng không xoá được bình luận của người khác; tác giả xoá được bình luận của mình.
     const delDenied = await http(app).delete(`/api/v1/comments/${c1.body.id}`).set('Authorization', `Bearer ${strangerToken}`);
     expect(delDenied.status).toBe(403);
     const delOwn = await http(app).delete(`/api/v1/comments/${c1.body.id}`).set('Authorization', `Bearer ${studentToken}`);
@@ -122,22 +122,22 @@ describe('Social: tags, comments, ratings, notes', () => {
     const raters: string[] = [];
     for (let i = 0; i < 3; i++) {
       const u = await createUserViaApi(app, admin);
-      // Raters act at the system context here (site-level demo item): grant
-      // the rate capability through a real role assignment at system level
-      // is admin work; simpler: rate at a context where the virtual user
-      // role applies — system context itself.
+      // Người chấm (rater) hành động tại context hệ thống ở đây (item demo cấp site): việc cấp
+      // capability rate qua một lần gán vai thật ở cấp hệ thống
+      // là việc của admin; đơn giản hơn: chấm tại một context nơi vai người dùng ảo
+      // được áp dụng — chính là context hệ thống.
       raters.push((await login(app, u.username, STRONG_PASSWORD)).accessToken);
     }
     const systemCtx = await contextIdByLevelInstance(app, admin, 10, null);
-    // Run-unique item ids: lms_test is persistent across runs, and aggregates
-    // are per item — fixed ids would accumulate ratings from previous runs.
+    // Id item duy nhất theo lượt chạy: lms_test tồn tại qua các lượt chạy, và bản tổng hợp
+    // tính theo từng item — id cố định sẽ tích lũy rating từ các lượt chạy trước.
     const [itemA, itemB, itemC, itemBad] = [uuidv7(), uuidv7(), uuidv7(), uuidv7()];
     const rate = async (token: string, itemId: string, rating: number) => {
       const res = await http(app).post('/api/v1/ratings').set('Authorization', `Bearer ${token}`)
         .send({ contextId: systemCtx, component: 'mod_forum', ratingArea: 'post', itemId, scaleId: 5, rating });
       expect(res.status).toBe(201);
     };
-    // Oracle data of test_get_ratings_sql, item by item.
+    // Dữ liệu oracle của test_get_ratings_sql, theo từng item.
     await rate(raters[0]!, itemA, 1); await rate(raters[1]!, itemA, 3);
     await rate(raters[0]!, itemB, 1); await rate(raters[1]!, itemB, 4);
     await rate(raters[0]!, itemC, 3); await rate(raters[1]!, itemC, 5);
@@ -151,19 +151,19 @@ describe('Social: tags, comments, ratings, notes', () => {
     expect(await agg(itemA)).toMatchObject({ count: 2, average: 2 });
     expect(await agg(itemB)).toMatchObject({ count: 2, average: 2.5 });
     expect(await agg(itemC)).toMatchObject({ count: 2, average: 4 });
-    // Out-of-scale ratings are refused (scale max 5).
+    // Rating ngoài thang bị từ chối (thang tối đa 5).
     const bad = await http(app).post('/api/v1/ratings').set('Authorization', `Bearer ${raters[0]!}`)
       .send({ contextId: systemCtx, component: 'mod_forum', ratingArea: 'post', itemId: itemBad, scaleId: 5, rating: 9 });
     expect(bad.status).toBe(400);
-    // Re-rating updates the same row (one rating per user per item).
+    // Chấm lại cập nhật cùng một dòng (mỗi người dùng một rating cho mỗi item).
     await rate(raters[0]!, itemA, 5);
     expect(await agg(itemA)).toMatchObject({ count: 2, average: 4 });
-    // Individual ratings need viewall: a plain rater is refused the list…
+    // Rating riêng lẻ cần viewall: người chấm thường bị từ chối danh sách…
     const listDenied = await http(app).get('/api/v1/ratings')
       .query({ contextId: systemCtx, component: 'mod_forum', ratingArea: 'post', itemId: itemA })
       .set('Authorization', `Bearer ${raters[2]!}`);
     expect(listDenied.status).toBe(403);
-    // …while the admin (manager archetype) sees them.
+    // …trong khi admin (nguyên mẫu manager) thấy được chúng.
     const listAdmin = await http(app).get('/api/v1/ratings')
       .query({ contextId: systemCtx, component: 'mod_forum', ratingArea: 'post', itemId: itemA })
       .set('Authorization', `Bearer ${admin}`);
@@ -173,7 +173,7 @@ describe('Social: tags, comments, ratings, notes', () => {
 
   it('notes: draft is creator-only, course notes are visible to the course teacher (not fellow students, not the subject), site notes to system-level viewers', async () => {
     const { course, student } = await courseWithStudent();
-    // A teacher of the course (real teacher assignment at the course context).
+    // Một giáo viên của khoá (gán vai giáo viên thật tại context khoá học).
     const { assignRole, roleIdByShortname } = await import('./identity-access-helpers');
     const teacher = await createUserViaApi(app, admin);
     const teacherRole = await roleIdByShortname(app, admin, 'teacher');
@@ -189,18 +189,18 @@ describe('Social: tags, comments, ratings, notes', () => {
       .send({ userId: student.id, courseId: course.id, content: 'Personal reminder', publishState: 'draft' });
     expect(draftNote.status).toBe(201);
 
-    // Teacher sees both of their notes about the student.
+    // Giáo viên thấy cả hai ghi chú của mình về học viên.
     const teacherList = await http(app).get(`/api/v1/notes/user/${student.id}`).set('Authorization', `Bearer ${teacherToken}`);
     expect(teacherList.body).toHaveLength(2);
-    // The subject (the student) sees NEITHER: course notes are for teachers.
+    // Đối tượng (học viên) KHÔNG thấy ghi chú nào: ghi chú khoá học dành cho giáo viên.
     const studentList = await http(app).get(`/api/v1/notes/user/${student.id}`).set('Authorization', `Bearer ${studentToken}`);
     expect(studentList.body).toHaveLength(0);
-    // Another student of the same course also sees nothing.
+    // Một học viên khác của cùng khoá cũng không thấy gì.
     const peer = await createUserViaApi(app, admin);
     const peerToken = (await login(app, peer.username, STRONG_PASSWORD)).accessToken;
     const peerList = await http(app).get(`/api/v1/notes/user/${student.id}`).set('Authorization', `Bearer ${peerToken}`);
     expect(peerList.body).toHaveLength(0);
-    // Direct fetch enforces the same law.
+    // Truy xuất trực tiếp cưỡng chế cùng một luật.
     const direct = await http(app).get(`/api/v1/notes/${courseNote.body.id}`).set('Authorization', `Bearer ${studentToken}`);
     expect(direct.status).toBe(403);
   });

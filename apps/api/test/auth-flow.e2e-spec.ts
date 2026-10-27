@@ -4,12 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 
 /**
- * Auth flow tests.
+ * Kiểm thử luồng Auth.
  * Oracle: lib/tests/authlib_test.php (MOODLE_503_STABLE) — test_lockout,
- * test_authenticate_user_login; refresh rotation + reuse detection per
- * report §3.7 (self-built, OAuth security best practice).
- * MFA TOTP oracle: blueprint §2#3 (MFA hook) + Moodle tool_mfa factor_totp
- * semantics — password alone is not enough once a TOTP factor is confirmed.
+ * test_authenticate_user_login; xoay refresh + phát hiện tái sử dụng theo
+ * báo cáo §3.7 (tự xây dựng, thực hành bảo mật OAuth tốt nhất).
+ * Oracle MFA TOTP: blueprint §2#3 (MFA hook) + ngữ nghĩa factor_totp của Moodle tool_mfa
+ *  — chỉ mật khẩu là chưa đủ khi một nhân tố TOTP đã được xác nhận.
  */
 
 /** Mã TOTP hiện tại cho secret, sinh bằng chính thư viện otplib đã cài. */
@@ -56,7 +56,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     const me = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${viaToken.body.accessToken}`);
     expect(me.status).toBe(200);
     expect(me.body.username).toBe(user.username);
-    expect(me.body.email).toBe(user.email); // own profile always shows own identity fields
+    expect(me.body.email).toBe(user.email); // hồ sơ của chính mình luôn hiển thị các trường định danh của chính mình
   });
 
   it('rejects a wrong password with 401 Problem Details', async () => {
@@ -84,7 +84,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     const rotated = await http(app).post('/api/v1/auth/refresh').send({ refreshToken: first.refreshToken });
     expect(rotated.status).toBe(201);
     expect(rotated.body.refreshToken).not.toBe(first.refreshToken);
-    // Reuse of the rotated-out token = theft signal ⇒ family revoked.
+    // Tái sử dụng token đã bị xoay ra = tín hiệu bị đánh cắp ⇒ họ (family) bị thu hồi.
     const reuse = await http(app).post('/api/v1/auth/refresh').send({ refreshToken: first.refreshToken });
     expect(reuse.status).toBe(401);
     expect(reuse.body.code).toBe('auth.refresh_reuse_detected');
@@ -114,7 +114,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     const second = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: 'NewPassw0rd!' });
     expect(second.status).toBe(201);
     expect(second.body.user.forcePasswordChange).toBe(false);
-    // weak new password is rejected by the configured policy
+    // mật khẩu mới yếu bị chính sách đã cấu hình từ chối
     const weak = await http(app).post('/api/v1/auth/change-password')
       .set('Authorization', `Bearer ${second.body.accessToken}`)
       .send({ currentPassword: 'NewPassw0rd!', newPassword: 'weak' });
@@ -128,14 +128,14 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     const sid1 = first.body.sessionId as string;
     const me1 = await http(app).get('/api/v1/auth/session/me').set('x-session-id', sid1);
     expect(me1.status).toBe(200);
-    // Second login carrying the old id must rotate it (fixation protection).
+    // Lần đăng nhập thứ hai mang id cũ phải xoay nó (bảo vệ chống fixation).
     const second = await http(app).post('/api/v1/auth/session/login')
       .set('Cookie', `lms_session=${sid1}`).send({ username: user.username, password: STRONG_PASSWORD });
     const sid2 = second.body.sessionId as string;
     expect(sid2).not.toBe(sid1);
     const oldMe = await http(app).get('/api/v1/auth/session/me').set('x-session-id', sid1);
     expect(oldMe.status).toBe(401);
-    // Suspension kills the live session.
+    // Đình chỉ huỷ phiên đang sống.
     await http(app).post(`/api/v1/users/${user.id}/suspend`).set('Authorization', `Bearer ${admin}`);
     const suspendedMe = await http(app).get('/api/v1/auth/session/me').set('x-session-id', sid2);
     expect(suspendedMe.status).toBe(401);
