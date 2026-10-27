@@ -137,12 +137,11 @@ describe('Exam contributions S4 (issue #228): QB-4 đầy đủ cho đề + ch�
     expect(approveNew.status, JSON.stringify(approveNew.body)).toBe(201);
     const targetId = (approveNew.body as ContributionBody).resultExamId!;
     expect(targetId).toBeTruthy();
-    // Bản copy duyệt đóng góp thường hạ cánh ở draft (người phụ trách
-    // bank đích rà soát rồi mới công bố) — admin đưa lên ready để
-    // giáo viên khác copy về sửa thành bản đề xuất cập nhật.
+    // Bản copy duyệt đóng góp hạ cánh ready ngay tại bank đích (quy
+    // tắc hoàn thiện: duyệt đóng góp đạt là đường vào bank ở dạng đã
+    // hoàn thiện) — dùng thẳng làm đề đích cho bản đề xuất cập nhật.
     const targetView = await http(app).get(`/api/v1/exams/${targetId}`).set(bearer(admin));
-    expect((targetView.body as PaperBody).paper.status).toBe('draft');
-    await setPaperStatus(admin, targetId, 'ready');
+    expect((targetView.body as PaperBody).paper.status).toBe('ready');
 
     // Giáo viên copy đề đích về bank cá nhân → bản sao suy từ đích, sửa nội dung (thêm câu 2).
     const copy = await http(app).post(`/api/v1/exams/${targetId}/copy`).set(bearer(owner.token)).send({});

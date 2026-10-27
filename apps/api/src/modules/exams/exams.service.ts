@@ -772,7 +772,10 @@ export class ExamsService {
    * của người copy): danh tính mới, slots sao nguyên — question +
    * pinned version GIỮ NGUYÊN (copy đề không copy câu), derived_from
    * trỏ về đề nguồn, tác giả gốc giữ nguyên qua các đời copy,
-   * copy_count của đề nguồn tăng. Bản copy bắt đầu ở draft, version 1.
+   * copy_count của đề nguồn tăng. Bản copy hạ cánh `ready` ngay tại
+   * bank đích, version 1 — theo quy tắc hoàn thiện: sao chép vào
+   * bank là đường vào bank ở dạng đã hoàn thiện (cùng nhóm với duyệt
+   * đóng góp/hồ sơ đạt), không qua trạng thái soạn `draft`.
    */
   async copyPaper(actorId: string, paperId: string, input: CopyExam): Promise<ExamView> {
     const source = await this.getPaperOrThrow(paperId);
@@ -803,10 +806,10 @@ export class ExamsService {
     return this.paperView(actorId, copied);
   }
 
-  /** Nhân bản đề (danh tính + version hiện tại thành version 1 + slots nguyên trạng) vào bank đích — dùng chung cho copy tay và duyệt đóng góp. */
+  /** Nhân bản đề (danh tính + version hiện tại thành version 1 + slots nguyên trạng) vào bank đích — dùng chung cho copy tay và chốt duyệt đóng góp mode 'new' không kèm hồ sơ; bản nhân bản hạ cánh `ready` theo quy tắc hoàn thiện. */
   private async deepCopyInto(actorId: string, source: ExamRow, target: QuestionBankRow, nameOverride?: string): Promise<ExamRow> {
     const sourceVersion = await this.currentVersion(source);
-    return this.copyPaperVersionIntoBank(actorId, source, sourceVersion, target, { name: nameOverride, status: 'draft' });
+    return this.copyPaperVersionIntoBank(actorId, source, sourceVersion, target, { name: nameOverride, status: 'ready' });
   }
 
   /**
@@ -814,9 +817,12 @@ export class ExamsService {
    * mới, phiên bản đó trở thành version 1 của bản copy, slots sao
    * nguyên (question + pinned version giữ nguyên), derived_from trỏ
    * về đề nguồn, tác giả gốc giữ nguyên, copy_count của đề nguồn
-   * tăng. Copy tay/duyệt đóng góp dùng version hiện tại + trạng thái
-   * draft; duyệt BỘ HỒ SƠ (EB-3) dùng PHIÊN BẢN ĐÃ GHIM lúc nộp +
-   * trạng thái ready để đề hiện ngay ở bank đích sau khi duyệt đạt.
+   * tăng. Mọi đường qua hàm này đều hạ cánh `ready` tại bank đích
+   * theo quy tắc hoàn thiện (sao chép/duyệt đóng góp vào bank ở dạng
+   * đã hoàn thiện): copy tay/duyệt đóng góp thường nhân bản version
+   * hiện tại của đề nguồn; duyệt BỘ HỒ SƠ (EB-3) nhân bản PHIÊN BẢN
+   * ĐÃ GHIM lúc nộp để đề chính thức đã qua đủ cấp duyệt hiện ngay ở
+   * bank đích sau khi duyệt đạt.
    */
   async copyPaperVersionIntoBank(actorId: string, source: ExamRow, sourceVersion: ExamVersionRow, target: QuestionBankRow, opts?: { name?: string; status?: string }): Promise<ExamRow> {
     const sourceSlots = await this.repo.listSlots(sourceVersion.id);
@@ -1021,13 +1027,13 @@ export class ExamsService {
    * Chốt duyệt một đóng góp (mốc cuối — cấp 1 khi không có cấp 2,
    * cấp 2 khi qua ban giám hiệu):
    *
-   * - mode 'new': COPY đề vào bank đích (bản copy mang trạng thái
-   *   soạn `draft` như mọi đường copy vào bank — người phụ trách
-   *   bank đích rà soát rồi mới công bố `ready`); đóng góp CÓ bộ hồ
-   *   sơ đính kèm thì copy PHIÊN BẢN ĐÃ GHIM trong bộ hồ sơ ở trạng
-   *   thái `ready` (đề chính thức đã qua đủ cấp duyệt phải hiện ngay
-   *   ở bank đích như đường hồ sơ cũ). Trùng hoàn toàn (bank đích đã
-   *   có bản suy từ chính đề nguồn) thì 409 như QB-4.
+   * - mode 'new': COPY đề vào bank đích, bản copy hạ cánh `ready`
+   *   theo quy tắc hoàn thiện (duyệt đóng góp đạt là đường vào bank
+   *   ở dạng đã hoàn thiện — cùng quy tắc với sao chép tay); đóng
+   *   góp CÓ bộ hồ sơ đính kèm thì copy PHIÊN BẢN ĐÃ GHIM trong bộ
+   *   hồ sơ, cũng hạ cánh `ready` (đề chính thức đã qua đủ cấp duyệt
+   *   phải hiện ngay ở bank đích như đường hồ sơ cũ). Trùng hoàn
+   *   toàn (bank đích đã có bản suy từ chính đề nguồn) thì 409 như QB-4.
    * - mode 'update': tạo VERSION MỚI trên chính danh tính đề đích từ
    *   metadata + slots của version hiện tại của đề nguồn — bank
    *   đích không sinh danh tính mới, result_exam_id trỏ về chính

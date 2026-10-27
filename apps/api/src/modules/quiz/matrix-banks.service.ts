@@ -53,8 +53,10 @@ export const MATRIX_BANK_CAPS = {
  *   PR #83); exam_matrices.bank_id neo vào bank, quyền MỘT nguồn duy
  *   nhất là context của bank (resolver trong QuizService).
  * - Copy mẫu → ma trận làm việc: deep copy toàn bộ ô với danh tính
- *   mới, derived_from_matrix_id trỏ về mẫu, version về 1, trạng thái
- *   draft — sửa bản copy không đụng mẫu (bất biến truy vết).
+ *   mới, derived_from_matrix_id trỏ về mẫu, version về 1, hạ cánh
+ *   `ready` (quy tắc hoàn thiện: sao chép vào bank là đường vào bank
+ *   ở dạng đã hoàn thiện) — sửa bản copy fork version mới, không
+ *   đụng mẫu (bất biến truy vết).
  * - Đóng góp + duyệt: giáo viên đề xuất ma trận ready của mình vào
  *   bank chung; người có matrix:moderate tại bank đích duyệt (= copy
  *   sâu vào bank đích, bản vào bank tổ/trường là MẪU) hoặc từ chối kèm
@@ -269,6 +271,9 @@ export class MatrixBanksService {
    * nguồn trong bank), cổng đích là cổng TẠO matrix:add tại bank đích
    * (bank-local; copy là ghi một ma trận mới vào bank đích — khuôn
    * S3). Ma trận hidden chỉ chủ sở hữu/người duyệt mới copy được.
+   * Bản copy hạ cánh `ready` tại bank đích theo quy tắc hoàn thiện
+   * (sao chép vào bank ở dạng đã hoàn thiện — cùng hạ cánh với
+   * đường duyệt đóng góp), version 1.
    */
   async copyMatrix(actorId: string, matrixId: string, input: CopyExamMatrixDto): Promise<ExamMatrixView> {
     const source = await this.getMatrixRow(matrixId);
@@ -287,7 +292,7 @@ export class MatrixBanksService {
     if (!targetCaps.add) {
       throw new ForbiddenException({ message: 'No matrix:add on the target matrix bank', code: 'quiz.matrix_copy_target_forbidden' });
     }
-    const copy = await this.deepCopyMatrix(actorId, source, target, { status: 'draft', isTemplate: false, name: input.name });
+    const copy = await this.deepCopyMatrix(actorId, source, target, { status: 'ready', isTemplate: false, name: input.name });
     await this.outbox.enqueueStandalone({
       aggregate: 'quiz', type: 'exam_matrix_copied',
       payload: { sourceMatrixId: source.id, newMatrixId: copy.id, sourceBankId: source.bankId, targetBankId: target.id, actorId },
