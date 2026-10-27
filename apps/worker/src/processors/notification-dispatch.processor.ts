@@ -106,10 +106,10 @@ export class NotificationDispatchProcessor extends WorkerHost {
       }).onConflictDoNothing();
       return { status: 'skipped-suspended', channel };
     }
-    // Admin site policy re-check (NB-7): the type may have been
-    // disabled site-wide AFTER the job was queued — the dispatch-time
-    // law wins, like the suspended/preference re-checks. Mandatory P2
-    // types are never blocked here either.
+    // Kiểm lại chính sách admin cấp site (NB-7): loại có thể đã bị
+    // tắt cho toàn site SAU khi job xếp hàng — luật tại lúc phát
+    // thắng, như các kiểm lại đình chỉ/tuỳ chọn. Hai loại bắt buộc
+    // P2 cũng không bao giờ bị chặn ở khâu này.
     if (!MANDATORY_PROVIDERS.has(provider)) {
       const [policy] = await this.db.select({ value: pluginConfig.value }).from(pluginConfig)
         .where(and(
@@ -129,7 +129,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
         return { status: 'skipped-admin-disabled', channel };
       }
     }
-    // Preference re-check for both login states: disabled in both ⇒ no dispatch.
+    // Kiểm lại tuỳ chọn ở cả hai trạng thái đăng nhập: tắt ở cả hai ⇒ không phát.
     const prefName = (state: string) => `message_provider_${provider}_${channel}_${state}`;
     const prefs = await this.db.select().from(userPreferences).where(and(
       eq(userPreferences.userId, userId),

@@ -266,11 +266,11 @@ export interface NotificationChannelPort {
  *  - A suspended (or deleted) user RECEIVES nothing: no message delivery,
  *    no notification, on any channel. A user who blocked the sender does
  *    not receive their messages either.
- *  - Dispatch of external channels goes through the BullMQ
- *    'notification-dispatch' queue consumed by the worker. Since NB-5
- *    (issue #174) the email channel really sends via Resend at the
- *    worker (immediately, or via the daily digest for the 'daily'
- *    frequency); push remains a log-only port (no native app yet).
+ *  - Phân phối kênh ngoài đi qua hàng đợi BullMQ 'notification-dispatch'
+ *    do worker tiêu thụ. Từ NB-5 (issue #174) kênh email gửi thật qua
+ *    Resend ở phía worker (gửi ngay, hoặc qua tổng hợp theo ngày với
+ *    tần suất 'daily'); push vẫn là cổng chỉ ghi log (chưa có ứng
+ *    dụng native).
  */
 /**
  * Tin có còn nằm trong CỬA SỔ THU HỒI hay không (vòng đời tin nhắn
@@ -701,8 +701,8 @@ export class MessagingService {
       await this.unreadStream.signalUnreadCountChanged(userId);
     }
 
-    // External channels are ports: a BullMQ job carries the dispatch to the
-    // worker. Disabled-by-preference ⇒ no job at all.
+    // Kênh ngoài là các cổng: một job BullMQ mang việc phân phối sang
+    // worker. Bị tắt theo tuỳ chọn ⇒ không xếp job nào cả.
     // Email theo tần suất v2: 'off' chặn ngay tại đây. Từ NB-5 (issue
     // #174) kênh email gửi thật qua Resend ở phía worker: job mang
     // theo tần suất đã phân giải ở đây — 'immediate' gửi ngay khi
