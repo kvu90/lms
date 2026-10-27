@@ -173,6 +173,27 @@ describe('Matrix immutable versions (issue #228 S1)', () => {
     expect(v2.body.cells).toHaveLength(1);
   });
 
+  it('ma trận ready đổi tên cũng sinh version mới theo hợp đồng cũ, nội dung các version nguyên vẹn', async () => {
+    const matrix = await createMatrix('Ma trận ready đổi tên');
+    await addCell(matrix.id, nodeA, 2, 2);
+    await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set(bearer()).send({ status: 'ready' });
+    const renamed = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set(bearer())
+      .send({ name: 'Ma trận ready đổi tên (bản 2)' });
+    expect(renamed.status, JSON.stringify(renamed.body)).toBe(200);
+    expect((renamed.body as MatrixViewBody).version).toBe(2);
+
+    // Cả hai version đều đọc được; ô và cấu hình mang nguyên trạng.
+    const v1 = await getVersion(matrix.id, 1);
+    expect(v1.status).toBe(200);
+    expect(v1.body.cells).toHaveLength(1);
+    expect(v1.body.cells[0]!.questionCount).toBe(2);
+    expect(v1.body.totalScore).toBe(10);
+    const v2 = await getVersion(matrix.id, 2);
+    expect(v2.status).toBe(200);
+    expect(v2.body.cells).toHaveLength(1);
+    expect(v2.body.totalScore).toBe(10);
+  });
+
   it('copy ma trận tạo version 1 bất biến riêng cho bản copy', async () => {
     const source = await createMatrix('Ma trận nguồn copy');
     await addCell(source.id, nodeA, 2, 2);

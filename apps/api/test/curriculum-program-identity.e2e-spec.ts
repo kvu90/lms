@@ -287,9 +287,15 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
                (select curriculum_id from curriculum_program_records where dataset_key = $2 and record_id = $3), $4)
        returning id`,
       [programSubjectId(SLUG), DATASET_KEY, recC.id, systemCtxId]);
+    // Ô phải thuộc về một version bất biến của ma trận (bất biến từ
+    // đợt version hoá ma trận, issue #228 S1): fixture dựng kèm
+    // hàng version 1 như đường tạo ma trận thật.
+    const matrixVersion = await sql<{ id: string }>(
+      `insert into exam_matrix_versions (matrix_id, version, created_by) values ($1, 1, $2) returning id`,
+      [matrix[0]!.id, adminId]);
     await pg.query(
-      `insert into exam_matrix_cells (matrix_id, curriculum_node_id, cognitive_level, qtype, question_count, cell_score)
-       values ($1, $2, 'hieu', 'multichoice', 1, 1)`, [matrix[0]!.id, lessonC]);
+      `insert into exam_matrix_cells (matrix_id, matrix_version_id, curriculum_node_id, cognitive_level, qtype, question_count, cell_score)
+       values ($1, $2, $3, 'hieu', 'multichoice', 1, 1)`, [matrix[0]!.id, matrixVersion[0]!.id, lessonC]);
 
     const refsBefore = await referenceSnapshot();
     const outcomeTotalBefore = (await snapshotIds()).outcomes.length;
@@ -395,9 +401,13 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
        returning id`,
       [programSubjectId(SLUG), DATASET_KEY, recE.id, systemCtxId]);
     matrixE = matrix[0]!.id;
+    // Như fixture phía trên: ô thuộc về version 1 bất biến của ma trận.
+    const matrixVersionE = await sql<{ id: string }>(
+      `insert into exam_matrix_versions (matrix_id, version, created_by) values ($1, 1, $2) returning id`,
+      [matrixE, adminId]);
     await pg.query(
-      `insert into exam_matrix_cells (matrix_id, curriculum_node_id, cognitive_level, qtype, question_count, cell_score)
-       values ($1, $2, 'biet', 'multichoice', 1, 1)`, [matrixE, lessonE]);
+      `insert into exam_matrix_cells (matrix_id, matrix_version_id, curriculum_node_id, cognitive_level, qtype, question_count, cell_score)
+       values ($1, $2, $3, 'biet', 'multichoice', 1, 1)`, [matrixE, matrixVersionE[0]!.id, lessonE]);
 
     // Trước khi rút: pool có câu; đặc tả có outcome kèm position + code.
     const poolBefore = await questionsRepo.filterQuestionsByCurriculumLinks({

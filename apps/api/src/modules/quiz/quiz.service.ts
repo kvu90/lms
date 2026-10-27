@@ -1864,9 +1864,13 @@ export class QuizService {
     // Ma trận đã rời draft (đã dùng sinh đề/đem duyệt) thì sửa nội
     // dung phải sinh VERSION BẤT BIẾN MỚI — bản đặc tả đã nộp khớp
     // version tại thời điểm nộp, không khớp bản đã sửa lặng lẽ.
-    // Tên là thuộc tính định danh, không thuộc nội dung version hoá,
-    // nên đổi tên đơn thuần không sinh version mới.
-    const contentChanged = ['targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore']
+    // Nhóm trường tính là "sửa nội dung" giữ đúng hợp đồng trước
+    // đợt version hoá (gồm cả tên): tên không được chụp VÀO hàng
+    // version (ảnh chụp chỉ gồm cấu hình + ô), nhưng đổi tên trên
+    // ma trận đã rời draft vẫn fork một version mới mang cấu hình
+    // và ô nguyên trạng — số version giữ nguyên ý nghĩa "ma trận
+    // đã bị sửa sau khi rời draft" mà các bề mặt cũ đang dựa vào.
+    const contentChanged = ['name', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore']
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
     if (contentChanged && row.status !== 'draft') {
       // Fork + áp patch trong MỘT transaction: hàng version mới
