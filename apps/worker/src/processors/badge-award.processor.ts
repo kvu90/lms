@@ -36,13 +36,13 @@ export interface BadgeAwardResult { evaluated: number; issued: string[] }
  * issues nothing twice. Each new issue also produces the badge_awarded
  * notification (popup channel) and a badge_issued outbox event.
  *
- * The notification goes through the worker's shared in-app delivery law
- * ({@link NotificationDeliveryService}, lát #174-A) — NOT a direct
- * insert as before (lớp G10): site policy (NB-7), per-course mute
- * (NB-4, via the badge's courseId) and the recipient's own preference
- * all apply, and every outcome leaves a dispatch-log row. Delivery
- * being skipped never un-issues the badge: the assertion stands, only
- * the notification is withheld, exactly like the API path.
+ * Thông báo đi qua hàm luật phân phối trong-app dùng chung của worker
+ * ({@link NotificationDeliveryService}, lát #174-A) — KHÔNG ghi thẳng
+ * như trước (lớp G10): chính sách cấp site (NB-7), tắt tiếng theo
+ * khoá (NB-4, qua courseId của huy hiệu) và tuỳ chọn của chính người
+ * nhận đều áp dụng, và mọi kết quả đều để lại một dòng dispatch log.
+ * Phát bị chặn không bao giờ thu hồi huy hiệu: assertion vẫn đứng,
+ * chỉ thông báo bị giữ lại — đúng như đường phía API.
  */
 @Processor('badge-award')
 /**
