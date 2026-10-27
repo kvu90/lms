@@ -33,6 +33,18 @@ import { tenants } from '../tenants/schema';
  * status: draft / ready / hidden như câu hỏi — hidden là rút khỏi ngân
  * hàng (không khám phá/thêm mới được; quiz đang triển khai KHÔNG vỡ vì
  * deploy đã chụp slots sang quiz_slots).
+ *
+ * Ý nghĩa trạng thái thống nhất cả ba thực thể ngân hàng (câu hỏi, đề,
+ * ma trận) theo QUY TẮC HOÀN THIỆN: `draft` = đang soạn hoặc đang chờ
+ * người duyệt, chưa được dùng; `ready` = đã hoàn thiện, dùng được
+ * ngay; `hidden` = đã rút khỏi ngân hàng. Cùng một quy tắc cho ra mặc
+ * định khác nhau theo hình dạng lúc ra đời của từng thực thể: câu hỏi
+ * sinh ra đã hoàn chỉnh trong một lượt soạn nên vào bank ở `ready`;
+ * đề (và ma trận) sinh ra rỗng và lớn dần qua nhiều lượt soạn nên bắt
+ * đầu ở `draft` và được chốt sang `ready` bằng hành động chủ động;
+ * thực thể vào bank ở dạng đã hoàn thiện (duyệt đóng góp đạt, sinh đề
+ * từ ma trận) mang `ready`; nội dung nạp qua kênh máy (AI/MCP) luôn
+ * vào `draft` chờ giáo viên duyệt.
  */
 export const exams = pgTable('exams', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -64,6 +76,18 @@ export const exams = pgTable('exams', {
   latestVersion: integer('latest_version').notNull().default(1),
   /** Số lượt đề này đã được copy đi (tín hiệu dùng thật như question.copy_count). */
   copyCount: integer('copy_count').notNull().default(0),
+  /**
+   * Truy vết lần rút khỏi ngân hàng gần nhất (ngang hàng
+   * question_bank_entries): rút = chuyển status sang `hidden` qua
+   * đường rút chuyên dụng với lý do BẮT BUỘC (withdrawn_reason) +
+   * người rút + thời điểm; khôi phục về `ready` thì xoá cả ba cột.
+   * Đề đã rút biến mất khỏi khám phá và không ghim/đóng góp mới
+   * được, nhưng các version đã ghim vào khoá vẫn phục vụ bình
+   * thường. Ba cột null khi đề chưa từng bị rút hoặc đã khôi phục.
+   */
+  withdrawnReason: text('withdrawn_reason'),
+  withdrawnBy: uuid('withdrawn_by'),
+  withdrawnAt: timestamp('withdrawn_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -154,14 +178,43 @@ export const examSlots = pgTable('exam_slots', {
   ]);
 
 /**
- * Đề xuất đóng góp một ĐỀ vào bank chung (khuôn QB-4 của câu hỏi, đơn
- * vị duyệt là TOÀN BỘ đề): một dòng = một đề xuất đưa đề (ở bank nguồn)
- * vào bank đích (tổ/trường/khoá). Chỉ mode 'new' ở EB-1: duyệt đạt thì
- * COPY đề vào bank đích bằng cơ chế deep copy (danh tính mới,
- * derived_from trỏ về đề gốc, slots giữ nguyên question + pinned
- * version). content_hash tính trên cấu trúc version hiện tại của đề
- * (danh sách question + pinned version + max_mark đã sắp) phục vụ
- * chống trùng hoàn toàn/gần trùng trong bank đích.
+ * Đề xuất đóng góp một ĐỀ vào bank chung — ĐƯỜNG ĐÓNG GÓP DUY NHẤT
+ * của đề (khuôn QB-4 của câu hỏi, đơn vị duyệt là TOÀN BỘ đề): một
+ * dòng = một đề xuất đưa đề (ở bank nguồn) vào bank đích
+ * (tổ/trường/khoá). Hai mode như câu hỏi:
+ *
+ * - mode 'new': duyệt đạt thì COPY đề vào bank đích bằng cơ chế deep
+ *   copy (danh tính mới, derived_from trỏ về đề gốc, slots giữ
+ *   nguyên question + pinned version).
+ * - mode 'update': đề xuất bản mới cho MỘT ĐỀ ĐÃ CÓ trong bank đích
+ *   (target_exam_id); đề nguồn bắt buộc là bản sao có liên kết
+ *   derived_from trỏ về chính đề đích (tầng service kiểm, lỗi
+ *   `exam.contribution_not_derived` — đối xứng luật
+ *   `question.contribution_not_derived` của QB-4); duyệt đạt thì tạo
+ *   VERSION MỚI trên chính danh tính đề đích từ nội dung version
+ *   hiện tại của đề nguồn (result_exam_id = chính đề đích).
+ *
+ * content_hash tính trên cấu trúc version hiện tại của đề (danh
+ * sách question + pinned version + max_mark đã sắp) phục vụ chống
+ * trùng hoàn toàn/gần trùng trong bank đích.
+ *
+ * BỘ HỒ SƠ ĐÍNH KÈM (tuỳ chọn): đóng góp cho đề kiểm tra chính thức
+ * có thể mang bộ ba ghim tại lúc đề xuất — version đề + version ma
+ * trận + bản đặc tả chụp (các cột dossier_*) — đúng phần việc mà
+ * đường hồ sơ `exam_dossiers` từng giữ riêng; đường hồ sơ đã bị hấp
+ * thụ vào đường đóng góp này (xem comment của `exam_dossiers`):
+ * hồ sơ không còn là sổ đăng ký riêng để đưa đề vào bank. Khi đóng
+ * góp CÓ bộ hồ sơ đính kèm và tenant của bank đích bật cấu hình
+ * `exam/requireboardapproval`, duyệt cấp 1 (exam:moderate tại bank
+ * đích) chỉ đưa đóng góp sang trạng thái `pending_board`; cấp duyệt
+ * thứ hai (ban giám hiệu — exam:moderate tại context hệ thống)
+ * duyệt mới chốt. Mọi mốc duyệt ghi vào `exam_contribution_reviews`.
+ * Ngoài hai điều kiện đó, đóng góp duyệt một cấp như QB-4.
+ *
+ * source_dossier_id: liên kết về bộ hồ sơ gốc khi đóng góp này sinh
+ * ra từ việc chuyển đổi một hồ sơ đang chờ duyệt tại thời điểm cắt
+ * đường — người đóng góp và người duyệt lần theo liên kết này về
+ * được hồ sơ gốc và lịch sử của nó.
  */
 export const examContributions = pgTable('exam_contributions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -169,12 +222,32 @@ export const examContributions = pgTable('exam_contributions', {
   targetBankId: uuid('target_bank_id').notNull().references(() => questionBanks.id, { onDelete: 'cascade' }),
   proposerId: uuid('proposer_id').notNull(),
   note: text('note').notNull().default(''),
+  /** Mode đóng góp: 'new' (đưa đề mới vào bank đích) | 'update' (bản mới cho đề đích ở target_exam_id). */
+  mode: text('mode').notNull().default('new'),
+  /** Đề đích trong bank đích của mode 'update' (con trỏ mềm như target_question_id của QB-4); null ở mode 'new'. */
+  targetExamId: uuid('target_exam_id'),
   status: text('status').notNull().default('pending'),
   contentHash: text('content_hash').notNull().default(''),
   nearDuplicateOf: uuid('near_duplicate_of'),
   rejectReason: text('reject_reason'),
   reviewerId: uuid('reviewer_id'),
   resultExamId: uuid('result_exam_id'),
+  /**
+   * Bộ hồ sơ đính kèm đã GHIM tại lúc đề xuất (chỉ có khi người đề
+   * xuất yêu cầu đính kèm hồ sơ cho đề chính thức): version đề được
+   * duyệt theo bộ này thay vì version hiện hành tại lúc duyệt;
+   * null toàn bộ ở đóng góp thường.
+   */
+  dossierExamVersionId: uuid('dossier_exam_version_id').references(() => examVersions.id, { onDelete: 'set null' }),
+  dossierExamVersionNumber: integer('dossier_exam_version_number'),
+  dossierMatrixId: uuid('dossier_matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
+  dossierMatrixVersion: integer('dossier_matrix_version'),
+  /** Neo FK tới version bất biến của ma trận trong bộ hồ sơ (căn cứ lịch sử như exam_dossiers.matrix_version_id). */
+  dossierMatrixVersionId: uuid('dossier_matrix_version_id').references(() => examMatrixVersions.id, { onDelete: 'set null' }),
+  /** Bản đặc tả (view model MatrixSpecification) chụp tại lúc đề xuất kèm bộ hồ sơ. */
+  dossierSpecSnapshot: jsonb('dossier_spec_snapshot').$type<Record<string, unknown>>(),
+  /** Bộ hồ sơ gốc mà đóng góp này được chuyển đổi từ đó (null với đóng góp lập trực tiếp trên đường đóng góp). */
+  sourceDossierId: uuid('source_dossier_id').references(() => examDossiers.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -183,6 +256,38 @@ export const examContributions = pgTable('exam_contributions', {
       index('exam_contributions_paper_idx').on(table.examId),
       index('exam_contributions_proposer_idx').on(table.proposerId),
       index('exam_contributions_status_idx').on(table.status),
+      index('exam_contributions_dossier_version_idx').on(table.dossierExamVersionId),
+      index('exam_contributions_source_dossier_idx').on(table.sourceDossierId),
+      check('exam_contributions_mode_check', sql`${table.mode} in ('new', 'update')`),
+      check('exam_contributions_status_check', sql`${table.status} in ('pending', 'pending_board', 'approved', 'rejected')`),
+  ]);
+
+/**
+ * Một MỐC DUYỆT của một đóng góp đề: mỗi cấp duyệt ghi một dòng độc
+ * lập (level 1 = người có exam:moderate tại bank đích; level 2 =
+ * ban giám hiệu, chỉ tồn tại ở đóng góp có bộ hồ sơ đính kèm khi
+ * tenant bật cấu hình cấp duyệt 2) với người duyệt, quyết định và
+ * lý do (bắt buộc khi từ chối — kiểm ở tầng service). Đây là sổ mốc
+ * duyệt của đường đóng góp duy nhất, tổng quát hoá từ
+ * `exam_dossier_reviews` của đường hồ sơ cũ: vết này là căn cứ truy
+ * vết "ai duyệt đóng góp này, ở cấp nào, khi nào" ngoài các sự kiện
+ * audit ở outbox. Khi chuyển đổi hồ sơ đang chờ duyệt thành đóng
+ * góp, các mốc duyệt đã có của hồ sơ được sao sang bảng này để lịch
+ * sử duyệt của đóng góp liền mạch từ đầu.
+ */
+export const examContributionReviews = pgTable('exam_contribution_reviews', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  contributionId: uuid('contribution_id').notNull().references(() => examContributions.id, { onDelete: 'cascade' }),
+  level: integer('level').notNull(),
+  reviewerId: uuid('reviewer_id').notNull(),
+  decision: text('decision').notNull(),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_contribution_reviews_contribution_idx').on(table.contributionId),
+      check('exam_contribution_reviews_level_check', sql`${table.level} in (1, 2)`),
+      check('exam_contribution_reviews_decision_check', sql`${table.decision} in ('approved', 'rejected')`),
   ]);
 
 /**
@@ -193,6 +298,18 @@ export const examContributions = pgTable('exam_contributions', {
  * cấp 1 là người có exam:moderate tại bank đích, cấp 2 (ban giám
  * hiệu) chỉ tồn tại khi cấu hình trường bật (đọc qua một điểm seam
  * trong ExamDossiersService, mặc định TẮT).
+ *
+ * VAI TRÒ HIỆN TẠI — LỊCH SỬ CHỈ-ĐỌC: đường hồ sơ đã bị hấp thụ vào
+ * đường đóng góp duy nhất `exam_contributions` (bộ hồ sơ thành phần
+ * đính kèm tuỳ chọn của một đóng góp, cấp duyệt 2 thành trạng thái
+ * `pending_board` của đóng góp). Bảng này không còn nhận hồ sơ mới
+ * và không còn là đường đưa đề vào bank; nó được giữ nguyên cấu
+ * trúc để xem lại lịch sử. Tại thời điểm cắt đường, hồ sơ đang ở
+ * `pending`/`pending_board` được chuyển thành đóng góp mang theo bộ
+ * hồ sơ đã ghim + lịch sử mốc duyệt (đóng góp trỏ về hồ sơ gốc qua
+ * `exam_contributions.source_dossier_id`); hồ sơ `draft` đóng băng
+ * tại chỗ kèm thông báo cho người lập; hồ sơ `approved`/`rejected`
+ * giữ nguyên làm lịch sử kết quả.
  *
  * Version được GHIM TẠI LÚC NỘP (submit): paper_version_id +
  * paper_version_number, matrix_id + matrix_version; bản đặc tả được
@@ -243,7 +360,11 @@ export const examDossiers = pgTable('exam_dossiers', {
  * (level 1 = tổ trưởng/moderate tại bank đích; level 2 = ban giám
  * hiệu) với người duyệt, quyết định và lý do (bắt buộc khi từ chối —
  * kiểm ở tầng service). Vết này là căn cứ truy vết "ai duyệt bộ này,
- * ở cấp nào, khi nào" ngoài các sự kiện audit ở outbox.
+ * ở cấp nào, khi nào" ngoài các sự kiện audit ở outbox. Sổ mốc duyệt
+ * của đường đóng góp hiện hành là `exam_contribution_reviews`; khi
+ * một hồ sơ đang chờ được chuyển đổi thành đóng góp, các dòng ở đây
+ * được sao sang sổ đó để lịch sử duyệt liền mạch, còn bản gốc ở đây
+ * giữ nguyên phục vụ bề mặt lịch sử của hồ sơ.
  */
 export const examDossierReviews = pgTable('exam_dossier_reviews', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),

@@ -175,7 +175,18 @@ export const questionBankEntries = pgTable(
     questionCategoryId: uuid('question_category_id').notNull().references(() => questionCategories.id, { onDelete: 'cascade' }),
     questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
     latestVersion: integer('latest_version').notNull().default(1),
-    /** Trạng thái hiển thị của câu trong bank: draft / ready / hidden. hidden = đã rút (QB-3): mất khỏi khám phá + không thêm mới vào đề, version đã ghim vẫn phục vụ đề hiện hữu. */
+    /**
+     * Trạng thái hiển thị của câu trong bank: draft / ready / hidden.
+     * hidden = đã rút (QB-3): mất khỏi khám phá + không thêm mới vào
+     * đề, version đã ghim vẫn phục vụ đề hiện hữu. Ý nghĩa trạng
+     * thái thống nhất cả ba thực thể ngân hàng theo QUY TẮC HOÀN
+     * THIỆN: `draft` = đang soạn hoặc đang chờ người duyệt, chưa
+     * được dùng; `ready` = đã hoàn thiện, dùng được ngay; `hidden`
+     * = đã rút khỏi ngân hàng. Câu hỏi sinh ra đã hoàn chỉnh trong
+     * một lượt soạn có kiểm hợp lệ ngay nên mặc định vào bank ở
+     * `ready`; câu nạp qua kênh máy (AI/MCP) là ngoại lệ có chủ
+     * đích — luôn vào `draft` chờ giáo viên duyệt.
+     */
     status: text('status').notNull().default('ready'),
     /** Truy vết lần rút câu gần nhất (QB-3): lý do bắt buộc + người rút + thời điểm. */
     withdrawnReason: text('withdrawn_reason'),

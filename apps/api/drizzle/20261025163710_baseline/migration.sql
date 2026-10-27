@@ -3275,4 +3275,43 @@ ALTER TABLE "exams" ADD COLUMN "derived_from_bank_id" uuid;--> statement-breakpo
 ALTER TABLE "exams" ADD COLUMN "derived_from_version_number" integer;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD COLUMN "derived_from_bank_id" uuid;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD COLUMN "original_author_id" uuid;--> statement-breakpoint
-ALTER TABLE "exam_matrices" ADD COLUMN "copy_count" integer DEFAULT 0 NOT NULL;
+ALTER TABLE "exam_matrices" ADD COLUMN "copy_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+CREATE TABLE "exam_contribution_reviews" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"contribution_id" uuid NOT NULL,
+	"level" integer NOT NULL,
+	"reviewer_id" uuid NOT NULL,
+	"decision" text NOT NULL,
+	"reason" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_contribution_reviews_level_check" CHECK ("level" in (1, 2)),
+	CONSTRAINT "exam_contribution_reviews_decision_check" CHECK ("decision" in ('approved', 'rejected'))
+);
+--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "mode" text DEFAULT 'new' NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "target_exam_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_exam_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_exam_version_number" integer;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_matrix_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_matrix_version" integer;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_matrix_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_spec_snapshot" jsonb;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "source_dossier_id" uuid;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "withdrawn_reason" text;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "withdrawn_by" uuid;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "withdrawn_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "withdrawn_reason" text;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "withdrawn_by" uuid;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "withdrawn_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "exam_matrix_contributions" ADD COLUMN "content_hash" text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrix_contributions" ADD COLUMN "near_duplicate_of" uuid;--> statement-breakpoint
+CREATE INDEX "exam_contribution_reviews_contribution_idx" ON "exam_contribution_reviews" ("contribution_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_dossier_version_idx" ON "exam_contributions" ("dossier_exam_version_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_source_dossier_idx" ON "exam_contributions" ("source_dossier_id");--> statement-breakpoint
+ALTER TABLE "exam_contribution_reviews" ADD CONSTRAINT "exam_contribution_reviews_hUekEJmRoOaz_fkey" FOREIGN KEY ("contribution_id") REFERENCES "exam_contributions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_KrKf14oi3y6U_fkey" FOREIGN KEY ("dossier_exam_version_id") REFERENCES "exam_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_dossier_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("dossier_matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_l35tB426bbJw_fkey" FOREIGN KEY ("dossier_matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_source_dossier_id_exam_dossiers_id_fkey" FOREIGN KEY ("source_dossier_id") REFERENCES "exam_dossiers"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_mode_check" CHECK ("mode" in ('new', 'update'));--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_status_check" CHECK ("status" in ('pending', 'pending_board', 'approved', 'rejected'));

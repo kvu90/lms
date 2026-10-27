@@ -74,6 +74,26 @@ export const examMatrices = pgTable('exam_matrices', {
   derivedFromBankId: uuid('derived_from_bank_id'),
   originalAuthorId: uuid('original_author_id'),
   copyCount: integer('copy_count').notNull().default(0),
+  /**
+   * Truy vết lần rút khỏi ngân hàng gần nhất (ngang hàng
+   * question_bank_entries và exams): rút = chuyển status sang
+   * `hidden` qua đường rút chuyên dụng với lý do BẮT BUỘC
+   * (withdrawn_reason) + người rút + thời điểm; khôi phục về
+   * `ready` thì xoá cả ba cột. Ma trận đã rút biến mất khỏi khám
+   * phá và không sinh đề/đóng góp mới được; các version đề đã sinh
+   * từ ma trận và các version ma trận đã ghim trong hồ sơ/đóng góp
+   * vẫn đọc lại nguyên vẹn. Ba cột null khi ma trận chưa từng bị
+   * rút hoặc đã khôi phục.
+   *
+   * Ý nghĩa trạng thái của ma trận tuân cùng QUY TẮC HOÀN THIỆN
+   * như câu hỏi và đề: `draft` = đang soạn (và là điều kiện để sửa
+   * lưới tại chỗ trên version đang mở) hoặc đang chờ người duyệt,
+   * chưa được dùng; `ready` = đã hoàn thiện, dùng được ngay;
+   * `hidden` = đã rút khỏi ngân hàng.
+   */
+  withdrawnReason: text('withdrawn_reason'),
+  withdrawnBy: uuid('withdrawn_by'),
+  withdrawnAt: timestamp('withdrawn_at', { withTimezone: true }),
   version: integer('version').notNull().default(1),
   presetKind: text('preset_kind').notNull().default('cv7991_periodic'),
   targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),
@@ -187,6 +207,14 @@ export const examMatrixCells = pgTable('exam_matrix_cells', {
  * là truy vết người đóng góp), từ chối bắt buộc có lý do hiện lại cho
  * người gửi. Ma trận KHÔNG có vòng version như câu hỏi nên hàng chờ chỉ
  * có một chế độ (tương đương mode 'new' của question_bank_contributions).
+ *
+ * Chống trùng (bổ sung ở đợt đồng bộ cơ chế ngân hàng, ngang hàng
+ * câu hỏi và đề): content_hash tính trên cấu hình + toàn bộ ô của
+ * version hiện hành của ma trận tại lúc đề xuất; nếu một ma trận
+ * trong bank đích có cùng content_hash thì near_duplicate_of trỏ tới
+ * ma trận đó để người duyệt cân nhắc, và duyệt một đóng góp mà bank
+ * đích đã có bản copy suy từ chính ma trận nguồn bị chặn 409 như
+ * đường đóng góp của đề.
  */
 export const examMatrixContributions = pgTable('exam_matrix_contributions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -195,6 +223,10 @@ export const examMatrixContributions = pgTable('exam_matrix_contributions', {
   proposerId: uuid('proposer_id').notNull(),
   note: text('note').notNull().default(''),
   status: text('status').notNull().default('pending'),
+  /** Hash nội dung (cấu hình + toàn bộ ô đã sắp) của ma trận nguồn tại lúc đề xuất — căn cứ chống trùng trong bank đích. */
+  contentHash: text('content_hash').notNull().default(''),
+  /** Ma trận trong bank đích có cùng content_hash (gần/trùng nội dung) tại lúc đề xuất; null khi không có. */
+  nearDuplicateOf: uuid('near_duplicate_of'),
   rejectReason: text('reject_reason'),
   reviewerId: uuid('reviewer_id'),
   resultMatrixId: uuid('result_matrix_id'),

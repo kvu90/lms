@@ -8,17 +8,198 @@
   ],
   "footprints": [
     {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contribution_reviews"
+      ],
+      "writes": [
+        "s|tbl|public.exam_contribution_reviews",
+        "n|tbl|public.exam_contribution_reviews",
+        "e|tbl|public.exam_contribution_reviews",
+        "n|rel|public.exam_contribution_reviews",
+        "n|type|public.exam_contribution_reviews",
+        "n|rel|public.exam_contribution_reviews_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "mode"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.mode",
+        "n|col|public.exam_contributions.mode",
+        "e|col|public.exam_contributions.mode"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "target_exam_id"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.target_exam_id",
+        "n|col|public.exam_contributions.target_exam_id",
+        "e|col|public.exam_contributions.target_exam_id"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "dossier_exam_version_id"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.dossier_exam_version_id",
+        "n|col|public.exam_contributions.dossier_exam_version_id",
+        "e|col|public.exam_contributions.dossier_exam_version_id"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "dossier_exam_version_number"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.dossier_exam_version_number",
+        "n|col|public.exam_contributions.dossier_exam_version_number",
+        "e|col|public.exam_contributions.dossier_exam_version_number"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "dossier_matrix_id"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.dossier_matrix_id",
+        "n|col|public.exam_contributions.dossier_matrix_id",
+        "e|col|public.exam_contributions.dossier_matrix_id"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "dossier_matrix_version"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.dossier_matrix_version",
+        "n|col|public.exam_contributions.dossier_matrix_version",
+        "e|col|public.exam_contributions.dossier_matrix_version"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "dossier_matrix_version_id"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.dossier_matrix_version_id",
+        "n|col|public.exam_contributions.dossier_matrix_version_id",
+        "e|col|public.exam_contributions.dossier_matrix_version_id"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "dossier_spec_snapshot"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.dossier_spec_snapshot",
+        "n|col|public.exam_contributions.dossier_spec_snapshot",
+        "e|col|public.exam_contributions.dossier_spec_snapshot"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_contributions",
+        "source_dossier_id"
+      ],
+      "writes": [
+        "s|col|public.exam_contributions.source_dossier_id",
+        "n|col|public.exam_contributions.source_dossier_id",
+        "e|col|public.exam_contributions.source_dossier_id"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
       "statementType": "add_column",
       "statementTarget": [
         "column",
         "public",
         "exams",
-        "derived_from_bank_id"
+        "withdrawn_reason"
       ],
       "writes": [
-        "s|col|public.exams.derived_from_bank_id",
-        "n|col|public.exams.derived_from_bank_id",
-        "e|col|public.exams.derived_from_bank_id"
+        "s|col|public.exams.withdrawn_reason",
+        "n|col|public.exams.withdrawn_reason",
+        "e|col|public.exams.withdrawn_reason"
       ],
       "reads": [
         "n|tbl|public.exams",
@@ -31,12 +212,30 @@
         "column",
         "public",
         "exams",
-        "derived_from_version_number"
+        "withdrawn_by"
       ],
       "writes": [
-        "s|col|public.exams.derived_from_version_number",
-        "n|col|public.exams.derived_from_version_number",
-        "e|col|public.exams.derived_from_version_number"
+        "s|col|public.exams.withdrawn_by",
+        "n|col|public.exams.withdrawn_by",
+        "e|col|public.exams.withdrawn_by"
+      ],
+      "reads": [
+        "n|tbl|public.exams",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exams",
+        "withdrawn_at"
+      ],
+      "writes": [
+        "s|col|public.exams.withdrawn_at",
+        "n|col|public.exams.withdrawn_at",
+        "e|col|public.exams.withdrawn_at"
       ],
       "reads": [
         "n|tbl|public.exams",
@@ -49,12 +248,12 @@
         "column",
         "public",
         "exam_matrices",
-        "derived_from_bank_id"
+        "withdrawn_reason"
       ],
       "writes": [
-        "s|col|public.exam_matrices.derived_from_bank_id",
-        "n|col|public.exam_matrices.derived_from_bank_id",
-        "e|col|public.exam_matrices.derived_from_bank_id"
+        "s|col|public.exam_matrices.withdrawn_reason",
+        "n|col|public.exam_matrices.withdrawn_reason",
+        "e|col|public.exam_matrices.withdrawn_reason"
       ],
       "reads": [
         "n|tbl|public.exam_matrices",
@@ -67,12 +266,12 @@
         "column",
         "public",
         "exam_matrices",
-        "original_author_id"
+        "withdrawn_by"
       ],
       "writes": [
-        "s|col|public.exam_matrices.original_author_id",
-        "n|col|public.exam_matrices.original_author_id",
-        "e|col|public.exam_matrices.original_author_id"
+        "s|col|public.exam_matrices.withdrawn_by",
+        "n|col|public.exam_matrices.withdrawn_by",
+        "e|col|public.exam_matrices.withdrawn_by"
       ],
       "reads": [
         "n|tbl|public.exam_matrices",
@@ -85,16 +284,265 @@
         "column",
         "public",
         "exam_matrices",
-        "copy_count"
+        "withdrawn_at"
       ],
       "writes": [
-        "s|col|public.exam_matrices.copy_count",
-        "n|col|public.exam_matrices.copy_count",
-        "e|col|public.exam_matrices.copy_count"
+        "s|col|public.exam_matrices.withdrawn_at",
+        "n|col|public.exam_matrices.withdrawn_at",
+        "e|col|public.exam_matrices.withdrawn_at"
       ],
       "reads": [
         "n|tbl|public.exam_matrices",
         "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_matrix_contributions",
+        "content_hash"
+      ],
+      "writes": [
+        "s|col|public.exam_matrix_contributions.content_hash",
+        "n|col|public.exam_matrix_contributions.content_hash",
+        "e|col|public.exam_matrix_contributions.content_hash"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_matrix_contributions",
+        "near_duplicate_of"
+      ],
+      "writes": [
+        "s|col|public.exam_matrix_contributions.near_duplicate_of",
+        "n|col|public.exam_matrix_contributions.near_duplicate_of",
+        "e|col|public.exam_matrix_contributions.near_duplicate_of"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrix_contributions",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_contribution_reviews",
+        "exam_contribution_reviews_contribution_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_contribution_reviews_contribution_idx",
+        "n|idx|public.exam_contribution_reviews_contribution_idx",
+        "e|idx|public.exam_contribution_reviews_contribution_idx",
+        "n|rel|public.exam_contribution_reviews_contribution_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contribution_reviews",
+        "n|sch|public",
+        "n|col|public.exam_contribution_reviews.contribution_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_contributions",
+        "exam_contributions_dossier_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_contributions_dossier_version_idx",
+        "n|idx|public.exam_contributions_dossier_version_idx",
+        "e|idx|public.exam_contributions_dossier_version_idx",
+        "n|rel|public.exam_contributions_dossier_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.dossier_exam_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_contributions",
+        "exam_contributions_source_dossier_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_contributions_source_dossier_idx",
+        "n|idx|public.exam_contributions_source_dossier_idx",
+        "e|idx|public.exam_contributions_source_dossier_idx",
+        "n|rel|public.exam_contributions_source_dossier_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.source_dossier_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contribution_reviews"
+      ],
+      "writes": [
+        "s|fk|public.exam_contribution_reviews.exam_contribution_reviews_hUekEJmRoOaz_fkey",
+        "n|fk|public.exam_contribution_reviews.exam_contribution_reviews_hUekEJmRoOaz_fkey",
+        "e|fk|public.exam_contribution_reviews.exam_contribution_reviews_hUekEJmRoOaz_fkey",
+        "n|con|public.exam_contribution_reviews.exam_contribution_reviews_hUekEJmRoOaz_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contribution_reviews",
+        "n|sch|public",
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contribution_reviews.contribution_id",
+        "n|col|public.exam_contributions.id",
+        "e|uniqueness|public.exam_contributions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_contributions.exam_contributions_KrKf14oi3y6U_fkey",
+        "n|fk|public.exam_contributions.exam_contributions_KrKf14oi3y6U_fkey",
+        "e|fk|public.exam_contributions.exam_contributions_KrKf14oi3y6U_fkey",
+        "n|con|public.exam_contributions.exam_contributions_KrKf14oi3y6U_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|tbl|public.exam_versions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.dossier_exam_version_id",
+        "n|col|public.exam_versions.id",
+        "e|uniqueness|public.exam_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_contributions.exam_contributions_dossier_matrix_id_exam_matrices_id_fkey",
+        "n|fk|public.exam_contributions.exam_contributions_dossier_matrix_id_exam_matrices_id_fkey",
+        "e|fk|public.exam_contributions.exam_contributions_dossier_matrix_id_exam_matrices_id_fkey",
+        "n|con|public.exam_contributions.exam_contributions_dossier_matrix_id_exam_matrices_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_contributions.dossier_matrix_id",
+        "n|col|public.exam_matrices.id",
+        "e|uniqueness|public.exam_matrices.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_contributions.exam_contributions_l35tB426bbJw_fkey",
+        "n|fk|public.exam_contributions.exam_contributions_l35tB426bbJw_fkey",
+        "e|fk|public.exam_contributions.exam_contributions_l35tB426bbJw_fkey",
+        "n|con|public.exam_contributions.exam_contributions_l35tB426bbJw_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|tbl|public.exam_matrix_versions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.dossier_matrix_version_id",
+        "n|col|public.exam_matrix_versions.id",
+        "e|uniqueness|public.exam_matrix_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contributions"
+      ],
+      "writes": [
+        "s|fk|public.exam_contributions.exam_contributions_source_dossier_id_exam_dossiers_id_fkey",
+        "n|fk|public.exam_contributions.exam_contributions_source_dossier_id_exam_dossiers_id_fkey",
+        "e|fk|public.exam_contributions.exam_contributions_source_dossier_id_exam_dossiers_id_fkey",
+        "n|con|public.exam_contributions.exam_contributions_source_dossier_id_exam_dossiers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|tbl|public.exam_dossiers",
+        "n|sch|public",
+        "n|col|public.exam_contributions.source_dossier_id",
+        "n|col|public.exam_dossiers.id",
+        "e|uniqueness|public.exam_dossiers.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contributions"
+      ],
+      "writes": [
+        "s|ck|public.exam_contributions.exam_contributions_mode_check",
+        "n|ck|public.exam_contributions.exam_contributions_mode_check",
+        "e|ck|public.exam_contributions.exam_contributions_mode_check",
+        "n|con|public.exam_contributions.exam_contributions_mode_check"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.mode"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_contributions"
+      ],
+      "writes": [
+        "s|ck|public.exam_contributions.exam_contributions_status_check",
+        "n|ck|public.exam_contributions.exam_contributions_status_check",
+        "e|ck|public.exam_contributions.exam_contributions_status_check",
+        "n|con|public.exam_contributions.exam_contributions_status_check"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.status"
       ]
     }
   ],
@@ -41299,6 +41747,510 @@
       "generated": null,
       "identity": null,
       "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "name": "exam_contribution_reviews",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "contribution_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "level",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "reviewer_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "decision",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "mode",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'new'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "target_exam_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "dossier_exam_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "dossier_exam_version_number",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "dossier_matrix_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "dossier_matrix_version",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "dossier_matrix_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "dossier_spec_snapshot",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "source_dossier_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exams",
+      "name": "withdrawn_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exams",
+      "name": "withdrawn_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exams",
+      "name": "withdrawn_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "withdrawn_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "withdrawn_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "withdrawn_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "content_hash",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "''",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrix_contributions",
+      "name": "near_duplicate_of",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "exam_contribution_reviews_contribution_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "contribution_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_dossier_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "dossier_exam_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_source_dossier_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "source_dossier_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "exam_contribution_reviews_hUekEJmRoOaz_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "contribution_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_contributions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_KrKf14oi3y6U_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "dossier_exam_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_dossier_matrix_id_exam_matrices_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "dossier_matrix_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_l35tB426bbJw_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "dossier_matrix_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_matrix_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_source_dossier_id_exam_dossiers_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "source_dossier_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_dossiers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "exam_contribution_reviews_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "exam_contribution_reviews_level_check",
+      "value": "\"level\" in (1, 2)",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contribution_reviews",
+      "name": "exam_contribution_reviews_decision_check",
+      "value": "\"decision\" in ('approved', 'rejected')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_mode_check",
+      "value": "\"mode\" in ('new', 'update')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_status_check",
+      "value": "\"status\" in ('pending', 'pending_board', 'approved', 'rejected')",
+      "entityType": "checks"
     }
   ]
 }

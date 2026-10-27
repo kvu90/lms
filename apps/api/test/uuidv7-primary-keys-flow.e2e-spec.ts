@@ -182,7 +182,13 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // + exam_matrix_versions (issue #228, lát S1 — version bất biến
     // của ma trận, PK id uuidv7) → 194 bảng tổng, 180 bảng có PK mặc
     // định uuidv7().
-    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(180);
+    // + exam_contribution_reviews (issue #228, lát S4 — sổ mốc duyệt
+    // của đường đóng góp đề duy nhất sau khi hấp thụ đường hồ sơ,
+    // PK id uuidv7) → 195 bảng tổng, 181 bảng có PK mặc định
+    // uuidv7(). (Lát S4/S5 còn cộng cột vào exam_contributions,
+    // exams, exam_matrices, exam_matrix_contributions — không đổi
+    // số bảng/PK.)
+    expect(sqlText.match(/DEFAULT uuidv7\(\)/g)?.length).toBe(181);
     // Chỉ hai cột seq phụ được dùng identity; không PK nghiệp vụ nào dùng sequence/identity.
     expect(sqlText.match(/GENERATED ALWAYS AS IDENTITY/g)?.length).toBe(2);
     // Sequence DUY NHẤT được phép trong baseline: payment_code_seq —
@@ -203,7 +209,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
          LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
         WHERE n.nspname = 'public' AND c.relkind = 'r'`,
     );
-    // 182 bảng có cột `id`: 180 bảng PK uuidv7 như khuôn chung (gồm 2
+    // 183 bảng có cột `id`: 181 bảng PK uuidv7 như khuôn chung (gồm 2
     // bảng giấy của CAM-0, issue #112, 3 bảng tenant của TENANT-0,
     // issue #168, bảng payment_provider_events của VietQR lát 1,
     // issue #189, và bảng classes của CLASS-0 cùng class_join_requests
@@ -212,7 +218,8 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // của lát nền gói, issue #189, và 3 bảng vết cập nhật
     // version/chấm lại của issue #254: exam_pin_version_updates,
     // exam_attempt_regrades, exam_attempt_regrade_items, và bảng
-    // exam_matrix_versions của lát S1 issue #228; đã trừ 4
+    // exam_matrix_versions của lát S1 issue #228, và bảng
+    // exam_contribution_reviews của lát S4 issue #228; đã trừ 4
     // bảng blog bị gỡ ở issue #173, 8 bảng điểm của mô hình cũ bị gỡ ở
     // issue #224 và trừ ròng 3 bảng của feat gộp Đề #226: −8 bảng
     // quiz/triển khai cũ +5 bảng họ pin mới) + ĐÚNG
@@ -220,7 +227,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
-    expect(defaults.rows.length).toBe(182);
+    expect(defaults.rows.length).toBe(183);
     for (const row of defaults.rows) {
       if (TEXT_ID_ALLOWLIST.includes(row.table_name)) {
         if (row.table_name === 'oauth_client') {
