@@ -21,17 +21,23 @@ import { ExamsService } from './exams.service';
  * cấp duyệt 2 qua SiteConfigModule) và lớp bảo mật xem đề định kỳ
  * trong chính ExamsService.
  *
- * Vòng module Exams ↔ Quiz là tường minh từ issue #343 (dọn
- * controller trùng path): controller chủ của tiền tố `exam-matrices`
- * ở QuizModule uỷ thác handler sinh đề cho ExamsService của module
- * này, trong khi ExamsService dùng facade của Quiz — hai phía đều
- * khai `forwardRef` theo khuôn vòng module đã có của repo (Users ↔
- * Auth ↔ BetterAuth). Bề mặt hồ sơ đề đã gộp vào `ExamsController`
- * (chủ duy nhất của tiền tố `exams`); toàn bộ alias `/exam-papers`
- * nằm ở `ExamPapersAliasController`.
+ * Các vòng module liên quan tới module này là tường minh từ issue
+ * #343 (dọn controller trùng path): controller chủ của tiền tố
+ * `exam-matrices` ở QuizModule uỷ thác handler sinh đề cho
+ * ExamsService của module này, trong khi ExamsService dùng facade
+ * của Quiz và của Questions, còn controller chủ của `question-banks`
+ * ở QuestionsModule uỷ thác bề mặt ma trận cho QuizModule. Ba module
+ * Exams/Quiz/Questions tạo thành một vòng qua lại, nên mọi cạnh
+ * import trong vòng đều khai `forwardRef` ở cả hai phía theo khuôn
+ * vòng module đã có của repo (Users ↔ Auth ↔ BetterAuth) — nếu một
+ * cạnh trong vòng nạp trực tiếp, lớp module ở đầu vòng sẽ là
+ * `undefined` khi decorator của module ở cuối vòng chạy. Bề mặt hồ
+ * sơ đề đã gộp vào `ExamsController` (chủ duy nhất của tiền tố
+ * `exams`); toàn bộ alias `/exam-papers` nằm ở
+ * `ExamPapersAliasController`.
  */
 @Module({
-  imports: [AccessModule, EventsModule, QuestionsModule, forwardRef(() => QuizModule), SiteConfigModule, TenantsModule],
+  imports: [AccessModule, EventsModule, forwardRef(() => QuestionsModule), forwardRef(() => QuizModule), SiteConfigModule, TenantsModule],
   controllers: [ExamsController, ExamPapersAliasController, CourseExamPinsController, ExamPinsController, ExamPinOverridesController, ExamPinFeedbacksController],
   providers: [ExamsRepository, ExamsService, ExamDossiersService],
   exports: [ExamsService],
