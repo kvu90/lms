@@ -231,4 +231,12 @@ export const queryKeys = {
   /** Đơn vị khung chọn được của cặp (môn, khối) — suy từ curricula + cây qua tầng curriculum. */
   curriculumFrameUnits: (subjectId: string, grade: number, forCourseId: string | null) =>
     ['curriculum', 'frame-units', subjectId, grade, forCourseId] as const,
+  /**
+   * Chi tiết trọn vẹn một đề cho màn soạn (GET /exams/:id) — khác
+   * khoá `examSource` của trang lần ghim (cùng endpoint nhưng chỉ
+   * lấy phần thông tin nguồn, hình dạng cache khác hẳn).
+   */
+  examPaperDetail: (paperId: string) => ['exam-papers', paperId] as const,
+  /** Các lần ghim của một đề (GET /exams/:id/pins) — màn soạn đề. */
+  examPaperPins: (paperId: string) => ['exam-papers', paperId, 'pins'] as const,
 };
