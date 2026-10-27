@@ -1763,12 +1763,54 @@ export class QuestionsService {
         code: 'question.regrade_version_not_ready',
       });
     }
-    const response = await this.latestResponse(attempt.id);
-    if (response === null || response.trim() === '') {
+    const rawResponse = await this.latestResponse(attempt.id);
+    if (rawResponse === null || rawResponse.trim() === '') {
       return { outcome: { fraction: 0, state: 'gaveup', rightAnswer: attempt.rightAnswer ?? '' } };
     }
+    // Dịch response sang version đích trước khi chấm: response của
+    // multichoice lưu ID DÒNG ĐÁP ÁN của version đã ghim, mà mỗi
+    // version sinh id dòng mới — chấm thẳng theo id sẽ không bao giờ
+    // khớp. Lựa chọn của học sinh được hiểu theo NỘI DUNG đáp án đã
+    // chọn: tra id cũ → text → id của dòng mang cùng text ở version
+    // đích (đáp án đã bị xoá/đổi chữ ở version đích thì lựa chọn đó
+    // không còn tương ứng — tính như chọn đáp án không đúng).
+    // shortanswer (văn bản thuần) và truefalse TF-A (bản đồ
+    // statementId → Đ/S, statementId nằm trong thân câu và được giữ
+    // qua các version) không cần dịch.
+    const response = q?.qtype === 'multichoice'
+      ? await this.translateMultichoiceResponse(attempt.questionVersionId, version.id, rawResponse)
+      : rawResponse;
     const gradingData = await this.gradingDataFor(version, q?.qtype ?? '', tfScale);
     return { outcome: gradeAnswer(q?.qtype ?? '', gradingData, response) };
+  }
+
+  /**
+   * Dịch response multichoice (danh sách id dòng đáp án đã chọn, ngăn
+   * bằng dấu phẩy) từ version nguồn sang version đích theo nội dung
+   * text của đáp án (chuẩn hoá NFC + cắt khoảng trắng hai đầu, cùng
+   * chuẩn so khớp nội dung của hệ). Id không tra được ở version nguồn
+   * hoặc text không còn ở version đích bị loại khỏi danh sách đã dịch.
+   */
+  private async translateMultichoiceResponse(fromVersionId: string, toVersionId: string, response: string): Promise<string> {
+    const [fromAnswers, toAnswers] = await Promise.all([
+      this.repo.listAnswers(fromVersionId),
+      this.repo.listAnswers(toVersionId),
+    ]);
+    const normalise = (value: string): string => value.normalize('NFC').trim();
+    const toIdByText = new Map<string, string>();
+    for (const a of toAnswers) {
+      const text = normalise(extractRichTextPlainText(a.answer as RichTextDocument));
+      if (!toIdByText.has(text)) toIdByText.set(text, a.id);
+    }
+    const fromById = new Map(fromAnswers.map((a) => [a.id, a]));
+    const mapped: string[] = [];
+    for (const id of response.split(',').map((x) => x.trim()).filter((x) => x !== '')) {
+      const from = fromById.get(id);
+      if (!from) continue;
+      const toId = toIdByText.get(normalise(extractRichTextPlainText(from.answer as RichTextDocument)));
+      if (toId) mapped.push(toId);
+    }
+    return mapped.join(',');
   }
 
   /** Start all attempts of a usage (questionusagebyactivity_test::start_all_questions). */
