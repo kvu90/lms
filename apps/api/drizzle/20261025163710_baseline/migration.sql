@@ -1209,6 +1209,38 @@ CREATE TABLE "exam_attempt_events" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "exam_attempt_regrade_items" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"regrade_id" uuid NOT NULL,
+	"exam_attempt_id" uuid NOT NULL,
+	"question_attempt_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"old_fraction" double precision,
+	"new_fraction" double precision,
+	"old_sum_grades" double precision,
+	"new_sum_grades" double precision,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "exam_attempt_regrades" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"pin_id" uuid NOT NULL,
+	"question_id" uuid NOT NULL,
+	"from_version_id" uuid NOT NULL,
+	"to_version_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "exam_pin_version_updates" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"pin_id" uuid NOT NULL,
+	"actor_id" uuid NOT NULL,
+	"from_exam_version_id" uuid NOT NULL,
+	"to_exam_version_id" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "exam_attempts" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"pin_id" uuid NOT NULL,
@@ -1343,6 +1375,7 @@ CREATE TABLE "exam_pins" (
 	"review_right_answer" integer DEFAULT 272 NOT NULL,
 	"review_overall_feedback" integer DEFAULT 4368 NOT NULL,
 	"preset" text,
+	"version_mode" text DEFAULT 'pinned' NOT NULL,
 	"late_entry_minutes" integer,
 	"monitor_events" boolean DEFAULT false NOT NULL,
 	"variant_count" integer DEFAULT 1 NOT NULL,
@@ -1351,7 +1384,8 @@ CREATE TABLE "exam_pins" (
 	"created_by" uuid NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "exam_pins_preset_check" CHECK ("preset" is null or "preset" in ('regular', 'periodic', 'mock'))
+	CONSTRAINT "exam_pins_preset_check" CHECK ("preset" is null or "preset" in ('regular', 'periodic', 'mock')),
+	CONSTRAINT "exam_pins_version_mode_check" CHECK ("version_mode" in ('pinned', 'float_latest_ready'))
 );
 --> statement-breakpoint
 CREATE TABLE "exam_batches" (
@@ -2601,6 +2635,12 @@ CREATE INDEX "exams_status_idx" ON "exams" ("status");--> statement-breakpoint
 CREATE INDEX "exams_created_by_idx" ON "exams" ("created_by");--> statement-breakpoint
 CREATE INDEX "exams_derived_from_idx" ON "exams" ("derived_from_exam_id");--> statement-breakpoint
 CREATE INDEX "exam_attempt_events_attempt_idx" ON "exam_attempt_events" ("attempt_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrade_items_regrade_idx" ON "exam_attempt_regrade_items" ("regrade_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrade_items_user_idx" ON "exam_attempt_regrade_items" ("user_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrade_items_attempt_idx" ON "exam_attempt_regrade_items" ("exam_attempt_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrades_pin_idx" ON "exam_attempt_regrades" ("pin_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrades_question_idx" ON "exam_attempt_regrades" ("question_id");--> statement-breakpoint
+CREATE INDEX "exam_pin_version_updates_pin_idx" ON "exam_pin_version_updates" ("pin_id");--> statement-breakpoint
 CREATE INDEX "exam_attempts_pin_id_idx" ON "exam_attempts" ("pin_id");--> statement-breakpoint
 CREATE INDEX "exam_attempts_user_id_idx" ON "exam_attempts" ("user_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_tenant_id_idx" ON "exam_matrices" ("tenant_id");--> statement-breakpoint
@@ -2929,6 +2969,16 @@ ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_matrix_id_exam_matrice
 ALTER TABLE "exams" ADD CONSTRAINT "exams_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "exams" ADD CONSTRAINT "exams_bank_id_question_banks_id_fkey" FOREIGN KEY ("bank_id") REFERENCES "question_banks"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_attempt_events" ADD CONSTRAINT "exam_attempt_events_attempt_id_exam_attempts_id_fkey" FOREIGN KEY ("attempt_id") REFERENCES "exam_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrade_items" ADD CONSTRAINT "exam_attempt_regrade_items_zkgZRPwRB0qi_fkey" FOREIGN KEY ("regrade_id") REFERENCES "exam_attempt_regrades"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrade_items" ADD CONSTRAINT "exam_attempt_regrade_items_l7RdgRm0bzuM_fkey" FOREIGN KEY ("exam_attempt_id") REFERENCES "exam_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrade_items" ADD CONSTRAINT "exam_attempt_regrade_items_gGLmlSgubyUa_fkey" FOREIGN KEY ("question_attempt_id") REFERENCES "question_attempts"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrades" ADD CONSTRAINT "exam_attempt_regrades_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrades" ADD CONSTRAINT "exam_attempt_regrades_question_id_question_id_fkey" FOREIGN KEY ("question_id") REFERENCES "question"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrades" ADD CONSTRAINT "exam_attempt_regrades_from_version_id_question_versions_id_fkey" FOREIGN KEY ("from_version_id") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_attempt_regrades" ADD CONSTRAINT "exam_attempt_regrades_to_version_id_question_versions_id_fkey" FOREIGN KEY ("to_version_id") REFERENCES "question_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pin_version_updates" ADD CONSTRAINT "exam_pin_version_updates_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pin_version_updates" ADD CONSTRAINT "exam_pin_version_updates_YcqGCxQaA4p7_fkey" FOREIGN KEY ("from_exam_version_id") REFERENCES "exam_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_pin_version_updates" ADD CONSTRAINT "exam_pin_version_updates_j1ZxAGFMFQa4_fkey" FOREIGN KEY ("to_exam_version_id") REFERENCES "exam_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_attempts" ADD CONSTRAINT "exam_attempts_pin_id_exam_pins_id_fkey" FOREIGN KEY ("pin_id") REFERENCES "exam_pins"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_attempts" ADD CONSTRAINT "exam_attempts_usage_id_question_usages_id_fkey" FOREIGN KEY ("usage_id") REFERENCES "question_usages"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
