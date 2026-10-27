@@ -52,11 +52,17 @@ describe('Search page (platform)', () => {
       return undefined;
     });
     // SearchPage đọc tham số q qua useSearchParams nên phải render trong Router
-    // (đây là ca đỏ duy nhất của CI PR #305 trước khi sửa).
+    // (đây là ca đỏ duy nhất của CI PR #305 trước khi sửa). Trang cũng đọc ảnh
+    // chụp quyền (đích của kết quả `users` phụ thuộc quyền người tìm) nên phải
+    // bọc TestProviders — đúng cây provider root.tsx luôn gắn trong app thật.
     const router = createMemoryRouter([{ path: 'search', element: <SearchPage /> }], {
       initialEntries: ['/search'],
     });
-    render(<RouterProvider router={router} />);
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     await userEvent.type(screen.getByLabelText('Từ khoá tìm kiếm'), 'Visible');
     await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
     expect(await screen.findByText('Visible Course')).toBeInTheDocument();

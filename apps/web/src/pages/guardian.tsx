@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { GuardianDigestFrequency, GuardianDigestPreferenceView, GuardianStudentOverviewView, GuardianStudentResultsView } from '@lms/contracts';
 import '../i18n';
 import { apiJson } from '#lib/api';
@@ -53,8 +52,15 @@ function BlockTitle({ children }: { children: string }) {
  * bất kỳ nút hành động nào thay con — dữ liệu đã qua cổng liên kết
  * giám hộ + cổng công bố phía server, trang chỉ trình bày. Ngoại lệ
  * duy nhất thuộc về chính phụ huynh: khối cài đặt tần suất digest
- * (PH-2, issue #159) và link sâu `?student=` từ thông báo digest chọn
- * đúng con khi mở trang.
+ * (PH-2, issue #159).
+ *
+ * Đường dẫn (chuẩn đường dẫn #221, lát R2): con đang xem do path
+ * quyết định — `/guardian/students/:studentId`; gốc `/guardian`
+ * hiện con đầu tiên trong danh sách liên kết. Link sâu digest PH-2
+ * nay trỏ thẳng path theo con; các link cũ dạng
+ * `/guardian?student=<id>` còn lưu trong thông báo đã phát được
+ * trang này chuyển hướng thay thế sang path mới (id không thuộc
+ * các con đang liên kết thì về gốc `/guardian`).
  */
 /**
  * Khối cài đặt digest của chính phụ huynh cho con đang chọn (PH-2,
@@ -122,17 +128,21 @@ export function GuardianPage() {
     queryFn: () => apiJson<MyStudentEntry[]>('/api/v1/guardian-links/mine/students'),
   });
   const students = studentsQuery.data ?? [];
-  // Link sâu từ thông báo digest (PH-2): ?student=<id> chọn đúng con
-  // nếu id thuộc các con đang liên kết; phụ huynh bấm chọn con khác thì
-  // lựa chọn tay thắng tham số.
+  // Con đang xem do path quyết định (chuẩn #221, lát R2): tham số
+  // :studentId của route con; ở gốc /guardian trang hiện con đầu
+  // tiên trong danh sách liên kết như hành vi trước lát.
+  const params = useParams();
+  const routeStudentId = params.studentId ?? null;
+  const navigate = useNavigate();
+  // Lớp tương thích cho link cũ /guardian?student=<id>: phán quyết
+  // chỉ chốt khi danh sách con đã nạp xong (trước đó trang giữ
+  // trạng thái đang tải); id thuộc các con đang liên kết thì sang
+  // path mới của đúng con đó, id lạ thì về gốc /guardian bỏ query.
   const [searchParams] = useSearchParams();
-  const linkedParam = searchParams.get('student');
-  const [pickedId, setPickedId] = useState<string | null>(null);
-  const studentId = pickedId && students.some((s) => s.student.id === pickedId)
-    ? pickedId
-    : linkedParam && students.some((s) => s.student.id === linkedParam)
-      ? linkedParam
-      : students[0]?.student.id;
+  const legacyStudentId = searchParams.get('student');
+  const studentsSettled = studentsQuery.isSuccess;
+  const routeStudentLinked = routeStudentId !== null && students.some((s) => s.student.id === routeStudentId);
+  const studentId = routeStudentLinked ? routeStudentId : students[0]?.student.id;
 
   const overviewQuery = useQuery({
     queryKey: queryKeys.guardianOverview(studentId ?? ''),
@@ -156,6 +166,19 @@ export function GuardianPage() {
       ]
     : [];
 
+  // Chuyển hướng thay thế của lớp tương thích (chỉ khi danh sách
+  // con đã nạp xong): link cũ ?student= hợp lệ → path theo con;
+  // path theo con trỏ tới con không thuộc liên kết → về gốc khu
+  // vực, tránh hiện dữ liệu của con khác dưới URL của con lạ (đọc
+  // dữ liệu vẫn do API gác theo liên kết như mọi đường khác).
+  if (studentsSettled && !routeStudentId && legacyStudentId) {
+    const legacyLinked = students.some((s) => s.student.id === legacyStudentId);
+    return <Navigate to={legacyLinked ? `/guardian/students/${legacyStudentId}` : '/guardian'} replace />;
+  }
+  if (studentsSettled && routeStudentId && !routeStudentLinked) {
+    return <Navigate to="/guardian" replace />;
+  }
+
   return (
     <PageShell width="wide" className="px-0 lg:px-0">
       <div className="flex flex-col gap-2 px-4 lg:px-6">
@@ -176,6 +199,8 @@ export function GuardianPage() {
         </div>
       ) : (
         <>
+          {/* Chọn con là điều hướng sang path của con đó (chuẩn
+              #221, lát R2) — URL luôn phản ánh đúng con đang xem. */}
           {students.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 px-4 lg:px-6" role="group" aria-label={t('chooseChild')}>
               {students.map((entry) => (
@@ -184,7 +209,7 @@ export function GuardianPage() {
                   type="button"
                   variant={entry.student.id === studentId ? 'default' : 'outline'}
                   aria-pressed={entry.student.id === studentId}
-                  onClick={() => setPickedId(entry.student.id)}
+                  onClick={() => navigate(`/guardian/students/${entry.student.id}`)}
                 >
                   {studentName(entry.student)}
                 </Button>

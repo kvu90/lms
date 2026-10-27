@@ -8,6 +8,8 @@
 export const queryKeys = {
   /** Ảnh chụp quyền của người đang đăng nhập (GET /users/me/capabilities). */
   capabilities: ['capabilities'] as const,
+  /** Kết quả tìm kiếm toàn cục theo từ khoá (GET /search — nhóm Nội dung của bề mặt tìm kiếm hợp nhất ở header). */
+  globalSearch: (keyword: string) => ['global-search', keyword] as const,
   /** Danh sách toàn bộ khoá học (GET /courses). */
   courses: ['courses'] as const,
   /** Kết quả + hàng đợi chấm tay của một quiz (trang quiz-results). */
@@ -328,4 +330,19 @@ export const queryKeys = {
   commentBank: ['assign-comment-bank'] as const,
   /** Người dùng hiện tại rút gọn (GET /users/me) — panel học sinh của bài tập. */
   currentUser: ['users', 'me'] as const,
+  /** Không gian kho học liệu (GET /contentbank/spaces) — trang kho học liệu + màn tạo/sửa học liệu. */
+  contentBankSpaces: ['content-bank', 'spaces'] as const,
+  /** Toàn bộ học liệu thuộc các không gian người xem thấy (GET /contentbank) — trang kho học liệu. */
+  contentBankItems: ['content-bank', 'items'] as const,
+  /** Chi tiết một học liệu (GET /contentbank/:id) — màn sửa học liệu. */
+  contentBankItem: (itemId: string) => ['content-bank', 'items', itemId] as const,
+  /** URL tải tệp đã ký của một học liệu (GET /contentbank/:id/file-url) — trang kho học liệu. */
+  contentBankItemFileUrl: (itemId: string) => ['content-bank', 'items', itemId, 'file-url'] as const,
+  /** Môn học trong context hệ thống cho bộ lọc của kho học liệu (chuỗi GET /access/contexts → GET /curriculum/subjects) — trang kho + màn tạo/sửa. */
+  contentBankSubjects: ['content-bank', 'subjects'] as const,
+  /** Danh mục câu hỏi trong context hệ thống (chuỗi GET /access/contexts → GET /questions/categories?contextId=) — màn tạo/sửa học liệu loại bộ câu hỏi. */
+  contentBankQuestionCategories: ['content-bank', 'question-categories'] as const,
+  /** Node chương trình đã phẳng hoá theo môn + khối (chuỗi GET /curriculum/curricula → GET /curriculum/curricula/:id/tree) — màn tạo/sửa học liệu. */
+  contentBankCurriculumNodes: (subjectId: string, grade: number) =>
+    ['content-bank', 'curriculum-nodes', subjectId, grade] as const,
 };

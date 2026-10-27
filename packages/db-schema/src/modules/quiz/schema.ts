@@ -67,6 +67,23 @@ export const examMatrices = pgTable('exam_matrices', {
   scopeNote: text('scope_note'),
   scopeNodeIds: jsonb('scope_node_ids').$type<string[]>(),
   totalScore: doublePrecision('total_score').notNull().default(10),
+  /**
+   * Chữ ký nội dung chuẩn hoá của ma trận (lát schema chống trùng của
+   * issue #233): chuỗi JSON chụp {tên, môn, chương trình, bộ mức,
+   * tổng điểm làm tròn 4 chữ số thập phân, ghi chú phạm vi, tập đơn
+   * vị kiến thức phạm vi đã sắp xếp, tập ô đã sắp xếp dạng
+   * "ĐVK|mức|dạng|số câu|điểm ô làm tròn 4"} — ĐÚNG thuật toán đối
+   * chiếu chống trùng của đường nhập file, để ma trận tạo tay, ma
+   * trận sao chép và ma trận nhập từ file so được với nhau. Mọi đường
+   * tạo đều tính và ghi cột này; mọi đường sửa làm đổi một thành
+   * phần của chữ ký (tên, bộ mức, tổng điểm, ghi chú phạm vi, phạm
+   * vi, ô) đều tính lại trong cùng thao tác ghi. Cột nullable ở tầng
+   * DB để chứa các bản ghi lịch sử có trước cột này: script lấp dữ
+   * liệu (entry `backfill-matrix-content-signature` của apps/api)
+   * tính lại chữ ký cho mọi bản ghi đang có bằng cùng thuật toán và
+   * báo cáo các cặp trùng sẵn có thay vì tự xoá.
+   */
+  contentSignature: text('content_signature'),
   createdBy: uuid('created_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -76,6 +93,17 @@ export const examMatrices = pgTable('exam_matrices', {
       index('exam_matrices_subject_idx').on(table.subjectId),
       index('exam_matrices_curriculum_idx').on(table.curriculumId),
       index('exam_matrices_bank_idx').on(table.bankId),
+      // Chống ghi trùng theo nội dung TRONG MỘT BANK (lát schema của
+      // issue #233): cặp (bank_id, content_signature) là duy nhất ở
+      // tầng DB để hai request ghi trùng đến đồng thời tuyệt đối cũng
+      // chỉ tạo được một ma trận — request thua cuộc chạm ràng buộc
+      // này, rollback và nhận về ma trận đã có thay vì lỗi. Các bản
+      // ghi bank_id NULL nằm ngoài phạm vi ràng buộc theo ngữ nghĩa
+      // NULL của PostgreSQL (mỗi giá trị NULL là phân biệt) — chấp
+      // nhận được vì đường nhập file luôn có bank đích; ma trận chưa
+      // thuộc bank nào vẫn được chống trùng ở tầng đối chiếu trong
+      // code như trước.
+      unique('exam_matrices_bank_content_signature_unique').on(table.bankId, table.contentSignature),
       check('exam_matrices_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic')`),
       check('exam_matrices_level_set_check', sql`${table.levelSet} in ('three', 'four')`),
       check('exam_matrices_status_check', sql`${table.status} in ('draft', 'ready', 'hidden')`),

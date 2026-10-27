@@ -3091,6 +3091,8 @@ ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payment
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
+ALTER TABLE "exam_matrices" ADD COLUMN "content_signature" text;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_bank_content_signature_unique" UNIQUE("bank_id","content_signature");--> statement-breakpoint
 -- TENANT-0 (issue #168) + TENANT-1 (issue #196): ROW LEVEL SECURITY —
 -- cổng cách ly cứng ở tầng cơ sở dữ liệu. Mọi bảng mang tenant_id đều
 -- ENABLE + FORCE RLS với MỘT policy "tenant_isolation":

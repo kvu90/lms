@@ -1,13 +1,13 @@
 import { Navigate, useLocation, useParams } from 'react-router';
 
 /**
- * Lớp tương thích đường dẫn CŨ của cụm ngân hàng (chuẩn đường dẫn,
- * issue #221 — mục 3.5 của hồ sơ chuẩn): URL cũ được chuyển hướng
- * THAY THẾ (replace) sang path mới tương ứng ngay khi khớp, để
- * bookmark/liên kết đã chia sẻ của giáo viên không gãy. Các query
- * thuộc diện F2 (lọc/prefill) ngoài bank/section được giữ nguyên khi
- * chuyển. Lớp tương thích giữ tối thiểu 2 chu kỳ phát hành rồi gỡ ở
- * lát R6 của hồ sơ.
+ * Lớp tương thích đường dẫn CŨ của cụm ngân hàng và họ Kho học liệu
+ * (chuẩn đường dẫn, issue #221 — mục 3.5 của hồ sơ chuẩn): URL cũ
+ * được chuyển hướng THAY THẾ (replace) sang path mới tương ứng ngay
+ * khi khớp, để bookmark/liên kết đã chia sẻ của giáo viên không gãy.
+ * Các query thuộc diện F2 (lọc/prefill) ngoài bank/section được giữ
+ * nguyên khi chuyển. Lớp tương thích giữ tối thiểu 2 chu kỳ phát
+ * hành rồi gỡ ở lát R6 của hồ sơ.
  */
 
 /**
@@ -85,4 +85,29 @@ export function LegacyExamPaperEditRedirect() {
 /** Path cũ `/system-bank/papers` → `/system-bank/exams`. */
 export function LegacySystemBankPapersRedirect() {
   return <Navigate to="/system-bank/exams" replace />;
+}
+
+/**
+ * Nhóm tương thích cho họ Kho học liệu CŨ viết dính `/contentbank*`
+ * (chuẩn đường dẫn #221, lát R3): tên tài nguyên viết tách là
+ * "content-bank" nên cả ba path cũ chuyển hướng thay thế sang cây
+ * `/content-bank*`, giữ nguyên phần query (trạng thái lọc nội bộ
+ * của trang danh sách) như khuôn cây Đề ở trên.
+ */
+export function LegacyContentBankRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/content-bank${location.search}`} replace />;
+}
+
+/** Path cũ `/contentbank/new` → `/content-bank/new`. */
+export function LegacyContentBankNewRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/content-bank/new${location.search}`} replace />;
+}
+
+/** Path cũ `/contentbank/:id/edit` → `/content-bank/:id/edit`. */
+export function LegacyContentBankEditRedirect() {
+  const { id } = useParams();
+  const location = useLocation();
+  return <Navigate to={`/content-bank/${id}/edit${location.search}`} replace />;
 }

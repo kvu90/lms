@@ -126,7 +126,10 @@ export class GuardianDigestService {
 
     const student = await this.users.getUser(studentId);
     const studentName = `${student.lastName} ${student.firstName}`.trim();
-    const deepLink = `/guardian?student=${studentId}`;
+    // Link sâu trỏ thẳng path theo con của khu vực phụ huynh (chuẩn
+    // đường dẫn #221, lát R2); thông báo đã phát trước đây mang dạng
+    // cũ /guardian?student= vẫn tới được nhờ lớp redirect phía web.
+    const deepLink = `/guardian/students/${studentId}`;
     const subject = this.t(payload.kind === 'weekly' ? 'platform.guardianDigestWeeklySubject' : 'platform.guardianDigestDailySubject', { name: studentName });
     const body = this.t('platform.guardianDigestBody', {
       results: counts.newResults, announcements: counts.announcements,
@@ -178,7 +181,9 @@ export class GuardianDigestService {
 
     const student = await this.users.getUser(studentId);
     const studentName = `${student.lastName} ${student.firstName}`.trim();
-    const deepLink = `/guardian?student=${studentId}`;
+    // Link sâu trỏ thẳng path theo con (chuẩn đường dẫn #221, lát
+    // R2) — cùng quy ước với link digest ở trên.
+    const deepLink = `/guardian/students/${studentId}`;
     const result = await this.messaging.notify(guardianId, 'guardian_overdue_alert', {
       subject: this.t('platform.guardianOverdueAlertSubject', { activity: payload.activityName }),
       body: this.t('platform.guardianOverdueAlertBody', { activity: payload.activityName, name: studentName }),

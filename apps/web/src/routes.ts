@@ -99,6 +99,13 @@ export default [
     route('system-bank/matrices', 'routes/system-bank-matrices.tsx'),    route('messages', 'pages/messages.tsx'),
     route('notifications', 'pages/notifications.tsx'),
     route('guardian', 'pages/guardian.tsx'),
+    // Khu vực phụ huynh theo từng con (chuẩn đường dẫn #221, lát
+    // R2): đối tượng chính của khu vực (đứa con đang xem) nằm trong
+    // path, không còn định danh bằng ?student=; link cũ dạng
+    // /guardian?student=<id> được chính trang guardian chuyển hướng
+    // thay thế sang path này (id không thuộc các con đang liên kết
+    // thì về gốc /guardian).
+    route('guardian/students/:studentId', 'routes/guardian-student.tsx'),
     route('calendar', 'pages/calendar.tsx'),
     route('badges', 'pages/badges.tsx'),
     route('learning-plan', 'pages/learning-plan.tsx'),
@@ -107,9 +114,15 @@ export default [
     route('backup', 'routes/backup.tsx'),
     route('insights', 'routes/insights.tsx'),
     route('reports', 'routes/reports.tsx'),
-    route('contentbank', 'routes/contentbank.tsx'),
-    route('contentbank/new', 'routes/contentbank-new.tsx'),
-    route('contentbank/:id/edit', 'routes/contentbank-edit.tsx'),
+    // Kho học liệu (chuẩn đường dẫn #221, lát R3): tên tài nguyên
+    // viết tách là /content-bank; cả ba path cũ viết dính giữ làm
+    // lớp tương thích chuyển hướng thay thế sang path mới.
+    route('content-bank', 'routes/contentbank.tsx'),
+    route('content-bank/new', 'routes/contentbank-new.tsx'),
+    route('content-bank/:id/edit', 'routes/contentbank-edit.tsx'),
+    route('contentbank', 'routes/legacy-contentbank.tsx'),
+    route('contentbank/new', 'routes/legacy-contentbank-new.tsx'),
+    route('contentbank/:id/edit', 'routes/legacy-contentbank-edit.tsx'),
     route('privacy', 'routes/privacy.tsx'),
   ]),
   // Hai trang mỏng của luồng uỷ quyền MCP (lát MCP-1, issue #163):
