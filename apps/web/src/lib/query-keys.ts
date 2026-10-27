@@ -255,4 +255,26 @@ export const queryKeys = {
   curriculumNode: (nodeId: string) => ['curriculum', 'nodes', nodeId] as const,
   /** Một YCCĐ theo id (GET /curriculum/outcomes/:id) — màn sửa YCCĐ. */
   curriculumOutcome: (outcomeId: string) => ['curriculum', 'outcomes', outcomeId] as const,
+  /** Chi tiết một khoá học (GET /courses/:id) — trang quản trị khoá (chế độ nhóm). */
+  courseDetail: (courseId: string) => ['courses', courseId, 'detail'] as const,
+  /** Các grouping của một khoá (GET /courses/:id/groupings) — trang quản trị khoá. */
+  courseGroupings: (courseId: string) => ['courses', courseId, 'groupings'] as const,
+  /** Các nhóm trong một grouping (GET /courses/:id/groupings/:id/groups) — trang quản trị khoá. */
+  courseGroupingGroups: (courseId: string, groupingId: string) =>
+    ['courses', courseId, 'groupings', groupingId, 'groups'] as const,
+  /** Thành viên của một nhóm khoá (GET /courses/:id/groups/:id/members) — trang quản trị khoá. */
+  courseGroupMembers: (courseId: string, groupId: string) =>
+    ['courses', courseId, 'groups', groupId, 'members'] as const,
+  /** Danh sách cohort (GET /cohorts) — trang quản trị khoá. */
+  cohorts: ['cohorts'] as const,
+  /** Thành viên của một cohort (GET /cohorts/:id/members) — trang quản trị khoá. */
+  cohortMembers: (cohortId: string) => ['cohorts', cohortId, 'members'] as const,
+  /** Các instance ghi danh của một khoá (GET /courses/:id/enrol/instances) — trang quản trị khoá. */
+  courseEnrolInstances: (courseId: string) => ['courses', courseId, 'enrol-instances'] as const,
+  /** Các ghi danh của một khoá (GET /courses/:id/enrolments) — trang quản trị khoá. */
+  courseEnrolments: (courseId: string) => ['courses', courseId, 'enrolments'] as const,
+  /** Tiến độ hoàn thành của một khoá (GET /courses/:id/completion) — trang quản trị khoá. */
+  courseCompletions: (courseId: string) => ['courses', courseId, 'completion'] as const,
+  /** Hội thoại chat toàn lớp của một khoá (GET /messages/courses/:id/conversation) — trang quản trị khoá. */
+  courseConversation: (courseId: string) => ['messages', 'courses', courseId, 'conversation'] as const,
 };
