@@ -19,6 +19,17 @@ import { MatrixBanksService } from './matrix-banks.service';
 export class ExamMatrixBankController {
   constructor(private readonly matrixBanks: MatrixBanksService) {}
 
+  @Get(':id/attribution')
+  /**
+   * GET /exam-matrices/:id/attribution — dòng ghi công của ma trận
+   * theo đúng khuôn attribution của câu hỏi: nguồn đã copy, tác giả
+   * gốc, bank nguồn và hai bộ đếm dùng thật (lượt copy đi + số
+   * version đề đã sinh từ ma trận). Cổng: quyền xem trên ma trận.
+   */
+  async attribution(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.matrixBanks.getAttribution(actor.id, id);
+  }
+
   @Post(':id/copy')
   /**
    * POST /exam-matrices/:id/copy — copy sâu ma trận (kèm toàn bộ ô) về

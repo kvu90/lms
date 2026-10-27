@@ -1074,6 +1074,10 @@ export const examMatrixViewSchema = z.object({
   status: z.enum(['draft', 'ready', 'hidden']),
   isTemplate: z.boolean(),
   derivedFromMatrixId: uuidIdSchema.nullable(),
+  /** Truy vết copy theo khuôn câu hỏi: bank nguồn tại thời điểm copy, tác giả gốc (giữ nguyên qua các đời copy) và số lượt đã được copy đi. */
+  derivedFromBankId: uuidIdSchema.nullable(),
+  originalAuthorId: uuidIdSchema.nullable(),
+  copyCount: z.number().int(),
   version: z.number().int(),
   cells: z.array(examMatrixCellViewSchema),
   warnings: z.array(z.string()),

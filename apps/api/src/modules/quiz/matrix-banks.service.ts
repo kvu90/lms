@@ -8,6 +8,24 @@ import type { CopyExamMatrixDto, CreateMatrixContributionDto, RejectMatrixContri
 import { QuizRepository, type ExamMatrixContributionRow, type ExamMatrixRow } from './quiz.repository';
 import { QuizService } from './quiz.service';
 
+/**
+ * Dòng ghi công của một ma trận (theo đúng khuôn AttributionView
+ * của câu hỏi): ma trận nguồn đã copy, bank nguồn, tác giả gốc và
+ * hai bộ đếm dùng thật — số lượt được copy đi và số version đề đã
+ * sinh từ ma trận này.
+ */
+export interface MatrixAttributionView {
+  matrixId: string;
+  isCopy: boolean;
+  derivedFromMatrixId: string | null;
+  originalAuthorId: string | null;
+  originalAuthorName: string | null;
+  sourceBankId: string | null;
+  sourceBankName: string | null;
+  copyCount: number;
+  useCount: number;
+}
+
 /** Bộ capability của lớp ngân hàng ma trận (MB-1): xem/sửa là quyền Chặng 3, copy/share/moderate là matrix:* — tất cả đánh giá TẠI CONTEXT CỦA BANK (E-8). */
 export const MATRIX_BANK_CAPS = {
   view: 'quiz:viewmatrix',
@@ -105,6 +123,11 @@ export class MatrixBanksService {
         contextId: source.contextId,
         bankId: targetBank.id, status: opts.status, isTemplate: opts.isTemplate,
         derivedFromMatrixId: source.id, version: 1,
+        // Truy vết copy đầy đủ theo khuôn câu hỏi: bank nguồn tại
+        // thời điểm copy + tác giả gốc giữ nguyên qua các đời copy;
+        // bộ đếm của nguồn tăng trong cùng transaction.
+        derivedFromBankId: source.bankId,
+        originalAuthorId: source.originalAuthorId ?? source.createdBy,
         presetKind: source.presetKind,
         targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
         levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
@@ -125,6 +148,7 @@ export class MatrixBanksService {
           minutes: cell.minutes, tfScale: cell.tfScale, position: cell.position,
         }, tx);
       }
+      await this.repo.bumpMatrixCopyCount(source.id, tx);
       return copy;
     });
   }
@@ -314,6 +338,35 @@ export class MatrixBanksService {
       payload: { contributionId: contribution.id, matrixId: source.id, newMatrixId: copy.id, targetBankId: bank.id, actorId },
     });
     return this.contributionView((await this.repo.getMatrixContribution(contribution.id))!);
+  }
+
+  /**
+   * Dòng ghi công của một ma trận: cổng là quyền XEM trên ma trận
+   * nguồn (cùng bộ quyền nguồn của copy/đóng góp) — người không xem
+   * được ma trận thì không đọc được truy vết của nó.
+   */
+  async getAttribution(actorId: string, matrixId: string): Promise<MatrixAttributionView> {
+    const matrix = await this.getMatrixRow(matrixId);
+    const caps = await this.sourceCapsOf(actorId, matrix);
+    if (!caps.view) {
+      throw new ForbiddenException({ message: 'No access to the source matrix', code: 'quiz.matrix_attribution_source_forbidden' });
+    }
+    const [names, generated, sourceBank] = await Promise.all([
+      matrix.originalAuthorId ? this.banks.displayNames([matrix.originalAuthorId]) : Promise.resolve(new Map<string, string>()),
+      this.repo.listExamVersionsByMatrix(matrix.id),
+      matrix.derivedFromBankId ? this.banks.findBankById(matrix.derivedFromBankId) : Promise.resolve(undefined),
+    ]);
+    return {
+      matrixId: matrix.id,
+      isCopy: matrix.derivedFromMatrixId !== null,
+      derivedFromMatrixId: matrix.derivedFromMatrixId,
+      originalAuthorId: matrix.originalAuthorId,
+      originalAuthorName: matrix.originalAuthorId ? (names.get(matrix.originalAuthorId) ?? null) : null,
+      sourceBankId: matrix.derivedFromBankId,
+      sourceBankName: sourceBank?.name ?? null,
+      copyCount: matrix.copyCount,
+      useCount: generated.length,
+    };
   }
 
   /** Từ chối đóng góp: lý do BẮT BUỘC (DTO đã chặn rỗng), hiện lại cho người gửi trong hàng chờ của họ. */

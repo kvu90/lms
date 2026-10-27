@@ -182,6 +182,15 @@ export class QuestionsController {
   async attribution(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.banks.getAttributionForViewer(actor.id, id);
   }
+  @Get(':id/containing-exams')
+  /**
+   * GET /questions/:id/containing-exams — truy nguồn chiều ngược:
+   * các version đề đang chứa câu hỏi này. Cùng cổng đọc với
+   * attribution (không qua cổng thì 404 đồng nhất).
+   */
+  async containingExams(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.banks.listContainingExams(actor.id, id);
+  }
   @Post(':id/withdraw')
   /**
    * POST /questions/:id/withdraw — rút câu khỏi bank chung (trạng thái hidden, lý do bắt buộc — QB-3).

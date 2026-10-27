@@ -1503,6 +1503,8 @@ export class QuizService {
       totalScore: row.totalScore, createdBy: row.createdBy,
       bankId: row.bankId, status: row.status as ExamMatrixView['status'],
       isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
+      derivedFromBankId: row.derivedFromBankId, originalAuthorId: row.originalAuthorId,
+      copyCount: row.copyCount,
       version: row.version,
       cells: cells.map((c) => this.matrixCellView(c)),
       warnings: matrixWarnings({
@@ -1759,6 +1761,8 @@ export class QuizService {
       totalScore: versionRow.totalScore, createdBy: row.createdBy,
       bankId: row.bankId, status: row.status as ExamMatrixView['status'],
       isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
+      derivedFromBankId: row.derivedFromBankId, originalAuthorId: row.originalAuthorId,
+      copyCount: row.copyCount,
       version: versionRow.version,
       cells: cells.map((c) => this.matrixCellView(c)),
       warnings: matrixWarnings({
@@ -1766,6 +1770,22 @@ export class QuizService {
         targetLevelPercents: versionRow.targetLevelPercents, totalScore: versionRow.totalScore,
       }),
     };
+  }
+
+  /**
+   * Truy nguồn chiều ngược của ma trận: mọi version đề đã sinh từ
+   * ma trận này (exam_versions.matrix_id) kèm số version ma trận đã
+   * neo lúc sinh đề — để người soạn truy từ ma trận ra các đề nó đã
+   * đẻ ra. Cổng quyền và cổng tenant như đọc chi tiết ma trận.
+   */
+  async listGeneratedExams(actorId: string, matrixId: string) {
+    const row = await this.getMatrixRow(matrixId);
+    const activeTenant = this.tenantContext.currentTenantId();
+    if (activeTenant !== undefined && row.tenantId !== null && row.tenantId !== activeTenant) {
+      throw new NotFoundException({ message: `Exam matrix ${matrixId} not found`, code: 'quiz.matrix_not_found' });
+    }
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.viewMatrix);
+    return this.repo.listExamVersionsByMatrix(matrixId);
   }
 
   /** Các ma trận của một môn (quiz:viewmatrix tại context của môn).

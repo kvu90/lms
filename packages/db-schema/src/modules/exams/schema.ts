@@ -50,6 +50,15 @@ export const exams = pgTable('exams', {
   derivedFromExamId: uuid('derived_from_exam_id'),
   derivedFromMatrixId: uuid('derived_from_matrix_id'),
   originalAuthorId: uuid('original_author_id'),
+  /**
+   * Bank nguồn và số version của đề nguồn tại thời điểm copy (bổ
+   * sung ở lát S2 của đợt đồng bộ cơ chế ngân hàng, theo đúng khuôn
+   * derived_from_bank_id / derived_from_version_id của câu hỏi):
+   * ghi tại lúc copy để truy vết không phụ thuộc việc đề nguồn còn
+   * tồn tại hay đã chuyển bank về sau.
+   */
+  derivedFromBankId: uuid('derived_from_bank_id'),
+  derivedFromVersionNumber: integer('derived_from_version_number'),
   createdBy: uuid('created_by').notNull(),
   /** Số version mới nhất (= số version hiện có); nội dung sống ở exam_paper_versions. */
   latestVersion: integer('latest_version').notNull().default(1),

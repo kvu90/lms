@@ -100,6 +100,21 @@ export class QuestionBanksRepository {
     for (const r of rows) if (r.questionId) out.set(r.questionId, Number(r.n));
     return out;
   }
+  /**
+   * Các version đề ĐANG CHỨA một câu hỏi (truy nguồn chiều ngược
+   * câu → đề): mỗi hàng là một exam version có slot trỏ tới câu —
+   * một đề có nhiều version chứa câu thì có nhiều hàng, để người
+   * soạn thấy đúng các bản đề bị ảnh hưởng khi sửa/rút câu.
+   */
+  async listContainingExams(questionId: string): Promise<{ examId: string; examVersionId: string; version: number; name: string }[]> {
+    return this.db.select({
+      examId: examVersions.examId, examVersionId: examVersions.id,
+      version: examVersions.version, name: examVersions.name,
+    }).from(examSlots)
+      .innerJoin(examVersions, eq(examSlots.examVersionId, examVersions.id))
+      .where(eq(examSlots.questionId, questionId))
+      .orderBy(asc(examVersions.createdAt), asc(examVersions.id));
+  }
   /** Các LẦN GHIM đang dùng một câu hỏi (distinct, qua exam version của pin) — phục vụ rút câu + cấm xoá vật lý. */
   async listPinIdsUsingQuestion(questionId: string): Promise<string[]> {
     const rows = await this.db.selectDistinct({ pinId: examPins.id }).from(examSlots)

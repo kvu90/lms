@@ -143,6 +143,16 @@ export class ExamMatricesController {
     }
     return this.quiz.getMatrixVersion(actor.id, id, parsed);
   }
+  @Get(':id/generated-exams')
+  /**
+   * GET /exam-matrices/:id/generated-exams — truy nguồn chiều ngược
+   * của ma trận: các version đề đã sinh từ ma trận này (kèm số
+   * version ma trận đã neo lúc sinh đề). Cổng xem như đọc chi tiết
+   * ma trận.
+   */
+  async generatedExams(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listGeneratedExams(actor.id, id);
+  }
   @Patch(':id')
   /**
    * PATCH /exam-matrices/:id — sửa ma trận (quiz:managematrix).

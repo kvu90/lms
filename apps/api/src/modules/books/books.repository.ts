@@ -3,7 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import type { DbTx } from '../curriculum/curriculum.repository';
-import { bookMappings, bookNodes, bookRecords, books } from '../../db/schema';
+import { bookMappings, bookNodes, bookRecords, books, question } from '../../db/schema';
 
 export type BookRow = typeof books.$inferSelect;
 export type BookNodeRow = typeof bookNodes.$inferSelect;
@@ -113,5 +113,20 @@ export class BookRepository {
   /** Cập nhật dòng sổ khi dataset đính chính. */
   async updateBookRecord(id: string, v: Partial<typeof bookRecords.$inferInsert>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(bookRecords).set({ ...v, updatedAt: new Date() }).where(eq(bookRecords.id, id));
+  }
+  /**
+   * Các câu hỏi có nguồn gốc từ cuốn sách này (truy nguồn chiều
+   * sách → câu): quan hệ qua cặp truy vết (source_kind='book',
+   * source_ref = id sách dạng chữ) trên bảng question — không FK
+   * cứng theo thiết kế nguồn ngoài hệ thống. Chỉ trả định danh và
+   * siêu dữ liệu soạn thảo, không trả nội dung câu.
+   */
+  async listQuestionsByBookSource(bookId: string): Promise<{ id: string; qtype: string; category: string; createdBy: string | null; copyCount: number }[]> {
+    return this.db.select({
+      id: question.id, qtype: question.qtype, category: question.category,
+      createdBy: question.createdBy, copyCount: question.copyCount,
+    }).from(question)
+      .where(and(eq(question.sourceKind, 'book'), eq(question.sourceRef, bookId)))
+      .orderBy(asc(question.createdAt), asc(question.id));
   }
 }

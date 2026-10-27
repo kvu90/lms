@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { examAttemptEvents, examAttemptRegradeItems, examAttemptRegrades, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examMatrixVersions, examPinFeedbacks, examPinOverrides, examPinVersionUpdates, examPins, examSlots, examVersions, exams } from '../../db/schema';
 
@@ -200,6 +200,28 @@ export class QuizRepository {
    */
   async updateMatrix(id: string, patch: Partial<ExamMatrixRow>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(examMatrices).set({ ...patch, updatedAt: new Date() }).where(eq(examMatrices.id, id));
+  }
+  /**
+   * Tăng bộ đếm số lượt một ma trận đã được copy đi (tín hiệu truy
+   * vết copy — tăng nguyên tử ở tầng SQL như exams.copy_count).
+   */
+  async bumpMatrixCopyCount(id: string, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(examMatrices)
+      .set({ copyCount: sql`${examMatrices.copyCount} + 1` })
+      .where(eq(examMatrices.id, id));
+  }
+  /**
+   * Các version đề đã sinh từ một ma trận (truy nguồn chiều ngược
+   * ma trận → đề): mỗi hàng là một exam version mang matrix_id của
+   * ma trận này, kèm định danh đề cha để hiển thị.
+   */
+  async listExamVersionsByMatrix(matrixId: string): Promise<{ examId: string; examVersionId: string; version: number; name: string; matrixVersion: number | null }[]> {
+    const rows = await this.db.select({
+      examId: examVersions.examId, examVersionId: examVersions.id,
+      version: examVersions.version, name: examVersions.name, matrixVersion: examVersions.matrixVersion,
+    }).from(examVersions).where(eq(examVersions.matrixId, matrixId))
+      .orderBy(asc(examVersions.createdAt), asc(examVersions.id));
+    return rows;
   }
   /**
    * Xoá một ma trận (ô cascade theo FK; quiz đã sinh giữ matrix_id = null theo FK set null).

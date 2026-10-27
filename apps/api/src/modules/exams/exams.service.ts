@@ -88,8 +88,13 @@ export interface ExamView {
     createdBy: string; createdAt: string;
   };
   slots: ExamSlotView[];
-  /** Truy vết nguồn gốc cho UI hiển thị ghi công (null với đề gốc tự soạn). */
-  attribution: { derivedFromExamId: string; originalAuthorId: string | null; sourceBankId: string } | null;
+  /**
+   * Truy vết nguồn gốc cho UI hiển thị ghi công (null với đề gốc tự
+   * soạn): bank nguồn và số version của đề nguồn GHI TẠI LÚC COPY
+   * (không suy lại từ đề nguồn hiện tại — đề nguồn có thể đã chuyển
+   * bank hoặc có thêm version sau đó).
+   */
+  attribution: { derivedFromExamId: string; originalAuthorId: string | null; sourceBankId: string; derivedFromVersionNumber: number | null } | null;
   capabilities: ExamCapabilitiesView;
 }
 
@@ -390,7 +395,10 @@ export class ExamsService {
       attribution = {
         derivedFromExamId: paper.derivedFromExamId,
         originalAuthorId: paper.originalAuthorId,
-        sourceBankId: source?.bankId ?? paper.bankId,
+        // Ưu tiên bank nguồn đã ghi tại lúc copy; chỉ bản copy cũ
+        // (chưa có cột ghi) mới suy từ bank hiện tại của đề nguồn.
+        sourceBankId: paper.derivedFromBankId ?? source?.bankId ?? paper.bankId,
+        derivedFromVersionNumber: paper.derivedFromVersionNumber,
       };
     }
     return {
@@ -671,6 +679,10 @@ export class ExamsService {
         derivedFromExamId: source.id,
         derivedFromMatrixId: sourceVersion.matrixId,
         originalAuthorId: source.originalAuthorId ?? source.createdBy,
+        // Ghi bank nguồn + số version của đề nguồn TẠI LÚC COPY —
+        // truy vết không phụ thuộc trạng thái của đề nguồn về sau.
+        derivedFromBankId: source.bankId,
+        derivedFromVersionNumber: sourceVersion.version,
         createdBy: actorId, latestVersion: 1,
       }, tx);
       const version = await this.repo.insertVersion({

@@ -747,6 +747,17 @@ export class QuestionBanksService {
    * dùng getAttribution không cổng vì caller đã qua cổng copy.
    */
   async getAttributionForViewer(actorId: string, questionId: string): Promise<AttributionView> {
+    await this.assertQuestionReadableByViewer(actorId, questionId);
+    return this.getAttribution(questionId);
+  }
+
+  /**
+   * Cổng đọc cho người xem một câu hỏi (dùng chung cho attribution
+   * và truy nguồn chiều ngược): câu không tồn tại, câu thuộc bank
+   * personal của người khác, hoặc actor không có `question:useall`
+   * tại context của category chứa câu → 404 đồng nhất, không oracle.
+   */
+  private async assertQuestionReadableByViewer(actorId: string, questionId: string): Promise<void> {
     const q = await this.questionsRepo.getQuestion(questionId);
     if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     const category = await this.questionsRepo.getCategory(q.category);
@@ -759,7 +770,16 @@ export class QuestionBanksService {
     }
     const canUse = await this.evaluator.hasCapability(actorId, 'question:useall', category.contextId).catch(() => false);
     if (!canUse) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
-    return this.getAttribution(questionId);
+  }
+
+  /**
+   * Truy nguồn chiều ngược của câu hỏi: các version đề đang chứa
+   * câu này — cùng cổng đọc với attribution (không có cổng thì 404,
+   * không lộ đề nào đang dùng câu).
+   */
+  async listContainingExams(actorId: string, questionId: string) {
+    await this.assertQuestionReadableByViewer(actorId, questionId);
+    return this.repo.listContainingExams(questionId);
   }
 
   /**

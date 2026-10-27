@@ -64,6 +64,16 @@ export const examMatrices = pgTable('exam_matrices', {
   status: text('status').notNull().default('draft'),
   isTemplate: boolean('is_template').notNull().default(false),
   derivedFromMatrixId: uuid('derived_from_matrix_id'),
+  /**
+   * Truy vết copy đầy đủ theo khuôn câu hỏi (bổ sung ở lát S1/S2 của
+   * đợt đồng bộ cơ chế ngân hàng): bank nguồn tại thời điểm copy,
+   * tác giả gốc giữ nguyên qua các đời copy (ghi công không tắt
+   * được) và số lượt ma trận này đã được copy đi. Các cột là con trỏ
+   * truy vết (không FK cứng) như họ derived_from_* của câu hỏi/đề.
+   */
+  derivedFromBankId: uuid('derived_from_bank_id'),
+  originalAuthorId: uuid('original_author_id'),
+  copyCount: integer('copy_count').notNull().default(0),
   version: integer('version').notNull().default(1),
   presetKind: text('preset_kind').notNull().default('cv7991_periodic'),
   targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),

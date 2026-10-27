@@ -8,22 +8,20 @@
   ],
   "footprints": [
     {
-      "statementType": "create_table",
+      "statementType": "add_column",
       "statementTarget": [
-        "table",
+        "column",
         "public",
-        "exam_matrix_versions"
+        "exams",
+        "derived_from_bank_id"
       ],
       "writes": [
-        "s|tbl|public.exam_matrix_versions",
-        "n|tbl|public.exam_matrix_versions",
-        "e|tbl|public.exam_matrix_versions",
-        "n|rel|public.exam_matrix_versions",
-        "n|type|public.exam_matrix_versions",
-        "n|rel|public.exam_matrix_versions_pkey",
-        "n|rel|public.exam_matrix_versions_matrix_version_unique"
+        "s|col|public.exams.derived_from_bank_id",
+        "n|col|public.exams.derived_from_bank_id",
+        "e|col|public.exams.derived_from_bank_id"
       ],
       "reads": [
+        "n|tbl|public.exams",
         "n|sch|public"
       ]
     },
@@ -32,16 +30,16 @@
       "statementTarget": [
         "column",
         "public",
-        "exam_dossiers",
-        "matrix_version_id"
+        "exams",
+        "derived_from_version_number"
       ],
       "writes": [
-        "s|col|public.exam_dossiers.matrix_version_id",
-        "n|col|public.exam_dossiers.matrix_version_id",
-        "e|col|public.exam_dossiers.matrix_version_id"
+        "s|col|public.exams.derived_from_version_number",
+        "n|col|public.exams.derived_from_version_number",
+        "e|col|public.exams.derived_from_version_number"
       ],
       "reads": [
-        "n|tbl|public.exam_dossiers",
+        "n|tbl|public.exams",
         "n|sch|public"
       ]
     },
@@ -50,234 +48,53 @@
       "statementTarget": [
         "column",
         "public",
-        "exam_versions",
-        "matrix_version_id"
+        "exam_matrices",
+        "derived_from_bank_id"
       ],
       "writes": [
-        "s|col|public.exam_versions.matrix_version_id",
-        "n|col|public.exam_versions.matrix_version_id",
-        "e|col|public.exam_versions.matrix_version_id"
+        "s|col|public.exam_matrices.derived_from_bank_id",
+        "n|col|public.exam_matrices.derived_from_bank_id",
+        "e|col|public.exam_matrices.derived_from_bank_id"
       ],
       "reads": [
-        "n|tbl|public.exam_versions",
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "add_column",
-      "statementTarget": [
-        "column",
-        "public",
-        "exam_matrix_cells",
-        "matrix_version_id"
-      ],
-      "writes": [
-        "s|col|public.exam_matrix_cells.matrix_version_id",
-        "n|col|public.exam_matrix_cells.matrix_version_id",
-        "e|col|public.exam_matrix_cells.matrix_version_id"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_cells",
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "alter_unique",
-      "statementTarget": [
-        "table",
-        "public",
-        "exam_matrix_cells"
-      ],
-      "writes": [
-        "s|uq|public.exam_matrix_cells.exam_matrix_cells_unique"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_cells",
-        "n|sch|public",
-        "n|col|public.exam_matrix_cells.matrix_version_id",
-        "n|col|public.exam_matrix_cells.curriculum_node_id",
-        "n|col|public.exam_matrix_cells.cognitive_level",
-        "n|col|public.exam_matrix_cells.qtype",
-        "e|col|public.exam_matrix_cells.matrix_id",
-        "e|col|public.exam_matrix_cells.curriculum_node_id",
-        "e|col|public.exam_matrix_cells.cognitive_level",
-        "e|col|public.exam_matrix_cells.qtype"
-      ],
-      "sharedWrites": [
-        "e|uniqueness|public.exam_matrix_cells.cognitive_level.curriculum_node_id.matrix_id.qtype"
-      ],
-      "sqlHash": "cbbc374b8513d9d4"
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_dossiers",
-        "exam_dossiers_matrix_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_dossiers_matrix_version_idx",
-        "n|idx|public.exam_dossiers_matrix_version_idx",
-        "e|idx|public.exam_dossiers_matrix_version_idx",
-        "n|rel|public.exam_dossiers_matrix_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_dossiers",
-        "n|sch|public",
-        "n|col|public.exam_dossiers.matrix_version_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_versions",
-        "exam_versions_matrix_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_versions_matrix_version_idx",
-        "n|idx|public.exam_versions_matrix_version_idx",
-        "e|idx|public.exam_versions_matrix_version_idx",
-        "n|rel|public.exam_versions_matrix_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_versions",
-        "n|sch|public",
-        "n|col|public.exam_versions.matrix_version_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_matrix_cells",
-        "exam_matrix_cells_matrix_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_matrix_cells_matrix_version_idx",
-        "n|idx|public.exam_matrix_cells_matrix_version_idx",
-        "e|idx|public.exam_matrix_cells_matrix_version_idx",
-        "n|rel|public.exam_matrix_cells_matrix_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_cells",
-        "n|sch|public",
-        "n|col|public.exam_matrix_cells.matrix_version_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_matrix_versions",
-        "exam_matrix_versions_matrix_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_matrix_versions_matrix_idx",
-        "n|idx|public.exam_matrix_versions_matrix_idx",
-        "e|idx|public.exam_matrix_versions_matrix_idx",
-        "n|rel|public.exam_matrix_versions_matrix_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_versions",
-        "n|sch|public",
-        "n|col|public.exam_matrix_versions.matrix_id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "exam_dossiers"
-      ],
-      "writes": [
-        "s|fk|public.exam_dossiers.exam_dossiers_matrix_version_id_exam_matrix_versions_id_fkey",
-        "n|fk|public.exam_dossiers.exam_dossiers_matrix_version_id_exam_matrix_versions_id_fkey",
-        "e|fk|public.exam_dossiers.exam_dossiers_matrix_version_id_exam_matrix_versions_id_fkey",
-        "n|con|public.exam_dossiers.exam_dossiers_matrix_version_id_exam_matrix_versions_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.exam_dossiers",
-        "n|sch|public",
-        "n|tbl|public.exam_matrix_versions",
-        "n|sch|public",
-        "n|col|public.exam_dossiers.matrix_version_id",
-        "n|col|public.exam_matrix_versions.id",
-        "e|uniqueness|public.exam_matrix_versions.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "exam_versions"
-      ],
-      "writes": [
-        "s|fk|public.exam_versions.exam_versions_matrix_version_id_exam_matrix_versions_id_fkey",
-        "n|fk|public.exam_versions.exam_versions_matrix_version_id_exam_matrix_versions_id_fkey",
-        "e|fk|public.exam_versions.exam_versions_matrix_version_id_exam_matrix_versions_id_fkey",
-        "n|con|public.exam_versions.exam_versions_matrix_version_id_exam_matrix_versions_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.exam_versions",
-        "n|sch|public",
-        "n|tbl|public.exam_matrix_versions",
-        "n|sch|public",
-        "n|col|public.exam_versions.matrix_version_id",
-        "n|col|public.exam_matrix_versions.id",
-        "e|uniqueness|public.exam_matrix_versions.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "exam_matrix_cells"
-      ],
-      "writes": [
-        "s|fk|public.exam_matrix_cells.exam_matrix_cells_wW8crdJbee98_fkey",
-        "n|fk|public.exam_matrix_cells.exam_matrix_cells_wW8crdJbee98_fkey",
-        "e|fk|public.exam_matrix_cells.exam_matrix_cells_wW8crdJbee98_fkey",
-        "n|con|public.exam_matrix_cells.exam_matrix_cells_wW8crdJbee98_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_cells",
-        "n|sch|public",
-        "n|tbl|public.exam_matrix_versions",
-        "n|sch|public",
-        "n|col|public.exam_matrix_cells.matrix_version_id",
-        "n|col|public.exam_matrix_versions.id",
-        "e|uniqueness|public.exam_matrix_versions.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "exam_matrix_versions"
-      ],
-      "writes": [
-        "s|fk|public.exam_matrix_versions.exam_matrix_versions_matrix_id_exam_matrices_id_fkey",
-        "n|fk|public.exam_matrix_versions.exam_matrix_versions_matrix_id_exam_matrices_id_fkey",
-        "e|fk|public.exam_matrix_versions.exam_matrix_versions_matrix_id_exam_matrices_id_fkey",
-        "n|con|public.exam_matrix_versions.exam_matrix_versions_matrix_id_exam_matrices_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_versions",
-        "n|sch|public",
         "n|tbl|public.exam_matrices",
-        "n|sch|public",
-        "n|col|public.exam_matrix_versions.matrix_id",
-        "n|col|public.exam_matrices.id",
-        "e|uniqueness|public.exam_matrices.id"
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_matrices",
+        "original_author_id"
+      ],
+      "writes": [
+        "s|col|public.exam_matrices.original_author_id",
+        "n|col|public.exam_matrices.original_author_id",
+        "e|col|public.exam_matrices.original_author_id"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_matrices",
+        "copy_count"
+      ],
+      "writes": [
+        "s|col|public.exam_matrices.copy_count",
+        "n|col|public.exam_matrices.copy_count",
+        "e|col|public.exam_matrices.copy_count"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public"
       ]
     }
   ],
@@ -41417,6 +41234,71 @@
       "name": "exam_matrix_versions_level_set_check",
       "value": "\"level_set\" in ('three', 'four')",
       "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exams",
+      "name": "derived_from_bank_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exams",
+      "name": "derived_from_version_number",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "derived_from_bank_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "original_author_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "copy_count",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
     }
   ]
 }
