@@ -241,7 +241,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
     expect(copy.paper.id).not.toBe(source.paper.id);
     expect(copy.paper.derivedFromExamId).toBe(source.paper.id);
     expect(copy.paper.originalAuthorId).toBe(source.paper.createdBy);
-    expect(copy.paper.status).toBe('draft');
+    // Hạ cánh ready theo quy tắc hoàn thiện (sao chép vào bank).
+    expect(copy.paper.status).toBe('ready');
     // Slots sao nguyên: cùng câu, cùng version đã ghim, cùng điểm.
     expect(copy.slots.map((s) => [s.questionId, s.pinnedVersionNumber, s.maxMark])).toEqual([[q1, 1, 4]]);
 

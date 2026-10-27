@@ -76,13 +76,29 @@ export interface PaperSummaryLite {
   capabilities: { edit: boolean; copy: boolean; deploy: boolean; moderate: boolean };
 }
 
-/** Một đề xuất đóng góp ĐỀ trong hàng chờ của một bank đề (EB-1). */
+/**
+ * Một đề xuất đóng góp ĐỀ trong hàng chờ của một bank đề — ĐƯỜNG
+ * ĐÓNG GÓP DUY NHẤT của đề (EB-1, nâng lên khuôn QB-4 đầy đủ ở
+ * S4/Q4 của issue #228): `mode` phân biệt đóng góp mới/cập nhật đề
+ * đích; bộ cột `dossier*` là BỘ HỒ SƠ đính kèm đã ghim tại lúc đề
+ * xuất (chỉ có ở đóng góp chính thức có đính kèm); `sourceDossierId`
+ * neo về bộ hồ sơ gốc với các đóng góp được chuyển đổi từ hồ sơ treo
+ * khi cắt đường hồ sơ — hàng chờ hồ sơ dùng neo này để đi thao tác
+ * duyệt trên chính đóng góp. Hình dạng khớp view API trả về
+ * (ExamContributionView: hàng đóng góp + paperName + reviews).
+ */
 export interface ExamContributionLite {
   id: string;
-  paperId: string;
+  examId: string;
   paperName: string | null;
   status: string;
   proposerId: string;
+  mode: string;
+  targetExamId: string | null;
+  sourceDossierId: string | null;
+  dossierExamVersionNumber: number | null;
+  dossierMatrixVersion: number | null;
+  dossierSpecSnapshot: DossierSpecLite | null;
 }
 
 /** Một mốc duyệt trong vết của bộ hồ sơ (EB-3). */
@@ -93,20 +109,20 @@ export interface ExamDossierReviewLite {
   reason: string | null;
 }
 
-/** Một BỘ HỒ SƠ đề (EB-3): ma trận + đề + đặc tả ghim tại lúc nộp, duyệt theo bộ (có thể hai cấp). */
+/** Một BỘ HỒ SƠ đề (EB-3): ma trận + đề + đặc tả ghim tại lúc nộp, duyệt theo bộ (có thể hai cấp). Trường định danh/tên khớp view API (`examId`/`examName` của ExamDossierView). */
 export interface ExamDossierLite {
   id: string;
-  paperId: string;
-  paperName: string | null;
+  examId: string;
+  examName: string | null;
   targetBankId: string;
   proposerName: string | null;
   note: string;
   status: string;
-  paperVersionNumber: number | null;
+  examVersionNumber: number | null;
   matrixName: string | null;
   matrixVersion: number | null;
   boardApprovalRequired: boolean;
-  resultPaperId: string | null;
+  resultExamId: string | null;
   reviews: ExamDossierReviewLite[];
 }
 
@@ -591,43 +607,22 @@ export function useReviewMatrixContribution() {
   });
 }
 
-/** Đột biến lập bộ hồ sơ cho một đề (POST /exams/:paperId/dossiers) — trả về hồ sơ vừa lập để nộp tiếp. */
-export function useCreateExamDossier() {
+/**
+ * Đột biến nộp BỘ HỒ SƠ của một đề lên bank đích: từ S4/Q4 (issue
+ * #228) bộ hồ sơ không còn đường ghi riêng (mọi thao tác ghi trên bề
+ * mặt hồ sơ đã đóng) — đây là ĐỀ XUẤT ĐÓNG GÓP kèm bộ hồ sơ đính kèm
+ * (`withDossier: true`) trên ĐƯỜNG ĐÓNG GÓP DUY NHẤT của đề
+ * (POST /exams/banks/:bankId/contributions, trường định danh theo
+ * hợp đồng là `examId`); phía API ghim bộ ba (version đề + version ma
+ * trận + bản đặc tả) tại đúng lúc đề xuất.
+ */
+export function useProposeExamDossierContribution() {
   return useMutation({
-    mutationFn: ({ paperId, targetBankId }: { paperId: string; targetBankId: string }) =>
-      apiJson<ExamDossierLite>(`/api/v1/exams/${paperId}/dossiers`, {
+    mutationFn: ({ bankId, examId }: { bankId: string; examId: string }) =>
+      apiJson(`/api/v1/exams/banks/${bankId}/contributions`, {
         method: 'POST',
-        body: JSON.stringify({ targetBankId }),
+        body: JSON.stringify({ examId, withDossier: true }),
       }),
-  });
-}
-
-/** Đột biến nộp một bộ hồ sơ (POST /exams/dossiers/:id/submit). */
-export function useSubmitExamDossier() {
-  return useMutation({
-    mutationFn: (dossierId: string) =>
-      apiJson(`/api/v1/exams/dossiers/${dossierId}/submit`, { method: 'POST', body: '{}' }),
-  });
-}
-
-/** Đột biến một mốc duyệt của bộ hồ sơ: cấp 1 (approve/reject) hoặc cấp 2 BGH (board-approve/board-reject); từ chối kèm lý do. */
-export function useReviewExamDossier() {
-  return useMutation({
-    mutationFn: ({
-      dossierId,
-      action,
-      reason,
-    }: {
-      dossierId: string;
-      action: 'approve' | 'reject' | 'board-approve' | 'board-reject';
-      reason?: string;
-    }) =>
-      action === 'approve' || action === 'board-approve'
-        ? apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, { method: 'POST', body: '{}' })
-        : apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, {
-            method: 'POST',
-            body: JSON.stringify({ reason: reason ?? '' }),
-          }),
   });
 }
 
@@ -664,29 +659,46 @@ export function useDeleteExamPaper() {
   });
 }
 
-/** Đột biến đề xuất một đề của tôi lên bank đề chung (POST /exams/banks/:bankId/contributions, khuôn QB-4). */
+/** Đột biến đề xuất một đề của tôi lên bank đề chung (POST /exams/banks/:bankId/contributions, khuôn QB-4; trường định danh theo hợp đồng là `examId`). */
 export function useProposeExamPaperContribution() {
   return useMutation({
     mutationFn: ({ bankId, paperId }: { bankId: string; paperId: string }) =>
       apiJson(`/api/v1/exams/banks/${bankId}/contributions`, {
         method: 'POST',
-        body: JSON.stringify({ paperId }),
+        body: JSON.stringify({ examId: paperId }),
       }),
   });
 }
 
-/** Đột biến duyệt/từ chối một đóng góp đề tại bank đích (POST /exams/banks/:bankId/contributions/:id/approve|reject). */
+/**
+ * Đột biến một mốc duyệt của đóng góp đề tại bank đích
+ * (POST /exams/banks/:bankId/contributions/:id/<action>): cấp 1
+ * approve/reject khi đóng góp `pending`, cấp 2 ban giám hiệu
+ * board-approve/board-reject khi đóng góp `pending_board` (trạng
+ * thái chỉ đóng góp kèm bộ hồ sơ mới lên được, theo Q4 của issue
+ * #228); từ chối ở cả hai cấp đều kèm lý do.
+ */
 export function useReviewExamPaperContribution() {
   return useMutation({
-    mutationFn: ({ bankId, ...vars }: ContributionReviewVars & { bankId: string }) =>
-      vars.approve
-        ? apiJson(`/api/v1/exams/banks/${bankId}/contributions/${vars.contributionId}/approve`, {
+    mutationFn: ({
+      bankId,
+      contributionId,
+      action,
+      reason,
+    }: {
+      bankId: string;
+      contributionId: string;
+      action: 'approve' | 'reject' | 'board-approve' | 'board-reject';
+      reason?: string;
+    }) =>
+      action === 'approve' || action === 'board-approve'
+        ? apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/${action}`, {
             method: 'POST',
             body: '{}',
           })
-        : apiJson(`/api/v1/exams/banks/${bankId}/contributions/${vars.contributionId}/reject`, {
+        : apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/${action}`, {
             method: 'POST',
-            body: JSON.stringify({ reason: vars.reason ?? '' }),
+            body: JSON.stringify({ reason: reason ?? '' }),
           }),
   });
 }

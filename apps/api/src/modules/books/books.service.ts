@@ -300,6 +300,24 @@ export class BookService implements OnModuleInit {
   }
 
   /**
+   * Truy nguồn chiều sách → câu: các câu hỏi ghi nguồn gốc từ cuốn
+   * sách này (cặp truy vết source_kind='book'/source_ref). Cổng đọc
+   * như cây sách. Đây là bề mặt NỘI BỘ phía giáo viên/quản trị —
+   * trường nguồn sách không bao giờ lộ ở bề mặt học viên (quy tắc
+   * bản quyền ở schema question).
+   */
+  async listBookQuestions(actorId: string, bookId: string) {
+    const { book, subject } = await this.bookChainOr404(bookId);
+    if (subject) {
+      await this.assertCanRead(actorId, subject.contextId);
+    } else {
+      const sys = await this.contexts.ensureSystemContext();
+      await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, sys.id);
+    }
+    return this.repo.listQuestionsByBookSource(book.id);
+  }
+
+  /**
    * Đơn vị khung SGK cho cơ chế nạp khung vào khoá: mỗi chương là một
    * đơn vị (thành section), các bài trong chương là mục, YCCĐ của mỗi
    * bài suy qua ánh xạ tại thời điểm gọi. Provider tin cậy cổng

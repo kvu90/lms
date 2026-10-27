@@ -193,7 +193,7 @@ describe('Matrix bank MB-1 (issue #111)', () => {
     expect(listed).toBeTruthy();
     expect(listed!.isTemplate).toBe(true);
 
-    // Copy về bank cá nhân (đích mặc định): danh tính mới, derived_from = mẫu, draft, không phải mẫu, đủ 2 ô.
+    // Copy về bank cá nhân (đích mặc định): danh tính mới, derived_from = mẫu, ready (quy tắc hoàn thiện: sao chép vào bank hạ cánh ready), không phải mẫu, đủ 2 ô.
     const copyRes = await http(app).post(`/api/v1/exam-matrices/${tpl.id}/copy`).set(bearer(team.member.token)).send({});
     expect(copyRes.status, JSON.stringify(copyRes.body)).toBe(201);
     const copy = copyRes.body as MatrixBody;
@@ -201,23 +201,29 @@ describe('Matrix bank MB-1 (issue #111)', () => {
     expect(copy.id).not.toBe(tpl.id);
     expect(copy.bankId).toBe(myBank.id);
     expect(copy.derivedFromMatrixId).toBe(tpl.id);
-    expect(copy.status).toBe('draft');
+    expect(copy.status).toBe('ready');
     expect(copy.isTemplate).toBe(false);
     expect(copy.version).toBe(1);
     expect(copy.cells).toHaveLength(2);
 
-    // Sửa ô trên bản copy: ô Biết 2 → 3 câu.
+    // Sửa ô trên bản copy: ô Biết 2 → 3 câu. Bản copy đã ready nên
+    // sửa ô fork sang version 2 (bất biến version) — ô thuộc version
+    // mới mang danh tính mới, lấy lại từ đáp án PATCH.
     const bietCell = copy.cells.find((c) => c.cognitiveLevel === 'biet')!;
     const patchRes = await http(app).patch(`/api/v1/exam-matrices/${copy.id}/cells/${bietCell.id}`)
       .set(bearer(team.member.token)).send({ questionCount: 3 });
     expect(patchRes.status, JSON.stringify(patchRes.body)).toBe(200);
+    const patched = patchRes.body as MatrixBody;
+    expect(patched.version).toBe(2);
+    const bietCellV2 = patched.cells.find((c) => c.cognitiveLevel === 'biet')!;
+    expect(bietCellV2.questionCount).toBe(3);
 
     // Availability của bản copy cho thành viên: Biết cần 3 có 3; Hiểu cần 1 có 1 → đủ.
     const avRes = await http(app).get(`/api/v1/exam-matrices/${copy.id}/availability`).set(bearer(team.member.token));
     expect(avRes.status, JSON.stringify(avRes.body)).toBe(200);
     const av = avRes.body as { sufficient: boolean; cells: { cellId: string; required: number; available: number; deficit: number }[] };
     expect(av.sufficient).toBe(true);
-    const avBiet = av.cells.find((c) => c.cellId === bietCell.id)!;
+    const avBiet = av.cells.find((c) => c.cellId === bietCellV2.id)!;
     expect(avBiet.required).toBe(3);
     expect(avBiet.available).toBe(3);
     expect(avBiet.deficit).toBe(0);

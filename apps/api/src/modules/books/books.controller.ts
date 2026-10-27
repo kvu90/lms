@@ -41,4 +41,13 @@ export class BooksController {
   async getBookTree(@Param('id', { schema: uuidIdSchema }) id: string, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.booksService.getBookTree(actor.id, id, forCourseId);
   }
+  @Get(':id/questions')
+  /**
+   * GET /books/:id/questions — truy nguồn chiều ngược: các câu hỏi
+   * ghi nguồn gốc từ cuốn sách này (source_kind='book'). Bề mặt nội
+   * bộ phía giáo viên/quản trị, cùng cổng đọc với cây sách.
+   */
+  async getBookQuestions(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.booksService.listBookQuestions(actor.id, id);
+  }
 }

@@ -1079,6 +1079,17 @@ export class CoursesService {
    * component khác hiện không có bảng instance riêng do module sở hữu
    * tạo qua API nên giữ nguyên `instanceId` (thực tế là null). Trả cm
    * mới và ghi map id.
+   *
+   * Toàn bộ trường CẤU HÌNH của lần ghim được chép theo bản gốc —
+   * gồm cả cặp preset (khuôn ghim kiểm tra) và `versionMode` (chế độ
+   * version của các ô đề: ghim cứng hay bám version mới nhất của
+   * ngân hàng), vì hai trường này chỉ có nghĩa cùng nhau: một lần
+   * ghim "float" mà bản sao lặng lẽ rơi về mặc định `pinned` sẽ đóng
+   * băng version của học viên ở khoá mới mà không ai hay biết (lỗi
+   * sót danh sách chép đã sửa ở issue #228 — quyết định: cờ
+   * version_mode ĐI THEO bản sao). Trường KHÔNG chép có chủ đích:
+   * `resultsPublishedAt` (kết quả chưa công bố ở lần ghim mới) và
+   * `cmId` (gán lại theo module mới ngay sau).
    */
   private async copyCmRow(
     tx: DbTx, source: CmRow, targetCourseId: string, targetSectionId: string,
@@ -1100,7 +1111,7 @@ export class CoursesService {
           reviewMarks: pin.reviewMarks, reviewSpecificFeedback: pin.reviewSpecificFeedback,
           reviewGeneralFeedback: pin.reviewGeneralFeedback, reviewRightAnswer: pin.reviewRightAnswer,
           reviewOverallFeedback: pin.reviewOverallFeedback,
-          preset: pin.preset, lateEntryMinutes: pin.lateEntryMinutes, monitorEvents: pin.monitorEvents,
+          preset: pin.preset, versionMode: pin.versionMode, lateEntryMinutes: pin.lateEntryMinutes, monitorEvents: pin.monitorEvents,
           variantCount: pin.variantCount, variants: pin.variants,
           resultsPublishedAt: null, createdBy: pin.createdBy,
         }).returning();

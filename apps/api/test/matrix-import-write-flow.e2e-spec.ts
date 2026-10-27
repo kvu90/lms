@@ -290,7 +290,7 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     const student = await createUserViaApi(app, admin, { username: `hs_i2_${suffix}` });
     expect(student.username).toBe(`hs_i2_${suffix}`);
     // Vai tại context hệ thống CHỈ có curriculum:view — xem được
-    // môn/chương trình nhưng KHÔNG có quiz:managematrix, nên cổng
+    // môn/chương trình nhưng KHÔNG có matrix:add, nên cổng
     // quyền tạo ma trận (chạy lại ở bước parse của request ghi) phải
     // là điểm chặn: 403 access.capability_denied như đường tạo tay.
     const roleId = await createRoleViaApi(app, admin);

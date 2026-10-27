@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { EventsModule } from '../../infra/events/events.module';
 import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
 import { CurriculumModule } from '../curriculum/curriculum.module';
+import { ExamsModule } from '../exams/exams.module';
 import { QuestionsModule } from '../questions/questions.module';
+import { QuizModule } from '../quiz/quiz.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
 import { McpDepsService } from './mcp-deps.service';
@@ -25,7 +27,11 @@ import { McpIdempotencyRepository } from './mcp-idempotency.repository';
   // tool tra YCCĐ dùng CurriculumService như REST vẫn dùng.
   // TenantsModule (TENANT-1, #196): McpDepsService dùng TenantsService
   // phân giải tenant mặc định của actor cho phiên MCP đường OAuth.
-  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule, TenantsModule],
+  // ExamsModule + QuizModule (issue #228): tool submit_contribution
+  // mở đối xứng cho đề (ExamsService) và ma trận (MatrixBanksService)
+  // — hai module này không import ngược McpModule nên không sinh
+  // vòng phụ thuộc.
+  imports: [QuestionsModule, UsersModule, EventsModule, BetterAuthModule, CurriculumModule, TenantsModule, ExamsModule, QuizModule],
   providers: [McpIdempotencyRepository, McpDepsService],
   exports: [McpDepsService],
 })

@@ -10,9 +10,11 @@ import {
   approveExamContributionSchema, copyExamSchema, createExamContributionSchema,
   createExamSchema, rejectExamContributionSchema,
   setExamSlotsSchema, setExamStatusSchema, swapExamSlotSchema, updateExamSchema,
+  withdrawExamSchema,
   type ApproveExamContributionDto, type CopyExamDto, type CreateExamContributionDto,
   type CreateExamDto, type RejectExamContributionDto,
   type SetExamSlotsDto, type SetExamStatusDto, type SwapExamSlotDto, type UpdateExamDto,
+  type WithdrawExamDto,
 } from './dto/exams.dto';
 
 @ApiTags('exams')
@@ -78,6 +80,22 @@ export class ExamsController {
     return this.exams.rejectContribution(actor.id, bankId, contributionId, dto);
   }
 
+  @Post('banks/:bankId/contributions/:contributionId/board-approve')
+  /**
+   * POST /exams/banks/:bankId/contributions/:contributionId/board-approve — duyệt cấp 2 (ban giám hiệu, exam:moderate tại context hệ thống) cho đóng góp đang `pending_board`: mốc chốt, đề vào bank đích.
+   */
+  async boardApprove(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: approveExamContributionSchema }) dto: ApproveExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.exams.boardApproveContribution(actor.id, bankId, contributionId, dto);
+  }
+
+  @Post('banks/:bankId/contributions/:contributionId/board-reject')
+  /**
+   * POST /exams/banks/:bankId/contributions/:contributionId/board-reject — từ chối cấp 2 cho đóng góp đang `pending_board`, lý do bắt buộc.
+   */
+  async boardReject(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: rejectExamContributionSchema }) dto: RejectExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.exams.boardRejectContribution(actor.id, bankId, contributionId, dto);
+  }
+
   @Get(':id')
   /**
    * GET /exams/:id — chi tiết đề: version hiện tại + slots đã ghim + truy vết nguồn gốc + khả năng của actor.
@@ -104,10 +122,26 @@ export class ExamsController {
 
   @Post(':id/status')
   /**
-   * POST /exams/:id/status — đổi trạng thái vòng đời draft/ready/hidden (ready bắt buộc có slot; hidden không vỡ pin đã ghim).
+   * POST /exams/:id/status — đổi trạng thái vòng đời draft/ready/hidden (ready bắt buộc có slot; hidden không vỡ pin đã ghim; đề đã rút chính thức không đổi ở đây — phải khôi phục trước).
    */
   async setStatus(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setExamStatusSchema }) dto: SetExamStatusDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.setStatus(actor.id, id, dto);
+  }
+
+  @Post(':id/withdraw')
+  /**
+   * POST /exams/:id/withdraw — rút đề khỏi ngân hàng kèm lý do bắt buộc và truy vết người rút/thời điểm (ngang hàng rút câu hỏi QB-3); pin đã ghim vẫn phục vụ bình thường.
+   */
+  async withdraw(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: withdrawExamSchema }) dto: WithdrawExamDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.exams.withdrawPaper(actor.id, id, dto);
+  }
+
+  @Post(':id/restore')
+  /**
+   * POST /exams/:id/restore — khôi phục đề đã rút về ready, xoá truy vết lần rút.
+   */
+  async restore(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.exams.restorePaper(actor.id, id);
   }
 
   @Delete(':id')

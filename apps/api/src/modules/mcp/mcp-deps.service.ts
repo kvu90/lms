@@ -4,7 +4,9 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { BETTER_AUTH_BASE_PATH } from '../auth/better-auth/better-auth.instance';
 import { BetterAuthService } from '../auth/better-auth/better-auth.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
+import { ExamsService } from '../exams/exams.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
+import { MatrixBanksService } from '../quiz/matrix-banks.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { QuestionsService } from '../questions/questions.service';
 import { UsersService } from '../users/users.service';
@@ -41,6 +43,8 @@ export class McpDepsService {
     private readonly users: UsersService,
     private readonly questions: QuestionsService,
     private readonly banks: QuestionBanksService,
+    private readonly exams: ExamsService,
+    private readonly matrixBanks: MatrixBanksService,
     private readonly curriculum: CurriculumService,
     private readonly idempotency: McpIdempotencyRepository,
     private readonly outbox: OutboxService,
@@ -91,6 +95,8 @@ export class McpDepsService {
         toolDeps: {
           questions: this.questions,
           banks: this.banks,
+          exams: this.exams,
+          matrixBanks: this.matrixBanks,
           curriculum: this.curriculum,
           idempotency: this.idempotency,
           outbox: this.outbox,
@@ -111,6 +117,8 @@ export class McpDepsService {
       toolDeps: {
         questions: this.questions,
         banks: this.banks,
+        exams: this.exams,
+        matrixBanks: this.matrixBanks,
         curriculum: this.curriculum,
         idempotency: this.idempotency,
         outbox: this.outbox,

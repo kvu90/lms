@@ -39,8 +39,10 @@ import {
 } from '@lms/contracts';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { CurriculumService } from '../curriculum/curriculum.service';
+import type { ExamsService } from '../exams/exams.service';
 import type { QuestionBanksService } from '../questions/question-banks.service';
 import type { QuestionsService } from '../questions/questions.service';
+import type { MatrixBanksService } from '../quiz/matrix-banks.service';
 import { truefalseHashAnswers } from '../questions/domain/question-engine';
 import { mcpRequestHash, normalizeContentStrings, scanContent, type ContentViolation } from './mcp-content';
 import type { McpIdempotencyRepository } from './mcp-idempotency.repository';
@@ -49,6 +51,10 @@ import type { McpActor } from './mcp.context';
 export interface McpToolDeps {
   questions: QuestionsService;
   banks: QuestionBanksService;
+  /** Đường đóng góp duy nhất của đề cho nhánh examIds của submit_contribution (issue #228). */
+  exams: ExamsService;
+  /** Hàng chờ đóng góp ma trận cho nhánh matrixIds của submit_contribution (issue #228). */
+  matrixBanks: MatrixBanksService;
   /** Tra YCCĐ cho tool search_curriculum_outcomes (lát MCP-1) — cùng facade CurriculumService mà REST dùng. */
   curriculum: CurriculumService;
   idempotency: McpIdempotencyRepository;
@@ -621,9 +627,9 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
   server.registerTool(
     'submit_contribution',
     {
-      title: 'Submit my questions to a shared bank for review',
+      title: 'Submit my questions, papers or matrices to a shared bank for review',
       description:
-        'Propose one or more of YOUR OWN ready questions for inclusion in a shared question bank (team, school or course bank). Each accepted proposal becomes a PENDING contribution in the target bank; a human moderator of that bank must approve it before the question is copied in — this tool cannot write into a shared bank directly. Questions must belong to you and already be in ready status (drafts are rejected per question). The target must not be a personal bank. Results are per question: pending with a contributionId, or failed with the business error code. Retrying with the same idempotencyKey and the same payload returns the original result; the same key with a different payload is an error.',
+        'Propose one or more of YOUR OWN ready questions (questionIds), exam papers (examIds) and/or exam matrices (matrixIds) for inclusion in a shared bank (team, school or course bank) — at least one of the three lists must be non-empty, all in a single call to the same target bank. Each accepted proposal becomes a PENDING contribution in the target bank; a human moderator of that bank must approve it before the item is copied in — this tool cannot write into a shared bank directly. Items must belong to you and already be in ready status (drafts are rejected per item). The target must not be a personal bank and must be a bank of the matching kind for each item. Results are per item in three lists (results, examResults, matrixResults): pending with a contributionId, or failed with the business error code. Retrying with the same idempotencyKey and the same payload returns the original result; the same key with a different payload is an error.',
       inputSchema: mcpSubmitContributionInputSchema,
       outputSchema: mcpSubmitContributionOutputSchema,
     },
@@ -639,7 +645,13 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         return errResult('question.invalid_content', first.message, first.fieldPath);
       }
       const clean = normalizeContentStrings(args);
-      const { idempotencyKey, targetBankId, questionIds } = clean;
+      const { idempotencyKey, targetBankId } = clean;
+      // Ba danh sách đối xứng ba thực thể ngân hàng (issue #228):
+      // schema đã gác "ít nhất một danh sách có phần tử" — ở đây
+      // vắng danh sách nào thì coi như rỗng.
+      const questionIds = clean.questionIds ?? [];
+      const examIds = clean.examIds ?? [];
+      const matrixIds = clean.matrixIds ?? [];
       const note = clean.note ?? '';
 
       // ── Trần scope (phòng thủ tầng tool; cổng chính ở mount trả HTTP
@@ -674,7 +686,13 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         }
         const stored = existing.responseJson as unknown as McpSubmitContributionOutput;
         await auditCall(deps, actor, 'submit_contribution', { result: 'idempotent_replay', bankId: targetBankId });
-        return okResult({ ...stored }, 'Idempotent replay: this submission was already processed; returning the original result.');
+        // Bản ghi cũ (trước đợt mở đối xứng) chưa có hai mảng
+        // examResults/matrixResults — bù rỗng cho khớp hình dạng
+        // hiện hành khi phát lại.
+        return okResult(
+          { ...stored, examResults: stored.examResults ?? [], matrixResults: stored.matrixResults ?? [] },
+          'Idempotent replay: this submission was already processed; returning the original result.',
+        );
       }
 
       // ── Từng câu: cổng chủ sở hữu ở biên MCP (câu phải của chính chủ
@@ -709,27 +727,89 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         }
       }
 
-      const created = results.filter((r) => r.status === 'pending').length;
+      // ── Từng ĐỀ: cùng khuôn cổng chủ sở hữu, rồi vào ĐƯỜNG ĐÓNG
+      // GÓP DUY NHẤT của đề (mode 'new') — ExamsService.proposeContribution
+      // tự kiểm exam:share tại bank nguồn, trạng thái ready, đích là
+      // bank đề dùng chung, chống trùng trong bank đích. ───────────
+      const examResults: McpSubmitContributionOutput['examResults'] = [];
+      for (const examId of examIds) {
+        let createdBy: string | null;
+        try {
+          createdBy = (await deps.exams.getPaperOrThrow(examId)).createdBy;
+        } catch {
+          examResults.push({ examId, status: 'failed', contributionId: null, code: 'exam.not_found', message: `Paper ${examId} not found` });
+          continue;
+        }
+        if (createdBy !== actor.userId) {
+          examResults.push({
+            examId, status: 'failed', contributionId: null,
+            code: 'exam.contribution_source_not_own',
+            message: 'Only your own papers can be submitted as a contribution',
+          });
+          continue;
+        }
+        try {
+          const contribution = await deps.exams.proposeContribution(actor.userId, targetBankId, { examId, note });
+          examResults.push({ examId, status: 'pending', contributionId: contribution.id, code: null, message: null });
+        } catch (error) {
+          const { code, message } = errorShape(error);
+          examResults.push({ examId, status: 'failed', contributionId: null, code, message });
+        }
+      }
+
+      // ── Từng MA TRẬN: cùng khuôn cổng chủ sở hữu, rồi vào hàng
+      // chờ đóng góp ma trận — MatrixBanksService.proposeContribution
+      // tự kiểm matrix:share tại context nguồn, trạng thái ready,
+      // đích là bank ma trận dùng chung, chống trùng trong bank
+      // đích. ────────────────────────────────────────────────────────
+      const matrixResults: McpSubmitContributionOutput['matrixResults'] = [];
+      for (const matrixId of matrixIds) {
+        const matrix = await deps.matrixBanks.findMatrixById(matrixId);
+        if (!matrix) {
+          matrixResults.push({ matrixId, status: 'failed', contributionId: null, code: 'quiz.matrix_not_found', message: `Matrix ${matrixId} not found` });
+          continue;
+        }
+        if (matrix.createdBy !== actor.userId) {
+          matrixResults.push({
+            matrixId, status: 'failed', contributionId: null,
+            code: 'quiz.matrix_contribution_source_not_own',
+            message: 'Only your own matrices can be submitted as a contribution',
+          });
+          continue;
+        }
+        try {
+          const view = await deps.matrixBanks.proposeContribution(actor.userId, matrixId, { targetBankId, note });
+          matrixResults.push({ matrixId, status: 'pending', contributionId: view.id, code: null, message: null });
+        } catch (error) {
+          const { code, message } = errorShape(error);
+          matrixResults.push({ matrixId, status: 'failed', contributionId: null, code, message });
+        }
+      }
+
+      const total = results.length + examResults.length + matrixResults.length;
+      const created = [...results, ...examResults, ...matrixResults].filter((r) => r.status === 'pending').length;
       const response: McpSubmitContributionOutput = {
         targetBankId,
         results,
+        examResults,
+        matrixResults,
         created,
-        failed: results.length - created,
+        failed: total - created,
       };
       await deps.idempotency.store({ userId: actor.userId, key: idempotencyKey, tool: 'submit_contribution', requestHash, response: { ...response } });
       await auditCall(deps, actor, 'submit_contribution', {
-        result: created === results.length ? 'ok' : created > 0 ? 'partial' : 'failed',
+        result: created === total ? 'ok' : created > 0 ? 'partial' : 'failed',
         bankId: targetBankId,
-        requested: results.length,
+        requested: total,
         created,
         failed: response.failed,
-        contributionIds: results.filter((r) => r.contributionId).map((r) => r.contributionId),
+        contributionIds: [...results, ...examResults, ...matrixResults].filter((r) => r.contributionId).map((r) => r.contributionId),
       });
       return okResult(
         { ...response },
-        created === results.length
-          ? `Submitted ${created} question(s) to bank ${targetBankId}; each is a pending contribution awaiting moderator approval.`
-          : `Submitted ${created} of ${results.length} question(s) to bank ${targetBankId}; see per-question results for the failures.`,
+        created === total
+          ? `Submitted ${created} item(s) to bank ${targetBankId}; each is a pending contribution awaiting moderator approval.`
+          : `Submitted ${created} of ${total} item(s) to bank ${targetBankId}; see per-item results for the failures.`,
       );
     },
   );

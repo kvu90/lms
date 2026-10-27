@@ -94,19 +94,37 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'question:copy', capType: 'read', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:share', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'question:moderate', capType: 'write', contextLevel: 50, component: 'core_question', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
-  // MB-1 (issue #111): bộ ba quyền của NGÂN HÀNG MA TRẬN, khuôn đúng
-  // question:copy/share/moderate — cấp tại context của BANK qua hai vai
-  // qbankmember/qbanklead (QuestionBanksService.buildBank theo kind).
+  // Ngân hàng ma trận: MB-1 (issue #111) mở đầu bằng bộ ba
+  // copy/share/moderate; đợt đồng bộ khuôn ngân hàng (issue #228,
+  // lát S3) bổ sung use/add/edit để ma trận đủ bộ
+  // use/add/edit/copy/share/moderate như câu hỏi và đề, đồng thời BỎ
+  // hẳn việc neo quyền xem/sửa ma trận vào quiz:viewmatrix /
+  // quiz:managematrix của Chặng 3. use = xem/dùng ma trận; add = tạo
+  // ma trận mới (tạo tay, nhập file, copy vào bank đích); edit = sửa
+  // ma trận và các ô. Cấp tại context của BANK qua hai vai
+  // qbankmember/qbanklead (QuestionBanksService.buildBank theo kind)
+  // và tại context của môn cho đường chưa qua bank. Archetype của
+  // use/add/edit giữ đúng archetype của cặp quiz:* cũ (mọi vai staff,
+  // giáo viên là người dùng chính của ma trận) để việc đổi tên không
+  // thay đổi ai đang có quyền.
+  { name: 'matrix:use', capType: 'read', contextLevel: 50, component: 'core_matrix', archetypes: { ...ALL_STAFF } },
+  { name: 'matrix:add', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { ...ALL_STAFF } },
+  { name: 'matrix:edit', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { ...ALL_STAFF } },
   { name: 'matrix:copy', capType: 'read', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'matrix:share', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'matrix:moderate', capType: 'write', contextLevel: 50, component: 'core_matrix', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   // Ngân hàng đề (feat issue #113, EB-1): bộ capability của lớp bank đề,
   // song song bộ question:* của QB — mọi cổng đều đánh giá TẠI context
   // của bank đề (một nguồn quyền duy nhất là bank, research G.2/E-8).
-  // view = vào được bank đề + xem đề ready; edit = tạo/sửa đề của mình;
-  // copy = copy đề về bank khác; share = đề xuất đóng góp; moderate =
-  // duyệt đóng góp + quản trị đề của người khác trong bank; deploy =
-  // triển khai đề vào quiz (cộng thêm quiz:manage tại context khoá đích).
+  // Đợt đồng bộ khuôn ngân hàng (issue #228, lát S3) chuẩn hoá tên về
+  // cùng khuôn use/add/edit/copy/share/moderate: use = vào được bank
+  // đề + xem đề ready (trước đây là exam:view); add = tạo đề mới
+  // (tạo tay, sinh từ ma trận, copy vào bank đích); edit = sửa đề của
+  // mình; copy = copy đề về bank khác; share = đề xuất đóng góp;
+  // moderate = duyệt đóng góp + quản trị đề của người khác trong
+  // bank; deploy = triển khai đề vào quiz (cộng thêm quiz:manage tại
+  // context khoá đích) — deploy là capability riêng của đề như
+  // managecategory là riêng của câu hỏi.
   // LƯU Ý archetype: KHÔNG cấp cho 'teacher' — nếu cấp, mọi giáo viên
   // staff đều kế thừa exam:* tại MỌI context bank qua dòng seed ở
   // context hệ thống (kể cả bank cá nhân của người khác — đúng bẫy mà
@@ -114,7 +132,8 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   // Giáo viên staff có quyền tại bank mình thuộc về qua assignment
   // thật qbankmember/qbanklead + override exam:* tại context bank
   // (ExamsService.ensureExamGrants).
-  { name: 'exam:view', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'exam:use', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
+  { name: 'exam:add', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'exam:edit', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'exam:copy', capType: 'read', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'exam:share', capType: 'write', contextLevel: 50, component: 'core_exam', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
@@ -129,9 +148,6 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'quiz:viewreports', capType: 'read', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'quiz:preview', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'quiz:manageoverrides', capType: 'write', contextLevel: 70, component: 'mod_quiz', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
-  // Ma trận đề neo tại context của môn như curriculum (Chặng 3) — giáo viên là người dùng chính của ma trận nên archetype gồm cả teacher.
-  { name: 'quiz:viewmatrix', capType: 'read', contextLevel: 10, component: 'mod_quiz', archetypes: { ...ALL_STAFF } },
-  { name: 'quiz:managematrix', capType: 'write', contextLevel: 10, component: 'mod_quiz', archetypes: { ...ALL_STAFF } },
   // Bài tập nộp tệp/ảnh (mod_assign) — capability tại context của course module.
   { name: 'assign:view', capType: 'read', contextLevel: 70, component: 'mod_assign', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW, student: CAP_ALLOW } },
   { name: 'assign:submit', capType: 'write', contextLevel: 70, component: 'mod_assign', archetypes: { student: CAP_ALLOW } },

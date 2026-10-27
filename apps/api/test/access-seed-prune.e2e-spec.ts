@@ -80,13 +80,16 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     // → 116, − 3 quyền blog:create / blog:view / blog:manageentries
     // khi gỡ hẳn tính năng Blog (issue #173) → 113, + 8 quyền class:*
     // của lớp học hạng nhất (CLASS-0, issue #184: create/view/update/
-    // delete/manageroster/assignwork/grade/share) → 121, + 1 quyền
-    // payment:managecoupons của bề mặt quản trị coupon mua gói (phần
-    // còn lại của lát 2, issue #189) → 122, every one
-    // không có tiền tố,
+    // delete/manageroster/assignwork/grade/share) → 121,
+    // + 2 quyền của đợt đồng bộ khuôn ngân hàng (issue #228, lát S3:
+    // bỏ quiz:viewmatrix + quiz:managematrix, thêm matrix:use /
+    // matrix:add / matrix:edit và exam:add, exam:view đổi tên thành
+    // exam:use — ròng +2) → 123, + 1 quyền payment:managecoupons của
+    // bề mặt quản trị coupon mua gói (phần còn lại của lát 2, issue
+    // #189) → 124, every one không có tiền tố,
     // và các mặc định đã đổi tên đã được seed lại tại context hệ thống.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
-    expect(Number(defs.rows[0].n)).toBe(122);
+    expect(Number(defs.rows[0].n)).toBe(124);
     const renamed = await pg.query<{ permission: number }>(
       `select permission from role_capabilities where context_id = $1 and role_id = $2 and capability = 'course:update'`,
       [systemId, managerId],
