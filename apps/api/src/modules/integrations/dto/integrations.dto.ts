@@ -10,7 +10,7 @@ import {
 } from '@lms/contracts';
 
 /**
- * Validation của Web Services dùng Zod qua Standard Schema (xem ADR Zod-only):
+ * Validation của Web Services dùng Zod qua Standard Schema:
  * schema nền ở `@lms/contracts` là nguồn sự thật duy nhất, dùng chung với form
  * phía React; server không định nghĩa hệ validation thứ hai.
  */

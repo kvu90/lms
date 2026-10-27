@@ -24,17 +24,17 @@ export interface BadgeAwardJobData { userId: string; trigger?: string }
 export interface BadgeAwardResult { evaluated: number; issued: string[] }
 
 /**
- * Badge auto-award evaluation: the worker twin of the API evaluator,
- * fed by completion/competency events through the 'badge-award' queue.
- * It re-derives each ACTIVE badge's criteria tree (overall ALL/ANY over
- * course-completion — honouring the leaf's optional by-date deadline /
- * activity-completion / competency-proficiency / other-badge / manual /
- * cohort-membership / profile-field leaves) from the SAME stored facts
- * the API uses,
- * and issues missing assertions. Fully idempotent: the
- * (badgeId, userId) unique key plus an existence check mean a second run
- * issues nothing twice. Each new issue also produces the badge_awarded
- * notification (popup channel) and a badge_issued outbox event.
+ * Đánh giá cấp huy hiệu tự động (badge auto-award): bản song sinh phía worker của evaluator phía API,
+ * được nuôi bằng các sự kiện completion/competency qua queue 'badge-award'.
+ * Nó suy lại cây tiêu chí của từng badge ACTIVE (overall ALL/ANY trên
+ * course-completion — tôn trọng hạn by-date tuỳ chọn của lá /
+ * các lá activity-completion / competency-proficiency / other-badge / manual /
+ * cohort-membership / profile-field) từ ĐÚNG các dữ kiện đã lưu
+ * mà API dùng,
+ * và cấp các assertion còn thiếu. Hoàn toàn idempotent:
+ * khoá duy nhất (badgeId, userId) cộng với bước kiểm tra tồn tại bảo đảm lần chạy thứ hai
+ * không cấp trùng gì cả. Mỗi lần cấp mới cũng sinh ra thông báo badge_awarded
+ * (kênh popup) và một sự kiện outbox badge_issued.
  *
  * Thông báo đi qua hàm luật phân phối trong-app dùng chung của worker
  * ({@link NotificationDeliveryService}, lát #174-A) — KHÔNG ghi thẳng

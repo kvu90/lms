@@ -66,7 +66,7 @@ export class ContextsService {
    * Lấy context theo id; ném NotFound khi vắng. Id không phải UUID thì
    * chắc chắn không tồn tại context nào mang nó (khoá chính là uuid) —
    * trả NotFound thay vì để DB ném lỗi cú pháp uuid: các guard chạy
-   * trước pipe validate nên id thô trên URL tới được đây (ADR-013).
+   * trước pipe validate nên id thô trên URL tới được đây.
    */
   async getContext(id: string): Promise<ContextRow> {
     const row = uuidIdSchema.safeParse(id).success ? await this.repo.getContextById(id) : undefined;
@@ -80,7 +80,7 @@ export class ContextsService {
    * uuid. Điểm này bắt buộc vì CapabilityGuard chạy TRƯỚC pipe validate:
    * param thô trên URL (vd `:id` của user) tới được đây khi chưa qua
    * kiểm tra định dạng, và hợp đồng API đòi id sai định dạng → 400 ở
-   * pipe chứ không phải 500 ở guard (ADR-013, nhóm test hợp đồng API).
+   * pipe chứ không phải 500 ở guard (nhóm test hợp đồng API).
    */
   async getByLevelInstance(contextLevel: number, instanceId: string): Promise<ContextRow | undefined> {
     if (!uuidIdSchema.safeParse(instanceId).success) return undefined;

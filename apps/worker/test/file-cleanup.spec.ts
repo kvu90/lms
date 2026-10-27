@@ -14,9 +14,9 @@ import { WorkerModule } from '../src/worker.module';
 const STORAGE = '/tmp/lms-worker-test-files';
 
 /**
- * Orphan cleanup flow (report §3.11 golden file case, worker half).
- * Oracle: file_storage_test.php::test_cron — physical files are removed only
- * when nothing references their contentHash.
+ * Luồng dọn file mồ côi (report §3.11 golden file case, nửa phía worker).
+ * Oracle: file_storage_test.php::test_cron — các file vật lý chỉ bị xoá khi
+ * không còn gì tham chiếu tới contentHash của chúng.
  */
 describe('Worker: file-cleanup processor removes only unreferenced physical files', () => {
   let context: INestApplicationContext;

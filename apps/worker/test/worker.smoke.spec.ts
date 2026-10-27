@@ -9,7 +9,7 @@ describe('Worker smoke (real DB + Redis)', () => {
   let context: INestApplicationContext;
 
   beforeAll(async () => {
-    // In Nest 12, the compiled TestingModule IS the application context.
+    // Trong Nest 12, TestingModule đã biên dịch CHÍNH LÀ application context.
     context = await Test.createTestingModule({
       imports: [WorkerModule],
     }).compile();

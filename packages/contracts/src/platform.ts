@@ -179,7 +179,7 @@ export const privacyRequestSchema = z.object({
 export type PrivacyRequest = z.infer<typeof privacyRequestSchema>;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất cho validation ở
- * API qua Standard Schema và cho form phía React; xem ADR về Zod-only) ---- */
+ * API qua Standard Schema và cho form phía React) ---- */
 
 /** Payload lập chỉ mục một item của một search area đã đăng ký. */
 export const searchIndexItemSchema = z.strictObject({

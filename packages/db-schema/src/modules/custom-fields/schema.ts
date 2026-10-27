@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Custom field categories (Moodle `customfield_category`), scoped by component+area (e.g. core_user/user). */
+/** Danh mục trường tuỳ biến (Moodle `customfield_category`), được xác định phạm vi theo component+area (ví dụ core_user/user). */
 export const customFieldCategory = pgTable('custom_field_category', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
@@ -27,7 +27,7 @@ export const customFieldCategory = pgTable('custom_field_category', {
   ]);
 
 
-/** Custom field definitions (Moodle `customfield_field`). type: text|textarea|select|checkbox|date. config_data holds options/required/default. */
+/** Định nghĩa trường tuỳ biến (Moodle `customfield_field`). type: text|textarea|select|checkbox|date. config_data giữ options/required/default. */
 export const customFieldField = pgTable('custom_field_field', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   categoryId: uuid('category_id').notNull().references(() => customFieldCategory.id, { onDelete: 'cascade' }),
@@ -44,7 +44,7 @@ export const customFieldField = pgTable('custom_field_field', {
   ]);
 
 
-/** Custom field values (Moodle `customfield_data`): one row per field+instance (instance = user id for profile fields). */
+/** Giá trị trường tuỳ biến (Moodle `customfield_data`): một dòng cho mỗi cặp field+instance (instance = id của user đối với các trường hồ sơ). */
 export const customFieldData = pgTable(
   'custom_field_data',
   {

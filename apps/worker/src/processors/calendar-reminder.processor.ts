@@ -16,14 +16,14 @@ export interface CalendarReminderJobData { eventId: string; userId: string; minu
 export interface CalendarReminderResult { status: 'notified' | 'duplicate' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'event-missing'; notificationId?: string }
 
 /**
- * Calendar reminders: the API schedules these as BullMQ DELAYED jobs;
- * at fire time the worker creates the reminder as a Messaging notification
- * via the 'calendar_reminder' provider. Delivery goes through the shared
- * worker delivery law ({@link NotificationDeliveryService}, NB-6) — the
- * same law as the API's `notify()` for the in-app channel: no suspended
- * recipients, effective v2 preference (legacy keys still honoured via
- * derivation), dispatch log, and an immediate unread-badge signal.
- * Idempotent: one reminder notification per (user, event) ever.
+ * Nhắc lịch (calendar reminders): API lập lịch các nhắc này dưới dạng job BullMQ DELAYED;
+ * khi đến thời điểm kích hoạt, worker tạo nhắc dưới dạng thông báo Messaging
+ * qua provider 'calendar_reminder'. Việc phân phối đi qua luật phân phối dùng chung của worker
+ * ({@link NotificationDeliveryService}, NB-6) — cùng
+ * luật với `notify()` phía API cho kênh trong-app: không gửi cho người nhận bị đình chỉ,
+ * tuỳ chọn v2 hiệu lực (các khoá legacy vẫn được tôn trọng qua
+ * suy diễn), dispatch log, và tín hiệu huy hiệu chưa đọc tức thì.
+ * Idempotent: mỗi (user, event) chỉ có đúng một thông báo nhắc.
  */
 @Processor('calendar-reminders')
 /**

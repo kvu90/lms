@@ -12,12 +12,12 @@ import {
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * Enrol & completion worker jobs. Business oracles: enrol expiry semantics from
- * enrol/tests/enrollib_test.php + report §2#5 (expired ⇒ not active), and
- * completion reaggregation from lib/tests/completionlib_test.php
- * ::test_aggregate_completions (criteria change ⇒ controlled recalculation).
- * Rows are inserted directly because the canonical API schema owns creation;
- * the processors under test operate on the worker's view of the same tables.
+ * Các job enrol & completion của worker. Oracles nghiệp vụ: ngữ nghĩa hết hạn ghi danh từ
+ * enrol/tests/enrollib_test.php + report §2#5 (hết hạn ⇒ không còn active), và
+ * reaggregation của completion từ lib/tests/completionlib_test.php
+ * ::test_aggregate_completions (thay đổi criteria ⇒ tính lại có kiểm soát).
+ * Các dòng được chèn trực tiếp vì schema API chuẩn sở hữu việc tạo;
+ * các processor được kiểm thử vận hành trên góc nhìn của worker về cùng các bảng đó.
  */
 describe('Worker enrol & completion: enrol-expiry + completion-recalculate processors', () => {
   let context: INestApplicationContext;
@@ -46,8 +46,8 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     await context.init();
     db = context.get(getDrizzleToken());
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
-    // Create a real category+course+section via raw SQL (FKs in the shared DB require real rows;
-    // the worker's schema view intentionally only carries the tables its processors touch).
+    // Tạo category+course+section thật qua SQL thô (các FK trong DB dùng chung đòi hỏi dòng thật;
+    // góc nhìn schema của worker chủ ý chỉ mang các bảng mà processor của nó chạm tới).
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`worker-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker course', ${`wk${suffix}`}, ${await fixtureClassId()}) returning id`);
@@ -74,7 +74,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     expect(row.status).toBe(1);
     const events = await db.select().from(outboxEvents).where(eq(outboxEvents.type, 'user_enrolment_suspended'));
     expect((events as { payload: { enrolmentId?: string } }[]).some((e) => e.payload.enrolmentId === expired.id)).toBe(true);
-    // Idempotent: a second sweep does not flip it again.
+    // Idempotent: lượt quét thứ hai không chuyển nó lần nữa.
     const second = await processor.process({ data: {} } as never);
     expect(second.suspendedIds).not.toContain(expired.id);
   });
@@ -119,7 +119,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     expect(cc.status).toBe('complete');
     expect(cc.timeCompleted).toBeTruthy();
 
-    // Add a date criterion in the future ⇒ recalculation reopens the completion.
+    // Thêm một tiêu chí date trong tương lai ⇒ việc tính lại mở lại completion.
     await db.insert(courseCompletionCriteria).values({ course: courseId, criteriaType: 'date', date: new Date('2100-01-01'), sortOrder: 1 });
     await processor.process({ data: { courseId } } as never);
     [cc] = await db.select().from(courseCompletions)
@@ -142,8 +142,8 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
       }
     };
 
-    // course (prerequisite): incomplete until the prerequisite course's
-    // stored completion row is complete.
+    // course (tiên quyết): chưa hoàn thành cho tới khi dòng completion đã lưu
+    // của khoá học tiên quyết hoàn thành.
     const prereqRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values ((select category from course where id = ${courseId}), (select tenant_id from course where id = ${courseId}), 'Prereq course', ${`wkpre${suffix}`}, ${await fixtureClassId()}) returning id`);
     const prereqId = (prereqRows.rows[0] as { id: string }).id;
     await replaceCriteria([{ criteriaType: 'course', courseInstance: prereqId }]);
@@ -153,7 +153,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
-    // self: needs a crit_compl evidence row for the criterion.
+    // self: cần một dòng bằng chứng crit_compl cho tiêu chí.
     await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
     const [selfCritRow] = await db.insert(courseCompletionCriteria)
       .values({ course: courseId, criteriaType: 'self', sortOrder: 0 }).returning();
@@ -163,11 +163,11 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
-    // role: shares the markedKeys evidence path with self, but the
-    // crit_compl row is written by a MARKER (markedBy ≠ the learner) —
-    // "manual completion by others". The worker only reads the evidence;
-    // who may write these rows is the API-side role check (issue #23 F1).
-    // A real role row is required: criteria.role_id has an FK to role.id.
+    // role: dùng chung đường bằng chứng markedKeys với self, nhưng
+    // dòng crit_compl được ghi bởi một MARKER (markedBy ≠ người học) —
+    // "manual completion by others". Worker chỉ đọc bằng chứng;
+    // ai được phép ghi các dòng này là kiểm tra role phía API (issue #23 F1).
+    // Cần một dòng role thật: criteria.role_id có FK tới role.id.
     const roleRows = await db.execute(sql`insert into role (name, short_name) values ('Worker marker role', ${`wkmarker${suffix}`}) returning id`);
     const markerRoleId = (roleRows.rows[0] as { id: string }).id;
     await db.delete(courseCompletionCriteria).where(eq(courseCompletionCriteria.course, courseId));
@@ -179,7 +179,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userId)).toBe('complete');
 
-    // duration: anchored on the enrolment timeStart (10 days ago here).
+    // duration: neo trên timeStart của ghi danh (cách đây 10 ngày ở đây).
     const userIdC = `01900000-0000-7000-8000-${String(900200 + (suffix % 10000)).padStart(12, '0')}`;
     await db.insert(userEnrolments).values({ enrolId: instanceId, userId: userIdC, status: 0, timeStart: new Date(Date.now() - 10 * 86_400_000) });
     await replaceCriteria([{ criteriaType: 'duration', enrolPeriodDays: 30 }]);
@@ -189,13 +189,13 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userIdC)).toBe('complete');
 
-    // unenrol: a user with a stored completion row but no live enrolment.
+    // unenrol: một user có dòng completion đã lưu nhưng không còn ghi danh sống.
     const userIdD = `01900000-0000-7000-8000-${String(900300 + (suffix % 10000)).padStart(12, '0')}`;
     await db.insert(courseCompletions).values({ userId: userIdD, course: courseId, status: 'in_progress', timeStarted: new Date() });
     await replaceCriteria([{ criteriaType: 'unenrol' }]);
     await processor.process({ data: { courseId } } as never);
     expect(await statusOf(userIdD)).toBe('complete');
-    // ...while a still-enrolled user does NOT satisfy it.
+    // ...trong khi một user vẫn đang ghi danh thì KHÔNG thoả mãn nó.
     expect(await statusOf(userIdC)).not.toBe('complete');
   });
 });

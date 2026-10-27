@@ -14,9 +14,9 @@ import {
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * Platform worker jobs. Oracles: report §4 platform-services DoD (backup steps, search reindex,
+ * Các job nền tảng (platform) của worker. Oracles: report §4 platform-services DoD (các bước backup, search reindex,
  * analytics không side-effect, report schedule, privacy lan đủ, payment
- * webhook replay) + các file PHPUnit đã ghi ở traceability platform services.
+ * webhook replay) + các file PHPUnit tương ứng của platform services.
  * User/course được raw-insert với id cao độc nhất như các worker spec trước.
  */
 describe('Worker platform services: backup, search reindex, analytics, report schedule, privacy, payment', () => {

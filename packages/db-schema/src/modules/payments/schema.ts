@@ -45,7 +45,7 @@ export const payments = pgTable('payments', {
   gateway: text('gateway').notNull().default('manual'),
   externalTransactionId: text('external_transaction_id'),
   component: text('component').notNull().default(''),
-  itemId: uuid('item_id'), // e.g. enrol instance id
+  itemId: uuid('item_id'), // ví dụ: id của instance ghi danh
   /** Mã thanh toán nhúng trong nội dung chuyển khoản (trường 62/08 của VietQR); unique, không tái sử dụng. */
   paymentCode: text('payment_code'),
   /** Hạn của payment/QR; tiền về sau hạn → needs_review, không tự kích hoạt. */

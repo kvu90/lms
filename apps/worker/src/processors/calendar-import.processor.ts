@@ -14,11 +14,11 @@ export interface CalendarImportJobData { subscriptionId: string }
 export interface CalendarImportResult { eventsimported: number; eventsskipped: number; eventsupdated: 0; eventsdeleted: 0 }
 
 /**
- * Calendar subscription import: parses the subscription's ICS payload
- * at a basic level and materialises its VEVENTs as calendar_events bound to
- * the subscription. Re-running is idempotent — an event whose
- * (subscriptionId, UID) already exists is skipped, mirroring the counts
- * shape of Moodle's calendar_import_events_from_ical (oracle: calendar/
+ * Nhập lịch đăng ký (calendar subscription): phân tích payload ICS của subscription
+ * ở mức cơ bản và vật chất hoá các VEVENT của nó thành calendar_events gắn với
+ * subscription. Chạy lại có tính idempotent — một sự kiện mà
+ * (subscriptionId, UID) của nó đã tồn tại sẽ bị bỏ qua, phản chiếu đúng hình dạng counts
+ * của calendar_import_events_from_ical của Moodle (oracle: calendar/
  * tests/lib_test test_add_subscription).
  */
 @Processor('calendar-import')

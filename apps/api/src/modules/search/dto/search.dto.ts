@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { searchIndexItemSchema, type SearchIndexItem, uuidIdSchema } from '@lms/contracts';
 
 /**
- * Validation của Search dùng Zod qua Standard Schema (xem ADR Zod-only):
+ * Validation của Search dùng Zod qua Standard Schema:
  * schema nền ở `@lms/contracts`, file này chỉ re-export và extend cho nhu cầu
  * riêng của server.
  */

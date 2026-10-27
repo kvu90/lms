@@ -14,7 +14,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { tenants } from '../tenants/schema';
 
-/** Conversations (Moodle `message_conversations`). type: 1=individual, 2=group, 3=self. */
+/** Cuộc hội thoại (Moodle `message_conversations`). type: 1=individual, 2=group, 3=self. */
 export const messageConversations = pgTable('message_conversations', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   type: integer('type').notNull().default(1),
@@ -57,7 +57,7 @@ export const messageConversations = pgTable('message_conversations', {
   ]);
 
 
-/** Conversation membership (Moodle `message_conversation_members`). */
+/** Tư cách thành viên của cuộc hội thoại (Moodle `message_conversation_members`). */
 export const messageConversationMembers = pgTable(
   'message_conversation_members',
   {
@@ -96,7 +96,7 @@ export const messageConversationMembers = pgTable(
 );
 
 /**
- * User-to-user messages inside a conversation (Moodle `message` +
+ * Tin nhắn giữa user với user bên trong một cuộc hội thoại (Moodle `message` +
  * `messages`).
  *
  * LƯU Ý mô hình (issue #33): tin nhắn KHÔNG còn được coi là bất biến
@@ -245,7 +245,7 @@ export const messageContacts = pgTable(
  * hệ chuyển thành hai dòng trong `message_contacts` và dòng yêu cầu bị
  * xoá; từ chối thì chỉ xoá dòng yêu cầu. PK phức hợp (from, to) — cặp
  * có hướng là định danh tự nhiên của một yêu cầu (bảng nối thuần tuý,
- * không khoá thay thế theo ADR-013).
+ * không khoá thay thế).
  */
 export const messageContactRequests = pgTable(
   'message_contact_requests',
@@ -283,7 +283,7 @@ export const messageConversationReports = pgTable('message_conversation_reports'
   ]);
 
 
-/** Blocked contacts (Moodle `message_users_blocked`): user_id blocks blocked_user_id from contacting them. */
+/** Liên hệ đã chặn (Moodle `message_users_blocked`): user_id chặn blocked_user_id liên hệ với mình. */
 export const messageUsersBlocked = pgTable(
   'message_users_blocked',
   {
@@ -296,9 +296,9 @@ export const messageUsersBlocked = pgTable(
 );
 
 /**
- * System notifications (Moodle `notifications`) — DISTINCT from user
- * messages: user_id_from is null/system, the record is produced by a message
- * provider (component + event_type) and delivered per user preference.
+ * Thông báo hệ thống (Moodle `notifications`) — TÁCH BIỆT với tin nhắn
+ * của user: user_id_from là null/system, bản ghi được một message provider
+ * tạo ra (component + event_type) và được gửi theo tuỳ chọn của user.
  */
 export const notifications = pgTable('notifications', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -328,10 +328,10 @@ export const notifications = pgTable('notifications', {
 
 
 /**
- * Per-channel dispatch log for notifications. The in-app (popup) channel is
- * the only REAL channel; email/push are ports whose dispatch is only LOGGED
- * (never actually sent) — status: delivered | queued | logged | skipped-preference | skipped-suspended.
- * `dedupe_key` makes worker dispatch idempotent.
+ * Nhật ký gửi theo từng kênh cho thông báo. Kênh trong ứng dụng (popup) là
+ * kênh THẬT duy nhất; email/push là các cổng mà việc gửi chỉ được GHI NHẬT KÝ
+ * (không bao giờ thực sự gửi) — status: delivered | queued | logged | skipped-preference | skipped-suspended.
+ * `dedupe_key` giúp việc gửi của worker có tính idempotent.
  */
 export const notificationDispatchLog = pgTable(
   'notification_dispatch_log',
