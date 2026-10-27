@@ -5,8 +5,10 @@ import request from 'supertest';
 import ExcelJS from 'exceljs';
 import { Client } from 'pg';
 import {
-  STRONG_PASSWORD, adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaApi, login, setOverride, systemContextId,
+  STRONG_PASSWORD, adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaApi, login, roleIdByShortname, setOverride, systemContextId,
 } from './identity-access-helpers';
+import { createCategory, createCourse } from './course-enrolment-helpers';
+import { courseContextId } from './engagement-helpers';
 
 /**
  * Luồng nghiệp vụ của lát I-2 (issue #233) — GHI NGUYÊN TỬ khi nhập
@@ -21,7 +23,16 @@ import {
  * - File bị sửa tay sau xem trước mà vi phạm luật hợp lệ → ghi bị từ
  *   chối 422 kèm lỗi cứng ĐỊNH VỊ (extension member
  *   `matrixImportIssues`) và DB không còn dấu vết nào của lần ghi đó.
- * - Người không có capability tạo ma trận tại môn → 403, không ghi.
+ * - Người không đủ tư cách dùng luồng nhập (không thuộc nhóm staff,
+ *   không phụ trách được bank ma trận cá nhân) → bị chặn 403 tại cổng
+ *   bank của luồng, không ghi.
+ * - Giáo viên theo đúng mô hình gán vai của dữ liệu mẫu
+ *   (editingteacher tại context khoá, KHÔNG vai nào tại context hệ
+ *   thống) nhập trọn luồng được và tạo tay gắn bank được — hồi quy
+ *   điểm chặn D-3 của chính issue này: trước đây đường nhập và
+ *   đường tạo tay đòi thêm quyền tại context của môn (môn GDPT neo
+ *   context hệ thống) nên giáo viên thật bị chặn dù thao tác ghi
+ *   vốn đã chốt quyền tại bank đích.
  *
  * Dữ kiện tự dựng bằng API như spec của I-1: môn + chương trình khối
  * 10 + chủ đề có hai ĐVK, mỗi ĐVK có YCCĐ, 3 câu ready ở outcome đầu
@@ -285,35 +296,42 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
     expect(await countMatricesByName('Ma trận lệch tổng')).toBe(0);
   });
 
-  it('người thiếu capability tạo ma trận tại môn: 403 và không ghi', async () => {
+  it('người không đủ tư cách dùng luồng nhập: bị chặn 403 tại cổng bank của luồng và không ghi', async () => {
     const suffix = Date.now().toString(36);
-    const student = await createUserViaApi(app, admin, { username: `hs_i2_${suffix}` });
-    expect(student.username).toBe(`hs_i2_${suffix}`);
-    // Vai tại context hệ thống CHỈ có curriculum:view — xem được
-    // môn/chương trình nhưng KHÔNG có quiz:managematrix, nên cổng
-    // quyền tạo ma trận (chạy lại ở bước parse của request ghi) phải
-    // là điểm chặn: 403 access.capability_denied như đường tạo tay.
+    // Diễn viên 1: vai tuỳ biến tại context hệ thống CHỈ có
+    // curriculum:view — đọc được môn/chương trình qua bề mặt công
+    // khai, nhưng không thuộc nhóm staff nên không có tư cách giữ
+    // bank ma trận cá nhân. Cổng của luồng nhập là cổng BANK (quyền
+    // phụ trách bank đích), không còn là cổng tại context của môn
+    // như trước đây: điểm chặn là bước tạo lười bank cá nhân ở bước
+    // parse của request ghi — 403 question.personal_bank_staff_only.
+    const viewer = await createUserViaApi(app, admin, { username: `hs_i2_${suffix}` });
+    expect(viewer.username).toBe(`hs_i2_${suffix}`);
     const roleId = await createRoleViaApi(app, admin);
     const systemId = await systemContextId(app, admin);
-    await assignRole(app, admin, student.id, roleId, systemId);
+    await assignRole(app, admin, viewer.id, roleId, systemId);
     await setOverride(app, admin, roleId, 'curriculum:view', systemId, 1);
-    const studentToken = (await login(app, `hs_i2_${suffix}`, STRONG_PASSWORD)).accessToken;
+    const viewerToken = (await login(app, `hs_i2_${suffix}`, STRONG_PASSWORD)).accessToken;
     const wb = await downloadTemplate(admin);
-    fillValid(wb, 'Ma trận của học sinh');
-    const res = await postImport(studentToken, await toBuffer(wb)).expect(403);
-    expect(res.body.code).toBe('access.capability_denied');
-    expect(await countMatricesByName('Ma trận của học sinh')).toBe(0);
+    fillValid(wb, 'Ma trận của người chỉ xem');
+    const res = await postImport(viewerToken, await toBuffer(wb)).expect(403);
+    expect(res.body.code).toBe('question.personal_bank_staff_only');
+    expect(await countMatricesByName('Ma trận của người chỉ xem')).toBe(0);
 
-    // Người dùng không có quyền nào tại môn: đường parse của I-1 che
-    // môn thành "không tồn tại" (chống dò) → ghi bị từ chối 422 và
-    // vẫn không ghi gì.
+    // Diễn viên 2: người dùng không có quyền nào — cùng một cổng
+    // bank chặn 403 ngay ở bước parse. (Trước đây đường parse đọc
+    // môn qua đường công khai bị gác curriculum:view nên che môn
+    // thành "không tồn tại" và trả 422; hành vi đó là hệ quả của
+    // cổng sai bối cảnh, đã bỏ khi cổng chuyển về bank đích — môn
+    // không tồn tại THẬT vẫn trả quiz.matrix_import_subject_not_found
+    // trong payload preview cho người đã qua cổng bank.)
     const nobody = await createUserViaApi(app, admin, { username: `nb_i2_${suffix}` });
     expect(nobody.username).toBe(`nb_i2_${suffix}`);
     const nobodyToken = (await login(app, `nb_i2_${suffix}`, STRONG_PASSWORD)).accessToken;
     const wb2 = await downloadTemplate(admin);
     fillValid(wb2, 'Ma trận của người lạ');
-    const res2 = await postImport(nobodyToken, await toBuffer(wb2)).expect(422);
-    expect(res2.body.code).toBe('quiz.matrix_import_invalid');
+    const res2 = await postImport(nobodyToken, await toBuffer(wb2)).expect(403);
+    expect(res2.body.code).toBe('question.personal_bank_staff_only');
     expect(await countMatricesByName('Ma trận của người lạ')).toBe(0);
   });
 
@@ -443,5 +461,122 @@ describe('D-1 (issue #233): chữ ký nội dung ở DB và cửa sổ đua', ()
       .send({ status: 'ready' });
     expect(statusOnly.status).toBeLessThan(300);
     expect(await readMatrixSignature(id)).toBe(sig3);
+  });
+});
+
+/**
+ * Hồi quy điểm chặn D-3 (issue #233) — DIỄN VIÊN GIÁO VIÊN MÔ HÌNH
+ * SEED: vai `editingteacher` tại context KHOÁ mình dạy, KHÔNG có bất
+ * kỳ vai nào tại context hệ thống (đúng mô hình teacher1 trên
+ * production; khuôn fixture của spec khung chương trình cho giáo
+ * viên khoá). Môn/chương trình của spec neo tại context hệ thống như
+ * chương trình GDPT thật. Trước lượt sửa phân quyền, giáo viên này
+ * bị chặn ở cả ba đầu nhập (tải mẫu 403, preview báo "môn không tồn
+ * tại", import 403) và ở đường tạo tay gắn bank, vì các luồng đó đòi
+ * `curriculum:view`/`quiz:managematrix` tại context của môn — trong
+ * khi thao tác ghi vốn chốt quyền tại bank đích. Các ca dưới đây
+ * khoá hành vi đúng: giáo viên qua cổng bank của luồng thì dùng
+ * được trọn vẹn; cổng đọc CÔNG KHAI của chương trình và nhánh tạo
+ * tay không gắn bank (cổng tại context môn) giữ nguyên như cũ.
+ */
+describe('I-2 với diễn viên giáo viên mô hình seed (hồi quy D-3, issue #233)', () => {
+  let teacherA: { id: string; token: string };
+  let teacherB: { id: string; token: string };
+  let student: { id: string; token: string };
+  let bankAId: string;
+
+  beforeAll(async () => {
+    const suffix = Date.now().toString(36);
+    const category = await createCategory(app, admin);
+    const courseA = await createCourse(app, admin, category.id);
+    const courseB = await createCourse(app, admin, category.id);
+    const ctxA = await courseContextId(app, admin, courseA.id);
+    const ctxB = await courseContextId(app, admin, courseB.id);
+    const editingTeacherRole = await roleIdByShortname(app, admin, 'editingteacher');
+    const studentRole = await roleIdByShortname(app, admin, 'student');
+    const mkActor = async (username: string, roleId: string, ctxId: string) => {
+      const u = await createUserViaApi(app, admin, { username });
+      await assignRole(app, admin, u.id, roleId, ctxId);
+      const token = (await login(app, username, STRONG_PASSWORD)).accessToken;
+      return { id: u.id, token };
+    };
+    teacherA = await mkActor(`gv_seed_a_${suffix}`, editingTeacherRole, ctxA);
+    teacherB = await mkActor(`gv_seed_b_${suffix}`, editingTeacherRole, ctxB);
+    student = await mkActor(`hs_seed_${suffix}`, studentRole, ctxA);
+    // Bank ma trận cá nhân của giáo viên A (tạo lười qua danh sách).
+    const banksRes = await http(app).get('/api/v1/question-banks?kind=matrix').set(auth(teacherA.token)).expect(200);
+    const bankA = (banksRes.body as { id: string; scope: string }[]).find((b) => b.scope === 'personal');
+    expect(bankA, 'giáo viên phải có bank ma trận cá nhân').toBeTruthy();
+    bankAId = bankA!.id;
+  });
+
+  it('giáo viên tải mẫu → preview → nhập trọn luồng; ma trận vào bank cá nhân của giáo viên; gửi lại không nhân đôi', async () => {
+    const wb = await downloadTemplate(teacherA.token);
+    fillValid(wb, 'Ma trận nhập của giáo viên seed');
+    const buffer = await toBuffer(wb);
+    const preview = await postPreview(teacherA.token, buffer);
+    expect(preview.valid).toBe(true);
+    expect(preview.cells).toHaveLength(9);
+
+    const res = await postImport(teacherA.token, buffer).expect(201);
+    const view = res.body as { id: string; status: string; bankId: string | null; createdBy: string; cells: unknown[] };
+    expect(view.status).toBe('draft');
+    expect(view.bankId).toBe(bankAId);
+    expect(view.createdBy).toBe(teacherA.id);
+    expect(view.cells).toHaveLength(9);
+
+    // Đọc lại bằng endpoint chi tiết (cổng bank-local chiều đọc).
+    const detail = await http(app).get(`/api/v1/exam-matrices/${view.id}`).set(auth(teacherA.token)).expect(200);
+    expect(detail.body.id).toBe(view.id);
+
+    // Gửi lại cùng file: trả chính ma trận đã ghi, không nhân đôi.
+    const again = await postImport(teacherA.token, buffer).expect(201);
+    expect(again.body.id).toBe(view.id);
+    expect(await countMatricesByName('Ma trận nhập của giáo viên seed')).toBe(1);
+  });
+
+  it('giáo viên tạo tay ma trận GẮN BANK cá nhân theo môn hệ thống: đạt (không còn vấp curriculum:view tại môn)', async () => {
+    const res = await http(app).post('/api/v1/exam-matrices').set(auth(teacherA.token))
+      .send({ name: 'Ma trận tạo tay của giáo viên seed', subjectId, curriculumId, bankId: bankAId });
+    expect(res.status, JSON.stringify(res.body)).toBe(201);
+    expect((res.body as { bankId: string }).bankId).toBe(bankAId);
+    expect(await countMatricesByName('Ma trận tạo tay của giáo viên seed')).toBe(1);
+  });
+
+  it('giáo viên khác ghi vào bank cá nhân của giáo viên A: chặn tại cổng bank (403 access.capability_denied), không ghi', async () => {
+    const res = await http(app).post('/api/v1/exam-matrices').set(auth(teacherB.token))
+      .send({ name: 'Ma trận ghi vào bank người khác', subjectId, curriculumId, bankId: bankAId });
+    expect(res.status, JSON.stringify(res.body)).toBe(403);
+    expect(res.body.code).toBe('access.capability_denied');
+    expect(await countMatricesByName('Ma trận ghi vào bank người khác')).toBe(0);
+  });
+
+  it('nhánh tạo tay KHÔNG gắn bank giữ nguyên cổng tại context môn: giáo viên không vai hệ thống → 403, không ghi', async () => {
+    const res = await http(app).post('/api/v1/exam-matrices').set(auth(teacherA.token))
+      .send({ name: 'Ma trận không gắn bank của giáo viên seed', subjectId, curriculumId });
+    expect(res.status, JSON.stringify(res.body)).toBe(403);
+    expect(res.body.code).toBe('access.capability_denied');
+    expect(await countMatricesByName('Ma trận không gắn bank của giáo viên seed')).toBe(0);
+  });
+
+  it('cổng đọc CÔNG KHAI của chương trình không đổi: giáo viên vẫn không đọc được môn qua endpoint công khai', async () => {
+    const res = await http(app).get(`/api/v1/curriculum/subjects/${subjectId}`).set(auth(teacherA.token));
+    expect(res.status).toBe(403);
+  });
+
+  it('học sinh bị chặn ở cả ba đầu của đường nhập (mẫu, preview, import) và không ghi gì', async () => {
+    const qs = new URLSearchParams({ subjectId, curriculumId }).toString();
+    const tpl = await http(app).get(`/api/v1/exam-matrices/template?${qs}`).set(auth(student.token));
+    expect(tpl.status).toBe(403);
+
+    const wb = await downloadTemplate(admin);
+    fillValid(wb, 'Ma trận của học sinh seed');
+    const buffer = await toBuffer(wb);
+    const prev = await http(app).post('/api/v1/exam-matrices/import/preview').set(auth(student.token))
+      .attach('file', buffer, 'ma-tran.xlsx');
+    expect(prev.status).toBe(403);
+    const imp = await postImport(student.token, buffer);
+    expect(imp.status).toBe(403);
+    expect(await countMatricesByName('Ma trận của học sinh seed')).toBe(0);
   });
 });

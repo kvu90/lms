@@ -15,6 +15,7 @@ import { FilesService } from '../files/files.service';
 import { GradesService } from '../grades/grades.service';
 import { GroupsService } from '../groups/groups.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
+import type { QuestionBankRow } from '../questions/question-banks.repository';
 import { QuestionsService, type QuestionView, type UsageView } from '../questions/questions.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
@@ -1483,6 +1484,41 @@ export class QuizService {
     }
     await this.evaluator.requireCapability(actorId, capability, matrix.contextId);
   }
+  /**
+   * Cổng BANK của các luồng ghi ma trận vào bank cá nhân (MB-1, cùng
+   * học thuyết neo bank của {@link requireMatrixCap}): bank đích của
+   * các luồng này là bank ma trận CÁ NHÂN của chính người gọi — tạo
+   * lười như đường copy mẫu (người không thuộc nhóm staff bị từ chối
+   * ngay ở bước tạo lười, trước mọi lần đọc dữ liệu) — và quyền ghi
+   * chốt bằng bộ quyền bank-local tại bank đó (chủ bank giữ vai lead
+   * nên có `quiz:managematrix` bản địa).
+   *
+   * Đây là cổng DUY NHẤT của đường nhập ma trận từ file ở cả ba đầu
+   * (sinh mẫu, xem trước, ghi — MatrixImportService gọi hàm này) và
+   * là bước chốt quyền của chính thao tác ghi
+   * {@link createMatrixFromImport}. Các luồng này KHÔNG gác thêm
+   * `quiz:managematrix` hay `curriculum:view` tại context của môn:
+   * môn chỉ là phạm vi dữ liệu tham chiếu của thao tác ghi, và giáo
+   * viên thật không có vai nào tại context hệ thống của môn GDPT nên
+   * cổng tại context môn chặn nhầm mọi giáo viên (điểm chặn của
+   * nghiệm thu D-3 trên production, issue #233).
+   *
+   * @param actorId - Người gọi (chủ bank đích).
+   * @returns Bank ma trận cá nhân của người gọi.
+   * @throws ForbiddenException `question.personal_bank_staff_only`
+   *   khi người gọi không thuộc nhóm staff và chưa có bank cá nhân;
+   *   `access.capability_denied` khi bộ quyền bank-local không cho
+   *   phụ trách bank.
+   */
+  async requirePersonalMatrixBankManage(actorId: string): Promise<QuestionBankRow> {
+    const bank = await this.banks.ensurePersonalBank(actorId, 'matrix');
+    await this.banks.syncBankMembership(bank);
+    const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
+    if (!caps.manage) {
+      throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
+    }
+    return bank;
+  }
   private matrixCellView(row: ExamMatrixCellRow): ExamMatrixCellView {
     return {
       id: row.id, matrixId: row.matrixId, curriculumNodeId: row.curriculumNodeId,
@@ -1525,10 +1561,19 @@ export class QuizService {
    * giữ hành vi Chặng 3: quiz:managematrix tại context của môn. Tỉ lệ
    * mục tiêu không được cho thì CHỤP từ preset tại lúc tạo — về sau
    * preset có đổi thì ma trận đã tạo không đổi theo.
+   *
+   * Môn/chương trình ở đây chỉ là dữ liệu THAM CHIẾU của thao tác ghi
+   * (đối chiếu cặp + lấy context môn cho nhánh không gắn bank) nên
+   * đọc bằng đường tham chiếu nội bộ của CurriculumService, không qua
+   * đường đọc công khai vốn đòi `curriculum:view` tại context của
+   * môn — lớp đọc đó từng chặn nhầm giáo viên tạo ma trận GẮN BANK
+   * theo môn thuộc chương trình hệ thống (cùng điểm chặn D-3 của
+   * issue #233 ở đường nhập file), trong khi cổng ghi thật của nhánh
+   * gắn bank là bộ quyền bank-local tại bank đích.
    */
   async createMatrix(actorId: string, input: CreateExamMatrixDto): Promise<ExamMatrixView> {
-    const subject = await this.curriculum.getSubject(actorId, input.subjectId);
-    const curriculum = await this.curriculum.getCurriculum(actorId, input.curriculumId);
+    const subject = await this.curriculum.getSubjectReference(input.subjectId);
+    const curriculum = await this.curriculum.getCurriculumReference(input.curriculumId);
     if (curriculum.subjectId !== subject.id) {
       throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
     }
@@ -1668,10 +1713,13 @@ export class QuizService {
    * Ghi NGUYÊN TỬ một ma trận từ kết quả parse HỢP LỆ của đường nhập
    * file (lát I-2, issue #233) — đầu ghi duy nhất của luồng nhập:
    *
-   * 1. Đối chiếu cặp môn/chương trình như {@link createMatrix}; cổng
-   *    `quiz:managematrix` tại context môn đã được chạy lại ở bước
-   *    parse của chính request ghi (MatrixImportService.previewImport)
-   *    nên tới đây người gọi đã có quyền tạo ma trận tại môn đó.
+   * 1. Đối chiếu cặp môn/chương trình như {@link createMatrix} bằng
+   *    đường đọc tham chiếu nội bộ (môn/chương trình chỉ là dữ liệu
+   *    tham chiếu của thao tác ghi). Cổng quyền của luồng là cổng
+   *    bank cá nhân {@link requirePersonalMatrixBankManage}: đã chạy
+   *    ở bước parse của chính request ghi
+   *    (MatrixImportService.previewImport) và chạy lại tại đây ngay
+   *    trước khi ghi — KHÔNG có cổng nào tại context của môn.
    * 2. Bank đích = bank ma trận CÁ NHÂN của người nhập (tạo lười như
    *    đường copy mẫu); quyền ghi tại bank chốt bằng bộ quyền
    *    bank-local như nhánh gắn bank của createMatrix; `tenant_id`
@@ -1715,17 +1763,12 @@ export class QuizService {
     scopeNodeIds: string[];
     cells: { curriculumNodeId: string; cognitiveLevel: string; qtype: string; questionCount: number; cellScore: number; position: number }[];
   }): Promise<ExamMatrixView> {
-    const subject = await this.curriculum.getSubject(actorId, input.subjectId);
-    const curriculum = await this.curriculum.getCurriculum(actorId, input.curriculumId);
+    const subject = await this.curriculum.getSubjectReference(input.subjectId);
+    const curriculum = await this.curriculum.getCurriculumReference(input.curriculumId);
     if (curriculum.subjectId !== subject.id) {
       throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
     }
-    const bank = await this.banks.ensurePersonalBank(actorId, 'matrix');
-    await this.banks.syncBankMembership(bank);
-    const caps = await this.banks.bankLocalMatrixCaps(actorId, bank);
-    if (!caps.manage) {
-      throw new ForbiddenException({ message: `Missing capability ${QUIZ_CAPABILITIES.manageMatrix} in matrix bank ${bank.id}`, code: 'access.capability_denied' });
-    }
+    const bank = await this.requirePersonalMatrixBankManage(actorId);
     // Bước chống ghi trùng: chỉ đối chiếu ma trận của CHÍNH người
     // nhập trong bank đích có cùng định danh thô (tên/môn/chương
     // trình) rồi mới so chữ ký đầy đủ kèm ô — tránh nạp ô của mọi ma

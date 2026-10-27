@@ -1,15 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { sql } from 'drizzle-orm';
+import { and, inArray, ne, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import {
   curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, subjects,
 } from '../../db/schema';
 
 /**
- * DUMP ĐÔNG CỨNG dữ liệu chương trình GDPT 2018 (chốt của Lão gia
- * 20:09 ngày 26/10/2026, sổ quyết định mục E — mô hình phân phối thay
- * cho cơ chế hội tụ UUIDv5 trước đó).
+ * DUMP ĐÔNG CỨNG dữ liệu chương trình GDPT 2018 — mô hình phân phối
+ * thay cho cơ chế hội tụ UUIDv5 trước đó.
  *
  * Flow tổng thể:
  * 1. SẢN XUẤT (chỉ ở trung tâm, một lần cho mỗi đợt đính chính của
@@ -24,6 +23,17 @@ import {
  *    KHÔNG chạy importer. Mọi id trong artifact là HẰNG SỐ LITERAL
  *    (kể cả uuidv7 của YCCĐ do DB chuẩn cấp) nên tập id khớp 100%
  *    giữa các môi trường bất kể lịch sử nạp của từng nơi.
+ *
+ * Ngoại lệ neo duy nhất của bước restore: cột `subjects.context_id`
+ * trong artifact mang context hệ thống của môi trường SINH dump —
+ * một context không tồn tại ở môi trường đích. Restore vì thế neo
+ * lại cột này về context hệ thống của chính môi trường đích ngay
+ * trong cùng transaction (xem {@link restoreProgramDumpSql}); thiếu
+ * bước neo, toàn bộ cây chương trình ở đích neo vào hư không và mọi
+ * bề mặt đọc chương trình đều trả 404 dù dữ liệu đầy đủ (lỗi đã gặp
+ * trên production ở nghiệm thu D-3 của issue #233, phải sửa dữ liệu
+ * bằng tay). Mọi id và mọi cột còn lại giữ nguyên literal của
+ * artifact.
  *
  * Bất biến: artifact là dữ liệu ĐÃ ĐÔNG CỨNG — không sửa tay; muốn
  * đổi nội dung chương trình thì quay lại bước 1. Restore chỉ chạy
@@ -207,11 +217,50 @@ export function loadProgramDumpSql(): string {
  * trống — điều kiện "chỉ restore khi chưa có dữ liệu chương trình"
  * do ProgramDumpService.restoreIfEmpty quyết trước khi gọi.
  *
+ * Khi caller truyền `anchorContextId` (context hệ thống của môi
+ * trường đích), transaction còn neo lại `subjects.context_id` của
+ * các môn VỪA ĐƯỢC RESTORE về context đó NGAY TRONG CÙNG
+ * transaction: giá trị literal trong artifact là context hệ thống
+ * của môi trường sinh dump nên ở đích nó là một context không tồn
+ * tại (cột này không có khoá ngoại tới bảng contexts nên DB nhận im
+ * lặng), và toàn bộ cây chương trình — neo trực tiếp ở môn hoặc suy
+ * ra qua khoá ngoại — thành không đọc được. Neo trong cùng
+ * transaction để không tồn tại trạng thái "đã restore xong nhưng
+ * chưa neo" nếu tiến trình chết giữa hai bước. Phạm vi neo khoá
+ * đúng vào các môn mới chèn trong chính transaction này (đối chiếu
+ * tập id môn trước/sau khi chạy artifact): môn có sẵn của môi
+ * trường đích — kể cả môn neo ở context khác — không bị chạm, và
+ * môn vốn đã neo đúng context đích thì không đổi gì.
+ *
  * @param db - Kết nối DB đích.
  * @param dumpSql - Toàn văn artifact cần restore.
+ * @param opts - `anchorContextId`: context hệ thống của môi trường
+ *   đích để neo lại các môn vừa restore; bỏ trống thì restore
+ *   nguyên văn như cũ (chỉ dành cho các đường kiểm chứng không qua
+ *   ProgramDumpService).
  */
-export async function restoreProgramDumpSql(db: Database, dumpSql: string): Promise<void> {
+export async function restoreProgramDumpSql(
+  db: Database,
+  dumpSql: string,
+  opts?: { anchorContextId?: string },
+): Promise<void> {
   await db.transaction(async (tx) => {
+    const subjectIdsBefore = opts?.anchorContextId
+      ? new Set((await tx.select({ id: subjects.id }).from(subjects)).map((r) => r.id))
+      : null;
     await tx.execute(sql.raw(dumpSql));
+    if (opts?.anchorContextId && subjectIdsBefore) {
+      const restoredIds = (await tx.select({ id: subjects.id }).from(subjects))
+        .map((r) => r.id)
+        .filter((id) => !subjectIdsBefore.has(id));
+      if (restoredIds.length > 0) {
+        await tx.update(subjects)
+          .set({ contextId: opts.anchorContextId, updatedAt: new Date() })
+          .where(and(
+            inArray(subjects.id, restoredIds),
+            ne(subjects.contextId, opts.anchorContextId),
+          ));
+      }
+    }
   });
 }
