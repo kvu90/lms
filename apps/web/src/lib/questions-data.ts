@@ -74,13 +74,29 @@ export interface PaperSummaryLite {
   capabilities: { edit: boolean; copy: boolean; deploy: boolean; moderate: boolean };
 }
 
-/** Một đề xuất đóng góp ĐỀ trong hàng chờ của một bank đề (EB-1). */
+/**
+ * Một đề xuất đóng góp ĐỀ trong hàng chờ của một bank đề — ĐƯỜNG
+ * ĐÓNG GÓP DUY NHẤT của đề (EB-1, nâng lên khuôn QB-4 đầy đủ ở
+ * S4/Q4 của issue #228): `mode` phân biệt đóng góp mới/cập nhật đề
+ * đích; bộ cột `dossier*` là BỘ HỒ SƠ đính kèm đã ghim tại lúc đề
+ * xuất (chỉ có ở đóng góp chính thức có đính kèm); `sourceDossierId`
+ * neo về bộ hồ sơ gốc với các đóng góp được chuyển đổi từ hồ sơ treo
+ * khi cắt đường hồ sơ — hàng chờ hồ sơ dùng neo này để đi thao tác
+ * duyệt trên chính đóng góp. Hình dạng khớp view API trả về
+ * (ExamContributionView: hàng đóng góp + paperName + reviews).
+ */
 export interface ExamContributionLite {
   id: string;
-  paperId: string;
+  examId: string;
   paperName: string | null;
   status: string;
   proposerId: string;
+  mode: string;
+  targetExamId: string | null;
+  sourceDossierId: string | null;
+  dossierExamVersionNumber: number | null;
+  dossierMatrixVersion: number | null;
+  dossierSpecSnapshot: DossierSpecLite | null;
 }
 
 /** Một mốc duyệt trong vết của bộ hồ sơ (EB-3). */
@@ -91,20 +107,20 @@ export interface ExamDossierReviewLite {
   reason: string | null;
 }
 
-/** Một BỘ HỒ SƠ đề (EB-3): ma trận + đề + đặc tả ghim tại lúc nộp, duyệt theo bộ (có thể hai cấp). */
+/** Một BỘ HỒ SƠ đề (EB-3): ma trận + đề + đặc tả ghim tại lúc nộp, duyệt theo bộ (có thể hai cấp). Trường định danh/tên khớp view API (`examId`/`examName` của ExamDossierView). */
 export interface ExamDossierLite {
   id: string;
-  paperId: string;
-  paperName: string | null;
+  examId: string;
+  examName: string | null;
   targetBankId: string;
   proposerName: string | null;
   note: string;
   status: string;
-  paperVersionNumber: number | null;
+  examVersionNumber: number | null;
   matrixName: string | null;
   matrixVersion: number | null;
   boardApprovalRequired: boolean;
-  resultPaperId: string | null;
+  resultExamId: string | null;
   reviews: ExamDossierReviewLite[];
 }
 
