@@ -59,9 +59,13 @@ export function adminDatabaseUrl(): string {
  * `public` của DB test.
  *
  * Flow: kết nối bằng URL quản trị → tạo role nếu chưa có (khối DO bắt
- * `duplicate_object`) → ALTER để bảo đảm thuộc tính role luôn đúng dù
- * role được tạo từ lượt chạy cũ → GRANT USAGE schema + ALL trên mọi
- * bảng/sequence hiện hữu cho role.
+ * cả `duplicate_object` lẫn `unique_violation`: khi nhiều spec chạy
+ * song song cùng tạo role, phiên thua nhận lỗi vi phạm duy nhất trên
+ * `pg_authid_rolname_index` chứ không phải `duplicate_object` — chỉ
+ * bắt một mã thì harness vỡ đúng ở lượt chạy song song) → ALTER để
+ * bảo đảm thuộc tính role luôn đúng dù role được tạo từ lượt chạy
+ * cũ → GRANT USAGE schema + ALL trên mọi bảng/sequence hiện hữu cho
+ * role.
  *
  * @param adminUrl URL kết nối quản trị (superuser) của DB test.
  */
@@ -70,7 +74,7 @@ export async function ensureOrdinaryRole(adminUrl: string): Promise<void> {
   await admin.connect();
   try {
     await admin.query(
-      `DO $$ BEGIN CREATE ROLE ${ORDINARY_ROLE} LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+      `DO $$ BEGIN CREATE ROLE ${ORDINARY_ROLE} LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`,
     );
     await admin.query(
       `ALTER ROLE ${ORDINARY_ROLE} WITH LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`,

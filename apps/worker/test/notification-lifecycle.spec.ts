@@ -12,6 +12,7 @@ import {
   NotificationRetentionProcessor,
 } from '../src/processors/notification-retention.processor';
 import { redisConnectionFromUrl } from '../src/config/env';
+import { tenantAls } from '../src/db/tenant-als';
 import {
   calendarEvents, notificationDispatchLog, notifications, reportBuilderReport,
   reportBuilderSchedule, taskLog, userPreferences,
@@ -35,7 +36,12 @@ const DAY_MS = 24 * 3600_000;
  * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
  * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
- * của spec không đổi.
+ * của spec không đổi. Hệ quả của việc chạy bằng role thường: ca nào
+ * gọi trực tiếp service phân phối (không qua processor) phải tự đặt
+ * ngữ cảnh platform bằng `tenantAls.run({ platform: true }, ...)`
+ * như mọi processor vẫn làm trước khi gọi service trong production —
+ * ngoài ngữ cảnh, RLS fail-closed chặn cả dòng thông báo không gắn
+ * tenant, vốn chỉ được phép ở ngữ cảnh platform.
  */
 describe('Worker NB-6: notification retention + shared delivery law', () => {
   let context: INestApplicationContext;
@@ -180,10 +186,13 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
           if (message === plainUser) { clearTimeout(timer); resolve(message); }
         });
       });
-      const result = await delivery.deliverInApp(plainUser, 'report_scheduled', {
+      // Gọi service trực tiếp nên spec tự đặt ngữ cảnh platform —
+      // trong production service luôn được processor gọi từ bên
+      // trong ngữ cảnh platform/tenant mà processor đã bọc.
+      const result = await tenantAls.run({ platform: true }, () => delivery.deliverInApp(plainUser, 'report_scheduled', {
         subject: `NB6 signal ${suffix}`, body: 'body', smallMessage: `NB6 signal ${suffix}`,
         contextUrl: '/reports/signal',
-      });
+      }));
       expect(result.status).toBe('delivered');
       await expect(messagePromise).resolves.toBe(plainUser);
     } finally {
