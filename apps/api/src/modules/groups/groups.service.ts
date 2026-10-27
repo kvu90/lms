@@ -12,19 +12,19 @@ import { TenantsService } from '../tenants/tenants.service';
 import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } from './groups.repository';
 
 /**
- * GroupsModule facade (Moodle core_group + cohort).
+ * Facade của GroupsModule (core_group + cohort của Moodle).
  *
- * Separate groups is a DATA law, not a UI filter (report §2#6): when a
- * course (or cm) is in SEPARATEGROUPS mode, a user without
- * `group:accessallgroups` (or `course:managegroups`, or site
- * admin) can only ever see their own groups and their members — enforced
- * here in the service for every read. VISIBLEGROUPS imposes no read
- * restriction (writes stay capability-gated). A course with
- * `groupModeForce` forces its mode onto every cm surface.
+ * Nhóm tách biệt là luật DỮ LIỆU, không phải bộ lọc UI (report §2#6): khi một
+ * khoá học (hoặc cm) ở chế độ SEPARATEGROUPS, một user không có
+ * `group:accessallgroups` (hoặc `course:managegroups`, hoặc site
+ * admin) chỉ có thể thấy nhóm của chính mình và thành viên của chúng — thi hành
+ * tại đây trong service cho mọi đường đọc. VISIBLEGROUPS không áp hạn chế đọc
+ * nào (đường ghi vẫn gác capability). Một khoá học có
+ * `groupModeForce` ép chế độ của nó lên mọi bề mặt cm.
  *
- * Cohort membership changes are published as outbox events
- * (cohort_member_added / cohort_member_removed); EnrolModule listens and
- * performs the cohort-sync enrolments — Groups never imports Enrol.
+ * Thay đổi thành viên cohort được công bố thành sự kiện outbox
+ * (cohort_member_added / cohort_member_removed); EnrolModule lắng nghe và
+ * thực hiện ghi danh đồng bộ cohort — Groups không bao giờ import Enrol.
  */
 @Injectable()
 /**
@@ -57,7 +57,7 @@ export class GroupsService implements OnModuleInit {
    * Khởi tạo: đăng ký các hook liên module cần thiết.
    */
   onModuleInit(): void {
-    // Availability leaves owned by this module (registry pattern).
+    // Các lá availability thuộc sở hữu của module này (mẫu registry).
     this.availability.register('group', async (leaf, ctx) => {
       const groupId = String(leaf.id ?? leaf.groupId ?? '');
       const member = groupId ? await this.repo.isMember(groupId, ctx.userId) : false;
@@ -74,7 +74,7 @@ export class GroupsService implements OnModuleInit {
     });
   }
 
-  // --- groups ---------------------------------------------------------------
+  // --- nhóm ---------------------------------------------------------------
   private async requireManageGroups(actorId: string, courseId: string): Promise<void> {
     await this.evaluator.requireCapability(actorId, 'course:managegroups', await this.courses.courseContextId(courseId));
   }
@@ -160,12 +160,12 @@ export class GroupsService implements OnModuleInit {
   }
 
   /**
-   * The groups visible to an actor in a course under the separate-groups law.
-   * Effective mode: the cm's own groupMode when a cm is given and its mode is
-   * not "inherit" (0), otherwise the course groupMode — unless the course
-   * forces its mode (groupModeForce), which overrides the cm entirely.
-   * VISIBLEGROUPS and NOGROUPS return every group; only SEPARATEGROUPS
-   * restricts a non-privileged actor to their own groups.
+   * Các nhóm một actor thấy được trong một khoá học theo luật nhóm tách biệt.
+   * Chế độ hiệu lực: groupMode riêng của cm khi có cm và chế độ của nó
+   * không phải "inherit" (0), ngược lại là groupMode của khoá học — trừ khi khoá học
+   * ép chế độ của nó (groupModeForce), cái này ghi đè cm hoàn toàn.
+   * VISIBLEGROUPS và NOGROUPS trả mọi nhóm; chỉ SEPARATEGROUPS
+   * mới hạn chế actor không có đặc quyền vào nhóm của chính họ.
    */
   /**
    * Các nhóm user được phép thấy theo chế độ nhóm của khoá học.
@@ -185,7 +185,7 @@ export class GroupsService implements OnModuleInit {
    */
   async listGroups(actorId: string, courseId: string): Promise<GroupRow[]> {
     await this.courses.assertCourseAccess(actorId, courseId).catch(async () => {
-      // Users with managegroups may list even without enrolment (teachers).
+      // User có managegroups được liệt kê ngay cả khi chưa ghi danh (giáo viên).
       await this.requireManageGroups(actorId, courseId);
     });
     const groups = await this.visibleGroupsFor(actorId, courseId);
@@ -230,9 +230,9 @@ export class GroupsService implements OnModuleInit {
   }
 
   /**
-   * Members of a group, under the separate-groups law: in SEPARATEGROUPS
-   * mode a non-privileged actor asking for a group they are not in gets 403
-   * — the group's data is not theirs to see, at the SERVER.
+   * Thành viên của một nhóm, theo luật nhóm tách biệt: ở chế độ SEPARATEGROUPS
+   * một actor không có đặc quyền hỏi về một nhóm họ không thuộc về sẽ nhận 403
+   * — dữ liệu của nhóm không phải của họ để thấy, tại SERVER.
    */
   /**
    * Thành viên của nhóm.
@@ -247,7 +247,7 @@ export class GroupsService implements OnModuleInit {
     return rows.map((r) => ({ userId: r.userId, timeAdded: r.timeAdded }));
   }
 
-  /** All members visible to the actor across the course (used by course participant/group-data views). */
+  /** Mọi thành viên người xem được thấy trên toàn khoá học (dùng cho các view thành viên/dữ liệu nhóm của khoá học). */
   /**
    * Thành viên mà người xem được phép thấy.
    */
@@ -265,7 +265,7 @@ export class GroupsService implements OnModuleInit {
    * Kiểm tra thành viên nhóm.
    */
   async isMember(groupId: string, userId: string): Promise<boolean> { return this.repo.isMember(groupId, userId); }
-  /** Internal add used by enrol/cohort sync (system action, no actor capability check). */
+  /** Thêm nội bộ dùng bởi đồng bộ enrol/cohort (hành động hệ thống, không kiểm tra capability của actor). */
   /**
    * Thêm thành viên không kiểm capability — dành cho đồng bộ nội bộ (cohort sync).
    */
@@ -290,7 +290,7 @@ export class GroupsService implements OnModuleInit {
    */
   async removeMemberInternal(groupId: string, userId: string): Promise<void> { await this.repo.removeMember(groupId, userId); }
 
-  // --- groupings ---------------------------------------------------------------
+  // --- grouping ---------------------------------------------------------------
   /**
    * Tạo grouping.
    */
@@ -370,7 +370,7 @@ export class GroupsService implements OnModuleInit {
     return scoped.map((g) => this.hideGroupKey(g));
   }
 
-  // --- cohorts -------------------------------------------------------------------
+  // --- cohort -------------------------------------------------------------------
   private async cohortContextId(input: { contextLevel?: number; categoryId?: string }, tenantId: string): Promise<string> {
     if (input.categoryId !== undefined) {
       const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.COURSECAT, input.categoryId);
@@ -484,9 +484,9 @@ export class GroupsService implements OnModuleInit {
   async isCohortMember(cohortId: string, userId: string): Promise<boolean> { return this.repo.isCohortMember(cohortId, userId); }
 
   /**
-   * Add a user to a cohort. Emits cohort_member_added (outbox + in-process)
-   * so EnrolModule's cohort-sync handler enrols them into every course with
-   * a linked cohort enrol instance.
+   * Thêm một user vào cohort. Phát cohort_member_added (outbox + trong tiến trình)
+   * để handler đồng bộ cohort của EnrolModule ghi danh họ vào mọi khoá học có
+   * instance enrol cohort liên kết.
    */
   /**
    * Thêm thành viên cohort và phát sự kiện đồng bộ ghi danh (cohort sync).

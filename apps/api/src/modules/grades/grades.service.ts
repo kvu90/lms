@@ -38,12 +38,12 @@ export interface ActivityGradeView {
  * scales/outcomes, điểm tổng khoá, regrade, export/import CSV) và Sổ
  * điểm VN (vn-books TT 22/27). Không còn khái niệm điểm của khoá học.
  *
- * Wiring (registry/facade only, no cross-module repositories):
- *  - registers a grade-percentage provider into CoursesService so the
- *    Availability 'grade' leaf evaluates against REAL per-activity grades;
- *  - registers grade evaluators into CompletionService so
- *    completionUseGrade evaluates against the activity's own grade;
- *  - after a grade change it refreshes completion for the user.
+ * Kết nối (chỉ registry/facade, không dùng repository xuyên module):
+ *  - đăng ký một provider phần trăm điểm vào CoursesService để
+ *    lá 'grade' của Availability đánh giá trên điểm THẬT theo từng hoạt động;
+ *  - đăng ký các evaluator điểm vào CompletionService để
+ *    completionUseGrade đánh giá trên điểm của chính hoạt động đó;
+ *  - sau khi điểm thay đổi, nó làm mới completion cho người dùng.
  */
 @Injectable()
 export class GradesService implements OnModuleInit {
@@ -183,9 +183,9 @@ export class GradesService implements OnModuleInit {
     await this.repo.deleteItem(itemId);
   }
 
-  // --- entering grades -------------------------------------------------------
+  // --- nhập điểm -------------------------------------------------------
 
-  /** Leaf final grade: raw adjusted by multiplicator/offset; frozen once a non-identity formula produced it. */
+  /** Điểm cuối của lá: điểm thô được điều chỉnh bởi multiplicator/offset; bị đóng băng một khi một công thức không phải identity đã sinh ra nó. */
   private leafFinal(item: ItemRow, raw: number | null, existing?: GradeRow): { finalGrade: number | null; frozen: boolean } {
     if (raw === null) return { finalGrade: null, frozen: false };
     if (existing?.frozen) return { finalGrade: existing.finalGrade, frozen: true };
@@ -324,9 +324,9 @@ export class GradesService implements OnModuleInit {
     return (await this.repo.getGradeById(gradeId))!;
   }
 
-  // --- cross-module evaluators ------------------------------------------------
+  // --- evaluator liên module ------------------------------------------------
 
-  /** Completion hook: state for a cm with completionUseGrade. Null = no grade yet. */
+  /** Hook completion: trạng thái cho một cm có completionUseGrade. Null = chưa có điểm. */
   /**
    * Điểm phần trăm của user tại cm — đầu vào cho availability/completion theo điểm.
    */
@@ -352,7 +352,7 @@ export class GradesService implements OnModuleInit {
     return false;
   }
 
-  /** Availability 'grade' leaf values: percentages (0-100) keyed by grade-item id AND by cm id. */
+  /** Giá trị của lá 'grade' trong Availability: phần trăm (0-100) được khoá theo id của grade-item VÀ theo id của cm. */
   /**
    * Điểm phần trăm theo từng item của user (cho availability).
    */
@@ -370,7 +370,7 @@ export class GradesService implements OnModuleInit {
     return out;
   }
 
-  /** Raw final grade of an item for a user (facade for reports/other modules). */
+  /** Điểm cuối thô của một item cho một người dùng (facade cho reports/các module khác). */
   /**
    * Điểm cuối cùng của user tại item (sau tính toán).
    */

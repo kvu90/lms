@@ -1,4 +1,5 @@
 import {
+  applyPinVersionUpdateSchema,
   approveMatrixContributionSchema,
   copyExamMatrixSchema,
   createExamMatrixCellSchema,
@@ -11,6 +12,7 @@ import {
   gradeQuizQuestionSchema,
   manualGradeQuizSchema,
   recordQuizAttemptEventSchema,
+  regradePinQuestionSchema,
   rejectMatrixContributionSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
@@ -18,6 +20,7 @@ import {
   updateExamMatrixSchema,
   updateExamPinOverrideSchema,
   updateExamPinSchema,
+  type ApplyPinVersionUpdate,
   type ApproveMatrixContribution,
   type CopyExamMatrix,
   type CreateExamMatrix,
@@ -30,6 +33,7 @@ import {
   type GradeQuizQuestion,
   type ManualGradeQuiz,
   type RecordQuizAttemptEvent,
+  type RegradePinQuestion,
   type RejectMatrixContribution,
   type StartQuizAttempt,
   type SubmitQuizResponse,
@@ -44,6 +48,7 @@ import {
  * `@lms/contracts` là nguồn sự thật duy nhất (giống các module khác).
  */
 export {
+  applyPinVersionUpdateSchema,
   approveMatrixContributionSchema,
   copyExamMatrixSchema,
   createExamMatrixCellSchema,
@@ -56,6 +61,7 @@ export {
   gradeQuizQuestionSchema,
   manualGradeQuizSchema,
   recordQuizAttemptEventSchema,
+  regradePinQuestionSchema,
   rejectMatrixContributionSchema,
   startQuizAttemptSchema,
   submitQuizResponseSchema,
@@ -66,6 +72,8 @@ export {
 };
 export type CreateExamPinDto = CreateExamPin;
 export type UpdateExamPinDto = UpdateExamPin;
+export type ApplyPinVersionUpdateDto = ApplyPinVersionUpdate;
+export type RegradePinQuestionDto = RegradePinQuestion;
 export type StartQuizAttemptDto = StartQuizAttempt;
 export type SubmitQuizResponseDto = SubmitQuizResponse;
 export type ManualGradeQuizDto = ManualGradeQuiz;

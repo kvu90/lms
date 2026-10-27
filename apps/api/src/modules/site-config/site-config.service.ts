@@ -14,7 +14,7 @@ import {
 } from './settings-registry';
 
 /**
- * Site Config facade (Moodle `config` + `config_plugins` + admin settings).
+ * Facade của Site Config (Moodle `config` + `config_plugins` + thiết lập admin).
  *
  * Phân tầng giá trị: mặc định khai trong registry (code) < giá trị quản trị
  * lưu cơ sở dữ liệu. Mọi thay đổi qua API đều bị kiểm chứng theo kiểu đã

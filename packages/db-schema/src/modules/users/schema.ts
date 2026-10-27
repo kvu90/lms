@@ -9,7 +9,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Users (Moodle `user` → `users`, reserved-word rename per report §3.2). Soft delete keeps the row (deleted=1). */
+/** Người dùng (Moodle `user` → `users`, đổi tên vì từ khoá dành riêng theo report §3.2). Xoá mềm giữ lại dòng (deleted=1). */
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   username: text('username').notNull().unique(),
@@ -31,7 +31,7 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Free-form per-user preferences (Moodle `user_preferences`). */
+/** Tuỳ chọn tự do theo từng user (Moodle `user_preferences`). */
 export const userPreferences = pgTable(
   'user_preferences',
   {

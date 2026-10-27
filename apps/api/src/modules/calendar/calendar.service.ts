@@ -34,19 +34,19 @@ export interface CreateEventInput {
 }
 
 /**
- * CalendarModule facade (Moodle core_calendar):
- *  - The event TYPE decides who can see it, via the context tree:
- *    site → everyone; category → users of courses in the category;
- *    course → active enrolments (+ staff with a real course:view path);
- *    group → course viewers who are group members (or accessallgroups);
- *    user → only the owner.
- *  - A repeating event is a SERIES: occurrence rows share repeatId with the
- *    root, the root carries the RRULE, and an exception row replaces its
- *    occurrence in listings.
- *  - Subscriptions hold external ICS data; importing is a worker job.
- *  - Reminders are BullMQ DELAYED jobs on 'calendar-reminders'; the worker
- *    turns them into MessagingModule notifications (calendar_reminder
- *    provider) at fire time.
+ * Facade của CalendarModule (core_calendar của Moodle):
+ *  - LOẠI sự kiện quyết định ai thấy được nó, qua cây context:
+ *    site → mọi người; category → user của các khoá học trong category;
+ *    course → ghi danh đang hiệu lực (+ staff có đường course:view thật);
+ *    group → người xem khoá học là thành viên nhóm (hoặc accessallgroups);
+ *    user → chỉ chủ sở hữu.
+ *  - Một sự kiện lặp là một SERIES: các dòng occurrence dùng chung repeatId với
+ *    gốc, gốc mang RRULE, và một dòng exception thay thế occurrence
+ *    của nó trong danh sách.
+ *  - Subscription giữ dữ liệu ICS ngoài; việc import là job của worker.
+ *  - Reminder là job DELAYED của BullMQ trên 'calendar-reminders'; worker
+ *    biến chúng thành notification của MessagingModule (provider calendar_reminder)
+ *    khi tới giờ phát.
  */
 @Injectable()
 /**
@@ -72,7 +72,7 @@ export class CalendarService {
     return (await this.contexts.ensureSystemContext()).id;
   }
 
-  /** The context an event is managed in, by type. */
+  /** Context mà sự kiện được quản lý trong đó, theo loại. */
   private async manageContextId(input: { eventType: string; courseId?: string; categoryId?: string; userId?: string }): Promise<string> {
     switch (input.eventType) {
       case 'course':
@@ -90,7 +90,7 @@ export class CalendarService {
   private async requireManage(actorId: string, input: { eventType: string; courseId?: string; categoryId?: string; userId?: string }): Promise<void> {
     if (input.eventType === 'user') {
       if (input.userId !== undefined && input.userId !== actorId) {
-        // Managing someone else's personal events needs site-level manageentries.
+        // Quản lý sự kiện cá nhân của người khác cần manageentries ở cấp site.
         await this.evaluator.requireCapability(actorId, 'calendar:manageentries', await this.systemCtx());
         return;
       }
@@ -159,7 +159,7 @@ export class CalendarService {
     return row;
   }
 
-  /** Create an exception: a replacement occurrence for one series instance. */
+  /** Tạo exception: một occurrence thay thế cho một instance của series. */
   /**
    * Tạo exception cho một occurrence của chuỗi lặp (đổi giờ/nội dung riêng lần đó).
    */
@@ -185,7 +185,7 @@ export class CalendarService {
     await this.requireManage(actorId, { eventType: event.eventType, courseId: event.courseId || undefined, categoryId: event.categoryId || undefined, userId: event.userId || undefined });
     let count = 1;
     if (event.repeatId && event.id === event.repeatId) {
-      // Deleting the root deletes the whole series (Moodle semantics).
+      // Xoá gốc thì xoá toàn bộ series (ngữ nghĩa Moodle).
       const series = await this.repo.listSeries(event.repeatId);
       for (const row of series) { await this.repo.deleteEvent(row.id); count = series.length; }
     } else {
@@ -194,7 +194,7 @@ export class CalendarService {
     return { deleted: true, seriesDeleted: count };
   }
 
-  // --- visibility --------------------------------------------------------------
+  // --- tính hiển thị --------------------------------------------------------------
 
   private async canViewCoursePart(viewerId: string, courseId: string | undefined): Promise<boolean> {
     if (!courseId) return false;
@@ -209,7 +209,7 @@ export class CalendarService {
    */
   async isVisibleTo(event: CalendarEventRow, viewerId: string): Promise<boolean> {
     if (!event.visible) {
-      // Hidden events are visible only to their managers.
+      // Sự kiện ẩn chỉ hiển thị với người quản lý chúng.
       return this.requireManage(viewerId, { eventType: event.eventType, courseId: event.courseId || undefined, categoryId: event.categoryId || undefined, userId: event.userId || undefined }).then(() => true).catch(() => false);
     }
     switch (event.eventType) {
@@ -239,7 +239,7 @@ export class CalendarService {
     }
   }
 
-  /** Events visible to the viewer in [from, to]; exception rows replace their occurrence. */
+  /** Các sự kiện người xem thấy được trong [from, to]; dòng exception thay thế occurrence của chúng. */
   /**
    * Sự kiện hiển thị cho user trong khoảng thời gian, đã mở rộng chuỗi lặp và áp exception.
    */
@@ -250,14 +250,14 @@ export class CalendarService {
     const exceptedIds = new Set(rows.filter((r) => r.isException).map((r) => r.exceptionOf));
     const visible: CalendarEventRow[] = [];
     for (const row of rows) {
-      if (row.isException === false && row.exceptionOf === null && exceptedIds.has(row.id)) continue; // replaced by its exception
+      if (row.isException === false && row.exceptionOf === null && exceptedIds.has(row.id)) continue; // đã bị exception của nó thay thế
       if (filter.eventType && row.eventType !== filter.eventType) continue;
       if (await this.isVisibleTo(row, viewerId)) visible.push(row);
     }
     return visible;
   }
 
-  // --- export (ICS download + URL xuất bằng token) ------------------------------
+  // --- xuất (tải ICS + URL xuất bằng token) ------------------------------
 
   /**
    * Xuất lịch của một user thành nội dung .ics: dùng lại đúng đường liệt kê
@@ -316,9 +316,9 @@ export class CalendarService {
     return this.exportIcsForUser(row.userId, filter);
   }
 
-  // --- reminders -----------------------------------------------------------------
+  // --- reminder -----------------------------------------------------------------
 
-  /** Schedule a reminder: a BullMQ delayed job; the worker notifies at fire time. */
+  /** Lên lịch reminder: một job delayed của BullMQ; worker gửi thông báo khi tới giờ phát. */
   /**
    * Lên lịch nhắc trước sự kiện (worker calendar-reminder sẽ gửi notification đã dịch).
    */
@@ -336,7 +336,7 @@ export class CalendarService {
     return { eventId, userId: actorId, remindAt: remindAt.toISOString(), delayMs };
   }
 
-  // --- subscriptions ----------------------------------------------------------------
+  // --- subscription ----------------------------------------------------------------
 
   /**
    * Đăng ký lịch ngoài theo URL .ics.

@@ -45,7 +45,7 @@ export const payments = pgTable('payments', {
   gateway: text('gateway').notNull().default('manual'),
   externalTransactionId: text('external_transaction_id'),
   component: text('component').notNull().default(''),
-  itemId: uuid('item_id'), // e.g. enrol instance id
+  itemId: uuid('item_id'), // ví dụ: id của instance ghi danh
   /** Mã thanh toán nhúng trong nội dung chuyển khoản (trường 62/08 của VietQR); unique, không tái sử dụng. */
   paymentCode: text('payment_code'),
   /** Hạn của payment/QR; tiền về sau hạn → needs_review, không tự kích hoạt. */
@@ -105,3 +105,38 @@ export const paymentProviderEvents = pgTable('payment_provider_events', {
   index('payment_provider_events_status_idx').on(t.matchStatus),
 ]);
 
+/**
+ * Quyền lợi gói đã mua (lát 2 của issue #189 — mô hình gói
+ * `tenant_plan`/`teacher_plan`): mỗi payment gói THÀNH CÔNG sinh đúng
+ * một bản ghi quyền lợi với cửa sổ hiệu lực [starts_at, expires_at).
+ * Mua tiếp khi gói cùng loại của cùng bên hưởng còn hạn thì cửa sổ mới
+ * NỐI TIẾP từ mốc hết hạn hiện tại (cộng dồn thời hạn, không ghi đè
+ * lịch sử mua). `tenant_id` là tenant HƯỞNG gói — với `tenant_plan`
+ * chính là tenant đó (user_id = NULL); với `teacher_plan` là tenant nơi
+ * giao dịch diễn ra và `user_id` là giáo viên hưởng gói. status:
+ * `active` | `suspended` — hoàn ĐỦ tiền của payment gói thì quyền lợi
+ * của chính payment đó chuyển `suspended` (cùng khuôn đảo quyền lợi của
+ * enrol_fee/class_fee). Bảng nghiệp vụ tầng platform nên theo khuôn
+ * các bảng payments: KHÔNG bật RLS — cách ly bằng `tenant_id` tường
+ * minh ở tầng service, vì đối soát gói là nghiệp vụ xuyên tenant của
+ * platform (platform thu tiền gói của mọi tenant).
+ */
+export const planEntitlements = pgTable('plan_entitlements', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'restrict' }),
+  userId: uuid('user_id'),
+  component: text('component').notNull(), // tenant_plan | teacher_plan
+  paymentId: uuid('payment_id').notNull().references(() => payments.id),
+  startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  status: text('status').notNull().default('active'), // active | suspended
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('plan_entitlements_tenant_id_idx').on(t.tenantId),
+  index('plan_entitlements_user_id_idx').on(t.userId),
+  index('plan_entitlements_payment_id_idx').on(t.paymentId),
+  // Idempotency của khâu kích hoạt bảo đảm ở tầng DB: một payment gói
+  // sinh TỐI ĐA một bản ghi quyền lợi (xem PlanEntitlementsService).
+  unique('plan_entitlements_payment_id_unique').on(t.paymentId),
+]);

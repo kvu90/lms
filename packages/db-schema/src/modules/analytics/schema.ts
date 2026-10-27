@@ -45,7 +45,7 @@ export const insights = pgTable('insights', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   modelId: uuid('model_id').notNull().references(() => analyticsModels.id, { onDelete: 'cascade' }),
   predictionId: uuid('prediction_id'),
-  userId: uuid('user_id').notNull(), // subject
+  userId: uuid('user_id').notNull(), // chủ thể
   recipientId: uuid('recipient_id').notNull(),
   contextId: uuid('context_id').notNull(),
   courseId: uuid('course_id'),

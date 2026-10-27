@@ -7,7 +7,7 @@ import { capabilities, config, context, role, roleAssignments, roleCapabilities,
 export type ContextRow = typeof context.$inferSelect;
 export type RoleRow = typeof role.$inferSelect;
 
-/** Data access for the Access module only — other modules must use the Access facade services. */
+/** Truy cập dữ liệu chỉ dành cho module Access — các module khác phải dùng các service facade của Access. */
 @Injectable()
 /**
  * Kho dữ liệu phân quyền: context, capability, role, gán role và override.
@@ -64,7 +64,7 @@ export class AccessRepository {
   async deleteContext(id: string): Promise<void> {
     await this.db.delete(context).where(eq(context.id, id));
   }
-  /** Bump `version` for a context and every descendant (path prefix) — the dirty-marking behind evaluator cache invalidation. */
+  /** Tăng `version` cho một context và mọi context con cháu (theo tiền tố path) — cơ chế đánh dấu dirty đứng sau việc vô hiệu hoá cache của evaluator. */
   /**
    * Tăng version của các context để vô hiệu hoá cache quyền đã tính theo cây cũ.
    */
@@ -201,7 +201,7 @@ export class AccessRepository {
     if (filter.contextId !== undefined) conds.push(eq(roleAssignments.contextId, filter.contextId));
     return this.db.select().from(roleAssignments).where(conds.length ? and(...conds) : undefined);
   }
-  /** Assignments whose context is on the given ancestor path (ids ordered as supplied). */
+  /** Các assignment có context nằm trên đường tổ tiên cho trước (các id theo đúng thứ tự được truyền vào). */
   /**
    * Lấy mọi gán role của user tại các context cho trước (đầu vào của PermissionEvaluator).
    */
@@ -211,7 +211,7 @@ export class AccessRepository {
       .where(and(eq(roleAssignments.userId, userId), inArray(roleAssignments.contextId, contextIds)));
   }
 
-  // --- capability overrides ---------------------------------------------------
+  // --- ghi đè capability ------------------------------------------------------
   /**
    * Ghi override quyền của role tại một context (CAP_*); ghi đè nếu đã có.
    */
@@ -239,7 +239,7 @@ export class AccessRepository {
       eq(roleCapabilities.capability, capability),
       inArray(roleCapabilities.contextId, contextIds)));
   }
-  /** Remove a role's seeded default overrides at one context (used by seed to keep archetype defaults in sync with code). */
+  /** Xoá các override mặc định đã seed của một role tại một context (seed dùng để giữ các giá trị mặc định theo archetype đồng bộ với code). */
   /**
    * Xoá toàn bộ override tại một context (khi context bị xoá).
    */
@@ -255,7 +255,7 @@ export class AccessRepository {
     return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleId, roleId));
   }
 
-  // --- site config (siteadmins lives in the `config` table, like Moodle $CFG->siteadmins) ---
+  // --- cấu hình site (siteadmins nằm trong bảng `config`, giống $CFG->siteadmins của Moodle) ---
   /**
    * Đọc một giá trị cấu hình hệ thống (bảng config).
    */

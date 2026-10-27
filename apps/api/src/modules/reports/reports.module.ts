@@ -6,7 +6,7 @@ import { ReportsController } from './reports.controller';
 import { ReportsRepository } from './reports.repository';
 import { ReportsService } from './reports.service';
 
-/** ReportsModule facade: ReportsService. */
+/** Facade của ReportsModule: ReportsService. */
 @Module({
   imports: [AccessModule, CoursesModule, MessagingModule],
   controllers: [ReportsController],

@@ -9,11 +9,11 @@ import {
 } from './identity-access-helpers';
 
 /**
- * File flow tests (report §3.11 golden file case).
+ * Kiểm thử luồng File (trường hợp file chuẩn vàng của báo cáo §3.11).
  * Oracle: public/lib/filestorage/tests/file_storage_test.php (MOODLE_503_STABLE) —
  * test_create_file_from_string, test_get_file_by_hash, test_delete_area_files;
- * dedup/refcount semantics from the File API internals doc (report §3.8).
- * Note: our contentHash is SHA-256 (project decision, no legacy compat) where Moodle uses SHA-1.
+ * ngữ nghĩa dedup/refcount từ tài liệu nội bộ File API (báo cáo §3.8).
+ * Lưu ý: contentHash của chúng ta là SHA-256 (quyết định của dự án, không tương thích cũ) trong khi Moodle dùng SHA-1.
  */
 describe('Files: content-addressed dedup, refcount cleanup, capability-checked serving', () => {
   let app: INestApplication;
@@ -49,7 +49,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     const b = await upload(uploaderToken, 'b.txt', CONTENT);
     expect(a.id).not.toBe(b.id);
     expect(a.contentHash).toBe(b.contentHash);
-    expect(a.contentHash).toHaveLength(64); // SHA-256 hex
+    expect(a.contentHash).toHaveLength(64); // SHA-256 dạng hex
     const service = app.get(FilesService);
     expect(await service.refcount(a.contentHash)).toBe(2);
     expect(existsSync(service.physicalKey(a.contentHash))).toBe(true);
@@ -66,7 +66,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     expect(existsSync(service.physicalKey(a.contentHash))).toBe(true);
     const delB = await http(app).delete(`/api/v1/files/${b.id}`).set('Authorization', `Bearer ${uploaderToken}`);
     expect(delB.body.refcount).toBe(0);
-    // The worker processor runs the same facade operation the API queued.
+    // Bộ xử lý của worker chạy cùng thao tác facade mà API đã đưa vào hàng đợi.
     const removed = await service.cleanupOrphan(a.contentHash);
     expect(removed).toBe(true);
     expect(existsSync(service.physicalKey(a.contentHash))).toBe(false);

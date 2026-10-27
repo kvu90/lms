@@ -52,7 +52,7 @@ describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo
         { statementId: 's4', value: false },
       ],
     };
-    expect(b.gradeAtFinish('truefalse', tf, null)).toBeNull(); // unanswered → gaveup
+    expect(b.gradeAtFinish('truefalse', tf, null)).toBeNull(); // chưa trả lời → gaveup
   });
 
   it('truefalse grading (TF-A): chấm từng mệnh đề rồi tra thang Đ–S mặc định QĐ 764 theo số ý đúng', () => {

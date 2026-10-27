@@ -18,7 +18,7 @@ import { SessionService } from './session.service';
 import { TotpService } from './totp.service';
 import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
 
-/** AuthModule facade: AuthService + SessionService. Depends on Users + Access per the report dependency graph. */
+/** Facade của AuthModule: AuthService + SessionService. Phụ thuộc Users + Access theo đồ thị phụ thuộc của report. */
 @Module({
   imports: [
     // BetterAuthModule: AuthService cần BetterAuthService +

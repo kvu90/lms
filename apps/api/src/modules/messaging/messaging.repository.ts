@@ -406,7 +406,7 @@ export class MessagingRepository {
       };
     });
   }
-  /** Find the individual conversation whose member set is exactly {a, b}. */
+  /** Tìm cuộc trò chuyện cá nhân có tập thành viên đúng bằng {a, b}. */
   /**
    * Tìm conversation 1-1 giữa hai user.
    */
@@ -805,7 +805,7 @@ export class MessagingRepository {
       ));
     return row?.value ?? 0;
   }
-  /** Unread conversations for a user (Moodle count_unread_conversations): conversations with ≥1 unread message from others. */
+  /** Các cuộc trò chuyện chưa đọc của một người dùng (Moodle count_unread_conversations): các cuộc trò chuyện có ≥1 tin nhắn chưa đọc từ người khác. */
   /**
    * Số conversation có tin chưa đọc của user — một truy vấn EXISTS theo
    * mốc đã đọc của từng thành viên, không tải lịch sử về đếm.
@@ -1306,7 +1306,7 @@ export class MessagingRepository {
     });
   }
 
-  // --- group conversation sync ------------------------------------------------
+  // --- đồng bộ cuộc trò chuyện nhóm ------------------------------------------------
   // Đọc trực tiếp bảng groups/groups_members qua barrel schema (không import
   // GroupsModule): đồng bộ lười phía messaging, không cần hook bên groups.
 
@@ -1359,7 +1359,7 @@ export class MessagingRepository {
     ));
   }
 
-  // --- course conversation sync ----------------------------------------------
+  // --- đồng bộ cuộc trò chuyện khoá học ----------------------------------------------
   // Conversation CẤP KHOÁ (chat toàn lớp): một conversation type 2 gắn
   // với chính khoá qua (component 'core_course', itemType 'course',
   // itemId = course id). Thành viên đúng nghĩa = ghi danh đang hiệu lực

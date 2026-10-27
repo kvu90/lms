@@ -15,7 +15,7 @@ import { createObjectStorage } from './storage-factory';
   controllers: [FilesController],
   providers: [
     FilesRepository, FilesService, FileSigningService, FilesListener,
-    // Physical driver chosen by env (FILE_STORAGE_DRIVER=local|s3, default local).
+    // Driver vật lý được chọn theo env (FILE_STORAGE_DRIVER=local|s3, mặc định local).
     { provide: OBJECT_STORAGE, useFactory: (config: ConfigService) => createObjectStorage(config), inject: [ConfigService] },
   ],
   exports: [FilesService],

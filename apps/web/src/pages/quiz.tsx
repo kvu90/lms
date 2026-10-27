@@ -4,6 +4,9 @@ import {
   extractRichTextPlainText,
   type CourseGroup,
   type CourseRosterMember,
+  type PinRegradeLogEntry,
+  type PinRegradeResult,
+  type PinVersionUpdatePreview,
   type QuestionView,
   type QuizAttemptSummary,
   type ExamPinOverrideView as QuizOverrideView,
@@ -82,6 +85,30 @@ export function QuizPage() {
   const [gradeMethod, setGradeMethod] = useState('highest');
   const [grade, setGrade] = useState('10');
   const [shuffleAnswers, setShuffleAnswers] = useState(false);
+  const [versionMode, setVersionMode] = useState<'pinned' | 'float_latest_ready'>('pinned');
+
+  // Cập nhật version của pin (issue #254): xem trước diff rồi mới áp —
+  // preview là dữ kiện của API, áp dùng đúng exam version đã xem trước.
+  const [updatePreview, setUpdatePreview] = useState<PinVersionUpdatePreview | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+
+  // Chấm lại theo đáp án (issue #254): chọn câu + version đúng →
+  // dry-run xem điểm đổi → áp → nhật ký các lần đã áp.
+  const [regradeQuestionId, setRegradeQuestionId] = useState('');
+  const [regradeVersions, setRegradeVersions] = useState<{ id: string; version: number; status: string }[]>([]);
+  const [regradeVersionId, setRegradeVersionId] = useState('');
+  const [regradePreview, setRegradePreview] = useState<PinRegradeResult | null>(null);
+  const [regradeLog, setRegradeLog] = useState<PinRegradeLogEntry[] | null>(null);
+  const [regradeError, setRegradeError] = useState<string | null>(null);
+
+  // Lịch sử sửa điểm của chính người xem (API tự gác cổng công bố:
+  // chưa công bố thì trả rỗng, mục này tự ẩn).
+  const myRegradesQuery = useQuery({
+    queryKey: ['exam-pin-my-regrades', quizId],
+    queryFn: () => apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${quizId}/my-regrades`),
+    enabled: !!quizId,
+  });
+  const myRegrades = myRegradesQuery.data ?? [];
 
   // Thông tin ĐỀ nguồn của lần ghim (tên + version hiện hành ở bank) — chỉ tải khi có quyền manage.
   const examInfo = useExamSource(data?.quiz.examId, !!data?.permissions.manage).data ?? null;
@@ -93,7 +120,7 @@ export function QuizPage() {
   const overrides = overridesQuery.data ?? [];
   const overridesLoaded = overridesQuery.isSuccess || overridesQuery.isError;
   const { refetch: refetchOverrides } = overridesQuery;
-  const roster = useCourseRoster(courseId ?? '', !!data?.permissions.manageOverrides).data ?? [];
+  const roster = useCourseRoster(courseId ?? '', !!(data?.permissions.manageOverrides || data?.permissions.grade)).data ?? [];
   const groups = useQuery({
     ...courseGroupsQueryOptions(courseId ?? ''),
     enabled: !!courseId && !!(data?.permissions.manage || data?.permissions.manageOverrides),
@@ -102,6 +129,12 @@ export function QuizPage() {
   useEffect(() => {
     if (overridesQuery.isError) setOvError(t('quizOverridesLoadFailed'));
   }, [overridesQuery.isError, overridesQuery.errorUpdatedAt, t]);
+
+  // Nhật ký chấm lại nạp một lần khi người xem có quyền chấm (panel chấm lại dùng chung dữ kiện này).
+  useEffect(() => {
+    if (data?.permissions.grade) void loadRegradeLog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.permissions.grade]);
   const [editingOverride, setEditingOverride] = useState<QuizOverrideView | null>(null);
   const [ovTargetKind, setOvTargetKind] = useState<'user' | 'group'>('user');
   const [ovUserId, setOvUserId] = useState('');
@@ -127,6 +160,7 @@ export function QuizPage() {
     setGradeMethod(data.quiz.gradeMethod);
     setGrade(String(data.quiz.grade));
     setShuffleAnswers(data.quiz.shuffleAnswers);
+    setVersionMode(data.quiz.versionMode);
   }, [data]);
 
   // Các thao tác ghi gọi reload()/reloadOverrides() như cũ — nay là
@@ -246,8 +280,13 @@ export function QuizPage() {
 
   async function saveSettings(event: FormEvent) {
     event.preventDefault();
-    await act(() =>
-      apiJson(`/api/v1/exam-pins/${quizId}`, {
+    // Lỗi chế độ version phải hiện đúng lý do nghiệp vụ (chỉ luyện tập
+    // mới được trôi) thay vì thông báo lỗi chung — API là nơi gác, ở
+    // đây chỉ dịch mã lỗi của nó.
+    setActionError(null);
+    setBusy(true);
+    try {
+      await apiJson(`/api/v1/exam-pins/${quizId}`, {
         method: 'PATCH',
         body: JSON.stringify({
           name: name.trim(),
@@ -259,9 +298,108 @@ export function QuizPage() {
           gradeMethod,
           grade: Number(grade) || 10,
           shuffleAnswers,
+          versionMode,
         }),
-      }),
-    );
+      });
+      await reload();
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.problem.code === 'exam.version_mode_not_allowed'
+          ? t('pinVersionModeNotAllowed')
+          : t('quizActionFailed'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Tải xem trước cập nhật version (diff từng slot) cho lần ghim này. */
+  async function loadUpdatePreview() {
+    setUpdateError(null);
+    setBusy(true);
+    try {
+      setUpdatePreview(await apiJson<PinVersionUpdatePreview>(`/api/v1/exam-pins/${quizId}/version-update`));
+    } catch {
+      setUpdateError(t('pinVersionUpdateFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Áp cập nhật lên đúng exam version đã xem trước; bị khoá bởi lượt làm thật thì hiện lý do của API. */
+  async function applyUpdate() {
+    if (!updatePreview?.toExamVersionId) return;
+    setUpdateError(null);
+    setBusy(true);
+    try {
+      await apiJson(`/api/v1/exam-pins/${quizId}/version-update`, {
+        method: 'POST',
+        body: JSON.stringify({ toExamVersionId: updatePreview.toExamVersionId }),
+      });
+      setUpdatePreview(null);
+      await reload();
+    } catch (err) {
+      setUpdateError(
+        err instanceof ApiError && err.problem.code === 'exam.pin_locked'
+          ? t('pinVersionLocked')
+          : t('pinVersionUpdateFailed'),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Tải các version của câu được chọn cho panel chấm lại, mặc định chọn bản ready mới nhất. */
+  async function loadRegradeVersions(questionId: string) {
+    setRegradePreview(null);
+    setRegradeError(null);
+    if (!questionId) {
+      setRegradeVersions([]);
+      setRegradeVersionId('');
+      return;
+    }
+    try {
+      const versions = await apiJson<{ id: string; version: number; status: string }[]>(`/api/v1/questions/${questionId}/versions`);
+      setRegradeVersions(versions);
+      const ready = versions.filter((v) => v.status === 'ready');
+      setRegradeVersionId((ready.length ? ready[ready.length - 1]! : versions[versions.length - 1])?.id ?? '');
+    } catch {
+      setRegradeVersions([]);
+      setRegradeVersionId('');
+      setRegradeError(t('regradeFailed'));
+    }
+  }
+
+  /** Chạy chấm lại (dryRun = chỉ xem trước điểm đổi, không ghi). */
+  async function runRegrade(dryRun: boolean) {
+    if (!regradeQuestionId || !regradeVersionId) return;
+    setRegradeError(null);
+    setBusy(true);
+    try {
+      const result = await apiJson<PinRegradeResult>(`/api/v1/exam-pins/${quizId}/regrades`, {
+        method: 'POST',
+        body: JSON.stringify({ questionId: regradeQuestionId, toVersionId: regradeVersionId, dryRun }),
+      });
+      setRegradePreview(result);
+      if (!dryRun) {
+        setRegradeLog(await apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${quizId}/regrades`));
+        await reload();
+        void myRegradesQuery.refetch();
+      }
+    } catch {
+      setRegradeError(t('regradeFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Tải nhật ký chấm lại của pin (chỉ người có quyền xem báo cáo mới gọi được — panel chỉ hiện cho vai chấm). */
+  async function loadRegradeLog() {
+    try {
+      setRegradeLog(await apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${quizId}/regrades`));
+    } catch {
+      setRegradeLog([]);
+    }
   }
 
   async function startAttempt(preview: boolean) {
@@ -392,6 +530,25 @@ export function QuizPage() {
               </ul>
             </div>
           ) : null}
+          {myRegrades.length ? (
+            <div>
+              <h3 className="text-sm font-medium">{t('myRegradesTitle')}</h3>
+              <ul className="text-sm">
+                {myRegrades.flatMap((entry) =>
+                  entry.items.map((item) => (
+                    <li key={`${entry.id}-${item.examAttemptId}`}>
+                      {t('myRegradeLine', {
+                        date: new Date(entry.createdAt).toLocaleString(),
+                        number: item.attemptNumber,
+                        from: item.oldSumGrades ?? 0,
+                        to: item.newSumGrades ?? 0,
+                      })}
+                    </li>
+                  )),
+                )}
+              </ul>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -416,28 +573,70 @@ export function QuizPage() {
                   )}
                 </p>
                 <p className="text-muted-foreground">{t('pinExamFrozenNote')}</p>
+                <p>
+                  {t('pinExamVersionLine', { version: quiz.examVersionNumber })}
+                  {quiz.hasNewerExamVersion ? (
+                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                      {t('pinHasNewerVersion', { version: quiz.latestExamVersionNumber })}
+                    </span>
+                  ) : null}
+                </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button type="button" variant="outline" render={<Link to={`/exams/${quiz.examId}/edit`} />}>
                     {t('pinExamOpenEditor')}
                   </Button>
-                  {examInfo && examInfo.currentVersionId !== quiz.examVersionId ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
-                        void act(() =>
-                          apiJson(`/api/v1/exam-pins/${quizId}`, {
-                            method: 'PATCH',
-                            body: JSON.stringify({ examVersionId: examInfo.currentVersionId }),
-                          }),
-                        )
-                      }
-                    >
-                      {t('pinExamUpgradeVersion', { version: examInfo.version })}
+                  {quiz.hasNewerExamVersion ? (
+                    <Button type="button" variant="outline" disabled={busy} onClick={() => void loadUpdatePreview()}>
+                      {t('pinVersionUpdateReview')}
                     </Button>
                   ) : null}
                 </div>
+                {updateError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{updateError}</AlertDescription>
+                  </Alert>
+                ) : null}
+                {updatePreview ? (
+                  <div className="space-y-2 rounded-md border p-3">
+                    <p className="font-medium">{t('pinVersionUpdateTitle')}</p>
+                    <p>
+                      {t('pinVersionUpdateFromTo', {
+                        from: updatePreview.fromVersionNumber,
+                        to: updatePreview.toVersionNumber ?? updatePreview.fromVersionNumber,
+                      })}
+                    </p>
+                    {updatePreview.blockedByAttempts ? (
+                      <p className="text-amber-900">{t('pinVersionUpdateBlocked')}</p>
+                    ) : updatePreview.slotDiffs.length === 0 ? (
+                      <p className="text-muted-foreground">{t('pinVersionUpdateEmpty')}</p>
+                    ) : (
+                      <ul className="space-y-1">
+                        {updatePreview.slotDiffs.map((d) => (
+                          <li key={d.position}>
+                            {t('diffSlotLine', { position: d.position })} —{' '}
+                            {d.change === 'question_version_changed'
+                              ? t('diffChange_question_version_changed', { from: d.fromPinnedVersionNumber ?? 0, to: d.toPinnedVersionNumber ?? 0 })
+                              : d.change === 'mark_changed'
+                                ? t('diffChange_mark_changed', { from: d.fromMaxMark ?? 0, to: d.toMaxMark ?? 0 })
+                                : t(`diffChange_${d.change}`)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        disabled={busy || updatePreview.blockedByAttempts || !updatePreview.toExamVersionId}
+                        onClick={() => void applyUpdate()}
+                      >
+                        {t('pinVersionUpdateApply')}
+                      </Button>
+                      <Button type="button" variant="outline" disabled={busy} onClick={() => setUpdatePreview(null)}>
+                        {t('pinVersionUpdateCancel')}
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <ul className="space-y-2">
                 {quiz.slots.map((s) => (
@@ -527,7 +726,27 @@ export function QuizPage() {
                       />
                       <Label htmlFor="quiz-shuffle">{t('quizSettingsShuffle')}</Label>
                     </div>
+                    <Field className="w-auto">
+                      <FieldLabel id="quiz-version-mode-label">{t('pinVersionModeLabel')}</FieldLabel>
+                      <Select
+                        items={{
+                          pinned: t('pinVersionMode_pinned'),
+                          float_latest_ready: t('pinVersionMode_float_latest_ready'),
+                        }}
+                        value={versionMode}
+                        onValueChange={(v) => setVersionMode(v === 'float_latest_ready' ? 'float_latest_ready' : 'pinned')}
+                      >
+                        <SelectTrigger aria-labelledby="quiz-version-mode-label" className="w-64">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pinned">{t('pinVersionMode_pinned')}</SelectItem>
+                          <SelectItem value="float_latest_ready">{t('pinVersionMode_float_latest_ready')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
                   </div>
+                  <p className="text-xs text-muted-foreground">{t('pinVersionModeHint')}</p>
                   <div className="flex justify-end">
                     <Button type="submit" disabled={busy}>{t('quizSettingsSave')}</Button>
                   </div>
@@ -536,6 +755,101 @@ export function QuizPage() {
             </CardContent>
           </Card>
         </>
+      ) : null}
+
+      {permissions.grade ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('regradeTitle')}</CardTitle>
+            <CardDescription>{t('regradeDescription')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {regradeError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{regradeError}</AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Select
+                items={Object.fromEntries(
+                  quiz.slots
+                    .filter((s) => s.questionId)
+                    .map((s) => [s.questionId!, slotNames[s.id] ?? t('quizSlotLine', { slot: s.slot, page: s.page })]),
+                )}
+                value={regradeQuestionId === '' ? null : regradeQuestionId}
+                onValueChange={(v) => {
+                  setRegradeQuestionId(v ?? '');
+                  void loadRegradeVersions(v ?? '');
+                }}
+              >
+                <SelectTrigger aria-label={t('regradeQuestionLabel')} className="w-72">
+                  <SelectValue placeholder={t('regradeQuestionLabel')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {quiz.slots
+                    .filter((s) => s.questionId)
+                    .map((s) => (
+                      <SelectItem key={s.questionId!} value={s.questionId!}>
+                        {slotNames[s.id] ?? t('quizSlotLine', { slot: s.slot, page: s.page })}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Select
+                items={Object.fromEntries(regradeVersions.map((v) => [v.id, `v${v.version} (${v.status})`]))}
+                value={regradeVersionId === '' ? null : regradeVersionId}
+                onValueChange={(v) => setRegradeVersionId(v ?? '')}
+              >
+                <SelectTrigger aria-label={t('regradeVersionLabel')} className="w-44">
+                  <SelectValue placeholder={t('regradeVersionLabel')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {regradeVersions.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>{`v${v.version} (${v.status})`}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button type="button" variant="outline" disabled={busy || !regradeQuestionId || !regradeVersionId} onClick={() => void runRegrade(true)}>
+                {t('regradeDryRun')}
+              </Button>
+              <Button type="button" disabled={busy || !regradeQuestionId || !regradeVersionId} onClick={() => void runRegrade(false)}>
+                {t('regradeApply')}
+              </Button>
+            </div>
+            {regradePreview ? (
+              regradePreview.changes.filter((c) => c.changed).length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t('regradeNoChanges')}</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {regradePreview.changes
+                    .filter((c) => c.changed)
+                    .map((c) => (
+                      <li key={c.examAttemptId}>
+                        {t('regradeChangeLine', {
+                          number: c.attemptNumber,
+                          student: roster.find((m) => m.userId === c.userId)?.displayName ?? c.userId,
+                          from: c.oldSumGrades ?? 0,
+                          to: c.newSumGrades ?? 0,
+                        })}
+                      </li>
+                    ))}
+                </ul>
+              )
+            ) : null}
+            {regradeLog && regradeLog.length ? (
+              <div>
+                <h3 className="text-sm font-medium">{t('regradeLogTitle')}</h3>
+                <ul className="text-sm">
+                  {regradeLog.map((entry) => (
+                    <li key={entry.id}>
+                      {t('regradeLogLine', { date: new Date(entry.createdAt).toLocaleString(), count: entry.items.length })}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
       ) : null}
 
       {permissions.manageOverrides ? (

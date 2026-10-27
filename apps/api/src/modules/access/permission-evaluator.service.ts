@@ -13,11 +13,11 @@ interface TenantGate {
 }
 
 /**
- * PermissionEvaluator — the single source of truth for Moodle capability
- * semantics (report §3.3). NOT CASL, NOT JWT claims: results are computed
- * from context tree + role assignments + overrides, cached in the
- * application-mode cache under a key that embeds the path version stamp, so
- * dirty-marking a context (version bump) lazily invalidates its subtree.
+ * PermissionEvaluator — nguồn sự thật duy nhất cho ngữ nghĩa capability của Moodle
+ * (report §3.3). KHÔNG phải CASL, KHÔNG phải JWT claims: kết quả được tính
+ * từ cây context + gán role + overrides, cache trong
+ * cache chế độ application dưới một khoá nhúng dấu version của path, nên
+ * việc đánh dấu một context là dirty (tăng version) sẽ làm mất hiệu lực lười cây con của nó.
  */
 @Injectable()
 /**
@@ -34,7 +34,7 @@ export class PermissionEvaluator {
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {}
 
-  /** Site admins ($CFG->siteadmins equivalent, config key `siteadmins`) bypass every capability check. */
+  /** Site admin (tương đương $CFG->siteadmins, khoá config `siteadmins`) bỏ qua mọi kiểm tra capability. */
   /**
    * User có nằm trong danh sách site admin (config siteadmins) hay không — admin bỏ qua mọi capability check.
    */
@@ -113,12 +113,12 @@ export class PermissionEvaluator {
   }
 
   private async evaluate(userId: string, capability: string, pathContexts: { id: string }[], opts?: { isGuest?: boolean }, assignmentScope?: Set<string> | null): Promise<boolean> {
-    const pathIds = pathContexts.map((c) => c.id); // leaf → root
+    const pathIds = pathContexts.map((c) => c.id); // lá → gốc
     const allAssignments = await this.repo.getAssignmentsForUserInContexts(userId, pathIds);
     const assignments = assignmentScope ? allAssignments.filter((a) => assignmentScope.has(a.contextId)) : allAssignments;
     const roleIds = new Set<string>(assignments.map((a) => a.roleId));
-    // Moodle adds virtual default-role assignments: `user` for any logged-in
-    // user, `guest` for the guest account — both anchored at the system context.
+    // Moodle thêm gán role mặc định ảo: `user` cho mọi user đã đăng nhập,
+    // `guest` cho tài khoản guest — cả hai neo tại context hệ thống.
     const systemId = pathIds[pathIds.length - 1];
     const defaultRole = await this.repo.getRoleByShortname(opts?.isGuest ? 'guest' : 'user');
     if (defaultRole && systemId !== undefined) roleIds.add(defaultRole.id);
@@ -138,12 +138,12 @@ export class PermissionEvaluator {
   }
 
   /**
-   * Capability check over REAL role assignments only (no virtual
-   * user/guest default roles), optionally ignoring assignments of given
-   * archetypes. Enrol uses this for the enrol gate's exception (report §2#5):
-   * a suspended enrolment still blocks a user whose only path to
-   * `course:view` is the student role the enrolment itself granted,
-   * while a genuine staff assignment (teacher/manager/…) still lets them in.
+   * Kiểm tra capability chỉ trên gán role THẬT (không có role mặc định ảo
+   * user/guest), tuỳ chọn bỏ qua gán của các archetype cho trước.
+   * Enrol dùng cách này cho ngoại lệ của cổng enrol (report §2#5):
+   * một ghi danh bị đình chỉ vẫn chặn user mà đường duy nhất tới
+   * `course:view` là role student do chính ghi danh đó cấp,
+   * trong khi gán staff thật (teacher/manager/…) vẫn cho họ vào.
    */
   /**
    * Như hasCapability nhưng chỉ tính gán role thật, bỏ qua lối tắt site admin — dùng cho các luồng cần phân biệt (vd login-as).
@@ -187,7 +187,7 @@ export class PermissionEvaluator {
   }
 
   /**
-   * Capability check over REAL role assignments ANYWHERE: đạt khi user
+   * Kiểm tra capability trên gán role THẬT Ở BẤT KỲ ĐÂU: đạt khi user
    * giữ capability từ một gán vai THẬT ở ít nhất một context (vai mặc
    * định ảo user/guest không bao giờ tính). Dùng cho các cổng kiểu "được
    * dùng không gian cá nhân của mình" (vd kho học liệu cá nhân): sự kiện

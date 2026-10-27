@@ -1,20 +1,20 @@
 /**
- * Question engine domain — PURE (no Nest, no DB), report §2#8.
+ * Miền question engine — THUẦN (không Nest, không DB), report §2#8.
  *
- * Ported from Moodle core_question's engine semantics
- * (question/engine/tests/questionusagebyactivity_test.php: usages group
- * attempts; attempts start in `notstarted`, a deferred-feedback attempt is
- * started → answered → finished/graded, and EVERY transition is a step).
+ * Port từ ngữ nghĩa engine của core_question của Moodle
+ * (question/engine/tests/questionusagebyactivity_test.php: usage nhóm các
+ * attempt; attempt bắt đầu ở `notstarted`, một attempt deferred-feedback được
+ * bắt đầu → trả lời → kết thúc/chấm, và MỌI chuyển đổi đều là một step).
  *
- * States follow Moodle `question_state` names:
+ * Trạng thái theo tên `question_state` của Moodle:
  *   notstarted → todo → complete | incomplete → gradedright | gradedpartial
- *   | gradedwrong | needsgrading; finishing an unanswered attempt ⇒ gaveup.
- *   needsgrading is where manually graded qtypes (essay) land at finish.
+ *   | gradedwrong | needsgrading; kết thúc một attempt chưa trả lời ⇒ gaveup.
+ *   needsgrading là nơi các qtype chấm tay (essay) rơi vào khi kết thúc.
  *
- * Behaviours are an internal EXTENSION POINT (interface + registry in the
- * service). `deferredfeedback` is the only behaviour shipped in core:
- * responses are stored as steps and graded only when the usage finishes,
- * against the answer/options rows of the PINNED question version.
+ * Behaviour là một ĐIỂM MỞ RỘNG nội bộ (interface + registry trong
+ * service). `deferredfeedback` là behaviour duy nhất đi kèm lõi:
+ * response được lưu thành step và chỉ chấm khi usage kết thúc,
+ * theo dòng answer/options của version câu hỏi ĐÃ PIN.
  *
  * Chấm điểm theo MÔ HÌNH GIAOKHOA (quyết 12:04 ngày 26/10/2026, đợt
  * port #248): đáp án KHÔNG còn tỉ trọng (fraction) — mỗi dòng đáp án chỉ
@@ -28,7 +28,7 @@
  *     tuỳ chọn useCase) — ký tự đại diện `*` đã BỎ HẲN (điểm quyết
  *     D-2). Chế độ đáp án số (điểm 6.3.3 issue #30) giữ nguyên: đáp án
  *     vi phạm ràng buộc số bị 0 điểm ngay, không rơi xuống so khớp.
- *   - essay: never auto-graded — the attempt goes to needsgrading.
+ *   - essay: không bao giờ tự chấm — attempt đi vào needsgrading.
  * `rightAnswer` (đáp án đúng để hiển thị xem lại) luôn suy từ dòng đáp
  * án `isCorrect` của version đã pin, không còn suy từ fraction cao nhất.
  * Trạng thái graded* vẫn suy từ fraction bằng ngưỡng của Moodle
@@ -338,7 +338,7 @@ function gradeMultichoice(data: GradingData, response: string | null): GradeOutc
   return { fraction, state: gradedStateForFraction(fraction), rightAnswer: correctRow?.text ?? '' };
 }
 
-/** Grade one response against a pinned version's answers/options. Pure and total. */
+/** Chấm một response theo answer/options của một version đã pin. Thuần và toàn phần. */
 /**
  * Chấm một câu trả lời theo qtype (truefalse, multichoice, shortanswer,
  * essay) theo mô hình giaokhoa: multichoice/shortanswer cho fraction
@@ -365,9 +365,9 @@ export function gradeAnswer(qtype: string, data: GradingData, response: string |
 }
 
 /**
- * Behaviour extension point. A behaviour decides how responses move the
- * attempt state and when grading happens. deferredfeedback: submitting only
- * records the response (complete/incomplete); grading happens at finish.
+ * Điểm mở rộng behaviour. Một behaviour quyết định response di chuyển
+ * trạng thái attempt thế nào và khi nào việc chấm xảy ra. deferredfeedback: chỉ nộp
+ * ghi response (complete/incomplete); việc chấm xảy ra khi kết thúc.
  */
 /**
  * Hành vi tương tác của lượt làm (deferred feedback, immediate feedback…): quyết định trạng thái sau khi nộp và thời điểm công bố điểm — xem DeferredFeedbackBehaviour.
@@ -397,7 +397,7 @@ export const BEHAVIOURS: Record<string, QuestionBehaviour> = {
   deferredfeedback: new DeferredFeedbackBehaviour(),
 };
 
-/** Usage-level rollup: finished only when every started attempt reached a finished state. */
+/** Tổng hợp cấp usage: chỉ kết thúc khi mọi attempt đã bắt đầu đạt trạng thái kết thúc. */
 /**
  * Trạng thái tổng của một question usage suy từ các attempt: notstarted / inprogress / finished.
  */

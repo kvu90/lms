@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Tag collections (Moodle `tag_coll`): areas belong to a collection; the default collection is seeded. */
+/** Bộ sưu tập thẻ (Moodle `tag_coll`): các area thuộc về một bộ sưu tập; bộ sưu tập mặc định được seed sẵn. */
 export const tagCollection = pgTable('tag_collection', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
@@ -21,7 +21,7 @@ export const tagCollection = pgTable('tag_collection', {
   customUrl: text('custom_url'),
 });
 
-/** Tags (Moodle `tag`). name is the normalised (lowercase) form; raw_name keeps the display form. */
+/** Thẻ (Moodle `tag`). name là dạng đã chuẩn hoá (viết thường); raw_name giữ dạng hiển thị. */
 export const tag = pgTable(
   'tag',
   {
@@ -38,7 +38,7 @@ export const tag = pgTable(
       index('tag_user_id_idx').on(table.userId),unique('tag_coll_name_unique').on(table.tagCollId, table.name)],
 );
 
-/** Tag instances (Moodle `tag_instance`): the polymorphic link — no FK to the tagged item, by design. */
+/** Instance của thẻ (Moodle `tag_instance`): liên kết đa hình — không có FK tới mục được gắn thẻ, theo thiết kế. */
 export const tagInstance = pgTable(
   'tag_instance',
   {
@@ -59,13 +59,13 @@ export const tagInstance = pgTable(
       index('tag_instance_ti_user_id_idx').on(table.tiUserId),unique('tag_instance_unique').on(table.tagId, table.component, table.itemType, table.itemId, table.contextId, table.tiUserId)],
 );
 
-/** Correlated tags (Moodle `tag_correlation`): tags that co-occur on the same items, as a comma list of tag ids. */
+/** Thẻ tương quan (Moodle `tag_correlation`): các thẻ cùng xuất hiện trên cùng các mục, dưới dạng danh sách id thẻ cách nhau bằng dấu phẩy. */
 export const tagCorrelation = pgTable('tag_correlation', {
   tagId: uuid('tag_id').primaryKey().references(() => tag.id, { onDelete: 'cascade' }),
   correlatedTags: text('correlated_tags').notNull().default(''),
 });
 
-/** Comments (Moodle `comments`): polymorphic by (component, comment_area, item_id, context_id). */
+/** Bình luận (Moodle `comments`): đa hình theo (component, comment_area, item_id, context_id). */
 export const comments = pgTable('comments', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   contextId: uuid('context_id').notNull(),
@@ -85,7 +85,7 @@ export const comments = pgTable('comments', {
   ]);
 
 
-/** Ratings (Moodle `rating`): polymorphic; aggregation (average/count/sum) is computed over THIS item only. */
+/** Đánh giá (Moodle `rating`): đa hình; phép tổng hợp (average/count/sum) chỉ được tính trên CHÍNH mục này. */
 export const rating = pgTable(
   'rating',
   {
@@ -106,10 +106,10 @@ export const rating = pgTable(
 );
 
 /**
- * Notes about a user (Moodle `note` → `notes`). publish_state decides who can
- * read: 'draft' = personal (creator only), 'public' = course note (readers
- * need notes:view at the COURSE context — in practice the course's
- * teachers), 'site' = site note (notes:view at system).
+ * Ghi chú về một user (Moodle `note` → `notes`). publish_state quyết định ai có thể
+ * đọc: 'draft' = cá nhân (chỉ người tạo), 'public' = ghi chú của khoá học (người đọc
+ * cần notes:view tại context của KHOÁ HỌC — trong thực tế là giáo viên
+ * của khoá học), 'site' = ghi chú của site (notes:view tại hệ thống).
  */
 export const notes = pgTable('notes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),

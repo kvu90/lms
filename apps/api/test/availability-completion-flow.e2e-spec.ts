@@ -4,12 +4,12 @@ import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWO
 import { createCategory, createCm, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 
 /**
- * Availability + Completion flow.
- * Oracles: availability/tests/tree_test.php::test_check_available and
- * availability/tests/info_test.php (restriction applies at the info/access
- * layer, not just display); lib/tests/completionlib_test.php
- * (test_update_state, test_set_module_viewed, test_aggregate_completions in
- * completion/tests + criteria tests in completion/tests/api_test.php).
+ * Luồng Availability + Completion.
+ * Oracle: availability/tests/tree_test.php::test_check_available và
+ * availability/tests/info_test.php (hạn chế áp dụng tại lớp info/access
+ * , không chỉ ở hiển thị); lib/tests/completionlib_test.php
+ * (test_update_state, test_set_module_viewed, test_aggregate_completions trong
+ * completion/tests + các kiểm thử tiêu chí trong completion/tests/api_test.php).
  */
 describe('Availability & completion', () => {
   let app: INestApplication;
@@ -39,7 +39,7 @@ describe('Availability & completion', () => {
     const access = await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`);
     expect(access.status).toBe(403);
     expect(access.body.code).toBe('availability.not_available');
-    // Listed, shown-but-locked:
+    // Được liệt kê, hiển thị nhưng bị khoá:
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${studentToken}`);
     const listed = content.body.sections.flatMap((s: { modules: unknown[] }) => s.modules).find((m: { id: string }) => m.id === cm.id);
     expect(listed).toBeDefined();
@@ -69,7 +69,7 @@ describe('Availability & completion', () => {
       availability: { op: '&', show: true, showc: [true], c: [{ type: 'completion', id: cmA.id }] },
     });
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cmB.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
-    // Student marks A complete manually.
+    // Học viên tự đánh dấu A hoàn thành thủ công.
     const mark = await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`)
       .set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     expect(mark.status).toBeLessThan(300);
@@ -81,14 +81,14 @@ describe('Availability & completion', () => {
     const { course, sectionId, student, studentToken } = await setup();
     const groupRes = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Gate group' });
     const groupId = groupRes.body.id as string;
-    // Available when NOT(group AND profile-department=blocked): student is neither, so open.
+    // Khả dụng khi NOT(group AND profile-department=blocked): học viên không thuộc trường hợp nào, nên mở.
     const tree = {
       op: '!|', show: true, showc: [true],
       c: [{ op: '&', showc: [true, true], c: [{ type: 'group', id: groupId }, { type: 'profile', field: 'username', operator: 'contains', value: 'user' }] }],
     };
     const cm = await createCm(app, admin, course.id, sectionId, { name: 'Gated', availability: tree });
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);
-    // Put the student in the group: both inner conditions now hold (username contains 'user' by construction of test usernames) ⇒ NOT-OR fails ⇒ blocked.
+    // Đưa học viên vào nhóm: cả hai điều kiện trong nay đều đúng (username chứa 'user' do cách dựng username kiểm thử) ⇒ NOT-OR thất bại ⇒ bị chặn.
     await http(app).post(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
@@ -144,11 +144,11 @@ describe('Availability & completion', () => {
     const set = await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'module', moduleInstance: cmA.id }, { criteriaType: 'module', moduleInstance: cmB.id }] });
     expect(set.status).toBe(200);
-    // Complete only A: AND ⇒ course not complete.
+    // Chỉ hoàn thành A: AND ⇒ khoá chưa hoàn thành.
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     let mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).not.toBe('complete');
-    // Complete B too ⇒ complete.
+    // Hoàn thành cả B ⇒ hoàn thành.
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cmB.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
@@ -173,14 +173,14 @@ describe('Availability & completion', () => {
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cmA.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     let mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
-    // Teacher adds cmB as a required criterion ⇒ recalculation must reopen the course completion.
+    // Giáo viên thêm cmB làm tiêu chí bắt buộc ⇒ việc tính lại phải mở lại hoàn thành khoá học.
     await http(app).put(`/api/v1/courses/${course.id}/completion/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'module', moduleInstance: cmA.id }, { criteriaType: 'module', moduleInstance: cmB.id }] });
     const recalc = await http(app).post(`/api/v1/courses/${course.id}/completion/recalculate`).set('Authorization', `Bearer ${admin}`);
     expect(recalc.status).toBeLessThan(300);
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).not.toBe('complete');
-    // Completing B closes it again.
+    // Hoàn thành B đóng nó lại.
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cmB.id}/completion/manual`).set('Authorization', `Bearer ${studentToken}`).send({ userId: student.id, complete: true });
     mine = await http(app).get(`/api/v1/courses/${course.id}/completion/me`).set('Authorization', `Bearer ${studentToken}`);
     expect(mine.body.course.status).toBe('complete');
@@ -195,10 +195,10 @@ describe('Availability & completion', () => {
     const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     const ue = (list.body as { userId: string; status: number }[]).find((e) => e.userId === student.id);
     expect(ue?.status).toBe(2);
-    // The completion record itself survived the unenrol.
+    // Chính bản ghi hoàn thành vẫn sống sót sau lần huỷ ghi danh.
     const completion = await http(app).get(`/api/v1/courses/${course.id}/completion/users/${student.id}`).set('Authorization', `Bearer ${admin}`);
     expect(completion.body.activities.find((a: { cmId: string }) => a.cmId === cm.id)?.state).toBe(1);
-    // But access is gone.
+    // Nhưng quyền truy cập đã mất.
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
   });
 
@@ -217,10 +217,10 @@ describe('Availability & completion', () => {
     await http(app).post(`/api/v1/cohorts/${cohortRes.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: student.id });
     await createEnrolInstance(app, admin, course.id, { method: 'cohort', cohortId: cohortRes.body.id, groupId: groupRes.body.id });
     const studentToken = (await login(app, student.username, STRONG_PASSWORD)).accessToken;
-    // Enrolled via cohort sync, member of the group via the instance config:
+    // Ghi danh qua đồng bộ cohort, là thành viên nhóm qua cấu hình instance:
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${groupRes.body.id}/members`).set('Authorization', `Bearer ${admin}`);
     expect((members.body as { userId: string }[]).map((m) => m.userId)).toContain(student.id);
-    // Step 2 blocked until Step 1 viewed:
+    // Bước 2 bị chặn cho tới khi Bước 1 được xem:
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm2.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(403);
     await http(app).post(`/api/v1/courses/${course.id}/modules/${cm1.id}/view`).set('Authorization', `Bearer ${studentToken}`);
     expect((await http(app).get(`/api/v1/courses/${course.id}/modules/${cm2.id}/access`).set('Authorization', `Bearer ${studentToken}`)).status).toBe(200);

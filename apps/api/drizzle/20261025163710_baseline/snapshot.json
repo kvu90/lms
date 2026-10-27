@@ -16810,6 +16810,676 @@
         "n|col|public.learning_outcomes.node_id",
         "n|col|public.learning_outcomes.position"
       ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|tbl|public.plan_entitlements",
+        "n|tbl|public.plan_entitlements",
+        "e|tbl|public.plan_entitlements",
+        "n|rel|public.plan_entitlements",
+        "n|type|public.plan_entitlements",
+        "n|rel|public.plan_entitlements_pkey",
+        "n|rel|public.plan_entitlements_payment_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_tenant_id_idx",
+        "n|idx|public.plan_entitlements_tenant_id_idx",
+        "e|idx|public.plan_entitlements_tenant_id_idx",
+        "n|rel|public.plan_entitlements_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_user_id_idx",
+        "n|idx|public.plan_entitlements_user_id_idx",
+        "e|idx|public.plan_entitlements_user_id_idx",
+        "n|rel|public.plan_entitlements_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_payment_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_payment_id_idx",
+        "n|idx|public.plan_entitlements_payment_id_idx",
+        "e|idx|public.plan_entitlements_payment_id_idx",
+        "n|rel|public.plan_entitlements_payment_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.payment_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "n|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "e|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "n|con|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "n|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "e|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "n|con|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.payment_id",
+        "n|col|public.payments.id",
+        "e|uniqueness|public.payments.id"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrade_items"
+      ],
+      "writes": [
+        "s|tbl|public.exam_attempt_regrade_items",
+        "n|tbl|public.exam_attempt_regrade_items",
+        "e|tbl|public.exam_attempt_regrade_items",
+        "n|rel|public.exam_attempt_regrade_items",
+        "n|type|public.exam_attempt_regrade_items",
+        "n|rel|public.exam_attempt_regrade_items_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrades"
+      ],
+      "writes": [
+        "s|tbl|public.exam_attempt_regrades",
+        "n|tbl|public.exam_attempt_regrades",
+        "e|tbl|public.exam_attempt_regrades",
+        "n|rel|public.exam_attempt_regrades",
+        "n|type|public.exam_attempt_regrades",
+        "n|rel|public.exam_attempt_regrades_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_pin_version_updates"
+      ],
+      "writes": [
+        "s|tbl|public.exam_pin_version_updates",
+        "n|tbl|public.exam_pin_version_updates",
+        "e|tbl|public.exam_pin_version_updates",
+        "n|rel|public.exam_pin_version_updates",
+        "n|type|public.exam_pin_version_updates",
+        "n|rel|public.exam_pin_version_updates_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_pins",
+        "version_mode"
+      ],
+      "writes": [
+        "s|col|public.exam_pins.version_mode",
+        "n|col|public.exam_pins.version_mode",
+        "e|col|public.exam_pins.version_mode"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pins",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrade_items",
+        "exam_attempt_regrade_items_regrade_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrade_items_regrade_idx",
+        "n|idx|public.exam_attempt_regrade_items_regrade_idx",
+        "e|idx|public.exam_attempt_regrade_items_regrade_idx",
+        "n|rel|public.exam_attempt_regrade_items_regrade_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.regrade_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrade_items",
+        "exam_attempt_regrade_items_user_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrade_items_user_idx",
+        "n|idx|public.exam_attempt_regrade_items_user_idx",
+        "e|idx|public.exam_attempt_regrade_items_user_idx",
+        "n|rel|public.exam_attempt_regrade_items_user_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrade_items",
+        "exam_attempt_regrade_items_attempt_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrade_items_attempt_idx",
+        "n|idx|public.exam_attempt_regrade_items_attempt_idx",
+        "e|idx|public.exam_attempt_regrade_items_attempt_idx",
+        "n|rel|public.exam_attempt_regrade_items_attempt_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.exam_attempt_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrade_items",
+        "exam_attempt_regrade_items_question_attempt_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "n|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "e|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "n|rel|public.exam_attempt_regrade_items_question_attempt_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.question_attempt_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_pin_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_pin_idx",
+        "n|idx|public.exam_attempt_regrades_pin_idx",
+        "e|idx|public.exam_attempt_regrades_pin_idx",
+        "n|rel|public.exam_attempt_regrades_pin_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.pin_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_question_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_question_idx",
+        "n|idx|public.exam_attempt_regrades_question_idx",
+        "e|idx|public.exam_attempt_regrades_question_idx",
+        "n|rel|public.exam_attempt_regrades_question_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.question_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_from_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_from_version_idx",
+        "n|idx|public.exam_attempt_regrades_from_version_idx",
+        "e|idx|public.exam_attempt_regrades_from_version_idx",
+        "n|rel|public.exam_attempt_regrades_from_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.from_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_to_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_to_version_idx",
+        "n|idx|public.exam_attempt_regrades_to_version_idx",
+        "e|idx|public.exam_attempt_regrades_to_version_idx",
+        "n|rel|public.exam_attempt_regrades_to_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.to_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_pin_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_pin_version_updates_pin_idx",
+        "n|idx|public.exam_pin_version_updates_pin_idx",
+        "e|idx|public.exam_pin_version_updates_pin_idx",
+        "n|rel|public.exam_pin_version_updates_pin_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.pin_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_from_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_pin_version_updates_from_version_idx",
+        "n|idx|public.exam_pin_version_updates_from_version_idx",
+        "e|idx|public.exam_pin_version_updates_from_version_idx",
+        "n|rel|public.exam_pin_version_updates_from_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.from_exam_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_to_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_pin_version_updates_to_version_idx",
+        "n|idx|public.exam_pin_version_updates_to_version_idx",
+        "e|idx|public.exam_pin_version_updates_to_version_idx",
+        "n|rel|public.exam_pin_version_updates_to_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.to_exam_version_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrade_items"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_zkgZRPwRB0qi_fkey",
+        "n|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_zkgZRPwRB0qi_fkey",
+        "e|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_zkgZRPwRB0qi_fkey",
+        "n|con|public.exam_attempt_regrade_items.exam_attempt_regrade_items_zkgZRPwRB0qi_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.regrade_id",
+        "n|col|public.exam_attempt_regrades.id",
+        "e|uniqueness|public.exam_attempt_regrades.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrade_items"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_l7RdgRm0bzuM_fkey",
+        "n|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_l7RdgRm0bzuM_fkey",
+        "e|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_l7RdgRm0bzuM_fkey",
+        "n|con|public.exam_attempt_regrade_items.exam_attempt_regrade_items_l7RdgRm0bzuM_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|tbl|public.exam_attempts",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.exam_attempt_id",
+        "n|col|public.exam_attempts.id",
+        "e|uniqueness|public.exam_attempts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrade_items"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_gGLmlSgubyUa_fkey",
+        "n|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_gGLmlSgubyUa_fkey",
+        "e|fk|public.exam_attempt_regrade_items.exam_attempt_regrade_items_gGLmlSgubyUa_fkey",
+        "n|con|public.exam_attempt_regrade_items.exam_attempt_regrade_items_gGLmlSgubyUa_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|tbl|public.question_attempts",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.question_attempt_id",
+        "n|col|public.question_attempts.id",
+        "e|uniqueness|public.question_attempts.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrades"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrades.exam_attempt_regrades_pin_id_exam_pins_id_fkey",
+        "n|fk|public.exam_attempt_regrades.exam_attempt_regrades_pin_id_exam_pins_id_fkey",
+        "e|fk|public.exam_attempt_regrades.exam_attempt_regrades_pin_id_exam_pins_id_fkey",
+        "n|con|public.exam_attempt_regrades.exam_attempt_regrades_pin_id_exam_pins_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|tbl|public.exam_pins",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.pin_id",
+        "n|col|public.exam_pins.id",
+        "e|uniqueness|public.exam_pins.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrades"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrades.exam_attempt_regrades_question_id_question_id_fkey",
+        "n|fk|public.exam_attempt_regrades.exam_attempt_regrades_question_id_question_id_fkey",
+        "e|fk|public.exam_attempt_regrades.exam_attempt_regrades_question_id_question_id_fkey",
+        "n|con|public.exam_attempt_regrades.exam_attempt_regrades_question_id_question_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|tbl|public.question",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.question_id",
+        "n|col|public.question.id",
+        "e|uniqueness|public.question.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrades"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrades.exam_attempt_regrades_from_version_id_question_versions_id_fkey",
+        "n|fk|public.exam_attempt_regrades.exam_attempt_regrades_from_version_id_question_versions_id_fkey",
+        "e|fk|public.exam_attempt_regrades.exam_attempt_regrades_from_version_id_question_versions_id_fkey",
+        "n|con|public.exam_attempt_regrades.exam_attempt_regrades_from_version_id_question_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.from_version_id",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_attempt_regrades"
+      ],
+      "writes": [
+        "s|fk|public.exam_attempt_regrades.exam_attempt_regrades_to_version_id_question_versions_id_fkey",
+        "n|fk|public.exam_attempt_regrades.exam_attempt_regrades_to_version_id_question_versions_id_fkey",
+        "e|fk|public.exam_attempt_regrades.exam_attempt_regrades_to_version_id_question_versions_id_fkey",
+        "n|con|public.exam_attempt_regrades.exam_attempt_regrades_to_version_id_question_versions_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|tbl|public.question_versions",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.to_version_id",
+        "n|col|public.question_versions.id",
+        "e|uniqueness|public.question_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_pin_version_updates"
+      ],
+      "writes": [
+        "s|fk|public.exam_pin_version_updates.exam_pin_version_updates_pin_id_exam_pins_id_fkey",
+        "n|fk|public.exam_pin_version_updates.exam_pin_version_updates_pin_id_exam_pins_id_fkey",
+        "e|fk|public.exam_pin_version_updates.exam_pin_version_updates_pin_id_exam_pins_id_fkey",
+        "n|con|public.exam_pin_version_updates.exam_pin_version_updates_pin_id_exam_pins_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|tbl|public.exam_pins",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.pin_id",
+        "n|col|public.exam_pins.id",
+        "e|uniqueness|public.exam_pins.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_pin_version_updates"
+      ],
+      "writes": [
+        "s|fk|public.exam_pin_version_updates.exam_pin_version_updates_YcqGCxQaA4p7_fkey",
+        "n|fk|public.exam_pin_version_updates.exam_pin_version_updates_YcqGCxQaA4p7_fkey",
+        "e|fk|public.exam_pin_version_updates.exam_pin_version_updates_YcqGCxQaA4p7_fkey",
+        "n|con|public.exam_pin_version_updates.exam_pin_version_updates_YcqGCxQaA4p7_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|tbl|public.exam_versions",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.from_exam_version_id",
+        "n|col|public.exam_versions.id",
+        "e|uniqueness|public.exam_versions.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_pin_version_updates"
+      ],
+      "writes": [
+        "s|fk|public.exam_pin_version_updates.exam_pin_version_updates_j1ZxAGFMFQa4_fkey",
+        "n|fk|public.exam_pin_version_updates.exam_pin_version_updates_j1ZxAGFMFQa4_fkey",
+        "e|fk|public.exam_pin_version_updates.exam_pin_version_updates_j1ZxAGFMFQa4_fkey",
+        "n|con|public.exam_pin_version_updates.exam_pin_version_updates_j1ZxAGFMFQa4_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|tbl|public.exam_versions",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.to_exam_version_id",
+        "n|col|public.exam_versions.id",
+        "e|uniqueness|public.exam_versions.id"
+      ]
+    },
+    {
+      "statementType": "add_check",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_pins"
+      ],
+      "writes": [
+        "s|ck|public.exam_pins.exam_pins_version_mode_check",
+        "n|ck|public.exam_pins.exam_pins_version_mode_check",
+        "e|ck|public.exam_pins.exam_pins_version_mode_check",
+        "n|con|public.exam_pins.exam_pins_version_mode_check"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pins",
+        "n|sch|public",
+        "n|col|public.exam_pins.version_mode"
+      ]
     }
   ],
   "ddl": [
@@ -56537,6 +57207,1028 @@
       "method": "btree",
       "concurrently": false,
       "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "name": "plan_entitlements",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "component",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "payment_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "starts_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "payment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_payments_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "payment_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "payments",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "payment_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "name": "exam_attempt_regrade_items",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_attempt_regrades",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "exam_pin_version_updates",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "regrade_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "question_attempt_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "old_fraction",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "new_fraction",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "old_sum_grades",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "new_sum_grades",
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "pin_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "question_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "from_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "to_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "pin_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "from_exam_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "to_exam_version_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pins",
+      "name": "version_mode",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pinned'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_regrade_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "regrade_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_user_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_attempt_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "exam_attempt_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_question_attempt_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_attempt_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_pin_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "pin_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_question_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_from_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "from_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_to_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "to_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_pin_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "pin_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_from_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "from_exam_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_to_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "to_exam_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_zkgZRPwRB0qi_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "regrade_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_attempt_regrades",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_l7RdgRm0bzuM_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "exam_attempt_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_attempts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_gGLmlSgubyUa_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "question_attempt_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_attempts",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_pin_id_exam_pins_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "pin_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_pins",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_question_id_question_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "question_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_from_version_id_question_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "from_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_to_version_id_question_versions_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "to_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "question_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_pin_id_exam_pins_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "pin_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_pins",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_YcqGCxQaA4p7_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "from_exam_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_j1ZxAGFMFQa4_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "to_exam_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "exam_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pins",
+      "name": "exam_pins_version_mode_check",
+      "value": "\"version_mode\" in ('pinned', 'float_latest_ready')",
+      "entityType": "checks"
     }
   ]
 }

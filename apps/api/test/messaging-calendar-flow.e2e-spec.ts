@@ -5,24 +5,24 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { addGroupMember, createGroupViaApi, suspendUser } from './engagement-helpers';
 
 /**
- * Messaging + Calendar flow tests.
- * Oracles (Moodle MOODLE_503_STABLE, read 2026-10-22):
+ * Kiểm thử luồng Messaging + Calendar.
+ * Oracle (Moodle MOODLE_503_STABLE, đọc ngày 2026-10-22):
  *  - public/message/tests/api_test.php: test_count_blocked_users,
  *    test_mark_all_read_for_user_touser(_with_fromuser), create_conversation
- *    individual/group types.
- *  - Report §2#12 invariants: message ≠ notification; a sent message
- *    cannot be EDITED; suspended or blocking users receive nothing;
- *    preferences gate dispatch per (provider × channel × loggedin/
- *    loggedoff). DELETION follows the later Lớp B policy of issue #33
- *    (soft delete with trace), which supersedes §2#12's absolute
- *    immutability — see the edit/delete test below.
- *  - public/calendar/tests/lib_test.php: test_add_subscription (ICS import
- *    counts), test_get_legacy_events_with_overrides (group-scoped
- *    visibility), test_update_subscription; report §2#13 visibility law.
- *  - public/calendar/tests/behat/export.feature: a user exports their
- *    calendar as an ICS file and via a secret export URL (calendar key);
- *    the file/URL carry only the events that user may see, and resetting
- *    the key kills the old URL.
+ *    với các loại individual/group.
+ *  - Các bất biến của báo cáo §2#12: message ≠ notification; tin nhắn đã gửi
+ *    KHÔNG được SỬA; người dùng bị đình chỉ hoặc đang chặn thì không nhận
+ *    được gì; tuỳ chọn gác việc phát theo (provider × channel × loggedin/
+ *    loggedoff). Việc XOÁ tuân theo chính sách Lớp B sau này của issue #33
+ *    (xoá mềm có để lại vết), chính sách này thay thế tính bất biến tuyệt
+ *    đối của §2#12 — xem kiểm thử sửa/xoá bên dưới.
+ *  - public/calendar/tests/lib_test.php: test_add_subscription (số lượng
+ *    khi nhập ICS), test_get_legacy_events_with_overrides (khả năng hiển thị
+ *    theo phạm vi nhóm), test_update_subscription; luật hiển thị của báo cáo §2#13.
+ *  - public/calendar/tests/behat/export.feature: người dùng xuất lịch của
+ *    mình thành file ICS và qua URL xuất bí mật (calendar key); file/URL
+ *    chỉ chứa các sự kiện mà người dùng đó được phép thấy, và việc đặt lại
+ *    khoá sẽ vô hiệu hoá URL cũ.
  */
 describe('Messaging & calendar', () => {
   let app: INestApplication;
@@ -91,14 +91,14 @@ describe('Messaging & calendar', () => {
 
   it('conversations: two users exchange messages; unread counts track conversations and reading clears them (api_test mark_all_read)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate (contacts-only model): the two users are accepted
-    // contacts first (the recipient requested, the sender accepted).
+    // Cổng liên hệ (mô hình contacts-only): hai người dùng trước hết là
+    // liên hệ đã được chấp nhận của nhau (người nhận đã gửi yêu cầu, người gửi đã chấp nhận).
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     expect(conv.status).toBe(201);
     const conversationId = conv.body.id as string;
-    // Re-creating the same individual conversation returns the same one.
+    // Tạo lại cùng một cuộc trò chuyện cá nhân sẽ trả về chính cuộc trò chuyện đó.
     const again = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${bToken}`)
       .send({ type: 1, memberIds: [a.id] });
     expect(again.body.id).toBe(conversationId);
@@ -118,25 +118,25 @@ describe('Messaging & calendar', () => {
     await http(app).post(`/api/v1/messages/conversations/${conversationId}/read`).set('Authorization', `Bearer ${bToken}`).send({});
     const after = await http(app).get('/api/v1/messages/unread-count').set('Authorization', `Bearer ${bToken}`);
     expect(after.body.conversations).toBe(0);
-    // The sender never counts their own messages as unread.
+    // Người gửi không bao giờ tính tin nhắn của chính mình là chưa đọc.
     const unreadA = await http(app).get('/api/v1/messages/unread-count').set('Authorization', `Bearer ${aToken}`);
     expect(unreadA.body.conversations).toBe(0);
   });
 
   it('conversations: the member named in memberIds at creation is a real member of the new conversation (not dropped)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate (contacts-only model): the two users are accepted contacts first.
+    // Cổng liên hệ (mô hình contacts-only): hai người dùng trước hết là liên hệ đã được chấp nhận của nhau.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     expect(conv.status).toBe(201);
-    // The create response itself lists both the actor and the designated member.
+    // Chính phản hồi tạo mới liệt kê cả người thực hiện lẫn thành viên được chỉ định.
     expect(conv.body.members).toEqual(expect.arrayContaining([a.id, b.id]));
-    // The designated member can open the conversation (membership is enforced) and sees both members.
+    // Thành viên được chỉ định có thể mở cuộc trò chuyện (tư cách thành viên được cưỡng chế) và thấy cả hai thành viên.
     const view = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
     expect(view.status).toBe(200);
     expect(view.body.members).toEqual(expect.arrayContaining([a.id, b.id]));
-    // And the conversation appears in the designated member's own list, with both members attached.
+    // Và cuộc trò chuyện xuất hiện trong danh sách của chính thành viên được chỉ định, kèm cả hai thành viên.
     const list = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${bToken}`);
     const mine = (list.body as { id: string; members: string[] }[]).find((c) => c.id === conv.body.id);
     expect(mine).toBeDefined();
@@ -145,38 +145,38 @@ describe('Messaging & calendar', () => {
 
   it('a sent message cannot be EDITED; deletion follows the role lifecycle — delete-for-me hides it for the author only, recall invalidates it for everyone (bổ sung PR #94)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate: the two users are accepted contacts so the send itself succeeds.
+    // Cổng liên hệ: hai người dùng là liên hệ đã được chấp nhận nên chính thao tác gửi thành công.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
       .send({ type: 1, memberIds: [b.id] });
     const sent = await http(app).post(`/api/v1/messages/conversations/${conv.body.id}/messages`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Words I regret' });
     const messageId = sent.body.id as string;
-    // Editing stays refused — the lifecycle only governs deletion/recall.
+    // Việc sửa vẫn bị từ chối — vòng đời chỉ điều tiết việc xoá/thu hồi.
     const patch = await http(app).patch(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Edited!' });
     expect(patch.status).toBe(403);
     expect(patch.body.code).toBe('messaging.message_immutable');
-    // DELETE is now DELETE-FOR-ME (vòng đời theo vai, lớp (a)): the
-    // row is NOT marked deleted — only a per-user flag hides it from
-    // the author. The response is the untouched row.
+    // DELETE nay là DELETE-FOR-ME (vòng đời theo vai, lớp (a)): dòng
+    // KHÔNG bị đánh dấu đã xoá — chỉ một cờ theo từng người dùng ẩn nó khỏi
+    // người viết. Phản hồi là dòng nguyên vẹn chưa bị đụng tới.
     const del = await http(app).delete(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`);
     expect(del.status).toBe(200);
     expect(del.body.id).toBe(messageId);
     expect(del.body.deletedAt).toBeNull();
     expect(del.body.deletedBy).toBeNull();
     expect(del.body.fullMessage).toBe('Words I regret');
-    // The AUTHOR stops seeing it…
+    // NGƯỜI VIẾT ngừng nhìn thấy nó…
     const viewA = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${aToken}`);
     expect((viewA.body.messages as { id: string }[]).map((m) => m.id)).not.toContain(messageId);
-    // …but the RECIPIENT still sees it in full: delete-for-me never
-    // leaks to the other side (that is what recall is for).
+    // …nhưng NGƯỜI NHẬN vẫn thấy nó đầy đủ: delete-for-me không bao giờ
+    // rò rỉ sang phía bên kia (đó là việc của thu hồi).
     const viewB = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
     const forB = (viewB.body.messages as { id: string; fullMessage: string }[]).find((m) => m.id === messageId);
     expect(forB?.fullMessage).toBe('Words I regret');
-    // RECALL (lớp (b), still inside the default 15-minute window)
-    // invalidates the content for the recipient: the row stays as a
-    // placeholder with the recall trace, its content is blanked.
+    // RECALL (lớp (b), vẫn nằm trong cửa sổ mặc định 15 phút)
+    // vô hiệu hoá nội dung đối với người nhận: dòng vẫn ở lại dưới dạng
+    // phần giữ chỗ kèm vết thu hồi, nội dung của nó bị xoá trắng.
     const recall = await http(app).post(`/api/v1/messages/messages/${messageId}/recall`).set('Authorization', `Bearer ${aToken}`).send({});
     expect(recall.status).toBe(201);
     expect(recall.body.recalledBy).toBe(a.id);
@@ -190,7 +190,7 @@ describe('Messaging & calendar', () => {
 
   it('blocked contacts cannot send: the recipient block list stops delivery (api_test test_count_blocked_users)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate: the two users are accepted contacts; the block list is a separate, stronger rule checked first at send time.
+    // Cổng liên hệ: hai người dùng là liên hệ đã được chấp nhận; danh sách chặn là một luật riêng, mạnh hơn, được kiểm tra trước tại thời điểm gửi.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     const blocked = await http(app).post(`/api/v1/messages/contacts/${a.id}/block`).set('Authorization', `Bearer ${bToken}`).send({});
     expect(blocked.body.blocked).toContain(a.id);
@@ -200,7 +200,7 @@ describe('Messaging & calendar', () => {
       .send({ text: 'You should not get this' });
     expect(sent.status).toBe(403);
     expect(sent.body.code).toBe('messaging.contact_blocked');
-    // Unblocking restores delivery.
+    // Bỏ chặn khôi phục việc gửi.
     await http(app).delete(`/api/v1/messages/contacts/${a.id}/block`).set('Authorization', `Bearer ${bToken}`);
     const ok = await http(app).post(`/api/v1/messages/conversations/${conv.body.id}/messages`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Now it works' });
@@ -209,7 +209,7 @@ describe('Messaging & calendar', () => {
 
   it('a suspended recipient receives neither messages nor notifications (§2#12 DoD)', async () => {
     const { a, b, aToken, bToken } = await twoUsers();
-    // Contact gate: the two users become accepted contacts before the suspension, so the suspended rule is what stops delivery.
+    // Cổng liên hệ: hai người dùng trở thành liên hệ đã được chấp nhận trước khi bị đình chỉ, nên luật đình chỉ là thứ chặn việc gửi.
     await befriend({ id: b.id, token: bToken }, { id: a.id, token: aToken });
     await suspendUser(app, admin, b.id);
     const conv = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${aToken}`)
@@ -237,7 +237,7 @@ describe('Messaging & calendar', () => {
     // kiểm này nhắm cơ chế phát theo tuỳ chọn nên fixture mang vai
     // teacher ở context hệ thống; phần chặn học sinh có spec riêng.
     await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
-    // Baseline: default preferences deliver the in-app notification.
+    // Mốc cơ sở: tuỳ chọn mặc định phát thông báo trong ứng dụng.
     const first = await http(app).post('/api/v1/notifications/send').set('Authorization', `Bearer ${admin}`)
       .send({ userId: user.id, provider: 'badge_awarded', subject: 'Badge!', body: 'You earned a badge' });
     expect(first.body.channels.popup).toBe('delivered');
@@ -245,12 +245,12 @@ describe('Messaging & calendar', () => {
     let list = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${accessToken}`);
     expect(list.body.items).toHaveLength(1);
     expect(list.body.items[0].eventType).toBe('badge_awarded');
-    // Notifications are NOT messages: no conversation was created.
+    // Thông báo KHÔNG phải tin nhắn: không cuộc trò chuyện nào được tạo.
     const convs = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${accessToken}`);
     expect(convs.body).toHaveLength(0);
 
-    // Turn popup off for badge_awarded (v2 model, NB-2): nothing is
-    // stored, the dispatch log records the suppression, email stays queued.
+    // Tắt popup cho badge_awarded (mô hình v2, NB-2): không có gì được
+    // lưu, nhật ký phát ghi lại việc chặn này, email vẫn nằm trong hàng đợi.
     const pref = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${accessToken}`)
       .send({ provider: 'badge_awarded', popupEnabled: false });
     expect(pref.status).toBe(200);
@@ -265,13 +265,13 @@ describe('Messaging & calendar', () => {
     expect(entries.some((e) => e.provider === 'badge_awarded' && e.channel === 'popup' && e.status === 'delivered')).toBe(true);
     expect(entries.some((e) => e.provider === 'badge_awarded' && e.channel === 'popup' && e.status === 'skipped-preference')).toBe(true);
 
-    // Read flow: unread count drops after read-all.
+    // Luồng đọc: số chưa đọc giảm sau thao tác read-all.
     const unread = await http(app).get('/api/v1/notifications/unread-count').set('Authorization', `Bearer ${accessToken}`);
     expect(unread.body.unread).toBe(1);
     await http(app).post('/api/v1/notifications/read-all').set('Authorization', `Bearer ${accessToken}`).send({});
     const after = await http(app).get('/api/v1/notifications/unread-count').set('Authorization', `Bearer ${accessToken}`);
     expect(after.body.unread).toBe(0);
-    // Preferences listing reflects the toggle.
+    // Danh sách tuỳ chọn phản ánh đúng trạng thái bật/tắt.
     const prefs = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${accessToken}`);
     const popupPref = (prefs.body as { provider: string; popupEnabled: boolean }[])
       .find((p) => p.provider === 'badge_awarded');
@@ -362,11 +362,11 @@ describe('Messaging & calendar', () => {
 
     const list = await http(app).get('/api/v1/calendar/events').query({ eventType: 'user' }).set('Authorization', `Bearer ${accessToken}`);
     const names = (list.body as { name: string }[]).map((e) => e.name);
-    expect(names.filter((n) => n === 'Weekly yoga')).toHaveLength(2); // occurrences 1 and 3
+    expect(names.filter((n) => n === 'Weekly yoga')).toHaveLength(2); // lần xuất hiện 1 và 3
     expect(names).toContain('Yoga (moved)');
-    // Deleting the root deletes the whole series.
+    // Xoá nút gốc sẽ xoá toàn bộ chuỗi.
     const del = await http(app).delete(`/api/v1/calendar/events/${root.id}`).set('Authorization', `Bearer ${accessToken}`);
-    expect(del.body.seriesDeleted).toBe(4); // 3 occurrences + 1 exception
+    expect(del.body.seriesDeleted).toBe(4); // 3 lần xuất hiện + 1 ngoại lệ
   });
 
   it('calendar subscriptions: creating one queues an ICS import; reminders can be scheduled for visible events', async () => {
@@ -389,7 +389,7 @@ describe('Messaging & calendar', () => {
       .send({ minutesBefore: 30 });
     expect(remind.status).toBe(201);
     expect(remind.body.delayMs).toBeGreaterThan(0);
-    // A stranger cannot remind themselves about someone else's private event.
+    // Người lạ không thể tự nhắc mình về sự kiện riêng tư của người khác.
     const stranger = await createUserViaApi(app, admin);
     const strangerToken = (await login(app, stranger.username, STRONG_PASSWORD)).accessToken;
     const forbidden = await http(app).post(`/api/v1/calendar/events/${ev.body.event.id}/remind`).set('Authorization', `Bearer ${strangerToken}`)
@@ -430,7 +430,7 @@ describe('Messaging & calendar', () => {
       .send({ name: 'Export weekly series', eventType: 'user', timeStart: new Date(Date.now() + 1800_000).toISOString(), repeat: { freq: 'WEEKLY', count: 2 } });
     expect(series.status).toBe(201);
 
-    // Download requires login.
+    // Việc tải xuống yêu cầu đăng nhập.
     const anonymous = await http(app).get('/api/v1/calendar/export.ics');
     expect(anonymous.status).toBe(401);
 
@@ -443,7 +443,7 @@ describe('Messaging & calendar', () => {
     expect(download.text).toContain('VERSION:2.0');
     expect(download.text).toContain('END:VCALENDAR');
 
-    // Round-trip through an ICS parser with the worker parser's conventions.
+    // Phân tích khứ hồi (round-trip) qua bộ phân tích ICS theo quy ước của parser phía worker.
     const parsed = parseExportedIcs(download.text);
     const summaries = parsed.map((e) => e.summary);
     expect(summaries).toContain('Export site day');
@@ -451,11 +451,11 @@ describe('Messaging & calendar', () => {
     expect(summaries).toContain('Export alpha standup');
     expect(summaries).toContain('Export my dentist');
     expect(summaries).toContain('Export later event');
-    // The other user's private event never leaks into my export.
+    // Sự kiện riêng tư của người dùng khác không bao giờ rò rỉ vào bản xuất của tôi.
     expect(summaries).not.toContain('Export B secret plan');
-    // The series is exported as its materialised occurrences, one VEVENT each.
+    // Chuỗi được xuất dưới dạng các lần xuất hiện đã vật chất hoá của nó, mỗi lần một VEVENT.
     expect(summaries.filter((n) => n === 'Export weekly series')).toHaveLength(2);
-    // UID is stable per event id; DTEND = DTSTART + timeDuration.
+    // UID ổn định theo từng id sự kiện; DTEND = DTSTART + timeDuration.
     const dentistParsed = parsed.find((e) => e.summary === 'Export my dentist')!;
     expect(dentistParsed.uid).toBe(`${dentistId}@lms`);
     expect(dentistParsed.start.getTime()).toBe(Math.floor(soon.getTime() / 1000) * 1000);
@@ -463,8 +463,8 @@ describe('Messaging & calendar', () => {
     expect(dentistParsed.description).toBe('Checkup, cleaning');
     expect(download.text).toContain('DTSTAMP:');
 
-    // The other enrolled user: sees site/course + own private event, but
-    // NOT the group event (not a member) and NOT the member's private event.
+    // Người dùng đã ghi danh còn lại: thấy sự kiện site/course + sự kiện riêng tư của mình, nhưng
+    // KHÔNG thấy sự kiện nhóm (không phải thành viên) và KHÔNG thấy sự kiện riêng tư của thành viên kia.
     const otherDownload = await http(app).get('/api/v1/calendar/export.ics').set('Authorization', `Bearer ${otherToken}`);
     const otherSummaries = parseExportedIcs(otherDownload.text).map((e) => e.summary);
     expect(otherSummaries).toContain('Export site day');
@@ -474,7 +474,7 @@ describe('Messaging & calendar', () => {
     expect(otherSummaries).not.toContain('Export my dentist');
     expect(otherSummaries).not.toContain('Export later event');
 
-    // A from/to query narrows the export exactly like the listing.
+    // Truy vấn from/to thu hẹp bản xuất đúng như danh sách.
     const ranged = await http(app).get('/api/v1/calendar/export.ics')
       .query({ from: new Date(Date.now() - 3600_000).toISOString(), to: new Date(Date.now() + 2 * 3600_000).toISOString() })
       .set('Authorization', `Bearer ${memberToken}`);
@@ -492,7 +492,7 @@ describe('Messaging & calendar', () => {
     await http(app).post('/api/v1/calendar/events').set('Authorization', `Bearer ${bToken}`)
       .send({ name: 'Token export B private', eventType: 'user', timeStart: soon });
 
-    // Creating a token requires login; the status endpoint starts empty.
+    // Việc tạo token yêu cầu đăng nhập; endpoint trạng thái khởi đầu trống.
     const anonymousCreate = await http(app).post('/api/v1/calendar/export-token').send({});
     expect(anonymousCreate.status).toBe(401);
     const before = await http(app).get('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
@@ -501,19 +501,19 @@ describe('Messaging & calendar', () => {
     const created = await http(app).post('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`).send({});
     expect(created.status).toBe(201);
     const token = created.body.token as string;
-    // A long random token — never a UUID, never the user's own id.
+    // Một token ngẫu nhiên dài — không bao giờ là UUID, không bao giờ là id của chính người dùng.
     expect(token).toMatch(/^[a-f0-9]{64}$/);
     expect(created.body.exportUrl).toBe(`/api/v1/calendar/export/${token}.ics`);
 
-    // The token (or its hash) never appears in any other response.
+    // Token (hoặc hàm băm của nó) không bao giờ xuất hiện trong bất kỳ phản hồi nào khác.
     const status = await http(app).get('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
     expect(status.body.hasToken).toBe(true);
     expect(JSON.stringify(status.body)).not.toContain(token);
     const listing = await http(app).get('/api/v1/calendar/events').set('Authorization', `Bearer ${aToken}`);
     expect(JSON.stringify(listing.body)).not.toContain(token);
 
-    // The public URL works with no Authorization header at all and carries
-    // only the token owner's visible events.
+    // URL công khai hoạt động mà không cần header Authorization nào cả và chỉ mang
+    // các sự kiện mà chủ token được phép thấy.
     const viaUrl = await http(app).get(created.body.exportUrl as string);
     expect(viaUrl.status).toBe(200);
     expect(viaUrl.headers['content-type']).toContain('text/calendar');
@@ -521,12 +521,12 @@ describe('Messaging & calendar', () => {
     expect(viaSummaries).toContain('Token export A private');
     expect(viaSummaries).not.toContain('Token export B private');
 
-    // A well-formed but unknown token is rejected.
+    // Token đúng định dạng nhưng không tồn tại bị từ chối.
     const unknown = await http(app).get(`/api/v1/calendar/export/${'0'.repeat(64)}.ics`);
     expect(unknown.status).toBe(401);
     expect(unknown.body.code).toBe('calendar.export_token_invalid');
 
-    // Rotating the token kills the old URL immediately; the new one works.
+    // Xoay token sẽ vô hiệu hoá URL cũ ngay lập tức; URL mới hoạt động.
     const rotated = await http(app).post('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`).send({});
     expect(rotated.status).toBe(201);
     const newToken = rotated.body.token as string;
@@ -538,7 +538,7 @@ describe('Messaging & calendar', () => {
     expect(newUrl.status).toBe(200);
     expect(parseExportedIcs(newUrl.text).map((e) => e.summary)).toContain('Token export A private');
 
-    // Revoking kills the current URL too, and the status reflects it.
+    // Thu hồi cũng vô hiệu hoá URL hiện tại, và trạng thái phản ánh điều đó.
     const revoked = await http(app).delete('/api/v1/calendar/export-token').set('Authorization', `Bearer ${aToken}`);
     expect(revoked.body.revoked).toBe(true);
     const afterRevoke = await http(app).get(rotated.body.exportUrl as string);
@@ -556,26 +556,26 @@ describe('Messaging & calendar', () => {
     expect(unknown.status).toBe(404);
     expect(unknown.body.code).toBe('user.not_found');
 
-    // Sending a request does NOT create a contact yet — it only queues.
+    // Gửi yêu cầu CHƯA tạo liên hệ — thao tác này chỉ đưa vào hàng đợi.
     const requested = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
     expect(requested.status).toBe(201);
     expect(requested.body.status).toBe('pending');
     expect(requested.body.contacts).toEqual([]);
     const listBefore = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${aToken}`);
     expect(listBefore.body.contacts).toEqual([]);
-    // The request is visible on both sides of the queue.
+    // Yêu cầu hiển thị ở cả hai phía của hàng đợi.
     const bQueue = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${bToken}`);
     expect((bQueue.body.incoming as { userId: string }[]).map((r) => r.userId)).toEqual([a.id]);
     expect(bQueue.body.outgoing).toEqual([]);
     const aQueue = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${aToken}`);
     expect((aQueue.body.outgoing as { userId: string }[]).map((r) => r.userId)).toEqual([b.id]);
-    // Requesting twice is idempotent: still one pending request.
+    // Gửi yêu cầu hai lần vẫn giữ tính lũy đẳng (idempotent): vẫn chỉ một yêu cầu đang chờ.
     const again = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
     expect(again.body.status).toBe('pending');
     const bQueue2 = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${bToken}`);
     expect(bQueue2.body.incoming).toHaveLength(1);
 
-    // Accepting forms the relation on BOTH sides and drains the queue.
+    // Chấp nhận tạo quan hệ ở CẢ HAI phía và rút cạn hàng đợi.
     const accepted = await http(app).post(`/api/v1/messages/contacts/requests/${a.id}/accept`).set('Authorization', `Bearer ${bToken}`).send({});
     expect(accepted.status).toBe(201);
     expect(accepted.body.contacts).toEqual([a.id]);
@@ -583,12 +583,12 @@ describe('Messaging & calendar', () => {
     expect(aList.body.contacts).toEqual([b.id]);
     const bQueueAfter = await http(app).get('/api/v1/messages/contacts/requests').set('Authorization', `Bearer ${bToken}`);
     expect(bQueueAfter.body.incoming).toEqual([]);
-    // Requesting an existing contact is an idempotent no-op.
+    // Gửi yêu cầu tới một liên hệ đã tồn tại là thao tác không đổi (no-op) có tính lũy đẳng.
     const noop = await http(app).post(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`).send({});
     expect(noop.body.status).toBe('accepted');
     expect(noop.body.contacts).toEqual([b.id]);
 
-    // Removing the contact tears the relation down on BOTH sides.
+    // Xoá liên hệ phá bỏ quan hệ ở CẢ HAI phía.
     const removed = await http(app).delete(`/api/v1/messages/contacts/${b.id}`).set('Authorization', `Bearer ${aToken}`);
     expect(removed.body.contacts).toEqual([]);
     const bList = await http(app).get('/api/v1/messages/contacts').set('Authorization', `Bearer ${bToken}`);
@@ -596,19 +596,19 @@ describe('Messaging & calendar', () => {
   });
 
   it('contact gate (model re-decided 24/10/2026 on issue #33): direct messages are contacts-only — a shared course no longer opens the gate and messagingallusers has no effect on messaging', async () => {
-    // Start from the registered default, whatever earlier runs left behind.
+    // Bắt đầu từ giá trị mặc định đã đăng ký, bất kể các lượt chạy trước để lại gì.
     await http(app).delete('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`);
 
-    // 1. Strangers: creating a new individual conversation is refused 403.
+    // 1. Người lạ: việc tạo cuộc trò chuyện cá nhân mới bị từ chối 403.
     const strangers = await twoUsers();
     const blockedCreate = await http(app).post('/api/v1/messages/conversations').set('Authorization', `Bearer ${strangers.aToken}`)
       .send({ type: 1, memberIds: [strangers.b.id] });
     expect(blockedCreate.status).toBe(403);
     expect(blockedCreate.body.code).toBe('messaging.not_a_contact');
 
-    // 2. Shared course: both actively enrolled in the same course — the
-    //    gate STAYS closed (the old course-mate path was removed by the
-    //    re-decided model; coursemates friend each other via the roster).
+    // 2. Chung khoá học: cả hai đều đang ghi danh tích cực trong cùng một khoá — cổng
+    //    VẪN đóng (đường bạn cùng khoá cũ đã bị loại bỏ bởi mô hình
+    //    được quyết lại; bạn cùng khoá kết bạn với nhau qua danh sách lớp).
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     const instance = await createEnrolInstance(app, admin, course.id);
@@ -619,10 +619,10 @@ describe('Messaging & calendar', () => {
     expect(courseBlocked.status).toBe(403);
     expect(courseBlocked.body.code).toBe('messaging.not_a_contact');
 
-    // 3. Contact (request–accept): a PENDING request from the sender is
-    //    not enough — the gate opens only once the relation is accepted.
-    //    Here the recipient answers with a request of their own, which
-    //    accepts the pending one (mutual consent).
+    // 3. Liên hệ (request–accept): một yêu cầu ĐANG CHỜ từ người gửi là
+    //    chưa đủ — cổng chỉ mở khi quan hệ đã được chấp nhận.
+    //    Ở đây người nhận đáp lại bằng một yêu cầu của chính mình, yêu cầu này
+    //    chấp nhận yêu cầu đang chờ (đồng thuận hai phía).
     const pair = await twoUsers();
     const senderRequests = await http(app).post(`/api/v1/messages/contacts/${pair.b.id}`).set('Authorization', `Bearer ${pair.aToken}`).send({});
     expect(senderRequests.status).toBe(201);
@@ -640,10 +640,10 @@ describe('Messaging & calendar', () => {
       .send({ text: 'Hello contact' });
     expect(contactSent.status).toBe(201);
 
-    // 4. messagingallusers = true (admin via the site-config API): the
-    //    setting is INERT for messaging now — strangers are still
-    //    refused, exactly as with it off. (The registry entry stays;
-    //    no messaging gate reads it any more.)
+    // 4. messagingallusers = true (admin qua API site-config): thiết
+    //    lập này nay KHÔNG còn tác dụng với nhắn tin — người lạ vẫn bị
+    //    từ chối, đúng như khi nó tắt. (Mục trong registry vẫn ở lại;
+    //    không cổng nhắn tin nào đọc nó nữa.)
     const on = await http(app).put('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`).send({ value: true });
     expect(on.status).toBe(200);
     expect(on.body.value).toBe(true);
@@ -653,9 +653,9 @@ describe('Messaging & calendar', () => {
     expect(openBlocked.status).toBe(403);
     expect(openBlocked.body.code).toBe('messaging.not_a_contact');
 
-    // 5. Removing the contact closes the gate on the EXISTING
-    //    conversation too: history stays readable, new sends are
-    //    refused (the gate is checked on every send — no grandfathering).
+    // 5. Xoá liên hệ đóng cổng cả trên cuộc trò chuyện ĐANG TỒN TẠI
+    //    nữa: lịch sử vẫn đọc được, các lần gửi mới bị
+    //    từ chối (cổng được kiểm tra ở mọi lần gửi — không có ngoại lệ bảo lưu).
     const removed = await http(app).delete(`/api/v1/messages/contacts/${pair.b.id}`).set('Authorization', `Bearer ${pair.aToken}`);
     expect(removed.status).toBe(200);
     const sendAgain = await http(app).post(`/api/v1/messages/conversations/${contactConv.body.id}/messages`).set('Authorization', `Bearer ${pair.aToken}`)
@@ -666,16 +666,16 @@ describe('Messaging & calendar', () => {
     expect(history.status).toBe(200);
     expect((history.body.messages as { fullMessage: string }[]).map((m) => m.fullMessage)).toContain('Hello contact');
 
-    // System notifications are NOT gated: an admin notification still
-    // reaches a stranger while the gate is on.
+    // Thông báo hệ thống KHÔNG bị gác cổng: thông báo của admin vẫn
+    // tới được người lạ trong khi cổng đang bật.
     const fresh = await twoUsers();
     const notify = await http(app).post('/api/v1/notifications/send').set('Authorization', `Bearer ${admin}`)
       .send({ userId: fresh.b.id, provider: 'grade_updated', subject: 'Grade posted', body: 'Your grade is in' });
     expect(notify.status).toBe(201);
     expect(notify.body.notificationId).not.toBeNull();
 
-    // Leave no stored override behind: the shared test database must return
-    // to the registered default (off, source 'default') for other suites.
+    // Không để lại ghi đè nào đã lưu: cơ sở dữ liệu kiểm thử dùng chung phải trở về
+    // giá trị mặc định đã đăng ký (tắt, source 'default') cho các suite khác.
     const cleared = await http(app).delete('/api/v1/site-config/core/messagingallusers').set('Authorization', `Bearer ${admin}`);
     expect(cleared.status).toBe(200);
     expect(cleared.body).toMatchObject({ value: false, source: 'default' });
@@ -696,18 +696,18 @@ describe('Messaging & calendar', () => {
     const m2Token = (await login(app, m2.username, STRONG_PASSWORD)).accessToken;
     const m3Token = (await login(app, m3.username, STRONG_PASSWORD)).accessToken;
 
-    // Unknown group → 404.
+    // Nhóm không tồn tại → 404.
     const noGroup = await http(app).post('/api/v1/messages/conversations/group').set('Authorization', `Bearer ${admin}`)
       .send({ groupId: '123e4567-e89b-72d3-a456-426614174000' });
     expect(noGroup.status).toBe(404);
     expect(noGroup.body.code).toBe('messaging.group_not_found');
-    // An enrolled non-member who is not course staff cannot create it.
+    // Người đã ghi danh nhưng không phải thành viên và không phải nhân sự khoá học thì không tạo được.
     const outsider = await http(app).post('/api/v1/messages/conversations/group').set('Authorization', `Bearer ${m3Token}`)
       .send({ groupId: group.id });
     expect(outsider.status).toBe(403);
     expect(outsider.body.code).toBe('messaging.group_conversation_forbidden');
 
-    // A group member creates it; membership mirrors the group exactly.
+    // Một thành viên nhóm tạo nó; tư cách thành viên phản chiếu đúng nhóm.
     const created = await http(app).post('/api/v1/messages/conversations/group').set('Authorization', `Bearer ${m1Token}`)
       .send({ groupId: group.id });
     expect(created.status).toBe(201);
@@ -717,18 +717,18 @@ describe('Messaging & calendar', () => {
     expect(created.body.itemId).toBe(group.id);
     expect(new Set(created.body.members as string[])).toEqual(new Set([m1.id, m2.id]));
     const conversationId = created.body.id as string;
-    // Creating again returns the same conversation (one per group).
+    // Tạo lại trả về cùng một cuộc trò chuyện (mỗi nhóm một cuộc).
     const again = await http(app).post('/api/v1/messages/conversations/group').set('Authorization', `Bearer ${m2Token}`)
       .send({ groupId: group.id });
     expect(again.body.id).toBe(conversationId);
 
-    // Group conversations are not contact-gated: members exchange messages.
+    // Cuộc trò chuyện nhóm không bị gác cổng liên hệ: các thành viên trao đổi tin nhắn.
     const hello = await http(app).post(`/api/v1/messages/conversations/${conversationId}/messages`).set('Authorization', `Bearer ${m1Token}`)
       .send({ text: 'Hello team' });
     expect(hello.status).toBe(201);
 
-    // m3 joins the group (admin, groups API) → opening syncs them in, and
-    // the conversation also shows up in their list.
+    // m3 tham gia nhóm (admin, API groups) → mở ra sẽ đồng bộ họ vào, và
+    // cuộc trò chuyện cũng xuất hiện trong danh sách của họ.
     await addGroupMember(app, admin, course.id, group.id, m3.id);
     const openedByM3 = await http(app).get(`/api/v1/messages/conversations/${conversationId}`).set('Authorization', `Bearer ${m3Token}`);
     expect(openedByM3.status).toBe(200);
@@ -736,8 +736,8 @@ describe('Messaging & calendar', () => {
     const m3List = await http(app).get('/api/v1/messages/conversations').set('Authorization', `Bearer ${m3Token}`);
     expect((m3List.body as { id: string }[]).map((c) => c.id)).toContain(conversationId);
 
-    // m2 leaves the group → the next open syncs them out; the old message
-    // stays, and m2 can no longer open the conversation.
+    // m2 rời nhóm → lần mở tiếp theo đồng bộ họ ra ngoài; tin nhắn cũ
+    // vẫn ở lại, và m2 không còn mở được cuộc trò chuyện nữa.
     const removed = await http(app).delete(`/api/v1/courses/${course.id}/groups/${group.id}/members/${m2.id}`).set('Authorization', `Bearer ${admin}`);
     expect([200, 204]).toContain(removed.status);
     const openedByM1 = await http(app).get(`/api/v1/messages/conversations/${conversationId}`).set('Authorization', `Bearer ${m1Token}`);

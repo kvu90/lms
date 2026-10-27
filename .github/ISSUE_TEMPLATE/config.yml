@@ -1,0 +1,9 @@
+# Cấu hình trang chọn mẫu issue của GitHub cho repo này.
+#
+# Issue trống (blank issue) bị TẮT có chủ đích: mọi issue đều phải đi qua
+# một mẫu trong thư mục .github/ISSUE_TEMPLATE/ để bảo đảm văn bản tự chứa
+# đủ các mục bắt buộc — bối cảnh, phạm vi, quyết định liên quan viết lại
+# trọn vẹn tại chỗ và tiêu chí nghiệm thu kiểm chứng được. Nội dung trao
+# đổi chưa thành việc cụ thể không dùng issue; khi đã thành việc, mở issue
+# bằng mẫu tính năng/nghiệp vụ hoặc mẫu báo lỗi tương ứng.
+blank_issues_enabled: false

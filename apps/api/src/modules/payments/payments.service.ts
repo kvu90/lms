@@ -6,10 +6,13 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { ClassesService } from '../classes/classes.service';
 import { EnrolService } from '../enrol/enrol.service';
+import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { PaymentsRepository, type AccountRow, type PaymentRow, type RefundRow } from './payments.repository';
+import { PaymentsRepository, type AccountRow, type EntitlementRow, type PaymentRow, type RefundRow } from './payments.repository';
+import { PlanEntitlementsService, type PlanSnapshot } from './plan-entitlements.service';
 import { buildVietQrPayload, extractPaymentCode, maskAccountConfig, paymentCodeFromSequence, readAccountConfig, PAYMENT_CODE_TTL_MS } from './vietqr';
+import type { PlanEntitlement } from '@lms/contracts';
 
 /** Tên header mang shared secret xác thực webhook của gateway 'manual'. */
 export const PAYMENT_WEBHOOK_SECRET_HEADER = 'x-payment-webhook-secret';
@@ -73,7 +76,7 @@ export interface SepayIpnInput {
 }
 
 /**
- * PaymentsModule facade (Moodle core_payment, §2#27).
+ * Facade của PaymentsModule (Moodle core_payment, §2#27).
  * Bất biến: amount là số nguyên đơn vị nhỏ nhất + currency (không float);
  * payment thành công là bất biến — hoàn tiền là giao dịch bù trừ riêng;
  * webhook idempotent theo external transaction id (replay không xử lý 2 lần);
@@ -89,6 +92,14 @@ export interface SepayIpnInput {
  * đúng pipeline này — tạo payment qua cấu hình học phí trên lớp
  * (`createClassFeePayment`), kích hoạt ghi danh cấp lớp khi succeeded,
  * đình chỉ khỏi lớp khi hoàn đủ; không có pipeline thanh toán riêng.
+ *
+ * Lát 2 (#189): component `tenant_plan`/`teacher_plan` (gói trung tâm /
+ * gói giáo viên) cũng chạy trên đúng pipeline này — tạo payment qua
+ * `createPlanPayment` với GIÁ LẤY TỪ CẤU HÌNH HỆ THỐNG (component
+ * `payments` của site-config; giá không ghim trong code), ghi vết giá +
+ * chu kỳ đã áp vào `payments.data`; kích hoạt quyền lợi gói khi
+ * succeeded và đình chỉ quyền lợi khi hoàn đủ qua
+ * `PlanEntitlementsService`; không có pipeline thanh toán riêng.
  */
 @Injectable()
 export class PaymentsService {
@@ -102,6 +113,8 @@ export class PaymentsService {
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
+    private readonly siteConfig: SiteConfigService,
+    private readonly plans: PlanEntitlementsService,
   ) {}
 
   private async requireManageAccounts(actorId: string): Promise<void> {
@@ -204,7 +217,7 @@ export class PaymentsService {
    */
   private async createPaymentInTenant(
     userId: string,
-    input: { accountId: string; amount: number; currency: string; component?: string; itemId?: string },
+    input: { accountId: string; amount: number; currency: string; component?: string; itemId?: string; data?: Record<string, unknown> },
     contextTenantId: string | undefined,
   ): Promise<PaymentView> {
     if (!Number.isInteger(input.amount) || input.amount <= 0) {
@@ -233,7 +246,7 @@ export class PaymentsService {
     const row = await this.repo.insertPayment({
       accountId: input.accountId, tenantId: account.tenantId, userId: userId, amount: input.amount, currency: input.currency.toUpperCase(),
       status: 'pending', gateway: account.gateway, component: input.component ?? '', itemId: input.itemId ?? null,
-      paymentCode, expiresAt,
+      paymentCode, expiresAt, data: input.data ?? null,
     });
     return { ...row, vietqrPayload };
   }
@@ -300,6 +313,101 @@ export class PaymentsService {
   }
 
   /**
+   * Tạo payment mua/nâng GÓI (lát 2, issue #189) — hàm song song với
+   * `createFeePayment`/`createClassFeePayment`, dùng đúng seam
+   * `component`/`item_id` sẵn có: payment mang `component` =
+   * `tenant_plan` (item_id = tenant hưởng gói) hoặc `teacher_plan`
+   * (item_id = giáo viên mua gói).
+   *
+   * GIÁ KHÔNG ĐẾN TỪ CLIENT VÀ KHÔNG GHIM TRONG CODE (quyết định về
+   * giá gói của issue): số tiền + độ dài chu kỳ đọc từ cấu hình hệ
+   * thống tại đúng thời điểm giao dịch — component `payments`, khoá
+   * `tenantplanprice`/`tenantplanperioddays` hoặc
+   * `teacherplanprice`/`teacherplanperioddays` (quản trị sửa trong bề
+   * mặt Cài đặt hệ thống; registry khai giá trị khởi tạo). Giá trị
+   * không phải số nguyên dương = cấu hình hỏng → từ chối tạo khoản
+   * thu (`payment.plan_not_configured`) thay vì thu sai giá. Giá +
+   * chu kỳ + bên hưởng được GHI VẾT vào `payments.data` (khoá `plan`)
+   * để khâu kích hoạt về sau dùng đúng giá trị đã áp cho khoản thu
+   * này, kể cả khi quản trị đã đổi giá trong lúc chờ tiền về.
+   *
+   * Tài khoản nhận: tiền gói là doanh thu của PLATFORM (hai dòng
+   * tiền tách bạch, quyết định 4 của issue) — tài khoản đang bật của
+   * tenant platform (tenant-zero), KHÔNG phải tài khoản của tenant
+   * mua gói; học phí của trung tâm vẫn về tài khoản của chính trung
+   * tâm như cũ. Khi tenant platform có nhiều tài khoản đang bật, luật
+   * chọn xác định: ưu tiên gateway `sepay`, rồi tài khoản tạo sớm
+   * nhất, rồi id (xem thân hàm). Bên hưởng: `tenant_plan` hưởng theo
+   * tenant hiệu lực của người mua; `teacher_plan` hưởng theo chính
+   * người mua.
+   */
+  async createPlanPayment(userId: string, input: { component: string }): Promise<PaymentView> {
+    if (input.component !== 'tenant_plan' && input.component !== 'teacher_plan') {
+      throw new BadRequestException({ message: `Unknown plan component: ${input.component}`, code: 'payment.unknown_plan_component' });
+    }
+    const component = input.component;
+    const price = await this.siteConfig.getValue<number>('payments', component === 'tenant_plan' ? 'tenantplanprice' : 'teacherplanprice');
+    const periodDays = await this.siteConfig.getValue<number>('payments', component === 'tenant_plan' ? 'tenantplanperioddays' : 'teacherplanperioddays');
+    if (price === undefined || !Number.isInteger(price) || price <= 0 || periodDays === undefined || !Number.isInteger(periodDays) || periodDays <= 0) {
+      throw new BadRequestException({ message: 'Plan price is not configured as a positive integer in system settings', code: 'payment.plan_not_configured' });
+    }
+    const platformTenantId = await this.tenants.fallbackTenantId();
+    // Luật chọn tài khoản XÁC ĐỊNH (cùng trạng thái DB luôn cho cùng
+    // một lựa chọn, không phụ thuộc thứ tự trả hàng của truy vấn):
+    // trong các tài khoản đang bật của tenant platform, ưu tiên tài
+    // khoản gateway `sepay` đã liên kết (đường mua gói là pipeline
+    // VietQR — tài khoản manual không sinh được mã/QR và không bao
+    // giờ khớp IPN), sau đó tài khoản tạo sớm nhất, hoà thì theo id.
+    const account = (await this.repo.listAccounts())
+      .filter((a) => a.tenantId === platformTenantId && a.enabled)
+      .sort((a, b) =>
+        (a.gateway === 'sepay' ? 0 : 1) - (b.gateway === 'sepay' ? 0 : 1)
+        || a.createdAt.getTime() - b.createdAt.getTime()
+        || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      )[0];
+    if (!account) throw new BadRequestException({ message: 'No payment account configured for plan purchases', code: 'payment.no_account' });
+    const beneficiaryTenantId = await this.effectiveTenantId();
+    const snapshot: PlanSnapshot = {
+      component,
+      configuredPrice: price,
+      periodDays,
+      beneficiaryTenantId,
+      beneficiaryUserId: component === 'teacher_plan' ? userId : null,
+    };
+    return this.createPaymentInTenant(userId, {
+      accountId: account.id, amount: price, currency: 'VND', component,
+      itemId: component === 'tenant_plan' ? beneficiaryTenantId : userId,
+      data: { plan: snapshot },
+    }, platformTenantId);
+  }
+
+  /**
+   * Quyền lợi gói của chính người gọi (cho bề mặt "gói của tôi"): gói
+   * giáo viên của họ cộng gói trung tâm của tenant hiệu lực, khử trùng
+   * theo id, chiếu thành dạng contract (ngày tháng dạng ISO).
+   */
+  async listMyPlanEntitlements(userId: string): Promise<PlanEntitlement[]> {
+    const tenantId = await this.effectiveTenantId();
+    const byId = new Map<string, EntitlementRow>();
+    const rows = [
+      ...(await this.repo.listEntitlementsForUser(userId)),
+      ...(await this.repo.listTenantPlanEntitlements(tenantId)),
+    ];
+    for (const row of rows) byId.set(row.id, row);
+    return [...byId.values()].map((row) => ({
+      id: row.id,
+      tenantId: row.tenantId,
+      userId: row.userId,
+      component: row.component as PlanEntitlement['component'],
+      paymentId: row.paymentId,
+      startsAt: row.startsAt.toISOString(),
+      expiresAt: row.expiresAt.toISOString(),
+      status: row.status as PlanEntitlement['status'],
+      createdAt: row.createdAt.toISOString(),
+    }));
+  }
+
+  /**
    * Xử lý webhook. CỔNG XÁC THỰC CHẠY TRƯỚC TIÊN (vá H1, issue #134):
    * resolve gateway theo `input.gateway` rồi gọi `gateway.verify` — gateway
    * lạ ⇒ 400; verify fail ⇒ 401. Cả hai đều xảy ra TRƯỚC mọi đọc/ghi trạng
@@ -325,21 +433,31 @@ export class PaymentsService {
       await this.repo.updatePayment(payment.id, { status: 'failed', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
       return { status: 'failed', payment: await this.getPayment(payment.id) };
     }
+    // Nghiệp vụ hưởng lợi chạy TRƯỚC nhịp lật trạng thái — cùng bất
+    // biến đồng bộ với đường matching SePay: trạng thái `succeeded`
+    // không bao giờ quan sát được khi quyền lợi chưa kích hoạt. Webhook
+    // đã xác thực mới tới được đây; các khâu kích hoạt đều idempotent
+    // nên webhook bắn lại (sau cổng duplicate ở trên) an toàn.
+    // Enrol có phí: chỉ active khi PaymentSucceeded đã xác thực.
+    if (payment.component === 'enrol_fee' && payment.itemId) {
+      await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
+    }
+    // CLASS-3: gói lớp — vào roster của lớp, cohort sync vật chất hoá
+    // xuống mọi khoá của lớp (idempotent như activatePaidEnrol).
+    if (payment.component === 'class_fee' && payment.itemId) {
+      await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId);
+    }
+    // Lát 2 (#189): gói trung tâm / gói giáo viên — sinh quyền lợi gói
+    // theo ảnh chụp giá + chu kỳ đã ghi vết lúc tạo payment.
+    if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
+      await this.plans.activateForPayment(payment);
+    }
     await this.repo.updatePayment(payment.id, { status: 'succeeded', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
     const succeeded = await this.getPayment(payment.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'payment', type: 'payment_succeeded',
       payload: { paymentId: succeeded.id, userId: succeeded.userId, amount: succeeded.amount, currency: succeeded.currency, component: succeeded.component, itemId: succeeded.itemId, externalTransactionId: input.externalTransactionId },
     });
-    // Nghiệp vụ hưởng lợi: enrol có phí chỉ active sau PaymentSucceeded đã xác thực.
-    if (succeeded.component === 'enrol_fee' && succeeded.itemId) {
-      await this.enrol.activatePaidEnrol(succeeded.itemId, succeeded.userId);
-    }
-    // CLASS-3: gói lớp — vào roster của lớp, cohort sync vật chất hoá
-    // xuống mọi khoá của lớp (idempotent như activatePaidEnrol).
-    if (succeeded.component === 'class_fee' && succeeded.itemId) {
-      await this.classes.activatePaidClassEnrol(succeeded.itemId, succeeded.userId);
-    }
     return { status: 'succeeded', payment: succeeded };
   }
 
@@ -438,6 +556,11 @@ export class PaymentsService {
       // lợi như enrol_fee.
       if (input.externalTransactionId && payment.component === 'class_fee' && payment.itemId) {
         await this.classes.suspendPaidClassMember(payment.itemId, payment.userId);
+      }
+      // Lát 2 (#189): hoàn đủ gói → đình chỉ quyền lợi gói của chính
+      // payment đó (cùng điều kiện đã-xác-nhận-lệnh-chi như enrol_fee).
+      if (input.externalTransactionId && (payment.component === 'tenant_plan' || payment.component === 'teacher_plan')) {
+        await this.plans.suspendForPayment(payment);
       }
     }
     return refund;

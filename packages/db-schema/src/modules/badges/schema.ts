@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Badges (Moodle `badge`). type: 1=site, 2=course. status: 0=inactive, 1=active, 2=retired, 3=archived, 4=disabled(hidden active). */
+/** Huy hiệu (Moodle `badge`). type: 1=site, 2=course. status: 0=inactive, 1=active, 2=retired, 3=archived, 4=disabled (đang active nhưng bị ẩn). */
 export const badge = pgTable('badge', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
@@ -39,13 +39,13 @@ export const badge = pgTable('badge', {
 
 
 /**
- * Badge criteria (Moodle `badge_criteria`). One row with criteria_type
- * 'overall' carries the aggregation method (1=ALL, 2=ANY) over the leaf
- * rows. Leaf types: coursecompletion | activitycompletion | competency |
- * badge | manual | cohort | profile. Leaf parameters live in `params` jsonb
- * (e.g. {courseId, byDate?} / {cmId} / {competencyId} / {badgeId} /
+ * Tiêu chí huy hiệu (Moodle `badge_criteria`). Một dòng có criteria_type
+ * 'overall' mang phương thức tổng hợp (1=ALL, 2=ANY) trên các dòng lá.
+ * Các loại lá: coursecompletion | activitycompletion | competency |
+ * badge | manual | cohort | profile. Tham số của lá nằm trong `params` jsonb
+ * (ví dụ {courseId, byDate?} / {cmId} / {competencyId} / {badgeId} /
  * {roleId} / {cohortId} hoặc {cohortIds} / {field, value?}).
- * Criteria of an ACTIVE badge (or one with issued awards) are FROZEN.
+ * Tiêu chí của một huy hiệu đang ACTIVE (hoặc đã có lượt trao) bị ĐÓNG BĂNG.
  */
 export const badgeCriteria = pgTable('badge_criteria', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -61,9 +61,9 @@ export const badgeCriteria = pgTable('badge_criteria', {
 
 
 /**
- * Issued badge assertions (Moodle `badge_issued`): IMMUTABLE evidence that a
- * user earned a badge — a snapshot of the badge + criteria at issue time.
- * Revoking never deletes the row; it flips `revoked`.
+ * Khẳng định huy hiệu đã cấp (Moodle `badge_issued`): bằng chứng BẤT BIẾN rằng một
+ * user đã đạt được một huy hiệu — bản chụp của huy hiệu + tiêu chí tại thời điểm cấp.
+ * Thu hồi không bao giờ xoá dòng; chỉ lật cờ `revoked`.
  */
 export const badgeIssued = pgTable(
   'badge_issued',
@@ -85,7 +85,7 @@ export const badgeIssued = pgTable(
       index('badge_issued_user_id_idx').on(table.userId),unique('badge_issued_badge_user_unique').on(table.badgeId, table.userId)],
 );
 
-/** Manual awards (Moodle `badge_manual_award`): proof that a manual criterion was met by a role holder's decision. */
+/** Lượt trao thủ công (Moodle `badge_manual_award`): bằng chứng cho việc một tiêu chí thủ công đã được đáp ứng theo quyết định của người giữ vai trò. */
 export const badgeManualAward = pgTable(
   'badge_manual_award',
   {

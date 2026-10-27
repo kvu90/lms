@@ -5,7 +5,7 @@ import { AUTHENTICATED_VIA_BETTER_AUTH } from './better-auth-session.guard';
 import type { AuthenticatedUser } from './current-user.decorator';
 import { IS_PUBLIC_KEY } from './public.decorator';
 
-/** Global JWT guard: identity only (sub + sid). Capabilities are never taken from the token (report §3.3). */
+/** Guard JWT toàn cục: chỉ gồm danh tính (sub + sid). Capability không bao giờ được lấy từ token (report §3.3). */
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(private readonly reflector: Reflector) { super(); }

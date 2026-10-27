@@ -37,6 +37,9 @@ export default [
     route('admin/curriculum/nodes/:nodeId/edit', 'routes/admin-curriculum-node-edit.tsx'),
     route('admin/curriculum/nodes/:nodeId/outcomes/new', 'routes/admin-curriculum-outcome-new.tsx'),
     route('admin/curriculum/outcomes/:outcomeId/edit', 'routes/admin-curriculum-outcome-edit.tsx'),
+    // Trang xem bảng chương trình GDPT theo mẫu Bộ cho GIÁO VIÊN
+    // (issue #161, lát T2): chỉ xem, đọc qua ngữ cảnh khoá giáo viên dạy.
+    route('curriculum', 'pages/teacher-curriculum.tsx'),
     route('courses', 'pages/courses.tsx'),
     route('courses/new', 'pages/course-new.tsx'),
     // Lớp học (CLASS-1, issue #184): danh sách/tạo màn riêng, tự báo

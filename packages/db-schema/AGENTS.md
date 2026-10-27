@@ -3,9 +3,24 @@
 ## Nguồn sự thật (đọc trước khi sửa)
 
 1. `README.md` của package này — quyết định nghiệp vụ còn hiệu lực của db-schema.
-2. `~/workspace/lms-nest-ops/decisions.md` — sổ quyết định, nguồn sự thật DUY NHẤT;
-   tài liệu mới hơn không tự thắng sổ; mâu thuẫn thì DỪNG và báo main chat.
-3. Sổ owner `~/workspace/lms-nest-ops/board.md` — một đầu việc chỉ một đội giữ.
+2. Issue đặc tả của việc đang làm trên GitHub — nguồn sự thật cho việc đó: bối cảnh,
+   phạm vi, các quyết định liên quan (viết trọn vẹn ngay trong issue) và tiêu chí
+   nghiệm thu đều nằm trong chính issue. Không viện dẫn sổ quyết định, hồ sơ hay tệp
+   ngoài repo làm căn cứ. Tài liệu trong repo mâu thuẫn với issue thì DỪNG, báo
+   main chat.
+3. `AGENTS.md` ở thư mục gốc của repo — quy định chung cho AI toàn repo, gồm chuẩn
+   văn bản tự chứa cho issue và PR.
+
+## Chuẩn ngôn ngữ
+
+Code (định danh, tên hàm/biến/lớp, chuỗi kỹ thuật) viết bằng tiếng Anh.
+Toàn bộ comment trong code — gồm comment mô tả luồng nghiệp vụ — viết
+bằng tiếng Việt. Mọi tài liệu trong repo (README, các file AGENTS, tài
+liệu của package) và mọi văn bản trên GitHub (issue, PR, comment) viết
+bằng tiếng Việt. Khi sửa code, comment tiếng Việt liên quan phải được
+cập nhật khớp với code trong cùng lượt thay đổi. Nội dung đầy đủ của
+chuẩn này nằm ở mục "Chuẩn ngôn ngữ" trong `AGENTS.md` ở thư mục gốc
+của repo.
 
 ## Ranh giới phạm vi
 
@@ -44,3 +59,30 @@
 - Đổi một quan hệ nghiệp vụ trong schema (vd lớp–khoá, tenant) mà spec ở apps/api
   vẫn xanh nguyên = test chưa bám nghiệp vụ; bổ sung/sửa spec trong cùng PR.
 - Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
+
+## Chuẩn comment TSDoc
+
+Mọi code TypeScript viết mới hoặc sửa trong `packages/db-schema` phải có comment
+**tiếng Việt theo chuẩn TSDoc**, chi tiết nhất có thể — luồng nghiệp vụ của dữ
+liệu phải nằm ngay trong code, để lần sửa sau dựa vào nội dung code đang có chứ
+không dựa vào trí nhớ của trợ lý. Chuẩn ngôn ngữ chung của repo: code bằng tiếng
+Anh (định danh, tên bảng/cột/hàm, chuỗi kỹ thuật); **comment — gồm cả comment
+luồng nghiệp vụ — bằng tiếng Việt**; mọi tài liệu bằng tiếng Việt:
+
+- Đầu mỗi file schema: khối TSDoc mô tả vai trò của nhóm bảng + luồng nghiệp vụ
+  dữ liệu tổng thể (bảng phục vụ nghiệp vụ gì, quan hệ với các bảng khác, tầng
+  nào ghi/đọc dữ liệu).
+- Mỗi bảng/cột/hàm trọng yếu: TSDoc `/** ... */` tiếng Việt gồm mục đích, các
+  bất biến và ràng buộc (khoá chính UUIDv7, `tenant_id` + RLS fail-closed, FK
+  `restrict` đối với dữ liệu chuẩn GDPT…), giá trị mặc định và lý do chọn chúng.
+- Logic phức tạp (cột jsonb mang cấu hình, cột suy biến phục vụ truy vấn, khoá
+  tự nhiên của dữ liệu chuẩn): comment nội tuyến tiếng Việt nói bước xử lý và
+  **lý do** — không lặp lại điều code đã hiển nhiên.
+- Cú pháp/tag theo TSDoc (`@remarks`/`@example` khi cần); định danh và tên tag
+  giữ tiếng Anh.
+- Sửa code thì căn cứ vào comment đang có trong code; thấy comment lệch code
+  thật thì sửa comment **trong cùng lượt** với sửa code.
+- Đội đánh giá độc lập soi chuẩn này như một tiêu chí đạt — code thiếu comment
+  đạt chuẩn là chưa đạt. Comment tiếng Anh còn tồn đọng trong package được dịch
+  theo đợt riêng của chương trình sửa chuẩn ngôn ngữ toàn repo, không tự trộn
+  việc dịch vào feat đang bay.

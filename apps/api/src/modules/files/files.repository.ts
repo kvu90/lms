@@ -29,7 +29,7 @@ export class FilesRepository {
    * Xoá bản ghi theo id.
    */
   async deleteById(id: string): Promise<void> { await this.db.delete(files).where(eq(files.id, id)); }
-  /** Refcount = number of logical records pointing at a contentHash (Moodle semantics: physical lives while refcount > 0). */
+  /** Refcount = số bản ghi logic trỏ tới một contentHash (ngữ nghĩa Moodle: dữ liệu vật lý còn sống khi refcount > 0). */
   /**
    * Đếm bản ghi cùng contentHash (refcount nội dung vật lý).
    */

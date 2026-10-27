@@ -222,7 +222,7 @@ export class AnalyticsRunProcessor extends WorkerHost {
     const ues = instances.length ? await this.db.select().from(userEnrolments).where(inArray(userEnrolments.enrolId, instances.map((i) => i.id))) : [];
     const items = await this.db.select().from(gradeItems).where(eq(gradeItems.courseId, courseId));
     const grades = items.length ? await this.db.select().from(gradeGrades).where(inArray(gradeGrades.itemId, items.map((i) => i.id))) : [];
-    // Recipients: user có assignment với role archetype staff tại course context hoặc tổ tiên.
+    // Người nhận: user có assignment với role archetype staff tại course context hoặc tổ tiên.
     const assignments = await this.db.select().from(roleAssignments);
     const roles = await this.db.select().from(role);
     const staffRoleIds = new Set(roles.filter((r) => ['manager', 'editingteacher', 'teacher'].includes(r.archetype ?? '')).map((r) => r.id));

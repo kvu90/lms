@@ -19,7 +19,7 @@ export interface ReportDatasource {
 export const REPORT_DATASOURCES = ['enrolments', 'grades', 'completion'] as const;
 
 /**
- * ReportsModule facade (Moodle core_reportbuilder, §2#24).
+ * Facade của ReportsModule (Moodle core_reportbuilder, §2#24).
  * Bất biến: quyền xem = audience ∩ quyền trên TỪNG DÒNG theo context của
  * dòng đó. Filter do user cấu hình KHÔNG BAO GIỜ nới quyền — filter chỉ
  * thu hẹp tập dòng đã được phép. Báo cáo theo lịch chạy dưới danh tính

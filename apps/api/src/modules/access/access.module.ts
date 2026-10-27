@@ -7,7 +7,7 @@ import { ContextsService } from './contexts.service';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import { RolesService } from './roles.service';
 
-/** AccessModule facade: ContextsService, RolesService, PermissionEvaluator. Repositories stay private. */
+/** Facade của AccessModule: ContextsService, RolesService, PermissionEvaluator. Các repository giữ ở chế độ private. */
 @Module({
   imports: [CacheInfraModule, EventsModule],
   controllers: [AccessController],

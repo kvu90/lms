@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
-import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, MatrixImportCellAvailability, PaperSlotLayout, QuestionSolution, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
+import type { ExamMatrixCellView, ExamMatrixView, MatrixCellAvailability, MatrixImportCellAvailability, PaperSlotLayout, PinRegradeLogEntry, PinRegradeResult, PinVersionUpdatePreview, PinVersionUpdateSlotDiff, QuestionSolution, QuizAttemptSummary, ExamPinOverrideView, QuizView, RichTextDocument } from '@lms/contracts';
 import { extractRichTextPlainText, getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
@@ -368,6 +368,12 @@ export type PinRow = ExamPinRow & {
   tfScale: number[] | null;
   matrixId: string | null;
   name: string;
+  /** Số version của exam version đang ghim (hiển thị "đang ghim bản đề v[n]"). */
+  examVersionNumber: number;
+  /** Trạng thái hiện tại của đề (draft | ready | hidden) — điều kiện tồn tại đích cập nhật version. */
+  examStatus: string;
+  /** Số version mới nhất của đề (mọi trạng thái). */
+  examLatestVersion: number;
 };
 
 /** Slot hiệu lực suy ra từ exam version đã ghim (không còn bảng quiz_slots). */
@@ -435,6 +441,8 @@ export class QuizService {
   private async enrichPin(row: ExamPinRow): Promise<PinRow> {
     const version = await this.repo.getExamVersion(row.examVersionId);
     if (!version) throw new NotFoundException({ message: `Exam version ${row.examVersionId} not found`, code: 'exam.version_not_found' });
+    const exam = await this.repo.getExam(row.examId);
+    if (!exam) throw new NotFoundException({ message: `Exam ${row.examId} not found`, code: 'exam.not_found' });
     return {
       ...row,
       course: row.courseId,
@@ -442,6 +450,9 @@ export class QuizService {
       tfScale: version.tfScale,
       matrixId: version.matrixId,
       name: row.name ?? version.name,
+      examVersionNumber: version.version,
+      examStatus: exam.status,
+      examLatestVersion: exam.latestVersion,
     };
   }
 
@@ -560,6 +571,12 @@ export class QuizService {
       matrixId: quiz.matrixId,
       examId: quiz.examId,
       examVersionId: quiz.examVersionId,
+      examVersionNumber: quiz.examVersionNumber,
+      latestExamVersionNumber: quiz.examLatestVersion,
+      // Huy hiệu bản đề mới (issue #254): chỉ khi đề đang ready và bản
+      // mới nhất mới hơn bản đang ghim thì mới có đích cập nhật.
+      hasNewerExamVersion: quiz.examStatus === 'ready' && quiz.examLatestVersion > quiz.examVersionNumber,
+      versionMode: quiz.versionMode === 'float_latest_ready' ? 'float_latest_ready' as const : 'pinned' as const,
       tfScale: quiz.tfScale,
       preset: (quiz.preset as QuizView['preset']) ?? null,
       lateEntryMinutes: quiz.lateEntryMinutes,
@@ -614,6 +631,23 @@ export class QuizService {
     return { sumGrades: sum, pendingManual: pending };
   }
 
+  /**
+   * Tổng điểm của usage GIẢ ĐỊNH một question attempt mang fraction
+   * khác (issue #254): cùng phép cộng, cùng thứ tự với
+   * {@link syncFromUsage} — dùng để tính điểm sau chấm lại ở bước
+   * dry-run sao cho khớp tuyệt đối với tổng mà đường áp thật đồng bộ
+   * lại từ usage sau khi engine đã chấm lại.
+   */
+  private sumWithFraction(usage: UsageView, questionAttemptId: string, fraction: number | null): number {
+    let sum = 0;
+    for (const a of usage.attempts) {
+      if (a.state === 'needsgrading') continue;
+      const f = a.id === questionAttemptId ? fraction : a.fraction;
+      if (f !== null && f !== undefined) sum += f * a.maxMark;
+    }
+    return sum;
+  }
+
   // --- CRUD quiz ---------------------------------------------------------------
 
   /** Kiểm tra định dạng danh sách subnet khi lưu cài đặt; sai định dạng là lỗi của người soạn, không để lọt xuống tầng kiểm tra lúc thi. */
@@ -662,6 +696,26 @@ export class QuizService {
     return mine.some((g) => g.id === quiz.targetGroupId);
   }
 
+  /**
+   * Cổng chế độ tham chiếu version của lần ghim (issue #254): chế độ
+   * trôi `float_latest_ready` CHỈ hợp lệ cho lần ghim luyện tập — cụ
+   * thể hoá theo preset của pin: preset `regular` (thường xuyên/luyện
+   * tập) mới được trôi; preset kiểm tra chính thức (`periodic`, `mock`)
+   * hoặc pin không theo preset nào đều bị chặn. Lý do: kiểm tra chính
+   * thức đòi mọi học sinh trong cùng cửa sổ làm đúng cùng một version
+   * câu hỏi, còn luyện tập cần học sinh luôn gặp bản câu hỏi mới nhất
+   * đã duyệt. Vi phạm ném `exam.version_mode_not_allowed` — chặn ở API,
+   * không dựa vào việc ẩn tuỳ chọn ở giao diện.
+   */
+  private assertVersionModeAllowed(preset: string | null | undefined, versionMode: string | null | undefined): void {
+    if (versionMode === 'float_latest_ready' && preset !== 'regular') {
+      throw new BadRequestException({
+        message: 'float_latest_ready is only allowed for practice pins (preset regular); official exam pins (periodic/mock or no preset) must stay pinned',
+        code: 'exam.version_mode_not_allowed',
+      });
+    }
+  }
+
   async createPinRecord(actorId: string, courseId: string, input: {
     sectionId: string; examId: string; examVersionId: string;
     name?: string; intro?: string;
@@ -673,6 +727,7 @@ export class QuizService {
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
     preset?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
     variantCount?: number; targetGroupId?: string | null;
+    versionMode?: 'pinned' | 'float_latest_ready';
   }): Promise<QuizView> {
     await this.courses.getCourse(courseId);
     await this.assertTargetGroup(courseId, input.targetGroupId);
@@ -686,6 +741,7 @@ export class QuizService {
       throw new BadRequestException({ message: 'timeClose must be after timeOpen', code: 'quiz.bad_window' });
     }
     this.assertValidSubnet(input.subnet);
+    this.assertVersionModeAllowed(input.preset ?? null, input.versionMode ?? 'pinned');
     // Preset theo hình thức thi: trường gửi kèm THẮNG preset, preset
     // chỉ điền các trường còn trống (bảng preset ở domain/matrix.ts).
     const preset = input.preset ? EXAM_KIND_PRESETS[input.preset] : null;
@@ -701,6 +757,7 @@ export class QuizService {
       passwordHash: await this.hashQuizPassword(input.password),
       subnet: input.subnet ?? null,
       preset: input.preset ?? null,
+      versionMode: input.versionMode ?? 'pinned',
       lateEntryMinutes: input.lateEntryMinutes !== undefined ? input.lateEntryMinutes : (preset?.lateEntryMinutes ?? null),
       monitorEvents: input.monitorEvents ?? preset?.monitorEvents ?? false,
       variantCount,
@@ -765,11 +822,21 @@ export class QuizService {
     reviewRightAnswer?: number; reviewOverallFeedback?: number;
     preset?: ExamKind | null; lateEntryMinutes?: number | null; monitorEvents?: boolean;
     examVersionId?: string; variantCount?: number; targetGroupId?: string | null;
+    versionMode?: 'pinned' | 'float_latest_ready';
   }): Promise<QuizView> {
     const pin = await this.getPin(pinId);
     await this.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
     this.assertValidSubnet(input.subnet);
+    // Cổng chế độ tham chiếu version (issue #254) xét trên cặp
+    // (preset, versionMode) HIỆU LỰC SAU khi sửa: bật float cho pin
+    // không phải luyện tập bị chặn, và đổi preset rời `regular` trong
+    // lúc pin đang float cũng bị chặn — muốn đổi phải tắt float trước.
+    this.assertVersionModeAllowed(
+      input.preset !== undefined ? input.preset : pin.preset,
+      input.versionMode !== undefined ? input.versionMode : pin.versionMode,
+    );
     const patch: Partial<ExamPinRow> = {};
+    if (input.versionMode !== undefined) patch.versionMode = input.versionMode;
     if (input.name !== undefined) patch.name = input.name;
     if (input.intro !== undefined) patch.intro = input.intro;
     if (input.timeOpen !== undefined) patch.timeOpen = input.timeOpen ? new Date(input.timeOpen) : null;
@@ -851,6 +918,330 @@ export class QuizService {
     await this.repo.deletePin(pin.id);
     if (pin.cmId) await this.courses.deleteCm(actorId, pin.cmId);
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'quiz_deleted', payload: { pinId: pin.id, courseId: pin.course, actorId } });
+  }
+
+  // --- cập nhật version của pin + chấm lại theo đáp án (issue #254) --------------
+
+  /** Pin đã có lượt làm THẬT (không tính lượt preview của giáo viên) hay chưa — điều kiện của luật khoá exam.pin_locked. */
+  private async pinHasRealAttempts(pinId: string): Promise<boolean> {
+    const attempts = await this.repo.listAttempts(pinId);
+    return attempts.some((a) => !a.preview);
+  }
+
+  /**
+   * Diff slot-theo-VỊ-TRÍ giữa exam version đang ghim và exam version
+   * đích: mỗi vị trí thuộc đúng một loại thay đổi (thêm/bớt slot, đổi
+   * câu, đổi version câu đã ghim, đổi điểm slot, hoặc không đổi). Đây
+   * là dữ kiện giáo viên xem TRƯỚC khi quyết định áp cập nhật — diff
+   * không ghi gì và không đổi trạng thái nào.
+   */
+  private async diffExamVersionSlots(fromVersionId: string, toVersionId: string): Promise<PinVersionUpdateSlotDiff[]> {
+    const [fromSlots, toSlots] = await Promise.all([
+      this.repo.listExamSlots(fromVersionId),
+      this.repo.listExamSlots(toVersionId),
+    ]);
+    const fromByPos = new Map(fromSlots.map((s) => [s.position, s]));
+    const toByPos = new Map(toSlots.map((s) => [s.position, s]));
+    const positions = [...new Set([...fromByPos.keys(), ...toByPos.keys()])].sort((a, b) => a - b);
+    return positions.map((position) => {
+      const from = fromByPos.get(position);
+      const to = toByPos.get(position);
+      const change: PinVersionUpdateSlotDiff['change'] = !from
+        ? 'added'
+        : !to
+          ? 'removed'
+          : from.questionId !== to.questionId
+            ? 'question_changed'
+            : from.pinnedVersionNumber !== to.pinnedVersionNumber
+              ? 'question_version_changed'
+              : from.maxMark !== to.maxMark
+                ? 'mark_changed'
+                : 'unchanged';
+      return {
+        position, change,
+        fromQuestionId: from?.questionId ?? null,
+        toQuestionId: to?.questionId ?? null,
+        fromPinnedVersionNumber: from?.pinnedVersionNumber ?? null,
+        toPinnedVersionNumber: to?.pinnedVersionNumber ?? null,
+        fromMaxMark: from?.maxMark ?? null,
+        toMaxMark: to?.maxMark ?? null,
+      };
+    });
+  }
+
+  /**
+   * Xem trước thao tác cập nhật pin lên bản ready mới nhất của đề
+   * (quiz:manage; issue #254): đích là exam version có số lớn nhất của
+   * đề — chỉ tồn tại khi đề đang `ready` và bản đó mới hơn bản đang
+   * ghim. Kèm diff từng slot và cờ `blockedByAttempts` để giáo viên
+   * biết trước rằng thao tác áp sẽ bị chặn khi pin đã có lượt làm thật.
+   */
+  async getPinVersionUpdatePreview(actorId: string, pinId: string): Promise<PinVersionUpdatePreview> {
+    const quiz = await this.getPin(pinId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.manage);
+    const versions = await this.repo.listExamVersions(quiz.examId);
+    const target = versions.find((v) => v.version === quiz.examLatestVersion);
+    const available = quiz.examStatus === 'ready' && !!target && target.id !== quiz.examVersionId;
+    return {
+      pinId: quiz.id,
+      fromExamVersionId: quiz.examVersionId,
+      fromVersionNumber: quiz.examVersionNumber,
+      toExamVersionId: available ? target!.id : null,
+      toVersionNumber: available ? target!.version : null,
+      examStatus: quiz.examStatus,
+      available,
+      blockedByAttempts: await this.pinHasRealAttempts(quiz.id),
+      slotDiffs: available ? await this.diffExamVersionSlots(quiz.examVersionId, target!.id) : [],
+    };
+  }
+
+  /**
+   * Áp cập nhật pin lên exam version mới nhất của đề (quiz:manage;
+   * issue #254) — thao tác TƯỜNG MINH sau bước xem diff:
+   * 1. Luật khoá dùng chung với updatePin: pin đã có lượt làm thật thì
+   *    bị chặn `exam.pin_locked` (cập nhật chỉ áp cho người chưa làm;
+   *    lượt đã có giữ nguyên version và điểm — sửa hệ quả điểm của
+   *    chúng chỉ qua đường chấm lại theo đáp án).
+   * 2. Đích phải thuộc đúng đề của pin, là version MỚI NHẤT của đề và
+   *    đề phải đang `ready` (`exam.version_not_ready` /
+   *    `exam.version_not_latest`).
+   * 3. Đổi examVersionId của pin, đồng bộ gradeMax của grade item như
+   *    updatePin, ghi vết vào exam_pin_version_updates (ai/khi nào/từ
+   *    version nào lên version nào) và phát sự kiện
+   *    `exam_pin_version_updated`.
+   */
+  async applyPinVersionUpdate(actorId: string, pinId: string, toExamVersionId: string): Promise<QuizView> {
+    const pin = await this.getPin(pinId);
+    await this.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
+    await this.assertPinUnlocked(pin);
+    if (pin.examStatus !== 'ready') {
+      throw new BadRequestException({
+        message: `Exam ${pin.examId} is not ready (status ${pin.examStatus}); there is no ready version to update this pin to`,
+        code: 'exam.version_not_ready',
+      });
+    }
+    const target = await this.repo.getExamVersion(toExamVersionId);
+    if (!target || target.examId !== pin.examId) {
+      throw new NotFoundException({ message: `Exam version ${toExamVersionId} not found for exam ${pin.examId}`, code: 'exam.version_not_found' });
+    }
+    if (target.id === pin.examVersionId) {
+      throw new BadRequestException({ message: 'This pin already uses the requested exam version', code: 'exam.pin_version_unchanged' });
+    }
+    if (target.version !== pin.examLatestVersion) {
+      throw new BadRequestException({
+        message: `Exam version ${toExamVersionId} is not the latest version of exam ${pin.examId}; pins only update to the latest ready version`,
+        code: 'exam.version_not_latest',
+      });
+    }
+    await this.repo.updatePin(pin.id, { examVersionId: target.id });
+    await this.repo.insertPinVersionUpdate({
+      pinId: pin.id, actorId, fromExamVersionId: pin.examVersionId, toExamVersionId: target.id,
+    });
+    const updated = await this.getPin(pin.id);
+    if (updated.cmId) {
+      const item = await this.grades.getItemForCm(updated.course, updated.cmId);
+      if (item) await this.grades.updateItem(actorId, item.id, { gradeMax: target.totalScore });
+    }
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'exam_pin_version_updated',
+      payload: { pinId: pin.id, courseId: pin.course, fromExamVersionId: pin.examVersionId, toExamVersionId: target.id, actorId },
+    });
+    return this.pinView(updated);
+  }
+
+  /**
+   * Chấm lại theo đáp án cho một câu của pin (quiz:grade; issue #254) —
+   * đường DUY NHẤT để sửa hệ quả điểm khi đáp án của một câu đã được
+   * dùng chấm các lượt đã nộp bị sai: giáo viên tạo version mới của câu
+   * với đáp án đúng rồi chấm lại theo version đó.
+   *
+   * Ứng viên: lượt làm THẬT đã nộp (finished/needsgrading) có question
+   * attempt của câu này đã được chấm tự động và đang ghim version khác
+   * version đích. Lượt đang làm dở không bị đụng (chưa có điểm để sửa;
+   * chúng vẫn chấm theo version đã ghim khi bắt đầu, đúng kỷ luật
+   * ghim). Essay nằm ngoài đường này (chấm tay có đường riêng).
+   *
+   * `dryRun` chỉ tính và trả điểm đổi của từng học sinh; áp thật chạy
+   * đúng cùng phép tính ở engine nên kết quả khớp tuyệt đối. Khi áp:
+   * chấm lại qua engine (attempt chuyển ghim sang version đích + step
+   * hiệu chỉnh) → đồng bộ tổng điểm/trạng thái của lượt → ghi điểm vào
+   * sổ nếu lượt đã finished → ghi log exam_attempt_regrades +
+   * exam_attempt_regrade_items (chỉ các lượt điểm thật sự đổi mới có
+   * mục) → phát sự kiện `exam_attempt_answer_key_regraded` (tên riêng,
+   * không dùng lại sự kiện chấm tay `exam_attempt_regraded`).
+   */
+  async regradePinQuestion(actorId: string, pinId: string, input: { questionId: string; toVersionId: string; dryRun: boolean }): Promise<PinRegradeResult> {
+    const quiz = await this.getPin(pinId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
+    // Kiểm đích TRƯỚC khi quét ứng viên — kể cả khi không có ứng viên
+    // nào, version đích sai (không thuộc câu / chưa ready) vẫn phải báo
+    // lỗi rõ thay vì trả danh sách đổi rỗng gây hiểu nhầm là "không ai đổi điểm".
+    const questionView = await this.questions.getQuestion(input.questionId);
+    if (questionView.question.qtype === 'essay') {
+      throw new BadRequestException({
+        message: 'Essay questions are graded manually and cannot be regraded against an answer key',
+        code: 'question.regrade_not_supported',
+      });
+    }
+    const { version: targetVersion } = await this.questions.getVersionContent(input.questionId, input.toVersionId);
+    if (targetVersion.status !== 'ready') {
+      throw new BadRequestException({
+        message: `Question version ${input.toVersionId} is not ready (status ${targetVersion.status}); regrading needs the corrected ready version`,
+        code: 'question.regrade_version_not_ready',
+      });
+    }
+    type Candidate = {
+      attempt: ExamAttemptRow;
+      qa: UsageView['attempts'][number];
+      oldFraction: number | null; newFraction: number | null;
+      oldSumGrades: number; newSumGrades: number; changed: boolean;
+    };
+    const candidates: Candidate[] = [];
+    const submitted = (await this.repo.listAttempts(quiz.id))
+      .filter((a) => !a.preview && (a.state === 'finished' || a.state === 'needsgrading'));
+    for (const attempt of submitted) {
+      const usage = await this.questions.getUsage(attempt.usageId);
+      const qa = usage.attempts.find((x) => x.questionId === input.questionId);
+      if (!qa || qa.questionVersionId === input.toVersionId) continue;
+      if (!['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'].includes(qa.state)) continue;
+      const preview = await this.questions.previewRegradeAttempt(qa.id, input.toVersionId, quiz.tfScale);
+      const oldSumGrades = this.syncFromUsage(usage).sumGrades;
+      candidates.push({
+        attempt, qa,
+        oldFraction: qa.fraction, newFraction: preview.newFraction,
+        oldSumGrades,
+        // Tổng điểm sau chấm lại tính bằng ĐÚNG phép cộng của
+        // syncFromUsage trên usage giả định (chỉ fraction của câu này
+        // được thay) — cùng thứ tự cộng với đường áp thật nên dry-run
+        // và áp thật cho ra cùng một con số tuyệt đối.
+        newSumGrades: this.sumWithFraction(usage, qa.id, preview.newFraction),
+        changed: preview.newFraction !== qa.fraction,
+      });
+    }
+    const changes = candidates.map((c) => ({
+      examAttemptId: c.attempt.id,
+      userId: c.attempt.userId,
+      attemptNumber: c.attempt.attemptNumber,
+      questionAttemptId: c.qa.id,
+      oldFraction: c.oldFraction,
+      newFraction: c.newFraction,
+      oldSumGrades: c.oldSumGrades,
+      newSumGrades: c.newSumGrades,
+      changed: c.changed,
+    }));
+    const result: PinRegradeResult = {
+      dryRun: input.dryRun,
+      pinId: quiz.id,
+      questionId: input.questionId,
+      fromVersionIds: [...new Set(candidates.map((c) => c.qa.questionVersionId).filter((v): v is string => v !== null))],
+      toVersionId: input.toVersionId,
+      changes,
+    };
+    if (input.dryRun || candidates.length === 0) return result;
+    // Áp thật: nhóm ứng viên theo version nguồn — mỗi version nguồn một
+    // dòng log chấm lại (pin trôi có thể có nhiều version nguồn).
+    const byFromVersion = new Map<string, Candidate[]>();
+    for (const c of candidates) {
+      const key = c.qa.questionVersionId!;
+      byFromVersion.set(key, [...(byFromVersion.get(key) ?? []), c]);
+    }
+    let changedCount = 0;
+    for (const [fromVersionId, group] of byFromVersion) {
+      const regrade = await this.repo.insertRegrade({
+        pinId: quiz.id, questionId: input.questionId, fromVersionId, toVersionId: input.toVersionId, actorId,
+      });
+      for (const c of group) {
+        await this.questions.regradeAttemptWithVersion(actorId, c.qa.id, input.toVersionId, quiz.tfScale);
+        const afterUsage = await this.questions.getUsage(c.attempt.usageId);
+        const { sumGrades, pendingManual } = this.syncFromUsage(afterUsage);
+        const nextState = pendingManual > 0 ? 'needsgrading' : 'finished';
+        await this.repo.updateAttempt(c.attempt.id, { sumGrades, state: nextState });
+        if (c.changed) {
+          changedCount += 1;
+          await this.repo.insertRegradeItem({
+            regradeId: regrade.id, examAttemptId: c.attempt.id, questionAttemptId: c.qa.id,
+            userId: c.attempt.userId, oldFraction: c.oldFraction, newFraction: c.newFraction,
+            oldSumGrades: c.oldSumGrades, newSumGrades: sumGrades,
+          });
+        }
+        const updated = await this.getAttemptRow(c.attempt.id);
+        if (updated.state === 'finished') await this.pushGrade(quiz, c.attempt.userId);
+      }
+    }
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'exam_attempt_answer_key_regraded',
+      payload: {
+        pinId: quiz.id, courseId: quiz.course, questionId: input.questionId,
+        toVersionId: input.toVersionId, actorId,
+        candidateCount: candidates.length, changedCount,
+      },
+    });
+    return result;
+  }
+
+  /**
+   * Nhật ký chấm lại theo đáp án của pin cho giáo viên (quiz:viewreports;
+   * issue #254): mỗi lần áp thật một dòng kèm điểm đổi của từng lượt —
+   * căn cứ truy vết khi học sinh/phụ huynh hỏi vì sao điểm thay đổi.
+   */
+  async listPinRegrades(actorId: string, pinId: string): Promise<PinRegradeLogEntry[]> {
+    const quiz = await this.getPin(pinId);
+    await this.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
+    const attempts = await this.repo.listAttempts(quiz.id);
+    const numberByAttempt = new Map(attempts.map((a) => [a.id, a.attemptNumber]));
+    const out: PinRegradeLogEntry[] = [];
+    for (const r of await this.repo.listRegrades(quiz.id)) {
+      const items = await this.repo.listRegradeItems(r.id);
+      out.push({
+        id: r.id, pinId: r.pinId, questionId: r.questionId,
+        fromVersionId: r.fromVersionId, toVersionId: r.toVersionId,
+        actorId: r.actorId, createdAt: r.createdAt.toISOString(),
+        items: items.map((i) => ({
+          examAttemptId: i.examAttemptId, userId: i.userId,
+          attemptNumber: numberByAttempt.get(i.examAttemptId) ?? 0,
+          oldFraction: i.oldFraction, newFraction: i.newFraction,
+          oldSumGrades: i.oldSumGrades, newSumGrades: i.newSumGrades,
+        })),
+      });
+    }
+    return out;
+  }
+
+  /**
+   * Lịch sử sửa điểm của CHÍNH học sinh trong một pin (issue #254): các
+   * lần chấm lại theo đáp án đã đổi điểm của mình — câu nào, khi nào,
+   * điểm trước/sau. Đi qua CÙNG cổng công bố như mọi đường đọc điểm:
+   * pin chưa công bố kết quả thì trả danh sách rỗng (không lộ điểm qua
+   * kênh phụ), trừ người có quyền xem báo cáo của pin.
+   */
+  async listMyPinRegrades(actorId: string, pinId: string): Promise<PinRegradeLogEntry[]> {
+    const quiz = await this.getPin(pinId);
+    if (!quiz.resultsPublishedAt && !(await this.hasCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports))) {
+      return [];
+    }
+    const rows = await this.repo.listRegradeItemsForUser(quiz.id, actorId);
+    const attempts = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
+    const numberByAttempt = new Map(attempts.map((a) => [a.id, a.attemptNumber]));
+    const byRegrade = new Map<string, PinRegradeLogEntry>();
+    for (const { regrade, item } of rows) {
+      let entry = byRegrade.get(regrade.id);
+      if (!entry) {
+        entry = {
+          id: regrade.id, pinId: regrade.pinId, questionId: regrade.questionId,
+          fromVersionId: regrade.fromVersionId, toVersionId: regrade.toVersionId,
+          actorId: regrade.actorId, createdAt: regrade.createdAt.toISOString(),
+          items: [],
+        };
+        byRegrade.set(regrade.id, entry);
+      }
+      entry.items.push({
+        examAttemptId: item.examAttemptId, userId: item.userId,
+        attemptNumber: numberByAttempt.get(item.examAttemptId) ?? 0,
+        oldFraction: item.oldFraction, newFraction: item.newFraction,
+        oldSumGrades: item.oldSumGrades, newSumGrades: item.newSumGrades,
+      });
+    }
+    return [...byRegrade.values()];
   }
 
   /**
@@ -2247,10 +2638,15 @@ export class QuizService {
       component: QUIZ_COMPONENT, instanceId: quiz.id, contextId: await this.cmContextId(quiz),
       slots: resolvedSlots.map((e) => ({
         questionId: e.questionId, maxMark: e.quizSlot.maxMark,
-        // Slot ghim cứng (QB-3) truyền version đã ghim xuống engine;
-        // slot follow_latest / ngẫu nhiên để engine tự phân giải bản
-        // ready mới nhất lúc bắt đầu như hành vi chuẩn.
-        pinnedVersionId: e.quizSlot.versionMode === 'pinned' ? (e.quizSlot.pinnedVersionId ?? undefined) : undefined,
+        // Chế độ tham chiếu version của pin (issue #254): pin `pinned`
+        // truyền version đã ghim trong exam version xuống engine (mọi
+        // lượt cùng một version); pin `float_latest_ready` KHÔNG truyền
+        // version — engine tự phân giải bản ready mới nhất của câu tại
+        // lúc bắt đầu lượt này rồi ghim cứng vào attempt (lượt đã bắt
+        // đầu không trôi theo bản mới hơn xuất hiện sau đó).
+        pinnedVersionId: quiz.versionMode === 'float_latest_ready'
+          ? undefined
+          : (e.quizSlot.pinnedVersionId ?? undefined),
       })),
     });
     // Nhãn kiểm tra bù + snapshot quy tắc đã áp: lượt bắt đầu trong cửa
@@ -2269,6 +2665,7 @@ export class QuizService {
       passwordRequired: eff.passwordRequired,
       subnet: eff.subnet,
       preset: (quiz.preset as QuizView['preset']) ?? null,
+      versionMode: quiz.versionMode,
       lateEntryMinutes: quiz.lateEntryMinutes,
       monitorEvents: quiz.monitorEvents,
       userOverrideId: eff.userOverrideId,

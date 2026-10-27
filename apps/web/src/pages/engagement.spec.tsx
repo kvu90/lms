@@ -10,9 +10,9 @@ import { NotificationsPage } from './notifications';
 import { SettingsNotificationsPage } from './settings-notifications';
 
 /**
- * Engagement web tests (Testing Library): the two DoD-adjacent behaviours —
- * a notification preference toggle writes through to the API, and the
- * "my badges" list renders the caller's issued assertions.
+ * Test web cho mảng tương tác (Testing Library): hai hành vi sát DoD —
+ * một nút gạt tuỳ chọn thông báo ghi thẳng xuống API, và danh sách
+ * "huy hiệu của tôi" hiển thị các assertion đã cấp của chính người gọi.
  */
 const PROFILE = {
   id: '01900000-0000-7000-8000-000000000007',
@@ -381,7 +381,7 @@ describe('Badges page', () => {
         </PermissionsProvider>
       </TestProviders>,
     );
-    // Wait for the issued list itself (it loads after the auth profile resolves).
+    // Chờ chính danh sách đã cấp (nó tải sau khi hồ sơ auth được phân giải).
     expect(await screen.findByText(/Old honour \(đã thu hồi\)/)).toBeInTheDocument();
     expect(screen.getByText(/bản ghi abcdef012345/)).toBeInTheDocument();
     expect(screen.queryByText('Quản trị huy hiệu')).not.toBeInTheDocument();

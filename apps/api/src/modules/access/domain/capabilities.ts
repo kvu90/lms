@@ -3,14 +3,14 @@ export interface CapabilityDefinition {
   capType: 'read' | 'write';
   contextLevel: number;
   component: string;
-  /** Default permission per role archetype, seeded as overrides at the system context. */
+  /** Quyền mặc định theo từng archetype của role, được seed dưới dạng override tại context hệ thống. */
   archetypes: Partial<Record<string, number>>;
 }
 import { CAP_ALLOW } from './permission';
 
 const ALL_STAFF = { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW };
 
-/** Capability registry — definitions live in code (like Moodle db/access.php), rows are synced into `capabilities`. */
+/** Registry capability — các định nghĩa nằm trong code (giống db/access.php của Moodle), các dòng được đồng bộ vào `capabilities`. */
 export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'site:config', capType: 'write', contextLevel: 10, component: 'core', archetypes: { manager: CAP_ALLOW } },
   // Multi-tenant (TENANT-0, #168): `tenant:manage` tại context HỆ THỐNG là
@@ -33,7 +33,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'files:view', capType: 'read', contextLevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'files:upload', capType: 'write', contextLevel: 50, component: 'core_files', archetypes: { ...ALL_STAFF, student: CAP_ALLOW } },
   { name: 'customfield:manage', capType: 'write', contextLevel: 10, component: 'core_customfield', archetypes: { manager: CAP_ALLOW } },
-  // Course & Enrolment
+  // Khoá học & Ghi danh
   { name: 'category:manage', capType: 'write', contextLevel: 40, component: 'core_course', archetypes: { manager: CAP_ALLOW } },
   { name: 'course:create', capType: 'write', contextLevel: 40, component: 'core_course', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW } },
   { name: 'course:update', capType: 'write', contextLevel: 50, component: 'core_course', archetypes: { manager: CAP_ALLOW, coursecreator: CAP_ALLOW, editingteacher: CAP_ALLOW } },
@@ -67,7 +67,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'enrol:manage', capType: 'write', contextLevel: 50, component: 'core_enrol', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'completion:manage', capType: 'write', contextLevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'completion:markothers', capType: 'write', contextLevel: 50, component: 'core_completion', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
-  // Assessment (Grades / Questions)
+  // Đánh giá (Điểm / Câu hỏi)
   { name: 'grade:manage', capType: 'write', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW } },
   { name: 'grade:edit', capType: 'write', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'grade:viewall', capType: 'read', contextLevel: 50, component: 'core_grades', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
@@ -141,7 +141,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   // Curriculum (GDPT 2018, port từ giaokhoa — neo tại context của môn học)
   { name: 'curriculum:view', capType: 'read', contextLevel: 10, component: 'core_curriculum', archetypes: { ...ALL_STAFF } },
   { name: 'curriculum:manage', capType: 'write', contextLevel: 10, component: 'core_curriculum', archetypes: { manager: CAP_ALLOW } },
-  // Communication & Engagement
+  // Giao tiếp & Tương tác
   { name: 'site:sendmessage', capType: 'write', contextLevel: 30, component: 'core_message', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   // Kiểm duyệt nội dung trao đổi (vòng đời tin nhắn theo vai, issue #33):
   // cổng cho thao tác xoá CỨNG/gỡ hàng loạt tin nhắn — staff khoá tại
@@ -171,7 +171,7 @@ export const CAPABILITY_DEFINITIONS: CapabilityDefinition[] = [
   { name: 'notes:create', capType: 'write', contextLevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'notes:view', capType: 'read', contextLevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW, editingteacher: CAP_ALLOW, teacher: CAP_ALLOW } },
   { name: 'notes:manage', capType: 'write', contextLevel: 50, component: 'core_notes', archetypes: { manager: CAP_ALLOW } },
-  // Platform Services
+  // Dịch vụ nền tảng
   { name: 'search:use', capType: 'read', contextLevel: 10, component: 'core_search', archetypes: { ...ALL_STAFF, student: CAP_ALLOW, user: CAP_ALLOW } },
   // Vá H2+H5 (sổ rà soát gác quyền #134): ghi/xoá/reindex chỉ mục tìm kiếm là
   // thao tác bảo trì toàn hệ (index-raw cho phép chèn tài liệu tuỳ ý) — chỉ

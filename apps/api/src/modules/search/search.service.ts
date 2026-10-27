@@ -36,7 +36,7 @@ export class PostgresSearchEngine implements SearchEngine {
 }
 
 /**
- * SearchModule facade (Moodle core_search, §2#17).
+ * Facade của SearchModule (Moodle core_search, §2#17).
  * Bất biến: kết quả PHẢI lọc theo quyền của người tìm TẠI THỜI ĐIỂM TRUY VẤN
  * qua PermissionEvaluator, và re-check lần cuối khi trả kết quả — kể cả khi
  * index còn sót tài liệu (index stale không bao giờ được rò ra ngoài).

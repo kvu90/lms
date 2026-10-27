@@ -20,6 +20,10 @@ interface PaperSlotView {
   questionName: string | null;
   qtype: string | null;
   pinnedVersionNumber: number | null;
+  /** Số version ready mới nhất của câu trong ngân hàng (null khi chưa có bản ready). */
+  latestReadyVersionNumber: number | null;
+  /** Huy hiệu "có bản ready mới" (issue #254): slot đang ghim version cũ hơn bản ready mới nhất của câu. */
+  hasNewerVersion: boolean;
   maxMark: number;
   clusterId: string | null;
   /** Ô ma trận nguồn (EB-2) — có ở đề sinh từ ma trận; neo swap-cùng-ô. */
@@ -66,6 +70,9 @@ interface SlotDraft {
   maxMark: string;
   section: string;
   pinnedVersionNumber: number | null;
+  /** Số version ready mới nhất của câu + cờ có bản mới (chỉ để hiện huy hiệu, không gửi lên khi lưu). */
+  latestReadyVersionNumber: number | null;
+  hasNewerVersion: boolean;
   /** Ô ma trận nguồn (EB-2): slot có trường này thì đổi câu bằng swap-cùng-ô. */
   matrixCellId?: string | null;
 }
@@ -127,6 +134,8 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         maxMark: String(s.maxMark),
         section: s.section,
         pinnedVersionNumber: s.pinnedVersionNumber,
+        latestReadyVersionNumber: s.latestReadyVersionNumber,
+        hasNewerVersion: s.hasNewerVersion,
         matrixCellId: s.matrixCellId,
       })));
     } catch (err) {
@@ -163,6 +172,8 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         maxMark: String(s.maxMark),
         section: s.section,
         pinnedVersionNumber: s.pinnedVersionNumber,
+        latestReadyVersionNumber: s.latestReadyVersionNumber,
+        hasNewerVersion: s.hasNewerVersion,
         matrixCellId: s.matrixCellId,
       })));
       setSwapPosition(null);
@@ -202,7 +213,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   function addQuestion(item: DiscoveryItemLite) {
     setSlots((prev) => (prev.some((s) => s.questionId === item.questionId)
       ? prev
-      : [...prev, { questionId: item.questionId, questionName: item.name, maxMark: '1', section: '', pinnedVersionNumber: null }]));
+      : [...prev, { questionId: item.questionId, questionName: item.name, maxMark: '1', section: '', pinnedVersionNumber: null, latestReadyVersionNumber: null, hasNewerVersion: false }]));
   }
 
   function moveSlot(index: number, delta: number) {
@@ -352,6 +363,11 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                       {slot.pinnedVersionNumber != null ? (
                         <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
                           {t('examSlotPinned', { version: slot.pinnedVersionNumber })}
+                        </span>
+                      ) : null}
+                      {slot.hasNewerVersion && slot.latestReadyVersionNumber != null ? (
+                        <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
+                          {t('examSlotHasNewer', { version: slot.latestReadyVersionNumber })}
                         </span>
                       ) : null}
                     </span>

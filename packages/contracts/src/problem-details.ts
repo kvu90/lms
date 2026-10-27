@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { matrixImportIssueSchema } from './assessment.js';
 
-/** RFC 7807 Problem Details — the single error shape for the whole API. */
+/** Problem Details theo RFC 7807 — shape lỗi duy nhất cho toàn bộ API. */
 export const problemDetailsSchema = z.object({
   type: z.string().min(1),
   title: z.string().min(1),

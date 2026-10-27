@@ -8,7 +8,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { FilesService } from '../files/files.service';
-import { BEHAVIOURS, canTransition, gradedStateForFraction, usageState, type GradingData, type QuestionState } from './domain/question-engine';
+import { BEHAVIOURS, canTransition, gradeAnswer, gradedStateForFraction, usageState, type GradingData, type GradeOutcome, type QuestionState } from './domain/question-engine';
 import {
   QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
   type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
@@ -123,12 +123,12 @@ function badAnswerData(message: string): BadRequestException {
 }
 
 /**
- * QuestionsModule facade (Moodle core_question): BANK + ENGINE.
+ * Facade của QuestionsModule (core_question của Moodle): BANK + ENGINE.
  *
- * Bank invariants: editing a question NEVER mutates a version — it creates
- * the next version (with its own answers/options rows) and moves the bank
- * entry's latest pointer; usages created later resolve the new version,
- * attempts already started keep theirs.
+ * Bất biến bank: sửa một câu hỏi KHÔNG BAO GIỜ thay đổi một version — nó tạo
+ * version tiếp theo (với dòng answers/options riêng) và di chuyển con trỏ
+ * latest của bank entry; usage tạo sau đó phân giải version mới,
+ * attempt đã bắt đầu giữ version của chúng.
  *
  * Lưu trữ nội dung theo mô hình giaokhoa (quyết 12:04 + 12:12 ngày
  * 26/10/2026): đáp án nằm ở question_answers (cờ `isCorrect` nhị phân +
@@ -139,11 +139,11 @@ function badAnswerData(message: string): BadRequestException {
  * KHÔNG có tên — nhãn hiển thị là trích đoạn nội dung. API nhận MỘT
  * payload cấu trúc theo qtype; service bung payload ra các bảng khi lưu.
  *
- * Engine invariants (questionusagebyactivity_test): a usage groups attempts
- * per (component, instanceId); starting an attempt PINS the current latest
- * version; every transition writes a step (with step_data for responses);
- * deferredfeedback grades at finish against the PINNED version's answers
- * and options; the usage state is a rollup of its attempts.
+ * Bất biến engine (questionusagebyactivity_test): một usage nhóm các attempt
+ * theo (component, instanceId); bắt đầu một attempt PIN version latest hiện tại;
+ * mọi chuyển đổi đều ghi một step (với step_data cho response);
+ * deferredfeedback chấm khi kết thúc theo answers của version ĐÃ PIN
+ * và options; trạng thái usage là tổng hợp của các attempt của nó.
  */
 @Injectable()
 /**
@@ -162,8 +162,8 @@ export class QuestionsService {
   ) {}
 
   private async requireCap(actorId: string, capability: string, contextId: string): Promise<void> {
-    // Question contexts in this core are course/system contexts; the seeded
-    // archetypes live at those levels and the evaluator walks the tree.
+    // Context câu hỏi trong lõi này là context khoá học/hệ thống; các archetype
+    // đã seed sống ở các cấp đó và evaluator đi dọc cây.
     await this.evaluator.requireCapability(actorId, capability, contextId);
   }
   // --- bank: cổng đọc (issue #55) -------------------------------------------
@@ -968,7 +968,7 @@ export class QuestionsService {
     return { version, answers, answerKey, options };
   }
 
-  /** Editing creates a NEW version; existing versions (and attempts pinned to them) are untouched. */
+  /** Sửa tạo một version MỚI; version hiện có (và attempt pin vào chúng) không bị chạm. */
   /**
    * Sửa câu hỏi = tạo version mới và nâng latestVersion của entry. Phần
    * đáp án/options không được gửi lên thì nhân bản nguyên từ version trước
@@ -1520,7 +1520,7 @@ export class QuestionsService {
     await this.requireNotLockedByQuizAttempt(usageId);
   }
 
-  /** Start an attempt: PIN the bank entry's current latest version. */
+  /** Bắt đầu một attempt: PIN version latest hiện tại của bank entry. */
   /**
    * Bắt đầu attempt cho một slot: pin version hiện tại của câu hỏi.
    */
@@ -1550,7 +1550,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Submit a response (deferredfeedback: stored as a step, NOT graded yet). */
+  /** Nộp một response (deferredfeedback: lưu thành một step, CHƯA chấm). */
   /**
    * Nộp câu trả lời: ghi step, chấm theo behaviour, cập nhật trạng thái/fraction.
    */
@@ -1568,7 +1568,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Finish one attempt: grade against the PINNED version (never the latest). */
+  /** Kết thúc một attempt: chấm theo version ĐÃ PIN (không bao giờ là latest). */
   /**
    * Kết thúc một attempt: chấm theo answers/options của version ĐÃ PIN
    * (essay về needsgrading với fraction null, chờ chấm tay).
@@ -1606,7 +1606,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Finish every attempt in a usage (deferredfeedback grading point) and emit the usage event. */
+  /** Kết thúc mọi attempt trong một usage (điểm chấm của deferredfeedback) và phát sự kiện usage. */
   /**
    * Kết thúc toàn bộ usage: mọi attempt về trạng thái finished.
    */
@@ -1652,7 +1652,168 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Start all attempts of a usage (questionusagebyactivity_test::start_all_questions). */
+  /**
+   * Tính thử kết quả chấm lại của một question attempt theo dữ kiện chấm
+   * của một version ĐÍCH (issue #254 — đường chấm lại theo đáp án): chấm
+   * lại CHÍNH response đã lưu trong các step của attempt bằng
+   * `gradeAnswer` với dữ liệu chấm của version đích — KHÔNG ghi gì xuống
+   * DB. Dry-run ở tầng quiz và đường áp thật dùng chung đúng phép tính
+   * này (qua {@link regradeAttemptWithVersion}) nên điểm xem trước khớp
+   * tuyệt đối điểm sau khi áp.
+   *
+   * Điều kiện (ném BadRequestException): attempt phải ĐÃ được chấm tự
+   * động (trạng thái gradedright/gradedpartial/gradedwrong/gaveup —
+   * essay chờ chấm tay hoặc đã chấm tay không thuộc đường này), version
+   * đích phải thuộc đúng câu của attempt và đang ở trạng thái `ready`.
+   *
+   * @param attemptId - Question attempt cần tính thử.
+   * @param toVersionId - Version đích (bản đã sửa đáp án) để chấm lại theo.
+   * @param tfScale - Thang Đ–S của lần ghim (cấu hình của lần ghim, như lúc chốt usage).
+   * @returns Version đang ghim, version đích, fraction/trạng thái hiện tại và sau chấm lại.
+   */
+  async previewRegradeAttempt(attemptId: string, toVersionId: string, tfScale?: readonly number[] | null): Promise<{
+    fromVersionId: string; toVersionId: string;
+    oldFraction: number | null; oldState: string;
+    newFraction: number | null; newState: string;
+  }> {
+    const attempt = await this.getAttempt(attemptId);
+    const computed = await this.computeRegradeOutcome(attempt, toVersionId, tfScale);
+    return {
+      fromVersionId: attempt.questionVersionId!,
+      toVersionId,
+      oldFraction: attempt.fraction,
+      oldState: attempt.state,
+      newFraction: computed.outcome.fraction,
+      newState: computed.outcome.state,
+    };
+  }
+
+  /**
+   * Chấm lại thật một question attempt theo version đích (issue #254):
+   * cùng phép tính với {@link previewRegradeAttempt}, sau đó GHI —
+   * fraction/trạng thái/rightAnswer mới và attempt CHUYỂN GHIM sang
+   * version đích (từ đây attempt đứng trên bản đã sửa đáp án). Việc
+   * chấm lại được ghi thành một step hiệu chỉnh mang step-data
+   * `regradedBy`/`fromVersionId`/`toVersionId` trong lịch sử attempt.
+   * Đây là bước HIỆU CHỈNH chứ không phải chuyển trạng thái vòng đời
+   * (đúng ngữ nghĩa regrade của Moodle: append step vào attempt đã
+   * graded) nên KHÔNG đi qua máy chuyển trạng thái `canTransition` —
+   * các trạng thái graded* vốn không có cạnh ra trong máy đó.
+   *
+   * @param graderId - Người thực hiện chấm lại (ghi vào step).
+   * @param attemptId - Question attempt cần chấm lại.
+   * @param toVersionId - Version đích (bản đã sửa đáp án, phải `ready`).
+   * @param tfScale - Thang Đ–S của lần ghim.
+   * @returns Attempt sau chấm lại kèm fraction trước/sau để tầng gọi đồng bộ điểm.
+   */
+  async regradeAttemptWithVersion(graderId: string, attemptId: string, toVersionId: string, tfScale?: readonly number[] | null): Promise<{
+    attempt: AttemptView; fromVersionId: string; oldFraction: number | null; newFraction: number | null;
+  }> {
+    const attempt = await this.getAttempt(attemptId);
+    const computed = await this.computeRegradeOutcome(attempt, toVersionId, tfScale);
+    const fromVersionId = attempt.questionVersionId!;
+    const oldFraction = attempt.fraction;
+    await this.repo.updateAttempt(attempt.id, {
+      state: computed.outcome.state,
+      fraction: computed.outcome.fraction,
+      rightAnswer: computed.outcome.rightAnswer,
+      questionVersionId: toVersionId,
+    });
+    const updated = await this.getAttempt(attempt.id);
+    await this.appendStep(updated, graderId, computed.outcome.state, computed.outcome.fraction, {
+      regradedBy: graderId, fromVersionId, toVersionId,
+    });
+    const usage = await this.getUsage(attempt.questionUsageId);
+    return {
+      attempt: usage.attempts.find((a) => a.id === attemptId)!,
+      fromVersionId, oldFraction, newFraction: computed.outcome.fraction,
+    };
+  }
+
+  /**
+   * Phép tính chấm lại dùng chung cho xem thử và áp thật: kiểm điều
+   * kiện của đường chấm lại theo đáp án rồi chấm response đã lưu theo
+   * dữ kiện chấm của version đích. Response trống (lượt bỏ trống câu)
+   * giữ ngữ nghĩa như lúc chốt usage: gaveup với fraction 0.
+   */
+  private async computeRegradeOutcome(attempt: AttemptRow, toVersionId: string, tfScale?: readonly number[] | null): Promise<{ outcome: GradeOutcome }> {
+    if (!['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'].includes(attempt.state)) {
+      throw new BadRequestException({
+        message: `Question attempt ${attempt.id} is not auto-graded yet (state ${attempt.state}); only auto-graded attempts can be regraded against a corrected version`,
+        code: 'question.attempt_not_graded',
+      });
+    }
+    if (!attempt.questionVersionId) {
+      throw new BadRequestException({ message: 'Attempt has no pinned version', code: 'question.no_version' });
+    }
+    const q = await this.repo.getQuestion(attempt.questionId);
+    if (q?.qtype === 'essay') {
+      throw new BadRequestException({
+        message: 'Essay attempts are graded manually and cannot be regraded against an answer key',
+        code: 'question.regrade_not_supported',
+      });
+    }
+    const version = await this.repo.getVersion(toVersionId);
+    if (!version || version.questionId !== attempt.questionId) {
+      throw new NotFoundException({ message: `Question version ${toVersionId} not found for question ${attempt.questionId}`, code: 'question.version_not_found' });
+    }
+    if (version.status !== 'ready') {
+      throw new BadRequestException({
+        message: `Question version ${toVersionId} is not ready (status ${version.status}); regrading needs the corrected ready version`,
+        code: 'question.regrade_version_not_ready',
+      });
+    }
+    const rawResponse = await this.latestResponse(attempt.id);
+    if (rawResponse === null || rawResponse.trim() === '') {
+      return { outcome: { fraction: 0, state: 'gaveup', rightAnswer: attempt.rightAnswer ?? '' } };
+    }
+    // Dịch response sang version đích trước khi chấm: response của
+    // multichoice lưu ID DÒNG ĐÁP ÁN của version đã ghim, mà mỗi
+    // version sinh id dòng mới — chấm thẳng theo id sẽ không bao giờ
+    // khớp. Lựa chọn của học sinh được hiểu theo NỘI DUNG đáp án đã
+    // chọn: tra id cũ → text → id của dòng mang cùng text ở version
+    // đích (đáp án đã bị xoá/đổi chữ ở version đích thì lựa chọn đó
+    // không còn tương ứng — tính như chọn đáp án không đúng).
+    // shortanswer (văn bản thuần) và truefalse TF-A (bản đồ
+    // statementId → Đ/S, statementId nằm trong thân câu và được giữ
+    // qua các version) không cần dịch.
+    const response = q?.qtype === 'multichoice'
+      ? await this.translateMultichoiceResponse(attempt.questionVersionId, version.id, rawResponse)
+      : rawResponse;
+    const gradingData = await this.gradingDataFor(version, q?.qtype ?? '', tfScale);
+    return { outcome: gradeAnswer(q?.qtype ?? '', gradingData, response) };
+  }
+
+  /**
+   * Dịch response multichoice (danh sách id dòng đáp án đã chọn, ngăn
+   * bằng dấu phẩy) từ version nguồn sang version đích theo nội dung
+   * text của đáp án (chuẩn hoá NFC + cắt khoảng trắng hai đầu, cùng
+   * chuẩn so khớp nội dung của hệ). Id không tra được ở version nguồn
+   * hoặc text không còn ở version đích bị loại khỏi danh sách đã dịch.
+   */
+  private async translateMultichoiceResponse(fromVersionId: string, toVersionId: string, response: string): Promise<string> {
+    const [fromAnswers, toAnswers] = await Promise.all([
+      this.repo.listAnswers(fromVersionId),
+      this.repo.listAnswers(toVersionId),
+    ]);
+    const normalise = (value: string): string => value.normalize('NFC').trim();
+    const toIdByText = new Map<string, string>();
+    for (const a of toAnswers) {
+      const text = normalise(extractRichTextPlainText(a.answer as RichTextDocument));
+      if (!toIdByText.has(text)) toIdByText.set(text, a.id);
+    }
+    const fromById = new Map(fromAnswers.map((a) => [a.id, a]));
+    const mapped: string[] = [];
+    for (const id of response.split(',').map((x) => x.trim()).filter((x) => x !== '')) {
+      const from = fromById.get(id);
+      if (!from) continue;
+      const toId = toIdByText.get(normalise(extractRichTextPlainText(from.answer as RichTextDocument)));
+      if (toId) mapped.push(toId);
+    }
+    return mapped.join(',');
+  }
+
+  /** Bắt đầu mọi attempt của một usage (questionusagebyactivity_test::start_all_questions). */
   /**
    * Bắt đầu usage (ủy quyền nội bộ).
    */

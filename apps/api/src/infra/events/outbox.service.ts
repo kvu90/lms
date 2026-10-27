@@ -12,15 +12,15 @@ export interface OutboxEventInput {
   tenantId?: string | null;
 }
 
-/** The minimal transaction surface OutboxService needs (a Drizzle tx). */
+/** Bề mặt transaction tối thiểu mà OutboxService cần (một tx của Drizzle). */
 export interface OutboxTx {
   insert: Database['insert'];
 }
 
 /**
- * Transactional outbox (self-built): the event row is written in the
- * SAME database transaction as the business change. If the transaction rolls
- * back, no event row exists and nothing can ever be published.
+ * Outbox giao dịch (tự dựng): dòng sự kiện được ghi trong CÙNG
+ * transaction cơ sở dữ liệu với thay đổi nghiệp vụ. Nếu transaction bị rollback
+ * thì không tồn tại dòng sự kiện nào và không gì có thể được phát đi.
  */
 @Injectable()
 export class OutboxService {
@@ -45,7 +45,7 @@ export class OutboxService {
     });
   }
 
-  /** Convenience: enqueue in its own short transaction. */
+  /** Hàm tiện ích: đưa vào hàng đợi trong một transaction ngắn riêng. */
   async enqueueStandalone(input: OutboxEventInput): Promise<void> {
     await this.db.transaction(async (tx) => {
       await this.enqueue(tx as OutboxTx, input);

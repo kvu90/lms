@@ -93,6 +93,22 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   { component: 'mod_quiz', name: 'omrblankdensity', type: 'number', defaultValue: 0.16, scope: 'platform' },
   { component: 'mod_quiz', name: 'omrminmargin', type: 'number', defaultValue: 0.1, scope: 'platform' },
   { component: 'mod_quiz', name: 'paperscanretentionmonths', type: 'number', defaultValue: 18, scope: 'platform' },
+  // GIÁ GÓI (lát 2, issue #189): giá bán gói trung tâm (`tenantplan`) và
+  // gói giáo viên (`teacherplan`) cùng độ dài chu kỳ mặc định của mỗi
+  // gói (đơn vị NGÀY). Đây là CẤU HÌNH HỆ THỐNG — quản trị chỉnh trong
+  // bề mặt Cài đặt hệ thống, TUYỆT ĐỐI không ghim cứng giá trong code:
+  // `defaultValue` ở đây chỉ là giá trị KHỞI TẠO lúc chưa có ghi đè nào
+  // trong cơ sở dữ liệu. Luồng mua gói đọc giá trị hiệu lực tại thời
+  // điểm tạo payment và GHI VẾT giá + chu kỳ đã áp vào chính bản ghi
+  // payment (trường `data`), nên đổi giá chỉ ảnh hưởng khoản thu tạo
+  // sau — không cần triển khai lại và không sửa giá của khoản thu cũ.
+  // Đơn vị giá: đồng Việt Nam (số nguyên như mọi amount của payments).
+  // scope platform: giá gói là chính sách của platform (bên thu tiền
+  // gói), tenant không tự ghi đè giá của gói mình mua.
+  { component: 'payments', name: 'tenantplanprice', type: 'number', defaultValue: 6000000, scope: 'platform' },
+  { component: 'payments', name: 'tenantplanperioddays', type: 'number', defaultValue: 365, scope: 'platform' },
+  { component: 'payments', name: 'teacherplanprice', type: 'number', defaultValue: 990000, scope: 'platform' },
+  { component: 'payments', name: 'teacherplanperioddays', type: 'number', defaultValue: 365, scope: 'platform' },
   // Chính sách phát thông báo theo loại ở cấp site (NB-7, issue #174 —
   // quyết của Lão gia 23:09 ngày 25/10/2026: "loại sự kiện nào thì gửi
   // thông báo" là cài đặt của ADMIN): MỘT khoá boolean cho MỖI provider

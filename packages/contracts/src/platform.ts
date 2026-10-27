@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
 
-/** Platform Services contracts — shapes shared between api and web. */
+/** Contract Dịch vụ nền tảng — các shape dùng chung giữa api và web. */
 
 /* ---- Search ---- */
 export const searchDocumentSchema = z.object({
@@ -14,7 +14,7 @@ export const searchDocumentSchema = z.object({
 });
 export type SearchDocument = z.infer<typeof searchDocumentSchema>;
 
-/* ---- Web Services ---- */
+/* ---- Dịch vụ web ---- */
 export const externalServiceSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
@@ -164,7 +164,14 @@ export const paymentSchema = z.object({
   /** Số tiền nguyên ở đơn vị nhỏ nhất — không bao giờ là float. */
   amount: z.number().int().positive(),
   currency: z.string().length(3),
-  status: z.enum(['pending', 'succeeded', 'failed', 'refunded']),
+  /**
+   * Vòng đời payment: `needs_review` là trạng thái chờ người xử lý khi
+   * tiền về nhưng không khớp đủ 3 điều kiện đối soát của issue #189
+   * (đúng mã thanh toán + đúng số tiền + đúng tài khoản nhận) — thiếu
+   * trạng thái này, mọi bề mặt parse qua schema sẽ từ chối payment
+   * đang chờ đối soát dù DB và API đều mang trạng thái đó hợp lệ.
+   */
+  status: z.enum(['pending', 'succeeded', 'failed', 'refunded', 'needs_review']),
   gateway: z.string(),
 });
 export type Payment = z.infer<typeof paymentSchema>;
@@ -179,7 +186,7 @@ export const privacyRequestSchema = z.object({
 export type PrivacyRequest = z.infer<typeof privacyRequestSchema>;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất cho validation ở
- * API qua Standard Schema và cho form phía React) ---- */
+ * API qua Standard Schema và cho form phía React; xem ADR về Zod-only) ---- */
 
 /** Payload lập chỉ mục một item của một search area đã đăng ký. */
 export const searchIndexItemSchema = z.strictObject({
@@ -266,7 +273,7 @@ export type CreateReport = z.infer<typeof createReportSchema>;
 export const createReportScheduleSchema = z.strictObject({ cron: z.string().optional() });
 export type CreateReportSchedule = z.infer<typeof createReportScheduleSchema>;
 
-/* ---- Event log (logstore) ---- */
+/* ---- Nhật ký sự kiện (logstore) ---- */
 
 /**
  * Bộ lọc truy vấn nhật ký sự kiện (báo cáo "ai đã làm gì"): `userId` là
@@ -397,6 +404,40 @@ export const createRefundSchema = z.strictObject({
   externalTransactionId: z.string().optional(),
 });
 export type CreateRefund = z.infer<typeof createRefundSchema>;
+
+/** Loại gói bán qua pipeline thanh toán (lát 2, issue #189): gói trung
+ * tâm (`tenant_plan` — bên hưởng là một tenant) và gói giáo viên
+ * (`teacher_plan` — bên hưởng là một người dùng giáo viên). Giá của mỗi
+ * gói KHÔNG nằm trong code: giá hiệu lực đọc từ cấu hình hệ thống
+ * (component `payments`, khoá `tenantplanprice` / `teacherplanprice`)
+ * tại thời điểm tạo khoản thu. */
+export const planComponentSchema = z.enum(['tenant_plan', 'teacher_plan']);
+export type PlanComponent = z.infer<typeof planComponentSchema>;
+
+/** Payload mua/nâng gói: bên gọi chỉ chọn LOẠI gói — số tiền luôn do
+ * hệ thống quyết từ cấu hình giá tại thời điểm giao dịch, không nhận
+ * amount từ client. */
+export const purchasePlanSchema = z.strictObject({
+  component: planComponentSchema,
+});
+export type PurchasePlan = z.infer<typeof purchasePlanSchema>;
+
+/** Quyền lợi gói đã kích hoạt: cửa sổ hiệu lực [startsAt, expiresAt)
+ * sinh từ một payment gói thành công; `userId` chỉ có ở `teacher_plan`
+ * (gói trung tâm hưởng theo `tenantId`, userId = null). Hoàn đủ tiền
+ * của payment sinh ra nó thì trạng thái chuyển `suspended`. */
+export const planEntitlementSchema = z.object({
+  id: uuidIdSchema,
+  tenantId: uuidIdSchema,
+  userId: uuidIdSchema.nullable(),
+  component: planComponentSchema,
+  paymentId: uuidIdSchema,
+  startsAt: z.string(),
+  expiresAt: z.string(),
+  status: z.enum(['active', 'suspended']),
+  createdAt: z.string(),
+});
+export type PlanEntitlement = z.infer<typeof planEntitlementSchema>;
 
 /** Payload người dùng tự gửi yêu cầu privacy cho chính mình. */
 export const createPrivacyRequestSchema = z.strictObject({

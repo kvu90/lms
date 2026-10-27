@@ -10,9 +10,9 @@ import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 
 /**
- * Idempotent bootstrap seed: system context, capability registry, standard
- * Moodle core roles + archetype defaults, the special guest account, and the
- * initial site administrator (from env) with the manager role + siteadmins.
+ * Seed khởi tạo có tính idempotent: context hệ thống, registry capability, các role
+ * core chuẩn của Moodle + giá trị mặc định theo archetype, tài khoản guest đặc biệt, và
+ * admin đầu tiên của site (từ env) với role manager + siteadmins.
  */
 @Injectable()
 /**
