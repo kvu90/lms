@@ -980,32 +980,55 @@ export class PaymentsService {
   /**
    * Khâu xác nhận chi dùng chung cho xác nhận TAY (settleRefund) và
    * xác nhận TỰ ĐỘNG qua sự kiện `debit` (settleRefundFromDebitEvent).
-   * Thứ tự bất biến: đình chỉ quyền lợi TRƯỚC (khi đạt 100%), ghi dòng
-   * hoàn `settled` + lật khoản thu `refunded` SAU trong một
-   * transaction có khoá dòng khoản thu. Hoàn một phần: không đình chỉ,
-   * khoản thu giữ `succeeded`.
+   *
+   * Toàn bộ quyết định chạy trong MỘT transaction mở đầu bằng khoá
+   * dòng khoản thu (`FOR UPDATE`). Khoá này tuần tự hoá mọi lượt xác
+   * nhận chi trên cùng khoản thu — kể cả hai đường tay/`debit` chạy
+   * song song — nên từng bước dưới đây luôn thấy trạng thái đã chốt
+   * của lượt trước:
+   *  1. Đọc lại dòng hoàn DƯỚI khoá: đã `settled` (lượt đua thắng đã
+   *     ghi) thì trả nguyên dòng đó, không ghi thêm; không còn
+   *     `approved` thì ném `payment.refund_not_approved` TRƯỚC mọi
+   *     đình chỉ — không bao giờ đình chỉ oan cho một khoản hoàn
+   *     không được ghi.
+   *  2. Tính lại tổng đã `settled` DƯỚI khoá: lần xác nhận này có
+   *     làm cộng dồn đạt 100% hay không được quyết định TẠI ĐÂY,
+   *     không dựa vào bất kỳ lượt đọc ngoài khoá nào. (Quyết định
+   *     đình chỉ bằng tổng đọc ngoài khoá là khe đồng thời: hai
+   *     dòng hoàn bù nhau — ví dụ 60.000 + 40.000 trên khoản
+   *     100.000 — cùng xác nhận chi một lúc đều đọc tổng settled
+   *     bằng 0, không lượt nào đình chỉ, nhưng transaction vào sau
+   *     vẫn lật khoản thu `refunded` và ghi `reversal.applied =
+   *     true` trong khi quyền lợi chưa hề bị đình chỉ — tiền đã
+   *     ghi hoàn mà quyền lợi vẫn chạy.)
+   *  3. Đạt 100% theo tổng đã khoá thì đình chỉ quyền lợi
+   *     (idempotent) TRƯỚC khi ghi: đình chỉ ném lỗi ⇒ transaction
+   *     huỷ, chưa ghi gì, gọi lại được. Chưa đạt thì ghi mà không
+   *     đình chỉ.
+   *  4. Ghi dòng hoàn `settled` (+ lật khoản thu `refunded` khi đạt
+   *     100%) trong cùng transaction rồi commit.
+   * Hoàn một phần: không đình chỉ, khoản thu giữ `succeeded`.
    */
   private async applyRefundSettlement(input: {
     payment: PaymentRow; refund: RefundRow; externalTransactionId: string;
     settledBy: string | null; settledEventId: string | null; suspensionActorId: string;
   }): Promise<RefundRow> {
     const { payment, refund } = input;
-    const settledBefore = await this.repo.sumRefundsByStatuses(payment.id, ['settled']);
-    const willBeFull = settledBefore + refund.amount === payment.amount;
-    if (willBeFull) {
-      // Đình chỉ trước mọi ghi sổ: lỗi tại đây ⇒ chưa ghi gì, gọi lại được.
-      await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment);
-    }
     const now = new Date();
     const settled = await this.repo.dbHandle.transaction(async (tx) => {
       await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
-      const fresh = await this.repo.getRefund(refund.id);
+      const fresh = await this.repo.getRefund(refund.id, tx as never);
       if (!fresh || fresh.status === 'settled') return fresh ?? refund;
       if (fresh.status !== 'approved') {
         throw new BadRequestException({ message: 'Refund is not approved for settlement', code: 'payment.refund_not_approved' });
       }
       const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx as never);
       const full = settledSum + fresh.amount === payment.amount;
+      if (full) {
+        // Đình chỉ trước mọi ghi sổ, theo đúng tổng đã khoá ở trên:
+        // lỗi tại đây ⇒ transaction huỷ trước khi ghi, gọi lại được.
+        await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment);
+      }
       const data = { ...((fresh.data ?? {}) as Record<string, unknown>), reversal: { applied: full, at: now.toISOString() } };
       const updated = await this.repo.updateRefund(fresh.id, {
         status: 'settled', settledAt: now,

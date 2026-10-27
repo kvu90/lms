@@ -61,8 +61,8 @@ export class PaymentsRepository {
   }
 
   // --- Vòng đời hoàn tiền (lát 3, issue #189) ------------------------------
-  async getRefund(id: string): Promise<RefundRow | undefined> {
-    const [row] = await this.db.select().from(paymentRefunds).where(eq(paymentRefunds.id, id)); return row;
+  async getRefund(id: string, tx?: DbTx): Promise<RefundRow | undefined> {
+    const [row] = await (tx ?? this.db).select().from(paymentRefunds).where(eq(paymentRefunds.id, id)); return row;
   }
   async updateRefund(id: string, v: Partial<typeof paymentRefunds.$inferInsert>, tx?: DbTx): Promise<RefundRow> {
     const [row] = await (tx ?? this.db).update(paymentRefunds).set({ ...v, updatedAt: new Date() })
