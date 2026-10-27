@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { createGuardianLinkSchema, guardianDigestPreferenceSchema, type CreateGuardianLinkDto, type GuardianDigestPreferenceDto } from './dto/guardians.dto';
 import { GuardianDigestService } from './guardian-digest.service';
 import { GuardianViewService } from './guardian-view.service';
@@ -77,7 +78,13 @@ export class GuardianLinksController {
  * CHÍNH phụ huynh cho con mình (dữ liệu của phụ huynh, không phải dữ
  * liệu của con — cùng ngoại lệ với mốc xem trước của PH-1).
  *
- * Bảng route giữ nguyên từng ký tự so với trước khi hợp nhất hai lớp.
+ * Bảng route giữ nguyên từng ký tự so với trước khi hợp nhất hai lớp,
+ * trừ một ngoại lệ làm phẳng của issue #346: path gradebook của phụ
+ * huynh từ `students/:studentId/courses/:courseId/gradebook` (3 cấp
+ * tài nguyên dưới gốc `guardian`) chuyển thành
+ * `students/:studentId/gradebooks/:courseId` (2 cấp); path cũ giữ lại
+ * dưới dạng handler alias kèm header Deprecation/Sunset và log alias,
+ * uỷ quyền nguyên vẹn cho cùng logic đọc điểm đã công bố.
  */
 export class GuardianController {
   constructor(
@@ -86,11 +93,25 @@ export class GuardianController {
     private readonly digests: GuardianDigestService,
   ) {}
 
-  @Get('students/:studentId/courses/:courseId/gradebook')
+  @Get('students/:studentId/gradebooks/:courseId')
   /**
-   * GET /guardian/students/:studentId/courses/:courseId/gradebook — điểm theo từng bài đã công bố của con trong khoá.
+   * GET /guardian/students/:studentId/gradebooks/:courseId — điểm theo từng bài đã công bố của con trong khoá.
    */
   async gradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.guardians.studentGradebook(actor.id, studentId, courseId);
+  }
+
+  @Get('students/:studentId/courses/:courseId/gradebook')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * GET /guardian/students/:studentId/courses/:courseId/gradebook — alias cũ của GET
+   * /guardian/students/:studentId/gradebooks/:courseId (issue #346): path cũ có 3 cấp
+   * tài nguyên nên làm phẳng về 2 cấp; response qua alias mang header
+   * Deprecation/Sunset và mỗi lượt gọi sinh log `deprecated_route_alias`.
+   * Logic đọc điểm giữ nguyên: vẫn qua cổng liên kết giám hộ và cổng
+   * công bố điểm như handler canonical, chỉ khác path gọi vào.
+   */
+  async legacyGradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.guardians.studentGradebook(actor.id, studentId, courseId);
   }
 
