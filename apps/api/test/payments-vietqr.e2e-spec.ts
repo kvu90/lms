@@ -140,6 +140,19 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     expect(JSON.stringify(single.body)).not.toContain(SEPAY_KEY);
   });
 
+  it('6.4.4: mã thanh toán sinh một lần và không tái sử dụng — hai payment khác nhau nhận hai mã khác nhau, đọc lại không đổi mã', async () => {
+    const { instance, buyerToken } = await createFeeCourse(sepayAccountId);
+    const first = await createFeePayment(buyerToken, instance.id);
+    const second = await createFeePayment(buyerToken, instance.id);
+    expect(first.paymentCode).toMatch(/^LMS[0-9A-HJKMNP-TV-Z]{9}$/);
+    expect(second.paymentCode).toMatch(/^LMS[0-9A-HJKMNP-TV-Z]{9}$/);
+    expect(second.paymentCode).not.toBe(first.paymentCode);
+    expect(second.id).not.toBe(first.id);
+    // Mã đã sinh là bất biến: đọc lại payment không sinh mã mới.
+    const reread = await http(app).get(`/api/v1/payments/${first.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(reread.body.paymentCode).toBe(first.paymentCode);
+  });
+
   it('6.4.1: IPN sai Apikey / IP ngoài allowlist / account lạ → 401, không ghi sự kiện, payment giữ pending', async () => {
     const { instance, buyerToken } = await createFeeCourse(sepayAccountId);
     const payment = await createFeePayment(buyerToken, instance.id);

@@ -164,7 +164,14 @@ export const paymentSchema = z.object({
   /** Số tiền nguyên ở đơn vị nhỏ nhất — không bao giờ là float. */
   amount: z.number().int().positive(),
   currency: z.string().length(3),
-  status: z.enum(['pending', 'succeeded', 'failed', 'refunded']),
+  /**
+   * Vòng đời payment: `needs_review` là trạng thái chờ người xử lý khi
+   * tiền về nhưng không khớp đủ 3 điều kiện đối soát của issue #189
+   * (đúng mã thanh toán + đúng số tiền + đúng tài khoản nhận) — thiếu
+   * trạng thái này, mọi bề mặt parse qua schema sẽ từ chối payment
+   * đang chờ đối soát dù DB và API đều mang trạng thái đó hợp lệ.
+   */
+  status: z.enum(['pending', 'succeeded', 'failed', 'refunded', 'needs_review']),
   gateway: z.string(),
 });
 export type Payment = z.infer<typeof paymentSchema>;
