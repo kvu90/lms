@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { CoursesService, type CategoryDeleteMode } from './courses.service';
 import { applyCurriculumFrameSchema, copyCourseContentSchema, createCourseCategorySchema, createCourseModuleSchema, createCourseSchema, createCourseSectionSchema, duplicateCourseSchema, reorderCourseModulesSchema, reorderCourseSectionsSchema, updateCourseCategorySchema, updateCourseModuleSchema, updateCourseSchema, updateCourseSectionSchema, type ApplyFrameDto, type CopyContentDto, type CreateCategoryDto, type CreateCmDto, type CreateCourseDto, type CreateSectionDto, type DuplicateCourseDto, type ReorderModulesDto, type ReorderSectionsDto, type UpdateCategoryDto, type UpdateCmDto, type UpdateCourseDto, type UpdateSectionDto, applyBookFrameSchema, type ApplyBookFrameDto } from './dto/courses.dto';
 
@@ -77,12 +78,25 @@ export class CoursesController {
   async templates(@CurrentUser() actor: AuthenticatedUser) {
     return this.courses.listTemplates(actor.id);
   }
-  @Post(':id/duplicate')
+  @Post(':id/copy')
   /**
-   * POST /courses/:id/duplicate — nhân bản khoá theo bảng sao chép Re-run (K1): bản sao nháp, hạn lùi theo mốc mới khi có startDate.
+   * POST /courses/:id/copy — nhân bản khoá theo bảng sao chép Re-run (K1): bản sao nháp, hạn lùi theo mốc mới khi có startDate.
+   * Động từ chuẩn là `copy` theo danh sách hành động đóng (issue #345);
+   * path cũ `:id/duplicate` giữ qua handler alias ngay dưới.
+   */
+  async copy(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: duplicateCourseSchema }) dto: DuplicateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.duplicateCourse(actor.id, id, dto);
+  }
+  @Post(':id/duplicate')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * POST /courses/:id/duplicate — alias cũ của POST /courses/:id/copy:
+   * uỷ quyền nguyên vẹn cho handler canonical; response mang header
+   * Deprecation/Sunset và lượt gọi được ghi log alias có cấu trúc
+   * (căn cứ điều kiện gỡ alias: 0 lượt gọi trong 14 ngày).
    */
   async duplicate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: duplicateCourseSchema }) dto: DuplicateCourseDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.courses.duplicateCourse(actor.id, id, dto);
+    return this.copy(id, dto, actor);
   }
   @Post(':id/import-content')
   /**
@@ -168,12 +182,26 @@ export class CoursesController {
     await this.courses.deleteSection(actor.id, sectionId);
     return { deleted: true };
   }
-  @Post(':id/sections/:sectionId/duplicate')
+  @Post(':id/sections/:sectionId/copy')
   /**
-   * POST /courses/:id/sections/:sectionId/duplicate — nhân bản section ngay tại outline (K1).
+   * POST /courses/:id/sections/:sectionId/copy — nhân bản section ngay tại outline (K1).
+   * Động từ chuẩn là `copy` theo danh sách hành động đóng (issue #345);
+   * path cũ `.../duplicate` giữ qua handler alias ngay dưới.
+   */
+  async copySection(@Param('sectionId', { schema: uuidIdSchema }) sectionId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.courses.duplicateSection(actor.id, sectionId);
+  }
+  @Post(':id/sections/:sectionId/duplicate')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * POST /courses/:id/sections/:sectionId/duplicate — alias cũ của
+   * POST /courses/:id/sections/:sectionId/copy: uỷ quyền nguyên vẹn
+   * cho handler canonical; response mang header Deprecation/Sunset và
+   * lượt gọi được ghi log alias có cấu trúc (căn cứ điều kiện gỡ
+   * alias: 0 lượt gọi trong 14 ngày).
    */
   async duplicateSection(@Param('sectionId', { schema: uuidIdSchema }) sectionId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.courses.duplicateSection(actor.id, sectionId);
+    return this.copySection(sectionId, actor);
   }
   @Post(':id/sections/:sectionId/reorder-modules')
   /**
@@ -224,13 +252,27 @@ export class CoursesController {
     if (!result.available) throw new ForbiddenException({ message: 'This activity is not available to you yet', code: 'availability.not_available' });
     return { cmId, available: true };
   }
-  @Post(':id/modules/:cmId/duplicate')
+  @Post(':id/modules/:cmId/copy')
   /**
-   * POST /courses/:id/modules/:cmId/duplicate — nhân bản module ngay tại dòng (K1).
+   * POST /courses/:id/modules/:cmId/copy — nhân bản module ngay tại dòng (K1).
+   * Động từ chuẩn là `copy` theo danh sách hành động đóng (issue #345);
+   * path cũ `.../duplicate` giữ qua handler alias ngay dưới.
    */
-  async duplicateCm(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @CurrentUser() actor: AuthenticatedUser) {
+  async copyCm(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @CurrentUser() actor: AuthenticatedUser) {
     const cm = await this.courses.duplicateCm(actor.id, cmId);
     return { ...cm, contextId: await this.courses.cmContextId(cm.id) };
+  }
+  @Post(':id/modules/:cmId/duplicate')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * POST /courses/:id/modules/:cmId/duplicate — alias cũ của POST
+   * /courses/:id/modules/:cmId/copy: uỷ quyền nguyên vẹn cho handler
+   * canonical; response mang header Deprecation/Sunset và lượt gọi
+   * được ghi log alias có cấu trúc (căn cứ điều kiện gỡ alias: 0 lượt
+   * gọi trong 14 ngày).
+   */
+  async duplicateCm(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.copyCm(cmId, actor);
   }
   @Post(':id/modules/:cmId/view')
   /**

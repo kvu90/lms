@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { CompetenciesService } from './competencies.service';
 import { addCompetencyEvidenceSchema, addTemplateCohortSchema, addTemplateCompetencySchema, competencyNoteSchema, competencyReviewDecisionSchema, createCompetencyFrameworkSchema, createCompetencySchema, createLearningPlanSchema, createLearningPlanTemplateSchema, frameworkExportSchema, gradeUserCompetencySchema, linkCompetencySchema, setCompetencyRuleSchema, type AddEvidenceDto, type AddTemplateCohortDto, type AddTemplateCompetencyDto, type CreateCompetencyDto, type CreateFrameworkDto, type CreatePlanDto, type CreateTemplateDto, type FrameworkExportDto, type GradeUsercompDto, type LinkCompetencyDto, type NoteDto, type ReviewDecisionDto, type SetCompetencyRuleDto } from './dto/competencies.dto';
 
@@ -56,12 +57,26 @@ export class CompetenciesController {
   async importFramework(@Body({ schema: frameworkExportSchema }) dto: FrameworkExportDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.competencies.importFramework(actor.id, dto);
   }
-  @Post('frameworks/:id/duplicate')
+  @Post('frameworks/:id/copy')
   /**
-   * POST /competencies/frameworks/:id/duplicate — nhân bản framework (cây + rule, id mới).
+   * POST /competencies/frameworks/:id/copy — nhân bản framework (cây + rule, id mới).
+   * Động từ chuẩn là `copy` theo danh sách hành động đóng (issue #345);
+   * path cũ `frameworks/:id/duplicate` giữ qua handler alias ngay dưới.
+   */
+  async copyFramework(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.competencies.duplicateFramework(actor.id, id);
+  }
+  @Post('frameworks/:id/duplicate')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * POST /competencies/frameworks/:id/duplicate — alias cũ của POST
+   * /competencies/frameworks/:id/copy: uỷ quyền nguyên vẹn cho handler
+   * canonical; response mang header Deprecation/Sunset và lượt gọi
+   * được ghi log alias có cấu trúc (căn cứ điều kiện gỡ alias: 0 lượt
+   * gọi trong 14 ngày).
    */
   async duplicateFramework(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.competencies.duplicateFramework(actor.id, id);
+    return this.copyFramework(id, actor);
   }
   @Get('frameworks/:frameworkId/competencies/:competencyId/rule')
   /**

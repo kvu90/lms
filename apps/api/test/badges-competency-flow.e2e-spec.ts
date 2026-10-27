@@ -129,8 +129,8 @@ describe('Badges & competencies', () => {
     const frozen = await http(app).put(`/api/v1/badges/${badgeId}/criteria`).set('Authorization', `Bearer ${admin}`)
       .send({ method: 1, criteria: [{ criteriaType: 'manual', params: {} }] });
     expect(frozen.status).toBe(403);
-    // Nhân bản (duplicate) là đường sửa được phép: bản sao không hoạt động và sửa được.
-    const copy = await http(app).post(`/api/v1/badges/${badgeId}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    // Nhân bản (động từ chuẩn `copy` trên path canonical) là đường sửa được phép: bản sao không hoạt động và sửa được.
+    const copy = await http(app).post(`/api/v1/badges/${badgeId}/copy`).set('Authorization', `Bearer ${admin}`).send({});
     expect(copy.status).toBe(201);
     expect(copy.body.status).toBe(0);
     const editCopy = await http(app).put(`/api/v1/badges/${copy.body.id}/criteria`).set('Authorization', `Bearer ${admin}`)
@@ -506,14 +506,14 @@ describe('Badges & competencies', () => {
     expect(rule.body.config.pointsRequired).toBe(4);
     expect(new Set(rule.body.config.entries.map((e: { competencyId: string }) => e.competencyId))).toEqual(new Set([newChildA.id, newChildB.id]));
 
-    // Duplicate: idNumber chưa dùng với hậu tố _1 (đúng oracle), cây + rule nguyên vẹn.
-    const duplicate = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    // Copy: idNumber chưa dùng với hậu tố _1 (đúng oracle), cây + rule nguyên vẹn.
+    const duplicate = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/copy`).set('Authorization', `Bearer ${admin}`).send({});
     expect(duplicate.status).toBe(201);
     expect(duplicate.body.id).not.toBe(framework.id);
     expect(duplicate.body.idNumber).toBe(`${framework.idNumber}_1`);
     const dupComps = await http(app).get(`/api/v1/competencies/frameworks/${duplicate.body.id}/competencies`).set('Authorization', `Bearer ${admin}`);
     expect(dupComps.body).toHaveLength(3);
-    const duplicate2 = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    const duplicate2 = await http(app).post(`/api/v1/competencies/frameworks/${framework.id}/copy`).set('Authorization', `Bearer ${admin}`).send({});
     expect(duplicate2.body.idNumber).toBe(`${framework.idNumber}_2`);
   });
 

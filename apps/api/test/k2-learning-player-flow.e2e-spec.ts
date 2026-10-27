@@ -240,7 +240,7 @@ describe('K2 learning content, player & progress', () => {
     expect(filtered.body.students).toHaveLength(1);
     expect(filtered.body.students[0].userId).toBe(f.students[1]!.id);
     // CSV.
-    const csv = await http(app).get(`/api/v1/courses/${f.course.id}/progress/report.csv`).set('Authorization', `Bearer ${admin}`);
+    const csv = await http(app).get(`/api/v1/courses/${f.course.id}/progress/reports?format=csv`).set('Authorization', `Bearer ${admin}`);
     expect(csv.status).toBe(200);
     expect(csv.headers['content-type']).toContain('text/csv');
     expect(csv.text.split('\n')[0]).toContain('Bài đọc 1');

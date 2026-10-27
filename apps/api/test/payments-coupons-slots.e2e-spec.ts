@@ -460,9 +460,9 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     const assign = await assignRoleRaw(fourth.id, editingteacherRoleId, ctxId);
     expect(assign.status).toBeLessThan(300);
 
-    const unsuspend = await http(app).post(`/api/v1/users/${fourth.id}/unsuspend`).set(auth(admin));
-    expect(unsuspend.status).toBe(400);
-    expect((unsuspend.body as { code: string }).code).toBe('plan.tenant_slot_limit_reached');
+    const reactivate = await http(app).post(`/api/v1/users/${fourth.id}/reactivate`).set(auth(admin));
+    expect(reactivate.status).toBe(400);
+    expect((reactivate.body as { code: string }).code).toBe('plan.tenant_slot_limit_reached');
     const account = await pg.query('select suspended from users where id = $1', [fourth.id]);
     expect((account.rows[0] as { suspended: boolean }).suspended).toBe(true);
   });

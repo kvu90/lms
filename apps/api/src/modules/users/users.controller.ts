@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { createUserSchema, listUsersQueryServerSchema, setUserPreferenceSchema, updateUserSchema, type CreateUserDto, type ListUsersQueryDto, type SetPreferenceDto, type UpdateUserDto } from './dto/users.dto';
 import { UsersService } from './users.service';
@@ -81,14 +82,30 @@ export class UsersController {
     const user = await this.users.setSuspended(id, true);
     return { id: user.id, suspended: user.suspended };
   }
-  @Post(':id/unsuspend')
+  @Post(':id/reactivate')
   @RequireCapability('user:update')
   /**
-   * POST /users/:id/unsuspend — khôi phục tài khoản.
+   * POST /users/:id/reactivate — khôi phục tài khoản. Động từ chuẩn
+   * của cặp đối nghĩa đình chỉ là `suspend`/`reactivate` theo danh
+   * sách hành động đóng (issue #345); path cũ `:id/unsuspend` giữ qua
+   * handler alias ngay dưới.
    */
-  async unsuspend(@Param('id', { schema: uuidIdSchema }) id: string) {
+  async reactivate(@Param('id', { schema: uuidIdSchema }) id: string) {
     const user = await this.users.setSuspended(id, false);
     return { id: user.id, suspended: user.suspended };
+  }
+  @Post(':id/unsuspend')
+  @RequireCapability('user:update')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * POST /users/:id/unsuspend — alias cũ của POST /users/:id/reactivate:
+   * uỷ quyền nguyên vẹn cho handler canonical (cùng cổng capability
+   * `user:update`); response mang header Deprecation/Sunset và lượt
+   * gọi được ghi log alias có cấu trúc (căn cứ điều kiện gỡ alias: 0
+   * lượt gọi trong 14 ngày).
+   */
+  async unsuspend(@Param('id', { schema: uuidIdSchema }) id: string) {
+    return this.reactivate(id);
   }
   @Delete(':id')
   @RequireCapability('user:delete')

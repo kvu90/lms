@@ -77,7 +77,7 @@ describe('Course must belong to a class (#200 packaging, #184)', () => {
   it('(3) nhân bản khoá MẪU không lớp, không truyền lớp đích → 400', async () => {
     const tplId = await makeClasslessTemplate();
     const copyName = uniqueName('copy');
-    const dup = await http(app).post(`/api/v1/courses/${tplId}/duplicate`).set(auth(admin))
+    const dup = await http(app).post(`/api/v1/courses/${tplId}/copy`).set(auth(admin))
       .send({ fullName: `Copy ${copyName}`, shortName: copyName });
     expect(dup.status).toBe(400);
     expect((dup.body as { code?: string }).code).toBe('course.class_required');
@@ -86,7 +86,7 @@ describe('Course must belong to a class (#200 packaging, #184)', () => {
   it('(4) nhân bản kèm classId: null tường minh → 400', async () => {
     const src = await createCourse(app, admin, categoryId, { classId });
     const copyName = uniqueName('copy4');
-    const dup = await http(app).post(`/api/v1/courses/${src.id}/duplicate`).set(auth(admin))
+    const dup = await http(app).post(`/api/v1/courses/${src.id}/copy`).set(auth(admin))
       .send({ fullName: `Copy ${copyName}`, shortName: copyName, classId: null });
     expect(dup.status).toBe(400);
     expect((dup.body as { code?: string }).code).toBe('course.class_required');
@@ -106,7 +106,7 @@ describe('Course must belong to a class (#200 packaging, #184)', () => {
   it('(6) đối chứng dương: nhân bản khoá mẫu không lớp CÓ lớp đích → 201, bản sao thuộc lớp đích', async () => {
     const tplId = await makeClasslessTemplate();
     const copyName = uniqueName('copy6');
-    const dup = await http(app).post(`/api/v1/courses/${tplId}/duplicate`).set(auth(admin))
+    const dup = await http(app).post(`/api/v1/courses/${tplId}/copy`).set(auth(admin))
       .send({ fullName: `Copy ${copyName}`, shortName: copyName, classId });
     expect(dup.status).toBe(201);
     const body = dup.body as { classId: string | null; isTemplate: boolean };

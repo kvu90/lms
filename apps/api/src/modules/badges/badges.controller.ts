@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { BadgesService } from './badges.service';
 import { badgeUserSchema, createBadgeSchema, setBadgeCriteriaSchema, setBadgeStatusSchema, updateBadgeSchema, type CreateBadgeDto, type EvaluateDto, type ManualAwardDto, type SetCriteriaDto, type SetStatusDto, type UpdateBadgeDto } from './dto/badges.dto';
 
@@ -58,12 +59,25 @@ export class BadgesController {
   async setStatus(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: setBadgeStatusSchema }) dto: SetStatusDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.badges.setStatus(actor.id, id, dto.status);
   }
-  @Post(':id/duplicate')
+  @Post(':id/copy')
   /**
-   * POST /badges/:id/duplicate — nhân bản badge.
+   * POST /badges/:id/copy — nhân bản badge. Động từ chuẩn là `copy`
+   * theo danh sách hành động đóng (issue #345); path cũ
+   * `:id/duplicate` giữ qua handler alias ngay dưới.
+   */
+  async copy(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.badges.duplicateBadge(actor.id, id);
+  }
+  @Post(':id/duplicate')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * POST /badges/:id/duplicate — alias cũ của POST /badges/:id/copy:
+   * uỷ quyền nguyên vẹn cho handler canonical; response mang header
+   * Deprecation/Sunset và lượt gọi được ghi log alias có cấu trúc
+   * (căn cứ điều kiện gỡ alias: 0 lượt gọi trong 14 ngày).
    */
   async duplicate(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.badges.duplicateBadge(actor.id, id);
+    return this.copy(id, actor);
   }
   @Get(':id/criteria')
   /**
