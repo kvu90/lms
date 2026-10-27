@@ -239,4 +239,20 @@ export const queryKeys = {
   examPaperDetail: (paperId: string) => ['exam-papers', paperId] as const,
   /** Các lần ghim của một đề (GET /exams/:id/pins) — màn soạn đề. */
   examPaperPins: (paperId: string) => ['exam-papers', paperId, 'pins'] as const,
+  /** Trạng thái các dataset chương trình chuẩn (GET /curriculum/program-import) — trang quản trị chương trình. */
+  programDatasetStatus: ['curriculum', 'program-import'] as const,
+  /** Trạng thái các dataset SGK (GET /books/dataset-import) — trang quản trị chương trình. */
+  bookDatasetStatus: ['books', 'dataset-import'] as const,
+  /** Danh sách SGK đã nạp (GET /books) — trang quản trị chương trình. */
+  books: ['books'] as const,
+  /** Cây của một cuốn SGK (GET /books/:id/tree) — trang quản trị chương trình. */
+  bookTree: (bookId: string) => ['books', bookId, 'tree'] as const,
+  /** Một môn chương trình theo id (GET /curriculum/subjects/:id) — màn sửa môn. */
+  curriculumSubjectRow: (subjectId: string) => ['curriculum', 'subjects', 'row', subjectId] as const,
+  /** Một chương trình theo id (GET /curriculum/curricula/:id) — màn sửa chương trình. */
+  curriculumRow: (curriculumId: string) => ['curriculum', 'curricula', 'row', curriculumId] as const,
+  /** Một node chương trình theo id (GET /curriculum/nodes/:id) — màn sửa node/YCCĐ. */
+  curriculumNode: (nodeId: string) => ['curriculum', 'nodes', nodeId] as const,
+  /** Một YCCĐ theo id (GET /curriculum/outcomes/:id) — màn sửa YCCĐ. */
+  curriculumOutcome: (outcomeId: string) => ['curriculum', 'outcomes', outcomeId] as const,
 };

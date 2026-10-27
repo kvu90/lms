@@ -1,20 +1,17 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../page-shell';
-import { apiJson } from '#lib/api';
+import { useCurriculumNode, useCurriculumOutcome } from '#lib/curriculum';
 import { FormScreen } from './form-screen';
-import { type NodeRow } from './node-form';
-import { OutcomeForm, type OutcomeRow } from './outcome-form';
+import { OutcomeForm } from './outcome-form';
 
 export function AdminOutcomeNewPage() {
   const { t } = useTranslation('app');
   const { nodeId } = useParams();
-  const [node, setNode] = useState<NodeRow | null>(null);
-  useEffect(() => {
-    if (!nodeId) return;
-    void apiJson<NodeRow>(`/api/v1/curriculum/nodes/${nodeId}`).then(setNode).catch(() => setNode(null));
-  }, [nodeId]);
+  // Node cha chỉ để suy đường quay lại cây của đúng chương trình
+  // chứa node — đọc qua TanStack Query (F-01 của rà soát #133).
+  const nodeQuery = useCurriculumNode(nodeId);
+  const node = nodeQuery.data;
   if (!nodeId) return null;
   const backTo = node ? `/admin/curriculum/curricula/${node.curriculumId}` : '/admin/curriculum';
   return (
@@ -27,20 +24,12 @@ export function AdminOutcomeNewPage() {
 export function AdminOutcomeEditPage() {
   const { t } = useTranslation('app');
   const { outcomeId } = useParams();
-  const [outcome, setOutcome] = useState<OutcomeRow | null>(null);
-  const [node, setNode] = useState<NodeRow | null>(null);
-  useEffect(() => {
-    if (!outcomeId) return;
-    void (async () => {
-      try {
-        const row = await apiJson<OutcomeRow>(`/api/v1/curriculum/outcomes/${outcomeId}`);
-        setOutcome(row);
-        setNode(await apiJson<NodeRow>(`/api/v1/curriculum/nodes/${row.nodeId}`));
-      } catch {
-        setOutcome(null);
-      }
-    })();
-  }, [outcomeId]);
+  // Đọc YCCĐ rồi mới đọc node chứa nó (để suy đường quay lại) — hai
+  // truy vấn TanStack Query, truy vấn node bật khi đã có YCCĐ.
+  const outcomeQuery = useCurriculumOutcome(outcomeId);
+  const outcome = outcomeQuery.data;
+  const nodeQuery = useCurriculumNode(outcome?.nodeId);
+  const node = nodeQuery.data;
   if (!outcome) {
     return (
       <PageShell width="narrow">
