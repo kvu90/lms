@@ -106,7 +106,7 @@ describe('Gradebook page — điểm theo bài của học sinh (issue #224)', (
   it('renders each activity grade with its publication state, and no course total', async () => {
     stubFetch((url) => {
       if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return BOOK;
-      if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) return REPORT;
+      if (url === `/api/v1/courses/${COURSE_ID}/gradebook/report`) return REPORT;
       return undefined;
     });
     renderGradebook();
@@ -399,7 +399,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     customFields: [],
   };
   const FORBIDDEN = { type: 'about:blank', title: 'Forbidden', status: 403, code: 'access.capability_denied' };
-  const HISTORY_URL = `/api/v1/courses/grades/items/${ITEM.id}/users/${STUDENT_ID}/history`;
+  const HISTORY_URL = `/api/v1/grade-items/${ITEM.id}/users/${STUDENT_ID}/history`;
 
   interface RecordedCall {
     url: string;
@@ -464,18 +464,18 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
         if (url === '/api/v1/courses' && method === 'GET') return respond([COURSE]);
         if (url === `/api/v1/courses/${COURSE_ID}/enrolments/me`)
           return respond({ courseId: COURSE_ID, userId: TEACHER_ID, enrolled: true, active: true });
-        if (url === `/api/v1/courses/${COURSE_ID}/grades/report`)
+        if (url === `/api/v1/courses/${COURSE_ID}/gradebook/report`)
           return respond({
             ...REPORT,
             items: opts?.reportItems ?? REPORT.items,
             publications: opts?.publications ?? REPORT.publications,
           });
         if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) return respond(BOOK);
-        if (url === `/api/v1/courses/${COURSE_ID}/grades/items` && method === 'POST')
+        if (url === `/api/v1/courses/${COURSE_ID}/grade-items` && method === 'POST')
           return respond({ ...ITEM, id: '01900000-0000-7000-8000-000000000033', itemName: 'Midterm' });
-        if (url === `/api/v1/courses/grades/items/${ITEM.id}/publish` && method === 'POST')
+        if (url === `/api/v1/grade-items/${ITEM.id}/publish` && method === 'POST')
           return respond({ itemId: ITEM.id, scope: 'item', policy: 'manual', published: true });
-        if (url === `/api/v1/courses/${COURSE_ID}/grades/export/vnedu` && method === 'POST') {
+        if (url === `/api/v1/courses/${COURSE_ID}/grade-exports` && method === 'POST') {
           return new Response(new Blob(['fake-xlsx-bytes']), {
             status: 200,
             headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
@@ -519,7 +519,7 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     expect(screen.getByText('85')).toBeInTheDocument();
   });
 
-  it('creates a grade item via POST /courses/:courseId/grades/items with the contracts body', async () => {
+  it('creates a grade item via POST /courses/:courseId/grade-items with the contracts body', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls);
     renderAsTeacher();
@@ -537,14 +537,14 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     await userEvent.click(screen.getByRole('button', { name: 'Tạo mục điểm' }));
 
     await waitFor(() =>
-      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/items` && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grade-items` && c.method === 'POST')).toBe(true),
     );
-    const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/items` && c.method === 'POST');
+    const createCall = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grade-items` && c.method === 'POST');
     // Đúng createGradeItemSchema của mô hình mới: chỉ itemName + gradeMax, không còn categoryId.
     expect(createCall?.body).toEqual({ itemName: 'Midterm', gradeMax: 100 });
   });
 
-  it('publishes an activity via POST /courses/grades/items/:itemId/publish', async () => {
+  it('publishes an activity via POST /grade-items/:itemId/publish', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls, {
       publications: { [ITEM.id]: { policy: 'manual', published: false } },
@@ -553,11 +553,11 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
 
     await userEvent.click(await screen.findByRole('button', { name: 'Công bố' }));
     await waitFor(() =>
-      expect(calls.some((c) => c.url === `/api/v1/courses/grades/items/${ITEM.id}/publish` && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/grade-items/${ITEM.id}/publish` && c.method === 'POST')).toBe(true),
     );
   });
 
-  it('loads a student grade history from GET /courses/grades/items/:itemId/users/:userId/history', async () => {
+  it('loads a student grade history from GET /grade-items/:itemId/users/:userId/history', async () => {
     const calls: RecordedCall[] = [];
     stubTeacherFetch(calls);
     renderAsTeacher();
@@ -594,10 +594,11 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
     await userEvent.click(screen.getByRole('button', { name: 'Tải Excel vnEdu' }));
 
     await waitFor(() =>
-      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/export/vnedu` && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/courses/${COURSE_ID}/grade-exports` && c.method === 'POST')).toBe(true),
     );
-    const call = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grades/export/vnedu`);
+    const call = calls.find((c) => c.url === `/api/v1/courses/${COURSE_ID}/grade-exports`);
     expect(call?.body).toMatchObject({
+      provider: 'vnedu',
       regularItemIds: [regular.id],
       midtermItemId: midterm.id,
       finalItemId: finalItem.id,
@@ -629,6 +630,6 @@ describe('Gradebook administration — giáo viên của khoá (issue #224)', ()
 
     // Bài giữa kỳ chưa công bố bị loại khỏi ánh xạ → thiếu đúng 1 mục giữa kỳ → chặn tại UI, không gọi API.
     expect(await screen.findByText(/Cần ít nhất 1 mục thường xuyên/)).toBeInTheDocument();
-    expect(calls.some((c) => String(c.url).includes('export/vnedu'))).toBe(false);
+    expect(calls.some((c) => String(c.url).includes('/grade-exports'))).toBe(false);
   });
 });

@@ -148,8 +148,8 @@ describe('Route guards đợt 4 (H7–H15, #134)', () => {
     const courseScoped = [
       `/api/v1/courses/${courseId}/assignments`,
       `/api/v1/courses/${courseId}/completion/criteria`,
-      `/api/v1/courses/${courseId}/grades/items`,
-      `/api/v1/courses/${courseId}/grades/report`,
+      `/api/v1/courses/${courseId}/grade-items`,
+      `/api/v1/courses/${courseId}/gradebook/report`,
       `/api/v1/competencies/courses/${courseId}/links`,
     ];
     for (const path of courseScoped) {

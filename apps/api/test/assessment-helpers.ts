@@ -2,14 +2,14 @@ import type { INestApplication } from '@nestjs/common';
 import { http } from './identity-access-helpers';
 
 export async function createGradeItem(app: INestApplication, token: string, courseId: string, overrides: Record<string, unknown> = {}): Promise<{ id: string; itemName: string; gradeMax: number }> {
-  const res = await http(app).post(`/api/v1/courses/${courseId}/grades/items`).set('Authorization', `Bearer ${token}`)
+  const res = await http(app).post(`/api/v1/courses/${courseId}/grade-items`).set('Authorization', `Bearer ${token}`)
     .send({ itemName: 'Item', ...overrides });
   if (res.status !== 200 && res.status !== 201) throw new Error(`create grade item failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;
 }
 
 export async function setGrade(app: INestApplication, token: string, itemId: string, userId: string, rawGrade: number | null, feedback?: string): Promise<{ id: string; finalGrade: number | null; frozen: boolean }> {
-  const res = await http(app).post(`/api/v1/courses/grades/items/${itemId}/grades`).set('Authorization', `Bearer ${token}`)
+  const res = await http(app).post(`/api/v1/grade-items/${itemId}/grades`).set('Authorization', `Bearer ${token}`)
     .send({ userId, rawGrade, feedback });
   if (res.status !== 200 && res.status !== 201) throw new Error(`set grade failed: ${res.status} ${JSON.stringify(res.body)}`);
   return res.body;

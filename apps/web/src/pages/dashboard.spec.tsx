@@ -236,7 +236,7 @@ function baseHandler(role: 'admin' | 'teacher' | 'student'): Handler {
         ? ok({ courseId: COURSE_ID, userId: me.id, enrolled: false, active: false })
         : ok({ courseId: COURSE_ID, userId: me.id, enrolled: true, active: true });
     }
-    if (url === `/api/v1/courses/${COURSE_ID}/grades/report`) {
+    if (url === `/api/v1/courses/${COURSE_ID}/gradebook/report`) {
       return role === 'student' ? forbidden() : ok(REPORT);
     }
     if (url === `/api/v1/courses/${COURSE_ID}/gradebook`) {

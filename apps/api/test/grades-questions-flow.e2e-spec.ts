@@ -49,12 +49,12 @@ describe('Grades & questions', () => {
     const item = await createGradeItem(app, admin, course.id, { itemName: 'Exam', gradeMax: 100 });
     const grade = await setGrade(app, admin, item.id, student.id, 40);
     // Giáo viên ghi đè điểm cuối cùng thành 88.
-    const patched = await http(app).patch(`/api/v1/courses/grades/grades/${grade.id}`).set('Authorization', `Bearer ${admin}`)
+    const patched = await http(app).patch(`/api/v1/grades/${grade.id}`).set('Authorization', `Bearer ${admin}`)
       .send({ overridden: true, finalGrade: 88 });
     expect(patched.status).toBe(200);
     expect(patched.body.finalGrade).toBe(88);
     // Nhập điểm gốc mới bị từ chối trong khi đang ghi đè…
-    const refused = await http(app).post(`/api/v1/courses/grades/items/${item.id}/grades`).set('Authorization', `Bearer ${admin}`)
+    const refused = await http(app).post(`/api/v1/grade-items/${item.id}/grades`).set('Authorization', `Bearer ${admin}`)
       .send({ userId: student.id, rawGrade: 10 });
     expect(refused.status).toBe(403);
     // …và góc nhìn theo từng hoạt động vẫn hiển thị 88 đã ghi đè.
@@ -62,13 +62,13 @@ describe('Grades & questions', () => {
     const leaf = book.activities.find((i) => i.item.id === item.id);
     expect(leaf?.grade?.finalGrade).toBe(88);
     // Khoá ITEM chặn nhập đối với mọi người.
-    await http(app).patch(`/api/v1/courses/grades/items/${item.id}`).set('Authorization', `Bearer ${admin}`).send({ locked: true });
+    await http(app).patch(`/api/v1/grade-items/${item.id}`).set('Authorization', `Bearer ${admin}`).send({ locked: true });
     const other = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, other.id);
-    const lockedAttempt = await http(app).post(`/api/v1/courses/grades/items/${item.id}/grades`).set('Authorization', `Bearer ${admin}`)
+    const lockedAttempt = await http(app).post(`/api/v1/grade-items/${item.id}/grades`).set('Authorization', `Bearer ${admin}`)
       .send({ userId: other.id, rawGrade: 5 });
     expect(lockedAttempt.status).toBe(403);
-    const history = await http(app).get(`/api/v1/courses/grades/items/${item.id}/users/${student.id}/history`).set('Authorization', `Bearer ${admin}`);
+    const history = await http(app).get(`/api/v1/grade-items/${item.id}/users/${student.id}/history`).set('Authorization', `Bearer ${admin}`);
     expect(history.status).toBe(200);
     expect((history.body as unknown[]).length).toBeGreaterThanOrEqual(2);
   });
@@ -80,14 +80,14 @@ describe('Grades & questions', () => {
     expect(grade.finalGrade).toBeCloseTo(40, 6); // 80 * 0.5 hình phạt áp dụng một lần
     expect(grade.frozen).toBe(true);
     // Giáo viên gỡ hình phạt sau đó: điểm đã đông cứng KHÔNG được thay đổi.
-    await http(app).patch(`/api/v1/courses/grades/items/${item.id}`).set('Authorization', `Bearer ${admin}`).send({ multiplicator: 1 });
+    await http(app).patch(`/api/v1/grade-items/${item.id}`).set('Authorization', `Bearer ${admin}`).send({ multiplicator: 1 });
     let book = await getGradebook(app, admin, course.id, student.id);
     expect(book.activities.find((i) => i.item.id === item.id)?.grade?.finalGrade).toBeCloseTo(40, 6);
     // Rã đông + nhập lại áp dụng công thức hiện tại.
     const gradeId = book.activities.find((i) => i.item.id === item.id)?.grade?.id;
-    await http(app).patch(`/api/v1/courses/grades/grades/${gradeId}`).set('Authorization', `Bearer ${admin}`).send({ frozen: false });
+    await http(app).patch(`/api/v1/grades/${gradeId}`).set('Authorization', `Bearer ${admin}`).send({ frozen: false });
     // Nhập lại cùng điểm gốc nay tính lại mà không có hình phạt.
-    const reentered = await http(app).post(`/api/v1/courses/grades/items/${item.id}/grades`).set('Authorization', `Bearer ${admin}`)
+    const reentered = await http(app).post(`/api/v1/grade-items/${item.id}/grades`).set('Authorization', `Bearer ${admin}`)
       .send({ userId: student.id, rawGrade: 80 });
     expect(reentered.status).toBeLessThan(300);
     book = await getGradebook(app, admin, course.id, student.id);
@@ -100,7 +100,7 @@ describe('Grades & questions', () => {
     const hidden = await createGradeItem(app, admin, course.id, { itemName: 'Secret', gradeMax: 100, hidden: true });
     await setGrade(app, admin, visible.id, student.id, 70);
     await setGrade(app, admin, hidden.id, student.id, 30);
-    const entry = await http(app).post(`/api/v1/courses/grades/items/${visible.id}/grades`).set('Authorization', `Bearer ${studentToken}`)
+    const entry = await http(app).post(`/api/v1/grade-items/${visible.id}/grades`).set('Authorization', `Bearer ${studentToken}`)
       .send({ userId: student.id, rawGrade: 100 });
     expect(entry.status).toBe(403);
     const mine = await getGradebook(app, studentToken, course.id);

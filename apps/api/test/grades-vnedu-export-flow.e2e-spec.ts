@@ -41,9 +41,10 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
   /** POST xuất vnEdu đọc body dạng Buffer thô (file nhị phân) thay vì JSON. */
   function exportVneduFile(courseId: string, body: Record<string, unknown>, token = admin) {
     return http(app)
-      .post(`/api/v1/courses/${courseId}/grades/export/vnedu`)
+      .post(`/api/v1/courses/${courseId}/grade-exports`)
       .set('Authorization', `Bearer ${token}`)
-      .send(body)
+      // Path canonical grade-exports khai nhà cung cấp trong thân yêu cầu: provider: 'vnedu', phần còn lại là payload vnEdu như cũ.
+      .send({ provider: 'vnedu', ...body })
       .buffer(true)
       .parse((res, cb) => {
         const chunks: Buffer[] = [];
@@ -54,9 +55,10 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
 
   function exportVneduJson(courseId: string, body: Record<string, unknown>, token = admin) {
     return http(app)
-      .post(`/api/v1/courses/${courseId}/grades/export/vnedu`)
+      .post(`/api/v1/courses/${courseId}/grade-exports`)
       .set('Authorization', `Bearer ${token}`)
-      .send(body);
+      // Path canonical grade-exports khai nhà cung cấp trong thân yêu cầu: provider: 'vnedu', phần còn lại là payload vnEdu như cũ.
+      .send({ provider: 'vnedu', ...body });
   }
 
   async function loadSheet(buffer: Buffer): Promise<ExcelJS.Worksheet> {
@@ -202,7 +204,7 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
     await setGrade(app, admin, ck.id, s1.id, 9);
 
     // GK đặt policy manual và chưa công bố → cả lượt xuất bị từ chối.
-    const policy = await http(app).put(`/api/v1/courses/grades/items/${gk.id}/posting-policy`)
+    const policy = await http(app).put(`/api/v1/grade-items/${gk.id}/posting-policy`)
       .set('Authorization', `Bearer ${admin}`).send({ policy: 'manual' });
     expect(policy.status).toBe(200);
     const blocked = await exportVneduJson(course.id, {
@@ -212,7 +214,7 @@ describe('Xuất sổ điểm Excel vnEdu (issue #53)', () => {
     expect(blocked.body.code).toBe('grades.vnedu_item_not_published');
 
     // Công bố GK → xuất thành công.
-    const pub = await http(app).post(`/api/v1/courses/grades/items/${gk.id}/publish`)
+    const pub = await http(app).post(`/api/v1/grade-items/${gk.id}/publish`)
       .set('Authorization', `Bearer ${admin}`).send({});
     expect(pub.status).toBe(201);
     const ok = await exportVneduFile(course.id, {

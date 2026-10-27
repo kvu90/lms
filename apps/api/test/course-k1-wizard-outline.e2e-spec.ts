@@ -41,7 +41,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
       sectionId: s1.id, timeOpen: '2026-03-12T00:00:00.000Z', timeClose: '2026-03-13T00:00:00.000Z',
     });
     // Chính sách điểm: một item thủ công trong sổ điểm của khoá nguồn.
-    const itemRes = await http(app).post(`/api/v1/courses/${source.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+    const itemRes = await http(app).post(`/api/v1/courses/${source.id}/grade-items`).set('Authorization', `Bearer ${admin}`)
       .send({ itemName: 'Bài tập về nhà', itemType: 'manual', gradeMax: 20 });
     expect(itemRes.status).toBe(201);
     // Tiêu chí hoàn thành theo ngày của khoá nguồn — mốc này cũng phải lùi theo delta.
@@ -81,7 +81,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     expect(String(quizzesRes.body[0].timeClose).slice(0, 10)).toBe('2026-09-18');
 
     // Chính sách điểm được chép (item thủ công + item của quiz), điểm thì không.
-    const itemsRes = await http(app).get(`/api/v1/courses/${copy.id}/grades/items`).set('Authorization', `Bearer ${admin}`);
+    const itemsRes = await http(app).get(`/api/v1/courses/${copy.id}/grade-items`).set('Authorization', `Bearer ${admin}`);
     const names = itemsRes.body.map((i: { itemName: string }) => i.itemName);
     expect(names).toContain('Bài tập về nhà');
 
@@ -139,7 +139,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
 
     // Item điểm 'mod' của module có idNumber: nhân bản trong CÙNG khoá
     // không được vi phạm unique (courseId, idNumber) của grade_items.
-    const modItem = await http(app).post(`/api/v1/courses/${course.id}/grades/items`).set('Authorization', `Bearer ${admin}`)
+    const modItem = await http(app).post(`/api/v1/courses/${course.id}/grade-items`).set('Authorization', `Bearer ${admin}`)
       .send({ itemName: 'Điểm mục 2', itemType: 'mod', cmId: m2.id, idNumber: 'MUC-2', gradeMax: 10 });
     expect(modItem.status).toBe(201);
     const dupCm = await http(app).post(`/api/v1/courses/${course.id}/modules/${m2.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});

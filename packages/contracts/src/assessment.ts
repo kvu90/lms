@@ -423,6 +423,25 @@ export const exportGradesVneduSchema = z.strictObject({
 });
 export type ExportGradesVnedu = z.infer<typeof exportGradesVneduSchema>;
 
+/** Nhà cung cấp đích của một lần xuất điểm: hiện chỉ có `vnedu`; danh sách đóng này là nơi duy nhất khai thêm nhà cung cấp xuất mới. */
+export const gradeExportProviderSchema = z.enum(['vnedu']);
+export type GradeExportProvider = z.infer<typeof gradeExportProviderSchema>;
+
+/**
+ * Payload xuất điểm tại path đích `POST /courses/:courseId/grade-exports`
+ * (áp chuẩn đường dẫn module điểm, issue #342): nhà cung cấp xuất là dữ
+ * liệu nằm trong thân yêu cầu (trường `provider`), KHÔNG nằm trong path
+ * như path cũ `POST /courses/:courseId/grades/export/vnedu`. Phần còn lại
+ * của payload giữ đúng khuôn của nhà cung cấp tương ứng — với
+ * `provider: 'vnedu'` là khuôn `exportGradesVneduSchema` nguyên vẹn:
+ * định dạng và nội dung file xuất không đổi, chỉ đổi nơi khai nhà cung cấp.
+ */
+export const exportGradesSchema = z.strictObject({
+  provider: gradeExportProviderSchema,
+  ...exportGradesVneduSchema.shape,
+});
+export type ExportGrades = z.infer<typeof exportGradesSchema>;
+
 /** Payload tạo danh mục câu hỏi trong ngân hàng câu hỏi. */
 export const createQuestionCategorySchema = z.strictObject({
   name: z.string().min(1),

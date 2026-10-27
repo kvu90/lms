@@ -330,15 +330,15 @@ async function main(): Promise<void> {
     const dumpResult = await tenantAls.run({ platform: true }, () => programDump.restoreIfEmpty());
     console.log(`[seed] program dump version=${dumpResult.version}: restored=${dumpResult.restored}, ${((Date.now() - programStartedAt) / 1000).toFixed(1)}s`);
 
-    const items = must(await call('GET', `/courses/${courseId}/grades/items`, admin), 'list grade items') as { id: string; itemName: string }[];
+    const items = must(await call('GET', `/courses/${courseId}/grade-items`, admin), 'list grade items') as { id: string; itemName: string }[];
     let item = items.find((i) => i.itemName === 'Bài kiểm tra 1');
     if (!item) {
-      item = must(await call('POST', `/courses/${courseId}/grades/items`, admin, { itemName: 'Bài kiểm tra 1', gradeMax: 10 }), 'create grade item') as { id: string; itemName: string };
+      item = must(await call('POST', `/courses/${courseId}/grade-items`, admin, { itemName: 'Bài kiểm tra 1', gradeMax: 10 }), 'create grade item') as { id: string; itemName: string };
       console.log(`[seed] grade item created (#${item.id})`);
     }
     const sampleGrades: [string, number][] = [[studentIds[0]!, 8.5], [studentIds[1]!, 6.5]];
     for (const [uid, grade] of sampleGrades) {
-      must(await call('POST', `/courses/grades/items/${item.id}/grades`, admin, { userId: uid, rawGrade: grade }), `set grade for ${uid}`);
+      must(await call('POST', `/grade-items/${item.id}/grades`, admin, { userId: uid, rawGrade: grade }), `set grade for ${uid}`);
     }
     console.log('[seed] sample grades set (student1=8.5, student2=6.5 / 10)');
 

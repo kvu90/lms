@@ -127,7 +127,7 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
 
     const item = await createGradeItem(app, admin, course.id, { itemName: 'Điểm miệng PH2 bí mật', gradeMax: 10 });
     await setGrade(app, teacher, item.id, student.id, 7.25);
-    const publish = await http(app).post(`/api/v1/courses/grades/items/${item.id}/publish`)
+    const publish = await http(app).post(`/api/v1/grade-items/${item.id}/publish`)
       .set('Authorization', `Bearer ${teacher}`).send({});
     expect([200, 201]).toContain(publish.status);
 
@@ -214,7 +214,7 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     await setGrade(app, teacher, item.id, student.id, 3.75);
     // Chính sách công bố thủ công + không publish — cổng công bố PH-0
     // phải loại item này khỏi digest dù cửa sổ chứa đúng thời điểm chấm.
-    const policy = await http(app).put(`/api/v1/courses/grades/items/${item.id}/posting-policy`)
+    const policy = await http(app).put(`/api/v1/grade-items/${item.id}/posting-policy`)
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
     expect(policy.status).toBe(200);
 
