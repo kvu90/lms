@@ -1,5 +1,35 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+/**
+ * Khu quản lý competency + hàng đợi duyệt của trang kế hoạch học tập
+ * (`pages/learning-plan.tsx`): trang chỉ render component này khi
+ * người dùng có quyền quản trị (`canAdminister` từ `usePermissions()`
+ * ở trang).
+ *
+ * Luồng dữ liệu đi qua tầng TanStack Query
+ * (`lib/learning-plan-data.ts`, khuôn F-01 của rà soát #133) thay cho
+ * vòng fetch thủ công bằng `useState`/`useEffect` + `apiJson` trước
+ * đây:
+ *   - Đọc: danh sách framework, danh sách mẫu kế hoạch, cây năng lực
+ *     của framework đang chọn, danh sách người dùng cho ô chọn duyệt
+ *     và cặp dữ liệu hàng đợi duyệt (kế hoạch + năng lực của người
+ *     dùng đang xét) đều là `useQuery` theo khoá của
+ *     `lib/query-keys.ts`. Cây năng lực và hàng đợi giữ dữ liệu trước
+ *     trong lúc tải dữ liệu mới (`keepPreviousData`) như bản thủ công
+ *     chỉ thay danh sách khi lần tải xong.
+ *   - Ghi: mọi thao tác là `useMutation`; thành công thì invalidate
+ *     đúng cụm khoá liên quan (tạo/nhập framework và tạo mẫu làm mới
+ *     cả hai danh sách khung; thêm năng lực làm mới cây của framework
+ *     đó; thao tác duyệt làm mới hàng đợi) thay cho lời gọi nạp lại
+ *     thủ công.
+ *   - Xuất framework là lần đọc tại thời điểm bấm: lấy tài liệu qua
+ *     `fetchQuery` với `staleTime: 0` rồi đóng gói Blob tải xuống
+ *     ngay trên trình duyệt, không qua máy chủ tệp.
+ *   - Thông báo thành công/thất bại theo từng thao tác vẫn giữ ở
+ *     state cục bộ của component như bản thủ công; riêng lỗi tải dữ
+ *     liệu phơi thẳng từ trạng thái lỗi của các query.
+ */
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -15,17 +45,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@lms/ui/components/select';
-import { usePermissions } from '#lib/permissions';
-import { apiJson, ApiError } from '#lib/api';
+import { ApiError } from '#lib/api';
 import {
-  COMPETENCY_INDENT,
-  type CompetencyView,
-  type FrameworkView,
-  type PlanView,
-  type TemplateView,
-  type UserOption,
-  type UsercompView,
-} from './types';
+  frameworkExportQueryOptions,
+  useAddTemplateCohort,
+  useAddTemplateCompetency,
+  useCompetencyFrameworks,
+  useCompetencyTemplates,
+  useCreateCompetency,
+  useCreateCompetencyFramework,
+  useCreateLearningPlanTemplate,
+  useCreatePlansFromTemplate,
+  useFrameworkCompetencies,
+  useImportCompetencyFramework,
+  usePlanReviewAction,
+  useReviewQueuePlans,
+  useReviewQueueUsercomps,
+  useUsercompReviewAction,
+  useUserOptions,
+  userCompetenciesQueryOptions,
+  userLearningPlansQueryOptions,
+  type PlanReviewActionName,
+  type UsercompReviewActionName,
+} from '#lib/learning-plan-data';
+import { COMPETENCY_INDENT, type FrameworkView } from './types';
 
 /** Nhãn trạng thái dịch qua catalog ở thời điểm render (xem hook trong component). */
 
@@ -70,13 +113,26 @@ export function CompetencyAdmin() {
     1: t('reviewStatusWaiting'),
     2: t('reviewStatusInReview'),
   };
-  const [frameworks, setFrameworks] = useState<FrameworkView[]>([]);
-  const [templates, setTemplates] = useState<TemplateView[]>([]);
-  const [competencies, setCompetencies] = useState<CompetencyView[]>([]);
+  const queryClient = useQueryClient();
+  const frameworksQuery = useCompetencyFrameworks();
+  const templatesQuery = useCompetencyTemplates();
+  const frameworks = frameworksQuery.data ?? [];
+  const templates = templatesQuery.data ?? [];
   const [selectedFrameworkId, setSelectedFrameworkId] = useState('');
+  const competenciesQuery = useFrameworkCompetencies(selectedFrameworkId);
+  const competencies = competenciesQuery.data ?? [];
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
-  const [adminError, setAdminError] = useState<string | null>(null);
+  /**
+   * Lỗi tải dữ liệu của khu quản trị (danh sách framework/template
+   * hoặc cây năng lực) phơi thẳng từ trạng thái lỗi của các query —
+   * tương đương bản thủ công đặt lỗi khi lần nạp ban đầu hoặc lần nạp
+   * cây thất bại; lần nạp lại thành công thì lỗi tự biến mất.
+   */
+  const adminError =
+    frameworksQuery.isError || templatesQuery.isError || competenciesQuery.isError
+      ? t('compAdminLoadFailed')
+      : null;
   const [fwDraft, setFwDraft] = useState({
     shortName: '',
     idNumber: '',
@@ -89,54 +145,37 @@ export function CompetencyAdmin() {
   const [tplDraft, setTplDraft] = useState({ shortName: '', description: '', dueDate: '' });
   const [tplCompetencyId, setTplCompetencyId] = useState('');
   const [tplCohortId, setTplCohortId] = useState('');
-  const [users, setUsers] = useState<UserOption[]>([]);
+  const usersQuery = useUserOptions();
+  const users = usersQuery.data ?? [];
   const [reviewUserId, setReviewUserId] = useState('');
-  const [reviewPlans, setReviewPlans] = useState<PlanView[] | null>(null);
-  const [reviewUsercomps, setReviewUsercomps] = useState<UsercompView[] | null>(null);
+  const [queueUserId, setQueueUserId] = useState<string | null>(null);
+  const reviewPlansQuery = useReviewQueuePlans(queueUserId);
+  const reviewUsercompsQuery = useReviewQueueUsercomps(queueUserId);
+  const reviewPlans = queueUserId === null ? null : (reviewPlansQuery.data ?? null);
+  const reviewUsercomps = queueUserId === null ? null : (reviewUsercompsQuery.data ?? null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [importInputKey, setImportInputKey] = useState(0);
-
-  /** Nạp danh sách framework + template cho khu quản lý. */
-  const reloadAdmin = useCallback(async () => {
-    const [fws, tpls] = await Promise.all([
-      apiJson<FrameworkView[]>('/api/v1/competencies/frameworks'),
-      apiJson<TemplateView[]>('/api/v1/competencies/templates'),
-    ]);
-    setFrameworks(fws);
-    setTemplates(tpls);
-    setSelectedTemplateId((prev) => prev || (tpls[0]?.id ?? ''));
-  }, []);
-
-  /** Nạp cây competency của một framework. */
-  const loadCompetencies = useCallback(async (frameworkId: string) => {
-    if (!frameworkId) {
-      setCompetencies([]);
-      return;
-    }
-    setCompetencies(await apiJson<CompetencyView[]>(`/api/v1/competencies/frameworks/${frameworkId}/competencies`));
-  }, []);
-
-  useEffect(() => {
-    void reloadAdmin().catch(() => setAdminError(t('compAdminLoadFailed')));
-  }, [reloadAdmin, t]);
+  const createFrameworkMutation = useCreateCompetencyFramework();
+  const importFrameworkMutation = useImportCompetencyFramework();
+  const createCompetencyMutation = useCreateCompetency();
+  const createTemplateMutation = useCreateLearningPlanTemplate();
+  const addTemplateCompetencyMutation = useAddTemplateCompetency();
+  const addTemplateCohortMutation = useAddTemplateCohort();
+  const createPlansMutation = useCreatePlansFromTemplate();
+  const planReviewMutation = usePlanReviewAction();
+  const usercompReviewMutation = useUsercompReviewAction();
 
   /**
-   * Thử nạp danh sách người dùng cho ô chọn của hàng đợi duyệt qua
-   * GET /api/v1/users (hình dạng `{ users, total, page, pageSize }` của
-   * `userListResponseSchema`); gọi không được thì để trống — quản trị vẫn
-   * nhập tay userId vào ô nhập bên dưới.
+   * Chọn sẵn mẫu đầu tiên khi danh sách mẫu đã nạp mà chưa có mẫu nào
+   * được chọn — đúng mặc định của bản thủ công, vốn chọn sẵn mẫu đầu
+   * mỗi lần nạp lại hai danh sách khung quản trị.
    */
   useEffect(() => {
-    void (async () => {
-      try {
-        const res = await apiJson<{ users?: UserOption[] } | UserOption[]>('/api/v1/users?page=1&pageSize=50');
-        setUsers(Array.isArray(res) ? res : (res.users ?? []));
-      } catch {
-        setUsers([]);
-      }
-    })();
-  }, []);
+    if (selectedTemplateId === '' && templates.length > 0) {
+      setSelectedTemplateId(templates[0]!.id);
+    }
+  }, [templates, selectedTemplateId]);
 
   /** Tạo framework qua POST /frameworks với đúng body của `createCompetencyFrameworkSchema`. */
   async function createFramework(event: FormEvent) {
@@ -152,19 +191,15 @@ export function CompetencyAdmin() {
       .filter(Boolean)
       .map(Number);
     try {
-      await apiJson('/api/v1/competencies/frameworks', {
-        method: 'POST',
-        body: JSON.stringify({
-          shortName: fwDraft.shortName,
-          ...(fwDraft.idNumber.trim() ? { idNumber: fwDraft.idNumber.trim() } : {}),
-          ...(fwDraft.description.trim() ? { description: fwDraft.description.trim() } : {}),
-          scale: { values, proficient },
-          visible: fwDraft.visible,
-        }),
+      await createFrameworkMutation.mutateAsync({
+        shortName: fwDraft.shortName,
+        ...(fwDraft.idNumber.trim() ? { idNumber: fwDraft.idNumber.trim() } : {}),
+        ...(fwDraft.description.trim() ? { description: fwDraft.description.trim() } : {}),
+        scale: { values, proficient },
+        visible: fwDraft.visible,
       });
       setFwDraft({ shortName: '', idNumber: '', description: '', scaleValues: '', scaleProficient: '', visible: true });
       setAdminMessage(t('compFrameworkCreated'));
-      await reloadAdmin();
     } catch {
       setAdminMessage(t('compFrameworkCreateFailed'));
     }
@@ -178,7 +213,7 @@ export function CompetencyAdmin() {
   async function exportFramework(fw: FrameworkView) {
     setAdminMessage(null);
     try {
-      const doc = await apiJson<unknown>(`/api/v1/competencies/frameworks/${fw.id}/export`);
+      const doc = await queryClient.fetchQuery(frameworkExportQueryOptions(fw.id));
       const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -212,14 +247,10 @@ export function CompetencyAdmin() {
       return;
     }
     try {
-      const created = await apiJson<FrameworkView>('/api/v1/competencies/frameworks/import', {
-        method: 'POST',
-        body: JSON.stringify(doc),
-      });
+      const created = await importFrameworkMutation.mutateAsync(doc);
       setImportFile(null);
       setImportInputKey((k) => k + 1);
       setAdminMessage(t('compImportSuccess', { name: created.shortName }));
-      await reloadAdmin();
     } catch (err) {
       setImportError(
         err instanceof ApiError
@@ -235,18 +266,17 @@ export function CompetencyAdmin() {
     if (!selectedFrameworkId) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/competencies/frameworks/${selectedFrameworkId}/competencies`, {
-        method: 'POST',
-        body: JSON.stringify({
+      await createCompetencyMutation.mutateAsync({
+        frameworkId: selectedFrameworkId,
+        body: {
           shortName: compDraft.shortName,
           ...(compDraft.idNumber.trim() ? { idNumber: compDraft.idNumber.trim() } : {}),
           ...(compDraft.description.trim() ? { description: compDraft.description.trim() } : {}),
           ...(compDraft.parentId ? { parentId: compDraft.parentId } : {}),
-        }),
+        },
       });
       setCompDraft({ shortName: '', idNumber: '', description: '', parentId: '' });
       setAdminMessage(t('compCompetencyCreated'));
-      await loadCompetencies(selectedFrameworkId);
     } catch {
       setAdminMessage(t('compCompetencyCreateFailed'));
     }
@@ -257,18 +287,14 @@ export function CompetencyAdmin() {
     event.preventDefault();
     setAdminMessage(null);
     try {
-      const created = await apiJson<TemplateView>('/api/v1/competencies/templates', {
-        method: 'POST',
-        body: JSON.stringify({
-          shortName: tplDraft.shortName,
-          ...(tplDraft.description.trim() ? { description: tplDraft.description.trim() } : {}),
-          ...(tplDraft.dueDate ? { dueDate: tplDraft.dueDate } : {}),
-        }),
+      const created = await createTemplateMutation.mutateAsync({
+        shortName: tplDraft.shortName,
+        ...(tplDraft.description.trim() ? { description: tplDraft.description.trim() } : {}),
+        ...(tplDraft.dueDate ? { dueDate: tplDraft.dueDate } : {}),
       });
       setTplDraft({ shortName: '', description: '', dueDate: '' });
       setSelectedTemplateId(created.id);
       setAdminMessage(t('compTemplateCreated'));
-      await reloadAdmin();
     } catch {
       setAdminMessage(t('compTemplateCreateFailed'));
     }
@@ -280,9 +306,9 @@ export function CompetencyAdmin() {
     if (!selectedTemplateId) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/competencies/templates/${selectedTemplateId}/competencies`, {
-        method: 'POST',
-        body: JSON.stringify({ competencyId: tplCompetencyId.trim() }),
+      await addTemplateCompetencyMutation.mutateAsync({
+        templateId: selectedTemplateId,
+        competencyId: tplCompetencyId.trim(),
       });
       setTplCompetencyId('');
       setAdminMessage(t('compTemplateCompetencyAdded'));
@@ -297,9 +323,9 @@ export function CompetencyAdmin() {
     if (!selectedTemplateId) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/competencies/templates/${selectedTemplateId}/cohorts`, {
-        method: 'POST',
-        body: JSON.stringify({ cohortId: tplCohortId.trim() }),
+      await addTemplateCohortMutation.mutateAsync({
+        templateId: selectedTemplateId,
+        cohortId: tplCohortId.trim(),
       });
       setTplCohortId('');
       setAdminMessage(t('compTemplateCohortAdded'));
@@ -313,47 +339,63 @@ export function CompetencyAdmin() {
     if (!selectedTemplateId) return;
     setAdminMessage(null);
     try {
-      const res = await apiJson<{ created: number }>(
-        `/api/v1/competencies/templates/${selectedTemplateId}/create-plans`,
-        { method: 'POST', body: '{}' },
-      );
+      const res = await createPlansMutation.mutateAsync({ templateId: selectedTemplateId });
       setAdminMessage(t('compPlansCreated', { count: res.created }));
     } catch {
       setAdminMessage(t('compActionFailed'));
     }
   }
 
-  /** Tải plans + usercomp của người dùng đang chọn trong hàng đợi duyệt. */
-  const loadReviewQueue = useCallback(async (targetUserId: string) => {
-    const uid = targetUserId.trim();
+  /**
+   * Tải plans + usercomp của người dùng đang nhập trong hàng đợi
+   * duyệt: bật cặp query của hàng đợi cho người dùng đó và chờ cả hai
+   * qua `fetchQuery` để báo lỗi đúng như bản thủ công — lỗi thì hiện
+   * thông báo không tải được, hàng đợi cũ (nếu có) vẫn ở lại.
+   */
+  async function loadReviewQueue() {
+    const uid = reviewUserId.trim();
     if (!uid) return;
-    const [plans, usercomps] = await Promise.all([
-      apiJson<PlanView[]>(`/api/v1/competencies/plans/user/${uid}`),
-      apiJson<UsercompView[]>(`/api/v1/competencies/usercomp/user/${uid}`),
-    ]);
-    setReviewPlans(plans);
-    setReviewUsercomps(usercomps);
-  }, []);
+    setQueueUserId(uid);
+    try {
+      await Promise.all([
+        queryClient.fetchQuery(userLearningPlansQueryOptions(uid)),
+        queryClient.fetchQuery(userCompetenciesQueryOptions(uid)),
+      ]);
+    } catch {
+      setAdminMessage(t('compReviewQueueLoadFailed'));
+    }
+  }
+
+  /**
+   * Sau thao tác duyệt, bản thủ công nạp lại hàng đợi theo đúng id
+   * đang nhập ở ô hàng đợi: nếu id đó là người dùng khác với hàng đợi
+   * đang hiển thị thì chuyển hàng đợi sang người dùng đó (cặp query tự
+   * tải); trùng thì invalidate của đột biến đã làm mới tại chỗ.
+   */
+  function syncQueueWithInput() {
+    const uid = reviewUserId.trim();
+    if (uid && uid !== queueUserId) setQueueUserId(uid);
+  }
 
   /** Thao tác duyệt trên một plan (start-review/approve/unapprove/complete), xong tải lại hàng đợi. */
-  async function planReviewAction(planId: string, action: 'start-review' | 'approve' | 'unapprove' | 'complete') {
+  async function planReviewAction(planId: string, action: PlanReviewActionName) {
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/competencies/plans/${planId}/${action}`, { method: 'POST', body: '{}' });
+      await planReviewMutation.mutateAsync({ planId, action, userId: reviewUserId.trim() });
       setAdminMessage(t('compReviewActionDone'));
-      await loadReviewQueue(reviewUserId);
+      syncQueueWithInput();
     } catch {
       setAdminMessage(t('compReviewActionFailed'));
     }
   }
 
   /** Thao tác duyệt trên một usercomp (start-review/approve/reject), xong tải lại hàng đợi. */
-  async function usercompReviewAction(usercompId: string, action: 'start-review' | 'approve' | 'reject') {
+  async function usercompReviewAction(usercompId: string, action: UsercompReviewActionName) {
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/competencies/usercomp/${usercompId}/${action}`, { method: 'POST', body: '{}' });
+      await usercompReviewMutation.mutateAsync({ usercompId, action, userId: reviewUserId.trim() });
       setAdminMessage(t('compReviewActionDone'));
-      await loadReviewQueue(reviewUserId);
+      syncQueueWithInput();
     } catch {
       setAdminMessage(t('compReviewActionFailed'));
     }
@@ -390,8 +432,12 @@ export function CompetencyAdmin() {
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      setSelectedFrameworkId(fw.id);
-                      void loadCompetencies(fw.id).catch(() => setAdminError(t('compAdminLoadFailed')));
+                      if (fw.id === selectedFrameworkId) {
+                        // Bấm lại framework đang chọn: nạp lại cây của nó như bản thủ công gọi lại mỗi lần bấm.
+                        void competenciesQuery.refetch();
+                      } else {
+                        setSelectedFrameworkId(fw.id);
+                      }
                     }}
                   >
                     {t('compViewCompetencies')}
@@ -703,12 +749,7 @@ export function CompetencyAdmin() {
               <FieldLabel htmlFor="review-user-id">{t('compReviewUserId')}</FieldLabel>
               <Input id="review-user-id" value={reviewUserId} onChange={(e) => setReviewUserId(e.target.value)} />
             </Field>
-            <Button
-              type="button"
-              onClick={() =>
-                void loadReviewQueue(reviewUserId).catch(() => setAdminMessage(t('compReviewQueueLoadFailed')))
-              }
-            >
+            <Button type="button" onClick={() => void loadReviewQueue()}>
               {t('compLoadReviewQueue')}
             </Button>
           </div>
