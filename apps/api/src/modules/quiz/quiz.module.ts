@@ -34,6 +34,11 @@ import { QuizService } from './quiz.service';
  * - Quiz ↔ Exams: `ExamMatricesController` của module này uỷ thác
  *   handler sinh đề cho ExamsService của ExamsModule, trong khi
  *   ExamsService dùng facade của Quiz.
+ *
+ * QuizService đã tách cấu trúc bên trong theo 4 cụm ca sử dụng của
+ * issue #295 (ghim đề / ma trận / sinh đề-đặc tả / lượt làm-chấm-kết
+ * quả) cộng tầng thấp dùng chung, giữ nguyên bề mặt công khai và
+ * wiring của module — xem docblock của facade QuizService.
  */
 @Module({
   imports: [AccessModule, CoursesModule, forwardRef(() => QuestionsModule), GradesModule, UsersModule, GroupsModule, CurriculumModule, EventsModule, TenantsModule, EnrolModule, FilesModule, forwardRef(() => ExamsModule)],
