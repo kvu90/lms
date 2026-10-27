@@ -2,7 +2,8 @@ import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
+  adminToken, assignRole, createTestApp, createUserViaApi, http, login,
+  roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 import { createCategory, createCourse, grantActiveTeacherPlan } from './course-enrolment-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
@@ -327,17 +328,36 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     expect(ueBefore.rows).toHaveLength(1);
     expect(ueBefore.rows[0].status).toBe(0);
 
-    // Hoàn một phần: giữ nguyên quyền lợi.
-    const partial = await http(app).post(`/api/v1/payments/${payment.id}/refund`).set('Authorization', `Bearer ${admin}`)
+    // Hoàn một phần (lát 3, issue #189 — vòng đời duyệt hoàn): tạo yêu
+    // cầu một cấp rồi xác nhận chi — giữ nguyên quyền lợi.
+    const partial = await http(app).post(`/api/v1/payments/${payment.id}/refunds`).set('Authorization', `Bearer ${admin}`)
       .send({ amount: 50000, reason: 'partial', externalTransactionId: `ft-cf-out-${Date.now()}-1` });
     expect(partial.status).toBeLessThan(300);
+    expect((partial.body as { status: string }).status).toBe('approved');
+    const partialSettled = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${(partial.body as { id: string }).id}/settle`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(partialSettled.status).toBeLessThan(300);
+    expect((partialSettled.body as { status: string }).status).toBe('settled');
     expect(await rosterIds(classB)).toContain(buyer.id);
     expect(await enrolmentActive(courseB1, buyer.token)).toBe(true);
 
-    // Hoàn đủ phần còn lại + lệnh chi đã xác nhận → đình chỉ khỏi lớp.
-    const rest = await http(app).post(`/api/v1/payments/${payment.id}/refund`).set('Authorization', `Bearer ${admin}`)
+    // Hoàn đủ phần còn lại: lần hoàn chạm 100% → hai cấp (tạo ở
+    // `requested`, manager thứ hai duyệt) rồi xác nhận chi → đình chỉ
+    // khỏi lớp tại mốc settled.
+    const mgr2 = await createUserViaApi(app, admin);
+    await assignRole(app, admin, mgr2.id, await roleIdByShortname(app, admin, 'manager'), await systemContextId(app, admin));
+    const mgr2Token = (await login(app, mgr2.username, STRONG_PASSWORD)).accessToken;
+    const rest = await http(app).post(`/api/v1/payments/${payment.id}/refunds`).set('Authorization', `Bearer ${mgr2Token}`)
       .send({ amount: 150000, reason: 'rest', externalTransactionId: `ft-cf-out-${Date.now()}-2` });
     expect(rest.status).toBeLessThan(300);
+    expect((rest.body as { status: string }).status).toBe('requested');
+    const restApproved = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${(rest.body as { id: string }).id}/approve`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(restApproved.status).toBeLessThan(300);
+    const restSettled = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${(rest.body as { id: string }).id}/settle`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(restSettled.status).toBeLessThan(300);
+    expect((restSettled.body as { status: string }).status).toBe('settled');
     const after = await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`);
     expect((after.body as { status: string }).status).toBe('refunded');
 

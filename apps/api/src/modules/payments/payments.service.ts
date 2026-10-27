@@ -1,6 +1,7 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
+import { sql } from 'drizzle-orm';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
@@ -8,11 +9,12 @@ import { ClassesService } from '../classes/classes.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
+import { TenantConfigService } from '../tenants/tenant-config.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { PaymentsRepository, type AccountRow, type CouponRow, type EntitlementRow, type PaymentRow, type RefundRow } from './payments.repository';
+import { PaymentsRepository, type AccountRow, type CouponRow, type EntitlementRow, type PaymentRow, type ProviderEventRow, type RefundRow } from './payments.repository';
 import { PlanEntitlementsService, type PlanSnapshot } from './plan-entitlements.service';
 import { buildVietQrPayload, extractPaymentCode, maskAccountConfig, paymentCodeFromSequence, readAccountConfig, PAYMENT_CODE_TTL_MS } from './vietqr';
-import type { Coupon, CreateCoupon, PlanEntitlement, UpdateCoupon } from '@lms/contracts';
+import type { Coupon, CreateCoupon, CreateRefund, PaymentRefund, PaymentReviewQueueItem, PlanEntitlement, RejectRefund, ResolvePaymentReview, SettleRefund, UpdateCoupon } from '@lms/contracts';
 
 /** Tên header mang shared secret xác thực webhook của gateway 'manual'. */
 export const PAYMENT_WEBHOOK_SECRET_HEADER = 'x-payment-webhook-secret';
@@ -100,6 +102,17 @@ export interface SepayIpnInput {
  * chu kỳ đã áp vào `payments.data`; kích hoạt quyền lợi gói khi
  * succeeded và đình chỉ quyền lợi khi hoàn đủ qua
  * `PlanEntitlementsService`; không có pipeline thanh toán riêng.
+ *
+ * Lát 3 (#189): hoàn tiền chuyển từ một bước sang VÒNG ĐỜI duyệt
+ * `requested → approved → settled` (hoặc `rejected`) trên bảng
+ * `payment_refunds` — tạo yêu cầu (cổng cộng dồn nguyên tử có khoá
+ * dòng), duyệt (một cấp tự duyệt / hai cấp khác người tạo), xác nhận
+ * chi (đảo quyền lợi tại đây khi cộng dồn đã chi đạt 100%, thứ tự đình
+ * chỉ-trước-ghi-sau); sự kiện `debit` của SePay tự xác nhận chi khi
+ * khớp dòng hoàn đang chờ, không khớp thì vào hàng đợi `needs_review`
+ * của chủ tiền. Hàng đợi `needs_review` và cổng `payment:manageaccounts`
+ * đều NEO THEO CHỦ TIỀN: tiền platform gác tại context hệ thống, tiền
+ * của trung tâm gác tại context tenant của chính trung tâm đó.
  */
 @Injectable()
 export class PaymentsService {
@@ -113,13 +126,46 @@ export class PaymentsService {
     @Inject(PAYMENT_GATEWAY) private readonly gateway: PaymentGateway,
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
+    private readonly tenantConfig: TenantConfigService,
     private readonly siteConfig: SiteConfigService,
     private readonly plans: PlanEntitlementsService,
   ) {}
 
+  /** Tenant platform ("tenant-zero") — chủ của dòng tiền gói và của hàng đợi platform. */
+  private async platformTenantId(): Promise<string> {
+    return (await this.tenants.platformTenant()).id;
+  }
+
+  /**
+   * Cổng `payment:manageaccounts` NEO THEO CHỦ TIỀN (lát 3, issue #189 —
+   * sửa nền vận hành thanh toán của trung tâm): tiền của tenant
+   * platform được gác tại CONTEXT HỆ THỐNG như trước; tiền của một
+   * trung tâm được gác tại CONTEXT TENANT của chính trung tâm đó —
+   * quản trị trung tâm (archetype `manager`) có quyền hoàn/khớp tay học
+   * phí của trung tâm mình bằng tài khoản của trung tâm mình, và trung
+   * tâm cấp thêm được quyền này cho vai tuỳ biến (ví dụ kế toán) qua cơ
+   * chế gán vai sẵn có. Đường context tenant của PermissionEvaluator
+   * vốn đã áp cổng tenant (chỉ thành viên đang hoạt động của tenant mới
+   * qua, không có lối tắt quản trị toàn site) nên vai trò của tenant
+   * khác không chạm được tiền của tenant này.
+   */
+  private async requireManageAccountsForTenant(actorId: string, tenantId: string): Promise<void> {
+    if (tenantId === (await this.platformTenantId())) {
+      const sys = await this.contexts.ensureSystemContext();
+      await this.evaluator.requireCapability(actorId, 'payment:manageaccounts', sys.id);
+      return;
+    }
+    const ctx = await this.contexts.ensureTenantContext(tenantId);
+    await this.evaluator.requireCapability(actorId, 'payment:manageaccounts', ctx.id);
+  }
+
+  /**
+   * Cổng quản trị tài khoản nhận tiền theo PHIÊN hiện tại: neo tại
+   * tenant hiệu lực của phiên (platform → context hệ thống; trung tâm
+   * đã chuyển ngữ cảnh → context tenant của trung tâm đó).
+   */
   private async requireManageAccounts(actorId: string): Promise<void> {
-    const sys = await this.contexts.ensureSystemContext();
-    await this.evaluator.requireCapability(actorId, 'payment:manageaccounts', sys.id);
+    await this.requireManageAccountsForTenant(actorId, await this.effectiveTenantId());
   }
 
   /** Cổng quản trị coupon: capability riêng `payment:managecoupons` tại context hệ thống (chỉ quản trị platform). */
@@ -203,10 +249,11 @@ export class PaymentsService {
     await this.assertCanReadPayment(actorId, row);
     return row;
   }
-  async listRefundsForUser(actorId: string, paymentId: string): Promise<RefundRow[]> {
+  async listRefundsForUser(actorId: string, paymentId: string): Promise<PaymentRefund[]> {
     const payment = await this.getPayment(paymentId);
     await this.assertCanReadPayment(actorId, payment);
-    return this.repo.listRefunds(paymentId);
+    const rows = await this.repo.listRefunds(paymentId);
+    return rows.map((r) => this.toRefundView(r));
   }
 
   /** Tạo payment ở trạng thái pending cho một user. */
@@ -719,52 +766,526 @@ export class PaymentsService {
     return { success: true };
   }
 
+  // --- Vòng đời hoàn tiền (lát 3, issue #189) ------------------------------
+  //
+  // Luồng nghiệp vụ: hoàn tiền là TIỀN RA KHỎI TÀI KHOẢN CỦA CHỦ TIỀN
+  // nên không còn là một thao tác ghi sổ tức thời như trước. Một khoản
+  // hoàn đi qua vòng đời `requested → approved → settled` (hoặc bị
+  // `rejected` kèm lý do bắt buộc):
+  //
+  // 1. TẠO YÊU CẦU (createRefund): người có quyền quản lý tài khoản của
+  //    chủ tiền (neo theo tenant chủ tiền) tạo yêu cầu kèm lý do bắt
+  //    buộc và mã lệnh chi dự kiến nếu đã biết. Cổng cộng dồn chạy
+  //    TRONG MỘT TRANSACTION CÓ KHOÁ DÒNG `payments`: tổng các dòng
+  //    hoàn chưa bị từ chối (requested + approved + settled) cộng lần
+  //    này không được vượt số tiền khoản thu — hai yêu cầu song song
+  //    thì đúng một yêu cầu qua cổng, yêu cầu còn lại nhận
+  //    `payment.refund_exceeds_total`. Cấp duyệt quyết ngay tại đây:
+  //    MỘT CẤP (dòng hoàn sang `approved` ngay, người tạo là người
+  //    duyệt) khi hoàn một phần dưới ngưỡng; HAI CẤP (dòng hoàn ở
+  //    `requested` chờ duyệt) khi số tiền lần hoàn từ ngưỡng trở lên
+  //    HOẶC lần hoàn làm cộng dồn đạt 100% khoản thu. Ngưỡng đọc từ
+  //    khoá cấu hình `refunddualapprovalthreshold` (component
+  //    `payments`), phân giải theo tenant chủ tiền (platform đặt giá
+  //    trị chung, tenant ghi đè được); 0 = luôn hai cấp. Ngưỡng hiệu
+  //    lực được ghi vào chính dòng hoàn để vết kiểm toán đứng vững dù
+  //    cấu hình đổi sau này.
+  // 2. DUYỆT (approveRefund): chỉ áp cho dòng đang `requested`; người
+  //    duyệt phải KHÁC người tạo — chặn ở tầng service này bằng mã lỗi
+  //    riêng để không đường gọi nào (kể cả gọi thẳng service) lách
+  //    được; TỪ CHỐI (rejectRefund) áp cho dòng `requested`/`approved`
+  //    và bắt buộc lý do — dòng `rejected` giải phóng ngân sách hoàn.
+  // 3. XÁC NHẬN CHI (settleRefund tay, hoặc tự động khi sự kiện
+  //    `debit` của SePay khớp — xem settleRefundFromDebitEvent): chỉ
+  //    áp cho dòng `approved`, kèm mã lệnh chi thực tế. Đây là mốc DUY
+  //    NHẤT đảo quyền lợi: nếu lần xác nhận này làm cộng dồn đã chi
+  //    (các dòng `settled`) đạt đúng 100% khoản thu thì đình chỉ quyền
+  //    lợi TRƯỚC (ghi danh / thành viên lớp / quyền lợi gói — mọi khâu
+  //    đều idempotent) rồi mới ghi dòng hoàn `settled` + lật khoản thu
+  //    sang `refunded` trong một transaction. Đình chỉ ném lỗi ⇒ chưa
+  //    ghi gì cả, khoản thu còn `succeeded`, dòng hoàn còn `approved`,
+  //    gọi lại được — không để trạng thái "tiền đã ghi hoàn nhưng
+  //    quyền lợi vẫn chạy". Hoàn một phần (cộng dồn chưa 100%) không
+  //    đảo quyền lợi.
+  //
+  // Quyền ở mọi bước neo theo CHỦ TIỀN của khoản thu (tenant của khoản
+  // thu): tiền gói neo tại context hệ thống; học phí neo tại context
+  // tenant của trung tâm sở hữu.
+
+  /** Chiếu một dòng hoàn thành dạng API kèm trọn vết kiểm toán vòng đời. */
+  private toRefundView(row: RefundRow): PaymentRefund {
+    const data = (row.data ?? {}) as Record<string, unknown>;
+    const reversal = (data['reversal'] ?? null) as { applied?: boolean } | null;
+    return {
+      id: row.id,
+      paymentId: row.paymentId,
+      amount: row.amount,
+      currency: row.currency,
+      reason: row.reason,
+      externalTransactionId: row.externalTransactionId,
+      status: row.status as PaymentRefund['status'],
+      createdBy: row.createdBy,
+      approvalLevel: row.approvalLevel,
+      approvalThreshold: row.approvalThreshold,
+      approvedBy: row.approvedBy,
+      approvedAt: row.approvedAt ? row.approvedAt.toISOString() : null,
+      rejectedBy: row.rejectedBy,
+      rejectedAt: row.rejectedAt ? row.rejectedAt.toISOString() : null,
+      rejectionReason: row.rejectionReason,
+      settledBy: row.settledBy,
+      settledEventId: row.settledEventId,
+      settledAt: row.settledAt ? row.settledAt.toISOString() : null,
+      entitlementReversed: reversal ? reversal.applied === true : null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /** Ngưỡng duyệt hai cấp hiệu lực cho chủ tiền của khoản thu (đơn vị tiền nhỏ nhất). */
+  private async refundDualApprovalThreshold(tenantId: string): Promise<number> {
+    const value = await this.tenantConfig.getEffectiveValue<number>(tenantId, 'payments', 'refunddualapprovalthreshold');
+    return typeof value === 'number' && Number.isFinite(value) ? value : 1_000_000;
+  }
+
+  /** Ngưỡng tuổi quá hạn (giờ) của hàng đợi `needs_review` cho một tenant chủ tiền. */
+  private async reviewTargetHours(tenantId: string): Promise<number> {
+    const value = await this.tenantConfig.getEffectiveValue<number>(tenantId, 'payments', 'reviewtargethours');
+    return typeof value === 'number' && Number.isFinite(value) ? value : 48;
+  }
+
   /**
-   * Hoàn tiền: tạo refund riêng, payment gốc chỉ đổi status sang refunded
-   * (không sửa amount). Cổng cộng dồn (§5.5): tổng đã hoàn + lần này phải
-   * ≤ amount gốc; status `refunded` khi tổng hoàn bằng đúng amount.
-   * Đảo quyền lợi (§5.6, tiêu chí 6.4.7): hoàn TOÀN BỘ + lệnh chi đã xác
-   * nhận (externalTransactionId đi kèm) → đình chỉ ghi danh qua
-   * `EnrolService.setSuspended`; hoàn một phần giữ nguyên quyền lợi.
-   * CLASS-3: cùng khuôn cho gói lớp — hoàn toàn bộ → đình chỉ khỏi lớp
-   * qua `ClassesService.suspendPaidClassMember`.
+   * Tạo yêu cầu hoàn — bước 1 của vòng đời. Xem khối luồng nghiệp vụ ở
+   * đầu mục này: cổng cộng dồn nguyên tử (transaction + khoá dòng
+   * `payments` FOR UPDATE, tổng tính cả dòng `requested`/`approved`)
+   * và luật cấp duyệt đều nằm ở đây.
    */
-  async refund(actorId: string, paymentId: string, input: { amount: number; reason?: string; externalTransactionId?: string }): Promise<RefundRow> {
-    await this.requireManageAccounts(actorId);
+  async createRefund(actorId: string, paymentId: string, input: CreateRefund): Promise<PaymentRefund> {
     const payment = await this.getPayment(paymentId);
+    await this.requireManageAccountsForTenant(actorId, payment.tenantId);
     if (payment.status !== 'succeeded') throw new BadRequestException({ message: 'Only a succeeded payment can be refunded', code: 'payment.not_succeeded' });
     if (!Number.isInteger(input.amount) || input.amount <= 0 || input.amount > payment.amount) {
       throw new BadRequestException({ message: 'Refund amount must be a positive integer not exceeding the payment amount', code: 'payment.bad_refund_amount' });
     }
-    const alreadyRefunded = await this.repo.sumRefunds(paymentId);
-    if (alreadyRefunded + input.amount > payment.amount) {
-      throw new BadRequestException({ message: 'Cumulative refunds would exceed the original payment amount', code: 'payment.refund_exceeds_total' });
+    const reason = input.reason.trim();
+    if (reason.length === 0) {
+      throw new BadRequestException({ message: 'A refund reason is required', code: 'payment.refund_reason_required' });
     }
-    const refund = await this.repo.insertRefund({
-      paymentId: payment.id, amount: input.amount, currency: payment.currency,
-      reason: input.reason ?? '', externalTransactionId: input.externalTransactionId ?? null,
+    const threshold = await this.refundDualApprovalThreshold(payment.tenantId);
+    const created = await this.repo.dbHandle.transaction(async (tx) => {
+      // Khoá dòng payments: mọi yêu cầu hoàn của cùng một khoản thu xếp
+      // hàng tại đây, cổng cộng dồn đọc-tổng → so sánh → ghi không thể
+      // bị hai yêu cầu song song chẻ đôi (mỗi transaction thấy tổng đã
+      // gồm dòng của transaction thắng trước).
+      await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
+      const counted = await this.repo.sumRefundsByStatuses(payment.id, ['requested', 'approved', 'settled'], tx as never);
+      if (counted + input.amount > payment.amount) {
+        throw new BadRequestException({ message: 'Cumulative refunds would exceed the original payment amount', code: 'payment.refund_exceeds_total' });
+      }
+      // Luật hai cấp: lần hoàn từ ngưỡng trở lên, hoặc lần hoàn làm
+      // cộng dồn đạt 100% khoản thu. Ngưỡng 0 ⇒ điều kiện thứ nhất luôn
+      // đúng ⇒ mọi khoản hoàn đều hai cấp.
+      const dual = input.amount >= threshold || counted + input.amount === payment.amount;
+      const now = new Date();
+      return this.repo.insertRefund({
+        paymentId: payment.id, amount: input.amount, currency: payment.currency,
+        reason, externalTransactionId: input.externalTransactionId ?? null,
+        status: dual ? 'requested' : 'approved',
+        createdBy: actorId,
+        approvalLevel: dual ? 2 : 1,
+        approvalThreshold: threshold,
+        approvedBy: dual ? null : actorId,
+        approvedAt: dual ? null : now,
+      }, tx as never);
     });
-    if (alreadyRefunded + input.amount === payment.amount) {
-      await this.repo.updatePayment(payment.id, { status: 'refunded' });
-      if (input.externalTransactionId && payment.component === 'enrol_fee' && payment.itemId) {
-        await this.enrol.setSuspended(actorId, payment.itemId, payment.userId, true);
-      }
-      // CLASS-3: hoàn đủ gói lớp → đình chỉ khỏi lớp (gỡ backing
-      // cohort; cohort sync đình chỉ mọi khoá, giữ điểm/dữ liệu theo
-      // chế độ rời mặc định của lớp). Hoàn một phần giữ nguyên quyền
-      // lợi như enrol_fee.
-      if (input.externalTransactionId && payment.component === 'class_fee' && payment.itemId) {
-        await this.classes.suspendPaidClassMember(payment.itemId, payment.userId);
-      }
-      // Lát 2 (#189): hoàn đủ gói → đình chỉ quyền lợi gói của chính
-      // payment đó (cùng điều kiện đã-xác-nhận-lệnh-chi như enrol_fee).
-      if (input.externalTransactionId && (payment.component === 'tenant_plan' || payment.component === 'teacher_plan')) {
-        await this.plans.suspendForPayment(payment);
-      }
+    return this.toRefundView(created);
+  }
+
+  /** Nạp dòng hoàn thuộc đúng khoản thu, không tồn tại (hoặc thuộc khoản thu khác) ⇒ 404. */
+  private async getRefundOfPayment(paymentId: string, refundId: string): Promise<RefundRow> {
+    const refund = await this.repo.getRefund(refundId);
+    if (!refund || refund.paymentId !== paymentId) {
+      throw new NotFoundException({ message: `Refund ${refundId} not found`, code: 'payment.refund_not_found' });
     }
     return refund;
   }
-  async listRefunds(paymentId: string): Promise<RefundRow[]> { return this.repo.listRefunds(paymentId); }
+
+  /**
+   * Duyệt cấp 2 một yêu cầu hoàn đang `requested`. Người duyệt phải
+   * khác người tạo — luật tách nhiệm vụ của dòng tiền, chặn tại tầng
+   * service (mọi đường gọi đều qua đây) bằng mã lỗi riêng
+   * `payment.refund_approver_must_differ`.
+   */
+  async approveRefund(actorId: string, paymentId: string, refundId: string): Promise<PaymentRefund> {
+    const payment = await this.getPayment(paymentId);
+    await this.requireManageAccountsForTenant(actorId, payment.tenantId);
+    const refund = await this.getRefundOfPayment(paymentId, refundId);
+    if (refund.status !== 'requested') {
+      throw new BadRequestException({ message: 'Refund is not pending approval', code: 'payment.refund_not_pending_approval' });
+    }
+    if (refund.createdBy !== null && refund.createdBy === actorId) {
+      throw new BadRequestException({ message: 'The second approver must differ from the refund creator', code: 'payment.refund_approver_must_differ' });
+    }
+    const updated = await this.repo.updateRefund(refund.id, { status: 'approved', approvedBy: actorId, approvedAt: new Date() });
+    return this.toRefundView(updated);
+  }
+
+  /**
+   * Từ chối một yêu cầu hoàn (`requested` hoặc `approved`) — lý do bắt
+   * buộc. Dòng `rejected` ra khỏi cổng cộng dồn nên ngân sách hoàn của
+   * khoản thu được giải phóng cho yêu cầu khác.
+   */
+  async rejectRefund(actorId: string, paymentId: string, refundId: string, input: RejectRefund): Promise<PaymentRefund> {
+    const payment = await this.getPayment(paymentId);
+    await this.requireManageAccountsForTenant(actorId, payment.tenantId);
+    const refund = await this.getRefundOfPayment(paymentId, refundId);
+    if (refund.status !== 'requested' && refund.status !== 'approved') {
+      throw new BadRequestException({ message: 'Refund can no longer be rejected', code: 'payment.refund_not_rejectable' });
+    }
+    const reason = input.reason.trim();
+    if (reason.length === 0) {
+      throw new BadRequestException({ message: 'A rejection reason is required', code: 'payment.refund_rejection_reason_required' });
+    }
+    const updated = await this.repo.updateRefund(refund.id, {
+      status: 'rejected', rejectedBy: actorId, rejectedAt: new Date(), rejectionReason: reason,
+    });
+    return this.toRefundView(updated);
+  }
+
+  /**
+   * Đình chỉ quyền lợi của một khoản thu khi hoàn đủ 100% — dùng chung
+   * cho cả ba component có quyền lợi. Mọi khâu đều idempotent (đình
+   * chỉ một ghi danh/quyền lợi đã đình chỉ là no-op) nên khâu xác nhận
+   * chi gọi lại được an toàn sau lỗi giữa chừng. `actorId` là người
+   * xác nhận chi (hoặc người tạo yêu cầu hoàn khi hệ thống tự xác
+   * nhận qua sự kiện `debit`) vì `EnrolService.setSuspended` tự gác
+   * quyền `enrol:manage` theo actor đó.
+   */
+  private async suspendEntitlementForFullRefund(actorId: string, payment: PaymentRow): Promise<void> {
+    if (payment.component === 'enrol_fee' && payment.itemId) {
+      await this.enrol.setSuspended(actorId, payment.itemId, payment.userId, true);
+    }
+    // CLASS-3: hoàn đủ gói lớp → đình chỉ khỏi lớp (gỡ backing cohort;
+    // cohort sync đình chỉ mọi khoá, giữ điểm/dữ liệu theo chế độ rời
+    // mặc định của lớp).
+    if (payment.component === 'class_fee' && payment.itemId) {
+      await this.classes.suspendPaidClassMember(payment.itemId, payment.userId);
+    }
+    // Lát 2 (#189): hoàn đủ gói → đình chỉ quyền lợi gói của chính
+    // payment đó.
+    if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
+      await this.plans.suspendForPayment(payment);
+    }
+  }
+
+  /**
+   * Khâu xác nhận chi dùng chung cho xác nhận TAY (settleRefund) và
+   * xác nhận TỰ ĐỘNG qua sự kiện `debit` (settleRefundFromDebitEvent).
+   * Thứ tự bất biến: đình chỉ quyền lợi TRƯỚC (khi đạt 100%), ghi dòng
+   * hoàn `settled` + lật khoản thu `refunded` SAU trong một
+   * transaction có khoá dòng khoản thu. Hoàn một phần: không đình chỉ,
+   * khoản thu giữ `succeeded`.
+   */
+  private async applyRefundSettlement(input: {
+    payment: PaymentRow; refund: RefundRow; externalTransactionId: string;
+    settledBy: string | null; settledEventId: string | null; suspensionActorId: string;
+  }): Promise<RefundRow> {
+    const { payment, refund } = input;
+    const settledBefore = await this.repo.sumRefundsByStatuses(payment.id, ['settled']);
+    const willBeFull = settledBefore + refund.amount === payment.amount;
+    if (willBeFull) {
+      // Đình chỉ trước mọi ghi sổ: lỗi tại đây ⇒ chưa ghi gì, gọi lại được.
+      await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment);
+    }
+    const now = new Date();
+    const settled = await this.repo.dbHandle.transaction(async (tx) => {
+      await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
+      const fresh = await this.repo.getRefund(refund.id);
+      if (!fresh || fresh.status === 'settled') return fresh ?? refund;
+      if (fresh.status !== 'approved') {
+        throw new BadRequestException({ message: 'Refund is not approved for settlement', code: 'payment.refund_not_approved' });
+      }
+      const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx as never);
+      const full = settledSum + fresh.amount === payment.amount;
+      const data = { ...((fresh.data ?? {}) as Record<string, unknown>), reversal: { applied: full, at: now.toISOString() } };
+      const updated = await this.repo.updateRefund(fresh.id, {
+        status: 'settled', settledAt: now,
+        settledBy: input.settledBy, settledEventId: input.settledEventId,
+        externalTransactionId: input.externalTransactionId, data,
+      }, tx as never);
+      if (full) await this.repo.updatePayment(payment.id, { status: 'refunded' }, tx as never);
+      return updated;
+    });
+    return settled;
+  }
+
+  /**
+   * Xác nhận chi TAY cho một dòng hoàn đã duyệt: gắn mã lệnh chi thực
+   * tế; mã này phải trùng mã dự kiến đã ghi lúc tạo nếu có (hai nguồn
+   * lệch nhau ⇒ dừng, người vận hành phải làm rõ lệnh chi nào là
+   * thật trước khi tiền được ghi là đã ra).
+   */
+  async settleRefund(actorId: string, paymentId: string, refundId: string, input: SettleRefund): Promise<PaymentRefund> {
+    const payment = await this.getPayment(paymentId);
+    await this.requireManageAccountsForTenant(actorId, payment.tenantId);
+    const refund = await this.getRefundOfPayment(paymentId, refundId);
+    if (refund.status !== 'approved') {
+      throw new BadRequestException({ message: 'Refund is not approved for settlement', code: 'payment.refund_not_approved' });
+    }
+    const externalTransactionId = input.externalTransactionId ?? refund.externalTransactionId;
+    if (!externalTransactionId) {
+      throw new BadRequestException({ message: 'A payout transaction reference is required to settle a refund', code: 'payment.refund_tx_required' });
+    }
+    if (refund.externalTransactionId && input.externalTransactionId && refund.externalTransactionId !== input.externalTransactionId) {
+      throw new BadRequestException({ message: 'Payout transaction reference does not match the reference recorded on the refund', code: 'payment.refund_tx_mismatch' });
+    }
+    const settled = await this.applyRefundSettlement({
+      payment, refund, externalTransactionId,
+      settledBy: actorId, settledEventId: null, suspensionActorId: actorId,
+    });
+    return this.toRefundView(settled);
+  }
+
+  /**
+   * Xác nhận chi TỰ ĐỘNG từ một sự kiện `debit` của provider (SePay) —
+   * điểm vào của SepayMatchingService. Đối khớp theo (mã lệnh chi, tài
+   * khoản, số tiền): dòng hoàn đang `approved` có mã lệnh chi trùng mã
+   * giao dịch ngoài hoặc mã tham chiếu của sự kiện, thuộc khoản thu
+   * trên đúng tài khoản nhận sự kiện, số tiền bằng nhau. Khớp ⇒ xác
+   * nhận chi qua cùng khâu dùng chung (đảo quyền lợi nếu đạt 100%) và
+   * đánh dấu sự kiện `matched`. Không khớp được dòng hoàn nào ⇒ sự
+   * kiện vào `needs_review` của tenant sở hữu tài khoản nhận (tiền đã
+   * ra khỏi tài khoản mà hệ thống không rõ chi cho khoản hoàn nào —
+   * tuyệt đối không `ignored` im lặng). Sự kiện phát lại (retry) được
+   * nhận diện qua `settled_event_id` đã ghi trên dòng hoàn: coi như đã
+   * xử lý, không xác nhận chi hai lần.
+   */
+  async settleRefundFromDebitEvent(event: ProviderEventRow): Promise<void> {
+    const already = await this.repo.getRefundBySettledEventId(event.id);
+    if (already) {
+      await this.repo.updateProviderEvent(event.id, { matchStatus: 'matched', matchedPaymentId: already.paymentId });
+      return;
+    }
+    if (!event.accountId) {
+      // Sự kiện không gắn tài khoản nhận (bất thường ở đường IPN, vốn
+      // luôn định tuyến theo tài khoản) — không đối khớp được, vào
+      // hàng đợi của tenant chủ sự kiện để vận hành nhìn thấy.
+      await this.repo.updateProviderEvent(event.id, { matchStatus: 'needs_review' });
+      return;
+    }
+    const raw = (event.raw ?? {}) as Record<string, unknown>;
+    const referenceCode = typeof raw['reference_code'] === 'string' ? raw['reference_code'] : typeof raw['referenceCode'] === 'string' ? raw['referenceCode'] : '';
+    const candidate = await this.repo.findRefundCandidateForDebit({
+      accountId: event.accountId, amount: event.amount,
+      transactionIds: [event.externalTransactionId, referenceCode],
+    });
+    if (!candidate) {
+      await this.repo.updateProviderEvent(event.id, { matchStatus: 'needs_review' });
+      return;
+    }
+    try {
+      await this.applyRefundSettlement({
+        payment: candidate.payment, refund: candidate.refund,
+        externalTransactionId: candidate.refund.externalTransactionId ?? event.externalTransactionId,
+        settledBy: null, settledEventId: event.id,
+        suspensionActorId: candidate.refund.createdBy ?? candidate.payment.userId,
+      });
+      await this.repo.updateProviderEvent(event.id, { matchStatus: 'matched', matchedPaymentId: candidate.payment.id });
+    } catch {
+      // Xác nhận chi lỗi giữa chừng (ví dụ đình chỉ quyền lợi ném
+      // lỗi): dòng hoàn còn `approved` để xử lý lại được; sự kiện vào
+      // `needs_review` dạng mồ côi (không gắn khoản thu) để hiện lên
+      // hàng đợi của chủ tiền — tiền đã ra mà chưa ghi sổ xong là
+      // việc vận hành phải nhìn thấy, không được phép chìm im lặng.
+      await this.repo.updateProviderEvent(event.id, { matchStatus: 'needs_review' });
+    }
+  }
+
+  async listRefunds(paymentId: string): Promise<PaymentRefund[]> {
+    const rows = await this.repo.listRefunds(paymentId);
+    return rows.map((r) => this.toRefundView(r));
+  }
+
+  // --- Hàng đợi needs_review (lát 3, issue #189) ---------------------------
+  //
+  // Luồng nghiệp vụ: khoản thu rơi vào `needs_review` khi tiền về
+  // không khớp sạch (sai số tiền, sai tài khoản, quá hạn, mã lạ) hoặc
+  // một sự kiện `debit` không khớp được dòng hoàn nào. Hàng đợi CHIA
+  // THEO CHỦ TIỀN qua khoá phân vùng là tenant của khoản thu/tài khoản
+  // nhận: tiền gói thuộc hàng đợi PLATFORM (gác tại context hệ thống),
+  // học phí thuộc hàng đợi CỦA TRUNG TÂM sở hữu (gác tại context tenant
+  // của trung tâm) — tách bạch hiển thị tuyệt đối, không vai nào thấy
+  // khoản chờ của tenant khác. Phạm vi của người xem = mọi tenant mà
+  // người đó có `payment:manageaccounts` tại đúng context neo của
+  // tenant đó; không có tenant nào trong phạm vi ⇒ bị chặn.
+  //
+  // Xử lý tay (resolvePaymentReview) có hai quyết định, cả hai bắt
+  // buộc lý do và đều ghi VẾT XỬ LÝ (người xử lý, quyết định, lý do,
+  // thời điểm) lên chính dòng khoản thu: `matched` = khớp tay về
+  // `succeeded` — kích hoạt quyền lợi TRỰC TIẾP (ghi danh / lớp / gói,
+  // đều idempotent) TRƯỚC nhịp lật trạng thái rồi phát đúng outbox
+  // `payment_succeeded`, đúng bất biến đồng bộ của đường khớp tự động
+  // (trạng thái `succeeded` không bao giờ quan sát được khi quyền lợi
+  // chưa kích hoạt; kích hoạt lỗi thì khoản thu còn ở hàng đợi, xử lý
+  // lại được); `rejected` = bác bỏ, khoản thu về `failed`. Khoản chờ
+  // quá tuổi cấu hình (`payments/reviewtargethours`) chỉ bị đánh dấu
+  // QUÁ HẠN để cảnh báo — hệ thống không bao giờ tự xử lý, vì xử lý
+  // tay là xác nhận tiền thật và phải có người chịu trách nhiệm.
+
+  /**
+   * Phạm vi hàng đợi của một người xem: tenant platform nếu người đó
+   * có quyền tại context hệ thống, cộng mọi tenant trung tâm mà người
+   * đó là thành viên đang hoạt động VÀ có quyền tại context tenant
+   * của trung tâm đó.
+   */
+  private async reviewQueueScopeTenantIds(actorId: string): Promise<string[]> {
+    const scope: string[] = [];
+    const platformId = await this.platformTenantId();
+    const sys = await this.contexts.ensureSystemContext();
+    if (await this.evaluator.hasCapability(actorId, 'payment:manageaccounts', sys.id)) {
+      scope.push(platformId);
+    }
+    const mine = await this.tenants.listMyTenants(actorId);
+    for (const tenant of mine) {
+      if (tenant.id === platformId || scope.includes(tenant.id)) continue;
+      const ctx = await this.contexts.ensureTenantContext(tenant.id);
+      if (await this.evaluator.hasCapability(actorId, 'payment:manageaccounts', ctx.id)) {
+        scope.push(tenant.id);
+      }
+    }
+    return scope;
+  }
+
+  /**
+   * Danh sách khoản chờ trong phạm vi của người xem: khoản thu
+   * `needs_review` (kèm sự kiện liên quan gần nhất + các điều kiện lệch
+   * suy tại thời điểm xem) và sự kiện provider mồ côi `needs_review`
+   * (không gắn khoản thu nào). Mỗi mục mang tuổi chờ và cờ quá hạn
+   * theo cấu hình của tenant chủ tiền.
+   */
+  async listReviewQueue(actorId: string): Promise<PaymentReviewQueueItem[]> {
+    const scope = await this.reviewQueueScopeTenantIds(actorId);
+    if (scope.length === 0) {
+      throw new ForbiddenException({ message: 'Missing capability payment:manageaccounts', code: 'access.capability_denied' });
+    }
+    const now = Date.now();
+    const items: PaymentReviewQueueItem[] = [];
+    const payments = await this.repo.listNeedsReviewPayments(scope);
+    for (const payment of payments) {
+      const event = await this.repo.getLatestEventForPayment(payment);
+      const mismatches: PaymentReviewQueueItem['mismatches'] = [];
+      if (event) {
+        if (event.amount !== payment.amount) mismatches.push('amount_mismatch');
+        if (event.accountId !== payment.accountId) mismatches.push('account_mismatch');
+        if (payment.expiresAt && event.receivedAt.getTime() > payment.expiresAt.getTime()) mismatches.push('expired');
+      }
+      const ageHours = Math.max(0, (now - payment.updatedAt.getTime()) / 3_600_000);
+      items.push({
+        kind: 'payment',
+        tenantId: payment.tenantId,
+        payment: {
+          id: payment.id, paymentCode: payment.paymentCode, amount: payment.amount,
+          currency: payment.currency, component: payment.component, userId: payment.userId,
+          expiresAt: payment.expiresAt ? payment.expiresAt.toISOString() : null,
+          createdAt: payment.createdAt.toISOString(),
+        },
+        event: event ? {
+          id: event.id, externalTransactionId: event.externalTransactionId, direction: event.direction as 'credit' | 'debit',
+          amount: event.amount, extractedCode: event.extractedCode,
+          receivedAt: event.receivedAt.toISOString(),
+        } : null,
+        mismatches,
+        ageHours,
+        overdue: ageHours > (await this.reviewTargetHours(payment.tenantId)),
+      });
+    }
+    const events = await this.repo.listNeedsReviewEvents(scope);
+    for (const event of events) {
+      // Truy vấn đã lọc theo danh sách tenant trong phạm vi nên
+      // tenantId không thể rỗng ở đây; chốt chặn cho tầng kiểu.
+      if (!event.tenantId) continue;
+      const ageHours = Math.max(0, (now - event.receivedAt.getTime()) / 3_600_000);
+      items.push({
+        kind: 'event',
+        tenantId: event.tenantId,
+        payment: null,
+        event: {
+          id: event.id, externalTransactionId: event.externalTransactionId, direction: event.direction as 'credit' | 'debit',
+          amount: event.amount, extractedCode: event.extractedCode,
+          receivedAt: event.receivedAt.toISOString(),
+        },
+        mismatches: [event.direction === 'debit' ? 'unmatched_debit' : 'unknown_code'],
+        ageHours,
+        overdue: ageHours > (await this.reviewTargetHours(event.tenantId)),
+      });
+    }
+    return items;
+  }
+
+  /**
+   * Xử lý tay một khoản thu đang `needs_review` — quyền neo theo chủ
+   * tiền của chính khoản thu (không theo phiên): quản trị platform
+   * không xử lý được học phí của trung tâm và ngược lại, trừ khi có
+   * quyền tại đúng context neo của tenant chủ tiền.
+   */
+  async resolvePaymentReview(actorId: string, paymentId: string, input: ResolvePaymentReview): Promise<PaymentView> {
+    const payment = await this.getPayment(paymentId);
+    await this.requireManageAccountsForTenant(actorId, payment.tenantId);
+    if (payment.status !== 'needs_review') {
+      throw new BadRequestException({ message: 'Payment is not waiting in the review queue', code: 'payment.not_in_review' });
+    }
+    const reason = input.reason.trim();
+    if (reason.length === 0) {
+      throw new BadRequestException({ message: 'A review resolution reason is required', code: 'payment.review_reason_required' });
+    }
+    const trail = {
+      reviewDecision: input.decision, reviewReason: reason,
+      reviewHandledBy: actorId, reviewHandledAt: new Date(),
+    };
+    if (input.decision === 'rejected') {
+      await this.repo.updatePayment(payment.id, { status: 'failed', ...trail });
+      return this.getPayment(payment.id);
+    }
+    // matched: mã giao dịch ngoài lấy từ sự kiện liên quan gần nhất
+    // (mã tham chiếu trong nội dung chuyển khoản nếu có, không thì mã
+    // giao dịch của sự kiện) để khoản thu mang đúng định danh đối soát
+    // của khoản tiền đã về; khoản chờ không có sự kiện đi kèm thì giữ
+    // nguyên mã hiện tại.
+    const event = await this.repo.getLatestEventForPayment(payment);
+    let externalTransactionId = payment.externalTransactionId;
+    if (event) {
+      const raw = (event.raw ?? {}) as Record<string, unknown>;
+      const reference = typeof raw['reference_code'] === 'string' ? raw['reference_code'] : typeof raw['referenceCode'] === 'string' ? raw['referenceCode'] : null;
+      externalTransactionId = reference ?? event.externalTransactionId;
+    }
+    // Kích hoạt quyền lợi TRỰC TIẾP trước nhịp lật trạng thái — đúng
+    // bất biến đồng bộ của đường khớp tự động và đường webhook (cả ba
+    // khâu đều idempotent; khâu nào lỗi thì khoản thu còn nguyên ở
+    // hàng đợi, người xử lý gọi lại được). Khác đường khớp tự động ở
+    // chỗ: quyết định khớp ở đây là của NGƯỜI xử lý (đã đối chiếu
+    // bằng chứng ngoài hệ thống), không phải của luật 3 điều kiện.
+    if (payment.component === 'enrol_fee' && payment.itemId) {
+      await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
+    }
+    if (payment.component === 'class_fee' && payment.itemId) {
+      await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId);
+    }
+    if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
+      await this.plans.activateForPayment(payment);
+    }
+    await this.repo.updatePayment(payment.id, { status: 'succeeded', externalTransactionId, ...trail });
+    const succeeded = await this.getPayment(payment.id);
+    // Vết sự kiện dùng chung với đường khớp tự động và đường webhook.
+    await this.outbox.enqueueStandalone({
+      aggregate: 'payment', type: 'payment_succeeded',
+      payload: {
+        paymentId: succeeded.id, userId: succeeded.userId, amount: succeeded.amount,
+        currency: succeeded.currency, component: succeeded.component, itemId: succeeded.itemId,
+        externalTransactionId: succeeded.externalTransactionId,
+      },
+    });
+    return succeeded;
+  }
+
   async listPaymentsForUser(userId: string): Promise<PaymentRow[]> { return this.repo.listPaymentsForUser(userId); }
 
   /** Đối soát tối giản ở worker: đếm payment succeeded chưa có external tx (cần rà soát). */

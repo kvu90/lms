@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
+
+/** Kiểu transaction của Drizzle — các method ghi của vòng đời hoàn
+ * tiền (lát 3, issue #189) nhận transaction tuỳ chọn để cổng cộng dồn
+ * chạy trong MỘT transaction có khoá dòng `payments`. */
+export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 import { course, paymentAccounts, paymentCoupons, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '../../db/schema';
 
 export type AccountRow = typeof paymentAccounts.$inferSelect;
@@ -38,20 +43,116 @@ export class PaymentsRepository {
   async listPaymentsForUser(userId: string): Promise<PaymentRow[]> {
     return this.db.select().from(payments).where(eq(payments.userId, userId));
   }
-  async updatePayment(id: string, v: Partial<typeof payments.$inferInsert>): Promise<void> {
-    await this.db.update(payments).set({ ...v, updatedAt: new Date() }).where(eq(payments.id, id));
+  async updatePayment(id: string, v: Partial<typeof payments.$inferInsert>, tx?: DbTx): Promise<void> {
+    await (tx ?? this.db).update(payments).set({ ...v, updatedAt: new Date() }).where(eq(payments.id, id));
   }
-  async insertRefund(v: typeof paymentRefunds.$inferInsert): Promise<RefundRow> {
-    const [row] = await this.db.insert(paymentRefunds).values(v).returning(); return row!;
+  async insertRefund(v: typeof paymentRefunds.$inferInsert, tx?: DbTx): Promise<RefundRow> {
+    const [row] = await (tx ?? this.db).insert(paymentRefunds).values(v).returning(); return row!;
   }
   async listRefunds(paymentId: string): Promise<RefundRow[]> {
-    return this.db.select().from(paymentRefunds).where(eq(paymentRefunds.paymentId, paymentId));
+    return this.db.select().from(paymentRefunds).where(eq(paymentRefunds.paymentId, paymentId))
+      .orderBy(asc(paymentRefunds.createdAt));
   }
   /** Tổng đã hoàn của một payment (cổng cộng dồn 5.5 — issue #189). */
   async sumRefunds(paymentId: string): Promise<number> {
     const [row] = await this.db.select({ total: sql<number>`coalesce(sum(${paymentRefunds.amount}), 0)::int` })
       .from(paymentRefunds).where(eq(paymentRefunds.paymentId, paymentId));
     return row?.total ?? 0;
+  }
+
+  // --- Vòng đời hoàn tiền (lát 3, issue #189) ------------------------------
+  async getRefund(id: string): Promise<RefundRow | undefined> {
+    const [row] = await this.db.select().from(paymentRefunds).where(eq(paymentRefunds.id, id)); return row;
+  }
+  async updateRefund(id: string, v: Partial<typeof paymentRefunds.$inferInsert>, tx?: DbTx): Promise<RefundRow> {
+    const [row] = await (tx ?? this.db).update(paymentRefunds).set({ ...v, updatedAt: new Date() })
+      .where(eq(paymentRefunds.id, id)).returning();
+    return row!;
+  }
+  /**
+   * Tổng cộng dồn của các dòng hoàn thuộc một TẬP TRẠNG THÁI cho trước.
+   * Cổng cộng dồn dùng tập {requested, approved, settled} (mọi dòng
+   * chưa bị từ chối đều giữ chỗ ngân sách hoàn); mốc đảo quyền lợi dùng
+   * tập {settled} (chỉ tiền đã xác nhận chi mới tính tiền đã ra). Dòng
+   * `rejected` không thuộc tập nào cả nên ngân sách được giải phóng.
+   * Chạy trong transaction có khoá dòng `payments` khi gọi từ cổng tạo
+   * yêu cầu hoàn / khâu xác nhận chi (truyền `tx`).
+   */
+  async sumRefundsByStatuses(paymentId: string, statuses: string[], tx?: DbTx): Promise<number> {
+    const [row] = await (tx ?? this.db).select({ total: sql<number>`coalesce(sum(${paymentRefunds.amount}), 0)::int` })
+      .from(paymentRefunds)
+      .where(and(eq(paymentRefunds.paymentId, paymentId), inArray(paymentRefunds.status, statuses)));
+    return row?.total ?? 0;
+  }
+  /**
+   * Dòng hoàn ứng viên cho một sự kiện `debit`: đang `approved` (chờ xác
+   * nhận chi), tài khoản của khoản thu gốc trùng tài khoản nhận sự
+   * kiện, số tiền bằng nhau, và mã lệnh chi ghi trên dòng hoàn (mã dự
+   * kiến lúc tạo) trùng mã giao dịch ngoài HOẶC mã tham chiếu của sự
+   * kiện. Lấy dòng cũ nhất trước khi có nhiều dòng hoàn cùng chờ.
+   */
+  async findRefundCandidateForDebit(input: {
+    accountId: string; amount: number; transactionIds: string[];
+  }): Promise<{ refund: RefundRow; payment: PaymentRow } | undefined> {
+    const ids = input.transactionIds.filter((v) => v.length > 0);
+    if (ids.length === 0) return undefined;
+    const [row] = await this.db.select({ refund: paymentRefunds, payment: payments })
+      .from(paymentRefunds)
+      .innerJoin(payments, eq(payments.id, paymentRefunds.paymentId))
+      .where(and(
+        eq(paymentRefunds.status, 'approved'),
+        eq(payments.accountId, input.accountId),
+        eq(paymentRefunds.amount, input.amount),
+        inArray(paymentRefunds.externalTransactionId, ids),
+      ))
+      .orderBy(asc(paymentRefunds.createdAt))
+      .limit(1);
+    return row;
+  }
+  /** Dòng hoàn đã được xác nhận chi bởi chính sự kiện này — căn cứ idempotency khi sự kiện bị phát lại. */
+  async getRefundBySettledEventId(eventId: string): Promise<RefundRow | undefined> {
+    const [row] = await this.db.select().from(paymentRefunds).where(eq(paymentRefunds.settledEventId, eventId)); return row;
+  }
+
+  // --- Hàng đợi needs_review (lát 3, issue #189) ---------------------------
+  /** Mọi khoản thu đang chờ xử lý tay thuộc các tenant cho trước (phạm vi hàng đợi của người xem). */
+  async listNeedsReviewPayments(tenantIds: string[]): Promise<PaymentRow[]> {
+    if (tenantIds.length === 0) return [];
+    return this.db.select().from(payments)
+      .where(and(eq(payments.status, 'needs_review'), inArray(payments.tenantId, tenantIds)))
+      .orderBy(asc(payments.updatedAt));
+  }
+  /**
+   * Mọi sự kiện provider đang `needs_review` MÀ KHÔNG gắn khoản thu nào
+   * (matched_payment_id rỗng) thuộc các tenant cho trước — đây là các
+   * sự kiện "mồ côi" (mã lạ, debit không khớp dòng hoàn) cần xuất hiện
+   * như mục độc lập trong hàng đợi. Sự kiện đã gắn khoản thu được trình
+   * bày như ngữ cảnh của chính khoản thu đó, không thành mục riêng.
+   */
+  async listNeedsReviewEvents(tenantIds: string[]): Promise<ProviderEventRow[]> {
+    if (tenantIds.length === 0) return [];
+    return this.db.select().from(paymentProviderEvents)
+      .where(and(
+        eq(paymentProviderEvents.matchStatus, 'needs_review'),
+        isNull(paymentProviderEvents.matchedPaymentId),
+        inArray(paymentProviderEvents.tenantId, tenantIds),
+      ))
+      .orderBy(asc(paymentProviderEvents.receivedAt));
+  }
+  /**
+   * Sự kiện provider liên quan gần nhất của một khoản thu: sự kiện đã
+   * được gắn vào khoản thu (matched_payment_id) hoặc sự kiện mang mã
+   * trích xuất trùng mã thanh toán của khoản thu — dùng làm ngữ cảnh
+   * đối soát khi trình bày khoản chờ trong hàng đợi.
+   */
+  async getLatestEventForPayment(payment: PaymentRow): Promise<ProviderEventRow | undefined> {
+    const clauses = [eq(paymentProviderEvents.matchedPaymentId, payment.id)];
+    if (payment.paymentCode) clauses.push(eq(paymentProviderEvents.extractedCode, payment.paymentCode));
+    const [row] = await this.db.select().from(paymentProviderEvents)
+      .where(or(...clauses))
+      .orderBy(desc(paymentProviderEvents.receivedAt))
+      .limit(1);
+    return row;
   }
 
   // --- VietQR / SePay (lát 1, issue #189) -----------------------------------

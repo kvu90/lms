@@ -131,6 +131,23 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   { component: 'payments', name: 'tenantplanfreeslots', type: 'number', defaultValue: 3, scope: 'platform' },
   { component: 'payments', name: 'teacherplanfreecourseslots', type: 'number', defaultValue: 1, scope: 'platform' },
   { component: 'payments', name: 'plangracedays', type: 'number', defaultValue: 7, scope: 'platform' },
+  // VẬN HÀNH HOÀN TIỀN + HÀNG ĐỢI RÀ SOÁT (lát 3, issue #189).
+  // `refunddualapprovalthreshold`: ngưỡng DUYỆT HAI CẤP cho hoàn tiền
+  // (đơn vị tiền nhỏ nhất như mọi amount của payments) — lần hoàn từ
+  // ngưỡng trở lên phải qua người duyệt cấp 2 khác người tạo; lần hoàn
+  // làm cộng dồn đạt 100% khoản thu luôn hai cấp bất kể ngưỡng. Giá trị
+  // khởi tạo 1.000.000. scope 'both': platform đặt giá trị chung, từng
+  // tenant ghi đè được cho dòng học phí của mình qua TenantConfigService
+  // (điểm đọc là PaymentsService, phân giải theo tenant chủ tiền của
+  // khoản thu). Giá trị 0 nghĩa là mọi khoản hoàn đều hai cấp.
+  { component: 'payments', name: 'refunddualapprovalthreshold', type: 'number', defaultValue: 1000000, scope: 'both' },
+  // `reviewtargethours`: ngưỡng tuổi (đơn vị GIỜ) để một khoản chờ
+  // trong hàng đợi `needs_review` bị đánh dấu QUÁ HẠN trên bề mặt vận
+  // hành. Khởi tạo 48 giờ. Đánh dấu quá hạn CHỈ để cảnh báo và nổi bật
+  // — hệ thống tuyệt đối không tự khớp hay tự bác bỏ khoản chờ, vì mọi
+  // xử lý tay đều là xác nhận tiền thật và phải có người chịu trách
+  // nhiệm. scope 'both' như ngưỡng duyệt hoàn ở trên.
+  { component: 'payments', name: 'reviewtargethours', type: 'number', defaultValue: 48, scope: 'both' },
   // Chính sách phát thông báo theo loại ở cấp site (NB-7, issue #174 —
   // quyết của Lão gia 23:09 ngày 25/10/2026: "loại sự kiện nào thì gửi
   // thông báo" là cài đặt của ADMIN): MỘT khoá boolean cho MỖI provider
