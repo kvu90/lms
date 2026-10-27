@@ -74,14 +74,28 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
    tắt có chủ đích trong `.github/ISSUE_TEMPLATE/config.yml` để mọi
    issue đều đi qua một mẫu có đủ các mục bắt buộc.
 
+## Luật flow GitHub
+
+- **1 issue = 1 PR.** Mỗi issue chỉ có đúng một PR triển khai; PR đó
+  dùng `Closes #<số issue>` để đóng issue khi được merge. Quy ước chia
+  một issue thành nhiều PR theo lát (lát giữa ghi `Refs`, lát cuối
+  ghi `Closes`) bị bãi bỏ.
+- **Việc con theo dõi bằng task list.** Các việc con của issue được
+  liệt kê thành task list (checkbox) trong mục "Việc con" của thân PR
+  và tích dần khi hoàn thành; tiến độ của issue đọc ngay tại PR đó.
+- **Ngoại lệ duy nhất:** khi một PR duy nhất thật sự quá lớn tới mức
+  không thể đánh giá được, mới được chia thành nhiều PR — và chỉ khi
+  đã được điều phối duyệt trước, với số PR ở mức tối thiểu; trường
+  hợp đó tiến độ vẫn theo dõi bằng task list trong chính issue.
+
 ## Kỷ luật PR liên quan
 
 - Một issue = một feat. Việc phát sinh thuộc cùng feat thì ghi vào đúng
   issue của feat đó (mở lại nếu đã đóng), không xé issue/PR mới.
-- Việc lớn chia lát: mỗi lát một PR riêng; lát giữa ghi `Refs #<issue>`,
-  lát cuối ghi `Closes #<issue>`.
-- Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**`, có mục "Bản
-  đồ thay đổi theo phạm vi" và mục "Kỷ luật đã giữ".
+- 1 issue = 1 PR theo mục "Luật flow GitHub" của tài liệu này; việc
+  con liệt kê thành task list trong thân PR, không chia lát nhiều PR.
+- Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**`, có mục "Việc
+  con", mục "Bản đồ thay đổi theo phạm vi" và mục "Kỷ luật đã giữ".
 - Đội thi công không tự merge PR; việc merge chờ đánh giá độc lập.
 - CI của repo là job `verify` trong `.github/workflows/ci.yml`; kết luận
   về CI chỉ lấy từ log thật của job.

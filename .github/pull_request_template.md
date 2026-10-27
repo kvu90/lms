@@ -17,13 +17,25 @@ QUY TẮC BẮT BUỘC — PR TỰ CHỨA:
 
 ## Liên kết issue
 
-<!-- - Lát giữa của một việc nhiều lát: ghi "Refs #<số issue>".
-     - Lát cuối hoặc PR duy nhất của việc: ghi "Closes #<số issue>".
-     Ghi rõ PR này là lát nào của issue và còn lát nào sau nó (nếu có). -->
+<!-- PR duy nhất của issue liên kết: ghi "Closes #<số issue>". Luật
+     flow của repo là 1 issue = 1 PR. Trường hợp ngoại lệ đã được
+     duyệt trước (một PR duy nhất quá lớn, không đánh giá nổi) thì
+     ghi rõ PR này là PR thứ mấy của issue và dẫn tới task list theo
+     dõi tiến độ trong issue. -->
 
 ## Tóm tắt thay đổi
 
 <!-- Thay đổi gì, vì sao, bám theo mục nào của issue liên kết. -->
+
+## Việc con
+
+<!-- Task list các việc con của issue liên kết, sao từ mục "Việc con
+     dự kiến" của issue và bổ sung nếu có phát sinh. Tích checkbox khi
+     một việc con hoàn thành. Việc con bị hoãn hoặc chuyển việc khác
+     thì ghi rõ ở mục "Ngoài phạm vi / việc chưa làm". -->
+
+- [ ] <việc con 1>
+- [ ] <việc con 2>
 
 ## Bản đồ thay đổi theo phạm vi
 

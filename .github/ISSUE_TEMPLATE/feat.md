@@ -45,9 +45,19 @@ tránh hiểu lầm khi thi công và nghiệm thu. -->
 
 ## Chi tiết việc cần làm
 
-<!-- Các bước/hạng mục cụ thể, đủ chi tiết để thi công. Việc lớn thì chia
-lát: mỗi lát là một PR; lát giữa ghi Refs tới issue này, lát cuối ghi
-Closes. Nếu đã chia lát, ghi mã và nội dung từng lát tại đây. -->
+<!-- Các bước/hạng mục cụ thể, đủ chi tiết để thi công. Luật flow của
+repo là 1 issue = 1 PR: toàn bộ việc này được triển khai trong một PR
+duy nhất; các việc con liệt kê ở mục "Việc con dự kiến" ngay dưới đây
+và được sao thành task list trong thân PR để theo dõi tiến độ. -->
+
+## Việc con dự kiến
+
+<!-- Chia việc thành các việc con ngay từ khi tạo issue, mỗi việc con
+một dòng task list. Task list này được sao vào mục "Việc con" của PR
+triển khai và tích dần khi hoàn thành. -->
+
+- [ ] <việc con 1>
+- [ ] <việc con 2>
 
 ## Quyết định liên quan
 
@@ -66,5 +76,6 @@ dạng yêu cầu/sự kiện kỹ thuật. Không trích dẫn nguồn ngoài r
 
 ## Phụ thuộc và thứ tự
 
-<!-- Issue/PR/việc khác phải xong trước; thứ tự các lát nếu có. Không phụ
-thuộc việc khác thì ghi rõ "Không phụ thuộc việc khác". -->
+<!-- Issue/PR/việc khác phải xong trước; thứ tự thực hiện các việc con
+nếu có. Không phụ thuộc việc khác thì ghi rõ "Không phụ thuộc việc
+khác". -->
