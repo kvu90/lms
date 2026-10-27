@@ -3,7 +3,7 @@ import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import { useTranslation } from 'react-i18next';
-import { apiJson } from '#lib/api';
+import { usePostFeedbackMessage } from '#lib/assignment-data';
 import { dateLabel } from './shared';
 
 /** Hội thoại phản hồi trên bài đã trả (học sinh ↔ giáo viên của bài đó). */
@@ -22,6 +22,7 @@ export function FeedbackMessages({
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const postMessageMutation = usePostFeedbackMessage();
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -29,10 +30,7 @@ export function FeedbackMessages({
     setBusy(true);
     setError(null);
     try {
-      await apiJson(`/api/v1/assignments/${assignmentId}/submissions/${userId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ body: draft.trim() }),
-      });
+      await postMessageMutation.mutateAsync({ assignmentId, userId, body: draft.trim() });
       setDraft('');
       await onPosted();
     } catch {

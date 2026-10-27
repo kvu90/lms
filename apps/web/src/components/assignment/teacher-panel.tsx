@@ -5,7 +5,8 @@ import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
-import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { assignmentSubmissionsQueryOptions, useReleaseSubmissionsBatch } from '#lib/assignment-data';
 import { GradingPanel } from './grading-panel';
 
 /** Phía giáo viên: danh sách bài nộp cả lớp + trả bài theo đợt + mở bề mặt chấm từng em. */
@@ -17,10 +18,12 @@ export function TeacherPanel({ data }: { data: AssignmentForUserView }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const releaseBatchMutation = useReleaseSubmissionsBatch();
 
   const loadSummaries = useCallback(async () => {
-    setSummaries(await apiJson<AssignSubmissionSummary[]>(`/api/v1/assignments/${assignment.id}/submissions`));
-  }, [assignment.id]);
+    setSummaries(await queryClient.fetchQuery(assignmentSubmissionsQueryOptions(assignment.id)));
+  }, [assignment.id, queryClient]);
 
   useEffect(() => {
     void loadSummaries().catch(() => setError(t('assignLoadFailed')));
@@ -31,10 +34,7 @@ export function TeacherPanel({ data }: { data: AssignmentForUserView }) {
     setError(null);
     setBatchResult(null);
     try {
-      const res = await apiJson<{ releasedCount: number; skippedUserIds: string[] }>(
-        `/api/v1/assignments/${assignment.id}/release-batch`,
-        { method: 'POST', body: JSON.stringify({}) },
-      );
+      const res = await releaseBatchMutation.mutateAsync(assignment.id);
       setBatchResult(t('assignReleaseBatchResult', { count: res.releasedCount, skipped: res.skippedUserIds.length }));
       await loadSummaries();
     } catch {

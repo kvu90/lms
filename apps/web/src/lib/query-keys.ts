@@ -319,4 +319,13 @@ export const queryKeys = {
   messagingRosterPage: (url: string) => ['messages', 'roster', url] as const,
   /** Chat cấp lớp được ensure (GET /messages/classes/:id/conversation) — trang tin nhắn. */
   messagingClassConversation: (classId: string) => ['messages', 'classes', classId, 'conversation'] as const,
+  /** Danh sách bài nộp của một bài tập (GET /assignments/:id/submissions) — panel giáo viên. */
+  assignmentSubmissions: (assignmentId: string) => ['assignments', assignmentId, 'submissions'] as const,
+  /** Chi tiết một bài nộp (GET /assignments/:id/submissions/:userId) — panel chấm. */
+  submissionDetail: (assignmentId: string, userId: string) =>
+    ['assignments', assignmentId, 'submissions', userId] as const,
+  /** Ngân hàng câu nhận xét mẫu của giáo viên (GET /assign-comment-bank) — panel chấm. */
+  commentBank: ['assign-comment-bank'] as const,
+  /** Người dùng hiện tại rút gọn (GET /users/me) — panel học sinh của bài tập. */
+  currentUser: ['users', 'me'] as const,
 };

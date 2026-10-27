@@ -5,7 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import {
+  useApplyBookFrame,
+  useApplyCurriculumFrame,
+  useUpdateCourseFrameInfo,
+} from '#lib/course-builder-data';
 import { FrameUnitPicker } from './frame-picker';
 import {
   fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId, fetchBookFrameChaptersFor,
@@ -44,6 +48,8 @@ export function CurriculumFramePanel({
   const [insertAt, setInsertAt] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const updateFrameInfoMutation = useUpdateCourseFrameInfo();
+  const applyFrameMutation = useApplyCurriculumFrame();
 
   // Khởi tạo môn/khối từ chính khoá khi dữ liệu khoá về.
   useEffect(() => {
@@ -87,12 +93,10 @@ export function CurriculumFramePanel({
   async function saveCourseInfo() {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          subjectId: subjectId === '' ? null : subjectId,
-          grade: grade === '' ? null : Number(grade),
-        }),
+      await updateFrameInfoMutation.mutateAsync({
+        courseId,
+        subjectId: subjectId === '' ? null : subjectId,
+        grade: grade === '' ? null : Number(grade),
       });
       setMessage(t('frameCourseInfoSaved'));
     } catch {
@@ -105,13 +109,11 @@ export function CurriculumFramePanel({
     if (!curriculumId || selected.length === 0) return;
     setMessage(null);
     try {
-      const result = await apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/curriculum-frame`, {
-        method: 'POST',
-        body: JSON.stringify({
-          curriculumId,
-          nodeIds: selected,
-          ...(insertAt === '' ? {} : { insertAtSection: Number(insertAt) }),
-        }),
+      const result = await applyFrameMutation.mutateAsync({
+        courseId,
+        curriculumId,
+        nodeIds: selected,
+        ...(insertAt === '' ? {} : { insertAtSection: Number(insertAt) }),
       });
       setMessage(t('frameApplied', { count: result.sections.length }));
       setSelected([]);
@@ -256,18 +258,18 @@ export function BookFramePanel({
       });
   }, [course?.subjectId, course?.grade, courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const applyBookFrameMutation = useApplyBookFrame();
+
   /** Nạp các chủ đề SGK đã chọn vào khoá ở vị trí đã chọn. */
   async function applyBookFrame() {
     if (!bookId || selected.length === 0) return;
     setMessage(null);
     try {
-      const result = await apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/book-frame`, {
-        method: 'POST',
-        body: JSON.stringify({
-          bookId,
-          chapterNodeIds: selected,
-          ...(insertAt === '' ? {} : { insertAtSection: Number(insertAt) }),
-        }),
+      const result = await applyBookFrameMutation.mutateAsync({
+        courseId,
+        bookId,
+        chapterNodeIds: selected,
+        ...(insertAt === '' ? {} : { insertAtSection: Number(insertAt) }),
       });
       setMessage(t('bookFrameApplied', { count: result.sections.length }));
       setSelected([]);

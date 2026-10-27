@@ -267,3 +267,73 @@ export function useRecalculateBuilderCompletion(courseId: string) {
     apiJson(`/api/v1/courses/${courseId}/completion/recalculate`, { method: 'POST' }),
   );
 }
+
+/**
+ * Panel "Thêm từ khung" của trình xây dựng khoá (F-01 của rà soát
+ * #133 — phần còn lại): panel gắn môn × khối cho khoá rồi nạp các
+ * đơn vị khung/SGK đã chọn thành section mới. Ba thao tác ghi dưới
+ * đây là đột biến MỎNG (panel tự hiện thông báo và gọi onApplied để
+ * trang chứa nạp lại cấu trúc như bản thủ công); phần đọc của panel
+ * đã đi qua tầng TanStack của lib/curriculum.
+ */
+
+/** Đột biến lưu môn/khối của khoá (PATCH /courses/:id với subjectId + grade). */
+export function useUpdateCourseFrameInfo() {
+  return useMutation({
+    mutationFn: ({ courseId, subjectId, grade }: { courseId: string; subjectId: string | null; grade: number | null }) =>
+      apiJson(`/api/v1/courses/${courseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ subjectId, grade }),
+      }),
+  });
+}
+
+/** Đột biến nạp các đơn vị khung chương trình đã chọn vào khoá (POST /courses/:id/curriculum-frame). */
+export function useApplyCurriculumFrame() {
+  return useMutation({
+    mutationFn: ({
+      courseId,
+      curriculumId,
+      nodeIds,
+      insertAtSection,
+    }: {
+      courseId: string;
+      curriculumId: string;
+      nodeIds: string[];
+      insertAtSection?: number;
+    }) =>
+      apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/curriculum-frame`, {
+        method: 'POST',
+        body: JSON.stringify({
+          curriculumId,
+          nodeIds,
+          ...(insertAtSection !== undefined ? { insertAtSection } : {}),
+        }),
+      }),
+  });
+}
+
+/** Đột biến nạp các chủ đề SGK đã chọn vào khoá (POST /courses/:id/book-frame). */
+export function useApplyBookFrame() {
+  return useMutation({
+    mutationFn: ({
+      courseId,
+      bookId,
+      chapterNodeIds,
+      insertAtSection,
+    }: {
+      courseId: string;
+      bookId: string;
+      chapterNodeIds: string[];
+      insertAtSection?: number;
+    }) =>
+      apiJson<{ sections: unknown[] }>(`/api/v1/courses/${courseId}/book-frame`, {
+        method: 'POST',
+        body: JSON.stringify({
+          bookId,
+          chapterNodeIds,
+          ...(insertAtSection !== undefined ? { insertAtSection } : {}),
+        }),
+      }),
+  });
+}
