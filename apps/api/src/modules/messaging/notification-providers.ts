@@ -370,12 +370,17 @@ export function isExemptFromCourseMute(provider: MessageProviderDefinition): boo
 }
 
 /**
- * Kênh email đã gửi thật hay chưa: false cho tới khi SMTP nối ở NB-5
- * (issue #174). Trang cài đặt đọc cờ này từ API để ghi chú trung thực
+ * Kênh email đã gửi thật hay chưa: TRUE từ NB-5 (issue #174) — kênh
+ * email gửi thật qua nhà cung cấp Resend ở phía worker (gửi ngay
+ * hoặc tổng hợp theo ngày theo tần suất đã phân giải). Trang cài đặt
+ * đọc cờ này từ API: khi kênh chưa khả dụng thì ghi chú trung thực
  * "chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở" thay vì công tắc
  * trần như kênh thật; tuỳ chọn vẫn lưu và có hiệu lực chặn ngay.
+ * Lưu ý vận hành: một môi trường cụ thể chưa đặt khoá Resend/địa chỉ
+ * gửi thì transport tự rơi về chế độ bỏ-qua-có-khai-báo ở phía worker
+ * (dispatch log ghi `skipped-not-configured`), giống mail xác thực.
  */
-export const EMAIL_CHANNEL_AVAILABLE = false;
+export const EMAIL_CHANNEL_AVAILABLE = true;
 
 /** Tần suất email mặc định theo nhóm (chính sách P1: học tập = tổng hợp ngày, tin nhắn = ngay). */
 export function defaultEmailFrequency(group: MessageProviderGroup): EmailFrequency {

@@ -130,8 +130,11 @@ describe('Notification preferences v2 (NB-2, issue #174)', () => {
       expect(row).not.toHaveProperty('state');
       expect(row).not.toHaveProperty('channel');
       expect(row).not.toHaveProperty('channels');
-      // Trung thực kênh: email chưa gửi thật cho tới NB-5 (SMTP).
-      expect(row.emailAvailable).toBe(false);
+      // Trung thực kênh: từ NB-5 (issue #174) email gửi thật qua
+      // Resend nên cờ khả dụng trong registry đã bật — trước NB-5 ca
+      // này kỳ vọng false (kênh còn là cổng ghi log), PR NB-5 cập
+      // nhật kỳ vọng theo luật mới cùng lượt với việc bật cờ.
+      expect(row.emailAvailable).toBe(true);
     }
     const byName = new Map(rows.map((r) => [r.provider, r]));
     // Mặc định tần suất theo P1: nhóm Lớp & mọi người = ngay.

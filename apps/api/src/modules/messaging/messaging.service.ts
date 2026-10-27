@@ -266,9 +266,11 @@ export interface NotificationChannelPort {
  *  - Một user bị suspended (hoặc đã xoá) KHÔNG NHẬN gì: không phân phối message,
  *    không notification, trên bất kỳ kênh nào. Một user đã chặn người gửi cũng
  *    không nhận message của họ.
- *  - Phân phối kênh ngoài đi qua hàng đợi BullMQ
- *    'notification-dispatch' do worker tiêu thụ; các kênh đó
- *    là port chỉ GHI LOG dispatch (không gửi email/push thật).
+ *  - Phân phối kênh ngoài đi qua hàng đợi BullMQ 'notification-dispatch'
+ *    do worker tiêu thụ. Từ NB-5 (issue #174) kênh email gửi thật qua
+ *    Resend ở phía worker (gửi ngay, hoặc qua tổng hợp theo ngày với
+ *    tần suất 'daily'); push vẫn là cổng chỉ ghi log (chưa có ứng
+ *    dụng native).
  */
 /**
  * Tin có còn nằm trong CỬA SỔ THU HỒI hay không (vòng đời tin nhắn
@@ -699,12 +701,14 @@ export class MessagingService {
       await this.unreadStream.signalUnreadCountChanged(userId);
     }
 
-    // Kênh ngoài là port: một job BullMQ mang dispatch tới
-    // worker, nơi chỉ GHI LOG nó. Bị tắt theo tuỳ chọn ⇒ không có job nào cả.
-    // Email theo tần suất v2: 'off' chặn ngay tại đây; 'immediate' và
-    // 'daily' đều xếp hàng job như nhau CHO TỚI NB-5 — động cơ gom
-    // cửa sổ/digest ngày thuộc NB-5 (gửi thật chờ SMTP), lát này chỉ
-    // lưu tần suất + áp luật tắt. Push giữ luật cũ theo trạng thái.
+    // Kênh ngoài là các cổng: một job BullMQ mang việc phân phối sang
+    // worker. Bị tắt theo tuỳ chọn ⇒ không xếp job nào cả.
+    // Email theo tần suất v2: 'off' chặn ngay tại đây. Từ NB-5 (issue
+    // #174) kênh email gửi thật qua Resend ở phía worker: job mang
+    // theo tần suất đã phân giải ở đây — 'immediate' gửi ngay khi
+    // job chạy, 'daily' được worker ghi nhận vào hàng chờ và gom
+    // thành email tổng hợp theo ngày (động cơ digest ở worker). Push
+    // giữ luật cũ theo trạng thái và vẫn là cổng ghi log ở worker.
     for (const channel of provider.channels.filter((c) => c !== 'popup')) {
       const channelEnabled = channel === 'email'
         ? resolved.emailFrequency !== 'off'
@@ -713,6 +717,9 @@ export class MessagingService {
         const dedupeKey = `${tenantKey}-dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
           userId, provider: providerName, channel, tenantId,
+          // Tần suất email đã phân giải (NB-5): worker dựa vào đây
+          // để quyết gửi ngay hay gom digest — không phân giải lại.
+          ...(channel === 'email' ? { emailFrequency: resolved.emailFrequency } : {}),
           // Kênh ngoài chỉ nhận bản tối thiểu hoá khi caller cung cấp
           // (luật ở docblock của notify) — điểm số/nội dung tin nhắn
           // không bao giờ rời app qua job này.

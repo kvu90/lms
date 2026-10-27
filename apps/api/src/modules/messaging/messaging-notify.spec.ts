@@ -66,4 +66,20 @@ describe('MessagingService.notify — external channel minimization', () => {
     expect(jobs[0]!.subject).toBe('Welcome');
     expect(jobs[0]!.body).toBe('Welcome body');
   });
+
+  it('the email job carries the resolved email frequency for the worker send/digest decision (NB-5)', async () => {
+    const { service, jobs } = buildService();
+    // grade_updated thuộc nhóm learning → tần suất mặc định 'daily'
+    // (P1): job phải mang 'daily' để worker gom vào digest theo ngày
+    // thay vì gửi ngay.
+    await service.notify('user-1', 'grade_updated', { subject: 'S', body: 'B' });
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]!.channel).toBe('email');
+    expect(jobs[0]!.emailFrequency).toBe('daily');
+    // calendar_reminder thuộc nhóm system → mặc định 'immediate'.
+    const second = buildService();
+    await second.service.notify('user-1', 'calendar_reminder', { subject: 'S', body: 'B' });
+    expect(second.jobs).toHaveLength(1);
+    expect(second.jobs[0]!.emailFrequency).toBe('immediate');
+  });
 });

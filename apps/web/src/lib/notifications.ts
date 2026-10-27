@@ -60,7 +60,7 @@ export type EmailFrequency = 'immediate' | 'daily' | 'off';
  * Nhãn + mô tả vi/en đến từ registry ở API (nguồn sự thật duy nhất) —
  * web chọn theo ngôn ngữ giao diện, không tự chế bảng nhãn.
  * `emailFrequency` null = provider không có kênh email;
- * `emailAvailable` false = kênh email chưa gửi thật (chưa có SMTP) —
+ * `emailAvailable` false = kênh email chưa gửi thật —
  * trang hiện ghi chú trung thực, cài đặt vẫn lưu và áp dụng khi mở.
  * `siteEnabled` false = admin đã tắt loại này ở cấp site (NB-7):
  * trang Cài đặt thông báo hiển thị khoá "Admin đã tắt ở cấp site" và
