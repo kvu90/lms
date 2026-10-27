@@ -280,12 +280,12 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
       try {
         // A xoá tin của chính A trong lúc chặn: 404 như không tồn
         // tại (không phải 200, không phải 403), ở cả phía người chặn.
-        const del = await http(app).delete(`/api/v1/messages/messages/${messageId}`)
+        const del = await http(app).delete(`/api/v1/messages/${messageId}`)
           .set('Authorization', `Bearer ${a.token}`);
         expect(del.status).toBe(404);
         expect(del.body.code).toBe('messaging.conversation_not_found');
         // Phía bị chặn cũng 404 (không lộ tin tồn tại qua 403).
-        const delByBlocked = await http(app).delete(`/api/v1/messages/messages/${messageId}`)
+        const delByBlocked = await http(app).delete(`/api/v1/messages/${messageId}`)
           .set('Authorization', `Bearer ${b.token}`);
         expect(delByBlocked.status).toBe(404);
         expect(delByBlocked.body.code).toBe('messaging.conversation_not_found');
@@ -306,7 +306,7 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
       expect(detailAfter.status).toBe(200);
       expect((detailAfter.body as { messages: { id: string }[] }).messages
         .some((m) => m.id === messageId)).toBe(true);
-      const delAfter = await http(app).delete(`/api/v1/messages/messages/${messageId}`)
+      const delAfter = await http(app).delete(`/api/v1/messages/${messageId}`)
         .set('Authorization', `Bearer ${a.token}`);
       expect(delAfter.status).toBe(200);
     } finally {

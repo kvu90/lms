@@ -502,12 +502,12 @@ function stubDomainFetch(calls: RecordedCall[]) {
           messages: [ownMessage, peerMessage], hasMoreBefore: false, memberReadMarkers: [],
         });
       if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 2, lastReadSeq: 2 });
-      if (url === `/api/v1/messages/messages/${ownMessage.id}` && method === 'DELETE') {
+      if (url === `/api/v1/messages/${ownMessage.id}` && method === 'DELETE') {
         ownMessage.deletedAt = '2026-01-01T00:03:00.000Z';
         ownMessage.deletedBy = ME_ID;
         return respond(ownMessage);
       }
-      if (url === `/api/v1/messages/messages/${ownMessage.id}/recall` && method === 'POST') {
+      if (url === `/api/v1/messages/${ownMessage.id}/recall` && method === 'POST') {
         // Thu hồi: server trả dòng tin kèm dấu thu hồi, nội dung đã vô
         // hiệu với thành viên thường (xem trước cũng rỗng).
         ownMessage.fullMessage = '';
@@ -600,7 +600,7 @@ describe('Messages page — Lớp B conversation actions (soft delete + report)'
     await userEvent.click(moreButtons[0]!);
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Xoá tin nhắn' }));
     await waitFor(() =>
-      expect(calls.some((c) => c.url.startsWith('/api/v1/messages/messages/') && c.method === 'DELETE')).toBe(true),
+      expect(calls.some((c) => c.url.startsWith('/api/v1/messages/') && c.method === 'DELETE')).toBe(true),
     );
     // Phía học sinh: tin đã xoá biến mất khỏi khung, tin của bạn học còn nguyên.
     await waitFor(() => expect(within(thread).queryByText('tin của tôi sẽ xoá')).not.toBeInTheDocument());
@@ -846,7 +846,7 @@ describe('Messages page — vòng đời tin nhắn theo vai (thu hồi + invali
     await userEvent.click(moreButtons[0]!);
     await userEvent.click(await screen.findByRole('menuitem', { name: 'Thu hồi' }));
     await waitFor(() =>
-      expect(calls.some((c) => c.url === `/api/v1/messages/messages/01900000-0000-7000-8000-0000000000d5/recall` && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/messages/01900000-0000-7000-8000-0000000000d5/recall` && c.method === 'POST')).toBe(true),
     );
     // Nội dung bị vô hiệu, khung hiện dòng đã thu hồi thay vì nội dung cũ.
     expect(await within(thread).findByText('Tin nhắn đã được thu hồi.')).toBeInTheDocument();

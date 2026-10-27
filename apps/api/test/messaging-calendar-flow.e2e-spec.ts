@@ -153,14 +153,14 @@ describe('Messaging & calendar', () => {
       .send({ text: 'Words I regret' });
     const messageId = sent.body.id as string;
     // Việc sửa vẫn bị từ chối — vòng đời chỉ điều tiết việc xoá/thu hồi.
-    const patch = await http(app).patch(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`)
+    const patch = await http(app).patch(`/api/v1/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`)
       .send({ text: 'Edited!' });
     expect(patch.status).toBe(403);
     expect(patch.body.code).toBe('messaging.message_immutable');
     // DELETE nay là DELETE-FOR-ME (vòng đời theo vai, lớp (a)): dòng
     // KHÔNG bị đánh dấu đã xoá — chỉ một cờ theo từng người dùng ẩn nó khỏi
     // người viết. Phản hồi là dòng nguyên vẹn chưa bị đụng tới.
-    const del = await http(app).delete(`/api/v1/messages/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`);
+    const del = await http(app).delete(`/api/v1/messages/${messageId}`).set('Authorization', `Bearer ${aToken}`);
     expect(del.status).toBe(200);
     expect(del.body.id).toBe(messageId);
     expect(del.body.deletedAt).toBeNull();
@@ -177,7 +177,7 @@ describe('Messaging & calendar', () => {
     // RECALL (lớp (b), vẫn nằm trong cửa sổ mặc định 15 phút)
     // vô hiệu hoá nội dung đối với người nhận: dòng vẫn ở lại dưới dạng
     // phần giữ chỗ kèm vết thu hồi, nội dung của nó bị xoá trắng.
-    const recall = await http(app).post(`/api/v1/messages/messages/${messageId}/recall`).set('Authorization', `Bearer ${aToken}`).send({});
+    const recall = await http(app).post(`/api/v1/messages/${messageId}/recall`).set('Authorization', `Bearer ${aToken}`).send({});
     expect(recall.status).toBe(201);
     expect(recall.body.recalledBy).toBe(a.id);
     const viewBAfter = await http(app).get(`/api/v1/messages/conversations/${conv.body.id}`).set('Authorization', `Bearer ${bToken}`);
@@ -265,10 +265,10 @@ describe('Messaging & calendar', () => {
     expect(entries.some((e) => e.provider === 'badge_awarded' && e.channel === 'popup' && e.status === 'delivered')).toBe(true);
     expect(entries.some((e) => e.provider === 'badge_awarded' && e.channel === 'popup' && e.status === 'skipped-preference')).toBe(true);
 
-    // Luồng đọc: số chưa đọc giảm sau thao tác read-all.
+    // Luồng đọc: số chưa đọc giảm sau thao tác mark-read.
     const unread = await http(app).get('/api/v1/notifications/unread-count').set('Authorization', `Bearer ${accessToken}`);
     expect(unread.body.unread).toBe(1);
-    await http(app).post('/api/v1/notifications/read-all').set('Authorization', `Bearer ${accessToken}`).send({});
+    await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${accessToken}`).send({ scope: 'all' });
     const after = await http(app).get('/api/v1/notifications/unread-count').set('Authorization', `Bearer ${accessToken}`);
     expect(after.body.unread).toBe(0);
     // Danh sách tuỳ chọn phản ánh đúng trạng thái bật/tắt.
