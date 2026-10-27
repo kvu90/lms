@@ -87,10 +87,14 @@ describe('UI Lát 2 — màn narrow trong PageShell 768px', () => {
       }
       return undefined;
     });
+    // SearchPage đọc ảnh chụp quyền (đích của kết quả `users` phụ
+    // thuộc quyền người tìm) — bọc TestProviders như cây root thật.
     const { container } = render(
-      <MemoryRouter>
-        <SearchPage />
-      </MemoryRouter>,
+      <TestProviders>
+        <MemoryRouter>
+          <SearchPage />
+        </MemoryRouter>
+      </TestProviders>,
     );
     expectNarrowShell(container);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Tìm kiếm toàn cục');

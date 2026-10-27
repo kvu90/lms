@@ -9,6 +9,7 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { apiJson } from '#lib/api';
+import { systemCapabilities, usePermissions } from '#lib/permissions';
 import { globalSearchTarget, type GlobalSearchDoc } from '#lib/search-target';
 
 /** Khoá nhãn loại kết quả theo `area` của API tìm kiếm; area lạ chưa có nhãn thì hiển thị nguyên mã area. */
@@ -38,10 +39,25 @@ const AREA_LABEL_KEYS: Record<string, string> = {
  * trang khoá, người dùng → màn quản trị người dùng, học liệu →
  * màn của học liệu đó), cùng ánh xạ với nhóm "Nội dung" của bề mặt
  * Ctrl/Cmd+K. Kết quả thuộc area chưa có route đích thì giữ dạng
- * khối thông tin không liên kết, không bịa đường dẫn.
+ * khối thông tin không liên kết, không bịa đường dẫn. Riêng kết
+ * quả người dùng: đích màn quản trị CHỈ gắn khi ảnh chụp quyền của
+ * người đang tìm có quyền quản trị người dùng (site admin hoặc
+ * `user:update` tại context hệ thống) — mọi vai trò đều nhận kết
+ * quả `users` từ API nhưng vai trò không có quyền đó bấm vào màn
+ * quản trị chỉ là ngõ cụt, nên giữ dạng khối thông tin như area
+ * chưa có đích.
  */
 export function SearchPage() {
   const { t: t } = useTranslation();
+  const perms = usePermissions();
+  // Quyền quản trị người dùng của chính người đang tìm, suy từ ảnh
+  // chụp quyền: điều kiện duy nhất để kết quả `users` gắn đích màn
+  // quản trị (màn đích tự gác `user:update`). Ảnh chụp chưa tải
+  // được thì coi như không có quyền — kết quả giữ dạng thông tin,
+  // đúng chiều an toàn của ánh xạ.
+  const canManageUsers =
+    (perms.access?.isSiteAdmin ?? false) ||
+    (perms.access ? systemCapabilities(perms.access).includes('user:update') : false);
   const [searchParams] = useSearchParams();
   const urlQ = searchParams.get('q');
   const [q, setQ] = useState('');
@@ -92,7 +108,7 @@ export function SearchPage() {
           </form>
           <ul aria-label={t('searchResults')} className="space-y-2">
             {results.map((d) => {
-              const target = globalSearchTarget(d);
+              const target = globalSearchTarget(d, { canManageUsers });
               const body = (
                 <>
                   <p className="font-medium">{d.title}</p>

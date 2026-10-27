@@ -77,6 +77,21 @@ const CONTENT_DOC = {
   content: 'TOANNC Nội dung khoá toán nâng cao',
 };
 
+/**
+ * Kết quả nội dung area `users`: API trả cho MỌI người tìm đã đăng
+ * nhập (cổng re-check chỉ là `user:viewdetails`), nên ca phân vai
+ * nằm ở phía gắn đích — chỉ người có quyền quản trị người dùng mới
+ * được mục chọn trỏ tới màn quản trị.
+ */
+const USER_CONTENT_ID = '01900000-0000-7000-8000-0000000000e8';
+const USER_CONTENT_DOC = {
+  id: 'doc-search-2',
+  area: 'users',
+  itemId: USER_CONTENT_ID,
+  title: 'Nguyễn Văn A',
+  content: 'vana học viên',
+};
+
 const COURSE = {
   id: COURSE_ID,
   category: CATEGORY_ID,
@@ -100,7 +115,7 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function stubFetch(profile: unknown, access: unknown) {
+function stubFetch(profile: unknown, access: unknown, searchDocs: unknown[] = [CONTENT_DOC]) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
@@ -109,9 +124,10 @@ function stubFetch(profile: unknown, access: unknown) {
       if (url === '/api/v1/users/me') return jsonResponse(profile);
       if (url === '/api/v1/users/me/capabilities') return jsonResponse(access);
       if (url === '/api/v1/courses') return jsonResponse([COURSE]);
-      // Tìm kiếm toàn cục cho nhóm "Nội dung": một khoá học khác với
-      // khoá của người dùng, để phân biệt với nhóm "Đi tới".
-      if (url.startsWith('/api/v1/search?q=')) return jsonResponse([CONTENT_DOC]);
+      // Tìm kiếm toàn cục cho nhóm "Nội dung": mặc định một khoá học
+      // khác với khoá của người dùng, để phân biệt với nhóm "Đi tới";
+      // ca phân vai truyền tập kết quả riêng qua `searchDocs`.
+      if (url.startsWith('/api/v1/search?q=')) return jsonResponse(searchDocs);
       if (url === '/api/v1/notifications/unread-count') return jsonResponse({ unread: 0 });
       if (url === '/api/v1/auth/refresh') return jsonResponse({}, 401);
       return jsonResponse({}, 404);
@@ -131,6 +147,7 @@ function renderShell() {
               { index: true, element: <div data-testid="probe-index" /> },
               { path: 'courses/:id', element: <div data-testid="probe-course" /> },
               { path: 'admin/users', element: <div data-testid="probe-admin-users" /> },
+              { path: 'admin/users/:id/edit', element: <div data-testid="probe-admin-user-edit" /> },
             ],
           },
         ],
@@ -264,6 +281,42 @@ describe('bề mặt hợp nhất — nhóm Nội dung (chốt gộp tìm kiếm
     fireEvent.click(contentItem);
     expect(await screen.findByTestId('probe-course')).toBeInTheDocument();
     expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+  });
+});
+
+describe('bề mặt hợp nhất — kết quả Nội dung area users theo quyền người tìm', () => {
+  it('quản trị: kết quả người dùng hiện trong nhóm Nội dung và bấm tới màn quản trị người dùng', async () => {
+    stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS, [USER_CONTENT_DOC]);
+    renderShell();
+
+    await openPaletteWithKeyboard();
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+    const input = screen.getByPlaceholderText(/Tìm nội dung hoặc đi tới/);
+    fireEvent.change(input, { target: { value: 'nguyễn' } });
+    const contentItem = await screen.findByTestId('palette-item-content-doc-search-2');
+    expect(contentItem).toHaveTextContent('Nguyễn Văn A');
+    expect(contentItem).toHaveTextContent('Người dùng');
+
+    // Bấm kết quả → đi thẳng tới màn quản trị của người dùng đó, bề mặt đóng.
+    fireEvent.click(contentItem);
+    expect(await screen.findByTestId('probe-admin-user-edit')).toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+  });
+
+  it('học viên: kết quả người dùng KHÔNG thành mục chọn (không điều hướng vào màn quản trị), kết quả khoá học vẫn hiện', async () => {
+    stubFetch(profileOf(STUDENT_ID, 'student'), STUDENT_ACCESS, [CONTENT_DOC, USER_CONTENT_DOC]);
+    renderShell();
+
+    await openPaletteWithKeyboard();
+    expect(await screen.findByTestId('command-palette')).toBeInTheDocument();
+    const input = screen.getByPlaceholderText(/Tìm nội dung hoặc đi tới/);
+    fireEvent.change(input, { target: { value: 'toán' } });
+    // Nhóm Nội dung đã nạp (kết quả khoá học hiện) — chứng tỏ lượt
+    // tìm đã trả về cả hai kết quả…
+    expect(await screen.findByTestId('palette-item-content-doc-search-1')).toBeInTheDocument();
+    // …nhưng kết quả người dùng không thành mục chọn nào.
+    expect(screen.queryByTestId('palette-item-content-doc-search-2')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nguyễn Văn A')).not.toBeInTheDocument();
   });
 });
 

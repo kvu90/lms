@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
+import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 import { SearchPage } from './platform-search';
 
 /**
@@ -22,6 +23,13 @@ import { SearchPage } from './platform-search';
  *   học → /courses/:id, người dùng → /admin/users/:id/edit, học
  *   liệu → /content-bank/:id/edit (trước chốt này danh sách chỉ
  *   là chữ tĩnh không bấm được).
+ * - Riêng kết quả người dùng, đích màn quản trị chỉ gắn theo
+ *   quyền của NGƯỜI TÌM (điều kiện review của PR gộp tìm kiếm):
+ *   người tìm có quyền quản trị người dùng (`user:update` tại
+ *   context hệ thống) thì bấm được tới màn quản trị; người tìm
+ *   không có quyền đó (học viên — vẫn nhận kết quả `users` từ
+ *   API) thì kết quả hiện dạng thông tin, không có liên kết nào
+ *   tới màn quản trị.
  */
 
 // Hình dạng kết quả khớp API thật: `area` là một trong ba area
@@ -61,11 +69,75 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-function stubFetch(docs: unknown[] = [DOC]) {
+/**
+ * Hai người tìm mẫu cho các ca kết quả `users`: học viên (ảnh chụp
+ * quyền không có `user:update`) và quản trị người dùng (có đúng
+ * capability `user:update` tại context hệ thống — capability màn
+ * đích `/admin/users/:id/edit` tự gác, không cần cờ site admin).
+ */
+const SYSTEM_CONTEXT_ID = '01900000-0000-7000-8000-0000000000d4';
+const STUDENT_VIEWER = {
+  profile: {
+    id: '01900000-0000-7000-8000-0000000000b2',
+    username: 'student',
+    firstName: 'Tên',
+    lastName: 'Mẫu',
+    email: 'student@example.com',
+    suspended: false,
+    deleted: false,
+    isGuest: false,
+    forcePasswordChange: false,
+    lastLogin: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    customFields: [],
+  },
+  access: {
+    userId: '01900000-0000-7000-8000-0000000000b2',
+    isSiteAdmin: false,
+    assignments: [],
+    contexts: [],
+    hasLearnerArtifacts: false,
+  },
+};
+const USER_ADMIN_VIEWER = {
+  profile: {
+    ...STUDENT_VIEWER.profile,
+    id: '01900000-0000-7000-8000-0000000000a1',
+    username: 'usermanager',
+    email: 'usermanager@example.com',
+  },
+  access: {
+    userId: '01900000-0000-7000-8000-0000000000a1',
+    isSiteAdmin: false,
+    assignments: [],
+    contexts: [
+      {
+        contextId: SYSTEM_CONTEXT_ID,
+        contextLevel: 10,
+        contextPath: '/1',
+        capabilities: ['user:update'],
+      },
+    ],
+    hasLearnerArtifacts: false,
+  },
+};
+
+/**
+ * Stub fetch cho trang: mặc định không phiên (các ca không phụ
+ * thuộc quyền); truyền `viewer` thì có thêm phiên Better Auth +
+ * hồ sơ + ảnh chụp quyền của người tìm đó.
+ */
+function stubFetch(docs: unknown[] = [DOC], viewer?: { profile: unknown; access: unknown }) {
   searchCalls = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
+      if (viewer && isGetSessionUrl(url)) {
+        return baSessionResponse({ id: (viewer.profile as { id: string }).id });
+      }
+      if (viewer && url === '/api/v1/users/me') return jsonResponse(viewer.profile);
+      if (viewer && url === '/api/v1/users/me/capabilities') return jsonResponse(viewer.access);
+      if (viewer && url === '/api/v1/courses') return jsonResponse([]);
       if (url.startsWith('/api/v1/search?q=')) {
         searchCalls.push(url);
         return jsonResponse(docs);
@@ -137,14 +209,25 @@ describe('trang kết quả tìm kiếm — kết quả điều hướng đượ
     expect(router.state.location.pathname).toBe('/courses/course-1');
   });
 
-  it('bấm kết quả người dùng → tới /admin/users/:id/edit', async () => {
-    stubFetch([USER_DOC]);
+  it('người tìm có quyền quản trị người dùng: bấm kết quả người dùng → tới /admin/users/:id/edit', async () => {
+    stubFetch([USER_DOC], USER_ADMIN_VIEWER);
     const router = renderSearch('/search?q=văn');
     const user = userEvent.setup();
     const link = await screen.findByTestId('search-result-doc-2');
     expect(link).toHaveTextContent('Người dùng');
     await user.click(link);
     expect(router.state.location.pathname).toBe('/admin/users/user-1/edit');
+  });
+
+  it('người tìm không có quyền quản trị người dùng: kết quả người dùng hiện dạng thông tin, không liên kết tới màn quản trị', async () => {
+    stubFetch([USER_DOC], STUDENT_VIEWER);
+    renderSearch('/search?q=văn');
+    // Kết quả vẫn hiện đầy đủ thông tin (API trả cho mọi người tìm)…
+    expect(await screen.findByText('Nguyễn Văn A')).toBeInTheDocument();
+    expect(screen.getByText('vana học viên')).toBeInTheDocument();
+    // …nhưng không phải liên kết và không có neo nào tới màn quản trị.
+    expect(screen.queryByTestId('search-result-doc-2')).not.toBeInTheDocument();
+    expect(document.querySelector('a[href="/admin/users/user-1/edit"]')).toBeNull();
   });
 
   it('bấm kết quả học liệu → tới /content-bank/:id/edit', async () => {

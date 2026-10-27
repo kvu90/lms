@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { IconSearch } from '@tabler/icons-react';
 import { apiJson } from '#lib/api';
-import { usePermissions } from '#lib/permissions';
+import { systemCapabilities, usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 import { globalSearchTarget, type GlobalSearchDoc } from '#lib/search-target';
 import '../i18n';
@@ -71,7 +71,13 @@ const CONTENT_AREA_LABEL_KEYS: Record<string, string> = {
  *   kết quả theo quyền của người tìm. Mỗi kết quả mở được item đích
  *   theo ánh xạ dùng chung ở lib/search-target (cùng ánh xạ với
  *   trang `/search`); kết quả thuộc area chưa có route đích thì
- *   không vào danh sách chọn được.
+ *   không vào danh sách chọn được. Riêng kết quả `users`: mọi vai
+ *   trò đều nhận được từ API nhưng đích duy nhất là màn quản trị
+ *   người dùng, nên chỉ vào danh sách khi ảnh chụp quyền của người
+ *   đang tìm có quyền quản trị người dùng (site admin hoặc
+ *   `user:update` tại context hệ thống — capability màn đích tự
+ *   gác); vai trò còn lại không thấy chúng trong danh sách chọn,
+ *   tránh điều hướng vào màn quản trị mình không có quyền dùng.
  *
  * Điều hướng bàn phím (mũi tên + Enter) chạy trên MỘT danh sách
  * phẳng theo đúng thứ tự hiển thị: nhóm Đi tới trước, nhóm Nội dung
@@ -152,10 +158,19 @@ export function CommandPalette() {
     enabled: open && debouncedQuery.length > 0,
   });
 
+  // Quyền quản trị người dùng của chính người đang tìm, suy từ
+  // ảnh chụp quyền: điều kiện duy nhất để kết quả `users` có đích
+  // (màn quản trị tự gác `user:update`). Ảnh chụp chưa tải được
+  // thì coi như không có quyền — kết quả `users` không vào danh
+  // sách, đúng chiều an toàn của ánh xạ.
+  const canManageUsers =
+    (perms.access?.isSiteAdmin ?? false) ||
+    (perms.access ? systemCapabilities(perms.access).includes('user:update') : false);
+
   const contentItems = useMemo<PaletteItem[]>(() => {
     if (!contentQuery.data) return [];
     return contentQuery.data.flatMap((doc) => {
-      const url = globalSearchTarget(doc);
+      const url = globalSearchTarget(doc, { canManageUsers });
       const labelKey = CONTENT_AREA_LABEL_KEYS[doc.area];
       if (!url || !labelKey) return [];
       return [
@@ -168,7 +183,7 @@ export function CommandPalette() {
         },
       ];
     });
-  }, [contentQuery.data, t]);
+  }, [contentQuery.data, t, canManageUsers]);
 
   // Danh sách phẳng cho điều hướng bàn phím, đúng thứ tự hiển thị.
   const navigable = useMemo(() => [...filteredGoto, ...contentItems], [filteredGoto, contentItems]);
