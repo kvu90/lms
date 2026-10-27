@@ -58,7 +58,10 @@ export function planSnapshotOf(payment: PaymentRow): PlanSnapshot | null {
  * cùng loại gói khi mua tiếp lúc gói cũ còn hạn (cộng dồn thời hạn);
  * độ dài cửa sổ là `periodDays` trong ảnh chụp của chính payment.
  * Idempotent theo payment: mỗi payment sinh tối đa một bản ghi quyền
- * lợi — nhịp matching/webhook chạy lại không nhân đôi. Hoàn ĐỦ tiền
+ * lợi — BẢO ĐẢM Ở TẦNG DB bằng ràng buộc UNIQUE trên
+ * `plan_entitlements.payment_id` (nhịp matching/webhook chạy lại gặp
+ * lại bản ghi đã có; hai nhịp đồng thời thì nhịp thua cuộc đọc lại
+ * bản ghi của nhịp thắng thay vì lỗi). Hoàn ĐỦ tiền
  * của payment gói (kèm lệnh chi đã xác nhận) thì
  * {@link PlanEntitlementsService.suspendForPayment} đình chỉ đúng
  * quyền lợi của payment đó; hoàn một phần giữ nguyên quyền lợi.
@@ -86,15 +89,25 @@ export class PlanEntitlementsService {
     );
     const startsAt = currentMax && currentMax.getTime() > now.getTime() ? currentMax : now;
     const expiresAt = new Date(startsAt.getTime() + snapshot.periodDays * 86_400_000);
-    return this.repo.insertEntitlement({
-      tenantId: snapshot.beneficiaryTenantId,
-      userId: snapshot.beneficiaryUserId,
-      component: snapshot.component,
-      paymentId: payment.id,
-      startsAt,
-      expiresAt,
-      status: 'active',
-    });
+    try {
+      return await this.repo.insertEntitlement({
+        tenantId: snapshot.beneficiaryTenantId,
+        userId: snapshot.beneficiaryUserId,
+        component: snapshot.component,
+        paymentId: payment.id,
+        startsAt,
+        expiresAt,
+        status: 'active',
+      });
+    } catch (error) {
+      // Đua hai nhịp kích hoạt đồng thời: cả hai cùng qua cổng kiểm
+      // tra ở trên, ràng buộc UNIQUE trên payment_id chặn bản ghi thứ
+      // hai ở tầng DB — nhịp thua đọc lại bản ghi đã thắng; không đọc
+      // lại được thì lỗi là thật, ném tiếp.
+      const winner = await this.repo.getEntitlementByPayment(payment.id);
+      if (winner) return winner;
+      throw error;
+    }
   }
 
   /**

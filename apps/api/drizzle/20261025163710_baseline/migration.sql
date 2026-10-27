@@ -3176,7 +3176,8 @@ CREATE TABLE "plan_entitlements" (
 	"expires_at" timestamp with time zone NOT NULL,
 	"status" text DEFAULT 'active' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "plan_entitlements_payment_id_unique" UNIQUE("payment_id")
 );
 --> statement-breakpoint
 CREATE INDEX "plan_entitlements_tenant_id_idx" ON "plan_entitlements" ("tenant_id");--> statement-breakpoint

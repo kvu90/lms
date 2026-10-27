@@ -142,7 +142,12 @@ describe('Plan purchases: tenant_plan + teacher_plan over the VietQR pipeline (i
     expect(entitlement).toBeTruthy();
     expect(entitlement!.component).toBe('tenant_plan');
     expect(entitlement!.user_id).toBeNull();
-    expect(entitlement!.tenant_id).toBe(payment.tenantId);
+    // Bên hưởng của quyền lợi là tenant ghi trong ẢNH CHỤP của payment
+    // (data.plan.beneficiaryTenantId — tenant hiệu lực của người mua),
+    // KHÔNG phải tenant của tài khoản nhận tiền (payment.tenantId):
+    // hai khái niệm này chỉ trùng nhau ở fixture này vì người mua
+    // đang ở tenant mặc định, cũng là tenant của tài khoản platform.
+    expect(entitlement!.tenant_id).toBe(payment.data.plan.beneficiaryTenantId);
     expect(entitlement!.status).toBe('active');
     const windowMs = new Date(entitlement!.expires_at).getTime() - new Date(entitlement!.starts_at).getTime();
     expect(Math.abs(windowMs - 365 * DAY_MS)).toBeLessThan(60_000);

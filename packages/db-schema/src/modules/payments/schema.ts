@@ -136,4 +136,7 @@ export const planEntitlements = pgTable('plan_entitlements', {
   index('plan_entitlements_tenant_id_idx').on(t.tenantId),
   index('plan_entitlements_user_id_idx').on(t.userId),
   index('plan_entitlements_payment_id_idx').on(t.paymentId),
+  // Idempotency của khâu kích hoạt bảo đảm ở tầng DB: một payment gói
+  // sinh TỐI ĐA một bản ghi quyền lợi (xem PlanEntitlementsService).
+  unique('plan_entitlements_payment_id_unique').on(t.paymentId),
 ]);

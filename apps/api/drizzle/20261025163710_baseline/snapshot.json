@@ -16824,7 +16824,8 @@
         "e|tbl|public.plan_entitlements",
         "n|rel|public.plan_entitlements",
         "n|type|public.plan_entitlements",
-        "n|rel|public.plan_entitlements_pkey"
+        "n|rel|public.plan_entitlements_pkey",
+        "n|rel|public.plan_entitlements_payment_id_unique"
       ],
       "reads": [
         "n|sch|public"
@@ -56905,6 +56906,17 @@
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "payment_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
     }
   ]
 }

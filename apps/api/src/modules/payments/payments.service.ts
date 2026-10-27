@@ -335,8 +335,11 @@ export class PaymentsService {
    * tiền tách bạch, quyết định 4 của issue) — tài khoản đang bật của
    * tenant platform (tenant-zero), KHÔNG phải tài khoản của tenant
    * mua gói; học phí của trung tâm vẫn về tài khoản của chính trung
-   * tâm như cũ. Bên hưởng: `tenant_plan` hưởng theo tenant hiệu lực
-   * của người mua; `teacher_plan` hưởng theo chính người mua.
+   * tâm như cũ. Khi tenant platform có nhiều tài khoản đang bật, luật
+   * chọn xác định: ưu tiên gateway `sepay`, rồi tài khoản tạo sớm
+   * nhất, rồi id (xem thân hàm). Bên hưởng: `tenant_plan` hưởng theo
+   * tenant hiệu lực của người mua; `teacher_plan` hưởng theo chính
+   * người mua.
    */
   async createPlanPayment(userId: string, input: { component: string }): Promise<PaymentView> {
     if (input.component !== 'tenant_plan' && input.component !== 'teacher_plan') {
@@ -349,7 +352,19 @@ export class PaymentsService {
       throw new BadRequestException({ message: 'Plan price is not configured as a positive integer in system settings', code: 'payment.plan_not_configured' });
     }
     const platformTenantId = await this.tenants.fallbackTenantId();
-    const account = (await this.repo.listAccounts()).find((a) => a.tenantId === platformTenantId && a.enabled);
+    // Luật chọn tài khoản XÁC ĐỊNH (cùng trạng thái DB luôn cho cùng
+    // một lựa chọn, không phụ thuộc thứ tự trả hàng của truy vấn):
+    // trong các tài khoản đang bật của tenant platform, ưu tiên tài
+    // khoản gateway `sepay` đã liên kết (đường mua gói là pipeline
+    // VietQR — tài khoản manual không sinh được mã/QR và không bao
+    // giờ khớp IPN), sau đó tài khoản tạo sớm nhất, hoà thì theo id.
+    const account = (await this.repo.listAccounts())
+      .filter((a) => a.tenantId === platformTenantId && a.enabled)
+      .sort((a, b) =>
+        (a.gateway === 'sepay' ? 0 : 1) - (b.gateway === 'sepay' ? 0 : 1)
+        || a.createdAt.getTime() - b.createdAt.getTime()
+        || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      )[0];
     if (!account) throw new BadRequestException({ message: 'No payment account configured for plan purchases', code: 'payment.no_account' });
     const beneficiaryTenantId = await this.effectiveTenantId();
     const snapshot: PlanSnapshot = {
