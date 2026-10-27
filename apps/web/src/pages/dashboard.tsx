@@ -2,14 +2,18 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import type { CourseCategoryTreeNode, DashboardOverviewView, Role, UserListResponse } from '@lms/contracts';
+import type { CourseCategoryTreeNode, UserListResponse } from '@lms/contracts';
 import '../i18n';
-import { ApiError, apiJson } from '#lib/api';
+import { ApiError } from '#lib/api';
 import { useAuth } from '#lib/auth';
 import { usePermissions, type CourseAccess } from '#lib/permissions';
 import { useCoursesGradeData } from '#lib/course-grade-data';
-import { upcomingDaysRangeIso } from '#lib/calendar';
-import { queryKeys } from '#lib/query-keys';
+import { upcomingDaysRangeIso, useCalendarEvents } from '#lib/calendar';
+import { useAccessRoles } from '#lib/access';
+import { adminUsersQueryOptions } from '#lib/admin-users-data';
+import { useMyBadges } from '#lib/badges';
+import { categoryTreeQueryOptions } from '#lib/courses-data';
+import { dashboardUnreadCountQueryOptions, useDashboardOverview } from '#lib/dashboard-data';
 import { displayCourseName, useCourseCardPrefs } from '#lib/course-cards';
 import { DashboardSkeleton } from '#components/dashboard-skeleton';
 import { SectionCards, type StatCard } from '#components/section-cards';
@@ -54,13 +58,8 @@ function SectionHeading({ title }: { title: string }) {
  * `GET /dashboard/overview` (TanStack dedupe theo queryKey nên khối GV và
  * khối HS trên cùng trang chỉ phát một request). Endpoint đồng thời cập
  * nhật mốc xem trước phía server khi tính xong danh sách "mới".
+ * Hook nay nằm ở lib/dashboard-data (F-01 của rà soát #133).
  */
-function useDashboardOverview() {
-  return useQuery({
-    queryKey: queryKeys.dashboardOverview,
-    queryFn: () => apiJson<DashboardOverviewView>('/api/v1/dashboard/overview?days=7'),
-  });
-}
 
 /** Nhãn ngày giờ ngắn theo ngôn ngữ giao diện. */
 function dateTimeLabel(iso: string, locale: string): string {
@@ -241,18 +240,9 @@ function AdminSection() {
   // Ba nguồn dữ liệu của khối là ba query độc lập: TanStack Query cho
   // chúng chạy SONG SONG (trước đây nạp tuần tự trong một effect), và
   // từng thẻ/bảng tự lấp khi nguồn của nó về thay vì chờ cả khối.
-  const usersQuery = useQuery({
-    queryKey: queryKeys.adminUsers(1, 100),
-    queryFn: () => apiJson<UserListResponse>('/api/v1/users?page=1&pageSize=100'),
-  });
-  const treeQuery = useQuery({
-    queryKey: queryKeys.categoryTree,
-    queryFn: () => apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'),
-  });
-  const rolesQuery = useQuery({
-    queryKey: queryKeys.roles,
-    queryFn: () => apiJson<Role[]>('/api/v1/access/roles'),
-  });
+  const usersQuery = useQuery(adminUsersQueryOptions(1, 100, ''));
+  const treeQuery = useQuery(categoryTreeQueryOptions());
+  const rolesQuery = useAccessRoles();
 
   const users = usersQuery.data ?? null;
   const categoryCount = useMemo(() => {
@@ -535,17 +525,11 @@ function StudentSection() {
   // Huy hiệu, thông báo và sự kiện lịch là ba query độc lập chạy SONG
   // SONG — trước đây một effect await lần lượt từng endpoint nên thẻ
   // thống kê mọc nối tiếp và đẩy bố cục (nguồn CLS đội audit đo được).
-  const badgesQuery = useQuery({
-    queryKey: queryKeys.myBadges,
-    queryFn: () => apiJson<unknown[]>('/api/v1/badges/mine'),
-  });
+  const badgesQuery = useMyBadges();
   // Chỉ cần SỐ chưa đọc cho thẻ thống kê: dùng endpoint đếm riêng,
   // không tải toàn bộ lịch sử thông báo về rồi lọc phía client nữa
   // (trung tâm thông báo v2, issue #51).
-  const notificationsQuery = useQuery({
-    queryKey: queryKeys.notifications,
-    queryFn: () => apiJson<{ unread: number }>('/api/v1/notifications/unread-count'),
-  });
+  const notificationsQuery = useQuery(dashboardUnreadCountQueryOptions());
   // Cửa sổ sự kiện 30 ngày: tính theo múi giờ ứng dụng qua helper
   // dùng chung với loader SL-1 của route `/` (trước đây lấy đúng mốc
   // tức thời lúc mount — key chứa mốc mili-giây thì loader phía
@@ -553,10 +537,7 @@ function StudentSection() {
   // `upcomingDaysRangeIso` ở lib/calendar.ts). Cửa sổ mới bắt đầu từ
   // 00:00 hôm nay nên phủ đúng ô ngày đầu của biểu đồ bên dưới.
   const eventRange = useMemo(() => upcomingDaysRangeIso(30), []);
-  const eventsQuery = useQuery({
-    queryKey: queryKeys.calendarEvents(eventRange.from, eventRange.to),
-    queryFn: () => apiJson<CalendarEventView[]>(`/api/v1/calendar/events?from=${eventRange.from}&to=${eventRange.to}`),
-  });
+  const eventsQuery = useCalendarEvents(eventRange.from, eventRange.to);
 
   const badgeCount = badgesQuery.data ? badgesQuery.data.length : null;
   const unread = notificationsQuery.data ? notificationsQuery.data.unread : null;

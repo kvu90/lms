@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
 
@@ -65,5 +65,32 @@ export function usePlayerView(courseId: string | undefined, cmId: string | undef
   return useQuery({
     ...playerViewQueryOptions(courseId ?? '', cmId ?? ''),
     enabled: !!courseId && !!cmId,
+  });
+}
+
+/**
+ * Đột biến "Đánh dấu đã học" cho mục hoàn thành thủ công: trước hết
+ * probe completion của chính người dùng để lấy userId (endpoint
+ * manual đòi userId trong thân), rồi POST completion/manual với
+ * complete=true — đúng hai bước của bản thủ công. Thành công thì làm
+ * mới view của player để trạng thái hoàn thành cập nhật.
+ */
+export function useMarkPlayerModuleLearned(courseId: string | undefined, cmId: string | undefined) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const mine = await probe<{ course: { userId: string } }>(`/api/v1/courses/${courseId}/completion/me`);
+      const userId = mine?.course.userId;
+      if (!userId) throw new Error('no user');
+      await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}/completion/manual`, {
+        method: 'POST',
+        body: JSON.stringify({ userId, complete: true }),
+      });
+    },
+    onSuccess: () => {
+      if (courseId && cmId) {
+        void client.invalidateQueries({ queryKey: queryKeys.playerView(courseId, cmId) });
+      }
+    },
   });
 }

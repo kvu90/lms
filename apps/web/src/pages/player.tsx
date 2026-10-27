@@ -5,17 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/car
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiFetch, apiJson } from '#lib/api';
-import { playerViewQueryOptions, usePlayerView } from '#lib/player-data';
+import { playerViewQueryOptions, useMarkPlayerModuleLearned, usePlayerView } from '#lib/player-data';
 import { queryClient } from '#lib/query-client';
-
-/** Tải một endpoint phụ độc lập: lỗi thì trả null. */
-async function probe<T>(path: string): Promise<T | null> {
-  try {
-    return await apiJson<T>(path);
-  } catch {
-    return null;
-  }
-}
 
 function isInlineMime(mime: string | null): boolean {
   return mime === 'application/pdf' || (mime?.startsWith('image/') ?? false) || (mime?.startsWith('video/') ?? false);
@@ -98,6 +89,10 @@ export function PlayerPage() {
   const viewQuery = usePlayerView(id, cmId);
   const data = viewQuery.data ?? null;
   const { refetch } = viewQuery;
+  // "Đánh dấu đã học" qua đột biến của lib/player-data (F-01): hai
+  // bước probe + POST nằm trong đột biến, thành công thì view tự làm
+  // mới qua làm-mới-khoá (thay refetch tay trước đây).
+  const markLearnedMutation = useMarkPlayerModuleLearned(id, cmId);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
@@ -194,16 +189,9 @@ export function PlayerPage() {
     if (!id || !cmId) return;
     setBusy(true);
     try {
-      const mine = await probe<{ course: { userId: string } }>(`/api/v1/courses/${id}/completion/me`);
-      const userId = mine?.course.userId;
-      if (!userId) throw new Error('no user');
-      await apiJson(`/api/v1/courses/${id}/modules/${cmId}/completion/manual`, {
-        method: 'POST',
-        body: JSON.stringify({ userId, complete: true }),
-      });
+      await markLearnedMutation.mutateAsync();
       viewedPostedFor.current = null;
       setError(null);
-      await refetch();
     } catch {
       setError(t('completionMarkFailed'));
     } finally {
