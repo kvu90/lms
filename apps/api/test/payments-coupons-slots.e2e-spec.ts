@@ -478,7 +478,7 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     // qua enrol instance — dòng gán mang nguồn `enrol`.
     const coTeacher = await createUserViaApi(app, admin);
     await makeClassCreator(coTeacher.id);
-    const instance = await createEnrolInstance(app, ownerToken, course.id, { roleId: editingteacherRoleId });
+    const instance = await createEnrolInstance(app, ownerToken, course.id, { roleShortname: 'editingteacher' });
     await enrolUser(app, ownerToken, course.id, instance.id, coTeacher.id);
     const grant = await pg.query(
       `select component from role_assignments where user_id = $1 and role_id = $2 and component = 'enrol'`,
