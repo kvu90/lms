@@ -642,4 +642,40 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(tfStat.wrongCount).toBe(1);
     expect(tfStat.fullyWrongCount).toBe(0);
   });
+
+  it('level-set downgrade guard (issue #233, lát D-2): four→three is blocked while a van_dung_cao cell exists; allowed after removing the cell', async () => {
+    const ctx = await setup();
+    // Ma trận bộ 4 mức có một ô Vận dụng cao — tiền đề của ca chặn:
+    // mức Vận dụng cao là tuỳ chọn bật thêm của CV 7991, hạ về bộ 3
+    // mức trong khi ô của mức đó còn tồn tại sẽ làm mất ô lặng lẽ.
+    const matrix = await createMatrix(ctx, { levelSet: 'four' });
+    expect(matrix.levelSet).toBe('four');
+    const withCell = await addCell(matrix.id, {
+      curriculumNodeId: ctx.lessonId, cognitiveLevel: 'van_dung_cao', qtype: 'essay',
+      questionCount: 1, cellScore: 1,
+    });
+    expect(withCell.status).toBeLessThan(300);
+    const vdcCell = (withCell.body.cells as { id: string; cognitiveLevel: string }[])
+      .find((c) => c.cognitiveLevel === 'van_dung_cao')!;
+    expect(vdcCell).toBeTruthy();
+
+    // Hạ bộ mức → 400 quiz.matrix_level_in_use và ma trận KHÔNG đổi
+    // (vẫn bộ bốn mức, vẫn còn ô, version không tăng).
+    const blocked = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ levelSet: 'three' });
+    expect(blocked.status).toBe(400);
+    expect(blocked.body.code).toBe('quiz.matrix_level_in_use');
+    const afterBlocked = await http(app).get(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(afterBlocked.body.levelSet).toBe('four');
+    expect(afterBlocked.body.version).toBe(matrix.version);
+    expect(afterBlocked.body.cells).toHaveLength(1);
+
+    // Ca đối chứng: xoá ô Vận dụng cao trước thì hạ bộ mức thành công.
+    const del = await http(app).delete(`/api/v1/exam-matrices/${matrix.id}/cells/${vdcCell.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(del.status).toBeLessThan(300);
+    const lowered = await http(app).patch(`/api/v1/exam-matrices/${matrix.id}`).set('Authorization', `Bearer ${admin}`)
+      .send({ levelSet: 'three' });
+    expect(lowered.status).toBeLessThan(300);
+    expect(lowered.body.levelSet).toBe('three');
+  });
 });
