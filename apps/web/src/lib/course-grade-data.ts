@@ -33,7 +33,7 @@ async function probe<T>(path: string): Promise<T | null> {
  */
 export async function fetchCourseGradeData(courseId: string): Promise<CourseGradeData> {
   const [report, gradebook] = await Promise.all([
-    probe<CourseActivityGrid>(`/api/v1/courses/${courseId}/grades/report`),
+    probe<CourseActivityGrid>(`/api/v1/courses/${courseId}/gradebook/report`),
     probe<MyActivityGrades>(`/api/v1/courses/${courseId}/gradebook`),
   ]);
   return { report, gradebook };

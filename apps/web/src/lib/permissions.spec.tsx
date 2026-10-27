@@ -249,7 +249,7 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
         if (url === '/api/v1/users/me') return respond(200, profile(TEACHER_ID, 'teacher1'));
         if (url === '/api/v1/users/me/capabilities') return respond(200, accessView('teacher-assigned'));
         if (url === '/api/v1/courses') return respond(200, courseList);
-        if (url.endsWith('/grades/report')) return respond(200, { rows: [], items: [] });
+        if (url.endsWith('/gradebook/report')) return respond(200, { rows: [], items: [] });
         if (url.endsWith('/gradebook')) return respond(200, { activities: [] });
         return respond(404, {});
       }),
@@ -310,12 +310,12 @@ describe('F-02: provider không còn fan-out theo số khoá khi nạp app', () 
     const callsFor = (id: string, suffix: string) =>
       fetchCalls.filter((u) => u === `/api/v1/courses/${id}${suffix}`).length;
     // Khoá được yêu cầu: mỗi endpoint đúng 1 lượt dù hai hook cùng đọc.
-    expect(callsFor(COURSE_ID, '/grades/report')).toBe(1);
+    expect(callsFor(COURSE_ID, '/gradebook/report')).toBe(1);
     expect(callsFor(COURSE_ID, '/gradebook')).toBe(1);
-    expect(callsFor(OTHER_1.id, '/grades/report')).toBe(1);
+    expect(callsFor(OTHER_1.id, '/gradebook/report')).toBe(1);
     expect(callsFor(OTHER_1.id, '/gradebook')).toBe(1);
     // Khoá không bề mặt nào yêu cầu: không tốn request nào.
-    expect(callsFor(OTHER_2.id, '/grades/report')).toBe(0);
+    expect(callsFor(OTHER_2.id, '/gradebook/report')).toBe(0);
     expect(callsFor(OTHER_2.id, '/gradebook')).toBe(0);
   });
 });

@@ -81,8 +81,8 @@ function scoreLabel(value: number, locale: string): string {
  * Khu quản trị chỉ render cho staff của khoá (grade:viewall tại
  * context khoá hoặc quản trị hệ thống) qua `usePermissions()`. Lưu ý
  * các endpoint sửa/xoá item và nhập điểm KHÔNG mang tiền tố courseId
- * (PATCH/DELETE /courses/grades/items/:id, POST
- * /courses/grades/items/:itemId/grades) — đúng controller phía API.
+ * (PATCH/DELETE /grade-items/:id, POST
+ * /grade-items/:itemId/grades) — đúng controller phía API.
  */
 export function GradebookPage() {
   const { t, i18n } = useTranslation('app');
@@ -152,13 +152,13 @@ export function GradebookPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((i) => i.id).join(',')]);
 
-  /** Nhập/sửa điểm một bài cho một học sinh (POST /courses/grades/items/:itemId/grades). */
+  /** Nhập/sửa điểm một bài cho một học sinh (POST /grade-items/:itemId/grades). */
   async function submitGrade(event: FormEvent) {
     event.preventDefault();
     setMessage(null);
     setError(null);
     try {
-      await apiJson(`/api/v1/courses/grades/items/${gradeItemId}/grades`, {
+      await apiJson(`/api/v1/grade-items/${gradeItemId}/grades`, {
         method: 'POST',
         body: JSON.stringify({
           userId: gradeUserId,
@@ -178,7 +178,7 @@ export function GradebookPage() {
     event.preventDefault();
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/grades/items`, {
+      await apiJson(`/api/v1/courses/${courseId}/grade-items`, {
         method: 'POST',
         body: JSON.stringify({ itemName: newItemName, gradeMax: Number(newItemMax) }),
       });
@@ -190,13 +190,13 @@ export function GradebookPage() {
     }
   }
 
-  /** Lưu sửa tên/thang điểm của một mục (PATCH /courses/grades/items/:id). */
+  /** Lưu sửa tên/thang điểm của một mục (PATCH /grade-items/:id). */
   async function saveItemEdit(item: GradeItem) {
     const edit = itemEdits[item.id];
     if (!edit) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/courses/grades/items/${item.id}`, {
+      await apiJson(`/api/v1/grade-items/${item.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ itemName: edit.itemName, gradeMax: Number(edit.gradeMax) }),
       });
@@ -207,12 +207,12 @@ export function GradebookPage() {
     }
   }
 
-  /** Xoá một mục điểm và mọi điểm của nó (DELETE /courses/grades/items/:id). */
+  /** Xoá một mục điểm và mọi điểm của nó (DELETE /grade-items/:id). */
   async function deleteItem(item: GradeItem) {
     if (!window.confirm(t('confirmDeleteGradeItem', { name: item.itemName }))) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/courses/grades/items/${item.id}`, { method: 'DELETE' });
+      await apiJson(`/api/v1/grade-items/${item.id}`, { method: 'DELETE' });
       setAdminMessage(t('gradeItemDeleted'));
       await reload();
     } catch {
@@ -220,11 +220,11 @@ export function GradebookPage() {
     }
   }
 
-  /** Đặt chính sách công bố của một bài (PUT /courses/grades/items/:id/posting-policy). */
+  /** Đặt chính sách công bố của một bài (PUT /grade-items/:id/posting-policy). */
   async function setPostingPolicy(item: GradeItem, policy: 'auto' | 'manual') {
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/courses/grades/items/${item.id}/posting-policy`, {
+      await apiJson(`/api/v1/grade-items/${item.id}/posting-policy`, {
         method: 'PUT',
         body: JSON.stringify({ policy }),
       });
@@ -239,7 +239,7 @@ export function GradebookPage() {
   async function setPublished(item: GradeItem, published: boolean) {
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/courses/grades/items/${item.id}/${published ? 'publish' : 'unpublish'}`, {
+      await apiJson(`/api/v1/grade-items/${item.id}/${published ? 'publish' : 'unpublish'}`, {
         method: 'POST',
         body: JSON.stringify({}),
       });
@@ -251,7 +251,8 @@ export function GradebookPage() {
   }
 
   /**
-   * Xuất Excel vnEdu qua POST /courses/:courseId/grades/export/vnedu
+   * Xuất Excel vnEdu qua POST /courses/:courseId/grade-exports (body
+   * mang trường provider: 'vnedu' để chọn nhà cung cấp xuất)
    * (issue #53; nguồn đổi ở #224): chỉ các bài ĐÃ CÔNG BỐ mới được
    * chọn; giáo viên xác nhận ánh xạ bài → loại cột kèm học kỳ, năm
    * học, môn và lớp (để trống thì server lấy mặc định từ khoá học).
@@ -271,9 +272,10 @@ export function GradebookPage() {
       return;
     }
     try {
-      const response = await apiFetch(`/api/v1/courses/${courseId}/grades/export/vnedu`, {
+      const response = await apiFetch(`/api/v1/courses/${courseId}/grade-exports`, {
         method: 'POST',
         body: JSON.stringify({
+          provider: 'vnedu',
           regularItemIds,
           midtermItemId: midterms[0]!.id,
           finalItemId: finals[0]!.id,
@@ -299,7 +301,7 @@ export function GradebookPage() {
 
   /**
    * Xem lịch sử điểm của một học viên trên một mục điểm qua
-   * GET /courses/grades/items/:itemId/users/:userId/history.
+   * GET /grade-items/:itemId/users/:userId/history.
    */
   async function loadHistory(event: FormEvent) {
     event.preventDefault();
@@ -307,7 +309,7 @@ export function GradebookPage() {
     setHistoryRows(null);
     try {
       const rows = await apiJson<GradeHistoryView[]>(
-        `/api/v1/courses/grades/items/${historyItemId}/users/${historyUserId}/history`,
+        `/api/v1/grade-items/${historyItemId}/users/${historyUserId}/history`,
       );
       setHistoryRows(rows);
     } catch {
