@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, type QueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, type QueryClient } from '@tanstack/react-query';
 import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
@@ -386,4 +386,147 @@ export async function questionsPageClientLoader() {
     queryClient.prefetchQuery(questionBanksQueryOptions('exam')),
   ]);
   return null;
+}
+
+// --- Trình soạn câu hỏi: gắn kết chương trình + lưu nội dung (F-01) ------------
+//
+// Trình soạn là màn điều phối nhiều bước (chọn danh mục → ngữ liệu →
+// câu đang sửa → options đầy đủ → gắn kết chương trình): các lượt đọc
+// của nó đi qua fetchQuery với các tuỳ chọn dưới đây (vẫn qua bộ nhớ
+// đệm + dedupe của TanStack, giữ nguyên nhịp trạng thái tại chỗ của
+// màn); thao tác ghi là đột biến, kết quả gắn kết trả thẳng về cho
+// màn giữ trong state như bản thủ công.
+
+/** Gắn kết chương trình của một câu hỏi — hình dạng của GET /questions/:id/curriculum-links. */
+export interface QuestionCurriculumLinksView {
+  questionId: string;
+  subjectIds: string[];
+  outcomes: { outcomeId: string; cognitiveLevel: string }[];
+}
+
+/** Tuỳ chọn truy vấn gắn kết chương trình của một câu hỏi. */
+export function questionCurriculumLinksQueryOptions(questionId: string) {
+  return queryOptions({
+    queryKey: queryKeys.questionCurriculumLinks(questionId),
+    queryFn: () =>
+      apiJson<QuestionCurriculumLinksView>(`/api/v1/questions/${questionId}/curriculum-links`),
+  });
+}
+
+/** Một version của câu hỏi theo hình dạng trình soạn cần để khôi phục options đầy đủ. */
+export interface EditorQuestionVersion {
+  id: string;
+  version: number;
+  options?: Record<string, unknown> | null;
+}
+
+/**
+ * Tuỳ chọn truy vấn các version của một câu cho trình soạn: dùng
+ * chung khoá factory `questionVersions` với trang ngân hàng — hai bề
+ * mặt chỉ đọc các trường khác nhau của cùng một đáp ứng.
+ */
+export function editorQuestionVersionsQueryOptions(questionId: string) {
+  return queryOptions({
+    queryKey: queryKeys.questionVersions(questionId),
+    queryFn: () => apiJson<EditorQuestionVersion[]>(`/api/v1/questions/${questionId}/versions`),
+  });
+}
+
+/** Đột biến đưa trạng thái bank của câu về trạng thái đích sau khi lưu nội dung (POST /questions/:id/status, không tạo phiên bản). */
+export function useSetQuestionStatus() {
+  return useMutation({
+    mutationFn: ({ questionId, status }: { questionId: string; status: 'draft' | 'ready' }) =>
+      apiJson(`/api/v1/questions/${questionId}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      }),
+  });
+}
+
+/** Đột biến lưu nội dung câu hỏi đang sửa (PATCH /questions/:id — tạo phiên bản mới phía API). */
+export function useUpdateQuestionContent() {
+  return useMutation({
+    mutationFn: ({ questionId, body }: { questionId: string; body: Record<string, unknown> }) =>
+      apiJson<QuestionView>(`/api/v1/questions/${questionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+  });
+}
+
+/** Đột biến tạo câu hỏi mới (POST /questions). */
+export function useCreateQuestion() {
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      apiJson<QuestionView>('/api/v1/questions', { method: 'POST', body: JSON.stringify(body) }),
+  });
+}
+
+/** Đột biến gắn một môn chương trình vào câu hỏi (POST /questions/:id/subjects) — trả về toàn bộ gắn kết mới. */
+export function useAttachQuestionSubject() {
+  return useMutation({
+    mutationFn: ({ questionId, subjectId }: { questionId: string; subjectId: string }) =>
+      apiJson<QuestionCurriculumLinksView>(`/api/v1/questions/${questionId}/subjects`, {
+        method: 'POST',
+        body: JSON.stringify({ subjectId }),
+      }),
+  });
+}
+
+/** Đột biến gỡ một môn khỏi gắn kết của câu hỏi (DELETE /questions/:id/subjects/:subjectId). */
+export function useDetachQuestionSubject() {
+  return useMutation({
+    mutationFn: ({ questionId, subjectId }: { questionId: string; subjectId: string }) =>
+      apiJson<QuestionCurriculumLinksView>(`/api/v1/questions/${questionId}/subjects/${subjectId}`, {
+        method: 'DELETE',
+      }),
+  });
+}
+
+/** Đột biến gắn một YCCĐ vào câu hỏi kèm mức độ nhận thức (POST /questions/:id/outcomes). */
+export function useAttachQuestionOutcome() {
+  return useMutation({
+    mutationFn: ({
+      questionId,
+      outcomeId,
+      cognitiveLevel,
+    }: {
+      questionId: string;
+      outcomeId: string;
+      cognitiveLevel: string;
+    }) =>
+      apiJson<QuestionCurriculumLinksView>(`/api/v1/questions/${questionId}/outcomes`, {
+        method: 'POST',
+        body: JSON.stringify({ outcomeId, cognitiveLevel }),
+      }),
+  });
+}
+
+/** Đột biến đổi mức độ nhận thức của một gắn kết YCCĐ (PATCH /questions/:id/outcomes/:outcomeId). */
+export function useUpdateQuestionOutcomeLink() {
+  return useMutation({
+    mutationFn: ({
+      questionId,
+      outcomeId,
+      cognitiveLevel,
+    }: {
+      questionId: string;
+      outcomeId: string;
+      cognitiveLevel: string;
+    }) =>
+      apiJson<QuestionCurriculumLinksView>(`/api/v1/questions/${questionId}/outcomes/${outcomeId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ cognitiveLevel }),
+      }),
+  });
+}
+
+/** Đột biến gỡ một YCCĐ khỏi gắn kết của câu hỏi (DELETE /questions/:id/outcomes/:outcomeId). */
+export function useDetachQuestionOutcome() {
+  return useMutation({
+    mutationFn: ({ questionId, outcomeId }: { questionId: string; outcomeId: string }) =>
+      apiJson<QuestionCurriculumLinksView>(`/api/v1/questions/${questionId}/outcomes/${outcomeId}`, {
+        method: 'DELETE',
+      }),
+  });
 }

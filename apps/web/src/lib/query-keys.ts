@@ -286,4 +286,6 @@ export const queryKeys = {
   examPinMyRegrades: (pinId: string) => ['exam-pins', pinId, 'my-regrades'] as const,
   /** Xem trước cập nhật version của một lần ghim (GET /exam-pins/:id/version-update) — trang lần ghim. */
   examPinVersionUpdate: (pinId: string) => ['exam-pins', pinId, 'version-update'] as const,
+  /** Gắn kết chương trình của một câu hỏi (GET /questions/:id/curriculum-links) — trình soạn câu hỏi. */
+  questionCurriculumLinks: (questionId: string) => ['questions', questionId, 'curriculum-links'] as const,
 };

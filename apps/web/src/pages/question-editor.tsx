@@ -41,9 +41,31 @@ import {
   type QuestionFileArea,
 } from '../lib/question-files';
 import '../i18n';
-import { apiJson } from '#lib/api';
 import { useQueryClient } from '@tanstack/react-query';
-import { clearQuestionBankListCache } from '#lib/questions-data';
+import { accessContextsQueryOptions } from '#lib/access';
+import {
+  curriculumOutcomeQueryOptions,
+  curriculumSubjectsScopedQueryOptions,
+  curriculumTreeScopedQueryOptions,
+  type CurriculumTreeNode as LibCurriculumTreeNode,
+} from '#lib/curriculum';
+import { curriculaBySubjectQueryOptions } from '#lib/matrix-data';
+import {
+  categoryQuestionsQueryOptions,
+  categoryStimuliQueryOptions,
+  clearQuestionBankListCache,
+  editorQuestionVersionsQueryOptions,
+  questionCategoriesQueryOptions,
+  questionCurriculumLinksQueryOptions,
+  useAttachQuestionOutcome,
+  useAttachQuestionSubject,
+  useCreateQuestion,
+  useDetachQuestionOutcome,
+  useDetachQuestionSubject,
+  useSetQuestionStatus,
+  useUpdateQuestionContent,
+  useUpdateQuestionOutcomeLink,
+} from '#lib/questions-data';
 import {
   COGNITIVE_LEVELS,
   LEVEL_LABEL_KEYS,
@@ -849,23 +871,38 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     setForm((prev) => ({ ...prev, ...patch }));
   }, []);
 
+  // Thao tác ghi của màn soạn qua đột biến của lib/questions-data
+  // (F-01): lưu nội dung/trạng thái câu và các gắn kết chương trình.
+  const setStatusMutation = useSetQuestionStatus();
+  const updateQuestionMutation = useUpdateQuestionContent();
+  const createQuestionMutation = useCreateQuestion();
+  const attachSubjectMutation = useAttachQuestionSubject();
+  const detachSubjectMutation = useDetachQuestionSubject();
+  const attachOutcomeMutation = useAttachQuestionOutcome();
+  const updateOutcomeLinkMutation = useUpdateQuestionOutcomeLink();
+  const detachOutcomeMutation = useDetachQuestionOutcome();
+
   /** Context của bank đích — bộ chọn ảnh tải lên đúng context này. */
   const contextId = categories.find((c) => c.id === categoryId)?.contextId;
 
+  // Các lượt đọc của màn soạn đi qua fetchQuery với tuỳ chọn của
+  // lib/questions-data và các module miền liên quan (F-01 của rà
+  // soát #133): vẫn qua bộ nhớ đệm + dedupe của TanStack, nhịp
+  // trạng thái tại chỗ của màn giữ nguyên như bản fetch thủ công.
   const loadStimuli = useCallback(async (catId: string) => {
-    const rows = await apiJson<StimulusView[]>(`/api/v1/stimuli?categoryId=${catId}`);
+    const rows = await queryClient.fetchQuery(categoryStimuliQueryOptions(catId));
     setStimuli(rows);
-  }, []);
+  }, [queryClient]);
 
   /** Nạp gắn kết chương trình của câu hỏi + nhãn nội dung cho các YCCĐ đã gắn. */
   const loadCurriculumLinks = useCallback(async (qid: string) => {
     try {
-      const view = await apiJson<CurriculumLinksView>(`/api/v1/questions/${qid}/curriculum-links`);
+      const view = await queryClient.fetchQuery(questionCurriculumLinksQueryOptions(qid));
       setLinks(view);
       const labels: Record<string, string> = {};
       for (const o of view.outcomes) {
         try {
-          const oc = await apiJson<{ id: string; content: string }>(`/api/v1/curriculum/outcomes/${o.outcomeId}`);
+          const oc = await queryClient.fetchQuery(curriculumOutcomeQueryOptions(o.outcomeId));
           labels[oc.id] = oc.content;
         } catch {
           // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
@@ -875,20 +912,20 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     } catch {
       setLinks(null);
     }
-  }, []);
+  }, [queryClient]);
 
   /** Môn học cho khối Chương trình: chương trình quốc gia GDPT 2018 neo ở context hệ thống. */
   const loadLinkSubjects = useCallback(async () => {
     try {
-      const contexts = await apiJson<{ id: string; contextLevel: number }[]>('/api/v1/access/contexts');
+      const contexts = await queryClient.fetchQuery(accessContextsQueryOptions());
       const system = contexts.find((c) => c.contextLevel === 10);
       if (!system) return;
-      const rows = await apiJson<{ id: string; name: string }[]>(`/api/v1/curriculum/subjects?contextId=${system.id}`);
+      const rows = await queryClient.fetchQuery(curriculumSubjectsScopedQueryOptions(system.id));
       setLinkSubjects(rows);
     } catch {
       // Khối chương trình là phụ trợ của editor; bỏ qua khi không tải được.
     }
-  }, []);
+  }, [queryClient]);
 
   /** Mở editor sửa: nạp form từ view và tìm options đầy đủ ở endpoint versions khi view còn thiếu. */
   const startEdit = useCallback(
@@ -908,9 +945,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         : 'truefalse';
       if (hasAllOptions(qtype, view.options)) return;
       try {
-        const versions = await apiJson<{ id: string; version: number; options?: OptionsRecord | null }[]>(
-          `/api/v1/questions/${view.question.id}/versions`,
-        );
+        const versions = await queryClient.fetchQuery(editorQuestionVersionsQueryOptions(view.question.id));
         const latest =
           versions.find((version) => version.id === view.latestVersion.id) ??
           versions.find((version) => version.version === view.entry.latestVersion);
@@ -928,7 +963,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   useEffect(() => {
     void (async () => {
       try {
-        const cats = await apiJson<QuestionCategory[]>('/api/v1/questions/categories');
+        const cats = await queryClient.fetchQuery(questionCategoriesQueryOptions());
         setCategories(cats);
         let catId = categoryParam;
         if (!catId) {
@@ -941,7 +976,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         }
         await loadStimuli(catId).catch(() => setMessage(t('stimulusLoadFailed')));
         if (mode === 'edit' && questionId) {
-          const rows = await apiJson<QuestionView[]>(`/api/v1/questions/categories/${catId}/questions`);
+          const rows = await queryClient.fetchQuery(categoryQuestionsQueryOptions(catId));
           const view = rows.find((r) => r.question.id === questionId);
           if (!view) {
             setLoadError(t('questionBankLoadFailed'));
@@ -966,10 +1001,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         ? current !== target
         : current === undefined && target === 'draft';
     if (!needsCall) return;
-    await apiJson(`/api/v1/questions/${id}/status`, {
-      method: 'POST',
-      body: JSON.stringify({ status: target }),
-    });
+    await setStatusMutation.mutateAsync({ questionId: id, status: target });
   }
 
   /** Lưu nội dung (tạo mới hoặc tạo phiên bản mới) rồi chốt trạng thái đích. */
@@ -980,12 +1012,12 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     try {
       const effective = form;
       if (editing) {
-        const updated = await apiJson<QuestionView>(`/api/v1/questions/${editing.question.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
+        const updated = await updateQuestionMutation.mutateAsync({
+          questionId: editing.question.id,
+          body: {
             ...editorFormContent(effective),
             stimulusId: form.stimulusId === '' ? null : form.stimulusId,
-          }),
+          },
         });
         await applyStatus(editing.question.id, entryStatus(updated) ?? entryStatus(editing), target);
         clearQuestionBankListCache(queryClient);
@@ -999,14 +1031,11 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         });
         return;
       }
-      const created = await apiJson<QuestionView>('/api/v1/questions', {
-        method: 'POST',
-        body: JSON.stringify({
-          categoryId,
-          qtype: form.qtype,
-          ...editorFormContent(effective),
-          ...(form.stimulusId ? { stimulusId: form.stimulusId } : {}),
-        }),
+      const created = await createQuestionMutation.mutateAsync({
+        categoryId,
+        qtype: form.qtype,
+        ...editorFormContent(effective),
+        ...(form.stimulusId ? { stimulusId: form.stimulusId } : {}),
       });
       await applyStatus(created.question.id, entryStatus(created), target);
       navigate('/questions', {
@@ -1031,14 +1060,12 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     setLinkOutcomeOptions([]);
     if (!subjectId) return;
     try {
-      const curricula = await apiJson<{ id: string; grade: number }[]>(
-        `/api/v1/curriculum/curricula?subjectId=${subjectId}`,
-      );
+      const curricula = await queryClient.fetchQuery(curriculaBySubjectQueryOptions(subjectId));
       const options: { id: string; label: string }[] = [];
       const labels: Record<string, string> = {};
       for (const curr of curricula) {
-        const tree = await apiJson<{ nodes: CurriculumTreeNode[] }>(`/api/v1/curriculum/curricula/${curr.id}/tree`);
-        const walk = (nodes: CurriculumTreeNode[]): void => {
+        const tree = await queryClient.fetchQuery(curriculumTreeScopedQueryOptions(curr.id, undefined));
+        const walk = (nodes: LibCurriculumTreeNode[]): void => {
           for (const node of nodes) {
             for (const outcome of node.outcomes) {
               options.push({ id: outcome.id, label: `${curr.grade} · ${node.title} · ${outcome.content}` });
@@ -1060,10 +1087,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     if (!editing || !linkSubjectPick) return;
     try {
       setLinks(
-        await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/subjects`, {
-          method: 'POST',
-          body: JSON.stringify({ subjectId: linkSubjectPick }),
-        }),
+        await attachSubjectMutation.mutateAsync({ questionId: editing.question.id, subjectId: linkSubjectPick }),
       );
     } catch {
       setMessage(t('programmeSaveFailed'));
@@ -1074,9 +1098,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     if (!editing) return;
     try {
       setLinks(
-        await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/subjects/${subjectId}`, {
-          method: 'DELETE',
-        }),
+        await detachSubjectMutation.mutateAsync({ questionId: editing.question.id, subjectId }),
       );
     } catch {
       setMessage(t('programmeSaveFailed'));
@@ -1087,9 +1109,10 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     if (!editing || !linkOutcomePick) return;
     try {
       setLinks(
-        await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes`, {
-          method: 'POST',
-          body: JSON.stringify({ outcomeId: linkOutcomePick, cognitiveLevel: linkLevelPick }),
+        await attachOutcomeMutation.mutateAsync({
+          questionId: editing.question.id,
+          outcomeId: linkOutcomePick,
+          cognitiveLevel: linkLevelPick,
         }),
       );
       setLinkOutcomePick('');
@@ -1102,9 +1125,10 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     if (!editing) return;
     try {
       setLinks(
-        await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes/${outcomeId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ cognitiveLevel }),
+        await updateOutcomeLinkMutation.mutateAsync({
+          questionId: editing.question.id,
+          outcomeId,
+          cognitiveLevel,
         }),
       );
     } catch {
@@ -1116,9 +1140,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     if (!editing) return;
     try {
       setLinks(
-        await apiJson<CurriculumLinksView>(`/api/v1/questions/${editing.question.id}/outcomes/${outcomeId}`, {
-          method: 'DELETE',
-        }),
+        await detachOutcomeMutation.mutateAsync({ questionId: editing.question.id, outcomeId }),
       );
     } catch {
       setMessage(t('programmeSaveFailed'));
