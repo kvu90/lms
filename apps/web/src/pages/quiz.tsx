@@ -1,30 +1,18 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import {
-  extractRichTextPlainText,
-  type CourseGroup,
-  type CourseRosterMember,
-  type PinRegradeLogEntry,
-  type PinRegradeResult,
-  type PinVersionUpdatePreview,
-  type QuestionView,
-  type QuizAttemptSummary,
-  type ExamPinOverrideView as QuizOverrideView,
-  type QuizView,
-  type RichTextDocument,
-} from '@lms/contracts';
+import { type PinRegradeLogEntry, type PinRegradeResult, type PinVersionUpdatePreview } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Checkbox } from '@lms/ui/components/checkbox';
-import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader, PageShell } from '../components/page-shell';
+import { AttemptsPanel } from '../components/quiz/attempts-panel';
+import { OverridesPanel } from '../components/quiz/overrides-panel';
+import { PinPanel } from '../components/quiz/pin-panel';
+import { RegradePanel } from '../components/quiz/regrade-panel';
+import { SettingsForm } from '../components/quiz/settings-form';
+import { toLocalInput } from '../components/quiz/utils';
 import '../i18n';
 import { ApiError } from '#lib/api';
 import {
@@ -33,8 +21,6 @@ import {
   regradeQuestionVersionsQueryOptions,
   useApplyExamPinVersionUpdate,
   useCourseRoster,
-  useCreateExamPinOverride,
-  useDeleteExamPinOverride,
   useExamPin,
   useExamPinMyRegrades,
   useExamPinOverrides,
@@ -42,23 +28,10 @@ import {
   useExamSource,
   useRunExamPinRegrade,
   useStartExamPinAttempt,
-  useUpdateExamPinOverride,
   useUpdateExamPinSettings,
 } from '#lib/quiz-data';
 import { courseGroupsQueryOptions } from '#lib/progress-report-data';
 import { queryClient } from '#lib/query-client';
-
-function plainText(doc: RichTextDocument | null | undefined): string {
-  return doc ? extractRichTextPlainText(doc) : '';
-}
-
-/** Chuyển giá trị Date của API sang giá trị cho input datetime-local. */
-function toLocalInput(iso: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 /**
  * Trang LẦN GHIM đề (sau gộp Đề #226, route /courses/:id/exams/:pinId):
@@ -120,9 +93,7 @@ export function QuizPage() {
   // (panel chấm lại dùng chung dữ kiện này); lỗi tải thì coi như
   // nhật ký rỗng như bản thủ công.
   const regradeLogQuery = useExamPinRegrades(quizId ?? '', !!data?.permissions.grade);
-  const regradeLog: PinRegradeLogEntry[] | null = regradeLogQuery.isError
-    ? []
-    : (regradeLogQuery.data ?? null);
+  const regradeLog: PinRegradeLogEntry[] | null = regradeLogQuery.isError ? [] : (regradeLogQuery.data ?? null);
 
   // Thông tin ĐỀ nguồn của lần ghim (tên + version hiện hành ở bank) — chỉ tải khi có quyền manage.
   const examInfo = useExamSource(data?.quiz.examId, !!data?.permissions.manage).data ?? null;
@@ -133,27 +104,13 @@ export function QuizPage() {
   const overridesQuery = useExamPinOverrides(quizId ?? '', !!data?.permissions.manageOverrides);
   const overrides = overridesQuery.data ?? [];
   const overridesLoaded = overridesQuery.isSuccess || overridesQuery.isError;
-  const roster = useCourseRoster(courseId ?? '', !!(data?.permissions.manageOverrides || data?.permissions.grade)).data ?? [];
-  const groups = useQuery({
-    ...courseGroupsQueryOptions(courseId ?? ''),
-    enabled: !!courseId && !!(data?.permissions.manage || data?.permissions.manageOverrides),
-  }).data ?? [];
-
-  useEffect(() => {
-    if (overridesQuery.isError) setOvError(t('quizOverridesLoadFailed'));
-  }, [overridesQuery.isError, overridesQuery.errorUpdatedAt, t]);
-
-  const [editingOverride, setEditingOverride] = useState<QuizOverrideView | null>(null);
-  const [ovTargetKind, setOvTargetKind] = useState<'user' | 'group'>('user');
-  const [ovUserId, setOvUserId] = useState('');
-  const [ovGroupId, setOvGroupId] = useState('');
-  const [ovTimeOpen, setOvTimeOpen] = useState('');
-  const [ovTimeClose, setOvTimeClose] = useState('');
-  const [ovLimitMinutes, setOvLimitMinutes] = useState('');
-  const [ovAttempts, setOvAttempts] = useState('');
-  const [ovPassword, setOvPassword] = useState('');
-  const [ovReason, setOvReason] = useState('');
-  const [ovError, setOvError] = useState<string | null>(null);
+  const roster =
+    useCourseRoster(courseId ?? '', !!(data?.permissions.manageOverrides || data?.permissions.grade)).data ?? [];
+  const groups =
+    useQuery({
+      ...courseGroupsQueryOptions(courseId ?? ''),
+      enabled: !!courseId && !!(data?.permissions.manage || data?.permissions.manageOverrides),
+    }).data ?? [];
 
   // Khởi tạo form cài đặt từ dữ liệu lần ghim mỗi khi dữ liệu (lại)
   // tải về — đúng phần khởi tạo của reload() thủ công trước đây.
@@ -179,102 +136,13 @@ export function QuizPage() {
     if (result.error) throw result.error;
   }, [refetch]);
 
-  // Các đột biến của trang lần ghim (F-01 của rà soát #133): ghi đè,
-  // cài đặt, cập nhật version, chấm lại, bắt đầu lượt làm.
-  const createOverrideMutation = useCreateExamPinOverride(quizId ?? '');
-  const updateOverrideMutation = useUpdateExamPinOverride(quizId ?? '');
-  const deleteOverrideMutation = useDeleteExamPinOverride(quizId ?? '');
+  // Các đột biến của trang lần ghim (F-01 của rà soát #133): cài
+  // đặt, cập nhật version, chấm lại, bắt đầu lượt làm. (Đột biến
+  // ghi đè nằm ở OverridesPanel cùng trạng thái form của khối đó.)
   const settingsMutation = useUpdateExamPinSettings(quizId ?? '');
   const versionUpdateMutation = useApplyExamPinVersionUpdate(quizId ?? '');
   const regradeMutation = useRunExamPinRegrade(quizId ?? '');
   const startAttemptMutation = useStartExamPinAttempt(quizId ?? '');
-
-  function resetOverrideForm() {
-    setEditingOverride(null);
-    setOvTargetKind('user');
-    setOvUserId('');
-    setOvGroupId('');
-    setOvTimeOpen('');
-    setOvTimeClose('');
-    setOvLimitMinutes('');
-    setOvAttempts('');
-    setOvPassword('');
-    setOvReason('');
-    setOvError(null);
-  }
-
-  function startEditOverride(ov: QuizOverrideView) {
-    setEditingOverride(ov);
-    setOvTargetKind(ov.groupId ? 'group' : 'user');
-    setOvUserId(ov.userId ?? '');
-    setOvGroupId(ov.groupId ?? '');
-    setOvTimeOpen(toLocalInput(ov.timeOpen));
-    setOvTimeClose(toLocalInput(ov.timeClose));
-    setOvLimitMinutes(ov.timeLimitSeconds ? String(Math.round(ov.timeLimitSeconds / 60)) : '');
-    setOvAttempts(ov.attempts === null ? '' : String(ov.attempts));
-    setOvPassword('');
-    setOvReason(ov.reason ?? '');
-    setOvError(null);
-  }
-
-  /** Chạy một thao tác ghi đè (đột biến tự làm mới danh sách); mã lỗi của API được dịch riêng cho luật lý do. */
-  async function actOverride(run: () => Promise<unknown>) {
-    setOvError(null);
-    setBusy(true);
-    try {
-      await run();
-      resetOverrideForm();
-    } catch (err) {
-      setOvError(
-        err instanceof ApiError && err.problem.code === 'quiz.override_reason_required'
-          ? t('quizOverrideReasonRequired')
-          : t('quizOverrideActionFailed'),
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitOverride(event: FormEvent) {
-    event.preventDefault();
-    // Cùng điều kiện bắt buộc lý do như API: ghi đè cho HỌC SINH mà cộng giờ hoặc mở cửa sổ riêng.
-    const isUserTarget = editingOverride ? editingOverride.userId !== null : ovTargetKind === 'user';
-    const needsReason = isUserTarget && (ovTimeOpen !== '' || ovLimitMinutes.trim() !== '');
-    if (needsReason && !ovReason.trim()) {
-      setOvError(t('quizOverrideReasonRequired'));
-      return;
-    }
-    if (!editingOverride) {
-      if (ovTargetKind === 'user' && !ovUserId) { setOvError(t('quizOverrideTargetRequired')); return; }
-      if (ovTargetKind === 'group' && !ovGroupId) { setOvError(t('quizOverrideTargetRequired')); return; }
-    }
-    const fields = {
-      timeOpen: ovTimeOpen ? new Date(ovTimeOpen).toISOString() : null,
-      timeClose: ovTimeClose ? new Date(ovTimeClose).toISOString() : null,
-      timeLimitSeconds: ovLimitMinutes.trim() ? Math.max(1, Math.round(Number(ovLimitMinutes))) * 60 : null,
-      attempts: ovAttempts.trim() ? Math.max(0, Math.trunc(Number(ovAttempts))) : null,
-      ...(ovPassword ? { password: ovPassword } : {}),
-      ...(ovReason.trim() ? { reason: ovReason.trim() } : {}),
-    };
-    if (editingOverride) {
-      const target = editingOverride;
-      await actOverride(() =>
-        updateOverrideMutation.mutateAsync({ overrideId: target.id, fields }),
-      );
-    } else {
-      await actOverride(() =>
-        createOverrideMutation.mutateAsync({
-          ...(ovTargetKind === 'user' ? { userId: ovUserId } : { groupId: ovGroupId }),
-          ...fields,
-        }),
-      );
-    }
-  }
-
-  async function removeOverride(ov: QuizOverrideView) {
-    if (editingOverride?.id === ov.id) resetOverrideForm();
-    await actOverride(() => deleteOverrideMutation.mutateAsync(ov.id));
-  }
 
   async function saveSettings(event: FormEvent) {
     event.preventDefault();
@@ -362,6 +230,12 @@ export function QuizPage() {
     }
   }
 
+  /** Đổi câu hỏi chấm lại: chốt câu được chọn và nạp các version của câu đó. */
+  function handleRegradeQuestionChange(v: string | null) {
+    setRegradeQuestionId(v ?? '');
+    void loadRegradeVersions(v ?? '');
+  }
+
   /** Chạy chấm lại (dryRun = chỉ xem trước điểm đổi, không ghi). */
   async function runRegrade(dryRun: boolean) {
     if (!regradeQuestionId || !regradeVersionId) return;
@@ -430,551 +304,89 @@ export function QuizPage() {
     );
 
   const { quiz, permissions } = data;
-  // Cửa sổ/giới hạn hiện theo cài đặt HIỆU LỰC của chính người xem (API đã hợp nhất ghi đè) — học sinh thuộc diện ghi đè thấy đúng giờ của mình, không phải giờ chung của đề.
-  const eff = data.effective;
-  const hasOwnOverride =
-    eff.timeOpen !== quiz.timeOpen ||
-    eff.timeClose !== quiz.timeClose ||
-    eff.timeLimitSeconds !== quiz.timeLimitSeconds ||
-    eff.attemptsAllowed !== quiz.attemptsAllowed;
-  const blockedKey =
-    data.attemptBlockedReason === 'not_yet_open'
-      ? 'quizNotYetOpen'
-      : data.attemptBlockedReason === 'closed'
-        ? 'quizClosed'
-        : data.attemptBlockedReason === 'no_more_attempts'
-          ? 'quizNoMoreAttempts'
-          : data.attemptBlockedReason === 'no_questions'
-            ? 'quizNoQuestions'
-            : null;
-
   return (
     <PageShell width="medium">
       <PageHeader title={quiz.name} description={t('quizIntroLine', { total: quiz.sumGrades, grade: quiz.grade })} />
-      <Card>
-        <CardContent className="space-y-3">
-          {quiz.intro ? <p className="text-sm whitespace-pre-wrap">{quiz.intro}</p> : null}
-          <ul className="text-sm text-muted-foreground">
-            <li>{t('quizWindowLine', { open: eff.timeOpen ? new Date(eff.timeOpen).toLocaleString() : t('quizNoBound'), close: eff.timeClose ? new Date(eff.timeClose).toLocaleString() : t('quizNoBound') })}</li>
-            <li>{t('quizTimeLimitLine', { minutes: eff.timeLimitSeconds ? Math.round(eff.timeLimitSeconds / 60) : t('quizNoTimeLimit') })}</li>
-            <li>{t('quizAttemptsLine', { count: eff.attemptsAllowed === 0 ? t('quizUnlimited') : eff.attemptsAllowed })}</li>
-            <li>{t('quizGradeMethodLine', { method: t(`quizGradeMethod_${quiz.gradeMethod}`) })}</li>
-          </ul>
-          {hasOwnOverride ? <p className="text-sm font-medium">{t('quizEffectiveNote')}</p> : null}
-          {actionError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            {permissions.attempt && data.inProgressAttemptId ? (
-              <Button type="button" onClick={() => void navigate(`/quiz-attempts/${data.inProgressAttemptId}`)}>
-                {t('quizContinueAttempt')}
-              </Button>
-            ) : permissions.attempt && data.canAttempt ? (
-              <Button type="button" onClick={() => void startAttempt(false)}>
-                {t('quizStartAttempt')}
-              </Button>
-            ) : null}
-            {permissions.attempt && blockedKey ? <p className="text-sm text-muted-foreground">{t(blockedKey)}</p> : null}
-            {permissions.preview ? (
-              <Button type="button" variant="outline" onClick={() => void startAttempt(true)}>
-                {t('quizPreview')}
-              </Button>
-            ) : null}
-            {permissions.viewReports ? (
-              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/exams/${quizId}/results`} />}>
-                {t('quizViewResults')}
-              </Button>
-            ) : null}
-            {permissions.grade ? (
-              <Button type="button" variant="outline" render={<Link to={`/courses/${courseId}/exams/${quizId}/paper`} />}>
-                {t('paperTitle')}
-              </Button>
-            ) : null}
-          </div>
-          {data.myGrade !== null ? (
-            <p className="text-sm font-medium">{t('quizMyGrade', { grade: data.myGrade, max: quiz.grade })}</p>
-          ) : null}
-          {data.myAttempts.length ? (
-            <div>
-              <h3 className="text-sm font-medium">{t('quizMyAttempts')}</h3>
-              <ul className="text-sm">
-                {data.myAttempts.map((a) => (
-                  <li key={a.id} data-testid={`my-attempt-${a.id}`}>
-                    {t('quizAttemptLine', { number: a.attemptNumber, state: t(`quizAttemptState_${a.state}`) })}
-                    {a.grade !== null ? ` — ${a.grade}/${quiz.grade}` : ''}
-                    {a.preview ? ` (${t('quizPreviewBadge')})` : ''}{' '}
-                    <Link to={`/quiz-attempts/${a.id}`}>{t('quizViewAttempt')}</Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {myRegrades.length ? (
-            <div>
-              <h3 className="text-sm font-medium">{t('myRegradesTitle')}</h3>
-              <ul className="text-sm">
-                {myRegrades.flatMap((entry) =>
-                  entry.items.map((item) => (
-                    <li key={`${entry.id}-${item.examAttemptId}`}>
-                      {t('myRegradeLine', {
-                        date: new Date(entry.createdAt).toLocaleString(),
-                        number: item.attemptNumber,
-                        from: item.oldSumGrades ?? 0,
-                        to: item.newSumGrades ?? 0,
-                      })}
-                    </li>
-                  )),
-                )}
-              </ul>
-            </div>
-          ) : null}
-        </CardContent>
-      </Card>
+      <AttemptsPanel
+        courseId={courseId}
+        quizId={quizId}
+        data={data}
+        myRegrades={myRegrades}
+        actionError={actionError}
+        startAttempt={startAttempt}
+      />
 
       {permissions.manage ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('pinExamTitle')}</CardTitle>
-              <CardDescription>{t('pinExamDescription', { total: quiz.sumGrades })}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-1 text-sm">
-                <p>
-                  {t('pinExamSourceLine')}:{' '}
-                  <span className="font-medium">{examInfo?.name ?? quiz.name}</span>
-                  {quiz.targetGroupId ? (
-                    <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
-                      {t('pinExamGroupLine', { group: groups.find((g) => g.id === quiz.targetGroupId)?.name ?? '' })}
-                    </span>
-                  ) : (
-                    <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('pinExamWholeCourse')}</span>
-                  )}
-                </p>
-                <p className="text-muted-foreground">{t('pinExamFrozenNote')}</p>
-                <p>
-                  {t('pinExamVersionLine', { version: quiz.examVersionNumber })}
-                  {quiz.hasNewerExamVersion ? (
-                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
-                      {t('pinHasNewerVersion', { version: quiz.latestExamVersionNumber })}
-                    </span>
-                  ) : null}
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <Button type="button" variant="outline" render={<Link to={`/exams/${quiz.examId}/edit`} />}>
-                    {t('pinExamOpenEditor')}
-                  </Button>
-                  {quiz.hasNewerExamVersion ? (
-                    <Button type="button" variant="outline" disabled={busy} onClick={() => void loadUpdatePreview()}>
-                      {t('pinVersionUpdateReview')}
-                    </Button>
-                  ) : null}
-                </div>
-                {updateError ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{updateError}</AlertDescription>
-                  </Alert>
-                ) : null}
-                {updatePreview ? (
-                  <div className="space-y-2 rounded-md border p-3">
-                    <p className="font-medium">{t('pinVersionUpdateTitle')}</p>
-                    <p>
-                      {t('pinVersionUpdateFromTo', {
-                        from: updatePreview.fromVersionNumber,
-                        to: updatePreview.toVersionNumber ?? updatePreview.fromVersionNumber,
-                      })}
-                    </p>
-                    {updatePreview.blockedByAttempts ? (
-                      <p className="text-amber-900">{t('pinVersionUpdateBlocked')}</p>
-                    ) : updatePreview.slotDiffs.length === 0 ? (
-                      <p className="text-muted-foreground">{t('pinVersionUpdateEmpty')}</p>
-                    ) : (
-                      <ul className="space-y-1">
-                        {updatePreview.slotDiffs.map((d) => (
-                          <li key={d.position}>
-                            {t('diffSlotLine', { position: d.position })} —{' '}
-                            {d.change === 'question_version_changed'
-                              ? t('diffChange_question_version_changed', { from: d.fromPinnedVersionNumber ?? 0, to: d.toPinnedVersionNumber ?? 0 })
-                              : d.change === 'mark_changed'
-                                ? t('diffChange_mark_changed', { from: d.fromMaxMark ?? 0, to: d.toMaxMark ?? 0 })
-                                : t(`diffChange_${d.change}`)}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        disabled={busy || updatePreview.blockedByAttempts || !updatePreview.toExamVersionId}
-                        onClick={() => void applyUpdate()}
-                      >
-                        {t('pinVersionUpdateApply')}
-                      </Button>
-                      <Button type="button" variant="outline" disabled={busy} onClick={() => setUpdatePreview(null)}>
-                        {t('pinVersionUpdateCancel')}
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-              <ul className="space-y-2">
-                {quiz.slots.map((s) => (
-                  <li key={s.id} data-testid={`slot-${s.id}`} className="flex flex-wrap items-center gap-2 text-sm">
-                    <span>
-                      {t('quizSlotLine', { slot: s.slot, page: s.page })}{' '}
-                      {s.questionId ? (slotNames[s.id] ?? t('quizSlotFixed')) : t('quizSlotRandom')}
-                      {s.bankName ? (
-                        <span className="block text-xs text-muted-foreground">
-                          {t('slotBankLine', { bank: s.bankName })}
-                          {s.versionMode === 'pinned' && s.pinnedVersion !== null
-                            ? ` · ${t('slotPinnedLine', { version: s.pinnedVersion })}`
-                            : ` · ${t('slotFollowLatest')}`}
-                          {s.hasNewerVersion && s.latestVersion !== null ? ` · ${t('slotHasNewerLine', { version: s.latestVersion })}` : ''}
-                          {s.questionStatus === 'hidden' ? ` · ${t('slotQuestionWithdrawn')}` : ''}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span className="text-muted-foreground">{t('pinExamSlotMark', { mark: s.maxMark })}</span>
-                  </li>
-                ))}
-                {quiz.slots.length === 0 ? <li className="text-sm text-muted-foreground">{t('quizNoQuestions')}</li> : null}
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('quizSettingsTitle')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={(e) => void saveSettings(e)}>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel htmlFor="quiz-name">{t('quizSettingsName')}</FieldLabel>
-                    <Input id="quiz-name" value={name} onChange={(e) => setName(e.target.value)} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="quiz-intro">{t('quizSettingsIntro')}</FieldLabel>
-                    <Input id="quiz-intro" value={intro} onChange={(e) => setIntro(e.target.value)} />
-                  </Field>
-                  <div className="flex flex-wrap gap-3">
-                    <Field className="w-auto">
-                      <FieldLabel htmlFor="quiz-open">{t('quizSettingsOpen')}</FieldLabel>
-                      <Input id="quiz-open" type="datetime-local" value={timeOpen} onChange={(e) => setTimeOpen(e.target.value)} />
-                    </Field>
-                    <Field className="w-auto">
-                      <FieldLabel htmlFor="quiz-close">{t('quizSettingsClose')}</FieldLabel>
-                      <Input id="quiz-close" type="datetime-local" value={timeClose} onChange={(e) => setTimeClose(e.target.value)} />
-                    </Field>
-                    <Field className="w-auto">
-                      <FieldLabel htmlFor="quiz-limit">{t('quizSettingsTimeLimit')}</FieldLabel>
-                      <Input id="quiz-limit" value={timeLimitMinutes} onChange={(e) => setTimeLimitMinutes(e.target.value)} />
-                    </Field>
-                    <Field className="w-auto">
-                      <FieldLabel htmlFor="quiz-attempts">{t('quizSettingsAttempts')}</FieldLabel>
-                      <Input id="quiz-attempts" value={attemptsAllowed} onChange={(e) => setAttemptsAllowed(e.target.value)} />
-                    </Field>
-                    <Field className="w-auto">
-                      <FieldLabel htmlFor="quiz-grade">{t('quizSettingsGrade')}</FieldLabel>
-                      <Input id="quiz-grade" value={grade} onChange={(e) => setGrade(e.target.value)} />
-                    </Field>
-                    <Field className="w-auto">
-                      <FieldLabel id="quiz-method-label">{t('quizSettingsMethod')}</FieldLabel>
-                      <Select
-                        items={Object.fromEntries(
-                          (['highest', 'average', 'first', 'last'] as const).map((m) => [m, t(`quizGradeMethod_${m}`)]),
-                        )}
-                        value={gradeMethod}
-                        onValueChange={(v) => setGradeMethod(v ?? 'highest')}
-                      >
-                        <SelectTrigger aria-labelledby="quiz-method-label" className="w-44">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(['highest', 'average', 'first', 'last'] as const).map((m) => (
-                            <SelectItem key={m} value={m}>{t(`quizGradeMethod_${m}`)}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <div className="flex items-end gap-2 pb-1">
-                      <Checkbox
-                        id="quiz-shuffle"
-                        checked={shuffleAnswers}
-                        onCheckedChange={(checked) => setShuffleAnswers(checked === true)}
-                      />
-                      <Label htmlFor="quiz-shuffle">{t('quizSettingsShuffle')}</Label>
-                    </div>
-                    <Field className="w-auto">
-                      <FieldLabel id="quiz-version-mode-label">{t('pinVersionModeLabel')}</FieldLabel>
-                      <Select
-                        items={{
-                          pinned: t('pinVersionMode_pinned'),
-                          float_latest_ready: t('pinVersionMode_float_latest_ready'),
-                        }}
-                        value={versionMode}
-                        onValueChange={(v) => setVersionMode(v === 'float_latest_ready' ? 'float_latest_ready' : 'pinned')}
-                      >
-                        <SelectTrigger aria-labelledby="quiz-version-mode-label" className="w-64">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pinned">{t('pinVersionMode_pinned')}</SelectItem>
-                          <SelectItem value="float_latest_ready">{t('pinVersionMode_float_latest_ready')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{t('pinVersionModeHint')}</p>
-                  <div className="flex justify-end">
-                    <Button type="submit" disabled={busy}>{t('quizSettingsSave')}</Button>
-                  </div>
-                </FieldGroup>
-              </form>
-            </CardContent>
-          </Card>
+          <PinPanel
+            quiz={quiz}
+            slotNames={slotNames}
+            examInfo={examInfo}
+            groups={groups}
+            updatePreview={updatePreview}
+            updateError={updateError}
+            busy={busy}
+            loadUpdatePreview={loadUpdatePreview}
+            applyUpdate={applyUpdate}
+            setUpdatePreview={setUpdatePreview}
+          />
+          <SettingsForm
+            name={name}
+            intro={intro}
+            timeOpen={timeOpen}
+            timeClose={timeClose}
+            timeLimitMinutes={timeLimitMinutes}
+            attemptsAllowed={attemptsAllowed}
+            gradeMethod={gradeMethod}
+            grade={grade}
+            shuffleAnswers={shuffleAnswers}
+            versionMode={versionMode}
+            busy={busy}
+            saveSettings={saveSettings}
+            setName={setName}
+            setIntro={setIntro}
+            setTimeOpen={setTimeOpen}
+            setTimeClose={setTimeClose}
+            setTimeLimitMinutes={setTimeLimitMinutes}
+            setAttemptsAllowed={setAttemptsAllowed}
+            setGradeMethod={setGradeMethod}
+            setGrade={setGrade}
+            setShuffleAnswers={setShuffleAnswers}
+            setVersionMode={setVersionMode}
+          />
         </>
       ) : null}
 
       {permissions.grade ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('regradeTitle')}</CardTitle>
-            <CardDescription>{t('regradeDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {regradeError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{regradeError}</AlertDescription>
-              </Alert>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Select
-                items={Object.fromEntries(
-                  quiz.slots
-                    .filter((s) => s.questionId)
-                    .map((s) => [s.questionId!, slotNames[s.id] ?? t('quizSlotLine', { slot: s.slot, page: s.page })]),
-                )}
-                value={regradeQuestionId === '' ? null : regradeQuestionId}
-                onValueChange={(v) => {
-                  setRegradeQuestionId(v ?? '');
-                  void loadRegradeVersions(v ?? '');
-                }}
-              >
-                <SelectTrigger aria-label={t('regradeQuestionLabel')} className="w-72">
-                  <SelectValue placeholder={t('regradeQuestionLabel')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {quiz.slots
-                    .filter((s) => s.questionId)
-                    .map((s) => (
-                      <SelectItem key={s.questionId!} value={s.questionId!}>
-                        {slotNames[s.id] ?? t('quizSlotLine', { slot: s.slot, page: s.page })}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <Select
-                items={Object.fromEntries(regradeVersions.map((v) => [v.id, `v${v.version} (${v.status})`]))}
-                value={regradeVersionId === '' ? null : regradeVersionId}
-                onValueChange={(v) => setRegradeVersionId(v ?? '')}
-              >
-                <SelectTrigger aria-label={t('regradeVersionLabel')} className="w-44">
-                  <SelectValue placeholder={t('regradeVersionLabel')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {regradeVersions.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>{`v${v.version} (${v.status})`}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button type="button" variant="outline" disabled={busy || !regradeQuestionId || !regradeVersionId} onClick={() => void runRegrade(true)}>
-                {t('regradeDryRun')}
-              </Button>
-              <Button type="button" disabled={busy || !regradeQuestionId || !regradeVersionId} onClick={() => void runRegrade(false)}>
-                {t('regradeApply')}
-              </Button>
-            </div>
-            {regradePreview ? (
-              regradePreview.changes.filter((c) => c.changed).length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('regradeNoChanges')}</p>
-              ) : (
-                <ul className="space-y-1 text-sm">
-                  {regradePreview.changes
-                    .filter((c) => c.changed)
-                    .map((c) => (
-                      <li key={c.examAttemptId}>
-                        {t('regradeChangeLine', {
-                          number: c.attemptNumber,
-                          student: roster.find((m) => m.userId === c.userId)?.displayName ?? c.userId,
-                          from: c.oldSumGrades ?? 0,
-                          to: c.newSumGrades ?? 0,
-                        })}
-                      </li>
-                    ))}
-                </ul>
-              )
-            ) : null}
-            {regradeLog && regradeLog.length ? (
-              <div>
-                <h3 className="text-sm font-medium">{t('regradeLogTitle')}</h3>
-                <ul className="text-sm">
-                  {regradeLog.map((entry) => (
-                    <li key={entry.id}>
-                      {t('regradeLogLine', { date: new Date(entry.createdAt).toLocaleString(), count: entry.items.length })}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+        <RegradePanel
+          quiz={quiz}
+          slotNames={slotNames}
+          roster={roster}
+          regradeError={regradeError}
+          regradeQuestionId={regradeQuestionId}
+          regradeVersions={regradeVersions}
+          regradeVersionId={regradeVersionId}
+          regradePreview={regradePreview}
+          regradeLog={regradeLog}
+          busy={busy}
+          onRegradeQuestionChange={handleRegradeQuestionChange}
+          setRegradeVersionId={setRegradeVersionId}
+          runRegrade={runRegrade}
+        />
       ) : null}
 
       {permissions.manageOverrides ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('quizOverridesTitle')}</CardTitle>
-            <CardDescription>{t('quizOverridesDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {ovError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{ovError}</AlertDescription>
-              </Alert>
-            ) : null}
-            <ul className="space-y-2">
-              {overrides.map((ov) => (
-                <li key={ov.id} data-testid={`override-${ov.id}`} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span>
-                    <span className="font-medium">{ov.groupName ?? ov.userName ?? ov.groupId ?? ov.userId}</span>
-                    {ov.userId && ov.timeOpen ? (
-                      <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">{t('quizMakeupBadge')}</span>
-                    ) : null}
-                    <span className="block text-xs text-muted-foreground">
-                      {[
-                        `${t('quizOverrideWindowLabel')}: ${ov.timeOpen ? new Date(ov.timeOpen).toLocaleString() : t('quizOverrideInherit')} → ${ov.timeClose ? new Date(ov.timeClose).toLocaleString() : t('quizOverrideInherit')}`,
-                        ov.timeLimitSeconds ? t('quizOverrideLimitLabel', { minutes: Math.round(ov.timeLimitSeconds / 60) }) : null,
-                        ov.attempts !== null ? t('quizOverrideAttemptsLabel', { count: ov.attempts === 0 ? t('quizUnlimited') : ov.attempts }) : null,
-                        ov.hasPassword ? t('quizOverrideHasPassword') : null,
-                        ov.reason ? t('quizOverrideReasonLabel', { reason: ov.reason }) : null,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </span>
-                  </span>
-                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => startEditOverride(ov)}>
-                    {t('quizOverrideEdit')}
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void removeOverride(ov)}>
-                    {t('quizOverrideRemove')}
-                  </Button>
-                </li>
-              ))}
-              {overridesLoaded && overrides.length === 0 ? (
-                <li className="text-sm text-muted-foreground">{t('quizOverridesEmpty')}</li>
-              ) : null}
-            </ul>
-
-            <form onSubmit={(e) => void submitOverride(e)} className="space-y-3">
-              {editingOverride ? (
-                <p className="text-sm font-medium">
-                  {editingOverride.groupName ?? editingOverride.userName ?? editingOverride.groupId ?? editingOverride.userId}
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  <Select
-                    items={{ user: t('quizOverrideTargetUser'), group: t('quizOverrideTargetGroup') }}
-                    value={ovTargetKind}
-                    onValueChange={(v) => setOvTargetKind(v === 'group' ? 'group' : 'user')}
-                  >
-                    <SelectTrigger aria-label={t('quizOverrideTargetUser')} className="w-40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user">{t('quizOverrideTargetUser')}</SelectItem>
-                      <SelectItem value="group">{t('quizOverrideTargetGroup')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {ovTargetKind === 'user' ? (
-                    <Select
-                      items={Object.fromEntries(
-                        roster.filter((m) => m.role === 'student').map((m) => [m.userId, m.displayName]),
-                      )}
-                      value={ovUserId === '' ? null : ovUserId}
-                      onValueChange={(v) => setOvUserId(v ?? '')}
-                    >
-                      <SelectTrigger aria-label={t('quizOverridePickStudent')} className="w-64">
-                        <SelectValue placeholder={t('quizOverridePickStudent')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {roster
-                          .filter((m) => m.role === 'student')
-                          .map((m) => (
-                            <SelectItem key={m.userId} value={m.userId}>{m.displayName}</SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Select
-                      items={Object.fromEntries(groups.map((g) => [g.id, g.name]))}
-                      value={ovGroupId === '' ? null : ovGroupId}
-                      onValueChange={(v) => setOvGroupId(v ?? '')}
-                    >
-                      <SelectTrigger aria-label={t('quizOverridePickGroup')} className="w-64">
-                        <SelectValue placeholder={t('quizOverridePickGroup')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {groups.map((g) => (
-                          <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-3">
-                <Field className="w-auto">
-                  <FieldLabel htmlFor="ov-open">{t('quizOverrideWindowOpen')}</FieldLabel>
-                  <Input id="ov-open" type="datetime-local" value={ovTimeOpen} onChange={(e) => setOvTimeOpen(e.target.value)} />
-                </Field>
-                <Field className="w-auto">
-                  <FieldLabel htmlFor="ov-close">{t('quizOverrideWindowClose')}</FieldLabel>
-                  <Input id="ov-close" type="datetime-local" value={ovTimeClose} onChange={(e) => setOvTimeClose(e.target.value)} />
-                </Field>
-                <Field className="w-auto">
-                  <FieldLabel htmlFor="ov-limit">{t('quizOverrideLimit')}</FieldLabel>
-                  <Input id="ov-limit" value={ovLimitMinutes} onChange={(e) => setOvLimitMinutes(e.target.value)} />
-                </Field>
-                <Field className="w-auto">
-                  <FieldLabel htmlFor="ov-attempts">{t('quizOverrideAttempts')}</FieldLabel>
-                  <Input id="ov-attempts" value={ovAttempts} onChange={(e) => setOvAttempts(e.target.value)} />
-                </Field>
-                <Field className="w-auto">
-                  <FieldLabel htmlFor="ov-password">{t('quizOverridePassword')}</FieldLabel>
-                  <Input id="ov-password" placeholder={t('quizOverridePasswordPlaceholder')} value={ovPassword} onChange={(e) => setOvPassword(e.target.value)} />
-                </Field>
-              </div>
-              <Field>
-                <FieldLabel htmlFor="ov-reason">{t('quizOverrideReason')}</FieldLabel>
-                <Input id="ov-reason" value={ovReason} onChange={(e) => setOvReason(e.target.value)} />
-                <p className="text-xs text-muted-foreground">{t('quizOverrideReasonHint')}</p>
-              </Field>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={busy}>
-                  {editingOverride ? t('quizOverrideUpdate') : t('quizOverrideCreate')}
-                </Button>
-                {editingOverride ? (
-                  <Button type="button" variant="outline" disabled={busy} onClick={resetOverrideForm}>
-                    {t('quizOverrideCancelEdit')}
-                  </Button>
-                ) : null}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <OverridesPanel
+          pinId={quizId ?? ''}
+          overrides={overrides}
+          overridesLoaded={overridesLoaded}
+          overridesIsError={overridesQuery.isError}
+          overridesErrorUpdatedAt={overridesQuery.errorUpdatedAt}
+          roster={roster}
+          groups={groups}
+          busy={busy}
+          setBusy={setBusy}
+        />
       ) : null}
 
       <p className="text-sm">
