@@ -2106,7 +2106,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Dao động",
    "content": "Dao động",
    "kind": "content",
    "outcomes": [],
@@ -2127,7 +2127,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Dao động",
    "content": "Dao động điều hoà",
    "kind": "content",
    "outcomes": [
@@ -2247,7 +2247,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Dao động",
    "content": "Dao động tắt dần,",
    "kind": "content",
    "outcomes": [
@@ -2283,7 +2283,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Dao động",
    "content": "hiện tượng cộng hưởng",
    "kind": "content",
    "outcomes": [
@@ -3909,7 +3909,7 @@
    "grade": 12,
    "level": "THPT",
    "stream": "",
-   "section": "",
+   "section": "Chuyên đề 11.3. Mở đầu về điện tử học",
    "topic": "",
    "content": "Thiết bị cảm biến (sensing devices) Vật lí nhiệt",
    "kind": "content",
@@ -3946,7 +3946,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí nhiệt",
    "content": "Sự chuyển thể",
    "kind": "content",
    "outcomes": [
@@ -3996,7 +3996,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí nhiệt",
    "content": "Nội năng, định luật 1 của nhiệt động lực học",
    "kind": "content",
    "outcomes": [
@@ -4046,7 +4046,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí nhiệt",
    "content": "Thang nhiệt độ, nhiệt kế",
    "kind": "content",
    "outcomes": [
@@ -4125,7 +4125,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí nhiệt",
    "content": "Nhiệt dung riêng, nhiệt nóng chảy riêng, nhiệt hoá hơi riêng Khí lí tưởng",
    "kind": "content",
    "outcomes": [
@@ -4175,7 +4175,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Khí lí tưởng",
    "content": "Mô hình động học phân tử chất khí",
    "kind": "content",
    "outcomes": [
@@ -4225,7 +4225,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Khí lí tưởng",
    "content": "Phương trình trạng thái",
    "kind": "content",
    "outcomes": [
@@ -4303,7 +4303,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Khí lí tưởng",
    "content": "Áp suất khí theo mô",
    "kind": "content",
    "outcomes": [
@@ -4340,7 +4340,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Khí lí tưởng",
    "content": "hình động học phân tử",
    "kind": "content",
    "outcomes": [],
@@ -4361,7 +4361,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Khí lí tưởng",
    "content": "Động năng phân tử Trường từ (Từ trường)",
    "kind": "content",
    "outcomes": [
@@ -4411,7 +4411,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Trường từ (Từ trường)",
    "content": "Khái niệm từ trường",
    "kind": "content",
    "outcomes": [
@@ -4461,7 +4461,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Trường từ (Từ trường)",
    "content": "Lực từ tác dụng lên đoạn dây dẫn mang dòng điện; Cảm ứng từ",
    "kind": "content",
    "outcomes": [
@@ -4568,7 +4568,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Trường từ (Từ trường)",
    "content": "Từ thông; Cảm ứng điện từ Vật lí hạt nhân và phóng xạ",
    "kind": "content",
    "outcomes": [
@@ -4702,7 +4702,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí hạt nhân và phóng xạ",
    "content": "Cấu trúc hạt nhân",
    "kind": "content",
    "outcomes": [
@@ -4766,7 +4766,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí hạt nhân và phóng xạ",
    "content": "Độ hụt khối và năng lượng liên kết hạt nhân",
    "kind": "content",
    "outcomes": [
@@ -4859,7 +4859,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Vật lí hạt nhân và phóng xạ",
    "content": "Sự phóng xạ và chu kì bán rã",
    "kind": "content",
    "outcomes": [
