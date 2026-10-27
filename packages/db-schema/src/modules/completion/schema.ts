@@ -14,9 +14,9 @@ import { role } from '../access/schema';
 import { course, courseModules } from '../courses/schema';
 
 /**
- * Per-activity completion state (Moodle `course_modules_completion`).
+ * Trạng thái hoàn thành theo từng hoạt động (Moodle `course_modules_completion`).
  * completion_state: 0=incomplete, 1=complete, 2=complete-pass, 3=complete-fail
- * (pass/fail arrive with grades; this writes 0/1 and `viewed`).
+ * (pass/fail đến cùng với điểm số; phần này ghi 0/1 và `viewed`).
  */
 export const courseModulesCompletion = pgTable(
   'course_modules_completion',
@@ -34,14 +34,14 @@ export const courseModulesCompletion = pgTable(
 );
 
 /**
- * Course-level completion criteria (Moodle `course_completion_criteria`).
- * criteria_type covers all 8 Moodle types: 'module' | 'date' | 'grade'
- * (grade wired through the grades module) | 'self' | 'course' | 'duration'
- * | 'role' | 'unenrol'. Per-type parameters live on the row, like Moodle:
- * module_instance (module), date (date), course_instance (course — the
- * prerequisite course), enrol_period_days (duration — days after enrolment;
- * Moodle stores seconds, the LMS API surface is days), role_id (role — the
- * role whose holders may mark learners complete).
+ * Tiêu chí hoàn thành ở cấp khoá học (Moodle `course_completion_criteria`).
+ * criteria_type bao phủ cả 8 loại của Moodle: 'module' | 'date' | 'grade'
+ * (grade được nối qua module grades) | 'self' | 'course' | 'duration'
+ * | 'role' | 'unenrol'. Tham số theo từng loại nằm trên dòng, giống Moodle:
+ * module_instance (module), date (date), course_instance (course — khoá
+ * học tiên quyết), enrol_period_days (duration — số ngày sau khi ghi danh;
+ * Moodle lưu bằng giây, bề mặt API của LMS dùng ngày), role_id (role —
+ * vai trò mà người giữ vai trò đó có thể đánh dấu người học là hoàn thành).
  */
 export const courseCompletionCriteria = pgTable('course_completion_criteria', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -63,13 +63,13 @@ export const courseCompletionCriteria = pgTable('course_completion_criteria', {
   ]);
 
 /**
- * Per-criterion completion marks (Moodle `course_completion_crit_compl`):
- * the evidence rows for the MANUAL criteria types — 'self' (marked by the
- * learner themselves) and 'role' (marked by a holder of the criterion's
- * role). Computed criteria types (module/date/grade/course/duration/
- * unenrol) are evaluated on the fly and never write rows here. A row's
- * existence means the criterion is complete for that user; `marked_by`
- * records who made the mark and `time_completed` when.
+ * Dấu hoàn thành theo từng tiêu chí (Moodle `course_completion_crit_compl`):
+ * các dòng bằng chứng cho các loại tiêu chí THỦ CÔNG — 'self' (do chính
+ * người học đánh dấu) và 'role' (do người giữ vai trò của tiêu chí
+ * đánh dấu). Các loại tiêu chí được tính toán (module/date/grade/course/duration/
+ * unenrol) được đánh giá ngay khi cần và không bao giờ ghi dòng ở đây. Sự
+ * tồn tại của một dòng nghĩa là tiêu chí đã hoàn thành đối với user đó; `marked_by`
+ * ghi lại ai đã đánh dấu và `time_completed` ghi lại khi nào.
  */
 export const courseCompletionCritCompl = pgTable(
   'course_completion_crit_compl',
@@ -85,13 +85,13 @@ export const courseCompletionCritCompl = pgTable(
 );
 
 
-/** Per-course completion aggregation setting: method 1 = ALL (AND), 2 = ANY (OR). */
+/** Cài đặt tổng hợp hoàn thành theo từng khoá học: method 1 = ALL (AND), 2 = ANY (OR). */
 export const courseCompletionSettings = pgTable('course_completion_settings', {
   course: uuid('course').primaryKey().references(() => course.id, { onDelete: 'cascade' }),
   method: integer('method').notNull().default(1),
 });
 
-/** Course completion state per user (Moodle `course_completions`). status: 'not_started' | 'in_progress' | 'complete'. */
+/** Trạng thái hoàn thành khoá học theo từng user (Moodle `course_completions`). status: 'not_started' | 'in_progress' | 'complete'. */
 export const courseCompletions = pgTable(
   'course_completions',
   {

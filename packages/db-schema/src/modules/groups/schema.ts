@@ -13,7 +13,7 @@ import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 import { tenants } from '../tenants/schema';
 
-/** Groups inside one course (Moodle `groups` → `course_groups`, reserved-word rename). */
+/** Các nhóm bên trong một khoá học (Moodle `groups` → `course_groups`, đổi tên vì từ khoá dành riêng). */
 export const courseGroups = pgTable(
   'course_groups',
   {
@@ -34,7 +34,7 @@ export const courseGroups = pgTable(
   (table) => [unique('course_groups_course_name_unique').on(table.courseId, table.name)],
 );
 
-/** Group membership (Moodle `groups_members`). */
+/** Tư cách thành viên nhóm (Moodle `groups_members`). */
 export const groupsMembers = pgTable(
   'groups_members',
   {
@@ -50,7 +50,7 @@ export const groupsMembers = pgTable(
       index('groups_members_item_id_idx').on(table.itemId),unique('groups_members_unique').on(table.groupId, table.userId, table.component, table.itemId)],
 );
 
-/** Groupings: groups-of-groups inside one course (Moodle `groupings`). */
+/** Phân nhóm (grouping): các nhóm của nhóm bên trong một khoá học (Moodle `groupings`). */
 export const groupings = pgTable(
   'groupings',
   {
@@ -65,7 +65,7 @@ export const groupings = pgTable(
   (table) => [unique('groupings_course_name_unique').on(table.courseId, table.name)],
 );
 
-/** Grouping ↔ group links (Moodle `groupings_groups`). */
+/** Liên kết grouping ↔ nhóm (Moodle `groupings_groups`). */
 export const groupingsGroups = pgTable(
   'groupings_groups',
   {
@@ -77,7 +77,7 @@ export const groupingsGroups = pgTable(
       index('groupings_groups_group_id_idx').on(table.groupId),primaryKey({ columns: [table.groupingId, table.groupId] })],
 );
 
-/** Cohorts live at system or course-category context (Moodle `cohort`). context_id references `context`. `tenant_id` = tenant sở hữu (TENANT-0, #168) — tổ chuyên môn nằm trọn trong một tenant. */
+/** Cohort tồn tại ở context hệ thống hoặc context danh mục khoá học (Moodle `cohort`). context_id tham chiếu tới `context`. `tenant_id` = tenant sở hữu (TENANT-0, #168) — tổ chuyên môn nằm trọn trong một tenant. */
 export const cohort = pgTable('cohort', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'restrict' }),
@@ -96,7 +96,7 @@ export const cohort = pgTable('cohort', {
   ]);
 
 
-/** Cohort membership (Moodle `cohort_members`). */
+/** Tư cách thành viên cohort (Moodle `cohort_members`). */
 export const cohortMembers = pgTable(
   'cohort_members',
   {

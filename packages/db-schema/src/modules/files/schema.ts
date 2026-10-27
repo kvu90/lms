@@ -9,7 +9,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-/** Logical file records (Moodle `files`). Physical bytes live once per content_hash (SHA-256) in content-addressed storage. */
+/** Bản ghi tệp logic (Moodle `files`). Các byte vật lý chỉ tồn tại một lần cho mỗi content_hash (SHA-256) trong bộ lưu trữ định địa chỉ theo nội dung. */
 export const files = pgTable('files', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   contentHash: text('content_hash').notNull(),
