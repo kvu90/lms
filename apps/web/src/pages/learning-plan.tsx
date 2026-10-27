@@ -15,10 +15,10 @@ import '../i18n';
 import { apiJson } from '#lib/api';
 
 /**
- * Learning plans: the learner sees their plans, each competency's
- * proficiency (decided by the framework scale, never inferred from grades)
- * and review state, and can request a review of a competency — the action
- * that starts the reviewer workflow.
+ * Kế hoạch học tập: học viên thấy các kế hoạch của mình, mức thành thạo
+ * của từng competency (do thang của framework quyết định, không bao giờ suy ra từ điểm)
+ * và trạng thái review, và có thể yêu cầu review một competency — hành động
+ * khởi đầu quy trình của người review.
  */
 export function LearningPlanPage() {
   const { t } = useTranslation('app');
