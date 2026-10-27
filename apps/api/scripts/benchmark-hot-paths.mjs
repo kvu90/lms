@@ -9,7 +9,7 @@
  *
  * Dữ liệu bench được tạo bằng tiền tố `bench` để dễ dọn. Kết quả là số
  * đo tham chiếu trên máy chạy — không phải cam kết hiệu năng; ghi lại
- * mốc đo vào docs/operations-runbook.md mỗi đợt đo chuẩn.
+ * mốc đo sau mỗi đợt đo chuẩn.
  */
 const BASE = process.env.BENCH_BASE_URL ?? 'http://localhost:3000';
 const ADMIN = { username: process.env.BENCH_ADMIN_USERNAME ?? 'admin', password: process.env.BENCH_ADMIN_PASSWORD ?? 'Admin123!' };

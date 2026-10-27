@@ -40,21 +40,21 @@ export const ENROL_METHODS = ['manual', 'cohort', 'self', 'guest', 'fee'] as con
 export type EnrolMethod = (typeof ENROL_METHODS)[number];
 
 /**
- * EnrolModule facade (Moodle core_enrol).
+ * Facade của EnrolModule (core_enrol của Moodle).
  *
- * Invariants (report §2#5):
- *  - Enrolment ≠ role assignment ≠ authentication. Enrolling grants a role
- *    at the course context through the Access facade; `isEnrolled` checks
- *    ONLY the enrolment records (status + time window).
- *  - SUSPENDED users cannot access the course (CoursesService gate uses
- *    isEnrolled(onlyActive)) even though their role assignment remains.
- *  - Unenrol keeps contribution data: when the user has completion records
- *    in the course (checked via a registered probe from CompletionModule) or
- *    always under the current enrol rules, the user_enrolments row is kept as WITHDRAWN
- *    (soft state) instead of being hard-deleted, and `user_unenrolled` is
- *    emitted. The role assignment granted BY this enrolment is removed.
- *  - Expired enrolments (timeEnd in the past) are not active; the worker
- *    job `enrol-expiry` also flips them to SUSPENDED in bulk.
+ * Các bất biến (report §2#5):
+ *  - Ghi danh ≠ gán role ≠ xác thực. Ghi danh cấp một role
+ *    tại context khoá học qua facade Access; `isEnrolled` chỉ kiểm tra
+ *    bản ghi ghi danh (trạng thái + cửa sổ thời gian).
+ *  - User bị SUSPENDED không truy cập được khoá học (cổng của CoursesService dùng
+ *    isEnrolled(onlyActive)) dù gán role của họ vẫn còn.
+ *  - Unenrol giữ dữ liệu đóng góp: khi user có bản ghi completion
+ *    trong khoá học (kiểm qua probe đã đăng ký từ CompletionModule) hoặc
+ *    luôn theo luật enrol hiện hành, dòng user_enrolments được giữ dạng WITHDRAWN
+ *    (trạng thái mềm) thay vì xoá cứng, và `user_unenrolled` được
+ *    phát. Gán role do ghi danh này cấp sẽ bị gỡ.
+ *  - Ghi danh hết hạn (timeEnd trong quá khứ) không còn hiệu lực; job
+ *    `enrol-expiry` của worker cũng chuyển chúng sang SUSPENDED hàng loạt.
  */
 @Injectable()
 /**
@@ -65,10 +65,10 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
  * (chỉ rút khi user không còn dữ liệu liên quan — bài nộp/điểm — theo probe dữ liệu liên quan, khớp hành vi Moodle).
  */
 export class EnrolService implements OnModuleInit {
-  /** Probe registered by CompletionModule: does this user have completion data in this course? */
-  /** Related-data probes (Completion, Grades, …): ANY probe reporting data keeps the UE row withdrawn-not-deleted. */
+  /** Probe do CompletionModule đăng ký: user này có dữ liệu completion trong khoá học này không? */
+  /** Các probe dữ liệu liên quan (Completion, Grades, …): BẤT KỲ probe nào báo có dữ liệu thì giữ dòng UE dạng đã rút-chưa-xoá. */
   private relatedDataProbes: ((courseId: string, userId: string) => Promise<boolean>)[] = [];
-  /** Unenrol hooks (CompletionModule: the Moodle 'unenrol' course criterion must be re-evaluated the moment a user leaves a course). */
+  /** Các hook unenrol (CompletionModule: tiêu chí 'unenrol' của khoá học theo Moodle phải được đánh giá lại ngay lúc một user rời khoá học). */
   private unenrolHooks: ((e: { courseId: string; userId: string; instanceId: string }) => Promise<void>)[] = [];
 
   constructor(
@@ -123,7 +123,7 @@ export class EnrolService implements OnModuleInit {
     return roleRow.id;
   }
 
-  // --- instances ----------------------------------------------------------------
+  // --- các instance ----------------------------------------------------------------
   /**
    * Người xem có capability quản lý enrol tại khoá học hay không (site admin
    * được tính là có — xem PermissionEvaluator.hasCapability).
@@ -185,7 +185,7 @@ export class EnrolService implements OnModuleInit {
       welcomeMessage: input.welcomeMessage ?? null,
     });
     await this.outbox.enqueueStandalone({ aggregate: 'enrol', type: 'enrol_instance_created', payload: { instanceId: instance.id, courseId, method: input.method } });
-    // Cohort sync: enrol everyone already in the cohort.
+    // Đồng bộ cohort: ghi danh mọi người đã ở trong cohort.
     if (input.method === 'cohort' && input.cohortId) {
       const members = await this.groups.listCohortMembers(input.cohortId);
       for (const m of members) await this.enrolUserInternal(instance, m.userId, actorId);
@@ -312,8 +312,8 @@ export class EnrolService implements OnModuleInit {
     await this.repo.deleteInstance(id);
   }
 
-  // --- enrol / unenrol ----------------------------------------------------------
-  /** Core enrol path (also used by cohort sync). Assigns the instance role at the course context via the Access facade. */
+  // --- ghi danh / huỷ ghi danh ----------------------------------------------------------
+  /** Đường ghi danh lõi (cũng dùng cho đồng bộ cohort). Cấp role của instance tại context khoá học qua facade Access. */
   /**
    * Ghi danh nội bộ không kiểm capability (dùng cho cohort sync và thanh toán đã xác nhận).
    */
@@ -512,12 +512,12 @@ export class EnrolService implements OnModuleInit {
   }
 
   /**
-   * Unenrol: removes the enrolment-granted role assignment and emits
-   * user_unenrolled. The UE row is SOFT-withdrawn (status=2) when the user
-   * has related data (completion etc.) in the course — the probe is
-   * registered by CompletionModule; when no probe/data exists the row is
-   * hard-deleted, exactly Moodle's split between visible participation data
-   * (kept) and invisible participation (purged).
+   * Unenrol: gỡ gán role do ghi danh cấp và phát
+   * user_unenrolled. Dòng UE bị rút MỀM (status=2) khi user
+   * có dữ liệu liên quan (completion v.v.) trong khoá học — probe được
+   * CompletionModule đăng ký; khi không có probe/dữ liệu thì dòng bị
+   * xoá cứng, đúng sự phân chia của Moodle giữa dữ liệu tham gia hiển thị
+   * (được giữ) và tham gia vô hình (bị dọn).
    */
   /**
    * Rút ghi danh (kiểm capability).
@@ -545,31 +545,31 @@ export class EnrolService implements OnModuleInit {
       });
     });
     if (!hasRelated) await this.repo.deleteUserEnrolment(ue.id);
-    // Remove ONLY the role assignment this enrolment instance granted
-    // (component='enrol' + itemId=instance, Moodle-scoped): assignments of
-    // the same role granted by another instance or manually stay in place,
-    // so a user still enrolled through another instance keeps the role
-    // (issue #157). Legacy rows without component/itemId count as manual
-    // and are likewise left alone.
+    // Chỉ gỡ gán role mà instance ghi danh này đã cấp
+    // (component='enrol' + itemId=instance, theo phạm vi Moodle): gán của
+    // cùng role do instance khác cấp hoặc cấp tay vẫn giữ nguyên,
+    // nên user còn ghi danh qua instance khác vẫn giữ role
+    // (issue #157). Các dòng cũ không có component/itemId tính là cấp tay
+    // và cũng được để yên.
     if (instance.roleId) {
       const assignments = await this.roles.listAssignments({ userId: userId, contextId: await this.courses.courseContextId(instance.courseId) });
       for (const a of assignments as EnrolAssignmentRow[]) {
         if (isInstanceAssignment(a, instance)) await this.roles.unassignRole(a.id, modifierId, { allowEnrolManaged: true });
       }
     }
-    // Downstream hooks (completion 'unenrol' criterion re-evaluation). A
-    // failing hook must not fail the unenrol itself.
+    // Các hook phía sau (đánh giá lại tiêu chí 'unenrol' của completion). Một
+    // hook lỗi không được làm hỏng chính việc unenrol.
     for (const hook of this.unenrolHooks) {
       await hook({ courseId: instance.courseId, userId, instanceId: instance.id }).catch(() => undefined);
     }
     return { withdrawn: hasRelated };
   }
 
-  // --- queries ---------------------------------------------------------------------
+  // --- truy vấn ---------------------------------------------------------------------
   /**
-   * THE enrol check (Moodle is_enrolled): enrolment only, never capability.
-   * onlyActive additionally requires status=ACTIVE and now within
-   * [timeStart, timeEnd]. A record in ANY enabled instance of the course counts.
+   * Kiểm tra enrol THE (is_enrolled của Moodle): chỉ ghi danh, không bao giờ là capability.
+   * onlyActive còn yêu cầu status=ACTIVE và thời điểm hiện tại trong
+   * [timeStart, timeEnd]. Một bản ghi ở BẤT KỲ instance đang bật nào của khoá học đều tính.
    */
   /**
    * User có ghi danh đang hiệu lực và trong cửa sổ thời gian hay không.
@@ -638,7 +638,7 @@ export class EnrolService implements OnModuleInit {
     return this.repo.getUserEnrolment(instanceId, userId);
   }
 
-  /** Expiry sweep (same logic the worker's enrol-expiry processor runs on the shared schema). Returns flipped ids. */
+  /** Quét hết hạn (cùng logic processor enrol-expiry của worker chạy trên schema dùng chung). Trả các id đã chuyển. */
   /**
    * Xử lý các ghi danh quá hạn (worker enrol-expiry gọi): đình chỉ/rút theo cấu hình instance.
    */
@@ -659,7 +659,7 @@ export class EnrolService implements OnModuleInit {
     return flipped;
   }
 
-  // --- cohort sync listeners ----------------------------------------------------------
+  // --- listener đồng bộ cohort ----------------------------------------------------------
   @OnEvent('cohort_member_added')
   /**
    * Sự kiện thành viên cohort mới → ghi danh vào mọi khoá học có instance cohort tương ứng.

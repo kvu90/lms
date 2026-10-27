@@ -10,7 +10,7 @@ import { EXPECTED_PRIVACY_SUBSYSTEMS } from '../src/modules/privacy/privacy.serv
 import { PrivacyService } from '../src/modules/privacy/privacy.service';
 
 /**
- * Platform flow: Backup/Restore, Payments + fee enrol, Privacy.
+ * Luồng Platform: Backup/Restore, Payments + ghi danh có phí, Privacy.
  * Oracle Moodle 5.3 (đã kiểm chứng live 22/10/2026):
  * - backup/tests/backup_restore_permission_test.php + backup_restore_base_testcase.php
  *   (kế hoạch nhiều bước, restore id mapping — backup/tests/backup_test.php 404 đã ghi nhận)

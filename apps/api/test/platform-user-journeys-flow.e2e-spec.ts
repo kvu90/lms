@@ -10,7 +10,7 @@ import { createCategory, createCourse, createCm, createEnrolInstance, createSect
  * (MOODLE_503_STABLE, đã kiểm chứng live 22/10/2026) — chỉ dịch BƯỚC NGHIỆP VỤ
  * và KẾT QUẢ KỲ VỌNG thành e2e qua HTTP; các bước gắn giao diện PHP (ô tìm
  * kiếm trên header, breadcrumb, fieldset, menu hành động, dialogue) là chi
- * tiết cài đặt UI và được bỏ qua (ghi rõ trong docs/business-traceability.md):
+ * tiết cài đặt UI và được bỏ qua:
  * - Behat `search/tests/behat/search_query.feature`, scenario
  *   "Search from search page with two results": truy vấn khớp thì thấy các
  *   kết quả khớp kèm mô tả; truy vấn không khớp thì "No results".
@@ -58,7 +58,7 @@ describe('Platform user journeys (Behat-derived): search, restore, privacy reque
     // Behat "cannot see users on other courses" gắn với user-picker của form
     // tìm kiếm PHP (autocomplete chỉ liệt kê user của khoá đang chọn trong
     // "Search within") — đó là chi tiết cài đặt UI, bỏ qua theo quy ước dịch
-    // oracle và ghi trong traceability. Phần nghiệp vụ tương ứng ở mức API
+    // oracle. Phần nghiệp vụ tương ứng ở mức API
     // (tài liệu users chỉ hiện với người có user:viewdetails tại
     // context của user đó) đã được kiểm ở flow test PROHIBIT/re-check của
     // search; ở đây chỉ khẳng định control: tài liệu của outsider THẬT SỰ có

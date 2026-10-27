@@ -8,12 +8,12 @@ import {
 } from './identity-access-helpers';
 
 /**
- * Issue #35: capability identifiers are prefix-free (`<area>:<name>`).
- * Regression guard for the seed sync: a database previously seeded under a
- * legacy prefixed naming scheme must not keep stale rows after a re-seed —
- * neither in `capabilities` nor in `role_capabilities` (any context).
- * Legacy names are assembled by concatenation on purpose, so this spec does
- * not itself carry prefixed capability literals.
+ * Issue #35: định danh capability không có tiền tố (`<area>:<name>`).
+ * Rào chắn hồi quy cho đồng bộ seed: cơ sở dữ liệu từng được seed theo một
+ * sơ đồ đặt tên có tiền tố cũ không được giữ các dòng lỗi thời sau khi seed lại —
+ * cả trong `capabilities` lẫn trong `role_capabilities` (bất kỳ context nào).
+ * Tên cũ được lắp ghép bằng nối chuỗi có chủ đích, để spec này tự nó
+ * không mang literal capability có tiền tố.
  */
 describe('Access: seed prunes stale capability definitions (issue #35)', () => {
   let app: INestApplication;
@@ -30,11 +30,11 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     const admin = await adminToken(app);
     const systemId = await systemContextId(app, admin);
     const managerId = await roleIdByShortname(app, admin, 'manager');
-    // A second, non-system context: stale overrides there must go too.
+    // Một context thứ hai, không thuộc hệ thống: các ghi đè lỗi thời ở đó cũng phải ra đi.
     const catId = (await createContextViaApi(app, admin, 40, uuidv7(), systemId)).id;
 
-    // Simulate the pre-rename state: definitions and overrides whose names
-    // carry one of the retired prefixes (three legacy schemes).
+    // Mô phỏng trạng thái trước khi đổi tên: các định nghĩa và ghi đè mà tên của chúng
+    // mang một trong các tiền tố đã loại bỏ (ba sơ đồ cũ).
     const staleCourse = 'moodle/' + 'course:update';
     const staleQuiz = 'mod/' + 'quiz:attempt';
     const staleCompletion = 'lms/' + 'completion:manage';
@@ -81,8 +81,8 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     // khi gỡ hẳn tính năng Blog (issue #173) → 113, + 8 quyền class:*
     // của lớp học hạng nhất (CLASS-0, issue #184: create/view/update/
     // delete/manageroster/assignwork/grade/share) → 121, every one
-    // prefix-free,
-    // and the renamed defaults were re-seeded at the system context.
+    // không có tiền tố,
+    // và các mặc định đã đổi tên đã được seed lại tại context hệ thống.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
     expect(Number(defs.rows[0].n)).toBe(121);
     const renamed = await pg.query<{ permission: number }>(

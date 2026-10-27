@@ -68,7 +68,7 @@ export const questionBanks = pgTable('question_banks', {
       check('question_banks_tenant_scope_check', sql`${table.tenantId} is not null or ${table.scope} = 'platform'`),
   ]);
 
-/** Question categories live in a context (Moodle `question_categories`). */
+/** Danh mục câu hỏi tồn tại trong một context (Moodle `question_categories`). */
 export const questionCategories = pgTable('question_categories', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),
@@ -111,7 +111,7 @@ export const stimuli = pgTable('stimuli', {
   ]);
 
 
-/** Question identity (Moodle `question`): stable across versions; content lives in question_versions. */
+/** Danh tính câu hỏi (Moodle `question`): ổn định qua các version; nội dung nằm ở question_versions. */
 export const question = pgTable('question', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   category: uuid('category').notNull().references(() => questionCategories.id, { onDelete: 'cascade' }),
@@ -163,10 +163,10 @@ export const question = pgTable('question', {
 
 
 /**
- * Bank entries (Moodle `question_bank_entries`) link a question identity to a
- * category and track the latest version number. Editing a question creates a
- * NEW question_versions row and bumps latest_version; attempts already started
- * keep pointing at the version they pinned.
+ * Mục trong bank (Moodle `question_bank_entries`) nối một danh tính câu hỏi với một
+ * category và theo dõi số version mới nhất. Sửa một câu hỏi tạo ra một
+ * dòng question_versions MỚI và tăng latest_version; các attempt đã bắt đầu
+ * vẫn tiếp tục trỏ tới version mà chúng đã ghim.
  */
 export const questionBankEntries = pgTable(
   'question_bank_entries',
@@ -223,7 +223,7 @@ export const questionBankContributions = pgTable('question_bank_contributions', 
   ]);
 
 /**
- * Immutable question content versions (Moodle `question_versions` + bản ghi
+ * Các version nội dung câu hỏi bất biến (Moodle `question_versions` + bản ghi
  * `question` của Moodle). question_text/general_feedback là tài liệu Tiptap
  * (jsonb). Đáp án, guidance và lời giải KHÔNG nằm ở đây: chúng thuộc phía
  * đáp án — lần lượt ở question_answers, question_answer_keys và các bảng
@@ -290,7 +290,7 @@ export const questionAnswerKeys = pgTable('question_answer_keys', {
   ]);
 
 
-/** Options của multichoice (Moodle `qtype_multichoice_options`): một dòng cho mỗi version. */
+/** Tuỳ chọn của multichoice (Moodle `qtype_multichoice_options`): một dòng cho mỗi version. */
 export const qtypeMultichoiceOptions = pgTable('qtype_multichoice_options', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   questionVersionId: uuid('question_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
@@ -305,7 +305,7 @@ export const qtypeMultichoiceOptions = pgTable('qtype_multichoice_options', {
   ]);
 
 
-/** Options của truefalse (Moodle `question_truefalse`): trỏ vào 2 dòng question_answers đúng/sai của version. */
+/** Tuỳ chọn của truefalse (Moodle `question_truefalse`): trỏ vào 2 dòng question_answers đúng/sai của version. */
 export const questionTruefalse = pgTable('question_truefalse', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   questionVersionId: uuid('question_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
@@ -321,7 +321,7 @@ export const questionTruefalse = pgTable('question_truefalse', {
 
 
 /**
- * Options của shortanswer (Moodle `qtype_shortanswer_options`): use_case
+ * Tuỳ chọn của shortanswer (Moodle `qtype_shortanswer_options`): use_case
  * của Moodle; đáp án nằm hết ở question_answers. Bốn cột numeric_* là
  * chế độ đáp án số kiểu thi tốt nghiệp (điểm 6.3.3 đã chốt trên issue
  * #30): cờ cấu hình MẶC ĐỊNH TẮT — tắt thì ngữ nghĩa Moodle nguyên vẹn,
@@ -343,7 +343,7 @@ export const qtypeShortanswerOptions = pgTable('qtype_shortanswer_options', {
 
 
 /**
- * Options của essay (Moodle `qtype_essay_options`): một dòng cho mỗi version.
+ * Tuỳ chọn của essay (Moodle `qtype_essay_options`): một dòng cho mỗi version.
  * grader_info là rich text cho NGƯỜI CHẤM; response_template là khung bài làm
  * mẫu hiện cho học viên lúc bắt đầu. Essay chấm tay: engine đưa attempt về
  * trạng thái needsgrading thay vì tự chấm.
@@ -363,7 +363,7 @@ export const qtypeEssayOptions = pgTable('qtype_essay_options', {
       unique('qtype_essay_options_version_unique').on(table.questionVersionId),
   ]);
 
-/** Question usages group attempts for one activity instance (Moodle `question_usages`). */
+/** Lượt dùng câu hỏi (question usage) gom các attempt cho một instance hoạt động (Moodle `question_usages`). */
 export const questionUsages = pgTable('question_usages', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   component: text('component').notNull(),
@@ -382,10 +382,10 @@ export const questionUsages = pgTable('question_usages', {
 
 
 /**
- * One attempt at one question inside a usage (Moodle `question_attempts`).
- * question_version_id is PINNED when the attempt starts: later edits of the
- * question (new versions) never change how this attempt is graded.
- * state follows Moodle question_state names.
+ * Một attempt vào một câu hỏi bên trong một usage (Moodle `question_attempts`).
+ * question_version_id được GHIM khi attempt bắt đầu: các lần sửa câu hỏi về sau
+ * (version mới) không bao giờ thay đổi cách attempt này được chấm.
+ * state tuân theo các tên question_state của Moodle.
  */
 export const questionAttempts = pgTable(
   'question_attempts',
@@ -416,7 +416,7 @@ export const questionAttempts = pgTable(
       index('question_attempts_user_id_idx').on(table.userId),unique('question_attempts_usage_slot_unique').on(table.questionUsageId, table.slot)],
 );
 
-/** Every state transition of an attempt is a step (Moodle `question_attempt_steps`). */
+/** Mỗi lần chuyển đổi trạng thái của một attempt là một bước (Moodle `question_attempt_steps`). */
 export const questionAttemptSteps = pgTable(
   'question_attempt_steps',
   {
@@ -432,7 +432,7 @@ export const questionAttemptSteps = pgTable(
       index('question_attempt_steps_user_id_idx').on(table.userId),unique('question_attempt_steps_attempt_seq_unique').on(table.questionAttemptId, table.sequenceNumber)],
 );
 
-/** Step payload data (Moodle `question_attempt_step_data`): e.g. name='answer', value='true'. */
+/** Dữ liệu payload của bước (Moodle `question_attempt_step_data`): ví dụ name='answer', value='true'. */
 export const questionAttemptStepData = pgTable(
   'question_attempt_step_data',
   {

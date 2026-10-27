@@ -18,7 +18,7 @@ export interface OutboxTx {
 }
 
 /**
- * Transactional outbox (self-built, ADR-004): the event row is written in the
+ * Transactional outbox (self-built): the event row is written in the
  * SAME database transaction as the business change. If the transaction rolls
  * back, no event row exists and nothing can ever be published.
  */

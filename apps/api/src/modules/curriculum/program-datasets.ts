@@ -341,7 +341,7 @@ export function programRecordEffectiveGrade(records: readonly ProgramRecord[], r
  * mọi id của dữ liệu chuẩn ở mọi môi trường, tương đương đổi chuẩn
  * định danh; tuyệt đối không sửa, không "sinh lại cho đẹp". Căn cứ:
  * hồ sơ `gdpt-reference-data-loading-research-2026-10-25.md` mục 5.1
- * và ADR-017 (ngoại lệ dữ liệu chuẩn của ADR-013: cột vẫn giữ
+ * và ngoại lệ dữ liệu chuẩn đã chốt (cột vẫn giữ
  * `DEFAULT uuidv7()`, chỉ các dòng do dataset sinh ra mới mang id v5;
  * dữ liệu do người dùng tạo tay vẫn uuidv7 như mọi bảng khác).
  */

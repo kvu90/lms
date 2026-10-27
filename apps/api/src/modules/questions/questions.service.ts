@@ -123,12 +123,12 @@ function badAnswerData(message: string): BadRequestException {
 }
 
 /**
- * QuestionsModule facade (Moodle core_question): BANK + ENGINE.
+ * Facade của QuestionsModule (core_question của Moodle): BANK + ENGINE.
  *
- * Bank invariants: editing a question NEVER mutates a version — it creates
- * the next version (with its own answers/options rows) and moves the bank
- * entry's latest pointer; usages created later resolve the new version,
- * attempts already started keep theirs.
+ * Bất biến bank: sửa một câu hỏi KHÔNG BAO GIỜ thay đổi một version — nó tạo
+ * version tiếp theo (với dòng answers/options riêng) và di chuyển con trỏ
+ * latest của bank entry; usage tạo sau đó phân giải version mới,
+ * attempt đã bắt đầu giữ version của chúng.
  *
  * Lưu trữ nội dung theo mô hình giaokhoa (quyết 12:04 + 12:12 ngày
  * 26/10/2026): đáp án nằm ở question_answers (cờ `isCorrect` nhị phân +
@@ -139,11 +139,11 @@ function badAnswerData(message: string): BadRequestException {
  * KHÔNG có tên — nhãn hiển thị là trích đoạn nội dung. API nhận MỘT
  * payload cấu trúc theo qtype; service bung payload ra các bảng khi lưu.
  *
- * Engine invariants (questionusagebyactivity_test): a usage groups attempts
- * per (component, instanceId); starting an attempt PINS the current latest
- * version; every transition writes a step (with step_data for responses);
- * deferredfeedback grades at finish against the PINNED version's answers
- * and options; the usage state is a rollup of its attempts.
+ * Bất biến engine (questionusagebyactivity_test): một usage nhóm các attempt
+ * theo (component, instanceId); bắt đầu một attempt PIN version latest hiện tại;
+ * mọi chuyển đổi đều ghi một step (với step_data cho response);
+ * deferredfeedback chấm khi kết thúc theo answers của version ĐÃ PIN
+ * và options; trạng thái usage là tổng hợp của các attempt của nó.
  */
 @Injectable()
 /**
@@ -162,8 +162,8 @@ export class QuestionsService {
   ) {}
 
   private async requireCap(actorId: string, capability: string, contextId: string): Promise<void> {
-    // Question contexts in this core are course/system contexts; the seeded
-    // archetypes live at those levels and the evaluator walks the tree.
+    // Context câu hỏi trong lõi này là context khoá học/hệ thống; các archetype
+    // đã seed sống ở các cấp đó và evaluator đi dọc cây.
     await this.evaluator.requireCapability(actorId, capability, contextId);
   }
   // --- bank: cổng đọc (issue #55) -------------------------------------------
@@ -968,7 +968,7 @@ export class QuestionsService {
     return { version, answers, answerKey, options };
   }
 
-  /** Editing creates a NEW version; existing versions (and attempts pinned to them) are untouched. */
+  /** Sửa tạo một version MỚI; version hiện có (và attempt pin vào chúng) không bị chạm. */
   /**
    * Sửa câu hỏi = tạo version mới và nâng latestVersion của entry. Phần
    * đáp án/options không được gửi lên thì nhân bản nguyên từ version trước
@@ -1520,7 +1520,7 @@ export class QuestionsService {
     await this.requireNotLockedByQuizAttempt(usageId);
   }
 
-  /** Start an attempt: PIN the bank entry's current latest version. */
+  /** Bắt đầu một attempt: PIN version latest hiện tại của bank entry. */
   /**
    * Bắt đầu attempt cho một slot: pin version hiện tại của câu hỏi.
    */
@@ -1550,7 +1550,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Submit a response (deferredfeedback: stored as a step, NOT graded yet). */
+  /** Nộp một response (deferredfeedback: lưu thành một step, CHƯA chấm). */
   /**
    * Nộp câu trả lời: ghi step, chấm theo behaviour, cập nhật trạng thái/fraction.
    */
@@ -1568,7 +1568,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Finish one attempt: grade against the PINNED version (never the latest). */
+  /** Kết thúc một attempt: chấm theo version ĐÃ PIN (không bao giờ là latest). */
   /**
    * Kết thúc một attempt: chấm theo answers/options của version ĐÃ PIN
    * (essay về needsgrading với fraction null, chờ chấm tay).
@@ -1606,7 +1606,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Finish every attempt in a usage (deferredfeedback grading point) and emit the usage event. */
+  /** Kết thúc mọi attempt trong một usage (điểm chấm của deferredfeedback) và phát sự kiện usage. */
   /**
    * Kết thúc toàn bộ usage: mọi attempt về trạng thái finished.
    */
@@ -1652,7 +1652,7 @@ export class QuestionsService {
     return usage.attempts.find((a) => a.id === attemptId)!;
   }
 
-  /** Start all attempts of a usage (questionusagebyactivity_test::start_all_questions). */
+  /** Bắt đầu mọi attempt của một usage (questionusagebyactivity_test::start_all_questions). */
   /**
    * Bắt đầu usage (ủy quyền nội bộ).
    */

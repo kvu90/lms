@@ -13,7 +13,7 @@ type Database = NodePgDatabase<typeof relations>;
 export interface NotificationDispatchJobData {
   userId: string;
   provider: string;
-  channel: string; // email | push (external ports)
+  channel: string; // email | push (các cổng kênh ngoài)
   subject: string;
   body: string;
   notificationId?: string | null;

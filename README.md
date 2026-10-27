@@ -2,21 +2,18 @@
 
 A from-scratch TypeScript LMS whose business scope is equivalent to Moodle's
 core subsystems (backend only; no backward compatibility with Moodle's DB,
-file formats or protocols — see the research report and `docs/adr/`).
+file formats or protocols — see the research report).
 
 ## Layout
 
 ```
 apps/
-  api/      NestJS 12 REST API (TypeScript 6 — ADR-003), Drizzle ORM, BullMQ, Redis cache
+  api/      NestJS 12 REST API (TypeScript 6), Drizzle ORM, BullMQ, Redis cache
   worker/   NestJS 12 background process: BullMQ processors, outbox relay, scheduled jobs
   web/      React + Vite + React Router SPA (TypeScript 7), shadcn/ui + Tailwind
 packages/
   contracts/  Shared zod schemas (Problem Details, health, …) — the only api↔web contract
   config/     Shared tsconfig bases
-docs/
-  adr/                Architecture decision records
-  business-traceability.md  Moodle test-suite → our-test mapping (per phase)
 ```
 
 Dependency rule: `web` depends only on `contracts`; `api`/`worker` share the
@@ -26,8 +23,37 @@ backend code or DB schema.
 ## Prerequisites
 
 - Node 24 (`.nvmrc`), pnpm 12.14
-- PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function (ADR-013)
+- PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function
 - Redis at `localhost:6379`
+
+## Phát triển trong Dev Container
+
+Không cần cài gì trên máy ngoài Docker và VS Code: repo có sẵn định
+nghĩa Dev Container ở `.devcontainer/` tái tạo đúng các điều kiện
+tiên quyết ở trên — một service `app` (Node 24; pnpm 12.14 cấp qua
+corepack, đúng phiên bản ghim ở trường `packageManager` của
+`package.json` gốc) cùng hai service `db` (PostgreSQL 18.6) và `redis`
+(Redis 7), dùng đúng các image mà CI đang dùng. Ba service dùng chung
+một network namespace nên mọi mặc định localhost của repo
+(`localhost:5432`, `localhost:6379`) chạy nguyên trạng trong
+container — cùng cách bố trí như môi trường local ở mục dưới. Ở lần
+khởi động đầu tiên, service cơ sở dữ liệu tạo sẵn các DB `lms`,
+`lms_test`, `lms_test_api` và `lms_test_worker` (người dùng và mật
+khẩu đều là `postgres`). Khi tạo container, dependencies được cài sẵn
+(`pnpm install --frozen-lockfile`) và `apps/api/.env` /
+`apps/worker/.env` được chép từ các file `.env.example` tương ứng.
+
+Mở thư mục repo trong VS Code và chạy "Dev Containers: Reopen in
+Container", rồi thực hiện đúng các bước như môi trường review local ở
+mục dưới (migrate, seed, `pnpm dev`) trong terminal của container.
+Cổng 3000 (API) và 5173 (web) được chuyển tiếp ra máy host.
+
+Container này CHỈ phục vụ phát triển — không còn đường triển khai
+bằng Docker. `Dockerfile` ở gốc repo (image triển khai đa target cho
+Heroku Container Registry) đã bị XOÁ ngày 27/10/2026 theo quyết định
+về đường Docker của repo; triển khai chạy theo đường buildpack Heroku
+như mô tả ở mục [Review](#review), và hướng triển khai tương lai sẽ
+được quyết định riêng.
 
 ## Run
 
@@ -47,8 +73,7 @@ pnpm --filter @lms/web dev                   # web on :5173 (proxies /api → :3
 
 ### Deployed review instance (primary)
 
-The full stack runs on Heroku as app `kvu-lms` (buildpack deployment,
-see `docs/adr/015-heroku-buildpack-deployment.md`):
+The full stack runs on Heroku as app `kvu-lms` (buildpack deployment):
 
 - App: https://kvu-lms-573c864b6f10.herokuapp.com/ (login at `/login`)
 - Health: `GET https://kvu-lms-573c864b6f10.herokuapp.com/api/v1/health`
@@ -59,8 +84,7 @@ see `docs/adr/015-heroku-buildpack-deployment.md`):
 - Known issue: the Key-Value Store (Redis) mini data plane currently
   refuses TLS handshakes from the app dynos, so health reports
   `redis: down` while `database: up`. Login, course data and the UI
-  work; cache/queue-backed features are degraded. Evidence and options
-  are recorded in ADR-015.
+  work; cache/queue-backed features are degraded.
 
 Use the demo accounts in the table below to sign in.
 
@@ -108,17 +132,24 @@ badge "Huy hiệu khởi đầu" already awarded to student1, and a course
 calendar event for tomorrow 09:00.
 
 The seed also loads the **full GDPT 2018 national programme**: all 21
-verified datasets vendored in the repo (2,126 records across 20
-subjects, checked verbatim against the Ministry's documents) are
-imported through the same `ProgramImportService` the admin page uses,
-so a database built from the baseline + `pnpm seed` already contains
-the complete programme tree — **no manual "import" step in the admin
-UI is needed after a reset** (the admin page keeps re-sync only as a
-utility). Programme rows carry deterministic UUIDv5 identities derived
-from natural keys (see `docs/adr/017-deterministic-ids-for-reference-data.md`),
-so the id sets are identical in every environment; re-running the
-seed is a no-op for the programme (0 created / 0 updated). On a local
-machine the programme phase of the seed takes roughly 10–17 seconds.
+đã kiểm chứng được vendor sẵn trong repo (2.115 bản ghi trên 19 môn
+có dữ liệu — môn thứ 20, GDQP&AN, chưa có dataset đã kiểm chứng —
+đối chiếu nguyên văn với tài liệu của Bộ). Seed **không** nạp từng
+dataset theo từng bản ghi: nó restore bản dump chương trình đông
+cứng đóng gói sẵn trong repo
+(`apps/api/src/modules/curriculum/program-data-dump/program-dump.sql`,
+được `ProgramDumpService` tạo một lần từ cơ sở dữ liệu chuẩn đã
+kiểm chứng), nên một cơ sở dữ liệu dựng từ baseline + `pnpm seed`
+đã chứa trọn cây chương trình với đúng cùng một tập định danh bản
+ghi ở mọi môi trường — **sau khi reset không cần bước "import" thủ
+công nào trong giao diện quản trị** (trang quản trị chỉ giữ đồng bộ
+lại qua `ProgramImportService` như một tiện ích khi đính chính
+dataset). Chạy lại seed sẽ bỏ qua phần chương trình khi dữ liệu đã
+có mặt (restore theo cơ chế restore-if-empty), nên định danh chương
+trình không bao giờ thay đổi khi seed lại. Đính chính một dataset
+nghĩa là sửa ở cơ sở dữ liệu chuẩn rồi xuất lại dump
+(`apps/api/src/export-program-dump.ts`), tuyệt đối không sửa tay
+file dump.
 
 ### Main flows to review
 
@@ -141,48 +172,43 @@ turbo run build typecheck test
 
 ## Operations
 
-See `docs/operations-runbook.md` for the operator runbook: JWT secret
-rotation, outbox replay, orphan file cleanup, audit-trail queries,
-backup/restore, PostgreSQL upgrades, and the hot-path performance
-baseline (`apps/api/scripts/benchmark-hot-paths.mjs`).
-
-HTTP edge protection (ADR-014): standard security headers on every
+HTTP edge protection: standard security headers on every
 response, CORS restricted to `CORS_ORIGINS`, and two-layer per-IP rate
 limiting via the official `@nestjs/throttler` — a global
 `RATE_LIMIT_PER_MINUTE` plus a stricter `RATE_LIMIT_AUTH_PER_MINUTE`
-for credential-checking auth routes. Tune them with the school-NAT
-warning in the runbook before tightening.
+for credential-checking auth routes. Tune them with care before
+tightening: schools behind NAT share one public IP.
 
 ## Version policy
 
 Always the latest release of every dependency, except where a documented
-blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
+blocker forces a pin (recorded below). Current pins/blocks:
 
 - NestJS apps (`api`, `worker`): TypeScript **6.0.3** — `nest build`/Nest
-  toolchain does not support TypeScript 7 yet (ADR-003). Everything else: 7.0.2.
+  toolchain does not support TypeScript 7 yet. Everything else: 7.0.2.
 - Drizzle: `drizzle-orm@rc` / `drizzle-kit@rc` (1.0.0-rc.5) via the official
   `@nestjs/drizzle` integration, exactly as in the official NestJS Drizzle
-  chapter (ADR-002).
-- Test runner: Vitest everywhere — no Jest (ADR-005).
+  chapter.
+- Test runner: Vitest everywhere — no Jest.
 
 ## Known simplifications
 
-- The worker keeps a subset view of the shared DB schema in
-  `apps/worker/src/db/schema.ts` (only the tables its processors touch,
-  with only the columns they use); the canonical schema lives in the API,
-  split per bounded context (see Conventions).
+- Schema cơ sở dữ liệu là DÙNG CHUNG, không nhân đôi: schema canonical
+  nằm ở `packages/db-schema` (chia theo bounded context, xem mục
+  Conventions) và được cả API lẫn worker import — worker không còn giữ
+  bản sao schema rút gọn của riêng mình.
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
 
-## Conventions (official — see `docs/adr/`)
+## Conventions (official)
 
-- **I18n is mandatory and centralized** (ADR-008): no hardcoded display
+- **I18n is mandatory and centralized**: no hardcoded display
   strings. Backend/worker use the official **@nestjs/i18n** (pinned exact
   `0.0.1`) with JSON catalogs in `src/i18n/<locale>/` — default locale
   **Vietnamese**, English alongside; errors carry stable English `code`s and
   their display text is looked up by code. Frontend uses i18next +
   react-i18next with centralized resources (`apps/web/src/i18n.ts`).
-- **Validation is Zod-only** (ADR-009): base schemas live in
+- **Validation is Zod-only**: base schemas live in
   `packages/contracts` and are the single source of truth for the API
   (Standard Schema pipe) and React forms; server-only fields extend the
   base schema. class-validator/class-transformer are removed from the repo entirely.
@@ -190,22 +216,24 @@ blocker forces a pin (recorded in `docs/adr/`). Current pins/blocks:
   error codes in English; **comments in Vietnamese in TSDoc style**
   (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
   public API and for non-obvious business logic.
-- **Database schema is split by bounded context** (ADR-010): each module
-  owns its Drizzle tables in `apps/api/src/modules/<module>/schema.ts`;
-  platform-infrastructure tables live in `apps/api/src/db/infrastructure.schema.ts`;
-  `apps/api/src/db/schema.ts` is only a barrel re-exporting everything for
-  `drizzle.config.ts` and the Drizzle module. Table/column names never
-  change when a schema file moves.
-- **Naming & repo hygiene** (ADR-010): everything is named after the
+- **Schema cơ sở dữ liệu chia theo bounded context**: schema nằm ở
+  package dùng chung `packages/db-schema` — mỗi module sở hữu các bảng
+  Drizzle của mình tại `packages/db-schema/src/modules/<module>/schema.ts`,
+  các bảng hạ tầng của platform nằm ở
+  `packages/db-schema/src/infrastructure.schema.ts`, và index của package
+  là barrel duy nhất mà cả API lẫn worker import (file
+  `apps/api/src/db/schema.ts` của API chỉ re-export barrel đó cho
+  `drizzle.config.ts` và Drizzle module). Tên bảng/cột không bao giờ đổi
+  khi một file schema di chuyển.
+- **Naming & repo hygiene**: everything is named after the
   business / bounded context — **no phase labels** in code, comments, test
   names or commit subjects; **never commit compiled output** (`dist/`,
   stray `.js`/`.d.ts` next to sources). This is a writing discipline,
   upheld by authoring code correctly in the first place and by review —
   there is deliberately no automated enforcement for it.
-- **Feature acceptance** (ADR-011): a feature is done only when its
+- **Feature acceptance**: a feature is done only when its
   backend business flow is covered by a flow test translated from the
-  Moodle PHPUnit oracle, with the mapping recorded in
-  `docs/business-traceability.md`.
-- **Versions are latest-first** (ADR-012): always the newest release;
-  pin or downgrade only for a documented blocker recorded in an ADR
-  (current blocker: TypeScript 6 for the NestJS apps — ADR-003).
+  Moodle PHPUnit oracle.
+- **Versions are latest-first**: always the newest release;
+  pin or downgrade only for a documented blocker recorded above
+  (current blocker: TypeScript 6 for the NestJS apps).

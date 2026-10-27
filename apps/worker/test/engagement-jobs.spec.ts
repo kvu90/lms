@@ -15,15 +15,15 @@ import {
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * Engagement worker jobs. Oracles: report §2#12 (preference + suspended delivery
- * law, re-checked at dispatch time), §2#13/#14 (reminders become
- * notifications; badge auto-award is idempotent — including the cohort /
- * profile leaves and the coursecompletion by-date parameter, Behat
+ * Các job tương tác (engagement) của worker. Oracles: report §2#12 (luật phân phối theo preference + suspended,
+ * được kiểm tra lại tại thời điểm phân phối), §2#13/#14 (các nhắc trở thành
+ * thông báo; badge auto-award có tính idempotent — bao gồm các lá cohort /
+ * profile và tham số by-date của coursecompletion, Behat
  * badges/tests/behat criteria_cohort.feature, criteria_profile.feature,
  * award_badge.feature), calendar/tests/lib_test
- * test_add_subscription (ICS import result counts shape).
- * Users are raw-inserted with unique high ids to stay independent of
- * leftovers from previous runs of this suite in lms_test_worker.
+ * test_add_subscription (hình dạng counts của kết quả nhập ICS).
+ * User được chèn thô (raw-insert) với id cao duy nhất để giữ độc lập với
+ * dữ liệu còn sót lại từ các lần chạy trước của suite này trong lms_test_worker.
  */
 describe('Worker engagement: notification dispatch, calendar reminder/import, badge auto-award', () => {
   let context: INestApplicationContext;
@@ -53,7 +53,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userA}, ${`wk-a-${suffix}`}, ${`wka${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userSuspended}, ${`wk-s-${suffix}`}, ${`wks${suffix}@x.io`}, true, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userPrefOff}, ${`wk-p-${suffix}`}, ${`wkp${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
-    // Preference off in BOTH login states for the email channel of grade_updated.
+    // Tuỳ chọn tắt ở CẢ HAI trạng thái đăng nhập cho kênh email của grade_updated.
     await db.insert(userPreferences).values({ userId: userPrefOff, name: 'message_provider_grade_updated_email_loggedin', value: '0' });
     await db.insert(userPreferences).values({ userId: userPrefOff, name: 'message_provider_grade_updated_email_loggedoff', value: '0' });
   });
@@ -104,7 +104,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
       eq(notifications.contextUrl, `/calendar/events/${event.id}`),
     ));
     expect(rows).toHaveLength(1);
-    // Suspended user: nothing is created.
+    // User bị đình chỉ: không có gì được tạo.
     const susp = await processor.process({ data: { eventId: event.id, userId: userSuspended, minutesBefore: 15 } } as never);
     expect(susp.status).toBe('skipped-suspended');
   });
@@ -172,12 +172,12 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     const cohortRows = await db.execute(sql`insert into cohort (name, context_id, tenant_id) values (${`wk-cohort-${suffix}`}, ${systemCtxId}, (select id from tenants where slug = 'worker-fixture')) returning id`);
     const cohortId = (cohortRows.rows[0] as { id: string }).id;
     await db.insert(cohortMembers).values({ cohortId: cohortId, userId: userA });
-    // Profile custom field (core_user/user) with a value for userA only.
+    // Trường tuỳ chỉnh hồ sơ (core_user/user) với giá trị chỉ dành cho userA.
     const shortName = `wkdept${suffix}`;
     const [category] = await db.insert(customFieldCategory).values({ component: 'core_user', area: 'user', name: `WK ${suffix}` }).returning();
     const [field] = await db.insert(customFieldField).values({ categoryId: category.id, shortName, name: 'WK department', type: 'text' }).returning();
     await db.insert(customFieldData).values({ fieldId: field.id, instanceId: userA, value: 'Engineering' });
-    // A completed course for userA (completed now).
+    // Một khoá học đã hoàn thành cho userA (hoàn thành tại thời điểm hiện tại).
     const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values ((select id from course_categories order by id limit 1), (select tenant_id from course_categories order by id limit 1), 'Worker leaf course', ${`wklc${suffix}`}, ${await fixtureClassId()}) returning id`);
     const courseId = (courseRows.rows[0] as { id: string }).id;
     await db.insert(courseCompletions).values({ userId: userA, course: courseId, status: 'complete', timeStarted: new Date(), timeCompleted: new Date() });
@@ -205,7 +205,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     expect(issuedA).toContain(profileBadgeId);
     expect(issuedA).toContain(inTimeBadgeId);
     expect(issuedA).not.toContain(tooLateBadgeId);
-    // userPrefOff is in no cohort, has no profile value and no completion: none of the new badges.
+    // userPrefOff không thuộc cohort nào, không có giá trị hồ sơ và không có completion: không nhận huy hiệu mới nào.
     await processor.process({ data: { userId: userPrefOff, trigger: 'test-leaves' } } as never);
     const issuedOther = (await db.select().from(badgeIssued).where(eq(badgeIssued.userId, userPrefOff)) as { badgeId: string }[])
       .map((r) => r.badgeId);

@@ -74,7 +74,7 @@ export type Capability = z.infer<typeof capabilitySchema>;
 export const CAP = { PROHIBIT: -1000, PREVENT: -1, INHERIT: 0, ALLOW: 1 } as const;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất cho validation ở
- * API qua Standard Schema và cho form phía React; xem ADR về Zod-only) ---- */
+ * API qua Standard Schema và cho form phía React) ---- */
 
 /** Payload tạo context truy cập (cây context của hệ thống phân quyền). */
 export const createContextSchema = z.strictObject({

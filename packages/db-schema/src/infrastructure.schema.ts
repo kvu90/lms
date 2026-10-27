@@ -14,7 +14,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 
-/** Site configuration (Moodle `config`). */
+/** Cấu hình site (Moodle `config`). */
 export const config = pgTable('config', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   key: text('key').notNull().unique(),
@@ -22,7 +22,7 @@ export const config = pgTable('config', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Per-plugin configuration (Moodle `config_plugins`). `tenant_id` NULL = cấu hình của platform; có giá trị = ghi đè của tenant đó (TENANT-0, #168). */
+/** Cấu hình theo plugin (Moodle `config_plugins`). `tenant_id` NULL = cấu hình của platform; có giá trị = ghi đè của tenant đó (TENANT-0, #168). */
 export const pluginConfig = pgTable(
   'plugin_config',
   {
@@ -41,7 +41,7 @@ export const pluginConfig = pgTable(
   ],
 );
 
-/** Audit trail for admin setting changes. `tenant_id` NULL = đổi ở tầng platform; có giá trị = đổi cấu hình của tenant (TENANT-0, #168). */
+/** Vết kiểm toán cho các thay đổi cài đặt của quản trị viên. `tenant_id` NULL = đổi ở tầng platform; có giá trị = đổi cấu hình của tenant (TENANT-0, #168). */
 export const adminSettingAudit = pgTable('admin_setting_audit', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   settingKey: text('setting_key').notNull(),
@@ -52,7 +52,7 @@ export const adminSettingAudit = pgTable('admin_setting_audit', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Transactional outbox (self-built, ADR-004). `tenant_id` nạp từ ngữ cảnh tenant của request/job khi phát sinh (TENANT-0, #168) — NULL = sự kiện platform/không gian chung. */
+/** Outbox giao dịch (tự xây dựng). `tenant_id` nạp từ ngữ cảnh tenant của request/job khi phát sinh (TENANT-0, #168) — NULL = sự kiện platform/không gian chung. */
 export const outboxEvents = pgTable('outbox_events', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`).$defaultFn(() => uuidv7()),
   seq: bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity().unique(),
@@ -65,7 +65,7 @@ export const outboxEvents = pgTable('outbox_events', {
 },
   (table) => [index('outbox_events_tenant_id_idx').on(table.tenantId)]);
 
-/** Immutable domain event log (Moodle logstore equivalent). */
+/** Nhật ký sự kiện miền bất biến (tương đương logstore của Moodle). */
 export const eventLog = pgTable('event_log', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`).$defaultFn(() => uuidv7()),
   seq: bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity().unique(),
@@ -84,7 +84,7 @@ export const eventLog = pgTable('event_log', {
   ]);
 
 
-/** Admin-editable schedule for scheduled tasks (Moodle `task_scheduled`). */
+/** Lịch cho các tác vụ đã lên lịch, có thể chỉnh sửa bởi quản trị viên (Moodle `task_scheduled`). */
 export const scheduledTaskConfig = pgTable('scheduled_task_config', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   taskName: text('task_name').notNull().unique(),
@@ -93,7 +93,7 @@ export const scheduledTaskConfig = pgTable('scheduled_task_config', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Execution log of scheduled/adhoc tasks. */
+/** Nhật ký thực thi của các tác vụ đã lên lịch/adhoc. */
 export const taskLog = pgTable('task_log', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   taskName: text('task_name').notNull(),

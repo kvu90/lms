@@ -17,8 +17,8 @@
 - Cấm nới lỏng kỷ luật kiểu dùng chung (vd tắt `strict`, nới `noUncheckedIndexedAccess`
   nếu đang bật) để "cho qua" lỗi type ở một app — sửa lỗi ở app đó; đổi kỷ luật
   chung phải là quyết định riêng, áp có kiểm chứng trên toàn monorepo.
-- Cấm gộp hai dòng TypeScript (Nest/React) thành một khi chưa có ADR thay thế
-  ADR-003.
+- Cấm gộp hai dòng TypeScript (Nest/React) thành một khi chưa có quyết định
+  thay thế quyết định tách hai dòng hiện hành.
 
 ## Kiểm chứng bắt buộc
 
@@ -59,8 +59,8 @@ logic phức tạp; đội đánh giá độc lập soi như tiêu chí đạt.
   moduleResolution bundler): `apps/web`, `packages/editor`, `packages/ui`
   dùng qua `extends: "@lms/config/tsconfig/react.json"`.
 - `packages/contracts` dùng thẳng `base.json`. Hai dòng Nest/React tách nhau
-  theo ADR-003 (xem điều cấm ở trên: không gộp hai dòng khi chưa có ADR thay
-  thế).
+  theo quyết định tách hai dòng (xem điều cấm ở trên: không gộp hai dòng
+  khi chưa có quyết định thay thế).
 - Luồng tác động: đổi một dòng ở đây → điều kiện biên dịch của **mọi** package
   tiêu thụ thay đổi → bắt buộc kiểm chứng typecheck ở cả hai dòng như mục
   "Kiểm chứng bắt buộc" đã ghi.

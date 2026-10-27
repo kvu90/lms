@@ -25,11 +25,11 @@ export interface EnrolExpiryResult { checkedAt: string; suspendedIds: string[]; 
 export const ENROL_EXPIRY_WARNING_WINDOW_DAYS = 7;
 
 /**
- * Enrolment expiry: ACTIVE user_enrolments whose timeEnd has passed
- * are flipped to SUSPENDED and a user_enrolment_suspended outbox event is
- * written in the same transaction per row. Access is ALSO denied at read
- * time by the API's isEnrolled(onlyActive) time-window check, so a delayed
- * sweep never opens a window of access — the sweep only normalises state.
+ * Hết hạn ghi danh: các user_enrolments ACTIVE mà timeEnd của chúng đã qua
+ * được chuyển sang SUSPENDED và một sự kiện outbox user_enrolment_suspended được
+ * ghi trong cùng transaction cho từng dòng. Quyền truy cập CŨNG bị từ chối tại thời điểm đọc
+ * bởi kiểm tra cửa sổ thời gian isEnrolled(onlyActive) phía API, nên một lượt quét bị trễ
+ * không bao giờ mở ra cửa sổ truy cập — lượt quét chỉ chuẩn hoá trạng thái.
  */
 @Processor('enrol-expiry')
 /**

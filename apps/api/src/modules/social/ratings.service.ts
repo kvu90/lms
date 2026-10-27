@@ -52,7 +52,7 @@ export class RatingsService {
 
   /**
    * Kích thước thang cho scaleId mã hoá signed kiểu Moodle: giá trị tuyệt đối
-   * là điểm tối đa (scaleId không phải khoá thực thể — xem ADR-013).
+   * là điểm tối đa (scaleId không phải khoá thực thể).
    */
   private async scaleMax(scaleId: number): Promise<number> {
     return Math.abs(scaleId);

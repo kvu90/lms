@@ -19,6 +19,30 @@
  *
  * Dùng: `node server/launcher.mjs` từ thư mục apps/web, hoặc script
  * `pnpm --filter @lms/web start:topology`.
+ *
+ * Biến môi trường của cả topology (launcher tự đặt cho hai con):
+ * - `PORT` (mặc định 8080): cổng công khai của tiến trình SSR — trên
+ *   Heroku là cổng dyno cấp.
+ * - `API_INTERNAL_PORT` (mặc định 3100): cổng nội bộ của API khi chạy
+ *   qua launcher; địa chỉ API nội bộ cho SSR được launcher tự suy ra
+ *   từ cổng này.
+ * - `LMS_API_INTERNAL_URL` (mặc định `http://127.0.0.1:3000` khi SSR
+ *   chạy độc lập): địa chỉ API nội bộ cho proxy và cho loader phía
+ *   server. Khi chạy qua launcher, biến này do launcher đặt theo
+ *   `API_INTERNAL_PORT`, không cần tự cấp.
+ *
+ * Chạy prototype local (từ gốc repo): build cả API và web trước, cấp
+ * môi trường cho API (DATABASE_URL trỏ DB đã áp baseline + seed,
+ * REDIS_URL, JWT_SECRET…) rồi chạy qua launcher:
+ *
+ *   pnpm --filter @lms/api build
+ *   pnpm --filter @lms/web build
+ *   DATABASE_URL=postgres://... REDIS_URL=redis://127.0.0.1:6379 JWT_SECRET=... \
+ *     pnpm --filter @lms/web start:topology
+ *   # → mở http://localhost:8080 (PORT ghi đè được)
+ *
+ * Chỉ chạy riêng tiến trình SSR (API tự lo): `pnpm --filter @lms/web
+ * start` với `LMS_API_INTERNAL_URL` trỏ tới API.
  */
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

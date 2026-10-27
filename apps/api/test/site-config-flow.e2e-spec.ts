@@ -5,7 +5,7 @@ import {
 } from './identity-access-helpers';
 
 /**
- * Site Config flow (admin settings).
+ * Luồng Site Config (cài đặt quản trị).
  * Oracle: blueprint §2#30 (Config/Admin) — config phân tầng: mặc định code
  * < giá trị admin lưu DB < config theo plugin (`component + name`); mọi
  * thay đổi qua UI/API đều qua capability `site:config` và có vết.
