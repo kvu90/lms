@@ -416,11 +416,95 @@ export type PlanComponent = z.infer<typeof planComponentSchema>;
 
 /** Payload mua/nâng gói: bên gọi chỉ chọn LOẠI gói — số tiền luôn do
  * hệ thống quyết từ cấu hình giá tại thời điểm giao dịch, không nhận
- * amount từ client. */
+ * amount từ client. `couponCode` là trường tuỳ chọn: mã coupon giảm
+ * giá do quản trị platform tạo (xem `createCouponSchema`); khi có mã,
+ * hệ thống kiểm tra coupon và trừ mức giảm vào giá cấu hình TRƯỚC khi
+ * tạo khoản thu — client vẫn không gửi được bất kỳ con số nào. */
 export const purchasePlanSchema = z.strictObject({
   component: planComponentSchema,
+  couponCode: z.string().trim().min(1).max(64).optional(),
 });
 export type PurchasePlan = z.infer<typeof purchasePlanSchema>;
+
+/** Loại giảm của coupon: theo phần trăm giá gói đang cấu hình
+ * (`percent`) hoặc số tiền cố định theo đơn vị tiền nhỏ nhất
+ * (`fixed`). */
+export const couponDiscountTypeSchema = z.enum(['percent', 'fixed']);
+export type CouponDiscountType = z.infer<typeof couponDiscountTypeSchema>;
+
+/** Phạm vi gói mà coupon áp dụng được: một loại gói hoặc cả hai. */
+export const couponAppliesToSchema = z.enum(['tenant_plan', 'teacher_plan', 'all']);
+export type CouponAppliesTo = z.infer<typeof couponAppliesToSchema>;
+
+/** Payload tạo coupon (bề mặt quản trị platform): mọi mức giảm là dữ
+ * liệu do quản trị tạo qua payload này — không có mã hay mức giảm nào
+ * ghim trong code. Ràng buộc hình dạng bám đặc tả coupon của issue
+ * #189: phần trăm hợp lệ 1–99 (kiểm tra chéo theo `discountType` bằng
+ * superRefine dưới đây); số tiền cố định là số nguyên dương; cửa sổ
+ * hiệu lực và giới hạn lượt dùng cho phép vắng (không giới hạn phía
+ * đó / không giới hạn lượt). Tầng service kiểm tra lại các ràng buộc
+ * này trên trạng thái gộp cuối cùng khi cập nhật (payload cập nhật
+ * cho phép thiếu trường). */
+export const createCouponSchema = z.strictObject({
+  code: z.string().trim().min(1).max(64),
+  discountType: couponDiscountTypeSchema,
+  discountValue: z.number().int().min(1).max(99_999_999),
+  appliesTo: couponAppliesToSchema.default('all'),
+  startsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  endsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  maxRedemptions: z.number().int().min(1).nullable().optional(),
+  isActive: z.boolean().default(true),
+}).superRefine((input, ctx) => {
+  if (input.discountType === 'percent' && input.discountValue > 99) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discountValue'],
+      message: 'Percent discount value must be between 1 and 99',
+    });
+  }
+  if (input.startsAt && input.endsAt && new Date(input.startsAt).getTime() >= new Date(input.endsAt).getTime()) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['endsAt'],
+      message: 'Coupon endsAt must be after startsAt',
+    });
+  }
+});
+export type CreateCoupon = z.infer<typeof createCouponSchema>;
+
+/** Payload cập nhật coupon: mọi trường đều tuỳ chọn; ngừng sử dụng
+ * coupon bằng cách đặt `isActive` thành false (không xoá cứng). Mã
+ * coupon là định danh tra cứu khi áp dụng nên không sửa được qua
+ * payload này. */
+export const updateCouponSchema = z.strictObject({
+  discountType: couponDiscountTypeSchema.optional(),
+  discountValue: z.number().int().min(1).max(99_999_999).optional(),
+  appliesTo: couponAppliesToSchema.optional(),
+  startsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  endsAt: z.iso.datetime({ offset: true }).nullable().optional(),
+  maxRedemptions: z.number().int().min(1).nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+export type UpdateCoupon = z.infer<typeof updateCouponSchema>;
+
+/** Coupon ở dạng API trả về cho bề mặt quản trị: mã đã chuẩn hoá chữ
+ * hoa; các mốc thời gian là chuỗi ISO; trường null nghĩa là không
+ * giới hạn (cửa sổ hiệu lực / lượt dùng). */
+export const couponSchema = z.object({
+  id: uuidIdSchema,
+  code: z.string(),
+  discountType: couponDiscountTypeSchema,
+  discountValue: z.number().int(),
+  appliesTo: couponAppliesToSchema,
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
+  maxRedemptions: z.number().int().nullable(),
+  isActive: z.boolean(),
+  createdBy: uuidIdSchema.nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type Coupon = z.infer<typeof couponSchema>;
 
 /** Quyền lợi gói đã kích hoạt: cửa sổ hiệu lực [startsAt, expiresAt)
  * sinh từ một payment gói thành công; `userId` chỉ có ở `teacher_plan`
