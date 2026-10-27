@@ -288,6 +288,38 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     }
   }
 
+  /**
+   * Chờ consumer chốt kết quả phân phối kênh popup của một sự kiện cho
+   * một người nhận — tín hiệu đối soát hoàn tất của lượt fan-out — rồi
+   * trả trạng thái chốt ('delivered' khi thông báo được sinh,
+   * 'skipped-preference' khi tuỳ chọn của người nhận đã chặn).
+   *
+   * Căn cứ: notify() luôn ghi đúng một dòng notification_dispatch_log
+   * cho kênh popup ở cả hai kết quả trên, và consumer xử lý các sự
+   * kiện outbox theo đúng thứ tự seq (mỗi sự kiện xử lý xong cho mọi
+   * người nhận mới sang sự kiện kế). Dòng log của (người nhận ×
+   * provider × subject của sự kiện) xuất hiện nghĩa là lượt xử lý của
+   * sự kiện đó — và mọi sự kiện trước nó — đã chốt xong cho người
+   * nhận này. Khẳng định PHỦ ĐỊNH (người nhận không có thông báo của
+   * sự kiện) phải chờ tín hiệu này thay cho sleep cố định: đếm sau
+   * tín hiệu là đếm trên trạng thái đã chốt, không còn cửa sổ xử lý
+   * dở khiến ca đỏ ngẫu nhiên như lần đỏ CI đã ghi ở issue #219.
+   */
+  async function waitForPopupDispatchOutcome(userId: string, provider: string, subject: string, timeoutMs = 20000): Promise<string> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const rows = await pg.query(
+        `select status from notification_dispatch_log
+          where user_id = $1 and provider = $2 and channel = 'popup' and subject = $3
+          order by created_at desc limit 1`,
+        [userId, provider, subject],
+      );
+      if (rows.rows.length > 0) return (rows.rows[0] as { status: string }).status;
+      if (Date.now() > deadline) throw new Error(`dispatch outcome ${provider} for user ${userId} did not settle within ${timeoutMs}ms`);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+
   interface ClassCtx {
     course: { id: string; fullName?: string };
     sectionId: string;
@@ -363,7 +395,15 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     const notif2 = await waitForNotification(ctx.studentToken, 'assignment_assigned', 20000,
       (n) => n.contextUrl === `/courses/${ctx.course.id}/assignments/${assignment2.id}`);
     expect(notif2).toBeTruthy();
-    await new Promise((r) => setTimeout(r, 2500));
+    // Chờ consumer chốt kết quả phân phối sự kiện bài số 2 cho CHÍNH
+    // HS2 trước khi đếm (issue #219): thông báo của HS1 hiện chỉ chứng
+    // minh lượt fan-out đã chạy tới HS1, chưa chứng minh đã chốt cho
+    // HS2. Sleep cố định 2.500ms ở đây trước đây không gắn với tín
+    // hiệu hoàn tất nào và ca đã đỏ ngẫu nhiên ở CI; nay chờ dispatch
+    // log kênh popup của HS2 trên đúng sự kiện này — kết quả chốt
+    // phải là bị chặn theo tuỳ chọn đã tắt.
+    const outcome = await waitForPopupDispatchOutcome(ctx.student2.id, 'assignment_assigned', notif2.subject);
+    expect(outcome).toBe('skipped-preference');
     // HS2 đã nhận thông báo của bài số 1 (trước khi tắt) — ca kiểm là
     // bài số 2 không tới nữa.
     const student2Notifs = (await notificationsOf(ctx.student2Token)).filter((n) => n.eventType === 'assignment_assigned');
