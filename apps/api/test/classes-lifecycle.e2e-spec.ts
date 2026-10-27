@@ -10,7 +10,7 @@ import {
   roleIdByShortname,
   uniqueName,
 } from './identity-access-helpers';
-import { createCategory } from './course-enrolment-helpers';
+import { createCategory, grantActiveTeacherPlan } from './course-enrolment-helpers';
 
 /**
  * CLASS-0 (issue #184) — vòng đời ghi danh cấp lớp trên nền lớp học
@@ -105,6 +105,11 @@ describe('class lifecycle (CLASS-0, #184)', () => {
     for (const userId of [teacherId, graderId, student1Id, student2Id, student3Id]) {
       await http(app).post(`/api/v1/tenants/${current.id}/members`).set(auth(admin)).send({ userId });
     }
+    // Giáo viên của spec làm chủ một lớp NHIỀU khoá: theo đặc tả slot
+    // đã duyệt của issue #189, giáo viên ở tenant platform không có
+    // gói chỉ làm chủ được mức nền 1 khoá — cấp quyền lợi gói giáo
+    // viên đang hoạt động làm tiền đề fixture (xem grantActiveTeacherPlan).
+    await grantActiveTeacherPlan(pg, teacherId);
 
     categoryId = (await createCategory(app, admin)).id;
   });

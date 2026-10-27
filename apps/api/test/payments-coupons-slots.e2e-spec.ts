@@ -148,6 +148,24 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     );
   }
 
+  /**
+   * Chuẩn bị một người dùng thành giáo viên TỰ TẠO ĐƯỢC LỚP ở tenant
+   * platform: là thành viên của tenant hiện hành (tenant-zero) và giữ
+   * vai `editingteacher` tại context của tenant đó (archetype mang
+   * capability tạo lớp) — đúng đường giáo viên thật trên seed, theo
+   * khuôn của spec classes-teacher-surface. Vai tại context tenant
+   * platform không tính vào slot nào: gói trung tâm miễn cho tenant
+   * platform, còn đếm khoá của gói giáo viên chỉ tính chủ lớp và dòng
+   * gán trực tiếp tại context khoá.
+   */
+  async function makeClassCreator(userId: string) {
+    const current = await must(await http(app).get('/api/v1/tenants/current').set(auth(admin)), 'current tenant') as { id: string };
+    await addMember(current.id, userId);
+    const ctxId = await tenantContextId(current.id);
+    const res = await assignRoleRaw(userId, editingteacherRoleId, ctxId);
+    expect(res.status).toBeLessThan(300);
+  }
+
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
@@ -418,6 +436,7 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
   it('slot giáo viên — mức nền 1 khoá làm chủ: khoá thứ hai bị chặn, khoá đầu nguyên vẹn; mua gói giáo viên xong thì tạo tiếp được', async () => {
     const category = await createCategory(app, admin);
     const teacher = await createUserViaApi(app, admin);
+    await makeClassCreator(teacher.id);
     const teacherToken = (await login(app, teacher.username, STRONG_PASSWORD)).accessToken;
 
     const class1 = await must(await http(app).post('/api/v1/classes').set(auth(teacherToken)).send({ name: uniqueName('Lớp slot 1') }), 'teacher class 1') as { id: string };
@@ -448,6 +467,7 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
   it('slot giáo viên — vai trò giảng dạy qua ghi danh (dạy chung) không tính slot của người được ghi danh', async () => {
     const category = await createCategory(app, admin);
     const owner = await createUserViaApi(app, admin);
+    await makeClassCreator(owner.id);
     const ownerToken = (await login(app, owner.username, STRONG_PASSWORD)).accessToken;
     const cls = await must(await http(app).post('/api/v1/classes').set(auth(ownerToken)).send({ name: uniqueName('Lớp dạy chung') }), 'owner class') as { id: string };
     const course = await must(await http(app).post('/api/v1/courses').set(auth(ownerToken)).send({
@@ -457,6 +477,7 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     // Ghi danh một giáo viên khác vào khoá với vai trò editingteacher
     // qua enrol instance — dòng gán mang nguồn `enrol`.
     const coTeacher = await createUserViaApi(app, admin);
+    await makeClassCreator(coTeacher.id);
     const instance = await createEnrolInstance(app, ownerToken, course.id, { roleId: editingteacherRoleId });
     await enrolUser(app, ownerToken, course.id, instance.id, coTeacher.id);
     const grant = await pg.query(

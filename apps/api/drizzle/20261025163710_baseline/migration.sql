@@ -3209,4 +3209,5 @@ CREATE TABLE "payment_coupons" (
 	CONSTRAINT "payment_coupons_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
+CREATE INDEX "payment_coupons_created_by_idx" ON "payment_coupons" ("created_by");--> statement-breakpoint
 ALTER TABLE "payment_coupons" ADD CONSTRAINT "payment_coupons_created_by_users_id_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint

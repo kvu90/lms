@@ -180,4 +180,5 @@ export const paymentCoupons = pgTable('payment_coupons', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   unique('payment_coupons_code_unique').on(t.code),
+  index('payment_coupons_created_by_idx').on(t.createdBy),
 ]);
