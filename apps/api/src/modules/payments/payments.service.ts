@@ -433,26 +433,31 @@ export class PaymentsService {
       await this.repo.updatePayment(payment.id, { status: 'failed', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
       return { status: 'failed', payment: await this.getPayment(payment.id) };
     }
+    // Nghiệp vụ hưởng lợi chạy TRƯỚC nhịp lật trạng thái — cùng bất
+    // biến đồng bộ với đường matching SePay: trạng thái `succeeded`
+    // không bao giờ quan sát được khi quyền lợi chưa kích hoạt. Webhook
+    // đã xác thực mới tới được đây; các khâu kích hoạt đều idempotent
+    // nên webhook bắn lại (sau cổng duplicate ở trên) an toàn.
+    // Enrol có phí: chỉ active khi PaymentSucceeded đã xác thực.
+    if (payment.component === 'enrol_fee' && payment.itemId) {
+      await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
+    }
+    // CLASS-3: gói lớp — vào roster của lớp, cohort sync vật chất hoá
+    // xuống mọi khoá của lớp (idempotent như activatePaidEnrol).
+    if (payment.component === 'class_fee' && payment.itemId) {
+      await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId);
+    }
+    // Lát 2 (#189): gói trung tâm / gói giáo viên — sinh quyền lợi gói
+    // theo ảnh chụp giá + chu kỳ đã ghi vết lúc tạo payment.
+    if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
+      await this.plans.activateForPayment(payment);
+    }
     await this.repo.updatePayment(payment.id, { status: 'succeeded', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
     const succeeded = await this.getPayment(payment.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'payment', type: 'payment_succeeded',
       payload: { paymentId: succeeded.id, userId: succeeded.userId, amount: succeeded.amount, currency: succeeded.currency, component: succeeded.component, itemId: succeeded.itemId, externalTransactionId: input.externalTransactionId },
     });
-    // Nghiệp vụ hưởng lợi: enrol có phí chỉ active sau PaymentSucceeded đã xác thực.
-    if (succeeded.component === 'enrol_fee' && succeeded.itemId) {
-      await this.enrol.activatePaidEnrol(succeeded.itemId, succeeded.userId);
-    }
-    // CLASS-3: gói lớp — vào roster của lớp, cohort sync vật chất hoá
-    // xuống mọi khoá của lớp (idempotent như activatePaidEnrol).
-    if (succeeded.component === 'class_fee' && succeeded.itemId) {
-      await this.classes.activatePaidClassEnrol(succeeded.itemId, succeeded.userId);
-    }
-    // Lát 2 (#189): gói trung tâm / gói giáo viên — sinh quyền lợi gói
-    // theo ảnh chụp giá + chu kỳ đã ghi vết lúc tạo payment.
-    if (succeeded.component === 'tenant_plan' || succeeded.component === 'teacher_plan') {
-      await this.plans.activateForPayment(succeeded);
-    }
     return { status: 'succeeded', payment: succeeded };
   }
 

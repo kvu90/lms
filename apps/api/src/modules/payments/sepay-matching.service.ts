@@ -11,24 +11,30 @@ import { PlanEntitlementsService } from './plan-entitlements.service';
  * (match_status `received`) được khớ theo luật 3 điều kiện — (1) mã thanh
  * toán trích từ nội dung chuẩn hoá tìm thấy payment, (2) số tiền bằng đúng,
  * (3) tài khoản nhận trùng account của payment — cộng payment còn `pending`
- * và chưa hết hạn. Đủ: payment → `succeeded`, phát ĐÚNG outbox
- * `payment_succeeded` sẵn có (đường kích hoạt quyền lợi duy nhất, cùng
- * khuôn với webhook manual) rồi kích hoạt enrol có phí. Thiếu bất kỳ điều
+ * và chưa hết hạn. Đủ: kích hoạt MỌI quyền lợi (enrol có phí / ghi danh
+ * lớp / quyền lợi gói) TRƯỚC, rồi mới lật payment → `succeeded` và phát
+ * ĐÚNG outbox `payment_succeeded` sẵn có (cùng khuôn với webhook
+ * manual). Thứ tự này giữ BẤT BIẾN ĐỒNG BỘ của nhịp chốt: trạng thái
+ * `succeeded` không bao giờ quan sát được khi quyền lợi chưa kích
+ * hoạt — nhịp chết giữa chừng thì payment còn `pending`, sự kiện được
+ * nhận lại theo cửa sổ stale và các khâu kích hoạt (đều idempotent)
+ * chạy lại cho tới khi chốt xong. Thiếu bất kỳ điều
  * kiện nào: sự kiện (và payment nếu xác định được mà còn pending) →
  * `needs_review`, KHÔNG kích hoạt gì (§5.7). Biến động debit không qua
  * matching tiền vào — đối khớp lệnh chi hoàn thuộc lát 3; ở lát 1 sự kiện
  * debit được đánh dấu `ignored` nhưng vẫn nằm trong sổ làm bằng chứng.
  *
  * CLASS-3 (#184): payment `class_fee` khớp đủ 3 điều kiện cũng đi đúng
- * đường này — succeeded → kích hoạt ghi danh CẤP LỚP qua
+ * đường này — kích hoạt ghi danh CẤP LỚP qua
  * `ClassesService.activatePaidClassEnrol` (vào backing cohort, cohort
- * sync vật chất hoá xuống mọi khoá của lớp); thiếu điều kiện →
- * `needs_review` và KHÔNG vào lớp, như enrol_fee.
+ * sync vật chất hoá xuống mọi khoá của lớp) trước nhịp lật `succeeded`;
+ * thiếu điều kiện → `needs_review` và KHÔNG vào lớp, như enrol_fee.
  *
  * Lát 2 (#189): payment gói `tenant_plan`/`teacher_plan` khớp đủ 3
- * điều kiện cũng đi đúng đường này — succeeded → kích hoạt quyền lợi
- * gói qua `PlanEntitlementsService.activateForPayment`; thiếu điều
- * kiện → `needs_review` và KHÔNG sinh quyền lợi, như các component khác.
+ * điều kiện cũng đi đúng đường này — kích hoạt quyền lợi gói qua
+ * `PlanEntitlementsService.activateForPayment` trước nhịp lật
+ * `succeeded`; thiếu điều kiện → `needs_review` và KHÔNG sinh quyền
+ * lợi, như các component khác.
  */
 @Injectable()
 export class SepayMatchingService {
@@ -74,7 +80,9 @@ export class SepayMatchingService {
     const payment = event.extractedCode ? await this.repo.getPaymentByCode(event.extractedCode) : undefined;
 
     // Hoàn tất idempotent: payment đã succeeded bởi chính giao dịch này
-    // (nhịp trước chết sau khi kích hoạt, trước khi chốt sự kiện).
+    // (nhịp trước chết sau khi lật trạng thái, trước khi chốt sự kiện —
+    // quyền lợi chắc chắn đã kích hoạt vì khâu kích hoạt chạy TRƯỚC
+    // nhịp lật trạng thái).
     if (payment && payment.status === 'succeeded' && payment.externalTransactionId === referenceCode) {
       await this.repo.updateProviderEvent(event.id, { matchStatus: 'matched', matchedPaymentId: payment.id });
       return;
@@ -86,6 +94,24 @@ export class SepayMatchingService {
     const notExpired = !!payment && !(payment.expiresAt && payment.expiresAt.getTime() <= Date.now());
 
     if (payment && accountMatches && amountMatches && stillPending && notExpired) {
+      // Kích hoạt MỌI quyền lợi TRƯỚC nhịp lật trạng thái (bất biến
+      // đồng bộ của nhịp chốt, xem docblock đầu file): chừng nào
+      // payment còn `pending` thì chưa bên nào được coi giao dịch đã
+      // thành công; kích hoạt xong mới lật `succeeded`. Cả ba khâu
+      // kích hoạt đều idempotent — nhịp chết giữa chừng được nhận lại
+      // theo cửa sổ stale của claim và chạy lại an toàn.
+      if (payment.component === 'enrol_fee' && payment.itemId) {
+        await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
+      }
+      // CLASS-3: gói lớp — kích hoạt ghi danh cấp lớp (idempotent).
+      if (payment.component === 'class_fee' && payment.itemId) {
+        await this.classes.activatePaidClassEnrol(payment.itemId, payment.userId);
+      }
+      // Lát 2 (#189): gói trung tâm / gói giáo viên — kích hoạt quyền
+      // lợi gói (idempotent theo payment; cửa sổ nối tiếp khi mua tiếp).
+      if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
+        await this.plans.activateForPayment(payment);
+      }
       await this.repo.updatePayment(payment.id, { status: 'succeeded', externalTransactionId: referenceCode });
       const succeeded = await this.repo.getPayment(payment.id);
       await this.outbox.enqueueStandalone({
@@ -95,18 +121,6 @@ export class SepayMatchingService {
           component: succeeded!.component, itemId: succeeded!.itemId, externalTransactionId: referenceCode,
         },
       });
-      if (succeeded!.component === 'enrol_fee' && succeeded!.itemId) {
-        await this.enrol.activatePaidEnrol(succeeded!.itemId, succeeded!.userId);
-      }
-      // CLASS-3: gói lớp — kích hoạt ghi danh cấp lớp (idempotent).
-      if (succeeded!.component === 'class_fee' && succeeded!.itemId) {
-        await this.classes.activatePaidClassEnrol(succeeded!.itemId, succeeded!.userId);
-      }
-      // Lát 2 (#189): gói trung tâm / gói giáo viên — kích hoạt quyền
-      // lợi gói (idempotent theo payment; cửa sổ nối tiếp khi mua tiếp).
-      if (succeeded!.component === 'tenant_plan' || succeeded!.component === 'teacher_plan') {
-        await this.plans.activateForPayment(succeeded!);
-      }
       await this.repo.updateProviderEvent(event.id, { matchStatus: 'matched', matchedPaymentId: payment.id });
       return;
     }

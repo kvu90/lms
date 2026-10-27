@@ -49,11 +49,13 @@ export function planSnapshotOf(payment: PaymentRow): PlanSnapshot | null {
  * Kích hoạt + đảo quyền lợi gói (lát 2, issue #189).
  *
  * Luồng nghiệp vụ: payment gói (`tenant_plan`/`teacher_plan`) chỉ sinh
- * quyền lợi khi đã `succeeded` qua một đường đã xác thực (webhook
- * gateway đã qua `verify`, hoặc IPN SePay khớp đủ 3 điều kiện ở khâu
- * matching) — hai đường đó gọi {@link PlanEntitlementsService.activateForPayment}
- * ngay sau khi chốt trạng thái, cùng khuôn với kích hoạt ghi danh có
- * phí. Cửa sổ hiệu lực: bắt đầu từ hiện tại, hoặc NỐI TIẾP từ mốc hết
+ * quyền lợi khi giao dịch đã xác thực thành công (webhook gateway đã
+ * qua `verify`, hoặc IPN SePay khớp đủ 3 điều kiện ở khâu matching) —
+ * hai đường đó gọi {@link PlanEntitlementsService.activateForPayment}
+ * trong nhịp chốt, TRƯỚC khi lật payment sang `succeeded`, cùng khuôn
+ * với kích hoạt ghi danh có phí: bất biến đồng bộ là trạng thái
+ * `succeeded` không bao giờ quan sát được khi quyền lợi chưa tồn tại.
+ * Cửa sổ hiệu lực: bắt đầu từ hiện tại, hoặc NỐI TIẾP từ mốc hết
  * hạn muộn nhất của các quyền lợi đang `active` của cùng bên hưởng +
  * cùng loại gói khi mua tiếp lúc gói cũ còn hạn (cộng dồn thời hạn);
  * độ dài cửa sổ là `periodDays` trong ảnh chụp của chính payment.
