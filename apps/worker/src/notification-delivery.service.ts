@@ -98,9 +98,11 @@ export interface InAppDeliveryResult { status: InAppDeliveryStatus; notification
  * - Tắt theo tuỳ chọn → dispatch log `skipped-preference`, không sinh
  *   thông báo.
  *
- * Kênh ngoài (email/push) KHÔNG đổi ở lát này: hai đường phát nền trước
- * đây không hề xếp hàng job kênh ngoài, và động cơ gửi/digest thuộc NB-5
- * (chờ SMTP) — service này chỉ nhất quán hoá đường trong-app.
+ * Kênh ngoài (email/push) KHÔNG thuộc service này: hai đường phát nền
+ * trước đây không hề xếp hàng job kênh ngoài. Động cơ kênh ngoài nằm ở
+ * processor `notification-dispatch` (gửi email thật qua Resend từ NB-5
+ * của issue #174, kèm tổng hợp theo ngày) — service này chỉ nhất quán
+ * hoá đường trong-app.
  */
 @Injectable()
 export class NotificationDeliveryService implements OnModuleDestroy {
