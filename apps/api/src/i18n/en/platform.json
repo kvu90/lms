@@ -46,6 +46,8 @@
   "guardianOverdueAlertBody": "The activity \"{activity}\" of your child {name} has been overdue for 7 days and is not submitted yet. Open the guardian page to see the details and remind your child.",
   "guardianOverdueAlertExternalSubject": "An activity is overdue by 7 days and not submitted",
   "guardianOverdueAlertExternalBody": "Your child has an activity overdue by 7 days that is not submitted yet. Sign in to the LMS to see the details.",
+  "externalGenericSubject": "You have a new notification",
+  "externalGenericBody": "You have a new \"{event}\" notification. Sign in to the LMS to see the details.",
   "paymentStatus": {
     "pending": "Pending",
     "succeeded": "Succeeded",
@@ -53,6 +55,7 @@
     "refunded": "Refunded"
   },
   "planReviewRequestedBody": "User {userId} requested a review of learning plan {planId}.",
+  "planReviewRequestedExternalBody": "A learning plan is waiting for your review: \"{name}\". Sign in to the LMS to see the details.",
   "planReviewRequestedSubject": "Learning plan review requested: {name}",
   "privacyRequestType": {
     "export": "Export personal data",

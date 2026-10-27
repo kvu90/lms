@@ -101,6 +101,60 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     return (res.body as { userId: string }[]).map((m) => m.userId);
   }
 
+  /**
+   * Chờ hệ quả ghi danh của một payment gói lớp được vật chất hoá tới
+   * trạng thái khẳng định được (issue #219). Trạng thái payment lật
+   * 'succeeded' chỉ chốt ở tầng payment: khâu kích hoạt cộng người
+   * mua vào backing cohort chạy trước khi lật trạng thái, nhưng việc
+   * vật chất hoá ghi danh ACTIVE xuống từng khoá của lớp là hệ quả của
+   * cohort sync bất đồng bộ phía sau. Khẳng định roster + ACTIVE mọi
+   * khoá phải chờ theo điều kiện trên chính hệ quả đó (người mua có
+   * trong roster VÀ ghi danh ACTIVE ở mọi khoá), theo cùng mẫu chờ
+   * của waitPaymentStatus — khẳng định ngay sau tín hiệu trạng thái
+   * từng đỏ ngẫu nhiên ở khoá thứ hai.
+   */
+  async function waitForClassEnrolmentActive(classId: string, userId: string, token: string, courseIds: string[], timeoutMs = 12000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      let settled = (await rosterIds(classId)).includes(userId);
+      for (const courseId of courseIds) {
+        if (!settled) break;
+        settled = await enrolmentActive(courseId, token);
+      }
+      if (settled) return;
+      if (Date.now() > deadline) throw new Error(`class enrolment for user ${userId} in class ${classId} was not fully active within ${timeoutMs}ms`);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+
+  /**
+   * Chờ chuỗi đối soát của một payment SePay chốt xong (issue #219):
+   * sự kiện nhà cung cấp của payment đã sang trạng thái 'matched' —
+   * matching chỉ chốt 'matched' ở cuối nhịp xử lý của nó, sau khi đã
+   * kích hoạt quyền lợi, lật trạng thái payment và ghi sự kiện outbox
+   * `payment_succeeded` — đồng thời sự kiện outbox đó đã tồn tại. Sau
+   * mốc này không còn khâu bất đồng bộ nào trong chuỗi payment có thể
+   * đổi các đếm thành viên cohort / sự kiện outbox được khẳng định,
+   * nên việc đếm sau replay IPN chờ tín hiệu này thay cho sleep cố
+   * định.
+   */
+  async function waitForPaymentReconciled(paymentId: string, timeoutMs = 12000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const matched = await pg.query(
+        `select count(*)::int as c from payment_provider_events where matched_payment_id = $1 and match_status = 'matched'`,
+        [paymentId],
+      );
+      const outbox = await pg.query(
+        `select count(*)::int as c from outbox_events where type = 'payment_succeeded' and payload->>'paymentId' = $1`,
+        [paymentId],
+      );
+      if (matched.rows[0].c >= 1 && outbox.rows[0].c >= 1) return;
+      if (Date.now() > deadline) throw new Error(`payment ${paymentId} reconciliation did not settle within ${timeoutMs}ms`);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+
   function ipnBody(paymentCode: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       gateway: 'MBBANK',
@@ -219,6 +273,10 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     const first = await postIpn(body);
     expect((first.body as { success: boolean }).success).toBe(true);
     await waitPaymentStatus(payment.id, 'succeeded');
+    // Chờ hệ quả ghi danh vật chất hoá xong rồi mới khẳng định
+    // (issue #219): trạng thái succeeded chưa đảm bảo ghi danh ở
+    // từng khoá của lớp đã ACTIVE — xem waitForClassEnrolmentActive.
+    await waitForClassEnrolmentActive(classA, buyer.id, buyer.token, [courseA1, courseA2]);
 
     expect(await rosterIds(classA)).toContain(buyer.id);
     expect(await enrolmentActive(courseA1, buyer.token)).toBe(true);
@@ -235,7 +293,12 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     // Replay IPN (SePay retry): duplicate, roster vẫn đúng một dòng cho người mua.
     const replay = await postIpn(body);
     expect((replay.body as { duplicate?: boolean }).duplicate).toBe(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    // Chờ chuỗi đối soát của payment chốt xong rồi mới đếm (issue
+    // #219; thay sleep cố định 1.200ms trước đây): replay bị từ chối
+    // đồng bộ ở tầng IPN, nhưng các đếm dưới đây chỉ có nghĩa khi
+    // nhịp matching của lượt IPN đầu đã chốt hẳn — xem
+    // waitForPaymentReconciled.
+    await waitForPaymentReconciled(payment.id);
     const cohort = await pg.query('select cohort_id from classes where id = $1', [classA]);
     const members = await pg.query(
       'select count(*)::int as c from cohort_members where cohort_id = $1 and user_id = $2',
