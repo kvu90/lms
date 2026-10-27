@@ -3,9 +3,13 @@
 ## Nguồn sự thật (đọc trước khi sửa)
 
 1. `README.md` của package này — quyết định nghiệp vụ còn hiệu lực của editor.
-2. `~/workspace/lms-nest-ops/decisions.md` — sổ quyết định, nguồn sự thật DUY NHẤT;
-   tài liệu mới hơn không tự thắng sổ; mâu thuẫn thì DỪNG và báo main chat.
-3. Sổ owner `~/workspace/lms-nest-ops/board.md` — một đầu việc chỉ một đội giữ.
+2. Issue đặc tả của việc đang làm trên GitHub — nguồn sự thật cho việc đó: bối cảnh,
+   phạm vi, các quyết định liên quan (viết trọn vẹn ngay trong issue) và tiêu chí
+   nghiệm thu đều nằm trong chính issue. Không viện dẫn sổ quyết định, hồ sơ hay tệp
+   ngoài repo làm căn cứ. Tài liệu trong repo mâu thuẫn với issue thì DỪNG, báo
+   main chat.
+3. `AGENTS.md` ở thư mục gốc của repo — quy định chung cho AI toàn repo, gồm chuẩn
+   văn bản tự chứa cho issue và PR.
 
 ## Ranh giới phạm vi
 
