@@ -207,4 +207,10 @@ export const queryKeys = {
   userLearningPlans: (userId: string) => ['competencies', 'plans', 'user', userId] as const,
   /** Chi tiết một kế hoạch học tập (GET /competencies/plans/:id) — trang learning-plan. */
   learningPlanDetail: (planId: string) => ['competencies', 'plans', planId] as const,
+  /** Lô in phiếu của một lần ghim (GET /exam-batches?pinId=) — trang chấm bài giấy. */
+  examBatches: (pinId: string) => ['exam-batches', pinId] as const,
+  /** Phiếu đã quét của một lần ghim (GET /exam-scans?pinId=) — trang chấm bài giấy. */
+  examScans: (pinId: string) => ['exam-scans', pinId] as const,
+  /** View một lượt làm quiz (GET /quiz-attempts/:id) — trang làm bài/xem lại. */
+  quizAttempt: (attemptId: string) => ['quiz-attempts', attemptId] as const,
 };
