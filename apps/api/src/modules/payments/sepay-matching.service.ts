@@ -3,6 +3,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { ClassesService } from '../classes/classes.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { PaymentsRepository, type ProviderEventRow } from './payments.repository';
+import { PaymentsService } from './payments.service';
 import { PlanEntitlementsService } from './plan-entitlements.service';
 
 /**
@@ -20,9 +21,15 @@ import { PlanEntitlementsService } from './plan-entitlements.service';
  * nhận lại theo cửa sổ stale và các khâu kích hoạt (đều idempotent)
  * chạy lại cho tới khi chốt xong. Thiếu bất kỳ điều
  * kiện nào: sự kiện (và payment nếu xác định được mà còn pending) →
- * `needs_review`, KHÔNG kích hoạt gì (§5.7). Biến động debit không qua
- * matching tiền vào — đối khớp lệnh chi hoàn thuộc lát 3; ở lát 1 sự kiện
- * debit được đánh dấu `ignored` nhưng vẫn nằm trong sổ làm bằng chứng.
+ * `needs_review`, KHÔNG kích hoạt gì (§5.7).
+ *
+ * Lát 3 (#189): biến động `debit` (tiền RA khỏi tài khoản) không còn bị
+ * `ignored` — nó là bằng chứng lệnh chi của một khoản hoàn và được uỷ
+ * thác cho `PaymentsService.settleRefundFromDebitEvent` đối khớp theo
+ * (mã lệnh chi, tài khoản, số tiền) với dòng hoàn đang `approved`:
+ * khớp ⇒ dòng hoàn `settled` (đảo quyền lợi nếu cộng dồn đạt 100%) và
+ * sự kiện `matched`; không khớp ⇒ sự kiện vào `needs_review` của tenant
+ * sở hữu tài khoản nhận để vận hành xử lý, không im lặng bỏ qua.
  *
  * CLASS-3 (#184): payment `class_fee` khớp đủ 3 điều kiện cũng đi đúng
  * đường này — kích hoạt ghi danh CẤP LỚP qua
@@ -46,6 +53,7 @@ export class SepayMatchingService {
     private readonly enrol: EnrolService,
     private readonly classes: ClassesService,
     private readonly plans: PlanEntitlementsService,
+    private readonly payments: PaymentsService,
   ) {}
 
   /** Quét một nhịp: xử lý tối đa `limit` sự kiện đang chờ. Trả số sự kiện đã xử lý. */
@@ -72,7 +80,10 @@ export class SepayMatchingService {
     const event = await this.repo.getProviderEvent(eventId);
     if (!event) return;
     if (event.direction === 'debit') {
-      await this.repo.updateProviderEvent(event.id, { matchStatus: 'ignored' });
+      // Lát 3 (#189): tiền ra = bằng chứng lệnh chi hoàn — đối khớp với
+      // dòng hoàn đang chờ xác nhận; không khớp thì vào hàng đợi
+      // `needs_review` của chủ tài khoản (xem PaymentsService).
+      await this.payments.settleRefundFromDebitEvent(event);
       return;
     }
     const raw = (event.raw ?? {}) as Record<string, unknown>;

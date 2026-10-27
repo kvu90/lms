@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import { decodeQr } from 'vn-qr-pay';
 import {
-  adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
+  adminToken, assignRole, createTestApp, createUserViaApi, http, login,
+  roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from './course-enrolment-helpers';
 import { buildVietQrPayload } from '../src/modules/payments/vietqr';
@@ -281,7 +282,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     expect(JSON.stringify(res.body)).toContain('payment.account_tenant_mismatch');
   });
 
-  it('6.4.7: hoàn một phần giữ quyền lợi; cộng dồn vượt tổng bị chặn; hoàn đủ + chi đã xác nhận → đình chỉ ghi danh', async () => {
+  it('6.4.7 (lát 3): vòng đời hoàn — một phần tự duyệt một cấp + xác nhận chi giữ quyền lợi; cộng dồn vượt tổng bị chặn; lần hoàn chạm 100% phải hai cấp rồi mới đình chỉ ghi danh tại mốc settled', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const manual = await http(app).post('/api/v1/payments/accounts').set('Authorization', `Bearer ${admin}`)
@@ -298,23 +299,62 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     expect(hook.body.status).toBe('succeeded');
     expect(await enrolmentActive(course.id, buyerToken)).toBe(true);
 
-    const partial1 = await http(app).post(`/api/v1/payments/${payment.id}/refund`).set('Authorization', `Bearer ${admin}`)
+    // Lát 3 (issue #189): hoàn tiền là vòng đời duyệt — tạo yêu cầu
+    // (`POST :id/refunds`) → duyệt (một cấp tự duyệt / hai cấp khác
+    // người tạo) → xác nhận chi (`settle`) mới tính tiền đã ra. Hoàn
+    // một phần dưới ngưỡng: MỘT cấp — `approved` ngay khi tạo.
+    const partial1 = await http(app).post(`/api/v1/payments/${payment.id}/refunds`).set('Authorization', `Bearer ${admin}`)
       .send({ amount: 40000, reason: 'partial', externalTransactionId: `ft-out-${Date.now()}-1` });
     expect(partial1.status).toBeLessThan(300);
+    expect(partial1.body.status).toBe('approved');
+    expect(partial1.body.approvalLevel).toBe(1);
+    expect(partial1.body.entitlementReversed).toBeNull();
+    const settled1 = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${partial1.body.id}/settle`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(settled1.status).toBeLessThan(300);
+    expect(settled1.body.status).toBe('settled');
+    expect(settled1.body.entitlementReversed).toBe(false);
     expect(await enrolmentActive(course.id, buyerToken)).toBe(true);
 
-    const partial2 = await http(app).post(`/api/v1/payments/${payment.id}/refund`).set('Authorization', `Bearer ${admin}`)
+    const partial2 = await http(app).post(`/api/v1/payments/${payment.id}/refunds`).set('Authorization', `Bearer ${admin}`)
       .send({ amount: 40000, reason: 'partial 2', externalTransactionId: `ft-out-${Date.now()}-2` });
     expect(partial2.status).toBeLessThan(300);
+    const settled2 = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${partial2.body.id}/settle`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(settled2.body.status).toBe('settled');
+    // Đã chi 80.000/100.000: khoản thu vẫn succeeded, quyền lợi còn nguyên.
+    const midState = await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(midState.body.status).toBe('succeeded');
+    expect(await enrolmentActive(course.id, buyerToken)).toBe(true);
 
-    const exceeding = await http(app).post(`/api/v1/payments/${payment.id}/refund`).set('Authorization', `Bearer ${admin}`)
+    const exceeding = await http(app).post(`/api/v1/payments/${payment.id}/refunds`).set('Authorization', `Bearer ${admin}`)
       .send({ amount: 40000, reason: 'too much', externalTransactionId: `ft-out-${Date.now()}-3` });
     expect(exceeding.status).toBe(400);
     expect(JSON.stringify(exceeding.body)).toContain('payment.refund_exceeds_total');
 
-    const final = await http(app).post(`/api/v1/payments/${payment.id}/refund`).set('Authorization', `Bearer ${admin}`)
+    // Phần còn lại 20.000 làm cộng dồn đạt 100% → HAI CẤP: tạo bởi
+    // manager thứ hai (ở `requested`), admin duyệt, admin xác nhận chi.
+    const mgr2 = await createUserViaApi(app, admin);
+    await assignRole(app, admin, mgr2.id, await roleIdByShortname(app, admin, 'manager'), await systemContextId(app, admin));
+    const mgr2Token = (await login(app, mgr2.username, STRONG_PASSWORD)).accessToken;
+    const final = await http(app).post(`/api/v1/payments/${payment.id}/refunds`).set('Authorization', `Bearer ${mgr2Token}`)
       .send({ amount: 20000, reason: 'rest', externalTransactionId: `ft-out-${Date.now()}-4` });
     expect(final.status).toBeLessThan(300);
+    expect(final.body.status).toBe('requested');
+    expect(final.body.approvalLevel).toBe(2);
+    // Chưa xác nhận chi thì khoản thu chưa `refunded`, quyền lợi chưa đảo.
+    const beforeSettle = await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(beforeSettle.body.status).toBe('succeeded');
+    expect(await enrolmentActive(course.id, buyerToken)).toBe(true);
+    const approved = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${final.body.id}/approve`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(approved.status).toBeLessThan(300);
+    expect(approved.body.status).toBe('approved');
+    const settledFinal = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${final.body.id}/settle`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(settledFinal.status).toBeLessThan(300);
+    expect(settledFinal.body.status).toBe('settled');
+    expect(settledFinal.body.entitlementReversed).toBe(true);
     const after = await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`);
     expect(after.body.status).toBe('refunded');
     expect(await enrolmentActive(course.id, buyerToken)).toBe(false);

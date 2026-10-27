@@ -1,7 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
+  adminToken, assignRole, createTestApp, createUserViaApi, http, login,
+  roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createCm, createEnrolInstance, createSection, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
@@ -173,13 +174,26 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     const enrolments2 = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect((enrolments2.body as { userId: string }[]).filter((e) => e.userId === buyer.id)).toHaveLength(1);
     // Refund là giao dịch bù trừ riêng; payment gốc giữ nguyên amount.
-    const refund = await http(app).post(`/api/v1/payments/${payment.body.id}/refund`).set('Authorization', `Bearer ${admin}`).send({ amount: 50000, reason: 'changed mind' });
+    // Lát 3 (issue #189): hoàn đủ 100% đi qua vòng đời duyệt hai cấp +
+    // xác nhận chi — tạo yêu cầu ở `requested`, manager thứ hai duyệt,
+    // admin xác nhận chi thì payment mới lật `refunded`.
+    const refund = await http(app).post(`/api/v1/payments/${payment.body.id}/refunds`).set('Authorization', `Bearer ${admin}`).send({ amount: 50000, reason: 'changed mind' });
     expect(refund.status).toBeLessThan(300);
+    expect(refund.body.status).toBe('requested');
+    const mgr2 = await createUserViaApi(app, admin);
+    await assignRole(app, admin, mgr2.id, await roleIdByShortname(app, admin, 'manager'), await systemContextId(app, admin));
+    const mgr2Token = (await login(app, mgr2.username, STRONG_PASSWORD)).accessToken;
+    const approved = await http(app).post(`/api/v1/payments/${payment.body.id}/refunds/${refund.body.id}/approve`).set('Authorization', `Bearer ${mgr2Token}`).send({});
+    expect(approved.status).toBeLessThan(300);
+    const settled = await http(app).post(`/api/v1/payments/${payment.body.id}/refunds/${refund.body.id}/settle`).set('Authorization', `Bearer ${admin}`).send({ externalTransactionId: `ft-out-dod-${Date.now()}` });
+    expect(settled.status).toBeLessThan(300);
+    expect(settled.body.status).toBe('settled');
     const after2 = await http(app).get(`/api/v1/payments/${payment.body.id}`).set('Authorization', `Bearer ${admin}`);
     expect(after2.body.amount).toBe(50000);
     expect(after2.body.status).toBe('refunded');
     const refunds = await http(app).get(`/api/v1/payments/${payment.body.id}/refunds`).set('Authorization', `Bearer ${admin}`);
     expect(refunds.body).toHaveLength(1);
+    expect(refunds.body[0].status).toBe('settled');
   });
 
   it('privacy completeness: every expected subsystem has a registered provider (registry completeness gate)', async () => {
