@@ -277,4 +277,7 @@ export const queryKeys = {
   courseCompletions: (courseId: string) => ['courses', courseId, 'completion'] as const,
   /** Hội thoại chat toàn lớp của một khoá (GET /messages/courses/:id/conversation) — trang quản trị khoá. */
   courseConversation: (courseId: string) => ['messages', 'courses', courseId, 'conversation'] as const,
+  /** Lịch sử điểm của một học viên trên một mục điểm (GET /courses/grades/items/:id/users/:userId/history) — trang bảng điểm. */
+  gradeItemHistory: (itemId: string, userId: string) =>
+    ['grades', 'items', itemId, 'users', userId, 'history'] as const,
 };
