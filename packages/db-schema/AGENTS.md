@@ -44,3 +44,30 @@
 - Đổi một quan hệ nghiệp vụ trong schema (vd lớp–khoá, tenant) mà spec ở apps/api
   vẫn xanh nguyên = test chưa bám nghiệp vụ; bổ sung/sửa spec trong cùng PR.
 - Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
+
+## Chuẩn comment TSDoc
+
+Mọi code TypeScript viết mới hoặc sửa trong `packages/db-schema` phải có comment
+**tiếng Việt theo chuẩn TSDoc**, chi tiết nhất có thể — luồng nghiệp vụ của dữ
+liệu phải nằm ngay trong code, để lần sửa sau dựa vào nội dung code đang có chứ
+không dựa vào trí nhớ của trợ lý. Chuẩn ngôn ngữ chung của repo: code bằng tiếng
+Anh (định danh, tên bảng/cột/hàm, chuỗi kỹ thuật); **comment — gồm cả comment
+luồng nghiệp vụ — bằng tiếng Việt**; mọi tài liệu bằng tiếng Việt:
+
+- Đầu mỗi file schema: khối TSDoc mô tả vai trò của nhóm bảng + luồng nghiệp vụ
+  dữ liệu tổng thể (bảng phục vụ nghiệp vụ gì, quan hệ với các bảng khác, tầng
+  nào ghi/đọc dữ liệu).
+- Mỗi bảng/cột/hàm trọng yếu: TSDoc `/** ... */` tiếng Việt gồm mục đích, các
+  bất biến và ràng buộc (khoá chính UUIDv7, `tenant_id` + RLS fail-closed, FK
+  `restrict` đối với dữ liệu chuẩn GDPT…), giá trị mặc định và lý do chọn chúng.
+- Logic phức tạp (cột jsonb mang cấu hình, cột suy biến phục vụ truy vấn, khoá
+  tự nhiên của dữ liệu chuẩn): comment nội tuyến tiếng Việt nói bước xử lý và
+  **lý do** — không lặp lại điều code đã hiển nhiên.
+- Cú pháp/tag theo TSDoc (`@remarks`/`@example` khi cần); định danh và tên tag
+  giữ tiếng Anh.
+- Sửa code thì căn cứ vào comment đang có trong code; thấy comment lệch code
+  thật thì sửa comment **trong cùng lượt** với sửa code.
+- Đội đánh giá độc lập soi chuẩn này như một tiêu chí đạt — code thiếu comment
+  đạt chuẩn là chưa đạt. Comment tiếng Anh còn tồn đọng trong package được dịch
+  theo đợt riêng của chương trình sửa chuẩn ngôn ngữ toàn repo, không tự trộn
+  việc dịch vào feat đang bay.
