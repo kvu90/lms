@@ -28,7 +28,7 @@ export function parseScale(framework: FrameworkRow): ScaleConfiguration {
   return { values, proficient };
 }
 
-/** Proficiency is a function of the FRAMEWORK SCALE only (report §2#15). */
+/** Proficiency là hàm chỉ của SCALE của framework (report §2#15). */
 export function isProficientGrade(framework: FrameworkRow, grade: number | null | undefined): boolean {
   if (grade === null || grade === undefined) return false;
   return parseScale(framework).proficient.includes(grade);
@@ -65,20 +65,20 @@ export interface FrameworkExportDoc {
 }
 
 /**
- * CompetenciesModule facade (Moodle core_competency / tool_lp):
- *  - Frameworks own a competency TREE (path/depth) and a SCALE; proficiency
- *    is read off the scale configuration — NEVER inferred from grades. A
- *    grade can only become EVIDENCE when a link's ruleOutcome says
- *    'attach-evidence' (and even then it does not set proficiency).
- *  - Course/cm links carry an explicit ruleOutcome applied by THIS module
- *    when CompletionModule reports a completion (registered hooks — this
- *    module never reads completion tables).
- *  - Learning plans: template → cohort plans; lifecycle
+ * Facade của CompetenciesModule (core_competency / tool_lp của Moodle):
+ *  - Framework sở hữu một CÂY competency (path/depth) và một SCALE; proficiency
+ *    được đọc từ cấu hình scale — KHÔNG BAO GIỜ suy từ điểm. Một
+ *    điểm chỉ có thể thành EVIDENCE khi ruleOutcome của một liên kết nói
+ *    'attach-evidence' (và ngay cả khi đó nó không đặt proficiency).
+ *  - Liên kết khoá học/cm mang ruleOutcome tường minh được module NÀY áp
+ *    khi CompletionModule báo một completion (hook đã đăng ký — module
+ *    này không bao giờ đọc bảng completion).
+ *  - Learning plan: template → plan cho cohort; vòng đời
  *    draft → active → waitingforreview → inreview → (approve → active |
- *    complete). Every transition is written to competency_plan_review.
- *  - User competencies carry proficiency + a review state machine
- *    (none → waiting → inreview → approve/reject); evidence rows are the
- *    immutable history of everything that happened.
+ *    complete). Mọi chuyển đổi đều ghi vào competency_plan_review.
+ *  - User competency mang proficiency + một máy trạng thái review
+ *    (none → waiting → inreview → approve/reject); dòng evidence là
+ *    lịch sử bất biến của mọi việc đã xảy ra.
  */
 @Injectable()
 /**
@@ -123,7 +123,7 @@ export class CompetenciesService implements OnModuleInit {
     await this.evaluator.requireCapability(actorId, 'competency:competencymanage', await this.systemCtx());
   }
 
-  // --- frameworks & competencies -------------------------------------------------
+  // --- framework & competency -------------------------------------------------
 
   /**
    * Tạo framework năng lực.
@@ -191,7 +191,7 @@ export class CompetenciesService implements OnModuleInit {
     return this.repo.listCompetencies(frameworkId);
   }
 
-  // --- competency rules (points) ---------------------------------------------------------
+  // --- rule competency (points) ---------------------------------------------------------
 
   /**
    * Xem rule của một competency (null khi competency chưa có rule).
@@ -313,7 +313,7 @@ export class CompetenciesService implements OnModuleInit {
     await this.evaluateParentRule(userId, parent.id, scope);
   }
 
-  // --- framework export / import / duplication --------------------------------------------
+  // --- export / import / nhân bản framework --------------------------------------------
 
   /**
    * Export một framework ra tài liệu JSON của hệ thống (cây competency + scale + taxonomies + rule).
@@ -456,7 +456,7 @@ export class CompetenciesService implements OnModuleInit {
     return this.createFrameworkFromExport(doc, { shortName: `${original.shortName} (copy)`, idNumber: candidate });
   }
 
-  // --- course / cm links --------------------------------------------------------------
+  // --- liên kết khoá học / cm --------------------------------------------------------------
 
   private assertOutcome(outcome: string): RuleOutcome {
     if (!RULE_OUTCOMES.includes(outcome as RuleOutcome)) {
@@ -502,7 +502,7 @@ export class CompetenciesService implements OnModuleInit {
     return this.repo.listModuleLinks(cmId);
   }
 
-  // --- user competencies + evidence -------------------------------------------------------
+  // --- user competency + evidence -------------------------------------------------------
 
   /**
    * Lấy hoặc tạo bản ghi năng lực của user cho một competency.
@@ -552,7 +552,7 @@ export class CompetenciesService implements OnModuleInit {
     return this.repo.listUsercompsForUser(userId);
   }
 
-  /** Facade for BadgesModule: is this user proficient in this competency (any scope)? */
+  /** Facade cho BadgesModule: user này có đạt chuẩn competency này không (bất kỳ scope nào)? */
   /**
    * User đã đạt chuẩn competency hay chưa.
    */
@@ -575,12 +575,12 @@ export class CompetenciesService implements OnModuleInit {
   }
 
   /**
-   * Attach evidence to a user's competency (oracle: api_test
-   * test_add_evidence_*). A grade on evidence is a SCALE INDEX: it sets
-   * proficiency per the framework scale — but only when the actor may rate
-   * (review capability, or the plan/course manager path). Evidence submitted
-   * by the learner themselves is recorded WITHOUT a proficiency effect
-   * unless sendForReview moves it into the review workflow.
+   * Gắn evidence vào competency của một user (oracle: api_test
+   * test_add_evidence_*). Một điểm trên evidence là INDEX CỦA SCALE: nó đặt
+   * proficiency theo scale của framework — nhưng chỉ khi actor được chấm
+   * (capability review, hoặc đường manager của plan/khoá học). Evidence do
+   * chính người học nộp được ghi MÀ KHÔNG có hiệu lực proficiency
+   * trừ khi sendForReview chuyển nó vào workflow review.
    */
   /**
    * Thêm bằng chứng cho usercomp (có thể đồng thời gửi duyệt).
@@ -647,7 +647,7 @@ export class CompetenciesService implements OnModuleInit {
     return this.repo.listEvidence(usercompId);
   }
 
-  // --- usercomp review workflow ---------------------------------------------------------
+  // --- workflow review usercomp ---------------------------------------------------------
 
   private async transitionUsercompReview(actorId: string, usercompId: string, action: 'request' | 'start' | 'approve' | 'reject',
     opts?: { grade?: number; note?: string }): Promise<UsercompRow> {
@@ -735,7 +735,7 @@ export class CompetenciesService implements OnModuleInit {
     return this.transitionUsercompReview(actorId, usercompId, 'reject', { note });
   }
 
-  /** Direct rating by a reviewer (oracle: test_add_evidence_complete / grade_competency_in_course). */
+  /** Chấm trực tiếp bởi một reviewer (oracle: test_add_evidence_complete / grade_competency_in_course). */
   /**
    * Chấm trực tiếp proficiency cho usercomp bởi người có capability.
    */
@@ -755,9 +755,9 @@ export class CompetenciesService implements OnModuleInit {
     return this.getUsercomp(usercomp.id);
   }
 
-  // --- completion-driven rule outcomes (registered hooks) --------------------------------
+  // --- rule outcome dẫn động bởi completion (hook đã đăng ký) --------------------------------
 
-  /** Course completed ⇒ apply each linked competency's ruleOutcome in the COURSE scope. */
+  /** Hoàn thành khoá học ⇒ áp ruleOutcome của từng competency đã liên kết trong scope COURSE. */
   /**
    * Hook hoàn thành khoá học: cấp proficiency cho competency liên kết có quy tắc tự động.
    */
@@ -768,7 +768,7 @@ export class CompetenciesService implements OnModuleInit {
       await this.applyOutcome(userId, link.competencyId, { courseId }, link.ruleOutcome as RuleOutcome, `Course ${courseId} completed`);
     }
   }
-  /** Activity completed ⇒ apply each linked competency's ruleOutcome in the COURSE scope of the cm's course. */
+  /** Hoàn thành hoạt động ⇒ áp ruleOutcome của từng competency đã liên kết trong scope COURSE của khoá học chứa cm. */
   /**
    * Hook hoàn thành cm: cấp proficiency cho competency liên kết với module.
    */
@@ -786,15 +786,15 @@ export class CompetenciesService implements OnModuleInit {
     outcome: RuleOutcome, description: string): Promise<void> {
     const usercomp = await this.getOrCreateUsercomp(userId, competencyId, scope);
     if (outcome === 'attach-evidence') {
-      // Evidence ONLY: proficiency is untouched — grades/points never leak
-      // into proficiency (report §2#15).
+      // CHỈ evidence: proficiency không bị chạm — điểm/số điểm không bao giờ rò
+      // vào proficiency (report §2#15).
       await this.repo.insertEvidence({
         userCompetencyId: usercomp.id, actionUserId: userId, action: 'course_completed',
         description, grade: null,
       });
       return;
     }
-    // 'complete': proficiency from the framework scale's first proficient value.
+    // 'complete': proficiency từ giá trị proficient đầu tiên của scale của framework.
     const competencyRow = await this.getCompetency(competencyId);
     const framework = await this.getFramework(competencyRow.frameworkId);
     const scale = parseScale(framework);
@@ -814,7 +814,7 @@ export class CompetenciesService implements OnModuleInit {
     }
   }
 
-  // --- templates ---------------------------------------------------------------------------
+  // --- template ---------------------------------------------------------------------------
 
   /**
    * Tạo template kế hoạch.
@@ -859,7 +859,7 @@ export class CompetenciesService implements OnModuleInit {
     return { templateId, cohorts: await this.repo.listTemplateCohorts(templateId) };
   }
 
-  /** Generate plans for every member of every linked cohort (idempotent per user+template). */
+  /** Sinh plan cho mọi thành viên của mọi cohort đã liên kết (idempotent theo user+template). */
   /**
    * Sinh plan cho mọi thành viên cohort của template (bỏ qua user đã có plan từ template này).
    */
@@ -896,7 +896,7 @@ export class CompetenciesService implements OnModuleInit {
     return plan;
   }
 
-  // --- plans ---------------------------------------------------------------------------------
+  // --- plan ---------------------------------------------------------------------------------
 
   /**
    * Tạo plan thủ công cho user.
@@ -989,7 +989,7 @@ export class CompetenciesService implements OnModuleInit {
       case 'approve':
         await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
         if (from !== PLAN_STATUS.IN_REVIEW) bad('Only a plan in review can be approved');
-        to = PLAN_STATUS.ACTIVE; // approved review returns the plan to active (Moodle approve_plan)
+        to = PLAN_STATUS.ACTIVE; // review đã duyệt đưa plan trở lại active (approve_plan của Moodle)
         break;
       case 'unapprove':
         await this.evaluator.requireCapability(actorId, 'competency:usercompetencyreview', await this.systemCtx());
@@ -1051,7 +1051,7 @@ export class CompetenciesService implements OnModuleInit {
    */
   async completePlan(actorId: string, planId: string): Promise<PlanRow> { return this.planTransition(actorId, planId, 'complete'); }
 
-  /** Forbidden import guard: plan owners may not review their own plans. */
+  /** Cổng cấm import: chủ plan không được review plan của chính mình. */
   /**
    * Chặn tự duyệt: reviewer phải khác chủ plan/usercomp.
    */

@@ -10,24 +10,24 @@ export interface AvailabilityContext {
   userId: string;
   courseId?: string;
   now?: Date;
-  /** Grade PERCENTAGES (0-100, Moodle availability_grade semantics) keyed by grade-item id / cm id — supplied by the GradesModule-registered provider via CoursesService. Absent ⇒ grade conditions are unmet. */
+  /** PHẦN TRĂM điểm (0-100, ngữ nghĩa availability_grade của Moodle) theo khoá id của grade-item / id của cm — do provider đã đăng ký của GradesModule cung cấp qua CoursesService. Vắng mặt ⇒ các điều kiện theo điểm coi như chưa đạt. */
   grades?: Record<string, number>;
 }
 
 export type LeafEvaluator = (leaf: AvailabilityLeaf, ctx: AvailabilityContext) => Promise<LeafResult>;
 
 /**
- * AvailabilityModule facade (Moodle core_availability). Owns the tree
- * semantics and the leaf-evaluator REGISTRY: owning modules register their
- * leaf types (CompletionModule → 'completion', GroupsModule → 'group' and
- * 'grouping') so Availability never imports their repositories — the
- * dependency direction stays Availability ← owners (report §3.12 inverted
- * via registration, like Moodle availability condition plugins).
+ * Facade của AvailabilityModule (core_availability của Moodle). Sở hữu ngữ nghĩa
+ * cây và REGISTRY evaluator của lá: các module sở hữu đăng ký
+ * loại lá của chúng (CompletionModule → 'completion', GroupsModule → 'group' và
+ * 'grouping') để Availability không bao giờ import repository của chúng —
+ * chiều phụ thuộc giữ nguyên Availability ← owners (report §3.12 đảo ngược
+ * qua đăng ký, như các plugin điều kiện availability của Moodle).
  *
- * Built-in leaves: date, grade (hook for Grades), profile (user fields).
- * Unknown leaf types evaluate as NOT available (Moodle ignores missing
- * plugins at construct time but a condition that cannot be checked must
- * never silently grant access).
+ * Các lá tích hợp sẵn: date, grade (hook cho Grades), profile (trường user).
+ * Loại lá lạ được đánh giá là KHÔNG khả dụng (Moodle bỏ qua plugin thiếu
+ * lúc dựng nhưng một điều kiện không kiểm tra được thì
+ * không bao giờ được lặng lẽ cấp quyền truy cập).
  */
 @Injectable()
 /**
@@ -57,7 +57,7 @@ export class AvailabilityService {
    */
   hasEvaluator(type: string): boolean { return this.evaluators.has(type); }
 
-  /** Validate + parse a stored tree; throws BadRequest on malformed JSON structures. */
+  /** Kiểm chứng + phân tích cây đã lưu; ném BadRequest khi cấu trúc JSON sai định dạng. */
   /**
    * Phân tích JSON availability thô thành cây điều kiện (ủy quyền cho availability-tree).
    */
@@ -84,7 +84,7 @@ export class AvailabilityService {
     });
   }
 
-  /** Convenience boolean used by access checks. */
+  /** Boolean rút gọn dùng cho các kiểm tra truy cập. */
   /**
    * Rút gọn của evaluate: chỉ cần biết khả dụng hay không.
    */
@@ -92,9 +92,9 @@ export class AvailabilityService {
     return (await this.evaluate(raw, ctx)).available;
   }
 
-  // --- built-in leaves -----------------------------------------------------
+  // --- các lá tích hợp sẵn -----------------------------------------------------
 
-  /** date leaf: {type:'date', direction:'>='|'<' , time: epochSeconds|string}. Moodle availability_date. */
+  /** Lá date: {type:'date', direction:'>='|'<' , time: epochSeconds|string}. availability_date của Moodle. */
   private async evalDate(leaf: AvailabilityLeaf, ctx: AvailabilityContext): Promise<LeafResult> {
     const now = ctx.now ?? new Date();
     const rawTime = (leaf.t ?? leaf.time) as number | string | undefined;
@@ -106,10 +106,10 @@ export class AvailabilityService {
   }
 
   /**
-   * grade leaf: {type:'grade', id, min, max} — min/max are PERCENTAGES of the
-   * referenced grade item (Moodle availability_grade). Grades: ctx.grades carries
-   * real percentages from GradesModule; when no grade exists for the id, the
-   * condition is unmet (never auto-pass).
+   * Lá grade: {type:'grade', id, min, max} — min/max là PHẦN TRĂM của
+   * grade item được tham chiếu (availability_grade của Moodle). Điểm: ctx.grades mang
+   * phần trăm thật từ GradesModule; khi id không có điểm,
+   * điều kiện coi như chưa đạt (không bao giờ tự qua).
    */
   private async evalGrade(leaf: AvailabilityLeaf, ctx: AvailabilityContext): Promise<LeafResult> {
     const id = String(leaf.id ?? '');
@@ -122,7 +122,7 @@ export class AvailabilityService {
     return { available, description: this.i18n.t('availability.gradeMustBe', { args: { id, range } }) };
   }
 
-  /** profile leaf: {type:'profile', field, operator ('eq'|'contains'|'notempty'|'isempty'), value}. Checks user profile + custom fields. */
+  /** Lá profile: {type:'profile', field, operator ('eq'|'contains'|'notempty'|'isempty'), value}. Kiểm tra hồ sơ user + các trường tuỳ biến. */
   private async evalProfile(leaf: AvailabilityLeaf, ctx: AvailabilityContext): Promise<LeafResult> {
     const field = String(leaf.field ?? leaf.sf ?? '');
     const operator = String(leaf.operator ?? leaf.op ?? 'eq');
