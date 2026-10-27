@@ -163,7 +163,7 @@ export function CommandPalette() {
         type="button"
         variant="outline"
         size="sm"
-        className="ml-auto gap-2 text-muted-foreground"
+        className="gap-2 text-muted-foreground"
         onClick={() => setOpen(true)}
         data-testid="command-palette-trigger"
       >

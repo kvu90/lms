@@ -9,9 +9,11 @@ import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**
  * Test cho cây điều hướng sidebar sau Lát 1 của hồ sơ UI/UX (sidebar
- * collapse theo cơ chế sidebar-07): 6 mục trực tiếp + các mục cha
+ * collapse theo cơ chế sidebar-07): 5 mục trực tiếp + các mục cha
  * thu/mở (Học tập / Người dùng & quyền / Cài đặt hệ thống) thay cho 3
- * nhóm phẳng cũ. Dựng đúng cây thật (App → Shell → AppSidebar) như
+ * nhóm phẳng cũ. Mục "Tìm kiếm" không còn ở sidebar từ chốt 23:52
+ * ngày 26/10/2026 (issue #303 — ô tìm kiếm chuyển ra giữa header).
+ * Dựng đúng cây thật (App → Shell → AppSidebar) như
  * sidebar-notification-count.spec, stub fetch theo vai trò:
  *
  * - Admin thấy đủ cây (3 mục cha); nhóm cha đóng mặc định, bấm mới mở
@@ -195,14 +197,18 @@ afterEach(() => {
 });
 
 describe('cây điều hướng sidebar — admin', () => {
-  it('thấy 6 mục trực tiếp + 3 mục cha; nhóm đóng mặc định nên chưa thấy mục con', async () => {
+  it('thấy 5 mục trực tiếp + 3 mục cha; nhóm đóng mặc định nên chưa thấy mục con', async () => {
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS, 2);
     renderShell();
 
-    // 6 mục trực tiếp là link thật, đúng thứ tự cây của hồ sơ §4.1.
-    for (const name of ['Tổng quan', 'Khoá học', 'Lịch', 'Tin nhắn', 'Thông báo', 'Tìm kiếm']) {
+    // 5 mục trực tiếp là link thật, đúng thứ tự cây của hồ sơ §4.1.
+    for (const name of ['Tổng quan', 'Khoá học', 'Lịch', 'Tin nhắn', 'Thông báo']) {
       expect(await screen.findByRole('link', { name: new RegExp(name) })).toBeInTheDocument();
     }
+    // Mục "Tìm kiếm" KHÔNG còn ở sidebar (chốt 23:52 ngày 26/10/2026,
+    // issue #303): tìm nội dung đi qua ô giữa header, sidebar không
+    // giữ link /search nữa — ai thêm lại link này thì test phải đỏ.
+    expect(screen.queryByRole('link', { name: /Tìm kiếm/ })).not.toBeInTheDocument();
     // Huy hiệu số chưa đọc vẫn nằm trên mục Thông báo.
     const notifications = await screen.findByRole('link', { name: /Thông báo/ });
     expect(await within(notifications).findByText('2')).toBeInTheDocument();

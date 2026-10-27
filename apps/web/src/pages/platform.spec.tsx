@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PrivacyPage } from './platform-privacy';
 import { SearchPage } from './platform-search';
@@ -41,7 +42,12 @@ describe('Search page (platform)', () => {
         ];
       return undefined;
     });
-    render(<SearchPage />);
+    // SearchPage đọc tham số q qua useSearchParams nên phải render trong Router
+    // (đây là ca đỏ duy nhất của CI PR #305 trước khi sửa).
+    const router = createMemoryRouter([{ path: 'search', element: <SearchPage /> }], {
+      initialEntries: ['/search'],
+    });
+    render(<RouterProvider router={router} />);
     await userEvent.type(screen.getByLabelText('Từ khoá tìm kiếm'), 'Visible');
     await userEvent.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
     expect(await screen.findByText('Visible Course')).toBeInTheDocument();
