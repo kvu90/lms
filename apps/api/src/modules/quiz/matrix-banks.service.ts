@@ -88,7 +88,10 @@ export class MatrixBanksService {
    * Deep copy một ma trận vào bank đích trong MỘT transaction: dòng
    * ma trận mang danh tính mới + toàn bộ ô sao nguyên (giữ
    * curriculum_node_id — ô neo ĐVK của chương trình, không neo bank);
-   * derived_from_matrix_id trỏ về nguồn; version về 1.
+   * derived_from_matrix_id trỏ về nguồn; version về 1 — và version 1
+   * đó là hàng version bất biến của chính bản copy (chụp cấu hình
+   * của nguồn tại thời điểm copy), toàn bộ ô sao thuộc về version
+   * này: bản copy có lịch sử version độc lập với nguồn ngay từ đầu.
    */
   private async deepCopyMatrix(actorId: string, source: ExamMatrixRow, targetBank: QuestionBankRow, opts: {
     status: 'draft' | 'ready'; isTemplate: boolean; name?: string;
@@ -107,9 +110,16 @@ export class MatrixBanksService {
         levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
         totalScore: source.totalScore, createdBy: actorId,
       }, tx);
+      const firstVersion = await this.repo.insertMatrixVersion({
+        matrixId: copy.id, version: 1,
+        presetKind: source.presetKind,
+        targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
+        levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
+        totalScore: source.totalScore, createdBy: actorId,
+      }, tx);
       for (const cell of cells) {
         await this.repo.insertMatrixCell({
-          matrixId: copy.id, curriculumNodeId: cell.curriculumNodeId,
+          matrixId: copy.id, matrixVersionId: firstVersion.id, curriculumNodeId: cell.curriculumNodeId,
           cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
           questionCount: cell.questionCount, cellScore: cell.cellScore,
           minutes: cell.minutes, tfScale: cell.tfScale, position: cell.position,

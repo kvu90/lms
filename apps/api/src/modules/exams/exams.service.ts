@@ -521,7 +521,9 @@ export class ExamsService {
         durationMinutes: input.durationMinutes !== undefined ? input.durationMinutes : current.durationMinutes,
         tfScale: input.tfScale !== undefined ? input.tfScale : current.tfScale,
         matrixId: input.matrixId !== undefined ? input.matrixId : current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion,
+        matrixVersionId: input.matrixId !== undefined && input.matrixId !== current.matrixId ? null : current.matrixVersionId,
+        createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(currentSlots.map((s) => ({
         examVersionId: version.id, position: s.position, section: s.section,
@@ -552,7 +554,7 @@ export class ExamsService {
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
         totalScore: current.totalScore, durationMinutes: current.durationMinutes,
         tfScale: current.tfScale, matrixId: current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion, matrixVersionId: current.matrixVersionId, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(slots.map((s, i) => ({ examVersionId: version.id, position: i + 1, ...s })), tx);
       await this.repo.updatePaper(paper.id, { latestVersion: next }, tx);
@@ -676,7 +678,7 @@ export class ExamsService {
         subjectId: sourceVersion.subjectId, grade: sourceVersion.grade, examKind: sourceVersion.examKind,
         totalScore: sourceVersion.totalScore, durationMinutes: sourceVersion.durationMinutes,
         tfScale: sourceVersion.tfScale, matrixId: sourceVersion.matrixId,
-        matrixVersion: sourceVersion.matrixVersion, createdBy: actorId,
+        matrixVersion: sourceVersion.matrixVersion, matrixVersionId: sourceVersion.matrixVersionId, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(sourceSlots.map((s) => ({
         examVersionId: version.id, position: s.position, section: s.section,
@@ -922,11 +924,15 @@ export class ExamsService {
         status: 'ready', createdBy: actorId, latestVersion: 1,
         derivedFromMatrixId: matrix.id,
       }, tx);
+      // Neo FK tới đúng version bất biến của ma trận tại thời điểm
+      // sinh đề: đề đọc lại được nội dung ma trận gốc dù ma trận có
+      // version mới về sau.
+      const matrixVersionId = await this.repo.getMatrixVersionRowId(matrix.id, matrix.version, tx);
       const version = await this.repo.insertVersion({
         examId: paper.id, version: 1, name: input.name,
         subjectId: matrix.subjectId, grade: null, examKind: null,
         totalScore: matrix.totalScore, durationMinutes: null, tfScale: cellScale,
-        matrixId: matrix.id, matrixVersion: matrix.version,
+        matrixId: matrix.id, matrixVersion: matrix.version, matrixVersionId,
         createdBy: actorId,
       }, tx);
       if (drawnPinned) {
@@ -998,7 +1004,7 @@ export class ExamsService {
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
         totalScore: current.totalScore, durationMinutes: current.durationMinutes,
         tfScale: current.tfScale, matrixId: current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion, matrixVersionId: current.matrixVersionId, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(slots.map((s) => ({
         examVersionId: version.id, position: s.position, section: s.section,

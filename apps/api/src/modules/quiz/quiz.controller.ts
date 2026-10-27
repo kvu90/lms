@@ -130,6 +130,19 @@ export class ExamMatricesController {
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.getMatrix(actor.id, id);
   }
+  @Get(':id/versions/:version')
+  /**
+   * GET /exam-matrices/:id/versions/:version — nội dung nguyên vẹn
+   * của đúng một version bất biến của ma trận (cấu hình + ô tại
+   * version đó); version không tồn tại → 404.
+   */
+  async getVersion(@Param('id', { schema: uuidIdSchema }) id: string, @Param('version') version: string, @CurrentUser() actor: AuthenticatedUser) {
+    const parsed = Number(version);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new BadRequestException({ message: 'version must be a positive integer', code: 'quiz.matrix_version_invalid' });
+    }
+    return this.quiz.getMatrixVersion(actor.id, id, parsed);
+  }
   @Patch(':id')
   /**
    * PATCH /exam-matrices/:id — sửa ma trận (quiz:managematrix).

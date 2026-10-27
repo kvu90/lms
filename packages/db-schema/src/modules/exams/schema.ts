@@ -14,7 +14,7 @@ import {
 import { sql } from 'drizzle-orm';
 import { subjects } from '../curriculum/schema';
 import { question, questionBanks } from '../questions/schema';
-import { examMatrices, examMatrixCells } from '../quiz/schema';
+import { examMatrices, examMatrixCells, examMatrixVersions } from '../quiz/schema';
 import { tenants } from '../tenants/schema';
 
 
@@ -90,6 +90,14 @@ export const examVersions = pgTable('exam_versions', {
   tfScale: jsonb('tf_scale').$type<number[]>(),
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   matrixVersion: integer('matrix_version'),
+  /**
+   * Neo FK tới ĐÚNG version bất biến của ma trận đã sinh ra version
+   * đề này (exam_matrix_versions): matrix_version là số version hiển
+   * thị, còn cột này là căn cứ truy được nội dung ma trận gốc bất
+   * biến. Null với version đề không sinh từ ma trận hoặc sinh trước
+   * khi ma trận có version bất biến.
+   */
+  matrixVersionId: uuid('matrix_version_id').references(() => examMatrixVersions.id, { onDelete: 'set null' }),
   createdBy: uuid('created_by').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 },
@@ -97,6 +105,7 @@ export const examVersions = pgTable('exam_versions', {
       index('exam_versions_paper_idx').on(table.examId),
       index('exam_versions_subject_idx').on(table.subjectId),
       index('exam_versions_matrix_idx').on(table.matrixId),
+      index('exam_versions_matrix_version_idx').on(table.matrixVersionId),
       unique('exam_versions_paper_version_unique').on(table.examId, table.version),
       check('exam_versions_exam_kind_check', sql`${table.examKind} is null or ${table.examKind} in ('regular', 'midterm', 'final', 'mock', 'practice')`),
   ]);
@@ -196,7 +205,14 @@ export const examDossiers = pgTable('exam_dossiers', {
   examVersionNumber: integer('exam_version_number'),
   matrixId: uuid('matrix_id').references(() => examMatrices.id, { onDelete: 'set null' }),
   matrixVersion: integer('matrix_version'),
-  /** Bản đặc tả (view model MatrixSpecification) chụp tại lúc nộp — nguồn duy nhất cho bề mặt duyệt trong hàng chờ. */
+  /**
+   * Neo FK tới version bất biến của ma trận tại thời điểm nộp: từ
+   * khi ma trận có version bất biến, lịch sử của bộ hồ sơ được giữ
+   * bằng neo này (nội dung ma trận tại thời điểm nộp đọc lại nguyên
+   * vẹn từ version), không còn phụ thuộc vào ảnh chụp tự tạo.
+   */
+  matrixVersionId: uuid('matrix_version_id').references(() => examMatrixVersions.id, { onDelete: 'set null' }),
+  /** Bản đặc tả (view model MatrixSpecification) chụp tại lúc nộp — giữ cho bề mặt duyệt trong hàng chờ và cho các bộ hồ sơ đã nộp từ trước; bộ hồ sơ mới đồng thời neo matrix_version_id làm căn cứ lịch sử. */
   specSnapshot: jsonb('spec_snapshot').$type<Record<string, unknown>>(),
   resultExamId: uuid('result_exam_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -207,6 +223,7 @@ export const examDossiers = pgTable('exam_dossiers', {
       index('exam_dossiers_paper_idx').on(table.examId),
       index('exam_dossiers_paper_version_idx').on(table.examVersionId),
       index('exam_dossiers_matrix_idx').on(table.matrixId),
+      index('exam_dossiers_matrix_version_idx').on(table.matrixVersionId),
       index('exam_dossiers_proposer_idx').on(table.proposerId),
       index('exam_dossiers_status_idx').on(table.status),
       check('exam_dossiers_status_check', sql`${table.status} in ('draft', 'pending', 'pending_board', 'approved', 'rejected')`),

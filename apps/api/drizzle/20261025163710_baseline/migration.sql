@@ -3240,3 +3240,34 @@ CREATE INDEX "plan_entitlements_user_id_idx" ON "plan_entitlements" ("user_id");
 CREATE INDEX "plan_entitlements_payment_id_idx" ON "plan_entitlements" ("payment_id");--> statement-breakpoint
 ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id") ON DELETE NO ACTION;--> statement-breakpoint
+CREATE TABLE "exam_matrix_versions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"matrix_id" uuid NOT NULL,
+	"version" integer NOT NULL,
+	"preset_kind" text DEFAULT 'cv7991_periodic' NOT NULL,
+	"target_form_percents" jsonb,
+	"target_level_percents" jsonb,
+	"level_set" text DEFAULT 'three' NOT NULL,
+	"scope_note" text,
+	"scope_node_ids" jsonb,
+	"total_score" double precision DEFAULT 10 NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_matrix_versions_matrix_version_unique" UNIQUE("matrix_id","version"),
+	CONSTRAINT "exam_matrix_versions_preset_kind_check" CHECK ("preset_kind" in ('cv7991_periodic')),
+	CONSTRAINT "exam_matrix_versions_level_set_check" CHECK ("level_set" in ('three', 'four'))
+);
+--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD COLUMN "matrix_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD COLUMN "matrix_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD COLUMN "matrix_version_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" DROP CONSTRAINT "exam_matrix_cells_unique";--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_unique" UNIQUE("matrix_version_id","curriculum_node_id","cognitive_level","qtype");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_matrix_version_idx" ON "exam_dossiers" ("matrix_version_id");--> statement-breakpoint
+CREATE INDEX "exam_versions_matrix_version_idx" ON "exam_versions" ("matrix_version_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_cells_matrix_version_idx" ON "exam_matrix_cells" ("matrix_version_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_versions_matrix_idx" ON "exam_matrix_versions" ("matrix_id");--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_matrix_version_id_exam_matrix_versions_id_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_matrix_version_id_exam_matrix_versions_id_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_wW8crdJbee98_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_versions" ADD CONSTRAINT "exam_matrix_versions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;

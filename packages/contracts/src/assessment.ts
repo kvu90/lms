@@ -2130,6 +2130,8 @@ export const examDossierViewSchema = z.object({
   matrixId: z.string().nullable(),
   matrixName: z.string().nullable(),
   matrixVersion: z.number().nullable(),
+  /** Id của hàng version bất biến của ma trận đã neo tại lúc nộp (căn cứ lịch sử của bộ hồ sơ); null khi bộ chưa nộp hoặc ma trận chưa có version bất biến tại thời điểm nộp. */
+  matrixVersionId: z.string().nullable(),
   /** Cấu hình cấp duyệt 2 (BGH) hiệu lực tại lúc đọc — khi true và bộ đang `pending`, duyệt cấp 1 chỉ đưa bộ sang `pending_board`. */
   boardApprovalRequired: z.boolean(),
   resultExamId: z.string().nullable(),

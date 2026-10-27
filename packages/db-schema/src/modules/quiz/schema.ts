@@ -50,8 +50,13 @@ export const examMatrices = pgTable('exam_matrices', {
    * là vòng đời trong bank (draft/ready/hidden như câu hỏi);
    * is_template phân biệt ma trận mẫu ↔ ma trận làm việc;
    * derived_from_matrix_id truy vết copy (mẫu → bản làm việc);
-   * version tăng khi sửa một ma trận đã ready (bản đặc tả đã nộp phải
-   * khớp ma trận tại thời điểm nộp). Quyền trên ma trận chốt MỘT nguồn
+   * version là SỐ VERSION HIỆN HÀNH: mỗi số version có đúng một hàng
+   * bất biến trong exam_matrix_versions chụp cấu hình của version đó,
+   * và toàn bộ ô của version nằm ở exam_matrix_cells theo
+   * matrix_version_id — sửa nội dung một ma trận đã rời draft là tạo
+   * version mới, không ghi đè version cũ (khuôn versions bất biến như
+   * câu hỏi/đề; bản đặc tả đã nộp khớp ma trận tại thời điểm nộp nhờ
+   * neo vào đúng version). Quyền trên ma trận chốt MỘT nguồn
    * duy nhất là BANK (điểm E-8): context_id hiện tại chỉ là neo phạm vi
    * dữ liệu môn — xem resolver quyền trong QuizService.
    */
@@ -82,6 +87,41 @@ export const examMatrices = pgTable('exam_matrices', {
   ]);
 
 /**
+ * Một VERSION bất biến của ma trận: chụp toàn bộ cấu hình thuộc về
+ * nội dung của ma trận tại version đó (preset, tỉ lệ mục tiêu, bộ
+ * mức, phạm vi đã dạy, tổng điểm) — các cột này trên exam_matrices
+ * chỉ còn vai trò "bản hiện hành" phục vụ các đường đọc nhanh, còn
+ * lịch sử đọc từ bảng này. Toàn bộ ô của version nằm ở
+ * exam_matrix_cells.matrix_version_id. Bất biến: hàng đã tạo không
+ * bao giờ sửa; sửa nội dung ma trận đã rời draft = tạo hàng mới với
+ * version = số hiện hành + 1 và sao toàn bộ ô sang version mới rồi
+ * mới áp thay đổi lên bản sao (tầng service giữ luật này). Ma trận
+ * còn draft thì sửa tại chỗ trên version đang mở. Không có tenant_id
+ * riêng — bám khuôn exam_versions/question_versions: tenant suy qua
+ * exam_matrices cha.
+ */
+export const examMatrixVersions = pgTable('exam_matrix_versions', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  matrixId: uuid('matrix_id').notNull().references(() => examMatrices.id, { onDelete: 'cascade' }),
+  version: integer('version').notNull(),
+  presetKind: text('preset_kind').notNull().default('cv7991_periodic'),
+  targetFormPercents: jsonb('target_form_percents').$type<Record<string, number>>(),
+  targetLevelPercents: jsonb('target_level_percents').$type<Record<string, number>>(),
+  levelSet: text('level_set').notNull().default('three'),
+  scopeNote: text('scope_note'),
+  scopeNodeIds: jsonb('scope_node_ids').$type<string[]>(),
+  totalScore: doublePrecision('total_score').notNull().default(10),
+  createdBy: uuid('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_matrix_versions_matrix_idx').on(table.matrixId),
+      unique('exam_matrix_versions_matrix_version_unique').on(table.matrixId, table.version),
+      check('exam_matrix_versions_preset_kind_check', sql`${table.presetKind} in ('cv7991_periodic')`),
+      check('exam_matrix_versions_level_set_check', sql`${table.levelSet} in ('three', 'four')`),
+  ]);
+
+/**
  * Một ô của ma trận = ĐƠN VỊ KIẾN THỨC × mức nhận thức × dạng câu
  * (mục C.1; đính chính theo Phụ lục 1 CV 7991, issue #249): ma trận
  * chỉ là lưới số Chủ đề × ĐVK × dạng × mức, KHÔNG có cột YCCĐ — YCCĐ
@@ -98,6 +138,13 @@ export const examMatrices = pgTable('exam_matrices', {
 export const examMatrixCells = pgTable('exam_matrix_cells', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   matrixId: uuid('matrix_id').notNull().references(() => examMatrices.id, { onDelete: 'cascade' }),
+  /**
+   * Version bất biến mà ô thuộc về (exam_matrix_versions): ô của các
+   * version khác nhau của cùng một ma trận là các hàng khác nhau;
+   * matrix_id giữ vai trò phi chuẩn hoá phục vụ truy vấn theo ma
+   * trận. Khoá tự nhiên của ô chỉ duy nhất TRONG một version.
+   */
+  matrixVersionId: uuid('matrix_version_id').notNull().references(() => examMatrixVersions.id, { onDelete: 'cascade' }),
   curriculumNodeId: uuid('curriculum_node_id').notNull().references(() => curriculumNodes.id, { onDelete: 'restrict' }),
   cognitiveLevel: text('cognitive_level').notNull(),
   qtype: text('qtype').notNull(),
@@ -111,8 +158,9 @@ export const examMatrixCells = pgTable('exam_matrix_cells', {
 },
   (table) => [
       index('exam_matrix_cells_matrix_idx').on(table.matrixId),
+      index('exam_matrix_cells_matrix_version_idx').on(table.matrixVersionId),
       index('exam_matrix_cells_curriculum_node_idx').on(table.curriculumNodeId),
-      unique('exam_matrix_cells_unique').on(table.matrixId, table.curriculumNodeId, table.cognitiveLevel, table.qtype),
+      unique('exam_matrix_cells_unique').on(table.matrixVersionId, table.curriculumNodeId, table.cognitiveLevel, table.qtype),
       check('exam_matrix_cells_level_check', sql`${table.cognitiveLevel} in ('biet', 'hieu', 'van_dung', 'van_dung_cao')`),
       check('exam_matrix_cells_qtype_check', sql`${table.qtype} in ('multichoice', 'truefalse', 'shortanswer', 'essay')`),
       check('exam_matrix_cells_count_check', sql`${table.questionCount} > 0`),

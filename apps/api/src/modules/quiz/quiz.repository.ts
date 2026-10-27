@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examAttemptEvents, examAttemptRegradeItems, examAttemptRegrades, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examPinFeedbacks, examPinOverrides, examPinVersionUpdates, examPins, examSlots, examVersions, exams } from '../../db/schema';
+import { examAttemptEvents, examAttemptRegradeItems, examAttemptRegrades, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examMatrixVersions, examPinFeedbacks, examPinOverrides, examPinVersionUpdates, examPins, examSlots, examVersions, exams } from '../../db/schema';
 
 export type ExamPinRow = typeof examPins.$inferSelect;
 export type ExamAttemptRow = typeof examAttempts.$inferSelect;
 export type ExamPinOverrideRow = typeof examPinOverrides.$inferSelect;
 export type ExamMatrixRow = typeof examMatrices.$inferSelect;
+export type ExamMatrixVersionRow = typeof examMatrixVersions.$inferSelect;
 export type ExamMatrixCellRow = typeof examMatrixCells.$inferSelect;
 export type ExamMatrixContributionRow = typeof examMatrixContributions.$inferSelect;
 export type ExamPinFeedbackRow = typeof examPinFeedbacks.$inferSelect;
@@ -207,6 +208,28 @@ export class QuizRepository {
     await (tx ?? this.db).delete(examMatrices).where(eq(examMatrices.id, id));
   }
   /**
+   * Chèn một version bất biến của ma trận (hàng chụp cấu hình của
+   * đúng một số version; ô của version gắn qua matrix_version_id).
+   */
+  async insertMatrixVersion(v: typeof examMatrixVersions.$inferInsert, tx?: DbTx): Promise<ExamMatrixVersionRow> {
+    const [row] = await (tx ?? this.db).insert(examMatrixVersions).values(v).returning(); return row!;
+  }
+  /**
+   * Hàng version bất biến theo (ma trận, số version) — căn cứ đọc lại
+   * nội dung một version quá khứ nguyên vẹn.
+   */
+  async getMatrixVersionRow(matrixId: string, version: number, tx?: DbTx): Promise<ExamMatrixVersionRow | undefined> {
+    const [row] = await (tx ?? this.db).select().from(examMatrixVersions)
+      .where(and(eq(examMatrixVersions.matrixId, matrixId), eq(examMatrixVersions.version, version))); return row;
+  }
+  /**
+   * Hàng version bất biến theo id (điểm neo từ exam_versions /
+   * exam_dossiers.matrix_version_id).
+   */
+  async getMatrixVersionById(id: string): Promise<ExamMatrixVersionRow | undefined> {
+    const [row] = await this.db.select().from(examMatrixVersions).where(eq(examMatrixVersions.id, id)); return row;
+  }
+  /**
    * Chèn một ô ma trận.
    */
   async insertMatrixCell(v: typeof examMatrixCells.$inferInsert, tx?: DbTx): Promise<ExamMatrixCellRow> {
@@ -219,10 +242,31 @@ export class QuizRepository {
     const [row] = await this.db.select().from(examMatrixCells).where(eq(examMatrixCells.id, id)); return row;
   }
   /**
-   * Các ô của một ma trận theo thứ tự hiển thị.
+   * Các ô của VERSION HIỆN HÀNH của một ma trận theo thứ tự hiển
+   * thị: version hiện hành là hàng exam_matrix_versions có số version
+   * bằng exam_matrices.version; ô đọc theo matrix_version_id của
+   * hàng đó nên sửa version cũ không bao giờ lọt vào bề mặt hiện
+   * hành. Ma trận chưa có hàng version (chỉ gặp ở dữ liệu dựng tay
+   * ngoài các đường tạo của service) thì đọc theo matrix_id như
+   * trước để không mất ô.
    */
-  async listMatrixCells(matrixId: string): Promise<ExamMatrixCellRow[]> {
-    return this.db.select().from(examMatrixCells).where(eq(examMatrixCells.matrixId, matrixId)).orderBy(asc(examMatrixCells.position), asc(examMatrixCells.id));
+  async listMatrixCells(matrixId: string, tx?: DbTx): Promise<ExamMatrixCellRow[]> {
+    const db = tx ?? this.db;
+    const [matrix] = await db.select().from(examMatrices).where(eq(examMatrices.id, matrixId));
+    const versionRow = matrix ? await this.getMatrixVersionRow(matrixId, matrix.version, tx) : undefined;
+    const where = versionRow
+      ? eq(examMatrixCells.matrixVersionId, versionRow.id)
+      : eq(examMatrixCells.matrixId, matrixId);
+    return db.select().from(examMatrixCells).where(where).orderBy(asc(examMatrixCells.position), asc(examMatrixCells.id));
+  }
+  /**
+   * Các ô của ĐÚNG một version bất biến (đọc lịch sử / dựng bản đặc
+   * tả theo version đã neo) theo thứ tự hiển thị.
+   */
+  async listMatrixCellsByVersionId(matrixVersionId: string, tx?: DbTx): Promise<ExamMatrixCellRow[]> {
+    return (tx ?? this.db).select().from(examMatrixCells)
+      .where(eq(examMatrixCells.matrixVersionId, matrixVersionId))
+      .orderBy(asc(examMatrixCells.position), asc(examMatrixCells.id));
   }
   /**
    * Cập nhật một ô ma trận.

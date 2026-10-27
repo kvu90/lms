@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { extractRichTextPlainText, type RichTextDocument } from '@lms/contracts';
 import type { Database } from '../../db/database';
 import {
-  context, course, examDossierReviews, examDossiers, examMatrices, examPins,
+  context, course, examDossierReviews, examDossiers, examMatrices, examMatrixVersions, examPins,
   examContributions, exams, examSlots, examVersions, question,
   questionBankEntries, questionVersions, role, roleAssignments,
 } from '../../db/schema';
@@ -204,6 +204,19 @@ export class ExamsRepository {
     const [row] = await this.db.select({ name: examMatrices.name, version: examMatrices.version })
       .from(examMatrices).where(eq(examMatrices.id, matrixId));
     return row;
+  }
+
+  /**
+   * Id của hàng version bất biến tương ứng (ma trận, số version) —
+   * điểm neo FK cho exam_versions/exam_dossiers.matrix_version_id.
+   * Không có hàng version (ma trận dựng ngoài các đường tạo của
+   * service) → null, nơi gọi giữ số version làm căn cứ hiển thị.
+   */
+  async getMatrixVersionRowId(matrixId: string, version: number, tx?: DbTx): Promise<string | null> {
+    const [row] = await (tx ?? this.db).select({ id: examMatrixVersions.id })
+      .from(examMatrixVersions)
+      .where(and(eq(examMatrixVersions.matrixId, matrixId), eq(examMatrixVersions.version, version)));
+    return row?.id ?? null;
   }
 
   async insertDossier(v: typeof examDossiers.$inferInsert, tx?: DbTx): Promise<ExamDossierRow> {

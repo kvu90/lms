@@ -21,7 +21,7 @@ import { UsersService } from '../users/users.service';
 import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateExamPinOverrideDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateExamPinOverrideDto } from './dto/quiz.dto';
 import { effectiveTfScale, EXAM_KIND_PRESETS, isValidTfScale, MATRIX_PRESETS, matrixWarnings, tfScaleLabel, type ExamKind } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
-import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow, type ExamAttemptEventRow, type ExamAttemptRow, type ExamPinFeedbackRow, type ExamPinOverrideRow, type ExamPinRow } from './quiz.repository';
+import { QuizRepository, type DbTx, type ExamMatrixCellRow, type ExamMatrixRow, type ExamMatrixVersionRow, type ExamAttemptEventRow, type ExamAttemptRow, type ExamPinFeedbackRow, type ExamPinOverrideRow, type ExamPinRow } from './quiz.repository';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
@@ -1552,23 +1552,33 @@ export class QuizService {
     // tham chiếu chụp từ hằng cấu hình khi GV không cho tỉ lệ riêng.
     const presetKind = 'cv7991_periodic';
     const preset = MATRIX_PRESETS[presetKind];
-    const row = await this.repo.insertMatrix({
-      tenantId: bankTenantId !== undefined ? bankTenantId : await this.matrixTenantId(),
-      name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
-      contextId: subject.contextId, presetKind,
-      targetFormPercents: input.targetFormPercents !== undefined ? input.targetFormPercents : (preset?.targetFormPercents ?? null),
-      targetLevelPercents: input.targetLevelPercents !== undefined ? input.targetLevelPercents : (preset?.targetLevelPercents ?? null),
-      levelSet: input.levelSet ?? 'three',
-      scopeNote: input.scopeNote ?? null,
-      scopeNodeIds: input.scopeNodeIds ?? null,
-      totalScore: input.totalScore ?? 10,
-      createdBy: actorId,
-      // Trường ngân hàng (MB-0/MB-1): bankId đã gác quyền tại context
-      // bank ở trên; copy mẫu/đóng góp đi qua MatrixBanksService.
-      bankId: input.bankId ?? null,
-      status: input.status ?? 'draft',
-      isTemplate: input.isTemplate ?? false,
-      derivedFromMatrixId: input.derivedFromMatrixId ?? null,
+    const tenantId = bankTenantId !== undefined ? bankTenantId : await this.matrixTenantId();
+    // Ma trận và hàng version bất biến đầu tiên sinh trong MỘT
+    // transaction: không tồn tại ma trận nào không có version 1 chứa
+    // cấu hình khởi tạo của nó (bất biến nền của cơ chế version hoá).
+    const row = await this.repo.dbHandle.transaction(async (tx) => {
+      const created = await this.repo.insertMatrix({
+        tenantId,
+        name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
+        contextId: subject.contextId, presetKind,
+        targetFormPercents: input.targetFormPercents !== undefined ? input.targetFormPercents : (preset?.targetFormPercents ?? null),
+        targetLevelPercents: input.targetLevelPercents !== undefined ? input.targetLevelPercents : (preset?.targetLevelPercents ?? null),
+        levelSet: input.levelSet ?? 'three',
+        scopeNote: input.scopeNote ?? null,
+        scopeNodeIds: input.scopeNodeIds ?? null,
+        totalScore: input.totalScore ?? 10,
+        createdBy: actorId,
+        // Trường ngân hàng (MB-0/MB-1): bankId đã gác quyền tại context
+        // bank ở trên; copy mẫu/đóng góp đi qua MatrixBanksService.
+        bankId: input.bankId ?? null,
+        status: input.status ?? 'draft',
+        isTemplate: input.isTemplate ?? false,
+        derivedFromMatrixId: input.derivedFromMatrixId ?? null,
+      }, tx);
+      await this.repo.insertMatrixVersion({
+        matrixId: created.id, version: 1, ...this.matrixVersionConfigOf(created), createdBy: actorId,
+      }, tx);
+      return created;
     });
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_created', payload: { matrixId: row.id, subjectId: subject.id, actorId } });
     return this.matrixView(row);
@@ -1689,9 +1699,14 @@ export class QuizService {
         isTemplate: false,
         derivedFromMatrixId: null,
       }, tx);
+      // Version bất biến đầu tiên của ma trận nhập: cấu hình chụp
+      // từ chính ma trận vừa tạo; toàn bộ ô thuộc về version này.
+      const firstVersion = await this.repo.insertMatrixVersion({
+        matrixId: matrix.id, version: 1, ...this.matrixVersionConfigOf(matrix), createdBy: actorId,
+      }, tx);
       for (const cell of input.cells) {
         await this.repo.insertMatrixCell({
-          matrixId: matrix.id, curriculumNodeId: cell.curriculumNodeId,
+          matrixId: matrix.id, matrixVersionId: firstVersion.id, curriculumNodeId: cell.curriculumNodeId,
           cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
           questionCount: cell.questionCount, cellScore: cell.cellScore,
           minutes: null, tfScale: null, position: cell.position,
@@ -1713,6 +1728,44 @@ export class QuizService {
     }
     await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.viewMatrix);
     return this.matrixView(row);
+  }
+
+  /**
+   * Đọc nội dung của ĐÚNG một version bất biến của ma trận: cấu
+   * hình lấy từ hàng version, ô lấy theo version đó — dùng để đối
+   * chiếu bản đặc tả đã nộp/đề đã sinh với nội dung ma trận tại
+   * thời điểm của chúng. Cổng quyền như đọc ma trận hiện hành.
+   * Version không tồn tại → 404 quiz.matrix_version_not_found.
+   */
+  async getMatrixVersion(actorId: string, matrixId: string, version: number): Promise<ExamMatrixView> {
+    const row = await this.getMatrixRow(matrixId);
+    const activeTenant = this.tenantContext.currentTenantId();
+    if (activeTenant !== undefined && row.tenantId !== null && row.tenantId !== activeTenant) {
+      throw new NotFoundException({ message: `Exam matrix ${matrixId} not found`, code: 'quiz.matrix_not_found' });
+    }
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.viewMatrix);
+    const versionRow = await this.repo.getMatrixVersionRow(matrixId, version);
+    if (!versionRow) {
+      throw new NotFoundException({ message: `Exam matrix ${matrixId} has no version ${version}`, code: 'quiz.matrix_version_not_found' });
+    }
+    const cells = await this.repo.listMatrixCellsByVersionId(versionRow.id);
+    return {
+      id: row.id, name: row.name, subjectId: row.subjectId, curriculumId: row.curriculumId,
+      contextId: row.contextId,
+      presetKind: versionRow.presetKind as ExamMatrixView['presetKind'],
+      targetFormPercents: versionRow.targetFormPercents, targetLevelPercents: versionRow.targetLevelPercents,
+      levelSet: versionRow.levelSet as ExamMatrixView['levelSet'],
+      scopeNote: versionRow.scopeNote, scopeNodeIds: versionRow.scopeNodeIds,
+      totalScore: versionRow.totalScore, createdBy: row.createdBy,
+      bankId: row.bankId, status: row.status as ExamMatrixView['status'],
+      isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
+      version: versionRow.version,
+      cells: cells.map((c) => this.matrixCellView(c)),
+      warnings: matrixWarnings({
+        cells, targetFormPercents: versionRow.targetFormPercents,
+        targetLevelPercents: versionRow.targetLevelPercents, totalScore: versionRow.totalScore,
+      }),
+    };
   }
 
   /** Các ma trận của một môn (quiz:viewmatrix tại context của môn).
@@ -1774,13 +1827,34 @@ export class QuizService {
     if (input.bankId !== undefined) patch.bankId = input.bankId;
     if (input.status !== undefined) patch.status = input.status;
     if (input.isTemplate !== undefined) patch.isTemplate = input.isTemplate;
-    // Ma trận đã ready (đã dùng sinh đề/đem duyệt) thì sửa nội dung
-    // phải tăng version — bản đặc tả đã nộp khớp version tại thời điểm
-    // nộp, không khớp bản đã sửa lặng lẽ.
-    const contentChanged = ['name', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore']
+    // Ma trận đã rời draft (đã dùng sinh đề/đem duyệt) thì sửa nội
+    // dung phải sinh VERSION BẤT BIẾN MỚI — bản đặc tả đã nộp khớp
+    // version tại thời điểm nộp, không khớp bản đã sửa lặng lẽ.
+    // Tên là thuộc tính định danh, không thuộc nội dung version hoá,
+    // nên đổi tên đơn thuần không sinh version mới.
+    const contentChanged = ['targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore']
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
-    if (contentChanged && row.status !== 'draft') patch.version = row.version + 1;
-    if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch);
+    if (contentChanged && row.status !== 'draft') {
+      // Fork + áp patch trong MỘT transaction: hàng version mới
+      // chụp cấu hình sau patch và mang toàn bộ ô (nội dung ô không
+      // đổi ở đường sửa này); exam_matrices nhận patch làm bản hiện
+      // hành đồng thời với số version mới do fork tăng.
+      const config = {
+        presetKind: row.presetKind,
+        targetFormPercents: patch.targetFormPercents !== undefined ? patch.targetFormPercents : row.targetFormPercents,
+        targetLevelPercents: patch.targetLevelPercents !== undefined ? patch.targetLevelPercents : row.targetLevelPercents,
+        levelSet: patch.levelSet !== undefined ? patch.levelSet : row.levelSet,
+        scopeNote: patch.scopeNote !== undefined ? patch.scopeNote : row.scopeNote,
+        scopeNodeIds: patch.scopeNodeIds !== undefined ? patch.scopeNodeIds : row.scopeNodeIds,
+        totalScore: patch.totalScore !== undefined ? patch.totalScore : row.totalScore,
+      };
+      await this.repo.dbHandle.transaction(async (tx) => {
+        await this.forkMatrixVersion(row, actorId, config, tx);
+        if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch, tx);
+      });
+    } else if (Object.keys(patch).length) {
+      await this.repo.updateMatrix(row.id, patch);
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_updated', payload: { matrixId: row.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
@@ -1794,15 +1868,90 @@ export class QuizService {
   }
 
   /**
-   * Bản đặc tả sinh TRỰC TIẾP từ các ô, nên thay đổi ở tầng ô trên ma
-   * trận đã rời draft cũng phải tăng version như sửa tầng ma trận (xem
-   * updateMatrix) — nếu không, bản đặc tả đã nộp khớp version tại thời
-   * điểm nộp nhưng không khớp nội dung ô đã bị sửa lặng lẽ sau đó.
+   * Phần cấu hình THUỘC VỀ NỘI DUNG của một ma trận — phần được chụp
+   * vào hàng version bất biến (exam_matrix_versions). Tên/môn/chương
+   * trình/bank/trạng thái là thuộc tính định danh và vòng đời của
+   * chính thực thể ma trận nên KHÔNG version hoá: chúng chỉ sống trên
+   * exam_matrices.
    */
-  private async bumpMatrixVersionIfNonDraft(matrix: ExamMatrixRow): Promise<void> {
-    if (matrix.status !== 'draft') {
-      await this.repo.updateMatrix(matrix.id, { version: matrix.version + 1 });
+  private matrixVersionConfigOf(source: {
+    presetKind: string; targetFormPercents: Record<string, number> | null;
+    targetLevelPercents: Record<string, number> | null; levelSet: string;
+    scopeNote: string | null; scopeNodeIds: string[] | null; totalScore: number;
+  }): {
+    presetKind: string; targetFormPercents: Record<string, number> | null;
+    targetLevelPercents: Record<string, number> | null; levelSet: string;
+    scopeNote: string | null; scopeNodeIds: string[] | null; totalScore: number;
+  } {
+    return {
+      presetKind: source.presetKind, targetFormPercents: source.targetFormPercents,
+      targetLevelPercents: source.targetLevelPercents, levelSet: source.levelSet,
+      scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds, totalScore: source.totalScore,
+    };
+  }
+
+  /**
+   * Hàng version bất biến của version HIỆN HÀNH của một ma trận;
+   * chưa có thì tạo ngay từ cấu hình hiện tại trên exam_matrices.
+   * Mọi đường tạo ma trận của service đều sinh hàng này ngay từ
+   * version 1, nên nhánh tạo bù chỉ gặp ở dữ liệu dựng ngoài các
+   * đường tạo đó — giữ để các đường ghi ô không bao giờ rơi vào
+   * trạng thái "có ô mà không có version chứa ô".
+   */
+  private async ensureCurrentMatrixVersionRow(
+    matrix: ExamMatrixRow, actorId: string, tx?: DbTx,
+  ): Promise<ExamMatrixVersionRow> {
+    const existing = await this.repo.getMatrixVersionRow(matrix.id, matrix.version, tx);
+    if (existing) return existing;
+    return this.repo.insertMatrixVersion({
+      matrixId: matrix.id, version: matrix.version,
+      ...this.matrixVersionConfigOf(matrix),
+      createdBy: matrix.createdBy ?? actorId,
+    }, tx);
+  }
+
+  /**
+   * Sinh VERSION MỚI bất biến cho một ma trận đã rời draft khi nội
+   * dung thay đổi (luật version hoá — thay cho cơ chế chỉ tăng số
+   * version trước đây):
+   *
+   * 1. Chụp cấu hình nội dung MỚI vào hàng version (số = hiện hành
+   *    + 1) — với sửa tầng ô, cấu hình mới chính là cấu hình hiện
+   *    tại; với sửa tầng ma trận, là cấu hình sau patch.
+   * 2. Sao TOÀN BỘ ô của version hiện hành sang version mới (danh
+   *    tính ô mới, cùng khoá tự nhiên) — thao tác sửa ô sau đó chỉ
+   *    đụng bản sao; version cũ giữ nguyên từng ô để bản đặc tả đã
+   *    nộp và đề đã sinh đọc lại đúng nội dung tại thời điểm của
+   *    chúng.
+   * 3. Tăng exam_matrices.version lên số mới (các cột cấu hình trên
+   *    exam_matrices vẫn là bản hiện hành do updateMatrix áp patch
+   *    ngay sau fork trong cùng transaction).
+   *
+   * Chỉ gọi trong transaction do hàm bao mở. Ma trận còn draft KHÔNG
+   * đi qua đây: draft sửa tại chỗ trên version đang mở (version chỉ
+   * bắt đầu bất biến từ khi ma trận rời draft — cùng mốc mà luật cũ
+   * bắt đầu tăng số version).
+   */
+  private async forkMatrixVersion(
+    matrix: ExamMatrixRow, actorId: string,
+    config: ReturnType<QuizService['matrixVersionConfigOf']>,
+    tx: DbTx,
+  ): Promise<ExamMatrixVersionRow> {
+    const current = await this.ensureCurrentMatrixVersionRow(matrix, actorId, tx);
+    const currentCells = await this.repo.listMatrixCellsByVersionId(current.id, tx);
+    const next = await this.repo.insertMatrixVersion({
+      matrixId: matrix.id, version: matrix.version + 1, ...config, createdBy: actorId,
+    }, tx);
+    for (const cell of currentCells) {
+      await this.repo.insertMatrixCell({
+        matrixId: matrix.id, matrixVersionId: next.id,
+        curriculumNodeId: cell.curriculumNodeId, cognitiveLevel: cell.cognitiveLevel,
+        qtype: cell.qtype, questionCount: cell.questionCount, cellScore: cell.cellScore,
+        minutes: cell.minutes, tfScale: cell.tfScale, position: cell.position,
+      }, tx);
     }
+    await this.repo.updateMatrix(matrix.id, { version: matrix.version + 1 }, tx);
+    return next;
   }
 
   private async getMatrixCellRow(matrix: ExamMatrixRow, cellId: string): Promise<ExamMatrixCellRow> {
@@ -1839,13 +1988,24 @@ export class QuizService {
       throw new BadRequestException({ message: 'A cell already exists for this curriculum node, level and question type', code: 'quiz.matrix_cell_exists' });
     }
     const position = input.position ?? (cells.length ? Math.max(...cells.map((c) => c.position)) + 1 : 1);
-    await this.repo.insertMatrixCell({
+    const cellValues = {
       matrixId: matrix.id, curriculumNodeId: input.curriculumNodeId,
       cognitiveLevel: input.cognitiveLevel, qtype: input.qtype,
       questionCount: input.questionCount, cellScore: input.cellScore,
       minutes: input.minutes ?? null, tfScale: input.tfScale ?? null, position,
-    });
-    await this.bumpMatrixVersionIfNonDraft(matrix);
+    };
+    if (matrix.status !== 'draft') {
+      // Ma trận đã rời draft: ô mới thuộc về VERSION MỚI — fork
+      // toàn bộ ô hiện hành sang version mới rồi mới thêm ô vào bản
+      // sao, version cũ không thêm ô nào.
+      await this.repo.dbHandle.transaction(async (tx) => {
+        const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
+        await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: next.id }, tx);
+      });
+    } else {
+      const current = await this.ensureCurrentMatrixVersionRow(matrix, actorId);
+      await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: current.id });
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_created', payload: { matrixId: matrix.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
   }
@@ -1863,8 +2023,20 @@ export class QuizService {
     if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
     if (input.position !== undefined) patch.position = input.position;
     if (Object.keys(patch).length) {
-      await this.repo.updateMatrixCell(cell.id, patch);
-      await this.bumpMatrixVersionIfNonDraft(matrix);
+      if (matrix.status !== 'draft') {
+        // Sửa ô trên ma trận đã rời draft: fork sang version mới
+        // rồi sửa BẢN SAO của ô (định vị theo khoá tự nhiên trong
+        // version mới) — ô của version cũ giữ nguyên giá trị.
+        await this.repo.dbHandle.transaction(async (tx) => {
+          const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
+          const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
+          const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
+            && c.cognitiveLevel === cell.cognitiveLevel && c.qtype === cell.qtype);
+          if (copy) await this.repo.updateMatrixCell(copy.id, patch, tx);
+        });
+      } else {
+        await this.repo.updateMatrixCell(cell.id, patch);
+      }
     }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_updated', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
@@ -1875,8 +2047,19 @@ export class QuizService {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
     const cell = await this.getMatrixCellRow(matrix, cellId);
-    await this.repo.deleteMatrixCell(cell.id);
-    await this.bumpMatrixVersionIfNonDraft(matrix);
+    if (matrix.status !== 'draft') {
+      // Xoá ô trên ma trận đã rời draft: fork sang version mới rồi
+      // xoá BẢN SAO của ô trong version mới — version cũ vẫn còn ô.
+      await this.repo.dbHandle.transaction(async (tx) => {
+        const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
+        const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
+        const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
+          && c.cognitiveLevel === cell.cognitiveLevel && c.qtype === cell.qtype);
+        if (copy) await this.repo.deleteMatrixCell(copy.id, tx);
+      });
+    } else {
+      await this.repo.deleteMatrixCell(cell.id);
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_deleted', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
   }

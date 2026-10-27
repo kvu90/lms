@@ -135,6 +135,7 @@ export class ExamDossiersService {
       matrixId: row.matrixId,
       matrixName: matrixInfo?.name ?? null,
       matrixVersion: row.matrixVersion,
+      matrixVersionId: row.matrixVersionId,
       boardApprovalRequired: await this.boardApprovalRequired(row),
       resultExamId: row.resultExamId,
       reviews: reviews.map((r) => ({
@@ -215,6 +216,13 @@ export class ExamDossiersService {
     }
     const matrixInfo = await this.repo.getMatrixInfo(version.matrixId);
     const matrixVersion = version.matrixVersion ?? matrixInfo?.version ?? null;
+    // Neo FK tới version bất biến của ma trận: version đề sinh từ
+    // ma trận đã mang sẵn neo; thiếu (đề sinh trước khi ma trận có
+    // version bất biến) thì tra theo (ma trận, số version) tại lúc
+    // nộp. Từ đây lịch sử của bộ hồ sơ đứng trên neo này, không còn
+    // phụ thuộc vào ảnh chụp spec_snapshot để giữ nội dung ma trận.
+    const matrixVersionId = version.matrixVersionId
+      ?? (matrixVersion !== null ? await this.repo.getMatrixVersionRowId(version.matrixId, matrixVersion) : null);
     const slots = await this.repo.listSlots(version.id);
     const spec = await this.quiz.buildSpecificationForPaper(actorId, version.matrixId, slots.map((s) => ({
       matrixCellId: s.matrixCellId, position: s.position, questionId: s.questionId,
@@ -225,6 +233,7 @@ export class ExamDossiersService {
       examVersionNumber: version.version,
       matrixId: version.matrixId,
       matrixVersion,
+      matrixVersionId,
       specSnapshot: spec as unknown as Record<string, unknown>,
     });
     await this.outbox.enqueueStandalone({
