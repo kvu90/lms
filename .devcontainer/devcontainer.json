@@ -1,1 +1,32 @@
-{"dockerComposeFile":"docker-compose.yml","forwardPorts":[3000,5173,5432,6379],"name":"LMS — Dev Container (Node 24 + PostgreSQL 18 + Redis 7)","portsAttributes":{"3000":{"label":"API — NestJS (cổng 3000)","onAutoForward":"notify"},"5173":{"label":"Web — Vite dev server (cổng 5173)","onAutoForward":"openPreview"},"5432":{"label":"PostgreSQL 18 (service db)","onAutoForward":"ignore"},"6379":{"label":"Redis 7 (service redis)","onAutoForward":"ignore"}},"postCreateCommand":"corepack prepare pnpm@12.14.0 --activate && pnpm install --frozen-lockfile && cp -n apps/api/.env.example apps/api/.env && cp -n apps/worker/.env.example apps/worker/.env","remoteUser":"node","service":"app","workspaceFolder":"/workspaces/lms"}
+{
+  "dockerComposeFile": "docker-compose.yml",
+  "forwardPorts": [
+    3000,
+    5173,
+    5432,
+    6379
+  ],
+  "name": "LMS — Dev Container (Node 24 + PostgreSQL 18 + Redis 7)",
+  "portsAttributes": {
+    "3000": {
+      "label": "API — NestJS (cổng 3000)",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Web — Vite dev server (cổng 5173)",
+      "onAutoForward": "openPreview"
+    },
+    "5432": {
+      "label": "PostgreSQL 18 (service db)",
+      "onAutoForward": "ignore"
+    },
+    "6379": {
+      "label": "Redis 7 (service redis)",
+      "onAutoForward": "ignore"
+    }
+  },
+  "postCreateCommand": "corepack prepare pnpm@12.14.0 --activate && pnpm install --frozen-lockfile && cp -n apps/api/.env.example apps/api/.env && cp -n apps/worker/.env.example apps/worker/.env",
+  "remoteUser": "node",
+  "service": "app",
+  "workspaceFolder": "/workspaces/lms"
+}
