@@ -216,6 +216,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             toggleLabel: t('app:navExpandGroup', { name: t('app:navMyMatrices') }),
             children: [],
           },
+          // Xem bảng chương trình GDPT theo mẫu Bộ (issue #161, lát
+          // T2): cùng cụm bề mặt soạn học liệu của giáo viên; trang
+          // đích tự gác quyền đọc theo khoá giáo viên đang dạy.
+          { title: t('app:navTeacherProgramme'), url: '/curriculum', icon: IconNotebook },
         ]
       : []),
     ...(perms.canAdminister

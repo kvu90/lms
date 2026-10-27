@@ -42,7 +42,7 @@ export function courseItemStatus(visible: boolean, openAt: Date | null, now: Dat
 /** Component có instance riêng được nhân bản sâu ở K1 (bảng instance + slot). */
 export const QUIZ_COMPONENT_NAME = 'mod_quiz';
 
-/** Registered by EnrolModule at bootstrap — keeps Courses → Enrol import-free (dependency inversion, cf. Availability registry). */
+/** Do EnrolModule đăng ký lúc bootstrap — giữ Courses → Enrol không cần import (đảo ngược phụ thuộc, cf. registry Availability). */
 export interface EnrolChecker {
   /**
    * User có enrolment đang hiệu lực trong khoá học hay không (ủy quyền cho enrol checker đã đăng ký để tránh vòng phụ thuộc module).
@@ -141,10 +141,10 @@ export interface CourseContentView {
 }
 
 /**
- * CoursesModule facade (Moodle core_course). Categories and courses form
- * trees/contexts: every category gets a coursecat context (40), every course
- * a course context (50) under its category, every cm a module context (70)
- * under its course — created through the AccessModule facade only.
+ * Facade của CoursesModule (core_course của Moodle). Category và khoá học tạo
+ * cây/context: mỗi category nhận một context coursecat (40), mỗi khoá học
+ * một context khoá học (50) dưới category của nó, mỗi cm một context module (70)
+ * dưới khoá học của nó — tạo chỉ qua facade AccessModule.
  */
 @Injectable()
 /**
@@ -155,11 +155,11 @@ export interface CourseContentView {
  */
 export class CoursesService {
   private enrolChecker?: EnrolChecker;
-  /** Registered by GradesModule: grade percentages (0-100) per user+course for availability 'grade' leaves. */
+  /** Do GradesModule đăng ký: phần trăm điểm (0-100) theo user+khoá học cho lá 'grade' của availability. */
   private gradeProvider?: (userId: string, courseId: string) => Promise<Record<string, number>>;
-  /** Registered by CurriculumModule: đơn vị khung chương trình cho cơ chế nạp khung vào khoá (K0a). */
+  /** Do CurriculumModule đăng ký: đơn vị khung chương trình cho cơ chế nạp khung vào khoá (K0a). */
   private frameProvider?: CurriculumFrameProvider;
-  /** Registered by CurriculumModule: đơn vị khung SGK cho cơ chế nạp khung vào khoá (K0b). */
+  /** Do CurriculumModule đăng ký: đơn vị khung SGK cho cơ chế nạp khung vào khoá (K0b). */
   private bookFrameProvider?: BookFrameProvider;
 
   /**
@@ -201,7 +201,7 @@ export class CoursesService {
     private readonly tenants: TenantsService,
   ) {}
 
-  // --- tenant helpers (TENANT-0, #168) ---------------------------------------
+  // --- helper tenant (TENANT-0, #168) ---------------------------------------
   /** Tenant hiệu lực: ngữ cảnh request; ngoài request (seed/job) rơi về tenant-zero. */
   private async effectiveTenantId(): Promise<string> {
     return this.tenantContext.currentTenantId() ?? (await this.tenants.fallbackTenantId());
@@ -237,7 +237,7 @@ export class CoursesService {
     return this.enrolChecker.isEnrolled(courseId, userId, { onlyActive: true });
   }
 
-  // --- context helpers -----------------------------------------------------
+  // --- helper context -----------------------------------------------------
   /**
    * Context id của category (tạo context nếu chưa có).
    */
@@ -261,7 +261,7 @@ export class CoursesService {
     return (await this.contexts.getByLevelInstance(CONTEXT_LEVELS.MODULE, cmId))?.id;
   }
 
-  // --- categories ------------------------------------------------------------
+  // --- category ------------------------------------------------------------
   /**
    * Tạo category (kiểm capability tại context cha, tính path).
    */
@@ -312,7 +312,7 @@ export class CoursesService {
     return active ? all.filter((c) => c.tenantId === active) : all;
   }
 
-  /** Category tree for UI: nested children arrays. */
+  /** Cây category cho UI: mảng children lồng nhau. */
   /**
    * Cây category kèm khoá học lồng bên trong.
    */
@@ -346,7 +346,7 @@ export class CoursesService {
     return this.getCategory(id);
   }
 
-  /** Move a category under a new parent, rewriting path/depth of the whole subtree and reparenting its context. */
+  /** Di chuyển một category xuống dưới cha mới, viết lại path/depth của toàn cây con và đổi cha context của nó. */
   private async moveCategory(cat: CategoryRow, newParent: string | null, actorId?: string): Promise<void> {
     if (newParent === cat.id) throw new BadRequestException({ message: 'A category cannot be its own parent', code: 'course.category_cycle' });
     const subtree = await this.repo.subtreeOf(cat);
@@ -368,10 +368,10 @@ export class CoursesService {
   }
 
   /**
-   * Delete a category — the fate of contained courses/subcategories MUST be
-   * explicit (Moodle rule, report §2#4): 'moveup' re-parents children and
-   * courses to the deleted category's parent; 'recursive' deletes them.
-   * Refuses (400) when the category is non-empty and no mode is given.
+   * Xoá một category — số phận của khoá học/category con bên trong PHẢI được
+   * tường minh (luật Moodle, report §2#4): 'moveup' đổi cha children và
+   * khoá học lên cha của category bị xoá; 'recursive' xoá chúng.
+   * Từ chối (400) khi category không rỗng và không có mode nào được cho.
    */
   /**
    * Xoá category rỗng (còn khoá học/category con thì từ chối).
@@ -403,7 +403,7 @@ export class CoursesService {
       for (const sub of subtree) {
         for (const c of await this.repo.listCourses(sub.id)) await this.deleteCourseInternal(c, actorId);
       }
-      // Delete subcategories deepest-first (FK from course.category is cascade, courses already gone).
+      // Xoá category con sâu nhất trước (FK từ course.category là cascade, khoá học đã mất).
       for (const sub of subtree.sort((a, b) => b.depth - a.depth)) {
         if (sub.id !== id) {
           await this.contexts.deleteByLevelInstance(CONTEXT_LEVELS.COURSECAT, sub.id);
@@ -417,7 +417,7 @@ export class CoursesService {
     return { deleted: true, mode: effectiveMode };
   }
 
-  // --- courses ---------------------------------------------------------------
+  // --- khoá học ---------------------------------------------------------------
   /**
    * Tạo khoá học trong category, kèm context và category điểm gốc được tạo ở tầng grades qua hook.
    */
@@ -481,7 +481,7 @@ export class CoursesService {
     // Khoá thuộc lớp: context khoá neo dưới context LỚP (thay vì danh mục)
     // để quyền tại lớp chảy xuống khoá qua cây path (issue #184).
     await this.contexts.createContext(CONTEXT_LEVELS.COURSE, created.id, classRef?.contextId ?? categoryCtxId);
-    // Every course starts with section 0 (general), as in Moodle.
+    // Mọi khoá học bắt đầu với section 0 (general), như Moodle.
     await this.repo.insertSection({ course: created.id, section: 0, name: null, summary: '', visible: true });
     // Vật chất hoá phía lớp (group "cả lớp" + instance cohort + backfill
     // roster) — hook của module classes; lỗi phải lộ ra, không nuốt.
@@ -663,7 +663,7 @@ export class CoursesService {
     await this.deleteCourseInternal(courseRow, actorId);
   }
 
-  /** Delete without a capability re-check (category recursive delete already checked the category capability). */
+  /** Xoá mà không kiểm tra lại capability (recursive delete của category đã kiểm tra capability của category). */
   private async deleteCourseInternal(courseRow: CourseRow, actorId?: string): Promise<void> {
     const cms = await this.repo.listCms(courseRow.id);
     for (const cm of cms) await this.emitCmDeleted(cm, actorId);
@@ -672,13 +672,13 @@ export class CoursesService {
     await this.outbox.enqueueStandalone({ aggregate: 'course', type: 'course_deleted', payload: { courseId: courseRow.id, actorId: actorId ?? null } });
   }
 
-  // --- access gate -------------------------------------------------------------
+  // --- cổng truy cập -------------------------------------------------------------
   /**
-   * The course-content gate (report §2#5): enrolment and capability are
-   * INDEPENDENT conditions. Access = site admin, OR an ACTIVE enrolment, OR
-   * a real (non-student) role assignment granting course:view.
-   * A suspended enrolment therefore blocks even a user who holds the student
-   * role — the role alone never opens the course.
+   * Cổng nội dung khoá học (report §2#5): ghi danh và capability là
+   * điều kiện ĐỘC LẬP. Truy cập = site admin, HOẶC một ghi danh ACTIVE, HOẶC
+   * một gán role thật (không phải student) cấp course:view.
+   * Một ghi danh bị đình chỉ vì vậy chặn cả user giữ role student
+   * — chỉ role thôi không bao giờ mở khoá học.
    */
   /**
    * Cổng truy cập khoá học: ẩn + chưa enrol + thiếu capability → course.access_denied.
@@ -703,7 +703,7 @@ export class CoursesService {
     return this.evaluator.hasCapability(userId, 'course:viewhiddenactivities', await this.courseContextId(courseId));
   }
 
-  // --- sections & modules ------------------------------------------------------
+  // --- section & module ------------------------------------------------------
   /**
    * Thêm section vào khoá học.
    */
@@ -841,8 +841,8 @@ export class CoursesService {
       aggregate: 'course_module', type: 'cm_deleted',
       payload: { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceId: cm.instanceId, actorId: actorId ?? null },
     });
-    // In-process delivery for the owning modules' handlers (completion, files);
-    // handlers are idempotent, so the durable outbox relay may replay safely.
+    // Phân phối trong tiến trình cho handler của các module sở hữu (completion, files);
+    // handler idempotent, nên relay outbox bền có thể phát lại an toàn.
     await this.emitter.emitAsync('cm_deleted', { cmId: cm.id, courseId: cm.course, contextId: contextId ?? null, component: cm.component, instanceId: cm.instanceId });
     if (contextId) await this.contexts.deleteContext(contextId);
   }
@@ -861,9 +861,9 @@ export class CoursesService {
   }
 
   /**
-   * Record that a user viewed a cm: enqueues the durable `cm_viewed` outbox
-   * event AND delivers it in-process so CompletionModule's listener writes
-   * the completionView state (handlers are idempotent).
+   * Ghi nhận một user đã xem một cm: xếp hàng sự kiện outbox bền `cm_viewed`
+   * VÀ phân phối trong tiến trình để listener của CompletionModule ghi
+   * trạng thái completionView (handler idempotent).
    */
   /**
    * Ghi nhận lượt xem cm — đầu vào của completion theo lượt xem.
@@ -878,7 +878,7 @@ export class CoursesService {
     return cm;
   }
 
-  /** Server-side availability check for one cm (section availability AND cm availability must both pass). */
+  /** Kiểm tra availability phía server cho một cm (availability của section VÀ availability của cm đều phải qua). */
   /**
    * Đánh giá truy cập một cm: hiển thị (show) tách khỏi khả dụng (available) theo semantics availability của Moodle.
    */
@@ -1571,7 +1571,7 @@ export class CoursesService {
     return created;
   }
 
-  /** Full course-content view with per-item availability evaluated for THIS user; hidden-unavailable items are omitted. */
+  /** View nội dung khoá học đầy đủ với availability từng mục đã đánh giá cho user NÀY; mục ẩn-không-khả-dụng bị bỏ. */
   /**
    * Dựng nội dung khoá học cho người xem: section + cm kèm kết quả availability đã đánh giá theo user.
    */

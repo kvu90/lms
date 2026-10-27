@@ -12,6 +12,15 @@ import type { CurriculumTreeNode } from '#lib/curriculum';
  * đường đi ở cột Nội dung; node mang YCCĐ ở bất kỳ bậc nào cũng thành
  * dòng. Hành vi quản trị giữ nguyên §9: thêm node con / thêm YCCĐ /
  * Sửa mở màn riêng, Xoá tại dòng.
+ *
+ * Chế độ `readOnly` (trang xem chương trình của GIÁO VIÊN, issue #161
+ * lát T2): cùng một cách trình bày mẫu Bộ nhưng KHÔNG nút thao tác —
+ * giáo viên chỉ xem, sửa chương trình thuộc khu quản trị.
+ *
+ * Nội dung YCCĐ được trình bày GIỮ CẤU TRÚC DÒNG (điểm T3 của issue
+ * #161): text canonical của một YCCĐ có thể gồm nhiều dòng (các ý đã
+ * tách ở dataset, gồm danh sách ý cha–con) — mỗi dòng render thành
+ * một khối riêng thay vì một đoạn chạy liền mất phân cấp dòng.
  */
 export interface ProgramRow {
   node: CurriculumTreeNode;
@@ -51,18 +60,38 @@ export function NodeRowActions({
   );
 }
 
+/**
+ * Nội dung một YCCĐ giữ cấu trúc dòng: YCCĐ một dòng render nguyên như
+ * cũ; YCCĐ nhiều dòng thì mỗi dòng là một khối riêng trong cùng ô
+ * (thứ tự dòng giữ nguyên thứ tự canonical của dataset).
+ */
+export function OutcomeContent({ content }: { content: string }) {
+  if (!content.includes('\n')) return <span>{content}</span>;
+  return (
+    <span>
+      {content.split('\n').map((line, index) => (
+        <span key={index} className="block">
+          {line}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** Một bảng chương trình: tiêu đề mạch (nếu có) + các dòng Nội dung | Yêu cầu cần đạt. */
 export function ProgramGroupTable({
-  title, groupNode, rows, curriculumId, onDeleteNode, onDeleteOutcome, continued = false,
+  title, groupNode, rows, curriculumId, onDeleteNode, onDeleteOutcome, continued = false, readOnly = false,
 }: {
   title: string | null;
   groupNode: CurriculumTreeNode | null;
   rows: ProgramRow[];
   curriculumId: string;
-  onDeleteNode: (node: CurriculumTreeNode) => void;
-  onDeleteOutcome: (node: CurriculumTreeNode, outcomeId: string) => void;
+  onDeleteNode?: (node: CurriculumTreeNode) => void;
+  onDeleteOutcome?: (node: CurriculumTreeNode, outcomeId: string) => void;
   /** Mạch này đã bắt đầu ở trang trước (phân trang cắt qua mạch) → tiêu đề kèm dấu (tiếp) như văn bản in. */
   continued?: boolean;
+  /** Chỉ xem (trang giáo viên): ẩn mọi nút thao tác tại dòng và tại tiêu đề mạch. */
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation('app');
   return (
@@ -72,9 +101,11 @@ export function ProgramGroupTable({
           <Badge variant="default">{t(`curriculumKind_${groupNode.kind}`)}</Badge>
           <h3 className="font-semibold">{title}</h3>
           {continued ? <span className="text-sm text-muted-foreground">{t('curriculumGroupContinued')}</span> : null}
-          <span className="ml-auto">
-            <NodeRowActions node={groupNode} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
-          </span>
+          {!readOnly && onDeleteNode ? (
+            <span className="ml-auto">
+              <NodeRowActions node={groupNode} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
+            </span>
+          ) : null}
         </header>
       ) : null}
       <table className="w-full text-sm">
@@ -92,9 +123,11 @@ export function ProgramGroupTable({
                   <span className="block text-xs text-muted-foreground">{path.join(' › ')}</span>
                 ) : null}
                 <span className="font-medium">{node.title}</span>
-                <span className="mt-1 block">
-                  <NodeRowActions node={node} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
-                </span>
+                {!readOnly && onDeleteNode ? (
+                  <span className="mt-1 block">
+                    <NodeRowActions node={node} curriculumId={curriculumId} onDeleteNode={onDeleteNode} />
+                  </span>
+                ) : null}
               </td>
               <td className="p-2">
                 {node.outcomes.length === 0 ? (
@@ -105,21 +138,23 @@ export function ProgramGroupTable({
                       <li key={outcome.id} className="flex flex-wrap items-start gap-2">
                         <span aria-hidden="true" className="text-muted-foreground">–</span>
                         <span className="min-w-0 flex-1">
-                          <span>{outcome.content}</span>
+                          <OutcomeContent content={outcome.content} />
                           {outcome.sourceRef ? (
                             <span className="block text-xs text-muted-foreground">
                               {t('curriculumOutcomeSource', { source: outcome.sourceRef })}
                             </span>
                           ) : null}
                         </span>
-                        <span className="flex gap-2">
-                          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/outcomes/${outcome.id}/edit`} />}>
-                            {t('curriculumEdit')}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => onDeleteOutcome(node, outcome.id)}>
-                            {t('curriculumDelete')}
-                          </Button>
-                        </span>
+                        {!readOnly && onDeleteOutcome ? (
+                          <span className="flex gap-2">
+                            <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/outcomes/${outcome.id}/edit`} />}>
+                              {t('curriculumEdit')}
+                            </Button>
+                            <Button type="button" variant="destructive" size="sm" onClick={() => onDeleteOutcome(node, outcome.id)}>
+                              {t('curriculumDelete')}
+                            </Button>
+                          </span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>

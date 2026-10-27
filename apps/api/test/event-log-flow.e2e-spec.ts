@@ -17,10 +17,10 @@ interface LogItem {
 interface LogPage { items: LogItem[]; total: number; page: number; pageSize: number }
 
 /**
- * Logstore flow (issue #22): real business actions over HTTP enqueue outbox
- * events; one relay pass (the call the worker scheduler makes every 5s)
- * mirrors them into event_log; the read API then serves them with filters
- * and context-scoped permission checks (Moodle report_log equivalent).
+ * Luồng Logstore (issue #22): các hành động nghiệp vụ thật qua HTTP đưa vào hàng đợi outbox
+ * các sự kiện; một lượt relay (lời gọi mà bộ lập lịch của worker thực hiện mỗi 5 giây)
+ * phản chiếu chúng vào event_log; API đọc sau đó phục vụ chúng kèm bộ lọc
+ * và kiểm tra quyền theo phạm vi context (tương đương report_log của Moodle).
  */
 describe('Event log: outbox actions are mirrored and queryable with filters + permissions', () => {
   let app: INestApplication;
@@ -64,7 +64,7 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     admin = adminLogin.accessToken;
     adminId = adminLogin.userId;
 
-    // Business actions (each enqueues outbox events with the actor attached).
+    // Các hành động nghiệp vụ (mỗi hành động đưa sự kiện outbox vào hàng đợi kèm người thực hiện).
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
     courseId = course.id;
@@ -84,7 +84,7 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     const editingTeacher = await roleIdByShortname(app, admin, 'editingteacher');
     await assignRole(app, admin, teacherId, editingTeacher, courseContextId);
 
-    // Teacher grades the student (grade_updated with the teacher as actor).
+    // Giáo viên chấm điểm học viên (grade_updated với giáo viên là người thực hiện).
     const teacherLogin = await login(app, teacher.username, STRONG_PASSWORD);
     teacherToken = teacherLogin.accessToken;
     const item = await createGradeItem(app, teacherToken, courseId);
@@ -93,12 +93,12 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     const studentLogin = await login(app, student.username, STRONG_PASSWORD);
     studentToken = studentLogin.accessToken;
 
-    // Admin unenrols the student again (user_unenrolled).
+    // Admin huỷ ghi danh học viên lần nữa (user_unenrolled).
     const del = await http(app).delete(`/api/v1/courses/${courseId}/enrol/instances/${instanceId}/users/${studentId}`)
       .set('Authorization', `Bearer ${admin}`);
     expect([200, 204]).toContain(del.status);
 
-    // One relay pass mirrors every pending outbox row into event_log.
+    // Một lượt relay phản chiếu mọi dòng outbox đang chờ vào event_log.
     let published = 0;
     for (let i = 0; i < 20; i += 1) {
       const n = await relay.publishPending(500);
@@ -151,8 +151,8 @@ describe('Event log: outbox actions are mirrored and queryable with filters + pe
     expect(types).toContain('grade_updated');
     expect(types).toContain('user_unenrolled');
     expect(types).not.toContain('course_created');
-    // The manual grade_updated (rawGrade 8, set by the teacher) records the
-    // teacher as actor; cascade regrade events are system-driven (no actor).
+    // grade_updated thủ công (rawGrade 8, do giáo viên đặt) ghi
+    // giáo viên là người thực hiện; các sự kiện chấm lại theo tầng (cascade) do hệ thống điều khiển (không có người thực hiện).
     const grade = body.items.find((i) => i.eventType === 'grade_updated' && i.payload?.rawGrade === 8);
     expect(grade).toBeDefined();
     expect(grade!.userId).toBe(teacherId);

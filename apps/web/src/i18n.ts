@@ -2281,6 +2281,17 @@ export const appResources = {
       evidenceReviewDescription: 'Vui lòng duyệt bằng chứng của tôi',
       navSiteConfig: 'Cấu hình site',
       navCurriculum: 'Chương trình GDPT',
+      navTeacherProgramme: 'Xem chương trình GDPT',
+      teacherProgrammeTitle: 'Chương trình GDPT 2018',
+      teacherProgrammeDescription:
+        'Bảng chương trình theo mẫu của Bộ — môn, lớp, Mạch nội dung | Nội dung | Yêu cầu cần đạt — để giáo viên tra cứu khi soạn bài, soạn câu hỏi và xây dựng đề. Trang này chỉ để xem; việc sửa chương trình thuộc khu quản trị.',
+      teacherProgrammeCourseLabel: 'Khoá bạn đang dạy (ngữ cảnh quyền xem)',
+      teacherProgrammeNoCourse:
+        'Bạn chưa có khoá nào đang dạy nên chưa mở được quyền xem chương trình. Quyền xem chương trình quốc gia đi kèm quyền sửa một khoá bạn dạy — khi bạn được phân công dạy một khoá, trang này sẽ đọc được dữ liệu.',
+      teacherProgrammeForbidden:
+        'Khoá đã chọn không cấp quyền xem chương trình (bạn không dạy khoá này). Hãy chọn một khoá bạn đang dạy.',
+      teacherProgrammeSubjectLabel: 'Môn học',
+      teacherProgrammeGradeLabel: 'Lớp',
       curriculumAdminTitle: 'Quản trị chương trình GDPT 2018',
       curriculumAdminDescription:
         'Cây chương trình quốc gia theo môn và khối lớp: mạch/chủ đề, nội dung và yêu cầu cần đạt nguyên văn kèm truy vết nguồn. Giáo viên nạp khung này vào khoá học khi soạn.',
@@ -4486,6 +4497,17 @@ export const appResources = {
       evidenceReviewDescription: 'Please review my evidence',
       navSiteConfig: 'Site configuration',
       navCurriculum: 'National curriculum',
+      navTeacherProgramme: 'View national programme',
+      teacherProgrammeTitle: 'GDPT 2018 national programme',
+      teacherProgrammeDescription:
+        'The programme table in the Ministry format — subject, grade, Content strand | Content | Required outcomes — for teachers to consult while preparing lessons, questions and papers. This page is read-only; editing the programme belongs to the admin area.',
+      teacherProgrammeCourseLabel: 'A course you teach (viewing context)',
+      teacherProgrammeNoCourse:
+        'You do not teach any course yet, so programme viewing cannot be unlocked. Read access to the national programme rides on update rights for a course you teach — once you are assigned to teach a course, this page will load its data.',
+      teacherProgrammeForbidden:
+        'The selected course does not grant programme viewing (you do not teach it). Pick a course you teach.',
+      teacherProgrammeSubjectLabel: 'Subject',
+      teacherProgrammeGradeLabel: 'Grade',
       curriculumAdminTitle: 'GDPT 2018 curriculum administration',
       curriculumAdminDescription:
         'The national programme tree by subject and grade: strands/topics, content and verbatim learning outcomes with source tracing. Teachers apply this frame to their courses.',

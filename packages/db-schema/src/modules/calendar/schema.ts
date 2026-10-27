@@ -11,12 +11,12 @@ import {
 import { sql } from 'drizzle-orm';
 
 /**
- * Calendar events (Moodle `event` → `calendar_events`). event_type:
- * site|category|course|group|user decides visibility by the context tree +
- * group membership (report §2#13). A series is a set of rows sharing
- * `repeat_id` (= id of the first event); the root carries the `rrule`
- * (FREQ=DAILY|WEEKLY|MONTHLY;COUNT=n|UNTIL=...). An exception is a row with
- * is_exception=true and exception_of = id of the occurrence it replaces.
+ * Sự kiện lịch (Moodle `event` → `calendar_events`). event_type:
+ * site|category|course|group|user quyết định khả năng hiển thị theo cây context +
+ * tư cách thành viên nhóm (report §2#13). Một chuỗi là một tập hợp các dòng cùng chia sẻ
+ * `repeat_id` (= id của sự kiện đầu tiên); dòng gốc mang `rrule`
+ * (FREQ=DAILY|WEEKLY|MONTHLY;COUNT=n|UNTIL=...). Một ngoại lệ là một dòng có
+ * is_exception=true và exception_of = id của lần xuất hiện mà nó thay thế.
  */
 export const calendarEvents = pgTable('calendar_events', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -72,7 +72,7 @@ export const calendarExportTokens = pgTable('calendar_export_tokens', {
   ]);
 
 
-/** Calendar subscriptions (Moodle `calendar_subscriptions`): external ICS feeds imported by a worker job. */
+/** Đăng ký lịch (Moodle `calendar_subscriptions`): các nguồn cấp ICS bên ngoài được nhập bởi một job của worker. */
 export const calendarSubscriptions = pgTable('calendar_subscriptions', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   name: text('name').notNull(),

@@ -42,3 +42,30 @@
 - Test kiểm KẾT QUẢ SỐ của các tình huống nghiệp vụ thật (điểm trống, chia 0, làm
   tròn biên 2.5/-2.5…), không test chi tiết cây phân tích cú pháp nội bộ.
 - Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
+
+## Chuẩn comment TSDoc
+
+Mọi code TypeScript viết mới hoặc sửa trong `packages/grades` phải có comment
+**tiếng Việt theo chuẩn TSDoc**, chi tiết nhất có thể — ngữ nghĩa tính điểm
+phải nằm ngay trong code, để lần sửa sau dựa vào nội dung code đang có chứ
+không dựa vào trí nhớ của trợ lý. Chuẩn ngôn ngữ chung của repo: code bằng
+tiếng Anh (định danh, tên hàm/biến, chuỗi kỹ thuật); **comment — gồm cả
+comment luồng nghiệp vụ — bằng tiếng Việt**; mọi tài liệu bằng tiếng Việt:
+
+- Đầu mỗi file: khối TSDoc mô tả vai trò của file + luồng xử lý tổng thể
+  (dữ liệu vào → các bước phân tích/tính toán → kết quả trả về).
+- Mỗi hàm trọng yếu (phân tích công thức, tính điểm, làm tròn…): TSDoc
+  `/** ... */` tiếng Việt gồm mục đích, `@param`/`@returns`, các bước xử lý,
+  ngữ nghĩa biên đã chốt (chia 0 → null, bỏ qua điểm trống trong hàm tổng
+  hợp, round nửa ra xa số 0, if lười…) và ca parity corpus tương ứng nếu có.
+- Logic phức tạp/nhánh rẽ quan trọng: comment nội tuyến tiếng Việt nói bước
+  xử lý và **lý do** — không lặp lại điều code đã hiển nhiên.
+- Cú pháp/tag theo TSDoc (`@remarks`/`@example` khi cần); định danh và tên tag
+  giữ tiếng Anh.
+- Sửa code thì căn cứ vào comment đang có trong code; thấy comment lệch code
+  thật — đặc biệt là lệch ngữ nghĩa tính điểm đã chốt — thì sửa comment
+  **trong cùng lượt** với sửa code.
+- Đội đánh giá độc lập soi chuẩn này như một tiêu chí đạt — code thiếu comment
+  đạt chuẩn là chưa đạt. Comment tiếng Anh còn tồn đọng trong package được
+  dịch theo đợt riêng của chương trình sửa chuẩn ngôn ngữ toàn repo, không tự
+  trộn việc dịch vào feat đang bay.

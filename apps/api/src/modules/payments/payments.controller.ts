@@ -4,7 +4,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
-import { createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, type CreateAccountDto, type CreatePaymentDto, type RefundDto, type WebhookDto } from './dto/payments.dto';
+import { createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, purchasePlanSchema, type CreateAccountDto, type CreatePaymentDto, type PurchasePlanDto, type RefundDto, type WebhookDto } from './dto/payments.dto';
 import { PaymentsService } from './payments.service';
 
 /** Controller thanh toán: accounts, payments, webhook (public, idempotent), refunds, IPN SePay. */
@@ -38,6 +38,24 @@ export class PaymentsController {
   async createClassFee(@Param('classId', { schema: uuidIdSchema }) classId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.createClassFeePayment(actor.id, classId);
   }
+  /**
+   * POST /payments/plans — mua/nâng GÓI (lát 2, issue #189): thân chỉ
+   * gồm loại gói (`tenant_plan` | `teacher_plan`); số tiền do hệ thống
+   * lấy từ CẤU HÌNH giá tại thời điểm giao dịch (component `payments`
+   * ở Cài đặt hệ thống), client không gửi amount. Payment sinh ra chạy
+   * đúng pipeline VietQR/IPN như mọi component khác; quyền lợi gói chỉ
+   * kích hoạt khi payment succeeded qua đường đã xác thực.
+   */
+  @Post('plans')
+  async purchasePlan(@Body({ schema: purchasePlanSchema }) dto: PurchasePlanDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.createPlanPayment(actor.id, dto);
+  }
+  /**
+   * GET /payments/plans/me — quyền lợi gói của chính người gọi: gói
+   * giáo viên của họ + gói trung tâm của tenant hiệu lực.
+   */
+  @Get('plans/me')
+  async myPlans(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listMyPlanEntitlements(actor.id); }
   @Get('me')
   async mine(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listPaymentsForUser(actor.id); }
   @Get(':id')

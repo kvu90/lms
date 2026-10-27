@@ -22,9 +22,9 @@ export type OutboxRowLike = Pick<OutboxRow, 'id' | 'seq' | 'aggregate' | 'type' 
 const COURSE_CONTEXT_LEVEL = 50;
 
 /**
- * Candidate payload keys naming the primary object of an event, per outbox
- * aggregate. First present key wins; the value lands in the normalised
- * `objectId` field of the stored log payload.
+ * Các khoá payload ứng viên đặt tên cho đối tượng chính của một sự kiện, theo từng outbox
+ * aggregate. Khoá đầu tiên hiện diện sẽ thắng; giá trị được đưa vào trường
+ * `objectId` đã chuẩn hoá của payload log đã lưu.
  */
 const OBJECT_ID_KEYS: Record<string, string[]> = {
   course: ['courseId'],
@@ -52,12 +52,12 @@ function str(value: unknown): string | null {
 }
 
 /**
- * Worker-side copy of the API's EventLogWriter (the worker keeps its own
- * view of shared infrastructure, like the outbox relay itself): the single
- * logstore observer. Every outbox row the worker relay publishes is mirrored
- * into `event_log` with a normalised payload (component / action / actor /
- * related user / course / object / IP). Mirroring NEVER breaks the relay:
- * failures are logged and swallowed, publish semantics stay unchanged.
+ * Bản sao phía worker của EventLogWriter phía API (worker giữ góc nhìn riêng
+ * của mình về hạ tầng dùng chung, giống như chính outbox relay): observer logstore duy nhất.
+ * Mọi dòng outbox mà relay của worker phát hành đều được phản chiếu
+ * vào `event_log` với payload đã chuẩn hoá (component / action / actor /
+ * related user / course / object / IP). Việc phản chiếu KHÔNG BAO GIỜ làm gãy relay:
+ * lỗi được ghi log và nuốt, ngữ nghĩa phát hành giữ nguyên không đổi.
  */
 @Injectable()
 export class EventLogWriter {
@@ -79,10 +79,10 @@ export class EventLogWriter {
       const sourceComponent = str(source.component);
       const payload: Record<string, unknown> = {
         ...source,
-        // A few payloads already carry a `component` field of their own (the
-        // activity component of a course module) — keep it under
-        // `sourceComponent`; the normalised `component` is the event's
-        // subsystem (the outbox aggregate).
+        // Một số payload đã mang sẵn trường `component` của riêng chúng (component
+        // hoạt động của một course module) — giữ nó dưới
+        // `sourceComponent`; `component` đã chuẩn hoá là phân hệ của sự kiện
+        // (outbox aggregate).
         ...(sourceComponent ? { sourceComponent } : {}),
         component: row.aggregate,
         action: row.type,
@@ -116,7 +116,7 @@ export class EventLogWriter {
     return str(payload.objectId);
   }
 
-  /** Read-only course-context lookup; a missing context leaves the column null (the payload still carries courseId). */
+  /** Tra cứu context của khoá học chỉ đọc; context bị thiếu thì cột để null (payload vẫn mang courseId). */
   private async courseContextId(courseId: string): Promise<string | null> {
     if (!uuidIdSchema.safeParse(courseId).success) return null;
     const rows = await this.db

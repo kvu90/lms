@@ -13,9 +13,9 @@ import { tenantAls } from './db/tenant-als';
 type Database = NodePgDatabase<typeof relations>;
 
 /**
- * Worker-side outbox relay: polls committed outbox rows, re-emits them for
- * worker-local consumers and marks them published. Same table and semantics
- * as the API-side relay (apps/api OutboxRelayService).
+ * Relay outbox phía worker: thăm dò các dòng outbox đã commit, phát lại chúng cho
+ * các consumer cục bộ của worker và đánh dấu đã phát hành. Dùng cùng bảng và cùng ngữ nghĩa
+ * với relay phía API (apps/api OutboxRelayService).
  */
 @Injectable()
 /**

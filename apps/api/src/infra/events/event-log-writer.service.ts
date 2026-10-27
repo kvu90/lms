@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { context, eventLog } from '../../db/schema';
 
-/** The outbox row shape the writer mirrors (structural subset of the Drizzle row). */
+/** Hình dạng dòng outbox mà writer phản chiếu (tập con cấu trúc của dòng Drizzle). */
 export interface OutboxRowLike {
   id: string;
   seq: number;
@@ -20,9 +20,9 @@ const COURSE_CONTEXT_LEVEL = 50;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Candidate payload keys naming the primary object of an event, per outbox
- * aggregate. First present key wins; the value lands in the normalised
- * `objectId` field of the stored log payload.
+ * Các khoá payload ứng viên đặt tên cho đối tượng chính của một sự kiện, theo từng aggregate
+ * của outbox. Khoá đầu tiên xuất hiện sẽ thắng; giá trị rơi vào trường
+ * `objectId` đã chuẩn hoá của payload log đã lưu.
  */
 const OBJECT_ID_KEYS: Record<string, string[]> = {
   course: ['courseId'],
@@ -50,16 +50,16 @@ function str(value: unknown): string | null {
 }
 
 /**
- * The single logstore observer (Moodle logstore_standard equivalent): every
- * committed outbox row relayed by either relay (API or worker) is mirrored
- * into `event_log` — an immutable, queryable audit trail — with a normalised
- * payload (component / action / actor / related user / course / object / IP)
- * so the read API can filter without knowing each event's raw payload shape.
+ * Observer logstore duy nhất (tương đương logstore_standard của Moodle): mọi
+ * dòng outbox đã commit được relay bởi một trong hai relay (API hoặc worker) đều được phản chiếu
+ * vào `event_log` — một vết kiểm toán bất biến, truy vấn được — với payload
+ * đã chuẩn hoá (component / action / actor / related user / course / object / IP)
+ * để API đọc có thể lọc mà không cần biết hình dạng payload thô của từng sự kiện.
  *
- * Mirroring NEVER breaks the relay: failures are logged and swallowed, the
- * outbox row stays published exactly as before (at-least-once semantics of
- * the relay are unchanged; a relay replay can therefore duplicate a log row,
- * the same trade-off the in-process emit already accepts).
+ * Việc phản chiếu KHÔNG BAO GIỜ làm hỏng relay: lỗi được ghi log và nuốt,
+ * dòng outbox vẫn giữ nguyên trạng thái published như trước (ngữ nghĩa at-least-once của
+ * relay không đổi; một lần relay phát lại vì vậy có thể nhân đôi một dòng log,
+ * cùng đánh đổi mà đường emit trong tiến trình đã chấp nhận).
  */
 @Injectable()
 export class EventLogWriter {
@@ -81,10 +81,10 @@ export class EventLogWriter {
       const sourceComponent = str(source.component);
       const payload: Record<string, unknown> = {
         ...source,
-        // A few payloads already carry a `component` field of their own (the
-        // activity component of a course module) — keep it under
-        // `sourceComponent`; the normalised `component` is the event's
-        // subsystem (the outbox aggregate).
+        // Một số payload đã mang sẵn trường `component` của riêng chúng (component
+        // hoạt động của một course module) — giữ nó dưới
+        // `sourceComponent`; `component` đã chuẩn hoá là subsystem
+        // của sự kiện (aggregate của outbox).
         ...(sourceComponent ? { sourceComponent } : {}),
         component: row.aggregate,
         action: row.type,
@@ -118,7 +118,7 @@ export class EventLogWriter {
     return str(payload.objectId);
   }
 
-  /** Read-only course-context lookup; a missing context leaves the column null (the payload still carries courseId). */
+  /** Tra cứu context khoá học chỉ đọc; context vắng thì cột để null (payload vẫn mang courseId). */
   private async courseContextId(courseId: string): Promise<string | null> {
     if (!UUID_RE.test(courseId)) return null;
     const rows = await this.db

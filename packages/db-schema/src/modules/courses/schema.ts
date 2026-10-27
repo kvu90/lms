@@ -18,7 +18,7 @@ import { bookNodes, books } from '../books/schema';
 import { classes } from '../classes/schema';
 import { tenants } from '../tenants/schema';
 
-/** Course categories form a tree (Moodle `course_categories`): path/depth like contexts. parent=0 means top level. `tenant_id` = tenant sở hữu (TENANT-0, #168) — danh mục chỉ tồn tại trong một tenant. */
+/** Danh mục khoá học tạo thành một cây (Moodle `course_categories`): path/depth giống như các context. parent=0 nghĩa là cấp cao nhất. `tenant_id` = tenant sở hữu (TENANT-0, #168) — danh mục chỉ tồn tại trong một tenant. */
 export const courseCategories = pgTable('course_categories', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'restrict' }),
@@ -38,7 +38,7 @@ export const courseCategories = pgTable('course_categories', {
   ]);
 
 
-/** Courses (Moodle `course`). group_mode: 0=NOGROUPS, 1=SEPARATEGROUPS, 2=VISIBLEGROUPS; group_mode_force=true ép chế độ nhóm của khoá lên mọi activity (bỏ qua group_mode riêng của course module). `tenant_id` = tenant sở hữu (TENANT-0, #168), luôn khớp tenant của danh mục cha. */
+/** Khoá học (Moodle `course`). group_mode: 0=NOGROUPS, 1=SEPARATEGROUPS, 2=VISIBLEGROUPS; group_mode_force=true ép chế độ nhóm của khoá lên mọi activity (bỏ qua group_mode riêng của course module). `tenant_id` = tenant sở hữu (TENANT-0, #168), luôn khớp tenant của danh mục cha. */
 export const course = pgTable('course', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'restrict' }),
@@ -95,7 +95,7 @@ export const course = pgTable('course', {
   ]);
 
 
-/** Course sections (Moodle `course_sections`). `availability` is the AvailabilityTree JSON (report §2#10). */
+/** Các section của khoá học (Moodle `course_sections`). `availability` là JSON AvailabilityTree (report §2#10). */
 export const courseSections = pgTable(
   'course_sections',
   {
@@ -119,10 +119,10 @@ export const courseSections = pgTable(
 );
 
 /**
- * Course modules (Moodle `course_modules`) — the generic container joining a
- * section to an activity instance via (component, instance_id). This ships the
- * container only; activity content lives in its owning modules.
- * completion: 0=none, 1=manual, 2=automatic. group_mode 0 inherits course mode.
+ * Course module (Moodle `course_modules`) — vật chứa chung nối một
+ * section với một instance hoạt động qua (component, instance_id). Phần này chỉ cung cấp
+ * vật chứa; nội dung hoạt động nằm ở các module sở hữu nó.
+ * completion: 0=none, 1=manual, 2=automatic. group_mode 0 kế thừa chế độ của khoá học.
  */
 export const courseModules = pgTable('course_modules', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
@@ -268,7 +268,7 @@ export const courseSectionBookItemOutcomes = pgTable('course_section_book_item_o
       check('course_section_book_item_outcomes_position_check', sql`${table.position} > 0`),
   ]);
 
-/** Per-course format options (Moodle `course_format_options`). */
+/** Tuỳ chọn định dạng theo từng khoá học (Moodle `course_format_options`). */
 export const courseFormatOptions = pgTable(
   'course_format_options',
   {

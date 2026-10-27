@@ -7,18 +7,18 @@ import {
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
 
 /**
- * Enrol + Groups/Cohort flow.
- * Oracles: enrol/tests/enrollib_test.php (test_user_enrolment_created_event,
- * test_enrol_get_my_courses_only_enrolled_courses, suspended semantics from
- * lib/tests/enrollib in report §2#5), group/tests/lib_test.php
+ * Luồng Enrol + Groups/Cohort.
+ * Oracle: enrol/tests/enrollib_test.php (test_user_enrolment_created_event,
+ * test_enrol_get_my_courses_only_enrolled_courses, ngữ nghĩa đình chỉ từ
+ * lib/tests/enrollib trong báo cáo §2#5), group/tests/lib_test.php
  * (test_member_added_event, test_groups_delete_groupings_groups,
- * groups membership), cohort sync behaviour from enrol_cohort plugin
- * semantics as described in report §2#6.
- * Behat oracles (business-gaps round): enrol/self/tests/behat/
+ * tư cách thành viên nhóm), hành vi đồng bộ cohort từ ngữ nghĩa của plugin enrol_cohort
+ * như mô tả trong báo cáo §2#6.
+ * Oracle Behat (đợt business-gaps): enrol/self/tests/behat/
  * self_enrolment.feature ("Self-enrolment enabled requiring an enrolment
  * key", "...requiring a group enrolment key", "Self unenrol as a
- * self-enrolled student"), enrol/self + enrol/manual welcome-message
- * scenarios, enrol/cohort/tests/behat/enrolcohorts.feature ("Editing a
+ * self-enrolled student"), các kịch bản welcome-message của enrol/self + enrol/manual
+ * , enrol/cohort/tests/behat/enrolcohorts.feature ("Editing a
  * cohort enrolment method's role should change participants' role").
  */
 describe('Enrol & groups/cohorts', () => {
@@ -40,20 +40,20 @@ describe('Enrol & groups/cohorts', () => {
     const user = await createUserViaApi(app, admin);
     const ue = await enrolUser(app, admin, course.id, instance.id, user.id);
     expect(ue.status).toBe(0);
-    // Role assignment at course context:
+    // Gán vai tại context khoá học:
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
     const assignments = await http(app).get('/api/v1/access/assignments')
       .query({ userId: user.id, contextId: content.body.contextId }).set('Authorization', `Bearer ${admin}`);
     const studentRole = await roleIdByShortname(app, admin, 'student');
     expect((assignments.body as { roleId: string }[]).some((a) => a.roleId === studentRole)).toBe(true);
-    // isEnrolled facade view:
+    // Góc nhìn facade isEnrolled:
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     const mine = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${userLogin.accessToken}`);
     expect(mine.body).toMatchObject({ enrolled: true, active: true });
-    // And the user can actually access the course content.
+    // Và người dùng thực sự truy cập được nội dung khoá học.
     const asUser = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`);
     expect(asUser.status).toBe(200);
-    // A non-enrolled user is denied even though the virtual `user` role grants course:view in the evaluator:
+    // Người dùng chưa ghi danh bị từ chối dù vai `user` ảo cấp course:view trong bộ đánh giá (evaluator):
     const outsider = await createUserViaApi(app, admin);
     const outsiderLogin = await login(app, outsider.username, STRONG_PASSWORD);
     const asOutsider = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${outsiderLogin.accessToken}`);
@@ -120,7 +120,7 @@ describe('Enrol & groups/cohorts', () => {
     await http(app).post(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupId: gB.body.id });
     const inGrouping = await http(app).get(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
     expect((inGrouping.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.body.id, gB.body.id].sort());
-    // Deleting group A removes it from the grouping.
+    // Xoá nhóm A loại nó khỏi grouping.
     await http(app).delete(`/api/v1/courses/${course.id}/groups/${gA.body.id}`).set('Authorization', `Bearer ${admin}`);
     const after = await http(app).get(`/api/v1/courses/${course.id}/groupings/${grouping.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
     expect((after.body as { id: string }[]).map((g) => g.id)).toEqual([gB.body.id]);
@@ -138,17 +138,17 @@ describe('Enrol & groups/cohorts', () => {
     await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.body.id}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: bob.id });
 
     const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
-    // Direct request for the other group's members is blocked at the server.
+    // Yêu cầu trực tiếp lấy thành viên của nhóm khác bị chặn tại máy chủ.
     const forbidden = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.body.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(forbidden.status).toBe(403);
     expect(forbidden.body.code).toBe('group.separate_groups_denied');
-    // Her own group is fine.
+    // Nhóm của chính cô ấy thì được phép.
     const own = await http(app).get(`/api/v1/courses/${course.id}/groups/${gA.body.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(own.status).toBe(200);
-    // Group list contains ONLY her group.
+    // Danh sách nhóm CHỈ chứa nhóm của cô ấy.
     const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((list.body as { id: string }[]).map((g) => g.id)).toEqual([gA.body.id]);
-    // Visible-members aggregate contains only her own membership.
+    // Bản tổng hợp thành viên hiển thị chỉ chứa tư cách thành viên của chính cô ấy.
     const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(visibleMembers.body).toEqual([{ groupId: gA.body.id, userId: alice.id }]);
     // Admin (accessallgroups via manager/siteadmin) sees everything —
@@ -168,19 +168,19 @@ describe('Enrol & groups/cohorts', () => {
     const user = await createUserViaApi(app, admin);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
 
-    // Add to cohort ⇒ enrolled + can access.
+    // Thêm vào cohort ⇒ đã ghi danh + truy cập được.
     await http(app).post(`/api/v1/cohorts/${cohortId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: user.id });
     const enrolled = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect((enrolled.body as { userId: string; status: number }[]).find((e) => e.userId === user.id)?.status).toBe(0);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
 
-    // Remove from cohort ⇒ suspended (default sync mode), access blocked.
+    // Loại khỏi cohort ⇒ bị đình chỉ (chế độ đồng bộ mặc định), truy cập bị chặn.
     await http(app).delete(`/api/v1/cohorts/${cohortId}/members/${user.id}`).set('Authorization', `Bearer ${admin}`);
     const afterRemove = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect((afterRemove.body as { userId: string; status: number }[]).find((e) => e.userId === user.id)?.status).toBe(1);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
 
-    // Second course with onCohortLeave=unenrol: removal withdraws the enrolment entirely.
+    // Khoá thứ hai với onCohortLeave=unenrol: việc loại bỏ rút toàn bộ ghi danh.
     const course2 = await createCourse(app, admin, cat.id);
     const cohort2 = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Strict cohort' });
     await createEnrolInstance(app, admin, course2.id, { method: 'cohort', cohortId: cohort2.body.id, onCohortLeave: 'unenrol' });
@@ -234,27 +234,27 @@ describe('Enrol & groups/cohorts', () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'self', enrolmentKey: 's3cret-key' }) as unknown as { id: string; enrolmentKey: string | null };
-    // The manager who created the instance sees the key.
+    // Người quản lý đã tạo instance thấy được khoá.
     expect(instance.enrolmentKey).toBe('s3cret-key');
     const user = await createUserViaApi(app, admin);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
-    // A non-manager listing instances never sees the key value.
+    // Người không phải quản lý khi liệt kê instance không bao giờ thấy giá trị khoá.
     const listed = await http(app).get(`/api/v1/courses/${course.id}/enrol/instances`).set('Authorization', `Bearer ${userLogin.accessToken}`);
     expect((listed.body as { id: string; enrolmentKey: string | null }[]).find((i) => i.id === instance.id)?.enrolmentKey).toBeNull();
     const listedAdmin = await http(app).get(`/api/v1/courses/${course.id}/enrol/instances`).set('Authorization', `Bearer ${admin}`);
     expect((listedAdmin.body as { id: string; enrolmentKey: string | null }[]).find((i) => i.id === instance.id)?.enrolmentKey).toBe('s3cret-key');
-    // Missing key ⇒ 400 enrol.enrolment_key_required, no enrolment created.
+    // Thiếu khoá ⇒ 400 enrol.enrolment_key_required, không ghi danh nào được tạo.
     const missing = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
     expect(missing.status).toBe(400);
     expect(missing.body.code).toBe('enrol.enrolment_key_required');
-    // Wrong key ⇒ 400 enrol.invalid_enrolment_key, still no enrolment.
+    // Sai khoá ⇒ 400 enrol.invalid_enrolment_key, vẫn không có ghi danh.
     const wrong = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({ enrolmentKey: 'not-the-key' });
     expect(wrong.status).toBe(400);
     expect(wrong.body.code).toBe('enrol.invalid_enrolment_key');
     const enrolments = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect((enrolments.body as { userId: string }[]).some((e) => e.userId === user.id)).toBe(false);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
-    // Correct key ⇒ enrolled and can access the course.
+    // Đúng khoá ⇒ đã ghi danh và truy cập được khoá học.
     const ok = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({ enrolmentKey: 's3cret-key' });
     expect(ok.status).toBeLessThan(300);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
@@ -268,18 +268,18 @@ describe('Enrol & groups/cohorts', () => {
     expect(group.body.enrolmentKey).toBe('group-key-1');
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'self', enrolmentKey: 'course-key' });
 
-    // Alice uses the GROUP key: enrolled + member of the group.
+    // Alice dùng khoá NHÓM: đã ghi danh + là thành viên của nhóm.
     const alice = await createUserViaApi(app, admin);
     const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
     const aliceRes = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ enrolmentKey: 'group-key-1' });
     expect(aliceRes.status).toBeLessThan(300);
     const members = await http(app).get(`/api/v1/courses/${course.id}/groups/${group.body.id}/members`).set('Authorization', `Bearer ${admin}`);
     expect((members.body as { userId: string }[]).map((m) => m.userId)).toContain(alice.id);
-    // The group key is hidden from the enrolled student.
+    // Khoá nhóm bị ẩn khỏi học viên đã ghi danh.
     const aliceGroups = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((aliceGroups.body as { id: string; enrolmentKey: string | null }[]).find((g) => g.id === group.body.id)?.enrolmentKey).toBeNull();
 
-    // Bob uses the INSTANCE key: enrolled, but NOT placed in the group.
+    // Bob dùng khoá INSTANCE: đã ghi danh, nhưng KHÔNG được xếp vào nhóm.
     const bob = await createUserViaApi(app, admin);
     const bobLogin = await login(app, bob.username, STRONG_PASSWORD);
     const bobRes = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/self-enrol`).set('Authorization', `Bearer ${bobLogin.accessToken}`).send({ enrolmentKey: 'course-key' });
@@ -295,7 +295,7 @@ describe('Enrol & groups/cohorts', () => {
     const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self' });
     const manualInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
 
-    // A manually-enrolled student cannot self-unenrol: the enrolment is not theirs to end through this endpoint.
+    // Học viên được ghi danh thủ công không thể tự huỷ ghi danh: ghi danh đó không thuộc quyền của họ để kết thúc qua endpoint này.
     const other = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, manualInstance.id, other.id);
     const otherLogin = await login(app, other.username, STRONG_PASSWORD);
@@ -305,7 +305,7 @@ describe('Enrol & groups/cohorts', () => {
     const otherMine = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${otherLogin.accessToken}`);
     expect(otherMine.body).toMatchObject({ enrolled: true, active: true });
 
-    // The self-enrolled student unenrols themselves through the same unenrol path as admin unenrol.
+    // Học viên tự ghi danh tự huỷ ghi danh qua cùng đường huỷ ghi danh như admin.
     const user = await createUserViaApi(app, admin);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
@@ -316,7 +316,7 @@ describe('Enrol & groups/cohorts', () => {
     const list = await http(app).get(`/api/v1/courses/${course.id}/enrolments`).set('Authorization', `Bearer ${admin}`);
     expect((list.body as { userId: string }[]).some((e) => e.userId === user.id)).toBe(false);
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
-    // A second self-unenrol finds no enrolment to end.
+    // Lần tự huỷ ghi danh thứ hai không tìm thấy ghi danh nào để kết thúc.
     const again = await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-unenrol`).set('Authorization', `Bearer ${userLogin.accessToken}`).send({});
     expect(again.status).toBe(404);
     expect(again.body.code).toBe('enrol.user_not_enrolled');
@@ -326,13 +326,13 @@ describe('Enrol & groups/cohorts', () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self', welcomeMessage: 'Xin chào! Chào mừng bạn tới {coursename}.' }) as unknown as { id: string; sendWelcomeMessage: boolean };
-    // Moodle defaults: self enrol sends a welcome message, manual does not.
+    // Mặc định của Moodle: tự ghi danh gửi tin nhắn chào mừng, ghi danh thủ công thì không.
     expect(selfInstance.sendWelcomeMessage).toBe(true);
     const manualInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual' }) as unknown as { id: string; sendWelcomeMessage: boolean };
     expect(manualInstance.sendWelcomeMessage).toBe(false);
     const manualWelcomeInstance = await createEnrolInstance(app, admin, course.id, { method: 'manual', sendWelcomeMessage: true, welcomeMessage: 'Manual welcome for {coursename}' });
 
-    // Self enrol ⇒ welcome notification carrying the instance's custom text.
+    // Tự ghi danh ⇒ thông báo chào mừng mang nội dung tuỳ chỉnh của instance.
     const alice = await createUserViaApi(app, admin);
     const aliceLogin = await login(app, alice.username, STRONG_PASSWORD);
     await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${selfInstance.id}/self-enrol`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({});
@@ -341,14 +341,14 @@ describe('Enrol & groups/cohorts', () => {
     expect(aliceWelcome).toBeDefined();
     expect(aliceWelcome!.fullMessage).toContain('Xin chào! Chào mừng bạn tới');
 
-    // Manual enrol with the default configuration ⇒ no welcome notification.
+    // Ghi danh thủ công với cấu hình mặc định ⇒ không có thông báo chào mừng.
     const bob = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, manualInstance.id, bob.id);
     const bobLogin = await login(app, bob.username, STRONG_PASSWORD);
     const bobNotifs = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${bobLogin.accessToken}`);
     expect((bobNotifs.body.items as { eventType: string }[]).some((n) => n.eventType === 'enrol_welcome')).toBe(false);
 
-    // Manual enrol with welcome explicitly enabled ⇒ welcome with the custom text.
+    // Ghi danh thủ công với chào mừng được bật tường minh ⇒ chào mừng kèm nội dung tuỳ chỉnh.
     const carol = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, manualWelcomeInstance.id, carol.id);
     const carolLogin = await login(app, carol.username, STRONG_PASSWORD);
@@ -377,7 +377,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(await assignmentsOf()).toContain(studentRole);
     expect(await assignmentsOf()).not.toContain(teacherRole);
 
-    // Edit the instance's role ⇒ the participant's role follows, enrolment untouched.
+    // Sửa vai của instance ⇒ vai của người tham gia theo đó, ghi danh không bị đụng tới.
     const patched = await http(app).patch(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}`).set('Authorization', `Bearer ${admin}`).send({ roleShortname: 'teacher' });
     expect(patched.status).toBe(200);
     expect(patched.body.roleId).toBe(teacherRole);
@@ -389,15 +389,15 @@ describe('Enrol & groups/cohorts', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
   });
 
-  // Group visibility modes (separate/visible) — business-gaps round.
-  // Oracles: MoodleDocs "Groups" (separate groups: each group can only see
-  // their own group, others are invisible; visible groups: each group works
-  // in their own group but can also see other groups — read-only) and Behat
+  // Các chế độ hiển thị nhóm (separate/visible) — đợt business-gaps.
+  // Oracle: MoodleDocs "Groups" (separate groups: mỗi nhóm chỉ thấy được
+  // nhóm của mình, các nhóm khác vô hình; visible groups: mỗi nhóm làm việc
+  // trong nhóm của mình nhưng cũng thấy được các nhóm khác — chỉ đọc) và Behat
   // mod/assign/tests/behat/assign_group_override.feature ("A teacher without
   // accessallgroups permission should only be able to add group override for
   // groups that he/she is a member of, when the activity's group mode is
-  // 'separate groups'" — i.e. the separate-groups restriction is lifted by
-  // the staff capabilities accessallgroups/managegroups).
+  // 'separate groups'" — tức hạn chế separate-groups được gỡ bỏ bởi
+  // các capability của nhân sự accessallgroups/managegroups).
   async function setupTwoGroups(groupMode: number) {
     const { course, instance } = await setupCourse(groupMode);
     const alice = await createUserViaApi(app, admin);
@@ -420,14 +420,14 @@ describe('Enrol & groups/cohorts', () => {
     const classGroupId = (adminGroups.body as { id: string; name: string }[]).find((g) => g.name === 'Cả lớp')!.id;
     const list = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((list.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id, classGroupId].sort());
-    // Members of the OTHER group are readable in visible mode.
+    // Thành viên của nhóm KHÁC đọc được ở chế độ visible.
     const otherMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(otherMembers.status).toBe(200);
     expect((otherMembers.body as { userId: string }[]).map((m) => m.userId)).toContain(bob.id);
-    // The visible-members aggregate spans both groups.
+    // Bản tổng hợp thành viên hiển thị bao phủ cả hai nhóm.
     const visibleMembers = await http(app).get(`/api/v1/courses/${course.id}/groups/visible-members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((visibleMembers.body as { groupId: string }[]).map((r) => r.groupId).sort()).toEqual([gA.id, gB.id].sort());
-    // Read-only means read-only: adding a member to group B is still gated by course:managegroups.
+    // Chỉ đọc nghĩa là chỉ đọc: việc thêm thành viên vào nhóm B vẫn bị gác bởi course:managegroups.
     const write = await http(app).post(`/api/v1/courses/${course.id}/groups/${gB.id}/members`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ userId: bob.id });
     expect(write.status).toBe(403);
     const create = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`).send({ name: 'Gamma' });
@@ -442,16 +442,16 @@ describe('Enrol & groups/cohorts', () => {
     const betaOnly = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'Beta only' });
     await http(app).post(`/api/v1/courses/${course.id}/groupings/${betaOnly.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupId: gB.id });
 
-    // Grouping list: the Beta-only grouping is invisible to Alice.
+    // Danh sách grouping: grouping chỉ dành cho Beta vô hình với Alice.
     const groupingList = await http(app).get(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((groupingList.body as { id: string }[]).map((g) => g.id)).toEqual([shared.body.id]);
-    // Inside the shared grouping she only sees her own group.
+    // Bên trong grouping dùng chung, cô ấy chỉ thấy nhóm của mình.
     const inShared = await http(app).get(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect((inShared.body as { id: string }[]).map((g) => g.id)).toEqual([gA.id]);
-    // The Beta-only grouping yields no groups at all for her.
+    // Grouping chỉ dành cho Beta không cho ra nhóm nào cả đối với cô ấy.
     const inBetaOnly = await http(app).get(`/api/v1/courses/${course.id}/groupings/${betaOnly.body.id}/groups`).set('Authorization', `Bearer ${aliceLogin.accessToken}`);
     expect(inBetaOnly.body).toEqual([]);
-    // Admin sees both groupings and both groups inside the shared one.
+    // Admin thấy cả hai grouping và cả hai nhóm bên trong grouping dùng chung.
     const adminGroupings = await http(app).get(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`);
     expect((adminGroupings.body as unknown[]).length).toBe(2);
     const adminInShared = await http(app).get(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`);
@@ -484,7 +484,7 @@ describe('Enrol & groups/cohorts', () => {
     const patched = await http(app).patch(`/api/v1/courses/${course.id}`).set('Authorization', `Bearer ${admin}`).send({ groupModeForce: false });
     expect(patched.status).toBe(200);
     expect(patched.body.groupModeForce).toBe(false);
-    // Default stays off when not requested.
+    // Giá trị mặc định vẫn tắt khi không được yêu cầu.
     const plain = await createCourse(app, admin, cat.id) as unknown as { groupModeForce: boolean };
     expect(plain.groupModeForce).toBe(false);
   });
@@ -498,21 +498,21 @@ describe('Enrol & groups/cohorts', () => {
     const groupId = created.body.id as string;
     await http(app).post(`/api/v1/courses/${course.id}/groups/${groupId}/members`).set('Authorization', `Bearer ${admin}`).send({ userId: user.id });
 
-    // PATCH renames the group and edits its description; the key survives an unrelated edit.
+    // PATCH đổi tên nhóm và sửa mô tả của nó; khoá vẫn sống sót sau một lần sửa không liên quan.
     const renamed = await http(app).patch(`/api/v1/courses/${course.id}/groups/${groupId}`).set('Authorization', `Bearer ${admin}`).send({ name: 'New name', description: 'Đội tuyển' });
     expect(renamed.status).toBe(200);
     expect(renamed.body.name).toBe('New name');
     expect(renamed.body.description).toBe('Đội tuyển');
     expect(renamed.body.enrolmentKey).toBe('team-key');
 
-    // PATCH with enrolmentKey: null clears the group's enrolment key.
+    // PATCH với enrolmentKey: null xoá khoá ghi danh của nhóm.
     const cleared = await http(app).patch(`/api/v1/courses/${course.id}/groups/${groupId}`).set('Authorization', `Bearer ${admin}`).send({ enrolmentKey: null });
     expect(cleared.status).toBe(200);
     expect(cleared.body.enrolmentKey).toBeNull();
     const listed = await http(app).get(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`);
     expect((listed.body as { id: string; name: string }[]).find((g) => g.id === groupId)?.name).toBe('New name');
 
-    // DELETE removes the group: it leaves the course list and its member list is gone with it.
+    // DELETE loại bỏ nhóm: nó rời khỏi danh sách khoá học và danh sách thành viên của nó cũng biến mất theo.
     const deleted = await http(app).delete(`/api/v1/courses/${course.id}/groups/${groupId}`).set('Authorization', `Bearer ${admin}`);
     expect(deleted.status).toBe(200);
     expect(deleted.body).toEqual({ deleted: true });
@@ -534,14 +534,14 @@ describe('Enrol & groups/cohorts', () => {
       return (res.body as { userId: string }[]).map((m) => m.userId);
     };
 
-    // A user who was never enrolled in the course cannot be placed into its groups.
+    // Người dùng chưa từng ghi danh vào khoá học không thể được xếp vào các nhóm của khoá.
     const outsider = await createUserViaApi(app, admin);
     const refusedOutsider = await add(outsider.id);
     expect(refusedOutsider.status).toBe(400);
     expect(refusedOutsider.body.code).toBe('group.member_not_enrolled');
     expect(await memberIds()).not.toContain(outsider.id);
 
-    // A user whose enrolment was withdrawn is refused the same way.
+    // Người dùng có ghi danh đã bị rút cũng bị từ chối theo cùng cách.
     const withdrawn = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, withdrawn.id);
     await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${withdrawn.id}`).set('Authorization', `Bearer ${admin}`);
@@ -550,8 +550,8 @@ describe('Enrol & groups/cohorts', () => {
     expect(refusedWithdrawn.body.code).toBe('group.member_not_enrolled');
     expect(await memberIds()).not.toContain(withdrawn.id);
 
-    // A suspended enrolment is not active, so the add is refused — but the
-    // same add succeeds once the enrolment is reactivated.
+    // Ghi danh bị đình chỉ thì không hoạt động, nên thao tác thêm bị từ chối — nhưng chính
+    // thao tác thêm đó thành công khi ghi danh được kích hoạt lại.
     const suspended = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, suspended.id);
     await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${suspended.id}/suspend`).set('Authorization', `Bearer ${admin}`);
@@ -563,7 +563,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(okAfterReactivate.status).toBe(201);
     expect(await memberIds()).toContain(suspended.id);
 
-    // An actively enrolled student is added as before.
+    // Học viên đang ghi danh tích cực được thêm như trước.
     const active = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, active.id);
     const ok = await add(active.id);

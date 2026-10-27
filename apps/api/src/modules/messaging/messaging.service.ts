@@ -248,7 +248,7 @@ function isUniqueViolation(err: unknown): boolean {
 
 export interface NotificationChannelPort {
   channel: MessageChannel;
-  /** Deliver for real or record the dispatch. Returns the log status. */
+  /** Phân phối thật hoặc ghi lại dispatch. Trả trạng thái log. */
   /**
    * Phân phối một notification tới các kênh đã bật của người nhận và ghi dispatch log.
    */
@@ -256,19 +256,19 @@ export interface NotificationChannelPort {
 }
 
 /**
- * MessagingModule facade (Moodle core_message):
- *  - CONVERSATIONS + MESSAGES are user-to-user. After sending, ownership of
- *    a message passes to core_message: NO endpoint edits or deletes it
+ * Facade của MessagingModule (core_message của Moodle):
+ *  - CONVERSATION + MESSAGE là user-tới-user. Sau khi gửi, quyền sở hữu của
+ *    một message chuyển cho core_message: KHÔNG endpoint nào sửa hoặc xoá nó
  *    (xoá mềm có truy vết là chặng sau của Lớp B, issue #33).
- *  - NOTIFICATIONS are system messages produced by registered providers and
- *    dispatched per (provider × channel × loggedin/loggedoff) preferences
- *    stored in user_preferences.
- *  - A suspended (or deleted) user RECEIVES nothing: no message delivery,
- *    no notification, on any channel. A user who blocked the sender does
- *    not receive their messages either.
- *  - Dispatch of external channels goes through the BullMQ
- *    'notification-dispatch' queue consumed by the worker; those channels
- *    are ports that only LOG the dispatch (no real email/push is sent).
+ *  - NOTIFICATION là message hệ thống do các provider đã đăng ký tạo và
+ *    được phân phối theo tuỳ chọn (provider × channel × loggedin/loggedoff)
+ *    lưu trong user_preferences.
+ *  - Một user bị suspended (hoặc đã xoá) KHÔNG NHẬN gì: không phân phối message,
+ *    không notification, trên bất kỳ kênh nào. Một user đã chặn người gửi cũng
+ *    không nhận message của họ.
+ *  - Phân phối kênh ngoài đi qua hàng đợi BullMQ
+ *    'notification-dispatch' do worker tiêu thụ; các kênh đó
+ *    là port chỉ GHI LOG dispatch (không gửi email/push thật).
  */
 /**
  * Tin có còn nằm trong CỬA SỔ THU HỒI hay không (vòng đời tin nhắn
@@ -315,7 +315,7 @@ export class MessagingService {
     private readonly sendThrottle: MessagingSendThrottleService,
   ) {}
 
-  // --- preferences -----------------------------------------------------------
+  // --- tuỳ chọn -----------------------------------------------------------
 
   /**
    * Chính sách phát của ADMIN ở cấp site cho một provider (NB-7,
@@ -389,7 +389,7 @@ export class MessagingService {
    */
   async isChannelEnabled(userId: string, provider: string, channel: MessageChannel, state: LoginState): Promise<boolean> {
     const value = await this.users.getPreference(userId, preferenceName(provider, channel, state));
-    return value !== '0'; // default: enabled (Moodle default for core providers)
+    return value !== '0'; // mặc định: bật (mặc định của Moodle cho provider lõi)
   }
 
   /**
@@ -573,15 +573,15 @@ export class MessagingService {
     return { courseId: course.courseId, courseName: course.fullName, mode: input.mode };
   }
 
-  // --- notifications -----------------------------------------------------------
+  // --- notification -----------------------------------------------------------
 
   /**
-   * Produce a system notification for a user through a registered provider.
-   * The recipient is treated as LOGGED IN for the in-app channel decision
-   * when they have any live session semantics in the API flow; system-side
-   * callers pass `loggedIn` explicitly (default true for direct API calls).
-   * A preference set to disabled for the relevant state means the channel
-   * is NOT dispatched — and that is asserted by the dispatch log.
+   * Tạo một notification hệ thống cho một user qua một provider đã đăng ký.
+   * Người nhận được coi là ĐÃ ĐĂNG NHẬP cho quyết định kênh trong-app
+   * khi họ có bất kỳ ngữ nghĩa session sống nào trong luồng API; phía hệ thống
+   * truyền `loggedIn` tường minh (mặc định true cho lời gọi API trực tiếp).
+   * Một tuỳ chọn đặt disabled cho trạng thái liên quan nghĩa là kênh
+   * KHÔNG được phân phối — và điều đó được khẳng định bởi dispatch log.
    */
   /**
    * Tạo notification cho user từ một provider (điểm vào chuẩn của các module khác).
@@ -626,7 +626,7 @@ export class MessagingService {
     }
     const tenantKey = tenantId ?? 'platform';
     if (!recipient || recipient.suspended || recipient.deleted) {
-      // Suspended users receive nothing (report §2#12). Nothing is stored.
+      // User bị suspended không nhận gì (report §2#12). Không gì được lưu.
       await this.repo.insertDispatchLog({
         userId: userId, provider: providerName, channel: 'popup', status: 'skipped-suspended', tenantId,
         subject: input.subject, dedupeKey: `${tenantKey}-skipped-suspended-${providerName}-${userId}-${randomUUID()}`,
@@ -668,7 +668,7 @@ export class MessagingService {
     // `state` chỉ còn quyết định kênh push (mô hình cũ, ẩn khỏi UI).
     const resolved = await this.resolveNotificationPreference(userId, provider);
 
-    // In-app (popup) is the only REAL channel: the notification row IS the delivery.
+    // Trong-app (popup) là kênh THẬT duy nhất: dòng notification CHÍNH LÀ lần phân phối.
     if (provider.channels.includes('popup')) {
       if (resolved.popupEnabled) {
         const notification = await this.repo.insertNotification({
@@ -699,8 +699,8 @@ export class MessagingService {
       await this.unreadStream.signalUnreadCountChanged(userId);
     }
 
-    // External channels are ports: a BullMQ job carries the dispatch to the
-    // worker, which only LOGS it. Disabled-by-preference ⇒ no job at all.
+    // Kênh ngoài là port: một job BullMQ mang dispatch tới
+    // worker, nơi chỉ GHI LOG nó. Bị tắt theo tuỳ chọn ⇒ không có job nào cả.
     // Email theo tần suất v2: 'off' chặn ngay tại đây; 'immediate' và
     // 'daily' đều xếp hàng job như nhau CHO TỚI NB-5 — động cơ gom
     // cửa sổ/digest ngày thuộc NB-5 (gửi thật chờ SMTP), lát này chỉ
@@ -736,7 +736,7 @@ export class MessagingService {
     return { provider: providerName, userId, notificationId, channels };
   }
 
-  /** The /notifications/send endpoint is a system trigger: site admins only. */
+  /** Endpoint /notifications/send là kích hoạt hệ thống: chỉ site admin. */
   /**
    * Gửi notification hệ thống (vd hoàn tất báo cáo) kèm nội dung đã dịch.
    */
@@ -1379,7 +1379,7 @@ export class MessagingService {
     return { members, nextCursor };
   }
 
-  // --- blocked contacts ---------------------------------------------------------
+  // --- liên hệ bị chặn ---------------------------------------------------------
 
   /**
    * Chặn một liên hệ.
@@ -1413,7 +1413,7 @@ export class MessagingService {
     return this.repo.isBlocked(blockerId, senderId);
   }
 
-  // --- conversations & messages ---------------------------------------------------
+  // --- conversation & message ---------------------------------------------------
 
   /**
    * Tạo conversation (nhóm hoặc 1-1; 1-1 đã tồn tại thì dùng lại). Tạo MỚI
@@ -1463,7 +1463,7 @@ export class MessagingService {
     return { ...conversation, members: memberIds };
   }
 
-  // --- group conversations (gắn course group) ---------------------------------
+  // --- conversation nhóm (gắn course group) ---------------------------------
 
   /** Conversation có gắn với một course group qua (component, itemType, itemId) hay không. */
   private isGroupLinked(conversation: ConversationRow): boolean {
@@ -1631,7 +1631,7 @@ export class MessagingService {
     return { ...conversation, members: groupMemberIds };
   }
 
-  // --- course conversations (chat toàn lớp, gắn chính khoá) -------------------
+  // --- conversation khoá học (chat toàn lớp, gắn chính khoá) -------------------
 
   /**
    * Mở (ensure) conversation của CHÍNH khoá — chat toàn lớp: component
@@ -1679,7 +1679,7 @@ export class MessagingService {
     return { ...ensured.conversation, members: memberIds };
   }
 
-  // --- class conversations (chat của chính lớp, lát MSG-T2) -------------------
+  // --- conversation lớp (chat của chính lớp, lát MSG-T2) -------------------
 
   /**
    * Mở (ensure) conversation của CHÍNH lớp — chat cấp lớp: component
@@ -2223,9 +2223,9 @@ export class MessagingService {
   }
 
   /**
-   * Send a user-to-user message. Delivery law (report §2#12): every other
-   * member must be contactable — not suspended, and must not have blocked
-   * the sender. Once stored, the message is immutable through the API.
+   * Gửi một message user-tới-user. Luật phân phối (report §2#12): mọi thành viên khác
+   * phải liên lạc được — không bị suspended, và không được đã chặn
+   * người gửi. Khi đã lưu, message bất biến qua API.
    */
   /**
    * Gửi tin nhắn: kiểm tra thành viên và quan hệ chặn. Nếu client kèm

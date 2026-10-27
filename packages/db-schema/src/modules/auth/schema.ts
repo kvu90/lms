@@ -378,7 +378,7 @@ export const oauthClientAssertion = pgTable('oauth_client_assertion', {
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 });
 
-/** Failed-login bookkeeping for lockout (Moodle authlib lockout semantics). */
+/** Sổ theo dõi đăng nhập thất bại phục vụ khoá tài khoản (ngữ nghĩa khoá của authlib trong Moodle). */
 export const loginAttempts = pgTable('login_attempts', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),

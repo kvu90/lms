@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
-/** Registers the repeatable class-enrol reconciliation sweep (every 15 minutes — trần lệch một chu kỳ theo hồ sơ lớp học mục 4.2). The job itself is idempotent. */
+/** Đăng ký lượt quét đối soát ghi danh cấp lớp lặp lại (mỗi 15 phút — trần lệch một chu kỳ theo hồ sơ lớp học mục 4.2). Bản thân job có tính idempotent. */
 @Injectable()
 /**
  * Lập lịch đối soát ghi danh cấp lớp theo chu kỳ (đưa job

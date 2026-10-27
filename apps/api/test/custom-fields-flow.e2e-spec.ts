@@ -3,10 +3,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
 
 /**
- * Custom field flow tests (user profile scope).
+ * Kiểm thử luồng trường tuỳ chỉnh (phạm vi hồ sơ người dùng).
  * Oracle: public/customfield/tests/api_test.php (MOODLE_503_STABLE) —
- * test_create_category, test_delete_category_with_fields, category/field CRUD;
- * value validation follows each field type's declaration (core_customfield handlers).
+ * test_create_category, test_delete_category_with_fields, CRUD danh mục/trường;
+ * kiểm chứng giá trị tuân theo khai báo của từng loại trường (trình xử lý core_customfield).
  */
 describe('CustomFields: profile fields are defined as metadata and validated on save', () => {
   let app: INestApplication;

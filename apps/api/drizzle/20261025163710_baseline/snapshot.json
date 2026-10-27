@@ -16816,6 +16816,132 @@
       "statementTarget": [
         "table",
         "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|tbl|public.plan_entitlements",
+        "n|tbl|public.plan_entitlements",
+        "e|tbl|public.plan_entitlements",
+        "n|rel|public.plan_entitlements",
+        "n|type|public.plan_entitlements",
+        "n|rel|public.plan_entitlements_pkey",
+        "n|rel|public.plan_entitlements_payment_id_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_tenant_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_tenant_id_idx",
+        "n|idx|public.plan_entitlements_tenant_id_idx",
+        "e|idx|public.plan_entitlements_tenant_id_idx",
+        "n|rel|public.plan_entitlements_tenant_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.tenant_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_user_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_user_id_idx",
+        "n|idx|public.plan_entitlements_user_id_idx",
+        "e|idx|public.plan_entitlements_user_id_idx",
+        "n|rel|public.plan_entitlements_user_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "plan_entitlements",
+        "plan_entitlements_payment_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.plan_entitlements_payment_id_idx",
+        "n|idx|public.plan_entitlements_payment_id_idx",
+        "e|idx|public.plan_entitlements_payment_id_idx",
+        "n|rel|public.plan_entitlements_payment_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.payment_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "n|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "e|fk|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey",
+        "n|con|public.plan_entitlements.plan_entitlements_tenant_id_tenants_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|tbl|public.tenants",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.tenant_id",
+        "n|col|public.tenants.id",
+        "e|uniqueness|public.tenants.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "plan_entitlements"
+      ],
+      "writes": [
+        "s|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "n|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "e|fk|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey",
+        "n|con|public.plan_entitlements.plan_entitlements_payment_id_payments_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.plan_entitlements",
+        "n|sch|public",
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.plan_entitlements.payment_id",
+        "n|col|public.payments.id",
+        "e|uniqueness|public.payments.id"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "exam_attempt_regrade_items"
       ],
       "writes": [
@@ -16865,6 +16991,24 @@
         "n|rel|public.exam_pin_version_updates_pkey"
       ],
       "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_pins",
+        "version_mode"
+      ],
+      "writes": [
+        "s|col|public.exam_pins.version_mode",
+        "n|col|public.exam_pins.version_mode",
+        "e|col|public.exam_pins.version_mode"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pins",
         "n|sch|public"
       ]
     },
@@ -16933,6 +17077,26 @@
       "statementTarget": [
         "index",
         "public",
+        "exam_attempt_regrade_items",
+        "exam_attempt_regrade_items_question_attempt_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "n|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "e|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "n|rel|public.exam_attempt_regrade_items_question_attempt_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.question_attempt_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "exam_attempt_regrades",
         "exam_attempt_regrades_pin_idx"
       ],
@@ -16973,19 +17137,39 @@
       "statementTarget": [
         "index",
         "public",
-        "exam_matrix_cells",
-        "exam_matrix_cells_curriculum_node_idx"
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_from_version_idx"
       ],
       "writes": [
-        "s|idx|public.exam_matrix_cells_curriculum_node_idx",
-        "n|idx|public.exam_matrix_cells_curriculum_node_idx",
-        "e|idx|public.exam_matrix_cells_curriculum_node_idx",
-        "n|rel|public.exam_matrix_cells_curriculum_node_idx"
+        "s|idx|public.exam_attempt_regrades_from_version_idx",
+        "n|idx|public.exam_attempt_regrades_from_version_idx",
+        "e|idx|public.exam_attempt_regrades_from_version_idx",
+        "n|rel|public.exam_attempt_regrades_from_version_idx"
       ],
       "reads": [
-        "n|tbl|public.exam_matrix_cells",
+        "n|tbl|public.exam_attempt_regrades",
         "n|sch|public",
-        "n|col|public.exam_matrix_cells.curriculum_node_id"
+        "n|col|public.exam_attempt_regrades.from_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_to_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_to_version_idx",
+        "n|idx|public.exam_attempt_regrades_to_version_idx",
+        "e|idx|public.exam_attempt_regrades_to_version_idx",
+        "n|rel|public.exam_attempt_regrades_to_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.to_version_id"
       ]
     },
     {
@@ -17009,95 +17193,43 @@
       ]
     },
     {
-      "statementType": "create_fk",
+      "statementType": "create_index",
       "statementTarget": [
-        "table",
+        "index",
         "public",
-        "class_join_requests"
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_from_version_idx"
       ],
       "writes": [
-        "s|fk|public.class_join_requests.class_join_requests_tenant_id_tenants_id_fkey",
-        "n|fk|public.class_join_requests.class_join_requests_tenant_id_tenants_id_fkey",
-        "e|fk|public.class_join_requests.class_join_requests_tenant_id_tenants_id_fkey",
-        "n|con|public.class_join_requests.class_join_requests_tenant_id_tenants_id_fkey"
+        "s|idx|public.exam_pin_version_updates_from_version_idx",
+        "n|idx|public.exam_pin_version_updates_from_version_idx",
+        "e|idx|public.exam_pin_version_updates_from_version_idx",
+        "n|rel|public.exam_pin_version_updates_from_version_idx"
       ],
       "reads": [
-        "n|tbl|public.class_join_requests",
+        "n|tbl|public.exam_pin_version_updates",
         "n|sch|public",
-        "n|tbl|public.tenants",
-        "n|sch|public",
-        "n|col|public.class_join_requests.tenant_id",
-        "n|col|public.tenants.id",
-        "e|uniqueness|public.tenants.id"
+        "n|col|public.exam_pin_version_updates.from_exam_version_id"
       ]
     },
     {
-      "statementType": "create_fk",
+      "statementType": "create_index",
       "statementTarget": [
-        "table",
+        "index",
         "public",
-        "class_join_requests"
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_to_version_idx"
       ],
       "writes": [
-        "s|fk|public.class_join_requests.class_join_requests_class_id_classes_id_fkey",
-        "n|fk|public.class_join_requests.class_join_requests_class_id_classes_id_fkey",
-        "e|fk|public.class_join_requests.class_join_requests_class_id_classes_id_fkey",
-        "n|con|public.class_join_requests.class_join_requests_class_id_classes_id_fkey"
+        "s|idx|public.exam_pin_version_updates_to_version_idx",
+        "n|idx|public.exam_pin_version_updates_to_version_idx",
+        "e|idx|public.exam_pin_version_updates_to_version_idx",
+        "n|rel|public.exam_pin_version_updates_to_version_idx"
       ],
       "reads": [
-        "n|tbl|public.class_join_requests",
+        "n|tbl|public.exam_pin_version_updates",
         "n|sch|public",
-        "n|tbl|public.classes",
-        "n|sch|public",
-        "n|col|public.class_join_requests.class_id",
-        "n|col|public.classes.id",
-        "e|uniqueness|public.classes.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "class_join_requests"
-      ],
-      "writes": [
-        "s|fk|public.class_join_requests.class_join_requests_user_id_users_id_fkey",
-        "n|fk|public.class_join_requests.class_join_requests_user_id_users_id_fkey",
-        "e|fk|public.class_join_requests.class_join_requests_user_id_users_id_fkey",
-        "n|con|public.class_join_requests.class_join_requests_user_id_users_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.class_join_requests",
-        "n|sch|public",
-        "n|tbl|public.users",
-        "n|sch|public",
-        "n|col|public.class_join_requests.user_id",
-        "n|col|public.users.id",
-        "e|uniqueness|public.users.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "class_join_requests"
-      ],
-      "writes": [
-        "s|fk|public.class_join_requests.class_join_requests_decided_by_users_id_fkey",
-        "n|fk|public.class_join_requests.class_join_requests_decided_by_users_id_fkey",
-        "e|fk|public.class_join_requests.class_join_requests_decided_by_users_id_fkey",
-        "n|con|public.class_join_requests.class_join_requests_decided_by_users_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.class_join_requests",
-        "n|sch|public",
-        "n|tbl|public.users",
-        "n|sch|public",
-        "n|col|public.class_join_requests.decided_by",
-        "n|col|public.users.id",
-        "e|uniqueness|public.users.id"
+        "n|col|public.exam_pin_version_updates.to_exam_version_id"
       ]
     },
     {
@@ -17266,29 +17398,6 @@
       "statementTarget": [
         "table",
         "public",
-        "exam_matrix_cells"
-      ],
-      "writes": [
-        "s|fk|public.exam_matrix_cells.exam_matrix_cells_curriculum_node_id_curriculum_nodes_id_fkey",
-        "n|fk|public.exam_matrix_cells.exam_matrix_cells_curriculum_node_id_curriculum_nodes_id_fkey",
-        "e|fk|public.exam_matrix_cells.exam_matrix_cells_curriculum_node_id_curriculum_nodes_id_fkey",
-        "n|con|public.exam_matrix_cells.exam_matrix_cells_curriculum_node_id_curriculum_nodes_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.exam_matrix_cells",
-        "n|sch|public",
-        "n|tbl|public.curriculum_nodes",
-        "n|sch|public",
-        "n|col|public.exam_matrix_cells.curriculum_node_id",
-        "n|col|public.curriculum_nodes.id",
-        "e|uniqueness|public.curriculum_nodes.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
         "exam_pin_version_updates"
       ],
       "writes": [
@@ -17354,103 +17463,22 @@
       ]
     },
     {
-      "statementType": "create_index",
+      "statementType": "add_check",
       "statementTarget": [
-        "index",
+        "table",
         "public",
-        "exam_attempt_regrade_items",
-        "exam_attempt_regrade_items_question_attempt_idx"
+        "exam_pins"
       ],
       "writes": [
-        "s|idx|public.exam_attempt_regrade_items_question_attempt_idx",
-        "n|idx|public.exam_attempt_regrade_items_question_attempt_idx",
-        "e|idx|public.exam_attempt_regrade_items_question_attempt_idx",
-        "n|rel|public.exam_attempt_regrade_items_question_attempt_idx"
+        "s|ck|public.exam_pins.exam_pins_version_mode_check",
+        "n|ck|public.exam_pins.exam_pins_version_mode_check",
+        "e|ck|public.exam_pins.exam_pins_version_mode_check",
+        "n|con|public.exam_pins.exam_pins_version_mode_check"
       ],
       "reads": [
-        "n|tbl|public.exam_attempt_regrade_items",
+        "n|tbl|public.exam_pins",
         "n|sch|public",
-        "n|col|public.exam_attempt_regrade_items.question_attempt_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_attempt_regrades",
-        "exam_attempt_regrades_from_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_attempt_regrades_from_version_idx",
-        "n|idx|public.exam_attempt_regrades_from_version_idx",
-        "e|idx|public.exam_attempt_regrades_from_version_idx",
-        "n|rel|public.exam_attempt_regrades_from_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_attempt_regrades",
-        "n|sch|public",
-        "n|col|public.exam_attempt_regrades.from_version_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_attempt_regrades",
-        "exam_attempt_regrades_to_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_attempt_regrades_to_version_idx",
-        "n|idx|public.exam_attempt_regrades_to_version_idx",
-        "e|idx|public.exam_attempt_regrades_to_version_idx",
-        "n|rel|public.exam_attempt_regrades_to_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_attempt_regrades",
-        "n|sch|public",
-        "n|col|public.exam_attempt_regrades.to_version_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_pin_version_updates",
-        "exam_pin_version_updates_from_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_pin_version_updates_from_version_idx",
-        "n|idx|public.exam_pin_version_updates_from_version_idx",
-        "e|idx|public.exam_pin_version_updates_from_version_idx",
-        "n|rel|public.exam_pin_version_updates_from_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_pin_version_updates",
-        "n|sch|public",
-        "n|col|public.exam_pin_version_updates.from_exam_version_id"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "exam_pin_version_updates",
-        "exam_pin_version_updates_to_version_idx"
-      ],
-      "writes": [
-        "s|idx|public.exam_pin_version_updates_to_version_idx",
-        "n|idx|public.exam_pin_version_updates_to_version_idx",
-        "e|idx|public.exam_pin_version_updates_to_version_idx",
-        "n|rel|public.exam_pin_version_updates_to_version_idx"
-      ],
-      "reads": [
-        "n|tbl|public.exam_pin_version_updates",
-        "n|sch|public",
-        "n|col|public.exam_pin_version_updates.to_exam_version_id"
+        "n|col|public.exam_pins.version_mode"
       ]
     }
   ],
@@ -57182,6 +57210,260 @@
     },
     {
       "schema": "public",
+      "name": "plan_entitlements",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "tenant_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "user_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "component",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "payment_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "starts_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "expires_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'active'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_tenant_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "tenant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_user_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "payment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_tenant_id_tenants_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "tenant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "tenants",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_payments_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "payment_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "payments",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "plan_entitlements",
+      "name": "plan_entitlements_payment_id_unique",
+      "nameExplicit": true,
+      "columns": [
+        "payment_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "name": "exam_attempt_regrade_items",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -57575,6 +57857,27 @@
     },
     {
       "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_question_attempt_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_attempt_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "exam_attempt_regrades",
       "name": "exam_attempt_regrades_pin_idx",
       "nameExplicit": true,
@@ -57617,12 +57920,96 @@
     },
     {
       "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_from_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "from_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_to_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "to_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "exam_pin_version_updates",
       "name": "exam_pin_version_updates_pin_idx",
       "nameExplicit": true,
       "columns": [
         {
           "value": "pin_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_from_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "from_exam_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_to_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "to_exam_version_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -57842,111 +58229,6 @@
       "name": "exam_pins_version_mode_check",
       "value": "\"version_mode\" in ('pinned', 'float_latest_ready')",
       "entityType": "checks"
-    },
-    {
-      "schema": "public",
-      "table": "exam_attempt_regrade_items",
-      "name": "exam_attempt_regrade_items_question_attempt_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "question_attempt_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "exam_attempt_regrades",
-      "name": "exam_attempt_regrades_from_version_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "from_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "exam_attempt_regrades",
-      "name": "exam_attempt_regrades_to_version_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "to_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "exam_pin_version_updates",
-      "name": "exam_pin_version_updates_from_version_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "from_exam_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "exam_pin_version_updates",
-      "name": "exam_pin_version_updates_to_version_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "to_exam_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
     }
   ]
 }

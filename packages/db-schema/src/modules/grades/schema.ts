@@ -68,7 +68,7 @@ export const gradeItems = pgTable(
  * Điểm của từng học sinh tại một item (một bài). raw_grade là điểm nhập;
  * final_grade là điểm hiệu lực (sau hệ số/offset của item qua engine
  * @lms/grades). `frozen`: điểm đã sinh bởi công thức hệ số/offset thì
- * giữ nguyên verbatim cho tới khi GV gỡ đóng băng.
+ * giữ nguyên văn cho tới khi GV gỡ đóng băng.
  */
 export const gradeGrades = pgTable(
   'grade_grades',
