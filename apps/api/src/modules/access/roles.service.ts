@@ -38,7 +38,7 @@ export class RolesService {
     private readonly outbox: OutboxService,
   ) {}
 
-  /** Idempotent seed: sync capability definitions from code (definitions no longer in the registry are pruned, together with their role overrides), create the standard Moodle core roles and their archetype defaults at the system context. */
+  /** Seed có tính idempotent: đồng bộ các định nghĩa capability từ code (định nghĩa không còn trong registry sẽ bị cắt bỏ, cùng với các override role của chúng), tạo các role core chuẩn của Moodle và giá trị mặc định theo archetype của chúng tại context hệ thống. */
   /**
    * Gieo các role archetype chuẩn của Moodle (manager, coursecreator, editingteacher, teacher, student, guest, user) cùng ma trận quyền mặc định tại context hệ thống; idempotent.
    * Đồng bộ hai chiều: định nghĩa capability không còn trong sổ đăng ký ở code (vd tên cũ còn tiền tố, đã bỏ từ issue #35) bị xoá khỏi DB cùng mọi override trỏ tới chúng, để hai hệ tên không cùng tồn tại sau seed.
@@ -166,7 +166,7 @@ export class RolesService {
   async listAssignments(filter: { userId?: string; contextId?: string }): Promise<unknown[]> {
     return this.repo.listAssignments(filter);
   }
-  /** Assignments of one user across a set of contexts — e.g. every context on a target's ancestor path. This is the lookup PermissionEvaluator builds on: role assignments inherit down the context tree, so ancestor assignments are effective at the leaf. */
+  /** Các assignment của một người dùng trên một tập context — ví dụ mọi context trên đường tổ tiên của đối tượng đích. Đây là phép tra cứu mà PermissionEvaluator dựa vào: assignment role được kế thừa xuống dưới theo cây context, nên assignment ở tổ tiên có hiệu lực tại lá. */
   /**
    * Lấy mọi gán role của user tại một tập context (vd toàn bộ đường tổ tiên của context khoá học) — cùng phép tra cứu mà PermissionEvaluator dùng để thừa hưởng gán từ context tổ tiên.
    */
@@ -174,7 +174,7 @@ export class RolesService {
     return this.repo.getAssignmentsForUserInContexts(userId, contextIds);
   }
 
-  /** Set (or clear, with CAP_INHERIT) a capability override for a role at a context; dirties the whole subtree. */
+  /** Đặt (hoặc xoá, bằng CAP_INHERIT) một override capability cho một role tại một context; đánh dấu dirty cho toàn bộ cây con. */
   /**
    * Đặt override CAP_* cho role tại context (ALLOW/INHERIT/PREVENT/PROHIBIT).
    */

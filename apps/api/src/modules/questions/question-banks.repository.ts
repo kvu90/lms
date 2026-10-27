@@ -70,7 +70,7 @@ export class QuestionBanksRepository {
     return row;
   }
 
-  // --- categories & questions of a bank -----------------------------------------
+  // --- danh mục & câu hỏi của một bank -----------------------------------------
 
   /** Category thuộc bank (bank_id tường minh), thứ tự tạo. */
   async listCategoriesOfBank(bankId: string): Promise<BankCategoryRow[]> {

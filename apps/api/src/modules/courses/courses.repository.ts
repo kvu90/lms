@@ -52,7 +52,7 @@ export class CoursesRepository {
   async childrenOf(parent: string): Promise<CategoryRow[]> {
     return this.db.select().from(courseCategories).where(eq(courseCategories.parent, parent)).orderBy(asc(courseCategories.sortOrder));
   }
-  /** Category and all descendants via path prefix (path is like /1/4/9). */
+  /** Category và mọi con cháu qua tiền tố path (path có dạng như /1/4/9). */
   /**
    * Toàn bộ cây con của một category (theo path).
    */
@@ -233,7 +233,7 @@ export class CoursesRepository {
    */
   async deleteSection(id: string): Promise<void> { await this.db.delete(courseSections).where(eq(courseSections.id, id)); }
 
-  // course modules
+  // mô-đun của khoá học
   /**
    * Chèn course module.
    */
@@ -280,7 +280,7 @@ export class CoursesRepository {
     await (tx ?? this.db).delete(courseModules).where(eq(courseModules.id, id));
   }
 
-  // format options
+  // tuỳ chọn định dạng
   /**
    * Ghi một tuỳ chọn định dạng khoá học (format option).
    */

@@ -11,9 +11,9 @@ import { CompetenciesRepository } from './competencies.repository';
 import { CompetenciesService } from './competencies.service';
 
 /**
- * CompetenciesModule facade: CompetenciesService. Completion outcomes are
- * consumed via hooks registered into CompletionService; review requests go
- * out through the MessagingService facade (no cross-module repositories).
+ * Facade của CompetenciesModule: CompetenciesService. Các kết quả completion được
+ * tiêu thụ qua các hook đã đăng ký vào CompletionService; các yêu cầu review đi
+ * ra ngoài thông qua facade của MessagingService (không dùng repository xuyên module).
  */
 @Module({
   imports: [AccessModule, CoursesModule, GroupsModule, CompletionModule, MessagingModule, UsersModule, EventsModule],

@@ -12,8 +12,8 @@ import { GradesService } from './grades.service';
 
 /**
  * GradesModule facade: GradesService (điểm theo từng bài). Depends on
- * Courses, Enrol, Access, Completion (facades only). Registers its
- * evaluators into Completion/Courses at bootstrap.
+ * Courses, Enrol, Access, Completion (chỉ qua facade). Đăng ký các
+ * evaluator của nó vào Completion/Courses lúc khởi động.
  */
 @Module({
   imports: [

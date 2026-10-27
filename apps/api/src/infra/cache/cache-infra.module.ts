@@ -8,10 +8,10 @@ import { RequestCacheService } from './request-cache.service';
 import { SessionCacheService } from './session-cache.service';
 
 /**
- * CacheInfraModule — maps Moodle MUC's three modes:
- *  - application: shared Redis store via @nestjs/cache-manager + Keyv (namespace `lms:app`)
- *  - session:     Redis store with its own namespace (`lms:session`), SessionCacheService
- *  - request:     REQUEST-scoped in-memory Map, RequestCacheService
+ * CacheInfraModule — ánh xạ ba chế độ của MUC trong Moodle:
+ *  - application: kho Redis dùng chung qua @nestjs/cache-manager + Keyv (namespace `lms:app`)
+ *  - session:     kho Redis với namespace riêng (`lms:session`), SessionCacheService
+ *  - request:     Map trong bộ nhớ theo phạm vi REQUEST, RequestCacheService
  */
 @Module({
   imports: [

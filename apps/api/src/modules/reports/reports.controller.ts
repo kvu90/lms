@@ -5,7 +5,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.d
 import { createReportSchema, createReportScheduleSchema, type CreateReportDto, type CreateScheduleDto } from './dto/reports.dto';
 import { ReportsService } from './reports.service';
 
-/** Controller Report Builder. */
+/** Controller của Report Builder. */
 @ApiTags('reports')
 @Controller({ path: 'reports', version: '1' })
 export class ReportsController {

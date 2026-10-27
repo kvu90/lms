@@ -11,12 +11,12 @@ import { EnrolService } from './enrol.service';
 import { CohortSyncOutboxConsumer } from './cohort-sync-outbox.consumer';
 
 /**
- * EnrolModule facade: EnrolService. Depends on Courses, Groups, Access
- * (report §3.12). Completion registers its related-data probe into
- * EnrolService; Enrol registers its isEnrolled checker into CoursesService —
- * both via registration, not circular imports. MessagingModule is imported
- * directly for welcome messages: Messaging depends only on Access/Users/
- * Events, so there is no module cycle (same pattern as Badges/Reports).
+ * Facade của EnrolModule: EnrolService. Phụ thuộc Courses, Groups, Access
+ * (report §3.12). Completion đăng ký đầu dò dữ liệu liên quan của nó vào
+ * EnrolService; Enrol đăng ký bộ kiểm tra isEnrolled của nó vào CoursesService —
+ * cả hai đều qua đăng ký, không qua import vòng. MessagingModule được import
+ * trực tiếp cho tin nhắn chào mừng: Messaging chỉ phụ thuộc Access/Users/
+ * Events, nên không có chu trình module (cùng mẫu với Badges/Reports).
  */
 @Module({
   imports: [AccessModule, CoursesModule, GroupsModule, EventsModule, MessagingModule, TenantsModule],

@@ -73,7 +73,7 @@ export interface SepayIpnInput {
 }
 
 /**
- * PaymentsModule facade (Moodle core_payment, §2#27).
+ * Facade của PaymentsModule (Moodle core_payment, §2#27).
  * Bất biến: amount là số nguyên đơn vị nhỏ nhất + currency (không float);
  * payment thành công là bất biến — hoàn tiền là giao dịch bù trừ riêng;
  * webhook idempotent theo external transaction id (replay không xử lý 2 lần);

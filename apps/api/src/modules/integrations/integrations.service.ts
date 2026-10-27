@@ -18,7 +18,7 @@ export interface ExternalFunctionDef {
 export function hashToken(raw: string): string { return createHash('sha256').update(raw).digest('hex'); }
 
 /**
- * IntegrationTokensModule facade (Moodle core_webservice, §2#21).
+ * Facade của IntegrationTokensModule (Moodle core_webservice, §2#21).
  * Service = tập function + token; mỗi function khai báo capability bắt buộc
  * kiểm tại context đã resolve. Token KHÔNG BAO GIỜ bypass capability của
  * user sở hữu token.

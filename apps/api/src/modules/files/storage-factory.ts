@@ -3,10 +3,10 @@ import { LocalObjectStorage, type ObjectStorage } from './storage';
 import { S3ObjectStorage } from './storage-s3';
 
 /**
- * Driver selection for the files physical layer, by env only:
- * FILE_STORAGE_DRIVER=local (default — current behaviour unchanged when
- * the variable is unset) or =s3 (durable object storage). An unknown
- * value fails fast at boot instead of silently falling back.
+ * Lựa chọn driver cho tầng vật lý của file, chỉ theo env:
+ * FILE_STORAGE_DRIVER=local (mặc định — hành vi hiện tại không đổi khi
+ * biến chưa được đặt) hoặc =s3 (lưu trữ đối tượng bền vững). Một giá trị lạ
+ * sẽ fail fast lúc khởi động thay vì âm thầm fallback.
  */
 /**
  * Chọn adapter kho file theo env FILE_STORAGE_DRIVER; giá trị lạ thì fail-fast, không rơi im lặng về local.

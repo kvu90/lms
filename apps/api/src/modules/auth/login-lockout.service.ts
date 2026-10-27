@@ -58,7 +58,7 @@ export class LoginLockoutService implements LockoutGuardPort {
    */
   async isLockedOut(userId: string): Promise<boolean> {
     const threshold = this.config.get<number>('LOCKOUT_THRESHOLD') ?? 5;
-    if (threshold <= 0) return false; // lockout disabled when threshold is 0 (Moodle behaviour)
+    if (threshold <= 0) return false; // khoá bị tắt khi ngưỡng bằng 0 (hành vi của Moodle)
     const windowMin = this.config.get<number>('LOCKOUT_WINDOW_MINUTES') ?? 20;
     const durationMin = this.config.get<number>('LOCKOUT_DURATION_MINUTES') ?? 30;
     const since = new Date(Date.now() - windowMin * 60_000);

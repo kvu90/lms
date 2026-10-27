@@ -6,7 +6,7 @@ import { AnalyticsController } from './analytics.controller';
 import { AnalyticsRepository } from './analytics.repository';
 import { AnalyticsService } from './analytics.service';
 
-/** AnalyticsModule facade: AnalyticsService. */
+/** Facade của AnalyticsModule: AnalyticsService. */
 @Module({
   imports: [AccessModule, CoursesModule, EnrolModule],
   controllers: [AnalyticsController],

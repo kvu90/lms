@@ -119,7 +119,7 @@ export class AccessController {
     return { updated: true };
   }
 
-  /** Debug/admin probe: what does the evaluator say for (user, capability, context)? */
+  /** Đầu dò debug/admin: evaluator trả lời gì cho (user, capability, context)? */
   @Get('has-capability')
   @RequireCapability('role:manage')
   /**
