@@ -69,9 +69,8 @@ export async function createReadyQuestion(app: INestApplication, token: string, 
   const bank = (banks.body as { id: string; scope: string; bankKind: string; ownerId: string | null; defaultCategoryId: string | null }[])
     .find((b) => b.scope === 'personal' && b.bankKind === 'question' && b.ownerId === ownerId)!;
   const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-    categoryId: bank.defaultCategoryId, qtype: 'multichoice', name, questionText: `Thân câu ${name}?`,
-    answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }],
-    options: { single: true },
+    categoryId: bank.defaultCategoryId, qtype: 'multichoice', questionText: `Thân câu ${name}?`,
+    answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
   });
   if (res.status !== 201) throw new Error(`create question failed: ${res.status} ${JSON.stringify(res.body)}`);
   return (res.body as { question: { id: string } }).question.id;

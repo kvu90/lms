@@ -73,10 +73,9 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
 
   async function createMc(token: string, categoryId: string, marker: string): Promise<string> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'multichoice', name: `MC ${marker}`, questionText: `THAN-CAU-${marker}: chọn đáp án đúng?`,
+      categoryId, qtype: 'multichoice', questionText: `THAN-CAU-${marker}: chọn đáp án đúng?`,
       defaultMark: 1,
-      answers: [{ text: `DUNG-${marker}`, fraction: 1 }, { text: `SAI-${marker}`, fraction: 0 }],
-      options: { single: true },
+      answers: [{ text: `DUNG-${marker}`, correct: true }, { text: `SAI-${marker}`, correct: false }, { text: `SAI2-${marker}`, correct: false }, { text: `SAI3-${marker}`, correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body.question.id as string;
@@ -84,8 +83,23 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
 
   async function createTfWithStimulus(token: string, categoryId: string, marker: string, stimulusId: string): Promise<string> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'truefalse', name: `TF ${marker}`, questionText: `THAN-CAU-TF-${marker}: đoạn văn nói đúng nội dung?`,
-      defaultMark: 1, stimulusId, answer: { correct: true },
+      categoryId, qtype: 'truefalse',
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: `THAN-CAU-TF-${marker}: đoạn văn nói đúng nội dung?` }] },
+          {
+            type: 'statementList',
+            content: [1, 2, 3, 4].map((i) => ({
+              type: 'statement',
+              attrs: { id: `s${i}` },
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i} của ${marker}` }] }],
+            })),
+          },
+        ],
+      },
+      defaultMark: 1, stimulusId,
+      solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body.question.id as string;
@@ -202,7 +216,7 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
     const mc = view.questions.find((x) => x.questionId === mcId)!;
     expect(mc).toBeTruthy();
     expect(plain(mc.questionText)).toContain(`THAN-CAU-${marker}`);
-    expect(mc.answers).toHaveLength(2);
+    expect(mc.answers).toHaveLength(4); // MC theo mô hình mới: đúng 4 lựa chọn
     expect(mc.answers.some((a) => plain(a.text).includes(`DUNG-${marker}`))).toBe(true);
     expect(mc.answers.some((a) => plain(a.text).includes(`SAI-${marker}`))).toBe(true);
     // Bề mặt học sinh không lộ fraction của đáp án khi đang làm.
@@ -226,8 +240,11 @@ describe('Attempt question reading across bank sources (issue #141)', () => {
     const ansMc = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set(bearer(ctx.student.token))
       .send({ questionAttemptId: mc.questionAttemptId, response: correct.id });
     expect(ansMc.status, JSON.stringify(ansMc.body)).toBeLessThan(300);
+    // Câu TF-A 4 mệnh đề, solution toàn Đúng: response phải là map
+    // statementId→boolean khớp solution — 'true' là định dạng TF-B cũ,
+    // chấm 0 ý đúng nên sumGrades chỉ còn điểm MC.
     const ansTf = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set(bearer(ctx.student.token))
-      .send({ questionAttemptId: tf.questionAttemptId, response: 'true' });
+      .send({ questionAttemptId: tf.questionAttemptId, response: JSON.stringify({ s1: true, s2: true, s3: true, s4: true }) });
     expect(ansTf.status, JSON.stringify(ansTf.body)).toBeLessThan(300);
 
     const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set(bearer(ctx.student.token)).send({});

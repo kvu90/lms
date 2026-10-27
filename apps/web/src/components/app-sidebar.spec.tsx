@@ -244,6 +244,38 @@ describe('cây điều hướng sidebar — admin', () => {
     expect(await screen.findByRole('link', { name: 'Ngữ liệu' })).toHaveAttribute('href', '/questions/stimuli');
   });
 
+  it('chevron của "Ngân hàng câu hỏi" nằm trong cùng bề mặt nút với nhãn; nhóm chưa có mục con không có nút thu/mở', async () => {
+    stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
+    renderShell();
+
+    const label = await screen.findByRole('link', { name: 'Ngân hàng câu hỏi' });
+    const toggle = screen.getByRole('button', { name: 'Thu/mở Ngân hàng câu hỏi' });
+    // Một nút liền: nhãn (link) và chevron (nút thu/mở) chung đúng một
+    // sidebar-menu-item — chevron gắn ở cuối cùng bề mặt nút của nhãn,
+    // không còn là hộp trigger 32px (h-8 w-8) tách riêng đứng cạnh
+    // (chốt sổ quyết định [26/10 23:16], issue #70).
+    // Lưu ý: li của nhóm collapse mang data-slot="collapsible" (gốc
+    // Collapsible ghi đè data-slot của SidebarMenuItem) nên neo theo
+    // data-sidebar="menu-item" mới ổn định.
+    const item = label.closest('li[data-sidebar="menu-item"]');
+    expect(item).not.toBeNull();
+    expect(item!.contains(toggle)).toBe(true);
+    expect(toggle.className).not.toMatch(/\bh-8\b/);
+    expect(toggle.className).not.toMatch(/\bw-8\b/);
+    // "Ngân hàng đề" và "Ngân hàng ma trận" chưa có mục con: liên kết
+    // thuần, không nút thu/mở nào.
+    expect(screen.queryByRole('button', { name: 'Thu/mở Ngân hàng đề' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Thu/mở Ngân hàng ma trận' })).not.toBeInTheDocument();
+  });
+
+  it('bấm thân "Ngân hàng câu hỏi" điều hướng tới trang /questions', async () => {
+    stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
+    renderShell();
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Ngân hàng câu hỏi' }));
+    expect(await screen.findByTestId('probe-questions')).toBeInTheDocument();
+  });
+
   it('sidebar không còn đường nào tới khu hệ thống — khu hệ thống chỉ vào bằng tab trong trang danh sách', async () => {
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
     const { container } = renderShell();

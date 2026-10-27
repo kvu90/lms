@@ -34,6 +34,7 @@ import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { FilesService } from '../files/files.service';
+import { encodeTrueFalseResponse } from '../questions/domain/question-engine';
 import { QuizService, type PinRow } from '../quiz/quiz.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { UsersService } from '../users/users.service';
@@ -361,7 +362,21 @@ export class PaperGradingService {
       slot: layout[r.slot - 1]!.slot,
       densities: r.densities, chosen: r.chosen, state: r.state, margin: r.margin,
       resolvedBy: r.resolvedBy,
+      ...(r.pairChoices ? { pairChoices: r.pairChoices } : {}),
     }));
+  }
+
+  /**
+   * Tập số hàng (1-based theo thứ tự layout đã sắp = thứ tự hàng trên
+   * phiếu) của các slot đúng/sai chùm TF-A trong lô: các hàng này OMR
+   * đọc theo từng cặp ô Đ/S.
+   */
+  private pairSlotsOf(batch: PaperBatchRow): Set<number> {
+    const out = new Set<number>();
+    this.sortedLayout(batch).forEach((entry, i) => {
+      if (entry.qtype === 'truefalse') out.add(i + 1);
+    });
+    return out;
   }
 
   /**
@@ -393,7 +408,7 @@ export class PaperGradingService {
     const routingBatch = opts.anchor ?? opts.batches[0]!;
     let processed: ProcessedSheet;
     try {
-      processed = processSheetImage(opts.file.buffer, this.geometryOf(routingBatch), opts.thresholds);
+      processed = processSheetImage(opts.file.buffer, this.geometryOf(routingBatch), opts.thresholds, this.pairSlotsOf(routingBatch));
     } catch {
       return { fileName, stored: false, reasons: ['unreadable_image'] };
     }
@@ -416,7 +431,7 @@ export class PaperGradingService {
     if (target && target.id !== routingBatch.id) {
       // Đọc lại bằng hình học của lô đích (layout + số cột lưới mã có thể khác).
       try {
-        processed = processSheetImage(opts.file.buffer, this.geometryOf(target), opts.thresholds);
+        processed = processSheetImage(opts.file.buffer, this.geometryOf(target), opts.thresholds, this.pairSlotsOf(target));
         variantCodeRead = processed.variantCode?.code ?? variantCodeRead;
       } catch {
         return { fileName, stored: false, reasons: ['unreadable_image'] };
@@ -624,7 +639,7 @@ export class PaperGradingService {
     if (scan.warpedFileId) {
       try {
         const { data } = await this.files.readContent(scan.warpedFileId);
-        const processed = processSheetImage(data, this.geometryOf(batch), await this.omrThresholds());
+        const processed = processSheetImage(data, this.geometryOf(batch), await this.omrThresholds(), this.pairSlotsOf(batch));
         if (processed.qualityOk) {
           reread = true;
           readings = this.mapReadings(processed, batch);
@@ -674,7 +689,12 @@ export class PaperGradingService {
     return this.scanViewFull(updated);
   }
 
-  /** Hàng chờ ca mơ hồ: giáo viên quyết ô chọn cho từng câu đang ambiguous (chosen null = để trống). */
+  /**
+   * Hàng chờ ca mơ hồ: giáo viên quyết ô chọn cho từng câu đang
+   * ambiguous (chosen null = để trống). Slot đúng/sai chùm TF-A quyết
+   * theo TỪNG Ý qua `pairChoices` (ý k: 0 = Đ, 1 = S, null = để trống
+   * ý đó) — một ý mơ hồ không ép giáo viên đoán cả câu.
+   */
   async resolveReadings(actorId: string, scanId: string, input: ResolvePaperReadings): Promise<PaperScan> {
     const scan = await this.getScanRow(scanId);
     if (scan.status === 'recorded') throw new ConflictException({ message: 'Scan is already recorded as an attempt', code: 'paper.already_recorded' });
@@ -685,7 +705,7 @@ export class PaperGradingService {
     }
     const batch = await this.repo.getBatch(scan.batchId);
     if (!batch) throw new NotFoundException({ message: 'Paper batch of this scan no longer exists', code: 'paper.batch_not_found' });
-    const optionCountBySlot = new Map(batch.layout.map((l) => [l.slot, l.optionCount]));
+    const layoutBySlot = new Map(batch.layout.map((l) => [l.slot, l]));
     const readings = scan.readings.map((r) => ({ ...r }));
     for (const item of input.readings) {
       const reading = readings.find((r) => r.slot === item.slot);
@@ -693,12 +713,24 @@ export class PaperGradingService {
       if (reading.state !== 'ambiguous') {
         throw new BadRequestException({ message: `Slot ${item.slot} is not ambiguous`, code: 'paper.reading_not_ambiguous' });
       }
-      const optionCount = optionCountBySlot.get(item.slot) ?? 0;
-      if (item.chosen !== null && (item.chosen < 0 || item.chosen >= optionCount)) {
-        throw new BadRequestException({ message: `Chosen option ${item.chosen} is out of range for slot ${item.slot}`, code: 'paper.choice_out_of_range' });
+      const layoutEntry = layoutBySlot.get(item.slot);
+      if (layoutEntry?.qtype === 'truefalse') {
+        if (!item.pairChoices || item.pairChoices.length !== layoutEntry.statementIds.length) {
+          throw new BadRequestException({ message: `Slot ${item.slot} is a true/false cluster slot; resolve it per statement via pairChoices`, code: 'paper.pair_choices_required' });
+        }
+        reading.pairChoices = [...item.pairChoices];
+        reading.chosen = null;
+        reading.state = item.pairChoices.every((v) => v === null) ? 'blank' : 'filled';
+        reading.resolvedBy = 'teacher';
+        continue;
       }
-      reading.chosen = item.chosen;
-      reading.state = item.chosen === null ? 'blank' : 'filled';
+      const optionCount = layoutEntry?.optionCount ?? 0;
+      const chosen = item.chosen ?? null;
+      if (chosen !== null && (chosen < 0 || chosen >= optionCount)) {
+        throw new BadRequestException({ message: `Chosen option ${chosen} is out of range for slot ${item.slot}`, code: 'paper.choice_out_of_range' });
+      }
+      reading.chosen = chosen;
+      reading.state = chosen === null ? 'blank' : 'filled';
       reading.resolvedBy = 'teacher';
     }
     const updated = await this.repo.updateScan(scan.id, {
@@ -709,8 +741,10 @@ export class PaperGradingService {
 
   /**
    * Ghi phiếu đã sẵn sàng thành attempt thi giấy: đáp án theo đúng
-   * layout đã ghim của lô (multichoice = answerId; đúng/sai = 'true'/
-   * 'false' theo thứ tự in Đ trước S sau; trống = null) qua đường
+   * layout đã ghim của lô (multichoice = answerId; đúng/sai chùm
+   * TF-A = JSON bản đồ statementId → boolean quy từ 4 cặp ô Đ/S của
+   * slot — cặp tô ô Đ là true, ô S là false, cặp trống thì mệnh đề
+   * vắng mặt trong bản đồ; cả slot trống = null) qua đường
    * finalizeAttempt của Quiz — điểm vào sổ như attempt online.
    */
   async recordScan(actorId: string, scanId: string): Promise<PaperScan & { sumGrades: number | null }> {
@@ -740,10 +774,21 @@ export class PaperGradingService {
     const responses: (string | null)[] = Array.from({ length: maxSlot }, () => null);
     for (const entry of batch.layout) {
       const reading = scan.readings.find((r) => r.slot === entry.slot);
-      if (!reading || reading.chosen === null) continue;
-      responses[entry.slot - 1] = entry.qtype === 'truefalse'
-        ? (reading.chosen === 0 ? 'true' : 'false')
-        : entry.answerIds[reading.chosen]!;
+      if (!reading) continue;
+      if (entry.qtype === 'truefalse') {
+        const answers: Record<string, boolean> = {};
+        entry.statementIds.forEach((statementId, k) => {
+          const choice = reading.pairChoices?.[k];
+          if (choice === 0) answers[statementId] = true;
+          else if (choice === 1) answers[statementId] = false;
+        });
+        if (Object.keys(answers).length > 0) {
+          responses[entry.slot - 1] = encodeTrueFalseResponse(answers);
+        }
+        continue;
+      }
+      if (reading.chosen === null) continue;
+      responses[entry.slot - 1] = entry.answerIds[reading.chosen]!;
     }
     const result = await this.quiz.recordPaperAttempt(actorId, scan.examPinId, {
       studentId: scan.studentId, layout: batch.layout, responses,

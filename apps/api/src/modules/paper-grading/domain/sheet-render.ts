@@ -64,7 +64,13 @@ function drawLine(img: RgbaImage, x0: number, y0: number, x1: number, y1: number
 }
 
 export type FillStyle = 'full' | 'light' | 'check' | 'erased';
-export interface SlotFill { choice: number; style: FillStyle; secondChoice?: number }
+export interface SlotFill {
+  choice: number;
+  style: FillStyle;
+  secondChoice?: number;
+  /** Các ô phụ tô cùng kiểu (câu đúng/sai chùm TF-A tô một ô trong mỗi cặp Đ/S — tối đa 4 ô trên một hàng slot). */
+  choices?: number[];
+}
 
 export interface RenderSheetInput {
   geometry: SheetGeometry;
@@ -154,7 +160,7 @@ export function renderSheetRgba(input: RenderSheetInput): RgbaImage {
     row.centers.forEach((center, k) => {
       ringCircle(img, center.x, center.y, 13, 40);
       const fill = input.fills.get(row.slot);
-      if (fill && fill.choice === k) paintFill(img, center.x, center.y, fill.style);
+      if (fill && (fill.choice === k || fill.choices?.includes(k))) paintFill(img, center.x, center.y, fill.style);
       if (fill?.secondChoice === k) paintFill(img, center.x, center.y, 'full');
     });
   }

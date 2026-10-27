@@ -173,8 +173,8 @@ describe('Matrix bank MB-1 (issue #111)', () => {
     const catId = (catRes.body as { id: string }).id;
     const mkQ = async (name: string, outcomeId: string, level: string) => {
       const r = await http(app).post('/api/v1/questions').set(bearer(admin)).send({
-        categoryId: catId, qtype: 'multichoice', name, questionText: `${name}?`,
-        answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+        categoryId: catId, qtype: 'multichoice', questionText: `${name}?`,
+        answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
       });
       expect(r.status, JSON.stringify(r.body)).toBe(201);
       const qid = (r.body as { question: { id: string } }).question.id;

@@ -53,7 +53,7 @@ interface BankBody {
   contextId: string; defaultCategoryId: string | null;
 }
 interface QuestionViewBody {
-  question: { id: string; category: string; name: string; createdBy: string };
+  question: { id: string; category: string; createdBy: string };
   entry: { id: string; status: string };
 }
 
@@ -118,9 +118,8 @@ describe('Bank personal privacy (issue #123)', () => {
 
   async function createQuestion(token: string, categoryId: string, name: string, text: string): Promise<QuestionViewBody> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'multichoice', name, questionText: text,
-      answers: [{ text: 'Đáp án đúng', fraction: 1 }, { text: 'Đáp án sai', fraction: 0 }],
-      options: { single: true },
+      categoryId, qtype: 'multichoice', questionText: text,
+      answers: [{ text: 'Đáp án đúng', correct: true }, { text: 'Đáp án sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body as QuestionViewBody;
@@ -316,18 +315,22 @@ describe('Bank personal privacy (issue #123)', () => {
     const qid = questionEA.question.id;
     // PATCH câu của đồng nghiệp → 404 question.not_found, câu còn nguyên.
     const patch = await http(app).patch(`/api/v1/questions/${qid}`).set(bearer(editorB.token))
-      .send({ name: 'PRIV123-HACKED-NAME' });
+      .send({ questionText: 'PRIV123-HACKED-TEXT' });
     expect(patch.status, JSON.stringify(patch.body)).toBe(404);
     expect((patch.body as { code?: string }).code).toBe('question.not_found');
     const still = await http(app).get(`/api/v1/questions/${qid}`).set(bearer(editorA.token));
     expect(still.status).toBe(200);
-    expect((still.body as QuestionViewBody).question.name).toBe('Câu riêng của editorA');
+    // Câu còn nguyên: thân câu vẫn là nội dung gốc, không có dấu vết
+    // của lần PATCH lạ (câu hỏi không còn trường tên — bất biến kiểm
+    // trên chính nội dung thân câu).
+    expect(JSON.stringify(still.body)).toContain('PRIV123-EDITOR-SECRET');
+    expect(JSON.stringify(still.body)).not.toContain('PRIV123-HACKED-TEXT');
     expect((still.body as { entry: { latestVersion: number } }).entry.latestVersion).toBe(1);
 
     // POST câu vào category của đồng nghiệp → 404 question.category_not_found, không chèn được.
     const create = await http(app).post('/api/v1/questions').set(bearer(editorB.token)).send({
-      categoryId: catEA, qtype: 'multichoice', name: 'Câu lạ chèn vào bank editorA', questionText: 'injected',
-      answers: [{ text: 'x', fraction: 1 }, { text: 'y', fraction: 0 }], options: { single: true },
+      categoryId: catEA, qtype: 'multichoice', questionText: 'injected',
+      answers: [{ text: 'x', correct: true }, { text: 'y', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(create.status, JSON.stringify(create.body)).toBe(404);
     expect((create.body as { code?: string }).code).toBe('question.category_not_found');
@@ -385,7 +388,7 @@ describe('Bank personal privacy (issue #123)', () => {
   it('vòng 2: chủ sở hữu editingteacher vẫn ghi bình thường trên bank personal của mình', async () => {
     const qid = questionEA.question.id;
     const patch = await http(app).patch(`/api/v1/questions/${qid}`).set(bearer(editorA.token))
-      .send({ name: 'Câu riêng của editorA (đã sửa)' });
+      .send({ questionText: 'PRIV123-EDITOR-SECRET (đã sửa)' });
     expect(patch.status, JSON.stringify(patch.body)).toBe(200);
     expect((patch.body as { entry: { latestVersion: number } }).entry.latestVersion).toBe(2);
     const stim = await http(app).post('/api/v1/stimuli').set(bearer(editorA.token))
@@ -410,19 +413,19 @@ describe('Bank personal privacy (issue #123)', () => {
 
   it('vòng 2: ghi vào bank TRƯỜNG không hồi quy — editingteacher không phải chủ câu vẫn sửa/tạo theo capability', async () => {
     const patch = await http(app).patch(`/api/v1/questions/${questionSchool.question.id}`).set(bearer(editorB.token))
-      .send({ name: 'Câu của trường (editorB sửa)' });
+      .send({ questionText: 'Câu hỏi chung của trường (editorB sửa)?' });
     expect(patch.status, JSON.stringify(patch.body)).toBe(200);
     const create = await http(app).post('/api/v1/questions').set(bearer(editorB.token)).send({
-      categoryId: schoolBank.defaultCategoryId!, qtype: 'multichoice', name: 'Câu trường của editorB',
+      categoryId: schoolBank.defaultCategoryId!, qtype: 'multichoice', 
       questionText: 'Câu hỏi chung do editorB tạo?',
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(create.status, JSON.stringify(create.body)).toBe(201);
   });
 
   it('vòng 2: site admin vẫn ghi được vào bank personal của giáo viên (ngoại lệ đã được chấp nhận)', async () => {
     const patch = await http(app).patch(`/api/v1/questions/${questionEA.question.id}`).set(bearer(admin))
-      .send({ name: 'Câu riêng của editorA (admin sửa)' });
+      .send({ questionText: 'PRIV123-EDITOR-SECRET (admin sửa)' });
     expect(patch.status, JSON.stringify(patch.body)).toBe(200);
   });
 });

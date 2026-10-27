@@ -115,7 +115,7 @@ function stubFetch(calls: RecordedCall[]) {
       if (url === `/api/v1/questions/categories/${CATEGORY_ID}/questions`) {
         return respond([
           {
-            question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'truefalse', name: 'Sky' },
+            question: { id: QUESTION_ID, category: CATEGORY_ID, qtype: 'truefalse' },
             entry: {
               id: '01900000-0000-7000-8000-000000000002',
               questionCategoryId: CATEGORY_ID,
@@ -192,7 +192,7 @@ describe('Question usage flow — real endpoints', () => {
       </TestProviders>,
     );
 
-    await userEvent.click(await screen.findByRole('checkbox', { name: /Chọn câu hỏi Sky/ }));
+    await userEvent.click(await screen.findByRole('checkbox', { name: /Chọn câu hỏi The sky is blue/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Bắt đầu làm bài' }));
 
     await waitFor(() =>

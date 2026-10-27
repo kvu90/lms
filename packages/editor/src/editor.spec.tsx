@@ -4,6 +4,24 @@ import { richTextDocumentSchema, type RichTextDocument } from '@lms/contracts';
 import { contentForSave, ensureTerminalContinuation } from './document-continuation.js';
 import { RichTextEditor } from './RichTextEditor.js';
 import { RichTextView } from './RichTextView.js';
+import {
+  MULTIPLE_CHOICE_COUNT,
+  composeMultipleChoiceDocument,
+  createEmptyMultipleChoiceDocument,
+  isCompleteMultipleChoice,
+  splitMultipleChoiceDocument,
+  type MultipleChoiceDocumentJson,
+} from './multiple-choice.js';
+import { MultipleChoiceEditor } from './MultipleChoiceEditor.js';
+import {
+  TRUE_FALSE_STATEMENT_COUNT,
+  composeTrueFalseDocument,
+  createEmptyTrueFalseDocument,
+  getTrueFalseStatementIds,
+  isCompleteTrueFalse,
+  splitTrueFalseDocument,
+} from './true-false.js';
+import { TrueFalseEditor } from './TrueFalseEditor.js';
 
 /**
  * Đưa editor vào trạng thái active bằng cách focus vùng soạn — từ lát
@@ -460,5 +478,221 @@ describe('document continuation helpers', () => {
       ],
     };
     expect(ensureTerminalContinuation(withParagraph)).toBe(withParagraph);
+  });
+});
+
+/**
+ * Spec của editor trắc nghiệm thống nhất (lát P4 #248): các ca kiểm
+ * LUỒNG SOẠN–TÁCH–LẮP của mô hình giaokhoa — soạn trên một tài liệu
+ * (thân câu + lựa chọn), đáp án đúng là id nằm ngoài tài liệu, khi
+ * tách để lưu thì thân câu không còn node lựa chọn và thứ tự lựa
+ * chọn trong tài liệu là thứ tự đáp án. Đổi ngược mô hình (đáp án
+ * đúng nằm trong nội dung lựa chọn, thân câu còn choiceList khi lưu)
+ * thì các ca này phải đỏ.
+ */
+describe('MultipleChoice authoring document', () => {
+  const textDoc = (text: string): RichTextDocument => ({
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  });
+
+  it('creates an empty document with exactly four identified choices', () => {
+    const document = createEmptyMultipleChoiceDocument();
+    const { question, choices } = splitMultipleChoiceDocument(document);
+
+    expect(question.content).toHaveLength(1);
+    expect(choices).toHaveLength(MULTIPLE_CHOICE_COUNT);
+    expect(new Set(choices.map((choice) => choice.attrs.id)).size).toBe(MULTIPLE_CHOICE_COUNT);
+    expect(isCompleteMultipleChoice(document, choices[0]?.attrs.id)).toBe(false);
+  });
+
+  it('composes a question view into a unified document and splits it back losslessly', () => {
+    const answers = [
+      { id: 'ans-2', answer: textDoc('Phương án B'), sortOrder: 2 },
+      { id: 'ans-1', answer: textDoc('Phương án A'), sortOrder: 1 },
+      { id: 'ans-3', answer: textDoc('Phương án C'), sortOrder: 3 },
+      { id: 'ans-4', answer: textDoc('Phương án D'), sortOrder: 4 },
+    ];
+    const document = composeMultipleChoiceDocument(textDoc('Thủ đô của Việt Nam?'), answers);
+    const { question, choices } = splitMultipleChoiceDocument(document);
+
+    // Thân câu sau khi tách là tài liệu hợp đồng thuần: không còn
+    // node choice/choiceList nào (bất biến của quyết 12:12).
+    expect(JSON.stringify(question)).not.toContain('choice');
+    expect(question.content?.[0]?.content?.[0]?.text).toBe('Thủ đô của Việt Nam?');
+    // Thứ tự đáp án khi tách = thứ tự sortOrder đã lắp vào.
+    expect(choices.map((choice) => choice.attrs.id)).toEqual(['ans-1', 'ans-2', 'ans-3', 'ans-4']);
+    expect(choices[0]?.content?.[0]?.content?.[0]?.text).toBe('Phương án A');
+    expect(isCompleteMultipleChoice(document, 'ans-1')).toBe(true);
+    expect(isCompleteMultipleChoice(document, 'khong-ton-tai')).toBe(false);
+    expect(isCompleteMultipleChoice(document, undefined)).toBe(false);
+  });
+
+  it('keeps the answer order equal to the document order after a reorder', () => {
+    const answers = [1, 2, 3, 4].map((n) => ({
+      id: `ans-${n}`,
+      answer: textDoc(`Phương án ${n}`),
+      sortOrder: n,
+    }));
+    const document = composeMultipleChoiceDocument(textDoc('Câu hỏi?'), answers);
+    // Mô phỏng kéo-thả: choice cuối lên đầu trong tài liệu thống nhất.
+    const choiceList = document.content[document.content.length - 1] as {
+      content: MultipleChoiceDocumentJson['content'];
+    };
+    const moved = choiceList.content.splice(3, 1)[0];
+    if (moved) choiceList.content.unshift(moved);
+
+    const { choices } = splitMultipleChoiceDocument(document);
+    expect(choices.map((choice) => choice.attrs.id)).toEqual(['ans-4', 'ans-1', 'ans-2', 'ans-3']);
+  });
+
+  it('renders one correct-answer radio per choice and reports the picked choice id', async () => {
+    const answers = [1, 2, 3, 4].map((n) => ({
+      id: `ans-${n}`,
+      answer: textDoc(`Phương án ${n}`),
+      sortOrder: n,
+    }));
+    const document = composeMultipleChoiceDocument(textDoc('Câu hỏi?'), answers);
+    const onCorrectChoiceChange = vi.fn();
+    const { container } = render(
+      <MultipleChoiceEditor
+        value={document}
+        onChange={() => {}}
+        correctChoiceId="ans-2"
+        onCorrectChoiceChange={onCorrectChoiceChange}
+        ariaLabel="Soạn câu trắc nghiệm"
+      />,
+    );
+
+    const radios = await screen.findAllByRole('radio', { name: 'Đặt làm đáp án đúng' });
+    expect(radios).toHaveLength(MULTIPLE_CHOICE_COUNT);
+    expect((radios[1] as HTMLInputElement).checked).toBe(true);
+    expect((radios[0] as HTMLInputElement).checked).toBe(false);
+    // Tài liệu ProseMirror chứa đúng 4 node choice trong choiceList.
+    expect(container.querySelectorAll('[data-choice]')).toHaveLength(MULTIPLE_CHOICE_COUNT);
+
+    fireEvent.click(radios[3] as HTMLInputElement);
+    expect(onCorrectChoiceChange).toHaveBeenCalledWith('ans-4');
+  });
+});
+
+describe('TrueFalse authoring document (TF-A)', () => {
+  const textBlocks = (text: string) => [{ type: 'paragraph', content: [{ type: 'text', text }] }];
+
+  it('creates an empty document with exactly four identified statements', () => {
+    const document = createEmptyTrueFalseDocument();
+    const { stem, statements } = splitTrueFalseDocument(document);
+
+    expect(stem.content).toHaveLength(1);
+    expect(statements).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+    expect(new Set(statements.map((s) => s.attrs.id)).size).toBe(TRUE_FALSE_STATEMENT_COUNT);
+    // Chưa có đáp án Đ/S cho mệnh đề nào -> chưa hoàn chỉnh.
+    expect(isCompleteTrueFalse(document, {})).toBe(false);
+  });
+
+  it('composes a stored TF document losslessly and completeness follows the per-statement answers', () => {
+    const stored: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Cho tam giác ABC. Xét các mệnh đề:' }] },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2', 'm3', 'm4'].map((id, i) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Mệnh đề ${i + 1}` }] }],
+          })),
+        },
+      ],
+    };
+    const document = composeTrueFalseDocument(stored);
+    // Tài liệu TF lưu trữ THỐNG NHẤT với tài liệu soạn: compose không đổi hình dạng.
+    expect(document).toEqual(stored);
+    expect(getTrueFalseStatementIds(document)).toEqual(['m1', 'm2', 'm3', 'm4']);
+    const { stem, statements } = splitTrueFalseDocument(document);
+    expect(stem.content?.[0]?.content?.[0]?.text).toBe('Cho tam giác ABC. Xét các mệnh đề:');
+    expect(statements.map((s) => s.attrs.id)).toEqual(['m1', 'm2', 'm3', 'm4']);
+
+    const answers = { m1: true, m2: false, m3: true, m4: false };
+    expect(isCompleteTrueFalse(document, answers)).toBe(true);
+    // Thiếu đáp án của một mệnh đề -> chưa hoàn chỉnh (mỗi mệnh đề phải có Đ/S).
+    expect(isCompleteTrueFalse(document, { m1: true, m2: false, m3: true })).toBe(false);
+    // Thân câu rỗng -> chưa hoàn chỉnh dù đáp án đủ.
+    const emptyStem = composeTrueFalseDocument({
+      type: 'doc',
+      content: [
+        { type: 'paragraph' },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2', 'm3', 'm4'].map((id) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Ý' }] }],
+          })),
+        },
+      ],
+    });
+    expect(isCompleteTrueFalse(emptyStem, answers)).toBe(false);
+    void textBlocks;
+  });
+
+  it('renders the stored TF document statically with its stem and every statement', () => {
+    const stored: RichTextDocument = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Thân câu hiển thị' }] },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2'].map((id, i) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Nội dung mệnh đề ${i + 1}` }] }],
+          })),
+        },
+      ],
+    };
+    const { container } = render(<RichTextView value={stored} />);
+    expect(container.textContent).toContain('Thân câu hiển thị');
+    expect(container.textContent).toContain('Nội dung mệnh đề 1');
+    expect(container.textContent).toContain('Nội dung mệnh đề 2');
+    expect(container.querySelectorAll('ol.lms-statement-list li')).toHaveLength(2);
+  });
+
+  it('renders one Đúng/Sai radio pair per statement and reports the picked value by statement id', async () => {
+    const document = composeTrueFalseDocument({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Thân câu' }] },
+        {
+          type: 'statementList',
+          content: ['m1', 'm2', 'm3', 'm4'].map((id) => ({
+            type: 'statement' as const,
+            attrs: { id },
+            content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: `Ý ${id}` }] }],
+          })),
+        },
+      ],
+    });
+    const onAnswerChange = vi.fn();
+    const { container } = render(
+      <TrueFalseEditor
+        value={document}
+        onChange={() => {}}
+        answers={{ m2: false }}
+        onAnswerChange={onAnswerChange}
+        ariaLabel="Soạn câu đúng/sai"
+      />,
+    );
+
+    const trueRadios = await screen.findAllByRole('radio', { name: 'Đánh dấu mệnh đề là Đúng' });
+    const falseRadios = await screen.findAllByRole('radio', { name: 'Đánh dấu mệnh đề là Sai' });
+    expect(trueRadios).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+    expect(falseRadios).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+    expect((falseRadios[1] as HTMLInputElement).checked).toBe(true);
+    expect((trueRadios[1] as HTMLInputElement).checked).toBe(false);
+    expect(container.querySelectorAll('[data-statement]')).toHaveLength(TRUE_FALSE_STATEMENT_COUNT);
+
+    fireEvent.click(trueRadios[2] as HTMLInputElement);
+    expect(onAnswerChange).toHaveBeenCalledWith('m3', true);
   });
 });

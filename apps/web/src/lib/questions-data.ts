@@ -120,10 +120,14 @@ export interface DossierSpecLite {
   }[];
 }
 
-/** Một dòng của trang khám phá ngân hàng chung (GET /questions/discovery). */
+/**
+ * Một dòng của trang khám phá ngân hàng chung (GET /questions/discovery).
+ * Nhãn của câu là `excerpt` — trích đoạn nội dung do API tính sẵn (câu
+ * hỏi không còn trường tên, quyết 11:28 ngày 26/10/2026).
+ */
 export interface DiscoveryItemLite {
   questionId: string;
-  name: string;
+  excerpt: string;
   qtype: string;
   status: string;
   bankId: string;

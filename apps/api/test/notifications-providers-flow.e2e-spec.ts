@@ -185,10 +185,12 @@ describe('Notification providers wired (N1, issue #49)', () => {
   it('preferences: every listed provider is wired and carries its 3-group classification — no fake toggles remain', async () => {
     // NB-7: danh sách tuỳ chọn theo loại là bề mặt của nhân sự — học
     // sinh chỉ nhận phần tối thiểu (spec riêng notifications-admin-policy).
-    const staff = await createUserViaApi(app, admin);
-    await assignRole(app, admin, staff.id, await roleIdByShortname(app, admin, 'teacher'), await systemContextId(app, admin));
-    const token = (await login(app, staff.username, STRONG_PASSWORD)).accessToken;
-    const res = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${token}`);
+    // Audience theo vai (issue #288): danh sách ĐẦY ĐỦ cả registry chỉ
+    // còn ở bề mặt của site admin (context admin phủ mọi phía người
+    // nhận); nhân sự thuần chỉ thấy phía của mình — phần lọc theo vai
+    // có spec riêng (notifications-preferences-v2). Ca này kiểm tính
+    // "không công tắc giả" trên toàn registry nên đọc bằng admin.
+    const res = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${admin}`);
     expect(res.status).toBe(200);
     // Mô hình v2 (NB-2, issue #174): một dòng cho mỗi provider kèm
     // nhãn/mô tả từ registry — không còn trường channel/state.

@@ -1,6 +1,7 @@
 import { HttpException } from '@nestjs/common';
 import type { CallToolResult, McpServer } from '@modelcontextprotocol/server';
 import {
+  TRUE_FALSE_STATEMENT_COUNT,
   createQuestionSchema,
   extractRichTextPlainText,
   mcpCheckDuplicatesInputSchema,
@@ -25,6 +26,7 @@ import {
   mcpSubmitContributionInputSchema,
   mcpSubmitContributionOutputSchema,
   type McpBatchItemResult,
+  type McpCheckDuplicatesInput,
   type McpCreateQuestionInput,
   type McpCreateQuestionOutput,
   type McpCreateQuestionsBatchInput,
@@ -33,6 +35,7 @@ import {
   type McpPublishQuestionsOutput,
   type McpSubmitContributionInput,
   type McpSubmitContributionOutput,
+  type RichTextDocument,
 } from '@lms/contracts';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { CurriculumService } from '../curriculum/curriculum.service';
@@ -84,6 +87,24 @@ function errorShape(error: unknown): { code: string; message: string } {
   return { code: 'mcp.internal_error', message: error instanceof Error ? error.message : 'Internal error' };
 }
 
+/**
+ * Lỗi schema Zod của payload tạo câu: schema mới kiểm luật đáp án theo
+ * qtype ngay tại parse (multichoice đúng 4 lựa chọn + đúng một đáp án
+ * đúng, shortanswer không đáp án sai...) nên lỗi này là lỗi nghiệp vụ
+ * của payload, KHÔNG phải lỗi nội bộ — dịch sang
+ * `question.bad_answer_data` kèm fieldPath từ issue đầu tiên. Chỉ dùng
+ * ở hai đường tạo (lõi đơn + nhóm ngữ liệu); đường đọc giữ nguyên
+ * `errorShape` để lỗi parse view vẫn là lỗi nội bộ.
+ */
+function asZodIssue(error: unknown): { message: string; fieldPath: string } | null {
+  if (typeof error !== 'object' || error === null) return null;
+  const issues = (error as { issues?: unknown }).issues;
+  if (!Array.isArray(issues) || issues.length === 0) return null;
+  const first = issues[0] as { path?: unknown; message?: unknown };
+  if (!Array.isArray(first.path) || typeof first.message !== 'string') return null;
+  return { message: first.message, fieldPath: `/${first.path.join('/')}` };
+}
+
 /** Mã lỗi nghiệp vụ của tầng service → trường payload gây lỗi, để model tự sửa đúng chỗ (research Phần 3.3). */
 const FIELDPATH_BY_CODE: Record<string, string> = {
   'question.bad_answer_data': '/answers',
@@ -127,22 +148,93 @@ async function auditCall(deps: McpToolDeps, actor: McpActor, tool: string, detai
 }
 
 /**
- * Dịch truefalse dạng answers chuẩn của MCP (đúng hai đáp án "True" /
- * "False", fraction 1/0) sang dạng payload cũ `{correct}` mà
- * QuestionsService hiện suy luận — đây là ÁNH XẠ ĐỊNH DẠNG ở biên MCP,
- * không phải validator nghiệp vụ: tính hợp lệ của đáp án vẫn do service
- * quyết khi nó dựng hai đáp án + options truefalse từ `correct`.
+ * Dịch câu đúng/sai chùm TF-A ở biên MCP sang hình payload tạo của
+ * REST (lát P5, điểm quyết D-1): đầu vào MCP là thân câu (chuỗi thuần)
+ * + đúng 4 mệnh đề, mỗi mệnh đề `{text, correct}` với `correct` là giá
+ * trị Đúng/Sai của chính mệnh đề đó. Đầu ra là tài liệu thân câu
+ * (paragraph thân + statementList chốt đuôi, id mệnh đề `s1`..`s4`
+ * theo quy ước của các test TF-A) + `solution.answers` phủ đúng tập
+ * mệnh đề; `answers` rỗng vì TF-A KHÔNG có dòng answers. Trả `null`
+ * khi sai hình (sai số mệnh đề, mệnh đề rỗng, thiếu giá trị Đúng/Sai)
+ * — caller dịch thành `question.bad_answer_data`, không tự đoán giá trị
+ * cho mệnh đề thiếu.
  */
-function deriveTruefalseAnswer(answers: McpCreateQuestionInput['answers']): { correct: boolean } | null {
+function buildTruefalseContent(
+  questionText: string,
+  answers: McpCreateQuestionInput['answers'],
+): { questionText: RichTextDocument; solution: { answers: { statementId: string; value: boolean }[] } } | null {
   const list = answers ?? [];
-  if (list.length !== 2) return null;
-  const norm = (s: string): string => s.trim().toLowerCase();
-  const trueAns = list.find((a) => norm(a.text) === 'true');
-  const falseAns = list.find((a) => norm(a.text) === 'false');
-  if (!trueAns || !falseAns) return null;
-  const pairOk = (trueAns.fraction === 1 && falseAns.fraction === 0) || (trueAns.fraction === 0 && falseAns.fraction === 1);
-  if (!pairOk) return null;
-  return { correct: trueAns.fraction === 1 };
+  if (list.length !== TRUE_FALSE_STATEMENT_COUNT) return null;
+  const statements = list.map((a, index) => ({ id: `s${index + 1}`, text: a.text, value: a.correct }));
+  if (statements.some((s) => !s.text.trim() || typeof s.value !== 'boolean')) return null;
+  // Kiểm tra trên đã loại mọi value thiếu — ép kiểu có căn cứ để dựng tài liệu.
+  const checked = statements as { id: string; text: string; value: boolean }[];
+  const doc: RichTextDocument = {
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: questionText }] },
+      {
+        type: 'statementList',
+        content: checked.map((s) => ({
+          type: 'statement',
+          attrs: { id: s.id },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: s.text }] }],
+        })),
+      },
+    ],
+  };
+  return {
+    questionText: doc,
+    solution: { answers: checked.map((s) => ({ statementId: s.id, value: s.value })) },
+  };
+}
+
+/**
+ * Đáp án kèm cờ đúng/sai cụ thể cho một payload MCP — đúng cách
+ * QuestionsService lưu `isCorrect` (`correct === true` mới là đúng):
+ * multichoice vắng `correct` = không đúng; shortanswer vắng `correct`
+ * = được chấp nhận (mọi đáp án liệt kê của shortanswer đều được chấp
+ * nhận — ghi chú hợp đồng MCP). Dùng CHUNG cho băm chống trùng và cho
+ * payload gửi service, để hai đường không bao giờ lệch nhau.
+ */
+function normalizeMcpAnswers(
+  qtype: string,
+  answers: McpCreateQuestionInput['answers'],
+): { text: string; correct: boolean; feedback?: string }[] {
+  return (answers ?? []).map((a) => ({
+    text: a.text,
+    correct: a.correct ?? (qtype === 'shortanswer'),
+    ...(a.feedback !== undefined ? { feedback: a.feedback } : {}),
+  }));
+}
+
+/**
+ * Dữ kiện băm chống trùng QB-4 cho một payload MCP chưa lưu — phải
+ * khớp đúng cặp (thân câu thuần + đáp án kèm cờ) mà version ĐÃ lưu
+ * sinh hash, nếu không trùng exact không bao giờ khớp:
+ * - multichoice/shortanswer/essay: thân câu như gửi + đáp án đã chuẩn
+ *   hoá cờ (essay không có đáp án nên mảng rỗng khớp version đã lưu);
+ * - truefalse TF-A: version đã lưu KHÔNG có dòng answers nên hash của
+ *   nó chỉ gồm text thuần của toàn tài liệu (thân + 4 mệnh đề) — payload
+ *   băm đúng text đó + answers rỗng. Giá trị Đúng/Sai từng mệnh đề
+ *   nằm ở bản ghi phía đáp án, ngoài hash của version đã lưu, nên hai
+ *   câu TF-A cùng chữ khác giá trị vẫn băm trùng nhau — giới hạn có sẵn
+ *   của QB-4 với TF-A, không phải do lát này tạo ra.
+ * Trả `null` khi câu TF-A sai hình (caller đã chặn trước bằng lỗi
+ * `bad_answer_data` ở đường tạo; đường soi trùng không ghi thì quy
+ * về verdict `none`).
+ */
+function duplicateCheckInput(
+  qtype: string,
+  questionText: string,
+  answers: McpCreateQuestionInput['answers'],
+): { questionText: string; answers: { text: string; correct: boolean }[] } | null {
+  if (qtype === 'truefalse') {
+    const built = buildTruefalseContent(questionText, answers);
+    if (!built) return null;
+    return { questionText: extractRichTextPlainText(built.questionText), answers: [] };
+  }
+  return { questionText, answers: normalizeMcpAnswers(qtype, answers).map((a) => ({ text: a.text, correct: a.correct })) };
 }
 
 type CategoryRow = Awaited<ReturnType<QuestionsService['getCategory']>>;
@@ -197,10 +289,9 @@ async function gatePersonalBankWrite(
   return { kind: 'ok', bank, category };
 }
 
-/** Hình một câu ở biên MCP sau lớp nội dung (dùng chung cho create đơn, batch và nhóm ngữ liệu). */
+/** Hình một câu ở biên MCP sau lớp nội dung (dùng chung cho create đơn, batch và nhóm ngữ liệu). Câu hỏi không có trường tên — nhãn hiển thị là trích đoạn nội dung. */
 interface DraftItemPayload {
   qtype: McpCreateQuestionInput['qtype'];
-  name: string;
   questionText: string;
   generalFeedback?: string;
   guidance?: string;
@@ -234,7 +325,6 @@ async function createDraftQuestionCore(
   // bankId/idempotencyKey — các trường đó không thuộc danh tính câu).
   const item: DraftItemPayload = {
     qtype: opts.item.qtype,
-    name: opts.item.name,
     questionText: opts.item.questionText,
     generalFeedback: opts.item.generalFeedback,
     guidance: opts.item.guidance,
@@ -262,26 +352,38 @@ async function createDraftQuestionCore(
     return { kind: 'ok', response: stored, replayed: true };
   }
 
-  // ── Dịch định dạng truefalse (answers chuẩn → payload cũ) ─────
-  let legacyAnswer: { correct: boolean } | undefined;
+  // ── Dịch TF-A ở biên (thân + 4 mệnh đề → tài liệu + solution) ─
+  // Sai hình thì lỗi ngay tại đây, trước khi băm chống trùng.
+  let tfContent: ReturnType<typeof buildTruefalseContent> | undefined;
   if (item.qtype === 'truefalse') {
-    const derived = deriveTruefalseAnswer(item.answers);
-    if (!derived) {
+    const built = buildTruefalseContent(item.questionText, item.answers);
+    if (!built) {
       return {
         kind: 'error',
         code: 'question.bad_answer_data',
-        message: 'truefalse questions take exactly two answers, "True" and "False", with fractions 1 and 0',
+        message: 'truefalse (TF-A) questions take a stem plus exactly four statements, each with a true/false value',
         fieldPath: '/answers',
       };
     }
-    legacyAnswer = derived;
+    tfContent = built;
   }
 
   // ── Lớp 5b: chống trùng ở cổng tạo (cùng cơ chế QB-4) ─────────
+  // TF-A sai hình đã bị chặn ở trên nên duplicateCheckInput không null
+  // tại đây; các qtype khác luôn có dữ kiện băm.
+  const dupInput = duplicateCheckInput(item.qtype, item.questionText, item.answers);
+  if (!dupInput) {
+    return {
+      kind: 'error',
+      code: 'question.bad_answer_data',
+      message: 'truefalse (TF-A) questions take a stem plus exactly four statements, each with a true/false value',
+      fieldPath: '/answers',
+    };
+  }
   const dup = await deps.banks.findDuplicatesForPayload(bank, {
     qtype: item.qtype,
-    questionText: item.questionText,
-    answers: (item.answers ?? []).map((a) => ({ text: a.text, fraction: a.fraction })),
+    questionText: dupInput.questionText,
+    answers: dupInput.answers,
   });
   if (dup.exactId) {
     const response: McpCreateQuestionOutput = {
@@ -306,16 +408,18 @@ async function createDraftQuestionCore(
   const serviceInput = {
     categoryId,
     qtype: item.qtype,
-    name: item.name,
-    questionText: item.questionText,
+    // TF-A: thân câu là tài liệu đã dựng (paragraph thân + statementList),
+    // đáp án từng mệnh đề đi qua solution; các qtype khác gửi chuỗi thuần
+    // + đáp án đã chuẩn hoá cờ đúng/sai.
+    questionText: tfContent ? tfContent.questionText : item.questionText,
     generalFeedback: item.generalFeedback,
     guidance: item.guidance,
     defaultMark: item.defaultMark,
     penalty: item.penalty,
     stimulusId: item.stimulusId,
-    answers: item.qtype === 'truefalse' ? undefined : item.answers,
+    answers: item.qtype === 'truefalse' ? undefined : normalizeMcpAnswers(item.qtype, item.answers),
     options: item.options,
-    ...(legacyAnswer ? { answer: legacyAnswer } : {}),
+    ...(tfContent ? { solution: tfContent.solution } : {}),
     sourceKind: 'ai' as const,
     sourceRef: `client:${actor.clientId}`,
   };
@@ -324,6 +428,11 @@ async function createDraftQuestionCore(
     const parsed = createQuestionSchema.parse(serviceInput);
     view = await deps.questions.createQuestion(actor.userId, parsed);
   } catch (error) {
+    const zod = asZodIssue(error);
+    if (zod) {
+      await auditCall(deps, actor, tool, { result: 'error', code: 'question.bad_answer_data', bankId: bank.id });
+      return { kind: 'error', code: 'question.bad_answer_data', message: zod.message, fieldPath: zod.fieldPath };
+    }
     const { code, message } = errorShape(error);
     await auditCall(deps, actor, tool, { result: 'error', code, bankId: bank.id });
     return { kind: 'error', code, message, fieldPath: FIELDPATH_BY_CODE[code] };
@@ -431,7 +540,7 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
     {
       title: 'Create a draft question in my personal bank',
       description:
-        'Create ONE question (multichoice, truefalse, shortanswer or essay) in the teacher\'s OWN personal question bank. Content is plain text only — no HTML. Answers: multichoice needs at least 2 answers whose positive fractions sum to 1; truefalse takes exactly two answers "True"/"False" with fractions 1 and 0; shortanswer takes acceptable answers with fraction 1 for full credit; essay takes no answers. The question is stored as a DRAFT (source: AI) and must be reviewed and published by the teacher in the web UI before it can be used in any quiz. Retrying with the same idempotencyKey and the same payload is safe and returns the original result; the same key with a different payload is an error. If an identical question already exists in the bank, the result is duplicate_exact with the existing questionId and nothing is created.',
+        'Create ONE question (multichoice, truefalse, shortanswer or essay) in the teacher\'s OWN personal question bank. Content is plain text only — no HTML. Answers: multichoice needs exactly 4 choices with exactly one marked correct; truefalse takes a stem plus exactly 4 statements, each with a true/false value (the question is a 4-statement true/false cluster); shortanswer takes acceptable answers (every listed answer is accepted); essay takes no answers. The question is stored as a DRAFT (source: AI) and must be reviewed and published by the teacher in the web UI before it can be used in any quiz. Retrying with the same idempotencyKey and the same payload is safe and returns the original result; the same key with a different payload is an error. If an identical question already exists in the bank, the result is duplicate_exact with the existing questionId and nothing is created.',
       inputSchema: mcpCreateQuestionInputSchema,
       outputSchema: mcpCreateQuestionOutputSchema,
     },
@@ -447,7 +556,6 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         return errResult('question.invalid_content', first.message, first.fieldPath);
       }
       const clean = normalizeContentStrings(args);
-      if (!clean.name.trim()) return errResult('question.invalid_content', 'Question name must not be blank', '/name');
       if (!clean.questionText.trim()) return errResult('question.invalid_content', 'Question text must not be blank', '/questionText');
 
       const { idempotencyKey, bankId, categoryId } = clean;
@@ -495,7 +603,9 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         const view = await deps.questions.getQuestionForViewer(actor.userId, questionId);
         const projected = mcpGetQuestionOutputSchema.parse(view);
         await auditCall(deps, actor, 'get_question', { result: 'ok', questionId });
-        return okResult(projected as unknown as Record<string, unknown>, `Question "${view.question.name}" (${view.question.qtype}).`);
+        // Câu hỏi không có trường tên — tóm tắt bằng trích đoạn nội dung.
+        const excerpt = extractRichTextPlainText(view.latestVersion.questionText as never).replace(/\s+/g, ' ').slice(0, 120);
+        return okResult(projected as unknown as Record<string, unknown>, `Question (${view.question.qtype}): ${excerpt}.`);
       } catch (error) {
         const { code, message } = errorShape(error);
         await auditCall(deps, actor, 'get_question', { result: 'error', code, questionId });
@@ -725,8 +835,8 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
           message,
           fieldPath: fieldPath ?? null,
         });
-        if (!item.name.trim() || !item.questionText.trim()) {
-          results.push(failedItem('question.invalid_content', 'Question name and text must not be blank', !item.name.trim() ? '/name' : '/questionText'));
+        if (!item.questionText.trim()) {
+          results.push(failedItem('question.invalid_content', 'Question text must not be blank', '/questionText'));
           continue;
         }
         if (item.stimulusId && item.stimulusRef) {
@@ -820,8 +930,8 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         return errResult('question.invalid_content', 'Stimulus content must not be blank', '/stimulusContent');
       }
       for (const [index, question] of clean.questions.entries()) {
-        if (!question.name.trim() || !question.questionText.trim()) {
-          return errResult('question.invalid_content', 'Question name and text must not be blank', `/questions/${index}`);
+        if (!question.questionText.trim()) {
+          return errResult('question.invalid_content', 'Question text must not be blank', `/questions/${index}`);
         }
       }
 
@@ -850,17 +960,20 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
       // khi ghi bất cứ thứ gì — nguyên tử bắt đầu từ biên MCP. ──────
       const nearByIndex = new Map<number, string | null>();
       for (const [index, question] of clean.questions.entries()) {
-        if (question.qtype === 'truefalse' && !deriveTruefalseAnswer(question.answers)) {
+        // TF-A sai hình chặn ngay tại đây (trước khi ghi bất cứ thứ gì);
+        // các qtype khác luôn có dữ kiện băm chống trùng.
+        const dupInput = duplicateCheckInput(question.qtype, question.questionText, question.answers);
+        if (!dupInput) {
           return errResult(
             'question.bad_answer_data',
-            'truefalse questions take exactly two answers, "True" and "False", with fractions 1 and 0',
+            'truefalse (TF-A) questions take a stem plus exactly four statements, each with a true/false value',
             `/questions/${index}/answers`,
           );
         }
         const dup = await deps.banks.findDuplicatesForPayload(gate.bank, {
           qtype: question.qtype,
-          questionText: question.questionText,
-          answers: (question.answers ?? []).map((a) => ({ text: a.text, fraction: a.fraction })),
+          questionText: dupInput.questionText,
+          answers: dupInput.answers,
         });
         if (dup.exactId) {
           await auditCall(deps, actor, 'create_stimulus_with_questions', { result: 'duplicate_exact', bankId, existingQuestionId: dup.exactId });
@@ -878,19 +991,18 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
       let group;
       try {
         const serviceQuestions = clean.questions.map((question) => {
-          const legacyAnswer = question.qtype === 'truefalse' ? deriveTruefalseAnswer(question.answers) : null;
+          const tfContent = question.qtype === 'truefalse' ? buildTruefalseContent(question.questionText, question.answers) : null;
           const parsed = createQuestionSchema.parse({
             categoryId,
             qtype: question.qtype,
-            name: question.name,
-            questionText: question.questionText,
+            questionText: tfContent ? tfContent.questionText : question.questionText,
             generalFeedback: question.generalFeedback,
             guidance: question.guidance,
             defaultMark: question.defaultMark,
             penalty: question.penalty,
-            answers: question.qtype === 'truefalse' ? undefined : question.answers,
+            answers: question.qtype === 'truefalse' ? undefined : normalizeMcpAnswers(question.qtype, question.answers),
             options: question.options,
-            ...(legacyAnswer ? { answer: legacyAnswer } : {}),
+            ...(tfContent ? { solution: tfContent.solution } : {}),
             sourceKind: 'ai' as const,
             sourceRef: `client:${actor.clientId}`,
           });
@@ -903,6 +1015,11 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
           questions: serviceQuestions,
         });
       } catch (error) {
+        const zod = asZodIssue(error);
+        if (zod) {
+          await auditCall(deps, actor, 'create_stimulus_with_questions', { result: 'error', code: 'question.bad_answer_data', bankId });
+          return errResult('question.bad_answer_data', zod.message, zod.fieldPath);
+        }
         const { code, message } = errorShape(error);
         await auditCall(deps, actor, 'create_stimulus_with_questions', { result: 'error', code, bankId });
         return errResult(code, message, FIELDPATH_BY_CODE[code]);
@@ -1050,7 +1167,7 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
     {
       title: 'Search questions in a bank (metadata only)',
       description:
-        'Search the questions of one bank you can view by a text fragment (matched against question name and text, case-insensitive), optionally filtered by qtype. Returns METADATA only (id, name, qtype, status, category, whether it is yours) — use get_question for full content. Use this to find existing questions before creating new ones.',
+        'Search the questions of one bank you can view by a text fragment (matched against question text, case-insensitive), optionally filtered by qtype. Returns METADATA only (id, qtype, status, category, whether it is yours) — use get_question for full content. Use this to find existing questions before creating new ones.',
       inputSchema: mcpSearchQuestionsInputSchema,
       outputSchema: mcpSearchQuestionsOutputSchema,
       annotations: { readOnlyHint: true },
@@ -1075,7 +1192,7 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
       if (!needle) return errResult('question.invalid_content', 'Search query must not be blank', '/query');
       const limit = args.limit ?? 20;
       const matches: {
-        id: string; name: string; qtype: string; status: string;
+        id: string; qtype: string; status: string;
         categoryId: string; categoryName: string; mine: boolean;
       }[] = [];
       const all = await deps.questions.listCategories();
@@ -1089,12 +1206,12 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
         }
         for (const view of views) {
           if (args.qtype && view.question.qtype !== args.qtype) continue;
+          // Câu hỏi không có trường tên — chỉ soi trong thân câu.
           const plainText = extractRichTextPlainText(view.latestVersion.questionText as never);
-          const haystack = `${view.question.name}\n${plainText}`.normalize('NFC').toLowerCase();
+          const haystack = plainText.normalize('NFC').toLowerCase();
           if (!haystack.includes(needle)) continue;
           matches.push({
             id: view.question.id,
-            name: view.question.name,
             qtype: view.question.qtype,
             status: view.entry.status,
             categoryId: cat.id,
@@ -1126,7 +1243,7 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
       annotations: { readOnlyHint: true },
     },
     async (rawArgs) => {
-      const args = rawArgs as { bankId: string; items: { clientItemId: string; qtype: string; questionText: string; answers?: { text: string; fraction: number }[] }[] };
+      const args = rawArgs as McpCheckDuplicatesInput;
       const { bankId } = args;
 
       const violations: ContentViolation[] = [];
@@ -1156,11 +1273,16 @@ export function registerMcpTools(server: McpServer, actor: McpActor, deps: McpTo
 
       const results = [];
       for (const item of clean.items) {
-        const dup = await deps.banks.findDuplicatesForPayload(bank, {
-          qtype: item.qtype,
-          questionText: item.questionText,
-          answers: (item.answers ?? []).map((a) => ({ text: a.text, fraction: a.fraction })),
-        });
+        // Đường soi trùng không ghi gì: câu TF-A sai hình không băm
+        // được thì quy về `none` (không phải trùng của câu nào đã có).
+        const dupInput = duplicateCheckInput(item.qtype, item.questionText, item.answers);
+        const dup = dupInput
+          ? await deps.banks.findDuplicatesForPayload(bank, {
+              qtype: item.qtype,
+              questionText: dupInput.questionText,
+              answers: dupInput.answers,
+            })
+          : { exactId: null, nearId: null };
         results.push({
           clientItemId: item.clientItemId,
           verdict: dup.exactId ? ('exact' as const) : dup.nearId ? ('near' as const) : ('none' as const),

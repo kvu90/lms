@@ -366,6 +366,12 @@ export interface SheetReading {
   state: 'filled' | 'blank' | 'ambiguous';
   margin: number;
   resolvedBy: 'omr' | null;
+  /**
+   * Chỉ hàng của câu đúng/sai chùm TF-A (đọc theo CẶP): lựa chọn theo
+   * từng cặp ô Đ/S — phần tử k là 0 (Đ) / 1 (S) / null (cặp trống hoặc
+   * mơ hồ) của ý k. Hàng TF-A luôn có trường này và `chosen` luôn null.
+   */
+  pairChoices?: (number | null)[];
 }
 
 export interface ProcessedSheet {
@@ -381,8 +387,14 @@ export interface ProcessedSheet {
   variantCode: { code: string } | null;
 }
 
-/** Đọc toàn bộ một ảnh phiếu: cổng chất lượng → nắn → QR + lưới mã + lưới đáp án. */
-export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresholds: OmrThresholds = DEFAULT_OMR_THRESHOLDS): ProcessedSheet {
+/**
+ * Đọc toàn bộ một ảnh phiếu: cổng chất lượng → nắn → QR + lưới mã +
+ * lưới đáp án. `pairSlots` là tập số hàng (1-based theo hình học) của
+ * các câu đúng/sai chùm TF-A: các hàng này đọc theo TỪNG CẶP ô Đ/S
+ * (mỗi cặp một quyết định hai tầng riêng) thay vì một quyết định cho
+ * cả hàng — học sinh tô một ô trong mỗi cặp, 4 cặp độc lập nhau.
+ */
+export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresholds: OmrThresholds = DEFAULT_OMR_THRESHOLDS, pairSlots?: ReadonlySet<number>): ProcessedSheet {
   const img = decodeImage(data);
   const threshold = otsuThreshold(img.gray);
   const srcPoints: { x: number; y: number }[] = [];
@@ -455,6 +467,38 @@ export function processSheetImage(data: Buffer, geometry: SheetGeometry, thresho
   const readings: SheetReading[] = geometry.rows.map((row) => {
     const densities = row.centers.map((c) => densityAt(c.x, c.y, DISK9));
     const decision = decideBubbles(densities, thresholds);
+    if (pairSlots?.has(row.slot)) {
+      // Hàng TF-A: quyết định theo TỪNG CẶP ô Đ/S (cặp k = hai ô liên
+      // tiếp 2k, 2k+1) bằng đúng luật hai tầng + phủ tâm của hàng
+      // thường. Trạng thái của hàng = mơ hồ khi còn bất kỳ cặp nào mơ
+      // hồ; trống khi mọi cặp đều trống; còn lại là đã tô.
+      const pairChoices: (number | null)[] = [];
+      let state: 'filled' | 'blank' | 'ambiguous' = 'blank';
+      let minMargin = Infinity;
+      for (let k = 0; k * 2 + 1 < densities.length; k++) {
+        const pair = [densities[k * 2]!, densities[k * 2 + 1]!];
+        const pairDecision = decideBubbles(pair, thresholds);
+        let pairChosen = pairDecision.chosen;
+        let pairState = pairDecision.state;
+        if (pairState === 'filled' && pairChosen !== null) {
+          const c = row.centers[k * 2 + pairChosen]!;
+          if (!uniformFill(c.x, c.y, DISK9_QUADRANTS, pair[pairChosen]!)) { pairState = 'ambiguous'; pairChosen = null; }
+        }
+        pairChoices.push(pairState === 'filled' ? pairChosen : null);
+        if (pairState === 'ambiguous') state = 'ambiguous';
+        else if (pairState === 'filled' && state !== 'ambiguous') state = 'filled';
+        minMargin = Math.min(minMargin, pairDecision.margin);
+      }
+      return {
+        slot: row.slot,
+        densities: decision.densities,
+        chosen: null,
+        state,
+        margin: Math.round(minMargin * 1000) / 1000,
+        resolvedBy: state === 'ambiguous' ? null : 'omr',
+        pairChoices,
+      };
+    }
     let chosen = decision.chosen;
     let state = decision.state;
     if (state === 'filled' && chosen !== null) {

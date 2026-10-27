@@ -78,9 +78,8 @@ describe('Bank admin parity (feat #70 follow-up)', () => {
 
   async function createQuestion(token: string, categoryId: string, name: string): Promise<void> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'multichoice', name, questionText: 'Thân câu hỏi parity?',
-      answers: [{ text: 'Đáp án đúng', fraction: 1 }, { text: 'Đáp án sai', fraction: 0 }],
-      options: { single: true },
+      categoryId, qtype: 'multichoice', questionText: 'Thân câu hỏi parity?',
+      answers: [{ text: 'Đáp án đúng', correct: true }, { text: 'Đáp án sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
   }

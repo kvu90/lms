@@ -144,96 +144,39 @@ interface CourseGroupLite {
   name: string;
 }
 
-
-
-/** Một dòng đáp án đang soạn trong form (fraction giữ dạng chuỗi để nhập liệu tự do). */
-interface AnswerDraft {
-  text: string;
-  fraction: string;
-}
-
-/**
- * State của editor câu hỏi: dùng chung cho tạo mới và sửa. Phần đáp án của
- * cả bốn dạng sống cạnh nhau; khi lưu chỉ phần thuộc qtype đang chọn được
- * đóng gói vào payload theo đúng hợp đồng `createQuestionSchema` /
- * `updateQuestionSchema` (answers + options theo qtype; truefalse dùng
- * dạng payload `answer: { correct }` mà tầng nghiệp vụ yêu cầu).
- */
-export interface QuestionFormState {
-  qtype: Qtype;
-  name: string;
-  questionText: string;
-  stimulusId: string;
-  mcSingle: boolean;
-  mcShuffleAnswers: boolean;
-  mcAnswerNumbering: string;
-  mcShowNumCorrect: boolean;
-  mcShowStandardInstruction: boolean;
-  mcCorrectFeedback: RichTextDocument | undefined;
-  mcPartiallyCorrectFeedback: RichTextDocument | undefined;
-  mcIncorrectFeedback: RichTextDocument | undefined;
-  mcChoices: AnswerDraft[];
-  tfCorrect: boolean;
-  tfShowStandardInstruction: boolean;
-  saUseCase: boolean;
-  saAnswers: AnswerDraft[];
-  essayResponseFormat: string;
-  essayResponseRequired: boolean;
-  essayResponseFieldLines: string;
-  essayMinWords: string;
-  essayMaxWords: string;
-  essayGraderInfo: string;
-  essayResponseTemplate: string;
-}
-
 export function plainText(doc: RichTextDocument | null | undefined): string {
   return doc ? extractRichTextPlainText(doc) : '';
 }
 
-export function emptyForm(qtype: Qtype): QuestionFormState {
-  return {
-    qtype,
-    name: '',
-    questionText: '',
-    stimulusId: '',
-    mcSingle: true,
-    mcShuffleAnswers: false,
-    mcAnswerNumbering: 'abc',
-    mcShowNumCorrect: false,
-    mcShowStandardInstruction: true,
-    mcCorrectFeedback: undefined,
-    mcPartiallyCorrectFeedback: undefined,
-    mcIncorrectFeedback: undefined,
-    mcChoices: [
-      { text: '', fraction: '1' },
-      { text: '', fraction: '0' },
-    ],
-    tfCorrect: true,
-    tfShowStandardInstruction: true,
-    saUseCase: false,
-    saAnswers: [{ text: '', fraction: '1' }],
-    essayResponseFormat: 'editor',
-    essayResponseRequired: true,
-    essayResponseFieldLines: '15',
-    essayMinWords: '',
-    essayMaxWords: '',
-    essayGraderInfo: '',
-    essayResponseTemplate: '',
-  };
+/**
+ * Nhãn hiển thị của một câu hỏi = TRÍCH ĐOẠN nội dung thân câu của
+ * phiên bản mới nhất (tối đa 120 ký tự). Câu hỏi không còn trường tên
+ * (quyết 11:28 ngày 26/10/2026) nên mọi bề mặt cần nhãn — danh sách,
+ * hộp xác nhận xoá, bộ chọn, panel xem trước — đều dùng trích đoạn
+ * này thay cho tên.
+ *
+ * @param view - View câu hỏi như API trả về.
+ * @returns Chuỗi thuần trích từ thân câu.
+ */
+export function questionExcerpt(view: QuestionView): string {
+  return plainText(view.latestVersion.questionText).slice(0, 120);
 }
 
 export type OptionsRecord = Record<string, unknown>;
 
-/** Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form sẽ tìm thêm ở endpoint versions. */
+/**
+ * Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form
+ * sẽ tìm thêm ở endpoint versions. Multichoice chỉ còn các trường của
+ * mô hình mới — `single`, `showNumCorrect` và `partiallyCorrectFeedback`
+ * đã bỏ hẳn cùng tỉ trọng đáp án (quyết 12:04 + điểm quyết D-5 ngày
+ * 26/10/2026).
+ */
 const OPTION_KEYS_BY_QTYPE: Record<Qtype, string[]> = {
   multichoice: [
-    'single',
     'shuffleAnswers',
     'answerNumbering',
-    'showNumCorrect',
     'showStandardInstruction',
     'correctFeedback',
-    'partiallyCorrectFeedback',
     'incorrectFeedback',
   ],
   truefalse: ['showStandardInstruction'],
@@ -254,108 +197,6 @@ export function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | unde
   return OPTION_KEYS_BY_QTYPE[qtype].every(
     (key) => Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined,
   );
-}
-
-function richTextDocument(value: unknown): RichTextDocument | undefined {
-  return value !== null && typeof value === 'object' ? (value as RichTextDocument) : undefined;
-}
-
-/** Nạp một câu hỏi có sẵn vào editor: đáp án/options lấy từ view của phiên bản mới nhất. */
-export function formFromView(view: QuestionView, fallbackOptions?: OptionsRecord | null): QuestionFormState {
-  const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
-    ? (view.question.qtype as Qtype)
-    : 'truefalse';
-  const base = emptyForm(qtype);
-  const options: OptionsRecord = { ...(fallbackOptions ?? {}) };
-  for (const [key, value] of Object.entries((view.options ?? {}) as OptionsRecord)) {
-    if (value !== undefined) options[key] = value;
-  }
-  const answers = (view.answers ?? []).map((a) => ({ text: plainText(a.answer), fraction: String(a.fraction) }));
-  const trueAnswer = (view.answers ?? []).find((a) => plainText(a.answer) === 'True');
-  return {
-    ...base,
-    name: view.question.name,
-    questionText: plainText(view.latestVersion.questionText),
-    stimulusId: view.latestVersion.stimulusId ?? '',
-    mcSingle: typeof options.single === 'boolean' ? options.single : true,
-    mcShuffleAnswers: typeof options.shuffleAnswers === 'boolean' ? options.shuffleAnswers : false,
-    mcAnswerNumbering: typeof options.answerNumbering === 'string' ? options.answerNumbering : 'abc',
-    mcShowNumCorrect: typeof options.showNumCorrect === 'boolean' ? options.showNumCorrect : false,
-    mcShowStandardInstruction:
-      typeof options.showStandardInstruction === 'boolean' ? options.showStandardInstruction : true,
-    mcCorrectFeedback: richTextDocument(options.correctFeedback),
-    mcPartiallyCorrectFeedback: richTextDocument(options.partiallyCorrectFeedback),
-    mcIncorrectFeedback: richTextDocument(options.incorrectFeedback),
-    mcChoices: qtype === 'multichoice' && answers.length > 0 ? answers : base.mcChoices,
-    tfCorrect: trueAnswer ? trueAnswer.fraction >= 1 : true,
-    tfShowStandardInstruction:
-      typeof options.showStandardInstruction === 'boolean' ? options.showStandardInstruction : true,
-    saUseCase: options.useCase === true,
-    saAnswers: qtype === 'shortanswer' && answers.length > 0 ? answers : base.saAnswers,
-    essayResponseFormat: typeof options.responseFormat === 'string' ? options.responseFormat : 'editor',
-    essayResponseRequired: typeof options.responseRequired === 'boolean' ? options.responseRequired : true,
-    essayResponseFieldLines:
-      typeof options.responseFieldLines === 'number' ? String(options.responseFieldLines) : '15',
-    essayMinWords: typeof options.minWordLimit === 'number' ? String(options.minWordLimit) : '',
-    essayMaxWords: typeof options.maxWordLimit === 'number' ? String(options.maxWordLimit) : '',
-    essayGraderInfo: plainText(options.graderInfo as RichTextDocument | null | undefined),
-    essayResponseTemplate: plainText(options.responseTemplate as RichTextDocument | null | undefined),
-  };
-}
-
-/**
- * Đóng gói phần nội dung của form thành payload theo qtype. Rich text giữ
- * ở mức văn bản thuần (chuỗi) như lát hiện tại — hợp đồng API nhận chuỗi
- * và tự chuẩn hoá thành tài liệu Tiptap.
- */
-export function formContent(form: QuestionFormState, preserveExistingOptions = false): Record<string, unknown> {
-  const common = { name: form.name, questionText: form.questionText };
-  switch (form.qtype) {
-    case 'multichoice': {
-      const options: Record<string, unknown> = { single: form.mcSingle };
-      if (preserveExistingOptions) {
-        options.shuffleAnswers = form.mcShuffleAnswers;
-        options.answerNumbering = form.mcAnswerNumbering;
-        options.showNumCorrect = form.mcShowNumCorrect;
-        options.showStandardInstruction = form.mcShowStandardInstruction;
-        // Feedback là rich text: gửi lại nguyên tài liệu đã nạp, không ép về text thuần.
-        if (form.mcCorrectFeedback) options.correctFeedback = form.mcCorrectFeedback;
-        if (form.mcPartiallyCorrectFeedback) options.partiallyCorrectFeedback = form.mcPartiallyCorrectFeedback;
-        if (form.mcIncorrectFeedback) options.incorrectFeedback = form.mcIncorrectFeedback;
-      }
-      return {
-        ...common,
-        answers: form.mcChoices.map((c) => ({ text: c.text, fraction: Number(c.fraction) || 0 })),
-        options,
-      };
-    }
-    case 'truefalse':
-      return {
-        ...common,
-        answer: { correct: form.tfCorrect },
-        ...(preserveExistingOptions ? { options: { showStandardInstruction: form.tfShowStandardInstruction } } : {}),
-      };
-    case 'shortanswer':
-      return {
-        ...common,
-        answers: form.saAnswers.map((a) => ({ text: a.text, fraction: Number(a.fraction) || 0 })),
-        options: { useCase: form.saUseCase },
-      };
-    case 'essay':
-      return {
-        ...common,
-        options: {
-          responseFormat: form.essayResponseFormat,
-          responseRequired: form.essayResponseRequired,
-          responseFieldLines:
-            form.essayResponseFieldLines.trim() === '' ? 15 : Number(form.essayResponseFieldLines) || 15,
-          minWordLimit: form.essayMinWords.trim() === '' ? null : Number(form.essayMinWords),
-          maxWordLimit: form.essayMaxWords.trim() === '' ? null : Number(form.essayMaxWords),
-          graderInfo: form.essayGraderInfo,
-          responseTemplate: form.essayResponseTemplate,
-        },
-      };
-  }
 }
 
 /**
@@ -989,7 +830,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   /** Xoá một câu hỏi qua DELETE /questions/:id sau khi xác nhận (§9: Xoá ngay tại dòng). */
   async function deleteQuestion(view: QuestionView) {
-    if (!window.confirm(t('confirmDeleteQuestion', { name: view.question.name }))) return;
+    if (!window.confirm(t('confirmDeleteQuestion', { name: questionExcerpt(view) }))) return;
     setMessage(null);
     try {
       await apiJson(`/api/v1/questions/${view.question.id}`, { method: 'DELETE' });
@@ -1018,9 +859,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /**
    * Cột của bảng ngân hàng câu hỏi trên DataTable dùng chung (TanStack
    * Table): chọn câu hỏi để làm bài vẫn là state của trang (checkbox ở
-   * cột đầu ghi vào `selected`), tên/phiên bản sắp xếp được, ô lọc toàn
-   * bảng quét theo tên và nội dung câu hỏi. Trước đây danh sách này là
-   * một <ul> tự chế không sắp xếp/lọc/phân trang.
+   * cột đầu ghi vào `selected`), trích đoạn nội dung/phiên bản sắp xếp
+   * được, ô lọc toàn bảng quét theo trích đoạn và nội dung câu hỏi
+   * (câu hỏi không còn trường tên — nhãn là trích đoạn, xem
+   * `questionExcerpt`). Trước đây danh sách này là một <ul> tự chế
+   * không sắp xếp/lọc/phân trang.
    */
   const questionColumns: DataColumn<QuestionView>[] = [
     {
@@ -1028,7 +871,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       header: '',
       cell: (view) => (
         <Checkbox
-          aria-label={t('selectQuestionForAttempt', { name: view.question.name })}
+          aria-label={t('selectQuestionForAttempt', { name: questionExcerpt(view) })}
           checked={selected.includes(view.question.id)}
           onCheckedChange={(checked) =>
             setSelected((prev) =>
@@ -1039,16 +882,16 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       ),
     },
     {
-      id: 'name',
-      header: t('name'),
+      id: 'excerpt',
+      header: t('questionText'),
       cell: (view) => {
         // Dòng ghi công KHÔNG tắt được cho câu copy (QB-2): hiện ngay
-        // dưới tên câu khi đã nạp được attribution; câu đã rút có nhãn.
+        // dưới trích đoạn câu khi đã nạp được attribution; câu đã rút có nhãn.
         const a = attributions[view.question.id];
         const isCopy = Boolean((view.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId);
         return (
           <span>
-            {view.question.name}
+            {questionExcerpt(view)}
             {(view.entry as { status?: string }).status === 'hidden' ? (
               <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
             ) : null}
@@ -1060,8 +903,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           </span>
         );
       },
-      sortValue: (view) => view.question.name,
-      filterValue: (view) => view.question.name,
+      sortValue: (view) => questionExcerpt(view),
+      filterValue: (view) => questionExcerpt(view),
     },
     {
       id: 'qtype',
@@ -1261,7 +1104,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                   return (
                     <li key={view.question.id} className="flex flex-wrap items-center gap-2">
                       <span className="min-w-0 flex-1">
-                        {view.question.name}
+                        {questionExcerpt(view)}
                         {(view.entry as { status?: string }).status === 'hidden' ? (
                           <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
                         ) : null}
@@ -1299,7 +1142,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     <option value="">—</option>
                     {myQuestions.map((view) => (
                       <option key={view.question.id} value={view.question.id}>
-                        {view.question.name}
+                        {questionExcerpt(view)}
                       </option>
                     ))}
                   </select>
@@ -1740,7 +1583,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                   {discResults.map((item) => (
                     <li key={item.questionId} className="flex flex-wrap items-center gap-2">
                       <span className="min-w-0 flex-1">
-                        {item.name}
+                        {item.excerpt}
                         <span className="block text-xs text-muted-foreground">
                           {item.bankName} · {item.authorName ?? '—'} · {t('usedTimes', { count: item.useCount })} ·{' '}
                           {t('copiedTimes', { count: item.copyCount })}
@@ -1764,7 +1607,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
               )}
               {previewItem ? (
                 <div className="rounded-md border p-3">
-                  <p className="font-medium">{previewItem.question.name}</p>
+                  <p className="font-medium">{questionExcerpt(previewItem)}</p>
                   <p className="text-sm text-muted-foreground">{plainText(previewItem.latestVersion.questionText)}</p>
                 </div>
               ) : null}
