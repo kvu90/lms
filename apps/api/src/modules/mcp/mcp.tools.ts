@@ -41,6 +41,7 @@ import type { OutboxService } from '../../infra/events/outbox.service';
 import type { CurriculumService } from '../curriculum/curriculum.service';
 import type { QuestionBanksService } from '../questions/question-banks.service';
 import type { QuestionsService } from '../questions/questions.service';
+import { truefalseHashAnswers } from '../questions/domain/question-engine';
 import { mcpRequestHash, normalizeContentStrings, scanContent, type ContentViolation } from './mcp-content';
 import type { McpIdempotencyRepository } from './mcp-idempotency.repository';
 import type { McpActor } from './mcp.context';
@@ -214,12 +215,12 @@ function normalizeMcpAnswers(
  * sinh hash, nếu không trùng exact không bao giờ khớp:
  * - multichoice/shortanswer/essay: thân câu như gửi + đáp án đã chuẩn
  *   hoá cờ (essay không có đáp án nên mảng rỗng khớp version đã lưu);
- * - truefalse TF-A: version đã lưu KHÔNG có dòng answers nên hash của
- *   nó chỉ gồm text thuần của toàn tài liệu (thân + 4 mệnh đề) — payload
- *   băm đúng text đó + answers rỗng. Giá trị Đúng/Sai từng mệnh đề
- *   nằm ở bản ghi phía đáp án, ngoài hash của version đã lưu, nên hai
- *   câu TF-A cùng chữ khác giá trị vẫn băm trùng nhau — giới hạn có sẵn
- *   của QB-4 với TF-A, không phải do lát này tạo ra.
+ * - truefalse TF-A: dữ kiện băm là từng mệnh đề kèm giá trị Đúng/Sai
+ *   của chính mệnh đề đó (issue #316), ghép từ tài liệu + solution do
+ *   `buildTruefalseContent` dựng bằng ĐÚNG hàm dùng chung
+ *   `truefalseHashAnswers` với đường version đã lưu — hai câu TF-A
+ *   cùng chữ nhưng khác Đ/S ở một mệnh đề cho hash khác nhau ở cả
+ *   hai đường.
  * Trả `null` khi câu TF-A sai hình (caller đã chặn trước bằng lỗi
  * `bad_answer_data` ở đường tạo; đường soi trùng không ghi thì quy
  * về verdict `none`).
@@ -232,7 +233,10 @@ function duplicateCheckInput(
   if (qtype === 'truefalse') {
     const built = buildTruefalseContent(questionText, answers);
     if (!built) return null;
-    return { questionText: extractRichTextPlainText(built.questionText), answers: [] };
+    return {
+      questionText: extractRichTextPlainText(built.questionText),
+      answers: truefalseHashAnswers(built.questionText, built.solution).map((a) => ({ text: a.textPlain, correct: a.isCorrect })),
+    };
   }
   return { questionText, answers: normalizeMcpAnswers(qtype, answers).map((a) => ({ text: a.text, correct: a.correct })) };
 }

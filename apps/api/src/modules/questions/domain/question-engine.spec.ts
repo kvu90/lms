@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canTransition, gradeAnswer, usageState, DeferredFeedbackBehaviour, type GradingData } from './question-engine';
+import { canTransition, gradeAnswer, truefalseHashAnswers, usageState, DeferredFeedbackBehaviour, type GradingData } from './question-engine';
 
 /**
  * Kiểm chứng engine chấm theo LUỒNG NGHIỆP VỤ của mô hình giaokhoa
@@ -195,5 +195,39 @@ describe('question engine domain (mô hình giaokhoa — chấm nhị phân theo
     expect(usageState(['todo', 'gradedright'])).toBe('inprogress');
     expect(usageState(['gradedright', 'gaveup'])).toBe('finished');
     expect(usageState(['gradedright', 'needsgrading'])).toBe('finished');
+  });
+
+  it('truefalseHashAnswers (#316): ghép text từng mệnh đề với giá trị Đ/S của solution theo statementId', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Thân câu' }] },
+        {
+          type: 'statementList',
+          content: [1, 2, 3, 4].map((i) => ({
+            type: 'statement',
+            attrs: { id: `s${i}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `Ý ${i}` }] }],
+          })),
+        },
+      ],
+    };
+    const allTrue = { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) };
+    const oneFlipped = { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: i !== 4 })) };
+    // Cùng tài liệu, khác Đ/S ở một mệnh đề → dữ kiện băm khác nhau
+    // (đây là ca khoá của #316: trước sửa, cả hai đều cho mảng rỗng).
+    expect(truefalseHashAnswers(doc, allTrue)).toEqual([
+      { textPlain: 'Ý 1', isCorrect: true },
+      { textPlain: 'Ý 2', isCorrect: true },
+      { textPlain: 'Ý 3', isCorrect: true },
+      { textPlain: 'Ý 4', isCorrect: true },
+    ]);
+    expect(truefalseHashAnswers(doc, oneFlipped)).not.toEqual(truefalseHashAnswers(doc, allTrue));
+    expect(truefalseHashAnswers(doc, oneFlipped)[3]).toEqual({ textPlain: 'Ý 4', isCorrect: false });
+    // Sai hình (không phải tài liệu TF-A / thiếu solution) → rỗng,
+    // hash rơi về thân câu như hành vi phòng thủ đã ghi ở hàm.
+    expect(truefalseHashAnswers(doc, null)).toEqual([]);
+    expect(truefalseHashAnswers({ type: 'doc', content: [] }, allTrue)).toEqual([]);
+    expect(truefalseHashAnswers(null, allTrue)).toEqual([]);
   });
 });

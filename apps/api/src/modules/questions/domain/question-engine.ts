@@ -187,6 +187,55 @@ export function decodeTrueFalseResponse(response: string | null): Record<string,
 }
 
 /**
+ * Dữ kiện băm chống trùng của một câu truefalse TF-A (issue #316): đáp
+ * án của TF-A không nằm ở các dòng đáp án thông thường mà là giá trị
+ * Đúng/Sai của TỪNG mệnh đề, lưu ở bản ghi phía đáp án (solution dạng
+ * `{ answers: [{ statementId, value }] }`). Hàm này ghép nội dung text
+ * của từng mệnh đề trong tài liệu thân câu (nút statementList chốt
+ * đuôi tài liệu) với giá trị Đ/S của đúng mệnh đề đó theo statementId,
+ * cho ra danh sách (text, isCorrect) cùng hình với dữ kiện băm của các
+ * loại câu có dòng đáp án — để công thức hash chống trùng duy nhất
+ * phủ được giá trị Đ/S: hai câu TF-A cùng chữ nhưng khác Đ/S ở một
+ * mệnh đề cho hash khác nhau, không còn bị kết luận trùng hoàn toàn.
+ *
+ * Đây là điểm ghép DUY NHẤT dùng chung cho cả hai đường băm (version
+ * đã lưu trong ngân hàng và payload chưa lưu qua MCP) để hai đường
+ * không bao giờ lệch nhau. Tài liệu không đúng hình TF-A hoặc solution
+ * thiếu/không đúng hình thì trả danh sách rỗng — khi đó hash rơi về
+ * chỉ gồm thân câu như trước (dữ kiện lỗi hình vốn đã bị chặn ở cổng
+ * tạo câu, nhánh này chỉ là phòng thủ cho dữ liệu cũ).
+ */
+export function truefalseHashAnswers(
+  questionText: unknown,
+  solution: unknown,
+): { textPlain: string; isCorrect: boolean }[] {
+  const doc = questionText as { content?: { type?: string; content?: unknown[] }[] } | null;
+  const list = doc?.content?.[doc.content.length - 1];
+  if (!list || list.type !== 'statementList' || !Array.isArray(list.content)) return [];
+  const sol = solution as { answers?: { statementId?: unknown; value?: unknown }[] } | null;
+  if (!sol || !Array.isArray(sol.answers)) return [];
+  const valueById = new Map<string, boolean>();
+  for (const a of sol.answers) {
+    if (typeof a?.statementId === 'string' && typeof a?.value === 'boolean') {
+      valueById.set(a.statementId, a.value);
+    }
+  }
+  const collectText = (node: unknown): string => {
+    if (!node || typeof node !== 'object') return '';
+    const n = node as { text?: unknown; content?: unknown[] };
+    if (typeof n.text === 'string') return n.text;
+    return (n.content ?? []).map((child) => collectText(child)).join('');
+  };
+  const out: { textPlain: string; isCorrect: boolean }[] = [];
+  for (const statement of list.content) {
+    const s = statement as { attrs?: { id?: unknown }; content?: unknown[] };
+    if (typeof s?.attrs?.id !== 'string') return [];
+    out.push({ textPlain: (s.content ?? []).map((child) => collectText(child)).join(''), isCorrect: valueById.get(s.attrs.id) === true });
+  }
+  return out;
+}
+
+/**
  * Chấm truefalse TF-A (một câu chùm 4 mệnh đề): từng mệnh đề chấm 0/1
  * bằng cách so đáp án học sinh chọn (theo `statementId`) với đáp án
  * đúng của mệnh đề đó; fraction của câu = `thang[số ý đúng] / 100` với

@@ -12,6 +12,7 @@ import { GroupsService } from '../groups/groups.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantsService } from '../tenants/tenants.service';
+import { truefalseHashAnswers } from './domain/question-engine';
 import { QuestionsRepository, type DbTx, type QCategoryRow, type QuestionRow } from './questions.repository';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
 import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
@@ -1040,6 +1041,18 @@ export class QuestionBanksService {
   }
 
   private async versionHashes(qtype: string, versionId: string, questionText: unknown): Promise<{ hash: string; textHash: string }> {
+    // Câu truefalse TF-A không có dòng đáp án thông thường: dữ kiện
+    // băm là từng mệnh đề kèm giá trị Đúng/Sai lấy từ bản ghi phía đáp
+    // án của version (issue #316), ghép bằng cùng hàm dùng chung với
+    // đường payload MCP để hai đường không lệch nhau.
+    if (qtype === 'truefalse') {
+      const key = await this.questionsRepo.getAnswerKey(versionId);
+      return this.contentHashes(
+        qtype,
+        extractRichTextPlainText(questionText as RichTextDocument),
+        truefalseHashAnswers(questionText, key?.solution),
+      );
+    }
     const answers = await this.questionsRepo.listAnswers(versionId);
     return this.contentHashes(
       qtype,
