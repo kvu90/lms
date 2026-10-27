@@ -1,8 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, Param, Patch, Post, Put, Query, Res, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { ExamDossiersService } from './exam-dossiers.service';
 import { ExamsService } from './exams.service';
 import {
@@ -72,7 +73,7 @@ export class ExamsController {
 
   @Post('banks/:bankId/contributions/:contributionId/approve')
   /**
-   * POST /exams/banks/:bankId/contributions/:contributionId/approve — duyệt đề xuất: copy đề vào bank đích (deep copy + derived_from).
+   * POST /exams/banks/:bankId/contributions/:contributionId/approve — duyệt đề xuất, cấp duy nhất sau hợp nhất (issue #345, giai đoạn 2): đóng góp `pending` đi cấp 1 (copy đề vào bank đích, deep copy + derived_from; đóng góp kèm bộ hồ sơ + công tắc cấp 2 bật thì cấp 1 chỉ đưa sang `pending_board`), đóng góp `pending_board` do người có `exam:moderate` tại context hệ thống gọi thì chốt cấp 2. Cấp phân biệt bằng trạng thái và quyền, không bằng tên động từ.
    */
   async approve(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: approveExamContributionSchema }) dto: ApproveExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.approveContribution(actor.id, bankId, contributionId, dto);
@@ -80,23 +81,25 @@ export class ExamsController {
 
   @Post('banks/:bankId/contributions/:contributionId/reject')
   /**
-   * POST /exams/banks/:bankId/contributions/:contributionId/reject — từ chối đề xuất, lý do bắt buộc.
+   * POST /exams/banks/:bankId/contributions/:contributionId/reject — từ chối đề xuất, cấp duy nhất sau hợp nhất (issue #345, giai đoạn 2): lý do bắt buộc; đóng góp `pending_board` do người có `exam:moderate` tại context hệ thống gọi thì từ chối cấp 2, còn lại từ chối cấp 1. Cấp phân biệt bằng trạng thái và quyền, không bằng tên động từ.
    */
   async reject(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: rejectExamContributionSchema }) dto: RejectExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.rejectContribution(actor.id, bankId, contributionId, dto);
   }
 
   @Post('banks/:bankId/contributions/:contributionId/board-approve')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
-   * POST /exams/banks/:bankId/contributions/:contributionId/board-approve — duyệt cấp 2 (ban giám hiệu, exam:moderate tại context hệ thống) cho đóng góp đang `pending_board`: mốc chốt, đề vào bank đích.
+   * POST /exams/banks/:bankId/contributions/:contributionId/board-approve — alias cũ của POST /exams/banks/:bankId/contributions/:contributionId/approve (issue #345, giai đoạn 2): response mang header Deprecation/Sunset và mỗi lượt gọi sinh log `deprecated_route_alias`. Handler giữ nguyên lời gọi service cấp 2 (không uỷ quyền qua handler canonical hợp nhất) để hành vi của đường cũ — kể cả mã lỗi cổng cấp 2 cho người gọi không có quyền hệ thống — không đổi một chút nào trong khi đường cũ còn tồn tại.
    */
   async boardApprove(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: approveExamContributionSchema }) dto: ApproveExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.boardApproveContribution(actor.id, bankId, contributionId, dto);
   }
 
   @Post('banks/:bankId/contributions/:contributionId/board-reject')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
-   * POST /exams/banks/:bankId/contributions/:contributionId/board-reject — từ chối cấp 2 cho đóng góp đang `pending_board`, lý do bắt buộc.
+   * POST /exams/banks/:bankId/contributions/:contributionId/board-reject — alias cũ của POST /exams/banks/:bankId/contributions/:contributionId/reject (issue #345, giai đoạn 2): response mang header Deprecation/Sunset và mỗi lượt gọi sinh log `deprecated_route_alias`. Handler giữ nguyên lời gọi service cấp 2 như alias duyệt, để hành vi của đường cũ không đổi.
    */
   async boardReject(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: rejectExamContributionSchema }) dto: RejectExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.exams.boardRejectContribution(actor.id, bankId, contributionId, dto);
@@ -297,7 +300,7 @@ export class ExamsController {
 
   @Post('dossiers/:dossierId/approve')
   /**
-   * POST /exams/dossiers/:dossierId/approve — duyệt cấp 1 (tổ trưởng/moderate bank đích; khi bật cấp 2 thì đây chỉ là mốc trung gian sang pending_board).
+   * POST /exams/dossiers/:dossierId/approve — duyệt bộ hồ sơ, đường ghi hồ sơ ĐÃ ĐÓNG (service ném 410 `exam.dossier_path_closed`): duyệt đề vào bank chung nay đi qua đường đóng góp duy nhất, không qua đường hồ sơ nữa. Handler giữ nguyên để bề mặt chỉ-đọc lịch sử của hồ sơ không vỡ đường dẫn cũ.
    */
   async approveDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: approveExamDossierSchema }) _dto: ApproveExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.dossiers.approveDossier(actor.id, dossierId);
@@ -305,23 +308,25 @@ export class ExamsController {
 
   @Post('dossiers/:dossierId/reject')
   /**
-   * POST /exams/dossiers/:dossierId/reject — từ chối cấp 1, lý do bắt buộc.
+   * POST /exams/dossiers/:dossierId/reject — từ chối bộ hồ sơ, đường ghi hồ sơ ĐÃ ĐÓNG (service ném 410 như đường duyệt ở trên).
    */
   async rejectDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: rejectExamDossierSchema }) dto: RejectExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.dossiers.rejectDossier(actor.id, dossierId, dto);
   }
 
   @Post('dossiers/:dossierId/board-approve')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
-   * POST /exams/dossiers/:dossierId/board-approve — duyệt cấp 2 (ban giám hiệu): mốc chốt, đề vào bank đích.
+   * POST /exams/dossiers/:dossierId/board-approve — alias cũ của POST /exams/dossiers/:dossierId/approve (issue #345, giai đoạn 2): response mang header Deprecation/Sunset và mỗi lượt gọi sinh log `deprecated_route_alias`. Đường ghi hồ sơ ĐÃ ĐÓNG nên alias này vẫn trả 410 như đường duyệt chính, không dựng lại hành vi duyệt cấp 2 đã đóng.
    */
   async boardApproveDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: approveExamDossierSchema }) _dto: ApproveExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.dossiers.boardApproveDossier(actor.id, dossierId);
   }
 
   @Post('dossiers/:dossierId/board-reject')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
-   * POST /exams/dossiers/:dossierId/board-reject — từ chối cấp 2 (ban giám hiệu), lý do bắt buộc.
+   * POST /exams/dossiers/:dossierId/board-reject — alias cũ của POST /exams/dossiers/:dossierId/reject (issue #345, giai đoạn 2): response mang header Deprecation/Sunset và mỗi lượt gọi sinh log `deprecated_route_alias`. Đường ghi hồ sơ ĐÃ ĐÓNG nên alias này vẫn trả 410 như đường từ chối chính.
    */
   async boardRejectDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: rejectExamDossierSchema }) dto: RejectExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.dossiers.boardRejectDossier(actor.id, dossierId, dto);

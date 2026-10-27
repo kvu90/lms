@@ -1144,7 +1144,7 @@ describe('Exam dossier writes ride the single contribution path (issue #228 Q4)'
       ).toBe(true),
     );
 
-    // Bộ đang pending_board: nút BGH duyệt gọi board-approve trên ĐÓNG GÓP liên kết.
+    // Bộ đang pending_board: nút BGH duyệt gọi approve trên ĐÓNG GÓP liên kết.
     // (Truy vấn lại hàng sau lượt duyệt cấp 1 vì danh sách được nạp lại.)
     const rowsAfter = await screen.findAllByTestId('dossier-queue-row');
     await userEvent.click(within(rowsAfter[1]!).getByRole('button', { name: 'BGH duyệt' }));
@@ -1152,7 +1152,7 @@ describe('Exam dossier writes ride the single contribution path (issue #228 Q4)'
       expect(
         calls.some(
           (c) =>
-            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_FROM_BOARD_ID}/board-approve` &&
+            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_FROM_BOARD_ID}/approve` &&
             c.method === 'POST',
         ),
       ).toBe(true),
@@ -1185,18 +1185,18 @@ describe('Exam dossier writes ride the single contribution path (issue #228 Q4)'
     await userEvent.click(within(row).getByRole('button', { name: 'Xem đặc tả' }));
     expect(await screen.findByTestId('contribution-spec-panel')).toHaveTextContent('Tổng: 10 câu · 10 điểm');
 
-    // BGH từ chối kèm lý do bắt buộc → board-reject trên chính đóng góp.
+    // BGH từ chối kèm lý do bắt buộc → reject trên chính đóng góp.
     await userEvent.click(within(row).getByRole('button', { name: 'BGH từ chối' }));
     await waitFor(() =>
       expect(
         calls.some(
           (c) =>
-            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_DIRECT_BOARD_ID}/board-reject` &&
+            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_DIRECT_BOARD_ID}/reject` &&
             c.method === 'POST',
         ),
       ).toBe(true),
     );
-    const rejectCall = calls.find((c) => c.url.endsWith('/board-reject'));
+    const rejectCall = calls.find((c) => c.url.endsWith('/reject'));
     expect(rejectCall?.body).toEqual({ reason: 'Chưa đạt yêu cầu' });
     expect(dossierWriteCalls(calls)).toEqual([]);
   });

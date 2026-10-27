@@ -268,16 +268,17 @@ describe('Exam contributions S4 (issue #228): QB-4 đầy đủ cho đề + ch�
       const inBankBefore = await http(app).get(`/api/v1/exams/banks/${schoolBank.id}/exams`).set(bearer(admin));
       expect((inBankBefore.body as { derivedFromExamId: string | null }[]).some((p) => p.derivedFromExamId === official.paper.id)).toBe(false);
 
-      // Người không có exam:moderate tại context hệ thống không qua được cổng cấp 2.
+      // Người không có exam:moderate tại context hệ thống không qua được cổng cấp 2 — đường alias cũ giữ nguyên mã lỗi này.
       const ownerBoard = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${contribution.id}/board-approve`)
         .set(bearer(owner.token)).send({});
       expect(ownerBoard.status).toBe(403);
       expect((ownerBoard.body as { code?: string }).code).toBe('exam.contribution_board_forbidden');
 
-      // Ban giám hiệu (site admin) duyệt cấp 2 → chốt: bản ghim vào bank ở ready.
-      const board = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${contribution.id}/board-approve`)
+      // Ban giám hiệu (site admin) duyệt cấp 2 qua đường canonical hợp nhất `approve` → chốt: bản ghim vào bank ở ready.
+      const board = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${contribution.id}/approve`)
         .set(bearer(admin)).send({});
       expect(board.status, JSON.stringify(board.body)).toBe(201);
+      expect(board.headers['deprecation']).toBeUndefined();
       const done = board.body as ContributionBody;
       expect(done.status).toBe('approved');
       expect(done.resultExamId).toBeTruthy();
@@ -295,10 +296,10 @@ describe('Exam contributions S4 (issue #228): QB-4 đầy đủ cho đề + ch�
         .send({ examId: official2.paper.id, withDossier: true });
       const c2 = (propose2.body as ContributionBody).id;
       await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c2}/approve`).set(bearer(admin)).send({});
-      const noReason = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c2}/board-reject`)
+      const noReason = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c2}/reject`)
         .set(bearer(admin)).send({});
       expect(noReason.status).toBe(400);
-      const boardRejected = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c2}/board-reject`)
+      const boardRejected = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c2}/reject`)
         .set(bearer(admin)).send({ reason: 'Chưa đúng kế hoạch kiểm tra' });
       expect(boardRejected.status, JSON.stringify(boardRejected.body)).toBe(201);
       const rejectedBody = boardRejected.body as ContributionBody;
@@ -308,6 +309,20 @@ describe('Exam contributions S4 (issue #228): QB-4 đầy đủ cho đề + ch�
       const queued2 = (queue2.body as ContributionBody[]).find((c) => c.id === c2)!;
       expect(queued2.reviews!.map((r) => [r.level, r.decision])).toEqual([[1, 'approved'], [2, 'rejected']]);
       expect(queued2.reviews![1]!.reason).toContain('kế hoạch kiểm tra');
+
+      // Đường alias cũ `board-approve` vẫn duyệt cấp 2 như trước, kèm header sắp bỏ (issue #345, giai đoạn 2).
+      const official3 = await mkMatrixPaper('Đề giữa kỳ S4-2 (bộ 3)');
+      const propose3 = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions`).set(bearer(owner.token))
+        .send({ examId: official3.paper.id, withDossier: true });
+      const c3 = (propose3.body as ContributionBody).id;
+      await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c3}/approve`).set(bearer(admin)).send({});
+      const aliasBoard = await http(app).post(`/api/v1/exams/banks/${schoolBank.id}/contributions/${c3}/board-approve`)
+        .set(bearer(admin)).send({});
+      expect(aliasBoard.status, JSON.stringify(aliasBoard.body)).toBe(201);
+      expect((aliasBoard.body as ContributionBody).status).toBe('approved');
+      expect((aliasBoard.body as ContributionBody).resultExamId).toBeTruthy();
+      expect(aliasBoard.headers['deprecation']).toBe('true');
+      expect(aliasBoard.headers['sunset']).toContain('2027');
     } finally {
       await http(app).delete('/api/v1/site-config/exam/requireboardapproval').set(bearer(admin));
     }

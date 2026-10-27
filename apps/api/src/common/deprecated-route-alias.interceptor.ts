@@ -61,6 +61,11 @@ export class DeprecatedRouteAliasInterceptor implements NestInterceptor {
     { pattern: /^\/api\/v1\/badges\/[^/]+\/duplicate$/, alias: 'badges/:id/duplicate', canonical: 'badges/:id/copy' },
     { pattern: /^\/api\/v1\/users\/[^/]+\/unsuspend$/, alias: 'users/:id/unsuspend', canonical: 'users/:id/reactivate' },
     { pattern: /^\/api\/v1\/calendar\/export\.ics$/, alias: 'calendar/export.ics', canonical: 'calendar/exports?format=ics' },
+    // Giai đoạn 2 (module exams): `board-approve`/`board-reject` hợp nhất vào `approve`/`reject`.
+    { pattern: /^\/api\/v1\/exams\/banks\/[^/]+\/contributions\/[^/]+\/board-approve$/, alias: 'exams/banks/:bankId/contributions/:contributionId/board-approve', canonical: 'exams/banks/:bankId/contributions/:contributionId/approve' },
+    { pattern: /^\/api\/v1\/exams\/banks\/[^/]+\/contributions\/[^/]+\/board-reject$/, alias: 'exams/banks/:bankId/contributions/:contributionId/board-reject', canonical: 'exams/banks/:bankId/contributions/:contributionId/reject' },
+    { pattern: /^\/api\/v1\/exams\/dossiers\/[^/]+\/board-approve$/, alias: 'exams/dossiers/:dossierId/board-approve', canonical: 'exams/dossiers/:dossierId/approve' },
+    { pattern: /^\/api\/v1\/exams\/dossiers\/[^/]+\/board-reject$/, alias: 'exams/dossiers/:dossierId/board-reject', canonical: 'exams/dossiers/:dossierId/reject' },
   ];
 
   /**
