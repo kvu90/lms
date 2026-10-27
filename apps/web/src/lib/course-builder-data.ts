@@ -157,10 +157,10 @@ export function useDeleteBuilderSection(courseId: string) {
   );
 }
 
-/** Đột biến nhân bản section (POST /courses/:id/sections/:sectionId/duplicate). */
+/** Đột biến nhân bản section (POST /courses/:id/sections/:sectionId/copy). */
 export function useDuplicateBuilderSection(courseId: string) {
   return useBuilderMutation(courseId, (sectionId: string) =>
-    apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}/duplicate`, {
+    apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}/copy`, {
       method: 'POST',
       body: JSON.stringify({}),
     }),
@@ -231,10 +231,10 @@ export function useDeleteBuilderModule(courseId: string) {
   );
 }
 
-/** Đột biến nhân bản module (POST /courses/:id/modules/:cmId/duplicate). */
+/** Đột biến nhân bản module (POST /courses/:id/modules/:cmId/copy). */
 export function useDuplicateBuilderModule(courseId: string) {
   return useBuilderMutation(courseId, (cmId: string) =>
-    apiJson(`/api/v1/courses/${courseId}/modules/${cmId}/duplicate`, {
+    apiJson(`/api/v1/courses/${courseId}/modules/${cmId}/copy`, {
       method: 'POST',
       body: JSON.stringify({}),
     }),

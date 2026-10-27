@@ -100,7 +100,7 @@ export function useCreateCourse() {
 }
 
 /**
- * Đột biến nhân bản khoá (POST /courses/:id/duplicate) cho đường nhân
+ * Đột biến nhân bản khoá (POST /courses/:id/copy) cho đường nhân
  * bản và đường khoá mẫu — bản sao là nháp, không chứa người học/bài
  * làm; thành công thì làm mới danh sách khoá như tạo mới.
  */
@@ -108,7 +108,7 @@ export function useDuplicateCourse() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ fromId, body }: { fromId: string; body: Record<string, unknown> }) =>
-      apiJson<Course>(`/api/v1/courses/${fromId}/duplicate`, {
+      apiJson<Course>(`/api/v1/courses/${fromId}/copy`, {
         method: 'POST',
         body: JSON.stringify(body),
       }),

@@ -470,7 +470,7 @@ describe('Pin version updates + answer-key regrade (issue #254)', () => {
     expect(pinnedPin.status, JSON.stringify(pinnedPin.body)).toBe(201);
     expect(pinnedPin.body.versionMode).toBe('pinned');
 
-    const dup = await http(app).post(`/api/v1/courses/${course.id}/duplicate`).set(bearer(admin))
+    const dup = await http(app).post(`/api/v1/courses/${course.id}/copy`).set(bearer(admin))
       .send({ fullName: 'Bản sao khoá Q3', shortName: uniqueName('q3copy'), startDate: '2026-09-07' });
     expect(dup.status, JSON.stringify(dup.body)).toBe(201);
 

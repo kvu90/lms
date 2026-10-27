@@ -78,6 +78,21 @@ describe('ExamPapersDeprecationInterceptor', () => {
     expect(logged.canonical).toBe('exams/dossiers/mine');
   });
 
+  it('maps a board-* alias URL to the merged approve canonical (issue #345, giai đoạn 2)', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const interceptor = new ExamPapersDeprecationInterceptor();
+    const { context, next, headers } = buildContext('/api/v1/exam-papers/banks/01900000-0000-7000-8000-000000000001/contributions/01900000-0000-7000-8000-000000000002/board-approve', 'POST');
+
+    await lastValueFrom(interceptor.intercept(context, next));
+
+    expect(headers.get('Deprecation')).toBe('true');
+    expect(warn).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(String(warn.mock.calls[0]?.[0])) as Record<string, unknown>;
+    expect(logged.alias).toBe('exam-papers/banks/:bankId/contributions/:contributionId/board-approve');
+    // Đích canonical sau hợp nhất là `approve`, không còn `board-approve`.
+    expect(logged.canonical).toBe('exams/banks/:bankId/contributions/:contributionId/approve');
+  });
+
   it('leaves a canonical URL untouched: no headers, no warn log', async () => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const interceptor = new ExamPapersDeprecationInterceptor();

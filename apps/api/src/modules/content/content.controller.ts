@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { ContentService } from './content.service';
 import {
   createLessonTemplateSchema, createPageSchema, createResourceSchema, recordProgressSchema,
@@ -124,13 +125,39 @@ export class PlayerController {
     return this.content.getProgressReport(viewer.id, courseId, groupId);
   }
 
-  @Get('progress/report.csv')
-  /** GET /courses/:courseId/progress/report.csv — bản CSV của ma trận tiến độ để tải xuống. */
-  async progressReportCsv(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('groupId') groupId: string | undefined, @CurrentUser() viewer: AuthenticatedUser, @Res() res: Response) {
+  @Get('progress/reports')
+  /**
+   * GET /courses/:courseId/progress/reports — bản xuất của ma trận tiến độ để tải xuống.
+   * Định dạng là dữ liệu yêu cầu qua tham số truy vấn `format` (hiện
+   * chỉ hỗ trợ `csv`; vắng mặt thì mặc định `csv`), không còn nằm
+   * trong path theo chuẩn bỏ hậu tố file (issue #345); nội dung file
+   * xuất giữ nguyên như bản CSV trước đây, `?groupId=` lọc theo
+   * lớp/nhóm như cũ. Định dạng khác `csv` bị từ chối 400
+   * `content.progress_report_format_unsupported`. Path cũ
+   * `progress/report.csv` giữ qua handler alias ngay dưới.
+   */
+  async progressReports(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('groupId') groupId: string | undefined, @Query('format') format: string | undefined, @CurrentUser() viewer: AuthenticatedUser, @Res() res: Response) {
+    if (format !== undefined && format !== 'csv') {
+      throw new BadRequestException({ message: `Unsupported progress report format: ${format}`, code: 'content.progress_report_format_unsupported' });
+    }
     const csv = await this.content.getProgressReportCsv(viewer.id, courseId, groupId);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="progress-report.csv"');
     res.send(csv);
+  }
+
+  @Get('progress/report.csv')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * GET /courses/:courseId/progress/report.csv — alias cũ của GET
+   * /courses/:courseId/progress/reports (định dạng `csv` cố định bởi
+   * chính hậu tố path): uỷ quyền nguyên vẹn cho handler canonical;
+   * response mang header Deprecation/Sunset và lượt gọi được ghi log
+   * alias có cấu trúc (căn cứ điều kiện gỡ alias: 0 lượt gọi trong 14
+   * ngày).
+   */
+  async progressReportCsv(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Query('groupId') groupId: string | undefined, @CurrentUser() viewer: AuthenticatedUser, @Res() res: Response) {
+    return this.progressReports(courseId, groupId, 'csv', viewer, res);
   }
 
   @Post('lesson-template')

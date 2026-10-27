@@ -431,10 +431,10 @@ describe('Messaging & calendar', () => {
     expect(series.status).toBe(201);
 
     // Việc tải xuống yêu cầu đăng nhập.
-    const anonymous = await http(app).get('/api/v1/calendar/export.ics');
+    const anonymous = await http(app).get('/api/v1/calendar/exports?format=ics');
     expect(anonymous.status).toBe(401);
 
-    const download = await http(app).get('/api/v1/calendar/export.ics').set('Authorization', `Bearer ${memberToken}`);
+    const download = await http(app).get('/api/v1/calendar/exports?format=ics').set('Authorization', `Bearer ${memberToken}`);
     expect(download.status).toBe(200);
     expect(download.headers['content-type']).toContain('text/calendar');
     expect(download.headers['content-disposition']).toContain('attachment');
@@ -465,7 +465,7 @@ describe('Messaging & calendar', () => {
 
     // Người dùng đã ghi danh còn lại: thấy sự kiện site/course + sự kiện riêng tư của mình, nhưng
     // KHÔNG thấy sự kiện nhóm (không phải thành viên) và KHÔNG thấy sự kiện riêng tư của thành viên kia.
-    const otherDownload = await http(app).get('/api/v1/calendar/export.ics').set('Authorization', `Bearer ${otherToken}`);
+    const otherDownload = await http(app).get('/api/v1/calendar/exports?format=ics').set('Authorization', `Bearer ${otherToken}`);
     const otherSummaries = parseExportedIcs(otherDownload.text).map((e) => e.summary);
     expect(otherSummaries).toContain('Export site day');
     expect(otherSummaries).toContain('Export course lecture');
@@ -475,7 +475,7 @@ describe('Messaging & calendar', () => {
     expect(otherSummaries).not.toContain('Export later event');
 
     // Truy vấn from/to thu hẹp bản xuất đúng như danh sách.
-    const ranged = await http(app).get('/api/v1/calendar/export.ics')
+    const ranged = await http(app).get('/api/v1/calendar/exports?format=ics')
       .query({ from: new Date(Date.now() - 3600_000).toISOString(), to: new Date(Date.now() + 2 * 3600_000).toISOString() })
       .set('Authorization', `Bearer ${memberToken}`);
     const rangedSummaries = parseExportedIcs(ranged.text).map((e) => e.summary);

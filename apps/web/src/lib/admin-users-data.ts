@@ -40,12 +40,12 @@ export function useAdminUserDetail(userId: string | undefined) {
   });
 }
 
-/** Đột biến khoá/mở khoá một người dùng (POST /users/:id/suspend|unsuspend). */
+/** Đột biến khoá/mở khoá một người dùng (POST /users/:id/suspend|reactivate). */
 export function useToggleUserSuspended() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ id, suspended }: { id: string; suspended: boolean }) =>
-      apiJson(`/api/v1/users/${id}/${suspended ? 'suspend' : 'unsuspend'}`, { method: 'POST' }),
+      apiJson(`/api/v1/users/${id}/${suspended ? 'suspend' : 'reactivate'}`, { method: 'POST' }),
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.adminUsersRoot }),
   });
 }

@@ -75,7 +75,7 @@ function stubFetch(calls: RecordedCall[]) {
         state.exportToken = null;
         return respond({ revoked: true });
       }
-      if (url === '/api/v1/calendar/export.ics')
+      if (url === '/api/v1/calendar/exports?format=ics')
         return new Response('BEGIN:VCALENDAR\r\nEND:VCALENDAR', {
           status: 200,
           headers: { 'Content-Type': 'text/calendar' },
@@ -124,7 +124,7 @@ describe('Calendar page — export', () => {
     expect(await screen.findByText('Chưa có đường dẫn đăng ký nào.')).toBeInTheDocument();
   });
 
-  it('downloads the ICS file through the authenticated GET /calendar/export.ics endpoint', async () => {
+  it('downloads the ICS file through the authenticated GET /calendar/exports?format=ics endpoint', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const createObjectURL = vi.fn(() => 'blob:mock');
@@ -135,7 +135,7 @@ describe('Calendar page — export', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Tải tệp .ics' }));
     await waitFor(() =>
-      expect(calls.some((c) => c.url === '/api/v1/calendar/export.ics' && c.method === 'GET')).toBe(true),
+      expect(calls.some((c) => c.url === '/api/v1/calendar/exports?format=ics' && c.method === 'GET')).toBe(true),
     );
     expect(createObjectURL).toHaveBeenCalled();
     clickSpy.mockRestore();

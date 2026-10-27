@@ -54,7 +54,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     await enrolUser(app, admin, source.id, instance.id, student.id);
 
     const newShort = uniqueName('copy');
-    const dupRes = await http(app).post(`/api/v1/courses/${source.id}/duplicate`).set('Authorization', `Bearer ${admin}`)
+    const dupRes = await http(app).post(`/api/v1/courses/${source.id}/copy`).set('Authorization', `Bearer ${admin}`)
       .send({ fullName: 'Bản sao khoá', shortName: newShort, startDate: '2026-09-07' });
     expect(dupRes.status).toBe(201);
     const copy = dupRes.body;
@@ -130,7 +130,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const s1 = await createSection(app, admin, course.id, { name: 'Gốc' });
     await createCm(app, admin, course.id, s1.id, { name: 'Mục 1' });
     const m2 = await createCm(app, admin, course.id, s1.id, { name: 'Mục 2' });
-    const dupSection = await http(app).post(`/api/v1/courses/${course.id}/sections/${s1.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    const dupSection = await http(app).post(`/api/v1/courses/${course.id}/sections/${s1.id}/copy`).set('Authorization', `Bearer ${admin}`).send({});
     expect(dupSection.status).toBe(201);
     expect(dupSection.body.section).toBe(s1.section + 1);
     let content = await contentOf(course.id, admin);
@@ -142,7 +142,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const modItem = await http(app).post(`/api/v1/courses/${course.id}/grade-items`).set('Authorization', `Bearer ${admin}`)
       .send({ itemName: 'Điểm mục 2', itemType: 'mod', cmId: m2.id, idNumber: 'MUC-2', gradeMax: 10 });
     expect(modItem.status).toBe(201);
-    const dupCm = await http(app).post(`/api/v1/courses/${course.id}/modules/${m2.id}/duplicate`).set('Authorization', `Bearer ${admin}`).send({});
+    const dupCm = await http(app).post(`/api/v1/courses/${course.id}/modules/${m2.id}/copy`).set('Authorization', `Bearer ${admin}`).send({});
     expect(dupCm.status).toBe(201);
     content = await contentOf(course.id, admin);
     const original = content.sections.find((s: { id: string }) => s.id === s1.id);
@@ -206,7 +206,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const plainLogin = await login(app, plain.username, STRONG_PASSWORD);
     const plainTemplates = await http(app).get('/api/v1/courses/templates').set('Authorization', `Bearer ${plainLogin.accessToken}`);
     expect(plainTemplates.body).toHaveLength(0);
-    const dup = await http(app).post(`/api/v1/courses/${template.id}/duplicate`).set('Authorization', `Bearer ${admin}`)
+    const dup = await http(app).post(`/api/v1/courses/${template.id}/copy`).set('Authorization', `Bearer ${admin}`)
       .send({ fullName: 'Khoá từ mẫu', shortName: uniqueName('fromtpl') });
     expect(dup.status).toBe(201);
     expect(dup.body.isTemplate).toBe(false);
@@ -217,7 +217,7 @@ describe('K1: nhân bản khoá, outline, mẫu và ngày mở', () => {
     const course = await createCourse(app, admin, cat.id);
     const plain = await createUserViaApi(app, admin);
     const plainLogin = await login(app, plain.username, STRONG_PASSWORD);
-    const res = await http(app).post(`/api/v1/courses/${course.id}/duplicate`).set('Authorization', `Bearer ${plainLogin.accessToken}`)
+    const res = await http(app).post(`/api/v1/courses/${course.id}/copy`).set('Authorization', `Bearer ${plainLogin.accessToken}`)
       .send({ fullName: 'Cấm', shortName: uniqueName('denied') });
     expect(res.status).toBe(403);
   });

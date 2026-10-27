@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Res, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { Public } from '../../common/public.decorator';
 import { CalendarService } from './calendar.service';
 import { calendarRemindSchema, createCalendarEventSchema, createCalendarExceptionSchema, createCalendarSubscriptionSchema, type CreateEventDto, type CreateExceptionDto, type CreateSubscriptionDto, type RemindDto } from './dto/calendar.dto';
@@ -38,15 +39,36 @@ export class CalendarController {
     @Query('eventType') eventType: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.calendar.listEventsForUser(actor.id, { from, to, eventType });
   }
-  @Get('export.ics')
+  @Get('exports')
   /**
-   * GET /calendar/export.ics — tải file .ics chứa đúng các sự kiện tôi được
-   * thấy trong khoảng from/to (tuỳ chọn eventType), cùng luật hiển thị với
-   * GET /calendar/events.
+   * GET /calendar/exports — tải file xuất lịch chứa đúng các sự kiện tôi
+   * được thấy trong khoảng from/to (tuỳ chọn eventType), cùng luật hiển
+   * thị với GET /calendar/events. Định dạng là dữ liệu yêu cầu qua
+   * tham số truy vấn `format` (hiện chỉ hỗ trợ `ics`; vắng mặt thì mặc
+   * định `ics`), không còn nằm trong path theo chuẩn bỏ hậu tố file
+   * (issue #345); path cũ `export.ics` giữ qua handler alias ngay dưới.
+   * Định dạng khác `ics` bị từ chối 400 `calendar.export_format_unsupported`.
    */
   async exportMine(@Query('from') from: string | undefined, @Query('to') to: string | undefined,
-    @Query('eventType') eventType: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    @Query('eventType') eventType: string | undefined, @Query('format') format: string | undefined,
+    @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    if (format !== undefined && format !== 'ics') {
+      throw new BadRequestException({ message: `Unsupported calendar export format: ${format}`, code: 'calendar.export_format_unsupported' });
+    }
     this.sendIcs(res, await this.calendar.exportIcsForUser(actor.id, { from, to, eventType }));
+  }
+  @Get('export.ics')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * GET /calendar/export.ics — alias cũ của GET /calendar/exports
+   * (định dạng `ics` cố định bởi chính hậu tố path): uỷ quyền nguyên
+   * vẹn cho handler canonical; response mang header Deprecation/Sunset
+   * và lượt gọi được ghi log alias có cấu trúc (căn cứ điều kiện gỡ
+   * alias: 0 lượt gọi trong 14 ngày).
+   */
+  async exportMineAlias(@Query('from') from: string | undefined, @Query('to') to: string | undefined,
+    @Query('eventType') eventType: string | undefined, @CurrentUser() actor: AuthenticatedUser, @Res() res: Response) {
+    return this.exportMine(from, to, eventType, 'ics', actor, res);
   }
   @Post('export-token')
   /**

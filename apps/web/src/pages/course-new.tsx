@@ -151,7 +151,7 @@ export function CourseNewPage() {
     await navigate(`/courses/${courseId}/builder`);
   }
 
-  /** Đường nhân bản + mẫu: POST /courses/:id/duplicate (bản sao nháp; startDate mới = mốc lùi hạn). Mẫu tổ/trường đã thuộc lớp của khoá mẫu — giữ nguyên lớp đó, không ép lớp đã chọn. */
+  /** Đường nhân bản + mẫu: POST /courses/:id/copy (bản sao nháp; startDate mới = mốc lùi hạn). Mẫu tổ/trường đã thuộc lớp của khoá mẫu — giữ nguyên lớp đó, không ép lớp đã chọn. */
   async function submitDuplicate(event: FormEvent) {
     event.preventDefault();
     const fromId = path === 'template' ? templateId : sourceId;

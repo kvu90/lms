@@ -76,7 +76,7 @@ function stubFetch(calls: RecordedCall[], options: { withClasses?: boolean } = {
       if (url === '/api/v1/access/contexts') return respond([]);
       if (url === '/api/v1/classes' && method === 'GET') return respond(withClasses ? [MY_CLASS] : []);
       if (url === '/api/v1/classes' && method === 'POST') return respond({ ...MY_CLASS, id: NEW_CLASS_ID, name: 'Lớp mới' }, 201);
-      if (url === `/api/v1/courses/${SOURCE_ID}/duplicate` && method === 'POST')
+      if (url === `/api/v1/courses/${SOURCE_ID}/copy` && method === 'POST')
         return respond({ ...SOURCE, id: COPY_ID, visible: false }, 201);
       if (url === '/api/v1/courses' && method === 'POST') return respond({ ...SOURCE, id: BLANK_ID }, 201);
       return respond({}, 404);
@@ -106,7 +106,7 @@ describe('Wizard tạo khoá K1', () => {
     localStorage.clear();
   });
 
-  it('nhân bản khoá: chọn nguồn thì tên/mã được điền sẵn, tạo gọi POST duplicate kèm mốc bắt đầu mới và vào thẳng builder', async () => {
+  it('nhân bản khoá: chọn nguồn thì tên/mã được điền sẵn, tạo gọi POST copy kèm mốc bắt đầu mới và vào thẳng builder', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderWizard();
@@ -120,9 +120,9 @@ describe('Wizard tạo khoá K1', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tạo khoá và xây dựng' }));
 
     await waitFor(() =>
-      expect(calls.some((c) => c.url === `/api/v1/courses/${SOURCE_ID}/duplicate` && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/courses/${SOURCE_ID}/copy` && c.method === 'POST')).toBe(true),
     );
-    const call = calls.find((c) => c.url === `/api/v1/courses/${SOURCE_ID}/duplicate`);
+    const call = calls.find((c) => c.url === `/api/v1/courses/${SOURCE_ID}/copy`);
     expect(call?.body).toEqual({
       fullName: 'Toán 10 — Học kỳ 1 (bản sao)',
       shortName: 'TOAN10-HK1-copy',

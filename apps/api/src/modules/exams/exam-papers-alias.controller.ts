@@ -120,7 +120,7 @@ export class ExamPapersAliasController {
 
   @Post('banks/:bankId/contributions/:contributionId/board-approve')
   /**
-   * POST /exam-papers/banks/:bankId/contributions/:contributionId/board-approve — alias của POST /exams/banks/:bankId/contributions/:contributionId/board-approve: duyệt cấp 2 cho đóng góp đang `pending_board`.
+   * POST /exam-papers/banks/:bankId/contributions/:contributionId/board-approve — alias của POST /exams/banks/:bankId/contributions/:contributionId/approve (đường `board-*` phía `/exams` nay cũng chỉ còn là alias đã deprecated của `approve` theo issue #345): duyệt cấp 2 cho đóng góp đang `pending_board`.
    */
   @ApiOperation({ operationId: 'examPapersAliasBoardApprove' })
   async aliasBoardApprove(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: approveExamContributionSchema }) dto: ApproveExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -129,7 +129,7 @@ export class ExamPapersAliasController {
 
   @Post('banks/:bankId/contributions/:contributionId/board-reject')
   /**
-   * POST /exam-papers/banks/:bankId/contributions/:contributionId/board-reject — alias của POST /exams/banks/:bankId/contributions/:contributionId/board-reject: từ chối cấp 2 cho đóng góp đang `pending_board`.
+   * POST /exam-papers/banks/:bankId/contributions/:contributionId/board-reject — alias của POST /exams/banks/:bankId/contributions/:contributionId/reject (đường `board-*` phía `/exams` nay cũng chỉ còn là alias đã deprecated của `reject` theo issue #345): từ chối cấp 2 cho đóng góp đang `pending_board`.
    */
   @ApiOperation({ operationId: 'examPapersAliasBoardReject' })
   async aliasBoardReject(@Param('bankId', { schema: uuidIdSchema }) bankId: string, @Param('contributionId', { schema: uuidIdSchema }) contributionId: string, @Body({ schema: rejectExamContributionSchema }) dto: RejectExamContributionDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -362,7 +362,7 @@ export class ExamPapersAliasController {
 
   @Post('dossiers/:dossierId/board-approve')
   /**
-   * POST /exam-papers/dossiers/:dossierId/board-approve — alias của POST /exams/dossiers/:dossierId/board-approve: duyệt cấp 2 bộ hồ sơ.
+   * POST /exam-papers/dossiers/:dossierId/board-approve — alias của POST /exams/dossiers/:dossierId/approve (đường `board-*` phía `/exams` nay cũng chỉ còn là alias đã deprecated của `approve` theo issue #345): duyệt cấp 2 bộ hồ sơ — đường ghi hồ sơ đã đóng nên vẫn trả 410.
    */
   @ApiOperation({ operationId: 'examPapersAliasBoardApproveDossier' })
   async aliasBoardApproveDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: approveExamDossierSchema }) _dto: ApproveExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {
@@ -371,7 +371,7 @@ export class ExamPapersAliasController {
 
   @Post('dossiers/:dossierId/board-reject')
   /**
-   * POST /exam-papers/dossiers/:dossierId/board-reject — alias của POST /exams/dossiers/:dossierId/board-reject: từ chối cấp 2 bộ hồ sơ, lý do bắt buộc.
+   * POST /exam-papers/dossiers/:dossierId/board-reject — alias của POST /exams/dossiers/:dossierId/reject (đường `board-*` phía `/exams` nay cũng chỉ còn là alias đã deprecated của `reject` theo issue #345): từ chối cấp 2 bộ hồ sơ, lý do bắt buộc — đường ghi hồ sơ đã đóng nên vẫn trả 410.
    */
   @ApiOperation({ operationId: 'examPapersAliasBoardRejectDossier' })
   async aliasBoardRejectDossier(@Param('dossierId', { schema: uuidIdSchema }) dossierId: string, @Body({ schema: rejectExamDossierSchema }) dto: RejectExamDossierDto, @CurrentUser() actor: AuthenticatedUser) {

@@ -80,19 +80,20 @@ export function SystemPapersPanel({
   }
 
   /**
-   * Một mốc duyệt của một đề xuất đóng góp đề tại bank đích: cấp 1
-   * (approve/reject khi đóng góp `pending`) hoặc cấp 2 ban giám hiệu
-   * (board-approve/board-reject khi đóng góp `pending_board` — chỉ
-   * đóng góp kèm bộ hồ sơ mới lên được trạng thái này); từ chối ở cả
-   * hai cấp đều bắt buộc lý do.
+   * Một mốc duyệt của một đề xuất đóng góp đề tại bank đích: chỉ còn
+   * một động từ `approve`/`reject` (issue #345, giai đoạn 2) — cấp 1
+   * khi đóng góp `pending`, cấp 2 ban giám hiệu khi đóng góp
+   * `pending_board` (chỉ đóng góp kèm bộ hồ sơ mới lên được trạng
+   * thái này), do phía server phân biệt bằng trạng thái và quyền;
+   * từ chối ở cả hai cấp đều bắt buộc lý do.
    */
   async function reviewPaperContribution(
     bankId: string,
     contributionId: string,
-    action: 'approve' | 'reject' | 'board-approve' | 'board-reject',
+    action: 'approve' | 'reject',
   ) {
     try {
-      if (action === 'approve' || action === 'board-approve') {
+      if (action === 'approve') {
         await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, action });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
@@ -195,14 +196,14 @@ export function SystemPapersPanel({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'board-approve')}
+                      onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'approve')}
                     >
                       {t('dossierBoardApprove')}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'board-reject')}
+                      onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'reject')}
                     >
                       {t('dossierBoardReject')}
                     </Button>

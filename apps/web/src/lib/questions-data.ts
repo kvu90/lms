@@ -672,11 +672,13 @@ export function useProposeExamPaperContribution() {
 
 /**
  * Đột biến một mốc duyệt của đóng góp đề tại bank đích
- * (POST /exams/banks/:bankId/contributions/:id/<action>): cấp 1
- * approve/reject khi đóng góp `pending`, cấp 2 ban giám hiệu
- * board-approve/board-reject khi đóng góp `pending_board` (trạng
- * thái chỉ đóng góp kèm bộ hồ sơ mới lên được, theo Q4 của issue
- * #228); từ chối ở cả hai cấp đều kèm lý do.
+ * (POST /exams/banks/:bankId/contributions/:id/<action>): chỉ còn
+ * hai động từ `approve`/`reject` (issue #345, giai đoạn 2) — cấp
+ * duyệt do phía server phân biệt bằng trạng thái đóng góp và quyền
+ * của người gọi (đóng góp `pending` → cấp 1, đóng góp
+ * `pending_board` do ban giám hiệu gọi → cấp 2; trạng thái này chỉ
+ * đóng góp kèm bộ hồ sơ mới lên được, theo Q4 của issue #228);
+ * từ chối ở cả hai cấp đều kèm lý do.
  */
 export function useReviewExamPaperContribution() {
   return useMutation({
@@ -688,10 +690,10 @@ export function useReviewExamPaperContribution() {
     }: {
       bankId: string;
       contributionId: string;
-      action: 'approve' | 'reject' | 'board-approve' | 'board-reject';
+      action: 'approve' | 'reject';
       reason?: string;
     }) =>
-      action === 'approve' || action === 'board-approve'
+      action === 'approve'
         ? apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/${action}`, {
             method: 'POST',
             body: '{}',

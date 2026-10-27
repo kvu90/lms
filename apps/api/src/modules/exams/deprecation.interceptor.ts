@@ -42,7 +42,9 @@ export class ExamPapersDeprecationInterceptor implements NestInterceptor {
   /**
    * Bảng mẫu path của bề mặt alias: `suffix` là phần path sau tiền tố
    * đầy đủ (`exam-papers` cho alias, `exams` cho canonical), dùng
-   * chung cho cả hai phía vì hai bề mặt chỉ khác nhau ở tiền tố.
+   * chung cho cả hai phía vì hai bề mặt chỉ khác nhau ở tiền tố —
+   * trừ bốn hậu tố `board-*` mà `canonicalOverride` dưới đây ánh xạ
+   * sang `approve`/`reject` theo đợt hợp nhất của issue #345.
    * Thứ tự: segment chữ trước tham số, mẫu dài trước mẫu ngắn.
    */
   private static readonly suffixTable: string[] = [
@@ -77,6 +79,22 @@ export class ExamPapersDeprecationInterceptor implements NestInterceptor {
   ];
 
   /**
+   * Ngoại lệ đổi tên (issue #345, giai đoạn 2): bốn hậu tố `board-*`
+   * đã hợp nhất vào `approve`/`reject` ở phía canonical `/exams`,
+   * nên canonical trong log của alias `/exam-papers` tương ứng cũng
+   * là `approve`/`reject` — không còn là hậu tố `board-*` (phía
+   * `/exams` nay chỉ giữ `board-*` làm alias đã deprecated của
+   * chính nó). Mọi hậu tố còn lại giữ quy tắc chung: canonical là
+   * cùng hậu tố dưới tiền tố `/exams`.
+   */
+  private static readonly canonicalOverride: Record<string, string> = {
+    'banks/:bankId/contributions/:contributionId/board-approve': 'banks/:bankId/contributions/:contributionId/approve',
+    'banks/:bankId/contributions/:contributionId/board-reject': 'banks/:bankId/contributions/:contributionId/reject',
+    'dossiers/:dossierId/board-approve': 'dossiers/:dossierId/approve',
+    'dossiers/:dossierId/board-reject': 'dossiers/:dossierId/reject',
+  };
+
+  /**
    * Bảng khớp đã biên dịch từ `suffixTable`: mỗi mẫu suffix sinh một
    * regex khớp path đầy đủ dưới tiền tố alias `/api/v1/exam-papers`,
    * kèm cặp (alias, canonical) dạng mẫu path để ghi log.
@@ -91,7 +109,7 @@ export class ExamPapersDeprecationInterceptor implements NestInterceptor {
       return {
         pattern: new RegExp(`^/api/v1/${body}$`),
         alias,
-        canonical: `exams/${suffix}`,
+        canonical: `exams/${ExamPapersDeprecationInterceptor.canonicalOverride[suffix] ?? suffix}`,
       };
     });
 

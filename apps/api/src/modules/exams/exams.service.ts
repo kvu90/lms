@@ -1110,12 +1110,63 @@ export class ExamsService {
   }
 
   /**
+   * Duyệt một đóng góp qua đường canonical duy nhất `approve`
+   * (issue #345, giai đoạn 2: hợp nhất `board-approve` vào `approve`).
+   *
+   * Cấp duyệt phân biệt bằng trạng thái của đóng góp và quyền của
+   * người gọi, không bằng tên động từ:
+   * - Đóng góp đang `pending_board` và người gọi có `exam:moderate`
+   *   tại context hệ thống → duyệt cấp 2 (ban giám hiệu), mốc chốt.
+   * - Mọi trường hợp còn lại → đi qua duyệt cấp 1 với nguyên vẹn
+   *   cổng và mã lỗi của duyệt cấp 1 (kể cả đóng góp đang
+   *   `pending_board` mà người gọi không có quyền cấp 2: cấp 1 báo
+   *   xung đột vì đóng góp không còn `pending`, đúng như đường
+   *   `approve` cũ trước khi hợp nhất).
+   */
+  async approveContribution(actorId: string, bankId: string, contributionId: string, input: ApproveExamContribution): Promise<ExamContributionRow> {
+    const bank = await this.getExamBank(actorId, bankId);
+    const contribution = await this.getContributionForBank(bank.id, contributionId);
+    if (contribution.status === 'pending_board' && (await this.hasContributionBoardPermission(actorId))) {
+      return this.boardApproveContribution(actorId, bankId, contributionId, input);
+    }
+    return this.approveContributionLevel1(actorId, bankId, contributionId, input);
+  }
+
+  /**
+   * Từ chối một đóng góp qua đường canonical duy nhất `reject`
+   * (issue #345, giai đoạn 2: hợp nhất `board-reject` vào `reject`).
+   * Quy tắc phân biệt cấp giống duyệt: đóng góp đang `pending_board`
+   * và người gọi có `exam:moderate` tại context hệ thống → từ chối
+   * cấp 2; còn lại → từ chối cấp 1 với nguyên vẹn cổng và mã lỗi cũ.
+   */
+  async rejectContribution(actorId: string, bankId: string, contributionId: string, input: RejectExamContribution): Promise<ExamContributionRow> {
+    const bank = await this.getExamBank(actorId, bankId);
+    const contribution = await this.getContributionForBank(bank.id, contributionId);
+    if (contribution.status === 'pending_board' && (await this.hasContributionBoardPermission(actorId))) {
+      return this.boardRejectContribution(actorId, bankId, contributionId, input);
+    }
+    return this.rejectContributionLevel1(actorId, bankId, contributionId, input);
+  }
+
+  /**
+   * Người gọi có quyền duyệt cấp 2 hay không: có `exam:moderate` tại
+   * context hệ thống (ban giám hiệu cấp hệ thống) thì có; ngược lại
+   * thì không — kiểm tra không ném lỗi để đường hợp nhất tự rơi về
+   * cấp 1 (cấp 1 tự ném lỗi đúng cổng của nó nếu người gọi không
+   * đủ quyền ở đó).
+   */
+  private async hasContributionBoardPermission(actorId: string): Promise<boolean> {
+    const system = await this.contexts.ensureSystemContext();
+    return this.evaluator.hasCapability(actorId, EXAM_CAPABILITIES.moderate, system.id);
+  }
+
+  /**
    * Duyệt cấp 1 một đề xuất (exam:moderate tại bank đích): đóng góp
    * có bộ hồ sơ đính kèm + công tắc cấp 2 bật thì cấp 1 chỉ ghi mốc
    * và đưa đóng góp sang `pending_board` (đề CHƯA vào bank đích);
    * còn lại cấp 1 là mốc chốt.
    */
-  async approveContribution(actorId: string, bankId: string, contributionId: string, _input: ApproveExamContribution): Promise<ExamContributionRow> {
+  private async approveContributionLevel1(actorId: string, bankId: string, contributionId: string, _input: ApproveExamContribution): Promise<ExamContributionRow> {
     const bank = await this.getExamBank(actorId, bankId);
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId);
     const contribution = await this.getContributionForBank(bank.id, contributionId);
@@ -1140,7 +1191,7 @@ export class ExamsService {
   }
 
   /** Từ chối cấp 1 một đề xuất: lý do bắt buộc để giáo viên sửa và đề xuất lại; mốc từ chối ghi vào sổ mốc duyệt. */
-  async rejectContribution(actorId: string, bankId: string, contributionId: string, input: RejectExamContribution): Promise<ExamContributionRow> {
+  private async rejectContributionLevel1(actorId: string, bankId: string, contributionId: string, input: RejectExamContribution): Promise<ExamContributionRow> {
     const bank = await this.getExamBank(actorId, bankId);
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId);
     const contribution = await this.getContributionForBank(bank.id, contributionId);
