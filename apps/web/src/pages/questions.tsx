@@ -35,10 +35,43 @@ import { apiFetch, apiJson, ApiError } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 import {
+  examDossierSpecQueryOptions,
+  pinnedQuestionVersionsQueryOptions,
   questionAttributionQueryOptions,
   questionDetailQueryOptions,
   questionDiscoveryQueryOptions,
   questionVersionsQueryOptions,
+  stimulusDetailQueryOptions,
+  useCopyExamPaper,
+  useCopyMatrixToMyBank,
+  useCopyQuestionToMyBank,
+  useCreateExamDossier,
+  useCreateQuestionCategory,
+  useCreateQuestionUsage,
+  useCreateStimulus,
+  useDeleteBankQuestion,
+  useDeleteExamPaper,
+  useDeleteMatrix,
+  useDeleteStimulus,
+  useDeployExamPin,
+  useFinishQuestionUsage,
+  useFinishUsageAttempt,
+  useProposeExamPaperContribution,
+  useProposeMatrixContribution,
+  useProposeQuestionContribution,
+  useQuestionUsage,
+  useRestoreQuestion,
+  useReviewExamDossier,
+  useReviewExamPaperContribution,
+  useReviewMatrixContribution,
+  useReviewQuestionContribution,
+  useSetExamPaperStatus,
+  useStartQuestionUsage,
+  useStartUsageAttempt,
+  useSubmitExamDossier,
+  useSubmitUsageAttempt,
+  useUpdateStimulus,
+  useWithdrawQuestion,
   useBankDossiers,
   useBankExamContributions,
   useBankExams,
@@ -64,6 +97,7 @@ import {
   type PaperSummaryLite,
 } from '#lib/questions-data';
 import { useCurriculumSubjects } from '#lib/matrix-data';
+import { accessContextsQueryOptions } from '#lib/access';
 import { courseContentQueryOptions, coursesListQueryOptions } from '#lib/course-builder-data';
 import { courseGroupsQueryOptions } from '#lib/progress-report-data';
 import { DataTable, type DataColumn } from '#components/data-table';
@@ -390,7 +424,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Copy một ma trận chung về ngân hàng ma trận cá nhân (cầu nối hai khu vực, MB-1). */
   async function copyMatrixToMyBank(matrixId: string) {
     try {
-      await apiJson(`/api/v1/exam-matrices/${matrixId}/copy`, { method: 'POST', body: '{}' });
+      await copyMatrixMutation.mutateAsync(matrixId);
       setMessage(t('matrixCopiedToMyBank'));
       refreshMatrixBanks();
     } catch {
@@ -402,7 +436,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function deleteMyMatrix(matrixId: string) {
     if (!window.confirm(t('matrixDeleteConfirm'))) return;
     try {
-      await apiJson(`/api/v1/exam-matrices/${matrixId}`, { method: 'DELETE' });
+      await deleteMatrixMutation.mutateAsync(matrixId);
       setMessage(t('matrixDeleted'));
       refreshMatrixBanks();
     } catch {
@@ -414,10 +448,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function proposeMatrixToBank(matrixId: string, targetBankId: string) {
     if (!matrixId || !targetBankId) return;
     try {
-      await apiJson(`/api/v1/exam-matrices/${matrixId}/contributions`, {
-        method: 'POST',
-        body: JSON.stringify({ targetBankId }),
-      });
+      await proposeMatrixMutation.mutateAsync({ matrixId, targetBankId });
       setMessage(t('proposedOk'));
     } catch {
       setMessage(t('proposeFailed'));
@@ -428,17 +459,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function reviewMatrixContribution(bankId: string, contributionId: string, approve: boolean) {
     try {
       if (approve) {
-        await apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${contributionId}/approve`, {
-          method: 'POST',
-          body: '{}',
-        });
+        await reviewMatrixContributionMutation.mutateAsync({ bankId, contributionId, approve: true });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${contributionId}/reject`, {
-          method: 'POST',
-          body: JSON.stringify({ reason }),
-        });
+        await reviewMatrixContributionMutation.mutateAsync({ bankId, contributionId, approve: false, reason });
       }
       refreshSharedMatrices(bankId);
     } catch {
@@ -468,6 +493,33 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // factory của cụm (thay cho các hàm load* thủ công trước đây —
   // query đang hiển thị tự tải lại, các bề mặt khác dùng chung
   // khoá cũng được cập nhật).
+  // Thao tác ghi của trang qua các đột biến của lib/questions-data
+  // (F-01 của rà soát #133): đột biến chỉ ghi, việc làm mới theo cụm
+  // vẫn do các hàm refresh* dưới đây quyết định như bản thủ công.
+  const copyMatrixMutation = useCopyMatrixToMyBank();
+  const deleteMatrixMutation = useDeleteMatrix();
+  const proposeMatrixMutation = useProposeMatrixContribution();
+  const reviewMatrixContributionMutation = useReviewMatrixContribution();
+  const createDossierMutation = useCreateExamDossier();
+  const submitDossierMutation = useSubmitExamDossier();
+  const reviewDossierMutation = useReviewExamDossier();
+  const copyPaperMutation = useCopyExamPaper();
+  const paperStatusMutation = useSetExamPaperStatus();
+  const deletePaperMutation = useDeleteExamPaper();
+  const proposePaperMutation = useProposeExamPaperContribution();
+  const reviewPaperContributionMutation = useReviewExamPaperContribution();
+  const deployPinMutation = useDeployExamPin();
+  const copyQuestionMutation = useCopyQuestionToMyBank();
+  const proposeQuestionMutation = useProposeQuestionContribution();
+  const reviewContributionMutation = useReviewQuestionContribution();
+  const deleteQuestionMutation = useDeleteBankQuestion();
+  const restoreQuestionMutation = useRestoreQuestion();
+  const withdrawQuestionMutation = useWithdrawQuestion();
+  const updateStimulusMutation = useUpdateStimulus();
+  const createStimulusMutation = useCreateStimulus();
+  const deleteStimulusMutation = useDeleteStimulus();
+  const createUsageMutation = useCreateQuestionUsage();
+
   const refreshBanks = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.questionBanks('question') });
     if (personalBank) void queryClient.invalidateQueries({ queryKey: queryKeys.myBankQuestions(personalBank.id) });
@@ -507,11 +559,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function proposeDossier() {
     if (!dossierPaperId || !dossierBankId) return;
     try {
-      const created = await apiJson<ExamDossierLite>(`/api/v1/exams/${dossierPaperId}/dossiers`, {
-        method: 'POST',
-        body: JSON.stringify({ targetBankId: dossierBankId }),
+      const created = await createDossierMutation.mutateAsync({
+        paperId: dossierPaperId,
+        targetBankId: dossierBankId,
       });
-      await apiJson(`/api/v1/exams/dossiers/${created.id}/submit`, { method: 'POST', body: '{}' });
+      await submitDossierMutation.mutateAsync(created.id);
       setMessage(t('dossierProposedOk'));
       refreshMyDossiers();
       if (systemExamBankId) refreshSystemPapers(systemExamBankId);
@@ -524,14 +576,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function reviewDossier(dossierId: string, action: 'approve' | 'reject' | 'board-approve' | 'board-reject') {
     try {
       if (action === 'approve' || action === 'board-approve') {
-        await apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, { method: 'POST', body: '{}' });
+        await reviewDossierMutation.mutateAsync({ dossierId, action });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, {
-          method: 'POST',
-          body: JSON.stringify({ reason }),
-        });
+        await reviewDossierMutation.mutateAsync({ dossierId, action, reason });
       }
       if (systemExamBankId) refreshSystemPapers(systemExamBankId);
       refreshMyDossiers();
@@ -544,7 +593,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function toggleDossierSpec(dossierId: string) {
     if (openDossierSpec?.dossierId === dossierId) { setOpenDossierSpec(null); return; }
     try {
-      const spec = await apiJson<DossierSpecLite>(`/api/v1/exams/dossiers/${dossierId}/specification`);
+      const spec = await queryClient.fetchQuery(examDossierSpecQueryOptions(dossierId));
       setOpenDossierSpec({ dossierId, spec });
     } catch (err) {
       setMessage(withApiReason(t('dossierFailed'), err));
@@ -571,7 +620,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Copy một đề từ ngân hàng hệ thống về ngân hàng đề cá nhân (cầu nối hai khu vực cho ĐỀ). */
   async function copyPaperToMine(paperId: string) {
     try {
-      await apiJson(`/api/v1/exams/${paperId}/copy`, { method: 'POST', body: '{}' });
+      await copyPaperMutation.mutateAsync(paperId);
       setMessage(t('paperCopiedToMyBank'));
       refreshExamBanks();
     } catch (err) {
@@ -581,7 +630,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   async function setPaperStatus(paperId: string, status: 'ready' | 'hidden' | 'draft') {
     try {
-      await apiJson(`/api/v1/exams/${paperId}/status`, { method: 'POST', body: JSON.stringify({ status }) });
+      await paperStatusMutation.mutateAsync({ paperId, status });
       refreshExamBanks();
       if (systemExamBankId) refreshSystemPapers(systemExamBankId);
     } catch (err) {
@@ -592,7 +641,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function deletePaper(paperId: string) {
     if (!window.confirm(t('examPaperDeleteConfirm'))) return;
     try {
-      await apiJson(`/api/v1/exams/${paperId}`, { method: 'DELETE' });
+      await deletePaperMutation.mutateAsync(paperId);
       setMessage(t('examPaperDeleted'));
       refreshExamBanks();
     } catch (err) {
@@ -604,10 +653,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function proposePaper() {
     if (!proposePaperId || !proposePaperBankId) return;
     try {
-      await apiJson(`/api/v1/exams/banks/${proposePaperBankId}/contributions`, {
-        method: 'POST',
-        body: JSON.stringify({ paperId: proposePaperId }),
-      });
+      await proposePaperMutation.mutateAsync({ bankId: proposePaperBankId, paperId: proposePaperId });
       setMessage(t('paperProposedOk'));
     } catch (err) {
       setMessage(withApiReason(t('proposeFailed'), err));
@@ -618,14 +664,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function reviewPaperContribution(bankId: string, contributionId: string, approve: boolean) {
     try {
       if (approve) {
-        await apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/approve`, { method: 'POST', body: '{}' });
+        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, approve: true });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/exams/banks/${bankId}/contributions/${contributionId}/reject`, {
-          method: 'POST',
-          body: JSON.stringify({ reason }),
-        });
+        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, approve: false, reason });
       }
       refreshSystemPapers(bankId);
     } catch (err) {
@@ -647,14 +690,14 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function runDeploy() {
     if (!deployPaper || !deployCourseId || !deploySectionId) return;
     try {
-      const pin = await apiJson<{ id: string }>(`/api/v1/courses/${deployCourseId}/exam-pins`, {
-        method: 'POST',
-        body: JSON.stringify({
+      const pin = await deployPinMutation.mutateAsync({
+        courseId: deployCourseId,
+        body: {
           sectionId: deploySectionId,
           examId: deployPaper.id,
           variantCount: Math.min(50, Math.max(1, Number(deployVariantCount) || 1)),
           ...(deployGroupId ? { targetGroupId: deployGroupId } : {}),
-        }),
+        },
       });
       setMessage(t('pinOk', { version: deployPaper.latestVersion }));
       setDeployPaper(null);
@@ -684,7 +727,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Copy một câu về ngân hàng cá nhân của mình (cầu nối hai khu vực). */
   async function copyToMyBank(questionId: string) {
     try {
-      await apiJson(`/api/v1/questions/${questionId}/copy`, { method: 'POST', body: '{}' });
+      await copyQuestionMutation.mutateAsync(questionId);
       setMessage(t('copiedToMyBank'));
       refreshBanks();
     } catch {
@@ -696,10 +739,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function proposeToBank(questionId: string, targetBankId: string) {
     if (!targetBankId) return;
     try {
-      await apiJson(`/api/v1/question-banks/${targetBankId}/contributions`, {
-        method: 'POST',
-        body: JSON.stringify({ questionId }),
-      });
+      await proposeQuestionMutation.mutateAsync({ bankId: targetBankId, questionId });
       setMessage(t('proposedOk'));
     } catch {
       setMessage(t('proposeFailed'));
@@ -709,14 +749,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function reviewContribution(bankId: string, contributionId: string, approve: boolean) {
     try {
       if (approve) {
-        await apiJson(`/api/v1/question-banks/${bankId}/contributions/${contributionId}/approve`, { method: 'POST', body: '{}' });
+        await reviewContributionMutation.mutateAsync({ bankId, contributionId, approve: true });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/question-banks/${bankId}/contributions/${contributionId}/reject`, {
-          method: 'POST',
-          body: JSON.stringify({ reason }),
-        });
+        await reviewContributionMutation.mutateAsync({ bankId, contributionId, approve: false, reason });
       }
       refreshContributions(bankId);
     } catch {
@@ -728,7 +765,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   async function deleteMyQuestion(questionId: string) {
     if (!window.confirm(t('deleteQuestionConfirm'))) return;
     try {
-      await apiJson(`/api/v1/questions/${questionId}`, { method: 'DELETE' });
+      await deleteQuestionMutation.mutateAsync(questionId);
       setMessage(t('questionDeleted'));
       refreshBanks();
       refreshCategoryQuestions();
@@ -742,15 +779,12 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     const status = (view.entry as { status?: string }).status;
     try {
       if (status === 'hidden') {
-        await apiJson(`/api/v1/questions/${view.question.id}/restore`, { method: 'POST', body: '{}' });
+        await restoreQuestionMutation.mutateAsync(view.question.id);
         setMessage(t('questionRestored'));
       } else {
         const reason = window.prompt(t('withdrawQuestion')) ?? '';
         if (!reason.trim()) return;
-        await apiJson(`/api/v1/questions/${view.question.id}/withdraw`, {
-          method: 'POST',
-          body: JSON.stringify({ reason }),
-        });
+        await withdrawQuestionMutation.mutateAsync({ questionId: view.question.id, reason });
         setMessage(t('questionWithdrawn'));
       }
       refreshBanks();
@@ -770,10 +804,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     event.preventDefault();
     if (editingStimulus) {
       try {
-        await apiJson(`/api/v1/stimuli/${editingStimulus.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ content: stimulusContent }),
-        });
+        await updateStimulusMutation.mutateAsync({ stimulusId: editingStimulus.id, content: stimulusContent });
         setEditingStimulus(null);
         setStimulusContent('');
         refreshCategoryStimuli();
@@ -783,10 +814,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       return;
     }
     try {
-      await apiJson('/api/v1/stimuli', {
-        method: 'POST',
-        body: JSON.stringify({ categoryId: qCategory, content: stimulusContent }),
-      });
+      await createStimulusMutation.mutateAsync({ categoryId: qCategory, content: stimulusContent });
       setStimulusContent('');
       refreshCategoryStimuli();
     } catch {
@@ -796,7 +824,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   async function deleteStimulus(stimulus: StimulusView) {
     try {
-      await apiJson(`/api/v1/stimuli/${stimulus.id}`, { method: 'DELETE' });
+      await deleteStimulusMutation.mutateAsync(stimulus.id);
       if (editingStimulus?.id === stimulus.id) {
         setEditingStimulus(null);
         setStimulusContent('');
@@ -815,12 +843,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
    */
   async function startUsageFromSelection() {
     try {
-      const created = await apiJson<QuestionUsage>('/api/v1/question-usages', {
-        method: 'POST',
-        body: JSON.stringify({
-          component: 'mod_quiz',
-          slots: selected.map((questionId) => ({ questionId })),
-        }),
+      const created = await createUsageMutation.mutateAsync({
+        component: 'mod_quiz',
+        slots: selected.map((questionId) => ({ questionId })),
       });
       await navigate(`/question-usages/${created.usage.id}`);
     } catch {
@@ -833,7 +858,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     if (!window.confirm(t('confirmDeleteQuestion', { name: questionExcerpt(view) }))) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/questions/${view.question.id}`, { method: 'DELETE' });
+      await deleteQuestionMutation.mutateAsync(view.question.id);
       setMessage(t('questionDeleted'));
       setSelected((prev) => prev.filter((qid) => qid !== view.question.id));
       refreshCategoryQuestions();
@@ -2070,6 +2095,7 @@ export function QuestionCategoryNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const createCategoryMutation = useCreateQuestionCategory();
   const perms = usePermissions();
   const [catName, setCatName] = useState('');
   const [contextId, setContextId] = useState('');
@@ -2081,9 +2107,7 @@ export function QuestionCategoryNewPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const contexts = await apiJson<{ id: string; contextLevel: number; instanceId: string }[]>(
-          '/api/v1/access/contexts',
-        );
+        const contexts = await queryClient.fetchQuery(accessContextsQueryOptions());
         const manageable = new Set(
           (perms.access?.contexts ?? [])
             .filter((c) => c.capabilities.includes('question:managecategory'))
@@ -2120,10 +2144,7 @@ export function QuestionCategoryNewPage() {
   async function createCategory(event: FormEvent) {
     event.preventDefault();
     try {
-      await apiJson('/api/v1/questions/categories', {
-        method: 'POST',
-        body: JSON.stringify({ name: catName, contextId: contextId }),
-      });
+      await createCategoryMutation.mutateAsync({ name: catName, contextId });
       clearQuestionBankListCache(queryClient);
       navigate('/questions');
     } catch (err) {
@@ -2239,11 +2260,20 @@ export function QuestionUsagePage() {
   const { t } = useTranslation('app');
   const { id } = useParams();
   const perms = usePermissions();
-  const [usage, setUsage] = useState<QuestionUsage | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // Usage đọc qua TanStack Query (F-01 của rà soát #133): cổng vai
+  // của trang là điều kiện bật query; lỗi tải hiện qua trạng thái
+  // lỗi của query, thao tác làm bài là đột biến tự làm mới usage.
+  const usageQuery = useQuestionUsage(id ?? '', perms.ready && perms.canUseQuestionBank);
+  const usage = usageQuery.data ?? null;
   const [actionError, setActionError] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [pinned, setPinned] = useState<Record<string, PinnedContent>>({});
+  const startUsageMutation = useStartQuestionUsage();
+  const finishUsageMutation = useFinishQuestionUsage();
+  const startAttemptMutation = useStartUsageAttempt();
+  const submitAttemptMutation = useSubmitUsageAttempt();
+  const finishAttemptMutation = useFinishUsageAttempt();
 
   /**
    * Nạp nội dung của phiên bản ĐÃ PIN cho từng attempt đã bắt đầu: usage chỉ
@@ -2257,12 +2287,12 @@ export function QuestionUsagePage() {
         .filter((a) => a.questionVersionId)
         .map(async (a) => {
           try {
-            const versions = await apiJson<PinnedVersion[]>(`/api/v1/questions/${a.questionId}/versions`);
+            const versions = await queryClient.fetchQuery(pinnedQuestionVersionsQueryOptions(a.questionId));
             const version = versions.find((v) => v.id === a.questionVersionId);
             if (!version) return null;
             let stimulusText: string | null = null;
             if (version.stimulusId) {
-              const stimulus = await apiJson<StimulusView>(`/api/v1/stimuli/${version.stimulusId}`);
+              const stimulus = await queryClient.fetchQuery(stimulusDetailQueryOptions(version.stimulusId));
               stimulusText = plainText(stimulus.content);
             }
             return [a.id, { questionText: plainText(version.questionText), stimulusText }] as const;
@@ -2280,26 +2310,18 @@ export function QuestionUsagePage() {
     });
   }, []);
 
-  /** Nạp (lại) usage hiện tại từ API — nguồn sự thật cho state/fraction. */
-  const reload = useCallback(async () => {
-    const fresh = await apiJson<QuestionUsage>(`/api/v1/question-usages/${id}`);
-    setUsage(fresh);
-    void loadPinned(fresh);
-  }, [id, loadPinned]);
-
+  // Mỗi khi usage (lại) tải về thì nạp nội dung đã ghim cho các
+  // attempt đã bắt đầu — đúng nhịp loadPinned sau mỗi reload() thủ
+  // công trước đây (mở trang và sau mỗi thao tác).
   useEffect(() => {
-    // Trang làm thử thuộc bộ công cụ ngân hàng: cùng cổng vai với trang
-    // ngân hàng (issue #55 mục 1); API usage cũng đã gác chủ sở hữu/quyền.
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    void reload().catch(() => setError(t('attemptLoadFailed')));
-  }, [reload, t, perms.ready, perms.canUseQuestionBank]);
+    if (usageQuery.data) void loadPinned(usageQuery.data);
+  }, [usageQuery.data, loadPinned]);
 
-  /** Chạy một thao tác làm bài rồi nạp lại usage; lỗi hiện thân thiện qua i18n. */
+  /** Chạy một thao tác làm bài (đột biến tự làm mới usage); lỗi hiện thân thiện qua i18n. */
   async function act(run: () => Promise<unknown>) {
     setActionError(null);
     try {
       await run();
-      await reload();
     } catch {
       setActionError(t('usageActionFailed'));
     }
@@ -2322,20 +2344,19 @@ export function QuestionUsagePage() {
         </Card>
       </main>
     );
-  if (error)
+  if (usageQuery.isError)
     return (
       <PageShell width="medium">
         <PageHeader title={t('questionAttemptTitle', { component: '' })} />
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{t('attemptLoadFailed')}</AlertDescription>
         </Alert>
         <div>
           <Button
             type="button"
             variant="outline"
             onClick={() => {
-              setError(null);
-              void reload().catch(() => setError(t('attemptLoadFailed')));
+              void usageQuery.refetch();
             }}
           >
             {t('retry')}
@@ -2374,7 +2395,7 @@ export function QuestionUsagePage() {
               <Button
                 type="button"
                 onClick={() =>
-                  void act(() => apiJson(`/api/v1/question-usages/${usageId}/start`, { method: 'POST', body: '{}' }))
+                  void act(() => startUsageMutation.mutateAsync({ usageId }))
                 }
               >
                 {t('usageStart')}
@@ -2384,7 +2405,7 @@ export function QuestionUsagePage() {
               <Button
                 type="button"
                 onClick={() =>
-                  void act(() => apiJson(`/api/v1/question-usages/${usageId}/finish`, { method: 'POST', body: '{}' }))
+                  void act(() => finishUsageMutation.mutateAsync({ usageId }))
                 }
               >
                 {t('usageFinish')}
@@ -2423,12 +2444,7 @@ export function QuestionUsagePage() {
                       type="button"
                       variant="outline"
                       onClick={() =>
-                        void act(() =>
-                          apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/start`, {
-                            method: 'POST',
-                            body: '{}',
-                          }),
-                        )
+                        void act(() => startAttemptMutation.mutateAsync({ usageId, attemptId: a.id }))
                       }
                     >
                       {t('attemptStart')}
@@ -2449,11 +2465,10 @@ export function QuestionUsagePage() {
                           type="button"
                           onClick={() =>
                             void act(() =>
-                              apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/submit`, {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  response: (answers[a.id] ?? lastAnswer).trim() ? (answers[a.id] ?? lastAnswer) : null,
-                                }),
+                              submitAttemptMutation.mutateAsync({
+                                usageId,
+                                attemptId: a.id,
+                                response: (answers[a.id] ?? lastAnswer).trim() ? (answers[a.id] ?? lastAnswer) : null,
                               }),
                             )
                           }
@@ -2464,12 +2479,7 @@ export function QuestionUsagePage() {
                           type="button"
                           variant="outline"
                           onClick={() =>
-                            void act(() =>
-                              apiJson(`/api/v1/question-usages/${usageId}/attempts/${a.id}/finish`, {
-                                method: 'POST',
-                                body: '{}',
-                              }),
-                            )
+                            void act(() => finishAttemptMutation.mutateAsync({ usageId, attemptId: a.id }))
                           }
                         >
                           {t('attemptFinish')}

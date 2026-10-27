@@ -243,7 +243,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               { title: t('app:navCurriculum'), url: '/admin/curriculum', icon: IconNotebook },
               { title: t('app:navReports'), url: '/reports', icon: IconReport },
               { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
-              { title: t('app:navContentBank'), url: '/contentbank', icon: IconDatabase },
+              { title: t('app:navContentBank'), url: '/content-bank', icon: IconDatabase },
               { title: t('app:navBackup'), url: '/backup', icon: IconDatabase },
               { title: t('app:navPrivacy'), url: '/privacy', icon: IconShieldLock },
               { title: t('app:navHealth'), url: '/health', icon: IconHelpCircle },

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { PaperBatch, PaperScan } from '@lms/contracts';
 import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
@@ -11,7 +11,18 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiFetch, apiJson } from '#lib/api';
+import { apiFetch } from '#lib/api';
+import {
+  paperPageClientLoader,
+  useAssignScanBatch,
+  useAssignScanIdentity,
+  useCreatePaperBatch,
+  useDeleteScan,
+  usePaperBatches,
+  usePaperScans,
+  useRecordScan,
+  useResolveScanReadings,
+} from '#lib/paper-data';
 
 /**
  * CAM-0 (issue #112) — Chấm bài giấy bằng camera, phía giáo viên:
@@ -121,9 +132,24 @@ function RegionCrop({ scanId, region, label }: { scanId: string; region: { x: nu
 export default function QuizPaperPage() {
   const { id: courseId, pinId: quizId } = useParams();
   const { t } = useTranslation('app');
-  const [batches, setBatches] = useState<PaperBatch[] | null>(null);
-  const [scans, setScans] = useState<PaperScan[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  // Hai danh sách của trang qua TanStack Query (F-01 của #133,
+  // `lib/paper-data.ts`): clientLoader của route nạp trước đúng khoá;
+  // một trong hai danh sách tải hỏng ngay từ đầu (chưa có dữ liệu) thì
+  // trang báo lỗi tải như bản thủ công — lỗi ở lần nạp lại sau đó giữ
+  // nguyên dữ liệu đang hiện.
+  const batchesQuery = usePaperBatches(quizId ?? '');
+  const scansQuery = usePaperScans(quizId ?? '');
+  const batches = batchesQuery.data ?? null;
+  const scans = scansQuery.data ?? null;
+  const failed =
+    (batchesQuery.isError && batchesQuery.data === undefined) ||
+    (scansQuery.isError && scansQuery.data === undefined);
+  const createBatchMutation = useCreatePaperBatch(quizId ?? '');
+  const assignIdentityMutation = useAssignScanIdentity(quizId ?? '');
+  const assignBatchMutation = useAssignScanBatch(quizId ?? '');
+  const resolveReadingsMutation = useResolveScanReadings(quizId ?? '');
+  const recordMutation = useRecordScan(quizId ?? '');
+  const deleteScanMutation = useDeleteScan(quizId ?? '');
   const [actionError, setActionError] = useState<string | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [variant, setVariant] = useState('');
@@ -144,22 +170,18 @@ export default function QuizPaperPage() {
   >({});
   const [recordedGrades, setRecordedGrades] = useState<Record<string, number>>({});
 
-  const reload = useCallback(async () => {
-    const [batchList, scanList] = await Promise.all([
-      apiJson<PaperBatch[]>(`/api/v1/exam-batches?pinId=${quizId}`),
-      apiJson<PaperScan[]>(`/api/v1/exam-scans?pinId=${quizId}`),
-    ]);
-    setBatches(batchList);
-    setScans(scanList);
-    setSelectedBatchId((prev) => prev ?? batchList[0]?.id ?? null);
-  }, [quizId]);
-
-  useEffect(() => {
-    reload().catch(() => setFailed(true));
-  }, [reload]);
+  // Nạp lại cả hai danh sách — dùng cho luồng tải ảnh lên (mệnh lệnh,
+  // ngoài tầng đột biến): tương đương invalidate của các đột biến.
+  const reload = async () => {
+    await Promise.all([batchesQuery.refetch(), scansQuery.refetch()]);
+  };
 
   const batchById = new Map((batches ?? []).map((b) => [b.id, b]));
-  const selectedBatch = selectedBatchId ? (batchById.get(selectedBatchId) ?? null) : null;
+  // Lô đang chọn: lựa chọn tường minh của người dùng, chưa chọn thì
+  // lô đầu danh sách — đúng nhịp bản thủ công chốt lô đầu sau lần tải
+  // đầu và giữ nguyên lựa chọn ở các lần tải lại sau.
+  const effectiveBatchId = selectedBatchId ?? batches?.[0]?.id ?? null;
+  const selectedBatch = effectiveBatchId ? (batchById.get(effectiveBatchId) ?? null) : null;
 
   async function runAction(fn: () => Promise<void>) {
     setActionError(null);
@@ -178,14 +200,9 @@ export default function QuizPaperPage() {
       const body: Record<string, unknown> = { codeDigits: Number(codeDigits) };
       if (variant.trim()) body.variantCode = variant.trim();
       if (/^\d{4}$/.test(examCode.trim())) body.examCode = examCode.trim();
-      const created = await apiJson<PaperBatch>(`/api/v1/exam-batches?pinId=${quizId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const created = await createBatchMutation.mutateAsync(body);
       setVariant('');
       setExamCode('');
-      await reload();
       setSelectedBatchId(created.id);
     });
   }
@@ -242,12 +259,7 @@ export default function QuizPaperPage() {
     const studentId = identityChoice[scan.id];
     if (!studentId) return;
     await runAction(async () => {
-      await apiJson(`/api/v1/exam-scans/${scan.id}/assign-identity`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId }),
-      });
-      await reload();
+      await assignIdentityMutation.mutateAsync({ scanId: scan.id, studentId });
     });
   }
 
@@ -255,12 +267,7 @@ export default function QuizPaperPage() {
     const batchId = batchChoice[scan.id];
     if (!batchId) return;
     await runAction(async () => {
-      await apiJson(`/api/v1/exam-scans/${scan.id}/assign-batch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ batchId }),
-      });
-      await reload();
+      await assignBatchMutation.mutateAsync({ scanId: scan.id, batchId });
     });
   }
 
@@ -288,37 +295,27 @@ export default function QuizPaperPage() {
     );
     if (incomplete) return;
     await runAction(async () => {
-      await apiJson(`/api/v1/exam-scans/${scan.id}/resolve-readings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          readings: ambiguous.map((r) =>
-            isTrueFalseSlot(scan, r.slot)
-              ? { slot: r.slot, pairChoices: pairPicks[r.slot] }
-              : { slot: r.slot, chosen: picks[r.slot] ?? null },
-          ),
-        }),
+      await resolveReadingsMutation.mutateAsync({
+        scanId: scan.id,
+        readings: ambiguous.map((r) =>
+          isTrueFalseSlot(scan, r.slot)
+            ? { slot: r.slot, pairChoices: pairPicks[r.slot] }
+            : { slot: r.slot, chosen: picks[r.slot] ?? null },
+        ),
       });
-      await reload();
     });
   }
 
   async function record(scan: PaperScan) {
     await runAction(async () => {
-      const result = await apiJson<PaperScan & { sumGrades: number }>(`/api/v1/exam-scans/${scan.id}/record`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+      const result = await recordMutation.mutateAsync(scan.id);
       setRecordedGrades((prev) => ({ ...prev, [scan.id]: result.sumGrades }));
-      await reload();
     });
   }
 
   async function remove(scan: PaperScan) {
     await runAction(async () => {
-      await apiJson(`/api/v1/exam-scans/${scan.id}`, { method: 'DELETE' });
-      await reload();
+      await deleteScanMutation.mutateAsync(scan.id);
     });
   }
 
@@ -377,7 +374,7 @@ export default function QuizPaperPage() {
                     <li key={batch.id}>
                       <Button
                         type="button"
-                        variant={batch.id === selectedBatchId ? 'default' : 'outline'}
+                        variant={batch.id === effectiveBatchId ? 'default' : 'outline'}
                         onClick={() => setSelectedBatchId(batch.id)}
                       >
                         {t('paperBatchLine', { code: batch.variantCode, exam: batch.examCode ?? '—', count: batch.roster.length, slots: batch.layout.length })}
@@ -762,6 +759,20 @@ export default function QuizPaperPage() {
       )}
     </PageShell>
   );
+}
+
+/**
+ * clientLoader (F-01, rà soát #133): prefetch cả hai danh sách của
+ * trang vào QueryClient singleton dùng chung (đúng khoá factory)
+ * trước khi component mount — điều hướng vào trang không còn thác
+ * nước mount-rồi-fetch. prefetchQuery không ném lỗi: tải hỏng thì
+ * component tự xử lý qua useQuery như trước.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.pinId) {
+    await paperPageClientLoader(params.pinId);
+  }
+  return null;
 }
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).

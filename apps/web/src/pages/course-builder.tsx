@@ -7,7 +7,6 @@ import { CurriculumFramePanel, BookFramePanel } from '#components/curriculum-fra
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '#lib/api';
 import { fetchItems, insertItem, type LibraryItem } from '#lib/content-bank';
 import {
   courseBuilderQueryOptions,
@@ -15,6 +14,22 @@ import {
   useCourseBuilder,
   useCourseContent,
   useCoursesList,
+  useCreateBuilderAssignment,
+  useCreateBuilderExamPin,
+  useCreateBuilderModule,
+  useCreateBuilderSection,
+  useDeleteBuilderModule,
+  useDeleteBuilderSection,
+  useDuplicateBuilderModule,
+  useDuplicateBuilderSection,
+  useImportBuilderContent,
+  useRecalculateBuilderCompletion,
+  useReorderBuilderModules,
+  useReorderBuilderSections,
+  useSaveBuilderCourse,
+  useSaveBuilderCriteria,
+  useSaveBuilderModule,
+  useSaveBuilderSection,
 } from '#lib/course-builder-data';
 import { queryClient } from '#lib/query-client';
 import { usePermissions } from '#lib/permissions';
@@ -163,11 +178,31 @@ export function CourseBuilderPage() {
     if (!courseRes && !contentRes) setLoadError(t('builderLoadFailed'));
   }, [builderData, t]);
 
-  // Mọi đột biến gọi reload() như cũ — nay là refetch gói builder;
-  // dữ liệu mới về thì effect khởi tạo ở trên chạy lại.
+  // Mọi thao tác ghi đi qua các đột biến của lib/course-builder-data
+  // (F-01): đột biến tự làm mới gói builder — dữ liệu mới về thì
+  // effect khởi tạo ở trên chạy lại. reload() chỉ còn cho nhịp cắm
+  // học liệu từ kho (endpoint insert của CB-1 nằm ngoài module này)
+  // và nhịp tự khớp lại sau khi đổi thứ tự thất bại.
   const reload = useCallback(async () => {
     await refetch();
   }, [refetch]);
+
+  const saveCourseMutation = useSaveBuilderCourse(courseId);
+  const createSectionMutation = useCreateBuilderSection(courseId);
+  const saveSectionMutation = useSaveBuilderSection(courseId);
+  const deleteSectionMutation = useDeleteBuilderSection(courseId);
+  const duplicateSectionMutation = useDuplicateBuilderSection(courseId);
+  const reorderSectionsMutation = useReorderBuilderSections(courseId);
+  const reorderModulesMutation = useReorderBuilderModules(courseId);
+  const createExamPinMutation = useCreateBuilderExamPin(courseId);
+  const createAssignmentMutation = useCreateBuilderAssignment(courseId);
+  const createModuleMutation = useCreateBuilderModule(courseId);
+  const saveModuleMutation = useSaveBuilderModule(courseId);
+  const deleteModuleMutation = useDeleteBuilderModule(courseId);
+  const duplicateModuleMutation = useDuplicateBuilderModule(courseId);
+  const importContentMutation = useImportBuilderContent(courseId);
+  const saveCriteriaMutation = useSaveBuilderCriteria(courseId);
+  const recalculateMutation = useRecalculateBuilderCompletion(courseId);
 
   useEffect(() => {
     setImportSections([]);
@@ -178,21 +213,17 @@ export function CourseBuilderPage() {
     event.preventDefault();
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          fullName,
-          shortName,
-          category: courseCategory,
-          summary,
-          visible: courseVisible,
-          isTemplate,
-          startDate: startDate ? startDate : null,
-          endDate: endDate ? endDate : null,
-        }),
+      await saveCourseMutation.mutateAsync({
+        fullName,
+        shortName,
+        category: courseCategory,
+        summary,
+        visible: courseVisible,
+        isTemplate,
+        startDate: startDate ? startDate : null,
+        endDate: endDate ? endDate : null,
       });
       setMessage(t('courseSaved'));
-      await reload();
     } catch {
       setMessage(t('courseSaveFailed'));
     }
@@ -202,13 +233,9 @@ export function CourseBuilderPage() {
     event.preventDefault();
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/sections`, {
-        method: 'POST',
-        body: JSON.stringify(newSectionName.trim() ? { name: newSectionName.trim() } : {}),
-      });
+      await createSectionMutation.mutateAsync(newSectionName.trim() ? { name: newSectionName.trim() } : {});
       setNewSectionName('');
       setMessage(t('sectionCreated'));
-      await reload();
     } catch {
       setMessage(t('sectionCreateFailed'));
     }
@@ -220,16 +247,15 @@ export function CourseBuilderPage() {
     if (!edit) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
+      await saveSectionMutation.mutateAsync({
+        sectionId,
+        body: {
           name: edit.name,
           visible: edit.status !== 'draft',
           openAt: edit.status === 'scheduled' && edit.openAt ? new Date(`${edit.openAt}T00:00:00`).toISOString() : null,
-        }),
+        },
       });
       setMessage(t('sectionSaved'));
-      await reload();
     } catch {
       setMessage(t('sectionSaveFailed'));
     }
@@ -239,9 +265,8 @@ export function CourseBuilderPage() {
     if (!window.confirm(t('confirmDeleteSection', { name: sectionName }))) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}`, { method: 'DELETE' });
+      await deleteSectionMutation.mutateAsync(sectionId);
       setMessage(t('sectionDeleted'));
-      await reload();
     } catch {
       setMessage(t('sectionDeleteFailed'));
     }
@@ -250,9 +275,8 @@ export function CourseBuilderPage() {
   async function duplicateSection(sectionId: string) {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+      await duplicateSectionMutation.mutateAsync(sectionId);
       setMessage(t('builderDuplicated'));
-      await reload();
     } catch {
       setMessage(t('builderDuplicateFailed'));
     }
@@ -262,11 +286,7 @@ export function CourseBuilderPage() {
   async function reorderSections(orderedIds: string[]) {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/reorder-sections`, {
-        method: 'POST',
-        body: JSON.stringify({ sectionIds: orderedIds }),
-      });
-      await reload();
+      await reorderSectionsMutation.mutateAsync(orderedIds);
     } catch {
       setMessage(t('builderReorderFailed'));
       await reload();
@@ -276,11 +296,7 @@ export function CourseBuilderPage() {
   async function reorderModules(sectionId: string, orderedIds: string[]) {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}/reorder-modules`, {
-        method: 'POST',
-        body: JSON.stringify({ moduleIds: orderedIds }),
-      });
-      await reload();
+      await reorderModulesMutation.mutateAsync({ sectionId, moduleIds: orderedIds });
     } catch {
       setMessage(t('builderReorderFailed'));
       await reload();
@@ -303,33 +319,23 @@ export function CourseBuilderPage() {
         // Sau gộp Đề (#226): "thêm bài kiểm tra" = tạo ĐỀ mới trong
         // bank cá nhân của GV + GHIM vào khoá trong một thao tác
         // (newExam); GV soạn câu hỏi tiếp ở trình soạn đề của pin.
-        const created = await apiJson<{ id: string }>(`/api/v1/courses/${courseId}/exam-pins`, {
-          method: 'POST',
-          body: JSON.stringify({ sectionId, newExam: { name: draft.name.trim() } }),
-        });
+        const created = await createExamPinMutation.mutateAsync({ sectionId, name: draft.name.trim() });
         await navigate(`/courses/${courseId}/exams/${created.id}`);
         return;
       }
       if (draft.component === 'mod_assign') {
         if (!draft.name.trim()) return;
-        const created = await apiJson<{ id: string }>(`/api/v1/courses/${courseId}/assignments`, {
-          method: 'POST',
-          body: JSON.stringify({ sectionId, name: draft.name.trim() }),
-        });
+        const created = await createAssignmentMutation.mutateAsync({ sectionId, name: draft.name.trim() });
         await navigate(`/courses/${courseId}/assignments/${created.id}`);
         return;
       }
-      await apiJson(`/api/v1/courses/${courseId}/modules`, {
-        method: 'POST',
-        body: JSON.stringify({
-          sectionId,
-          component: draft.component,
-          ...(draft.name.trim() ? { name: draft.name.trim() } : {}),
-        }),
+      await createModuleMutation.mutateAsync({
+        sectionId,
+        component: draft.component,
+        ...(draft.name.trim() ? { name: draft.name.trim() } : {}),
       });
       setModuleDrafts((prev) => ({ ...prev, [sectionId]: { component: 'mod_page', name: '' } }));
       setMessage(t('moduleCreated'));
-      await reload();
     } catch {
       setMessage(t('moduleCreateFailed'));
     }
@@ -383,16 +389,15 @@ export function CourseBuilderPage() {
     if (!edit) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
+      await saveModuleMutation.mutateAsync({
+        cmId,
+        body: {
           name: edit.name,
           visible: edit.status !== 'draft',
           openAt: edit.status === 'scheduled' && edit.openAt ? new Date(`${edit.openAt}T00:00:00`).toISOString() : null,
-        }),
+        },
       });
       setMessage(t('moduleSaved'));
-      await reload();
     } catch {
       setMessage(t('moduleSaveFailed'));
     }
@@ -402,9 +407,8 @@ export function CourseBuilderPage() {
     if (!window.confirm(t('confirmDeleteModule', { name: moduleName }))) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}`, { method: 'DELETE' });
+      await deleteModuleMutation.mutateAsync(cmId);
       setMessage(t('moduleDeleted'));
-      await reload();
     } catch {
       setMessage(t('moduleDeleteFailed'));
     }
@@ -413,9 +417,8 @@ export function CourseBuilderPage() {
   async function duplicateModule(cmId: string) {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}/duplicate`, { method: 'POST', body: JSON.stringify({}) });
+      await duplicateModuleMutation.mutateAsync(cmId);
       setMessage(t('builderDuplicated'));
-      await reload();
     } catch {
       setMessage(t('builderDuplicateFailed'));
     }
@@ -424,12 +427,11 @@ export function CourseBuilderPage() {
   async function saveSectionAvailability(sectionId: string) {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/sections/${sectionId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ availability: availabilityDrafts[`section:${sectionId}`] ?? null }),
+      await saveSectionMutation.mutateAsync({
+        sectionId,
+        body: { availability: availabilityDrafts[`section:${sectionId}`] ?? null },
       });
       setMessage(t('availabilitySaved'));
-      await reload();
     } catch {
       setMessage(t('availabilitySaveFailed'));
     }
@@ -438,12 +440,11 @@ export function CourseBuilderPage() {
   async function saveModuleAvailability(cmId: string) {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/modules/${cmId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ availability: availabilityDrafts[`module:${cmId}`] ?? null }),
+      await saveModuleMutation.mutateAsync({
+        cmId,
+        body: { availability: availabilityDrafts[`module:${cmId}`] ?? null },
       });
       setMessage(t('availabilitySaved'));
-      await reload();
     } catch {
       setMessage(t('availabilitySaveFailed'));
     }
@@ -455,18 +456,14 @@ export function CourseBuilderPage() {
     if (!importSourceId || (importSections.length === 0 && importModules.length === 0)) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/import-content`, {
-        method: 'POST',
-        body: JSON.stringify({
-          sourceCourseId: importSourceId,
-          ...(importSections.length ? { sectionIds: importSections } : {}),
-          ...(importModules.length ? { moduleIds: importModules } : {}),
-        }),
+      await importContentMutation.mutateAsync({
+        sourceCourseId: importSourceId,
+        ...(importSections.length ? { sectionIds: importSections } : {}),
+        ...(importModules.length ? { moduleIds: importModules } : {}),
       });
       setMessage(t('builderImported'));
       setImportSections([]);
       setImportModules([]);
-      await reload();
     } catch {
       setMessage(t('builderImportFailed'));
     }
@@ -476,19 +473,15 @@ export function CourseBuilderPage() {
     event.preventDefault();
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/completion/criteria`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          method: criteriaMethod,
-          criteria: criteriaDraft.map((criterion) => ({
-            criteriaType: criterion.criteriaType,
-            ...(criterion.criteriaType === 'module' ? { moduleInstance: criterion.moduleInstance } : {}),
-            ...(criterion.criteriaType === 'date' ? { date: criterion.date } : {}),
-          })),
-        }),
+      await saveCriteriaMutation.mutateAsync({
+        method: criteriaMethod,
+        criteria: criteriaDraft.map((criterion) => ({
+          criteriaType: criterion.criteriaType,
+          ...(criterion.criteriaType === 'module' ? { moduleInstance: criterion.moduleInstance } : {}),
+          ...(criterion.criteriaType === 'date' ? { date: criterion.date } : {}),
+        })),
       });
       setMessage(t('completionCriteriaSaved'));
-      await reload();
     } catch {
       setMessage(t('completionCriteriaSaveFailed'));
     }
@@ -497,9 +490,8 @@ export function CourseBuilderPage() {
   async function recalculateCompletion() {
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/completion/recalculate`, { method: 'POST' });
+      await recalculateMutation.mutateAsync();
       setMessage(t('recalculatedCompletion'));
-      await reload();
     } catch {
       setMessage(t('recalculateFailed'));
     }

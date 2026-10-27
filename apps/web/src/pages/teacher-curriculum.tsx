@@ -4,18 +4,16 @@ import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
-import type { Course } from '@lms/contracts';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { ProgramGroupTable } from '../components/admin-curriculum/program-group-table';
 import { buildProgramGroups, PROGRAM_PAGE_SIZE } from '../components/admin-curriculum/tree-page';
-import { ApiError, apiJson } from '#lib/api';
+import { ApiError } from '#lib/api';
+import { useAccessContexts } from '#lib/access';
+import { useCourseList } from '#lib/course-new-data';
 import {
-  fetchCurricula,
-  fetchSubjects,
-  fetchSystemContextId,
-  fetchTree,
-  type Curriculum,
-  type CurriculumSubject,
+  useCurriculumCurriculaScoped,
+  useCurriculumSubjectsScoped,
+  useCurriculumTreeScoped,
   type CurriculumTree,
 } from '#lib/curriculum';
 import '../i18n';
@@ -76,129 +74,91 @@ function pageNumberItems(total: number, current: number): (number | 'gap')[] {
 
 export function TeacherCurriculumPage() {
   const { t } = useTranslation('app');
-  const [courses, setCourses] = useState<Course[] | null>(null);
-  const [courseId, setCourseId] = useState('');
-  const [subjects, setSubjects] = useState<CurriculumSubject[] | null>(null);
-  const [subjectId, setSubjectId] = useState('');
-  const [curricula, setCurricula] = useState<Curriculum[] | null>(null);
-  const [curriculumId, setCurriculumId] = useState('');
-  const [tree, setTree] = useState<CurriculumTree | null>(null);
-  const [forbidden, setForbidden] = useState(false);
+  // Chuỗi đọc phụ thuộc khoá → môn → lớp → cây qua TanStack Query
+  // (F-01 của #133): khoá qua khoá `courses`, môn/lớp/cây qua các
+  // hook có phạm vi của `lib/curriculum.ts` với khoá gồm cả ngữ cảnh
+  // khoá (quyền đọc đổi theo khoá). Lựa chọn hiệu lực suy từ dữ liệu
+  // theo đúng thứ tự ưu tiên của các effect thủ công trước đây: môn
+  // gắn sẵn của khoá thắng lựa chọn cũ, lớp theo khối của khoá thắng
+  // lựa chọn cũ, còn lại giữ lựa chọn nếu còn hợp lệ, cuối cùng là
+  // phần tử đầu. Trạng thái "chưa tải" (null) và "tải hỏng thì rỗng"
+  // giữ nguyên như bản thủ công; 403 ở bất kỳ bước nào thì forbidden.
+  const coursesQuery = useCourseList();
+  const courses = coursesQuery.data ?? null;
+  const [courseSelection, setCourseSelection] = useState<string | null>(null);
+  const courseId =
+    courses === null
+      ? (courseSelection ?? '')
+      : courseSelection && courses.some((c) => c.id === courseSelection)
+        ? courseSelection
+        : (courses[0]?.id ?? '');
+  const course = courses?.find((c) => c.id === courseId);
+
+  const contextsQuery = useAccessContexts();
+  const systemContextId = contextsQuery.data?.find((c) => c.contextLevel === 10)?.id ?? null;
+  const subjectsQuery = useCurriculumSubjectsScoped(
+    systemContextId,
+    courseId || undefined,
+    courses !== null,
+  );
+  const subjectsLoaded =
+    subjectsQuery.data !== undefined ||
+    subjectsQuery.isError ||
+    (contextsQuery.data !== undefined && systemContextId === null);
+  const subjects = subjectsQuery.data ?? (subjectsLoaded ? [] : null);
+  const [subjectSelection, setSubjectSelection] = useState<string | null>(null);
+  const subjectId =
+    subjects === null
+      ? (subjectSelection ?? '')
+      : course?.subjectId && subjects.some((s) => s.id === course.subjectId)
+        ? course.subjectId
+        : subjectSelection && subjects.some((s) => s.id === subjectSelection)
+          ? subjectSelection
+          : (subjects[0]?.id ?? '');
+
+  const curriculaQuery = useCurriculumCurriculaScoped(
+    subjectId,
+    courseId || undefined,
+    subjects !== null,
+  );
+  const curriculaLoaded = curriculaQuery.data !== undefined || curriculaQuery.isError;
+  const curricula = curriculaQuery.data
+    ? [...curriculaQuery.data].sort((a, b) => a.grade - b.grade)
+    : curriculaLoaded
+      ? []
+      : null;
+  const [curriculumSelection, setCurriculumSelection] = useState<string | null>(null);
+  const preferredCurriculum =
+    course?.subjectId === subjectId && course?.grade != null
+      ? curricula?.find((c) => c.grade === course.grade)
+      : undefined;
+  const curriculumId =
+    curricula === null
+      ? (curriculumSelection ?? '')
+      : (preferredCurriculum?.id ??
+        (curriculumSelection && curricula.some((c) => c.id === curriculumSelection)
+          ? curriculumSelection
+          : (curricula[0]?.id ?? '')));
+
+  const treeQuery = useCurriculumTreeScoped(curriculumId, courseId || undefined, curricula !== null);
+  const tree: CurriculumTree | null = treeQuery.data ?? null;
+
+  const isForbiddenError = (error: unknown) =>
+    error instanceof ApiError && error.problem.status === 403;
+  const forbidden = [
+    contextsQuery.error,
+    subjectsQuery.error,
+    curriculaQuery.error,
+    treeQuery.error,
+  ].some((error) => error != null && isForbiddenError(error));
+
   const [page, setPage] = useState(1);
   const groupsTopRef = useRef<HTMLDivElement | null>(null);
 
-  // Bước 1: danh sách khoá của người dùng (ngữ cảnh quyền xem) — chọn
-  // sẵn khoá đầu tiên nếu chưa chọn.
+  // Đổi (khoá, lớp) thì phân trang quay về trang đầu — như nhịp đặt
+  // lại ở bước tải cây của bản thủ công.
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const list = await apiJson<Course[]>('/api/v1/courses');
-        if (cancelled) return;
-        setCourses(list);
-        if (list.length > 0) {
-          setCourseId((prev) => (list.some((c) => c.id === prev) ? prev : list[0]!.id));
-        }
-      } catch {
-        if (!cancelled) setCourses([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Bước 2: danh sách môn — qua ngữ cảnh khoá đã chọn; khoá đã gắn môn
-  // chương trình thì mở sẵn môn đó.
-  useEffect(() => {
-    if (courses === null) return;
-    let cancelled = false;
-    setSubjects(null);
-    setTree(null);
-    setForbidden(false);
-    void (async () => {
-      try {
-        const contextId = await fetchSystemContextId();
-        if (cancelled) return;
-        if (!contextId) {
-          setSubjects([]);
-          return;
-        }
-        const list = await fetchSubjects(contextId, courseId || undefined);
-        if (cancelled) return;
-        setSubjects(list);
-        const course = courses.find((c) => c.id === courseId);
-        setSubjectId((prev) => {
-          if (course?.subjectId && list.some((s) => s.id === course.subjectId)) return course.subjectId;
-          return list.some((s) => s.id === prev) ? prev : (list[0]?.id ?? '');
-        });
-      } catch (error) {
-        if (cancelled) return;
-        if (error instanceof ApiError && error.problem.status === 403) setForbidden(true);
-        setSubjects([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [courses, courseId]);
-
-  // Bước 3: các lớp của môn đã chọn — khoá đã gắn khối lớp thì mở sẵn
-  // lớp đó, mặc định lớp nhỏ nhất.
-  useEffect(() => {
-    if (!subjectId) {
-      setCurricula(null);
-      return;
-    }
-    let cancelled = false;
-    setCurricula(null);
-    setTree(null);
-    void (async () => {
-      try {
-        const list = await fetchCurricula(subjectId, courseId || undefined);
-        if (cancelled) return;
-        const sorted = [...list].sort((a, b) => a.grade - b.grade);
-        setCurricula(sorted);
-        const course = (courses ?? []).find((c) => c.id === courseId);
-        const preferred =
-          course?.subjectId === subjectId && course.grade != null
-            ? sorted.find((c) => c.grade === course.grade)
-            : undefined;
-        setCurriculumId(
-          (prev) => preferred?.id ?? (sorted.some((c) => c.id === prev) ? prev : (sorted[0]?.id ?? '')),
-        );
-      } catch (error) {
-        if (cancelled) return;
-        if (error instanceof ApiError && error.problem.status === 403) setForbidden(true);
-        setCurricula([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [subjectId, courseId, courses]);
-
-  // Bước 4: cây chương trình của lớp đã chọn.
-  useEffect(() => {
-    if (!curriculumId) {
-      setTree(null);
-      return;
-    }
-    let cancelled = false;
-    setTree(null);
     setPage(1);
-    void (async () => {
-      try {
-        const loaded = await fetchTree(curriculumId, courseId || undefined);
-        if (!cancelled) setTree(loaded);
-      } catch (error) {
-        if (cancelled) return;
-        if (error instanceof ApiError && error.problem.status === 403) setForbidden(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, [curriculumId, courseId]);
 
   // Phân trang theo dòng Nội dung trên toàn cây — cùng quy tắc với
@@ -256,7 +216,7 @@ export function TeacherCurriculumPage() {
         {hasCourses ? (
           <div className="flex flex-col gap-1">
             <Label htmlFor="teacher-programme-course">{t('teacherProgrammeCourseLabel')}</Label>
-            <Select value={courseId} onValueChange={(value) => setCourseId(value ?? '')}>
+            <Select value={courseId} onValueChange={(value) => setCourseSelection(value ?? '')}>
               <SelectTrigger id="teacher-programme-course" className="w-80">
                 <SelectValue />
               </SelectTrigger>
@@ -273,7 +233,7 @@ export function TeacherCurriculumPage() {
         {subjects !== null && subjects.length > 0 ? (
           <div className="flex flex-col gap-1">
             <Label htmlFor="teacher-programme-subject">{t('teacherProgrammeSubjectLabel')}</Label>
-            <Select value={subjectId} onValueChange={(value) => setSubjectId(value ?? '')}>
+            <Select value={subjectId} onValueChange={(value) => setSubjectSelection(value ?? '')}>
               <SelectTrigger id="teacher-programme-subject" className="w-64">
                 <SelectValue />
               </SelectTrigger>
@@ -290,7 +250,7 @@ export function TeacherCurriculumPage() {
         {curricula !== null && curricula.length > 0 ? (
           <div className="flex flex-col gap-1">
             <Label htmlFor="teacher-programme-grade">{t('teacherProgrammeGradeLabel')}</Label>
-            <Select value={curriculumId} onValueChange={(value) => setCurriculumId(value ?? '')}>
+            <Select value={curriculumId} onValueChange={(value) => setCurriculumSelection(value ?? '')}>
               <SelectTrigger id="teacher-programme-grade" className="w-32">
                 <SelectValue />
               </SelectTrigger>

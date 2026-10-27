@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -9,65 +9,55 @@ import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
+import {
+  useCreateWebserviceService,
+  useCreateWebserviceToken,
+  useRevokeWebserviceToken,
+  useWebserviceServices,
+  useWebserviceTokens,
+} from '#lib/platform-data';
 
-interface ServiceView {
-  id: string;
-  name: string;
-  shortName: string;
-  enabled: boolean;
-  functions: string[];
-}
-interface TokenView {
-  id: string;
-  userId: string;
-  serviceId: string;
-  revoked: boolean;
-}
-
-/** Quản trị integration tokens (platform services): service + token, token thô chỉ hiện một lần khi tạo. */
+/**
+ * Quản trị integration tokens (platform services): service + token,
+ * token thô chỉ hiện một lần khi tạo. Dữ liệu đọc qua tầng TanStack
+ * Query (`lib/platform-data.ts`, khoá `webserviceServices`/
+ * `webserviceTokens`; `clientLoader` của route nạp trước cả hai danh
+ * sách). Như bản thủ công: lỗi của riêng danh sách token bị nuốt thành
+ * danh sách rỗng — chỉ lỗi danh sách dịch vụ mới làm trang báo lỗi; tạo
+ * service/token và thu hồi qua đột biến làm mới cả hai danh sách.
+ */
 export function TokensPage() {
   const { t: tr } = useTranslation();
-  const [services, setServices] = useState<ServiceView[]>([]);
-  const [tokens, setTokens] = useState<TokenView[]>([]);
+  const servicesQuery = useWebserviceServices();
+  const tokensQuery = useWebserviceTokens();
+  const createServiceMutation = useCreateWebserviceService();
+  const createTokenMutation = useCreateWebserviceToken();
+  const revokeTokenMutation = useRevokeWebserviceToken();
+  const services = servicesQuery.data ?? [];
+  const tokens = tokensQuery.data ?? [];
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [name, setName] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    const [s, t] = await Promise.all([
-      apiJson<ServiceView[]>('/api/v1/webservice/services'),
-      apiJson<TokenView[]>('/api/v1/webservice/tokens').catch(() => []),
-    ]);
-    setServices(s);
-    setTokens(t);
-  }, []);
-  useEffect(() => {
-    void reload()
-      .catch(() => setLoadError(tr('tokensLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, tr]);
+  const loading =
+    servicesQuery.isPending ||
+    tokensQuery.isPending ||
+    (servicesQuery.isError && servicesQuery.isFetching);
+  const loadError =
+    servicesQuery.isError && !servicesQuery.isFetching ? tr('tokensLoadFailed') : null;
   async function createService(event: FormEvent) {
     event.preventDefault();
-    await apiJson('/api/v1/webservice/services', {
-      method: 'POST',
-      body: JSON.stringify({ name, shortName: `svc${Date.now()}`, functions: ['core_course_get_courses'] }),
+    await createServiceMutation.mutateAsync({
+      name,
+      shortName: `svc${Date.now()}`,
+      functions: ['core_course_get_courses'],
     });
     setName('');
-    await reload();
   }
   async function createToken(serviceId: string) {
-    const me = await apiJson<{ id: string }>('/api/v1/users/me');
-    const created = await apiJson<{ token: string }>('/api/v1/webservice/tokens', {
-      method: 'POST',
-      body: JSON.stringify({ userId: me.id, serviceId }),
-    });
+    const created = await createTokenMutation.mutateAsync(serviceId);
     setCreatedToken(created.token);
-    await reload();
   }
   async function revoke(id: string) {
-    await apiJson(`/api/v1/webservice/tokens/${id}/revoke`, { method: 'POST', body: '{}' });
-    await reload();
+    await revokeTokenMutation.mutateAsync(id);
   }
   return (
     <PageShell width="medium">
@@ -82,11 +72,8 @@ export function TokensPage() {
               type="button"
               variant="outline"
               onClick={() => {
-                setLoadError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setLoadError(tr('tokensLoadFailed')))
-                  .finally(() => setLoading(false));
+                void servicesQuery.refetch();
+                void tokensQuery.refetch();
               }}
             >
               {tr('retry')}

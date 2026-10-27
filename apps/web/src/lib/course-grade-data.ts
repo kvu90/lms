@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CourseActivityGrid, MyActivityGrades } from '@lms/contracts';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
@@ -78,4 +78,114 @@ export function useCoursesGradeData(courseIds: string[]) {
     // chữ ký dữ liệu của từng query để Map dựng lại khi có khoá tải xong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseIds.join(','), queries.map((q) => (q.data ? 1 : 0)).join('')]);
+}
+
+// --- Đột biến + lịch sử điểm của trang bảng điểm (F-01 của rà soát #133) -------
+//
+// Mọi thao tác ghi điểm/mục điểm đều làm mới đúng khoá dùng chung
+// `courseAccess(courseId)` — cùng nhịp "nạp lại dữ liệu điểm" của bản
+// thủ công. Lịch sử điểm là đọc theo yêu cầu (người dùng nhập cặp
+// mục/người rồi bấm xem): trang gọi fetchQuery với tuỳ chọn dưới đây
+// để vẫn qua bộ nhớ đệm + dedupe của TanStack mà giữ nguyên nhịp
+// xoá-kết-quả-cũ/hiện-lỗi của bản thủ công.
+
+/**
+ * Một dòng lịch sử thay đổi điểm như API trả về (bảng
+ * `grade_grades_history` phía grades service): `action` 1 = tạo mới,
+ * 2 = cập nhật, 3 = xoá theo quy ước của Moodle.
+ */
+export interface GradeHistoryView {
+  id: string;
+  action: number;
+  itemId: string;
+  userId: string;
+  rawGrade: number | null;
+  finalGrade: number | null;
+  source: string | null;
+  updatedAt: string;
+  loggedUser: string | null;
+}
+
+/** Tuỳ chọn truy vấn lịch sử điểm của một học viên trên một mục điểm. */
+export function gradeItemHistoryQueryOptions(itemId: string, userId: string) {
+  return queryOptions({
+    queryKey: queryKeys.gradeItemHistory(itemId, userId),
+    queryFn: () =>
+      apiJson<GradeHistoryView[]>(`/api/v1/grade-items/${itemId}/users/${userId}/history`),
+  });
+}
+
+/** Dựng một đột biến điểm dùng chung: thành công thì làm mới khoá dữ liệu điểm của khoá. */
+function useGradeMutation<TVars>(
+  courseId: string,
+  mutationFn: (vars: TVars) => Promise<unknown>,
+) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.courseAccess(courseId) }),
+  });
+}
+
+/** Đột biến nhập/sửa điểm một bài cho một học sinh (POST /grade-items/:itemId/grades). */
+export function useSubmitGrade(courseId: string) {
+  return useGradeMutation(
+    courseId,
+    (vars: { gradeItemId: string; userId: string; rawGrade: number | null; feedback?: string }) =>
+      apiJson(`/api/v1/grade-items/${vars.gradeItemId}/grades`, {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: vars.userId,
+          rawGrade: vars.rawGrade,
+          ...(vars.feedback ? { feedback: vars.feedback } : {}),
+        }),
+      }),
+  );
+}
+
+/** Đột biến tạo mục điểm nhập tay mới cho khoá (POST /courses/:id/grade-items). */
+export function useCreateGradeItem(courseId: string) {
+  return useGradeMutation(courseId, (vars: { itemName: string; gradeMax: number }) =>
+    apiJson(`/api/v1/courses/${courseId}/grade-items`, {
+      method: 'POST',
+      body: JSON.stringify(vars),
+    }),
+  );
+}
+
+/** Đột biến lưu sửa tên/thang điểm của một mục (PATCH /grade-items/:id). */
+export function useUpdateGradeItem(courseId: string) {
+  return useGradeMutation(courseId, (vars: { itemId: string; itemName: string; gradeMax: number }) =>
+    apiJson(`/api/v1/grade-items/${vars.itemId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ itemName: vars.itemName, gradeMax: vars.gradeMax }),
+    }),
+  );
+}
+
+/** Đột biến xoá một mục điểm và mọi điểm của nó (DELETE /grade-items/:id). */
+export function useDeleteGradeItem(courseId: string) {
+  return useGradeMutation(courseId, (itemId: string) =>
+    apiJson(`/api/v1/grade-items/${itemId}`, { method: 'DELETE' }),
+  );
+}
+
+/** Đột biến đặt chính sách công bố của một bài (PUT /grade-items/:id/posting-policy). */
+export function useSetGradePostingPolicy(courseId: string) {
+  return useGradeMutation(courseId, (vars: { itemId: string; policy: 'auto' | 'manual' }) =>
+    apiJson(`/api/v1/grade-items/${vars.itemId}/posting-policy`, {
+      method: 'PUT',
+      body: JSON.stringify({ policy: vars.policy }),
+    }),
+  );
+}
+
+/** Đột biến công bố/thu hồi công bố điểm của một bài (POST .../publish | .../unpublish). */
+export function useSetGradeItemPublished(courseId: string) {
+  return useGradeMutation(courseId, (vars: { itemId: string; published: boolean }) =>
+    apiJson(`/api/v1/grade-items/${vars.itemId}/${vars.published ? 'publish' : 'unpublish'}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+  );
 }

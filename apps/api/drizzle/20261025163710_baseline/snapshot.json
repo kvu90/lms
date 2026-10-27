@@ -17543,6 +17543,649 @@
         "n|sch|public",
         "n|col|public.exam_pins.version_mode"
       ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "exam_matrices",
+        "content_signature"
+      ],
+      "writes": [
+        "s|col|public.exam_matrices.content_signature",
+        "n|col|public.exam_matrices.content_signature",
+        "e|col|public.exam_matrices.content_signature"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_unique",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|uq|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "n|uq|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "e|uq|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "n|con|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "n|rel|public.exam_matrices_bank_content_signature_unique"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.bank_id",
+        "n|col|public.exam_matrices.content_signature"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "status"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.status",
+        "n|col|public.payment_refunds.status",
+        "e|col|public.payment_refunds.status"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "created_by"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.created_by",
+        "n|col|public.payment_refunds.created_by",
+        "e|col|public.payment_refunds.created_by"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "approval_level"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.approval_level",
+        "n|col|public.payment_refunds.approval_level",
+        "e|col|public.payment_refunds.approval_level"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "approval_threshold"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.approval_threshold",
+        "n|col|public.payment_refunds.approval_threshold",
+        "e|col|public.payment_refunds.approval_threshold"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "approved_by"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.approved_by",
+        "n|col|public.payment_refunds.approved_by",
+        "e|col|public.payment_refunds.approved_by"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "approved_at"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.approved_at",
+        "n|col|public.payment_refunds.approved_at",
+        "e|col|public.payment_refunds.approved_at"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "rejected_by"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.rejected_by",
+        "n|col|public.payment_refunds.rejected_by",
+        "e|col|public.payment_refunds.rejected_by"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "rejected_at"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.rejected_at",
+        "n|col|public.payment_refunds.rejected_at",
+        "e|col|public.payment_refunds.rejected_at"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "rejection_reason"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.rejection_reason",
+        "n|col|public.payment_refunds.rejection_reason",
+        "e|col|public.payment_refunds.rejection_reason"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "settled_by"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.settled_by",
+        "n|col|public.payment_refunds.settled_by",
+        "e|col|public.payment_refunds.settled_by"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "settled_event_id"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.settled_event_id",
+        "n|col|public.payment_refunds.settled_event_id",
+        "e|col|public.payment_refunds.settled_event_id"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "settled_at"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.settled_at",
+        "n|col|public.payment_refunds.settled_at",
+        "e|col|public.payment_refunds.settled_at"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payment_refunds",
+        "updated_at"
+      ],
+      "writes": [
+        "s|col|public.payment_refunds.updated_at",
+        "n|col|public.payment_refunds.updated_at",
+        "e|col|public.payment_refunds.updated_at"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "review_decision"
+      ],
+      "writes": [
+        "s|col|public.payments.review_decision",
+        "n|col|public.payments.review_decision",
+        "e|col|public.payments.review_decision"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "review_reason"
+      ],
+      "writes": [
+        "s|col|public.payments.review_reason",
+        "n|col|public.payments.review_reason",
+        "e|col|public.payments.review_reason"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "review_handled_by"
+      ],
+      "writes": [
+        "s|col|public.payments.review_handled_by",
+        "n|col|public.payments.review_handled_by",
+        "e|col|public.payments.review_handled_by"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
+        "payments",
+        "review_handled_at"
+      ],
+      "writes": [
+        "s|col|public.payments.review_handled_at",
+        "n|col|public.payments.review_handled_at",
+        "e|col|public.payments.review_handled_at"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_status_idx",
+        "n|idx|public.payment_refunds_status_idx",
+        "e|idx|public.payment_refunds_status_idx",
+        "n|rel|public.payment_refunds_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_external_tx_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_external_tx_idx",
+        "n|idx|public.payment_refunds_external_tx_idx",
+        "e|idx|public.payment_refunds_external_tx_idx",
+        "n|rel|public.payment_refunds_external_tx_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.external_transaction_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_created_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_created_by_idx",
+        "n|idx|public.payment_refunds_created_by_idx",
+        "e|idx|public.payment_refunds_created_by_idx",
+        "n|rel|public.payment_refunds_created_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.created_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_approved_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_approved_by_idx",
+        "n|idx|public.payment_refunds_approved_by_idx",
+        "e|idx|public.payment_refunds_approved_by_idx",
+        "n|rel|public.payment_refunds_approved_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.approved_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_rejected_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_rejected_by_idx",
+        "n|idx|public.payment_refunds_rejected_by_idx",
+        "e|idx|public.payment_refunds_rejected_by_idx",
+        "n|rel|public.payment_refunds_rejected_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.rejected_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_settled_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_settled_by_idx",
+        "n|idx|public.payment_refunds_settled_by_idx",
+        "e|idx|public.payment_refunds_settled_by_idx",
+        "n|rel|public.payment_refunds_settled_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.settled_by"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_refunds",
+        "payment_refunds_settled_event_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_refunds_settled_event_id_idx",
+        "n|idx|public.payment_refunds_settled_event_id_idx",
+        "e|idx|public.payment_refunds_settled_event_id_idx",
+        "n|rel|public.payment_refunds_settled_event_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|col|public.payment_refunds.settled_event_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payments",
+        "payments_review_handled_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.payments_review_handled_by_idx",
+        "n|idx|public.payments_review_handled_by_idx",
+        "e|idx|public.payments_review_handled_by_idx",
+        "n|rel|public.payments_review_handled_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|col|public.payments.review_handled_by"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_refunds"
+      ],
+      "writes": [
+        "s|fk|public.payment_refunds.payment_refunds_created_by_users_id_fkey",
+        "n|fk|public.payment_refunds.payment_refunds_created_by_users_id_fkey",
+        "e|fk|public.payment_refunds.payment_refunds_created_by_users_id_fkey",
+        "n|con|public.payment_refunds.payment_refunds_created_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.payment_refunds.created_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_refunds"
+      ],
+      "writes": [
+        "s|fk|public.payment_refunds.payment_refunds_approved_by_users_id_fkey",
+        "n|fk|public.payment_refunds.payment_refunds_approved_by_users_id_fkey",
+        "e|fk|public.payment_refunds.payment_refunds_approved_by_users_id_fkey",
+        "n|con|public.payment_refunds.payment_refunds_approved_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.payment_refunds.approved_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_refunds"
+      ],
+      "writes": [
+        "s|fk|public.payment_refunds.payment_refunds_rejected_by_users_id_fkey",
+        "n|fk|public.payment_refunds.payment_refunds_rejected_by_users_id_fkey",
+        "e|fk|public.payment_refunds.payment_refunds_rejected_by_users_id_fkey",
+        "n|con|public.payment_refunds.payment_refunds_rejected_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.payment_refunds.rejected_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_refunds"
+      ],
+      "writes": [
+        "s|fk|public.payment_refunds.payment_refunds_settled_by_users_id_fkey",
+        "n|fk|public.payment_refunds.payment_refunds_settled_by_users_id_fkey",
+        "e|fk|public.payment_refunds.payment_refunds_settled_by_users_id_fkey",
+        "n|con|public.payment_refunds.payment_refunds_settled_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.payment_refunds.settled_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_refunds"
+      ],
+      "writes": [
+        "s|fk|public.payment_refunds.payment_refunds_mDfM3SsyKuiG_fkey",
+        "n|fk|public.payment_refunds.payment_refunds_mDfM3SsyKuiG_fkey",
+        "e|fk|public.payment_refunds.payment_refunds_mDfM3SsyKuiG_fkey",
+        "n|con|public.payment_refunds.payment_refunds_mDfM3SsyKuiG_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_refunds",
+        "n|sch|public",
+        "n|tbl|public.payment_provider_events",
+        "n|sch|public",
+        "n|col|public.payment_refunds.settled_event_id",
+        "n|col|public.payment_provider_events.id",
+        "e|uniqueness|public.payment_provider_events.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payments"
+      ],
+      "writes": [
+        "s|fk|public.payments.payments_review_handled_by_users_id_fkey",
+        "n|fk|public.payments.payments_review_handled_by_users_id_fkey",
+        "e|fk|public.payments.payments_review_handled_by_users_id_fkey",
+        "n|con|public.payments.payments_review_handled_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payments",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.payments.review_handled_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
     }
   ],
   "ddl": [
@@ -30518,6 +31161,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "content_signature",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -55737,6 +56393,18 @@
     },
     {
       "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_bank_content_signature_unique",
+      "nameExplicit": true,
+      "columns": [
+        "bank_id",
+        "content_signature"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
       "table": "exam_matrix_cells",
       "name": "exam_matrix_cells_unique",
       "nameExplicit": true,
@@ -58513,6 +59181,497 @@
       "name": "exam_pins_version_mode_check",
       "value": "\"version_mode\" in ('pinned', 'float_latest_ready')",
       "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'requested'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "approval_level",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "approval_threshold",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "approved_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "approved_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "rejected_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "rejected_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "rejection_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "settled_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "settled_event_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "settled_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "review_decision",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "review_reason",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "review_handled_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "review_handled_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_external_tx_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "external_transaction_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_created_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_approved_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "approved_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_rejected_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "rejected_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_settled_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "settled_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_settled_event_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "settled_event_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "payments_review_handled_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "review_handled_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_created_by_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "created_by"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_approved_by_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "approved_by"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_rejected_by_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "rejected_by"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_settled_by_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "settled_by"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_refunds",
+      "name": "payment_refunds_mDfM3SsyKuiG_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "settled_event_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "payment_provider_events",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payments",
+      "name": "payments_review_handled_by_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "review_handled_by"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
     }
   ]
 }

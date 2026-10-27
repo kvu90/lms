@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { PageHeader, PageShell } from '../page-shell';
-import { apiJson, ApiError } from '#lib/api';
-import { fetchTree, type CurriculumTree, type CurriculumTreeNode } from '#lib/curriculum';
+import { ApiError } from '#lib/api';
+import { queryClient } from '#lib/query-client';
+import {
+  curriculumTreeScopedQueryOptions,
+  useCurriculumTreeScoped, useDeleteCurriculumNode, useDeleteCurriculumOutcome,
+  type CurriculumTree, type CurriculumTreeNode,
+} from '#lib/curriculum';
 import { flattenProgramRows, ProgramGroupTable, type ProgramRow } from './program-group-table';
 import { errorText } from './shared';
 
@@ -61,36 +66,41 @@ function pageNumberItems(total: number, current: number): (number | 'gap')[] {
   return out;
 }
 
+/**
+ * Nạp trước cây cho route cây chương trình (cùng khoá với truy vấn
+ * của trang) — lỗi nạp bỏ qua, trang tự hiện trạng thái như thường.
+ */
+export async function adminCurriculumTreePageClientLoader({ params }: { params: { curriculumId?: string } }) {
+  if (params.curriculumId) {
+    await queryClient
+      .ensureQueryData(curriculumTreeScopedQueryOptions(params.curriculumId, undefined))
+      .catch(() => undefined);
+  }
+  return null;
+}
+
 export function AdminCurriculumTreePage() {
   const { t } = useTranslation('app');
   const { curriculumId } = useParams();
-  const [tree, setTree] = useState<CurriculumTree | null>(null);
-  const [forbidden, setForbidden] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const groupsTopRef = useRef<HTMLDivElement>(null);
 
-  const reload = useCallback(async () => {
-    if (!curriculumId) return;
-    try {
-      const data = await fetchTree(curriculumId);
-      setTree(data);
-      setForbidden(false);
-    } catch (err) {
-      if (err instanceof ApiError && err.problem.status === 403) setForbidden(true);
-    }
-  }, [curriculumId]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  // Cây đọc qua TanStack Query (F-01 của rà soát #133): lỗi 403 thì
+  // trang hiện thông báo không có quyền; chưa có dữ liệu thì giữ
+  // trạng thái đang tải như bản thủ công. Xoá node/YCCĐ đi qua đột
+  // biến — cây tự làm mới nhờ làm-mới-khoá của đột biến.
+  const treeQuery = useCurriculumTreeScoped(curriculumId ?? '', undefined, curriculumId !== undefined);
+  const tree = treeQuery.data ?? null;
+  const forbidden = treeQuery.error instanceof ApiError && treeQuery.error.problem.status === 403;
+  const deleteNodeMutation = useDeleteCurriculumNode();
+  const deleteOutcomeMutation = useDeleteCurriculumOutcome();
 
   async function deleteNode(node: CurriculumTreeNode) {
     if (!window.confirm(t('curriculumConfirmDeleteNode', { title: node.title }))) return;
     try {
-      await apiJson(`/api/v1/curriculum/nodes/${node.id}`, { method: 'DELETE' });
+      await deleteNodeMutation.mutateAsync(node.id);
       setMessage(t('curriculumNodeDeleted'));
-      await reload();
     } catch (err) {
       setMessage(errorText(err, t('curriculumDeleteFailed')));
     }
@@ -99,9 +109,8 @@ export function AdminCurriculumTreePage() {
   async function deleteOutcome(_node: CurriculumTreeNode, outcomeId: string) {
     if (!window.confirm(t('curriculumConfirmDeleteOutcome'))) return;
     try {
-      await apiJson(`/api/v1/curriculum/outcomes/${outcomeId}`, { method: 'DELETE' });
+      await deleteOutcomeMutation.mutateAsync(outcomeId);
       setMessage(t('curriculumOutcomeDeleted'));
-      await reload();
     } catch (err) {
       setMessage(errorText(err, t('curriculumDeleteFailed')));
     }

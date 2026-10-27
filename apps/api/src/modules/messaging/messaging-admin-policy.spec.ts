@@ -59,10 +59,12 @@ describe('MessagingService — admin site policy + student minimal preferences (
       }),
     };
     const sendThrottle = { consume: vi.fn(async () => undefined) };
+    // I18n (tham số thứ 11, luật C-5 của issue #219): spec này không
+    // đi đường bản tóm tắt mặc định cho kênh ngoài nên stub rỗng đủ.
     const service = new MessagingService(
       repo as never, users as never, evaluator as never, {} as never, outbox as never,
       {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
-      sendThrottle as never,
+      sendThrottle as never, {} as never,
     );
     return { service, inserted, logs, jobs, storedPrefs };
   }
@@ -93,7 +95,14 @@ describe('MessagingService — admin site policy + student minimal preferences (
     // vì SiteConfigService chặn, nhưng luật ở notify vẫn phải tự đứng).
     const { service, inserted } = buildService({ disabledProviders: ['enrol_expiry_warning', 'admin_announcement'] });
     for (const provider of ['enrol_expiry_warning', 'admin_announcement']) {
-      const result = await service.notify('user-1', provider, { subject: 'Bắt buộc', body: 'Nội dung' });
+      const result = await service.notify('user-1', provider, {
+        subject: 'Bắt buộc', body: 'Nội dung',
+        // Luật C-5 (issue #219): admin_announcement thuộc diện tối
+        // thiểu hoá kênh ngoài nên lời gọi truyền bản tối thiểu hoá
+        // tường minh cho hợp lệ (với enrol_expiry_warning —
+        // 'original-ok' — cặp trường này vô hại).
+        externalSubject: 'Bắt buộc', externalBody: 'Nội dung',
+      });
       expect(result.skipped).toBeUndefined();
     }
     expect(inserted).toHaveLength(2);

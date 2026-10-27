@@ -4,10 +4,20 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
-import { createCouponSchema, createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, purchasePlanSchema, updateCouponSchema, type CreateAccountDto, type CreateCouponDto, type CreatePaymentDto, type PurchasePlanDto, type RefundDto, type UpdateCouponDto, type WebhookDto } from './dto/payments.dto';
+import { createCouponSchema, createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, purchasePlanSchema, rejectRefundSchema, resolvePaymentReviewSchema, settleRefundSchema, updateCouponSchema, type CreateAccountDto, type CreateCouponDto, type CreatePaymentDto, type PurchasePlanDto, type RefundDto, type RejectRefundDto, type ResolvePaymentReviewDto, type SettleRefundDto, type UpdateCouponDto, type WebhookDto } from './dto/payments.dto';
 import { PaymentsService } from './payments.service';
 
-/** Controller thanh toán: accounts, payments, webhook (public, idempotent), refunds, IPN SePay. */
+/**
+ * Controller thanh toán: accounts, payments, webhook (public,
+ * idempotent), refunds, IPN SePay.
+ * Lát 3 (issue #189): hoàn tiền là vòng đời nhiều bước —
+ * `POST :id/refunds` tạo yêu cầu, `POST :id/refunds/:refundId/approve`
+ * duyệt cấp 2, `POST :id/refunds/:refundId/reject` từ chối,
+ * `POST :id/refunds/:refundId/settle` xác nhận chi — thay cho route
+ * hoàn một bước `POST :id/refund` trước đây (route cũ bỏ hẳn, không
+ * giữ bí danh, vì giữ lại sẽ lách được cổng duyệt). Hàng đợi rà soát
+ * `needs_review`: `GET review-queue` và `POST :id/review`.
+ */
 @ApiTags('payments')
 @Controller({ path: 'payments', version: '1' })
 export class PaymentsController {
@@ -80,13 +90,57 @@ export class PaymentsController {
   async myPlans(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listMyPlanEntitlements(actor.id); }
   @Get('me')
   async mine(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listPaymentsForUser(actor.id); }
+  /**
+   * GET /payments/review-queue — hàng đợi `needs_review` trong phạm
+   * vi chủ tiền của người gọi (tiền gói ở platform, học phí ở trung
+   * tâm của họ). Khai báo TRƯỚC route `:id` để đoạn tĩnh không bị
+   * nuốt vào tham số id.
+   */
+  @Get('review-queue')
+  async reviewQueue(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listReviewQueue(actor.id); }
   @Get(':id')
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.payments.getPaymentForUser(actor.id, id); }
   @Get(':id/refunds')
   async refunds(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.payments.listRefundsForUser(actor.id, id); }
-  @Post(':id/refund')
-  async refund(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createRefundSchema }) dto: RefundDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.payments.refund(actor.id, id, dto);
+  /**
+   * POST /payments/:id/refunds — tạo YÊU CẦU hoàn (bước 1 của vòng
+   * đời, lát 3 issue #189): cổng cộng dồn nguyên tử + quyết cấp duyệt
+   * nằm ở service; khoản hoàn một cấp tự duyệt ngay, khoản hai cấp ở
+   * trạng thái `requested` chờ người duyệt khác người tạo.
+   */
+  @Post(':id/refunds')
+  async createRefund(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createRefundSchema }) dto: RefundDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.createRefund(actor.id, id, dto);
+  }
+  /** POST /payments/:id/refunds/:refundId/approve — duyệt cấp 2 (người duyệt phải khác người tạo, chặn ở service). */
+  @Post(':id/refunds/:refundId/approve')
+  async approveRefund(@Param('id', { schema: uuidIdSchema }) id: string, @Param('refundId', { schema: uuidIdSchema }) refundId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.approveRefund(actor.id, id, refundId);
+  }
+  /** POST /payments/:id/refunds/:refundId/reject — từ chối yêu cầu hoàn, lý do bắt buộc. */
+  @Post(':id/refunds/:refundId/reject')
+  async rejectRefund(@Param('id', { schema: uuidIdSchema }) id: string, @Param('refundId', { schema: uuidIdSchema }) refundId: string, @Body({ schema: rejectRefundSchema }) dto: RejectRefundDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.rejectRefund(actor.id, id, refundId, dto);
+  }
+  /**
+   * POST /payments/:id/refunds/:refundId/settle — xác nhận chi TAY:
+   * mốc duy nhất đảo quyền lợi khi cộng dồn đã chi đạt 100% (thứ tự
+   * đình chỉ-trước-ghi-sau ở service). Đường tự động qua sự kiện
+   * `debit` của SePay không qua route này.
+   */
+  @Post(':id/refunds/:refundId/settle')
+  async settleRefund(@Param('id', { schema: uuidIdSchema }) id: string, @Param('refundId', { schema: uuidIdSchema }) refundId: string, @Body({ schema: settleRefundSchema }) dto: SettleRefundDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.settleRefund(actor.id, id, refundId, dto);
+  }
+  /**
+   * POST /payments/:id/review — xử lý tay một khoản thu đang
+   * `needs_review`: `matched` khớp về `succeeded` (kích hoạt quyền
+   * lợi qua outbox như đường khớp tự động) hoặc `rejected` bác bỏ về
+   * `failed`; lý do bắt buộc, vết xử lý ghi lên khoản thu.
+   */
+  @Post(':id/review')
+  async resolveReview(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: resolvePaymentReviewSchema }) dto: ResolvePaymentReviewDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.resolvePaymentReview(actor.id, id, dto);
   }
   /**
    * Webhook của gateway — không dùng JWT. Tính đúng đắn dựa trên XÁC THỰC

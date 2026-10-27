@@ -5,8 +5,9 @@ import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { apiJson } from '#lib/api';
-import { fetchSystemContextId, type CurriculumSubject } from '#lib/curriculum';
+import {
+  useCreateCurriculumSubject, useUpdateCurriculumSubject, type CurriculumSubject,
+} from '#lib/curriculum';
 import { errorText } from './shared';
 
 export function SubjectForm({ initial, subjectId }: { initial?: CurriculumSubject; subjectId?: string }) {
@@ -16,23 +17,20 @@ export function SubjectForm({ initial, subjectId }: { initial?: CurriculumSubjec
   const [slug, setSlug] = useState(initial?.slug ?? '');
   const [position, setPosition] = useState(String(initial?.position ?? 1));
   const [error, setError] = useState<string | null>(null);
+  // Ghi môn qua các đột biến của lib/curriculum (F-01 của rà soát
+  // #133): tạo mới tự neo context hệ thống trong đột biến, sửa đi
+  // thẳng PATCH; thành công thì danh sách môn được làm mới.
+  const createSubject = useCreateCurriculumSubject();
+  const updateSubject = useUpdateCurriculumSubject();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     try {
       if (subjectId) {
-        await apiJson(`/api/v1/curriculum/subjects/${subjectId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ name, slug, position: Number(position) }),
-        });
+        await updateSubject.mutateAsync({ subjectId, body: { name, slug, position: Number(position) } });
       } else {
-        const contextId = await fetchSystemContextId();
-        if (!contextId) throw new Error('no system context');
-        await apiJson('/api/v1/curriculum/subjects', {
-          method: 'POST',
-          body: JSON.stringify({ contextId, name, slug, position: Number(position) }),
-        });
+        await createSubject.mutateAsync({ name, slug, position: Number(position) });
       }
       navigate('/admin/curriculum');
     } catch (err) {

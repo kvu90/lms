@@ -7,16 +7,18 @@ import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { ApiError } from '#lib/api';
-import {
-  fetchCurricula, fetchSubjects, fetchSystemContextId, fetchTree,
-  type CurriculumSubject, type CurriculumTreeNode,
-} from '#lib/curriculum';
+import { type CurriculumSubject } from '#lib/curriculum';
 import {
   LESSON_POSITIONS, LEVELS, RESOURCE_TYPES, SOURCE_KINDS, TARGET_AUDIENCES,
-  createItem, fetchItem, fetchSpaces, fileToBase64, updateItem, uploadItemFile,
-  type LibraryItemInput, type LibrarySpace,
+  fileToBase64, type LibraryItemInput, type LibrarySpace,
 } from '#lib/content-bank';
-import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  contentBankCurriculumNodesQueryOptions, contentBankItemQueryOptions, contentBankQuestionCategoriesQueryOptions,
+  contentBankSpacesQueryOptions, contentBankSubjectsQueryOptions,
+  useCreateContentBankItem, useUpdateContentBankItem, useUploadContentBankItemFile,
+  type FlatNode, type QuestionCategoryView,
+} from '#lib/content-bank-data';
 
 const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
 
@@ -24,33 +26,7 @@ function errorText(err: unknown, fallback: string): string {
   return err instanceof ApiError ? (err.problem.detail ?? err.problem.title ?? fallback) : fallback;
 }
 
-interface FlatNode {
-  id: string;
-  title: string;
-  kind: string;
-  depth: number;
-  outcomeIds: string[];
-  outcomes: { id: string; content: string }[];
-}
 
-function flattenNodes(nodes: CurriculumTreeNode[], depth = 0, out: FlatNode[] = []): FlatNode[] {
-  for (const node of nodes) {
-    const subtreeOutcomes: { id: string; content: string }[] = [];
-    const collect = (n: CurriculumTreeNode) => {
-      for (const o of n.outcomes) subtreeOutcomes.push({ id: o.id, content: o.content });
-      n.children.forEach(collect);
-    };
-    collect(node);
-    out.push({ id: node.id, title: node.title, kind: node.kind, depth, outcomeIds: subtreeOutcomes.map((o) => o.id), outcomes: subtreeOutcomes });
-    flattenNodes(node.children, depth + 1, out);
-  }
-  return out;
-}
-
-interface QuestionCategoryView {
-  id: string;
-  name: string;
-}
 
 /**
  * Màn tạo/sửa học liệu RIÊNG của Kho học liệu (CB-1, chuẩn §9 — không
@@ -65,6 +41,10 @@ export function ContentBankEditPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const createItemMutation = useCreateContentBankItem();
+  const updateItemMutation = useUpdateContentBankItem();
+  const uploadItemFileMutation = useUploadContentBankItemFile();
   const editing = Boolean(id);
   const [loaded, setLoaded] = useState(!editing);
   const [spaces, setSpaces] = useState<LibrarySpace[]>([]);
@@ -99,18 +79,21 @@ export function ContentBankEditPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Nạp nền (không gian, môn, danh mục câu hỏi) rồi nạp chính học
+  // liệu khi sửa: mọi lần đọc qua tầng TanStack Query (fetchQuery
+  // với options của lib/content-bank-data.ts — F-01 của rà soát
+  // #133); các chuỗi lỗi-được-nuốt của bản thủ công đã nằm trong
+  // chính queryFn của options (môn/danh mục lỗi thì rỗng), lỗi đọc
+  // học liệu vẫn nổi lên để hiện thông báo như trước.
   useEffect(() => {
     void (async () => {
-      const [spaceRows, sys] = await Promise.all([fetchSpaces().catch(() => [] as LibrarySpace[]), fetchSystemContextId().catch(() => null)]);
+      const spaceRows = await queryClient.fetchQuery(contentBankSpacesQueryOptions()).catch(() => [] as LibrarySpace[]);
       setSpaces(spaceRows);
-      if (sys) {
-        setSubjects(await fetchSubjects(sys).catch(() => []));
-        const cats = await apiJson<QuestionCategoryView[]>(`/api/v1/questions/categories?contextId=${sys}`).catch(() => [] as QuestionCategoryView[]);
-        setCategories(cats);
-      }
+      setSubjects(await queryClient.fetchQuery(contentBankSubjectsQueryOptions()));
+      setCategories(await queryClient.fetchQuery(contentBankQuestionCategoriesQueryOptions()));
       if (id) {
         try {
-          const item = await fetchItem(id);
+          const item = await queryClient.fetchQuery(contentBankItemQueryOptions(id));
           setName(item.name);
           setResourceType(item.resourceType);
           setScope(item.scope);
@@ -140,25 +123,19 @@ export function ContentBankEditPage() {
         setLoaded(true);
       }
     })();
-  }, [id, t]);
+  }, [id, t, queryClient]);
 
-  // Nạp cây chương trình khi đã có môn + khối.
+  // Nạp cây chương trình khi đã có môn + khối (chuỗi curricula → cây
+  // đã phẳng hoá nằm trong queryFn của options, lỗi thì rỗng).
   useEffect(() => {
     void (async () => {
       if (!subjectId || !grade) {
         setNodes([]);
         return;
       }
-      const curricula = await fetchCurricula(subjectId).catch(() => []);
-      const curriculum = curricula.find((c) => c.grade === Number(grade));
-      if (!curriculum) {
-        setNodes([]);
-        return;
-      }
-      const tree = await fetchTree(curriculum.id).catch(() => null);
-      setNodes(tree ? flattenNodes(tree.nodes) : []);
+      setNodes(await queryClient.fetchQuery(contentBankCurriculumNodesQueryOptions(subjectId, Number(grade))));
     })();
-  }, [subjectId, grade]);
+  }, [subjectId, grade, queryClient]);
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === nodeId) ?? null, [nodes, nodeId]);
   const orgSpaces = spaces.filter((s) => s.scope === 'org');
@@ -190,19 +167,23 @@ export function ContentBankEditPage() {
       if (license) payload.license = license;
       if (derivedFromId) payload.derivedFromId = derivedFromId;
       try {
-        const item = editing && id ? await updateItem(id, payload) : await createItem(payload);
+        const item = editing && id
+          ? await updateItemMutation.mutateAsync({ itemId: id, input: payload })
+          : await createItemMutation.mutateAsync(payload);
         if (file) {
           const contentBase64 = await fileToBase64(file);
-          await uploadItemFile(item.id, file.name, contentBase64, file.type || undefined);
+          await uploadItemFileMutation.mutateAsync({
+            itemId: item.id, fileName: file.name, contentBase64, mimeType: file.type || undefined,
+          });
         }
-        navigate('/contentbank');
+        navigate('/content-bank');
       } catch (err) {
         setError(errorText(err, t('libraryActionFailed')));
       } finally {
         setBusy(false);
       }
     },
-    [name, resourceType, scope, spaceId, subjectId, grade, level, nodeId, outcomeIds, categoryId, externalUrl, description, keywords, targetAudience, lessonPosition, language, durationSeconds, originalAuthor, sourceKind, sourceCitation, license, derivedFromId, file, editing, id, navigate, t],
+    [name, resourceType, scope, spaceId, subjectId, grade, level, nodeId, outcomeIds, categoryId, externalUrl, description, keywords, targetAudience, lessonPosition, language, durationSeconds, originalAuthor, sourceKind, sourceCitation, license, derivedFromId, file, editing, id, navigate, t, createItemMutation, updateItemMutation, uploadItemFileMutation],
   );
 
   if (!loaded) {
@@ -218,7 +199,7 @@ export function ContentBankEditPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{editing ? t('libraryFormTitleEdit') : t('libraryFormTitleNew')}</h1>
         <Link
-          to="/contentbank"
+          to="/content-bank"
           className="inline-flex h-9 items-center rounded-md border border-input bg-transparent px-4 text-sm"
         >
           {t('libraryFormBack')}
@@ -424,7 +405,7 @@ export function ContentBankEditPage() {
                 {t('libraryFormSave')}
               </Button>
               <Link
-                to="/contentbank"
+                to="/content-bank"
                 className="inline-flex h-9 items-center rounded-md border border-input bg-transparent px-4 text-sm"
               >
                 {t('libraryFormCancel')}

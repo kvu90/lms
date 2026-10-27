@@ -87,10 +87,14 @@ describe('UI Lát 2 — màn narrow trong PageShell 768px', () => {
       }
       return undefined;
     });
+    // SearchPage đọc ảnh chụp quyền (đích của kết quả `users` phụ
+    // thuộc quyền người tìm) — bọc TestProviders như cây root thật.
     const { container } = render(
-      <MemoryRouter>
-        <SearchPage />
-      </MemoryRouter>,
+      <TestProviders>
+        <MemoryRouter>
+          <SearchPage />
+        </MemoryRouter>
+      </TestProviders>,
     );
     expectNarrowShell(container);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Tìm kiếm toàn cục');
@@ -133,7 +137,13 @@ describe('UI Lát 2 — màn narrow trong PageShell 768px', () => {
     const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
       initialEntries: ['/quiz-attempts/att-1'],
     });
-    const { container } = render(<RouterProvider router={router} />);
+    // Trang làm bài đã chuyển sang khuôn TanStack Query (F-01 của
+    // #133) nên render phải có QueryClientProvider như mọi spec khác.
+    const { container } = render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Không thể tải lượt làm.');
     expectNarrowShell(container);

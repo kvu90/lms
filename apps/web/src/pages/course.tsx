@@ -9,7 +9,7 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
+import { courseConversationQueryOptions } from '#lib/messaging-data';
 import {
   coursePageQueryOptions,
   myPaymentsQueryOptions,
@@ -90,7 +90,7 @@ export function CoursePage() {
     setChatBusy(true);
     setChatError(null);
     try {
-      const conv = await apiJson<{ id: string }>(`/api/v1/messages/courses/${id}/conversation`);
+      const conv = await queryClient.fetchQuery(courseConversationQueryOptions(id ?? ''));
       navigate(`/messages?conversation=${conv.id}`);
     } catch {
       setChatError(t('courseChatOpenFailed'));

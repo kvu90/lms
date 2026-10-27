@@ -6,7 +6,14 @@ import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { useTranslation } from 'react-i18next';
-import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  currentUserQueryOptions,
+  useDeleteSubmissionFile,
+  useReopenSubmission,
+  useSubmitSubmission,
+  useUploadSubmissionFile,
+} from '#lib/assignment-data';
 import { FeedbackMessages } from './feedback-messages';
 import { SubmissionFileView } from './submission-file';
 import { dateLabel } from './shared';
@@ -25,12 +32,18 @@ export function StudentPanel({ data, reload }: { data: AssignmentForUserView; re
   const [meId, setMeId] = useState<string | null>(null);
   const [chosenFile, setChosenFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
+  const queryClient = useQueryClient();
+  const uploadFileMutation = useUploadSubmissionFile();
+  const deleteFileMutation = useDeleteSubmissionFile();
+  const submitMutation = useSubmitSubmission();
+  const reopenMutation = useReopenSubmission();
 
   useEffect(() => {
-    void apiJson<{ id: string }>('/api/v1/users/me')
+    void queryClient
+      .fetchQuery(currentUserQueryOptions())
       .then((me) => setMeId(me.id))
       .catch(() => undefined);
-  }, []);
+  }, [queryClient]);
 
   const released = mine.grade !== null;
   const editable = !released && (mine.status === 'none' || mine.status === 'draft');
@@ -53,7 +66,7 @@ export function StudentPanel({ data, reload }: { data: AssignmentForUserView; re
     const fd = new FormData();
     fd.append('file', chosenFile);
     await act(async () => {
-      await apiJson(`/api/v1/assignments/${assignment.id}/submission/files`, { method: 'POST', body: fd });
+      await uploadFileMutation.mutateAsync({ assignmentId: assignment.id, formData: fd });
       setChosenFile(null);
       setFileInputKey((k) => k + 1);
     });
@@ -122,7 +135,7 @@ export function StudentPanel({ data, reload }: { data: AssignmentForUserView; re
                     disabled={busy}
                     onClick={() =>
                       void act(() =>
-                        apiJson(`/api/v1/assignments/${assignment.id}/submission/files/${f.fileId}`, { method: 'DELETE' }),
+                        deleteFileMutation.mutateAsync({ assignmentId: assignment.id, fileId: f.fileId }),
                       )
                     }
                   >
@@ -134,7 +147,7 @@ export function StudentPanel({ data, reload }: { data: AssignmentForUserView; re
             <Button
               type="button"
               disabled={busy || mine.files.length === 0}
-              onClick={() => void act(() => apiJson(`/api/v1/assignments/${assignment.id}/submission/submit`, { method: 'POST' }))}
+              onClick={() => void act(() => submitMutation.mutateAsync(assignment.id))}
             >
               {t('assignSubmitButton')}
             </Button>
@@ -145,7 +158,7 @@ export function StudentPanel({ data, reload }: { data: AssignmentForUserView; re
             type="button"
             variant="outline"
             disabled={busy}
-            onClick={() => void act(() => apiJson(`/api/v1/assignments/${assignment.id}/submission/reopen`, { method: 'POST' }))}
+            onClick={() => void act(() => reopenMutation.mutateAsync(assignment.id))}
           >
             {t('assignReopenButton')}
           </Button>

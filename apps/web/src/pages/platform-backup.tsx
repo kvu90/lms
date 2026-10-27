@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -9,49 +9,34 @@ import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
+import { useBackupJobs, useBackupSteps, useCreateBackupJob, useRestoreBackup } from '#lib/platform-data';
 
-interface BackupJob {
-  id: string;
-  type: string;
-  courseId: string;
-  targetCourseId: string | null;
-  mode: string;
-  status: string;
-}
-interface BackupStep {
-  id: string;
-  name: string;
-  status: string;
-}
-
-/** Backup/restore (platform services): tạo job, xem bước, restore sang course mới. */
+/**
+ * Backup/restore (platform services): tạo job, xem bước, restore sang
+ * course mới. Dữ liệu đọc qua tầng TanStack Query
+ * (`lib/platform-data.ts`, khoá `backupJobs`/`backupSteps`;
+ * `clientLoader` của route nạp trước danh sách việc); các bước chỉ tải
+ * khi người dùng chọn xem một việc, tạo job và restore qua đột biến làm
+ * mới danh sách như lần tải lại thủ công trước đây.
+ */
 export function BackupPage() {
   const { t: t } = useTranslation();
-  const [jobs, setJobs] = useState<BackupJob[]>([]);
-  const [steps, setSteps] = useState<BackupStep[]>([]);
+  const jobsQuery = useBackupJobs();
+  const createJob = useCreateBackupJob();
+  const restoreJob = useRestoreBackup();
+  const jobs = jobsQuery.data ?? [];
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const stepsQuery = useBackupSteps(selectedJobId);
+  const steps = stepsQuery.data ?? [];
   const [courseId, setCourseId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    setJobs(await apiJson<BackupJob[]>('/api/v1/backup/jobs'));
-  }, []);
-  useEffect(() => {
-    void reload()
-      .catch(() => setLoadError(t('backupLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
+  const loading = jobsQuery.isPending || (jobsQuery.isError && jobsQuery.isFetching);
+  const loadError = jobsQuery.isError && !jobsQuery.isFetching ? t('backupLoadFailed') : null;
   async function createBackup(event: FormEvent) {
     event.preventDefault();
-    await apiJson('/api/v1/backup/jobs', { method: 'POST', body: JSON.stringify({ courseId }) });
-    await reload();
-  }
-  async function viewSteps(id: string) {
-    setSteps(await apiJson<BackupStep[]>(`/api/v1/backup/jobs/${id}/steps`));
+    await createJob.mutateAsync(courseId);
   }
   async function restore(id: string) {
-    await apiJson('/api/v1/backup/restore', { method: 'POST', body: JSON.stringify({ backupJobId: id, mode: 'new' }) });
-    await reload();
+    await restoreJob.mutateAsync(id);
   }
   return (
     <PageShell width="medium">
@@ -62,17 +47,7 @@ export function BackupPage() {
             <AlertDescription>{loadError}</AlertDescription>
           </Alert>
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLoadError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setLoadError(t('backupLoadFailed')))
-                  .finally(() => setLoading(false));
-              }}
-            >
+            <Button type="button" variant="outline" onClick={() => void jobsQuery.refetch()}>
               {t('retry')}
             </Button>
           </div>
@@ -108,7 +83,7 @@ export function BackupPage() {
                       {t('jobLine', { type: j.type, id: j.id, courseId: j.courseId, status: j.status })}
                       {j.targetCourseId ? ` → ${j.targetCourseId}` : ''}
                     </span>
-                    <Button type="button" variant="outline" onClick={() => void viewSteps(j.id)}>
+                    <Button type="button" variant="outline" onClick={() => setSelectedJobId(j.id)}>
                       {t('steps')}
                     </Button>
                     {j.type === 'backup' && j.status === 'completed' ? (

@@ -2,7 +2,8 @@ import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import {
-  adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
+  adminToken, assignRole, createTestApp, createUserViaApi, http, login,
+  roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 
 /**
@@ -224,17 +225,39 @@ describe('Plan purchases: tenant_plan + teacher_plan over the VietQR pipeline (i
     expect(await entitlementOf(payment.id)).toBeUndefined();
   });
 
-  it('hoàn đủ tiền của payment gói → quyền lợi của chính payment đó bị đình chỉ', async () => {
+  it('hoàn đủ tiền của payment gói (lát 3: hai cấp + xác nhận chi) → quyền lợi của chính payment đó bị đình chỉ tại mốc settled', async () => {
     const { token } = await createBuyer();
     const payment = await buyPlan(token, 'teacher_plan');
     await postIpn(ipnBody(payment.paymentCode, TEACHER_PLAN_DEFAULT_PRICE));
     await waitPaymentStatus(payment.id, 'succeeded');
     expect((await entitlementOf(payment.id))!.status).toBe('active');
 
-    const refund = await http(app).post(`/api/v1/payments/${payment.id}/refund`)
+    // Hoàn 100% luôn HAI CẤP dù số tiền dưới ngưỡng mặc định: tạo yêu
+    // cầu ở `requested`; quyền lợi chưa bị đụng cho tới mốc settled.
+    const refund = await http(app).post(`/api/v1/payments/${payment.id}/refunds`)
       .set('Authorization', `Bearer ${admin}`)
       .send({ amount: TEACHER_PLAN_DEFAULT_PRICE, reason: 'full refund', externalTransactionId: `ft-out-plan-${Date.now()}` });
     expect(refund.status).toBeLessThan(300);
+    expect(refund.body.status).toBe('requested');
+    expect(refund.body.approvalLevel).toBe(2);
+    expect((await entitlementOf(payment.id))!.status).toBe('active');
+
+    const mgr2 = await createUserViaApi(app, admin);
+    await assignRole(app, admin, mgr2.id, await roleIdByShortname(app, admin, 'manager'), await systemContextId(app, admin));
+    const mgr2Token = (await login(app, mgr2.username, STRONG_PASSWORD)).accessToken;
+    const approved = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${refund.body.id}/approve`)
+      .set('Authorization', `Bearer ${mgr2Token}`).send({});
+    expect(approved.status).toBeLessThan(300);
+    expect(approved.body.status).toBe('approved');
+    expect((await entitlementOf(payment.id))!.status).toBe('active');
+
+    const settled = await http(app).post(`/api/v1/payments/${payment.id}/refunds/${refund.body.id}/settle`)
+      .set('Authorization', `Bearer ${admin}`).send({});
+    expect(settled.status).toBeLessThan(300);
+    expect(settled.body.status).toBe('settled');
+    expect(settled.body.entitlementReversed).toBe(true);
     expect((await entitlementOf(payment.id))!.status).toBe('suspended');
+    const after = await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`);
+    expect(after.body.status).toBe('refunded');
   });
 });

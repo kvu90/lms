@@ -34,7 +34,7 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
   { prefix: '/backup', key: 'navBackup', ns: 'app' },
   { prefix: '/insights', key: 'navInsights', ns: 'app' },
   { prefix: '/reports', key: 'navReports', ns: 'app' },
-  { prefix: '/contentbank', key: 'navContentBank', ns: 'app' },
+  { prefix: '/content-bank', key: 'navContentBank', ns: 'app' },
   { prefix: '/privacy', key: 'navPrivacy', ns: 'app' },
   { prefix: '/profile', key: 'navProfile', ns: 'app' },
   { prefix: '/settings', key: 'navSettings', ns: 'app' },
@@ -42,11 +42,14 @@ const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
 ];
 
 /**
- * Ô tìm kiếm nội dung ở GIỮA header (Lão gia chốt 23:52 ngày
+ * Ô tìm kiếm nội dung ở GIỮA header (chốt 23:52 ngày
  * 26/10/2026, issue #303 — khuôn Facebook/YouTube: header ba vùng,
- * ô tìm kiếm nằm giữa). Đây là tìm kiếm NỘI DUNG toàn cục, khác hẳn
- * bảng lệnh ⌘K ở vùng phải (bảng lệnh chỉ điều hướng nhanh tới màn
- * hình/khoá học) — hai công cụ giữ hai vai riêng, không gộp.
+ * ô tìm kiếm nằm giữa). Đây là đường vào trang kết quả tìm kiếm
+ * toàn cục đầy đủ. Bề mặt mở bằng Ctrl/Cmd+K (xem
+ * command-palette.tsx) là bề mặt hợp nhất theo chốt gộp tìm kiếm
+ * ngày 27/10/2026 — nhóm "Nội dung" của nó dùng chung cùng API
+ * /search với trang kết quả — nhưng ô giữa GIỮ NGUYÊN vai trò và
+ * hành vi: gõ tại chỗ không gọi API, Enter mới sang trang kết quả.
  *
  * Flow:
  * 1. Người dùng gõ vào ô (trạng thái chữ sống cục bộ trong component
@@ -111,11 +114,13 @@ function HeaderSearch() {
  *   cùng file) — vùng co giãn linh hoạt ở giữa, ô có bề rộng tối đa
  *   cố định và tự co khi bề ngang hẹp để không đẩy vùng phải tràn
  *   hàng. Mục "Tìm kiếm" ở sidebar đã BỎ từ cùng chốt này.
- * - VÙNG PHẢI: nút mở bảng lệnh tìm nhanh Cmd+K (điều hướng nhanh —
- *   bảng lệnh tự chứa lớp phủ và phím tắt toàn cục, xem
- *   command-palette.tsx) và chuông thông báo kèm dropdown xem nhanh
- *   (lát NB-3, issue #174 — xem notification-bell.tsx; số chưa đọc
- *   dùng chung khoá với huy hiệu ở mục Thông báo trên sidebar).
+ * - VÙNG PHẢI: chuông thông báo kèm dropdown xem nhanh (lát NB-3,
+ *   issue #174 — xem notification-bell.tsx; số chưa đọc dùng chung
+ *   khoá với huy hiệu ở mục Thông báo trên sidebar). Bề mặt tìm
+ *   kiếm hợp nhất Cmd+K KHÔNG còn nút mở riêng ở vùng này (chốt gộp
+ *   tìm kiếm ngày 27/10/2026): component CommandPalette vẫn mount
+ *   tại đây để đăng ký phím tắt toàn cục và lớp phủ, nhưng không
+ *   render gì khi đang đóng.
  *
  * Site chỉ dành cho người Việt nên không có bộ chọn ngôn ngữ trên
  * giao diện — i18n chỉ quản lý chuỗi tập trung, locale cố định
@@ -146,8 +151,9 @@ export function SiteHeader() {
             <HeaderSearch />
           </div>
         </div>
-        {/* Vùng phải: bảng lệnh + chuông, shrink-0 để không bị vùng
-            giữa ép méo; thứ tự và vai trò giữ nguyên như trước. */}
+        {/* Vùng phải: chuông thông báo, shrink-0 để không bị vùng
+            giữa ép méo. CommandPalette mount tại đây chỉ để giữ
+            phím tắt Ctrl/Cmd+K toàn cục — không còn nút mở riêng. */}
         <div className="flex shrink-0 items-center gap-1 lg:gap-2">
           <CommandPalette />
           <NotificationBell />

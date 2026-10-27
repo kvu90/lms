@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import type { GradeItem } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -19,27 +19,19 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiFetch, apiJson } from '#lib/api';
-import { fetchCourseGradeData } from '#lib/course-grade-data';
+import { apiFetch } from '#lib/api';
+import {
+  gradeItemHistoryQueryOptions,
+  useCourseGradeData,
+  useCreateGradeItem,
+  useDeleteGradeItem,
+  useSetGradeItemPublished,
+  useSetGradePostingPolicy,
+  useSubmitGrade,
+  useUpdateGradeItem,
+  type GradeHistoryView,
+} from '#lib/course-grade-data';
 import { usePermissions } from '#lib/permissions';
-import { queryKeys } from '#lib/query-keys';
-
-/**
- * Một dòng lịch sử thay đổi điểm như API trả về (bảng
- * `grade_grades_history` phía grades service): `action` 1 = tạo mới,
- * 2 = cập nhật, 3 = xoá theo quy ước của Moodle.
- */
-interface GradeHistoryView {
-  id: string;
-  action: number;
-  itemId: string;
-  userId: string;
-  rawGrade: number | null;
-  finalGrade: number | null;
-  source: string | null;
-  updatedAt: string;
-  loggedUser: string | null;
-}
 
 /** Loại cột vnEdu (TT 22/2021) mà giáo viên gán cho một mục điểm khi xuất Excel — issue #53. */
 type VneduColumnKind = 'none' | 'regular' | 'midterm' | 'final';
@@ -94,10 +86,7 @@ export function GradebookPage() {
   // (F-03, rà soát #133): bề mặt nào mở trước thì bề mặt sau đọc cache,
   // không tốn request thêm. Provider KHÔNG tải dữ liệu này khi nạp app
   // (F-02) — trang này là một trong các bề mặt tải lười nó.
-  const gradeDataQuery = useQuery({
-    queryKey: queryKeys.courseAccess(courseId),
-    queryFn: () => fetchCourseGradeData(courseId),
-  });
+  const gradeDataQuery = useCourseGradeData(courseId);
   const book = gradeDataQuery.data?.gradebook ?? null;
   const report = gradeDataQuery.data?.report ?? null;
   const [error, setError] = useState<string | null>(null);
@@ -131,10 +120,15 @@ export function GradebookPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
-  /** Nạp lại dữ liệu điểm sau đột biến: invalidate đúng khoá dùng chung với provider. */
-  const reload = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.courseAccess(courseId) });
-  }, [queryClient, courseId]);
+  // Thao tác ghi điểm/mục điểm qua các đột biến của
+  // lib/course-grade-data (F-01 của rà soát #133): đột biến tự làm
+  // mới đúng khoá dùng chung courseAccess sau khi ghi thành công.
+  const submitGradeMutation = useSubmitGrade(courseId);
+  const createItemMutation = useCreateGradeItem(courseId);
+  const updateItemMutation = useUpdateGradeItem(courseId);
+  const deleteItemMutation = useDeleteGradeItem(courseId);
+  const postingPolicyMutation = useSetGradePostingPolicy(courseId);
+  const publishedMutation = useSetGradeItemPublished(courseId);
 
   useEffect(() => {
     if (gradeDataQuery.data) {
@@ -158,16 +152,13 @@ export function GradebookPage() {
     setMessage(null);
     setError(null);
     try {
-      await apiJson(`/api/v1/grade-items/${gradeItemId}/grades`, {
-        method: 'POST',
-        body: JSON.stringify({
-          userId: gradeUserId,
-          rawGrade: gradeValue.trim() === '' ? null : Number(gradeValue),
-          ...(gradeFeedback.trim() ? { feedback: gradeFeedback.trim() } : {}),
-        }),
+      await submitGradeMutation.mutateAsync({
+        gradeItemId,
+        userId: gradeUserId,
+        rawGrade: gradeValue.trim() === '' ? null : Number(gradeValue),
+        ...(gradeFeedback.trim() ? { feedback: gradeFeedback.trim() } : {}),
       });
       setMessage(t('gradeSaved'));
-      await reload();
     } catch {
       setError(t('gradeSaveFailed'));
     }
@@ -178,13 +169,9 @@ export function GradebookPage() {
     event.preventDefault();
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/courses/${courseId}/grade-items`, {
-        method: 'POST',
-        body: JSON.stringify({ itemName: newItemName, gradeMax: Number(newItemMax) }),
-      });
+      await createItemMutation.mutateAsync({ itemName: newItemName, gradeMax: Number(newItemMax) });
       setNewItemName('');
       setAdminMessage(t('gradeItemCreated'));
-      await reload();
     } catch {
       setAdminMessage(t('gradeItemCreateFailedAdmin'));
     }
@@ -196,12 +183,12 @@ export function GradebookPage() {
     if (!edit) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/grade-items/${item.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ itemName: edit.itemName, gradeMax: Number(edit.gradeMax) }),
+      await updateItemMutation.mutateAsync({
+        itemId: item.id,
+        itemName: edit.itemName,
+        gradeMax: Number(edit.gradeMax),
       });
       setAdminMessage(t('gradeItemUpdated'));
-      await reload();
     } catch {
       setAdminMessage(t('gradeItemUpdateFailed'));
     }
@@ -212,9 +199,8 @@ export function GradebookPage() {
     if (!window.confirm(t('confirmDeleteGradeItem', { name: item.itemName }))) return;
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/grade-items/${item.id}`, { method: 'DELETE' });
+      await deleteItemMutation.mutateAsync(item.id);
       setAdminMessage(t('gradeItemDeleted'));
-      await reload();
     } catch {
       setAdminMessage(t('gradeItemDeleteFailed'));
     }
@@ -224,12 +210,8 @@ export function GradebookPage() {
   async function setPostingPolicy(item: GradeItem, policy: 'auto' | 'manual') {
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/grade-items/${item.id}/posting-policy`, {
-        method: 'PUT',
-        body: JSON.stringify({ policy }),
-      });
+      await postingPolicyMutation.mutateAsync({ itemId: item.id, policy });
       setAdminMessage(t('gradesPublicationUpdated'));
-      await reload();
     } catch {
       setAdminMessage(t('gradesPublicationUpdateFailed'));
     }
@@ -239,12 +221,8 @@ export function GradebookPage() {
   async function setPublished(item: GradeItem, published: boolean) {
     setAdminMessage(null);
     try {
-      await apiJson(`/api/v1/grade-items/${item.id}/${published ? 'publish' : 'unpublish'}`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      });
+      await publishedMutation.mutateAsync({ itemId: item.id, published });
       setAdminMessage(t('gradesPublicationUpdated'));
-      await reload();
     } catch {
       setAdminMessage(t('gradesPublicationUpdateFailed'));
     }
@@ -301,16 +279,17 @@ export function GradebookPage() {
 
   /**
    * Xem lịch sử điểm của một học viên trên một mục điểm qua
-   * GET /grade-items/:itemId/users/:userId/history.
+   * GET /grade-items/:itemId/users/:userId/history. Đọc theo
+   * yêu cầu nên đi qua fetchQuery của TanStack (vẫn vào bộ nhớ đệm
+   * theo khoá factory) mà giữ nhịp xoá kết quả cũ/hiện lỗi tại chỗ
+   * của bản thủ công.
    */
   async function loadHistory(event: FormEvent) {
     event.preventDefault();
     setHistoryError(null);
     setHistoryRows(null);
     try {
-      const rows = await apiJson<GradeHistoryView[]>(
-        `/api/v1/grade-items/${historyItemId}/users/${historyUserId}/history`,
-      );
+      const rows = await queryClient.fetchQuery(gradeItemHistoryQueryOptions(historyItemId, historyUserId));
       setHistoryRows(rows);
     } catch {
       setHistoryError(t('historyLoadFailed'));

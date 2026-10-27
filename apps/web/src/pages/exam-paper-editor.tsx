@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -9,59 +10,20 @@ import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiFetch, apiJson } from '#lib/api';
+import { apiFetch } from '#lib/api';
+import {
+  examQuestionDiscoveryQueryOptions,
+  useCreateExamPaper,
+  useExamPaper,
+  useExamPaperPins,
+  useReplaceExamPaperSlots,
+  useSwapExamPaperSlot,
+  useUpdateExamPaperMeta,
+  type DiscoveryItemLite,
+  type PaperView,
+} from '#lib/exam-paper-data';
+import { clearQuestionBankListCache } from '#lib/questions-data';
 import { withApiReason } from './questions';
-
-/** Một slot của đề như API exam-papers trả về (đã ghim version câu). */
-interface PaperSlotView {
-  position: number;
-  section: string;
-  questionId: string;
-  questionName: string | null;
-  qtype: string | null;
-  pinnedVersionNumber: number | null;
-  /** Số version ready mới nhất của câu trong ngân hàng (null khi chưa có bản ready). */
-  latestReadyVersionNumber: number | null;
-  /** Huy hiệu "có bản ready mới" (issue #254): slot đang ghim version cũ hơn bản ready mới nhất của câu. */
-  hasNewerVersion: boolean;
-  maxMark: number;
-  clusterId: string | null;
-  /** Ô ma trận nguồn (EB-2) — có ở đề sinh từ ma trận; neo swap-cùng-ô. */
-  matrixCellId: string | null;
-}
-
-/** Một lần GHIM của đề vào một khoá + các mã đề của lần ghim (GET /exams/:id/pins). */
-interface PinViewLite {
-  id: string;
-  courseId: string;
-  courseName: string;
-  versionNumber: number;
-  name: string | null;
-  variantCount: number;
-  variantCodes: string[];
-  createdAt: string;
-}
-
-/** Chi tiết một đề (GET /exam-papers/:id). */
-interface PaperView {
-  paper: { id: string; bankId: string; kind: string; status: string; latestVersion: number; derivedFromPaperId: string | null };
-  version: {
-    id: string; version: number; name: string;
-    subjectId: string | null; grade: number | null; examKind: string | null;
-    totalScore: number; durationMinutes: number | null;
-    matrixId: string | null; matrixVersion: number | null;
-  };
-  slots: PaperSlotView[];
-  capabilities: { edit: boolean };
-}
-
-/** Một dòng kết quả khám phá ngân hàng câu hỏi (GET /questions/discovery). */
-interface DiscoveryItemLite {
-  questionId: string;
-  name: string;
-  qtype: string;
-  bankName: string;
-}
 
 /** Slot đang soạn trong form (chưa ghim — server ghim bản ready mới nhất khi lưu). */
 interface SlotDraft {
@@ -109,73 +71,78 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const [duration, setDuration] = useState('');
   const [totalScore, setTotalScore] = useState('10');
   const [slots, setSlots] = useState<SlotDraft[]>([]);
-  const [original, setOriginal] = useState<PaperView | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [keyword, setKeyword] = useState('');
-  const [results, setResults] = useState<DiscoveryItemLite[]>([]);
-  const [searched, setSearched] = useState(false);
-  const [pins, setPins] = useState<PinViewLite[]>([]);
   /** Vị trí slot đang ở chế độ đổi câu cùng ô (EB-2); null = chế độ thêm câu thường. */
   const [swapPosition, setSwapPosition] = useState<number | null>(null);
 
-  const loadPaper = useCallback(async () => {
-    if (mode !== 'edit' || !paperId) return;
-    try {
-      const view = await apiJson<PaperView>(`/api/v1/exams/${paperId}`);
-      setOriginal(view);
-      setName(view.version.name);
-      setExamKind(view.version.examKind ?? '');
-      setGrade(view.version.grade != null ? String(view.version.grade) : '');
-      setDuration(view.version.durationMinutes != null ? String(view.version.durationMinutes) : '');
-      setTotalScore(String(view.version.totalScore));
-      setSlots(view.slots.map((s) => ({
-        questionId: s.questionId,
-        questionName: s.questionName ?? s.questionId,
-        maxMark: String(s.maxMark),
-        section: s.section,
-        pinnedVersionNumber: s.pinnedVersionNumber,
-        latestReadyVersionNumber: s.latestReadyVersionNumber,
-        hasNewerVersion: s.hasNewerVersion,
-        matrixCellId: s.matrixCellId,
-      })));
-    } catch (err) {
-      setMessage(withApiReason(t('examPaperSaveFailed'), err));
-    }
-  }, [mode, paperId, t]);
+  // Dữ liệu trang qua TanStack Query (F-01 của #133,
+  // `lib/exam-paper-data.ts`): chi tiết đề là query chính ở chế độ
+  // sửa (clientLoader của route sửa nạp trước cùng khoá), các lần
+  // ghim là query phụ; tìm câu để thêm/đổi là query theo tham số đã
+  // chốt khi bấm tìm, giữ kết quả lần trước trong lúc tải lần mới
+  // như bản thủ công.
+  const queryClient = useQueryClient();
+  const paperQuery = useExamPaper(paperId, mode === 'edit');
+  const original = paperQuery.data ?? null;
+  const pins = useExamPaperPins(paperId, mode === 'edit').data ?? [];
+  const createPaper = useCreateExamPaper();
+  const updateMeta = useUpdateExamPaperMeta();
+  const replaceSlots = useReplaceExamPaperSlots();
+  const swapSlot = useSwapExamPaperSlot();
+  const [submittedSearch, setSubmittedSearch] = useState<string | null>(null);
+  const discoveryQuery = useQuery({
+    ...examQuestionDiscoveryQueryOptions(submittedSearch ?? ''),
+    enabled: submittedSearch !== null,
+    placeholderData: keepPreviousData,
+  });
+  const results = discoveryQuery.data ?? [];
+  const searched = submittedSearch !== null && !discoveryQuery.isFetching;
 
-  useEffect(() => { void loadPaper(); }, [loadPaper]);
+  /** Ánh xạ slots của view đề thành slots nháp của form. */
+  function toSlotDrafts(view: PaperView): SlotDraft[] {
+    return view.slots.map((s) => ({
+      questionId: s.questionId,
+      questionName: s.questionName ?? s.questionId,
+      maxMark: String(s.maxMark),
+      section: s.section,
+      pinnedVersionNumber: s.pinnedVersionNumber,
+      latestReadyVersionNumber: s.latestReadyVersionNumber,
+      hasNewerVersion: s.hasNewerVersion,
+      matrixCellId: s.matrixCellId,
+    }));
+  }
 
-  const loadPins = useCallback(async () => {
-    if (mode !== 'edit' || !paperId) return;
-    try {
-      setPins(await apiJson<PinViewLite[]>(`/api/v1/exams/${paperId}/pins`));
-    } catch {
-      setPins([]);
-    }
-  }, [mode, paperId]);
+  // Khởi tạo toàn bộ form từ view đề khi MỞ một đề (đề khác với đề
+  // đang soạn) — đúng nhịp loadPaper thủ công; các lần view đổi vì
+  // đổi câu cùng ô không qua đây (doSwap tự đồng bộ slots) để không
+  // đè lên metadata người dùng đang sửa dở.
+  const loadedPaperIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const view = paperQuery.data;
+    if (!view) return;
+    if (loadedPaperIdRef.current === view.paper.id) return;
+    loadedPaperIdRef.current = view.paper.id;
+    setName(view.version.name);
+    setExamKind(view.version.examKind ?? '');
+    setGrade(view.version.grade != null ? String(view.version.grade) : '');
+    setDuration(view.version.durationMinutes != null ? String(view.version.durationMinutes) : '');
+    setTotalScore(String(view.version.totalScore));
+    setSlots(toSlotDrafts(view));
+  }, [paperQuery.data]);
 
-  useEffect(() => { void loadPins(); }, [loadPins]);
+  // Nạp hỏng chi tiết: báo lỗi tải như nhịp loadPaper thủ công cũ.
+  useEffect(() => {
+    if (paperQuery.isError) setMessage(withApiReason(t('examPaperSaveFailed'), paperQuery.error));
+  }, [paperQuery.isError, paperQuery.error, t]);
 
   /** Đổi câu của slot đang chọn sang câu khác CÙNG Ô (server gác pool của ô nguồn). */
   async function doSwap(questionId: string) {
     if (!paperId || swapPosition == null) return;
     setMessage(null);
     try {
-      const view = await apiJson<PaperView>(`/api/v1/exams/${paperId}/swap`, {
-        method: 'POST',
-        body: JSON.stringify({ position: swapPosition, questionId }),
-      });
-      setOriginal(view);
-      setSlots(view.slots.map((s) => ({
-        questionId: s.questionId,
-        questionName: s.questionName ?? s.questionId,
-        maxMark: String(s.maxMark),
-        section: s.section,
-        pinnedVersionNumber: s.pinnedVersionNumber,
-        latestReadyVersionNumber: s.latestReadyVersionNumber,
-        hasNewerVersion: s.hasNewerVersion,
-        matrixCellId: s.matrixCellId,
-      })));
+      const view = await swapSlot.mutateAsync({ paperId, position: swapPosition, questionId });
+      setSlots(toSlotDrafts(view));
       setSwapPosition(null);
       setMessage(t('swapOk', { version: view.version.version }));
     } catch (err) {
@@ -198,16 +165,10 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     }
   }
 
-  async function searchQuestions() {
-    try {
-      const params = new URLSearchParams();
-      if (keyword.trim()) params.set('keyword', keyword.trim());
-      const rows = await apiJson<DiscoveryItemLite[]>(`/api/v1/questions/discovery?${params.toString()}`);
-      setResults(rows);
-    } catch {
-      setResults([]);
-    }
-    setSearched(true);
+  function searchQuestions() {
+    const params = new URLSearchParams();
+    if (keyword.trim()) params.set('keyword', keyword.trim());
+    setSubmittedSearch(params.toString());
   }
 
   function addQuestion(item: DiscoveryItemLite) {
@@ -240,18 +201,21 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     setMessage(null);
     try {
       if (mode === 'new') {
-        const created = await apiJson<PaperView>(`/api/v1/exams/banks/${bankId}/exams`, {
-          method: 'POST',
-          body: JSON.stringify({
+        const created = await createPaper.mutateAsync({
+          bankId,
+          body: {
             name: name.trim(),
             examKind: examKind || null,
             grade: grade ? Number(grade) : null,
             durationMinutes: duration ? Number(duration) : null,
             totalScore: Number(totalScore) > 0 ? Number(totalScore) : 10,
             slots: slotPayload(),
-          }),
+          },
         });
         setMessage(t('examPaperSaved', { version: created.version.version }));
+        // Điểm lưu: xoá cache danh sách ngân hàng để danh sách đề mở
+        // lại là nạp tươi, như màn soạn câu hỏi (tiền lệ F-01 đợt 1).
+        clearQuestionBankListCache(queryClient);
         await navigate('/exams');
         return;
       }
@@ -269,24 +233,22 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       );
       let view: PaperView = original;
       if (metaChanged) {
-        view = await apiJson<PaperView>(`/api/v1/exams/${paperId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
+        view = await updateMeta.mutateAsync({
+          paperId,
+          body: {
             name: name.trim(),
             examKind: examKind || null,
             grade: grade ? Number(grade) : null,
             durationMinutes: duration ? Number(duration) : null,
             totalScore: Number(totalScore) > 0 ? Number(totalScore) : 10,
-          }),
+          },
         });
       }
       if (slotsChanged) {
-        view = await apiJson<PaperView>(`/api/v1/exams/${paperId}/slots`, {
-          method: 'PUT',
-          body: JSON.stringify({ slots: slotPayload() }),
-        });
+        view = await replaceSlots.mutateAsync({ paperId, slots: slotPayload() });
       }
       setMessage(t('examPaperSaved', { version: view.version.version }));
+      clearQuestionBankListCache(queryClient);
       await navigate('/exams');
     } catch (err) {
       setMessage(withApiReason(t('examPaperSaveFailed'), err));

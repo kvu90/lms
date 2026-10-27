@@ -307,6 +307,35 @@ export async function downloadMatrixSpecification(matrixId: string, format: 'xls
 }
 
 /**
+ * Tạo ma trận mới trong bank ma trận cá nhân (màn tạo ma trận): xong
+ * thì invalidate danh sách ma trận của bank đó — trang đích sau khi
+ * điều hướng về (/matrices) phải thấy ngay ma trận vừa tạo, không hiện
+ * danh sách cũ trong cache.
+ */
+export function useCreateMatrix() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      name: string;
+      subjectId: string;
+      curriculumId: string;
+      bankId: string;
+      levelSet: 'three' | 'four';
+      totalScore: number;
+      isTemplate: boolean;
+      status: string;
+    }) =>
+      apiJson<MatrixLite>('/api/v1/exam-matrices', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (_data, body) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bankMatrices(body.bankId) });
+    },
+  });
+}
+
+/**
  * Lưu thông tin chung của ma trận: xong thì invalidate chi tiết để trang nạp bản mới (thay loadMatrix thủ công).
  * `levelSet` là trường tuỳ chọn do checkbox Vận dụng cao ở màn sửa điều khiển (I-3, issue #233): tick = 'four',
  * không tick = 'three'. Server tự chặn hạ xuống 'three' khi còn ô Vận dụng cao (400 `quiz.matrix_level_in_use`) nên
