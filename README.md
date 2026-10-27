@@ -26,32 +26,34 @@ backend code or DB schema.
 - PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function
 - Redis at `localhost:6379`
 
-## Develop in a Dev Container
+## Phát triển trong Dev Container
 
-No host setup beyond Docker and VS Code is needed: the repo ships a Dev
-Container definition in `.devcontainer/` that reproduces the
-prerequisites above — an `app` service (Node 24; pnpm 12.14 provided by
-corepack, the version pinned in the root `packageManager` field) plus
-`db` (PostgreSQL 18.6) and `redis` (Redis 7) services, mirroring the
-images CI uses. All three services share one network namespace, so the
-repo's localhost defaults (`localhost:5432`, `localhost:6379`) work
-unchanged inside the container — the same layout as the local-machine
-setup below. On first start the database service creates the `lms`,
-`lms_test`, `lms_test_api` and `lms_test_worker` databases (user and
-password `postgres`/`postgres`). On container creation, dependencies are
-installed (`pnpm install --frozen-lockfile`) and `apps/api/.env` /
-`apps/worker/.env` are copied from their `.env.example` files.
+Không cần cài gì trên máy ngoài Docker và VS Code: repo có sẵn định
+nghĩa Dev Container ở `.devcontainer/` tái tạo đúng các điều kiện
+tiên quyết ở trên — một service `app` (Node 24; pnpm 12.14 cấp qua
+corepack, đúng phiên bản ghim ở trường `packageManager` của
+`package.json` gốc) cùng hai service `db` (PostgreSQL 18.6) và `redis`
+(Redis 7), dùng đúng các image mà CI đang dùng. Ba service dùng chung
+một network namespace nên mọi mặc định localhost của repo
+(`localhost:5432`, `localhost:6379`) chạy nguyên trạng trong
+container — cùng cách bố trí như môi trường local ở mục dưới. Ở lần
+khởi động đầu tiên, service cơ sở dữ liệu tạo sẵn các DB `lms`,
+`lms_test`, `lms_test_api` và `lms_test_worker` (người dùng và mật
+khẩu đều là `postgres`). Khi tạo container, dependencies được cài sẵn
+(`pnpm install --frozen-lockfile`) và `apps/api/.env` /
+`apps/worker/.env` được chép từ các file `.env.example` tương ứng.
 
-Open the folder in VS Code and run "Dev Containers: Reopen in
-Container", then follow the same steps as the local review environment
-below (migrate, seed, `pnpm dev`) in the container terminal. Ports 3000
-(API) and 5173 (web) are forwarded to the host.
+Mở thư mục repo trong VS Code và chạy "Dev Containers: Reopen in
+Container", rồi thực hiện đúng các bước như môi trường review local ở
+mục dưới (migrate, seed, `pnpm dev`) trong terminal của container.
+Cổng 3000 (API) và 5173 (web) được chuyển tiếp ra máy host.
 
-This container is a **development environment only** — there is no
-Docker deployment path. The root `Dockerfile` (a multi-target Heroku
-Container Registry image) was **removed on 2026-10-27** by product
-decision; deployment runs on the Heroku buildpack path described under
-[Review](#review), and its future is decided separately.
+Container này CHỈ phục vụ phát triển — không còn đường triển khai
+bằng Docker. `Dockerfile` ở gốc repo (image triển khai đa target cho
+Heroku Container Registry) đã bị XOÁ ngày 27/10/2026 theo quyết định
+về đường Docker của repo; triển khai chạy theo đường buildpack Heroku
+như mô tả ở mục [Review](#review), và hướng triển khai tương lai sẽ
+được quyết định riêng.
 
 ## Run
 
@@ -184,10 +186,10 @@ blocker forces a pin (recorded below). Current pins/blocks:
 
 ## Known simplifications
 
-- The DB schema is shared, not duplicated: the canonical schema lives in
-  `packages/db-schema` (split per bounded context, see Conventions) and is
-  imported by both the API and the worker — the worker no longer keeps a
-  subset schema copy of its own.
+- Schema cơ sở dữ liệu là DÙNG CHUNG, không nhân đôi: schema canonical
+  nằm ở `packages/db-schema` (chia theo bounded context, xem mục
+  Conventions) và được cả API lẫn worker import — worker không còn giữ
+  bản sao schema rút gọn của riêng mình.
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
 
@@ -207,15 +209,15 @@ blocker forces a pin (recorded below). Current pins/blocks:
   error codes in English; **comments in Vietnamese in TSDoc style**
   (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
   public API and for non-obvious business logic.
-- **Database schema is split by bounded context**: the schema
-  lives in the shared package `packages/db-schema` — each module owns its
-  Drizzle tables in `packages/db-schema/src/modules/<module>/schema.ts`,
-  platform-infrastructure tables live in
-  `packages/db-schema/src/infrastructure.schema.ts`, and the package index
-  is the single barrel both the API and the worker import (the API's
-  `apps/api/src/db/schema.ts` only re-exports it for `drizzle.config.ts`
-  and the Drizzle module). Table/column names never change when a schema
-  file moves.
+- **Schema cơ sở dữ liệu chia theo bounded context**: schema nằm ở
+  package dùng chung `packages/db-schema` — mỗi module sở hữu các bảng
+  Drizzle của mình tại `packages/db-schema/src/modules/<module>/schema.ts`,
+  các bảng hạ tầng của platform nằm ở
+  `packages/db-schema/src/infrastructure.schema.ts`, và index của package
+  là barrel duy nhất mà cả API lẫn worker import (file
+  `apps/api/src/db/schema.ts` của API chỉ re-export barrel đó cho
+  `drizzle.config.ts` và Drizzle module). Tên bảng/cột không bao giờ đổi
+  khi một file schema di chuyển.
 - **Naming & repo hygiene**: everything is named after the
   business / bounded context — **no phase labels** in code, comments, test
   names or commit subjects; **never commit compiled output** (`dist/`,
