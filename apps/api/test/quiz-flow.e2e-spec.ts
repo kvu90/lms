@@ -23,6 +23,10 @@ import { getGradebook } from './assessment-helpers';
  *    giáo viên cho điểm qua bước chấm của engine.
  */
 describe('Quiz activity (mod_quiz)', () => {
+  // Response TF-A đúng/sai toàn phần (4 ý) dùng khắp spec.
+  const TF_ALL_TRUE = JSON.stringify({ s1: true, s2: true, s3: true, s4: true });
+  const TF_ALL_FALSE = JSON.stringify({ s1: false, s2: false, s3: false, s4: false });
+
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -80,25 +84,42 @@ describe('Quiz activity (mod_quiz)', () => {
       if (res.status !== 201 && res.status !== 200) throw new Error(`create question failed: ${res.status} ${JSON.stringify(res.body)}`);
       return res.body.question.id as string;
     }
+
+  // Câu TF-A dùng chung của spec: thân + 4 mệnh đề đều ĐÚNG; response
+  // đúng toàn phần là JSON map cả 4 ý true, sai toàn phần là cả 4 ý false.
+  const tfText = (stem: string) => ({
+    type: 'doc',
+    content: [
+      { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+      {
+        type: 'statementList',
+        content: [1, 2, 3, 4].map((i) => ({
+          type: 'statement',
+          attrs: { id: `s${i}` },
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+        })),
+      },
+    ],
+  });
+  const tfSolution = { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) };
     const qMc = await makeQuestion(bankCatId, {
-      qtype: 'multichoice', name: 'Capital', questionText: 'Capital of France?', defaultMark: 2,
-      answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
-      options: { single: true },
+      qtype: 'multichoice', questionText: 'Capital of France?', defaultMark: 2,
+      answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     const qTf = await makeQuestion(bankCatId, {
-      qtype: 'truefalse', name: 'Water', questionText: 'Water is wet.', defaultMark: 1, answer: { correct: true },
+      qtype: 'truefalse', questionText: tfText('Water is wet.'), defaultMark: 1, solution: tfSolution,
     });
     const qSa = await makeQuestion(bankCatId, {
-      qtype: 'shortanswer', name: 'Capital VN', questionText: 'Capital of Vietnam?', defaultMark: 1,
-      answers: [{ text: 'Hanoi', fraction: 1 }],
+      qtype: 'shortanswer', questionText: 'Capital of Vietnam?', defaultMark: 1,
+      answers: [{ text: 'Hanoi', correct: true }],
     });
     const qEssay = await makeQuestion(bankCatId, {
-      qtype: 'essay', name: 'Essay', questionText: 'Describe your town.', defaultMark: 3,
+      qtype: 'essay', questionText: 'Describe your town.', defaultMark: 3,
     });
     let qRandom = '';
     for (const name of ['R1', 'R2']) {
       const id = await makeQuestion(randomCatId, {
-        qtype: 'truefalse', name, questionText: `${name}: the sun rises in the east.`, defaultMark: 1, answer: { correct: true },
+        qtype: 'truefalse', questionText: tfText(`${name}: the sun rises in the east.`), defaultMark: 1, solution: tfSolution,
       });
       if (name === 'R1') qRandom = id;
     }
@@ -236,8 +257,8 @@ describe('Quiz activity (mod_quiz)', () => {
     const mcQ = view.questions[0]!;
     const paris = mcQ.answers.find((a) => JSON.stringify(a.text).includes('Paris'))!;
     view = await answerSlot(ctx.studentToken, attemptId, view, 1, paris.id);
-    view = await answerSlot(ctx.studentToken, attemptId, view, 2, 'true');
-    view = await answerSlot(ctx.studentToken, attemptId, view, 3, 'true');
+    view = await answerSlot(ctx.studentToken, attemptId, view, 2, TF_ALL_TRUE);
+    view = await answerSlot(ctx.studentToken, attemptId, view, 3, TF_ALL_TRUE);
     view = await answerSlot(ctx.studentToken, attemptId, view, 4, 'My town is small and quiet.');
 
     const submit = await http(app).post(`/api/v1/quiz-attempts/${attemptId}/submit`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
@@ -317,8 +338,8 @@ describe('Quiz activity (mod_quiz)', () => {
     }
 
     // A: sai câu 1 + câu 2, đúng câu 3. B: sai câu 1 + câu 3, đúng câu 2.
-    await play(ctx.studentToken, { 1: 'MC_WRONG', 2: 'false', 3: 'Hanoi' });
-    await play(studentBToken, { 1: 'MC_WRONG', 2: 'true', 3: 'Hue' });
+    await play(ctx.studentToken, { 1: 'MC_WRONG', 2: TF_ALL_FALSE, 3: 'Hanoi' });
+    await play(studentBToken, { 1: 'MC_WRONG', 2: TF_ALL_TRUE, 3: 'Hue' });
     // Lượt preview của giáo viên (đúng hết) không được tính vào thống kê.
     const previewStart = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.teacher}`).send({ preview: true });
     expect(previewStart.status).toBe(201);
@@ -343,7 +364,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(stats).toHaveLength(3);
     // Câu 1 sai nhiều nhất (2/2) phải đứng đầu.
     expect(stats[0]).toMatchObject({
-      slot: 1, questionId: ctx.qMc, questionName: 'Capital', maxMark: 5,
+      slot: 1, questionId: ctx.qMc, questionName: 'Capital of France?', // Không còn tên câu hỏi: nhãn thống kê là trích đoạn nội dung maxMark: 5,
       attemptsCount: 2, gradedCount: 2, pendingCount: 0, wrongCount: 2, fullyWrongCount: 2,
     });
     expect(stats[0]!.wrongStudents.map((w) => w.userId).sort()).toEqual([ctx.student.id, studentB.id].sort());
@@ -354,9 +375,11 @@ describe('Quiz activity (mod_quiz)', () => {
       expect(w.attemptNumber).toBe(1);
     }
     // Câu 2 và câu 3 cùng sai 1 — hoà thì theo số slot tăng dần.
-    expect(stats[1]).toMatchObject({ slot: 2, questionId: ctx.qTf, questionName: 'Water', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
+    // Không còn tên câu hỏi (quyết 11:28): nhãn thống kê là trích đoạn
+    // nội dung — câu TF-A gồm stem + cả 4 mệnh đề; câu SA là thân câu.
+    expect(stats[1]).toMatchObject({ slot: 2, questionId: ctx.qTf, questionName: 'Water is wet.\nWater is wet. — ý 1\nWater is wet. — ý 2\nWater is wet. — ý 3\nWater is wet. — ý 4', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
     expect(stats[1]!.wrongStudents.map((w) => w.userId)).toEqual([ctx.student.id]);
-    expect(stats[2]).toMatchObject({ slot: 3, questionId: ctx.qSa, questionName: 'Capital VN', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
+    expect(stats[2]).toMatchObject({ slot: 3, questionId: ctx.qSa, questionName: 'Capital of Vietnam?', wrongCount: 1, fullyWrongCount: 1, gradedCount: 2 });
     expect(stats[2]!.wrongStudents.map((w) => w.userId)).toEqual([studentB.id]);
   });
 
@@ -376,7 +399,7 @@ describe('Quiz activity (mod_quiz)', () => {
       expect(start.status).toBe(201);
       let view = start.body as AttemptViewBody;
       const attemptId = view.attempt.id;
-      view = await answerSlot(ctx.studentToken, attemptId, view, 1, correctTf ? 'true' : 'false');
+      view = await answerSlot(ctx.studentToken, attemptId, view, 1, correctTf ? TF_ALL_TRUE : TF_ALL_FALSE);
       view = await answerSlot(ctx.studentToken, attemptId, view, 2, correctSa ? 'Hanoi' : 'Hue');
       const submit = await http(app).post(`/api/v1/quiz-attempts/${attemptId}/submit`).set('Authorization', `Bearer ${ctx.studentToken}`).send({});
       expect(submit.status).toBe(201);
@@ -443,7 +466,7 @@ describe('Quiz activity (mod_quiz)', () => {
     const attemptId = (start.body as AttemptViewBody).attempt.id;
     await pg.query("update exam_attempts set time_start = now() - interval '1 hour' where id = $1", [attemptId]);
     const view = start.body as AttemptViewBody;
-    const after = await answerSlot(ctx.studentToken, attemptId, view, 1, 'true');
+    const after = await answerSlot(ctx.studentToken, attemptId, view, 1, TF_ALL_TRUE);
     expect(after.closedDueToTimeLimit).toBe(true);
     expect(after.attempt.state).toBe('finished');
   });
@@ -466,7 +489,7 @@ describe('Quiz activity (mod_quiz)', () => {
     let view = start.body as AttemptViewBody;
     expect(view.attempt.preview).toBe(true);
     const attemptId = view.attempt.id;
-    view = await answerSlot(ctx.teacher, attemptId, view, 1, 'true');
+    view = await answerSlot(ctx.teacher, attemptId, view, 1, TF_ALL_TRUE);
     const submit = await http(app).post(`/api/v1/quiz-attempts/${attemptId}/submit`).set('Authorization', `Bearer ${ctx.teacher}`).send({});
     expect(submit.status).toBe(201);
     expect((submit.body as AttemptViewBody).attempt.state).toBe('finished');
@@ -547,7 +570,7 @@ describe('Quiz activity (mod_quiz)', () => {
         .send(preview ? { preview: true } : {});
       expect(start.status).toBe(201);
       let view = start.body as AttemptViewBody;
-      view = await answerSlot(token, view.attempt.id, view, 1, 'true');
+      view = await answerSlot(token, view.attempt.id, view, 1, TF_ALL_TRUE);
       const submit = await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/submit`).set('Authorization', `Bearer ${token}`).send({});
       expect(submit.status).toBe(201);
       return submit.body as AttemptViewBody;
@@ -603,7 +626,7 @@ describe('Quiz activity (mod_quiz)', () => {
     let view = start.body as AttemptViewBody;
     const attemptId = view.attempt.id;
     // Trả lời đúng slot 1 TRƯỚC giờ đóng — phần này được giữ và tính.
-    view = await answerSlot(ctx.studentToken, attemptId, view, 1, 'true');
+    view = await answerSlot(ctx.studentToken, attemptId, view, 1, TF_ALL_TRUE);
 
     // Giáo viên dời giờ đóng về quá khứ trong lúc học sinh đang làm.
     const past = new Date(Date.now() - 60_000).toISOString();
@@ -652,7 +675,7 @@ describe('Quiz activity (mod_quiz)', () => {
     expect(start.status).toBe(201);
     let view = start.body as AttemptViewBody;
     const attemptId = view.attempt.id;
-    view = await answerSlot(ctx.studentToken, attemptId, view, 1, 'true');
+    view = await answerSlot(ctx.studentToken, attemptId, view, 1, TF_ALL_TRUE);
     // Bản cũ: lỗi grades.item_locked từ pushGrade truyền thẳng ra ⇒
     // học sinh nhận 403 dù lượt đã chốt. Bản sửa: nộp vẫn 201, lượt
     // finished, chỉ điểm là không ghi được vào item đang khoá.

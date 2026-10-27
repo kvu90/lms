@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { Extensions } from '@tiptap/core';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { NodeSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
@@ -130,12 +131,26 @@ export interface RichTextEditorProps {
   onRequestImage?: (
     file?: File,
   ) => Promise<RichTextImagePick | null> | RichTextImagePick | null;
+  /**
+   * Bộ extension Tiptap thay cho bộ hợp đồng mặc định
+   * ({@link plainTextExtensions}). Chỉ các editor chuyên biệt dựng trên
+   * vỏ này mới truyền (hiện có editor soạn trắc nghiệm
+   * `MultipleChoiceEditor` với node `choice`/`choiceList` của tài liệu
+   * thống nhất phía soạn). Khi truyền bộ riêng, `value`/`onChange` mang
+   * tài liệu theo hình dạng của bộ đó — KHÔNG còn là tài liệu hợp đồng
+   * `RichTextDocument`; hình dạng đó chỉ sống phía soạn và bề mặt chứa
+   * phải tách về hợp đồng trước khi lưu (xem
+   * `splitMultipleChoiceDocument`).
+   */
+  extensions?: Extensions;
 }
 
 /**
  * Trình soạn thảo rich text dùng chung cho mọi nơi cần nhập nội dung giàu
  * trong LMS, dựng trên Tiptap với bộ extension của hợp đồng
- * ({@link plainTextExtensions}).
+ * ({@link plainTextExtensions}). Editor chuyên biệt có thể thay bộ
+ * extension qua prop `extensions` (xem TSDoc của prop đó) — vỏ này vẫn lo
+ * toolbar/panel công thức/đường ảnh cho chúng.
  *
  * Thanh công cụ dùng nút icon lucide (lát E1): hoàn tác/làm lại (lát
  * E2, trạng thái disabled theo `can()`), năm nút bật/tắt mark (đậm,
@@ -175,6 +190,7 @@ export function RichTextEditor({
   size = 'default',
   toolbarSlotId = 'editor-toolbar-slot',
   onRequestImage,
+  extensions,
 }: RichTextEditorProps) {
   const [mathPanel, setMathPanel] = useState<MathPanelState | null>(null);
   const [active, setActive] = useState(false);
@@ -209,7 +225,7 @@ export function RichTextEditor({
   }
 
   const editor = useEditor({
-    extensions: plainTextExtensions,
+    extensions: extensions ?? plainTextExtensions,
     content: ensureTerminalContinuation(value ?? EMPTY_DOCUMENT),
     editable,
     onFocus: () => {

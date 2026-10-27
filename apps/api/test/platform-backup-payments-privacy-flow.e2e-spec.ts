@@ -18,6 +18,26 @@ import { PrivacyService } from '../src/modules/privacy/privacy.service';
  * - privacy/tests/manager_test.php (request lifecycle + phê duyệt) và provider registry §2#28
  */
 describe('Platform services: backup→restore equivalence, payment webhook idempotency, privacy completeness', () => {
+
+  const tfBody = (stem: string, values: boolean[]) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: values.map((v, i) => ({
+            type: 'statement',
+            attrs: { id: `s${i + 1}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i + 1}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: values.map((v, i) => ({ statementId: `s${i + 1}`, value: v })) },
+  });
+
   let app: INestApplication;
   let admin: string;
 
@@ -229,11 +249,11 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       .send({ name: `Bank child ${suffix}`, contextId: courseCtx, parent: parentCat.body.id });
     expect(childCat.status).toBeLessThan(300);
     const qRes = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: childCat.body.id, qtype: 'truefalse', name: 'BK question', questionText: 'Version one text.', answer: { correct: true } });
+      .send({ categoryId: childCat.body.id, ...tfBody('Version one text.', [true, false, true, false]) });
     expect(qRes.status).toBeLessThan(300);
     const qid = qRes.body.question.id as string;
     const edit = await http(app).patch(`/api/v1/questions/${qid}`).set('Authorization', `Bearer ${admin}`)
-      .send({ questionText: 'Version two text.', answer: { correct: false } });
+      .send({ questionText: tfBody('Version two text.', [false, true, false, true]).questionText, solution: tfBody('Version two text.', [false, true, false, true]).solution });
     expect(edit.body.entry.latestVersion).toBe(2);
     // --- Competency dùng chung mức site (lá competency trỏ vào đây; KHÔNG nằm trong archive).
     const fw = await http(app).post('/api/v1/competencies/frameworks').set('Authorization', `Bearer ${admin}`)
@@ -333,16 +353,32 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
     const restoredVersions = await http(app).get(`/api/v1/questions/${newQ!.newId}/versions`).set('Authorization', `Bearer ${admin}`);
     expect(restoredVersions.body).toHaveLength(2);
     // questionText nay là tài liệu Tiptap: trích text thuần để so với bản gốc.
-    const docText = (doc: { content?: { content?: { text?: string }[] }[] }) =>
-      (doc.content ?? []).map((p) => (p.content ?? []).map((n) => n.text ?? '').join('')).join('\n');
-    expect(docText(restoredVersions.body[1].questionText)).toBe('Version two text.');
-    // Nội dung chấm của version khôi phục (đáp án + trỏ true/false) đi theo
-    // archive: trueAnswer trỏ vào dòng đáp án 'True', phía đúng nằm ở fraction
-    // (version 2 của câu này có đáp án đúng là False nên True mang fraction 0).
-    expect(restoredQuestions.body[0].answers.map((a: { fraction: number }) => a.fraction)).toEqual([0, 1]);
-    expect(restoredQuestions.body[0].options.trueAnswer).toBe(
-      restoredQuestions.body[0].answers.find((a: { id: string; answer: never }) => docText(a.answer) === 'True')?.id,
+    // Trích ĐỆ QUY qua mọi khối lồng nhau: statementList chứa các
+    // statement, mỗi statement chứa paragraph — helper cũ chỉ map một
+    // cấp nên mệnh đề TF-A đóng góp dòng rỗng ('Version two text.\n').
+    const blockTexts = (block: { type?: string; text?: string; content?: { type?: string; text?: string; content?: never[] }[] }): string[] => {
+      if (block.type === 'text') return [block.text ?? ''];
+      if (block.type === 'statementList') return (block.content ?? []).flatMap((s) => blockTexts(s as never));
+      if (Array.isArray(block.content)) return [block.content.flatMap((n) => blockTexts(n as never)).join('')];
+      return [];
+    };
+    const docText = (doc: { content?: { type?: string; text?: string; content?: never[] }[] }) =>
+      (doc.content ?? []).flatMap((b) => blockTexts(b as never)).join('\n');
+    expect(docText(restoredVersions.body[1].questionText)).toBe(
+      ['Version two text.', 'Version two text. — ý 1', 'Version two text. — ý 2', 'Version two text. — ý 3', 'Version two text. — ý 4'].join('\n'),
     );
+    // Nội dung chấm của version khôi phục đi theo archive ở dạng TF-A:
+    // KHÔNG có dòng question_answers (đáp án nằm ở thân câu + solution
+    // phía answerKey) và không có options trueAnswer kiểu TF-B cũ —
+    // version 2 của câu này có solution [Sai, Đúng, Sai, Đúng].
+    expect(restoredQuestions.body[0].answers).toHaveLength(0);
+    expect(restoredQuestions.body[0].options).toBeNull();
+    expect((restoredQuestions.body[0].answerKey.solution as { answers: { statementId: string; value: boolean }[] }).answers).toEqual([
+      { statementId: 's1', value: false },
+      { statementId: 's2', value: true },
+      { statementId: 's3', value: false },
+      { statementId: 's4', value: true },
+    ]);
     // Badges: badge mới thuộc khoá mới; criteria của B trỏ đúng khoá/cm/badge mới, competency giữ nguyên (thực thể site dùng chung).
     const newBadgeAId = mapOf('badge', badgeA.body.id)?.newId;
     const newBadgeBId = mapOf('badge', badgeB.body.id)?.newId;
@@ -379,7 +415,7 @@ describe('Platform services: backup→restore equivalence, payment webhook idemp
       .send({ name: `Site bank ${suffix}`, contextId: systemCtx.id });
     expect(siteCat.status).toBeLessThan(300);
     const siteQ = await http(app).post('/api/v1/questions').set('Authorization', `Bearer ${admin}`)
-      .send({ categoryId: siteCat.body.id, qtype: 'shortanswer', name: 'Site question', questionText: 'Capital of France?', answer: { answers: ['Paris'] } });
+      .send({ categoryId: siteCat.body.id, qtype: 'shortanswer', questionText: 'Capital of France?', answers: [{ text: 'Paris', correct: true }] });
     expect(siteQ.status).toBeLessThan(300);
     const siteBadge = await http(app).post('/api/v1/badges').set('Authorization', `Bearer ${admin}`)
       .send({ name: `Site Badge ${suffix}`, type: 1, issuerName: 'LMS HQ' });

@@ -11,7 +11,7 @@ import {
   course, courseCompletions, courseCompletionCriteria, courseCompletionCritCompl, courseCompletionSettings,
   courseGroups, courseModules, courseModulesCompletion, courseSections, enrol, files as filesTable,
   gradeGrades, gradeItems, groupings, groupingsGroups, groupsMembers,
-  question, questionAnswers, questionBankEntries, questionCategories, questionTruefalse, questionVersions,
+  question, questionAnswerKeys, questionAnswers, questionBankEntries, questionCategories, questionTruefalse, questionVersions,
   qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, stimuli,
   userEnrolments, users,
 } from '../../db/schema';
@@ -375,7 +375,7 @@ export class BackupService {
         const ctxId = courseId
           ? (await this.contexts.getByLevelInstance(50, courseId))?.id
           : (await this.contexts.ensureSystemContext()).id;
-        if (!ctxId) return { categories: [], questions: [], entries: [], versions: [], stimuli: [], answers: [], multichoiceOptions: [], truefalseOptions: [], shortanswerOptions: [], essayOptions: [] };
+        if (!ctxId) return { categories: [], questions: [], entries: [], versions: [], stimuli: [], answers: [], answerKeys: [], multichoiceOptions: [], truefalseOptions: [], shortanswerOptions: [], essayOptions: [] };
         const categories = await db.select().from(questionCategories).where(eq(questionCategories.contextId, ctxId));
         const catIds = categories.map((c) => c.id);
         const questions = catIds.length ? await db.select().from(question).where(inArray(question.category, catIds)) : [];
@@ -388,17 +388,21 @@ export class BackupService {
         // mất toàn bộ dữ liệu chấm.
         const stimuliRows = catIds.length ? await db.select().from(stimuli).where(inArray(stimuli.categoryId, catIds)) : [];
         const answers = versionIds.length ? await db.select().from(questionAnswers).where(inArray(questionAnswers.questionVersionId, versionIds)) : [];
+        // Bản ghi phía đáp án (guidance + solution) của từng version —
+        // thiếu nó thì bản restore mất hướng dẫn và lời giải mẫu.
+        const answerKeys = versionIds.length ? await db.select().from(questionAnswerKeys).where(inArray(questionAnswerKeys.questionVersionId, versionIds)) : [];
         const multichoiceOptions = versionIds.length ? await db.select().from(qtypeMultichoiceOptions).where(inArray(qtypeMultichoiceOptions.questionVersionId, versionIds)) : [];
         const truefalseOptions = versionIds.length ? await db.select().from(questionTruefalse).where(inArray(questionTruefalse.questionVersionId, versionIds)) : [];
         const shortanswerOptions = versionIds.length ? await db.select().from(qtypeShortanswerOptions).where(inArray(qtypeShortanswerOptions.questionVersionId, versionIds)) : [];
         const essayOptions = versionIds.length ? await db.select().from(qtypeEssayOptions).where(inArray(qtypeEssayOptions.questionVersionId, versionIds)) : [];
-        return { categories, questions, entries, versions, stimuli: stimuliRows, answers, multichoiceOptions, truefalseOptions, shortanswerOptions, essayOptions };
+        return { categories, questions, entries, versions, stimuli: stimuliRows, answers, answerKeys, multichoiceOptions, truefalseOptions, shortanswerOptions, essayOptions };
       },
       import: async (targetCourseId, data, mapping) => {
         const d = data as {
           categories: (typeof questionCategories.$inferSelect)[]; questions: (typeof question.$inferSelect)[];
           entries: (typeof questionBankEntries.$inferSelect)[]; versions: (typeof questionVersions.$inferSelect)[];
           stimuli?: (typeof stimuli.$inferSelect)[]; answers?: (typeof questionAnswers.$inferSelect)[];
+          answerKeys?: (typeof questionAnswerKeys.$inferSelect)[];
           multichoiceOptions?: (typeof qtypeMultichoiceOptions.$inferSelect)[]; truefalseOptions?: (typeof questionTruefalse.$inferSelect)[];
           shortanswerOptions?: (typeof qtypeShortanswerOptions.$inferSelect)[]; essayOptions?: (typeof qtypeEssayOptions.$inferSelect)[];
         };
@@ -435,7 +439,7 @@ export class BackupService {
           const newCategory = mapping.get('question_category', q.category);
           if (!newCategory) continue;
           const [row] = await db.insert(question).values({
-            category: newCategory, qtype: q.qtype, name: q.name, createdBy: q.createdBy, modifiedBy: q.modifiedBy,
+            category: newCategory, qtype: q.qtype, createdBy: q.createdBy, modifiedBy: q.modifiedBy,
           }).returning();
           await mapping.map('question', q.id, row!.id);
         }
@@ -463,7 +467,7 @@ export class BackupService {
           if (!newEntry || !newQuestion) continue;
           const [row] = await db.insert(questionVersions).values({
             questionBankEntryId: newEntry, questionId: newQuestion, version: v.version, status: v.status,
-            questionText: v.questionText, generalFeedback: v.generalFeedback, guidance: v.guidance,
+            questionText: v.questionText, generalFeedback: v.generalFeedback,
             defaultMark: v.defaultMark, penalty: v.penalty,
             stimulusId: v.stimulusId ? (mapping.get('stimulus', v.stimulusId) ?? null) : null,
           }).onConflictDoNothing().returning();
@@ -473,19 +477,26 @@ export class BackupService {
           const newVersion = mapping.get('question_version', a.questionVersionId);
           if (!newVersion) continue;
           const [row] = await db.insert(questionAnswers).values({
-            questionVersionId: newVersion, answer: a.answer, fraction: a.fraction,
+            questionVersionId: newVersion, answer: a.answer, isCorrect: a.isCorrect,
             feedback: a.feedback, sortOrder: a.sortOrder,
           }).returning();
           await mapping.map('question_answer', a.id, row!.id);
+        }
+        for (const k of d.answerKeys ?? []) {
+          const newVersion = mapping.get('question_version', k.questionVersionId);
+          if (!newVersion) continue;
+          await db.insert(questionAnswerKeys).values({
+            questionVersionId: newVersion, guidance: k.guidance, solution: k.solution,
+          }).onConflictDoNothing();
         }
         for (const o of d.multichoiceOptions ?? []) {
           const newVersion = mapping.get('question_version', o.questionVersionId);
           if (!newVersion) continue;
           await db.insert(qtypeMultichoiceOptions).values({
-            questionVersionId: newVersion, single: o.single, shuffleAnswers: o.shuffleAnswers,
+            questionVersionId: newVersion, shuffleAnswers: o.shuffleAnswers,
             answerNumbering: o.answerNumbering, correctFeedback: o.correctFeedback,
-            partiallyCorrectFeedback: o.partiallyCorrectFeedback, incorrectFeedback: o.incorrectFeedback,
-            showNumCorrect: o.showNumCorrect, showStandardInstruction: o.showStandardInstruction,
+            incorrectFeedback: o.incorrectFeedback,
+            showStandardInstruction: o.showStandardInstruction,
           }).onConflictDoNothing();
         }
         for (const o of d.truefalseOptions ?? []) {

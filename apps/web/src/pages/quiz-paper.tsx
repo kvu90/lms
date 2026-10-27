@@ -136,6 +136,12 @@ export default function QuizPaperPage() {
   const [identityChoice, setIdentityChoice] = useState<Record<string, string>>({});
   const [batchChoice, setBatchChoice] = useState<Record<string, string>>({});
   const [resolutions, setResolutions] = useState<Record<string, Record<number, number | null>>>({});
+  // Quyết mơ hồ của slot TF-A: theo TỪNG Ý của slot (mảng 4 phần tử
+  // 0 = Đúng, 1 = Sai, null = để trống), tách khỏi quyết chọn-một của
+  // các loại câu còn lại.
+  const [pairResolutions, setPairResolutions] = useState<
+    Record<string, Record<number, (0 | 1 | null)[]>>
+  >({});
   const [recordedGrades, setRecordedGrades] = useState<Record<string, number>>({});
 
   const reload = useCallback(async () => {
@@ -265,15 +271,33 @@ export default function QuizPaperPage() {
     return Boolean(batch?.examCode && batch.examCode !== scan.variantCodeRead);
   }
 
+  /** Slot thuộc câu truefalse TF-A hay không (theo layout của lô in của phiếu). */
+  function isTrueFalseSlot(scan: PaperScan, slot: number): boolean {
+    const batch = scan.batchId ? batchById.get(scan.batchId) : undefined;
+    return batch?.layout.find((l) => l.slot === slot)?.qtype === 'truefalse';
+  }
+
   async function resolveReadings(scan: PaperScan) {
     const picks = resolutions[scan.id] ?? {};
+    const pairPicks = pairResolutions[scan.id] ?? {};
     const ambiguous = scan.readings.filter((r) => r.state === 'ambiguous');
-    if (ambiguous.some((r) => !(r.slot in picks))) return;
+    const incomplete = ambiguous.some((r) =>
+      isTrueFalseSlot(scan, r.slot)
+        ? (pairPicks[r.slot] ?? []).length !== 4 || (pairPicks[r.slot] ?? []).some((v) => v === undefined)
+        : !(r.slot in picks),
+    );
+    if (incomplete) return;
     await runAction(async () => {
       await apiJson(`/api/v1/exam-scans/${scan.id}/resolve-readings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ readings: ambiguous.map((r) => ({ slot: r.slot, chosen: picks[r.slot] ?? null })) }),
+        body: JSON.stringify({
+          readings: ambiguous.map((r) =>
+            isTrueFalseSlot(scan, r.slot)
+              ? { slot: r.slot, pairChoices: pairPicks[r.slot] }
+              : { slot: r.slot, chosen: picks[r.slot] ?? null },
+          ),
+        }),
       });
       await reload();
     });
@@ -553,7 +577,13 @@ export default function QuizPaperPage() {
                   const batch = scan.batchId ? batchById.get(scan.batchId) : undefined;
                   const ambiguous = scan.readings.filter((r) => r.state === 'ambiguous');
                   const picks = resolutions[scan.id] ?? {};
-                  const complete = ambiguous.every((r) => r.slot in picks);
+                  const pairPicks = pairResolutions[scan.id] ?? {};
+                  const complete = ambiguous.every((r) =>
+                    isTrueFalseSlot(scan, r.slot)
+                      ? (pairPicks[r.slot] ?? []).length === 4 &&
+                        (pairPicks[r.slot] ?? []).every((v) => v !== undefined)
+                      : r.slot in picks,
+                  );
                   return (
                     <div key={scan.id} className="flex flex-col gap-4 border-b pb-4">
                       <p className="text-sm font-medium">
@@ -562,6 +592,58 @@ export default function QuizPaperPage() {
                       {ambiguous.map((reading) => {
                         const row = scan.rows.find((r) => r.slot === reading.slot);
                         const optionCount = row?.centers.length ?? reading.densities.length;
+                        if (isTrueFalseSlot(scan, reading.slot)) {
+                          // TF-A: quyết TỪNG Ý của slot (mỗi ý một cặp
+                          // Đ/S) — máy đã đọc được ý nào thì giữ nguyên
+                          // làm giá trị khởi đầu, ý mơ hồ chờ GV chốt.
+                          const current: (0 | 1 | null | undefined)[] =
+                            pairPicks[reading.slot] ??
+                            (reading.pairChoices ?? [null, null, null, null]).map(
+                              (v) => v as 0 | 1 | null,
+                            );
+                          const setPair = (statementIndex: number, value: 0 | 1 | null) =>
+                            setPairResolutions((prev) => {
+                              const base = [...(prev[scan.id]?.[reading.slot] ?? current)];
+                              while (base.length < 4) base.push(null);
+                              base[statementIndex] = value;
+                              return {
+                                ...prev,
+                                [scan.id]: { ...(prev[scan.id] ?? {}), [reading.slot]: base },
+                              };
+                            });
+                          return (
+                            <div key={reading.slot} className="flex flex-col gap-2">
+                              <p className="text-sm">{t('paperQuestionLine', { slot: reading.slot })}</p>
+                              {row ? <RowCrop scanId={scan.id} centers={row.centers} /> : null}
+                              {[0, 1, 2, 3].map((statementIndex) => (
+                                <div key={statementIndex} className="flex flex-wrap items-center gap-2">
+                                  <span className="text-sm font-medium">
+                                    {t('paperTfStatementLine', { index: statementIndex + 1 })}
+                                  </span>
+                                  {([0, 1] as const).map((choice) => (
+                                    <Button
+                                      key={choice}
+                                      type="button"
+                                      size="sm"
+                                      variant={current[statementIndex] === choice ? 'default' : 'outline'}
+                                      onClick={() => setPair(statementIndex, choice)}
+                                    >
+                                      {choice === 0 ? 'Đ' : 'S'}
+                                    </Button>
+                                  ))}
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={current[statementIndex] === null ? 'default' : 'outline'}
+                                    onClick={() => setPair(statementIndex, null)}
+                                  >
+                                    {t('paperBlankChoice')}
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        }
                         return (
                           <div key={reading.slot} className="flex flex-col gap-2">
                             <p className="text-sm">{t('paperQuestionLine', { slot: reading.slot })}</p>

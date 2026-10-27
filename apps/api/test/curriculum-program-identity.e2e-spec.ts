@@ -150,7 +150,9 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
   afterAll(async () => {
     try {
       await pg.query(`delete from books where title like 'Sach kiem chung GDPT-SEED%'`);
-      await pg.query(`delete from question where name like 'Câu kiểm chứng %'`);
+      // Câu hỏi không còn cột name sau đợt port (quyết 12:04/12:12):
+      // dọn theo category kiểm chứng của spec, trước khi xoá category.
+      await pg.query(`delete from question where category in (select id from question_categories where name like 'cat-gdpt-seed%')`);
       await pg.query(`delete from exam_matrices where name like 'Ma trận kiểm chứng %'`);
       await pg.query(`delete from question_categories where name like 'cat-gdpt-seed%'`);
       await wipeSubject();
@@ -272,7 +274,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     const category = await sql<{ id: string }>(
       `insert into question_categories (name, context_id) values ($1, $2) returning id`, [uniqueName('cat-gdpt-seed'), systemCtxId]);
     const question = await sql<{ id: string }>(
-      `insert into question (category, qtype, name) values ($1, 'multichoice', 'Câu kiểm chứng sửa chữ') returning id`, [category[0]!.id]);
+      `insert into question (category, qtype) values ($1, 'multichoice') returning id`, [category[0]!.id]);
     await pg.query(
       `insert into question_bank_entries (question_category_id, question_id, status) values ($1, $2, 'ready')`, [category[0]!.id, question[0]!.id]);
     await pg.query(
@@ -379,7 +381,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     const category = await sql<{ id: string }>(
       `insert into question_categories (name, context_id) values ($1, $2) returning id`, [uniqueName('cat-gdpt-seed'), systemCtxId]);
     const question = await sql<{ id: string }>(
-      `insert into question (category, qtype, name) values ($1, 'multichoice', 'Câu kiểm chứng rút dòng') returning id`, [category[0]!.id]);
+      `insert into question (category, qtype) values ($1, 'multichoice') returning id`, [category[0]!.id]);
     questionE = question[0]!.id;
     await pg.query(
       `insert into question_bank_entries (question_category_id, question_id, status) values ($1, $2, 'ready')`, [category[0]!.id, questionE]);

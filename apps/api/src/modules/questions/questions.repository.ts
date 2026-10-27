@@ -5,7 +5,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { Database } from '../../db/database';
 import {
   curricula, curriculumNodes, learningOutcomes,
-  question, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
+  question, questionAnswerKeys, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
   questionBankEntries, questionBanks, questionCategories, questionLearningOutcomes, questionSubjects, questionTruefalse,
   questionUsages, questionVersions,
   qtypeEssayOptions, qtypeMultichoiceOptions, qtypeShortanswerOptions, examAttempts, stimuli, subjects,
@@ -17,6 +17,7 @@ export type EntryRow = typeof questionBankEntries.$inferSelect;
 export type VersionRow = typeof questionVersions.$inferSelect;
 export type StimulusRow = typeof stimuli.$inferSelect;
 export type AnswerRow = typeof questionAnswers.$inferSelect;
+export type AnswerKeyRow = typeof questionAnswerKeys.$inferSelect;
 export type MultichoiceOptionsRow = typeof qtypeMultichoiceOptions.$inferSelect;
 export type TruefalseOptionsRow = typeof questionTruefalse.$inferSelect;
 export type ShortanswerOptionsRow = typeof qtypeShortanswerOptions.$inferSelect;
@@ -205,12 +206,37 @@ export class QuestionsRepository {
     const [row] = await (tx ?? this.db).insert(questionAnswers).values(v).returning(); return row!;
   }
   /**
-   * Mọi đáp án của một version theo sortOrder (thứ tự chấm của shortanswer).
+   * Mọi đáp án của một version theo sortOrder (thứ tự hiển thị và thứ tự
+   * suy đáp án đúng hiển thị của shortanswer).
    */
   async listAnswers(versionId: string): Promise<AnswerRow[]> {
     return this.db.select().from(questionAnswers)
       .where(eq(questionAnswers.questionVersionId, versionId))
       .orderBy(asc(questionAnswers.sortOrder), asc(questionAnswers.id));
+  }
+
+  /**
+   * Chèn bản ghi phía đáp án của một version (`question_answer_keys`:
+   * guidance + solution, quan hệ 1-1 với version — quyết 12:12 ngày
+   * 26/10/2026). Chỉ gọi khi version có ít nhất một trong hai nội dung;
+   * version không có dòng nào thì phía đọc hiểu là cả hai đều null.
+   *
+   * @param v - guidance/solution dạng tài liệu Tiptap/JSON đã chuẩn hoá.
+   * @param tx - giao dịch đang mở của đường ghi version (bắt buộc đi
+   *   cùng giao dịch với version + answers để không có version nào
+   *   thiếu phía đáp án của nó).
+   * @returns Dòng vừa chèn.
+   */
+  async insertAnswerKey(v: typeof questionAnswerKeys.$inferInsert, tx?: DbTx): Promise<AnswerKeyRow> {
+    const [row] = await (tx ?? this.db).insert(questionAnswerKeys).values(v).returning(); return row!;
+  }
+
+  /**
+   * Bản ghi phía đáp án của một version; `undefined` khi version không
+   * mang guidance lẫn solution (phía đọc quy về cả hai null).
+   */
+  async getAnswerKey(versionId: string): Promise<AnswerKeyRow | undefined> {
+    const [row] = await this.db.select().from(questionAnswerKeys).where(eq(questionAnswerKeys.questionVersionId, versionId)); return row;
   }
 
   /**

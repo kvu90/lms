@@ -150,9 +150,17 @@ beforeAll(async () => {
     .send({ name: `Danh mục I-2 ${suffix}`, contextId: sys.id }).expect(201);
   for (let i = 0; i < 3; i++) {
     const r = await http(app).post('/api/v1/questions').set(auth(admin)).send({
-      categoryId: category.body.id, qtype: 'multichoice', name: `Câu I-2 ${i + 1}`,
+      categoryId: category.body.id, qtype: 'multichoice',
       questionText: `Câu I-2 ${i + 1}: chọn đáp án đúng.`, defaultMark: 1,
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }], options: { single: true },
+      // Mô hình mới (quyết 12:04/12:12 ngày 26/10/2026): không còn
+      // name/fraction/single — MC đúng 4 lựa chọn, đúng một đáp án
+      // đúng đánh dấu bằng correct.
+      answers: [
+        { text: 'Đúng', correct: true },
+        { text: 'Sai 1', correct: false },
+        { text: 'Sai 2', correct: false },
+        { text: 'Sai 3', correct: false },
+      ],
     });
     if (r.status !== 201 && r.status !== 200) throw new Error(`question failed: ${r.status} ${JSON.stringify(r.body)}`);
     const qid = r.body.question.id as string;

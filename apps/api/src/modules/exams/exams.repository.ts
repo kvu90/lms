@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { extractRichTextPlainText, type RichTextDocument } from '@lms/contracts';
 import type { Database } from '../../db/database';
 import {
   context, course, examDossierReviews, examDossiers, examMatrices, examPins,
@@ -100,11 +101,29 @@ export class ExamsRepository {
       .orderBy(asc(examSlots.position));
   }
 
-  /** Thông tin hiển thị của các câu trong slots: tên + qtype + trạng thái entry trong bank câu hỏi của chúng. */
+  /**
+   * Thông tin hiển thị của các câu trong slots: qtype + NHÃN hiển thị.
+   * Câu hỏi không còn trường tên (quyết 12:04 ngày 26/10/2026) nên nhãn
+   * là TRÍCH ĐOẠN nội dung thân câu của version mới nhất (text thuần,
+   * cắt 120 ký tự) — trường trả về vẫn tên `name` vì đó là nhãn hiển
+   * thị của slot ở mọi bề mặt tiêu thụ, không phải tên của câu hỏi.
+   */
   async listSlotQuestionInfo(questionIds: string[]): Promise<{ questionId: string; name: string; qtype: string }[]> {
     if (questionIds.length === 0) return [];
-    return this.db.select({ questionId: question.id, name: question.name, qtype: question.qtype })
-      .from(question).where(inArray(question.id, questionIds));
+    const rows = await this.db.select({
+      questionId: question.id, qtype: question.qtype, questionText: questionVersions.questionText,
+    })
+      .from(question)
+      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
+      .innerJoin(questionVersions, and(
+        eq(questionVersions.questionBankEntryId, questionBankEntries.id),
+        eq(questionVersions.version, questionBankEntries.latestVersion),
+      ))
+      .where(inArray(question.id, questionIds));
+    return rows.map((r) => {
+      const text = extractRichTextPlainText(r.questionText as RichTextDocument).trim();
+      return { questionId: r.questionId, name: text.length > 120 ? `${text.slice(0, 120)}…` : text, qtype: r.qtype };
+    });
   }
 
   /**

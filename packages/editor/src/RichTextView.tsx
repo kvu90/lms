@@ -1,5 +1,5 @@
 import { renderToReactElement } from '@tiptap/static-renderer/pm/react';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import type { RichTextBlockNode, RichTextDocument } from '@lms/contracts';
 import { plainTextExtensions } from './extensions.js';
 import { renderMathHtml } from './math.js';
@@ -32,6 +32,8 @@ function blockHasContent(block: RichTextBlockNode): boolean {
       return true;
     case 'bulletList':
       return block.content.some((item) => item.content.some(blockHasContent));
+    case 'statementList':
+      return block.content.some((statement) => statement.content.some(blockHasContent));
   }
 }
 
@@ -46,22 +48,14 @@ function isEmptyDocument(value: RichTextDocument): boolean {
 }
 
 /**
- * Hiển thị chỉ-đọc một tài liệu rich text mà không tạo instance trình soạn
- * thảo: dùng static renderer của Tiptap (`renderToReactElement` từ
- * `@tiptap/static-renderer/pm/react`) theo đúng bộ extension của hợp đồng.
+ * Render một tài liệu KHÔNG chứa `statementList` bằng static renderer
+ * của Tiptap theo bộ extension của hợp đồng; hai node công thức được
+ * ánh xạ thủ công sang KaTeX (xem {@link RichTextView}).
  *
- * Riêng hai node công thức được ánh xạ thủ công: static renderer mặc định
- * chỉ cho ra thẻ chứa `data-latex` mà không có hình công thức, nên ở đây
- * render thẳng bằng KaTeX (`trust: false`, một công thức lỗi không làm
- * sập cả trang). Ảnh và danh sách đi qua `renderHTML` của extension.
- *
- * @param props - Thuộc tính: tài liệu cần hiển thị.
- * @returns React element của tài liệu, hoặc `null` khi tài liệu rỗng.
+ * @param value - Tài liệu thuần cần render.
+ * @returns React element của tài liệu.
  */
-export function RichTextView({ value }: RichTextViewProps): ReactNode {
-  if (!value || isEmptyDocument(value)) {
-    return null;
-  }
+function renderPlainDocument(value: RichTextDocument): ReactNode {
   return renderToReactElement({
     extensions: plainTextExtensions,
     content: value,
@@ -90,4 +84,63 @@ export function RichTextView({ value }: RichTextViewProps): ReactNode {
       },
     },
   });
+}
+
+/**
+ * Hiển thị chỉ-đọc một tài liệu rich text mà không tạo instance trình soạn
+ * thảo: dùng static renderer của Tiptap (`renderToReactElement` từ
+ * `@tiptap/static-renderer/pm/react`) theo đúng bộ extension của hợp đồng.
+ *
+ * Riêng hai node công thức được ánh xạ thủ công: static renderer mặc định
+ * chỉ cho ra thẻ chứa `data-latex` mà không có hình công thức, nên ở đây
+ * render thẳng bằng KaTeX (`trust: false`, một công thức lỗi không làm
+ * sập cả trang). Ảnh và danh sách đi qua `renderHTML` của extension.
+ *
+ * Tài liệu thân câu đúng/sai chùm (TF-A) mang node `statementList` —
+ * node này KHÔNG thuộc bộ extension hiển thị thuần, nên tài liệu được
+ * tách tại các `statementList`: các block thường render bằng static
+ * renderer như trên, mỗi danh sách mệnh đề render thành một `<ol>` mà
+ * từng mệnh đề là một {@link RichTextView} đệ quy trên nội dung của
+ * chính mệnh đề đó (hiển thị đủ thân câu + 4 mệnh đề cho bề mặt xem
+ * tĩnh chung; bề mặt làm bài/xem lại có trình bày riêng theo mệnh đề).
+ *
+ * @param props - Thuộc tính: tài liệu cần hiển thị.
+ * @returns React element của tài liệu, hoặc `null` khi tài liệu rỗng.
+ */
+export function RichTextView({ value }: RichTextViewProps): ReactNode {
+  if (!value || isEmptyDocument(value)) {
+    return null;
+  }
+  if (!value.content.some((block) => block.type === 'statementList')) {
+    return renderPlainDocument(value);
+  }
+  const segments: ReactNode[] = [];
+  let buffer: RichTextBlockNode[] = [];
+  const flush = (key: string) => {
+    if (buffer.length > 0) {
+      const blocks = buffer;
+      buffer = [];
+      segments.push(
+        <Fragment key={key}>{renderPlainDocument({ type: 'doc', content: blocks })}</Fragment>,
+      );
+    }
+  };
+  value.content.forEach((block, index) => {
+    if (block.type !== 'statementList') {
+      buffer.push(block);
+      return;
+    }
+    flush(`stem-${index}`);
+    segments.push(
+      <ol key={`statements-${index}`} className="lms-statement-list">
+        {block.content.map((statement) => (
+          <li key={statement.attrs.id} data-statement={statement.attrs.id}>
+            <RichTextView value={{ type: 'doc', content: statement.content }} />
+          </li>
+        ))}
+      </ol>,
+    );
+  });
+  flush('tail');
+  return <>{segments}</>;
 }

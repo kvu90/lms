@@ -31,10 +31,29 @@ interface BankBody {
   capabilities: { use: boolean; add: boolean; edit: boolean; manageCategory: boolean; copy: boolean; share: boolean; moderate: boolean };
 }
 interface QuestionViewBody {
-  question: { id: string; category: string; qtype: string; name: string; createdBy: string; derivedFromQuestionId: string | null; originalAuthorId: string | null; copyCount: number };
+  question: { id: string; category: string; qtype: string; createdBy: string; derivedFromQuestionId: string | null; originalAuthorId: string | null; copyCount: number };
   entry: { id: string; latestVersion: number; status: string };
   latestVersion: { id: string; version: number; questionText: unknown };
 }
+
+const tfBody = (stem: string) => ({
+    qtype: 'truefalse',
+    questionText: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+        {
+          type: 'statementList',
+          content: [1, 2, 3, 4].map((i) => ({
+            type: 'statement',
+            attrs: { id: `s${i}` },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+          })),
+        },
+      ],
+    },
+    solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
+  });
 
 describe('Shared question bank (feat #70)', () => {
   let app: INestApplication;
@@ -78,9 +97,8 @@ describe('Shared question bank (feat #70)', () => {
 
   async function createQuestion(token: string, categoryId: string, name: string, text: string): Promise<QuestionViewBody> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'multichoice', name, questionText: text,
-      answers: [{ text: 'Đáp án đúng', fraction: 1 }, { text: 'Đáp án sai', fraction: 0 }],
-      options: { single: true },
+      categoryId, qtype: 'multichoice', questionText: text,
+      answers: [{ text: 'Đáp án đúng', correct: true }, { text: 'Đáp án sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return res.body as QuestionViewBody;
@@ -160,6 +178,46 @@ describe('Shared question bank (feat #70)', () => {
     expect(results.every((r) => r.ok && r.newQuestionId)).toBe(true);
   });
 
+  // QB-2 (bổ sung theo phán quyết ĐG cuối chuỗi 6419937157): bản copy
+  // phải mang đủ answerKey của bản gốc — guidance + solution là dữ
+  // liệu phía đáp án, mất chúng là mất dữ liệu dù câu vẫn copy được.
+  // Sửa answerKey ở bản copy không được đụng bản gốc (answerKey độc lập).
+  it('QB-2: copy mang đủ guidance + solution của bản gốc, sửa answerKey bản copy không đụng bản gốc', async () => {
+    const alice = await mkStaffUser();
+    const bank = await myPersonalBank(alice);
+    const sourceRes = await http(app).post('/api/v1/questions').set(bearer(alice.token)).send({
+      categoryId: bank.defaultCategoryId!, qtype: 'essay',
+      questionText: 'Phân tích nguyên nhân ô nhiễm không khí đô thị?',
+      guidance: 'Hướng dẫn bản gốc: đọc kỹ yêu cầu trước khi viết.',
+      solution: { answer: 'Lời giải mẫu bản gốc: ba ý chính.' },
+    });
+    expect(sourceRes.status, JSON.stringify(sourceRes.body)).toBe(201);
+    type AnswerKeyView = QuestionViewBody & { answerKey: { guidance: unknown; solution: unknown } };
+    const source = sourceRes.body as AnswerKeyView;
+    expect(source.answerKey.guidance).toBeTruthy();
+    expect(source.answerKey.solution).toBeTruthy();
+
+    const copyRes = await http(app).post(`/api/v1/questions/${source.question.id}/copy`).set(bearer(alice.token)).send({});
+    expect(copyRes.status, JSON.stringify(copyRes.body)).toBe(201);
+    const copy = copyRes.body as AnswerKeyView;
+    expect(copy.question.id).not.toBe(source.question.id);
+    // Bản copy mang đủ answerKey của bản gốc, bằng sâu từng trường.
+    expect(copy.answerKey.guidance).toEqual(source.answerKey.guidance);
+    expect(copy.answerKey.solution).toEqual(source.answerKey.solution);
+    // Đọc lại bản copy bằng đường GET chuẩn cũng phải thấy đủ answerKey.
+    const copyRead = await http(app).get(`/api/v1/questions/${copy.question.id}`).set(bearer(alice.token));
+    expect(copyRead.status).toBe(200);
+    expect((copyRead.body as AnswerKeyView).answerKey.guidance).toEqual(source.answerKey.guidance);
+    expect((copyRead.body as AnswerKeyView).answerKey.solution).toEqual(source.answerKey.solution);
+
+    // Sửa guidance ở bản copy không đụng bản gốc (answerKey độc lập).
+    const editCopy = await http(app).patch(`/api/v1/questions/${copy.question.id}`).set(bearer(alice.token))
+      .send({ guidance: 'Hướng dẫn ĐÃ SỬA ở bản copy.' });
+    expect(editCopy.status, JSON.stringify(editCopy.body)).toBe(200);
+    const sourceAfter = await http(app).get(`/api/v1/questions/${source.question.id}`).set(bearer(alice.token));
+    expect((sourceAfter.body as AnswerKeyView).answerKey.guidance).toEqual(source.answerKey.guidance);
+  });
+
   it('bank_kind: bank đa loại — bank đề cá nhân tách hẳn bank câu hỏi, unique theo (scope, kind)', async () => {
     const carol = await mkStaffUser();
     const questionBank = await myPersonalBank(carol);
@@ -201,9 +259,8 @@ describe('Shared question bank (feat #70)', () => {
 
     // Tạo câu khai nguồn sách: phía quản trị (GET câu hỏi) thấy đủ cặp nguồn.
     const res = await http(app).post('/api/v1/questions').set(bearer(dave.token)).send({
-      categoryId: bank.defaultCategoryId!, qtype: 'multichoice', name: 'Câu từ SGK', questionText: 'Thân câu SGK?',
-      answers: [{ text: 'Đáp án đúng', fraction: 1 }, { text: 'Đáp án sai', fraction: 0 }],
-      options: { single: true },
+      categoryId: bank.defaultCategoryId!, qtype: 'multichoice', questionText: 'Thân câu SGK?',
+      answers: [{ text: 'Đáp án đúng', correct: true }, { text: 'Đáp án sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
       sourceKind: 'book', sourceRef: 'sgk-toan-6-kntt-trang-42',
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
@@ -274,7 +331,7 @@ describe('Shared question bank (feat #70)', () => {
     expect((copied.body as QuestionViewBody).question.derivedFromQuestionId).toBe(q.question.id);
     // Thành viên KHÔNG thêm thẳng câu vào bank tổ.
     const memberAdd = await http(app).post('/api/v1/questions').set(bearer(member.token)).send({
-      categoryId: bank.defaultCategoryId, qtype: 'truefalse', name: 'X', questionText: 'X?', answer: { correct: true },
+      categoryId: bank.defaultCategoryId, ...tfBody('X?'),
     });
     expect(memberAdd.status).toBe(403);
     // Người ngoài: không thấy bank, không vào được bank, không copy được.
@@ -305,7 +362,7 @@ describe('Shared question bank (feat #70)', () => {
     expect(copied.status, JSON.stringify(copied.body)).toBe(201);
     // Giáo viên không thêm thẳng vào bank trường.
     const add = await http(app).post('/api/v1/questions').set(bearer(teacher.token)).send({
-      categoryId: school.defaultCategoryId, qtype: 'truefalse', name: 'X', questionText: 'X?', answer: { correct: true },
+      categoryId: school.defaultCategoryId, ...tfBody('X?'),
     });
     expect(add.status).toBe(403);
     // Học sinh: không thấy bank trường, vào thẳng bị 403, khám phá theo bank bị 403, copy bị 403.
@@ -546,7 +603,7 @@ describe('Shared question bank (feat #70)', () => {
 
     // Chống trùng hoàn toàn: câu nội dung y hệt đề xuất lại → 409 trỏ câu đã có.
     const clone = await createQuestion(member.token, memberBank.defaultCategoryId!, 'Câu đóng góp (bản gõ lại)', 'Nội dung câu đóng góp?');
-    // createQuestion dùng cùng answers mặc định nên hash trùng hoàn toàn dù tên khác.
+    // createQuestion dùng cùng thân câu + answers mặc định nên hash nội dung trùng hoàn toàn (hash chỉ phủ nội dung câu, không phủ siêu dữ liệu).
     const dupPropose = await http(app).post(`/api/v1/question-banks/${bank.id}/contributions`).set(bearer(member.token))
       .send({ questionId: clone.question.id });
     expect(dupPropose.status, JSON.stringify(dupPropose.body)).toBe(409);

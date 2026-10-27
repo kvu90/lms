@@ -84,9 +84,8 @@ describe('Exam paper bank (feat #113 EB-1)', () => {
 
   async function createQuestion(token: string, categoryId: string, name: string): Promise<string> {
     const res = await http(app).post('/api/v1/questions').set(bearer(token)).send({
-      categoryId, qtype: 'multichoice', name, questionText: `Thân câu ${name}?`,
-      answers: [{ text: 'Đúng', fraction: 1 }, { text: 'Sai', fraction: 0 }],
-      options: { single: true },
+      categoryId, qtype: 'multichoice', questionText: `Thân câu ${name}?`,
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
     });
     expect(res.status, JSON.stringify(res.body)).toBe(201);
     return (res.body as { question: { id: string } }).question.id;

@@ -8,6 +8,30 @@ import { QuizAttemptPage } from './quiz-attempt';
 import { QuizResultsPage } from './quiz-results';
 
 /**
+ * Giả lập @lms/editor cho spec trang attempt: chỉ cần RichTextView
+ * dựng nội dung rich text thành chữ đọc được — spec trang kiểm LUỒNG
+ * NGHIỆP VỤ phía học sinh (hướng dẫn/lời giải hiện theo cổng), cơ chế
+ * render Tiptap thật thuộc spec của chính package editor (mẫu P4).
+ */
+vi.mock('@lms/editor', async () => {
+  const React = await import('react');
+  interface NodeLike {
+    type: string;
+    text?: string;
+    content?: NodeLike[];
+  }
+  const collectText = (node: NodeLike | null | undefined): string => {
+    if (!node) return '';
+    if (typeof node.text === 'string') return node.text;
+    return (node.content ?? []).map((child) => collectText(child)).join(' ');
+  };
+  return {
+    RichTextView: ({ value }: { value: NodeLike | null }) =>
+      value ? React.createElement('div', null, collectText(value)) : null,
+  };
+});
+
+/**
  * Spec web của hoạt động Quiz (issue #30 chặng 1) theo endpoint thật:
  * giáo viên dựng đề (thêm slot cố định từ ngân hàng), học sinh làm bài
  * qua trang attempt (lưu từng câu rồi nộp để chốt điểm), giáo viên chấm
@@ -176,14 +200,16 @@ describe('Quiz attempt page — real endpoints', () => {
           questionAttemptId: QA_ID,
           questionId: QUESTION_ID,
           qtype: 'multichoice',
-          name: 'Capital',
+          questionExcerpt: 'Capital of France?',
           questionText: doc('Capital of France?'),
+          guidance: null,
+          solution: submitted ? { correctAnswerId: ANSWER_ID } : null,
           stimulus: null,
           answers: [
             { id: ANSWER_ID, text: doc('Paris') },
             { id: '01900000-0000-7000-8000-0000000000cc', text: doc('London') },
           ],
-          options: { single: true },
+          options: {},
           maxMark: 5,
           state: submitted ? 'gradedright' : 'todo',
           response: savedResponse,
@@ -263,14 +289,16 @@ describe('Quiz attempt page — real endpoints', () => {
           questionAttemptId: QA_ID,
           questionId: QUESTION_ID,
           qtype: 'multichoice',
-          name: 'Capital',
+          questionExcerpt: 'Capital of France?',
           questionText: doc('Capital of France?'),
+          guidance: doc('Gợi ý: nhớ lại bản đồ châu Âu.'),
+          solution: { correctAnswerId: ANSWER_ID },
           stimulus: null,
           answers: [
             { id: ANSWER_ID, text: doc('Paris') },
             { id: '01900000-0000-7000-8000-0000000000cc', text: doc('London') },
           ],
-          options: { single: true },
+          options: {},
           maxMark: 5,
           state: 'gradedright',
           response: ANSWER_ID,
@@ -311,6 +339,285 @@ describe('Quiz attempt page — real endpoints', () => {
     expect(screen.getByText('Lời giải')).toBeInTheDocument();
     expect(screen.getByText(/Paris là thủ đô của Pháp\./)).toBeInTheDocument();
     expect(screen.getByText(/Nhận xét chung: Làm tốt lắm, tiếp tục phát huy\./)).toBeInTheDocument();
+  });
+});
+
+describe('Quiz attempt page — hướng dẫn & lời giải theo mô hình giaokhoa (P7, #248)', () => {
+  const baseAttempt = (state: string) => ({
+    id: ATTEMPT_ID,
+    quizId: QUIZ_ID,
+    userId: STUDENT_ID,
+    attemptNumber: 1,
+    state,
+    preview: false,
+    timeStart: new Date().toISOString(),
+    timeFinish: state === 'inprogress' ? null : new Date().toISOString(),
+    sumGrades: state === 'inprogress' ? null : 5,
+    grade: state === 'inprogress' ? null : 10,
+  });
+  const viewWith = (state: string, question: Record<string, unknown>) => ({
+    attempt: baseAttempt(state),
+    quiz: { ...quizView([]), sumGrades: 5 },
+    questions: [question],
+    totalMax: 5,
+    pendingManualCount: 0,
+    closedDueToTimeLimit: false,
+    overallFeedback: null,
+  });
+  const mcQuestion = (overrides: Record<string, unknown>) => ({
+    slot: 1,
+    page: 1,
+    questionAttemptId: QA_ID,
+    questionId: QUESTION_ID,
+    qtype: 'multichoice',
+    questionExcerpt: 'Capital of France?',
+    questionText: doc('Capital of France?'),
+    guidance: doc('Hãy nhớ lại vị trí các thủ đô châu Âu.'),
+    solution: null,
+    stimulus: null,
+    answers: [
+      { id: ANSWER_ID, text: doc('Paris') },
+      { id: '01900000-0000-7000-8000-0000000000cc', text: doc('London') },
+    ],
+    options: {},
+    maxMark: 5,
+    state: 'todo',
+    response: null,
+    fraction: null,
+    mark: null,
+    rightAnswer: null,
+    feedback: null,
+    generalFeedback: null,
+    manualComment: null,
+    ...overrides,
+  });
+  const renderAttempt = (view: unknown) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}`) return respond(view);
+        return respond({}, 404);
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
+      initialEntries: [`/quiz-attempts/${ATTEMPT_ID}`],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+  };
+
+  it('hiện Hướng dẫn kèm câu hỏi ngay trong lúc làm, không lộ lời giải hay đáp án đúng (D-4)', async () => {
+    renderAttempt(viewWith('inprogress', mcQuestion({})));
+    // Guidance là gợi ý cách làm: học sinh thấy ngay trong lúc làm bài.
+    const guidance = await screen.findByTestId('quiz-guidance-1');
+    expect(guidance).toHaveTextContent('Hướng dẫn');
+    expect(guidance).toHaveTextContent('Hãy nhớ lại vị trí các thủ đô châu Âu.');
+    // Solution chỉ thuộc màn xem lại: không khối Lời giải, không đánh dấu đáp án đúng.
+    expect(screen.queryByTestId('quiz-solution-1')).toBeNull();
+    expect(document.querySelector('[data-correct="true"]')).toBeNull();
+    // Multichoice luôn là radio chọn một — không còn ô checkbox chọn-nhiều.
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+  });
+
+  it('xem lại: đánh dấu đáp án đúng trên lựa chọn và hiện khối Lời giải (generalFeedback + feedback đáp án đã chọn)', async () => {
+    renderAttempt(
+      viewWith(
+        'finished',
+        mcQuestion({
+          state: 'gradedwrong',
+          response: '01900000-0000-7000-8000-0000000000cc',
+          fraction: 0,
+          mark: 0,
+          solution: { correctAnswerId: ANSWER_ID },
+          rightAnswer: 'Paris',
+          feedback: doc('London là thủ đô của Anh.'),
+          generalFeedback: doc('Paris là thủ đô của Pháp từ nhiều thế kỷ.'),
+        }),
+      ),
+    );
+    // Đáp án đúng được đánh dấu trực tiếp trên lựa chọn Paris; lựa chọn sai đã chọn không bị đánh dấu.
+    const correctLabel = (await screen.findByText('Paris')).closest('label');
+    expect(correctLabel?.getAttribute('data-correct')).toBe('true');
+    const chosenLabel = screen.getByText('London').closest('label');
+    expect(chosenLabel?.getAttribute('data-correct')).toBeNull();
+    // Guidance vẫn hiện ở màn xem lại, cùng vị trí như lúc làm.
+    expect(screen.getByTestId('quiz-guidance-1')).toHaveTextContent('Hãy nhớ lại vị trí các thủ đô châu Âu.');
+    // Khối Lời giải gồm đáp án đúng dạng chữ + feedback của đáp án đã chọn + generalFeedback.
+    const solution = screen.getByTestId('quiz-solution-1');
+    expect(solution).toHaveTextContent('Lời giải');
+    expect(solution).toHaveTextContent('Đáp án đúng: Paris');
+    expect(solution).toHaveTextContent('London là thủ đô của Anh.');
+    expect(solution).toHaveTextContent('Paris là thủ đô của Pháp từ nhiều thế kỷ.');
+  });
+
+  it('xem lại khi cổng đóng (API không trả solution/rightAnswer/feedback): không có khối Lời giải, không đánh dấu', async () => {
+    renderAttempt(
+      viewWith(
+        'finished',
+        mcQuestion({
+          state: 'gradedright',
+          response: ANSWER_ID,
+          fraction: 1,
+          mark: 5,
+          guidance: null,
+          solution: null,
+          rightAnswer: null,
+          feedback: null,
+          generalFeedback: null,
+        }),
+      ),
+    );
+    expect(await screen.findByText(/Điểm câu: 5\/5/)).toBeInTheDocument();
+    expect(screen.queryByTestId('quiz-solution-1')).toBeNull();
+    expect(document.querySelector('[data-correct="true"]')).toBeNull();
+  });
+
+  it('xem lại shortanswer: hiện các đáp án được chấp nhận từ solution', async () => {
+    renderAttempt(
+      viewWith('finished', {
+        ...mcQuestion({}),
+        qtype: 'shortanswer',
+        questionExcerpt: 'Thủ đô của Pháp là gì?',
+        questionText: doc('Thủ đô của Pháp là gì?'),
+        answers: [],
+        response: 'Paris',
+        state: 'gradedright',
+        fraction: 1,
+        mark: 5,
+        solution: { acceptedAnswers: ['Paris', 'paris'] },
+        rightAnswer: 'Paris',
+      }),
+    );
+    const solution = await screen.findByTestId('quiz-solution-1');
+    expect(solution).toHaveTextContent('Đáp án được chấp nhận: Paris, paris');
+  });
+
+  it('xem lại essay: hiện Lời giải mẫu từ solution của bản ghi phía đáp án', async () => {
+    renderAttempt(
+      viewWith('needsgrading', {
+        ...mcQuestion({}),
+        qtype: 'essay',
+        questionExcerpt: 'Phân tích nguyên nhân…',
+        questionText: doc('Phân tích nguyên nhân của hiện tượng.'),
+        answers: [],
+        response: 'Bài làm của học sinh.',
+        state: 'needsgrading',
+        solution: { answer: doc('Bài mẫu: mở bài nêu vấn đề, thân bài có ba luận điểm.') },
+      }),
+    );
+    const solution = await screen.findByTestId('quiz-solution-1');
+    expect(solution).toHaveTextContent('Lời giải mẫu');
+    expect(solution).toHaveTextContent('Bài mẫu: mở bài nêu vấn đề, thân bài có ba luận điểm.');
+  });
+
+  it('làm bài truefalse TF-A: trả lời Đ/S từng mệnh đề, response là JSON theo statementId', async () => {
+    const calls: { url: string; method: string; body?: unknown }[] = [];
+    const tfDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Xét các mệnh đề sau:' }] },
+        {
+          type: 'statementList',
+          content: ['tf1', 'tf2', 'tf3', 'tf4'].map((id, i) => ({
+            type: 'statement',
+            attrs: { id },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i + 1}.` }] }],
+          })),
+        },
+      ],
+    };
+    const view = viewWith('inprogress', {
+      ...mcQuestion({}),
+      qtype: 'truefalse',
+      questionExcerpt: 'Xét các mệnh đề sau:',
+      questionText: tfDoc,
+      answers: [],
+      solution: null,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}`) return respond(view);
+        if (url === `/api/v1/quiz-attempts/${ATTEMPT_ID}/responses` && method === 'POST') return respond({});
+        return respond({}, 404);
+      }),
+    );
+    const router = createMemoryRouter([{ path: '/quiz-attempts/:attemptId', element: <QuizAttemptPage /> }], {
+      initialEntries: [`/quiz-attempts/${ATTEMPT_ID}`],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    // 4 mệnh đề, mỗi mệnh đề một cặp radio Đ/S riêng; chưa có đáp án nào lộ.
+    expect(await screen.findByTestId('quiz-tf-statement-1-0')).toHaveTextContent('Mệnh đề 1.');
+    expect(screen.getAllByRole('radio')).toHaveLength(8);
+    expect(document.querySelector('[data-correct="true"]')).toBeNull();
+    const first = screen.getByTestId('quiz-tf-statement-1-0');
+    await userEvent.click(within(first).getByLabelText('Đúng'));
+    const second = screen.getByTestId('quiz-tf-statement-1-1');
+    await userEvent.click(within(second).getByLabelText('Sai'));
+    await userEvent.click(screen.getByRole('button', { name: 'Lưu câu trả lời' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith('/responses') && c.method === 'POST')).toBe(true),
+    );
+    const save = calls.find((c) => c.url.endsWith('/responses'));
+    expect((save?.body as { response: string }).response).toBe('{"tf1":true,"tf2":false}');
+  });
+
+  it('xem lại truefalse TF-A: đúng/sai TỪNG Ý từ solution.statements + response đã lưu', async () => {
+    const tfDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Xét các mệnh đề sau:' }] },
+        {
+          type: 'statementList',
+          content: ['tf1', 'tf2', 'tf3', 'tf4'].map((id, i) => ({
+            type: 'statement',
+            attrs: { id },
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: `Mệnh đề ${i + 1}.` }] }],
+          })),
+        },
+      ],
+    };
+    renderAttempt(
+      viewWith('finished', {
+        ...mcQuestion({}),
+        qtype: 'truefalse',
+        questionExcerpt: 'Xét các mệnh đề sau:',
+        questionText: tfDoc,
+        answers: [],
+        // tf1 chọn đúng, tf2 chọn sai phía, tf3 bỏ trống, tf4 chọn đúng.
+        response: '{"tf1":true,"tf2":true,"tf4":false}',
+        state: 'gradedpartial',
+        fraction: 0.25,
+        mark: 1.25,
+        solution: {
+          statements: [
+            { statementId: 'tf1', value: true },
+            { statementId: 'tf2', value: false },
+            { statementId: 'tf3', value: true },
+            { statementId: 'tf4', value: false },
+          ],
+        },
+        rightAnswer: 'Đúng, Sai, Đúng, Sai',
+      }),
+    );
+    expect((await screen.findByTestId('quiz-tf-statement-1-0')).getAttribute('data-verdict')).toBe('correct');
+    expect(screen.getByTestId('quiz-tf-statement-1-1').getAttribute('data-verdict')).toBe('incorrect');
+    expect(screen.getByTestId('quiz-tf-statement-1-2').getAttribute('data-verdict')).toBe('unanswered');
+    expect(screen.getByTestId('quiz-tf-statement-1-3').getAttribute('data-verdict')).toBe('correct');
+    // Mỗi mệnh đề có đúng một phía được đánh dấu "Đáp án đúng".
+    expect(document.querySelectorAll('[data-correct="true"]')).toHaveLength(4);
+    const solution = screen.getByTestId('quiz-solution-1');
+    expect(solution).toHaveTextContent('Đáp án đúng: Đúng, Sai, Đúng, Sai');
   });
 });
 

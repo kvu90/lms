@@ -1,10 +1,43 @@
+/**
+ * Trang làm bài + xem lại lượt làm quiz (bề mặt học sinh).
+ *
+ * Flow tổng thể của module:
+ * 1. Nạp view lượt làm từ `GET /quiz-attempts/:id` — view mang nội
+ *    dung của các version câu hỏi ĐÃ PIN trong lần ghim (câu hỏi,
+ *    stimulus, các lựa chọn) kèm hai trường phía đáp án theo mô hình
+ *    giaokhoa (đợt port #248, lát P3 cấp dữ liệu, lát P7 hiển thị):
+ *    `guidance` (hướng dẫn — hiện kèm câu hỏi ngay trong lúc làm,
+ *    điểm quyết D-4) và `solution` (đáp án đúng dạng cấu trúc — API
+ *    chỉ trả khi cổng xem lại `reviewRightAnswer` của lần ghim mở;
+ *    cổng đóng thì trường là `null` và web không tự suy diễn đáp án
+ *    từ bất kỳ nguồn nào khác).
+ * 2. Khi lượt đang chạy: học sinh trả lời theo từng qtype, lưu từng
+ *    câu qua engine (`POST /responses`), nộp bài (`POST /submit`) để
+ *    chốt điểm; hết giờ thì server tự chốt ở tương tác kế tiếp.
+ * 3. Khi lượt đã nộp, trang chuyển thành màn XEM LẠI: điểm từng câu,
+ *    đáp án đúng được đánh dấu ngay trên lựa chọn/mệnh đề, khối "Lời
+ *    giải" gồm đáp án đúng dạng chữ (`rightAnswer`, cùng cổng với
+ *    `solution`) + feedback của đáp án đã chọn (cổng
+ *    reviewSpecificFeedback) + generalFeedback (cổng
+ *    reviewGeneralFeedback) + đáp án được chấp nhận của shortanswer /
+ *    lời giải mẫu của essay (từ `solution`). Guidance vẫn hiện ở màn
+ *    xem lại, cùng vị trí như lúc làm.
+ *
+ * Bất biến hiển thị: câu hỏi không có trường tên — nhãn của câu là
+ * TRÍCH ĐOẠN nội dung (`questionExcerpt`); multichoice luôn là radio
+ * chọn một (mô hình giaokhoa khoá đúng một đáp án đúng — quyết
+ * 12:04 ngày 26/10/2026), không còn nhánh checkbox chọn-nhiều.
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
+  getTrueFalseStatements,
+  type QuestionSolution,
   type QuizView,
   type RichTextDocument,
 } from '@lms/contracts';
+import { RichTextView } from '@lms/editor';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -16,15 +49,30 @@ import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiJson } from '#lib/api';
 
-/** Một câu trong lượt làm như GET /quiz-attempts/:id trả về (nội dung của version đã pin). */
+/**
+ * Một câu trong lượt làm như GET /quiz-attempts/:id trả về (nội dung
+ * của version đã pin).
+ *
+ * Hai trường phía đáp án do lát P3 cấp theo mô hình giaokhoa:
+ * `guidance` là HƯỚNG DẪN (gợi ý cách làm — hiện kèm câu hỏi ngay
+ * trong lúc làm theo điểm quyết D-4, không qua cổng xem lại);
+ * `solution` là đáp án đúng dạng cấu trúc, API chỉ trả khi cổng
+ * `reviewRightAnswer` của lần ghim cho phép tại cửa sổ xem lại —
+ * ngoài cửa sổ đó trường này là `null`. Câu hỏi không còn trường
+ * tên: `questionExcerpt` là trích đoạn nội dung thân câu.
+ */
 interface AttemptQuestion {
   slot: number;
   page: number;
   questionAttemptId: string;
   questionId: string;
   qtype: string;
-  name: string;
+  questionExcerpt: string;
   questionText: RichTextDocument;
+  /** Hướng dẫn (guidance) của version đã pin; null khi câu không có hướng dẫn. */
+  guidance: RichTextDocument | null;
+  /** Đáp án đúng dạng cấu trúc khi cổng xem lại cho phép; null khi cổng đóng. */
+  solution: QuestionSolution | null;
   stimulus: { id: string; content: RichTextDocument } | null;
   answers: { id: string; text: RichTextDocument }[];
   options: Record<string, unknown> | null;
@@ -62,6 +110,100 @@ function plainText(doc: RichTextDocument | null | undefined): string {
   return doc ? extractRichTextPlainText(doc) : '';
 }
 
+/**
+ * Tài liệu rich text có nội dung thật hay không: có chữ khác rỗng ở
+ * bất kỳ mức lồng nào, hoặc chứa node mang nội dung phi văn bản (ảnh,
+ * công thức). Dùng để quyết định có dựng khối "Hướng dẫn" hay không —
+ * một tài liệu chỉ gồm paragraph rỗng (kiểu tài liệu trắng của
+ * editor) không được dựng thành khối trống trên bề mặt học sinh.
+ *
+ * @param doc - Tài liệu cần kiểm (null/undefined = không có nội dung).
+ * @returns `true` khi tài liệu có nội dung hiển thị được.
+ */
+function hasRichTextContent(doc: RichTextDocument | null | undefined): boolean {
+  if (!doc) return false;
+  const visit = (node: { type: string; text?: string; content?: unknown[] }): boolean => {
+    if (typeof node.text === 'string' && node.text.trim() !== '') return true;
+    if (node.type === 'image' || node.type === 'inlineMath' || node.type === 'blockMath') return true;
+    return (node.content ?? []).some((child) =>
+      visit(child as { type: string; text?: string; content?: unknown[] }),
+    );
+  };
+  return visit(doc as { type: string; text?: string; content?: unknown[] });
+}
+
+/**
+ * Id đáp án đúng của một câu từ `solution` dạng cấu trúc (chỉ
+ * multichoice/truefalse một mệnh đề mới có biến thể này).
+ *
+ * @param q - Câu trong lượt làm.
+ * @returns Id của dòng đáp án đúng, hoặc null khi cổng xem lại đóng /
+ *   câu thuộc dạng có hình dạng solution khác.
+ */
+function solutionCorrectAnswerId(q: AttemptQuestion): string | null {
+  return q.solution && 'correctAnswerId' in q.solution ? q.solution.correctAnswerId : null;
+}
+
+/**
+ * Các đáp án được chấp nhận của câu shortanswer từ `solution` (màn
+ * xem lại hiện nguyên danh sách này trong khối "Lời giải").
+ *
+ * @param q - Câu trong lượt làm.
+ * @returns Mảng đáp án được chấp nhận, hoặc null khi không có.
+ */
+function solutionAcceptedAnswers(q: AttemptQuestion): string[] | null {
+  return q.solution && 'acceptedAnswers' in q.solution ? q.solution.acceptedAnswers : null;
+}
+
+/**
+ * Lời giải mẫu của câu essay từ `solution` (biến thể `{answer}` —
+ * dạng nhiều ý theo partId thuộc điểm quyết D-6 đang hoãn, chưa có
+ * ở đợt này).
+ *
+ * @param q - Câu trong lượt làm.
+ * @returns Tài liệu lời giải mẫu, hoặc null khi không có.
+ */
+function solutionModelAnswer(q: AttemptQuestion): RichTextDocument | null {
+  return q.solution && 'answer' in q.solution ? q.solution.answer : null;
+}
+
+/**
+ * Đáp án Đ/S của từng mệnh đề trong câu truefalse TF-A từ
+ * `solution.statements` (màn xem lại hiện đúng/sai TỪNG Ý).
+ *
+ * @param q - Câu truefalse trong lượt làm.
+ * @returns Danh sách `{statementId, value}` theo thứ tự mệnh đề, hoặc
+ *   null khi cổng xem lại đóng / câu không phải TF-A.
+ */
+function solutionTrueFalseStatements(
+  q: AttemptQuestion,
+): { statementId: string; value: boolean }[] | null {
+  return q.solution && 'statements' in q.solution ? q.solution.statements : null;
+}
+
+/**
+ * Giải mã response của câu TF-A: chuỗi JSON của bản đồ
+ * `statementId → boolean` (ý chưa trả lời vắng mặt trong bản đồ).
+ * Chuỗi không phải JSON/bản đồ thì coi như chưa trả lời ý nào — cùng
+ * quy ước toàn phần với engine chấm phía API.
+ *
+ * @param value - Response đã lưu của lượt làm.
+ * @returns Bản đồ đáp án theo mệnh đề (có thể rỗng).
+ */
+function parseTrueFalseResponse(value: string): Record<string, boolean> {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, boolean> = {};
+    for (const [key, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === 'boolean') out[key] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /** Xáo trộn ổn định trong phiên (seeded theo id) để thứ tự đáp án không nhảy mỗi lần render. */
 function shuffled<T>(items: T[], seedText: string): T[] {
   let seed = 0;
@@ -76,12 +218,15 @@ function shuffled<T>(items: T[], seedText: string): T[] {
 }
 
 /**
- * Trang làm bài quiz: câu hỏi theo trang của đề, trả lời theo từng qtype
- * (multichoice một/nhiều lựa chọn, truefalse, shortanswer, essay), lưu
- * từng câu qua question engine, nộp bài để chốt điểm. Khi lượt đã nộp,
- * trang chuyển thành màn hình kết quả: điểm từng câu, đáp án đúng và
- * trạng thái chờ chấm tay của essay. Hết giờ làm bài thì server tự chốt
- * ở tương tác kế tiếp — đồng hồ trên trang chỉ để học sinh theo dõi.
+ * Trang làm bài quiz: câu hỏi theo trang của đề kèm khối "Hướng dẫn"
+ * (guidance của version đã pin — hiện ngay trong lúc làm theo D-4),
+ * trả lời theo từng qtype (multichoice luôn chọn một, truefalse,
+ * shortanswer, essay), lưu từng câu qua question engine, nộp bài để
+ * chốt điểm. Khi lượt đã nộp, trang chuyển thành màn xem lại: điểm
+ * từng câu, đáp án đúng được đánh dấu trên lựa chọn, khối "Lời giải"
+ * theo các cổng xem lại của lần ghim và trạng thái chờ chấm tay của
+ * essay. Hết giờ làm bài thì server tự chốt ở tương tác kế tiếp —
+ * đồng hồ trên trang chỉ để học sinh theo dõi.
  */
 export function QuizAttemptPage() {
   const { t } = useTranslation('app');
@@ -246,7 +391,7 @@ export function QuizAttemptPage() {
         <Card key={q.questionAttemptId} data-testid={`quiz-question-${q.slot}`}>
           <CardHeader>
             <CardTitle className="text-base">{t('quizQuestionLine', { slot: q.slot, max: q.maxMark })}</CardTitle>
-            <CardDescription>{q.name}</CardDescription>
+            <CardDescription>{q.questionExcerpt}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {q.stimulus ? (
@@ -255,13 +400,36 @@ export function QuizAttemptPage() {
                 <p className="text-sm whitespace-pre-wrap">{plainText(q.stimulus.content)}</p>
               </div>
             ) : null}
-            <p className="text-sm whitespace-pre-wrap">{plainText(q.questionText)}</p>
+            {q.qtype === 'truefalse' ? (
+              // TF-A: chỉ hiện THÂN CHUNG ở đây; từng mệnh đề hiện
+              // trong bộ nhập kèm cặp Đ/S của chính nó.
+              <RichTextView
+                value={
+                  {
+                    type: 'doc',
+                    content: (q.questionText.content ?? []).slice(0, -1),
+                  } as RichTextDocument
+                }
+              />
+            ) : (
+              <p className="text-sm whitespace-pre-wrap">{plainText(q.questionText)}</p>
+            )}
+            {/* Hướng dẫn (guidance) hiện kèm câu hỏi ngay trong lúc làm — điểm quyết D-4;
+                khối này giữ nguyên ở màn xem lại, cùng vị trí như lúc làm. */}
+            {hasRichTextContent(q.guidance) ? (
+              <div className="rounded-md border p-3" data-testid={`quiz-guidance-${q.slot}`}>
+                <h4 className="text-sm font-medium">{t('guidanceHeading')}</h4>
+                <RichTextView value={q.guidance} />
+              </div>
+            ) : null}
             <QuestionAnswerInput
               q={q}
               quizShuffle={quiz.shuffleAnswers}
               disabled={!inProgress || busy}
               value={responses[q.questionAttemptId] ?? q.response ?? ''}
               onChange={(value) => setResponses((prev) => ({ ...prev, [q.questionAttemptId]: value }))}
+              correctAnswerId={submitted ? solutionCorrectAnswerId(q) : null}
+              tfSolution={submitted ? solutionTrueFalseStatements(q) : null}
             />
             {inProgress ? (
               <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void saveResponse(q)}>
@@ -269,24 +437,40 @@ export function QuizAttemptPage() {
               </Button>
             ) : null}
             {submitted ? (
-              <div className="text-sm">
+              <div className="text-sm space-y-2">
                 <p>
                   {q.state === 'needsgrading'
                     ? t('quizQuestionWaitingGrade')
                     : t('quizQuestionMark', { mark: q.mark ?? 0, max: q.maxMark })}
                 </p>
-                {q.rightAnswer ? <p className="text-muted-foreground">{t('quizRightAnswer', { answer: q.rightAnswer })}</p> : null}
-                {q.feedback ? (
-                  <p className="whitespace-pre-wrap">{t('quizAnswerFeedback', { text: plainText(q.feedback) })}</p>
+                {/* Khối "Lời giải" của màn xem lại — chỉ dựng khi API trả ít nhất một
+                    thành phần; từng thành phần đã qua đúng cổng xem lại của lần ghim ở
+                    phía API (solution/rightAnswer: reviewRightAnswer, feedback của đáp
+                    án đã chọn: reviewSpecificFeedback, generalFeedback:
+                    reviewGeneralFeedback), web chỉ trình bày những gì nhận được. */}
+                {q.solution || q.rightAnswer || q.feedback || q.generalFeedback ? (
+                  <div className="rounded-md border p-3 space-y-2" data-testid={`quiz-solution-${q.slot}`}>
+                    <h4 className="text-sm font-medium">{t('quizSolutionHeading')}</h4>
+                    {q.rightAnswer ? <p>{t('quizRightAnswer', { answer: q.rightAnswer })}</p> : null}
+                    {solutionAcceptedAnswers(q) ? (
+                      <p>{t('quizAcceptedAnswers', { answers: solutionAcceptedAnswers(q)!.join(', ') })}</p>
+                    ) : null}
+                    {solutionModelAnswer(q) ? (
+                      <div>
+                        <h5 className="text-sm font-medium">{t('modelAnswerHeading')}</h5>
+                        <RichTextView value={solutionModelAnswer(q)} />
+                      </div>
+                    ) : null}
+                    {q.feedback ? (
+                      <p className="whitespace-pre-wrap">{t('quizAnswerFeedback', { text: plainText(q.feedback) })}</p>
+                    ) : null}
+                    {q.generalFeedback ? (
+                      <p className="whitespace-pre-wrap">{plainText(q.generalFeedback)}</p>
+                    ) : null}
+                  </div>
                 ) : null}
                 {q.manualComment ? (
                   <p className="whitespace-pre-wrap">{t('quizManualComment', { text: q.manualComment })}</p>
-                ) : null}
-                {q.generalFeedback ? (
-                  <div className="rounded-md border p-3">
-                    <h4 className="text-sm font-medium">{t('quizGeneralFeedbackHeading')}</h4>
-                    <p className="whitespace-pre-wrap">{plainText(q.generalFeedback)}</p>
-                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -308,16 +492,36 @@ export function QuizAttemptPage() {
   );
 }
 
-/** Bộ nhập câu trả lời theo qtype — response luôn là chuỗi theo quy ước của question engine. */
+/**
+ * Bộ nhập câu trả lời theo qtype — response luôn là chuỗi theo quy ước
+ * của question engine (multichoice: id của đáp án được chọn; truefalse
+ * TF-A: chuỗi JSON của bản đồ `statementId → boolean`; shortanswer/
+ * essay: văn bản trả lời).
+ *
+ * Multichoice LUÔN là radio chọn một: mô hình giaokhoa khoá đúng một
+ * đáp án đúng cho mỗi câu (quyết 12:04 ngày 26/10/2026) nên không còn
+ * nhánh checkbox chọn-nhiều.
+ *
+ * Ở màn xem lại (lượt đã nộp), `correctAnswerId` (multichoice) /
+ * `tfSolution` (truefalse) mang đáp án đúng suy từ `solution` — trang
+ * cha chỉ truyền hai prop này khi lượt đã nộp và API đã trả solution
+ * (cổng reviewRightAnswer ở phía API); phía đúng của từng ý được đánh
+ * dấu trực tiếp bằng nhãn "Đáp án đúng" cạnh nội dung, và mỗi mệnh đề
+ * mang phán quyết đúng/sai của chính nó.
+ */
 function QuestionAnswerInput(props: {
   q: AttemptQuestion;
   quizShuffle: boolean;
   disabled: boolean;
   value: string;
   onChange: (value: string) => void;
+  /** Id đáp án đúng để đánh dấu ở màn xem lại; null = không đánh dấu. */
+  correctAnswerId: string | null;
+  /** Đáp án Đ/S từng mệnh đề của truefalse ở màn xem lại; null = không đánh dấu. */
+  tfSolution: { statementId: string; value: boolean }[] | null;
 }) {
   const { t } = useTranslation('app');
-  const { q, disabled, value, onChange } = props;
+  const { q, disabled, value, onChange, correctAnswerId, tfSolution } = props;
   const optionShuffle = q.options?.shuffleAnswers === true;
   const answers = useMemo(
     () => (props.quizShuffle || optionShuffle ? shuffled(q.answers, q.questionAttemptId) : q.answers),
@@ -325,31 +529,28 @@ function QuestionAnswerInput(props: {
   );
 
   if (q.qtype === 'multichoice') {
-    const single = q.options?.single !== false;
-    const selected = new Set(value.split(',').map((s) => s.trim()).filter(Boolean));
     return (
       <div className="space-y-2">
         {answers.map((a) => {
           const label = plainText(a.text);
-          const checked = single ? value === a.id : selected.has(a.id);
+          const isCorrect = correctAnswerId !== null && correctAnswerId === a.id;
           return (
-            <label key={a.id} className="flex items-center gap-2 text-sm">
+            <label
+              key={a.id}
+              className="flex items-center gap-2 text-sm"
+              data-correct={isCorrect ? 'true' : undefined}
+            >
               <input
-                type={single ? 'radio' : 'checkbox'}
+                type="radio"
                 name={`q-${q.questionAttemptId}`}
-                checked={checked}
+                checked={value === a.id}
                 disabled={disabled}
-                onChange={() => {
-                  if (single) onChange(a.id);
-                  else {
-                    const next = new Set(selected);
-                    if (next.has(a.id)) next.delete(a.id);
-                    else next.add(a.id);
-                    onChange([...next].join(','));
-                  }
-                }}
+                onChange={() => onChange(a.id)}
               />
               {label}
+              {isCorrect ? (
+                <span className="text-xs font-medium text-emerald-700">{t('quizCorrectAnswerBadge')}</span>
+              ) : null}
             </label>
           );
         })}
@@ -357,20 +558,66 @@ function QuestionAnswerInput(props: {
     );
   }
   if (q.qtype === 'truefalse') {
+    // TF-A: mỗi mệnh đề một cặp radio Đ/S riêng; response là chuỗi
+    // JSON của bản đồ statementId → boolean (ý chưa chọn vắng mặt).
+    const statements = getTrueFalseStatements(q.questionText) ?? [];
+    const chosen = parseTrueFalseResponse(value);
+    const correctById = new Map((tfSolution ?? []).map((s) => [s.statementId, s.value]));
     return (
-      <div className="space-y-2">
-        {(['true', 'false'] as const).map((side) => (
-          <label key={side} className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name={`q-${q.questionAttemptId}`}
-              checked={value === side}
-              disabled={disabled}
-              onChange={() => onChange(side)}
-            />
-            {side === 'true' ? t('quizTrueLabel') : t('quizFalseLabel')}
-          </label>
-        ))}
+      <div className="space-y-3">
+        {statements.map((statement, index) => {
+          const correct = correctById.get(statement.id);
+          const picked = chosen[statement.id];
+          const verdict =
+            correct === undefined
+              ? undefined
+              : picked === undefined
+                ? 'unanswered'
+                : picked === correct
+                  ? 'correct'
+                  : 'incorrect';
+          return (
+            <div
+              key={statement.id}
+              className="space-y-1"
+              data-testid={`quiz-tf-statement-${q.slot}-${index}`}
+              data-verdict={verdict}
+            >
+              <div className="flex items-start gap-2 text-sm">
+                <span className="font-medium">{`${'abcd'[index] ?? index + 1})`}</span>
+                <span className="min-w-0 flex-1 whitespace-pre-wrap">{statement.text}</span>
+              </div>
+              <div className="flex gap-4">
+                {([true, false] as const).map((side) => {
+                  const isCorrectSide = correct !== undefined && correct === side;
+                  return (
+                    <label
+                      key={String(side)}
+                      className="flex items-center gap-2 text-sm"
+                      data-correct={isCorrectSide ? 'true' : undefined}
+                    >
+                      <input
+                        type="radio"
+                        name={`q-${q.questionAttemptId}-${statement.id}`}
+                        checked={picked === side}
+                        disabled={disabled}
+                        onChange={() =>
+                          onChange(JSON.stringify({ ...chosen, [statement.id]: side }))
+                        }
+                      />
+                      {side ? t('quizTrueLabel') : t('quizFalseLabel')}
+                      {isCorrectSide ? (
+                        <span className="text-xs font-medium text-emerald-700">
+                          {t('quizCorrectAnswerBadge')}
+                        </span>
+                      ) : null}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   }

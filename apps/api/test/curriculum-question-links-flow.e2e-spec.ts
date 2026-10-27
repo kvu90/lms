@@ -79,10 +79,27 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
   async function mkQuestion(categoryId: string, qtype: 'multichoice' | 'truefalse'): Promise<string> {
     const body = qtype === 'multichoice'
       ? {
-          categoryId, qtype, name: uniqueName('qmc'), questionText: 'Thủ đô của Pháp là?',
-          answers: [{ text: 'Paris', fraction: 1 }, { text: 'London', fraction: 0 }],
+          categoryId, qtype, questionText: 'Thủ đô của Pháp là?',
+          answers: [{ text: 'Paris', correct: true }, { text: 'London', correct: false }, { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false }],
         }
-      : { categoryId, qtype, name: uniqueName('qtf'), questionText: 'Trời đang mưa.', answer: { correct: true } };
+      : {
+          categoryId, qtype,
+          questionText: {
+            type: 'doc',
+            content: [
+              { type: 'paragraph', content: [{ type: 'text', text: 'Trời đang mưa.' }] },
+              {
+                type: 'statementList',
+                content: [1, 2, 3, 4].map((i) => ({
+                  type: 'statement',
+                  attrs: { id: `s${i}` },
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: `Trời đang mưa — ý ${i}` }] }],
+                })),
+              },
+            ],
+          },
+          solution: { answers: [1, 2, 3, 4].map((i) => ({ statementId: `s${i}`, value: true })) },
+        };
     const res = await http(app).post('/api/v1/questions').set(bearer(admin)).send(body);
     expect(res.status).toBeLessThan(300);
     return (res.body as { question: { id: string } }).question.id;
@@ -148,7 +165,7 @@ describe('Curriculum phase 2 (question ↔ programme links)', () => {
     expect(relevelGhost.body.code).toBe('question.outcome_link_not_found');
 
     // Sửa câu (ra version mới) KHÔNG làm mất gắn kết — gắn ở cấp danh tính.
-    const edit = await http(app).patch(`/api/v1/questions/${q}`).set(bearer(admin)).send({ name: 'Câu đã sửa tên' });
+    const edit = await http(app).patch(`/api/v1/questions/${q}`).set(bearer(admin)).send({ questionText: 'Thân câu đã sửa.' });
     expect(edit.status).toBe(200);
     const afterEdit = await getLinks(q);
     expect((afterEdit.body as LinksView).subjectIds).toEqual([tree.subjectId]);

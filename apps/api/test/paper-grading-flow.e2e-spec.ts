@@ -26,7 +26,7 @@ describe('CAM-0 paper grading flow', () => {
   let pg: Client;
 
   const CORRECT = [1, 0, 3, 2]; // vị trí đáp án đúng của 4 câu trắc nghiệm (0-based)
-  const OPTION_COUNTS = [4, 4, 4, 4, 2];
+  const OPTION_COUNTS = [4, 4, 4, 4, 8]; // slot 5 = TF-A: 4 ý × cặp Đ/S = 8 ô
 
   interface Ctx {
     courseId: string;
@@ -76,13 +76,29 @@ describe('CAM-0 paper grading flow', () => {
     const mcIds: string[] = [];
     for (let q = 0; q < 4; q++) {
       mcIds.push(await makeQuestion({
-        qtype: 'multichoice', name: `MC${q + 1}`, questionText: `Question ${q + 1}?`, defaultMark: 2,
-        answers: [0, 1, 2, 3].map((k) => ({ text: `Option ${k}`, fraction: k === CORRECT[q] ? 1 : 0 })),
-        options: { single: true },
+        qtype: 'multichoice', questionText: `Question ${q + 1}?`, defaultMark: 2,
+        answers: [0, 1, 2, 3].map((k) => ({ text: `Option ${k}`, correct: k === CORRECT[q] })),
       }));
     }
+    // Câu TF-A: 4 mệnh đề với đáp án [Đ, S, Đ, S] — trên phiếu, ý k
+    // chiếm cặp ô (2k, 2k+1) = (Đ, S) nên đáp án đúng là các ô 0,3,4,7.
     const tfId = await makeQuestion({
-      qtype: 'truefalse', name: 'TF1', questionText: 'The sky is blue.', defaultMark: 2, answer: { correct: true },
+      qtype: 'truefalse', defaultMark: 2,
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'The sky is blue. Xét các mệnh đề:' }] },
+          {
+            type: 'statementList',
+            content: [true, false, true, false].map((v, i) => ({
+              type: 'statement',
+              attrs: { id: `s${i + 1}` },
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: `Statement ${i + 1}` }] }],
+            })),
+          },
+        ],
+      },
+      solution: { answers: [true, false, true, false].map((v, i) => ({ statementId: `s${i + 1}`, value: v })) },
     });
 
     // Hành trình gộp Đề (#226): soạn đề trong bank → ghim vào khoá;
@@ -148,13 +164,13 @@ describe('CAM-0 paper grading flow', () => {
     };
   }
 
-  const CORRECT_FILLS = () => new Map<number, SlotFill>([
-    [1, { choice: CORRECT[0]!, style: 'full' }],
-    [2, { choice: CORRECT[1]!, style: 'full' }],
-    [3, { choice: CORRECT[2]!, style: 'full' }],
-    [4, { choice: CORRECT[3]!, style: 'full' }],
-    [5, { choice: 0, style: 'full' }],
-  ]);
+  const CORRECT_FILLS = () => {
+    const fills = new Map<number, SlotFill>();
+    CORRECT.forEach((choice, i) => fills.set(i + 1, { choice, style: 'full' }));
+    // TF-A slot 5: tô ô đúng của cả 4 ý (Đ,S,Đ,S → các ô 0,3,4,7).
+    fills.set(5, { choice: 0, choices: [3, 4, 7], style: 'full' });
+    return fills;
+  };
 
   it('batch pins the layout and snapshots a student-only roster with bubble codes', () => {
     expect(ctx.batch.variantCode).toBe('A');
@@ -216,8 +232,8 @@ describe('CAM-0 paper grading flow', () => {
       [2, { choice: CORRECT[1]!, style: 'full' }],
       [3, { choice: (CORRECT[2]! + 1) % 4, style: 'full' }], // sai một câu
       [4, { choice: CORRECT[3]!, style: 'full' }],
-      [5, { choice: 0, style: 'full' }], // đúng/sai: Đ = đúng
     ]);
+    fills.set(5, { choice: 0, choices: [3, 4, 7], style: 'full' }); // TF-A: 4 ý đều đúng phía (Đ,S,Đ,S)
     const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, ctx.studentA.id), bubbleCode: null, fills, seed: 111 });
     const res = await upload(photo, 'a.png', ctx.teacher);
     expect(res.status).toBe(201);
@@ -252,8 +268,8 @@ describe('CAM-0 paper grading flow', () => {
       [2, { choice: CORRECT[1]!, style: 'light' }], // tô mờ → mơ hồ, không được đoán
       [3, { choice: CORRECT[2]!, style: 'full' }],
       [4, { choice: CORRECT[3]!, style: 'full' }],
-      [5, { choice: 0, style: 'full' }],
     ]);
+    fills.set(5, { choice: 0, choices: [3, 4, 7], style: 'full' });
     const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, null), bubbleCode: codeB, fills, seed: 222 });
     const res = await upload(photo, 'b.png', ctx.teacher);
     expect(res.status).toBe(201);
@@ -287,8 +303,8 @@ describe('CAM-0 paper grading flow', () => {
       [2, { choice: CORRECT[1]!, style: 'full' }],
       [3, { choice: CORRECT[2]!, style: 'full' }],
       [4, { choice: CORRECT[3]!, style: 'full' }],
-      [5, { choice: 0, style: 'full' }],
     ]);
+    fills.set(5, { choice: 0, choices: [3, 4, 7], style: 'full' });
     const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, null), bubbleCode: tampered, fills, seed: 333 });
     const res = await upload(photo, 'c.png', ctx.teacher);
     expect(res.status).toBe(201);

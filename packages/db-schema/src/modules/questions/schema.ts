@@ -116,7 +116,6 @@ export const question = pgTable('question', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   category: uuid('category').notNull().references(() => questionCategories.id, { onDelete: 'cascade' }),
   qtype: text('qtype').notNull(),
-  name: text('name').notNull(),
   createdBy: uuid('created_by'),
   modifiedBy: uuid('modified_by'),
   /**
@@ -226,10 +225,9 @@ export const questionBankContributions = pgTable('question_bank_contributions', 
 /**
  * Immutable question content versions (Moodle `question_versions` + bản ghi
  * `question` của Moodle). question_text/general_feedback là tài liệu Tiptap
- * (jsonb); guidance là cột rich text MỞ RỘNG ngoài chuẩn Moodle (hướng dẫn
- * cho học viên — Moodle không có trường tương đương). Đáp án và options
- * KHÔNG nằm ở đây: chúng tách sang question_answers + bảng options riêng
- * từng qtype như cấu trúc Moodle. stimulus_id trỏ tới ngữ liệu dùng chung;
+ * (jsonb). Đáp án, guidance và lời giải KHÔNG nằm ở đây: chúng thuộc phía
+ * đáp án — lần lượt ở question_answers, question_answer_keys và các bảng
+ * options riêng từng qtype. stimulus_id trỏ tới ngữ liệu dùng chung;
  * đổi ngữ liệu = tạo version mới.
  */
 export const questionVersions = pgTable(
@@ -242,7 +240,6 @@ export const questionVersions = pgTable(
     status: text('status').notNull().default('ready'),
     questionText: jsonb('question_text').notNull().default(sql`'{"type":"doc","content":[{"type":"paragraph"}]}'::jsonb`),
     generalFeedback: jsonb('general_feedback'),
-    guidance: jsonb('guidance'),
     defaultMark: doublePrecision('default_mark').notNull().default(1),
     penalty: doublePrecision('penalty').notNull().default(0),
     stimulusId: uuid('stimulus_id').references(() => stimuli.id, { onDelete: 'set null' }),
@@ -255,17 +252,17 @@ export const questionVersions = pgTable(
 
 /**
  * Đáp án của một version (Moodle `question_answers` dùng chung mọi qtype):
- * multichoice — mỗi lựa chọn một dòng, fraction là tỷ trọng của lựa chọn;
- * truefalse — đúng 2 dòng (đúng/sai) được question_truefalse trỏ vào;
- * shortanswer — mỗi đáp án mẫu một dòng với fraction riêng, chấm theo thứ tự
- * sort_order (đáp án khớp đầu tiên thắng). answer/feedback là tài liệu Tiptap;
- * fraction là cột số thật (tỷ trọng trong nội bộ câu, KHÔNG phải điểm).
+ * multichoice — mỗi lựa chọn một dòng và đúng một dòng có is_correct;
+ * truefalse — đúng 2 dòng (đúng/sai) được question_truefalse trỏ vào, phía
+ * đúng mang is_correct; shortanswer — mỗi đáp án được chấp nhận một dòng và
+ * mọi dòng đều mang is_correct. answer/feedback là tài liệu Tiptap.
+ * is_correct là cờ đúng/sai của đáp án, KHÔNG phải điểm hay tỉ trọng.
  */
 export const questionAnswers = pgTable('question_answers', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   questionVersionId: uuid('question_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
   answer: jsonb('answer').notNull(),
-  fraction: doublePrecision('fraction').notNull().default(0),
+  isCorrect: boolean('is_correct').notNull().default(false),
   feedback: jsonb('feedback'),
   sortOrder: integer('sort_order').notNull().default(0),
 },
@@ -274,17 +271,33 @@ export const questionAnswers = pgTable('question_answers', {
   ]);
 
 
+/**
+ * Bản ghi phía đáp án 1-1 của một version: guidance là hướng dẫn cách làm
+ * dành cho học viên; solution là lời giải đầy đủ chỉ dùng ở các hình dạng
+ * không suy ra được từ các dòng question_answers (hiện tại là essay và
+ * TF-A ở lát P5). Bản ghi này cùng vòng đời với version và cùng thuộc ngữ
+ * cảnh phân quyền phía đáp án với question_answers.
+ */
+export const questionAnswerKeys = pgTable('question_answer_keys', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  questionVersionId: uuid('question_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
+  guidance: jsonb('guidance'),
+  solution: jsonb('solution'),
+},
+  (table) => [
+      index('question_answer_keys_question_version_id_idx').on(table.questionVersionId),
+      unique('question_answer_keys_version_unique').on(table.questionVersionId),
+  ]);
+
+
 /** Options của multichoice (Moodle `qtype_multichoice_options`): một dòng cho mỗi version. */
 export const qtypeMultichoiceOptions = pgTable('qtype_multichoice_options', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   questionVersionId: uuid('question_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
-  single: boolean('single').notNull().default(true),
   shuffleAnswers: boolean('shuffle_answers').notNull().default(false),
   answerNumbering: text('answer_numbering').notNull().default('abc'),
   correctFeedback: jsonb('correct_feedback'),
-  partiallyCorrectFeedback: jsonb('partially_correct_feedback'),
   incorrectFeedback: jsonb('incorrect_feedback'),
-  showNumCorrect: boolean('show_num_correct').notNull().default(false),
   showStandardInstruction: boolean('show_standard_instruction').notNull().default(true),
 },
   (table) => [

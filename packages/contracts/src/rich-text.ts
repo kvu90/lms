@@ -13,6 +13,16 @@ import { z } from 'zod';
  * bản render chỉ là phái sinh. Mọi node/mark ngoài lát này (heading, table,
  * orderedList...) đều bị schema TỪ CHỐI ở biên — muốn mở rộng phải nới
  * schema ở đây trước, không tự chế shape ở tầng nghiệp vụ hay giao diện.
+ *
+ * Lát P5 (TF-A, đợt port #248): thêm node `statementList` / `statement`
+ * cho câu đúng/sai nguyên bản giaokhoa (điểm quyết D-1) — thân câu
+ * đúng/sai là một `doc` mà node block CUỐI là một `statementList` chứa
+ * đúng {@link TRUE_FALSE_STATEMENT_COUNT} `statement`, mỗi statement
+ * mang `attrs.id` ổn định và nội dung là các block rich text. Luật
+ * nghiệp vụ (đúng 4 mệnh đề, id duy nhất, statementList chỉ thuộc thân
+ * câu đúng/sai và phải ở cuối) kiểm ở schema payload câu hỏi
+ * (`assessment.ts`) và tầng nghiệp vụ — schema rich text ở đây chỉ giữ
+ * hình dạng cấu trúc.
  */
 
 /** Một mark định dạng chữ cơ bản trên một đoạn text (Tiptap mark). */
@@ -103,12 +113,41 @@ export interface RichTextBulletListNode {
   content: RichTextListItemNode[];
 }
 
+/**
+ * Một mệnh đề của câu đúng/sai chùm (TF-A): node `statement` mang
+ * `attrs.id` là định danh ổn định của mệnh đề trong vòng đời của
+ * version (đáp án đúng/sai của mệnh đề và đáp án học sinh chọn đều bám
+ * theo id này, KHÔNG theo vị trí — sửa/thêm mệnh đề không làm lệch đáp
+ * án của các mệnh đề còn lại) và `content` là các block rich text của
+ * nội dung mệnh đề.
+ */
+export interface RichTextStatementNode {
+  type: 'statement';
+  attrs: { id: string };
+  /** Các block nội dung của mệnh đề (cùng lát block với hợp đồng). */
+  content: RichTextBlockNode[];
+}
+
+/**
+ * Danh sách mệnh đề chốt đuôi thân câu đúng/sai chùm: node
+ * `statementList` chứa các {@link RichTextStatementNode} theo thứ tự
+ * trình bày (a, b, c, d). Số mệnh đề đúng
+ * ({@link TRUE_FALSE_STATEMENT_COUNT}) là luật nghiệp vụ kiểm ở tầng
+ * câu hỏi, không khoá ở schema cấu trúc này.
+ */
+export interface RichTextStatementListNode {
+  type: 'statementList';
+  /** Các mệnh đề theo thứ tự trình bày. */
+  content: RichTextStatementNode[];
+}
+
 /** Mọi node block có thể nằm trực tiếp trong `doc` hoặc trong một `listItem`. */
 export type RichTextBlockNode =
   | RichTextParagraphNode
   | RichTextBulletListNode
   | RichTextBlockMathNode
-  | RichTextImageNode;
+  | RichTextImageNode
+  | RichTextStatementListNode;
 
 /** Schema của một mục danh sách; đệ quy qua {@link richTextBlockNodeSchema}. */
 export const richTextListItemNodeSchema: z.ZodType<RichTextListItemNode> = z.lazy(() =>
@@ -125,13 +164,32 @@ export const richTextBulletListNodeSchema: z.ZodType<RichTextBulletListNode> =
     content: z.array(richTextListItemNodeSchema).min(1),
   });
 
+/** Schema của một mệnh đề đúng/sai; đệ quy qua {@link richTextBlockNodeSchema} cho nội dung của mệnh đề. */
+export const richTextStatementNodeSchema: z.ZodType<RichTextStatementNode> = z.lazy(() =>
+  z.strictObject({
+    type: z.literal('statement'),
+    attrs: z.strictObject({ id: z.string().min(1) }),
+    content: z.array(richTextBlockNodeSchema).min(1),
+  }),
+);
+
+/** Schema của danh sách mệnh đề chốt đuôi thân câu đúng/sai chùm. */
+export const richTextStatementListNodeSchema: z.ZodType<RichTextStatementListNode> =
+  z.strictObject({
+    type: z.literal('statementList'),
+    content: z.array(richTextStatementNodeSchema),
+  });
+
 /** Schema của mọi node block trong lát rich text hiện tại. */
-export const richTextBlockNodeSchema: z.ZodType<RichTextBlockNode> = z.union([
-  richTextParagraphNodeSchema,
-  richTextBulletListNodeSchema,
-  richTextBlockMathNodeSchema,
-  richTextImageNodeSchema,
-]);
+export const richTextBlockNodeSchema: z.ZodType<RichTextBlockNode> = z.lazy(() =>
+  z.union([
+    richTextParagraphNodeSchema,
+    richTextBulletListNodeSchema,
+    richTextBlockMathNodeSchema,
+    richTextImageNodeSchema,
+    richTextStatementListNodeSchema,
+  ]),
+);
 
 /** Một tài liệu rich text hoàn chỉnh: node gốc `doc` chứa ít nhất một block. */
 export const richTextDocumentSchema = z.strictObject({
@@ -196,7 +254,110 @@ function extractBlockPlainText(block: RichTextBlockNode): string {
       return block.content
         .map((item) => item.content.map(extractBlockPlainText).join('\n'))
         .join('\n');
+    case 'statementList':
+      return block.content
+        .map((statement) => statement.content.map(extractBlockPlainText).join('\n'))
+        .join('\n');
   }
+}
+
+/**
+ * Trích văn bản thuần từ một danh sách block (không cần bọc trong
+ * `doc`): cùng quy tắc canonical với {@link extractRichTextPlainText}
+ * — dùng cho các lát nội dung con như nội dung của một mệnh đề
+ * đúng/sai hay phần thân câu phía trước danh sách mệnh đề.
+ *
+ * @param blocks - Các block cần trích text.
+ * @returns Text thuần của các block, nối bằng ký tự xuống dòng.
+ */
+export function extractRichTextBlocksPlainText(blocks: readonly RichTextBlockNode[]): string {
+  return blocks.map(extractBlockPlainText).join('\n');
+}
+
+/**
+ * Một danh sách block có nội dung thật để hiển thị/soạn thảo hay
+ * không: paragraph cần chữ hoặc công thức; blockMath cần mã LaTeX;
+ * ảnh tự nó là nội dung; danh sách và mệnh đề xét đệ quy vào trong.
+ * Dùng cho luật "phần thân/mệnh đề phải có nội dung có nghĩa" của câu
+ * đúng/sai chùm và các kiểm tra rỗng tương tự.
+ *
+ * @param blocks - Các block cần kiểm.
+ * @returns `true` khi có ít nhất một block mang nội dung thật.
+ */
+export function richTextBlocksHaveContent(blocks: readonly RichTextBlockNode[]): boolean {
+  return blocks.some((block) => {
+    switch (block.type) {
+      case 'paragraph':
+        return (block.content ?? []).some((node) =>
+          node.type === 'text' ? node.text.trim() !== '' : node.attrs.latex.trim() !== '',
+        );
+      case 'blockMath':
+        return block.attrs.latex.trim() !== '';
+      case 'image':
+        return true;
+      case 'bulletList':
+        return block.content.some((item) => richTextBlocksHaveContent(item.content));
+      case 'statementList':
+        return block.content.some((statement) => richTextBlocksHaveContent(statement.content));
+    }
+  });
+}
+
+/**
+ * Trong danh sách block có node `statementList` lồng ở bất kỳ mức nào
+ * hay không (trực tiếp, trong một mục danh sách, hay trong nội dung
+ * một mệnh đề). Luật nghiệp vụ TF-A: `statementList` chỉ được xuất
+ * hiện đúng một lần, là node cuối của thân câu đúng/sai — helper này
+ * là cổng kiểm cho phần thân phía trước danh sách và cho nội dung
+ * từng mệnh đề.
+ *
+ * @param blocks - Các block cần kiểm.
+ * @returns `true` khi tìm thấy một `statementList` ở bất kỳ mức nào.
+ */
+export function richTextBlocksContainStatementList(blocks: readonly RichTextBlockNode[]): boolean {
+  return blocks.some((block) => {
+    if (block.type === 'statementList') return true;
+    if (block.type === 'bulletList') {
+      return block.content.some((item) => richTextBlocksContainStatementList(item.content));
+    }
+    return false;
+  });
+}
+
+/** Số mệnh đề của một câu đúng/sai chùm (TF-A) — khoá cứng theo nguyên bản giaokhoa và đề thi đúng/sai chuẩn Việt Nam (4 ý a–d). */
+export const TRUE_FALSE_STATEMENT_COUNT = 4;
+
+/** Một mệnh đề của câu đúng/sai chùm đã bóc ra khỏi tài liệu thân câu: định danh, nội dung block và text thuần. */
+export interface TrueFalseStatementContent {
+  /** Định danh ổn định của mệnh đề (`attrs.id` của node statement). */
+  id: string;
+  /** Các block nội dung của mệnh đề. */
+  content: RichTextBlockNode[];
+  /** Text thuần của mệnh đề theo đường trích canonical. */
+  text: string;
+}
+
+/**
+ * Bóc các mệnh đề của một thân câu đúng/sai chùm: chỉ khi node block
+ * CUỐI của tài liệu là một `statementList` thì tài liệu mới là thân
+ * câu TF-A và hàm trả các mệnh đề theo đúng thứ tự trình bày; ngoài
+ * ra trả `null` (thân câu thường, hoặc statementList đặt sai vị trí —
+ * luật vị trí do tầng câu hỏi phán quyết bằng chính kết quả này).
+ *
+ * @param doc - Tài liệu thân câu cần bóc.
+ * @returns Các mệnh đề theo thứ tự, hoặc `null` khi tài liệu không
+ *   chốt đuôi bằng một `statementList`.
+ */
+export function getTrueFalseStatements(doc: RichTextDocument): TrueFalseStatementContent[] | null {
+  const last = doc.content[doc.content.length - 1];
+  if (!last || last.type !== 'statementList') {
+    return null;
+  }
+  return last.content.map((statement) => ({
+    id: statement.attrs.id,
+    content: statement.content,
+    text: extractRichTextBlocksPlainText(statement.content),
+  }));
 }
 
 /**
