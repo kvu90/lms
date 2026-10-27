@@ -1,10 +1,12 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import { GuardianDigestProcessor } from '../src/processors/guardian-digest.processor';
 import { guardianDigests, outboxEvents, userPreferences } from '@lms/db-schema';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * PH-2 (issue #159) — phía phát hiện ở worker: lượt quét guardian-digests
@@ -15,9 +17,16 @@ import { guardianDigests, outboxEvents, userPreferences } from '@lms/db-schema';
  * API. Nửa API (sự kiện → tổng hợp đã công bố → thông báo) được kiểm
  * chứng ở apps/api/test/guardian-ph2-digest-flow.e2e-spec.ts bằng đúng
  * hình dạng sự kiện phát ở đây.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   let processor: GuardianDigestProcessor;
   let fixtureTenantId = '';
@@ -100,15 +109,15 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     return (cls.rows[0] as { id: string }).id;
   }
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [(await import('../src/worker.module')).WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     const tenantRows = await db.execute(sql`select id from tenants where slug = 'worker-fixture'`);
     fixtureTenantId = (tenantRows.rows[0] as { id: string }).id;
     processor = context.get(GuardianDigestProcessor);
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('weekly mặc định: chốt đúng 1 digest cho cửa sổ tuần vừa đóng + 1 sự kiện; quét lại không trùng', async () => {
     const guardian = uid(1); const student = uid(2);

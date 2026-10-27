@@ -41,6 +41,16 @@ export const ORDINARY_ROLE = 'lms_worker_ordinary';
 export const ORDINARY_ROLE_PASSWORD = 'lms-worker-ordinary-test-password';
 
 /**
+ * Khoá advisory cấp phiên để tuần tự hoá việc dựng role giữa các
+ * spec chạy song song trên cùng cụm Postgres: không có khoá này,
+ * CREATE ROLE đồng thời làm phiên thua văng `unique_violation` trên
+ * `pg_authid_rolname_index`, còn ALTER ROLE đồng thời văng
+ * `tuple concurrently updated` — cả hai đều là lỗi tranh chấp của
+ * chính khâu dựng role, không phải lỗi của spec.
+ */
+const ORDINARY_ROLE_SETUP_LOCK = 294001;
+
+/**
  * Lấy URL kết nối quản trị của suite worker từ env.
  *
  * @returns URL trong `DATABASE_URL` (vitest config gán, mặc định trỏ
@@ -58,10 +68,13 @@ export function adminDatabaseUrl(): string {
  * Dựng role thường (idempotent) và cấp quyền tối thiểu trên schema
  * `public` của DB test.
  *
- * Flow: kết nối bằng URL quản trị → tạo role nếu chưa có (khối DO bắt
- * `duplicate_object`) → ALTER để bảo đảm thuộc tính role luôn đúng dù
- * role được tạo từ lượt chạy cũ → GRANT USAGE schema + ALL trên mọi
- * bảng/sequence hiện hữu cho role.
+ * Flow: kết nối bằng URL quản trị → giữ khoá advisory
+ * {@link ORDINARY_ROLE_SETUP_LOCK} trong suốt khâu dựng (nhả khoá ở
+ * `finally`; kết nối đóng cũng tự nhả khoá cấp phiên) → tạo role nếu
+ * chưa có (khối DO bắt cả `duplicate_object` lẫn `unique_violation`
+ * cho các lượt chạy nối tiếp mà không giữ khoá) → ALTER để bảo đảm
+ * thuộc tính role luôn đúng dù role được tạo từ lượt chạy cũ →
+ * GRANT USAGE schema + ALL trên mọi bảng/sequence hiện hữu cho role.
  *
  * @param adminUrl URL kết nối quản trị (superuser) của DB test.
  */
@@ -69,15 +82,20 @@ export async function ensureOrdinaryRole(adminUrl: string): Promise<void> {
   const admin = new Client({ connectionString: adminUrl });
   await admin.connect();
   try {
-    await admin.query(
-      `DO $$ BEGIN CREATE ROLE ${ORDINARY_ROLE} LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
-    );
-    await admin.query(
-      `ALTER ROLE ${ORDINARY_ROLE} WITH LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`,
-    );
-    await admin.query(`GRANT USAGE ON SCHEMA public TO ${ORDINARY_ROLE}`);
-    await admin.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${ORDINARY_ROLE}`);
-    await admin.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${ORDINARY_ROLE}`);
+    await admin.query(`SELECT pg_advisory_lock(${ORDINARY_ROLE_SETUP_LOCK})`);
+    try {
+      await admin.query(
+        `DO $$ BEGIN CREATE ROLE ${ORDINARY_ROLE} LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END $$`,
+      );
+      await admin.query(
+        `ALTER ROLE ${ORDINARY_ROLE} WITH LOGIN PASSWORD '${ORDINARY_ROLE_PASSWORD}' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`,
+      );
+      await admin.query(`GRANT USAGE ON SCHEMA public TO ${ORDINARY_ROLE}`);
+      await admin.query(`GRANT ALL ON ALL TABLES IN SCHEMA public TO ${ORDINARY_ROLE}`);
+      await admin.query(`GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO ${ORDINARY_ROLE}`);
+    } finally {
+      await admin.query(`SELECT pg_advisory_unlock(${ORDINARY_ROLE_SETUP_LOCK})`);
+    }
   } finally {
     await admin.end();
   }

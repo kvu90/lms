@@ -1,11 +1,12 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { eq, sql } from 'drizzle-orm';
 import { ActivityDueReminderProcessor } from '../src/processors/activity-due-reminder.processor';
 import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * Lát N5 (issue #50): nhắc hạn nộp tự động trước 24 giờ.
@@ -26,9 +27,16 @@ import { WorkerModule } from '../src/worker.module';
  * Nửa API (sự kiện → thông báo activity_due_soon) được kiểm chứng ở
  * apps/api/test/notifications-providers-flow.e2e-spec.ts bằng đúng
  * hình dạng sự kiện phát ở đây.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker activity due-soon reminders (N5, issue #50)', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = Date.now();
 
@@ -121,12 +129,12 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     return (cls.rows[0] as { id: string }).id;
   }
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('reminds each not-yet-submitted enrolled student exactly once; re-running the sweep does not duplicate', async () => {
     const { quizId, instanceId: inst } = await makeQuiz({ closeInHours: 12 });

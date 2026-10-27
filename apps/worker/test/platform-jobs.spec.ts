@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
@@ -11,16 +9,27 @@ import {
   backupJobs, enrol, gradeGrades, insights, payments, privacyRequests, reportBuilderReport,
   reportBuilderSchedule, searchDocuments, userEnrolments, users,
 } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * Các job nền tảng (platform) của worker. Oracles: report §4 platform-services DoD (các bước backup, search reindex,
  * analytics không side-effect, report schedule, privacy lan đủ, payment
  * webhook replay) + các file PHPUnit tương ứng của platform services.
  * User/course được raw-insert với id cao độc nhất như các worker spec trước.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production (các job nền tảng bọc
+ * ngữ cảnh platform tường minh, vai trò này vẫn chịu RLS ở các bảng
+ * tenant), fixture và đọc kiểm chứng đi qua kết nối quản trị của
+ * harness — khẳng định nghiệp vụ của spec không đổi.
  */
 describe('Worker platform services: backup, search reindex, analytics, report schedule, privacy, payment', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = Date.now() % 100000;
   const userId = `01950000-0000-7000-8000-${String(950000 + suffix).padStart(12, '0')}`;
@@ -41,9 +50,9 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     return (cls.rows[0] as { id: string }).id;
   }
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk5-cat-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
@@ -72,7 +81,7 @@ describe('Worker platform services: backup, search reindex, analytics, report sc
     const roleId = (roleRows.rows[0] as { id: string }).id;
     await db.execute(sql`insert into role_assignments (role_id, user_id, context_id) values (${roleId}, ${teacherId}, ${courseCtxId})`);
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('backup processor builds a versioned archive with contributor steps and is idempotent on replay', async () => {
     const [job] = await db.insert(backupJobs).values({ type: 'backup', courseId: courseId, userId: teacherId, status: 'pending' }).returning();
