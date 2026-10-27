@@ -20,6 +20,22 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 5. Issue đặc tả của việc đang làm — bối cảnh, phạm vi, quyết định liên
    quan (viết trọn vẹn trong issue) và tiêu chí nghiệm thu.
 
+## Chuẩn ngôn ngữ
+
+- **Code viết bằng tiếng Anh:** định danh, tên hàm/biến/lớp và các
+  chuỗi kỹ thuật (log key, mã lỗi, khoá cấu hình, thông điệp do máy
+  đọc) viết bằng tiếng Anh.
+- **Comment trong code viết bằng tiếng Việt:** toàn bộ comment trong
+  code — gồm comment mô tả luồng nghiệp vụ — viết bằng tiếng Việt.
+- **Tài liệu và văn bản GitHub viết bằng tiếng Việt:** mọi tài liệu
+  trong repo (README, các file AGENTS, tài liệu của package) và mọi
+  văn bản trên GitHub (issue, PR, comment) viết bằng tiếng Việt, văn
+  phong kỹ thuật trung tính.
+- **Sửa code phải cập nhật comment khớp code:** khi sửa code, comment
+  tiếng Việt liên quan phải được cập nhật khớp với code trong cùng
+  lượt thay đổi; comment lệch code thật là lỗi phải sửa trong cùng
+  lượt, không để tồn đọng.
+
 ## Chuẩn Issue và PR — văn bản tự chứa
 
 1. **Issue là bản đặc tả tự chứa.** Mọi issue phải chứa đủ: bối cảnh và

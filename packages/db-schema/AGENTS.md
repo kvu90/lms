@@ -11,6 +11,17 @@
 3. `AGENTS.md` ở thư mục gốc của repo — quy định chung cho AI toàn repo, gồm chuẩn
    văn bản tự chứa cho issue và PR.
 
+## Chuẩn ngôn ngữ
+
+Code (định danh, tên hàm/biến/lớp, chuỗi kỹ thuật) viết bằng tiếng Anh.
+Toàn bộ comment trong code — gồm comment mô tả luồng nghiệp vụ — viết
+bằng tiếng Việt. Mọi tài liệu trong repo (README, các file AGENTS, tài
+liệu của package) và mọi văn bản trên GitHub (issue, PR, comment) viết
+bằng tiếng Việt. Khi sửa code, comment tiếng Việt liên quan phải được
+cập nhật khớp với code trong cùng lượt thay đổi. Nội dung đầy đủ của
+chuẩn này nằm ở mục "Chuẩn ngôn ngữ" trong `AGENTS.md` ở thư mục gốc
+của repo.
+
 ## Ranh giới phạm vi
 
 - 1 issue = 1 feat = 1 PR: đổi schema + baseline sinh từ schema + spec đếm ở

@@ -50,6 +50,8 @@ này — kết luận chỉ lấy từ log thật của job. -->
 
 ## Kỷ luật đã giữ
 
+- [ ] Comment trong code và tài liệu của PR này bằng tiếng Việt; code
+  bằng tiếng Anh.
 - [ ] Comment nghiệp vụ tiếng Việt trong code đã được cập nhật nếu có đổi
   code; comment lệch code thật được sửa trong cùng lượt với sửa code.
 - [ ] Tài liệu còn giữ trong repo (README/AGENTS.md của package liên quan)
