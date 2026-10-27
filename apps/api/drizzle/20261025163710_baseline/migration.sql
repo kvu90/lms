@@ -3185,3 +3185,28 @@ CREATE INDEX "plan_entitlements_user_id_idx" ON "plan_entitlements" ("user_id");
 CREATE INDEX "plan_entitlements_payment_id_idx" ON "plan_entitlements" ("payment_id");--> statement-breakpoint
 ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id") ON DELETE NO ACTION;--> statement-breakpoint
+
+-- Phần còn lại của lát 2 (issue #189): bảng `payment_coupons` — coupon
+-- giảm giá cho đường mua gói, là dữ liệu do quản trị platform tạo (mã,
+-- loại giảm, mức giảm, phạm vi gói, cửa sổ hiệu lực, giới hạn lượt
+-- dùng); không có giá trị giảm nào ghim trong code. Bảng nghiệp vụ
+-- tầng platform như các bảng payments: không bật RLS, gác bằng
+-- capability ở tầng service. Gộp tay vào baseline duy nhất như các
+-- lát trước.
+CREATE TABLE "payment_coupons" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"code" text NOT NULL,
+	"discount_type" text NOT NULL,
+	"discount_value" integer NOT NULL,
+	"applies_to" text DEFAULT 'all' NOT NULL,
+	"starts_at" timestamp with time zone,
+	"ends_at" timestamp with time zone,
+	"max_redemptions" integer,
+	"is_active" boolean DEFAULT true NOT NULL,
+	"created_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "payment_coupons_code_unique" UNIQUE("code")
+);
+--> statement-breakpoint
+ALTER TABLE "payment_coupons" ADD CONSTRAINT "payment_coupons_created_by_users_id_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
