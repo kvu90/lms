@@ -581,19 +581,20 @@ describe('I-2 với diễn viên giáo viên mô hình seed (hồi quy D-3, issu
   });
 
   it('giáo viên mở và xuất bản đặc tả của ma trận trong bank cá nhân của mình: đạt (điều kiện Mục 7, issue #233)', async () => {
-    // Ma trận của giáo viên A trong bank cá nhân của chính mình, có
-    // một ô neo ĐVK 1: bản đặc tả dựng từ ma trận này phải đi qua
-    // các đường đọc tham chiếu nội bộ (môn/chương trình/node/YCCĐ),
-    // không còn vấp `curriculum:view` tại context hệ thống của môn.
-    // Trước điều kiện Mục 7, chính bước này 403 dù giáo viên đã qua
-    // cổng xem ma trận tại bank đích.
-    const created = await http(app).post('/api/v1/exam-matrices').set(auth(teacherA.token))
-      .send({ name: 'Ma trận đặc tả của giáo viên seed', subjectId, curriculumId, bankId: bankAId });
-    expect(created.status, JSON.stringify(created.body)).toBe(201);
-    const matrixId = (created.body as { id: string }).id;
-    const withCell = await http(app).post(`/api/v1/exam-matrices/${matrixId}/cells`).set(auth(teacherA.token))
-      .send({ curriculumNodeId: lesson1Id, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 1 });
-    expect(withCell.status, JSON.stringify(withCell.body)).toBeLessThan(300);
+    // Ma trận của giáo viên A trong bank cá nhân của chính mình, nhập
+    // trọn luồng bằng chính tài khoản giáo viên (đường nhập đã qua
+    // cổng bank và đọc tham chiếu nội bộ): bản đặc tả dựng từ ma
+    // trận này phải đi qua các đường đọc tham chiếu nội bộ
+    // (môn/chương trình/node/YCCĐ), không còn vấp `curriculum:view`
+    // tại context hệ thống của môn. Trước điều kiện Mục 7, chính
+    // bước mở đặc tả này 403 dù giáo viên đã qua cổng xem ma trận
+    // tại bank đích.
+    const wb = await downloadTemplate(teacherA.token);
+    fillValid(wb, 'Ma trận đặc tả của giáo viên seed');
+    const buffer = await toBuffer(wb);
+    const imported = await postImport(teacherA.token, buffer).expect(201);
+    const matrixId = (imported.body as { id: string }).id;
+    expect((imported.body as { bankId: string }).bankId).toBe(bankAId);
 
     const spec = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification`).set(auth(teacherA.token)).expect(200);
     expect(spec.body.subject.id).toBe(subjectId);
@@ -601,11 +602,12 @@ describe('I-2 với diễn viên giáo viên mô hình seed (hồi quy D-3, issu
     const nodeIds = (spec.body.topics as { nodes: { nodeId: string; outcomes: { content: string }[] }[] }[])
       .flatMap((t) => t.nodes.map((n) => n.nodeId));
     expect(nodeIds).toContain(lesson1Id);
+    expect(nodeIds).toContain(lesson2Id);
     const specNode = (spec.body.topics as { nodes: { nodeId: string; outcomes: { content: string }[] }[] }[])
       .flatMap((t) => t.nodes).find((n) => n.nodeId === lesson1Id)!;
     expect(specNode.outcomes.map((o) => o.content)).toContain('Nhận biết được hàm số bậc hai');
-    expect(spec.body.totals.totalScore).toBe(1);
-    expect(spec.body.totals.totalQuestions).toBe(2);
+    expect(spec.body.totals.totalScore).toBe(10);
+    expect(spec.body.totals.totalQuestions).toBe(20);
 
     const xlsx = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification/export?format=xlsx`)
       .set(auth(teacherA.token)).responseType('arraybuffer');
