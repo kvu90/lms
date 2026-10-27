@@ -932,6 +932,9 @@ describe('bank sync contracts (issue #228: đóng góp đề khuôn QB-4 + truy 
     expect(examMatrixContributionViewSchema.parse(row).nearDuplicateOf).toBe(matrixId);
     const { contentHash: _omit, ...missingHash } = row;
     expect(() => examMatrixContributionViewSchema.parse(missingHash)).toThrow();
+  });
+});
+
 describe('coupon + purchase plan contracts (phần còn lại của lát 2, #189)', () => {
   it('coupon phần trăm chỉ hợp lệ trong khoảng 1–99; cố định là số nguyên dương', () => {
     // Ràng buộc nghiệp vụ của hình dạng theo đặc tả coupon: phần trăm
