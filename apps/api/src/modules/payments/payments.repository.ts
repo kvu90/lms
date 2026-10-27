@@ -2,13 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { course, paymentAccounts, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '../../db/schema';
+import { course, paymentAccounts, paymentCoupons, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '../../db/schema';
 
 export type AccountRow = typeof paymentAccounts.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
 export type RefundRow = typeof paymentRefunds.$inferSelect;
 export type ProviderEventRow = typeof paymentProviderEvents.$inferSelect;
 export type EntitlementRow = typeof planEntitlements.$inferSelect;
+export type CouponRow = typeof paymentCoupons.$inferSelect;
 
 /** Kho dữ liệu payment_accounts / payments / payment_refunds. */
 @Injectable()
@@ -158,5 +159,40 @@ export class PaymentsRepository {
     await this.db.update(planEntitlements)
       .set({ status: 'suspended', updatedAt: new Date() })
       .where(eq(planEntitlements.paymentId, paymentId));
+  }
+
+  // --- Coupon giảm giá mua gói (phần còn lại của lát 2, issue #189) --------
+  async insertCoupon(v: typeof paymentCoupons.$inferInsert): Promise<CouponRow> {
+    const [row] = await this.db.insert(paymentCoupons).values(v).returning(); return row!;
+  }
+  async getCoupon(id: string): Promise<CouponRow | undefined> {
+    const [row] = await this.db.select().from(paymentCoupons).where(eq(paymentCoupons.id, id)); return row;
+  }
+  /** Tra coupon theo mã đã chuẩn hoá chữ hoa (mã là duy nhất toàn hệ). */
+  async getCouponByCode(code: string): Promise<CouponRow | undefined> {
+    const [row] = await this.db.select().from(paymentCoupons).where(eq(paymentCoupons.code, code)); return row;
+  }
+  async listCoupons(): Promise<CouponRow[]> {
+    return this.db.select().from(paymentCoupons).orderBy(asc(paymentCoupons.createdAt));
+  }
+  async updateCoupon(id: string, v: Partial<typeof paymentCoupons.$inferInsert>): Promise<CouponRow> {
+    const [row] = await this.db.update(paymentCoupons).set({ ...v, updatedAt: new Date() }).where(eq(paymentCoupons.id, id)).returning();
+    return row!;
+  }
+  /**
+   * Số lượt dùng đã tiêu thụ của một coupon: số payment gói mang
+   * coupon này trong ảnh chụp `data.plan` và đang ở trạng thái
+   * `pending` hoặc `succeeded` — payment `failed` không tính (lượt
+   * dùng được hoàn lại), đúng đặc tả coupon của issue.
+   */
+  async countCouponRedemptions(couponId: string): Promise<number> {
+    const [row] = await this.db.select({ total: sql<number>`count(*)::int` })
+      .from(payments)
+      .where(and(
+        inArray(payments.component, ['tenant_plan', 'teacher_plan']),
+        inArray(payments.status, ['pending', 'succeeded']),
+        sql`${payments.data}->'plan'->>'couponId' = ${couponId}`,
+      ));
+    return row?.total ?? 0;
   }
 }

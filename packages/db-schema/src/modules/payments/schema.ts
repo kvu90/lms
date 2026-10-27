@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from '../tenants/schema';
+import { users } from '../users/schema';
 
 /** Tài khoản thanh toán (Payment account). Mỗi account thuộc đúng một chủ sở hữu
  * tenant (platform = tenant-zero) — nghiên cứu VietQR §4.3.1/§6.1 (issue #189). */
@@ -139,4 +140,46 @@ export const planEntitlements = pgTable('plan_entitlements', {
   // Idempotency của khâu kích hoạt bảo đảm ở tầng DB: một payment gói
   // sinh TỐI ĐA một bản ghi quyền lợi (xem PlanEntitlementsService).
   unique('plan_entitlements_payment_id_unique').on(t.paymentId),
+]);
+
+/**
+ * Coupon giảm giá cho đường MUA GÓI (phần còn lại của lát 2, issue
+ * #189; đặc tả bổ sung đã ghi trong issue): coupon là DỮ LIỆU do quản
+ * trị platform tạo trong bề mặt quản trị coupon — mã, loại giảm, mức
+ * giảm, phạm vi gói áp dụng, cửa sổ hiệu lực và giới hạn lượt dùng đều
+ * nằm ở bản ghi này, TUYỆT ĐỐI không có giá trị giảm nào ghim trong
+ * code. `code` là duy nhất toàn hệ và được chuẩn hoá chữ hoa khi tạo
+ * lẫn khi áp dụng. `discount_type`: `percent` (giảm theo phần trăm giá
+ * gói đang cấu hình, hợp lệ 1–99) hoặc `fixed` (giảm số tiền cố định,
+ * đơn vị tiền nhỏ nhất như mọi `amount`). `applies_to`: `tenant_plan`,
+ * `teacher_plan` hoặc `all`. `starts_at`/`ends_at` cho phép null
+ * (null = không giới hạn phía đó); `max_redemptions` cho phép null
+ * (null = không giới hạn lượt dùng). Ngừng sử dụng coupon bằng
+ * `is_active = false`, không xoá cứng. Coupon chỉ áp dụng tại thời
+ * điểm tạo payment gói: mức giảm trừ vào giá cấu hình, `payments.amount`
+ * là giá sau giảm, và ảnh chụp trong `payments.data.plan` ghi lại mã
+ * coupon + số tiền đã giảm — lượt dùng được đếm từ chính các payment
+ * đó (payment `pending`/`succeeded` tính một lượt, `failed` không
+ * tính) nên bảng này không cần bảng lượt dùng riêng. Bảng nghiệp vụ
+ * tầng platform nên theo khuôn các bảng payments: KHÔNG bật RLS —
+ * quản trị coupon là nghiệp vụ của platform, gác bằng capability ở
+ * tầng service.
+ */
+export const paymentCoupons = pgTable('payment_coupons', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  code: text('code').notNull(),
+  /** percent: giảm theo phần trăm (1–99); fixed: giảm số tiền cố định theo đơn vị nhỏ nhất của currency. */
+  discountType: text('discount_type').notNull(), // percent | fixed
+  discountValue: integer('discount_value').notNull(),
+  appliesTo: text('applies_to').notNull().default('all'), // tenant_plan | teacher_plan | all
+  startsAt: timestamp('starts_at', { withTimezone: true }),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
+  maxRedemptions: integer('max_redemptions'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  unique('payment_coupons_code_unique').on(t.code),
+  index('payment_coupons_created_by_idx').on(t.createdBy),
 ]);

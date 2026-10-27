@@ -18,6 +18,16 @@ export interface PlanSnapshot {
   beneficiaryTenantId: string;
   /** Giáo viên hưởng gói — chỉ có ở `teacher_plan`, còn lại null. */
   beneficiaryUserId: string | null;
+  /**
+   * Coupon đã áp cho khoản thu này (phần còn lại của lát 2): id và mã
+   * của coupon cùng số tiền đã giảm so với `configuredPrice`. Chỉ có
+   * khi người mua dùng coupon hợp lệ; `payments.amount` khi đó bằng
+   * `configuredPrice - discountAmount`. Coupon không đổi chu kỳ hay
+   * bên hưởng — khâu kích hoạt không đọc các trường này.
+   */
+  couponId?: string;
+  couponCode?: string;
+  discountAmount?: number;
 }
 
 /**
@@ -42,6 +52,15 @@ export function planSnapshotOf(payment: PaymentRow): PlanSnapshot | null {
     periodDays: plan.periodDays,
     beneficiaryTenantId: plan.beneficiaryTenantId,
     beneficiaryUserId: typeof plan.beneficiaryUserId === 'string' ? plan.beneficiaryUserId : null,
+    // Trường coupon là tuỳ chọn và tương thích ngược: ảnh chụp cũ
+    // không có thì giữ undefined; có mà sai kiểu thì bỏ qua từng
+    // trường thay vì vô hiệu hoá toàn bộ ảnh chụp.
+    couponId: typeof plan.couponId === 'string' ? plan.couponId : undefined,
+    couponCode: typeof plan.couponCode === 'string' ? plan.couponCode : undefined,
+    discountAmount:
+      typeof plan.discountAmount === 'number' && Number.isInteger(plan.discountAmount) && plan.discountAmount >= 0
+        ? plan.discountAmount
+        : undefined,
   };
 }
 

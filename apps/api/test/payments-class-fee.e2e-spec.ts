@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
 } from './identity-access-helpers';
-import { createCategory, createCourse } from './course-enrolment-helpers';
+import { createCategory, createCourse, grantActiveTeacherPlan } from './course-enrolment-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 /**
@@ -131,6 +131,13 @@ describe('CLASS-3: học phí theo lớp qua pipeline class_fee (issue #184)', (
     const tenantId = (current.body as { id: string }).id;
     await http(app).post(`/api/v1/tenants/${tenantId}/members`)
       .set('Authorization', `Bearer ${admin}`).send({ userId: teacher.id });
+    // Giáo viên của spec làm chủ 3 lớp với nhiều khoá ở tenant
+    // platform: theo đặc tả slot đã duyệt của issue #189, giáo viên
+    // không có gói chỉ làm chủ được mức nền 1 khoá — cấp quyền lợi
+    // gói giáo viên đang hoạt động làm tiền đề fixture (xem
+    // grantActiveTeacherPlan). Tài khoản fixture do helper tạo ở
+    // trạng thái tắt nên không chen vào luật chọn tài khoản của spec.
+    await grantActiveTeacherPlan(pg, teacher.id);
 
     const sepay = await http(app).post('/api/v1/payments/accounts').set('Authorization', `Bearer ${admin}`)
       .send({

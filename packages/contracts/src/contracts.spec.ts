@@ -16,6 +16,7 @@ import {
   conversationGroupTreeSchema,
   classOverviewSchema,
   classPublicViewSchema, classSchema, updateClassSchema,
+  createCouponSchema, purchasePlanSchema, updateCouponSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -846,5 +847,47 @@ describe('mcp question contracts (biên AI: không fraction, không tên)', () =
     // Options đã bỏ ở biên MCP (D-5): partiallyCorrectFeedback bị từ chối.
     expect(() => mcpQuestionOptionsInputSchema.parse({ partiallyCorrectFeedback: 'Gần đúng' })).toThrow();
     expect(() => mcpQuestionOptionsInputSchema.parse({ single: true })).toThrow();
+  });
+});
+
+describe('coupon + purchase plan contracts (phần còn lại của lát 2, #189)', () => {
+  it('coupon phần trăm chỉ hợp lệ trong khoảng 1–99; cố định là số nguyên dương', () => {
+    // Ràng buộc nghiệp vụ của hình dạng theo đặc tả coupon: phần trăm
+    // giảm luôn nhỏ hơn giá gói nên số tiền phải trả không bao giờ về
+    // 0 — percent = 100 bị từ chối ngay ở biên hình dạng.
+    expect(createCouponSchema.parse({ code: 'SALE10', discountType: 'percent', discountValue: 10 }).discountValue).toBe(10);
+    expect(() => createCouponSchema.parse({ code: 'FREE', discountType: 'percent', discountValue: 100 })).toThrow();
+    expect(() => createCouponSchema.parse({ code: 'ZERO', discountType: 'percent', discountValue: 0 })).toThrow();
+    expect(createCouponSchema.parse({ code: 'FIX500K', discountType: 'fixed', discountValue: 500000 }).discountValue).toBe(500000);
+    expect(() => createCouponSchema.parse({ code: 'NEG', discountType: 'fixed', discountValue: -5 })).toThrow();
+    expect(() => createCouponSchema.parse({ code: 'FLOAT', discountType: 'fixed', discountValue: 1.5 })).toThrow();
+  });
+
+  it('coupon: cửa sổ hiệu lực phải có đầu trước cuối; trường mặc định đúng đặc tả', () => {
+    expect(() => createCouponSchema.parse({
+      code: 'BADWIN', discountType: 'fixed', discountValue: 1000,
+      startsAt: '2026-12-01T00:00:00+07:00', endsAt: '2026-11-01T00:00:00+07:00',
+    })).toThrow();
+    const parsed = createCouponSchema.parse({ code: 'PLAIN', discountType: 'fixed', discountValue: 1000 });
+    expect(parsed.appliesTo).toBe('all');
+    expect(parsed.isActive).toBe(true);
+    // Mã coupon rỗng sau khi cắt khoảng trắng là hình dạng sai.
+    expect(() => createCouponSchema.parse({ code: '   ', discountType: 'fixed', discountValue: 1000 })).toThrow();
+    // Trường lạ bị từ chối (strictObject) — client không nhét được
+    // mức giảm ngoài hai trường đã định.
+    expect(() => createCouponSchema.parse({ code: 'X', discountType: 'fixed', discountValue: 1000, amount: 1 })).toThrow();
+  });
+
+  it('payload mua gói: nhận couponCode tuỳ chọn, tuyệt đối không nhận amount', () => {
+    expect(purchasePlanSchema.parse({ component: 'teacher_plan' }).couponCode).toBeUndefined();
+    expect(purchasePlanSchema.parse({ component: 'tenant_plan', couponCode: 'SALE10' }).couponCode).toBe('SALE10');
+    expect(() => purchasePlanSchema.parse({ component: 'teacher_plan', amount: 1 })).toThrow();
+    expect(() => purchasePlanSchema.parse({ component: 'teacher_plan', couponCode: '' })).toThrow();
+  });
+
+  it('payload cập nhật coupon: cho phép tắt coupon và xoá giới hạn lượt dùng về null', () => {
+    expect(updateCouponSchema.parse({ isActive: false }).isActive).toBe(false);
+    expect(updateCouponSchema.parse({ maxRedemptions: null }).maxRedemptions).toBeNull();
+    expect(() => updateCouponSchema.parse({ code: 'NEWCODE' })).toThrow();
   });
 });

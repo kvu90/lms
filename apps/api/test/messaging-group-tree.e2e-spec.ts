@@ -1,9 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { Client } from 'pg';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
 } from './identity-access-helpers';
-import { createCategory, createClass, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
+import { createCategory, createClass, createCourse, createEnrolInstance, enrolUser, grantActiveTeacherPlan } from './course-enrolment-helpers';
 import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from './engagement-helpers';
 
 /**
@@ -84,6 +85,18 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
     teacher = await person();
     student = await person();
     outsider = await person();
+
+    // GV của spec làm chủ 2 lớp/khoá ở tenant platform: theo đặc tả
+    // slot đã duyệt của issue #189, giáo viên không có gói chỉ làm
+    // chủ được mức nền 1 khoá — cấp quyền lợi gói giáo viên đang
+    // hoạt động làm tiền đề fixture (xem grantActiveTeacherPlan).
+    const pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+    try {
+      await grantActiveTeacherPlan(pg, teacher.id);
+    } finally {
+      await pg.end();
+    }
 
     // Admin tạo 2 lớp với chủ lớp là GV (đường tạo hộ bằng
     // tenant:manage đã có ở API của module classes) — GV là chủ lớp

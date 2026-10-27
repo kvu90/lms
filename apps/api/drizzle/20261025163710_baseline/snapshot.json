@@ -16942,6 +16942,69 @@
       "statementTarget": [
         "table",
         "public",
+        "payment_coupons"
+      ],
+      "writes": [
+        "s|tbl|public.payment_coupons",
+        "n|tbl|public.payment_coupons",
+        "e|tbl|public.payment_coupons",
+        "n|rel|public.payment_coupons",
+        "n|type|public.payment_coupons",
+        "n|rel|public.payment_coupons_pkey",
+        "n|rel|public.payment_coupons_code_unique"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "payment_coupons",
+        "payment_coupons_created_by_idx"
+      ],
+      "writes": [
+        "s|idx|public.payment_coupons_created_by_idx",
+        "n|idx|public.payment_coupons_created_by_idx",
+        "e|idx|public.payment_coupons_created_by_idx",
+        "n|rel|public.payment_coupons_created_by_idx"
+      ],
+      "reads": [
+        "n|tbl|public.payment_coupons",
+        "n|sch|public",
+        "n|col|public.payment_coupons.created_by"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "payment_coupons"
+      ],
+      "writes": [
+        "s|fk|public.payment_coupons.payment_coupons_created_by_users_id_fkey",
+        "n|fk|public.payment_coupons.payment_coupons_created_by_users_id_fkey",
+        "e|fk|public.payment_coupons.payment_coupons_created_by_users_id_fkey",
+        "n|con|public.payment_coupons.payment_coupons_created_by_users_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.payment_coupons",
+        "n|sch|public",
+        "n|tbl|public.users",
+        "n|sch|public",
+        "n|col|public.payment_coupons.created_by",
+        "n|col|public.users.id",
+        "e|uniqueness|public.users.id"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
         "exam_attempt_regrade_items"
       ],
       "writes": [
@@ -57458,6 +57521,227 @@
       "nameExplicit": true,
       "columns": [
         "payment_id"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "name": "payment_coupons",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "code",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "discount_type",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "discount_value",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "applies_to",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'all'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "starts_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "ends_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "max_redemptions",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "is_active",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "true",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "created_by",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "payment_coupons_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "payment_coupons_created_by_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "created_by",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "payment_coupons_created_by_users_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "created_by"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "payment_coupons",
+      "name": "payment_coupons_code_unique",
+      "nameExplicit": true,
+      "columns": [
+        "code"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
