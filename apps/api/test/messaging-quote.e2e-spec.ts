@@ -222,7 +222,7 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
     expect(reply.status).toBe(201);
     expect(reply.body.replyTo.excerpt).toBe(secret);
 
-    const recall = await http(app).post(`/api/v1/messages/messages/${original.body.id as string}/recall`)
+    const recall = await http(app).post(`/api/v1/messages/${original.body.id as string}/recall`)
       .set('Authorization', `Bearer ${a.token}`).send({});
     expect(recall.status).toBe(201);
 
@@ -240,7 +240,7 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
     const reply = await send(b.token, convId, 'trả lời tin sắp ẩn', original.body.id as string);
     expect(reply.status).toBe(201);
 
-    const hide = await http(app).delete(`/api/v1/messages/messages/${original.body.id as string}`)
+    const hide = await http(app).delete(`/api/v1/messages/${original.body.id as string}`)
       .set('Authorization', `Bearer ${a.token}`);
     expect(hide.status).toBe(200);
 
@@ -263,7 +263,7 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
     expect(reply.status).toBe(201);
     expect(reply.body.replyTo?.excerpt).toBe('tin gốc trong nhóm lớp');
 
-    const hard = await http(app).post(`/api/v1/messages/messages/${original.body.id as string}/hard-delete`)
+    const hard = await http(app).post(`/api/v1/messages/${original.body.id as string}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'kiểm chứng lát trích dẫn M3' });
     expect(hard.status).toBe(201);
 

@@ -19,6 +19,7 @@ import {
   useCurriculaBySubject,
   useCurriculumSubjects,
 } from '#lib/matrix-data';
+import { useCourseList } from '#lib/course-new-data';
 import { usePermissions } from '#lib/permissions';
 import type { ExamMatrixView, MatrixImportIssue, MatrixImportPreview } from '@lms/contracts';
 import {
@@ -124,9 +125,25 @@ export function MatrixImportPage() {
   const [previewBusy, setPreviewBusy] = useState(false);
   const [commitBusy, setCommitBusy] = useState(false);
 
-  const subjects = useCurriculumSubjects(perms.ready && perms.canUseQuestionBank).data ?? [];
-  const curriculaQuery = useCurriculaBySubject(subjectId);
+  // Khoá của giáo viên để mở nhánh đọc khung theo khoá (điểm nghẽn
+  // D-3 của issue #233): môn/chương trình là dữ liệu quốc gia chung
+  // nên khoá nào của giáo viên cũng cho cùng danh sách — `forCourseId`
+  // chỉ mở cổng đọc, không lọc danh sách theo khoá. Danh sách khoá
+  // phải về trước mới gọi, để tránh một lượt gọi không kèm khoá rồi
+  // hiện lỗi giả trước khi khoá kịp về.
+  const coursesQuery = useCourseList();
+  const forCourseId = coursesQuery.data?.[0]?.id;
+  const subjectsQuery = useCurriculumSubjects(
+    perms.ready && perms.canUseQuestionBank && coursesQuery.data !== undefined,
+    forCourseId,
+  );
+  const subjects = subjectsQuery.data ?? [];
+  const curriculaQuery = useCurriculaBySubject(subjectId, forCourseId);
   const curricula = curriculaQuery.data ?? [];
+  // Lỗi tải danh sách nền không còn nuốt thành rỗng im lặng: hiện trạng
+  // thái lỗi ngay ở bước 1 để giáo viên biết đường liệt kê đang gãy
+  // thay vì thấy hai dropdown chỉ có "—" mà không rõ lý do.
+  const subjectsLoadFailed = subjectsQuery.isError || curriculaQuery.isError;
 
   // Đổi môn: giữ chương trình nếu còn thuộc môn mới, không thì tự
   // chọn chương trình đầu (cùng nhịp effect của màn tạo ma trận tay).
@@ -315,6 +332,11 @@ export function MatrixImportPage() {
                   ))}
                 </select>
               </Field>
+              {subjectsLoadFailed ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{t('matrixImportSubjectsFailed')}</AlertDescription>
+                </Alert>
+              ) : null}
               <p className="text-sm text-muted-foreground">{t('matrixCv7991Note')}</p>
               <div className="flex items-center gap-2">
                 <Checkbox

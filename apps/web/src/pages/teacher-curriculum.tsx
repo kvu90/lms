@@ -82,7 +82,9 @@ export function TeacherCurriculumPage() {
   // gắn sẵn của khoá thắng lựa chọn cũ, lớp theo khối của khoá thắng
   // lựa chọn cũ, còn lại giữ lựa chọn nếu còn hợp lệ, cuối cùng là
   // phần tử đầu. Trạng thái "chưa tải" (null) và "tải hỏng thì rỗng"
-  // giữ nguyên như bản thủ công; 403 ở bất kỳ bước nào thì forbidden.
+  // giữ nguyên như bản thủ công; 403 ở các bước môn/chương trình/cây
+  // thì forbidden — riêng 403 ở bước danh sách context thì không tính
+  // (môn vẫn đọc được qua nhánh khoá, xem ghi chú ở `forbidden`).
   const coursesQuery = useCourseList();
   const courses = coursesQuery.data ?? null;
   const [courseSelection, setCourseSelection] = useState<string | null>(null);
@@ -145,8 +147,12 @@ export function TeacherCurriculumPage() {
 
   const isForbiddenError = (error: unknown) =>
     error instanceof ApiError && error.problem.status === 403;
+  // Lỗi ở `/access/contexts` KHÔNG còn tính là cấm: từ điểm nghẽn
+  // D-3 của issue #233, trang vẫn xem được chương trình qua nhánh
+  // khoá (môn mặc định về context hệ thống, cổng mở theo khoá) dù
+  // giáo viên không đọc được danh sách context. Chỉ lỗi ở các bước
+  // môn/chương trình/cây mới là cấm xem chương trình.
   const forbidden = [
-    contextsQuery.error,
     subjectsQuery.error,
     curriculaQuery.error,
     treeQuery.error,

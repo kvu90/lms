@@ -86,8 +86,11 @@ interface RecordedCall {
  * - 'ok': giáo viên có khoá dạy, mọi lời đọc curriculum mang forCourseId đều qua.
  * - 'forbidden-with-course': có khoá nhưng API trả 403 (khoá không cấp quyền xem).
  * - 'no-course': không có khoá nào và đọc trực tiếp cũng 403.
+ * - 'contexts-forbidden': danh sách context trả 403 nhưng các bước
+ *   môn/chương trình/cây qua nhánh khoá vẫn qua — trang phải xem được
+ *   chương trình thay vì báo cấm (điểm nghẽn D-3 của issue #233).
  */
-function stubFetch(calls: RecordedCall[], mode: 'ok' | 'forbidden-with-course' | 'no-course' = 'ok') {
+function stubFetch(calls: RecordedCall[], mode: 'ok' | 'forbidden-with-course' | 'no-course' | 'contexts-forbidden' = 'ok') {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -96,8 +99,16 @@ function stubFetch(calls: RecordedCall[], mode: 'ok' | 'forbidden-with-course' |
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
       if (url === '/api/v1/courses') return respond(mode === 'no-course' ? [] : [COURSE]);
-      if (url === '/api/v1/access/contexts') return respond([{ id: 'ctx-sys', contextLevel: 10 }]);
-      if (url.includes('/curriculum/') && mode !== 'ok') {
+      if (url === '/api/v1/access/contexts') {
+        if (mode === 'contexts-forbidden') {
+          return respond(
+            { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'Thiếu capability', code: 'access.capability_denied' },
+            403,
+          );
+        }
+        return respond([{ id: 'ctx-sys', contextLevel: 10 }]);
+      }
+      if (url.includes('/curriculum/') && (mode === 'forbidden-with-course' || mode === 'no-course')) {
         return respond(
           { type: 'about:blank', title: 'Forbidden', status: 403, detail: 'Thiếu capability', code: 'access.capability_denied' },
           403,
@@ -176,5 +187,20 @@ describe('Teacher curriculum page', () => {
 
     expect(await screen.findByText(/Bạn chưa có khoá nào đang dạy/)).toBeInTheDocument();
     expect(screen.queryByRole('columnheader', { name: 'Nội dung' })).not.toBeInTheDocument();
+  });
+
+  it('vẫn xem được chương trình khi danh sách context trả 403 nhưng các bước qua nhánh khoá đều qua', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, 'contexts-forbidden');
+    renderPage();
+
+    expect(await screen.findByText('Số và phép tính')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Nội dung' })).toBeInTheDocument();
+    expect(screen.queryByText(/Khoá đã chọn không cấp quyền xem chương trình/)).not.toBeInTheDocument();
+    // Môn được gọi không kèm contextId (API mặc định về hệ thống) mà kèm khoá.
+    const subjectCalls = calls.filter((c) => c.url.startsWith('/api/v1/curriculum/subjects?'));
+    expect(subjectCalls.length).toBeGreaterThanOrEqual(1);
+    expect(subjectCalls.every((c) => c.url.includes('forCourseId=course-1'))).toBe(true);
+    expect(subjectCalls.every((c) => !c.url.includes('contextId='))).toBe(true);
   });
 });

@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Sse, type MessageEvent } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Sse, UseInterceptors, type MessageEvent } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listConversationsQueryServerSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQueryServerSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListConversationsQueryDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SearchMessagesQueryDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateConversationStateDto, type UpdateReportStatusDto } from './dto/messaging.dto';
+import { MessagingDeprecationInterceptor } from './messaging-deprecation.interceptor';
+import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listConversationsQueryServerSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, markNotificationsReadSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQueryServerSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListConversationsQueryDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type MarkNotificationsReadDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SearchMessagesQueryDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateConversationStateDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
 @Controller({ path: 'messages', version: '1' })
@@ -160,17 +161,34 @@ export class MessagingController {
     return this.messaging.updateReportStatus(actor.id, reportId, dto.status);
   }
   /**
+   * Đường canonical của họ tin nhắn (issue #344, cụm R6-A2): tài
+   * nguyên tin nhắn có id riêng nên đứng độc lập cấp 1 bằng id của
+   * nó (`/messages/:id`), không còn segment lặp `messages/messages`.
+   * Route chữ `bulk-remove` khai trước các route `:id` trong cùng
+   * controller để không bị route tham số nuốt.
+   */
+  @Post('bulk-remove')
+  /**
+   * POST /messages/bulk-remove — GỠ HÀNG LOẠT nhiều tin:
+   * cùng cổng thẩm quyền `moderation:manage` và lý do bắt buộc như
+   * xoá cứng một tin; toàn bộ danh sách được kiểm tra thẩm quyền
+   * trước — một tin ngoài phạm vi là cả yêu cầu bị từ chối.
+   */
+  async bulkRemoveMessages(@Body({ schema: bulkRemoveMessagesSchema }) dto: BulkRemoveMessagesDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.bulkRemoveMessages(actor.id, dto);
+  }
+  /**
    * Sửa tin đã gửi vẫn bị từ chối (chính sách Lớp B của issue #33 chỉ
    * nới XOÁ theo mô hình xoá mềm có truy vết, không nới sửa nội dung).
    */
-  @Patch('messages/:id')
+  @Patch(':id')
   /**
-   * PATCH /messages/messages/:id — sửa tin nhắn.
+   * PATCH /messages/:id — sửa tin nhắn.
    */
   async updateMessage() { return this.messaging.updateMessage(); }
-  @Delete('messages/:id')
+  @Delete(':id')
   /**
-   * DELETE /messages/messages/:id — XOÁ-PHÍA-MÌNH (vòng đời tin nhắn
+   * DELETE /messages/:id — XOÁ-PHÍA-MÌNH (vòng đời tin nhắn
    * theo vai, issue #33): chỉ tác giả, mọi lúc — tin chỉ ẩn khỏi tầm
    * nhìn của chính người xoá (cờ cá nhân), phía kia không đổi. Gỡ cho
    * mọi người đi hai đường riêng: thu hồi trong cửa sổ (tác giả) và
@@ -179,9 +197,9 @@ export class MessagingController {
   async deleteMessage(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.deleteMessage(actor.id, id);
   }
-  @Post('messages/:id/recall')
+  @Post(':id/recall')
   /**
-   * POST /messages/messages/:id/recall — THU HỒI tin cho mọi người:
+   * POST /messages/:id/recall — THU HỒI tin cho mọi người:
    * chỉ tác giả, chỉ trong cửa sổ site-config
    * `core/messagingrecallwindowminutes` (mặc định 15 phút từ lúc
    * gửi); nội dung bị vô hiệu với mọi thành viên thường và một dòng
@@ -190,25 +208,15 @@ export class MessagingController {
   async recallMessage(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.recallMessage(actor.id, id);
   }
-  @Post('messages/:id/hard-delete')
+  @Post(':id/hard-delete')
   /**
-   * POST /messages/messages/:id/hard-delete — XOÁ CỨNG một tin: chỉ
+   * POST /messages/:id/hard-delete — XOÁ CỨNG một tin: chỉ
    * người có capability `moderation:manage` trong phạm vi của
    * conversation, lý do bắt buộc trong body; dòng tin bị xoá vật lý
    * và một moderator_action 'hard_delete' kèm lý do được ghi trước.
    */
   async hardDeleteMessage(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: hardDeleteMessageSchema }) dto: HardDeleteMessageDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.hardDeleteMessage(actor.id, id, dto);
-  }
-  @Post('messages/bulk-remove')
-  /**
-   * POST /messages/messages/bulk-remove — GỠ HÀNG LOẠT nhiều tin:
-   * cùng cổng thẩm quyền `moderation:manage` và lý do bắt buộc như
-   * xoá cứng một tin; toàn bộ danh sách được kiểm tra thẩm quyền
-   * trước — một tin ngoài phạm vi là cả yêu cầu bị từ chối.
-   */
-  async bulkRemoveMessages(@Body({ schema: bulkRemoveMessagesSchema }) dto: BulkRemoveMessagesDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.messaging.bulkRemoveMessages(actor.id, dto);
   }
 
   @Get('unread-count')
@@ -427,6 +435,61 @@ export class MessagingController {
   async unblock(@Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.unblockContact(actor.id, userId);
   }
+
+  /**
+   * Alias tương thích cho các path cũ của họ `messages/messages`
+   * (issue #344, cụm R6-A2): mỗi handler dưới đây chỉ ủy thác cho
+   * cùng một phương thức service như path canonical tương ứng, không
+   * đổi hành vi nghiệp vụ. Mỗi handler gắn
+   * `MessagingDeprecationInterceptor` để response mang header
+   * Deprecation/Sunset và mỗi lượt gọi alias sinh một bản ghi log có
+   * cấu trúc làm căn cứ gỡ alias (0 lượt gọi trong 14 ngày hoặc khi
+   * lên v2). Route chữ `bulk-remove` khai trước các route `:id`
+   * trong cùng nhóm alias, như phía canonical.
+   */
+  @Post('messages/bulk-remove')
+  @UseInterceptors(MessagingDeprecationInterceptor)
+  /**
+   * POST /messages/messages/bulk-remove — ALIAS cũ của
+   * POST /messages/bulk-remove (gỡ hàng loạt nhiều tin).
+   */
+  async bulkRemoveMessagesAlias(@Body({ schema: bulkRemoveMessagesSchema }) dto: BulkRemoveMessagesDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.bulkRemoveMessages(actor.id, dto);
+  }
+  @Patch('messages/:id')
+  @UseInterceptors(MessagingDeprecationInterceptor)
+  /**
+   * PATCH /messages/messages/:id — ALIAS cũ của PATCH /messages/:id
+   * (sửa tin nhắn; vẫn bị từ chối như phía canonical).
+   */
+  async updateMessageAlias() { return this.messaging.updateMessage(); }
+  @Delete('messages/:id')
+  @UseInterceptors(MessagingDeprecationInterceptor)
+  /**
+   * DELETE /messages/messages/:id — ALIAS cũ của DELETE /messages/:id
+   * (xoá-phía-mình).
+   */
+  async deleteMessageAlias(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.deleteMessage(actor.id, id);
+  }
+  @Post('messages/:id/recall')
+  @UseInterceptors(MessagingDeprecationInterceptor)
+  /**
+   * POST /messages/messages/:id/recall — ALIAS cũ của
+   * POST /messages/:id/recall (thu hồi tin cho mọi người).
+   */
+  async recallMessageAlias(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.recallMessage(actor.id, id);
+  }
+  @Post('messages/:id/hard-delete')
+  @UseInterceptors(MessagingDeprecationInterceptor)
+  /**
+   * POST /messages/messages/:id/hard-delete — ALIAS cũ của
+   * POST /messages/:id/hard-delete (xoá cứng một tin).
+   */
+  async hardDeleteMessageAlias(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: hardDeleteMessageSchema }) dto: HardDeleteMessageDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.messaging.hardDeleteMessage(actor.id, id, dto);
+  }
 }
 
 @ApiTags('notifications')
@@ -485,11 +548,30 @@ export class NotificationsController {
     // của site; luật phân phối nằm trong MessagingService.notify.
     return this.messaging.sendSystemNotification(actor.id, dto);
   }
-  @Post('read-all')
+  @Post('mark-read')
   /**
-   * POST /notifications/read-all — đánh dấu tất cả đã đọc.
+   * POST /notifications/mark-read — đánh dấu đã đọc theo phạm vi
+   * trong thân yêu cầu: hiện chỉ hỗ trợ `{"scope": "all"}` — toàn bộ
+   * thông báo của người gọi. Đây là đích thay cho path cũ
+   * `POST /notifications/read-all` (hậu tố `-all` bị cấm theo chuẩn
+   * đường dẫn); hành vi đánh dấu không đổi ngoài việc phạm vi nằm
+   * trong thân yêu cầu thay vì nằm trong tên path.
    */
-  async readAll(@CurrentUser() actor: AuthenticatedUser) {
+  async markNotificationsRead(@Body({ schema: markNotificationsReadSchema }) dto: MarkNotificationsReadDto, @CurrentUser() actor: AuthenticatedUser) {
+    // Phạm vi là giá trị duy nhất đã chốt (`all`); thân yêu cầu đã
+    // được kiểm chứng bằng schema nên không cần rẽ nhánh thêm.
+    void dto;
+    return this.messaging.markAllNotificationsRead(actor.id);
+  }
+  @Post('read-all')
+  @UseInterceptors(MessagingDeprecationInterceptor)
+  /**
+   * POST /notifications/read-all — ALIAS cũ của
+   * POST /notifications/mark-read (đánh dấu tất cả đã đọc, tương
+   * đương phạm vi `{"scope": "all"}`); response mang header
+   * Deprecation/Sunset và mỗi lượt gọi sinh log alias.
+   */
+  async readAllAlias(@CurrentUser() actor: AuthenticatedUser) {
     return this.messaging.markAllNotificationsRead(actor.id);
   }
   @Post('read-group')

@@ -272,49 +272,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được vị trí, định hướng trong không gian: trên"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "dưới, phải"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "trái, trước"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "sau, ở giữa."
+         "text": "Nhận biết được vị trí, định hướng trong không gian: trên – dưới, phải – trái, trước – sau, ở giữa."
         }
        ]
       }

@@ -164,8 +164,8 @@ describe('Notification unread count SSE stream', () => {
     await sendNotificationTo(userA.id, 'Huy hiệu thứ hai cho A');
     await streamA.waitForUnreadAfter(beforeSend, 1);
     const beforeReadAll = streamA.unreadEvents().length;
-    const readAll = await http(app).post('/api/v1/notifications/read-all').set('Authorization', `Bearer ${tokenA}`);
-    expect(readAll.status).toBe(201);
+    const markRead = await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${tokenA}`).send({ scope: 'all' });
+    expect(markRead.status).toBe(201);
     await streamA.waitForUnreadAfter(beforeReadAll, 0);
     expect(streamA.unreadEvents().at(-1)).toBe(0);
   });

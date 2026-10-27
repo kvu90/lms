@@ -165,13 +165,13 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     expect((await listEntry(s2.token, groupConvId)).unread).toBe(1);
 
     // Người không phải tác giả không thu hồi được.
-    const foreign = await http(app).post(`/api/v1/messages/messages/${msgId}/recall`)
+    const foreign = await http(app).post(`/api/v1/messages/${msgId}/recall`)
       .set('Authorization', `Bearer ${s2.token}`).send({});
     expect(foreign.status).toBe(403);
     expect(foreign.body.code).toBe('messaging.message_recall_forbidden');
 
     // Tác giả thu hồi: 200 kèm dấu thu hồi trên chính dòng trả về.
-    const recalled = await http(app).post(`/api/v1/messages/messages/${msgId}/recall`)
+    const recalled = await http(app).post(`/api/v1/messages/${msgId}/recall`)
       .set('Authorization', `Bearer ${s1.token}`).send({});
     expect(recalled.status).toBe(201);
     expect(recalled.body.recalledAt).toBeTruthy();
@@ -211,7 +211,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     expect(actions[0]!.reason).toBeNull();
 
     // Thu hồi lại: idempotent — dấu đầu giữ nguyên, không thêm dòng.
-    const again = await http(app).post(`/api/v1/messages/messages/${msgId}/recall`)
+    const again = await http(app).post(`/api/v1/messages/${msgId}/recall`)
       .set('Authorization', `Bearer ${s1.token}`).send({});
     expect(again.status).toBe(201);
     expect(again.body.recalledAt).toBe(recalled.body.recalledAt);
@@ -226,7 +226,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     // trực tiếp — đúng trạng thái của một tin đã gửi từ lâu.
     await pg.query("update message set created_at = now() - interval '16 minutes' where id = $1", [msgId]);
 
-    const recall = await http(app).post(`/api/v1/messages/messages/${msgId}/recall`)
+    const recall = await http(app).post(`/api/v1/messages/${msgId}/recall`)
       .set('Authorization', `Bearer ${s1.token}`).send({});
     expect(recall.status).toBe(403);
     expect(recall.body.code).toBe('messaging.recall_window_expired');
@@ -234,7 +234,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     expect(await actionsFor(msgId)).toHaveLength(0);
 
     // Lớp (a) vẫn mở mọi lúc: xoá-phía-mình thành công…
-    const del = await http(app).delete(`/api/v1/messages/messages/${msgId}`)
+    const del = await http(app).delete(`/api/v1/messages/${msgId}`)
       .set('Authorization', `Bearer ${s1.token}`);
     expect(del.status).toBe(200);
     const s1View = await viewMessages(s1.token, groupConvId);
@@ -253,7 +253,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     try {
       const sent = await send(s1.token, groupConvId, 'tin gửi lúc cửa sổ đang tắt');
       expect(sent.status).toBe(201);
-      const recall = await http(app).post(`/api/v1/messages/messages/${sent.body.id}/recall`)
+      const recall = await http(app).post(`/api/v1/messages/${sent.body.id}/recall`)
         .set('Authorization', `Bearer ${s1.token}`).send({});
       expect(recall.status).toBe(403);
       expect(recall.body.code).toBe('messaging.recall_window_expired');
@@ -270,24 +270,24 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     const msgId = sent.body.id as string;
 
     // Học sinh (kể cả tác giả) không có đường xoá cứng.
-    const byStudent = await http(app).post(`/api/v1/messages/messages/${msgId}/hard-delete`)
+    const byStudent = await http(app).post(`/api/v1/messages/${msgId}/hard-delete`)
       .set('Authorization', `Bearer ${s1.token}`).send({ reason: 'em tự xoá' });
     expect(byStudent.status).toBe(403);
     expect(byStudent.body.code).toBe('messaging.message_moderation_forbidden');
     // Giáo viên khoá KHÁC: có vai staff nhưng ngoài phạm vi conversation.
-    const byOther = await http(app).post(`/api/v1/messages/messages/${msgId}/hard-delete`)
+    const byOther = await http(app).post(`/api/v1/messages/${msgId}/hard-delete`)
       .set('Authorization', `Bearer ${otherTeacher.token}`).send({ reason: 'ngoài phạm vi' });
     expect(byOther.status).toBe(403);
     expect(byOther.body.code).toBe('messaging.message_moderation_forbidden');
     // Thiếu lý do → 400 trước cả khi xét thẩm quyền nghiệp vụ.
-    const noReason = await http(app).post(`/api/v1/messages/messages/${msgId}/hard-delete`)
+    const noReason = await http(app).post(`/api/v1/messages/${msgId}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({ reason: '   ' });
     expect(noReason.status).toBe(400);
 
     // Giáo viên phụ trách xoá cứng có lý do — KHÔNG giới hạn thời
     // gian: đẩy tin về quá khứ xa vẫn xoá được.
     await pg.query("update message set created_at = now() - interval '30 days' where id = $1", [msgId]);
-    const hard = await http(app).post(`/api/v1/messages/messages/${msgId}/hard-delete`)
+    const hard = await http(app).post(`/api/v1/messages/${msgId}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'Vi phạm nội quy lớp học' });
     expect(hard.status).toBe(201);
     expect(hard.body.deleted).toBe(true);
@@ -316,11 +316,11 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     const ids = [b1.body.id as string, b2.body.id as string];
 
     // Học sinh gọi gỡ loạt → 403.
-    const byStudent = await http(app).post('/api/v1/messages/messages/bulk-remove')
+    const byStudent = await http(app).post('/api/v1/messages/bulk-remove')
       .set('Authorization', `Bearer ${s1.token}`).send({ messageIds: ids, reason: 'tự gỡ' });
     expect(byStudent.status).toBe(403);
     // Danh sách lẫn một id không tồn tại → 404 và KHÔNG tin nào bị gỡ.
-    const mixed = await http(app).post('/api/v1/messages/messages/bulk-remove')
+    const mixed = await http(app).post('/api/v1/messages/bulk-remove')
       .set('Authorization', `Bearer ${teacher.token}`)
       .send({ messageIds: [...ids, '123e4567-e89b-72d3-a456-426614174000'], reason: 'dọn loạt' });
     expect(mixed.status).toBe(404);
@@ -328,7 +328,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     expect(Number(stillThere.rows[0]!.n)).toBe(2);
 
     // Gỡ loạt hợp lệ: cả hai biến mất, mỗi tin một dòng bulk_hard_delete.
-    const bulk = await http(app).post('/api/v1/messages/messages/bulk-remove')
+    const bulk = await http(app).post('/api/v1/messages/bulk-remove')
       .set('Authorization', `Bearer ${teacher.token}`).send({ messageIds: ids, reason: 'Dọn nội dung vi phạm hàng loạt' });
     expect(bulk.status).toBe(201);
     expect(bulk.body.removed).toBe(2);
@@ -373,7 +373,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
 
     // THU HỒI: phía kia BẮT BUỘC nhận cả hai tín hiệu — gỡ nội dung
     // (message.deleted) và vô hiệu cache danh sách (conversation.invalidate).
-    const recall = await http(app).post(`/api/v1/messages/messages/${r1Id}/recall`)
+    const recall = await http(app).post(`/api/v1/messages/${r1Id}/recall`)
       .set('Authorization', `Bearer ${s1.token}`).send({});
     expect(recall.status).toBe(201);
     await waitUntil(() => deletedEvents.some((e) => e.messageId === r1Id));
@@ -387,7 +387,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     await waitUntil(() => newEvents.some((e) => e.message.id === r2Id));
     const deletedBefore = deletedEvents.length;
     const invalidateBefore = invalidateEvents.length;
-    const del = await http(app).delete(`/api/v1/messages/messages/${r2Id}`)
+    const del = await http(app).delete(`/api/v1/messages/${r2Id}`)
       .set('Authorization', `Bearer ${s1.token}`);
     expect(del.status).toBe(200);
     await new Promise((resolve) => { setTimeout(resolve, 2500); });
@@ -413,11 +413,11 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     // s2 chặn s1: từ đây hội thoại như không tồn tại với cả hai phía.
     const block = await http(app).post(`/api/v1/messages/contacts/${s1.id}/block`).set('Authorization', `Bearer ${s2.token}`).send({});
     expect(block.status).toBe(201);
-    const recallBlocked = await http(app).post(`/api/v1/messages/messages/${msgId}/recall`)
+    const recallBlocked = await http(app).post(`/api/v1/messages/${msgId}/recall`)
       .set('Authorization', `Bearer ${s1.token}`).send({});
     expect(recallBlocked.status).toBe(404);
     expect(recallBlocked.body.code).toBe('messaging.conversation_not_found');
-    const deleteBlocked = await http(app).delete(`/api/v1/messages/messages/${msgId}`)
+    const deleteBlocked = await http(app).delete(`/api/v1/messages/${msgId}`)
       .set('Authorization', `Bearer ${s1.token}`);
     expect(deleteBlocked.status).toBe(404);
     expect(deleteBlocked.body.code).toBe('messaging.conversation_not_found');
@@ -427,7 +427,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     // Bỏ chặn: thu hồi lại chạy bình thường (tin vẫn trong cửa sổ).
     const unblock = await http(app).delete(`/api/v1/messages/contacts/${s1.id}/block`).set('Authorization', `Bearer ${s2.token}`);
     expect(unblock.status).toBe(200);
-    const recall = await http(app).post(`/api/v1/messages/messages/${msgId}/recall`)
+    const recall = await http(app).post(`/api/v1/messages/${msgId}/recall`)
       .set('Authorization', `Bearer ${s1.token}`).send({});
     expect(recall.status).toBe(201);
     expect(recall.body.recalledBy).toBe(s1.id);

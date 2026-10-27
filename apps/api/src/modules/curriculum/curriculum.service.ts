@@ -82,7 +82,13 @@ export class CurriculumService implements OnModuleInit {
     });
   }
 
-  private async contextOrSystem(contextId: string) {
+  /**
+   * Phân giải context: id đã cho mà đọc được thì dùng nó, còn lại
+   * (vắng hoặc lạ) thì về context hệ thống. Vắng id không còn là lỗi
+   * — đường liệt kê môn dùng nhánh này để mặc định về hệ thống.
+   */
+  private async contextOrSystem(contextId?: string) {
+    if (!contextId) return this.contexts.ensureSystemContext();
     const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
     return ctx ?? (await this.contexts.ensureSystemContext());
   }
@@ -107,9 +113,12 @@ export class CurriculumService implements OnModuleInit {
   /**
    * Liệt kê môn học trong một context (cần quyền xem tại context đó;
    * kèm `forCourseId` thì nhánh `course:update` tại khoá đích cũng đủ —
-   * bề mặt chọn khung trong quản trị khoá).
+   * bề mặt chọn khung trong quản trị khoá). `contextId` vắng thì mặc
+   * định về context hệ thống qua `contextOrSystem`; cổng đọc giữ
+   * nguyên, không nới quyền: vẫn phải có `curriculum:view` tại context
+   * đã phân giải, hoặc `course:update` tại khoá `forCourseId`.
    */
-  async listSubjects(actorId: string, contextId: string, forCourseId?: string): Promise<SubjectRow[]> {
+  async listSubjects(actorId: string, contextId?: string, forCourseId?: string): Promise<SubjectRow[]> {
     const ctx = await this.contextOrSystem(contextId);
     await this.assertCanRead(actorId, ctx.id, forCourseId);
     return this.repo.listSubjects(ctx.id);

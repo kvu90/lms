@@ -246,12 +246,12 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
 
     // Học sinh này xoá tin của học sinh khác → 403: xoá-phía-mình chỉ
     // dành cho TÁC GIẢ (gỡ cho mọi người là thu hồi/xoá cứng).
-    const foreign = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${s2.token}`);
+    const foreign = await http(app).delete(`/api/v1/messages/${m2Id}`).set('Authorization', `Bearer ${s2.token}`);
     expect(foreign.status).toBe(403);
     expect(foreign.body.code).toBe('messaging.message_delete_forbidden');
     // Người ngoài conversation cũng không xoá được.
     const outsider = await person();
-    const outsiderDelete = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${outsider.token}`);
+    const outsiderDelete = await http(app).delete(`/api/v1/messages/${m2Id}`).set('Authorization', `Bearer ${outsider.token}`);
     expect(outsiderDelete.status).toBe(403);
 
     // s2 đang có 1 tin chưa đọc (m2 của s1) trong danh sách của mình.
@@ -261,7 +261,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
 
     // s1 XOÁ-PHÍA-MÌNH m2: dòng tin KHÔNG bị đánh dấu xoá toàn cục —
     // chỉ một cờ cá nhân được đặt cho s1, response là dòng nguyên trạng.
-    const del = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${s1.token}`);
+    const del = await http(app).delete(`/api/v1/messages/${m2Id}`).set('Authorization', `Bearer ${s1.token}`);
     expect(del.status).toBe(200);
     expect(del.body.deletedAt).toBeNull();
     expect(del.body.deletedBy).toBeNull();
@@ -292,23 +292,23 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     expect(m2Traced?.fullMessage).toBe('tin s1 sẽ tự xoá phía mình');
     expect(m2Traced?.deletedAt).toBeNull();
     // Xoá-phía-mình lại cùng một tin: idempotent, vẫn 200.
-    const againForMe = await http(app).delete(`/api/v1/messages/messages/${m2Id}`).set('Authorization', `Bearer ${s1.token}`);
+    const againForMe = await http(app).delete(`/api/v1/messages/${m2Id}`).set('Authorization', `Bearer ${s1.token}`);
     expect(againForMe.status).toBe(200);
 
     // Giáo viên bấm DELETE (đường xoá-phía-mình) lên tin của s2 →
     // 403: moderator gỡ cho mọi người phải đi đường xoá cứng có lý do.
-    const teacherForMe = await http(app).delete(`/api/v1/messages/messages/${m1Id}`).set('Authorization', `Bearer ${teacher.token}`);
+    const teacherForMe = await http(app).delete(`/api/v1/messages/${m1Id}`).set('Authorization', `Bearer ${teacher.token}`);
     expect(teacherForMe.status).toBe(403);
     expect(teacherForMe.body.code).toBe('messaging.message_delete_forbidden');
     // Xoá cứng THIẾU lý do → 400 (lý do là bắt buộc ở DTO).
-    const noReason = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
+    const noReason = await http(app).post(`/api/v1/messages/${m1Id}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({});
     expect(noReason.status).toBe(400);
     // Xoá cứng CÓ lý do: dòng tin biến mất khỏi MỌI đường đọc — học
     // sinh không thấy, và đường truy vết của chính giáo viên cũng
     // không còn (xoá cứng là xoá thật; căn cứ còn lại là dòng
     // moderator_action — kiểm chứng ở spec vòng đời riêng).
-    const hardDel = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
+    const hardDel = await http(app).post(`/api/v1/messages/${m1Id}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'Nội dung không phù hợp với lớp học' });
     expect(hardDel.status).toBe(201);
     expect(hardDel.body.deleted).toBe(true);
@@ -317,7 +317,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const teacherViewAfter = await viewMessages(teacher.token, groupConvId);
     expect(teacherViewAfter.messages.map((m) => m.id)).not.toContain(m1Id);
     // Xoá cứng lại tin đã biến mất → 404.
-    const hardAgain = await http(app).post(`/api/v1/messages/messages/${m1Id}/hard-delete`)
+    const hardAgain = await http(app).post(`/api/v1/messages/${m1Id}/hard-delete`)
       .set('Authorization', `Bearer ${teacher.token}`).send({ reason: 'xoá lại' });
     expect(hardAgain.status).toBe(404);
   });
@@ -343,7 +343,7 @@ describe('Messaging Lớp B — chính sách nghiệp vụ (issue #33)', () => {
     const secret = await send(s1.token, convId, 'tin riêng sẽ bị thu hồi');
     expect(secret.status).toBe(201);
     const secretId = secret.body.id as string;
-    const recallOwn = await http(app).post(`/api/v1/messages/messages/${secretId}/recall`).set('Authorization', `Bearer ${s1.token}`).send({});
+    const recallOwn = await http(app).post(`/api/v1/messages/${secretId}/recall`).set('Authorization', `Bearer ${s1.token}`).send({});
     expect(recallOwn.status).toBe(201);
     expect(recallOwn.body.recalledBy).toBe(s1.id);
 

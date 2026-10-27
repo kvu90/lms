@@ -10,7 +10,7 @@ import {
   createQuestionSchema, updateQuestionSchema, questionViewSchema, questionVersionSchema, questionAnswerViewSchema, questionAnswerKeyViewSchema,
   createStimulusSchema, updateStimulusSchema, stimulusViewSchema,
   mcpCreateQuestionInputSchema, mcpAnswerInputSchema, mcpBatchQuestionItemSchema, mcpStimulusQuestionItemSchema, mcpQuestionOptionsInputSchema,
-  searchMessagesQuerySchema, messageSearchResultSchema,
+  searchMessagesQuerySchema, messageSearchResultSchema, markNotificationsReadSchema,
   updateConversationStateSchema, conversationMemberStateSchema, listConversationsQuerySchema,
   createExamMatrixCellSchema, createExamMatrixSchema, examMatrixCellViewSchema,
   createExamContributionSchema, withdrawExamSchema, withdrawExamMatrixSchema,
@@ -128,6 +128,17 @@ describe('engagement contracts', () => {
     });
     expect(state.pinned).toBe(true);
     expect(state.archivedAt).toBeNull();
+  });
+
+  it('khoá thân yêu cầu mark-read (R6-A2, #344): phạm vi chỉ nhận "all", thiếu hoặc lạ đều bị chặn', () => {
+    // Phạm vi đánh dấu đã đọc nằm trong thân yêu cầu thay cho hậu tố
+    // `-all` trong tên path cũ: chỉ `all` là phạm vi đã chốt — thiếu
+    // scope, scope lạ hay scope dạng nhóm đều bị từ chối ở biên hợp
+    // đồng, không suy diễn ngầm thành `all`.
+    expect(markNotificationsReadSchema.parse({ scope: 'all' })).toEqual({ scope: 'all' });
+    expect(() => markNotificationsReadSchema.parse({})).toThrow();
+    expect(() => markNotificationsReadSchema.parse({ scope: 'group' })).toThrow();
+    expect(() => markNotificationsReadSchema.parse({ scope: 'all', eventType: 'x' })).toThrow();
   });
 
   it('parses calendar events, badges and rejects impossible shapes', () => {

@@ -307,6 +307,19 @@ export const listNotificationItemsQuerySchema = z.object({
 });
 export type ListNotificationItemsQuery = z.infer<typeof listNotificationItemsQuerySchema>;
 
+/**
+ * Thân yêu cầu đánh dấu đã đọc của `POST /notifications/mark-read`:
+ * phạm vi đánh dấu nằm trong thân yêu cầu, thay cho hậu tố `-all`
+ * trong path cũ `POST /notifications/read-all` (hậu tố `-all` bị cấm
+ * theo chuẩn đường dẫn). Hiện chỉ hỗ trợ phạm vi `all` — toàn bộ
+ * thông báo của người gọi; phạm vi khác bị từ chối bằng lỗi kiểm
+ * chứng, không suy diễn ngầm thành `all`.
+ */
+export const markNotificationsReadSchema = z.strictObject({
+  scope: z.literal('all'),
+});
+export type MarkNotificationsRead = z.infer<typeof markNotificationsReadSchema>;
+
 /** Body đánh dấu đã đọc hàng loạt theo khoá gộp (loại × nguồn × ngày). */
 export const readNotificationGroupSchema = z.object({
   eventType: z.string().min(1),

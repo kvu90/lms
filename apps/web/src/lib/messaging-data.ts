@@ -291,38 +291,38 @@ export function useSetConversationEnabled() {
   });
 }
 
-/** Đột biến xoá-phía-mình một tin (DELETE /messages/messages/:id) — trả dòng tin kèm dấu vết xoá. */
+/** Đột biến xoá-phía-mình một tin (DELETE /messages/:id) — trả dòng tin kèm dấu vết xoá. */
 export function useDeleteMessageForMe() {
   return useMutation({
     mutationFn: (messageId: string) =>
-      apiJson<MessageView>(`/api/v1/messages/messages/${messageId}`, { method: 'DELETE' }),
+      apiJson<MessageView>(`/api/v1/messages/${messageId}`, { method: 'DELETE' }),
   });
 }
 
-/** Đột biến thu hồi tin của mình cho mọi người (POST /messages/messages/:id/recall). */
+/** Đột biến thu hồi tin của mình cho mọi người (POST /messages/:id/recall). */
 export function useRecallMessage() {
   return useMutation({
     mutationFn: (messageId: string) =>
-      apiJson<MessageView>(`/api/v1/messages/messages/${messageId}/recall`, { method: 'POST', body: '{}' }),
+      apiJson<MessageView>(`/api/v1/messages/${messageId}/recall`, { method: 'POST', body: '{}' }),
   });
 }
 
-/** Đột biến xoá cứng một tin kèm lý do bắt buộc (POST /messages/messages/:id/hard-delete). */
+/** Đột biến xoá cứng một tin kèm lý do bắt buộc (POST /messages/:id/hard-delete). */
 export function useHardDeleteMessage() {
   return useMutation({
     mutationFn: ({ messageId, reason }: { messageId: string; reason: string }) =>
-      apiJson(`/api/v1/messages/messages/${messageId}/hard-delete`, {
+      apiJson(`/api/v1/messages/${messageId}/hard-delete`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
       }),
   });
 }
 
-/** Đột biến gỡ hàng loạt các tin đã chọn kèm lý do (POST /messages/messages/bulk-remove). */
+/** Đột biến gỡ hàng loạt các tin đã chọn kèm lý do (POST /messages/bulk-remove). */
 export function useBulkRemoveMessages() {
   return useMutation({
     mutationFn: ({ messageIds, reason }: { messageIds: string[]; reason: string }) =>
-      apiJson('/api/v1/messages/messages/bulk-remove', {
+      apiJson('/api/v1/messages/bulk-remove', {
         method: 'POST',
         body: JSON.stringify({ messageIds, reason }),
       }),

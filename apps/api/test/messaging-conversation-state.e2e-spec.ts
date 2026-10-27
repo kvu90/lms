@@ -250,12 +250,12 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
   it('tắt tiếng: consumer không sinh thông báo message_new; bỏ tắt tiếng thì thông báo trở lại', async () => {
     // Đối chứng trước: hội thoại KHÔNG tắt tiếng (convD) vẫn sinh
     // thông báo như thường — consumer đang chạy thật.
-    await http(app).post('/api/v1/notifications/read-all').set('Authorization', `Bearer ${a.token}`).send({});
+    await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${a.token}`).send({ scope: 'all' });
     await send(d.token, convD, 'tin đối chứng trước khi tắt tiếng');
     await waitForMessageNotification(a.token, convD);
 
     // Xoá dấu vết đối chứng để khẳng định "không có" ở bước sau sạch.
-    await http(app).post('/api/v1/notifications/read-all').set('Authorization', `Bearer ${a.token}`).send({});
+    await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${a.token}`).send({ scope: 'all' });
     const cleared = await http(app).post('/api/v1/notifications/clear-read').set('Authorization', `Bearer ${a.token}`).send({});
     expect(cleared.status).toBeLessThan(300);
 

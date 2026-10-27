@@ -9,6 +9,7 @@ import {
   listMessagesQuerySchema,
   listNotificationGroupsQuerySchema,
   listNotificationItemsQuerySchema,
+  markNotificationsReadSchema,
   notifyUserSchema,
   readNotificationGroupSchema,
   reportConversationSchema,
@@ -24,6 +25,7 @@ import {
   type CreateGroupConversation,
   type HardDeleteMessage,
   type ListCourseRosterQuery,
+  type MarkNotificationsRead,
   type NotifyUser,
   type ReadNotificationGroup,
   type ReportConversation,
@@ -39,7 +41,7 @@ import {
  * Validation của Messaging dùng Zod qua Standard Schema — schema nền ở
  * `@lms/contracts` là nguồn sự thật duy nhất.
  */
-export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQuerySchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema };
+export { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, markNotificationsReadSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQuerySchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema };
 export type CreateConversationDto = CreateConversation;
 export type CreateGroupConversationDto = CreateGroupConversation;
 export type SendMessageDto = SendMessage;
@@ -114,6 +116,7 @@ export const listNotificationItemsQueryServerSchema = listNotificationItemsQuery
 export type ListNotificationItemsQueryDto = z.infer<typeof listNotificationItemsQueryServerSchema>;
 
 export type ReadNotificationGroupDto = ReadNotificationGroup;
+export type MarkNotificationsReadDto = MarkNotificationsRead;
 
 /**
  * Schema phía server cho query danh sách conversation (lát M5):

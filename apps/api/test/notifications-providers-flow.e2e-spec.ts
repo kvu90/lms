@@ -172,8 +172,8 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect(afterSecond).toHaveLength(1);
 
     // Đọc hết rồi có tin mới thì lại có thông báo mới.
-    const readAll = await http(app).post('/api/v1/notifications/read-all').set('Authorization', `Bearer ${bToken}`).send({});
-    expect(readAll.status).toBeLessThan(300);
+    const markRead = await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${bToken}`).send({ scope: 'all' });
+    expect(markRead.status).toBeLessThan(300);
     const sent3 = await http(app).post(`/api/v1/messages/conversations/${conversationId}/messages`)
       .set('Authorization', `Bearer ${aToken}`).send({ text: 'tin thứ ba' });
     expect(sent3.status).toBeLessThan(300);

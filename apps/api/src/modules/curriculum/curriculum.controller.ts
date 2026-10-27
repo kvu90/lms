@@ -51,8 +51,13 @@ export class CurriculumController {
     return this.curriculum.createSubject(actor.id, dto);
   }
   @Get('subjects')
-  /** GET /curriculum/subjects?contextId=&forCourseId= — môn học trong một context (forCourseId: nhánh chọn khung cho khoá). */
-  async listSubjects(@Query('contextId', { schema: uuidIdSchema }) contextId: string, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
+  /**
+   * GET /curriculum/subjects?contextId=&forCourseId= — môn học trong một context (forCourseId: nhánh chọn khung cho khoá).
+   * `contextId` là tùy chọn: vắng thì service mặc định về context hệ thống qua `contextOrSystem`
+   * (lược đồ tùy chọn vẫn bắt giá trị đã kèm phải là UUID, nên id sai định dạng vẫn 400 như cũ).
+   * Cổng đọc không đổi: vẫn `assertCanRead` trong service, không nới quyền.
+   */
+  async listSubjects(@Query('contextId', { schema: uuidIdSchema.optional() }) contextId: string | undefined, @Query('forCourseId') forCourseId: string | undefined, @CurrentUser() actor: AuthenticatedUser) {
     return this.curriculum.listSubjects(actor.id, contextId, forCourseId);
   }
   @Get('subjects/:id')
