@@ -11,10 +11,10 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
 import {
   downloadMatrixSpecification,
   useAddMatrixCell,
+  useCreateMatrix,
   useCurriculaBySubject,
   useCurriculumSubjects,
   useCurriculumTree,
@@ -119,16 +119,15 @@ export function MatrixNewPage() {
     setCurriculumId((prev) => (rows.some((c) => c.id === prev) ? prev : (rows[0]?.id ?? '')));
   }, [subjectId, curriculaQuery.data]);
 
+  const createMutation = useCreateMatrix();
+
   async function createMatrix(event: FormEvent) {
     event.preventDefault();
     if (!personalBankId) return;
     try {
-      await apiJson('/api/v1/exam-matrices', {
-        method: 'POST',
-        body: JSON.stringify({
-          name, subjectId, curriculumId, bankId: personalBankId, levelSet: includeAdvanced ? 'four' : 'three',
-          totalScore: Number(totalScore) || 10, isTemplate, status,
-        }),
+      await createMutation.mutateAsync({
+        name, subjectId, curriculumId, bankId: personalBankId, levelSet: includeAdvanced ? 'four' : 'three',
+        totalScore: Number(totalScore) || 10, isTemplate, status,
       });
       navigate('/matrices', { state: { notice: t('matrixCreated') } });
     } catch (err) {
