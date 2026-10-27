@@ -1,11 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import {
-  MESSAGE_PROVIDERS,
-  providerByName,
-} from '../../api/src/modules/messaging/notification-providers';
 import {
   NotificationDeliveryService,
   WORKER_PROVIDERS,
@@ -16,105 +9,50 @@ import {
 } from '@lms/db-schema';
 
 /**
- * Parity luật thông báo API ↔ worker (issue #293).
+ * Parity luật thông báo API ↔ worker — nửa HÀNH VI (issue #293).
  *
- * Bối cảnh: registry `MESSAGE_PROVIDERS` phía API
- * (apps/api/src/modules/messaging/notification-providers.ts) là nguồn
- * sự thật DUY NHẤT của luật phân phối thông báo. Phía worker là tiến
- * trình riêng, không import code của app API; các đường phát nền của
- * worker phát qua hàm luật chung `NotificationDeliveryService` và giữ
- * một BẢN CHIẾU viết tay tối thiểu của registry trong
- * `WORKER_PROVIDERS` (chỉ các provider mà worker là nơi phát). Trước
- * spec này không có kiểm tra tự động nào đối chiếu hai phía: registry
- * đổi một trường luật mà bản chiếu không cập nhật theo thì hai phía
- * phân kỳ âm thầm. Spec này là lưới gác — nó ĐỌC registry thật và bản
- * chiếu thật, tuyệt đối không chép cứng một bản sao thứ hai của
- * registry vào test (chép snapshot thì spec thành tự đối chiếu chính
- * nó). Tiền lệ cùng khuôn: grade-parity.spec.ts ở thư mục này.
+ * File này khẳng định phía worker cho cùng kết quả ở các luật cứng
+ * mà `notify()` phía API áp: người nhận bị đình chỉ/đã xoá thì
+ * không nhận gì (`skipped-suspended`); loại bị chính sách admin cấp
+ * site tắt (NB-7) thì bị chặn trước tuỳ chọn người dùng
+ * (`skipped-admin-disabled`); tuỳ chọn trong-app của người nhận
+ * được tôn trọng (`skipped-preference`); loại bắt buộc (P2,
+ * `mandatoryInApp`) ép bật kênh trong-app bất kể tuỳ chọn đã lưu.
+ * Phía API đã có spec riêng cho các ca này
+ * (messaging-admin-policy.spec.ts, notifications-admin-policy.e2e-spec.ts);
+ * ở đây chạy `NotificationDeliveryService` THẬT của worker với DB
+ * giả theo khuôn unit spec phía API.
  *
- * Phạm vi parity — các trường luật THUỘC đối chiếu (khớp tường minh
- * với đặc tả trong issue #293):
- * - `name`, `component`, `mandatoryInApp` của mọi provider có trong
- *   bản chiếu worker, đối chiếu với registry phía API.
- * - Bề mặt phát: mọi tên provider được phát qua `deliverInApp(` trong
- *   apps/worker/src phải có mặt trong bản chiếu.
+ * Nửa ĐỐI CHIẾU TRƯỜNG LUẬT của parity (bản chiếu `WORKER_PROVIDERS`
+ * ở file `../src/notification-delivery.service.ts` so với registry
+ * phía API) nằm ở phía API —
+ * `apps/api/src/modules/messaging/notification-parity.spec.ts` —
+ * vì hai app là hai project TypeScript riêng: import chéo app vỡ
+ * typecheck (lỗi rootDir), nên phía API đọc bản chiếu worker dạng
+ * văn bản nguồn để đối chiếu với registry thật của chính app đó.
  *
- * NGOÀI parity (kèm lý do, đã ghi tường minh trong issue #293):
- * - `audience`: chỉ gác ở tầng tuỳ chọn phía API (lọc danh sách loại
- *   trong trang cài đặt + chặn PUT ngoài phía người nhận, lỗi 403 mã
- *   `messaging.preference_audience`); luật PHÁT của worker không đọc
- *   trường này ở bất kỳ điểm nào — nơi phát phía worker đã biết đích
- *   danh người nhận. Bản chiếu vì vậy không mang `audience` (ca kiểm
- *   hình dạng bản chiếu bên dưới gác cả điều này: thêm trường lạ vào
- *   bản chiếu là spec đỏ, buộc phải có quyết định parity riêng).
- * - `channels`: worker chỉ phát kênh trong-app; kênh ngoài là cổng
- *   xếp job phía API. `group`/`label`/`description`: thuần trình bày
- *   phía API/web.
- *
- * Luật cứng kiểm ở tầng hành vi (nửa dưới của file): người nhận bị
- * đình chỉ, chính sách admin cấp site (NB-7) và loại bắt buộc (P2)
- * phải cho cùng kết quả như `notify()` phía API — phía API đã có spec
- * riêng cho các ca này (messaging-admin-policy.spec.ts,
- * notifications-admin-policy.e2e-spec.ts); ở đây khẳng định phía
- * worker bằng chính `NotificationDeliveryService` thật với DB giả
- * theo khuôn unit spec phía API. Luật ghi đè tắt tiếng theo khoá
- * (NB-4) của đường huy hiệu được khẳng định ở spec của lát #174-A ở
- * cả hai phía (badges-issue-notify.spec.ts phía API,
+ * Luật ghi đè tắt tiếng theo khoá (NB-4) của đường huy hiệu được
+ * khẳng định ở spec của lát #174-A ở cả hai phía
+ * (badges-issue-notify.spec.ts phía API,
  * notification-badge-award.spec.ts phía worker) nên không lặp ở đây.
  */
-describe('Notification parity: worker mirror vs API registry (issue #293)', () => {
-  it('the worker mirror is a faithful projection of the API registry on every law field in scope', () => {
+
+describe('Notification parity: worker mirror local sanity (issue #293)', () => {
+  it('every mirror entry is keyed by its own provider name', () => {
     const entries = Object.entries(WORKER_PROVIDERS);
     expect(entries.length).toBeGreaterThan(0);
-    expect(MESSAGE_PROVIDERS.length).toBeGreaterThan(0);
     for (const [key, law] of entries) {
-      // Khoá của bản chiếu phải là chính tên provider.
       expect(law.name).toBe(key);
-      // Provider phía worker có mà registry không có = phân kỳ, đỏ.
-      const registryEntry = providerByName(key);
-      expect(registryEntry, `WORKER_PROVIDERS.${key} must exist in the API registry`).toBeDefined();
-      expect(law.component).toBe(registryEntry!.component);
-      expect(law.mandatoryInApp).toBe(registryEntry!.mandatoryInApp ?? false);
-    }
-  });
-
-  it('the mirror carries exactly the three law fields in parity scope — nothing more, nothing less', () => {
-    for (const law of Object.values(WORKER_PROVIDERS)) {
-      expect(Object.keys(law).sort()).toEqual(['component', 'mandatoryInApp', 'name']);
-    }
-  });
-
-  it('every provider emitted through deliverInApp in worker sources is registered in the mirror', () => {
-    const srcRoot = fileURLToPath(new URL('../src/', import.meta.url));
-    const emitted = new Set<string>();
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const full = join(dir, entry.name);
-        if (entry.isDirectory()) { walk(full); continue; }
-        if (!entry.name.endsWith('.ts')) continue;
-        const text = readFileSync(full, 'utf-8');
-        for (const match of text.matchAll(/deliverInApp\(\s*[^,]+,\s*'([a-z0-9_]+)'/g)) {
-          emitted.add(match[1]);
-        }
-      }
-    };
-    walk(srcRoot);
-    // Có ít nhất các đường phát nền đã biết; tập rỗng nghĩa là phép
-    // quét hỏng chứ không phải không còn đường phát nào.
-    expect(emitted.size).toBeGreaterThan(0);
-    for (const name of emitted) {
-      expect(WORKER_PROVIDERS[name], `worker emits '${name}' via deliverInApp but it is missing from WORKER_PROVIDERS`).toBeDefined();
     }
   });
 });
 
 /**
- * Nửa hành vi: dựng NotificationDeliveryService với DB giả theo từng
- * bảng (mỗi kịch bản tối đa một dòng có nghĩa cho mỗi bảng — đủ cho
- * các ca luật cứng ở đây, đúng khuôn fake của messaging-course-mute
- * phía API). Tín hiệu badge qua Redis được stub để spec không phụ
- * thuộc Redis: hành vi cần khẳng định là luật phân phối, không phải
- * đường tín hiệu thời gian thực.
+ * Dựng NotificationDeliveryService với DB giả theo từng bảng (mỗi
+ * kịch bản tối đa một dòng có nghĩa cho mỗi bảng — đủ cho các ca
+ * luật cứng ở đây). Tín hiệu badge qua Redis được stub để spec
+ * không phụ thuộc Redis: hành vi cần khẳng định là luật phân phối,
+ * không phải đường tín hiệu thời gian thực.
  */
 function buildDelivery(scenario: {
   user?: { id: string; suspended: boolean; deleted: boolean };
