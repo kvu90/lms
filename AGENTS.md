@@ -60,12 +60,14 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
    cho đặc tả, phạm vi hay tiêu chí nghiệm thu. Tài liệu trong repo
    (README, AGENTS.md, tài liệu trong `docs/`) được dẫn theo đường dẫn
    trong repo như bình thường.
-5. **Ngôn ngữ và văn phong.** Mọi văn bản thuộc codebase — issue, PR,
-   commit, code, comment — dùng tiếng Việt với văn phong kỹ thuật trung
-   tính; định danh, log key và mã lỗi giữ tiếng Anh theo chuẩn comment
-   của dự án. Tuyệt đối không dùng danh xưng hay cách xưng hô nội bộ
-   trong văn bản của codebase, và không ghi quyết định thuộc về cá nhân
-   nào — quyết định luôn được trình bày là yêu cầu kỹ thuật.
+5. **Ngôn ngữ và văn phong.** Code, comment và tài liệu tuân theo
+   mục "Chuẩn ngôn ngữ" của tài liệu này: code bằng tiếng Anh;
+   comment trong code và mọi tài liệu bằng tiếng Việt. Mọi văn bản
+   thuộc codebase — issue, PR, commit, comment, tài liệu — dùng văn
+   phong kỹ thuật trung tính. Tuyệt đối không dùng danh xưng hay cách
+   xưng hô nội bộ trong văn bản của codebase, và không ghi quyết định
+   thuộc về cá nhân nào — quyết định luôn được trình bày là yêu cầu
+   kỹ thuật.
 6. **Mẫu là cơ chế thực thi chuẩn.** Issue mở qua một mẫu trong
    `.github/ISSUE_TEMPLATE/`; PR mở theo
    `.github/pull_request_template.md`. Issue trống (không theo mẫu) bị
