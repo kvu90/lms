@@ -209,6 +209,19 @@ export const queryKeys = {
   userLearningPlans: (userId: string) => ['competencies', 'plans', 'user', userId] as const,
   /** Chi tiết một kế hoạch học tập (GET /competencies/plans/:id) — trang learning-plan. */
   learningPlanDetail: (planId: string) => ['competencies', 'plans', planId] as const,
+  /** Danh sách framework năng lực (GET /competencies/frameworks) — khu quản trị năng lực của trang learning-plan. */
+  competencyFrameworks: ['competencies', 'frameworks'] as const,
+  /** Danh sách mẫu kế hoạch học tập (GET /competencies/templates) — khu quản trị năng lực. */
+  competencyTemplates: ['competencies', 'templates'] as const,
+  /** Cây năng lực của một framework (GET /competencies/frameworks/:id/competencies) — khu quản trị năng lực. */
+  frameworkCompetencies: (frameworkId: string) =>
+    ['competencies', 'frameworks', frameworkId, 'competencies'] as const,
+  /** Tài liệu xuất của một framework (GET /competencies/frameworks/:id/export) — khu quản trị năng lực. */
+  frameworkExport: (frameworkId: string) => ['competencies', 'frameworks', frameworkId, 'export'] as const,
+  /** Năng lực của một người dùng (GET /competencies/usercomp/user/:userId) — hàng đợi duyệt của khu quản trị năng lực. */
+  userCompetencies: (userId: string) => ['competencies', 'usercomp', 'user', userId] as const,
+  /** Danh sách người dùng rút gọn cho ô chọn của hàng đợi duyệt (GET /users?page=1&pageSize=50). */
+  userOptions: ['users', 'options'] as const,
   /** Lô in phiếu của một lần ghim (GET /exam-batches?pinId=) — trang chấm bài giấy. */
   examBatches: (pinId: string) => ['exam-batches', pinId] as const,
   /** Phiếu đã quét của một lần ghim (GET /exam-scans?pinId=) — trang chấm bài giấy. */
