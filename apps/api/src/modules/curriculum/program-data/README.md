@@ -491,9 +491,16 @@ Tài liệu này là log đính chính của các dataset trong thư mục này
 - Tổng số dòng YCCĐ hiện hành: 7.389 (không đổi).
 - Bản ghi đã gán nhóm: 255; bản ghi còn rỗng cả ba trường: 22 (toàn
   bộ thuộc Giáo dục thể chất, đã có kết luận riêng ở trên).
-- Cây chương trình và dump đông cứng: xem thân PR của đợt này (số
-  node mạch/chủ đề mới sinh được đếm lại từ DB chuẩn sau khi nạp
-  bằng importer; dump version mới `2026-10-28.1`).
+- Cây chương trình sau khi nạp bằng importer (đếm trên DB chuẩn):
+  3.637 node (trước đợt: 3.506; tăng 131 node mạch mới, toàn bộ kind
+  `strand`); mạch `strand` 689 (trước đợt: 558); chủ đề `topic` 833
+  (không đổi — mỗi bản ghi đợt này chỉ gán đúng một trường nên bậc
+  đầu tiên có chữ thành node `strand` theo
+  `programRecordAncestors()`); node bài học ở gốc cây còn 22 (trước
+  đợt: 277; toàn bộ thuộc Giáo dục thể chất). Dump đông cứng version
+  mới `2026-10-28.1` (trước đợt: `2026-10-27.1`); tổng số dòng trong
+  dump là 7.392 dòng YCCĐ (gồm 3 dòng đã rút), khớp số dòng hiện hành
+  7.389 sau khi trừ dòng rút.
 - Cổng toàn vẹn đạt trên toàn bộ 21 file sau bổ sung (kiểm chứng
   bằng importer khi nạp và bằng spec kiểm kê dataset).
 
