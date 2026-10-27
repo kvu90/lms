@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -7,29 +6,22 @@ import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
+import { useMyInsights } from '#lib/platform-data';
 
-interface InsightView {
-  id: string;
-  userId: string;
-  heading: string;
-  courseId: string;
-}
-
-/** Insights cho teacher (platform services): chỉ insight mà server đã lọc theo capability mới tới client. */
+/**
+ * Insights cho teacher (platform services): chỉ insight mà server đã
+ * lọc theo capability mới tới client. Dữ liệu đọc qua tầng TanStack
+ * Query (`lib/platform-data.ts`, khoá `myInsights`; `clientLoader` của
+ * route nạp trước đúng khoá này). Trạng thái đang tải/báo lỗi giữ như
+ * bản fetch thủ công: lần tải đầu hoặc lần thử lại đang chạy thì hiện
+ * khung xương, lỗi chỉ hiện sau khi lần tải đã kết thúc.
+ */
 export function InsightsPage() {
   const { t: t } = useTranslation();
-  const [insights, setInsights] = useState<InsightView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    setInsights(await apiJson<InsightView[]>('/api/v1/analytics/insights/me'));
-  }, []);
-  useEffect(() => {
-    void load()
-      .catch(() => setLoadError(t('insightsLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [load, t]);
+  const insightsQuery = useMyInsights();
+  const insights = insightsQuery.data ?? [];
+  const loading = insightsQuery.isPending || (insightsQuery.isError && insightsQuery.isFetching);
+  const loadError = insightsQuery.isError && !insightsQuery.isFetching ? t('insightsLoadFailed') : null;
   return (
     <PageShell width="medium">
       <PageHeader title={t('insightsTitle')} />
@@ -39,17 +31,7 @@ export function InsightsPage() {
             <AlertDescription>{loadError}</AlertDescription>
           </Alert>
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLoadError(null);
-                setLoading(true);
-                void load()
-                  .catch(() => setLoadError(t('insightsLoadFailed')))
-                  .finally(() => setLoading(false));
-              }}
-            >
+            <Button type="button" variant="outline" onClick={() => void insightsQuery.refetch()}>
               {t('retry')}
             </Button>
           </div>

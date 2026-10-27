@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -7,44 +7,31 @@ import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
-
-interface PrivacyRequestView {
-  id: string;
-  userId: string;
-  type: string;
-  status: string;
-}
+import { useCreatePrivacyRequest, useDecidePrivacyRequest, usePrivacyRequests } from '#lib/platform-data';
 
 /**
  * Privacy requests (platform services): user tự gửi yêu cầu export/delete cho chính mình;
- * admin thấy mọi yêu cầu và duyệt/từ chối.
+ * admin thấy mọi yêu cầu và duyệt/từ chối. Dữ liệu đọc qua tầng TanStack
+ * Query (`lib/platform-data.ts`, khoá `privacyRequests`; `clientLoader`
+ * của route nạp trước đúng khoá này); gửi yêu cầu và duyệt/từ chối qua
+ * đột biến, thành công thì làm mới danh sách như lần tải lại thủ công
+ * trước đây.
  */
 export function PrivacyPage() {
   const { t: t } = useTranslation();
-  const [requests, setRequests] = useState<PrivacyRequestView[]>([]);
+  const requestsQuery = usePrivacyRequests();
+  const createRequest = useCreatePrivacyRequest();
+  const decideRequest = useDecidePrivacyRequest();
+  const requests = requestsQuery.data ?? [];
   const [sent, setSent] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    setRequests(await apiJson<PrivacyRequestView[]>('/api/v1/privacy/requests'));
-  }, []);
-  useEffect(() => {
-    void reload()
-      .catch(() => setLoadError(t('privacyLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
+  const loading = requestsQuery.isPending || (requestsQuery.isError && requestsQuery.isFetching);
+  const loadError = requestsQuery.isError && !requestsQuery.isFetching ? t('privacyLoadFailed') : null;
   async function send(type: 'export' | 'delete') {
-    const created = await apiJson<PrivacyRequestView>('/api/v1/privacy/requests', {
-      method: 'POST',
-      body: JSON.stringify({ type }),
-    });
+    const created = await createRequest.mutateAsync(type);
     setSent(t('requestSent', { id: created.id, type: created.type, status: created.status }));
-    await reload();
   }
   async function decide(id: string, decision: 'approved' | 'rejected') {
-    await apiJson(`/api/v1/privacy/requests/${id}/decide`, { method: 'POST', body: JSON.stringify({ decision }) });
-    await reload();
+    await decideRequest.mutateAsync({ id, decision });
   }
   return (
     <PageShell width="medium">
@@ -55,17 +42,7 @@ export function PrivacyPage() {
             <AlertDescription>{loadError}</AlertDescription>
           </Alert>
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLoadError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setLoadError(t('privacyLoadFailed')))
-                  .finally(() => setLoading(false));
-              }}
-            >
+            <Button type="button" variant="outline" onClick={() => void requestsQuery.refetch()}>
               {t('retry')}
             </Button>
           </div>

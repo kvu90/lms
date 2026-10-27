@@ -187,4 +187,20 @@ export const queryKeys = {
   siteConfig: ['site-config'] as const,
   /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */
   siteConfigAudit: ['site-config', 'audit'] as const,
+  /** Insight phân tích của chính người dùng (GET /analytics/insights/me) — trang insights nền tảng. */
+  myInsights: ['analytics', 'insights', 'me'] as const,
+  /** Yêu cầu quyền riêng tư (GET /privacy/requests) — trang privacy nền tảng. */
+  privacyRequests: ['privacy', 'requests'] as const,
+  /** Việc sao lưu/khôi phục (GET /backup/jobs) — trang backup nền tảng. */
+  backupJobs: ['backup', 'jobs'] as const,
+  /** Các bước của một việc sao lưu (GET /backup/jobs/:id/steps) — trang backup nền tảng. */
+  backupSteps: (jobId: string) => ['backup', 'jobs', jobId, 'steps'] as const,
+  /** Dịch vụ webservice (GET /webservice/services) — trang tokens nền tảng. */
+  webserviceServices: ['webservice', 'services'] as const,
+  /** Token tích hợp (GET /webservice/tokens) — trang tokens nền tảng. */
+  webserviceTokens: ['webservice', 'tokens'] as const,
+  /** Báo cáo tự dựng (GET /reports) — trang reports nền tảng. */
+  platformReports: ['reports'] as const,
+  /** Kết quả chạy một báo cáo (GET /reports/:id/run) — trang reports nền tảng. */
+  reportRun: (reportId: string) => ['reports', reportId, 'run'] as const,
 };

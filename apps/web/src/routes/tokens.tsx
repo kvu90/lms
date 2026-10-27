@@ -7,3 +7,6 @@ import { platformKeyMeta } from '../lib/route-meta';
 export function meta() {
   return platformKeyMeta('tokensTitle');
 }
+
+// clientLoader (F-01, rà soát #133): prefetch danh sách dịch vụ + token vào QueryClient singleton.
+export { tokensPageClientLoader as clientLoader } from '../lib/platform-data';

@@ -7,3 +7,6 @@ import { platformKeyMeta } from '../lib/route-meta';
 export function meta() {
   return platformKeyMeta('insightsTitle');
 }
+
+// clientLoader (F-01, rà soát #133): prefetch insight của tôi vào QueryClient singleton.
+export { insightsPageClientLoader as clientLoader } from '../lib/platform-data';
