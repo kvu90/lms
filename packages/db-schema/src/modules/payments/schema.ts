@@ -168,6 +168,7 @@ export const planEntitlements = pgTable('plan_entitlements', {
 export const paymentCoupons = pgTable('payment_coupons', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   code: text('code').notNull(),
+  /** percent: giảm theo phần trăm (1–99); fixed: giảm số tiền cố định theo đơn vị nhỏ nhất của currency. */
   discountType: text('discount_type').notNull(), // percent | fixed
   discountValue: integer('discount_value').notNull(),
   appliesTo: text('applies_to').notNull().default('all'), // tenant_plan | teacher_plan | all
