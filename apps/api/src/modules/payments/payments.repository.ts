@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { course, paymentAccounts, paymentProviderEvents, paymentRefunds, payments } from '../../db/schema';
+import { course, paymentAccounts, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '../../db/schema';
 
 export type AccountRow = typeof paymentAccounts.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
 export type RefundRow = typeof paymentRefunds.$inferSelect;
 export type ProviderEventRow = typeof paymentProviderEvents.$inferSelect;
+export type EntitlementRow = typeof planEntitlements.$inferSelect;
 
 /** Kho dữ liệu payment_accounts / payments / payment_refunds. */
 @Injectable()
@@ -115,5 +116,47 @@ export class PaymentsRepository {
   }
   async updateProviderEvent(id: string, v: Partial<typeof paymentProviderEvents.$inferInsert>): Promise<void> {
     await this.db.update(paymentProviderEvents).set(v).where(eq(paymentProviderEvents.id, id));
+  }
+
+  // --- Quyền lợi gói (lát 2, issue #189) ------------------------------------
+  async insertEntitlement(v: typeof planEntitlements.$inferInsert): Promise<EntitlementRow> {
+    const [row] = await this.db.insert(planEntitlements).values(v).returning(); return row!;
+  }
+  /** Quyền lợi sinh từ một payment gói — căn cứ idempotency của khâu kích hoạt. */
+  async getEntitlementByPayment(paymentId: string): Promise<EntitlementRow | undefined> {
+    const [row] = await this.db.select().from(planEntitlements).where(eq(planEntitlements.paymentId, paymentId)); return row;
+  }
+  /**
+   * Mốc hết hạn muộn nhất trong các quyền lợi đang `active` của cùng một
+   * bên hưởng + cùng loại gói — căn cứ nối tiếp cửa sổ khi mua tiếp.
+   * Bên hưởng của `tenant_plan` xác định bằng (tenant_id, user_id NULL);
+   * của `teacher_plan` bằng user_id.
+   */
+  async maxActiveEntitlementExpiry(component: string, tenantId: string, userId: string | null): Promise<Date | null> {
+    const beneficiary = userId
+      ? eq(planEntitlements.userId, userId)
+      : and(eq(planEntitlements.tenantId, tenantId), isNull(planEntitlements.userId));
+    const [row] = await this.db.select({ m: sql<string | null>`max(${planEntitlements.expiresAt})` })
+      .from(planEntitlements)
+      .where(and(eq(planEntitlements.component, component), eq(planEntitlements.status, 'active'), beneficiary));
+    return row?.m ? new Date(row.m) : null;
+  }
+  /** Mọi quyền lợi gói giáo viên của một người dùng (theo thứ tự bắt đầu tăng dần). */
+  async listEntitlementsForUser(userId: string): Promise<EntitlementRow[]> {
+    return this.db.select().from(planEntitlements)
+      .where(eq(planEntitlements.userId, userId))
+      .orderBy(asc(planEntitlements.startsAt));
+  }
+  /** Mọi quyền lợi gói trung tâm của một tenant (theo thứ tự bắt đầu tăng dần). */
+  async listTenantPlanEntitlements(tenantId: string): Promise<EntitlementRow[]> {
+    return this.db.select().from(planEntitlements)
+      .where(and(eq(planEntitlements.tenantId, tenantId), isNull(planEntitlements.userId)))
+      .orderBy(asc(planEntitlements.startsAt));
+  }
+  /** Đảo quyền lợi khi hoàn đủ: quyền lợi của chính payment chuyển `suspended`. */
+  async suspendEntitlementsByPayment(paymentId: string): Promise<void> {
+    await this.db.update(planEntitlements)
+      .set({ status: 'suspended', updatedAt: new Date() })
+      .where(eq(planEntitlements.paymentId, paymentId));
   }
 }

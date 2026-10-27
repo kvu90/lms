@@ -3159,3 +3159,28 @@ CREATE INDEX "classes_fee_payment_account_id_idx" ON "classes" ("fee_payment_acc
 ALTER TABLE "classes" ADD CONSTRAINT "classes_fee_payment_account_id_payment_accounts_id_fkey" FOREIGN KEY ("fee_payment_account_id") REFERENCES "payment_accounts"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "learning_outcomes" ADD COLUMN "retired_at" timestamp with time zone;--> statement-breakpoint
 CREATE UNIQUE INDEX "learning_outcomes_dataset_slot_unique" ON "learning_outcomes" ("node_id","position") WHERE "source_kind" = 'program' and "source_ref" is not null and "retired_at" is null;
+
+-- Lát 2 (issue #189): mô hình gói `tenant_plan`/`teacher_plan` — bảng
+-- `plan_entitlements` ghi quyền lợi gói của payment gói thành công
+-- (cửa sổ hiệu lực starts_at → expires_at; hoàn đủ thì suspended).
+-- Bảng nghiệp vụ tầng platform như các bảng payments: không bật RLS,
+-- cách ly bằng tenant_id tường minh ở tầng service. Gộp tay vào
+-- baseline duy nhất như các lát trước.
+CREATE TABLE "plan_entitlements" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"tenant_id" uuid NOT NULL,
+	"user_id" uuid,
+	"component" text NOT NULL,
+	"payment_id" uuid NOT NULL,
+	"starts_at" timestamp with time zone NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"status" text DEFAULT 'active' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX "plan_entitlements_tenant_id_idx" ON "plan_entitlements" ("tenant_id");--> statement-breakpoint
+CREATE INDEX "plan_entitlements_user_id_idx" ON "plan_entitlements" ("user_id");--> statement-breakpoint
+CREATE INDEX "plan_entitlements_payment_id_idx" ON "plan_entitlements" ("payment_id");--> statement-breakpoint
+ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "plan_entitlements" ADD CONSTRAINT "plan_entitlements_payment_id_payments_id_fkey" FOREIGN KEY ("payment_id") REFERENCES "payments"("id") ON DELETE NO ACTION;--> statement-breakpoint

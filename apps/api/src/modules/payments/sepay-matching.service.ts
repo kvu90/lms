@@ -3,6 +3,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { ClassesService } from '../classes/classes.service';
 import { EnrolService } from '../enrol/enrol.service';
 import { PaymentsRepository, type ProviderEventRow } from './payments.repository';
+import { PlanEntitlementsService } from './plan-entitlements.service';
 
 /**
  * Matching bất đồng bộ cho IPN SePay (lát 1 VietQR, issue #189 — hồ sơ
@@ -23,6 +24,11 @@ import { PaymentsRepository, type ProviderEventRow } from './payments.repository
  * `ClassesService.activatePaidClassEnrol` (vào backing cohort, cohort
  * sync vật chất hoá xuống mọi khoá của lớp); thiếu điều kiện →
  * `needs_review` và KHÔNG vào lớp, như enrol_fee.
+ *
+ * Lát 2 (#189): payment gói `tenant_plan`/`teacher_plan` khớp đủ 3
+ * điều kiện cũng đi đúng đường này — succeeded → kích hoạt quyền lợi
+ * gói qua `PlanEntitlementsService.activateForPayment`; thiếu điều
+ * kiện → `needs_review` và KHÔNG sinh quyền lợi, như các component khác.
  */
 @Injectable()
 export class SepayMatchingService {
@@ -33,6 +39,7 @@ export class SepayMatchingService {
     private readonly outbox: OutboxService,
     private readonly enrol: EnrolService,
     private readonly classes: ClassesService,
+    private readonly plans: PlanEntitlementsService,
   ) {}
 
   /** Quét một nhịp: xử lý tối đa `limit` sự kiện đang chờ. Trả số sự kiện đã xử lý. */
@@ -94,6 +101,11 @@ export class SepayMatchingService {
       // CLASS-3: gói lớp — kích hoạt ghi danh cấp lớp (idempotent).
       if (succeeded!.component === 'class_fee' && succeeded!.itemId) {
         await this.classes.activatePaidClassEnrol(succeeded!.itemId, succeeded!.userId);
+      }
+      // Lát 2 (#189): gói trung tâm / gói giáo viên — kích hoạt quyền
+      // lợi gói (idempotent theo payment; cửa sổ nối tiếp khi mua tiếp).
+      if (succeeded!.component === 'tenant_plan' || succeeded!.component === 'teacher_plan') {
+        await this.plans.activateForPayment(succeeded!);
       }
       await this.repo.updateProviderEvent(event.id, { matchStatus: 'matched', matchedPaymentId: payment.id });
       return;

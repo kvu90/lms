@@ -179,7 +179,7 @@ export const privacyRequestSchema = z.object({
 export type PrivacyRequest = z.infer<typeof privacyRequestSchema>;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất cho validation ở
- * API qua Standard Schema và cho form phía React) ---- */
+ * API qua Standard Schema và cho form phía React; xem ADR về Zod-only) ---- */
 
 /** Payload lập chỉ mục một item của một search area đã đăng ký. */
 export const searchIndexItemSchema = z.strictObject({
@@ -397,6 +397,40 @@ export const createRefundSchema = z.strictObject({
   externalTransactionId: z.string().optional(),
 });
 export type CreateRefund = z.infer<typeof createRefundSchema>;
+
+/** Loại gói bán qua pipeline thanh toán (lát 2, issue #189): gói trung
+ * tâm (`tenant_plan` — bên hưởng là một tenant) và gói giáo viên
+ * (`teacher_plan` — bên hưởng là một người dùng giáo viên). Giá của mỗi
+ * gói KHÔNG nằm trong code: giá hiệu lực đọc từ cấu hình hệ thống
+ * (component `payments`, khoá `tenantplanprice` / `teacherplanprice`)
+ * tại thời điểm tạo khoản thu. */
+export const planComponentSchema = z.enum(['tenant_plan', 'teacher_plan']);
+export type PlanComponent = z.infer<typeof planComponentSchema>;
+
+/** Payload mua/nâng gói: bên gọi chỉ chọn LOẠI gói — số tiền luôn do
+ * hệ thống quyết từ cấu hình giá tại thời điểm giao dịch, không nhận
+ * amount từ client. */
+export const purchasePlanSchema = z.strictObject({
+  component: planComponentSchema,
+});
+export type PurchasePlan = z.infer<typeof purchasePlanSchema>;
+
+/** Quyền lợi gói đã kích hoạt: cửa sổ hiệu lực [startsAt, expiresAt)
+ * sinh từ một payment gói thành công; `userId` chỉ có ở `teacher_plan`
+ * (gói trung tâm hưởng theo `tenantId`, userId = null). Hoàn đủ tiền
+ * của payment sinh ra nó thì trạng thái chuyển `suspended`. */
+export const planEntitlementSchema = z.object({
+  id: uuidIdSchema,
+  tenantId: uuidIdSchema,
+  userId: uuidIdSchema.nullable(),
+  component: planComponentSchema,
+  paymentId: uuidIdSchema,
+  startsAt: z.string(),
+  expiresAt: z.string(),
+  status: z.enum(['active', 'suspended']),
+  createdAt: z.string(),
+});
+export type PlanEntitlement = z.infer<typeof planEntitlementSchema>;
 
 /** Payload người dùng tự gửi yêu cầu privacy cho chính mình. */
 export const createPrivacyRequestSchema = z.strictObject({
