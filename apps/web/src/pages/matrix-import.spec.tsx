@@ -16,7 +16,11 @@ import { MatrixEditPage } from './question-matrix';
  *  - ghi bị 422 kèm matrixImportIssues: ở lại bước xác nhận với bảng
  *    lỗi lúc ghi, không sang bước kết quả;
  *  - màn sửa ma trận: checkbox Vận dụng cao gửi levelSet 'four' khi
- *    lưu (thay cho mọi select levelSet — web không còn select nào).
+ *    lưu (thay cho mọi select levelSet — web không còn select nào);
+ *  - người dùng thiếu capability quản trị ma trận (chỉ xem được ma
+ *    trận, không phải site admin): trang hiện thẻ chặn thay cho
+ *    wizard và không gọi các endpoint của wizard (lát D-2, issue
+ *    #233).
  */
 
 const PROFILE = {
@@ -133,6 +137,44 @@ function stubFetchImport(calls: RecordedCall[], previewBody: unknown, mode: Impo
           totalScore: 1, cells: [{ id: `${IMPORTED_MATRIX}-cell-1` }], warnings: [],
         }, 201);
       }
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+/**
+ * Stub cho người dùng CHỈ XEM ma trận: ảnh chụp quyền không phải site
+ * admin, capability tại context hệ thống chỉ có `quiz:viewmatrix`
+ * (xem) — THIẾU `quiz:managematrix` và thiếu mọi capability ngân
+ * hàng câu hỏi, nên điều kiện mở trang nhập không đạt.
+ */
+function stubFetchViewerOnly(calls: RecordedCall[]) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      const body = init?.body instanceof FormData ? 'formdata' : init?.body ? JSON.parse(String(init.body)) : undefined;
+      calls.push({ url, method, body });
+      const respond = (payload: unknown, status = 200) =>
+        new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/users/me/capabilities')
+        return respond({
+          userId: PROFILE.id,
+          isSiteAdmin: false,
+          assignments: [],
+          contexts: [
+            {
+              contextId: '01900000-0000-7000-8000-0000000000c1',
+              contextLevel: 10,
+              contextPath: '/1',
+              capabilities: ['quiz:viewmatrix', 'curriculum:view'],
+            },
+          ],
+          hasLearnerArtifacts: false,
+        });
+      if (url === '/api/v1/courses') return respond([]);
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -287,6 +329,45 @@ describe('Matrix import wizard (I-3)', () => {
     expect(screen.getByText('Ô G15 phải là số nguyên ≥ 0.')).toBeInTheDocument();
     expect(screen.queryByText('Ma trận đã sẵn sàng')).toBeNull();
     expect(screen.getByRole('button', { name: 'Chọn file khác' })).toBeInTheDocument();
+  });
+
+  it('thiếu capability quản trị ma trận: hiện thẻ chặn, không dựng wizard, không gọi endpoint template/preview/import', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchViewerOnly(calls);
+    const router = createMemoryRouter(
+      [
+        { path: '/matrices/import', element: <MatrixImportPage /> },
+        { path: '/matrices', element: <div>Danh sách ma trận</div> },
+      ],
+      { initialEntries: ['/matrices/import'] },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    // Thẻ chặn hiện thay cho wizard: tiêu đề khu vực ma trận của tôi
+    // + thông báo tài khoản không có ngân hàng ma trận cá nhân. Mọi
+    // khẳng định nằm trong CÙNG một waitFor vì thẻ chỉ hiện sau khi
+    // ảnh chụp quyền tải xong và giao diện còn dao động ngắn qua
+    // khung đang tải trong lúc phiên được nạp lại ở đầu phiên test.
+    await waitFor(
+      () => {
+        expect(
+          screen.getByText('Tài khoản của bạn không có ngân hàng ma trận cá nhân (chỉ giáo viên mới có).'),
+        ).toBeInTheDocument();
+        expect(screen.getByText('Ma trận của tôi')).toBeInTheDocument();
+        // Wizard không dựng: không có bước chọn môn, không có nút tải mẫu.
+        expect(screen.queryByLabelText('Môn học')).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Tải file mẫu' })).toBeNull();
+      },
+      { timeout: 5000 },
+    );
+    // Và tuyệt đối không phát sinh lời gọi nào tới các endpoint của
+    // wizard (template/preview/import) hay danh sách ma trận.
+    expect(calls.some((c) => c.url.startsWith('/api/v1/exam-matrices'))).toBe(false);
+    expect(router.state.location.pathname).toBe('/matrices/import');
   });
 
   it('màn sửa ma trận: tick checkbox Vận dụng cao rồi lưu gửi levelSet four', async () => {
