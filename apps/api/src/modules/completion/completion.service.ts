@@ -21,25 +21,25 @@ export const AGGREGATION_ALL = 1;
 export const AGGREGATION_ANY = 2;
 
 /**
- * CompletionModule facade (Moodle core_completion), activity part:
- *  - Completion state is STORED data (course_modules_completion) driven by
- *    criteria declared up-front on the cm: completionView, completionManual,
- *    completionExpected, completionUseGrade (declared; grade evaluation is
- *    the Grades hook — a cm requiring a grade cannot complete without one).
- *  - `cm_viewed` events (from CoursesService) drive completionView.
- *  - Course completion aggregates criteria — all 8 Moodle types: module,
- *    date, grade, self, course (prerequisite), duration, role, unenrol —
- *    with the course method ALL(AND)/ANY(OR) into course_completions.
- *    Manual types (self, role) are evidenced by course_completion_crit_compl
- *    rows; the rest are evaluated from live data. Re-evaluation triggers:
- *    cm events, grade refresh, self/role marks, unenrol (Enrol hook), a
- *    prerequisite course flipping to complete (dependent reaggregation),
- *    criteria changes and explicit/bulk recalculation (date/duration are
- *    time-based and take effect on the next reaggregation, like Moodle's
- *    cron-driven aggregation).
- *  - Changing criteria after data exists flags reaggregation and enqueues
- *    the worker's completion-recalculate job (controlled recalculation,
- *    report §2#9) — never a silent in-place rewrite.
+ * Facade của CompletionModule (core_completion của Moodle), phần hoạt động:
+ *  - Trạng thái hoàn thành là dữ liệu ĐÃ LƯU (course_modules_completion) dẫn động bởi
+ *    các tiêu chí khai báo trước trên cm: completionView, completionManual,
+ *    completionExpected, completionUseGrade (đã khai báo; đánh giá điểm là
+ *    hook của Grades — một cm yêu cầu điểm thì không thể hoàn thành khi thiếu điểm).
+ *  - Sự kiện `cm_viewed` (từ CoursesService) dẫn động completionView.
+ *  - Hoàn thành khoá học tổng hợp các tiêu chí — đủ 8 loại của Moodle: module,
+ *    date, grade, self, course (tiên quyết), duration, role, unenrol —
+ *    với phương thức của khoá ALL(AND)/ANY(OR) vào course_completions.
+ *    Các loại thủ công (self, role) được chứng bằng dòng course_completion_crit_compl;
+ *    các loại còn lại đánh giá từ dữ liệu sống. Kích hoạt đánh giá lại:
+ *    sự kiện cm, làm mới điểm, đánh dấu self/role, unenrol (hook của Enrol), một
+ *    khoá tiên quyết chuyển sang hoàn thành (tổng hợp lại khoá phụ thuộc),
+ *    thay đổi tiêu chí và tính lại tường minh/hàng loạt (date/duration là
+ *    theo thời gian và có hiệu lực ở lần tổng hợp lại tiếp theo, như tổng hợp
+ *    do cron dẫn động của Moodle).
+ *  - Đổi tiêu chí sau khi đã có dữ liệu sẽ gắn cờ tổng hợp lại và xếp hàng
+ *    job completion-recalculate của worker (tính lại có kiểm soát,
+ *    report §2#9) — không bao giờ viết lại lặng lẽ tại chỗ.
  */
 @Injectable()
 /**
@@ -51,9 +51,9 @@ export const AGGREGATION_ANY = 2;
  */
 export class CompletionService implements OnModuleInit {
   private readonly logger = new Logger(CompletionService.name);
-  /** Registered by GradesModule: cm grade state (0 incomplete / 1 complete / 2 pass / 3 fail), null = no grade yet. */
+  /** Do GradesModule đăng ký: trạng thái điểm của cm (0 incomplete / 1 complete / 2 pass / 3 fail), null = chưa có điểm. */
   private gradeEvaluator?: (cmId: string, userId: string) => Promise<number | null>;
-  /** Registered by GradesModule: course 'grade' criterion check. */
+  /** Do GradesModule đăng ký: kiểm tra tiêu chí 'grade' của khoá học. */
   private courseGradeChecker?: (courseId: string, userId: string) => Promise<boolean>;
 
   /**
@@ -64,10 +64,10 @@ export class CompletionService implements OnModuleInit {
   }
 
   /**
-   * Downstream hooks: modules (Badges, Competencies) register interest in
-   * completion CHANGES instead of polling or reading this module's tables
-   * (report §2#9: completion is an INPUT to badges/competency — consumers
-   * subscribe, they never re-derive completion themselves).
+   * Các hook phía sau: các module (Badges, Competencies) đăng ký quan tâm tới
+   * THAY ĐỔI completion thay vì thăm dò hoặc đọc bảng của module này
+   * (report §2#9: completion là ĐẦU VÀO của badges/competency — phía tiêu thụ
+   * đăng ký nhận, chúng không bao giờ tự suy lại completion).
    */
   private readonly cmCompletionHooks: ((e: { cmId: string; courseId: string; userId: string; state: number }) => Promise<void>)[] = [];
   private readonly courseCompletionHooks: ((e: { courseId: string; userId: string }) => Promise<void>)[] = [];
@@ -113,8 +113,8 @@ export class CompletionService implements OnModuleInit {
    * Khởi tạo: nối các hook liên module.
    */
   onModuleInit(): void {
-    // Availability 'completion' leaf: complete when the referenced cm's
-    // stored state for this user is COMPLETE (or pass/fail once graded).
+    // Lá 'completion' của Availability: hoàn thành khi trạng thái đã lưu của cm được tham chiếu
+    // đối với user này là COMPLETE (hoặc pass/fail sau khi đã chấm).
     this.availability.register('completion', async (leaf, ctx) => {
       const cmId = String(leaf.id ?? leaf.cmid ?? leaf.cm ?? '');
       if (!cmId) return { available: false, description: this.i18n.t('availability.completionMissingCm') };
@@ -123,21 +123,21 @@ export class CompletionService implements OnModuleInit {
       const available = !!row && row.completionState >= state && row.completionState !== COMPLETION_INCOMPLETE;
       return { available, description: this.i18n.t('availability.activityMustComplete', { args: { cmId } }) };
     });
-    // Enrol unenrol probe: completion records are related data that must survive unenrol.
+    // Probe unenrol của Enrol: bản ghi completion là dữ liệu liên quan phải sống sót qua unenrol.
     this.enrol.registerRelatedDataProbe(async (courseId, userId) => {
       const cms = await this.courses.listCms(courseId);
       return this.repo.hasAnyCmCompletion(userId, cms.map((c) => c.id));
     });
-    // Unenrol trigger: leaving a course can itself complete it (Moodle
-    // 'unenrol' criterion), so re-evaluate that user right away.
+    // Kích hoạt unenrol: rời một khoá học tự nó có thể làm hoàn thành khoá đó (tiêu chí
+    // 'unenrol' của Moodle), nên đánh giá lại user đó ngay.
     this.enrol.registerUnenrolHook(async ({ courseId, userId }) => {
       await this.reaggregateCourseCompletion(userId, courseId);
     });
   }
 
-  // --- activity completion ---------------------------------------------------
+  // --- hoàn thành hoạt động ---------------------------------------------------
 
-  /** Internal state computation from the cm's declared criteria (Moodle completionlib internal_get_state, activity subset). */
+  /** Tính trạng thái nội bộ từ các tiêu chí đã khai báo của cm (internal_get_state của completionlib Moodle, tập con hoạt động). */
   /**
    * Tính trạng thái hoàn thành của một cm cho user từ các điều kiện đã cấu hình.
    */
@@ -148,25 +148,25 @@ export class CompletionService implements OnModuleInit {
     if (cm.completionManual || cm.completion === 1) {
       return row?.completionState ?? COMPLETION_INCOMPLETE;
     }
-    // Automatic (completion=2): every declared criterion must hold.
+    // Tự động (completion=2): mọi tiêu chí đã khai báo phải đạt.
     let gradeState: number | null = null;
     if (cm.completionUseGrade) {
-      // Grades: real grade evaluation through the GradesModule-registered evaluator.
+      // Điểm: đánh giá điểm thật qua evaluator đã đăng ký của GradesModule.
       gradeState = this.gradeEvaluator ? await this.gradeEvaluator(cmId, userId) : null;
-      if (gradeState === null) return COMPLETION_INCOMPLETE; // no grade yet
+      if (gradeState === null) return COMPLETION_INCOMPLETE; // chưa có điểm
       if (gradeState === COMPLETION_COMPLETE_FAIL) return COMPLETION_COMPLETE_FAIL;
     }
     if (cm.completionView && !row?.viewed) return COMPLETION_INCOMPLETE;
     if (cm.completionExpected && new Date() < cm.completionExpected) return COMPLETION_INCOMPLETE;
-    if (gradeState !== null) return gradeState; // 2 (pass) or 1 (graded, no pass mark)
+    if (gradeState !== null) return gradeState; // 2 (pass) hoặc 1 (đã chấm, không có mốc pass)
     const anyCriterion = cm.completionView || !!cm.completionExpected;
     return anyCriterion ? COMPLETION_COMPLETE : (row?.completionState ?? COMPLETION_INCOMPLETE);
   }
 
   /**
-   * Called by GradesModule after a regrade (facade call): recompute the
-   * stored completion state of a grade-driven cm and reAggregate the course.
-   * Emits cm_completion_changed through the outbox when the state moves.
+   * GradesModule gọi sau khi chấm lại (gọi qua facade): tính lại
+   * trạng thái hoàn thành đã lưu của một cm dẫn động bởi điểm và tổng hợp lại khoá học.
+   * Phát cm_completion_changed qua outbox khi trạng thái thay đổi.
    */
   /**
    * Tính lại completion theo điểm của cm sau khi điểm thay đổi.
@@ -196,7 +196,7 @@ export class CompletionService implements OnModuleInit {
     const cm = await this.courses.getCm(cmId).catch(() => undefined);
     if (cm && cm.completion !== 0) {
       const existing = await this.repo.getCmCompletion(cmId, userId);
-      // Manual marks are authoritative until toggled; only auto-refresh non-manual cms or view-only updates.
+      // Đánh dấu thủ công là có thẩm quyền cho tới khi đổi lại; chỉ tự làm mới các cm không thủ công hoặc cập nhật chỉ theo lượt xem.
       if (!cm.completionManual) {
         await this.repo.upsertCmCompletion({ courseModuleId: cmId, userId: userId, completionState: state, viewed: existing?.viewed ?? false, overrideBy: existing?.overrideBy ?? null });
       }
@@ -222,7 +222,7 @@ export class CompletionService implements OnModuleInit {
     await this.reaggregateCourseCompletion(payload.userId, payload.courseId);
   }
 
-  /** cm_deleted cleanup owned by this module: all completion records for the cm go away with it. */
+  /** Dọn dẹp khi cm_deleted thuộc sở hữu của module này: mọi bản ghi completion của cm biến mất cùng nó. */
   @OnEvent('cm_deleted')
   /**
    * Xử lý sự kiện xoá cm: dọn trạng thái hoàn thành của cm.
@@ -254,8 +254,8 @@ export class CompletionService implements OnModuleInit {
   }
 
   /**
-   * Manual marking (completionManual / completion=1): the user themselves,
-   * or an actor with completion:markothers at the course context.
+   * Đánh dấu thủ công (completionManual / completion=1): chính user,
+   * hoặc một actor có completion:markothers tại context khoá học.
    */
   /**
    * Đánh dấu hoàn thành thủ công (self hoặc giáo viên ghi thay theo capability).
@@ -288,7 +288,7 @@ export class CompletionService implements OnModuleInit {
     return { cmId, userId: targetUserId, state };
   }
 
-  // --- course completion ---------------------------------------------------------
+  // --- hoàn thành khoá học ---------------------------------------------------------
 
   /**
    * Đặt bộ tiêu chí hoàn thành khoá học (thay thế toàn bộ). Đủ 8 loại của
@@ -360,8 +360,8 @@ export class CompletionService implements OnModuleInit {
     }
     await this.repo.setSettings(courseId, method);
     if (hadData || existing.length) {
-      // Criteria changed after data exists ⇒ controlled reaggregation:
-      // flag every stored completion for recalculation and enqueue the worker job.
+      // Tiêu chí đổi sau khi đã có dữ liệu ⇒ tổng hợp lại có kiểm soát:
+      // gắn cờ mọi completion đã lưu để tính lại và xếp hàng job của worker.
       const completions = await this.repo.listCourseCompletions(courseId);
       for (const cc of completions) {
         await this.repo.upsertCourseCompletion({ ...cc, reAggregate: new Date() });
@@ -382,7 +382,7 @@ export class CompletionService implements OnModuleInit {
     return { method: settings.method, criteria: await this.repo.listCriteria(courseId) };
   }
 
-  /** Evaluate every criterion for a user. Returns per-criterion results + aggregate. */
+  /** Đánh giá mọi tiêu chí cho một user. Trả kết quả theo từng tiêu chí + kết quả tổng hợp. */
   /**
    * Đánh giá bộ tiêu chí cho một user: đạt tất cả/bất kỳ theo cấu hình tổng hợp.
    * Ngữ nghĩa từng loại theo Moodle: module = cm đã hoàn thành; date = đã tới
@@ -394,12 +394,12 @@ export class CompletionService implements OnModuleInit {
   async evaluateCriteria(courseId: string, userId: string, now = new Date()): Promise<{ results: boolean[]; complete: boolean; method: number }> {
     const criteria = await this.repo.listCriteria(courseId);
     const { method } = await this.repo.getSettings(courseId);
-    // Manual criteria (self/role) evidence: load the user's crit_compl marks once.
+    // Chứng cứ tiêu chí thủ công (self/role): nạp các dấu crit_compl của user một lần.
     const manualIds = criteria.filter((c) => c.criteriaType === 'self' || c.criteriaType === 'role').map((c) => c.id);
     const marks = manualIds.length ? await this.repo.listCritComplForUser(manualIds, userId) : [];
     const markedCriteria = new Set(marks.map((m) => m.criteriaId));
-    // Duration anchor: earliest enrolment start among the user's live
-    // (not withdrawn) enrolments in this course; loaded at most once.
+    // Neo duration: thời điểm bắt đầu ghi danh sớm nhất trong các ghi danh sống
+    // (chưa rút) của user trong khoá học này; nạp tối đa một lần.
     const needsEnrolments = criteria.some((c) => c.criteriaType === 'duration');
     const enrolments = needsEnrolments ? await this.enrol.listEnrolmentsForCourse(courseId) : [];
     const enrolAnchor = enrolments
@@ -413,14 +413,14 @@ export class CompletionService implements OnModuleInit {
       } else if (c.criteriaType === 'date' && c.date) {
         results.push(now >= c.date);
       } else if (c.criteriaType === 'grade') {
-        // Grades: course grade criterion via the GradesModule-registered checker.
+        // Điểm: tiêu chí điểm khoá học qua checker đã đăng ký của GradesModule.
         results.push(this.courseGradeChecker ? await this.courseGradeChecker(courseId, userId) : false);
       } else if (c.criteriaType === 'self' || c.criteriaType === 'role') {
         results.push(markedCriteria.has(c.id));
       } else if (c.criteriaType === 'course' && c.courseInstance) {
-        // Prerequisite: read the prerequisite course's STORED completion
-        // (never recursive evaluation — dependent courses are reaggregated
-        // when the prerequisite flips to complete, see below).
+        // Tiên quyết: đọc completion ĐÃ LƯU của khoá tiên quyết
+        // (không bao giờ đánh giá đệ quy — các khoá phụ thuộc được tổng hợp lại
+        // khi tiên quyết chuyển sang hoàn thành, xem bên dưới).
         const prereq = await this.repo.getCourseCompletion(userId, c.courseInstance);
         results.push(prereq?.status === 'complete');
       } else if (c.criteriaType === 'duration' && c.enrolPeriodDays !== null && c.enrolPeriodDays !== undefined) {
@@ -436,7 +436,7 @@ export class CompletionService implements OnModuleInit {
     return { results, complete, method };
   }
 
-  /** Recompute and store one user's course completion from the current criteria (idempotent). */
+  /** Tính lại và lưu completion khoá học của một user từ tiêu chí hiện tại (idempotent). */
   /**
    * Tổng hợp lại trạng thái hoàn thành khoá học của user và phát hook khi thay đổi.
    */
@@ -463,10 +463,10 @@ export class CompletionService implements OnModuleInit {
       for (const hook of this.courseCompletionHooks) {
         await hook({ courseId, userId }).catch((err) => this.logger.warn(`course completion hook failed: ${String(err)}`));
       }
-      // Prerequisite propagation: courses listing THIS course as a 'course'
-      // criterion may now complete for their users. Only a flip INTO
-      // complete triggers this, and a dependent can only flip the same way,
-      // so prerequisite cycles settle instead of looping.
+      // Lan truyền tiên quyết: các khoá liệt kê khoá NÀY làm tiêu chí 'course'
+      // giờ có thể hoàn thành cho user của chúng. Chỉ chuyển VÀO
+      // complete mới kích hoạt việc này, và khoá phụ thuộc chỉ có thể chuyển cùng chiều,
+      // nên chu trình tiên quyết lắng xuống thay vì lặp vô hạn.
       const dependentIds = await this.repo.listDependentCourseIds(courseId);
       for (const dependentId of dependentIds) {
         if (dependentId === courseId) continue;
@@ -477,14 +477,14 @@ export class CompletionService implements OnModuleInit {
     return row;
   }
 
-  // --- manual course criteria (self / role) -----------------------------------
+  // --- tiêu chí khoá học thủ công (self / role) -----------------------------------
 
   /**
-   * Self completion (Moodle completion_criteria_self): the learner marks
-   * THEMSELVES complete for the course's self criterion/criteria. The mark
-   * is a crit_compl row (who + when recorded); unmarking removes it. The
-   * learner must have course access; a course without a self criterion
-   * rejects the call.
+   * Tự hoàn thành (completion_criteria_self của Moodle): người học tự đánh dấu
+   * CHÍNH MÌNH hoàn thành cho tiêu chí/các tiêu chí self của khoá học. Dấu
+   * là một dòng crit_compl (ghi ai + khi nào); bỏ dấu thì xoá nó. Người
+   * học phải có quyền truy cập khoá học; một khoá không có tiêu chí self
+   * sẽ từ chối lời gọi.
    */
   /**
    * Học viên tự đánh dấu hoàn thành khoá học (tiêu chí self).
@@ -505,15 +505,15 @@ export class CompletionService implements OnModuleInit {
   }
 
   /**
-   * Manual completion by others (Moodle completion_criteria_role): a user
-   * holding the criterion's role marks a learner complete (or removes the
-   * mark). The mark is a crit_compl row recording who marked whom, and
-   * when. Role assignments inherit down the context tree (Moodle
-   * role_assign semantics), so holding the role at the course context OR
-   * at any ancestor context (category, system) authorises the mark — the
-   * same ancestor-path lookup PermissionEvaluator performs; assignments
-   * in unrelated branches do not count. Role assignment is the
-   * permission, per Moodle.
+   * Hoàn thành thủ công bởi người khác (completion_criteria_role của Moodle): một user
+   * giữ role của tiêu chí đánh dấu một người học hoàn thành (hoặc gỡ
+   * dấu). Dấu là một dòng crit_compl ghi ai đánh dấu cho ai, và
+   * khi nào. Gán role kế thừa xuống cây context (ngữ nghĩa
+   * role_assign của Moodle), nên giữ role tại context khoá học HOẶC
+   * tại bất kỳ context tổ tiên nào (category, system) đều cho phép đánh dấu — cùng
+   * tra cứu đường tổ tiên mà PermissionEvaluator thực hiện; gán
+   * ở các nhánh không liên quan không tính. Gán role là
+   * quyền, theo Moodle.
    */
   /**
    * Người giữ vai trò trong tiêu chí role (tại context khoá học hoặc bất kỳ context tổ tiên nào) đánh dấu hoàn thành cho học viên.
@@ -541,14 +541,14 @@ export class CompletionService implements OnModuleInit {
     return this.repo.hasAnyCmCompletion(userId, cms.map((c) => c.id));
   }
 
-  /** Worker-facing bulk recalculation (the worker runs its own copy; this is the API-side twin used by tests/manual triggers). */
+  /** Tính lại hàng loạt cho worker (worker chạy bản sao của chính nó; đây là bản song sinh phía API dùng bởi test/kích hoạt thủ công). */
   /**
    * Tính lại completion toàn khoá học (hàng loạt, qua worker khi cần).
    */
   async recalculateCourse(courseId: string): Promise<{ courseId: string; users: number }> {
     const enrolments = await this.enrol.listEnrolmentsForCourse(courseId);
     const userIds = [...new Set(enrolments.map((e) => e.userId))];
-    // Also include users who already have a stored course completion.
+    // Cũng gồm cả user đã có completion khoá học đã lưu.
     for (const cc of await this.repo.listCourseCompletions(courseId)) {
       if (!userIds.includes(cc.userId)) userIds.push(cc.userId);
     }

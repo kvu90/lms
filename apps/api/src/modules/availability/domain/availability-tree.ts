@@ -1,26 +1,26 @@
 /**
- * AvailabilityTree — pure domain (no Nest, no DB), report §2#10.
+ * AvailabilityTree — miền thuần (không Nest, không DB), report §2#10.
  *
- * Moodle JSON shape: a tree node is `{ op, c: [...] }` with
- * op ∈ '&' (AND), '|' (OR), '!&' (NOT-AND), '!|' (NOT-OR); the ROOT node may
- * also carry `show` (boolean) and non-root/root nodes carry `showc`
- * (boolean per child). Leaves are condition objects `{ type: string, ... }`.
+ * Hình dạng JSON của Moodle: một nút cây là `{ op, c: [...] }` với
+ * op ∈ '&' (AND), '|' (OR), '!&' (NOT-AND), '!|' (NOT-OR); nút ROOT còn có thể
+ * mang `show` (boolean) và các nút không phải root/root mang `showc`
+ * (boolean theo từng con). Lá là các đối tượng điều kiện `{ type: string, ... }`.
  *
- * Semantics (translated from availability/tests/tree_test.php
+ * Ngữ nghĩa (dịch từ availability/tests/tree_test.php
  * ::test_check_available):
- *  - Empty AND/OR tree is available; empty NOT tree is NOT available
- *    (NOT of the identity would invert it — Moodle treats `!&`/`!|` of no
- *    children via the same aggregate-then-negate rule used here).
- *  - `!&` = NOT(AND(children)) and `!|` = NOT(OR(children)) — De Morgan is
- *    therefore structural, not a rewrite: we aggregate then negate.
- *  - `showc[i] === false` for a failing child hides ALL restriction
- *    information for the whole tree ("if you don't have that condition you
- *    don't get to see anything at all") — modelled here as
- *    `informationHidden = true`, and the item itself is hidden.
- *  - Root `show === false` similarly hides information when unavailable.
- *  - Visibility of an unavailable item: shown (greyed, with information)
- *    only when information is not hidden; otherwise hidden entirely.
- *    Either way the item is NOT accessible — show/showc never grant access.
+ *  - Cây AND/OR rỗng thì khả dụng; cây NOT rỗng thì KHÔNG khả dụng
+ *    (NOT của phần tử trung hoà sẽ đảo nó — Moodle xử lý `!&`/`!|` không có
+ *    con bằng cùng quy tắc gộp-rồi-phủ-định dùng ở đây).
+ *  - `!&` = NOT(AND(children)) và `!|` = NOT(OR(children)) — De Morgan vì vậy
+ *    là cấu trúc, không phải phép viết lại: ta gộp rồi phủ định.
+ *  - `showc[i] === false` cho một con không đạt sẽ ẩn MỌI thông tin
+ *    hạn chế của toàn cây ("nếu bạn không có điều kiện đó thì
+ *    bạn không được thấy gì cả") — mô hình hoá ở đây thành
+ *    `informationHidden = true`, và chính item bị ẩn.
+ *  - Root `show === false` cũng ẩn thông tin tương tự khi không khả dụng.
+ *  - Tính hiển thị của một item không khả dụng: hiện (làm mờ, kèm thông tin)
+ *    chỉ khi thông tin không bị ẩn; ngược lại ẩn hẳn.
+ *    Dù trường hợp nào item cũng KHÔNG truy cập được — show/showc không bao giờ cấp quyền truy cập.
  */
 
 /**
@@ -60,7 +60,7 @@ export function isTreeNode(child: AvailabilityChild): child is AvailabilityNode 
  */
 export interface LeafResult {
   available: boolean;
-  /** Short human description of the (failed) condition, e.g. for UI display. */
+  /** Mô tả ngắn dễ đọc cho người dùng về điều kiện (chưa đạt), vd để hiển thị trên UI. */
   description?: string;
 }
 
@@ -69,11 +69,11 @@ export interface LeafResult {
  */
 export interface TreeEvaluation {
   available: boolean;
-  /** True when restriction information must be hidden entirely (a showc=false child failed, or root show=false). */
+  /** Đúng khi thông tin hạn chế phải bị ẩn hẳn (một con showc=false không đạt, hoặc root show=false). */
   informationHidden: boolean;
-  /** Descriptions of failed conditions that are allowed to be shown. Empty when informationHidden. */
+  /** Mô tả các điều kiện chưa đạt được phép hiển thị. Rỗng khi informationHidden. */
   failedDescriptions: string[];
-  /** Item-level visibility: available items are visible; unavailable items are visible only when info is shown. */
+  /** Hiển thị ở cấp item: item khả dụng thì hiển thị; item không khả dụng chỉ hiển thị khi thông tin được hiển thị. */
   visible: boolean;
   children: (TreeEvaluation | LeafResult & { leaf: true })[];
 }
@@ -107,8 +107,8 @@ function aggregate(op: AvailabilityOp, values: boolean[]): boolean {
 }
 
 /**
- * Evaluate a tree. `evaluateLeaf` is supplied by AvailabilityService (the
- * registry of leaf evaluators); this function owns only the tree semantics.
+ * Đánh giá một cây. `evaluateLeaf` do AvailabilityService cung cấp (registry
+ * của các evaluator lá); hàm này chỉ sở hữu ngữ nghĩa cây.
  */
 export async function evaluateTree(
   node: AvailabilityNode,
@@ -130,9 +130,9 @@ export async function evaluateTree(
   }
   const available = node.c.length === 0 ? (node.op === '&' || node.op === '|') : aggregate(node.op, values);
 
-  // Information hiding: a failing child whose showc is false hides everything.
-  // For negated ops a child "contributes to failure" when it is available
-  // (it is the child's success that makes NOT-AND/NOT-OR fail).
+  // Ẩn thông tin: một con không đạt mà showc của nó là false sẽ ẩn mọi thứ.
+  // Với các op phủ định, một con "góp phần gây không đạt" khi nó khả dụng
+  // (chính thành công của con làm NOT-AND/NOT-OR không đạt).
   let informationHidden = false;
   if (!available) {
     if (isRoot && node.show === false) informationHidden = true;
@@ -143,21 +143,21 @@ export async function evaluateTree(
         const negated = node.op === '!&' || node.op === '!|';
         const causesFailure = negated ? childAvailable : !childAvailable;
         if (causesFailure) informationHidden = true;
-        // Nested tree child: its own hidden flag also propagates.
+        // Con là cây lồng nhau: cờ ẩn của chính nó cũng lan lên.
         const cr = childResults[i] as TreeEvaluation;
         if (!isTreeNode(child) === false && cr && 'informationHidden' in cr && cr.informationHidden && causesFailure) {
           informationHidden = true;
         }
       }
     });
-    // A nested child tree that is itself information-hidden and causes failure hides the parent info too.
+    // Một cây con lồng nhau tự nó bị ẩn thông tin và gây không đạt cũng ẩn thông tin của cha.
     node.c.forEach((child, i) => {
       if (isTreeNode(child)) {
         const cr = childResults[i] as TreeEvaluation;
         const negated = node.op === '!&' || node.op === '!|';
         const causesFailure = negated ? values[i]! : !values[i]!;
         if (cr.informationHidden && causesFailure && node.showc?.[i] !== true) {
-          // Only when the parent does not explicitly show this child.
+          // Chỉ khi cha không hiển thị tường minh con này.
           if (node.showc !== undefined && node.showc[i] === false) informationHidden = true;
         }
       }
@@ -189,7 +189,7 @@ export async function evaluateTree(
   };
 }
 
-/** Synchronous convenience used by golden tests with in-memory leaf values. */
+/** Đường tắt đồng bộ dùng bởi các golden test với giá trị lá trong bộ nhớ. */
 /**
  * Dựng map đánh giá lá từ kết quả từng điều kiện (đủ/không đủ) và mô tả hiển thị tương ứng — đầu vào cho bước gộp cây.
  */

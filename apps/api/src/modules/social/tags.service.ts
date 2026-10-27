@@ -11,10 +11,10 @@ export interface TagAreaDefinition {
 }
 
 /**
- * Tag AREAS are registered in code (like Moodle's db/tag.php): an area says
- * which (component, itemType) pairs may be tagged and in which collection.
- * Anything not registered is refused — the polymorphic API is open in SHAPE
- * but closed in vocabulary.
+ * Các AREA của tag được đăng ký trong code (như db/tag.php của Moodle): một area cho biết
+ * những cặp (component, itemType) nào được gắn tag và ở collection nào.
+ * Mọi thứ chưa đăng ký đều bị từ chối — API đa hình mở ở HÌNH DẠNG
+ * nhưng đóng ở vốn từ.
  */
 export const TAG_AREAS: TagAreaDefinition[] = [
   { component: 'core', itemType: 'course', collection: 'default' },
@@ -29,11 +29,11 @@ export function normalizeTagName(raw: string): string {
 }
 
 /**
- * TagsModule (Moodle core_tag): tags + tag instances + correlations,
- * polymorphic over (component, itemType, itemId, contextId) with NO foreign
- * key to the tagged thing (report §2#16). Ordering is per item (oracle:
- * taglib_test test_add_tag_ordering_calculation). Correlations are the set
- * of tags co-occurring with a tag on the same items, recomputed on write.
+ * TagsModule (core_tag của Moodle): tags + tag instances + correlations,
+ * đa hình trên (component, itemType, itemId, contextId) với KHÔNG khoá ngoại
+ * nào tới thứ được gắn tag (report §2#16). Thứ tự tính theo từng item (oracle:
+ * taglib_test test_add_tag_ordering_calculation). Correlations là tập
+ * các tag đồng xuất hiện với một tag trên cùng các item, được tính lại khi ghi.
  */
 @Injectable()
 /**
@@ -50,10 +50,10 @@ export class TagsService {
   ) {}
 
   /**
-   * The capability alone is not the whole law for course-scoped items: the
-   * virtual 'user' role carries tag:edit, so for course/module contexts the
-   * actor must ALSO have real course access (enrolled or staff) — the same
-   * enrol gate CoursesService enforces everywhere else.
+   * Chỉ capability thôi chưa phải toàn bộ luật cho các item thuộc phạm vi khoá học: role
+   * 'user' ảo mang tag:edit, nên với context khoá học/module thì
+   * actor còn PHẢI có quyền truy cập khoá học thật (đã ghi danh hoặc staff) — cùng
+   * cổng enrol mà CoursesService thi hành ở mọi nơi khác.
    */
   private async assertItemAccess(actorId: string, contextId: string): Promise<void> {
     const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
@@ -94,7 +94,7 @@ export class TagsService {
     return this.repo.insertTag({ userId: actorId, tagCollId: collId, name, rawName: rawName.trim() });
   }
 
-  /** set_item_tags: replace the tag set of one item (oracle: taglib_test test_add_remove_item_tag). */
+  /** set_item_tags: thay toàn bộ tập tag của một item (oracle: taglib_test test_add_remove_item_tag). */
   /**
    * Đặt toàn bộ tag của item (thay thế).
    */
@@ -124,7 +124,7 @@ export class TagsService {
     return { tags: result };
   }
 
-  /** add_item_tag: append a single tag (idempotent per item). */
+  /** add_item_tag: gắn thêm một tag duy nhất (idempotent theo item). */
   /**
    * Gắn thêm một tag vào item.
    */
@@ -159,7 +159,7 @@ export class TagsService {
     return this.setItemTags(actorId, { ...input, tags: remaining });
   }
 
-  /** Correlated tags: other tags appearing on items this tag also appears on. */
+  /** Các tag tương quan: những tag khác xuất hiện trên các item mà tag này cũng xuất hiện trên đó. */
   private async recomputeCorrelations(tagIds: string[]): Promise<void> {
     for (const tagId of tagIds) {
       const instances = await this.repo.listInstancesForTag(tagId);
