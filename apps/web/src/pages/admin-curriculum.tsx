@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Label } from '@lms/ui/components/label';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { errorText } from '../components/admin-curriculum/shared';
-import { apiJson, ApiError } from '#lib/api';
+import { ApiError } from '#lib/api';
+import { accessContextsQueryOptions, useAccessContexts, type ContextRow } from '#lib/access';
+import { queryClient } from '#lib/query-client';
+import { queryKeys } from '#lib/query-keys';
+import { curriculaBySubjectQueryOptions } from '#lib/matrix-data';
 import {
-  fetchCurricula, fetchSubjects, fetchSystemContextId, fetchBookDatasetStatus, fetchBooks, fetchBookTree,
-  type Curriculum, type CurriculumSubject, type Book, type BookDatasetStatus, type BookTree,
+  bookDatasetStatusQueryOptions, booksQueryOptions, curriculumSubjectsScopedQueryOptions,
+  programDatasetStatusQueryOptions,
+  useBookDatasetStatus, useBooks, useBookTree, useCurriculumSubjectsScoped,
+  useDeleteCurriculumRow, useDeleteCurriculumSubject, useImportBookDataset,
+  useImportProgramDataset, useProgramDatasetStatus,
+  type Book, type BookDatasetStatus, type BookImportResult, type Curriculum,
+  type CurriculumSubject, type ProgramDatasetStatus, type ProgramImportResult,
 } from '#lib/curriculum';
 import '../i18n';
 
@@ -29,192 +38,282 @@ import '../i18n';
  * API gác bằng curriculum:manage tại context hệ thống: 403 thì trang
  * hiện thông báo không có quyền thay vì sập (học sinh không vào được
  * trang này).
+ *
+ * Luồng dữ liệu (F-01 của rà soát #133): bốn nguồn nền — trạng thái
+ * dataset chương trình, contexts (để neo danh sách môn ở context hệ
+ * thống), trạng thái dataset SGK và danh sách sách — đọc qua
+ * TanStack Query từ lib/curriculum; lỗi 403 ở bất kỳ nguồn nào thì
+ * trang coi là không có quyền, lỗi khác hiện thông báo tải thất bại.
+ * Chương trình của một môn và cây của một cuốn sách chỉ tải khi mở
+ * lần đầu (truy vấn con theo từng dòng, bật theo trạng thái mở) rồi
+ * giữ trong bộ nhớ đệm; đồng bộ dataset và xoá đi qua các đột biến
+ * của lib/curriculum, làm mới đúng cụm khoá bị ảnh hưởng.
  */
-interface DatasetStatus {
-  datasetKey: string;
+
+// --- Các dòng con lười tải ----------------------------------------------------
+
+/** Danh sách chương trình theo khối của một môn đang mở — chỉ tải khi môn được mở lần đầu. */
+function SubjectCurricula({
+  subject,
+  onLoadError,
+  onMessage,
+}: {
+  subject: CurriculumSubject;
+  onLoadError: () => void;
+  onMessage: (text: string) => void;
+}) {
+  const { t } = useTranslation('app');
+  const query = useQuery(curriculaBySubjectQueryOptions(subject.id));
+  const deleteRow = useDeleteCurriculumRow();
+
+  useEffect(() => {
+    if (query.isError) onLoadError();
+  }, [query.isError, onLoadError]);
+
+  /** Xoá một chương trình (cascade cây node + YCCĐ của khối đó) sau xác nhận. */
+  async function deleteCurriculum(curriculum: Curriculum) {
+    if (!window.confirm(t('curriculumConfirmDeleteCurriculum', { name: subject.name, grade: curriculum.grade }))) return;
+    try {
+      await deleteRow.mutateAsync(curriculum.id);
+      onMessage(t('curriculumCurriculumDeleted'));
+    } catch (err) {
+      onMessage(errorText(err, t('curriculumDeleteFailed')));
+    }
+  }
+
+  const curricula = query.data ?? [];
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <ul className="flex flex-col gap-1" aria-label={t('curriculumCurriculaLabel', { name: subject.name })}>
+        {curricula.map((curriculum) => (
+          <li key={curriculum.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <span>{t('curriculumGradeLabel', { grade: curriculum.grade })}</span>
+            <Link className="underline" to={`/admin/curriculum/curricula/${curriculum.id}`}>
+              {t('curriculumViewTree')}
+            </Link>
+            <span className="ml-auto flex gap-2">
+              <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/curricula/${curriculum.id}/edit`} />}>
+                {t('curriculumEdit')}
+              </Button>
+              <Button type="button" variant="destructive" size="sm" onClick={() => void deleteCurriculum(curriculum)}>
+                {t('curriculumDelete')}
+              </Button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div>
+        <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/curricula/new`} />}>
+          {t('curriculumCreateCurriculum')}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Một dòng môn: nút thu/mở, sửa/xoá môn và (khi mở) danh sách chương trình của môn. */
+function SubjectRow({
+  subject,
+  open,
+  onToggle,
+  onLoadError,
+  onMessage,
+}: {
+  subject: CurriculumSubject;
+  open: boolean;
+  onToggle: () => void;
+  onLoadError: () => void;
+  onMessage: (text: string) => void;
+}) {
+  const { t } = useTranslation('app');
+  const deleteSubjectMutation = useDeleteCurriculumSubject();
+
+  /** Xoá một môn (cascade toàn bộ chương trình của môn) sau xác nhận. */
+  async function deleteSubject() {
+    if (!window.confirm(t('curriculumConfirmDeleteSubject', { name: subject.name }))) return;
+    try {
+      await deleteSubjectMutation.mutateAsync(subject.id);
+      onMessage(t('curriculumSubjectDeleted'));
+    } catch (err) {
+      onMessage(errorText(err, t('curriculumDeleteFailed')));
+    }
+  }
+
+  return (
+    <li className="rounded border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onToggle}>
+          {open ? '▾' : '▸'} {subject.name}
+        </Button>
+        <Badge variant="secondary">{subject.slug}</Badge>
+        <span className="ml-auto flex gap-2">
+          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/edit`} />}>
+            {t('curriculumEdit')}
+          </Button>
+          <Button type="button" variant="destructive" size="sm" onClick={() => void deleteSubject()}>
+            {t('curriculumDelete')}
+          </Button>
+        </span>
+      </div>
+      {open ? <SubjectCurricula subject={subject} onLoadError={onLoadError} onMessage={onMessage} /> : null}
+    </li>
+  );
+}
+
+/** Một dòng SGK: cây sách chỉ tải khi mở lần đầu rồi giữ lại (huy hiệu số bài vẫn hiện khi đã đóng). */
+function BookRow({
+  book,
+  subjectName,
+  open,
+  onToggle,
+  onLoadError,
+}: {
+  book: Book;
   subjectName: string;
-  slug: string;
-  grades: number[];
-  totalRecords: number;
-  importedRecords: number;
-  subjectId: string | null;
-  lastImportedAt: string | null;
+  open: boolean;
+  onToggle: () => void;
+  onLoadError: () => void;
+}) {
+  const { t } = useTranslation('app');
+  const [everOpened, setEverOpened] = useState(false);
+  useEffect(() => {
+    if (open) setEverOpened(true);
+  }, [open ]);
+  const treeQuery = useBookTree(book.id, everOpened);
+
+  useEffect(() => {
+    if (treeQuery.isError) onLoadError();
+  }, [treeQuery.isError, onLoadError]);
+
+  const tree = treeQuery.data;
+  return (
+    <li className="rounded border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" aria-expanded={open} onClick={onToggle}>
+          {open ? '▾' : '▸'}
+        </Button>
+        <span className="font-medium">{book.title}</span>
+        <span className="text-sm text-muted-foreground">
+          {subjectName} · {t('curriculumGradeLabel', { grade: book.grade })}
+        </span>
+        {tree ? (
+          <Badge variant="secondary">
+            {t('bookLessonsCount', {
+              count: tree.chapters.reduce((n, c) => n + c.lessons.length, 0),
+            })}
+          </Badge>
+        ) : null}
+      </div>
+      {open && tree ? (
+        <div className="mt-3 flex flex-col gap-3">
+          {tree.chapters.map((chapter) => (
+            <div key={chapter.id}>
+              <p className="text-sm font-medium">{chapter.title}</p>
+              <ul className="mt-1 flex flex-col gap-1 pl-4">
+                {chapter.lessons.map((lesson) => {
+                  const codes = lesson.mappings
+                    .map((m) => m.programRecordId)
+                    .filter((x): x is string => x !== null);
+                  return (
+                    <li key={lesson.id} className="flex flex-wrap items-center gap-2 text-sm">
+                      <span>{lesson.title}</span>
+                      {codes.length > 0 ? (
+                        <Badge variant="outline">{t('bookMappedTo', { codes: codes.join(', ') })}</Badge>
+                      ) : (
+                        <Badge variant="secondary">{t('bookUnmapped')}</Badge>
+                      )}
+                      {lesson.outcomes.length > 0 ? (
+                        <span className="text-muted-foreground">
+                          {t('bookOutcomesCount', { count: lesson.outcomes.length })}
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </li>
+  );
 }
 
-/** Một mục thay đổi theo từng dòng YCCĐ trong báo cáo của một lượt đồng bộ (issue #161). */
-interface ImportChange {
-  recordId: string;
-  position: number;
-  kind: 'text-changed' | 'added' | 'removed' | 'moved' | 'revived';
-  oldText?: string;
-  newText?: string;
-  shiftSuspected?: boolean;
-  identicalTextAmbiguous?: boolean;
-  linkedQuestions?: number;
-  linkedBookMappings?: number;
-}
-
-interface ImportResult {
-  created: number;
-  updated: number;
-  skipped: number;
-  outcomesWritten: number;
-  totalRecords: number;
-  orphanedNodes: number;
-  retiredOutcomes: number;
-  changeCounts: { textChanged: number; added: number; removed: number; moved: number; revived: number; shiftSuspected: number };
-  changes: ImportChange[];
-  changesOmitted: number;
-}
-
-interface BookImportResult {
-  created: number;
-  updated: number;
-  skipped: number;
-  mappingsWritten: number;
-  totalRecords: number;
-}
 // --- Màn danh sách + nạp dữ liệu chuẩn ---------------------------------------
 
 export function AdminCurriculumPage() {
   const { t } = useTranslation('app');
-  const [datasets, setDatasets] = useState<DatasetStatus[]>([]);
-  const [subjects, setSubjects] = useState<CurriculumSubject[]>([]);
-  const [curriculaBySubject, setCurriculaBySubject] = useState<Record<string, Curriculum[]>>({});
   const [openSubjects, setOpenSubjects] = useState<string[]>([]);
-  const [importing, setImporting] = useState<string | null>(null);
-  const [importResults, setImportResults] = useState<Record<string, ImportResult>>({});
-  const [bookDatasets, setBookDatasets] = useState<BookDatasetStatus[]>([]);
-  const [bookImporting, setBookImporting] = useState<string | null>(null);
+  const [importResults, setImportResults] = useState<Record<string, ProgramImportResult>>({});
   const [bookImportResults, setBookImportResults] = useState<Record<string, BookImportResult>>({});
-  const [books, setBooks] = useState<Book[]>([]);
   const [openBooks, setOpenBooks] = useState<string[]>([]);
-  const [bookTrees, setBookTrees] = useState<Record<string, BookTree>>({});
-  const [forbidden, setForbidden] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [extraError, setExtraError] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const reload = useCallback(async () => {
-    try {
-      const [status, contextId] = await Promise.all([
-        apiJson<DatasetStatus[]>('/api/v1/curriculum/program-import'),
-        fetchSystemContextId(),
-      ]);
-      setDatasets(status);
-      if (contextId) setSubjects(await fetchSubjects(contextId));
-      // Tầng SGK (K0b): trạng thái dataset sách + danh sách sách đã nạp.
-      setBookDatasets(await fetchBookDatasetStatus());
-      setBooks(await fetchBooks());
-      setForbidden(false);
-      setError(null);
-    } catch (err) {
-      if (err instanceof ApiError && err.problem.status === 403) {
-        setForbidden(true);
-        return;
-      }
-      setError(t('curriculumLoadFailed'));
-    }
-  }, [t]);
+  const programStatusQuery = useProgramDatasetStatus();
+  const contextsQuery = useAccessContexts();
+  const systemContextId = contextsQuery.data?.find((c) => c.contextLevel === 10)?.id;
+  const subjectsQuery = useCurriculumSubjectsScoped(systemContextId ?? null);
+  const bookStatusQuery = useBookDatasetStatus();
+  const booksQuery = useBooks();
+  const importProgram = useImportProgramDataset();
+  const importBook = useImportBookDataset();
 
-  useEffect(() => {
-    void reload();
-  }, [reload]);
+  const datasets: ProgramDatasetStatus[] = programStatusQuery.data ?? [];
+  const subjects: CurriculumSubject[] = subjectsQuery.data ?? [];
+  const bookDatasets: BookDatasetStatus[] = bookStatusQuery.data ?? [];
+  const books: Book[] = booksQuery.data ?? [];
 
-  /** Thu/mở một môn: mở lần đầu thì tải danh sách chương trình theo khối của môn đó. */
-  async function toggleSubject(subject: CurriculumSubject) {
-    if (openSubjects.includes(subject.id)) {
-      setOpenSubjects(openSubjects.filter((id) => id !== subject.id));
-      return;
-    }
-    setOpenSubjects([...openSubjects, subject.id]);
-    if (!curriculaBySubject[subject.id]) {
-      try {
-        const rows = await fetchCurricula(subject.id);
-        setCurriculaBySubject((prev) => ({ ...prev, [subject.id]: rows }));
-      } catch {
-        setError(t('curriculumLoadFailed'));
-      }
-    }
+  const backgroundQueries = [programStatusQuery, contextsQuery, subjectsQuery, bookStatusQuery, booksQuery];
+  const isForbiddenError = (err: unknown) => err instanceof ApiError && err.problem.status === 403;
+  const forbidden = backgroundQueries.some((q) => isForbiddenError(q.error));
+  const loadFailed = backgroundQueries.some((q) => q.isError && !isForbiddenError(q.error));
+  const error = loadFailed || extraError ? t('curriculumLoadFailed') : null;
+
+  const importing = importProgram.isPending ? (importProgram.variables ?? null) : null;
+  const bookImporting = importBook.isPending ? (importBook.variables ?? null) : null;
+
+  const handleLoadError = useCallback(() => setExtraError(true), []);
+  const handleMessage = useCallback((text: string) => setMessage(text), []);
+
+  /** Thu/mở một môn: việc tải chương trình của môn do truy vấn con đảm nhiệm. */
+  function toggleSubject(subject: CurriculumSubject) {
+    setExtraError(false);
+    setOpenSubjects((prev) =>
+      prev.includes(subject.id) ? prev.filter((id) => id !== subject.id) : [...prev, subject.id],
+    );
   }
 
   /** Nạp một dataset đã kiểm chứng vào cây chương trình (idempotent phía API). */
-  async function importDataset(dataset: DatasetStatus) {
-    setImporting(dataset.datasetKey);
+  async function importDataset(dataset: ProgramDatasetStatus) {
     setMessage(null);
     try {
-      const result = await apiJson<ImportResult>('/api/v1/curriculum/program-import', {
-        method: 'POST',
-        body: JSON.stringify({ datasetKey: dataset.datasetKey }),
-      });
+      const result = await importProgram.mutateAsync(dataset.datasetKey);
       setImportResults((prev) => ({ ...prev, [dataset.datasetKey]: result }));
       setMessage(t('curriculumImportDone', { subject: dataset.subjectName }));
-      await reload();
     } catch (err) {
       setMessage(errorText(err, t('curriculumImportFailed')));
-    } finally {
-      setImporting(null);
     }
   }
 
   /** Nạp một dataset SGK đã kiểm chứng vào cây sách + ánh xạ (idempotent phía API). */
   async function importBookDataset(dataset: BookDatasetStatus) {
-    setBookImporting(dataset.datasetKey);
     setMessage(null);
     try {
-      const result = await apiJson<BookImportResult>('/api/v1/books/dataset-import', {
-        method: 'POST',
-        body: JSON.stringify({ datasetKey: dataset.datasetKey }),
-      });
+      const result = await importBook.mutateAsync(dataset.datasetKey);
       setBookImportResults((prev) => ({ ...prev, [dataset.datasetKey]: result }));
       setMessage(t('bookImportDone', { book: dataset.bookTitle }));
-      await reload();
     } catch (err) {
       setMessage(errorText(err, t('bookImportFailed')));
-    } finally {
-      setBookImporting(null);
     }
   }
 
-  /** Thu/mở một cuốn SGK: mở lần đầu thì tải cây sách (chủ đề → bài → ánh xạ). */
-  async function toggleBook(book: Book) {
-    if (openBooks.includes(book.id)) {
-      setOpenBooks(openBooks.filter((id) => id !== book.id));
-      return;
-    }
-    setOpenBooks([...openBooks, book.id]);
-    if (!bookTrees[book.id]) {
-      try {
-        const tree = await fetchBookTree(book.id);
-        setBookTrees((prev) => ({ ...prev, [book.id]: tree }));
-      } catch {
-        setError(t('curriculumLoadFailed'));
-      }
-    }
-  }
-
-  /** Xoá một môn (cascade toàn bộ chương trình của môn) sau xác nhận. */
-  async function deleteSubject(subject: CurriculumSubject) {
-    if (!window.confirm(t('curriculumConfirmDeleteSubject', { name: subject.name }))) return;
-    try {
-      await apiJson(`/api/v1/curriculum/subjects/${subject.id}`, { method: 'DELETE' });
-      setMessage(t('curriculumSubjectDeleted'));
-      await reload();
-    } catch (err) {
-      setMessage(errorText(err, t('curriculumDeleteFailed')));
-    }
-  }
-
-  /** Xoá một chương trình (cascade cây node + YCCĐ của khối đó) sau xác nhận. */
-  async function deleteCurriculum(subject: CurriculumSubject, curriculum: Curriculum) {
-    if (!window.confirm(t('curriculumConfirmDeleteCurriculum', { name: subject.name, grade: curriculum.grade }))) return;
-    try {
-      await apiJson(`/api/v1/curriculum/curricula/${curriculum.id}`, { method: 'DELETE' });
-      const rows = await fetchCurricula(subject.id);
-      setCurriculaBySubject((prev) => ({ ...prev, [subject.id]: rows }));
-      setMessage(t('curriculumCurriculumDeleted'));
-    } catch (err) {
-      setMessage(errorText(err, t('curriculumDeleteFailed')));
-    }
+  /** Thu/mở một cuốn SGK: việc tải cây sách do truy vấn ở dòng sách đảm nhiệm. */
+  function toggleBook(book: Book) {
+    setExtraError(false);
+    setOpenBooks((prev) =>
+      prev.includes(book.id) ? prev.filter((id) => id !== book.id) : [...prev, book.id],
+    );
   }
 
   return (
@@ -255,55 +354,16 @@ export function AdminCurriculumPage() {
               </Empty>
             ) : (
               <ul className="flex flex-col gap-2" aria-label={t('curriculumSubjectsTitle')}>
-                {subjects.map((subject) => {
-                  const open = openSubjects.includes(subject.id);
-                  const curricula = curriculaBySubject[subject.id] ?? [];
-                  return (
-                    <li key={subject.id} className="rounded border p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => void toggleSubject(subject)}>
-                          {open ? '▾' : '▸'} {subject.name}
-                        </Button>
-                        <Badge variant="secondary">{subject.slug}</Badge>
-                        <span className="ml-auto flex gap-2">
-                          <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/edit`} />}>
-                            {t('curriculumEdit')}
-                          </Button>
-                          <Button type="button" variant="destructive" size="sm" onClick={() => void deleteSubject(subject)}>
-                            {t('curriculumDelete')}
-                          </Button>
-                        </span>
-                      </div>
-                      {open ? (
-                        <div className="mt-3 flex flex-col gap-2">
-                          <ul className="flex flex-col gap-1" aria-label={t('curriculumCurriculaLabel', { name: subject.name })}>
-                            {curricula.map((curriculum) => (
-                              <li key={curriculum.id} className="flex flex-wrap items-center gap-2 text-sm">
-                                <span>{t('curriculumGradeLabel', { grade: curriculum.grade })}</span>
-                                <Link className="underline" to={`/admin/curriculum/curricula/${curriculum.id}`}>
-                                  {t('curriculumViewTree')}
-                                </Link>
-                                <span className="ml-auto flex gap-2">
-                                  <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/curricula/${curriculum.id}/edit`} />}>
-                                    {t('curriculumEdit')}
-                                  </Button>
-                                  <Button type="button" variant="destructive" size="sm" onClick={() => void deleteCurriculum(subject, curriculum)}>
-                                    {t('curriculumDelete')}
-                                  </Button>
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                          <div>
-                            <Button type="button" variant="outline" size="sm" render={<Link to={`/admin/curriculum/subjects/${subject.id}/curricula/new`} />}>
-                              {t('curriculumCreateCurriculum')}
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                {subjects.map((subject) => (
+                  <SubjectRow
+                    key={subject.id}
+                    subject={subject}
+                    open={openSubjects.includes(subject.id)}
+                    onToggle={() => toggleSubject(subject)}
+                    onLoadError={handleLoadError}
+                    onMessage={handleMessage}
+                  />
+                ))}
               </ul>
             )}
           </CardContent>
@@ -324,68 +384,16 @@ export function AdminCurriculumPage() {
               </Empty>
             ) : (
               <ul className="flex flex-col gap-2" aria-label={t('bookListTitle')}>
-                {books.map((book) => {
-                  const open = openBooks.includes(book.id);
-                  const tree = bookTrees[book.id];
-                  const subjectName = subjects.find((s) => s.id === book.subjectId)?.name ?? '';
-                  return (
-                    <li key={book.id} className="rounded border p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          aria-expanded={open}
-                          onClick={() => void toggleBook(book)}
-                        >
-                          {open ? '▾' : '▸'}
-                        </Button>
-                        <span className="font-medium">{book.title}</span>
-                        <span className="text-sm text-muted-foreground">
-                          {subjectName} · {t('curriculumGradeLabel', { grade: book.grade })}
-                        </span>
-                        {tree ? (
-                          <Badge variant="secondary">
-                            {t('bookLessonsCount', {
-                              count: tree.chapters.reduce((n, c) => n + c.lessons.length, 0),
-                            })}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {open && tree ? (
-                        <div className="mt-3 flex flex-col gap-3">
-                          {tree.chapters.map((chapter) => (
-                            <div key={chapter.id}>
-                              <p className="text-sm font-medium">{chapter.title}</p>
-                              <ul className="mt-1 flex flex-col gap-1 pl-4">
-                                {chapter.lessons.map((lesson) => {
-                                  const codes = lesson.mappings
-                                    .map((m) => m.programRecordId)
-                                    .filter((x): x is string => x !== null);
-                                  return (
-                                    <li key={lesson.id} className="flex flex-wrap items-center gap-2 text-sm">
-                                      <span>{lesson.title}</span>
-                                      {codes.length > 0 ? (
-                                        <Badge variant="outline">{t('bookMappedTo', { codes: codes.join(', ') })}</Badge>
-                                      ) : (
-                                        <Badge variant="secondary">{t('bookUnmapped')}</Badge>
-                                      )}
-                                      {lesson.outcomes.length > 0 ? (
-                                        <span className="text-muted-foreground">
-                                          {t('bookOutcomesCount', { count: lesson.outcomes.length })}
-                                        </span>
-                                      ) : null}
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
+                {books.map((book) => (
+                  <BookRow
+                    key={book.id}
+                    book={book}
+                    subjectName={subjects.find((s) => s.id === book.subjectId)?.name ?? ''}
+                    open={openBooks.includes(book.id)}
+                    onToggle={() => toggleBook(book)}
+                    onLoadError={handleLoadError}
+                  />
+                ))}
               </ul>
             )}
           </CardContent>
@@ -525,6 +533,27 @@ export function AdminCurriculumPage() {
 
     </PageShell>
   );
+}
+
+/**
+ * Nạp trước cho route danh sách quản trị chương trình: bốn nguồn nền
+ * của trang; danh sách môn cần id context hệ thống nên nạp sau khi
+ * contexts về (đúng thứ tự phụ thuộc của trang). Lỗi nạp bỏ qua —
+ * trang tự hiện trạng thái lỗi/cấm như khi không có loader.
+ */
+export async function adminCurriculumPageClientLoader() {
+  await Promise.allSettled([
+    queryClient.ensureQueryData(programDatasetStatusQueryOptions()),
+    queryClient.ensureQueryData(accessContextsQueryOptions()),
+    queryClient.ensureQueryData(bookDatasetStatusQueryOptions()),
+    queryClient.ensureQueryData(booksQueryOptions()),
+  ]);
+  const contexts = queryClient.getQueryData<ContextRow[]>(queryKeys.accessContexts);
+  const systemContextId = contexts?.find((c) => c.contextLevel === 10)?.id;
+  if (systemContextId) {
+    await queryClient.ensureQueryData(curriculumSubjectsScopedQueryOptions(systemContextId)).catch(() => undefined);
+  }
+  return null;
 }
 
 // --- Màn cây chương trình ------------------------------------------------------

@@ -8,12 +8,19 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson, ApiError } from '#lib/api';
-import { fetchSubjects, fetchSystemContextId, type CurriculumSubject } from '#lib/curriculum';
+import { ApiError } from '#lib/api';
+import { type CurriculumSubject } from '#lib/curriculum';
 import {
-  LEVELS, RESOURCE_TYPES, REVIEW_STATUSES, deleteItem, fetchItemFileUrl, fetchItems, fetchSpaces, insertItem,
-  reviewItem, submitItem, type LibraryItem, type LibrarySpace, type ReviewChecklist,
+  LEVELS, RESOURCE_TYPES, REVIEW_STATUSES, type LibraryItem, type LibrarySpace, type ReviewChecklist,
 } from '#lib/content-bank';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  contentBankItemFileUrlQueryOptions, contentBankItemsQueryOptions, contentBankSpacesQueryOptions,
+  contentBankSubjectsQueryOptions, useDeleteContentBankItem, useInsertContentBankItem,
+  useReviewContentBankItem, useSubmitContentBankItem,
+} from '#lib/content-bank-data';
+import { coursesListQueryOptions } from '#lib/courses-data';
+import { courseContentQueryOptions } from '#lib/course-builder-data';
 
 const SELECT_CLASS = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
 
@@ -42,6 +49,11 @@ function itemSpaceKey(item: LibraryItem): string {
  */
 export function ContentBankLibraryPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const submitItemMutation = useSubmitContentBankItem();
+  const deleteItemMutation = useDeleteContentBankItem();
+  const reviewItemMutation = useReviewContentBankItem();
+  const insertItemMutation = useInsertContentBankItem();
   const [spaces, setSpaces] = useState<LibrarySpace[]>([]);
   const [items, setItems] = useState<LibraryItem[]>([]);
   const [subjects, setSubjects] = useState<CurriculumSubject[]>([]);
@@ -64,9 +76,17 @@ export function ContentBankLibraryPage() {
   const [insertSections, setInsertSections] = useState<CourseContent['sections']>([]);
   const [insertSectionId, setInsertSectionId] = useState('');
 
+  // Nạp (lại) không gian + học liệu: đọc qua tầng TanStack Query
+  // (fetchQuery với options của lib/content-bank-data.ts, staleTime 0
+  // nên luôn lấy số tươi như bản fetch thủ công — F-01 của rà soát
+  // #133). Trang giữ máy trạng thái riêng nên nhịp nạp vẫn do trang
+  // chủ động gọi: lần đầu và sau mỗi thao tác ghi thành công.
   const reload = useCallback(async () => {
     try {
-      const [spaceRows, itemRows] = await Promise.all([fetchSpaces(), fetchItems()]);
+      const [spaceRows, itemRows] = await Promise.all([
+        queryClient.fetchQuery(contentBankSpacesQueryOptions()),
+        queryClient.fetchQuery(contentBankItemsQueryOptions()),
+      ]);
       setSpaces(spaceRows);
       setItems(itemRows);
       setOpenSpaces((prev) => {
@@ -78,7 +98,7 @@ export function ContentBankLibraryPage() {
     } catch (err) {
       setError(errorText(err, t('libraryLoadFailed')));
     }
-  }, [t]);
+  }, [t, queryClient]);
 
   useEffect(() => {
     void reload();
@@ -86,10 +106,9 @@ export function ContentBankLibraryPage() {
 
   useEffect(() => {
     void (async () => {
-      const sys = await fetchSystemContextId().catch(() => null);
-      if (sys) setSubjects(await fetchSubjects(sys).catch(() => []));
+      setSubjects(await queryClient.fetchQuery(contentBankSubjectsQueryOptions()));
     })();
-  }, []);
+  }, [queryClient]);
 
   const subjectName = useCallback(
     (id: string | null) => subjects.find((s) => s.id === id)?.name ?? null,
@@ -126,7 +145,7 @@ export function ContentBankLibraryPage() {
 
   async function download(item: LibraryItem) {
     try {
-      const { url } = await fetchItemFileUrl(item.id);
+      const { url } = await queryClient.fetchQuery(contentBankItemFileUrlQueryOptions(item.id));
       window.open(url, '_blank', 'noopener');
     } catch (err) {
       setError(errorText(err, t('libraryActionFailed')));
@@ -139,7 +158,7 @@ export function ContentBankLibraryPage() {
     setInsertSections([]);
     setInsertSectionId('');
     if (courses.length === 0) {
-      const rows = await apiJson<Course[]>('/api/v1/courses').catch(() => [] as Course[]);
+      const rows = await queryClient.fetchQuery(coursesListQueryOptions()).catch(() => [] as Course[]);
       setCourses(rows);
     }
   }
@@ -149,7 +168,7 @@ export function ContentBankLibraryPage() {
     setInsertSections([]);
     setInsertSectionId('');
     if (!courseId) return;
-    const content = await apiJson<CourseContent>(`/api/v1/courses/${courseId}/content`).catch(() => null);
+    const content = await queryClient.fetchQuery(courseContentQueryOptions(courseId));
     if (content) {
       setInsertSections(content.sections);
       if (content.sections[0]) setInsertSectionId(content.sections[0].id);
@@ -314,7 +333,7 @@ export function ContentBankLibraryPage() {
                                 variant="outline"
                                 size="sm"
                                 disabled={busyId === item.id}
-                                onClick={() => void runAction(item.id, () => submitItem(item.id))}
+                                onClick={() => void runAction(item.id, () => submitItemMutation.mutateAsync(item.id))}
                               >
                                 {t('librarySubmitReview')}
                               </Button>
@@ -332,7 +351,7 @@ export function ContentBankLibraryPage() {
                               disabled={busyId === item.id}
                               onClick={() => {
                                 if (window.confirm(t('libraryDeleteConfirm', { name: item.name }))) {
-                                  void runAction(item.id, () => deleteItem(item.id));
+                                  void runAction(item.id, () => deleteItemMutation.mutateAsync(item.id));
                                 }
                               }}
                             >
@@ -387,7 +406,12 @@ export function ContentBankLibraryPage() {
                                   }
                                   onClick={() =>
                                     void runAction(item.id, () =>
-                                      reviewItem(item.id, 'approved', reviewNotes[item.id] || undefined, checklistFor(item.id)),
+                                      reviewItemMutation.mutateAsync({
+                                        itemId: item.id,
+                                        decision: 'approved',
+                                        note: reviewNotes[item.id] || undefined,
+                                        checklist: checklistFor(item.id),
+                                      }),
                                     )
                                   }
                                 >
@@ -398,7 +422,15 @@ export function ContentBankLibraryPage() {
                                   variant="outline"
                                   size="sm"
                                   disabled={busyId === item.id || !(reviewNotes[item.id] ?? '').trim()}
-                                  onClick={() => void runAction(item.id, () => reviewItem(item.id, 'rejected', reviewNotes[item.id]))}
+                                  onClick={() =>
+                                    void runAction(item.id, () =>
+                                      reviewItemMutation.mutateAsync({
+                                        itemId: item.id,
+                                        decision: 'rejected',
+                                        note: reviewNotes[item.id],
+                                      }),
+                                    )
+                                  }
                                 >
                                   {t('libraryReject')}
                                 </Button>
@@ -438,7 +470,7 @@ export function ContentBankLibraryPage() {
                                 onClick={() => {
                                   setBusyId(item.id);
                                   setError(null);
-                                  void insertItem(item.id, insertCourseId, insertSectionId)
+                                  void insertItemMutation.mutateAsync({ itemId: item.id, courseId: insertCourseId, sectionId: insertSectionId })
                                     .then((res) => {
                                       setNotice(t('libraryInsertDone', { cmId: res.cmId }));
                                       setInsertFor(null);

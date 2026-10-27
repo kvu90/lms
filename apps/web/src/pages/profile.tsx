@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import type { UserProfile } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -38,6 +39,23 @@ export function ProfilePage() {
   } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Lưu hồ sơ qua đột biến TanStack Query (F-01 của #133): dữ liệu
+  // đọc của trang vẫn là phiên ở AuthContext (không phải query), nên
+  // đột biến không invalidate khoá nào — thành công thì nạp lại phiên
+  // như trước để mọi bề mặt thấy tên/email mới ngay.
+  const updateProfile = useMutation({
+    mutationFn: (body: {
+      firstName: string;
+      lastName: string;
+      email: string | undefined;
+      customFields: Record<string, string>;
+    }) =>
+      apiJson<UserProfile>(`/api/v1/users/${user?.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+  });
+
   useEffect(() => {
     if (user) {
       setForm({
@@ -63,14 +81,11 @@ export function ProfilePage() {
     event.preventDefault();
     setMessage(null);
     try {
-      const updated = await apiJson<UserProfile>(`/api/v1/users/${user!.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          firstName: form!.firstName,
-          lastName: form!.lastName,
-          email: form!.email || undefined,
-          customFields: form!.customFields,
-        }),
+      const updated = await updateProfile.mutateAsync({
+        firstName: form!.firstName,
+        lastName: form!.lastName,
+        email: form!.email || undefined,
+        customFields: form!.customFields,
       });
       void updated;
       await reload();

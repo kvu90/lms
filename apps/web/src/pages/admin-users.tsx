@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { PaginationState } from '@tanstack/react-table';
 import type { UserListResponse, UserProfile } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -12,8 +12,15 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
-import { queryKeys } from '#lib/query-keys';
+import {
+  adminUsersPageClientLoader,
+  adminUsersQueryOptions,
+  useAdminUserDetail,
+  useCreateAdminUser,
+  useDeleteAdminUser,
+  useToggleUserSuspended,
+  useUpdateAdminUser,
+} from '#lib/admin-users-data';
 import { DataTable, type DataColumn } from '#components/data-table';
 
 /** Khung một màn form riêng (tạo/sửa) theo chuẩn §9: tiêu đề + quay lại danh sách. */
@@ -56,40 +63,34 @@ function UserFormScreen({
  */
 export function AdminUsersPage() {
   const { t } = useTranslation('app');
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 20 });
   const [message, setMessage] = useState<string | null>(null);
 
+  // Danh sách qua tuỳ chọn truy vấn của lib/admin-users-data (F-01
+  // của rà soát #133), giữ keepPreviousData để lật trang/tìm kiếm
+  // không nháy rỗng bảng; thao tác ghi đi qua đột biến — đột biến tự
+  // làm mới gốc khoá danh sách.
   const usersQuery = useQuery({
-    queryKey: queryKeys.adminUsers(pagination.pageIndex + 1, pagination.pageSize, search),
-    queryFn: () =>
-      apiJson<UserListResponse>(
-        `/api/v1/users?search=${encodeURIComponent(search)}&page=${pagination.pageIndex + 1}&pageSize=${pagination.pageSize}`,
-      ),
+    ...adminUsersQueryOptions(pagination.pageIndex + 1, pagination.pageSize, search),
     placeholderData: keepPreviousData,
   });
+  const suspendMutation = useToggleUserSuspended();
+  const deleteMutation = useDeleteAdminUser();
   const data = usersQuery.data;
   const pageCount = Math.ceil((data?.total ?? 0) / pagination.pageSize);
 
-  /** Sau mỗi thao tác ghi: nạp lại mọi trang danh sách người dùng đang cache. */
-  async function invalidateUsers() {
-    await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsersRoot });
-  }
-
   async function suspend(id: string, suspended: boolean) {
-    await apiJson(`/api/v1/users/${id}/${suspended ? 'suspend' : 'unsuspend'}`, { method: 'POST' });
-    await invalidateUsers();
+    await suspendMutation.mutateAsync({ id, suspended });
   }
 
-  /** Xoá mềm một người dùng qua DELETE /users/:id sau khi xác nhận (§9: Xoá ngay tại dòng). */
+  /** Xoá mềm một người dùng qua đột biến DELETE /users/:id sau khi xác nhận (§9: Xoá ngay tại dòng). */
   async function deleteUser(user: UserProfile) {
     if (!window.confirm(t('confirmDeleteUser', { username: user.username }))) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/users/${user.id}`, { method: 'DELETE' });
+      await deleteMutation.mutateAsync(user.id);
       setMessage(t('userDeleted'));
-      await invalidateUsers();
     } catch {
       setMessage(t('userDeleteFailed'));
     }
@@ -204,11 +205,11 @@ export function AdminUsersPage() {
   );
 }
 
-/** Màn tạo người dùng riêng (§9): POST /users rồi quay về danh sách. */
+/** Màn tạo người dùng riêng (§9): POST /users qua đột biến rồi quay về danh sách. */
 export function AdminUserNewPage() {
   const { t } = useTranslation('app');
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const createMutation = useCreateAdminUser();
   const [draft, setDraft] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState<string | null>(null);
 
@@ -216,8 +217,7 @@ export function AdminUserNewPage() {
     event.preventDefault();
     setError(null);
     try {
-      await apiJson('/api/v1/users', { method: 'POST', body: JSON.stringify(draft) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsersRoot });
+      await createMutation.mutateAsync(draft);
       navigate('/admin/users');
     } catch {
       setError(t('userCreateFailed'));
@@ -280,12 +280,8 @@ export function AdminUserEditPage() {
   const { t } = useTranslation('app');
   const { userId } = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const userQuery = useQuery({
-    queryKey: queryKeys.adminUserDetail(userId ?? ''),
-    queryFn: () => apiJson<UserProfile>(`/api/v1/users/${userId}`),
-    enabled: Boolean(userId),
-  });
+  const userQuery = useAdminUserDetail(userId);
+  const updateMutation = useUpdateAdminUser();
   const [draft, setDraft] = useState<{ email: string; firstName: string; lastName: string; password: string } | null>(
     null,
   );
@@ -302,16 +298,15 @@ export function AdminUserEditPage() {
     if (!userId) return;
     setError(null);
     try {
-      await apiJson(`/api/v1/users/${userId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
+      await updateMutation.mutateAsync({
+        userId,
+        draft: {
           email: form.email,
           firstName: form.firstName,
           lastName: form.lastName,
           ...(form.password ? { password: form.password } : {}),
-        }),
+        },
       });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.adminUsersRoot });
       navigate('/admin/users');
     } catch {
       setError(t('userUpdateFailed'));
@@ -402,6 +397,14 @@ export function AdminUserEditPage() {
       </form>
     </UserFormScreen>
   );
+}
+
+/**
+ * clientLoader (F-01, rà soát #133): nạp trước trang danh sách đầu
+ * tiên (cỡ trang mặc định, không từ khoá) vào đúng khoá trang dùng.
+ */
+export async function clientLoader() {
+  return adminUsersPageClientLoader();
 }
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */

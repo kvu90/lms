@@ -7,3 +7,6 @@ import { platformKeyMeta } from '../lib/route-meta';
 export function meta() {
   return platformKeyMeta('backupTitle');
 }
+
+// clientLoader (F-01, rà soát #133): prefetch danh sách việc sao lưu vào QueryClient singleton.
+export { backupPageClientLoader as clientLoader } from '../lib/platform-data';

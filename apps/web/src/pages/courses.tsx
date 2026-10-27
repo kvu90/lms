@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
@@ -20,9 +20,16 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
-import { queryKeys } from '#lib/query-keys';
+import {
+  categoryTreeQueryOptions,
+  courseMyProgressQueryOptions,
+  coursesListQueryOptions,
+  coursesPageClientLoader,
+  useCreateCourseCategory,
+  useDeleteCourseCategory,
+  useRenameCourseCategory,
+} from '#lib/courses-data';
 import {
   COURSE_CARD_COLOR_HEX,
   displayCourseName,
@@ -46,23 +53,17 @@ export function CoursesPage() {
   const { t } = useTranslation('app');
   const perms = usePermissions();
   const { canAdminister } = perms;
-  const queryClient = useQueryClient();
   // Cây danh mục đọc qua TanStack với ĐÚNG khoá `categoryTree` dùng
   // chung với dashboard (F-03, rà soát #133): trước đây trang tự fetch
   // bằng useEffect + state riêng, trùng dữ liệu dashboard vừa tải.
-  const treeQuery = useQuery({
-    queryKey: queryKeys.categoryTree,
-    queryFn: () => apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree'),
-  });
+  // Tuỳ chọn truy vấn nay nằm ở lib/courses-data (F-01).
+  const treeQuery = useQuery(categoryTreeQueryOptions());
   const tree = useMemo(() => treeQuery.data ?? [], [treeQuery.data]);
   // Danh sách khoá đọc qua TanStack với ĐÚNG khoá `courses` mà
   // PermissionsProvider dùng (F-03, rà soát #133): trước đây trang tự
   // fetch lại /courses trong khi provider vừa tải cùng dữ liệu — nay
   // cache dùng chung, trang mở sau provider thì không tốn request.
-  const coursesQuery = useQuery({
-    queryKey: queryKeys.courses,
-    queryFn: () => apiJson<Course[]>('/api/v1/courses'),
-  });
+  const coursesQuery = useQuery(coursesListQueryOptions());
   const courses = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
   // Pref thẻ khoá của chính người dùng (DASH1) đọc qua query dùng chung
   // khoá `courseCards` với dashboard (F-03/F-04): mutation lưu pref tự
@@ -76,14 +77,6 @@ export function CoursesPage() {
   const [catName, setCatName] = useState('');
   const [catParent, setCatParent] = useState('0');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
-  /** Nạp lại sau đột biến danh mục: invalidate cây danh mục + danh sách khoá dùng chung. */
-  const reload = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.courses }),
-    ]);
-  }, [queryClient]);
-
   useEffect(() => {
     if (coursesQuery.isError || treeQuery.isError) setMessage(t('coursesLoadFailed'));
   }, [coursesQuery.isError, treeQuery.isError, t]);
@@ -104,16 +97,7 @@ export function CoursesPage() {
     [courses, memberCourseIds, perms.ready],
   );
   const progressQueries = useQueries({
-    queries: progressTargets.map((courseId) => ({
-      queryKey: queryKeys.courseMyProgress(courseId),
-      queryFn: async () => {
-        try {
-          return await apiJson<{ percent: number | null }>(`/api/v1/courses/${courseId}/progress/me`);
-        } catch {
-          return { percent: null };
-        }
-      },
-    })),
+    queries: progressTargets.map((courseId) => courseMyProgressQueryOptions(courseId)),
   });
   const progressByCourse: Record<string, number | null> = {};
   progressTargets.forEach((courseId, i) => {
@@ -194,8 +178,12 @@ export function CoursesPage() {
     );
   }
 
+  const createCategoryMutation = useCreateCourseCategory();
+  const renameCategoryMutation = useRenameCourseCategory();
+  const deleteCategoryMutation = useDeleteCourseCategory();
+
   /**
-   * Tạo danh mục qua POST /courses/categories với đúng
+   * Tạo danh mục qua đột biến POST /courses/categories với đúng
    * `createCourseCategorySchema`: `parent` chỉ gửi khi chọn một danh mục
    * cha thật (ở cấp cao nhất thì bỏ qua hẳn trường này thay vì gửi giá trị
    * không phải UUID).
@@ -204,31 +192,23 @@ export function CoursesPage() {
     event.preventDefault();
     setMessage(null);
     try {
-      await apiJson('/api/v1/courses/categories', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: catName,
-          ...(catParent && catParent !== '0' ? { parent: catParent } : {}),
-        }),
+      await createCategoryMutation.mutateAsync({
+        name: catName,
+        ...(catParent && catParent !== '0' ? { parent: catParent } : {}),
       });
       setCatName('');
-      await reload();
       setMessage(t('categoryCreated'));
     } catch {
       setMessage(t('categoryCreateFailed'));
     }
   }
 
-  /** Đổi tên một danh mục qua PATCH /courses/categories/:id (`updateCourseCategorySchema`). */
+  /** Đổi tên một danh mục qua đột biến PATCH /courses/categories/:id (`updateCourseCategorySchema`). */
   async function renameCategory(cat: CourseCategory) {
     const name = catEdits[cat.id] ?? cat.name;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/categories/${cat.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name }),
-      });
-      await reload();
+      await renameCategoryMutation.mutateAsync({ categoryId: cat.id, name });
       setMessage(t('categoryUpdated'));
     } catch {
       setMessage(t('categoryUpdateFailed'));
@@ -236,7 +216,7 @@ export function CoursesPage() {
   }
 
   /**
-   * Xoá một danh mục qua DELETE /courses/categories/:id sau khi xác nhận.
+   * Xoá một danh mục qua đột biến DELETE /courses/categories/:id sau khi xác nhận.
    * Lỗi phía server (danh mục còn khoá học/danh mục con, thiếu quyền…) chỉ
    * hiện thông điệp thân thiện, không sập trang.
    */
@@ -244,8 +224,7 @@ export function CoursesPage() {
     if (!window.confirm(t('confirmDeleteCategory', { name: cat.name }))) return;
     setMessage(null);
     try {
-      await apiJson(`/api/v1/courses/categories/${cat.id}`, { method: 'DELETE' });
-      await reload();
+      await deleteCategoryMutation.mutateAsync(cat.id);
       setMessage(t('categoryDeleted'));
     } catch {
       setMessage(t('categoryDeleteFailed'));
@@ -374,6 +353,14 @@ export function CoursesPage() {
       )}
     </PageShell>
   );
+}
+
+/**
+ * clientLoader (F-01, rà soát #133): nạp trước cây danh mục + danh
+ * sách khoá vào đúng hai khoá dùng chung trang sẽ đọc.
+ */
+export async function clientLoader() {
+  return coursesPageClientLoader();
 }
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */

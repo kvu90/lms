@@ -7,3 +7,6 @@ import { platformKeyMeta } from '../lib/route-meta';
 export function meta() {
   return platformKeyMeta('privacyTitle');
 }
+
+// clientLoader (F-01, rà soát #133): prefetch danh sách yêu cầu riêng tư vào QueryClient singleton.
+export { privacyPageClientLoader as clientLoader } from '../lib/platform-data';

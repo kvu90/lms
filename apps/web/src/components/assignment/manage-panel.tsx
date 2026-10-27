@@ -8,7 +8,7 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
-import { apiJson } from '#lib/api';
+import { useDeleteAssignment, useSaveAssignmentRubric, useUpdateAssignment } from '#lib/assignment-data';
 import { selectClass } from './shared';
 
 /** Chuyển ISO sang giá trị của input datetime-local. */
@@ -56,6 +56,9 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const updateAssignmentMutation = useUpdateAssignment();
+  const saveRubricMutation = useSaveAssignmentRubric();
+  const deleteAssignmentMutation = useDeleteAssignment();
 
   async function act(run: () => Promise<unknown>) {
     setBusy(true);
@@ -75,9 +78,9 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
   async function saveSettings(event: FormEvent) {
     event.preventDefault();
     await act(() =>
-      apiJson(`/api/v1/assignments/${assignment.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
+      updateAssignmentMutation.mutateAsync({
+        assignmentId: assignment.id,
+        body: {
           name: name.trim(),
           intro,
           dueDate: due ? new Date(due).toISOString() : null,
@@ -85,7 +88,7 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
           acceptedFileTypes: acceptedTypes.trim() ? acceptedTypes.trim() : null,
           grade: Number(gradeMax) || assignment.grade,
           resultMode,
-        }),
+        },
       }),
     );
   }
@@ -93,9 +96,9 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
   async function saveRubric(event: FormEvent) {
     event.preventDefault();
     await act(() =>
-      apiJson(`/api/v1/assignments/${assignment.id}/rubric`, {
-        method: 'PUT',
-        body: JSON.stringify({
+      saveRubricMutation.mutateAsync({
+        assignmentId: assignment.id,
+        body: {
           title: rubricTitle.trim() ? rubricTitle.trim() : null,
           criteria: criteria.map((c) => ({
             name: c.name.trim(),
@@ -108,7 +111,7 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
               ? { levels: c.levels.map((lv) => ({ label: lv.label, score: Number(lv.score) || 0 })) }
               : {}),
           })),
-        }),
+        },
       }),
     );
   }
@@ -118,7 +121,7 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
     setBusy(true);
     setError(null);
     try {
-      await apiJson(`/api/v1/assignments/${assignment.id}`, { method: 'DELETE' });
+      await deleteAssignmentMutation.mutateAsync(assignment.id);
       await navigate(`/courses/${courseId}`);
     } catch {
       setError(t('assignActionFailed'));
