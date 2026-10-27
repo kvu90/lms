@@ -1,11 +1,12 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import type { ExamMatrixContributionView, ExamMatrixView } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
 import type { QuestionBankRow } from '../questions/question-banks.repository';
 import type { CopyExamMatrixDto, CreateMatrixContributionDto, RejectMatrixContributionDto } from './dto/quiz.dto';
-import { QuizRepository, type ExamMatrixContributionRow, type ExamMatrixRow } from './quiz.repository';
+import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixContributionRow, type ExamMatrixRow } from './quiz.repository';
 import { QuizService } from './quiz.service';
 
 /**
@@ -169,10 +170,41 @@ export class MatrixBanksService {
       id: row.id, matrixId: row.matrixId, matrixName: matrix?.name ?? null,
       targetBankId: row.targetBankId, proposerId: row.proposerId,
       proposerName: names.get(row.proposerId) ?? null,
-      note: row.note, status: row.status as ExamMatrixContributionView['status'],
+      note: row.note, contentHash: row.contentHash, nearDuplicateOf: row.nearDuplicateOf,
+      status: row.status as ExamMatrixContributionView['status'],
       rejectReason: row.rejectReason, reviewerId: row.reviewerId, resultMatrixId: row.resultMatrixId,
       createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
     };
+  }
+
+  /**
+   * Hash nội dung của một ma trận (chống trùng đóng góp): cấu hình
+   * định hình lưới (preset, tỉ lệ dạng/mức, bộ mức, phạm vi, tổng
+   * điểm) + toàn bộ ô của version hiện hành đã sắp theo vị trí
+   * (nút chương trình, mức nhận thức, dạng câu, số câu, điểm, thang
+   * Đ–S). Tên ma trận KHÔNG vào hash — trùng ở đây là trùng CẤU
+   * TRÚC lưới, hai ma trận khác tên vẫn là một lưới. Khuôn hash
+   * ngang hàng `examPaperContentHash` của đề.
+   */
+  private matrixContentHash(matrix: ExamMatrixRow, cells: ExamMatrixCellRow[]): string {
+    const config = [
+      matrix.presetKind, matrix.levelSet, String(matrix.totalScore),
+      JSON.stringify(matrix.targetFormPercents), JSON.stringify(matrix.targetLevelPercents),
+      JSON.stringify(matrix.scopeNodeIds), matrix.scopeNote ?? '',
+    ].join('::');
+    const body = [...cells]
+      .sort((a, b) => a.position - b.position)
+      .map((c) => [
+        c.curriculumNodeId ?? '', c.cognitiveLevel, c.qtype,
+        c.questionCount, c.cellScore, c.minutes ?? '', JSON.stringify(c.tfScale),
+      ].join('@'))
+      .join('|');
+    return createHash('sha256').update(`${config}::${body}`).digest('hex');
+  }
+
+  /** Tra một ma trận theo id KHÔNG gác quyền — chỉ dùng ở biên MCP để kiểm chủ sở hữu trước khi đề xuất đóng góp (cổng đầy đủ vẫn nằm ở proposeContribution). */
+  async findMatrixById(matrixId: string): Promise<ExamMatrixRow | undefined> {
+    return this.repo.getMatrix(matrixId);
   }
 
   // --- danh sách ma trận trong bank ---------------------------------------------
@@ -244,6 +276,12 @@ export class MatrixBanksService {
    * context nguồn; đích phải là bank ma trận dùng chung (không phải
    * bank cá nhân); một đề xuất đang chờ cho cùng ma trận + cùng người
    * gửi + cùng bank đích thì không gửi trùng (409).
+   *
+   * Chống trùng (issue #228 — ngang hàng câu hỏi và đề): hash nội
+   * dung của ma trận nguồn tính tại lúc đề xuất; một ma trận trong
+   * bank đích có cùng hash thì ghi near_duplicate_of trỏ tới ma
+   * trận đó để người duyệt cân nhắc (trùng suy từ chính ma trận
+   * nguồn bị chặn 409 lúc duyệt — xem approveContribution).
    */
   async proposeContribution(actorId: string, matrixId: string, input: CreateMatrixContributionDto): Promise<ExamMatrixContributionView> {
     const target = await this.getMatrixBankOrThrow(input.targetBankId);
@@ -265,12 +303,19 @@ export class MatrixBanksService {
     if (pending) {
       throw new ConflictException({ message: 'A pending contribution for this matrix to this bank already exists', code: 'quiz.matrix_contribution_pending_exists' });
     }
+    const hash = this.matrixContentHash(source, await this.repo.listMatrixCells(source.id));
+    let nearDuplicateOf: string | null = null;
+    for (const other of await this.repo.listMatricesByBank(target.id)) {
+      const otherHash = this.matrixContentHash(other, await this.repo.listMatrixCells(other.id));
+      if (otherHash === hash) { nearDuplicateOf = other.id; break; }
+    }
     const row = await this.repo.insertMatrixContribution({
       matrixId: source.id, targetBankId: target.id, proposerId: actorId, note: input.note ?? '',
+      contentHash: hash, nearDuplicateOf,
     });
     await this.outbox.enqueueStandalone({
       aggregate: 'quiz', type: 'exam_matrix_contribution_proposed',
-      payload: { contributionId: row.id, matrixId: source.id, targetBankId: target.id, actorId },
+      payload: { contributionId: row.id, matrixId: source.id, targetBankId: target.id, actorId, nearDuplicateOf },
     });
     return this.contributionView(row);
   }
@@ -327,13 +372,22 @@ export class MatrixBanksService {
    * chịu trách nhiệm về bản chung như QB-4): bản vào bank tổ/trường là
    * MẪU (is_template = true, status ready); truy vết giữ đủ ba đầu —
    * proposer_id trên hàng chờ, derived_from_matrix_id trên bản đích,
-   * reviewer_id là người duyệt.
+   * reviewer_id là người duyệt. Bank đích đã có bản copy suy từ
+   * chính ma trận nguồn thì chặn 409 — chống trùng tuyệt đối ngang
+   * hàng đường duyệt đóng góp của đề (`exam.duplicate_in_bank`).
    */
   async approveContribution(actorId: string, bankId: string, contributionId: string): Promise<ExamMatrixContributionView> {
     const bank = await this.getMatrixBankOrThrow(bankId);
     await this.requireModerator(actorId, bank);
     const contribution = await this.getPendingContribution(bank, contributionId);
     const source = await this.getMatrixRow(contribution.matrixId);
+    const inTarget = await this.repo.listMatricesByBank(bank.id);
+    if (inTarget.some((m) => m.derivedFromMatrixId === source.id)) {
+      throw new ConflictException({
+        message: `An identical matrix already exists in the target bank (copied from ${source.id})`,
+        code: 'quiz.matrix_duplicate_in_bank',
+      });
+    }
     const copy = await this.deepCopyMatrix(actorId, source, bank, {
       status: 'ready', isTemplate: bank.scope === 'personal' ? source.isTemplate : true,
     });

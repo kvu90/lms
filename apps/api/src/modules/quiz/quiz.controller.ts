@@ -10,8 +10,10 @@ import { MatrixImportService } from './matrix-import.service';
 import {
   createExamMatrixCellSchema, createExamMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema,
   recordQuizAttemptEventSchema, submitQuizResponseSchema, updateExamMatrixCellSchema, updateExamMatrixSchema,
+  withdrawExamMatrixSchema,
   type CreateExamMatrixCellDto, type CreateExamMatrixDto, type GradeQuizQuestionDto, type ManualGradeQuizDto,
   type RecordQuizAttemptEventDto, type SubmitQuizResponseDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto,
+  type WithdrawExamMatrixDto,
 } from './dto/quiz.dto';
 
 /**
@@ -159,6 +161,20 @@ export class ExamMatricesController {
    */
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateExamMatrixSchema }) dto: UpdateExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.updateMatrix(actor.id, id, dto);
+  }
+  @Post(':id/withdraw')
+  /**
+   * POST /exam-matrices/:id/withdraw — rút ma trận khỏi ngân hàng kèm lý do bắt buộc và truy vết người rút/thời điểm (ngang hàng rút đề/câu hỏi); đề đã sinh từ ma trận không bị ảnh hưởng.
+   */
+  async withdraw(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: withdrawExamMatrixSchema }) dto: WithdrawExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.withdrawMatrix(actor.id, id, dto);
+  }
+  @Post(':id/restore')
+  /**
+   * POST /exam-matrices/:id/restore — khôi phục ma trận đã rút về ready, xoá truy vết lần rút.
+   */
+  async restore(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.restoreMatrix(actor.id, id);
   }
   @Delete(':id')
   /**

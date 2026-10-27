@@ -18,7 +18,7 @@ import { QuestionBanksService } from '../questions/question-banks.service';
 import { QuestionsService, type QuestionView, type UsageView } from '../questions/questions.service';
 import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
-import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateExamPinOverrideDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateExamPinOverrideDto } from './dto/quiz.dto';
+import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateExamPinOverrideDto, UpdateExamMatrixCellDto, UpdateExamMatrixDto, UpdateExamPinOverrideDto, WithdrawExamMatrixDto } from './dto/quiz.dto';
 import { effectiveTfScale, EXAM_KIND_PRESETS, isValidTfScale, MATRIX_PRESETS, matrixWarnings, tfScaleLabel, type ExamKind } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
 import { QuizRepository, type DbTx, type ExamMatrixCellRow, type ExamMatrixRow, type ExamMatrixVersionRow, type ExamAttemptEventRow, type ExamAttemptRow, type ExamPinFeedbackRow, type ExamPinOverrideRow, type ExamPinRow } from './quiz.repository';
@@ -1516,6 +1516,8 @@ export class QuizService {
       isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
       derivedFromBankId: row.derivedFromBankId, originalAuthorId: row.originalAuthorId,
       copyCount: row.copyCount,
+      withdrawnReason: row.withdrawnReason, withdrawnBy: row.withdrawnBy,
+      withdrawnAt: row.withdrawnAt?.toISOString() ?? null,
       version: row.version,
       cells: cells.map((c) => this.matrixCellView(c)),
       warnings: matrixWarnings({
@@ -1775,6 +1777,10 @@ export class QuizService {
       isTemplate: row.isTemplate, derivedFromMatrixId: row.derivedFromMatrixId,
       derivedFromBankId: row.derivedFromBankId, originalAuthorId: row.originalAuthorId,
       copyCount: row.copyCount,
+      // Truy vết rút thuộc về THỰC THỂ ma trận (không thuộc version
+      // bất biến) — đọc từ hàng ma trận hiện hành như matrixView.
+      withdrawnReason: row.withdrawnReason, withdrawnBy: row.withdrawnBy,
+      withdrawnAt: row.withdrawnAt?.toISOString() ?? null,
       version: versionRow.version,
       cells: cells.map((c) => this.matrixCellView(c)),
       warnings: matrixWarnings({
@@ -1828,6 +1834,19 @@ export class QuizService {
   async updateMatrix(actorId: string, matrixId: string, input: UpdateExamMatrixDto): Promise<ExamMatrixView> {
     const row = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
+    // Ma trận đã RÚT CHÍNH THỨC (có truy vết withdrawn_*) thì
+    // không đổi trạng thái qua đường sửa này — phải khôi phục qua
+    // đường khôi phục để truy vết được xoá đúng nghi thức (gác
+    // ngang hàng `exam.status_withdrawn` của đề và
+    // `question.status_withdrawn` của câu hỏi). Sửa các trường khác
+    // trên ma trận đã rút vẫn cho qua — gác chỉ khoá THAY ĐỔI trạng
+    // thái.
+    if (row.withdrawnAt && input.status !== undefined && input.status !== row.status) {
+      throw new ConflictException({
+        message: 'Matrix is withdrawn; restore it before changing its status',
+        code: 'quiz.matrix_status_withdrawn',
+      });
+    }
     // MB-1: CHUYỂN ma trận sang bank khác qua PATCH phải có thêm
     // quyền GHI VÀO bank đích (cổng tạo matrix:add tại bank đích —
     // chuyển sang là thêm một ma trận vào bank đó) — quyền ở bank
@@ -1895,6 +1914,58 @@ export class QuizService {
     }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_updated', payload: { matrixId: row.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
+  }
+
+  /**
+   * Rút một ma trận khỏi ngân hàng (matrix:edit — ngang hàng
+   * `withdrawPaper` của đề và `withdrawQuestion` của QB-3, issue
+   * #228 lát S5): trạng thái về `hidden` KÈM truy vết bắt buộc —
+   * lý do (DTO chặn rỗng), người rút, thời điểm. Hệ quả của
+   * `hidden`: ma trận biến mất khỏi khám phá, không sinh đề mới /
+   * đóng góp mới được; các version đề đã sinh từ ma trận và các
+   * version ma trận đã ghim trong hồ sơ/đóng góp vẫn đọc lại
+   * nguyên vẹn vì chúng là bản chụp bất biến. Ma trận đang `hidden`
+   * rồi thì 409 — rút hai lần không có nghĩa.
+   */
+  async withdrawMatrix(actorId: string, matrixId: string, input: WithdrawExamMatrixDto): Promise<{ matrixId: string; status: string }> {
+    const row = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
+    if (row.status === 'hidden') {
+      throw new ConflictException({ message: 'Matrix is already withdrawn', code: 'quiz.matrix_already_withdrawn' });
+    }
+    await this.repo.updateMatrix(row.id, {
+      status: 'hidden',
+      withdrawnReason: input.reason,
+      withdrawnBy: actorId,
+      withdrawnAt: new Date(),
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'exam_matrix_withdrawn',
+      payload: { matrixId: row.id, actorId, reason: input.reason },
+    });
+    return { matrixId: row.id, status: 'hidden' };
+  }
+
+  /**
+   * Khôi phục một ma trận đã rút về `ready` và XOÁ truy vết lần
+   * rút (ngang hàng khôi phục của đề/câu hỏi): ma trận hiện lại
+   * trong khám phá và sinh đề/đóng góp được như trước. Ma trận
+   * không ở trạng thái `hidden` thì 409.
+   */
+  async restoreMatrix(actorId: string, matrixId: string): Promise<{ matrixId: string; status: string }> {
+    const row = await this.getMatrixRow(matrixId);
+    await this.requireMatrixCap(actorId, row, QUIZ_CAPABILITIES.manageMatrix);
+    if (row.status !== 'hidden') {
+      throw new ConflictException({ message: 'Matrix is not withdrawn', code: 'quiz.matrix_not_withdrawn' });
+    }
+    await this.repo.updateMatrix(row.id, {
+      status: 'ready', withdrawnReason: null, withdrawnBy: null, withdrawnAt: null,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'quiz', type: 'exam_matrix_restored',
+      payload: { matrixId: row.id, actorId },
+    });
+    return { matrixId: row.id, status: 'ready' };
   }
 
   /** Xoá ma trận (matrix:edit); đề đã sinh từ ma trận giữ nguyên, chỉ mất vết matrix_id (FK set null). */
