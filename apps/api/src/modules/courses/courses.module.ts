@@ -8,7 +8,7 @@ import { CoursesController } from './courses.controller';
 import { CoursesRepository } from './courses.repository';
 import { CoursesService } from './courses.service';
 
-/** CoursesModule facade: CoursesService. Depends on Access, CustomFields, Availability (report §3.12). */
+/** Facade của CoursesModule: CoursesService. Phụ thuộc Access, CustomFields, Availability (report §3.12). */
 @Module({
   imports: [AccessModule, CustomFieldsModule, AvailabilityModule, EventsModule, TenantsModule],
   controllers: [CoursesController],

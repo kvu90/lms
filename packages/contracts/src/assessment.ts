@@ -9,7 +9,7 @@ import {
   TRUE_FALSE_STATEMENT_COUNT,
 } from './rich-text.js';
 
-/** Assessment contracts — the single shape source between api and web for grades & questions. */
+/** Contract đánh giá — nguồn shape duy nhất giữa api và web cho điểm & câu hỏi. */
 
 /**
  * Mục điểm — ĐIỂM THEO TỪNG BÀI (issue #224): mỗi mục là điểm của đúng

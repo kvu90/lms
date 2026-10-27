@@ -71,7 +71,7 @@ export class TenantsService {
     private readonly outbox: OutboxService,
   ) {}
 
-  // --- tenant-zero + seed helpers ------------------------------------------
+  // --- tenant-zero + hàm hỗ trợ seed ------------------------------------------
 
   /**
    * Tenant-zero (Trang chính); ném lỗi khi chưa được gieo — bootstrap seed luôn tạo trước mọi request.

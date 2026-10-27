@@ -5,7 +5,7 @@ import { IntegrationsController } from './integrations.controller';
 import { IntegrationsRepository } from './integrations.repository';
 import { IntegrationsService } from './integrations.service';
 
-/** IntegrationTokensModule facade: IntegrationsService (registry function + external tokens). */
+/** Facade của IntegrationTokensModule: IntegrationsService (hàm registry + token bên ngoài). */
 @Module({
   imports: [AccessModule, CoursesModule],
   controllers: [IntegrationsController],

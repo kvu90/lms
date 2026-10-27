@@ -13,7 +13,7 @@ import { CONTEXT_LEVELS } from './domain/capabilities';
 export class ContextsService {
   constructor(private readonly repo: AccessRepository) {}
 
-  /** The system context (level 10, instance null) is created lazily and is the root of every path. */
+  /** Context hệ thống (level 10, instance null) được tạo lười (lazy) và là gốc của mọi path. */
   /**
    * Đảm bảo context hệ thống (level CONTEXT_SYSTEM, instance 0) tồn tại; idempotent.
    */
@@ -90,7 +90,7 @@ export class ContextsService {
    * Liệt kê toàn bộ context.
    */
   async listContexts(): Promise<ContextRow[]> { return this.repo.listContexts(); }
-  /** Remove a context (used when its owning instance — category/course/cm — is deleted). Assignments/overrides cascade. */
+  /** Xoá một context (dùng khi instance sở hữu nó — category/course/cm — bị xoá). Các assignment/override bị xoá theo kiểu cascade. */
   /**
    * Xoá context và dọn override quyền gắn với nó.
    */
@@ -103,7 +103,7 @@ export class ContextsService {
     if (row) await this.repo.deleteContext(row.id);
   }
 
-  /** Ancestor chain including the context itself, ordered leaf → root, following `path`. */
+  /** Chuỗi tổ tiên gồm cả chính context đó, sắp theo thứ tự lá → gốc, đi theo `path`. */
   /**
    * Trả các context tổ tiên của một context (kèm chính nó) theo thứ tự từ gốc xuống.
    */
@@ -114,7 +114,7 @@ export class ContextsService {
     return ids.slice().reverse().map((id) => byId.get(id)!).filter(Boolean);
   }
 
-  /** Move a context (and its whole subtree) under a new parent, rewriting path/depth. Used when a category is moved. */
+  /** Di chuyển một context (và toàn bộ cây con của nó) xuống dưới một context cha mới, viết lại path/depth. Dùng khi một category được di chuyển. */
   /**
    * Di chuyển context sang cha mới và viết lại path cho cả cây con.
    */
@@ -132,7 +132,7 @@ export class ContextsService {
     }
   }
 
-  /** Dirty-marking: any permission change in a context invalidates cached results for it and all descendants. */
+  /** Đánh dấu dirty: mọi thay đổi quyền trong một context đều vô hiệu hoá kết quả đã cache của nó và của mọi context con cháu. */
   /**
    * Đánh dấu cây context đã đổi để các cache phụ thuộc phải tính lại.
    */
@@ -140,7 +140,7 @@ export class ContextsService {
     const ctx = await this.repo.getContextById(contextId);
     if (ctx) await this.repo.bumpContextVersions(ctx.path);
   }
-  /** Cache stamp for a context path: changes whenever any context on the path (or the system root) is dirtied. */
+  /** Dấu cache cho path của một context: thay đổi mỗi khi bất kỳ context nào trên path (hoặc gốc hệ thống) bị đánh dấu dirty. */
   /**
    * Dấu version hiện tại của cây context, gắn vào kết quả đánh giá quyền để phát hiện cache cũ.
    */

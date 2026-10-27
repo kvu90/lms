@@ -14,10 +14,10 @@ import { BadgesRepository } from './badges.repository';
 import { BADGE_AWARD_QUEUE, BadgesService } from './badges.service';
 
 /**
- * BadgesModule facade: BadgesService. Criteria evaluation consumes
- * Completion/Competencies/Groups (cohort leaf)/CustomFields (profile leaf)
- * ONLY through their facades and registered hooks/events; award
- * notifications go through MessagingService.
+ * Facade của BadgesModule: BadgesService. Việc đánh giá tiêu chí tiêu thụ
+ * Completion/Competencies/Groups (lá cohort)/CustomFields (lá profile)
+ * CHỈ thông qua facade của chúng và các hook/event đã đăng ký; thông báo
+ * trao huy hiệu đi qua MessagingService.
  */
 @Module({
   imports: [

@@ -5,10 +5,10 @@ import { CoursesService } from '../courses/courses.service';
 import { SocialRepository, type CommentRow } from './social.repository';
 
 /**
- * CommentsModule (Moodle core_comment): polymorphic comments over
- * (component, commentArea, itemId, contextId). Capabilities are checked AT
- * THE ITEM'S CONTEXT: comment:view to read, comment:post to add,
- * comment:delete (or authorship) to delete (oracle: comment/tests/
+ * CommentsModule (Moodle core_comment): các bình luận đa hình trên
+ * (component, commentArea, itemId, contextId). Capability được kiểm tra TẠI
+ * CONTEXT CỦA CHÍNH MỤC ĐÓ: comment:view để đọc, comment:post để thêm,
+ * comment:delete (hoặc quyền tác giả) để xoá (oracle: comment/tests/
  * externallib_test test_get_comments / test_add_comments_single).
  */
 @Injectable()
@@ -24,7 +24,7 @@ export class CommentsService {
     private readonly courses: CoursesService,
   ) {}
 
-  /** For course/module contexts, commenting also requires real course access (the virtual 'user' role alone never opens a course). */
+  /** Với context của khoá học/module, việc bình luận còn yêu cầu quyền truy cập khoá học thật (chỉ riêng role 'user' ảo không bao giờ mở được một khoá học). */
   private async assertItemAccess(actorId: string, contextId: string): Promise<void> {
     const ctx = await this.contexts.getContext(contextId).catch(() => undefined);
     if (!ctx) return;

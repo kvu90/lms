@@ -21,7 +21,7 @@ export const envSchema = z.object({
   JWT_SECRET: z.string().min(16),
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  // Auth policy (Moodle auth framework: policy is config, never hard-coded)
+  // Chính sách xác thực (khung auth của Moodle: chính sách là cấu hình, không bao giờ fix cứng trong code)
   PASSWORD_MIN_LENGTH: z.coerce.number().int().min(1).default(8),
   PASSWORD_MIN_DIGITS: z.coerce.number().int().min(0).default(1),
   PASSWORD_MIN_LOWER: z.coerce.number().int().min(0).default(1),
@@ -184,7 +184,7 @@ export const envSchema = z.object({
   // thật". Gateway thật sau này xác thực bằng chữ ký của chính gateway
   // qua cùng cổng verify này.
   PAYMENT_WEBHOOK_SECRET: z.string().min(32).optional(),
-  // Bootstrap admin (seeded on first boot when no site admin exists)
+  // Admin khởi tạo (được seed ở lần khởi động đầu tiên khi chưa có admin của site)
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin123!'),
   ADMIN_EMAIL: z.string().min(3).default('admin@localhost'),
@@ -192,7 +192,7 @@ export const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
-/** Fail-fast validation for @nestjs/config — the app refuses to boot on bad env. */
+/** Kiểm tra fail-fast cho @nestjs/config — ứng dụng từ chối khởi động khi env sai. */
 export function validateEnv(config: Record<string, unknown>): Env {
   const parsed = envSchema.safeParse(config);
   if (!parsed.success) {

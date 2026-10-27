@@ -91,7 +91,7 @@ export class GradesController {
   async history(@Param('itemId', { schema: uuidIdSchema }) itemId: string, @Param('userId', { schema: uuidIdSchema }) userId: string, @CurrentUser() actor: AuthenticatedUser) {
     const item = await this.grades.getItem(itemId);
     if (actor.id !== userId) {
-      // History of another user requires grade:viewall at the course context.
+      // Lịch sử của người dùng khác yêu cầu grade:viewall tại context của khoá học.
       await this.grades.getCourseActivityGrid(actor.id, item.courseId);
     }
     return this.grades.listHistory(itemId, userId);

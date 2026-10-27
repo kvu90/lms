@@ -5,14 +5,14 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { contentKey, type ObjectStorage, type PresignedDownloadStorage } from './storage';
 
 /**
- * S3-compatible physical adapter for the ObjectStorage port: same
- * content-addressed key layout as the local adapter
- * (`<2 chars>/<next 2 chars>/<sha256>`), so buckets can be inspected and
- * reconciled with exactly the same shape as the local filedir. Works
- * against AWS S3 and S3-compatible endpoints (Cloudflare R2, Backblaze
- * B2, MinIO) via FILE_STORAGE_S3_ENDPOINT. All configuration comes from
- * env only; the constructor fails fast (naming the missing variables,
- * never their values) when driver-required settings are absent.
+ * Adapter vật lý tương thích S3 cho port ObjectStorage: cùng
+ * bố cục khoá định địa chỉ theo nội dung như adapter cục bộ
+ * (`<2 chars>/<next 2 chars>/<sha256>`), để bucket có thể được kiểm tra và
+ * đối soát với đúng cùng dạng như filedir cục bộ. Hoạt động
+ * với AWS S3 và các endpoint tương thích S3 (Cloudflare R2, Backblaze
+ * B2, MinIO) qua FILE_STORAGE_S3_ENDPOINT. Mọi cấu hình đều đến từ
+ * env duy nhất; constructor fail fast (nêu tên các biến còn thiếu,
+ * không bao giờ nêu giá trị của chúng) khi thiếu các thiết lập bắt buộc của driver.
  */
 @Injectable()
 /**
@@ -74,7 +74,7 @@ export class S3ObjectStorage implements ObjectStorage, PresignedDownloadStorage 
    * cùng hash là cùng nội dung, không bao giờ ghi đè).
    */
   async put(contentHash: string, data: Buffer): Promise<void> {
-    if (await this.exists(contentHash)) return; // dedup: same content already stored physically once
+    if (await this.exists(contentHash)) return; // dedup: nội dung giống hệt đã được lưu vật lý một lần
     await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: this.keyFor(contentHash), Body: data }));
   }
 
