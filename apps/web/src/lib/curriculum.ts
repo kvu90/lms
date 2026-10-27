@@ -67,10 +67,16 @@ export async function fetchSystemContextId(): Promise<string | null> {
  * Môn học trong context hệ thống. Kèm `forCourseId` (bề mặt chọn khung
  * trong quản trị khoá): API còn chấp nhận nhánh course:update tại chính
  * khoá đó cho giáo viên cấp khoá không có curriculum:view hệ thống.
+ * `contextId` vắng thì không kèm tham số — API mặc định về context hệ
+ * thống (điểm nghẽn D-3 của issue #233: trang /curriculum không còn
+ * bắt buộc đọc được `/access/contexts` mới xem được chương trình).
  */
-export async function fetchSubjects(contextId: string, forCourseId?: string): Promise<CurriculumSubject[]> {
-  const frame = forCourseId ? `&forCourseId=${forCourseId}` : '';
-  return apiJson<CurriculumSubject[]>(`/api/v1/curriculum/subjects?contextId=${contextId}${frame}`);
+export async function fetchSubjects(contextId?: string, forCourseId?: string): Promise<CurriculumSubject[]> {
+  const params = new URLSearchParams();
+  if (contextId) params.set('contextId', contextId);
+  if (forCourseId) params.set('forCourseId', forCourseId);
+  const query = params.toString();
+  return apiJson<CurriculumSubject[]>(`/api/v1/curriculum/subjects${query ? `?${query}` : ''}`);
 }
 
 /** Các chương trình (theo khối) của một môn. */
@@ -95,7 +101,10 @@ export function curriculumSubjectsScopedQueryOptions(contextId: string, forCours
 
 /**
  * Hook đọc môn chương trình cho các bề mặt xem/nạp khung: chưa có
- * context hệ thống thì chưa gọi API (trang tự suy trạng thái rỗng).
+ * context hệ thống VÀ chưa có khoá thì chưa gọi API (trang tự suy
+ * trạng thái rỗng); có khoá thì gọi ngay cả khi chưa đọc được context
+ * hệ thống — API mặc định về hệ thống và mở nhánh theo khoá (trang
+ * /curriculum không còn tắc vì 403 ở `/access/contexts`).
  * Lỗi (kể cả 403 thiếu quyền đọc) nổi lên query để trang xử lý.
  * `enabled` cho phép trang chờ thêm điều kiện riêng (ví dụ danh sách
  * khoá neo quyền xem phải về trước).
@@ -103,7 +112,7 @@ export function curriculumSubjectsScopedQueryOptions(contextId: string, forCours
 export function useCurriculumSubjectsScoped(contextId: string | null, forCourseId?: string, enabled = true) {
   return useQuery({
     ...curriculumSubjectsScopedQueryOptions(contextId ?? '', forCourseId),
-    enabled: enabled && contextId !== null,
+    enabled: enabled && (contextId !== null || forCourseId !== undefined),
   });
 }
 
