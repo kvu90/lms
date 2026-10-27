@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import { BadgeAwardProcessor } from '../src/processors/badge-award.processor';
 import { CalendarImportProcessor } from '../src/processors/calendar-import.processor';
@@ -12,7 +10,10 @@ import {
   cohortMembers, courseCompletions, customFieldCategory, customFieldData, customFieldField,
   notificationDispatchLog, notifications, userPreferences,
 } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * Các job tương tác (engagement) của worker. Oracles: report §2#12 (luật phân phối theo preference + suspended,
@@ -24,9 +25,16 @@ import { WorkerModule } from '../src/worker.module';
  * test_add_subscription (hình dạng counts của kết quả nhập ICS).
  * User được chèn thô (raw-insert) với id cao duy nhất để giữ độc lập với
  * dữ liệu còn sót lại từ các lần chạy trước của suite này trong lms_test_worker.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker engagement: notification dispatch, calendar reminder/import, badge auto-award', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = Date.now() % 100000;
   const userA = `01920000-0000-7000-8000-${String(920000 + suffix).padStart(12, '0')}`;
@@ -46,9 +54,9 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     return (cls.rows[0] as { id: string }).id;
   }
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userA}, ${`wk-a-${suffix}`}, ${`wka${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${userSuspended}, ${`wk-s-${suffix}`}, ${`wks${suffix}@x.io`}, true, false) on conflict (id) do nothing`);
@@ -57,7 +65,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     await db.insert(userPreferences).values({ userId: userPrefOff, name: 'message_provider_grade_updated_email_loggedin', value: '0' });
     await db.insert(userPreferences).values({ userId: userPrefOff, name: 'message_provider_grade_updated_email_loggedoff', value: '0' });
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('notification dispatch records skipped-not-configured for email while the Resend channel is unconfigured, idempotent by dedupeKey', async () => {
     // NB-5 (issue #174): kênh email gửi thật qua Resend ở worker.

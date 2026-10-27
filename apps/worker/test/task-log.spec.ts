@@ -1,33 +1,41 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { eventLog, outboxEvents, taskLog } from '@lms/db-schema';
 import { EnrolExpiryProcessor } from '../src/processors/enrol-expiry.processor';
 import { OutboxRelayScheduler } from '../src/outbox-relay.scheduler';
 import { TaskLogService } from '../src/task-log.service';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * task_log + phản chiếu logstore (issue #22): các lượt chạy worker theo lịch để lại một
  * dòng task_log (success/failed), và relay của worker phản chiếu mọi dòng outbox
  * mà nó phát hành vào event_log với các trường payload đã chuẩn hoá.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module (gồm
+ * TaskLogService và relay) chạy bằng role NOSUPERUSER/NOBYPASSRLS
+ * như production, fixture và đọc kiểm chứng đi qua kết nối quản
+ * trị của harness — khẳng định nghiệp vụ của spec không đổi.
  */
 describe('Worker: task_log recording and outbox → event_log mirroring', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   let taskLogService: TaskLogService;
   let startedAt: Date;
 
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     taskLogService = context.get(TaskLogService);
     startedAt = new Date(Date.now() - 1000);
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   async function latestTaskLog(taskName: string) {
     const rows = await db.select().from(taskLog)

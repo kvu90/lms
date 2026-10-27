@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import Redis from 'ioredis';
 import {
@@ -18,7 +16,10 @@ import {
   calendarEvents, notificationDispatchLog, notifications, reportBuilderReport,
   reportBuilderSchedule, taskLog, userPreferences,
 } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 const DAY_MS = 24 * 3600_000;
 
@@ -29,9 +30,16 @@ const DAY_MS = 24 * 3600_000;
  * chưa đọc 180 ngày / dispatch log 90 ngày) + luật `notify()` phía API
  * sau NB-2 (v2 → suy dữ liệu cũ loggedin → loggedoff → mặc định bật;
  * loại bắt buộc P2 ép bật; người bị đình chỉ không nhận gì).
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker NB-6: notification retention + shared delivery law', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   let delivery: NotificationDeliveryService;
   const suffix = Date.now() % 100000;
@@ -75,9 +83,9 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
   }
 
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     delivery = context.get(NotificationDeliveryService);
     await mkUser(plainUser, `nb6-plain-${suffix}`);
     await mkUser(v2OffUser, `nb6-v2off-${suffix}`);
@@ -94,7 +102,7 @@ describe('Worker NB-6: notification retention + shared delivery law', () => {
     // (như API sau NB-2) suy loggedin → loggedoff nên vẫn tính là tắt.
     await setPref(legacyOutOffUser, 'message_provider_calendar_reminder_popup_loggedoff', '0');
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('calendar reminder delivers through the shared law: notification + delivered dispatch log, replay is duplicate', async () => {
     const processor = context.get(CalendarReminderProcessor);

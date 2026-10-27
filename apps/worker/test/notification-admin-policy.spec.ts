@@ -1,11 +1,12 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { CalendarReminderProcessor } from '../src/processors/calendar-reminder.processor';
 import { calendarEvents, notificationDispatchLog, notifications, pluginConfig } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * NB-7 phía worker (issue #174): hàm luật phân phối dùng chung của
@@ -14,9 +15,16 @@ import { WorkerModule } from '../src/worker.module';
  * API: chính sách admin TRƯỚC tuỳ chọn người dùng. Admin tắt một loại
  * → đường nền không phát, dispatch log ghi `skipped-admin-disabled`;
  * bật lại (hoặc không có ghi đè) → phát bình thường.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker NB-7: admin site policy gates background delivery', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = (Date.now() % 100000) + 7;
   const uid = (slot: number) => `01970000-0000-7000-8000-${String(980000 + suffix * 10 + slot).padStart(12, '0')}`;
@@ -50,9 +58,9 @@ describe('Worker NB-7: admin site policy gates background delivery', () => {
   }
 
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await mkUser(policyUser, `nb7-policy-${suffix}`);
     await mkUser(freeUser, `nb7-free-${suffix}`);
   });
@@ -60,7 +68,7 @@ describe('Worker NB-7: admin site policy gates background delivery', () => {
   afterAll(async () => {
     // Trả chính sách về mặc định (không ghi đè) cho các suite khác.
     await setPolicy(null);
-    await context.close();
+    await harness.close();
   });
 
   it('admin-disabled type: background delivery is skipped with a traceable log; re-enable restores delivery', async () => {
