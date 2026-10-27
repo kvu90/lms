@@ -213,4 +213,22 @@ export const queryKeys = {
   examScans: (pinId: string) => ['exam-scans', pinId] as const,
   /** View một lượt làm quiz (GET /quiz-attempts/:id) — trang làm bài/xem lại. */
   quizAttempt: (attemptId: string) => ['quiz-attempts', attemptId] as const,
+  /** Danh sách mẫu khoá học (GET /courses/templates) — wizard tạo khoá. */
+  courseTemplates: ['courses', 'templates'] as const,
+  /**
+   * Môn chương trình trong một context, kèm ngữ cảnh khoá mở quyền
+   * đọc cho giáo viên (GET /curriculum/subjects?contextId=&forCourseId=)
+   * — khác khoá `curriculumSubjects` của màn ma trận (không tham số).
+   */
+  curriculumSubjectsScoped: (contextId: string, forCourseId: string | null) =>
+    ['curriculum', 'subjects', 'scoped', contextId, forCourseId] as const,
+  /** Các chương trình của một môn kèm ngữ cảnh khoá (GET /curriculum/curricula?subjectId=&forCourseId=). */
+  curriculumCurriculaScoped: (subjectId: string, forCourseId: string | null) =>
+    ['curriculum', 'curricula', 'scoped', subjectId, forCourseId] as const,
+  /** Cây chương trình kèm ngữ cảnh khoá (GET /curriculum/curricula/:id/tree?forCourseId=). */
+  curriculumTreeScoped: (curriculumId: string, forCourseId: string | null) =>
+    ['curriculum', 'tree', 'scoped', curriculumId, forCourseId] as const,
+  /** Đơn vị khung chọn được của cặp (môn, khối) — suy từ curricula + cây qua tầng curriculum. */
+  curriculumFrameUnits: (subjectId: string, grade: number, forCourseId: string | null) =>
+    ['curriculum', 'frame-units', subjectId, grade, forCourseId] as const,
 };

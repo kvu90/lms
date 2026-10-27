@@ -1,4 +1,6 @@
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { apiJson } from '#lib/api';
+import { queryKeys } from './query-keys';
 
 /**
  * Kiểu + lời gọi API dùng chung cho chương trình GDPT 2018 (K0a):
@@ -6,6 +8,11 @@ import { apiJson } from '#lib/api';
  * nạp khung trong quản trị khoá cùng đọc một hình dạng cây.
  * Chương trình quốc gia neo ở context hệ thống (contextLevel 10) —
  * cùng cách khối Chương trình trong editor câu hỏi đang đọc.
+ *
+ * Phần cuối module là tầng TanStack Query (F-01 của rà soát #133)
+ * bọc đúng các lời gọi ở đây: các trang đọc chương trình qua hook với
+ * khoá theo (context/khoá) — ngữ cảnh khoá là một phần của khoá vì
+ * cùng một môn có thể đọc được hay bị 403 tuỳ khoá đang neo quyền.
  */
 
 export interface CurriculumSubject {
@@ -76,6 +83,78 @@ export async function fetchCurricula(subjectId: string, forCourseId?: string): P
 export async function fetchTree(curriculumId: string, forCourseId?: string): Promise<CurriculumTree> {
   const frame = forCourseId ? `?forCourseId=${forCourseId}` : '';
   return apiJson<CurriculumTree>(`/api/v1/curriculum/curricula/${curriculumId}/tree${frame}`);
+}
+
+/** Tuỳ chọn truy vấn môn chương trình trong context hệ thống kèm ngữ cảnh khoá. */
+export function curriculumSubjectsScopedQueryOptions(contextId: string, forCourseId?: string) {
+  return queryOptions({
+    queryKey: queryKeys.curriculumSubjectsScoped(contextId, forCourseId ?? null),
+    queryFn: () => fetchSubjects(contextId, forCourseId),
+  });
+}
+
+/**
+ * Hook đọc môn chương trình cho các bề mặt xem/nạp khung: chưa có
+ * context hệ thống thì chưa gọi API (trang tự suy trạng thái rỗng).
+ * Lỗi (kể cả 403 thiếu quyền đọc) nổi lên query để trang xử lý.
+ */
+export function useCurriculumSubjectsScoped(contextId: string | null, forCourseId?: string) {
+  return useQuery({
+    ...curriculumSubjectsScopedQueryOptions(contextId ?? '', forCourseId),
+    enabled: contextId !== null,
+  });
+}
+
+/** Tuỳ chọn truy vấn các chương trình của một môn kèm ngữ cảnh khoá. */
+export function curriculumCurriculaScopedQueryOptions(subjectId: string, forCourseId?: string) {
+  return queryOptions({
+    queryKey: queryKeys.curriculumCurriculaScoped(subjectId, forCourseId ?? null),
+    queryFn: () => fetchCurricula(subjectId, forCourseId),
+  });
+}
+
+/** Hook đọc các chương trình (theo khối) của môn đang chọn; chưa chọn môn thì chưa gọi API. */
+export function useCurriculumCurriculaScoped(subjectId: string, forCourseId?: string) {
+  return useQuery({
+    ...curriculumCurriculaScopedQueryOptions(subjectId, forCourseId),
+    enabled: subjectId !== '',
+  });
+}
+
+/** Tuỳ chọn truy vấn cây chương trình kèm ngữ cảnh khoá. */
+export function curriculumTreeScopedQueryOptions(curriculumId: string, forCourseId?: string) {
+  return queryOptions({
+    queryKey: queryKeys.curriculumTreeScoped(curriculumId, forCourseId ?? null),
+    queryFn: () => fetchTree(curriculumId, forCourseId),
+  });
+}
+
+/** Hook đọc cây chương trình của chương trình đang chọn; chưa chọn thì chưa gọi API. */
+export function useCurriculumTreeScoped(curriculumId: string, forCourseId?: string) {
+  return useQuery({
+    ...curriculumTreeScopedQueryOptions(curriculumId, forCourseId),
+    enabled: curriculumId !== '',
+  });
+}
+
+/** Tuỳ chọn truy vấn đơn vị khung chọn được của cặp (môn, khối) kèm ngữ cảnh khoá. */
+export function curriculumFrameUnitsQueryOptions(subjectId: string, grade: number, forCourseId?: string) {
+  return queryOptions({
+    queryKey: queryKeys.curriculumFrameUnits(subjectId, grade, forCourseId ?? null),
+    queryFn: () => fetchFrameUnitsFor(subjectId, grade, forCourseId),
+  });
+}
+
+/**
+ * Hook đọc đơn vị khung cho các bộ chọn khung (wizard tạo khoá, panel
+ * nạp khung): chưa đủ (môn, khối) thì chưa gọi API và coi như chưa có
+ * khung nào để chọn.
+ */
+export function useCurriculumFrameUnits(subjectId: string, grade: number | null, forCourseId?: string) {
+  return useQuery({
+    ...curriculumFrameUnitsQueryOptions(subjectId, grade ?? 0, forCourseId),
+    enabled: subjectId !== '' && grade !== null,
+  });
 }
 
 /** Một đơn vị khung chọn được khi nạp khung vào khoá: node không phải `lesson` + số YCCĐ trong subtree. */
