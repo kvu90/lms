@@ -57,3 +57,83 @@ jobs:
         run: pnpm exec turbo run typecheck
       - name: Test
         run: pnpm exec turbo run test
+      # Smoke test topology production (lát 3 của issue #294): boot cả
+      # cặp launcher topology C (SSR bind cổng công khai, proxy /api/*
+      # về API ở cổng nội bộ) trên chính DB test của job này — DB
+      # lms_test_api đã migrate từ trống ở bước trên qua biến môi
+      # trường DATABASE_URL cấp job. Probe /health chỉ chạy SELECT 1
+      # tới DB và PING Redis nên không cần seed nghiệp vụ nào thêm;
+      # đây là mức seed tối thiểu của lát. Ngân sách cộng thêm của
+      # bước giữ ở mức tối thiểu: trần chờ boot 120 giây, hai probe
+      # gọn, tiến trình được dọn ngay trong bước.
+      - name: Smoke test the production topology (SSR to API)
+        run: |
+          set -euo pipefail
+          smoke_started=$(date +%s)
+          public_base="http://127.0.0.1:8080"
+          export PORT=8080
+          export API_INTERNAL_PORT=3100
+
+          # Chạy launcher trong phiên (session) riêng để khi dọn dẹp
+          # giết được cả nhóm tiến trình: pnpm → launcher → hai con
+          # API + SSR (launcher cũng tự chuyển tiếp SIGTERM cho hai
+          # con và tắt cả cặp khi một con chết).
+          setsid pnpm --filter @lms/web start:topology > smoke-topology.log 2>&1 &
+          launcher_pid=$!
+          cleanup() {
+            kill -TERM -"$launcher_pid" 2>/dev/null || true
+            # Chờ nhóm tiến trình tắt hẳn (trần 10 giây) để không để
+            # lại tiến trình mồ côi giữ cổng sau bước.
+            for i in $(seq 1 10); do
+              kill -0 -"$launcher_pid" 2>/dev/null || break
+              sleep 1
+            done
+            kill -KILL -"$launcher_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          # Chờ API sống qua mặt tiền công khai: request đi qua proxy
+          # /api/* của tiến trình SSR về API nội bộ — đạt probe 1
+          # đồng thời chứng minh cả hai tiến trình đã lên. Launcher
+          # chết giữa chừng thì dừng ngay kèm log, không chờ hết trần.
+          api_ready=0
+          for attempt in $(seq 1 60); do
+            if ! kill -0 "$launcher_pid" 2>/dev/null; then
+              echo "::error::Launcher exited before the topology became ready"
+              cat smoke-topology.log
+              exit 1
+            fi
+            if curl -fsS --max-time 5 "$public_base/api/v1/health" -o smoke-health.json 2>/dev/null; then
+              api_ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$api_ready" != "1" ]; then
+            echo "::error::API health probe through the public port did not succeed within 120s"
+            cat smoke-topology.log
+            exit 1
+          fi
+
+          # Probe 1 — /api/v1/health QUA cổng công khai của prod-server:
+          # HTTP 200 (curl -f đã gác) và payload báo trạng thái ok,
+          # database up, redis up.
+          echo "Probe 1 payload: $(cat smoke-health.json)"
+          grep -q '"status":"ok"' smoke-health.json || { echo "::error::Health payload status is not ok"; exit 1; }
+          grep -q '"database":"up"' smoke-health.json || { echo "::error::Health payload database is not up"; exit 1; }
+          grep -q '"redis":"up"' smoke-health.json || { echo "::error::Health payload redis is not up"; exit 1; }
+
+          # Probe 2 — route SSR động /health QUA cổng công khai: HTML
+          # trả về phải chứa sẵn trạng thái do loader phía server lấy
+          # từ API nội bộ lúc nhận request (cặp thẻ <dd> chứa giá trị
+          # trạng thái + mốc thời gian ISO sống). Nếu loader không lấy
+          # được dữ liệu, trang chỉ render khung đang tải phía client
+          # (không có các thẻ này) và probe đỏ. Route này không nằm
+          # trong danh sách prerender tĩnh (chỉ / và /login) nên nội
+          # dung có dữ liệu tại thời điểm request chứng minh SSR động.
+          curl -fsS --max-time 15 "$public_base/health" -o smoke-ssr.html || { echo "::error::SSR /health did not return HTTP 200"; exit 1; }
+          grep -q 'ok</dd>' smoke-ssr.html || { echo "::error::SSR /health HTML lacks the loader-rendered status value"; exit 1; }
+          grep -q 'up</dd>' smoke-ssr.html || { echo "::error::SSR /health HTML lacks the loader-rendered check values"; exit 1; }
+          grep -Eq '<dd>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:' smoke-ssr.html || { echo "::error::SSR /health HTML lacks a live ISO timestamp from the loader"; exit 1; }
+
+          echo "Smoke topology passed in $(( $(date +%s) - smoke_started ))s"

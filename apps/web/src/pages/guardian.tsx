@@ -370,3 +370,10 @@ export function GuardianPage() {
 }
 
 export default GuardianPage;
+
+// Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
+export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
+import { guardianKeyMeta } from '../lib/route-meta';
+export function meta() {
+  return guardianKeyMeta('title');
+}

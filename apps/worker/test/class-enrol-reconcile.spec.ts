@@ -1,14 +1,15 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import { ClassEnrolReconcileProcessor } from '../src/processors/class-enrol-reconcile.processor';
 import {
   classes, cohort, cohortMembers, context, course, courseGroups, enrol,
   role, roleAssignments, userEnrolments, users,
 } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * CLASS-0 (issue #184) — job đối soát ghi danh cấp lớp
@@ -27,9 +28,17 @@ import { WorkerModule } from '../src/worker.module';
  *  - chạy lại lần hai trên trạng thái đã khớp → không sửa gì.
  * Hàng được chèn trực tiếp vì API là phía sở hữu đường tạo; processor
  * chỉ đọc/ghi trên cùng các bảng qua schema dùng chung.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production — cùng lớp lỗi RLS mà
+ * ca mẫu `class-enrol-reconcile-rls.spec.ts` khoá ở mức processor —
+ * fixture và đọc kiểm chứng đi qua kết nối quản trị của harness;
+ * khẳng định nghiệp vụ của spec không đổi.
  */
 describe('Worker class enrol reconcile (CLASS-0, #184)', () => {
   let context_: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = `${Date.now() % 100000000}`;
   const uid = (n: number) => `01900000-0000-7000-8000-${String(700000 + n).padStart(12, '0')}`;
@@ -69,9 +78,9 @@ describe('Worker class enrol reconcile (CLASS-0, #184)', () => {
   }
 
   beforeAll(async () => {
-    context_ = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context_.init();
-    db = context_.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context_ = harness.context;
+    db = harness.adminDb;
 
     await db.execute(sql`insert into tenants (slug, name, kind, status) values (${`recon-fixture-${suffix}`}, 'Reconcile fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     const tenantRows = await db.execute(sql`select id from tenants where slug = ${`recon-fixture-${suffix}`}`);
@@ -127,7 +136,7 @@ describe('Worker class enrol reconcile (CLASS-0, #184)', () => {
     // D có ghi danh nhưng dòng gán vai của instance đã mất (lỗ hổng cần lấp).
   });
 
-  afterAll(async () => { await context_.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('đối soát sửa đúng các lệch và tôn trọng đình chỉ thủ công theo khoá', async () => {
     const processor = context_.get(ClassEnrolReconcileProcessor);

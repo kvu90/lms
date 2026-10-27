@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { Test } from '@nestjs/testing';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { notificationDispatchLog, pluginConfig, userPreferences } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 import { NotificationDispatchProcessor } from '../src/processors/notification-dispatch.processor';
 import { NotificationDigestProcessor } from '../src/processors/notification-digest.processor';
 import type { WorkerMailMessage, WorkerMailSendResult } from '../src/resend-mail.service';
@@ -41,6 +42,14 @@ import type { WorkerMailMessage, WorkerMailSendResult } from '../src/resend-mail
  *   chốt `skipped-admin-disabled`; loại bắt buộc P2 được miễn trừ
  *   NB-7 như mọi đường phát; transport ném lỗi thì mục giữ trạng
  *   thái chờ và lượt quét không sập.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production. Hai processor tự
+ * dựng bằng tay ở đây nhận đúng kết nối role thường của harness
+ * (`harness.ordinaryDb`) — đó là phần xử lý cần kiểm chứng dưới
+ * RLS; fixture và đọc kiểm chứng đi qua kết nối quản trị của
+ * harness — khẳng định nghiệp vụ của spec không đổi.
  */
 
 /** Transport giả: 'sent' ghi lại mail; 'skipped' giả lập chưa cấu hình Resend; 'throw' giả lập Resend trả lỗi thật. */
@@ -74,6 +83,7 @@ function buildFakeI18n() {
 
 describe('Worker notification email channel + daily digest (NB-5, issue #174)', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = Date.now() % 100000;
   const userActive = `01920000-0000-7000-8000-${String(120000 + suffix).padStart(12, '0')}`;
@@ -91,9 +101,9 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
   let digest: NotificationDigestProcessor;
 
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     const rows: Array<[string, string, boolean]> = [
       [userActive, `nb5-a-${suffix}`, false],
       [userPrefOff, `nb5-p-${suffix}`, false],
@@ -117,10 +127,13 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     await db.insert(userPreferences).values({
       userId: userDigestOff, name: 'message_provider_grade_updated_email_v2', value: 'off',
     }).onConflictDoNothing();
-    dispatch = new NotificationDispatchProcessor(db, mail as never);
-    digest = new NotificationDigestProcessor(db, mail as never, buildFakeI18n() as never);
+    // Hai processor tự dựng bằng tay phải chạy bằng kết nối role
+    // thường của harness — dùng `db` quản trị ở đây sẽ đưa phần xử
+    // lý cần kiểm chứng quay lại superuser và vô hiệu hoá lát #294.
+    dispatch = new NotificationDispatchProcessor(harness.ordinaryDb, mail as never);
+    digest = new NotificationDigestProcessor(harness.ordinaryDb, mail as never, buildFakeI18n() as never);
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   const emailJob = (userId: string, dedupeKey: string, extra: Record<string, unknown> = {}) => ({
     data: {

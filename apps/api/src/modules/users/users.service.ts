@@ -7,6 +7,7 @@ import { ContextsService } from '../access/contexts.service';
 import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
 import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { PlanLimitsService } from '../access/plan-limits.service';
 import { RolesService } from '../access/roles.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { PasswordService } from './password.service';
@@ -44,6 +45,7 @@ export class UsersService {
     private readonly roles: RolesService,
     private readonly customFields: CustomFieldsService,
     private readonly outbox: OutboxService,
+    private readonly planLimits: PlanLimitsService,
     // forwardRef: một cạnh của vòng provider với cầu nối/BetterAuth/
     // lockout (xem ghi chú tại CredentialBridgeService).
     @Inject(forwardRef(() => CredentialBridgeService))
@@ -276,6 +278,16 @@ export class UsersService {
   async setSuspended(id: string, suspended: boolean): Promise<UserRow> {
     const user = await this.getUser(id);
     if (user.isGuest) throw new BadRequestException({ message: 'The guest account cannot be suspended', code: 'user.guest_immutable' });
+    // Điểm chặn SLOT GÓI TRUNG TÂM (issue #189 — đặc tả slot đã
+    // duyệt): BỎ đình chỉ một tài khoản đang bị đình chỉ là hành
+    // động "kích hoạt lại tài khoản giáo viên đang đình chỉ" — tài
+    // khoản được đếm trở lại ở mọi tenant khách hàng mà họ là thành
+    // viên `active` có vai trò giảng dạy; tenant nào đã chạm hạn mức
+    // hiệu lực thì chặn toàn bộ hành động trước khi ghi. Đình chỉ
+    // (chiều ngược lại) luôn được phép vì chỉ làm giảm số slot.
+    if (!suspended && user.suspended) {
+      await this.planLimits.assertUserReactivationWithinSlotLimits(id);
+    }
     await this.repo.dbHandle.transaction(async (tx) => {
       await this.repo.updateUser(id, { suspended }, tx as never);
       await this.outbox.enqueue(tx as never, { aggregate: 'user', type: suspended ? 'user_suspended' : 'user_unsuspended', payload: { userId: id } });

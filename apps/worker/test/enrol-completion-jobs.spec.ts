@@ -1,7 +1,5 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import { CompletionRecalculateProcessor } from '../src/processors/completion-recalculate.processor';
 import { EnrolExpiryProcessor } from '../src/processors/enrol-expiry.processor';
@@ -9,7 +7,10 @@ import {
   courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
   courseModulesCompletion, enrol, outboxEvents, userEnrolments,
 } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * Các job enrol & completion của worker. Oracles nghiệp vụ: ngữ nghĩa hết hạn ghi danh từ
@@ -18,9 +19,16 @@ import { WorkerModule } from '../src/worker.module';
  * ::test_aggregate_completions (thay đổi criteria ⇒ tính lại có kiểm soát).
  * Các dòng được chèn trực tiếp vì schema API chuẩn sở hữu việc tạo;
  * các processor được kiểm thử vận hành trên góc nhìn của worker về cùng các bảng đó.
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker enrol & completion: enrol-expiry + completion-recalculate processors', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = Date.now();
   const userId = `01900000-0000-7000-8000-${String(900000 + (suffix % 10000)).padStart(12, '0')}`;
@@ -42,9 +50,9 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     return (cls.rows[0] as { id: string }).id;
   }
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     // Tạo category+course+section thật qua SQL thô (các FK trong DB dùng chung đòi hỏi dòng thật;
     // góc nhìn schema của worker chủ ý chỉ mang các bảng mà processor của nó chạm tới).
@@ -59,7 +67,7 @@ describe('Worker enrol & completion: enrol-expiry + completion-recalculate proce
     const cmRows = await db.execute(sql`insert into course_modules (course, section, component) values (${courseId}, ${sectionId}, 'mod_page') returning id`);
     cmId = (cmRows.rows[0] as { id: string }).id;
   });
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('enrol-expiry flips ACTIVE enrolments whose timeEnd passed to SUSPENDED and writes the outbox event; future enrolments untouched', async () => {
     const past = new Date(Date.now() - 3600_000);

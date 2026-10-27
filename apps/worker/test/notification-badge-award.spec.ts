@@ -1,14 +1,15 @@
-import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { getDrizzleToken } from '@nestjs/drizzle';
 import { and, eq, sql } from 'drizzle-orm';
 import { BadgeAwardProcessor } from '../src/processors/badge-award.processor';
 import {
   badge, badgeCriteria, badgeIssued, courseCompletions,
   notificationDispatchLog, notifications, userPreferences,
 } from '@lms/db-schema';
-import { WorkerModule } from '../src/worker.module';
+import {
+  bootWorkerModuleAsOrdinaryRole,
+  type OrdinaryWorkerModuleHarness,
+} from './ordinary-worker-module';
 
 /**
  * Lát #174-A (issue #174, khép ghi nhận `badge_awarded` phía worker):
@@ -30,9 +31,16 @@ import { WorkerModule } from '../src/worker.module';
  * Fixture theo đúng khuôn `engagement-jobs.spec.ts`: user/khoá/lớp tự
  * tạo với hậu tố duy nhất trên tenant `worker-fixture`, khoá dạy thật
  * phải có class_id (CHECK course_class_required_check, CLASS-0).
+ *
+ * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
+ * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
+ * role NOSUPERUSER/NOBYPASSRLS như production, fixture và đọc kiểm
+ * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
+ * của spec không đổi.
  */
 describe('Worker #174-A: badge auto-award delivers through the shared delivery law (per-course mute NB-4)', () => {
   let context: INestApplicationContext;
+  let harness: OrdinaryWorkerModuleHarness;
   let db: any;
   const suffix = Date.now() % 100000;
   const uid = (slot: number) => `019a0000-0000-7000-8000-${String(980000 + suffix * 10 + slot).padStart(12, '0')}`;
@@ -85,9 +93,9 @@ describe('Worker #174-A: badge auto-award delivers through the shared delivery l
   }
 
   beforeAll(async () => {
-    context = await Test.createTestingModule({ imports: [WorkerModule] }).compile();
-    await context.init();
-    db = context.get(getDrizzleToken());
+    harness = await bootWorkerModuleAsOrdinaryRole();
+    context = harness.context;
+    db = harness.adminDb;
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
     for (const [id, name] of [[mutedUser, 'muted'], [openUser, 'open']] as const) {
       await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${`wk174a-${name}-${suffix}`}, ${`wk174a-${name}-${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
@@ -107,7 +115,7 @@ describe('Worker #174-A: badge auto-award delivers through the shared delivery l
     await db.insert(userPreferences).values({ userId: mutedUser, name: `notif.course.${mutedCourseId}`, value: 'mute' });
   });
 
-  afterAll(async () => { await context.close(); });
+  afterAll(async () => { await harness.close(); });
 
   it('badge of the muted course: assertion issued, notification withheld, dispatch log says skipped-course-mute', async () => {
     const processor = context.get(BadgeAwardProcessor);
