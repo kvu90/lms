@@ -6,10 +6,10 @@ import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from '../quiz/quiz.service';
 import {
-  createExamPinFeedbackSchema, createExamPinOverrideSchema, createExamPinSchema,
-  gradeQuizQuestionSchema, startQuizAttemptSchema, updateExamPinOverrideSchema, updateExamPinSchema,
-  type CreateExamPinDto, type CreateExamPinFeedbackDto, type CreateExamPinOverrideDto,
-  type GradeQuizQuestionDto, type StartQuizAttemptDto, type UpdateExamPinDto, type UpdateExamPinOverrideDto,
+  applyPinVersionUpdateSchema, createExamPinFeedbackSchema, createExamPinOverrideSchema, createExamPinSchema,
+  gradeQuizQuestionSchema, regradePinQuestionSchema, startQuizAttemptSchema, updateExamPinOverrideSchema, updateExamPinSchema,
+  type ApplyPinVersionUpdateDto, type CreateExamPinDto, type CreateExamPinFeedbackDto, type CreateExamPinOverrideDto,
+  type GradeQuizQuestionDto, type RegradePinQuestionDto, type StartQuizAttemptDto, type UpdateExamPinDto, type UpdateExamPinOverrideDto,
 } from '../quiz/dto/quiz.dto';
 import { ExamsService } from './exams.service';
 
@@ -76,6 +76,41 @@ export class ExamPinsController {
   async remove(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
     await this.quiz.deletePin(actor.id, pinId);
     return { deleted: true };
+  }
+  @Get(':pinId/version-update')
+  /**
+   * GET /exam-pins/:pinId/version-update — xem trước cập nhật pin lên bản ready mới nhất của đề (quiz:manage): đích cập nhật + diff từng slot + cờ bị chặn bởi lượt làm thật (issue #254).
+   */
+  async versionUpdatePreview(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.getPinVersionUpdatePreview(actor.id, pinId);
+  }
+  @Post(':pinId/version-update')
+  /**
+   * POST /exam-pins/:pinId/version-update — áp cập nhật pin lên exam version mới nhất (quiz:manage): bị chặn `exam.pin_locked` khi pin đã có lượt làm thật; mỗi lần áp ghi vết ai/khi nào/từ version nào lên version nào (issue #254).
+   */
+  async applyVersionUpdate(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @Body({ schema: applyPinVersionUpdateSchema }) dto: ApplyPinVersionUpdateDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.applyPinVersionUpdate(actor.id, pinId, dto.toExamVersionId);
+  }
+  @Post(':pinId/regrades')
+  /**
+   * POST /exam-pins/:pinId/regrades — chấm lại theo đáp án một câu của pin (quiz:grade): `dryRun: true` chỉ trả điểm đổi của từng học sinh, `dryRun: false` áp thật và ghi log (issue #254).
+   */
+  async regrade(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @Body({ schema: regradePinQuestionSchema }) dto: RegradePinQuestionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.regradePinQuestion(actor.id, pinId, dto);
+  }
+  @Get(':pinId/regrades')
+  /**
+   * GET /exam-pins/:pinId/regrades — nhật ký chấm lại theo đáp án của pin (quiz:viewreports): ai chấm lại, khi nào, câu nào, điểm đổi của từng lượt (issue #254).
+   */
+  async listRegrades(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listPinRegrades(actor.id, pinId);
+  }
+  @Get(':pinId/my-regrades')
+  /**
+   * GET /exam-pins/:pinId/my-regrades — lịch sử sửa điểm của chính người gọi trong pin này; chỉ có dữ kiện sau khi pin đã công bố kết quả (cùng cổng công bố điểm, issue #254).
+   */
+  async myRegrades(@Param('pinId', { schema: uuidIdSchema }) pinId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listMyPinRegrades(actor.id, pinId);
   }
   @Post(':pinId/publish')
   /**

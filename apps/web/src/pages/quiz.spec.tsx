@@ -76,6 +76,10 @@ const quizView = (slots: unknown[]) => ({
   shuffleAnswers: false,
   examId: '01900000-0000-7000-8000-0000000000cc',
   examVersionId: '01900000-0000-7000-8000-0000000000cd',
+  examVersionNumber: 1,
+  latestExamVersionNumber: 1,
+  hasNewerExamVersion: false,
+  versionMode: 'pinned',
   targetGroupId: null,
   sumGrades: slots.reduce<number>((sum, s) => sum + (s as { maxMark: number }).maxMark, 0),
   slots,
@@ -87,7 +91,7 @@ afterEach(() => {
 });
 
 describe('Pin page — pinned exam surface (#226)', () => {
-  it('shows the frozen slots with marks, links to the exam editor and upgrades the pin version', async () => {
+  it('shows the frozen slots with marks, links to the exam editor and updates the pin version through the diff-first flow (#254)', async () => {
     const calls: RecordedCall[] = [];
     const EXAM_ID = '01900000-0000-7000-8000-0000000000cc';
     const OLD_VERSION_ID = '01900000-0000-7000-8000-0000000000cd';
@@ -108,7 +112,12 @@ describe('Pin page — pinned exam surface (#226)', () => {
         calls.push({ url, method, body });
         if (url === `/api/v1/exam-pins/${QUIZ_ID}` && method === 'GET')
           return respond({
-            quiz: { ...quizView(slots), examId: EXAM_ID, examVersionId: pinVersionId },
+            quiz: {
+              ...quizView(slots), examId: EXAM_ID, examVersionId: pinVersionId,
+              examVersionNumber: pinVersionId === OLD_VERSION_ID ? 1 : 2,
+              latestExamVersionNumber: 2,
+              hasNewerExamVersion: pinVersionId === OLD_VERSION_ID,
+            },
             effective: { timeOpen: null, timeClose: null, timeLimitSeconds: null, attemptsAllowed: 0, passwordRequired: false, nextAttemptAt: null },
             permissions: { attempt: false, manage: true, manageOverrides: false, grade: true, viewReports: true, preview: true },
             canAttempt: false,
@@ -117,10 +126,27 @@ describe('Pin page — pinned exam surface (#226)', () => {
             myAttempts: [],
             myGrade: null,
           });
-        if (url === `/api/v1/exam-pins/${QUIZ_ID}` && method === 'PATCH') {
-          pinVersionId = body?.examVersionId as string;
-          return respond({ ...quizView(slots), examId: EXAM_ID, examVersionId: pinVersionId });
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/version-update` && method === 'GET')
+          return respond({
+            pinId: QUIZ_ID, fromExamVersionId: OLD_VERSION_ID, fromVersionNumber: 1,
+            toExamVersionId: NEW_VERSION_ID, toVersionNumber: 2, examStatus: 'ready',
+            available: true, blockedByAttempts: false,
+            slotDiffs: [{
+              position: 1, change: 'question_version_changed',
+              fromQuestionId: QUESTION_ID, toQuestionId: QUESTION_ID,
+              fromPinnedVersionNumber: 1, toPinnedVersionNumber: 2,
+              fromMaxMark: 5, toMaxMark: 5,
+            }],
+          });
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/version-update` && method === 'POST') {
+          pinVersionId = body?.toExamVersionId as string;
+          return respond({
+            ...quizView(slots), examId: EXAM_ID, examVersionId: pinVersionId,
+            examVersionNumber: 2, latestExamVersionNumber: 2, hasNewerExamVersion: false,
+          });
         }
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/my-regrades`) return respond([]);
+        if (url === `/api/v1/exam-pins/${QUIZ_ID}/regrades`) return respond([]);
         if (url === `/api/v1/exams/${EXAM_ID}`)
           return respond({
             paper: { id: EXAM_ID, bankId: 'b1', kind: 'snapshot', status: 'ready', latestVersion: 2 },
@@ -160,17 +186,24 @@ describe('Pin page — pinned exam surface (#226)', () => {
     const editorLink = await screen.findByRole('link', { name: 'Mở trình soạn đề' });
     expect(editorLink.getAttribute('href')).toBe(`/exams/${EXAM_ID}/edit`);
 
-    // Đề ở bank đã có version 2 → nâng version của lần ghim qua PATCH pin.
-    await userEvent.click(await screen.findByRole('button', { name: 'Nâng lên version 2' }));
+    // Huy hiệu bản đề mới hiện ở cấp pin (đang ghim v1, bank đã có v2 ready).
+    expect(await screen.findByText('Có bản đề ready mới: v2')).toBeTruthy();
+    expect(screen.getByText('Đang ghim bản đề v1')).toBeTruthy();
+
+    // Cập nhật TƯỜNG MINH (#254): xem diff từng slot TRƯỚC, xác nhận rồi mới áp.
+    await userEvent.click(await screen.findByRole('button', { name: 'Xem thay đổi & cập nhật' }));
+    expect(await screen.findByText('Từ bản đề v1 lên v2')).toBeTruthy();
+    expect(screen.getByText(/Version câu: v1 → v2/)).toBeTruthy();
+    await userEvent.click(await screen.findByRole('button', { name: 'Áp dụng cập nhật' }));
     await waitFor(() =>
       expect(calls).toContainEqual({
-        url: `/api/v1/exam-pins/${QUIZ_ID}`,
-        method: 'PATCH',
-        body: { examVersionId: NEW_VERSION_ID },
+        url: `/api/v1/exam-pins/${QUIZ_ID}/version-update`,
+        method: 'POST',
+        body: { toExamVersionId: NEW_VERSION_ID },
       }),
     );
-    // Sau khi nâng, nút nâng biến mất (pin đã ở version hiện hành).
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Nâng lên version 2' })).toBeNull());
+    // Sau khi áp, huy hiệu bản mới biến mất (pin đã ở bản mới nhất).
+    await waitFor(() => expect(screen.queryByText('Có bản đề ready mới: v2')).toBeNull());
   });
 });
 
