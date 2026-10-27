@@ -652,4 +652,70 @@ describe('Shared question bank (feat #70)', () => {
     expect(items.some((i) => i.questionId === approved.resultQuestionId)).toBe(true);
     expect(items.every((i) => i.bankScope === 'team')).toBe(true);
   });
+
+  it('QB-4/#316: hash chống trùng của TF-A gồm giá trị Đ/S từng mệnh đề — cùng chữ khác Đ/S không trùng hoàn toàn, giống hệt thì vẫn trùng', async () => {
+    const leader = await mkUser();
+    const member = await mkStaffUser();
+    const cohortRes = await http(app).post('/api/v1/cohorts').set(bearer(admin)).send({ name: uniqueName('Tổ Sinh') });
+    const cohortId = (cohortRes.body as { id: string }).id;
+    for (const u of [leader, member]) {
+      await http(app).post(`/api/v1/cohorts/${cohortId}/members`).set(bearer(admin)).send({ userId: u.id });
+    }
+    const bankRes = await http(app).post('/api/v1/question-banks').set(bearer(admin))
+      .send({ name: 'Ngân hàng tổ Sinh', scope: 'team', scopeRefId: cohortId, leaderId: leader.id });
+    const bank = bankRes.body as BankBody;
+    const memberBank = await myPersonalBank(member);
+
+    // Thân câu duy nhất theo lượt chạy để không va dữ liệu của lượt trước trên cùng DB.
+    const stem = `Nhận định về quang hợp ${uniqueName('tf316')}`;
+    const tfValues = (values: boolean[]) => ({
+      qtype: 'truefalse',
+      questionText: {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: stem }] },
+          {
+            type: 'statementList',
+            content: [1, 2, 3, 4].map((i) => ({
+              type: 'statement',
+              attrs: { id: `s${i}` },
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: `${stem} — ý ${i}` }] }],
+            })),
+          },
+        ],
+      },
+      solution: { answers: values.map((value, idx) => ({ statementId: `s${idx + 1}`, value })) },
+    });
+    const createTf = async (values: boolean[]) => {
+      const res = await http(app).post('/api/v1/questions').set(bearer(member.token))
+        .send({ categoryId: memberBank.defaultCategoryId!, ...tfValues(values) });
+      expect(res.status, JSON.stringify(res.body)).toBe(201);
+      return (res.body as QuestionViewBody).question.id;
+    };
+
+    // Câu gốc (cả 4 ý đều Đúng) đóng góp vào bank tổ và được duyệt.
+    const originalId = await createTf([true, true, true, true]);
+    const propose = await http(app).post(`/api/v1/question-banks/${bank.id}/contributions`).set(bearer(member.token))
+      .send({ questionId: originalId });
+    expect(propose.status, JSON.stringify(propose.body)).toBe(201);
+    const approve = await http(app).post(`/api/v1/question-banks/${bank.id}/contributions/${(propose.body as { id: string }).id}/approve`)
+      .set(bearer(leader.token)).send({});
+    expect(approve.status, JSON.stringify(approve.body)).toBe(201);
+
+    // Cùng thân câu và cùng nội dung 4 mệnh đề, chỉ khác Đ/S ở ý 4:
+    // là câu KHÁC về đáp án — đóng góp phải qua cổng (201), không bị
+    // kết luận trùng hoàn toàn.
+    const flippedId = await createTf([true, true, true, false]);
+    const proposeFlipped = await http(app).post(`/api/v1/question-banks/${bank.id}/contributions`).set(bearer(member.token))
+      .send({ questionId: flippedId });
+    expect(proposeFlipped.status, JSON.stringify(proposeFlipped.body)).toBe(201);
+
+    // Giống hệt cả nội dung lẫn Đ/S của từng mệnh đề: vẫn trùng hoàn
+    // toàn như trước — 409 trỏ về câu đã có trong bank tổ.
+    const identicalId = await createTf([true, true, true, true]);
+    const proposeIdentical = await http(app).post(`/api/v1/question-banks/${bank.id}/contributions`).set(bearer(member.token))
+      .send({ questionId: identicalId });
+    expect(proposeIdentical.status, JSON.stringify(proposeIdentical.body)).toBe(409);
+    expect(JSON.stringify(proposeIdentical.body)).toContain('question.duplicate_in_bank');
+  });
 });

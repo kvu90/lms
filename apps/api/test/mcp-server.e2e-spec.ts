@@ -599,6 +599,43 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(near.structured!.nearDuplicateOf).toBe(qid);
   });
 
+  it('#316: chống trùng TF-A qua MCP gồm giá trị Đ/S từng mệnh đề — khác Đ/S thì tạo mới, giống hệt thì duplicate_exact', async () => {
+    // Thân câu + mệnh đề duy nhất theo lượt chạy (chống trùng đếm theo
+    // nội dung nên phải phân biệt được với dữ liệu của lượt chạy trước).
+    const stem = `Nhận định MCP ${uniqueName('tf316')}`;
+    const tfPayload = (values: boolean[]) => ({
+      bankId: bankA, categoryId: catA, qtype: 'truefalse',
+      questionText: stem,
+      answers: [1, 2, 3, 4].map((i) => ({ text: `${stem} — ý ${i}`, correct: values[i - 1]! })),
+      idempotencyKey: uniqueName('key'),
+    });
+
+    const first = await callTool(app, teacherA.token, 'create_question', tfPayload([true, true, true, true]));
+    expect(first.isError, first.text).toBe(false);
+    expect(first.structured!.status).toBe('created');
+    const firstId = first.structured!.questionId as string;
+
+    // Giống hệt cả chữ lẫn Đ/S từng mệnh đề → trùng hoàn toàn, trỏ về câu đã có.
+    const identical = await callTool(app, teacherA.token, 'create_question', tfPayload([true, true, true, true]));
+    expect(identical.isError, identical.text).toBe(false);
+    expect(identical.structured!.status).toBe('duplicate_exact');
+    expect(identical.structured!.existingQuestionId).toBe(firstId);
+
+    // Cùng chữ, khác Đ/S ở ý 4 → KHÔNG trùng hoàn toàn: tạo câu mới
+    // (chỉ gần trùng theo thân câu), và hash của payload phải khớp
+    // hash của version đã lưu — chứng minh bằng lần tạo thứ hai y hệt
+    // bản khác-Đ/S cũng bị bắt trùng hoàn toàn với chính nó.
+    const flipped = await callTool(app, teacherA.token, 'create_question', tfPayload([true, true, true, false]));
+    expect(flipped.isError, flipped.text).toBe(false);
+    expect(flipped.structured!.status).toBe('created');
+    expect(flipped.structured!.duplicate).toBe('near');
+    const flippedId = flipped.structured!.questionId as string;
+    const flippedAgain = await callTool(app, teacherA.token, 'create_question', tfPayload([true, true, true, false]));
+    expect(flippedAgain.isError, flippedAgain.text).toBe(false);
+    expect(flippedAgain.structured!.status).toBe('duplicate_exact');
+    expect(flippedAgain.structured!.existingQuestionId).toBe(flippedId);
+  });
+
   it('phạm vi ghi: học viên + giáo viên khác bị từ chối ở bank của teacherA, 0 bản ghi', async () => {
     const stu = await callTool(app, student.token, 'create_question', {
       bankId: bankA, categoryId: catA, qtype: 'essay',
