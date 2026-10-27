@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, type MessageEvent } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, type MessageEvent } from '@nestjs/common';
+import { I18nService } from '@nestjs/i18n';
 import type { Queue } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import type { Observable } from 'rxjs';
@@ -19,6 +20,7 @@ import { tenantAls } from '../tenants/tenant-als';
 import {
   MESSAGE_PROVIDERS,
   providerByName,
+  externalPolicyOf,
   providerVisibleToAudiences,
   isTeacherOnlyProvider,
   eventTypesOfGroup,
@@ -35,6 +37,7 @@ import {
   type LoginState,
   type MessageProviderGroup,
   type EmailFrequency,
+  type ExternalContentPolicy,
   type MessageProviderDefinition,
   type NotificationAudience,
   type NotificationPreferenceView,
@@ -46,6 +49,7 @@ export {
   MESSAGE_CHANNELS,
   MESSAGE_PROVIDERS,
   providerByName,
+  externalPolicyOf,
   providerVisibleToAudiences,
   isTeacherOnlyProvider,
   preferenceName,
@@ -60,6 +64,7 @@ export {
   type LoginState,
   type MessageProviderGroup,
   type EmailFrequency,
+  type ExternalContentPolicy,
   type MessageProviderDefinition,
   type NotificationAudience,
   type NotificationPreferenceView,
@@ -304,6 +309,8 @@ export function isWithinRecallWindow(createdAt: Date, now: Date, windowMinutes: 
  * = ghi danh hiệu lực ∪ staff khoá, đồng bộ lười mỗi lần liệt kê/mở/gửi.
  */
 export class MessagingService {
+  private readonly logger = new Logger(MessagingService.name);
+
   constructor(
     private readonly repo: MessagingRepository,
     private readonly users: UsersService,
@@ -315,6 +322,11 @@ export class MessagingService {
     @InjectQueue(NOTIFICATION_DISPATCH_QUEUE) private readonly dispatchQueue: Queue,
     private readonly siteConfig: SiteConfigService,
     private readonly sendThrottle: MessagingSendThrottleService,
+    // I18n (tham số thứ 11): notify() dùng để dựng BẢN TÓM TẮT MẶC
+    // ĐỊNH cho kênh ngoài theo luật C-5 (issue #219) khi provider
+    // thuộc diện tối thiểu hoá mà nơi gọi không truyền bản tối
+    // thiểu hoá.
+    private readonly i18n: I18nService,
   ) {}
 
   // --- tuỳ chọn -----------------------------------------------------------
@@ -588,18 +600,46 @@ export class MessagingService {
   /**
    * Tạo notification cho user từ một provider (điểm vào chuẩn của các module khác).
    *
-   * LUẬT TỐI THIỂU HOÁ KÊNH NGOÀI (chuẩn Canvas, lát N1 issue #49): nội
-   * dung rời khỏi app (email/push) KHÔNG chứa dữ liệu học tập/riêng tư
-   * — không điểm số, không nội dung tin nhắn. Phía gọi mà subject/body
-   * chứa dữ liệu như vậy PHẢI truyền `externalSubject`/`externalBody`
-   * dạng tóm tắt (chỉ nêu loại sự kiện + ngữ cảnh); hai trường này chỉ
-   * thay nội dung của job phân phối kênh ngoài, bản trong app giữ
-   * nguyên subject/body. Không truyền = caller cam kết subject/body đã
-   * an toàn cho kênh ngoài.
+   * LUẬT TỐI THIỂU HOÁ KÊNH NGOÀI (chuẩn Canvas, lát N1 issue #49;
+   * siết chặt theo quyết định C-5 của issue #219 — CẤM fallback
+   * nguyên văn tại điểm này): nội dung rời khỏi app (email/push)
+   * KHÔNG chứa dữ liệu học tập/riêng tư — không điểm số, không nội
+   * dung tin nhắn. Job phân phối kênh ngoài chỉ được mang đúng một
+   * trong ba thứ sau (phân giải tại `resolveExternalContent`):
+   *
+   *  1. Bản tối thiểu hoá `externalSubject`/`externalBody` do phía
+   *     gọi truyền — chỉ thay nội dung của job kênh ngoài, bản
+   *     trong app giữ nguyên subject/body.
+   *  2. Nội dung gốc — CHỈ khi provider được khai báo tường minh
+   *     `externalPolicy: 'original-ok'` kèm lý do trong registry
+   *     provider (`notification-providers.ts`); không khai báo =
+   *     mặc định `'minimized'`.
+   *  3. BẢN TÓM TẮT MẶC ĐỊNH dựng từ mẫu i18n chung (chỉ nêu loại
+   *     sự kiện; `contextUrl` trên notification trong app giữ
+   *     nguyên nên kênh ngoài vẫn là đường dẫn vào app sau đăng
+   *     nhập) — áp dụng khi provider thuộc diện `'minimized'` mà
+   *     phía gọi thiếu bản tối thiểu hoá, kèm log cảnh báo để nơi
+   *     gọi chưa phân loại lộ diện khi vận hành. Riêng ở môi trường
+   *     test, trường hợp này NÉM LỖI thay vì thay thế, để bộ test
+   *     ép mọi nơi gọi phải được phân loại.
+   *
+   * Đường `sendSystemNotification` áp cứng nhánh 3 qua cờ
+   * `forceExternalMinimized` (nội dung là văn bản tự do của quản trị
+   * viên, không qua mẫu nào).
    */
   async notify(userId: string, providerName: string, input: {
     subject: string; body: string; contextUrl?: string; fromUserId?: string; loggedIn?: boolean;
     externalSubject?: string; externalBody?: string;
+    /**
+     * Áp cứng chính sách `'minimized'` bất kể khai báo registry
+     * (C-5): CHỈ `sendSystemNotification` truyền cờ này — nội dung
+     * của đường đó là văn bản tự do do quản trị viên soạn và
+     * provider do DTO quyết định, nên không được hưởng ngoại lệ
+     * `'original-ok'` của bất kỳ provider nào. Khi cờ này bật, việc
+     * thay nội dung kênh ngoài bằng bản tóm tắt mặc định là hành vi
+     * đã thiết kế nên KHÔNG ném lỗi kể cả ở môi trường test.
+     */
+    forceExternalMinimized?: boolean;
     /**
      * Khoá nguồn của sự kiện (NB-4): nơi phát nào biết sự kiện thuộc
      * khoá nào thì truyền vào để notify() áp ghi đè tắt tiếng theo
@@ -709,21 +749,31 @@ export class MessagingService {
     // job chạy, 'daily' được worker ghi nhận vào hàng chờ và gom
     // thành email tổng hợp theo ngày (động cơ digest ở worker). Push
     // giữ luật cũ theo trạng thái và vẫn là cổng ghi log ở worker.
+    // Nội dung kênh ngoài phân giải LƯỜI tại job đầu tiên thật sự
+    // được xếp (luật C-5 — xem docblock của notify): kênh bị tuỳ
+    // chọn tắt thì không xếp job và cũng không kích hoạt phân giải,
+    // để luật cấm chỉ gõ đúng khi nội dung thật sự sắp rời app.
+    // Phân giải một lần, dùng chung cho mọi kênh ngoài của lần phát.
+    let externalContent: { subject: string; body: string } | undefined;
     for (const channel of provider.channels.filter((c) => c !== 'popup')) {
       const channelEnabled = channel === 'email'
         ? resolved.emailFrequency !== 'off'
         : await this.isChannelEnabled(userId, providerName, channel, state);
       if (channelEnabled) {
+        externalContent ??= this.resolveExternalContent(provider, userId, input);
         const dedupeKey = `${tenantKey}-dispatch-${providerName}-${userId}-${channel}-${notificationId ?? randomUUID()}`;
         await this.dispatchQueue.add('dispatch', {
           userId, provider: providerName, channel, tenantId,
           // Tần suất email đã phân giải (NB-5): worker dựa vào đây
           // để quyết gửi ngay hay gom digest — không phân giải lại.
           ...(channel === 'email' ? { emailFrequency: resolved.emailFrequency } : {}),
-          // Kênh ngoài chỉ nhận bản tối thiểu hoá khi caller cung cấp
-          // (luật ở docblock của notify) — điểm số/nội dung tin nhắn
-          // không bao giờ rời app qua job này.
-          subject: input.externalSubject ?? input.subject, body: input.externalBody ?? input.body,
+          // Nội dung job đã qua luật C-5 (resolveExternalContent):
+          // bản tối thiểu hoá của phía gọi, nội dung gốc của
+          // provider 'original-ok', hoặc bản tóm tắt mặc định —
+          // điểm số/nội dung tin nhắn không bao giờ rời app qua
+          // job này dưới dạng nguyên văn của một provider thuộc
+          // diện tối thiểu hoá.
+          subject: externalContent.subject, body: externalContent.body,
           notificationId, dedupeKey,
         }, { jobId: dedupeKey, attempts: 3 });
         channels[channel] = 'queued';
@@ -743,15 +793,85 @@ export class MessagingService {
     return { provider: providerName, userId, notificationId, channels };
   }
 
+  /**
+   * Phân giải nội dung mà job phân phối kênh ngoài ĐƯỢC PHÉP mang,
+   * theo luật C-5 (issue #219) — xem docblock của `notify()` để có
+   * luật đầy đủ. Thứ tự áp dụng:
+   *
+   *  1. Provider khai báo `'original-ok'` (và lần phát không bị áp
+   *     cứng) → bản tối thiểu hoá của phía gọi cho trường nào có
+   *     truyền, nội dung gốc cho trường còn lại (hành vi cũ, nay là
+   *     ngoại lệ theo khai báo tường minh kèm lý do ở registry).
+   *  2. Provider thuộc diện `'minimized'` (khai báo tường minh, mặc
+   *     định khi thiếu khai báo, hoặc bị áp cứng qua
+   *     `forceExternalMinimized`) và phía gọi truyền ĐỦ cặp
+   *     `externalSubject`/`externalBody` → bản tối thiểu hoá đó.
+   *  3. Còn lại (diện `'minimized'` mà bản tối thiểu hoá thiếu hoặc
+   *     thiếu một phần): ở môi trường test thì NÉM LỖI để lưới test
+   *     bắt nơi gọi chưa phân loại — trừ đường áp cứng, nơi thay thế
+   *     là hành vi đã thiết kế; ngoài môi trường test thì ghi log
+   *     cảnh báo và dùng BẢN TÓM TẮT MẶC ĐỊNH i18n cho (các) trường
+   *     còn thiếu — nội dung gốc không xuất hiện trong job ở bất kỳ
+   *     trường nào.
+   *
+   * @param provider - Định nghĩa provider trong registry.
+   * @param userId - Người nhận (chỉ để ghi log cảnh báo truy vết).
+   * @param input - Đầu vào gốc của `notify()`.
+   * @returns Cặp subject/body mà job kênh ngoài được phép mang.
+   * @throws Error ở môi trường test khi provider thuộc diện tối
+   * thiểu hoá mà phía gọi không truyền đủ bản tối thiểu hoá (và lần
+   * phát không thuộc đường áp cứng).
+   */
+  private resolveExternalContent(
+    provider: MessageProviderDefinition,
+    userId: string,
+    input: {
+      subject: string; body: string;
+      externalSubject?: string; externalBody?: string;
+      forceExternalMinimized?: boolean;
+    },
+  ): { subject: string; body: string } {
+    const policy: ExternalContentPolicy = input.forceExternalMinimized
+      ? 'minimized'
+      : externalPolicyOf(provider);
+    if (policy === 'original-ok') {
+      return { subject: input.externalSubject ?? input.subject, body: input.externalBody ?? input.body };
+    }
+    if (input.externalSubject !== undefined && input.externalBody !== undefined) {
+      return { subject: input.externalSubject, body: input.externalBody };
+    }
+    if (!input.forceExternalMinimized && process.env.NODE_ENV === 'test') {
+      throw new Error(
+        `messaging.external_minimization_required: provider "${provider.name}" is classified 'minimized' for external channels but notify() received no complete externalSubject/externalBody — pass minimized variants at the call site or declare 'original-ok' with a reason in the provider registry (C-5, issue #219)`,
+      );
+    }
+    this.logger.warn(
+      input.forceExternalMinimized
+        ? `notify(): đường gửi hệ thống áp cứng tối thiểu hoá cho provider "${provider.name}" (người nhận ${userId}) — job kênh ngoài dùng bản tóm tắt mặc định (C-5, issue #219).`
+        : `notify(): provider "${provider.name}" thuộc diện tối thiểu hoá kênh ngoài nhưng nơi gọi không truyền đủ bản tối thiểu hoá (người nhận ${userId}) — job kênh ngoài dùng bản tóm tắt mặc định (C-5, issue #219).`,
+    );
+    return {
+      subject: input.externalSubject ?? String(this.i18n.t('platform.externalGenericSubject', { locale: 'vi' })),
+      body: input.externalBody ?? String(this.i18n.t('platform.externalGenericBody', { locale: 'vi', args: { event: provider.label.vi } })),
+    };
+  }
+
   /** Endpoint /notifications/send là kích hoạt hệ thống: chỉ site admin. */
   /**
    * Gửi notification hệ thống (vd hoàn tất báo cáo) kèm nội dung đã dịch.
+   *
+   * Luật C-5 (issue #219): nội dung của đường này là VĂN BẢN TỰ DO
+   * do quản trị viên soạn và provider do DTO quyết định — bề mặt
+   * duy nhất không có trần nội dung — nên đường này ÁP CỨNG chính
+   * sách tối thiểu hoá kênh ngoài (`forceExternalMinimized: true`):
+   * bản trong app giữ nguyên văn, job kênh ngoài chỉ mang bản tóm
+   * tắt mặc định bất kể provider trong DTO khai báo gì ở registry.
    */
   async sendSystemNotification(actorId: string, dto: { userId: string; provider: string; subject: string; body: string; contextUrl?: string }): Promise<NotifyResult> {
     if (!(await this.evaluator.isSiteAdmin(actorId))) {
       throw new ForbiddenException({ message: 'Only site administrators can trigger system notifications directly', code: 'messaging.system_send_forbidden' });
     }
-    return this.notify(dto.userId, dto.provider, { subject: dto.subject, body: dto.body, contextUrl: dto.contextUrl });
+    return this.notify(dto.userId, dto.provider, { subject: dto.subject, body: dto.body, contextUrl: dto.contextUrl, forceExternalMinimized: true });
   }
 
   /**

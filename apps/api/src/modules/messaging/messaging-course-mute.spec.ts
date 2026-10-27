@@ -39,10 +39,12 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     // constructor: spec này chỉ đi đường notify() nên stub consume
     // không làm gì là đủ (giữ nguyên hành vi spec của NB-4).
     const sendThrottle = { consume: vi.fn(async () => undefined) };
+    // I18n (tham số thứ 11, luật C-5 của issue #219): spec này không
+    // đi đường bản tóm tắt mặc định cho kênh ngoài nên stub rỗng đủ.
     const service = new MessagingService(
       repo as never, users as never, {} as never, {} as never, outbox as never,
       {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
-      sendThrottle as never,
+      sendThrottle as never, {} as never,
     );
     return { service, inserted, logs, jobs };
   }
@@ -87,6 +89,12 @@ describe('MessagingService.notify — course mute override (NB-4)', () => {
     const { service, inserted } = buildService();
     const result = await service.notify('user-1', 'admin_announcement', {
       subject: 'Thông báo quản trị', body: 'Nội dung chính thức', courseId: MUTED_COURSE,
+      // Luật C-5 (issue #219): admin_announcement thuộc diện tối
+      // thiểu hoá kênh ngoài — nơi gọi thật của nó
+      // (sendSystemNotification) áp cứng bản tóm tắt mặc định; ca
+      // này chỉ kiểm cổng mute nên truyền bản tối thiểu hoá tường
+      // minh để lời gọi hợp lệ theo luật mới.
+      externalSubject: 'Thông báo quản trị', externalBody: 'Nội dung chính thức',
     });
     expect(result.skipped).toBeUndefined();
     expect(inserted).toHaveLength(1);
