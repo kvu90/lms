@@ -14,6 +14,11 @@ export const envSchema = z.object({
   JWT_SECRET: z.string().min(16),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),
+  // Gửi mail thông báo qua Resend (NB-5, issue #174): cả hai đều tuỳ
+  // chọn — thiếu thì transport mail chạy chế độ ghi log có khai báo
+  // (không gửi, không lỗi), trùng ngữ nghĩa với module mail phía API.
+  RESEND_API_KEY: z.string().min(1).optional(),
+  MAIL_FROM: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

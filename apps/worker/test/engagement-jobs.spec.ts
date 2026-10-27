@@ -59,17 +59,23 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   });
   afterAll(async () => { await context.close(); });
 
-  it('notification dispatch logs the external channel dispatch and is idempotent by dedupeKey', async () => {
+  it('notification dispatch records skipped-not-configured for email while the Resend channel is unconfigured, idempotent by dedupeKey', async () => {
+    // NB-5 (issue #174): kênh email gửi thật qua Resend ở worker.
+    // Môi trường test không có RESEND_API_KEY/MAIL_FROM nên transport
+    // ở chế độ fail-soft có khai báo: không gửi, dispatch log ghi
+    // 'skipped-not-configured' (trước NB-5 ca này kỳ vọng 'logged').
+    // Đường gửi thật 'sent' + digest được khẳng định ở
+    // notification-email.spec.ts bằng transport giả.
     const processor = context.get(NotificationDispatchProcessor);
     const job = { data: { userId: userA, provider: 'grade_updated', channel: 'email', subject: 'Grade posted', body: 'b', dedupeKey: `test-dispatch-${suffix}` } } as never;
     const first = await processor.process(job);
-    expect(first.status).toBe('logged');
+    expect(first.status).toBe('skipped-not-configured');
     const second = await processor.process(job);
     expect(second.status).toBe('duplicate');
     const rows = await db.select().from(notificationDispatchLog)
       .where(eq(notificationDispatchLog.dedupeKey, `test-dispatch-${suffix}`));
     expect(rows).toHaveLength(1);
-    expect(rows[0].status).toBe('logged');
+    expect(rows[0].status).toBe('skipped-not-configured');
   });
 
   it('notification dispatch never dispatches for a suspended user or when the preference is off in both states', async () => {

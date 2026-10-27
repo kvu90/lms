@@ -13,6 +13,9 @@
     "draft": "Bản nháp",
     "public": "Công khai"
   },
+  "notificationDigestFooter": "Mở ứng dụng để xem chi tiết từng thông báo.",
+  "notificationDigestIntro": "Bạn có {count} thông báo mới kể từ lần tổng hợp trước:",
+  "notificationDigestSubject": "Tổng hợp thông báo: {count} sự kiện mới",
   "paymentStatus": {
     "pending": "Đang chờ",
     "succeeded": "Thành công",

@@ -13,6 +13,9 @@
     "draft": "Draft",
     "public": "Public"
   },
+  "notificationDigestFooter": "Open the app to see each notification in detail.",
+  "notificationDigestIntro": "You have {count} new notifications since the last digest:",
+  "notificationDigestSubject": "Notification digest: {count} new events",
   "paymentStatus": {
     "pending": "Pending",
     "succeeded": "Succeeded",

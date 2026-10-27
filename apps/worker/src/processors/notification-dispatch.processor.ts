@@ -6,6 +6,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 import { notificationDispatchLog, pluginConfig, userPreferences, users } from '@lms/db-schema';
 import { tenantAls } from '../db/tenant-als';
+import { ResendMailService } from '../resend-mail.service';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -19,9 +20,17 @@ export interface NotificationDispatchJobData {
   dedupeKey: string;
   /** Tenant của notification nguồn (TENANT-1, #196); job cũ không có → null. */
   tenantId?: string | null;
+  /**
+   * Tần suất email đã phân giải ở phía API tại lúc phát (NB-5, issue
+   * #174): chỉ có nghĩa với kênh email. `daily` = không gửi ngay —
+   * ghi dispatch log `digest-queued` chờ lượt tổng hợp ngày của
+   * NotificationDigestProcessor. Job xếp hàng trước NB-5 không có
+   * trường này → coi như `immediate`.
+   */
+  emailFrequency?: 'immediate' | 'daily' | 'off' | null;
 }
 export interface NotificationDispatchResult {
-  status: 'logged' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'duplicate';
+  status: 'logged' | 'sent' | 'digest-queued' | 'skipped-not-configured' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'duplicate';
   channel: string;
 }
 
@@ -34,19 +43,43 @@ export interface NotificationDispatchResult {
 const MANDATORY_PROVIDERS = new Set(['enrol_expiry_warning', 'admin_announcement']);
 
 /**
- * Notification dispatch: the worker end of the channel PORTS. Email and
- * push are never actually sent — the dispatch is LOGGED (that log is the
- * deliverable of the port). Delivery law is re-checked here, at dispatch
- * time, against live data: a suspended user gets nothing, and a preference
- * disabled after enqueueing still suppresses the dispatch. Idempotent via
- * the job's dedupeKey (unique in notification_dispatch_log).
+ * Xử lý job phân phối notification ra kênh ngoài (NB-5, issue #174).
+ *
+ * Đầu vào: job `dispatch` trên queue `notification-dispatch` do phía
+ * API xếp khi `MessagingService.notify` phát một thông báo có kênh
+ * ngoài (email/push). subject/body trong job LÀ BẢN TỐI THIỂU HOÁ cho
+ * kênh ngoài (P4: không điểm số, không nội dung tin nhắn — phía API
+ * đã thay bằng `externalSubject`/`externalBody` ở nơi phát).
+ *
+ * Flow (luật được kiểm LẠI tại lúc phát, theo dữ liệu sống — thay đổi
+ * sau khi xếp hàng vẫn thắng):
+ *  1. Đã có dispatch log cùng `dedupeKey` → trả `duplicate`, không
+ *     làm gì thêm (idempotent; dedupeKey là khoá duy nhất của bảng).
+ *  2. Người nhận không tồn tại/bị đình chỉ/đã xoá → log
+ *     `skipped-suspended`.
+ *  3. Chính sách admin cấp site (NB-7) đã tắt loại này sau khi xếp
+ *     hàng → log `skipped-admin-disabled`. Hai loại bắt buộc P2 miễn
+ *     trừ ở khâu này (xem `MANDATORY_PROVIDERS` ở trên).
+ *  4. Tuỳ chọn: mô hình cũ (cả hai trạng thái đăng nhập đều tắt) →
+ *     log `skipped-preference`. Riêng kênh email kiểm thêm tuỳ chọn
+ *     v2: giá trị `off` tại lúc phát → cũng `skipped-preference`
+ *     (P2: kênh ngoài là quyền cá nhân tuyệt đối của người dùng).
+ *  5. Kênh email: tần suất `daily` → log `digest-queued`, CHƯA gửi
+ *     (NotificationDigestProcessor gom và gửi theo ngày); gửi ngay
+ *     → gửi thật qua Resend: thành công log `sent`; transport chưa
+ *     cấu hình (thiếu khoá/địa chỉ gửi ở môi trường) → log
+ *     `skipped-not-configured` (fail-soft có khai báo, không thử
+ *     lại); Resend trả lỗi thật → ném lỗi để BullMQ thử lại job
+ *     (chưa ghi log nên lần thử lại không vướng dedupe).
+ *  6. Kênh push: chưa có hạ tầng push (chờ ứng dụng native) → giữ
+ *     chế độ ghi log như trước NB-5: log `logged`.
  */
 @Processor('notification-dispatch')
-/**
- * Xử lý job phân phối notification ra kênh ngoài (email/popup) theo tuỳ chọn người nhận.
- */
 export class NotificationDispatchProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database) { super(); }
+  constructor(
+    @InjectDrizzle() private readonly db: Database,
+    private readonly mail: ResendMailService,
+  ) { super(); }
 
   /**
    * Xử lý một job của queue tương ứng.
@@ -111,10 +144,58 @@ export class NotificationDispatchProcessor extends WorkerHost {
       }).onConflictDoNothing();
       return { status: 'skipped-preference', channel };
     }
+    if (channel === 'email') {
+      return this.dispatchEmail(job, user.email, byName);
+    }
+    // Kênh push: chưa có hạ tầng gửi thật — giữ chế độ ghi log.
     await this.db.insert(notificationDispatchLog).values({
       userId: userId, provider, channel, status: 'logged', subject, dedupeKey, tenantId,
       notificationId: job.data.notificationId ?? null,
     }).onConflictDoNothing();
     return { status: 'logged', channel };
+  }
+
+  /**
+   * Nhánh kênh email (NB-5): kiểm tuỳ chọn v2 tại lúc phát, rồi theo
+   * tần suất trong job mà xếp vào hàng tổng hợp ngày hoặc gửi thật
+   * qua Resend. Mọi kết quả đều chốt bằng đúng một dòng dispatch log
+   * (trừ khi Resend ném lỗi — job thử lại và chưa ghi gì).
+   */
+  private async dispatchEmail(
+    job: Job<NotificationDispatchJobData>,
+    recipientEmail: string,
+    preferencesByName: Map<string, string | null>,
+  ): Promise<NotificationDispatchResult> {
+    const { userId, provider, channel, subject, dedupeKey } = job.data;
+    const tenantId = job.data.tenantId ?? null;
+    const logRow = (status: NotificationDispatchResult['status']) => this.db.insert(notificationDispatchLog).values({
+      userId: userId, provider, channel, status, subject, dedupeKey, tenantId,
+      notificationId: job.data.notificationId ?? null,
+    }).onConflictDoNothing();
+
+    // Tuỳ chọn email v2 ở trạng thái tắt TẠI LÚC PHÁT thắng tần suất
+    // đã phân giải lúc xếp hàng: người dùng tắt sau khi job xếp hàng
+    // thì email này không đi (kiểm mô hình cũ ở trên không đọc khoá
+    // v2 nên phải kiểm riêng ở đây).
+    if (preferencesByName.get(`message_provider_${provider}_email_v2`) === 'off') {
+      await logRow('skipped-preference');
+      return { status: 'skipped-preference', channel };
+    }
+    // Tần suất tổng hợp ngày (P1 cho nhóm học tập): chỉ ghi nhận vào
+    // hàng chờ digest — NotificationDigestProcessor gom theo người
+    // nhận và gửi một email tổng hợp mỗi ngày.
+    if ((job.data.emailFrequency ?? 'immediate') === 'daily') {
+      await logRow('digest-queued');
+      return { status: 'digest-queued', channel };
+    }
+    const result = await this.mail.send({ to: recipientEmail, subject, text: job.data.body });
+    if (result.status === 'skipped') {
+      // Chưa cấu hình Resend ở môi trường này: bỏ qua có khai báo
+      // (như mail xác thực), ghi nhận trung thực thay vì giả vờ đã gửi.
+      await logRow('skipped-not-configured');
+      return { status: 'skipped-not-configured', channel };
+    }
+    await logRow('sent');
+    return { status: 'sent', channel };
   }
 }

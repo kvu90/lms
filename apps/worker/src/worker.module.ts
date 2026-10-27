@@ -25,6 +25,9 @@ import { CalendarImportProcessor } from './processors/calendar-import.processor'
 import { CalendarReminderProcessor } from './processors/calendar-reminder.processor';
 import { CompletionRecalculateProcessor } from './processors/completion-recalculate.processor';
 import { NotificationDispatchProcessor } from './processors/notification-dispatch.processor';
+import { NotificationDigestProcessor } from './processors/notification-digest.processor';
+import { NotificationDigestScheduler } from './notification-digest.scheduler';
+import { ResendMailService } from './resend-mail.service';
 import { NotificationRetentionProcessor } from './processors/notification-retention.processor';
 import { EnrolExpiryProcessor } from './processors/enrol-expiry.processor';
 import { ActivityDueReminderProcessor } from './processors/activity-due-reminder.processor';
@@ -72,6 +75,7 @@ import {
     BullModule.registerQueue({ name: 'guardian-digests' }),
     BullModule.registerQueue({ name: 'completion-recalculate' }),
     BullModule.registerQueue({ name: 'notification-dispatch' }),
+    BullModule.registerQueue({ name: 'notification-digests' }),
     BullModule.registerQueue({ name: 'notification-retention' }),
     BullModule.registerQueue({ name: 'calendar-reminders' }),
     BullModule.registerQueue({ name: 'calendar-import' }),
@@ -86,5 +90,5 @@ import {
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
+  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
 export class WorkerModule {}
