@@ -256,7 +256,13 @@ export class CurriculumRepository {
     // Tìm kiếm là đường đọc "chương trình hiện hành": dòng đã rút
     // (retired_at khác NULL) không được xuất hiện — cùng luật với
     // listOutcomes, áp ngay tại truy vấn này vì nó không qua listOutcomes.
-    const conditions = [sql`${learningOutcomes.content} ILIKE ${`%${input.query}%`}`, isNull(learningOutcomes.retiredAt)];
+    // Cột content nay là jsonb (tài liệu Tiptap) nên không ILIKE trực
+    // tiếp được: ép sang text để khớp trên văn bản trong tài liệu.
+    // Khớp có thể chạm cả cú pháp JSON của tài liệu, nhưng từ khoá
+    // tìm kiếm là văn bản YCCĐ nên kết quả thực tế vẫn là các dòng
+    // chứa từ khoá đó; tầng service vẫn trả text canonical trích
+    // từ tài liệu, không trả JSON thô.
+    const conditions = [sql`${learningOutcomes.content}::text ILIKE ${`%${input.query}%`}`, isNull(learningOutcomes.retiredAt)];
     if (input.subjectId) conditions.push(eq(subjects.id, input.subjectId));
     if (input.grade !== undefined) conditions.push(eq(curricula.grade, input.grade));
     const rows = await this.db

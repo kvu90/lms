@@ -254,6 +254,25 @@ export function assertProgramRecordOutcomeIntegrity(datasetKey: string, record: 
 }
 
 /**
+ * Gói một text thuần thành tài liệu Tiptap một ý: mỗi dòng của text
+ * thành một đoạn văn (giữ đúng thứ tự và số dòng; text canonical
+ * trích lại từ tài liệu này bằng programOutcomeDocText khớp đúng
+ * text gốc sau khi cắt khoảng trắng hai đầu). Đường ghi của YCCĐ
+ * tạo tay qua API và đường chuyển đổi dữ liệu cũ dùng hàm này để
+ * mọi dòng trong cột jsonb đều mang cùng một hình dạng tài liệu —
+ * không có dòng nào lưu text trần.
+ */
+export function programOutcomeTextToDoc(text: string): ProgramOutcomeDoc {
+  return {
+    type: 'doc',
+    content: text.split('\n').map((line) => ({
+      type: 'paragraph',
+      content: line === '' ? [] : [{ type: 'text', text: line }],
+    })),
+  };
+}
+
+/**
  * Các dòng YCCĐ của một bản ghi, theo thứ tự nguyên văn:
  * - Có `outcomes[]`: mỗi ý là một dòng (phần tử dạng doc cho text
  *   canonical trích bằng programOutcomeDocText; phần tử dạng chuỗi
@@ -417,4 +436,31 @@ export function programRecordOutcomeEntries(
     text,
     position: i + 1,
   }));
+}
+
+/**
+ * Các dòng YCCĐ của một bản ghi kèm tài liệu Tiptap sẽ lưu trực tiếp
+ * vào cột jsonb — đầu vào duy nhất của đường ghi importer: phần tử
+ * dạng doc giữ nguyên tài liệu của dataset (giữ cấu trúc cha–con để
+ * bề mặt trình bày render được); phần tử dạng chuỗi và bản ghi chỉ
+ * có `outcome_text` được gói thành tài liệu một ý bằng
+ * programOutcomeTextToDoc (text canonical trích lại khớp nguyên
+ * văn). `text` trong mỗi mục vẫn là text canonical trích từ chính
+ * tài liệu đó và là căn cứ duy nhất cho phép ghép cặp của diff —
+ * diff không bao giờ so sánh tài liệu thô với nhau.
+ */
+export function programRecordOutcomeDocs(
+  record: ProgramRecord,
+): { doc: ProgramOutcomeDoc; text: string; position: number }[] {
+  if (record.outcomes.length > 0) {
+    return record.outcomes.map((outcome, i) => {
+      const doc = typeof outcome === 'string' ? programOutcomeTextToDoc(outcome) : outcome;
+      return { doc, text: programOutcomeDocText(doc), position: i + 1 };
+    });
+  }
+  if (record.outcome_text.trim().length > 0) {
+    const doc = programOutcomeTextToDoc(record.outcome_text);
+    return [{ doc, text: programOutcomeDocText(doc), position: 1 }];
+  }
+  return [];
 }

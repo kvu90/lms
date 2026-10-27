@@ -126,13 +126,39 @@ export const curriculumNodes = pgTable('curriculum_nodes', {
  * ghi cột này: đặt khi rút, xoá về NULL khi dòng được hồi sinh vì
  * nguyên văn quay lại dataset. Dòng do admin tạo tay và dòng
  * `derived` luôn có `retired_at` NULL.
+ *
+ * Hình dạng lưu trữ của `content`: tài liệu Tiptap của YCCĐ, lưu
+ * trực tiếp dạng jsonb (không còn text trích). Ý đơn là một đoạn
+ * văn; ý có ý con gồm đoạn văn (ý cha) và danh sách gạch đầu dòng
+ * lồng (ý con). Text thuần canonical trích từ tài liệu này bằng
+ * đúng một hàm chuẩn ở tầng nạp là chuẩn duy nhất cho kiểm chứng
+ * toàn vẹn và cho mọi phép so khớp nguyên văn; mọi bề mặt đọc trả
+ * text canonical đó ở trường `content` của mình và chỉ bề mặt bảng
+ * chương trình mới phơi thêm tài liệu để render phân cấp cha–con.
+ * Dạng tài liệu ở đây cố tình trùng cấu trúc với dạng tài liệu của
+ * dataset ở tầng nạp (kiểm tra bằng kiểu cấu trúc, không import
+ * chéo package): đổi một bên mà không đổi bên còn lại là lỗi kiểu
+ * ở tầng nạp, không phải lỗi thầm ở dữ liệu.
  */
+export interface LearningOutcomeDocNode {
+  type: string;
+  text?: string;
+  marks?: unknown[];
+  content?: LearningOutcomeDocNode[];
+}
+
+/** Một YCCĐ dạng tài liệu Tiptap lưu trong cột `learning_outcomes.content`. */
+export interface LearningOutcomeDoc {
+  type: 'doc';
+  content?: LearningOutcomeDocNode[];
+}
+
 export const learningOutcomes = pgTable('learning_outcomes', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),
   /** NULL = YCCĐ chuẩn của platform (dữ liệu chuẩn GDPT dùng chung); có giá trị = outcome `derived` thuộc tenant đó (TENANT-0, #168). */
   tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
   nodeId: uuid('node_id').notNull().references(() => curriculumNodes.id, { onDelete: 'cascade' }),
-  content: text('content').notNull(),
+  content: jsonb('content').$type<LearningOutcomeDoc>().notNull(),
   position: integer('position').notNull().default(1),
   sourceKind: text('source_kind').notNull().default('program'),
   sourceRef: text('source_ref'),

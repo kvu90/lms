@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CurriculumService } from './curriculum.service';
+import { CurriculumService, toCurriculumOutcomeView } from './curriculum.service';
 
 /**
  * Liệt kê môn học khi `contextId` thành tùy chọn (điểm nghẽn D-3 của issue #233):
@@ -68,5 +68,83 @@ describe('CurriculumService.listSubjects — contextId tùy chọn', () => {
     const { service, repo } = buildService({ canViewSystem: false, canUpdateCourse: false, canViewOther: true });
     await expect(service.listSubjects('teacher-1', OTHER_CTX)).resolves.toEqual(SUBJECTS);
     expect(repo.listSubjects).toHaveBeenCalledWith(OTHER_CTX);
+  });
+});
+
+/**
+ * Lưu trữ YCCĐ dạng tài liệu Tiptap (jsonb) — hình dạng trả ra của
+ * tầng service: `content` luôn là text canonical trích từ tài liệu
+ * (hợp đồng cũ cho mọi bề mặt), `contentDoc` là tài liệu gốc cho
+ * bảng chương trình render phân cấp cha–con. Đường ghi tay qua API
+ * nhận text thuần phải gói thành tài liệu trước khi ghi — DB không
+ * bao giờ nhận text trần ở cột jsonb.
+ */
+describe('toCurriculumOutcomeView — text canonical + tài liệu gốc', () => {
+  const docRow = {
+    id: 'outcome-1',
+    tenantId: null,
+    nodeId: 'node-1',
+    content: {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Nêu được:' }] },
+        {
+          type: 'bulletList',
+          content: [
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ý con một.' }] }] },
+            { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Ý con hai.' }] }] },
+          ],
+        },
+      ],
+    },
+    position: 1,
+    sourceKind: 'program',
+    sourceRef: 'nguồn mẫu',
+    derivedFromId: null,
+    retiredAt: null,
+  };
+
+  it('trả text canonical nối các dòng bằng xuống dòng, kèm nguyên tài liệu', () => {
+    const view = toCurriculumOutcomeView(docRow as never);
+    expect(view.content).toBe('Nêu được:\nÝ con một.\nÝ con hai.');
+    expect(view.contentDoc).toEqual(docRow.content);
+    expect(view.id).toBe('outcome-1');
+  });
+
+  it('tài liệu một đoạn văn cho đúng text của đoạn đó', () => {
+    const view = toCurriculumOutcomeView({
+      ...docRow,
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Một ý duy nhất.' }] }] },
+    } as never);
+    expect(view.content).toBe('Một ý duy nhất.');
+  });
+});
+
+describe('CurriculumService.createOutcome — ghi tay gói text thành tài liệu', () => {
+  it('repo nhận tài liệu (không nhận text trần) và trả về view có text canonical', async () => {
+    const inserted = {
+      id: 'outcome-new', tenantId: null, nodeId: 'node-1',
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Dòng một.' }] }] },
+      position: 1, sourceKind: 'program', sourceRef: null, derivedFromId: null, retiredAt: null,
+    };
+    const repo = {
+      getNode: vi.fn(async () => ({ id: 'node-1', curriculumId: 'curr-1' })),
+      getCurriculum: vi.fn(async () => ({ id: 'curr-1', subjectId: 'subj-1' })),
+      getSubject: vi.fn(async () => ({ id: 'subj-1', contextId: 'ctx-sys' })),
+      insertOutcome: vi.fn(async (v: unknown) => inserted),
+    };
+    const evaluator = { requireCapability: vi.fn(async () => undefined) };
+    const service = new CurriculumService(repo as never, {} as never, evaluator as never, { registerCurriculumFrameProvider: vi.fn() } as never);
+    const view = await service.createOutcome('admin-1', { nodeId: 'node-1', content: 'Dòng một.\nDòng hai.' });
+    const written = repo.insertOutcome.mock.calls[0]![0] as { content: unknown };
+    expect(written.content).toEqual({
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Dòng một.' }] },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Dòng hai.' }] },
+      ],
+    });
+    expect(view.content).toBe('Dòng một.');
+    expect(view.contentDoc).toEqual(inserted.content);
   });
 });

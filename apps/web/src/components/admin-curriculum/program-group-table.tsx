@@ -21,6 +21,12 @@ import type { CurriculumTreeNode } from '#lib/curriculum';
  * #161): text canonical của một YCCĐ có thể gồm nhiều dòng (các ý đã
  * tách ở dataset, gồm danh sách ý cha–con) — mỗi dòng render thành
  * một khối riêng thay vì một đoạn chạy liền mất phân cấp dòng.
+ * Từ khi cột lưu trữ chuyển sang tài liệu Tiptap (jsonb), YCCĐ có ý
+ * con được render PHÂN CẤP CHA–CON nhìn thấy được: ý cha là một khối,
+ * ý con thụt lề dưới ý cha với dấu gạch đầu dòng, danh sách lồng
+ * sâu hơn thụt lề thêm một mức — đúng cấu trúc tài liệu, áp dụng
+ * nhất quán cho cả bề mặt quản trị lẫn bề mặt giáo viên (cùng dùng
+ * component này, chế độ chỉ đọc chỉ ẩn nút thao tác).
  */
 export interface ProgramRow {
   node: CurriculumTreeNode;
@@ -64,8 +70,31 @@ export function NodeRowActions({
  * Nội dung một YCCĐ giữ cấu trúc dòng: YCCĐ một dòng render nguyên như
  * cũ; YCCĐ nhiều dòng thì mỗi dòng là một khối riêng trong cùng ô
  * (thứ tự dòng giữ nguyên thứ tự canonical của dataset).
+ *
+ * Khi có tài liệu Tiptap (`contentDoc`), render theo đúng cấu trúc
+ * tài liệu thay vì phẳng hoá theo dòng text: đoạn văn thành một
+ * khối; mục danh sách thành một khối thụt lề kèm dấu gạch đầu dòng,
+ * và danh sách lồng bên trong mục đó thụt lề thêm một mức (đệ quy).
+ * Nhờ đó quan hệ cha–con nhìn thấy được ngay trong ô, không cần
+ * đọc text để đoán. Không có tài liệu (dữ liệu cũ hoặc bề mặt chưa
+ * trả trường này) thì giữ đúng hành vi cũ: tách text theo dòng.
  */
-export function OutcomeContent({ content }: { content: string }) {
+export function OutcomeContent({
+  content,
+  contentDoc,
+}: {
+  content: string;
+  contentDoc?: import('#lib/curriculum').CurriculumOutcomeDoc;
+}) {
+  if (contentDoc?.content) {
+    return (
+      <span>
+        {contentDoc.content.map((node, index) => (
+          <OutcomeDocNode key={index} node={node} />
+        ))}
+      </span>
+    );
+  }
   if (!content.includes('\n')) return <span>{content}</span>;
   return (
     <span>
@@ -76,6 +105,63 @@ export function OutcomeContent({ content }: { content: string }) {
       ))}
     </span>
   );
+}
+
+/**
+ * Một node trong tài liệu Tiptap của một YCCĐ, render theo độ sâu
+ * lồng của nó: đoạn văn là một khối text; mục danh sách là một khối
+ * thụt lề (`pl-4`) kèm dấu gạch đầu dòng nằm cùng dòng với đoạn văn
+ * của chính mục, danh sách lồng bên trong mục thụt lề thêm một mức.
+ * Node lạ không thuộc các dạng này được bỏ qua thay vì làm vỡ cả
+ * ô — text canonical ở `content` vẫn là nguồn đối chiếu đầy đủ.
+ */
+function OutcomeDocNode({
+  node,
+}: {
+  node: import('#lib/curriculum').CurriculumOutcomeDocNode;
+}) {
+  if (node.type === 'paragraph') {
+    const text = (node.content ?? [])
+      .filter((child) => child.type === 'text')
+      .map((child) => child.text ?? '')
+      .join('');
+    return <span className="block">{text}</span>;
+  }
+  if (node.type === 'listItem') {
+    // Dấu gạch đầu dòng nằm cùng dòng với đoạn văn của chính mục
+    // này; danh sách lồng bên trong (nếu có) render thành các khối
+    // riêng thụt lề thêm một mức dưới nó.
+    const children = node.content ?? [];
+    const ownText = children
+      .filter((child) => child.type === 'paragraph')
+      .map((child) =>
+        (child.content ?? [])
+          .filter((grandchild) => grandchild.type === 'text')
+          .map((grandchild) => grandchild.text ?? '')
+          .join(''),
+      )
+      .join('');
+    const nested = children.filter((child) => child.type !== 'paragraph');
+    return (
+      <span className="block pl-4">
+        <span aria-hidden="true" className="text-muted-foreground">• </span>
+        <span>{ownText}</span>
+        {nested.map((child, index) => (
+          <OutcomeDocNode key={index} node={child} />
+        ))}
+      </span>
+    );
+  }
+  if (node.type === 'bulletList') {
+    return (
+      <span className="block">
+        {(node.content ?? []).map((child, index) => (
+          <OutcomeDocNode key={index} node={child} />
+        ))}
+      </span>
+    );
+  }
+  return null;
 }
 
 /** Một bảng chương trình: tiêu đề mạch (nếu có) + các dòng Nội dung | Yêu cầu cần đạt. */
@@ -138,7 +224,7 @@ export function ProgramGroupTable({
                       <li key={outcome.id} className="flex flex-wrap items-start gap-2">
                         <span aria-hidden="true" className="text-muted-foreground">–</span>
                         <span className="min-w-0 flex-1">
-                          <OutcomeContent content={outcome.content} />
+                          <OutcomeContent content={outcome.content} contentDoc={outcome.contentDoc} />
                           {outcome.sourceRef ? (
                             <span className="block text-xs text-muted-foreground">
                               {t('curriculumOutcomeSource', { source: outcome.sourceRef })}
