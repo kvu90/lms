@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
 
-/** Communication & Engagement contracts — shared shapes between api, worker-facing payloads and web. */
+/** Contract Giao tiếp & Tương tác — các shape dùng chung giữa api, payload hướng worker và web. */
 
 /* ---- Messaging ---- */
 
@@ -67,7 +67,7 @@ export type LmsMessage = z.infer<typeof messageSchema>;
 
 export const conversationSchema = z.object({
   id: uuidIdSchema,
-  type: z.number().int(), // 1 individual, 2 group
+  type: z.number().int(), // 1 cá nhân, 2 nhóm
   name: z.string().nullable(),
   members: z.array(uuidIdSchema),
   /**
@@ -334,8 +334,8 @@ export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 export const badgeSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
-  type: z.number().int(), // 1 site, 2 course
-  status: z.number().int(), // 0 inactive, 1 active, 2 retired, 3 archived, 4 disabled
+  type: z.number().int(), // 1 site, 2 khoá học
+  status: z.number().int(), // 0 không hoạt động, 1 đang hoạt động, 2 đã nghỉ, 3 đã lưu trữ, 4 đã tắt
 });
 export type Badge = z.infer<typeof badgeSchema>;
 
@@ -352,7 +352,7 @@ export type IssuedBadge = z.infer<typeof issuedBadgeSchema>;
 
 /* ---- Competencies ---- */
 
-export const PLAN_STATUSES = [0, 1, 2, 3, 4] as const; // draft, active, waitingforreview, inreview, complete
+export const PLAN_STATUSES = [0, 1, 2, 3, 4] as const; // các trạng thái: draft, active, waitingforreview, inreview, complete
 export const learningPlanSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
@@ -368,7 +368,7 @@ export const userCompetencySchema = z.object({
   competencyId: uuidIdSchema,
   grade: z.number().int().nullable(),
   proficiency: z.boolean().nullable(),
-  status: z.number().int(), // review: 0 none, 1 waiting, 2 inreview
+  status: z.number().int(), // review: 0 không có, 1 đang chờ, 2 đang review
 });
 export type UserCompetency = z.infer<typeof userCompetencySchema>;
 
@@ -401,7 +401,7 @@ export type RatingAggregate = z.infer<typeof ratingAggregateSchema>;
 
 export const noteSchema = z.object({
   id: uuidIdSchema,
-  userId: uuidIdSchema, // subject user
+  userId: uuidIdSchema, // người dùng chủ thể
   courseId: uuidIdSchema,
   createdBy: uuidIdSchema,
   content: z.string(),

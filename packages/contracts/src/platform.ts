@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { uuidIdSchema } from './ids.js';
 
-/** Platform Services contracts — shapes shared between api and web. */
+/** Contract Dịch vụ nền tảng — các shape dùng chung giữa api và web. */
 
 /* ---- Search ---- */
 export const searchDocumentSchema = z.object({
@@ -14,7 +14,7 @@ export const searchDocumentSchema = z.object({
 });
 export type SearchDocument = z.infer<typeof searchDocumentSchema>;
 
-/* ---- Web Services ---- */
+/* ---- Dịch vụ web ---- */
 export const externalServiceSchema = z.object({
   id: uuidIdSchema,
   name: z.string(),
@@ -266,7 +266,7 @@ export type CreateReport = z.infer<typeof createReportSchema>;
 export const createReportScheduleSchema = z.strictObject({ cron: z.string().optional() });
 export type CreateReportSchedule = z.infer<typeof createReportScheduleSchema>;
 
-/* ---- Event log (logstore) ---- */
+/* ---- Nhật ký sự kiện (logstore) ---- */
 
 /**
  * Bộ lọc truy vấn nhật ký sự kiện (báo cáo "ai đã làm gì"): `userId` là
