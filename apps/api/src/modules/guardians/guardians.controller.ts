@@ -61,13 +61,30 @@ export class GuardianLinksController {
 @ApiTags('guardians')
 @Controller({ path: 'guardian', version: '1' })
 /**
- * Bề mặt đọc chỉ-xem của phụ huynh (PH-0, issue #116 — qua API, chưa có UI;
- * đăng nhập phụ huynh riêng là PH-1): quyền đọc suy từ liên kết giám hộ
- * đang hiệu lực, dữ liệu sau cổng công bố như chính học sinh tự xem, mọi
- * lần xem ghi audit vào event_log.
+ * Bề mặt phụ huynh chỉ-xem (PH-0, issue #116 và PH-1, issue #130):
+ * điểm theo từng bài đã công bố của con trong khoá, tổng quan 4 khối,
+ * kết quả học tập đã công bố theo môn và tuỳ chọn digest của chính
+ * phụ huynh cho con mình.
+ *
+ * Một lớp duy nhất sở hữu tiền tố `guardian`: trước đây hai lớp cùng
+ * khai tiền tố này trong cùng file (lớp xem điểm theo khoá và lớp bề
+ * mặt tổng quan/kết quả/digest). Quyền đọc suy từ liên kết giám hộ
+ * đang hiệu lực, dữ liệu sau cổng công bố như chính học sinh tự xem,
+ * mọi lần xem ghi audit vào event_log. Cổng liên kết trả 404 đồng
+ * nhất khi phụ huynh không có liên kết đang hiệu lực tới học sinh (kể
+ * cả học sinh không tồn tại): không lộ sự tồn tại của dữ liệu người
+ * khác. Đường ghi duy nhất trên bề mặt này là tuỳ chọn digest PH-2 của
+ * CHÍNH phụ huynh cho con mình (dữ liệu của phụ huynh, không phải dữ
+ * liệu của con — cùng ngoại lệ với mốc xem trước của PH-1).
+ *
+ * Bảng route giữ nguyên từng ký tự so với trước khi hợp nhất hai lớp.
  */
-export class GuardianViewsController {
-  constructor(private readonly guardians: GuardiansService) {}
+export class GuardianController {
+  constructor(
+    private readonly guardians: GuardiansService,
+    private readonly view: GuardianViewService,
+    private readonly digests: GuardianDigestService,
+  ) {}
 
   @Get('students/:studentId/courses/:courseId/gradebook')
   /**
@@ -76,24 +93,6 @@ export class GuardianViewsController {
   async gradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.guardians.studentGradebook(actor.id, studentId, courseId);
   }
-}
-
-@ApiTags('guardians')
-@Controller({ path: 'guardian', version: '1' })
-/**
- * Bề mặt phụ huynh chỉ-xem PH-1 (issue #130): tổng quan 4 khối + kết quả
- * học tập đã công bố theo môn cho một con. Cổng liên kết trả 404 đồng
- * nhất khi phụ huynh không có liên kết đang hiệu lực tới học sinh (kể
- * cả học sinh không tồn tại): không lộ sự tồn tại của dữ liệu người
- * khác. Đường ghi duy nhất trên bề mặt này là tuỳ chọn digest PH-2 của
- * CHÍNH phụ huynh cho con mình (dữ liệu của phụ huynh, không phải dữ
- * liệu của con — cùng ngoại lệ với mốc xem trước của PH-1).
- */
-export class GuardianSurfaceController {
-  constructor(
-    private readonly view: GuardianViewService,
-    private readonly digests: GuardianDigestService,
-  ) {}
 
   @Get('students/:studentId/overview')
   /**

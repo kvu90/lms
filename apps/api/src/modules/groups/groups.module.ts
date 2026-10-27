@@ -4,14 +4,14 @@ import { AccessModule } from '../access/access.module';
 import { AvailabilityModule } from '../availability/availability.module';
 import { CoursesModule } from '../courses/courses.module';
 import { TenantsModule } from '../tenants/tenants.module';
-import { CohortsController, CourseGroupsController } from './groups.controller';
+import { CohortsController, CourseGroupingsController, CourseGroupsController } from './groups.controller';
 import { GroupsRepository } from './groups.repository';
 import { GroupsService } from './groups.service';
 
 /** Facade của GroupsModule: GroupsService (groups, groupings, cohorts). Phụ thuộc Courses + Access + registry Availability. */
 @Module({
   imports: [AccessModule, CoursesModule, AvailabilityModule, EventsModule, TenantsModule],
-  controllers: [CourseGroupsController, CohortsController],
+  controllers: [CourseGroupsController, CourseGroupingsController, CohortsController],
   providers: [GroupsRepository, GroupsService],
   exports: [GroupsService],
 })

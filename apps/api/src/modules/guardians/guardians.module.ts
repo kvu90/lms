@@ -6,7 +6,7 @@ import { GradesModule } from '../grades/grades.module';
 import { MessagingModule } from '../messaging/messaging.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
-import { GuardianSurfaceController, GuardianLinksController, GuardianViewsController } from './guardians.controller';
+import { GuardianController, GuardianLinksController } from './guardians.controller';
 import { GuardianDigestConsumer } from './guardian-digest.consumer';
 import { GuardianDigestRepository } from './guardian-digest.repository';
 import { GuardianDigestService } from './guardian-digest.service';
@@ -29,7 +29,7 @@ import { GuardiansService } from './guardians.service';
  */
 @Module({
   imports: [AccessModule, UsersModule, GradesModule, EventsModule, DashboardModule, MessagingModule, TenantsModule],
-  controllers: [GuardianLinksController, GuardianViewsController, GuardianSurfaceController],
+  controllers: [GuardianLinksController, GuardianController],
   providers: [
     GuardiansRepository, GuardiansService, GuardianViewRepository, GuardianViewService,
     GuardianDigestRepository, GuardianDigestService, GuardianDigestConsumer,

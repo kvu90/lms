@@ -7,7 +7,7 @@ import { CurriculumModule } from '../curriculum/curriculum.module';
 import { EnrolModule } from '../enrol/enrol.module';
 import { UsersModule } from '../users/users.module';
 import { GradeItemsController, GradeRecordsController } from './grade-items.controller';
-import { GradesController } from './grades.controller';
+import { CourseGradeExportsController, CourseGradeItemsController, CourseGradebookController } from './grades.controller';
 import { LegacyGradesCourseController, LegacyGradesPhantomController } from './legacy-grades.controller';
 import { GradesRepository } from './grades.repository';
 import { GradesService } from './grades.service';
@@ -21,7 +21,7 @@ import { GradesService } from './grades.service';
   imports: [
     AccessModule, CoursesModule, EnrolModule, CompletionModule, EventsModule, UsersModule, CurriculumModule,
   ],
-  controllers: [GradesController, GradeItemsController, GradeRecordsController, LegacyGradesCourseController, LegacyGradesPhantomController],
+  controllers: [CourseGradeItemsController, CourseGradebookController, CourseGradeExportsController, GradeItemsController, GradeRecordsController, LegacyGradesCourseController, LegacyGradesPhantomController],
   providers: [GradesRepository, GradesService],
   exports: [GradesService],
 })
