@@ -1,9 +1,9 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from './identity-access-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, uniqueName } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from './course-enrolment-helpers';
-import { addExamSlot, createExamDraft, personalExamBankId, pinExam } from './exam-pin-helpers';
+import { addExamSlot, createExamDraft, createReadyQuestion, personalExamBankId, pinExam } from './exam-pin-helpers';
 
 /**
  * Issue #254 — mô hình lai tham chiếu version câu hỏi, đối chiếu 8 tiêu
@@ -22,6 +22,14 @@ import { addExamSlot, createExamDraft, personalExamBankId, pinExam } from './exa
  *  7) float_latest_ready chỉ cho luyện tập (preset regular) — kiểm tra
  *     chính thức bị chặn ở API (exam.version_mode_not_allowed);
  *  8) CI verify xanh — cổng ngoài test này (log CI của PR).
+ *
+ * Bổ sung ở lát S4/S5 của issue #228 (đồng bộ cơ chế ngân hàng):
+ *  3b) định nghĩa "đã có attempt" của quyết định Q2 — lượt đang làm
+ *      dở khoá pin như lượt đã nộp; lượt xem trước của giáo viên
+ *      không khoá;
+ *  9) quyết định Q3 — sao chép khoá mang theo cờ version_mode của
+ *     lần ghim: bản sao của pin float vẫn float, pin pinned vẫn
+ *     pinned.
  */
 describe('Pin version updates + answer-key regrade (issue #254)', () => {
   let app: INestApplication;
@@ -253,6 +261,40 @@ describe('Pin version updates + answer-key regrade (issue #254)', () => {
     expect(patch.body.code).toBe('exam.pin_locked');
   });
 
+  it('(3b) định nghĩa "đã có attempt" (quyết định Q2, issue #228): lượt ĐANG LÀM DỞ cũng khoá pin — lượt XEM TRƯỚC của giáo viên thì không', async () => {
+    const ctx = await setup();
+    const q = await createQuestion(ctx.teacher, 'q2-lock-q');
+    const draft = await createExamDraft(app, ctx.teacher, 'Đề Q2 khoá theo lượt');
+    await addExamSlot(app, ctx.teacher, draft, { questionId: q.questionId, maxMark: 1 });
+    const pin = await pinExam(app, ctx.teacher, ctx.courseId, draft, { sectionId: ctx.sectionId });
+    const pinId = pin.id as string;
+
+    // Lượt XEM TRƯỚC của giáo viên (preview: true) không phải lượt
+    // làm thật: sau khi xem trước, cập nhật version của pin vẫn đi
+    // được — điều kiện kiểm tra không bị khoá bởi hành vi của chính
+    // giáo viên.
+    const previewStart = await http(app).post(`/api/v1/exam-pins/${pinId}/attempts`).set(bearer(ctx.teacher)).send({ preview: true });
+    expect([200, 201], JSON.stringify(previewStart.body)).toContain(previewStart.status);
+    const v2 = await setExamSlots(ctx.teacher, draft.examId, [{ questionId: q.questionId, maxMark: 2 }]);
+    const applyAfterPreview = await http(app).post(`/api/v1/exam-pins/${pinId}/version-update`).set(bearer(ctx.teacher))
+      .send({ toExamVersionId: v2.version.id });
+    expect(applyAfterPreview.status === 200 || applyAfterPreview.status === 201, JSON.stringify(applyAfterPreview.body)).toBe(true);
+
+    // Lượt làm THẬT đang dở (học sinh bắt đầu, chưa trả lời/chưa
+    // nộp): điều kiện kiểm tra phải đứng yên từ lúc học sinh đầu
+    // tiên bắt đầu làm → pin bị khoá như đã có lượt nộp.
+    const start = await http(app).post(`/api/v1/exam-pins/${pinId}/attempts`).set(bearer(ctx.students[0]!.token)).send({});
+    expect([200, 201], JSON.stringify(start.body)).toContain(start.status);
+    expect((start.body as AttemptViewBody).attempt.state).not.toBe('finished');
+    const v3 = await setExamSlots(ctx.teacher, draft.examId, [{ questionId: q.questionId, maxMark: 3 }]);
+    const preview2 = await http(app).get(`/api/v1/exam-pins/${pinId}/version-update`).set(bearer(ctx.teacher));
+    expect(preview2.body.blockedByAttempts).toBe(true);
+    const apply = await http(app).post(`/api/v1/exam-pins/${pinId}/version-update`).set(bearer(ctx.teacher))
+      .send({ toExamVersionId: v3.version.id });
+    expect(apply.status).toBe(400);
+    expect(apply.body.code).toBe('exam.pin_locked');
+  });
+
   it('(4)+(5) hai học sinh cùng cửa sổ thấy cùng version; attempt đã có giữ nguyên version và điểm sau khi câu được sửa', async () => {
     const ctx = await setup(3);
     const q = await createQuestion(ctx.teacher, 'frozen-q');
@@ -407,5 +449,40 @@ describe('Pin version updates + answer-key regrade (issue #254)', () => {
     const late = await finishAttemptChoosing(ctx.students[1]!.token, floatPin2Id, 'Đáp án A');
     expect(await pinnedQuestionVersionOf(late.attempt.id)).toBe(v2);
     expect(await pinnedQuestionVersionOf(early.attempt.id)).toBe(q.versionId);
+  });
+
+  it('(9) sao chép khoá mang theo cờ version_mode (Q3, issue #228): pin float vẫn float, pin pinned vẫn pinned', async () => {
+    const cat = await createCategory(app, admin);
+    const course = await createCourse(app, admin, cat.id, { startDate: '2026-03-02', endDate: '2026-05-30' });
+    const sectionId = await getFirstSectionId(app, admin, course.id);
+    const q = await createReadyQuestion(app, admin, 'Q3 câu sao chép');
+    const draft = await createExamDraft(app, admin, 'Đề Q3 sao chép');
+    await addExamSlot(app, admin, draft, { questionId: q, maxMark: 1 });
+    const ready = await http(app).post(`/api/v1/exams/${draft.examId}/status`).set(bearer(admin)).send({ status: 'ready' });
+    expect(ready.status, JSON.stringify(ready.body)).toBe(201);
+
+    const floatPin = await http(app).post(`/api/v1/courses/${course.id}/exam-pins`).set(bearer(admin))
+      .send({ sectionId, examId: draft.examId, preset: 'regular', versionMode: 'float_latest_ready' });
+    expect(floatPin.status, JSON.stringify(floatPin.body)).toBe(201);
+    expect(floatPin.body.versionMode).toBe('float_latest_ready');
+    const pinnedPin = await http(app).post(`/api/v1/courses/${course.id}/exam-pins`).set(bearer(admin))
+      .send({ sectionId, examId: draft.examId });
+    expect(pinnedPin.status, JSON.stringify(pinnedPin.body)).toBe(201);
+    expect(pinnedPin.body.versionMode).toBe('pinned');
+
+    const dup = await http(app).post(`/api/v1/courses/${course.id}/duplicate`).set(bearer(admin))
+      .send({ fullName: 'Bản sao khoá Q3', shortName: uniqueName('q3copy'), startDate: '2026-09-07' });
+    expect(dup.status, JSON.stringify(dup.body)).toBe(201);
+
+    const copied = await http(app).get(`/api/v1/courses/${dup.body.id}/exam-pins`).set(bearer(admin));
+    expect(copied.body).toHaveLength(2);
+    const modes: string[] = [];
+    for (const p of copied.body as { id: string }[]) {
+      // Pin của bản sao là pin MỚI (không dùng chung id với pin gốc).
+      expect([floatPin.body.id, pinnedPin.body.id]).not.toContain(p.id);
+      const detail = await http(app).get(`/api/v1/exam-pins/${p.id}`).set(bearer(admin));
+      modes.push(detail.body.quiz.versionMode as string);
+    }
+    expect(modes.sort()).toEqual(['float_latest_ready', 'pinned']);
   });
 });

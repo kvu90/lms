@@ -1093,6 +1093,14 @@ export const examMatrixViewSchema = z.object({
   status: z.enum(['draft', 'ready', 'hidden']),
   isTemplate: z.boolean(),
   derivedFromMatrixId: uuidIdSchema.nullable(),
+  /** Truy vết copy theo khuôn câu hỏi: bank nguồn tại thời điểm copy, tác giả gốc (giữ nguyên qua các đời copy) và số lượt đã được copy đi. */
+  derivedFromBankId: uuidIdSchema.nullable(),
+  originalAuthorId: uuidIdSchema.nullable(),
+  copyCount: z.number().int(),
+  /** Truy vết lần rút khỏi ngân hàng gần nhất (ngang hàng câu hỏi và đề): lý do + người rút + thời điểm; cả ba null khi ma trận chưa bị rút hoặc đã khôi phục. */
+  withdrawnReason: z.string().nullable(),
+  withdrawnBy: uuidIdSchema.nullable(),
+  withdrawnAt: z.string().nullable(),
   version: z.number().int(),
   cells: z.array(examMatrixCellViewSchema),
   warnings: z.array(z.string()),
@@ -1184,7 +1192,7 @@ export const rejectMatrixContributionSchema = z.strictObject({
 });
 export type RejectMatrixContribution = z.infer<typeof rejectMatrixContributionSchema>;
 
-/** Một dòng hàng chờ đóng góp ma trận (MB-1): truy vết người đóng góp + kết quả duyệt. */
+/** Một dòng hàng chờ đóng góp ma trận (MB-1): truy vết người đóng góp + kết quả duyệt + vết chống trùng (hash nội dung ma trận nguồn tại lúc đề xuất và ma trận trùng nội dung trong bank đích nếu có). */
 export const examMatrixContributionViewSchema = z.object({
   id: uuidIdSchema,
   matrixId: uuidIdSchema,
@@ -1193,6 +1201,10 @@ export const examMatrixContributionViewSchema = z.object({
   proposerId: uuidIdSchema,
   proposerName: z.string().nullable(),
   note: z.string(),
+  /** Hash nội dung (cấu hình + toàn bộ ô đã sắp) của ma trận nguồn tại lúc đề xuất — căn cứ chống trùng trong bank đích, ngang hàng đề và câu hỏi. */
+  contentHash: z.string(),
+  /** Ma trận trong bank đích có cùng contentHash tại lúc đề xuất (gợi ý trùng cho người duyệt); null khi không có. */
+  nearDuplicateOf: uuidIdSchema.nullable(),
   status: z.enum(['pending', 'approved', 'rejected']),
   rejectReason: z.string().nullable(),
   reviewerId: uuidIdSchema.nullable(),
@@ -1860,12 +1872,45 @@ export const copyExamSchema = z.strictObject({
 });
 export type CopyExam = z.infer<typeof copyExamSchema>;
 
-/** Payload đề xuất đóng góp một đề vào bank đích (khuôn QB-4, chỉ mode 'new': duyệt đạt thì deep copy vào bank đích). */
+/**
+ * Payload đề xuất đóng góp một đề vào bank đích — ĐƯỜNG ĐÓNG GÓP DUY
+ * NHẤT của đề, nâng lên khuôn QB-4 đầy đủ của câu hỏi:
+ *
+ * - `mode` = 'new' (mặc định khi không gửi): duyệt đạt thì deep copy
+ *   đề vào bank đích (danh tính mới, derived_from trỏ về đề nguồn).
+ * - `mode` = 'update': BẮT BUỘC `targetExamId` — đề đã có trong bank
+ *   đích mà đề nguồn là bản sao suy từ nó (tầng service kiểm liên
+ *   kết derived_from, phá luật trả 400 `exam.contribution_not_derived`;
+ *   thiếu targetExamId trả 400 `exam.contribution_target_required`);
+ *   duyệt đạt thì tạo VERSION MỚI trên chính danh tính đề đích.
+ * - `withDossier` = true: đóng góp mang theo BỘ HỒ SƠ đã ghim tại lúc
+ *   đề xuất (version đề + version ma trận + bản đặc tả) — thành phần
+ *   hấp thụ từ đường hồ sơ cũ; đề phải có ma trận kèm version hiện
+ *   tại, không có trả 400 `exam.contribution_dossier_requires_matrix`.
+ *   Đóng góp có bộ hồ sơ + tenant của bank đích bật cấu hình
+ *   `exam/requireboardapproval` thì duyệt cấp 1 chỉ đưa đóng góp
+ *   sang trạng thái `pending_board` chờ cấp duyệt 2 (ban giám hiệu).
+ */
 export const createExamContributionSchema = z.strictObject({
   examId: uuidIdSchema,
   note: z.string().optional(),
+  mode: z.enum(['new', 'update']).optional(),
+  targetExamId: uuidIdSchema.optional(),
+  withDossier: z.boolean().optional(),
 });
 export type CreateExamContribution = z.infer<typeof createExamContributionSchema>;
+
+/** Payload rút một đề khỏi ngân hàng: lý do BẮT BUỘC (chuỗi toàn khoảng trắng không tính là lý do) — ngang hàng payload rút câu hỏi của QB-3. */
+export const withdrawExamSchema = z.strictObject({
+  reason: z.string().trim().min(1),
+});
+export type WithdrawExam = z.infer<typeof withdrawExamSchema>;
+
+/** Payload rút một ma trận khỏi ngân hàng: lý do BẮT BUỘC (chuỗi toàn khoảng trắng không tính là lý do) — ngang hàng payload rút câu hỏi của QB-3. */
+export const withdrawExamMatrixSchema = z.strictObject({
+  reason: z.string().trim().min(1),
+});
+export type WithdrawExamMatrix = z.infer<typeof withdrawExamMatrixSchema>;
 
 /** Payload duyệt đề xuất đóng góp đề (không tham số — bản copy vào bank đích mang tên + truy vết của đề nguồn). */
 export const approveExamContributionSchema = z.strictObject({});
@@ -2149,6 +2194,8 @@ export const examDossierViewSchema = z.object({
   matrixId: z.string().nullable(),
   matrixName: z.string().nullable(),
   matrixVersion: z.number().nullable(),
+  /** Id của hàng version bất biến của ma trận đã neo tại lúc nộp (căn cứ lịch sử của bộ hồ sơ); null khi bộ chưa nộp hoặc ma trận chưa có version bất biến tại thời điểm nộp. */
+  matrixVersionId: z.string().nullable(),
   /** Cấu hình cấp duyệt 2 (BGH) hiệu lực tại lúc đọc — khi true và bộ đang `pending`, duyệt cấp 1 chỉ đưa bộ sang `pending_board`. */
   boardApprovalRequired: z.boolean(),
   resultExamId: z.string().nullable(),

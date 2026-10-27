@@ -268,6 +268,124 @@ describe('Learning plan page — competency administration', () => {
 });
 
 /**
+ * Khu quản trị năng lực sau khi chuyển khuôn TanStack Query (lượt
+ * riêng cuối của F-01 trong #133): các khẳng định ở đây khoá phần cơ
+ * chế mới mà các ca trên chưa phủ — đột biến tạo framework phải làm
+ * mới danh sách qua invalidate (framework mới hiện ngay không cần tải
+ * lại trang), lỗi tải danh sách framework phải hiện đúng thông báo
+ * lỗi của khu quản trị, và thao tác duyệt phải làm mới cả hai danh
+ * sách của hàng đợi.
+ */
+describe('Learning plan page — competency administration (TanStack Query conversion)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  /**
+   * Stub có trạng thái cho khu quản trị: danh sách framework rỗng cho
+   * tới khi POST tạo thành công thì GET trả về framework vừa tạo;
+   * tuỳ chọn `failFrameworks` làm GET danh sách framework trả 500.
+   */
+  function stubFetchAdminState(calls: RecordedCall[], opts: { failFrameworks?: boolean } = {}) {
+    let created = false;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        const respond = (body: unknown, status = 200) =>
+          new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url))
+          return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+        if (url === '/api/v1/users/me') return respond(PROFILE);
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/users?pageSize=1') return respond({ users: [PROFILE], total: 1, page: 1, pageSize: 1 });
+        if (url === '/api/v1/users?page=1&pageSize=50')
+          return respond({ users: [LEARNER], total: 1, page: 1, pageSize: 50 });
+        if (url === '/api/v1/access/roles') return respond([]);
+        if (url === '/api/v1/questions/categories') return respond([]);
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/competencies/frameworks' && method === 'GET') {
+          if (opts.failFrameworks) {
+            return respond(
+              { type: 'about:blank', title: 'Server Error', status: 500, code: 'server.error', detail: 'boom' },
+              500,
+            );
+          }
+          return respond(created ? [FW_ROW] : []);
+        }
+        if (url === '/api/v1/competencies/frameworks' && method === 'POST') {
+          created = true;
+          return respond(FW_ROW);
+        }
+        if (url === '/api/v1/competencies/templates') return respond([]);
+        if (url === `/api/v1/competencies/plans/user/${ADMIN_ID}`) return respond([]);
+        if (url === `/api/v1/competencies/plans/user/${LEARNER_ID}`) {
+          return respond([{ id: PLAN_ID, name: 'Plan chờ duyệt', status: 3, templateId: null, userId: LEARNER_ID }]);
+        }
+        if (url === `/api/v1/competencies/usercomp/user/${LEARNER_ID}`) return respond([]);
+        if (url === `/api/v1/competencies/plans/${PLAN_ID}/approve` && method === 'POST') {
+          return respond({ id: PLAN_ID, name: 'Plan chờ duyệt', status: 1, templateId: null, userId: LEARNER_ID });
+        }
+        return respond({}, 404);
+      }),
+    );
+  }
+
+  it('shows the newly created framework in the list via mutation invalidation, without a page reload', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchAdminState(calls);
+    renderPage();
+
+    expect(await screen.findByText('Chưa có framework nào.')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Tên ngắn của framework'), 'FW1');
+    await userEvent.type(screen.getByLabelText(/Các mức thang đánh giá/), 'Chưa đạt, Đạt');
+    await userEvent.type(screen.getByLabelText(/Chỉ số các mức được coi là đạt/), '1');
+    await userEvent.click(screen.getByRole('button', { name: 'Tạo framework' }));
+
+    // Hàng framework mới chỉ có thể hiện nếu danh sách được nạp lại sau đột biến.
+    expect(await screen.findByRole('button', { name: 'Xem competency' })).toBeInTheDocument();
+    const frameworkGets = calls.filter((c) => c.url === '/api/v1/competencies/frameworks' && c.method === 'GET');
+    expect(frameworkGets.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('shows the admin load error message when the framework list fails to load', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchAdminState(calls, { failFrameworks: true });
+    renderPage();
+
+    expect(await screen.findByText('Không tải được dữ liệu quản lý năng lực.')).toBeInTheDocument();
+  });
+
+  it('refetches both review queue lists after a review action', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetchAdminState(calls);
+    renderPage();
+
+    await userEvent.type(await screen.findByLabelText('ID người dùng cần duyệt'), LEARNER_ID);
+    await userEvent.click(screen.getByRole('button', { name: 'Tải hàng đợi duyệt' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Duyệt kế hoạch' }));
+
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.url === `/api/v1/competencies/plans/${PLAN_ID}/approve` && c.method === 'POST'),
+      ).toHaveLength(1),
+    );
+    await waitFor(() =>
+      expect(calls.filter((c) => c.url === `/api/v1/competencies/plans/user/${LEARNER_ID}` && c.method === 'GET').length).toBeGreaterThanOrEqual(2),
+    );
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.url === `/api/v1/competencies/usercomp/user/${LEARNER_ID}` && c.method === 'GET').length,
+      ).toBeGreaterThanOrEqual(2),
+    );
+  });
+});
+
+/**
  * Phần NGƯỜI HỌC của trang kế hoạch sau khi chuyển khuôn TanStack
  * Query (F-01 của #133): danh sách kế hoạch của chính người dùng hiện
  * đúng trạng thái, mở xem được chi tiết năng lực, yêu cầu duyệt cả kế

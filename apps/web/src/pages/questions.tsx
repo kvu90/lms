@@ -45,7 +45,6 @@ import {
   useCopyExamPaper,
   useCopyMatrixToMyBank,
   useCopyQuestionToMyBank,
-  useCreateExamDossier,
   useCreateQuestionCategory,
   useCreateQuestionUsage,
   useCreateStimulus,
@@ -56,19 +55,18 @@ import {
   useDeployExamPin,
   useFinishQuestionUsage,
   useFinishUsageAttempt,
+  useProposeExamDossierContribution,
   useProposeExamPaperContribution,
   useProposeMatrixContribution,
   useProposeQuestionContribution,
   useQuestionUsage,
   useRestoreQuestion,
-  useReviewExamDossier,
   useReviewExamPaperContribution,
   useReviewMatrixContribution,
   useReviewQuestionContribution,
   useSetExamPaperStatus,
   useStartQuestionUsage,
   useStartUsageAttempt,
-  useSubmitExamDossier,
   useSubmitUsageAttempt,
   useUpdateStimulus,
   useWithdrawQuestion,
@@ -91,7 +89,6 @@ import {
   type DiscoveryItemLite,
   type DossierSpecLite,
   type ExamContributionLite,
-  type ExamDossierLite,
   type MatrixContributionLite,
   type MatrixLite,
   type PaperSummaryLite,
@@ -332,20 +329,41 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const examBanks = useQuestionBanks('exam').data ?? [];
   const [systemExamBankId, setSystemExamBankId] = useState('');
   const systemPapers = useBankExams(systemExamBankId || undefined).data ?? [];
-  const paperContributions = (useBankExamContributions(systemExamBankId).data ?? []).filter(
-    (c) => c.status === 'pending',
+  // Hàng chờ ĐÓNG GÓP đề của bank đang chọn — ĐƯỜNG ĐÓNG GÓP DUY NHẤT
+  // của đề (S4/Q4 của issue #228): cả hai trạng thái chờ đều hành động
+  // được ngay tại hàng chờ (pending = chờ duyệt cấp 1; pending_board =
+  // chờ duyệt cấp 2 ban giám hiệu, chỉ có ở đóng góp kèm bộ hồ sơ khi
+  // tenant bật cấp duyệt 2). Đóng góp CHUYỂN ĐỔI từ hồ sơ treo mang
+  // `sourceDossierId` và được duyệt ngay tại hàng chờ hồ sơ (bề mặt
+  // hiển thị của chúng) nên không lặp lại ở đây.
+  const examContributions = useBankExamContributions(systemExamBankId).data ?? [];
+  const paperContributions = examContributions.filter(
+    (c) => !c.sourceDossierId && (c.status === 'pending' || c.status === 'pending_board'),
+  );
+  /** Neo hồ sơ gốc → đóng góp đã chuyển đổi từ hồ sơ đó (khoá thao tác duyệt của hàng chờ hồ sơ). */
+  const contributionBySourceDossierId = new Map(
+    examContributions.filter((c) => c.sourceDossierId).map((c) => [c.sourceDossierId!, c]),
   );
   const [proposePaperId, setProposePaperId] = useState('');
   const [proposePaperBankId, setProposePaperBankId] = useState('');
   // Bộ hồ sơ đề (EB-3, issue #165): hàng chờ của bank đích đang chọn,
   // danh sách bộ của chính giáo viên, form nộp bộ và bản đặc tả đang mở.
-  const bankDossiers = (useBankDossiers(systemExamBankId).data ?? []).filter(
-    (d) => d.status === 'pending' || d.status === 'pending_board',
-  );
+  // Sau Q4 bề mặt hồ sơ là CHỈ-ĐỌC (lịch sử): hàng chờ chỉ còn các bộ
+  // đang chờ mà đóng góp liên kết (nếu đã chuyển đổi) cũng đang chờ —
+  // bộ đã có kết quả duyệt ở phía đóng góp thì rời hàng chờ.
+  const bankDossiers = (useBankDossiers(systemExamBankId).data ?? []).filter((d) => {
+    if (d.status !== 'pending' && d.status !== 'pending_board') return false;
+    const linked = contributionBySourceDossierId.get(d.id);
+    return !linked || linked.status === 'pending' || linked.status === 'pending_board';
+  });
   const myDossiers = useMyDossiers().data ?? [];
   const [dossierPaperId, setDossierPaperId] = useState('');
   const [dossierBankId, setDossierBankId] = useState('');
   const [openDossierSpec, setOpenDossierSpec] = useState<{ dossierId: string; spec: DossierSpecLite } | null>(null);
+  // Bản đặc tả đang mở của một ĐÓNG GÓP kèm hồ sơ: đặc tả đã chụp nằm
+  // ngay trong payload đóng góp (dossierSpecSnapshot) nên mở tại chỗ,
+  // không gọi thêm endpoint như bề mặt hồ sơ lịch sử.
+  const [openContributionSpec, setOpenContributionSpec] = useState<{ contributionId: string; spec: DossierSpecLite } | null>(null);
   const [deployPaper, setDeployPaper] = useState<PaperSummaryLite | null>(null);
   const deployCourses = useQuery({ ...coursesListQueryOptions(), enabled: !!deployPaper }).data ?? [];
   const [deployCourseId, setDeployCourseId] = useState('');
@@ -473,7 +491,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
   const subjectName = (subjectId: string) => subjects.find((s) => s.id === subjectId)?.name ?? '';
   const matrixStatusKey = (status: string) => `matrixStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
-  /** Khoá i18n cho trạng thái bộ hồ sơ (EB-3): pending_board là khoá ghép riêng. */
+  /** Khoá i18n cho trạng thái chờ duyệt (EB-3): từ vựng trạng thái của hồ sơ và của đóng góp đề là một (pending/pending_board/approved/rejected) nên dùng chung — pending_board là khoá ghép riêng. */
   const dossierStatusKey = (status: string) =>
     status === 'pending_board'
       ? 'dossierStatusPendingBoard'
@@ -500,9 +518,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const deleteMatrixMutation = useDeleteMatrix();
   const proposeMatrixMutation = useProposeMatrixContribution();
   const reviewMatrixContributionMutation = useReviewMatrixContribution();
-  const createDossierMutation = useCreateExamDossier();
-  const submitDossierMutation = useSubmitExamDossier();
-  const reviewDossierMutation = useReviewExamDossier();
+  const proposeDossierContributionMutation = useProposeExamDossierContribution();
   const copyPaperMutation = useCopyExamPaper();
   const paperStatusMutation = useSetExamPaperStatus();
   const deletePaperMutation = useDeleteExamPaper();
@@ -555,37 +571,72 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.categoryStimuli(qCategory) });
   };
 
-  /** Nộp một BỘ HỒ SƠ: lập hồ sơ cho đề ready có ma trận rồi nộp ngay (ghim version + chụp đặc tả ở phía API). */
+  /**
+   * Nộp một BỘ HỒ SƠ: từ S4/Q4 (issue #228) bộ hồ sơ không còn là
+   * đường riêng — thao tác này là ĐỀ XUẤT ĐÓNG GÓP kèm bộ hồ sơ đính
+   * kèm (`withDossier: true`) trên ĐƯỜNG ĐÓNG GÓP DUY NHẤT của đề.
+   * Phía API ghim bộ ba (version đề + version ma trận + bản đặc tả)
+   * tại đúng lúc đề xuất và tính chống trùng như mọi đóng góp; duyệt
+   * hai cấp đi theo trạng thái của chính đóng góp (`pending` →
+   * `pending_board` khi tenant của bank đích bật cấp duyệt 2).
+   */
   async function proposeDossier() {
     if (!dossierPaperId || !dossierBankId) return;
     try {
-      const created = await createDossierMutation.mutateAsync({
-        paperId: dossierPaperId,
-        targetBankId: dossierBankId,
-      });
-      await submitDossierMutation.mutateAsync(created.id);
+      await proposeDossierContributionMutation.mutateAsync({ bankId: dossierBankId, examId: dossierPaperId });
       setMessage(t('dossierProposedOk'));
+      // Đóng góp mới thuộc hàng chờ của bank đích: làm tươi đúng cụm
+      // khoá của bank đích (hàng đóng góp + bề mặt hồ sơ lịch sử).
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bankExamContributions(dossierBankId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.bankDossiers(dossierBankId) });
       refreshMyDossiers();
-      if (systemExamBankId) refreshSystemPapers(systemExamBankId);
     } catch (err) {
       setMessage(withApiReason(t('dossierFailed'), err));
     }
   }
 
-  /** Một mốc duyệt của bộ hồ sơ: cấp 1 (approve/reject) hoặc cấp 2 BGH (board-approve/board-reject); từ chối bắt buộc lý do. */
+  /**
+   * Một mốc duyệt tại hàng chờ BỘ HỒ SƠ: hồ sơ là bề mặt CHỈ-ĐỌC
+   * (lịch sử) — thao tác duyệt thật đi trên ĐÓNG GÓP đã chuyển đổi từ
+   * chính hồ sơ đó, nối bằng `sourceDossierId` (đợt chuyển đổi hồ sơ
+   * treo của Q4); cấp do trạng thái đóng góp quyết định: `pending` →
+   * cấp 1 (approve/reject), `pending_board` → cấp 2 BGH
+   * (board-approve/board-reject); từ chối bắt buộc lý do. Hồ sơ chưa
+   * có đóng góp liên kết (chưa qua đợt chuyển đổi) thì không còn thao
+   * tác ghi nào — đường ghi hồ sơ đã đóng (API trả 410).
+   */
   async function reviewDossier(dossierId: string, action: 'approve' | 'reject' | 'board-approve' | 'board-reject') {
+    const contribution = contributionBySourceDossierId.get(dossierId);
+    if (!contribution || !systemExamBankId) return;
     try {
       if (action === 'approve' || action === 'board-approve') {
-        await reviewDossierMutation.mutateAsync({ dossierId, action });
+        await reviewPaperContributionMutation.mutateAsync({
+          bankId: systemExamBankId,
+          contributionId: contribution.id,
+          action,
+        });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await reviewDossierMutation.mutateAsync({ dossierId, action, reason });
+        await reviewPaperContributionMutation.mutateAsync({
+          bankId: systemExamBankId,
+          contributionId: contribution.id,
+          action,
+          reason,
+        });
       }
       if (systemExamBankId) refreshSystemPapers(systemExamBankId);
       refreshMyDossiers();
     } catch (err) {
       setMessage(withApiReason(t('dossierFailed'), err));
+    }
+  }
+
+  /** Mở/đóng bản đặc tả ĐÃ CHỤP của một đóng góp kèm hồ sơ ngay trong hàng chờ đóng góp (đặc tả nằm sẵn trong payload đóng góp). */
+  function toggleContributionSpec(contribution: ExamContributionLite) {
+    if (openContributionSpec?.contributionId === contribution.id) { setOpenContributionSpec(null); return; }
+    if (contribution.dossierSpecSnapshot) {
+      setOpenContributionSpec({ contributionId: contribution.id, spec: contribution.dossierSpecSnapshot });
     }
   }
 
@@ -649,7 +700,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
-  /** Đề xuất một đề của tôi lên bank đề chung (khuôn QB-4 cho đơn vị đề). */
+  /** Đề xuất một đề của tôi lên bank đề chung (khuôn QB-4 cho đơn vị đề; trường định danh theo hợp đồng là `examId`). */
   async function proposePaper() {
     if (!proposePaperId || !proposePaperBankId) return;
     try {
@@ -660,15 +711,25 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
-  /** Duyệt / từ chối một đề xuất đóng góp đề (người duyệt của bank đích). */
-  async function reviewPaperContribution(bankId: string, contributionId: string, approve: boolean) {
+  /**
+   * Một mốc duyệt của một đề xuất đóng góp đề tại bank đích: cấp 1
+   * (approve/reject khi đóng góp `pending`) hoặc cấp 2 ban giám hiệu
+   * (board-approve/board-reject khi đóng góp `pending_board` — chỉ
+   * đóng góp kèm bộ hồ sơ mới lên được trạng thái này); từ chối ở cả
+   * hai cấp đều bắt buộc lý do.
+   */
+  async function reviewPaperContribution(
+    bankId: string,
+    contributionId: string,
+    action: 'approve' | 'reject' | 'board-approve' | 'board-reject',
+  ) {
     try {
-      if (approve) {
-        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, approve: true });
+      if (action === 'approve' || action === 'board-approve') {
+        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, action });
       } else {
         const reason = window.prompt(t('contributionReject')) ?? '';
         if (!reason.trim()) return;
-        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, approve: false, reason });
+        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, action, reason });
       }
       refreshSystemPapers(bankId);
     } catch (err) {
@@ -1093,7 +1154,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                 personalMatrixBank như nút Ma trận mới — đường ghi I-2
                 tự tạo lười bank ma trận cá nhân (ensurePersonalBank)
                 nên giáo viên chưa có bank vẫn nhập được; cổng quyền
-                thật nằm ở API (quiz:managematrix tại môn) và ở trang
+                thật nằm ở API (matrix:add tại môn) và ở trang
                 import (canUseQuestionBank), không giấu nút ở đây.
               */}
               <Button type="button" variant="outline" onClick={() => navigate('/matrices/import')}>
@@ -1456,8 +1517,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
               </div>
             ) : null}
             {/* Nộp BỘ HỒ SƠ (EB-3): đề ready CÓ ma trận nộp theo cả bộ
-                (ma trận + đề + đặc tả) vào bank tổ/trường; trạng thái và
-                lý do từ chối theo dõi ngay dưới đây. */}
+                (ma trận + đề + đặc tả) vào bank tổ/trường. Từ S4/Q4
+                thao tác này là đề xuất ĐÓNG GÓP kèm bộ hồ sơ đính kèm
+                trên đường đóng góp duy nhất (xem proposeDossier);
+                trạng thái và lý do từ chối theo dõi ở hàng chờ đóng
+                góp/hồ sơ của bank đích và danh sách lịch sử dưới đây. */}
             {sharedExamBanks.length > 0 && myPapers.length > 0 ? (
               <div className="space-y-2">
                 <div className="flex flex-wrap items-end gap-2">
@@ -1514,13 +1578,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                     return (
                       <li key={d.id} className="flex flex-wrap items-center gap-2" data-testid="my-dossier-row">
                         <span className="min-w-0 flex-1">
-                          {d.paperName ?? d.paperId}
+                          {d.examName ?? d.examId}
                           <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
                             {t(dossierStatusKey(d.status))}
                           </span>
-                          {d.paperVersionNumber !== null ? (
+                          {d.examVersionNumber !== null ? (
                             <span className="ml-2 text-xs text-muted-foreground">
-                              {t('dossierPinned', { paperVersion: d.paperVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}
+                              {t('dossierPinned', { paperVersion: d.examVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}
                             </span>
                           ) : null}
                           {d.status === 'rejected' && rejection?.reason ? (
@@ -1734,46 +1798,118 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                   <h4 className="font-medium">{t('examContributionQueue')}</h4>
                   <ul className="space-y-2">
                     {paperContributions.map((c) => (
-                      <li key={c.id} className="flex flex-wrap items-center gap-2">
-                        <span className="min-w-0 flex-1">{c.paperName ?? c.paperId}</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void reviewPaperContribution(systemExamBankId, c.id, true)}
-                        >
-                          {t('contributionApprove')}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void reviewPaperContribution(systemExamBankId, c.id, false)}
-                        >
-                          {t('contributionReject')}
-                        </Button>
+                      <li key={c.id} className="space-y-1" data-testid="exam-contribution-row">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="min-w-0 flex-1">
+                            {c.paperName ?? c.examId}
+                            {c.status === 'pending_board' ? (
+                              <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
+                                {t(dossierStatusKey(c.status))}
+                              </span>
+                            ) : null}
+                            {c.dossierExamVersionNumber !== null ? (
+                              <span className="block text-xs text-muted-foreground">
+                                {t('dossierPinned', { paperVersion: c.dossierExamVersionNumber, matrixVersion: c.dossierMatrixVersion ?? '—' })}
+                              </span>
+                            ) : null}
+                          </span>
+                          {c.dossierSpecSnapshot ? (
+                            <Button type="button" variant="outline" onClick={() => toggleContributionSpec(c)}>
+                              {t('dossierViewSpec')}
+                            </Button>
+                          ) : null}
+                          {c.status === 'pending_board' ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'board-approve')}
+                              >
+                                {t('dossierBoardApprove')}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'board-reject')}
+                              >
+                                {t('dossierBoardReject')}
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'approve')}
+                              >
+                                {t('contributionApprove')}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'reject')}
+                              >
+                                {t('contributionReject')}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {openContributionSpec?.contributionId === c.id ? (
+                          <div className="rounded-md border p-3 text-sm" data-testid="contribution-spec-panel">
+                            <p className="font-medium">
+                              {t('dossierSpecTotals', {
+                                count: openContributionSpec.spec.totals.totalQuestions,
+                                score: openContributionSpec.spec.totals.totalScore,
+                              })}
+                            </p>
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                              {openContributionSpec.spec.topics.flatMap((topic) =>
+                                topic.nodes.flatMap((node) =>
+                                  node.outcomes.flatMap((outcome) =>
+                                    outcome.cells.map((cell, idx) => (
+                                      <li key={idx}>
+                                        {cell.cognitiveLevel} · {cell.questionCount} · {cell.cellScore}
+                                        {cell.slotNumbers?.length
+                                          ? ` · ${t('dossierSpecSlots', { slots: cell.slotNumbers.join(', ') })}`
+                                          : ''}
+                                      </li>
+                                    )),
+                                  ),
+                                ),
+                              )}
+                            </ul>
+                          </div>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
                 </div>
               ) : null}
-              {/* Hàng chờ BỘ HỒ SƠ (EB-3): người duyệt mở bản đặc tả đã
-                  chụp ngay tại hàng chờ; cấp 1 duyệt ở bank đích, cấp 2
-                  (BGH) chỉ xuất hiện khi bộ ở trạng thái chờ BGH. */}
+              {/* Hàng chờ BỘ HỒ SƠ (EB-3): bề mặt ĐỌC lịch sử của các
+                  bộ đã nộp theo đường hồ sơ cũ — người duyệt mở bản
+                  đặc tả đã chụp ngay tại hàng chờ. Thao tác DUYỆT đi
+                  trên đóng góp đã chuyển đổi từ chính bộ hồ sơ (nối
+                  bằng sourceDossierId): cấp 1 khi đóng góp `pending`,
+                  cấp 2 (BGH) khi đóng góp `pending_board`; bộ chưa có
+                  đóng góp liên kết thì chỉ còn xem/tải đặc tả. */}
               {systemExamBankId && bankDossiers.length > 0 ? (
                 <div className="space-y-2">
                   <h4 className="font-medium">{t('dossierQueue')}</h4>
                   <ul className="space-y-2">
-                    {bankDossiers.map((d) => (
+                    {bankDossiers.map((d) => {
+                      const linkedContribution = contributionBySourceDossierId.get(d.id);
+                      return (
                       <li key={d.id} className="space-y-1" data-testid="dossier-queue-row">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="min-w-0 flex-1">
-                            {d.paperName ?? d.paperId}
+                            {d.examName ?? d.examId}
                             <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
                               {t(dossierStatusKey(d.status))}
                             </span>
                             <span className="block text-xs text-muted-foreground">
                               {t('contributionBy', { name: d.proposerName ?? '—' })}
-                              {d.paperVersionNumber !== null
-                                ? ` · ${t('dossierPinned', { paperVersion: d.paperVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}`
+                              {d.examVersionNumber !== null
+                                ? ` · ${t('dossierPinned', { paperVersion: d.examVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}`
                                 : ''}
                             </span>
                           </span>
@@ -1783,7 +1919,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                           <Button type="button" variant="outline" onClick={() => void downloadDossierSpec(d.id)}>
                             {t('dossierDownloadSpec')}
                           </Button>
-                          {d.status === 'pending' ? (
+                          {linkedContribution?.status === 'pending' ? (
                             <>
                               <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'approve')}>
                                 {t('contributionApprove')}
@@ -1792,7 +1928,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                                 {t('contributionReject')}
                               </Button>
                             </>
-                          ) : (
+                          ) : linkedContribution?.status === 'pending_board' ? (
                             <>
                               <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'board-approve')}>
                                 {t('dossierBoardApprove')}
@@ -1801,7 +1937,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                                 {t('dossierBoardReject')}
                               </Button>
                             </>
-                          )}
+                          ) : null}
                         </div>
                         {openDossierSpec?.dossierId === d.id ? (
                           <div className="rounded-md border p-3 text-sm" data-testid="dossier-spec-panel">
@@ -1830,7 +1966,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                           </div>
                         ) : null}
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 </div>
               ) : null}

@@ -967,3 +967,237 @@ describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
     });
   }
 });
+
+/**
+ * Đường đóng góp DUY NHẤT của đề (issue #228, S4/Q4): bộ hồ sơ không
+ * còn đường ghi riêng — nộp bộ hồ sơ là đề xuất đóng góp kèm đính kèm
+ * (`withDossier`), duyệt hai cấp đi trên trạng thái của đóng góp
+ * (pending = cấp 1, pending_board = cấp 2 ban giám hiệu), và hàng chờ
+ * hồ sơ (bề mặt đọc lịch sử) thao tác duyệt qua đóng góp đã chuyển
+ * đổi từ chính hồ sơ đó (sourceDossierId). Các ca dưới đây khoá đúng
+ * các lời gọi API của ba thao tác đó và khẳng định KHÔNG còn lời gọi
+ * ghi nào tới bề mặt hồ sơ (nơi API đã đóng, trả 410).
+ */
+describe('Exam dossier writes ride the single contribution path (issue #228 Q4)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  const PERSONAL_EXAM_BANK_ID = '01900000-0000-7000-8000-0000000000c1';
+  const SCHOOL_EXAM_BANK_ID = '01900000-0000-7000-8000-0000000000c2';
+  const PAPER_ID = '01900000-0000-7000-8000-0000000000c3';
+  const DOSSIER_PENDING_ID = '01900000-0000-7000-8000-0000000000c4';
+  const DOSSIER_BOARD_ID = '01900000-0000-7000-8000-0000000000c5';
+  const CONTRIB_FROM_PENDING_ID = '01900000-0000-7000-8000-0000000000c6';
+  const CONTRIB_FROM_BOARD_ID = '01900000-0000-7000-8000-0000000000c7';
+  const CONTRIB_DIRECT_BOARD_ID = '01900000-0000-7000-8000-0000000000c8';
+  const PROPOSER_ID = '01900000-0000-7000-8000-0000000000c9';
+
+  const CAPS = {
+    use: true, add: true, edit: true, manageCategory: true, copy: true, share: true, moderate: true,
+    matrixView: true, matrixManage: true, matrixCopy: true, matrixShare: true, matrixModerate: true,
+  };
+  const examBankRow = (id: string, scope: string) => ({
+    id, name: scope === 'personal' ? 'Ngân hàng của tôi' : 'Ngân hàng trường', scope, bankKind: 'exam',
+    ownerId: scope === 'personal' ? PROFILE.id : null, scopeRefId: null, contextId: SYSTEM_CTX_ID,
+    status: 'active', createdBy: PROFILE.id, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    capabilities: CAPS, defaultCategoryId: null, categoryIds: [],
+  });
+  const readyPaper = {
+    id: PAPER_ID, bankId: PERSONAL_EXAM_BANK_ID, kind: 'exam', status: 'ready',
+    name: 'Đề kiểm tra giữa kỳ', examKind: null, slotCount: 10, latestVersion: 3,
+    createdBy: PROFILE.id, copyCount: 0,
+    capabilities: { edit: true, copy: true, deploy: true, moderate: true },
+  };
+  const SPEC_SNAPSHOT = {
+    totals: { totalQuestions: 10, totalScore: 10 },
+    topics: [
+      { nodes: [{ outcomes: [{ cells: [{ cognitiveLevel: 'biet', questionCount: 4, cellScore: 4, slotNumbers: [1, 2, 3, 4] }] }] }] },
+    ],
+  };
+  const dossierRow = (id: string, status: string) => ({
+    id, examId: PAPER_ID, examName: 'Đề kiểm tra giữa kỳ', sourceBankId: PERSONAL_EXAM_BANK_ID,
+    targetBankId: SCHOOL_EXAM_BANK_ID, proposerId: PROPOSER_ID, proposerName: 'Cô Lan',
+    note: '', status, examVersionId: '01900000-0000-7000-8000-0000000000ca', examVersionNumber: 3,
+    matrixId: '01900000-0000-7000-8000-0000000000cb', matrixName: 'Ma trận giữa kỳ', matrixVersion: 2,
+    matrixVersionId: '01900000-0000-7000-8000-0000000000cc', boardApprovalRequired: true,
+    resultExamId: null, reviews: [], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+  });
+  const contributionRow = (id: string, status: string, sourceDossierId: string | null) => ({
+    id, examId: PAPER_ID, targetBankId: SCHOOL_EXAM_BANK_ID, proposerId: PROPOSER_ID, note: '',
+    mode: 'new', targetExamId: null, status, contentHash: 'hash', nearDuplicateOf: null,
+    rejectReason: null, reviewerId: null, resultExamId: null,
+    dossierExamVersionId: '01900000-0000-7000-8000-0000000000ca', dossierExamVersionNumber: 3,
+    dossierMatrixId: '01900000-0000-7000-8000-0000000000cb', dossierMatrixVersion: 2,
+    dossierMatrixVersionId: '01900000-0000-7000-8000-0000000000cc',
+    dossierSpecSnapshot: SPEC_SNAPSHOT, sourceDossierId,
+    createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+    paperName: 'Đề kiểm tra giữa kỳ', sourceBankId: PERSONAL_EXAM_BANK_ID, reviews: [],
+  });
+
+  interface DossierFixtures {
+    dossiers: ReturnType<typeof dossierRow>[];
+    contributions: ReturnType<typeof contributionRow>[];
+  }
+
+  function stubContributionFetch(calls: RecordedCall[], fixtures: DossierFixtures) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        const respond = (body: unknown) =>
+          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
+        if (url === '/api/v1/users/me/capabilities')
+          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
+        if (url === '/api/v1/courses') return respond([]);
+        if (url === '/api/v1/access/contexts')
+          return respond([{ id: SYSTEM_CTX_ID, contextLevel: 10, instanceId: SYSTEM_CTX_ID }]);
+        if (url === '/api/v1/questions/categories')
+          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
+        if (url === '/api/v1/question-banks?kind=exam')
+          return respond([examBankRow(PERSONAL_EXAM_BANK_ID, 'personal'), examBankRow(SCHOOL_EXAM_BANK_ID, 'school')]);
+        if (url === '/api/v1/question-banks?kind=matrix') return respond([]);
+        if (url === '/api/v1/question-banks') return respond([]);
+        if (url === `/api/v1/exams/banks/${PERSONAL_EXAM_BANK_ID}/exams`) return respond([readyPaper]);
+        if (url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/exams`) return respond([]);
+        if (url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions` && method === 'GET')
+          return respond(fixtures.contributions);
+        if (url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions` && method === 'POST')
+          return respond(contributionRow(CONTRIB_DIRECT_BOARD_ID, 'pending', null));
+        if (url.startsWith(`/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/`) && method === 'POST')
+          return respond({});
+        if (url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/dossiers`) return respond(fixtures.dossiers);
+        if (url === '/api/v1/exams/dossiers/mine') return respond([]);
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+  }
+
+  const dossierWriteCalls = (calls: RecordedCall[]) =>
+    calls.filter((c) => c.method !== 'GET' && c.url.includes('/dossiers'));
+
+  it('nộp bộ hồ sơ = POST đóng góp kèm withDossier vào bank đích, không lập/nộp hồ sơ', async () => {
+    const calls: RecordedCall[] = [];
+    stubContributionFetch(calls, { dossiers: [], contributions: [] });
+    const router = createMemoryRouter([{ path: '/exams', element: <QuestionsPage area="my-exams" /> }], {
+      initialEntries: ['/exams'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    await userEvent.selectOptions(await screen.findByTestId('dossier-paper-select'), PAPER_ID);
+    await userEvent.selectOptions(screen.getByTestId('dossier-bank-select'), SCHOOL_EXAM_BANK_ID);
+    await userEvent.click(screen.getByTestId('dossier-submit-button'));
+
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions` && c.method === 'POST'),
+      ).toBe(true),
+    );
+    const proposeCall = calls.find(
+      (c) => c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions` && c.method === 'POST',
+    );
+    expect(proposeCall?.body).toEqual({ examId: PAPER_ID, withDossier: true });
+    expect(dossierWriteCalls(calls)).toEqual([]);
+    expect(await screen.findByText('Đã nộp bộ hồ sơ chờ duyệt.')).toBeInTheDocument();
+  });
+
+  it('hàng chờ hồ sơ: duyệt cấp 1 và cấp 2 đi trên đóng góp đã chuyển đổi (sourceDossierId), không gọi ghi hồ sơ', async () => {
+    const calls: RecordedCall[] = [];
+    stubContributionFetch(calls, {
+      dossiers: [dossierRow(DOSSIER_PENDING_ID, 'pending'), dossierRow(DOSSIER_BOARD_ID, 'pending_board')],
+      contributions: [
+        contributionRow(CONTRIB_FROM_PENDING_ID, 'pending', DOSSIER_PENDING_ID),
+        contributionRow(CONTRIB_FROM_BOARD_ID, 'pending_board', DOSSIER_BOARD_ID),
+      ],
+    });
+    const router = createMemoryRouter([{ path: '/system-bank/exams', element: <QuestionsPage area="system-exams" /> }], {
+      initialEntries: ['/system-bank/exams'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    await userEvent.selectOptions(await screen.findByLabelText('Chọn ngân hàng'), SCHOOL_EXAM_BANK_ID);
+    const rows = await screen.findAllByTestId('dossier-queue-row');
+    expect(rows).toHaveLength(2);
+
+    // Bộ đang pending: nút Duyệt gọi approve trên ĐÓNG GÓP liên kết.
+    await userEvent.click(within(rows[0]!).getByRole('button', { name: 'Duyệt' }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_FROM_PENDING_ID}/approve` &&
+            c.method === 'POST',
+        ),
+      ).toBe(true),
+    );
+
+    // Bộ đang pending_board: nút BGH duyệt gọi board-approve trên ĐÓNG GÓP liên kết.
+    // (Truy vấn lại hàng sau lượt duyệt cấp 1 vì danh sách được nạp lại.)
+    const rowsAfter = await screen.findAllByTestId('dossier-queue-row');
+    await userEvent.click(within(rowsAfter[1]!).getByRole('button', { name: 'BGH duyệt' }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_FROM_BOARD_ID}/board-approve` &&
+            c.method === 'POST',
+        ),
+      ).toBe(true),
+    );
+    expect(dossierWriteCalls(calls)).toEqual([]);
+  });
+
+  it('đóng góp kèm hồ sơ chờ BGH (không qua hồ sơ) hiện ngay ở hàng chờ đóng góp với nút cấp 2 và bản đặc tả đã chụp', async () => {
+    const calls: RecordedCall[] = [];
+    stubContributionFetch(calls, {
+      dossiers: [],
+      contributions: [contributionRow(CONTRIB_DIRECT_BOARD_ID, 'pending_board', null)],
+    });
+    vi.stubGlobal('prompt', vi.fn(() => 'Chưa đạt yêu cầu'));
+    const router = createMemoryRouter([{ path: '/system-bank/exams', element: <QuestionsPage area="system-exams" /> }], {
+      initialEntries: ['/system-bank/exams'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    await userEvent.selectOptions(await screen.findByLabelText('Chọn ngân hàng'), SCHOOL_EXAM_BANK_ID);
+    const row = await screen.findByTestId('exam-contribution-row');
+    expect(within(row).getByText('Chờ BGH duyệt')).toBeInTheDocument();
+    expect(within(row).getByText(/Đề v3 · Ma trận v2/)).toBeInTheDocument();
+
+    // Bản đặc tả đã chụp mở tại chỗ từ payload đóng góp.
+    await userEvent.click(within(row).getByRole('button', { name: 'Xem đặc tả' }));
+    expect(await screen.findByTestId('contribution-spec-panel')).toHaveTextContent('Tổng: 10 câu · 10 điểm');
+
+    // BGH từ chối kèm lý do bắt buộc → board-reject trên chính đóng góp.
+    await userEvent.click(within(row).getByRole('button', { name: 'BGH từ chối' }));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.url === `/api/v1/exams/banks/${SCHOOL_EXAM_BANK_ID}/contributions/${CONTRIB_DIRECT_BOARD_ID}/board-reject` &&
+            c.method === 'POST',
+        ),
+      ).toBe(true),
+    );
+    const rejectCall = calls.find((c) => c.url.endsWith('/board-reject'));
+    expect(rejectCall?.body).toEqual({ reason: 'Chưa đạt yêu cầu' });
+    expect(dossierWriteCalls(calls)).toEqual([]);
+  });
+});

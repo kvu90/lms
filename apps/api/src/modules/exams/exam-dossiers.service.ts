@@ -1,22 +1,18 @@
 import {
-  BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException,
+  BadRequestException, ForbiddenException, GoneException, Injectable, NotFoundException,
 } from '@nestjs/common';
 import type {
   CreateExamDossier, ExamDossierView, RejectExamDossier,
 } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
-import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { QuestionBanksService } from '../questions/question-banks.service';
-import type { QuestionBankRow } from '../questions/question-banks.repository';
-import { SiteConfigService } from '../site-config/site-config.service';
-import { TenantConfigService } from '../tenants/tenant-config.service';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
 import {
   ExamsRepository,
   type ExamDossierRow,
 } from './exams.repository';
-import { ExamsService, EXAM_CAPABILITIES } from './exams.service';
+import { ExamsService, EXAM_CAPABILITIES, examPaperContentHash } from './exams.service';
 
 /**
  * Luồng duyệt BỘ HỒ SƠ đề (EB-3, issue #165) — đơn vị duyệt của
@@ -38,6 +34,18 @@ import { ExamsService, EXAM_CAPABILITIES } from './exams.service';
  * Mỗi mốc duyệt ghi một dòng `exam_dossier_reviews` độc lập + một sự
  * kiện audit ở outbox. Từ chối ở bất kỳ cấp nào cũng bắt buộc lý do
  * và đưa bộ về trạng thái `rejected` — người đóng góp xem được lý do
+ *
+ * VAI TRÒ HIỆN TẠI (issue #228, lát S4) — LỊCH SỬ CHỈ-ĐỌC: đường
+ * hồ sơ đã bị HẤP THỤ vào đường đóng góp duy nhất của đề
+ * (`exam_contributions`): bộ hồ sơ thành phần đính kèm tuỳ chọn của
+ * một đóng góp, cấp duyệt 2 thành trạng thái `pending_board` của
+ * đóng góp. Service này không còn nhận thao tác ghi nào (mọi method
+ * ghi trả 410 `exam.dossier_path_closed`); nó phục vụ xem lại lịch
+ * sử hồ sơ + đợt chuyển đổi hồ sơ treo một lần
+ * ({@link ExamDossiersService.convertLegacyDossiers}). Mô tả luồng
+ * duyệt hai cấp dưới đây là LỊCH SỬ của cơ chế EB-3 — giữ lại để
+ * người đọc hiểu dữ kiện lịch sử (các mốc duyệt, trạng thái
+ * `pending_board`) đang xem.
  * trong danh sách bộ hồ sơ của mình, sửa đề và lập bộ mới.
  */
 @Injectable()
@@ -47,42 +55,27 @@ export class ExamDossiersService {
     private readonly papers: ExamsService,
     private readonly banks: QuestionBanksService,
     private readonly evaluator: PermissionEvaluator,
-    private readonly contexts: ContextsService,
     private readonly quiz: QuizService,
-    private readonly siteConfig: SiteConfigService,
-    private readonly tenantConfig: TenantConfigService,
     private readonly outbox: OutboxService,
   ) {}
 
   // --- điểm seam cấu hình cấp duyệt 2 ---------------------------------------------
 
   /**
-   * ⚠️ ĐIỂM SEAM CẤU HÌNH CẤP DUYỆT 2 (BGH) — nơi DUY NHẤT trong hệ
-   * thống đọc công tắc "có cần cấp duyệt ban giám hiệu hay không".
-   * Máy trạng thái bộ hồ sơ chỉ gọi điểm này; KHÔNG nơi nào khác đọc
-   * trực tiếp khoá cấu hình.
-   *
-   * TENANT-1 (#196) — seam đã về cấu hình tenant như chỉ đạo EB-3
-   * chờ sẵn: công tắc đọc qua `TenantConfigService.getEffectiveValue`
-   * theo TENANT CỦA HỒ SƠ (tenant sở hữu bank đích — mỗi trường tự
-   * quyết có cấp duyệt BGH hay không; giá trị tenant không có thì
-   * TenantConfigService tự rơi về giá trị platform rồi mặc định TẮT
-   * theo khuyến nghị của hồ sơ ngân hàng đề F.2). Bank đích là bank
-   * dùng chung cấp platform (tenant_id NULL) hoặc chưa rõ hồ sơ thì
-   * đọc thẳng giá trị platform qua SiteConfigService như trước.
-   * Máy trạng thái không đổi.
+   * Công tắc cấp duyệt 2 cho một bộ hồ sơ — UỶ THÁC sang điểm seam
+   * dùng chung {@link ExamsService.boardApprovalRequiredForBank}
+   * (nơi DUY NHẤT đọc khoá `exam/requireboardapproval`): tenant của
+   * bank đích của hồ sơ quyết định. Hàm này chỉ còn là vỏ tương
+   * thích cho bề mặt đọc (view cần cờ hiệu lực hiện tại); không nơi
+   * nào trong service này tự đọc khoá cấu hình nữa.
    */
   async boardApprovalRequired(dossier?: ExamDossierRow): Promise<boolean> {
-    let tenantId: string | null = null;
-    if (dossier) {
-      const bank = await this.banks.findBankById(dossier.targetBankId);
-      tenantId = bank?.tenantId ?? null;
-    }
-    if (tenantId) {
-      return (await this.tenantConfig.getEffectiveValue<boolean>(tenantId, 'exam', 'requireboardapproval')) ?? false;
-    }
-    return (await this.siteConfig.getValue<boolean>('exam', 'requireboardapproval')) ?? false;
+    if (!dossier) return false;
+    const bank = await this.banks.findBankById(dossier.targetBankId);
+    if (!bank) return false;
+    return this.papers.boardApprovalRequiredForBank(bank);
   }
+
 
   // --- helpers ----------------------------------------------------------------------
 
@@ -92,12 +85,14 @@ export class ExamDossiersService {
     return row;
   }
 
-  /** Người đóng góp hoặc site admin — các thao tác phía người nộp (nộp/xoá nháp) chỉ hai đối tượng này làm được. */
-  private async assertProposer(actorId: string, dossier: ExamDossierRow): Promise<void> {
-    if (dossier.proposerId === actorId) return;
-    if (await this.evaluator.isSiteAdmin(actorId)) return;
-    throw new ForbiddenException({ message: 'Only the dossier proposer can perform this action', code: 'exam.dossier_not_proposer' });
+  /** Lỗi đóng đường dùng chung cho mọi thao tác ghi của bề mặt hồ sơ: 410 kèm chỉ đường sang đường đóng góp duy nhất. */
+  private static pathClosed(): GoneException {
+    return new GoneException({
+      message: 'The dossier path is closed: contribute the paper through the single contribution path (with an attached dossier when the paper is an official exam)',
+      code: 'exam.dossier_path_closed',
+    });
   }
+
 
   /** Quyền xem một bộ hồ sơ: người đóng góp, site admin, hoặc người duyệt (exam:moderate) của bank đích. */
   private async canViewDossier(actorId: string, dossier: ExamDossierRow): Promise<boolean> {
@@ -135,6 +130,7 @@ export class ExamDossiersService {
       matrixId: row.matrixId,
       matrixName: matrixInfo?.name ?? null,
       matrixVersion: row.matrixVersion,
+      matrixVersionId: row.matrixVersionId,
       boardApprovalRequired: await this.boardApprovalRequired(row),
       resultExamId: row.resultExamId,
       reviews: reviews.map((r) => ({
@@ -155,102 +151,26 @@ export class ExamDossiersService {
   // --- lập + nộp ----------------------------------------------------------------------
 
   /**
-   * Lập bộ hồ sơ (trạng thái `draft`) cho một đề vào một bank đích
-   * dùng chung: người lập phải sửa được đề (tác giả hoặc moderator
-   * bank nguồn) và có `exam:share` tại bank nguồn; bank đích không
-   * được là bank cá nhân và không trùng bank nguồn. Version CHƯA
-   * ghim ở bước này — ghim tại lúc nộp.
+   * Lập bộ hồ sơ nháp — ĐÃ ĐÓNG: đường hồ sơ bị hấp thụ vào ĐƯỜNG
+   * ĐÓNG GÓP DUY NHẤT của đề (đóng góp kèm bộ hồ sơ đính kèm qua
+   * `withDossier`). Mọi thao tác GHI của bề mặt này trả 410
+   * `exam.dossier_path_closed`; bề mặt ĐỌC (chi tiết, danh sách,
+   * đặc tả) giữ nguyên để xem lại lịch sử.
    */
-  async createDossier(actorId: string, examId: string, input: CreateExamDossier): Promise<ExamDossierView> {
-    const paper = await this.papers.getPaperOrThrow(examId);
-    const sourceBank = await this.papers.bankOfPaper(paper);
-    await this.papers.assertCanEditPaper(actorId, paper, sourceBank);
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.share, sourceBank.contextId);
-    const target = await this.papers.getExamBank(actorId, input.targetBankId);
-    if (target.scope === 'personal') {
-      throw new BadRequestException({ message: 'A dossier targets a shared exam bank, not a personal bank', code: 'exam.dossier_target_personal' });
-    }
-    if (target.id === paper.bankId) {
-      throw new BadRequestException({ message: 'The paper is already in the target bank', code: 'exam.dossier_same_bank' });
-    }
-    const row = await this.repo.insertDossier({
-      examId: paper.id, targetBankId: target.id, proposerId: actorId,
-      note: input.note ?? '', status: 'draft',
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'exam_paper', type: 'exam_dossier_created',
-      payload: { dossierId: row.id, examId: paper.id, targetBankId: target.id, proposerId: actorId },
-    });
-    return this.dossierView(row);
+  async createDossier(_actorId: string, _examId: string, _input: CreateExamDossier): Promise<ExamDossierView> {
+    throw ExamDossiersService.pathClosed();
   }
 
-  /**
-   * Nộp bộ hồ sơ: GHIM phiên bản đề hiện tại + phiên bản ma trận của
-   * nó và CHỤP bản đặc tả tại đúng thời điểm này vào hồ sơ — từ đây
-   * hàng chờ duyệt luôn xem đúng nội dung đã nộp. Đề phải `ready` và
-   * phải gắn ma trận (bộ hồ sơ là luồng của đề định kỳ đi đường ma
-   * trận; đề dựng tay không ma trận dùng luồng đóng góp từng đề của
-   * EB-1). Một đề chỉ có một bộ hồ sơ đang chờ vào cùng bank đích.
-   */
-  async submitDossier(actorId: string, dossierId: string): Promise<ExamDossierView> {
-    const dossier = await this.getDossierOrThrow(dossierId);
-    await this.assertProposer(actorId, dossier);
-    if (dossier.status !== 'draft') {
-      throw new ConflictException({ message: 'Only a draft dossier can be submitted', code: 'exam.dossier_not_draft' });
-    }
-    const paper = await this.papers.getPaperOrThrow(dossier.examId);
-    if (paper.status !== 'ready') {
-      throw new BadRequestException({ message: 'Only a ready paper can be submitted in a dossier', code: 'exam.dossier_source_not_ready' });
-    }
-    const version = await this.papers.currentVersion(paper);
-    if (!version.matrixId) {
-      throw new BadRequestException({
-        message: 'A dossier requires a paper built from a matrix (matrix + specification + paper are reviewed as one set)',
-        code: 'exam.dossier_requires_matrix',
-      });
-    }
-    const active = await this.repo.findActiveDossier(paper.id, dossier.targetBankId, dossier.id);
-    if (active) {
-      throw new ConflictException({ message: 'An active dossier of this paper to the target bank already exists', code: 'exam.dossier_duplicate_active' });
-    }
-    const matrixInfo = await this.repo.getMatrixInfo(version.matrixId);
-    const matrixVersion = version.matrixVersion ?? matrixInfo?.version ?? null;
-    const slots = await this.repo.listSlots(version.id);
-    const spec = await this.quiz.buildSpecificationForPaper(actorId, version.matrixId, slots.map((s) => ({
-      matrixCellId: s.matrixCellId, position: s.position, questionId: s.questionId,
-    })));
-    await this.repo.updateDossier(dossier.id, {
-      status: 'pending',
-      examVersionId: version.id,
-      examVersionNumber: version.version,
-      matrixId: version.matrixId,
-      matrixVersion,
-      specSnapshot: spec as unknown as Record<string, unknown>,
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'exam_paper', type: 'exam_dossier_submitted',
-      payload: {
-        dossierId: dossier.id, examId: paper.id, examVersionId: version.id,
-        matrixId: version.matrixId, matrixVersion, targetBankId: dossier.targetBankId, proposerId: actorId,
-      },
-    });
-    return this.dossierView((await this.repo.getDossier(dossier.id))!);
+  /** Nộp bộ hồ sơ — ĐÃ ĐÓNG, xem {@link ExamDossiersService.createDossier}. */
+  async submitDossier(_actorId: string, _dossierId: string): Promise<ExamDossierView> {
+    throw ExamDossiersService.pathClosed();
   }
 
-  /** Xoá một bộ hồ sơ NHÁP (chưa nộp) — bộ đã nộp không xoá được, chỉ đi tiếp qua các cấp duyệt. */
-  async deleteDossier(actorId: string, dossierId: string): Promise<{ id: string; deleted: true }> {
-    const dossier = await this.getDossierOrThrow(dossierId);
-    await this.assertProposer(actorId, dossier);
-    if (dossier.status !== 'draft') {
-      throw new ConflictException({ message: 'Only a draft dossier can be deleted', code: 'exam.dossier_not_draft' });
-    }
-    await this.repo.deleteDossier(dossier.id);
-    await this.outbox.enqueueStandalone({
-      aggregate: 'exam_paper', type: 'exam_dossier_discarded',
-      payload: { dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId, proposerId: actorId },
-    });
-    return { id: dossier.id, deleted: true };
+  /** Xoá bộ hồ sơ nháp — ĐÃ ĐÓNG, xem {@link ExamDossiersService.createDossier}. */
+  async deleteDossier(_actorId: string, _dossierId: string): Promise<{ id: string; deleted: true }> {
+    throw ExamDossiersService.pathClosed();
   }
+
 
   // --- đọc --------------------------------------------------------------------------------
 
@@ -315,140 +235,134 @@ export class ExamDossiersService {
     return this.quiz.renderSpecification(snapshot as unknown as MatrixSpecification, format);
   }
 
-  // --- duyệt --------------------------------------------------------------------------------
-
-  /** Cổng cấp 1: `exam:moderate` tại context của bank đích. */
-  private async requireLevel1Moderator(actorId: string, dossier: ExamDossierRow): Promise<QuestionBankRow> {
-    const bank = await this.papers.getExamBank(actorId, dossier.targetBankId);
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId);
-    return bank;
-  }
+  // --- duyệt (ĐÃ ĐÓNG — đường hồ sơ chỉ còn đọc lịch sử) --------------------------------
 
   /**
-   * Cổng cấp 2 (ban giám hiệu): `exam:moderate` tại context HỆ
-   * THỐNG — vai lãnh đạo cấp trường (site admin đạt qua evaluator
-   * như mọi cổng khác). Đây là neo "cấp trường" hiện tại của cấp
-   * duyệt 2; cùng điểm chờ tenant với seam cấu hình (issue #166).
+   * Duyệt cấp 1 — ĐÃ ĐÓNG cùng toàn bộ đường ghi của hồ sơ: duyệt
+   * đề vào bank chung nay đi qua ĐƯỜNG ĐÓNG GÓP DUY NHẤT
+   * (`exam_contributions`, kèm bộ hồ sơ đính kèm khi là đề chính
+   * thức). Hồ sơ đang chờ tại thời điểm cắt đường đã được chuyển
+   * thành đóng góp bởi đợt chuyển đổi một lần
+   * ({@link ExamDossiersService.convertLegacyDossiers}).
    */
-  private async requireBoardApprover(actorId: string): Promise<void> {
-    const system = await this.contexts.ensureSystemContext();
-    const ok = await this.evaluator.hasCapability(actorId, EXAM_CAPABILITIES.moderate, system.id);
-    if (!ok) {
-      throw new ForbiddenException({
-        message: 'Board approval requires exam:moderate at the system context',
-        code: 'exam.dossier_board_forbidden',
-      });
-    }
+  async approveDossier(_actorId: string, _dossierId: string): Promise<ExamDossierView> {
+    throw ExamDossiersService.pathClosed();
   }
+
+  /** Từ chối cấp 1 — ĐÃ ĐÓNG, xem {@link ExamDossiersService.approveDossier}. */
+  async rejectDossier(_actorId: string, _dossierId: string, _input: RejectExamDossier): Promise<ExamDossierView> {
+    throw ExamDossiersService.pathClosed();
+  }
+
+  /** Duyệt cấp 2 — ĐÃ ĐÓNG, xem {@link ExamDossiersService.approveDossier}. */
+  async boardApproveDossier(_actorId: string, _dossierId: string): Promise<ExamDossierView> {
+    throw ExamDossiersService.pathClosed();
+  }
+
+  /** Từ chối cấp 2 — ĐÃ ĐÓNG, xem {@link ExamDossiersService.approveDossier}. */
+  async boardRejectDossier(_actorId: string, _dossierId: string, _input: RejectExamDossier): Promise<ExamDossierView> {
+    throw ExamDossiersService.pathClosed();
+  }
+
+  // --- chuyển đổi hồ sơ treo (chạy một lần khi cắt đường) -------------------------------
 
   /**
-   * Chốt duyệt đạt ở cấp cuối: copy PHIÊN BẢN ĐỀ ĐÃ GHIM vào bank
-   * đích ở trạng thái `ready` (đề hiện ngay ở bank đích với
-   * derived_from + tác giả gốc — truy vết đủ hai đầu cùng dòng vết
-   * duyệt và sự kiện audit). Trùng suy từ chính đề nguồn trong bank
-   * đích → 409 như duyệt đóng góp QB-4.
+   * Chuyển đổi toàn bộ hồ sơ còn treo sang ĐƯỜNG ĐÓNG GÓP DUY NHẤT
+   * — thao tác vận hành chạy MỘT LẦN ở ngữ cảnh platform khi cắt
+   * đường hồ sơ (script `convert-dossiers`), quy tắc theo quyết
+   * định hấp thụ đường hồ sơ:
+   *
+   * - Hồ sơ `pending`/`pending_board`: sinh MỘT đóng góp mode 'new'
+   *   mang NGUYÊN trạng thái đang chờ + bộ hồ sơ đã ghim (version
+   *   đề, version ma trận, bản đặc tả) + người lập/ghi chú/thời
+   *   điểm lập của hồ sơ; toàn bộ mốc duyệt đã có của hồ sơ được
+   *   sao sang sổ mốc duyệt của đóng góp để lịch sử duyệt liền
+   *   mạch; hash chống trùng tính lại trên version đề đã ghim và
+   *   near_duplicate_of quét trong bank đích như một đề xuất mới.
+   *   Đóng góp trỏ về hồ sơ gốc qua `source_dossier_id` — neo này
+   *   cũng là khoá idempotent: hồ sơ đã có đóng góp mang nó thì bỏ
+   *   qua, chạy lại không nhân đôi đóng góp lẫn mốc duyệt.
+   * - Hồ sơ `draft`: ĐÓNG BĂNG tại chỗ (giữ nguyên trạng thái làm
+   *   dấu vết việc đang soạn dở) + một sự kiện thông báo cho người
+   *   lập để họ lập lại dưới dạng đóng góp nếu còn nhu cầu. Phần
+   *   thông báo mang ngữ nghĩa "chạy một lần": mỗi lần chạy lại,
+   *   hồ sơ draft còn tồn tại lại được tính vào báo cáo — vận hành
+   *   chỉ chạy đợt chuyển đổi đúng một lần.
+   * - Hồ sơ `approved`/`rejected`: giữ nguyên làm lịch sử kết quả,
+   *   không sinh đóng góp (việc của chúng đã xong trước khi cắt
+   *   đường).
+   *
+   * Trả báo cáo đếm trước/sau theo trạng thái + số đã chuyển + số
+   * draft đóng băng để vận hành đối chiếu.
    */
-  private async finalizeApproval(actorId: string, dossier: ExamDossierRow, level: number): Promise<ExamDossierRow> {
-    const source = await this.papers.getPaperOrThrow(dossier.examId);
-    const target = await this.papers.getExamBank(actorId, dossier.targetBankId);
-    const inTarget = await this.repo.listPapersInBank(target.id);
-    if (inTarget.some((p) => p.derivedFromExamId === source.id)) {
-      throw new ConflictException({
-        message: `An identical paper already exists in the target bank (copied from ${source.id})`,
-        code: 'exam.duplicate_in_bank',
-      });
+  async convertLegacyDossiers(): Promise<{
+    before: Record<string, number>;
+    converted: number;
+    alreadyConverted: number;
+    draftsFrozen: number;
+  }> {
+    const dossiers = await this.repo.listAllDossiers();
+    const before: Record<string, number> = {};
+    for (const d of dossiers) before[d.status] = (before[d.status] ?? 0) + 1;
+    let converted = 0;
+    let alreadyConverted = 0;
+    let draftsFrozen = 0;
+    for (const dossier of dossiers) {
+      if (dossier.status === 'pending' || dossier.status === 'pending_board') {
+        const existing = await this.repo.findContributionBySourceDossier(dossier.id);
+        if (existing) { alreadyConverted += 1; continue; }
+        let contentHash = '';
+        let nearDuplicateOf: string | null = null;
+        const pinned = dossier.examVersionId ? await this.repo.getVersion(dossier.examVersionId) : undefined;
+        if (pinned) {
+          const slots = await this.repo.listSlots(pinned.id);
+          contentHash = examPaperContentHash(pinned, slots);
+          for (const other of await this.repo.listPapersInBank(dossier.targetBankId)) {
+            const otherVersion = await this.papers.currentVersion(other);
+            const otherSlots = await this.repo.listSlots(otherVersion.id);
+            if (examPaperContentHash(otherVersion, otherSlots) === contentHash) { nearDuplicateOf = other.id; break; }
+          }
+        }
+        const contribution = await this.repo.insertContribution({
+          examId: dossier.examId, targetBankId: dossier.targetBankId, proposerId: dossier.proposerId,
+          note: dossier.note, mode: 'new', status: dossier.status,
+          contentHash, nearDuplicateOf,
+          dossierExamVersionId: dossier.examVersionId,
+          dossierExamVersionNumber: dossier.examVersionNumber,
+          dossierMatrixId: dossier.matrixId,
+          dossierMatrixVersion: dossier.matrixVersion,
+          dossierMatrixVersionId: dossier.matrixVersionId,
+          dossierSpecSnapshot: dossier.specSnapshot,
+          sourceDossierId: dossier.id,
+          createdAt: dossier.createdAt, updatedAt: dossier.updatedAt,
+        });
+        for (const review of await this.repo.listDossierReviews(dossier.id)) {
+          await this.repo.insertContributionReview({
+            contributionId: contribution.id, level: review.level,
+            reviewerId: review.reviewerId, decision: review.decision,
+            reason: review.reason, createdAt: review.createdAt,
+          });
+        }
+        await this.outbox.enqueueStandalone({
+          aggregate: 'exam_paper', type: 'exam_dossier_converted',
+          payload: {
+            dossierId: dossier.id, contributionId: contribution.id,
+            examId: dossier.examId, targetBankId: dossier.targetBankId,
+            proposerId: dossier.proposerId, status: dossier.status,
+          },
+        });
+        converted += 1;
+      } else if (dossier.status === 'draft') {
+        await this.outbox.enqueueStandalone({
+          aggregate: 'exam_paper', type: 'exam_dossier_frozen',
+          payload: {
+            dossierId: dossier.id, examId: dossier.examId,
+            targetBankId: dossier.targetBankId, proposerId: dossier.proposerId,
+          },
+        });
+        draftsFrozen += 1;
+      }
     }
-    const pinned = dossier.examVersionId ? await this.repo.getVersion(dossier.examVersionId) : undefined;
-    if (!pinned) {
-      throw new ConflictException({ message: 'The pinned paper version of this dossier no longer exists', code: 'exam.dossier_version_gone' });
-    }
-    const copied = await this.papers.copyPaperVersionIntoBank(actorId, source, pinned, target, { status: 'ready' });
-    await this.repo.insertDossierReview({
-      dossierId: dossier.id, level, reviewerId: actorId, decision: 'approved', reason: null,
-    });
-    await this.repo.updateDossier(dossier.id, { status: 'approved', resultExamId: copied.id });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'exam_paper', type: 'exam_dossier_approved',
-      payload: {
-        dossierId: dossier.id, examId: source.id, examVersionId: pinned.id,
-        targetBankId: target.id, resultExamId: copied.id,
-        reviewerId: actorId, proposerId: dossier.proposerId, level,
-      },
-    });
-    return (await this.repo.getDossier(dossier.id))!;
-  }
-
-  /** Chốt từ chối ở một cấp: lý do bắt buộc (DTO đã chặn rỗng), bộ về `rejected`, người đóng góp thấy được lý do. */
-  private async finalizeRejection(actorId: string, dossier: ExamDossierRow, level: number, reason: string): Promise<ExamDossierRow> {
-    await this.repo.insertDossierReview({
-      dossierId: dossier.id, level, reviewerId: actorId, decision: 'rejected', reason,
-    });
-    await this.repo.updateDossier(dossier.id, { status: 'rejected' });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'exam_paper', type: 'exam_dossier_rejected',
-      payload: {
-        dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId,
-        reviewerId: actorId, proposerId: dossier.proposerId, level, reason,
-      },
-    });
-    return (await this.repo.getDossier(dossier.id))!;
-  }
-
-  /**
-   * Duyệt cấp 1 (tổ trưởng/moderate bank đích). Khi cấu hình bật
-   * cấp 2: chỉ ghi mốc cấp 1 và đưa bộ sang `pending_board` — đề
-   * CHƯA vào bank đích. Khi tắt: duyệt cấp 1 là chốt luôn.
-   */
-  async approveDossier(actorId: string, dossierId: string): Promise<ExamDossierView> {
-    const dossier = await this.getDossierOrThrow(dossierId);
-    await this.requireLevel1Moderator(actorId, dossier);
-    if (dossier.status !== 'pending') {
-      throw new ConflictException({ message: 'Dossier is not waiting for level-1 review', code: 'exam.dossier_not_pending' });
-    }
-    if (await this.boardApprovalRequired(dossier)) {
-      await this.repo.insertDossierReview({
-        dossierId: dossier.id, level: 1, reviewerId: actorId, decision: 'approved', reason: null,
-      });
-      await this.repo.updateDossier(dossier.id, { status: 'pending_board' });
-      await this.outbox.enqueueStandalone({
-        aggregate: 'exam_paper', type: 'exam_dossier_level1_approved',
-        payload: {
-          dossierId: dossier.id, examId: dossier.examId, targetBankId: dossier.targetBankId,
-          reviewerId: actorId, proposerId: dossier.proposerId,
-        },
-      });
-      return this.dossierView((await this.repo.getDossier(dossier.id))!);
-    }
-    return this.dossierView(await this.finalizeApproval(actorId, dossier, 1));
-  }
-
-  /** Từ chối cấp 1: lý do bắt buộc, bộ đóng lại ở `rejected`. */
-  async rejectDossier(actorId: string, dossierId: string, input: RejectExamDossier): Promise<ExamDossierView> {
-    const dossier = await this.getDossierOrThrow(dossierId);
-    await this.requireLevel1Moderator(actorId, dossier);
-    if (dossier.status !== 'pending') {
-      throw new ConflictException({ message: 'Dossier is not waiting for level-1 review', code: 'exam.dossier_not_pending' });
-    }
-    return this.dossierView(await this.finalizeRejection(actorId, dossier, 1, input.reason));
-  }
-
-  /** Duyệt cấp 2 (ban giám hiệu) — mốc cuối: đề vào bank đích. */
-  async boardApproveDossier(actorId: string, dossierId: string): Promise<ExamDossierView> {
-    const dossier = await this.getDossierOrThrow(dossierId);
-    await this.requireBoardApprover(actorId);
-    if (dossier.status !== 'pending_board') {
-      throw new ConflictException({ message: 'Dossier is not waiting for board review', code: 'exam.dossier_not_pending_board' });
-    }
-    return this.dossierView(await this.finalizeApproval(actorId, dossier, 2));
-  }
-
-  /** Từ chối cấp 2: lý do bắt buộc, bộ đóng lại ở `rejected` (vết cấp 1 vẫn giữ nguyên). */
-  async boardRejectDossier(actorId: string, dossierId: string, input: RejectExamDossier): Promise<ExamDossierView> {
-    const dossier = await this.getDossierOrThrow(dossierId);
-    await this.requireBoardApprover(actorId);
-    if (dossier.status !== 'pending_board') {
-      throw new ConflictException({ message: 'Dossier is not waiting for board review', code: 'exam.dossier_not_pending_board' });
-    }
-    return this.dossierView(await this.finalizeRejection(actorId, dossier, 2, input.reason));
+    return { before, converted, alreadyConverted, draftsFrozen };
   }
 }

@@ -10,8 +10,10 @@ import { MatrixImportService } from './matrix-import.service';
 import {
   createExamMatrixCellSchema, createExamMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema,
   recordQuizAttemptEventSchema, submitQuizResponseSchema, updateExamMatrixCellSchema, updateExamMatrixSchema,
+  withdrawExamMatrixSchema,
   type CreateExamMatrixCellDto, type CreateExamMatrixDto, type GradeQuizQuestionDto, type ManualGradeQuizDto,
   type RecordQuizAttemptEventDto, type SubmitQuizResponseDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto,
+  type WithdrawExamMatrixDto,
 } from './dto/quiz.dto';
 
 /**
@@ -130,12 +132,49 @@ export class ExamMatricesController {
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.getMatrix(actor.id, id);
   }
+  @Get(':id/versions/:version')
+  /**
+   * GET /exam-matrices/:id/versions/:version — nội dung nguyên vẹn
+   * của đúng một version bất biến của ma trận (cấu hình + ô tại
+   * version đó); version không tồn tại → 404.
+   */
+  async getVersion(@Param('id', { schema: uuidIdSchema }) id: string, @Param('version') version: string, @CurrentUser() actor: AuthenticatedUser) {
+    const parsed = Number(version);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new BadRequestException({ message: 'version must be a positive integer', code: 'quiz.matrix_version_invalid' });
+    }
+    return this.quiz.getMatrixVersion(actor.id, id, parsed);
+  }
+  @Get(':id/generated-exams')
+  /**
+   * GET /exam-matrices/:id/generated-exams — truy nguồn chiều ngược
+   * của ma trận: các version đề đã sinh từ ma trận này (kèm số
+   * version ma trận đã neo lúc sinh đề). Cổng xem như đọc chi tiết
+   * ma trận.
+   */
+  async generatedExams(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.listGeneratedExams(actor.id, id);
+  }
   @Patch(':id')
   /**
-   * PATCH /exam-matrices/:id — sửa ma trận (quiz:managematrix).
+   * PATCH /exam-matrices/:id — sửa ma trận (matrix:edit).
    */
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateExamMatrixSchema }) dto: UpdateExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.updateMatrix(actor.id, id, dto);
+  }
+  @Post(':id/withdraw')
+  /**
+   * POST /exam-matrices/:id/withdraw — rút ma trận khỏi ngân hàng kèm lý do bắt buộc và truy vết người rút/thời điểm (ngang hàng rút đề/câu hỏi); đề đã sinh từ ma trận không bị ảnh hưởng.
+   */
+  async withdraw(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: withdrawExamMatrixSchema }) dto: WithdrawExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.withdrawMatrix(actor.id, id, dto);
+  }
+  @Post(':id/restore')
+  /**
+   * POST /exam-matrices/:id/restore — khôi phục ma trận đã rút về ready, xoá truy vết lần rút.
+   */
+  async restore(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.quiz.restoreMatrix(actor.id, id);
   }
   @Delete(':id')
   /**

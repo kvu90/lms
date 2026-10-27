@@ -6,14 +6,18 @@ import type {
   ApproveExamContribution, CopyExam, CreateExam, CreateExamContribution,
   CreateExamPin, ExamSlotInput, GenerateFromMatrix, QuizView,
   RejectExamContribution, SetExamSlots, SetExamStatus, SwapExamSlot, UpdateExam,
+  WithdrawExam,
 } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
+import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
 import { CAP_ALLOW } from '../access/domain/permission';
 import { QuestionBanksService, QBANK_LEAD_ROLE, QBANK_MEMBER_ROLE } from '../questions/question-banks.service';
 import type { QuestionBankRow } from '../questions/question-banks.repository';
 import { QuizService, type MatrixSpecification } from '../quiz/quiz.service';
+import { SiteConfigService } from '../site-config/site-config.service';
+import { TenantConfigService } from '../tenants/tenant-config.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import {
   ExamsRepository,
@@ -21,9 +25,18 @@ import {
 } from './exams.repository';
 import type { ExamMatrixCellRow } from '../quiz/quiz.repository';
 
-/** Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI context của bank đề (một nguồn quyền duy nhất là bank). */
+/**
+ * Bộ capability của lớp ngân hàng đề — mọi cổng đều đánh giá TẠI
+ * context của bank đề (một nguồn quyền duy nhất là bank). Tên đã
+ * chuẩn hoá về khuôn use/add/edit/copy/share/moderate ở đợt đồng bộ
+ * khuôn ngân hàng (issue #228, lát S3): `view` giữ làm khoá nội bộ
+ * nhưng capability thật là `exam:use` (bản đồ tên cũ exam:view đã bỏ
+ * hẳn khỏi registry); `add` gác mọi đường TẠO đề mới (tạo tay, sinh
+ * từ ma trận, copy vào bank đích), `edit` chỉ còn gác sửa đề đã có.
+ */
 export const EXAM_CAPABILITIES = {
-  view: 'exam:view',
+  view: 'exam:use',
+  add: 'exam:add',
   edit: 'exam:edit',
   copy: 'exam:copy',
   share: 'exam:share',
@@ -34,15 +47,30 @@ export const EXAM_CAPABILITIES = {
 /** Các loại đề thuộc diện ĐỊNH KỲ/THI THỬ — nội dung ready của chúng tại bank trường là tài liệu mật theo nghĩa nghiệp vụ (lớp bảo mật A.3.4, EB-3). */
 export const PERIODIC_EXAM_KINDS = ['midterm', 'final', 'mock'] as const;
 
-/** exam:* cấp cho hai vai bank dùng chung tại context của MỖI bank đề: thành viên = xem + copy; chủ/tổ trưởng = toàn bộ. */
+/**
+ * Hash cấu trúc của một version đề (chống trùng đóng góp/copy): tên
+ * + danh sách question@pinnedVersion:điểm theo vị trí. Hàm DÙNG
+ * CHUNG của module exams: ExamsService tính khi đề xuất đóng góp,
+ * ExamDossiersService tính lại cho đóng góp sinh ra từ chuyển đổi
+ * hồ sơ treo — hai đường phải ra cùng một hash cho cùng một version
+ * thì vết chống trùng trong bank đích mới nhất quán.
+ */
+export function examPaperContentHash(version: ExamVersionRow, slots: ExamSlotRow[]): string {
+  const body = slots
+    .map((s) => `${s.questionId}@${s.pinnedVersionNumber ?? 0}:${s.maxMark}`)
+    .join('|');
+  return createHash('sha256').update(`${version.name}::${body}`).digest('hex');
+}
+
+/** exam:* cấp cho hai vai bank dùng chung tại context của MỖI bank đề: thành viên = xem + copy; chủ/tổ trưởng = toàn bộ (gồm cả exam:add). */
 const MEMBER_EXAM_CAPS = [EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.copy];
 const LEAD_EXAM_CAPS = [
-  EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.edit, EXAM_CAPABILITIES.copy,
+  EXAM_CAPABILITIES.view, EXAM_CAPABILITIES.add, EXAM_CAPABILITIES.edit, EXAM_CAPABILITIES.copy,
   EXAM_CAPABILITIES.share, EXAM_CAPABILITIES.moderate, EXAM_CAPABILITIES.deploy,
 ];
 
 export interface ExamCapabilitiesView {
-  view: boolean; edit: boolean; copy: boolean; share: boolean; moderate: boolean; deploy: boolean;
+  view: boolean; add: boolean; edit: boolean; copy: boolean; share: boolean; moderate: boolean; deploy: boolean;
 }
 
 export interface ExamSlotView {
@@ -78,6 +106,8 @@ export interface ExamView {
     derivedFromExamId: string | null; derivedFromMatrixId: string | null;
     originalAuthorId: string | null; createdBy: string;
     latestVersion: number; copyCount: number;
+    /** Truy vết lần rút gần nhất (cả ba null khi đề chưa bị rút hoặc đã khôi phục). */
+    withdrawnReason: string | null; withdrawnBy: string | null; withdrawnAt: string | null;
     createdAt: string; updatedAt: string;
   };
   version: {
@@ -88,8 +118,13 @@ export interface ExamView {
     createdBy: string; createdAt: string;
   };
   slots: ExamSlotView[];
-  /** Truy vết nguồn gốc cho UI hiển thị ghi công (null với đề gốc tự soạn). */
-  attribution: { derivedFromExamId: string; originalAuthorId: string | null; sourceBankId: string } | null;
+  /**
+   * Truy vết nguồn gốc cho UI hiển thị ghi công (null với đề gốc tự
+   * soạn): bank nguồn và số version của đề nguồn GHI TẠI LÚC COPY
+   * (không suy lại từ đề nguồn hiện tại — đề nguồn có thể đã chuyển
+   * bank hoặc có thêm version sau đó).
+   */
+  attribution: { derivedFromExamId: string; originalAuthorId: string | null; sourceBankId: string; derivedFromVersionNumber: number | null } | null;
   capabilities: ExamCapabilitiesView;
 }
 
@@ -107,12 +142,28 @@ export interface ExamSummary {
   latestVersion: number; createdBy: string;
   originalAuthorId: string | null; derivedFromExamId: string | null;
   copyCount: number; updatedAt: string;
+  /** Truy vết lần rút gần nhất (cả ba null khi đề chưa bị rút hoặc đã khôi phục). */
+  withdrawnReason: string | null; withdrawnBy: string | null; withdrawnAt: string | null;
   capabilities: ExamCapabilitiesView;
+}
+
+/** Một mốc duyệt trong vết của một đóng góp đề (cấp 1 = moderate tại bank đích; cấp 2 = ban giám hiệu, chỉ có ở đóng góp kèm bộ hồ sơ khi tenant bật cấp 2). */
+export interface ExamContributionReviewView {
+  id: string;
+  contributionId: string;
+  level: number;
+  reviewerId: string;
+  reviewerName: string | null;
+  decision: 'approved' | 'rejected';
+  reason: string | null;
+  createdAt: string;
 }
 
 export interface ExamContributionView extends ExamContributionRow {
   paperName: string | null;
   sourceBankId: string | null;
+  /** Toàn bộ mốc duyệt đã ghi của đóng góp này theo thứ tự thời gian. */
+  reviews: ExamContributionReviewView[];
 }
 
 /**
@@ -142,11 +193,14 @@ export class ExamsService {
   constructor(
     private readonly repo: ExamsRepository,
     private readonly banks: QuestionBanksService,
+    private readonly contexts: ContextsService,
     private readonly evaluator: PermissionEvaluator,
     private readonly roles: RolesService,
     private readonly quiz: QuizService,
     private readonly outbox: OutboxService,
     private readonly tenantContext: TenantContextService,
+    private readonly tenantConfig: TenantConfigService,
+    private readonly siteConfig: SiteConfigService,
   ) {}
 
   // --- cổng bank + quyền ----------------------------------------------------
@@ -186,6 +240,29 @@ export class ExamsService {
     return bank;
   }
 
+  /**
+   * ⚠️ ĐIỂM SEAM CẤU HÌNH CẤP DUYỆT 2 (ban giám hiệu) — nơi DUY NHẤT
+   * trong hệ thống đọc công tắc "đề chính thức vào bank chung có cần
+   * cấp duyệt ban giám hiệu hay không" (khoá `exam/requireboardapproval`,
+   * mặc định TẮT). Cả hai máy trạng thái từng cần công tắc này — bộ
+   * hồ sơ (EB-3) và đóng góp kèm bộ hồ sơ (đường đóng góp duy nhất
+   * sau khi hấp thụ hồ sơ) — đều hỏi điểm này; KHÔNG nơi nào khác
+   * đọc trực tiếp khoá cấu hình.
+   *
+   * Công tắc đọc theo TENANT CỦA BANK ĐÍCH (mỗi trung tâm/trường tự
+   * quyết có cấp duyệt BGH hay không) qua
+   * `TenantConfigService.getEffectiveValue` — giá trị tenant không
+   * có thì service tự rơi về giá trị platform rồi mặc định TẮT. Bank
+   * đích dùng chung cấp platform (tenant_id NULL) thì đọc thẳng giá
+   * trị platform qua SiteConfigService.
+   */
+  async boardApprovalRequiredForBank(bank: QuestionBankRow): Promise<boolean> {
+    if (bank.tenantId) {
+      return (await this.tenantConfig.getEffectiveValue<boolean>(bank.tenantId, 'exam', 'requireboardapproval')) ?? false;
+    }
+    return (await this.siteConfig.getValue<boolean>('exam', 'requireboardapproval')) ?? false;
+  }
+
   async bankOfPaper(paper: ExamRow): Promise<QuestionBankRow> {
     const bank = await this.banks.getBankOrThrow(paper.bankId);
     await this.ensureExamGrants(bank);
@@ -194,14 +271,14 @@ export class ExamsService {
 
   private async capabilitiesAt(actorId: string, bank: QuestionBankRow): Promise<ExamCapabilitiesView> {
     const at = (cap: string) => this.evaluator.hasCapability(actorId, cap, bank.contextId);
-    const [view, edit, copy, share, moderate, deploy] = await Promise.all([
-      at(EXAM_CAPABILITIES.view), at(EXAM_CAPABILITIES.edit), at(EXAM_CAPABILITIES.copy),
+    const [view, add, edit, copy, share, moderate, deploy] = await Promise.all([
+      at(EXAM_CAPABILITIES.view), at(EXAM_CAPABILITIES.add), at(EXAM_CAPABILITIES.edit), at(EXAM_CAPABILITIES.copy),
       at(EXAM_CAPABILITIES.share), at(EXAM_CAPABILITIES.moderate), at(EXAM_CAPABILITIES.deploy),
     ]);
-    return { view, edit, copy, share, moderate, deploy };
+    return { view, add, edit, copy, share, moderate, deploy };
   }
 
-  /** Đề ở trạng thái ready thì người có exam:view thấy; draft/hidden chỉ tác giả hoặc người duyệt của bank thấy. */
+  /** Đề ở trạng thái ready thì người có exam:use thấy; draft/hidden chỉ tác giả hoặc người duyệt của bank thấy. */
   private async assertCanViewPaper(actorId: string, paper: ExamRow, bank: QuestionBankRow): Promise<void> {
     if ((await this.evaluator.isSiteAdmin(actorId))) return;
     if (paper.status === 'ready') {
@@ -330,12 +407,9 @@ export class ExamsService {
     return resolved;
   }
 
-  /** Hash cấu trúc của một paper version (chống trùng đóng góp/copy): tên + danh sách question@pinnedVersion:điểm đã sắp theo vị trí. */
+  /** Hash cấu trúc của một paper version — xem hàm dùng chung `examPaperContentHash` ở đầu file. */
   private paperContentHash(version: ExamVersionRow, slots: ExamSlotRow[]): string {
-    const body = slots
-      .map((s) => `${s.questionId}@${s.pinnedVersionNumber ?? 0}:${s.maxMark}`)
-      .join('|');
-    return createHash('sha256').update(`${version.name}::${body}`).digest('hex');
+    return examPaperContentHash(version, slots);
   }
 
   // --- view -------------------------------------------------------------------
@@ -390,7 +464,10 @@ export class ExamsService {
       attribution = {
         derivedFromExamId: paper.derivedFromExamId,
         originalAuthorId: paper.originalAuthorId,
-        sourceBankId: source?.bankId ?? paper.bankId,
+        // Ưu tiên bank nguồn đã ghi tại lúc copy; chỉ bản copy cũ
+        // (chưa có cột ghi) mới suy từ bank hiện tại của đề nguồn.
+        sourceBankId: paper.derivedFromBankId ?? source?.bankId ?? paper.bankId,
+        derivedFromVersionNumber: paper.derivedFromVersionNumber,
       };
     }
     return {
@@ -399,6 +476,8 @@ export class ExamsService {
         derivedFromExamId: paper.derivedFromExamId, derivedFromMatrixId: paper.derivedFromMatrixId,
         originalAuthorId: paper.originalAuthorId, createdBy: paper.createdBy,
         latestVersion: paper.latestVersion, copyCount: paper.copyCount,
+        withdrawnReason: paper.withdrawnReason, withdrawnBy: paper.withdrawnBy,
+        withdrawnAt: paper.withdrawnAt?.toISOString() ?? null,
         createdAt: paper.createdAt.toISOString(), updatedAt: paper.updatedAt.toISOString(),
       },
       version: {
@@ -436,6 +515,8 @@ export class ExamsService {
         latestVersion: paper.latestVersion, createdBy: paper.createdBy,
         originalAuthorId: paper.originalAuthorId, derivedFromExamId: paper.derivedFromExamId,
         copyCount: paper.copyCount, updatedAt: paper.updatedAt.toISOString(),
+        withdrawnReason: paper.withdrawnReason, withdrawnBy: paper.withdrawnBy,
+        withdrawnAt: paper.withdrawnAt?.toISOString() ?? null,
         capabilities: { ...caps, edit: caps.edit && (paper.createdBy === actorId || caps.moderate) },
       });
     }
@@ -471,10 +552,10 @@ export class ExamsService {
     }));
   }
 
-  /** Tạo đề snapshot mới trong bank đề (metadata + slots tuỳ chọn; rỗng = đề trắng để soạn tiếp). */
+  /** Tạo đề snapshot mới trong bank đề (metadata + slots tuỳ chọn; rỗng = đề trắng để soạn tiếp). Cổng tạo là exam:add (khuôn S3) — exam:edit chỉ gác sửa đề đã có. */
   async createPaper(actorId: string, bankId: string, input: CreateExam): Promise<ExamView> {
     const bank = await this.getExamBank(actorId, bankId);
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, bank.contextId);
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, bank.contextId);
     const slots = await this.resolveSlots(input.slots ?? []);
     let paper: ExamRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
@@ -521,7 +602,9 @@ export class ExamsService {
         durationMinutes: input.durationMinutes !== undefined ? input.durationMinutes : current.durationMinutes,
         tfScale: input.tfScale !== undefined ? input.tfScale : current.tfScale,
         matrixId: input.matrixId !== undefined ? input.matrixId : current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion,
+        matrixVersionId: input.matrixId !== undefined && input.matrixId !== current.matrixId ? null : current.matrixVersionId,
+        createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(currentSlots.map((s) => ({
         examVersionId: version.id, position: s.position, section: s.section,
@@ -552,7 +635,7 @@ export class ExamsService {
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
         totalScore: current.totalScore, durationMinutes: current.durationMinutes,
         tfScale: current.tfScale, matrixId: current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion, matrixVersionId: current.matrixVersionId, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(slots.map((s, i) => ({ examVersionId: version.id, position: i + 1, ...s })), tx);
       await this.repo.updatePaper(paper.id, { latestVersion: next }, tx);
@@ -566,14 +649,28 @@ export class ExamsService {
 
   /**
    * Đổi trạng thái vòng đời: draft → ready (bắt buộc có ít nhất 1
-   * slot); mọi trạng thái → hidden (rút khỏi ngân hàng — quiz đã
+   * slot); mọi trạng thái → hidden (ẩn khỏi ngân hàng — quiz đã
    * triển khai không vỡ vì đã chụp slots riêng); hidden → ready/draft
-   * (khôi phục). Chỉ tác giả hoặc người duyệt.
+   * (hiện lại). Chỉ tác giả hoặc người duyệt.
+   *
+   * Đường này là chuyển trạng thái NHẸ (không truy vết): đề đã RÚT
+   * CHÍNH THỨC qua đường rút (có bộ ba truy vết withdrawn_*) thì
+   * KHÔNG đổi trạng thái ở đây được nữa — phải khôi phục qua đường
+   * khôi phục để truy vết được xoá đúng nghi thức (gác
+   * `exam.status_withdrawn`, đối xứng `question.status_withdrawn`
+   * của QB-3). Đề ẩn nhẹ (chưa từng rút chính thức, truy vết trống)
+   * vẫn qua lại tự do ở đường này như trước.
    */
   async setStatus(actorId: string, paperId: string, input: SetExamStatus): Promise<ExamView> {
     const paper = await this.getPaperOrThrow(paperId);
     const bank = await this.bankOfPaper(paper);
     await this.assertCanEditPaper(actorId, paper, bank);
+    if (paper.withdrawnAt && input.status !== paper.status) {
+      throw new ConflictException({
+        message: 'Paper is withdrawn; restore it before changing its status',
+        code: 'exam.status_withdrawn',
+      });
+    }
     if (input.status === 'ready') {
       const version = await this.currentVersion(paper);
       const slots = await this.repo.listSlots(version.id);
@@ -590,6 +687,65 @@ export class ExamsService {
       payload: { examId: paper.id, bankId: bank.id, status: input.status, actorId },
     });
     return this.paperView(actorId, (await this.repo.getPaper(paper.id))!);
+  }
+
+  /**
+   * Rút một đề khỏi ngân hàng (ngang hàng `withdrawQuestion` của
+   * QB-3, issue #228 lát S5): trạng thái về `hidden` KÈM truy vết
+   * bắt buộc — lý do (DTO chặn rỗng), người rút, thời điểm. Hệ quả
+   * của `hidden` giữ nguyên như trước: đề biến mất khỏi khám phá,
+   * không ghim mới/đóng góp mới được, nhưng version đã ghim vào
+   * khoá vẫn phục vụ bình thường (luồng làm bài đọc snapshot của
+   * version, không đọc trạng thái đề) — sự kiện mang theo danh sách
+   * lần ghim đang chịu ảnh hưởng để bề mặt vận hành đối chiếu. Cổng:
+   * quyền sửa đề (tác giả hoặc người duyệt của bank). Đề đang
+   * `hidden` rồi thì 409 — rút hai lần không có nghĩa.
+   */
+  async withdrawPaper(actorId: string, paperId: string, input: WithdrawExam): Promise<{ examId: string; status: string; affectedPinIds: string[] }> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanEditPaper(actorId, paper, bank);
+    if (paper.status === 'hidden') {
+      throw new ConflictException({ message: 'Paper is already withdrawn', code: 'exam.already_withdrawn' });
+    }
+    const pins = await this.repo.listPinsOfExam(paper.id);
+    await this.repo.updatePaper(paper.id, {
+      status: 'hidden',
+      withdrawnReason: input.reason,
+      withdrawnBy: actorId,
+      withdrawnAt: new Date(),
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_withdrawn',
+      payload: {
+        examId: paper.id, bankId: bank.id, actorId, reason: input.reason,
+        affectedPinIds: pins.map((p) => p.id),
+      },
+    });
+    return { examId: paper.id, status: 'hidden', affectedPinIds: pins.map((p) => p.id) };
+  }
+
+  /**
+   * Khôi phục một đề đã rút về `ready` và XOÁ truy vết lần rút
+   * (ngang hàng `restoreQuestion` của QB-3): đề hiện lại trong khám
+   * phá và ghim/đóng góp được như trước. Đề không ở trạng thái
+   * `hidden` thì 409 — không có gì để khôi phục.
+   */
+  async restorePaper(actorId: string, paperId: string): Promise<{ examId: string; status: string }> {
+    const paper = await this.getPaperOrThrow(paperId);
+    const bank = await this.bankOfPaper(paper);
+    await this.assertCanEditPaper(actorId, paper, bank);
+    if (paper.status !== 'hidden') {
+      throw new ConflictException({ message: 'Paper is not withdrawn', code: 'exam.not_withdrawn' });
+    }
+    await this.repo.updatePaper(paper.id, {
+      status: 'ready', withdrawnReason: null, withdrawnBy: null, withdrawnAt: null,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_restored',
+      payload: { examId: paper.id, bankId: bank.id, actorId },
+    });
+    return { examId: paper.id, status: 'ready' };
   }
 
   /**
@@ -616,7 +772,10 @@ export class ExamsService {
    * của người copy): danh tính mới, slots sao nguyên — question +
    * pinned version GIỮ NGUYÊN (copy đề không copy câu), derived_from
    * trỏ về đề nguồn, tác giả gốc giữ nguyên qua các đời copy,
-   * copy_count của đề nguồn tăng. Bản copy bắt đầu ở draft, version 1.
+   * copy_count của đề nguồn tăng. Bản copy hạ cánh `ready` ngay tại
+   * bank đích, version 1 — theo quy tắc hoàn thiện: sao chép vào
+   * bank là đường vào bank ở dạng đã hoàn thiện (cùng nhóm với duyệt
+   * đóng góp/hồ sơ đạt), không qua trạng thái soạn `draft`.
    */
   async copyPaper(actorId: string, paperId: string, input: CopyExam): Promise<ExamView> {
     const source = await this.getPaperOrThrow(paperId);
@@ -632,7 +791,9 @@ export class ExamsService {
       await this.ensureExamGrants(row);
       target = row;
     }
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, target.contextId);
+    // Ghi một đề MỚI vào bank đích = cổng tạo exam:add tại bank đích
+    // (khuôn S3); quyền sửa đề đã có (exam:edit) không thay cho cổng tạo.
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, target.contextId);
 
     const copied = await this.deepCopyInto(actorId, source, target, input.name);
     await this.outbox.enqueueStandalone({
@@ -645,10 +806,10 @@ export class ExamsService {
     return this.paperView(actorId, copied);
   }
 
-  /** Nhân bản đề (danh tính + version hiện tại thành version 1 + slots nguyên trạng) vào bank đích — dùng chung cho copy tay và duyệt đóng góp. */
+  /** Nhân bản đề (danh tính + version hiện tại thành version 1 + slots nguyên trạng) vào bank đích — dùng chung cho copy tay và chốt duyệt đóng góp mode 'new' không kèm hồ sơ; bản nhân bản hạ cánh `ready` theo quy tắc hoàn thiện. */
   private async deepCopyInto(actorId: string, source: ExamRow, target: QuestionBankRow, nameOverride?: string): Promise<ExamRow> {
     const sourceVersion = await this.currentVersion(source);
-    return this.copyPaperVersionIntoBank(actorId, source, sourceVersion, target, { name: nameOverride, status: 'draft' });
+    return this.copyPaperVersionIntoBank(actorId, source, sourceVersion, target, { name: nameOverride, status: 'ready' });
   }
 
   /**
@@ -656,9 +817,12 @@ export class ExamsService {
    * mới, phiên bản đó trở thành version 1 của bản copy, slots sao
    * nguyên (question + pinned version giữ nguyên), derived_from trỏ
    * về đề nguồn, tác giả gốc giữ nguyên, copy_count của đề nguồn
-   * tăng. Copy tay/duyệt đóng góp dùng version hiện tại + trạng thái
-   * draft; duyệt BỘ HỒ SƠ (EB-3) dùng PHIÊN BẢN ĐÃ GHIM lúc nộp +
-   * trạng thái ready để đề hiện ngay ở bank đích sau khi duyệt đạt.
+   * tăng. Mọi đường qua hàm này đều hạ cánh `ready` tại bank đích
+   * theo quy tắc hoàn thiện (sao chép/duyệt đóng góp vào bank ở dạng
+   * đã hoàn thiện): copy tay/duyệt đóng góp thường nhân bản version
+   * hiện tại của đề nguồn; duyệt BỘ HỒ SƠ (EB-3) nhân bản PHIÊN BẢN
+   * ĐÃ GHIM lúc nộp để đề chính thức đã qua đủ cấp duyệt hiện ngay ở
+   * bank đích sau khi duyệt đạt.
    */
   async copyPaperVersionIntoBank(actorId: string, source: ExamRow, sourceVersion: ExamVersionRow, target: QuestionBankRow, opts?: { name?: string; status?: string }): Promise<ExamRow> {
     const sourceSlots = await this.repo.listSlots(sourceVersion.id);
@@ -669,6 +833,10 @@ export class ExamsService {
         derivedFromExamId: source.id,
         derivedFromMatrixId: sourceVersion.matrixId,
         originalAuthorId: source.originalAuthorId ?? source.createdBy,
+        // Ghi bank nguồn + số version của đề nguồn TẠI LÚC COPY —
+        // truy vết không phụ thuộc trạng thái của đề nguồn về sau.
+        derivedFromBankId: source.bankId,
+        derivedFromVersionNumber: sourceVersion.version,
         createdBy: actorId, latestVersion: 1,
       }, tx);
       const version = await this.repo.insertVersion({
@@ -676,7 +844,7 @@ export class ExamsService {
         subjectId: sourceVersion.subjectId, grade: sourceVersion.grade, examKind: sourceVersion.examKind,
         totalScore: sourceVersion.totalScore, durationMinutes: sourceVersion.durationMinutes,
         tfScale: sourceVersion.tfScale, matrixId: sourceVersion.matrixId,
-        matrixVersion: sourceVersion.matrixVersion, createdBy: actorId,
+        matrixVersion: sourceVersion.matrixVersion, matrixVersionId: sourceVersion.matrixVersionId, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(sourceSlots.map((s) => ({
         examVersionId: version.id, position: s.position, section: s.section,
@@ -689,16 +857,35 @@ export class ExamsService {
     return created!;
   }
 
-  // --- đóng góp (khuôn QB-4) ------------------------------------------------------
+  // --- đóng góp (khuôn QB-4 — ĐƯỜNG DUY NHẤT của đề) --------------------------------
 
   /**
-   * Đề xuất đóng góp một đề READY vào bank đích (tổ/trường/khoá):
-   * cổng exam:share tại bank NGUỒN; bank đích không được là bank cá
-   * nhân; chống trùng: hash cấu trúc bằng một đề đã có trong bank
-   * đích thì ghi nhận near_duplicate_of (trùng hoàn toàn — suy từ
-   * chính đề nguồn — sẽ bị chặn 409 lúc duyệt như QB-4).
+   * Đề xuất đóng góp một đề READY vào bank đích (tổ/trường/khoá) —
+   * ĐƯỜNG ĐÓNG GÓP DUY NHẤT của đề, nâng lên khuôn QB-4 đầy đủ của
+   * câu hỏi (issue #228, lát S4):
+   *
+   * - Cổng: exam:share tại bank NGUỒN; bank đích không được là bank
+   *   cá nhân; đề nguồn phải `ready`.
+   * - mode 'new': duyệt đạt thì deep copy đề vào bank đích. Chống
+   *   trùng: hash cấu trúc bằng một đề đã có trong bank đích thì ghi
+   *   near_duplicate_of (trùng suy từ chính đề nguồn bị chặn 409 lúc
+   *   duyệt như QB-4).
+   * - mode 'update': đề xuất bản mới cho một đề ĐÃ CÓ trong bank
+   *   đích — đề nguồn bắt buộc là bản sao có derived_from trỏ về
+   *   chính đề đích (đối xứng luật `question.contribution_not_derived`
+   *   của QB-4); duyệt đạt thì tạo VERSION MỚI trên danh tính đề
+   *   đích từ nội dung version hiện tại của đề nguồn.
+   * - withDossier: đóng góp mang theo BỘ HỒ SƠ đã ghim tại lúc đề
+   *   xuất (version đề + version ma trận + bản đặc tả chụp) — phần
+   *   việc hấp thụ từ đường hồ sơ cũ: đề phải sinh từ ma trận thì
+   *   mới có bộ ba để duyệt. Đóng góp có bộ hồ sơ + tenant của bank
+   *   đích bật cấu hình cấp duyệt 2 (điểm seam
+   *   `boardApprovalRequiredForBank`) thì duyệt cấp 1 chỉ đưa đóng
+   *   góp sang `pending_board` chờ ban giám hiệu chốt; ngoài ra
+   *   duyệt một cấp như QB-4.
    */
   async proposeContribution(actorId: string, targetBankId: string, input: CreateExamContribution): Promise<ExamContributionRow> {
+    const mode = input.mode ?? 'new';
     const target = await this.getExamBank(actorId, targetBankId);
     if (target.scope === 'personal') {
       throw new BadRequestException({ message: 'Cannot contribute into a personal bank', code: 'exam.contribution_target_personal' });
@@ -713,7 +900,28 @@ export class ExamsService {
     if (paper.status !== 'ready') {
       throw new BadRequestException({ message: 'Only a ready paper can be contributed', code: 'exam.contribution_source_not_ready' });
     }
-    const existing = await this.repo.findPendingContribution(paper.id, target.id);
+    if (mode === 'update') {
+      if (!input.targetExamId) {
+        throw new BadRequestException({
+          message: 'An update contribution needs targetExamId (the paper in the target bank this proposal updates)',
+          code: 'exam.contribution_target_required',
+        });
+      }
+      const targetPaper = await this.repo.getPaper(input.targetExamId);
+      if (!targetPaper || targetPaper.bankId !== target.id) {
+        throw new BadRequestException({
+          message: 'The target paper of an update contribution must live in the target bank',
+          code: 'exam.contribution_target_not_in_bank',
+        });
+      }
+      if (paper.derivedFromExamId !== input.targetExamId) {
+        throw new BadRequestException({
+          message: 'Only a paper copied from the target paper can be proposed as its update',
+          code: 'exam.contribution_not_derived',
+        });
+      }
+    }
+    const existing = await this.repo.findPendingContribution(paper.id, target.id, mode, input.targetExamId);
     if (existing) {
       throw new ConflictException({ message: 'A pending contribution of this paper to the target bank already exists', code: 'exam.contribution_duplicate_pending' });
     }
@@ -721,23 +929,61 @@ export class ExamsService {
     const slots = await this.repo.listSlots(version.id);
     const hash = this.paperContentHash(version, slots);
     let nearDuplicateOf: string | null = null;
-    for (const other of await this.repo.listPapersInBank(target.id)) {
-      const otherVersion = await this.currentVersion(other);
-      const otherSlots = await this.repo.listSlots(otherVersion.id);
-      if (this.paperContentHash(otherVersion, otherSlots) === hash) { nearDuplicateOf = other.id; break; }
+    if (mode === 'new') {
+      for (const other of await this.repo.listPapersInBank(target.id)) {
+        const otherVersion = await this.currentVersion(other);
+        const otherSlots = await this.repo.listSlots(otherVersion.id);
+        if (this.paperContentHash(otherVersion, otherSlots) === hash) { nearDuplicateOf = other.id; break; }
+      }
+    }
+    // Bộ hồ sơ đính kèm: ghim bộ ba TẠI LÚC ĐỀ XUẤT như đường hồ sơ
+    // cũ ghim tại lúc nộp — người duyệt về sau duyệt đúng bộ này kể
+    // cả khi đề nguồn có version mới trong lúc chờ.
+    let dossier: {
+      dossierExamVersionId: string; dossierExamVersionNumber: number;
+      dossierMatrixId: string; dossierMatrixVersion: number | null; dossierMatrixVersionId: string | null;
+      dossierSpecSnapshot: Record<string, unknown>;
+    } | null = null;
+    if (input.withDossier) {
+      if (!version.matrixId) {
+        throw new BadRequestException({
+          message: 'A dossier attachment requires a paper built from a matrix (matrix + specification + paper are reviewed as one set)',
+          code: 'exam.contribution_dossier_requires_matrix',
+        });
+      }
+      const matrixInfo = await this.repo.getMatrixInfo(version.matrixId);
+      const matrixVersion = version.matrixVersion ?? matrixInfo?.version ?? null;
+      const matrixVersionId = version.matrixVersionId
+        ?? (matrixVersion !== null ? await this.repo.getMatrixVersionRowId(version.matrixId, matrixVersion) : null);
+      const spec = await this.quiz.buildSpecificationForPaper(actorId, version.matrixId, slots.map((s) => ({
+        matrixCellId: s.matrixCellId, position: s.position, questionId: s.questionId,
+      })));
+      dossier = {
+        dossierExamVersionId: version.id,
+        dossierExamVersionNumber: version.version,
+        dossierMatrixId: version.matrixId,
+        dossierMatrixVersion: matrixVersion,
+        dossierMatrixVersionId: matrixVersionId,
+        dossierSpecSnapshot: spec as unknown as Record<string, unknown>,
+      };
     }
     const row = await this.repo.insertContribution({
       examId: paper.id, targetBankId: target.id, proposerId: actorId,
-      note: input.note ?? '', contentHash: hash, nearDuplicateOf,
+      note: input.note ?? '', mode, targetExamId: mode === 'update' ? input.targetExamId! : null,
+      contentHash: hash, nearDuplicateOf,
+      ...(dossier ?? {}),
     });
     await this.outbox.enqueueStandalone({
       aggregate: 'exam_paper', type: 'exam_paper_contribution_proposed',
-      payload: { contributionId: row.id, targetBankId: target.id, examId: paper.id, proposerId: actorId, nearDuplicateOf },
+      payload: {
+        contributionId: row.id, targetBankId: target.id, examId: paper.id, proposerId: actorId,
+        mode, targetExamId: row.targetExamId, withDossier: dossier !== null, nearDuplicateOf,
+      },
     });
     return row;
   }
 
-  /** Hàng chờ đóng góp của một bank đề: người duyệt (exam:moderate tại bank đích) thấy tất cả; người khác chỉ thấy đề xuất của mình (như QB-4). */
+  /** Hàng chờ đóng góp của một bank đề: người duyệt (exam:moderate tại bank đích) thấy tất cả kèm vết mốc duyệt; người khác chỉ thấy đề xuất của mình (như QB-4). */
   async listContributions(actorId: string, bankId: string): Promise<ExamContributionView[]> {
     const bank = await this.getExamBank(actorId, bankId);
     const canModerate = await this.evaluator.hasCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId);
@@ -746,7 +992,19 @@ export class ExamsService {
     const views: ExamContributionView[] = [];
     for (const row of rows) {
       const paper = await this.repo.getPaper(row.examId);
-      views.push({ ...row, paperName: paper ? (await this.currentVersion(paper)).name : null, sourceBankId: paper?.bankId ?? null });
+      const reviewRows = await this.repo.listContributionReviews(row.id);
+      const names = await this.banks.displayNames(reviewRows.map((r) => r.reviewerId));
+      views.push({
+        ...row,
+        paperName: paper ? (await this.currentVersion(paper)).name : null,
+        sourceBankId: paper?.bankId ?? null,
+        reviews: reviewRows.map((r) => ({
+          id: r.id, contributionId: r.contributionId, level: r.level,
+          reviewerId: r.reviewerId, reviewerName: names.get(r.reviewerId) ?? null,
+          decision: r.decision as 'approved' | 'rejected', reason: r.reason,
+          createdAt: r.createdAt.toISOString(),
+        })),
+      });
     }
     return views;
   }
@@ -759,11 +1017,103 @@ export class ExamsService {
     return row;
   }
 
+  /** Đóng góp có cần qua cấp duyệt 2 hay không: có bộ hồ sơ đính kèm VÀ công tắc tenant của bank đích đang bật (điểm seam duy nhất). */
+  private async contributionNeedsBoard(contribution: ExamContributionRow, bank: QuestionBankRow): Promise<boolean> {
+    if (!contribution.dossierExamVersionId) return false;
+    return this.boardApprovalRequiredForBank(bank);
+  }
+
   /**
-   * Duyệt một đề xuất: chủ bank đích (exam:moderate tại bank đích)
-   * COPY đề vào bank đích — đề vào bank đích là danh tính mới suy từ
-   * đề nguồn; trùng hoàn toàn (đã có bản suy từ chính đề nguồn trong
-   * bank đích) thì 409 như QB-4.
+   * Chốt duyệt một đóng góp (mốc cuối — cấp 1 khi không có cấp 2,
+   * cấp 2 khi qua ban giám hiệu):
+   *
+   * - mode 'new': COPY đề vào bank đích, bản copy hạ cánh `ready`
+   *   theo quy tắc hoàn thiện (duyệt đóng góp đạt là đường vào bank
+   *   ở dạng đã hoàn thiện — cùng quy tắc với sao chép tay); đóng
+   *   góp CÓ bộ hồ sơ đính kèm thì copy PHIÊN BẢN ĐÃ GHIM trong bộ
+   *   hồ sơ, cũng hạ cánh `ready` (đề chính thức đã qua đủ cấp duyệt
+   *   phải hiện ngay ở bank đích như đường hồ sơ cũ). Trùng hoàn
+   *   toàn (bank đích đã có bản suy từ chính đề nguồn) thì 409 như QB-4.
+   * - mode 'update': tạo VERSION MỚI trên chính danh tính đề đích từ
+   *   metadata + slots của version hiện tại của đề nguồn — bank
+   *   đích không sinh danh tính mới, result_exam_id trỏ về chính
+   *   đề đích.
+   *
+   * Mốc duyệt được ghi vào sổ mốc duyệt ở đúng cấp của mốc chốt.
+   */
+  private async finalizeContributionApproval(actorId: string, bank: QuestionBankRow, contribution: ExamContributionRow, level: number): Promise<ExamContributionRow> {
+    const source = await this.getPaperOrThrow(contribution.examId);
+    let resultExamId: string;
+    if (contribution.mode === 'update') {
+      const targetPaper = contribution.targetExamId ? await this.repo.getPaper(contribution.targetExamId) : undefined;
+      if (!targetPaper || targetPaper.bankId !== bank.id) {
+        throw new ConflictException({
+          message: 'The target paper of this update contribution no longer lives in the target bank',
+          code: 'exam.contribution_target_gone',
+        });
+      }
+      const sourceVersion = await this.currentVersion(source);
+      const sourceSlots = await this.repo.listSlots(sourceVersion.id);
+      const next = targetPaper.latestVersion + 1;
+      await this.repo.dbHandle.transaction(async (tx) => {
+        const version = await this.repo.insertVersion({
+          examId: targetPaper.id, version: next, name: sourceVersion.name,
+          subjectId: sourceVersion.subjectId, grade: sourceVersion.grade, examKind: sourceVersion.examKind,
+          totalScore: sourceVersion.totalScore, durationMinutes: sourceVersion.durationMinutes,
+          tfScale: sourceVersion.tfScale, matrixId: sourceVersion.matrixId,
+          matrixVersion: sourceVersion.matrixVersion, matrixVersionId: sourceVersion.matrixVersionId,
+          createdBy: actorId,
+        }, tx);
+        await this.repo.insertSlots(sourceSlots.map((s) => ({
+          examVersionId: version.id, position: s.position, section: s.section,
+          questionId: s.questionId, pinnedVersionId: s.pinnedVersionId,
+          pinnedVersionNumber: s.pinnedVersionNumber, maxMark: s.maxMark,
+          clusterId: s.clusterId, matrixCellId: s.matrixCellId,
+        })), tx);
+        await this.repo.updatePaper(targetPaper.id, { latestVersion: next }, tx);
+        await this.repo.bumpCopyCount(source.id, tx);
+      });
+      resultExamId = targetPaper.id;
+    } else {
+      const inTarget = await this.repo.listPapersInBank(bank.id);
+      if (inTarget.some((p) => p.derivedFromExamId === source.id)) {
+        throw new ConflictException({
+          message: `An identical paper already exists in the target bank (copied from ${source.id})`,
+          code: 'exam.duplicate_in_bank',
+        });
+      }
+      if (contribution.dossierExamVersionId) {
+        const pinned = await this.repo.getVersion(contribution.dossierExamVersionId);
+        if (!pinned) {
+          throw new ConflictException({ message: 'The pinned paper version of this contribution no longer exists', code: 'exam.contribution_dossier_version_gone' });
+        }
+        resultExamId = (await this.copyPaperVersionIntoBank(actorId, source, pinned, bank, { status: 'ready' })).id;
+      } else {
+        resultExamId = (await this.deepCopyInto(actorId, source, bank)).id;
+      }
+    }
+    await this.repo.insertContributionReview({
+      contributionId: contribution.id, level, reviewerId: actorId, decision: 'approved', reason: null,
+    });
+    await this.repo.updateContribution(contribution.id, {
+      status: 'approved', reviewerId: actorId, resultExamId,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_contribution_approved',
+      payload: {
+        contributionId: contribution.id, targetBankId: bank.id, paperId: source.id,
+        mode: contribution.mode, resultExamId, reviewerId: actorId,
+        proposerId: contribution.proposerId, level,
+      },
+    });
+    return (await this.repo.getContribution(contribution.id))!;
+  }
+
+  /**
+   * Duyệt cấp 1 một đề xuất (exam:moderate tại bank đích): đóng góp
+   * có bộ hồ sơ đính kèm + công tắc cấp 2 bật thì cấp 1 chỉ ghi mốc
+   * và đưa đóng góp sang `pending_board` (đề CHƯA vào bank đích);
+   * còn lại cấp 1 là mốc chốt.
    */
   async approveContribution(actorId: string, bankId: string, contributionId: string, _input: ApproveExamContribution): Promise<ExamContributionRow> {
     const bank = await this.getExamBank(actorId, bankId);
@@ -772,29 +1122,24 @@ export class ExamsService {
     if (contribution.status !== 'pending') {
       throw new ConflictException({ message: 'Contribution is no longer pending', code: 'exam.contribution_not_pending' });
     }
-    const source = await this.getPaperOrThrow(contribution.examId);
-    const inTarget = await this.repo.listPapersInBank(bank.id);
-    if (inTarget.some((p) => p.derivedFromExamId === source.id)) {
-      throw new ConflictException({
-        message: `An identical paper already exists in the target bank (copied from ${source.id})`,
-        code: 'exam.duplicate_in_bank',
+    if (await this.contributionNeedsBoard(contribution, bank)) {
+      await this.repo.insertContributionReview({
+        contributionId: contribution.id, level: 1, reviewerId: actorId, decision: 'approved', reason: null,
       });
+      await this.repo.updateContribution(contribution.id, { status: 'pending_board' });
+      await this.outbox.enqueueStandalone({
+        aggregate: 'exam_paper', type: 'exam_paper_contribution_level1_approved',
+        payload: {
+          contributionId: contribution.id, targetBankId: bank.id, paperId: contribution.examId,
+          reviewerId: actorId, proposerId: contribution.proposerId,
+        },
+      });
+      return (await this.repo.getContribution(contribution.id))!;
     }
-    const copied = await this.deepCopyInto(actorId, source, bank);
-    await this.repo.updateContribution(contribution.id, {
-      status: 'approved', reviewerId: actorId, resultExamId: copied.id,
-    });
-    await this.outbox.enqueueStandalone({
-      aggregate: 'exam_paper', type: 'exam_paper_contribution_approved',
-      payload: {
-        contributionId: contribution.id, targetBankId: bank.id, paperId: source.id,
-        resultExamId: copied.id, reviewerId: actorId, proposerId: contribution.proposerId,
-      },
-    });
-    return (await this.repo.getContribution(contribution.id))!;
+    return this.finalizeContributionApproval(actorId, bank, contribution, 1);
   }
 
-  /** Từ chối một đề xuất: lý do bắt buộc để giáo viên sửa và đề xuất lại. */
+  /** Từ chối cấp 1 một đề xuất: lý do bắt buộc để giáo viên sửa và đề xuất lại; mốc từ chối ghi vào sổ mốc duyệt. */
   async rejectContribution(actorId: string, bankId: string, contributionId: string, input: RejectExamContribution): Promise<ExamContributionRow> {
     const bank = await this.getExamBank(actorId, bankId);
     await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.moderate, bank.contextId);
@@ -802,6 +1147,9 @@ export class ExamsService {
     if (contribution.status !== 'pending') {
       throw new ConflictException({ message: 'Contribution is no longer pending', code: 'exam.contribution_not_pending' });
     }
+    await this.repo.insertContributionReview({
+      contributionId: contribution.id, level: 1, reviewerId: actorId, decision: 'rejected', reason: input.reason,
+    });
     await this.repo.updateContribution(contribution.id, {
       status: 'rejected', reviewerId: actorId, rejectReason: input.reason,
     });
@@ -809,7 +1157,59 @@ export class ExamsService {
       aggregate: 'exam_paper', type: 'exam_paper_contribution_rejected',
       payload: {
         contributionId: contribution.id, targetBankId: bank.id, paperId: contribution.examId,
-        reviewerId: actorId, proposerId: contribution.proposerId, reason: input.reason,
+        reviewerId: actorId, proposerId: contribution.proposerId, reason: input.reason, level: 1,
+      },
+    });
+    return (await this.repo.getContribution(contribution.id))!;
+  }
+
+  /**
+   * Cổng cấp duyệt 2 của đường đóng góp: người duyệt phải có
+   * exam:moderate tại context HỆ THỐNG (ban giám hiệu cấp hệ thống
+   * — không neo vào bank đích, vì cấp này đứng trên mọi bank của
+   * tenant), đúng khuôn cổng cấp 2 của đường hồ sơ cũ.
+   */
+  private async requireContributionBoardApprover(actorId: string): Promise<void> {
+    const system = await this.contexts.ensureSystemContext();
+    const ok = await this.evaluator.hasCapability(actorId, EXAM_CAPABILITIES.moderate, system.id);
+    if (!ok) {
+      throw new ForbiddenException({
+        message: 'Board approval requires exam:moderate at the system context',
+        code: 'exam.contribution_board_forbidden',
+      });
+    }
+  }
+
+  /** Duyệt cấp 2 (ban giám hiệu) — mốc cuối: đề vào bank đích theo mode của đóng góp. */
+  async boardApproveContribution(actorId: string, bankId: string, contributionId: string, _input: ApproveExamContribution): Promise<ExamContributionRow> {
+    const bank = await this.getExamBank(actorId, bankId);
+    await this.requireContributionBoardApprover(actorId);
+    const contribution = await this.getContributionForBank(bank.id, contributionId);
+    if (contribution.status !== 'pending_board') {
+      throw new ConflictException({ message: 'Contribution is not waiting for board review', code: 'exam.contribution_not_pending_board' });
+    }
+    return this.finalizeContributionApproval(actorId, bank, contribution, 2);
+  }
+
+  /** Từ chối cấp 2: lý do bắt buộc, đóng góp đóng lại ở `rejected` (vết mốc cấp 1 vẫn giữ nguyên). */
+  async boardRejectContribution(actorId: string, bankId: string, contributionId: string, input: RejectExamContribution): Promise<ExamContributionRow> {
+    const bank = await this.getExamBank(actorId, bankId);
+    await this.requireContributionBoardApprover(actorId);
+    const contribution = await this.getContributionForBank(bank.id, contributionId);
+    if (contribution.status !== 'pending_board') {
+      throw new ConflictException({ message: 'Contribution is not waiting for board review', code: 'exam.contribution_not_pending_board' });
+    }
+    await this.repo.insertContributionReview({
+      contributionId: contribution.id, level: 2, reviewerId: actorId, decision: 'rejected', reason: input.reason,
+    });
+    await this.repo.updateContribution(contribution.id, {
+      status: 'rejected', reviewerId: actorId, rejectReason: input.reason,
+    });
+    await this.outbox.enqueueStandalone({
+      aggregate: 'exam_paper', type: 'exam_paper_contribution_rejected',
+      payload: {
+        contributionId: contribution.id, targetBankId: bank.id, paperId: contribution.examId,
+        reviewerId: actorId, proposerId: contribution.proposerId, reason: input.reason, level: 2,
       },
     });
     return (await this.repo.getContribution(contribution.id))!;
@@ -900,7 +1300,8 @@ export class ExamsService {
 
     const bankRow = await this.banks.ensurePersonalBank(actorId, 'exam');
     await this.ensureExamGrants(bankRow);
-    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.edit, bankRow.contextId);
+    // Sinh đề là TẠO một đề mới trong bank cá nhân → cổng exam:add (khuôn S3).
+    await this.evaluator.requireCapability(actorId, EXAM_CAPABILITIES.add, bankRow.contextId);
 
     // Ghim version ready cho từng câu đã rút (đúng kỷ luật ghim của
     // đề: version tại thời điểm chụp) — phân giải trước khi ghi.
@@ -922,11 +1323,15 @@ export class ExamsService {
         status: 'ready', createdBy: actorId, latestVersion: 1,
         derivedFromMatrixId: matrix.id,
       }, tx);
+      // Neo FK tới đúng version bất biến của ma trận tại thời điểm
+      // sinh đề: đề đọc lại được nội dung ma trận gốc dù ma trận có
+      // version mới về sau.
+      const matrixVersionId = await this.repo.getMatrixVersionRowId(matrix.id, matrix.version, tx);
       const version = await this.repo.insertVersion({
         examId: paper.id, version: 1, name: input.name,
         subjectId: matrix.subjectId, grade: null, examKind: null,
         totalScore: matrix.totalScore, durationMinutes: null, tfScale: cellScale,
-        matrixId: matrix.id, matrixVersion: matrix.version,
+        matrixId: matrix.id, matrixVersion: matrix.version, matrixVersionId,
         createdBy: actorId,
       }, tx);
       if (drawnPinned) {
@@ -998,7 +1403,7 @@ export class ExamsService {
         subjectId: current.subjectId, grade: current.grade, examKind: current.examKind,
         totalScore: current.totalScore, durationMinutes: current.durationMinutes,
         tfScale: current.tfScale, matrixId: current.matrixId,
-        matrixVersion: current.matrixVersion, createdBy: actorId,
+        matrixVersion: current.matrixVersion, matrixVersionId: current.matrixVersionId, createdBy: actorId,
       }, tx);
       await this.repo.insertSlots(slots.map((s) => ({
         examVersionId: version.id, position: s.position, section: s.section,

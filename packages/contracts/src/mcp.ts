@@ -153,20 +153,53 @@ export const mcpGetQuestionOutputSchema = questionViewSchema;
  * `idempotencyKey` bắt buộc như mọi write tool (đặc tả 2026-07-28):
  * phát lại cùng key + cùng payload trả kết quả cũ, không tạo đề xuất
  * trùng; cùng key khác payload là lỗi `question.idempotency_conflict`.
+ * Từ issue #228 tool mở đối xứng cho đề và ma trận (cùng scope
+ * `lms.banks.contribute`, không thêm scope mới): đề đi vào đường
+ * đóng góp duy nhất của đề (`exam_contributions`, mode 'new'), ma
+ * trận vào hàng chờ đóng góp ma trận — cả hai đều qua đúng cổng chủ
+ * sở hữu + trạng thái + đích chung của từng đường như phía câu hỏi.
+ */
+/**
+ * Đầu vào `submit_contribution` — từ đợt đồng bộ cơ chế ngân hàng
+ * (issue #228), tool mở đối xứng cho cả ba thực thể ngân hàng: ngoài
+ * `questionIds` (câu hỏi), client có thể gửi `examIds` (đề — vào
+ * đường đóng góp duy nhất của đề, mode 'new') và/hoặc `matrixIds`
+ * (ma trận — vào hàng chờ đóng góp ma trận) trong CÙNG một lượt gọi
+ * tới cùng một bank đích. Ít nhất một trong ba danh sách phải có
+ * phần tử; mỗi danh sách tối đa 50 phần tử như trần batch hiện hữu.
+ * Ràng buộc "ít nhất một danh sách" kiểm ngay tại schema
+ * (superRefine) để client nhận lỗi hình dạng trước khi chạm tầng
+ * nghiệp vụ. `questionIds` giữ optional thay vì bắt buộc là chủ
+ * đích: payload cũ chỉ-câu-hỏi vẫn hợp lệ nguyên vẹn.
  */
 export const mcpSubmitContributionInputSchema = z.strictObject({
   targetBankId: uuidIdSchema,
-  questionIds: z.array(uuidIdSchema).min(1).max(50),
+  questionIds: z.array(uuidIdSchema).min(1).max(50).optional(),
+  examIds: z.array(uuidIdSchema).min(1).max(50).optional(),
+  matrixIds: z.array(uuidIdSchema).min(1).max(50).optional(),
   note: z.string().max(2000).optional(),
   idempotencyKey: z.string().min(1).max(200),
+}).superRefine((value, ctx) => {
+  if (!value.questionIds?.length && !value.examIds?.length && !value.matrixIds?.length) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['questionIds'],
+      message: 'submit_contribution cần ít nhất một trong ba danh sách: questionIds, examIds, matrixIds.',
+    });
+  }
 });
 export type McpSubmitContributionInput = z.infer<typeof mcpSubmitContributionInputSchema>;
 
 /**
- * Kết quả `submit_contribution` theo từng câu (ngữ nghĩa từng-item như
- * batch): `pending` kèm contributionId khi đề xuất đã tạo; `failed`
- * kèm mã lỗi nghiệp vụ của đúng cổng đã chặn (chưa ready, không phải
- * câu của chủ token, đích là bank personal, trùng trong bank đích…).
+ * Kết quả `submit_contribution` theo từng item (ngữ nghĩa từng-item
+ * như batch): `pending` kèm contributionId khi đề xuất đã tạo;
+ * `failed` kèm mã lỗi nghiệp vụ của đúng cổng đã chặn (chưa ready,
+ * không phải của chủ token, đích là bank personal, trùng trong bank
+ * đích…). Ba mảng kết quả tách theo loại thực thể: `results` (câu
+ * hỏi — giữ nguyên hình dạng cũ), `examResults` và `matrixResults`
+ * (mặc định rỗng khi payload cũ được phát lại từ sổ idempotency ghi
+ * trước đợt mở đối xứng, để bản ghi cũ vẫn hợp lệ với schema mới).
+ * `created`/`failed` là tổng trên cả ba loại.
  */
 export const mcpSubmitContributionOutputSchema = z.object({
   targetBankId: uuidIdSchema,
@@ -179,6 +212,24 @@ export const mcpSubmitContributionOutputSchema = z.object({
       message: z.string().nullable(),
     }),
   ),
+  examResults: z.array(
+    z.object({
+      examId: uuidIdSchema,
+      status: z.enum(['pending', 'failed']),
+      contributionId: uuidIdSchema.nullable(),
+      code: z.string().nullable(),
+      message: z.string().nullable(),
+    }),
+  ).default([]),
+  matrixResults: z.array(
+    z.object({
+      matrixId: uuidIdSchema,
+      status: z.enum(['pending', 'failed']),
+      contributionId: uuidIdSchema.nullable(),
+      code: z.string().nullable(),
+      message: z.string().nullable(),
+    }),
+  ).default([]),
   created: z.number().int(),
   failed: z.number().int(),
 });

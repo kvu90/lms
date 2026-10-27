@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { extractRichTextPlainText, type RichTextDocument } from '@lms/contracts';
 import type { Database } from '../../db/database';
 import {
-  context, course, examDossierReviews, examDossiers, examMatrices, examPins,
+  context, course, examContributionReviews, examDossierReviews, examDossiers, examMatrices, examMatrixVersions, examPins,
   examContributions, exams, examSlots, examVersions, question,
   questionBankEntries, questionVersions, role, roleAssignments,
 } from '../../db/schema';
@@ -13,6 +13,7 @@ export type ExamRow = typeof exams.$inferSelect;
 export type ExamVersionRow = typeof examVersions.$inferSelect;
 export type ExamSlotRow = typeof examSlots.$inferSelect;
 export type ExamContributionRow = typeof examContributions.$inferSelect;
+export type ExamContributionReviewRow = typeof examContributionReviews.$inferSelect;
 export type ExamDossierRow = typeof examDossiers.$inferSelect;
 export type ExamDossierReviewRow = typeof examDossierReviews.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -175,19 +176,53 @@ export class ExamsRepository {
       .orderBy(desc(examContributions.createdAt));
   }
 
-  async findPendingContribution(paperId: string, targetBankId: string): Promise<ExamContributionRow | undefined> {
+  /**
+   * Đóng góp CHƯA CHỐT của cùng một đề vào cùng bank đích — diện
+   * "chưa chốt" gồm cả `pending` (chờ cấp 1) và `pending_board`
+   * (đã qua cấp 1, chờ ban giám hiệu): cả hai đều là một đề xuất
+   * đang sống nên lần đề xuất trùng tiếp theo bị chặn. Mode
+   * 'update' phân biệt theo đề đích (target_exam_id) vì một đề
+   * nguồn có thể đồng thời đề xuất bản mới cho các đề đích khác
+   * nhau ở các bank khác nhau; mode 'new' tra theo (đề, bank đích)
+   * như trước.
+   */
+  async findPendingContribution(paperId: string, targetBankId: string, mode: 'new' | 'update' = 'new', targetExamId?: string): Promise<ExamContributionRow | undefined> {
+    const conditions = [
+      eq(examContributions.examId, paperId),
+      eq(examContributions.targetBankId, targetBankId),
+      eq(examContributions.mode, mode),
+      inArray(examContributions.status, ['pending', 'pending_board']),
+    ];
+    if (mode === 'update' && targetExamId) {
+      conditions.push(eq(examContributions.targetExamId, targetExamId));
+    }
+    const [row] = await this.db.select().from(examContributions).where(and(...conditions));
+    return row;
+  }
+
+  /** Đóng góp sinh ra từ việc chuyển đổi một bộ hồ sơ cụ thể (neo idempotent của đường chuyển đổi hồ sơ treo). */
+  async findContributionBySourceDossier(dossierId: string): Promise<ExamContributionRow | undefined> {
     const [row] = await this.db.select().from(examContributions)
-      .where(and(
-        eq(examContributions.examId, paperId),
-        eq(examContributions.targetBankId, targetBankId),
-        eq(examContributions.status, 'pending'),
-      ));
+      .where(eq(examContributions.sourceDossierId, dossierId));
     return row;
   }
 
   async updateContribution(id: string, patch: Partial<ExamContributionRow>, tx?: DbTx): Promise<void> {
     await (tx ?? this.db).update(examContributions).set({ ...patch, updatedAt: new Date() })
       .where(eq(examContributions.id, id));
+  }
+
+  /** Ghi một mốc duyệt của đóng góp (cấp 1 hoặc cấp 2) — sổ mốc duyệt của đường đóng góp duy nhất. */
+  async insertContributionReview(v: typeof examContributionReviews.$inferInsert, tx?: DbTx): Promise<ExamContributionReviewRow> {
+    const [row] = await (tx ?? this.db).insert(examContributionReviews).values(v).returning();
+    return row!;
+  }
+
+  /** Toàn bộ mốc duyệt của một đóng góp theo thứ tự thời gian (cấp 1 trước cấp 2). */
+  async listContributionReviews(contributionId: string): Promise<ExamContributionReviewRow[]> {
+    return this.db.select().from(examContributionReviews)
+      .where(eq(examContributionReviews.contributionId, contributionId))
+      .orderBy(asc(examContributionReviews.createdAt));
   }
 
   /** Tăng copy_count của đề nguồn sau một lần copy thành công. */
@@ -204,6 +239,19 @@ export class ExamsRepository {
     const [row] = await this.db.select({ name: examMatrices.name, version: examMatrices.version })
       .from(examMatrices).where(eq(examMatrices.id, matrixId));
     return row;
+  }
+
+  /**
+   * Id của hàng version bất biến tương ứng (ma trận, số version) —
+   * điểm neo FK cho exam_versions/exam_dossiers.matrix_version_id.
+   * Không có hàng version (ma trận dựng ngoài các đường tạo của
+   * service) → null, nơi gọi giữ số version làm căn cứ hiển thị.
+   */
+  async getMatrixVersionRowId(matrixId: string, version: number, tx?: DbTx): Promise<string | null> {
+    const [row] = await (tx ?? this.db).select({ id: examMatrixVersions.id })
+      .from(examMatrixVersions)
+      .where(and(eq(examMatrixVersions.matrixId, matrixId), eq(examMatrixVersions.version, version)));
+    return row?.id ?? null;
   }
 
   async insertDossier(v: typeof examDossiers.$inferInsert, tx?: DbTx): Promise<ExamDossierRow> {
@@ -230,6 +278,11 @@ export class ExamsRepository {
     return this.db.select().from(examDossiers)
       .where(eq(examDossiers.targetBankId, targetBankId))
       .orderBy(desc(examDossiers.createdAt));
+  }
+
+  /** MỌI bộ hồ sơ trong hệ thống — chỉ dùng cho đợt chuyển đổi hồ sơ treo sang đường đóng góp (chạy một lần ở ngữ cảnh platform). */
+  async listAllDossiers(): Promise<ExamDossierRow[]> {
+    return this.db.select().from(examDossiers).orderBy(asc(examDossiers.createdAt));
   }
 
   /** Mọi bộ hồ sơ của một người đóng góp (xem kết quả duyệt + lý do từ chối xuyên bank). */

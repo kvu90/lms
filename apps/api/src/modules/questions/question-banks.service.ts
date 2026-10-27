@@ -24,9 +24,15 @@ export const QBANK_LEAD_ROLE = 'qbanklead';
 const MEMBER_CAPS = ['question:useall', 'question:copy', 'files:view'];
 /** Quyền của người phụ trách bank (chủ bank cá nhân / tổ trưởng): toàn quyền trong bank, gồm duyệt đóng góp. files:upload + files:view để tải lên và xem ảnh nhúng trong nội dung câu của bank. */
 const LEAD_CAPS = ['question:useall', 'question:copy', 'question:share', 'question:moderate', 'question:add', 'question:editall', 'question:managecategory', 'files:view', 'files:upload'];
-/** MB-1 (issue #111): bộ quyền cho bank MA TRẬN — xem/sửa ma trận là quiz:viewmatrix/quiz:managematrix của Chặng 3, copy/share/moderate là matrix:* của MB-1; vẫn cấp qua đúng hai vai qbankmember/qbanklead tại context bank. */
-const MATRIX_MEMBER_CAPS = ['quiz:viewmatrix', 'matrix:copy'];
-const MATRIX_LEAD_CAPS = ['quiz:viewmatrix', 'quiz:managematrix', 'matrix:copy', 'matrix:share', 'matrix:moderate'];
+/**
+ * Bộ quyền cho bank MA TRẬN — đủ bộ matrix:* (use/add/edit/copy/
+ * share/moderate) sau đợt đồng bộ khuôn ngân hàng (issue #228, lát
+ * S3); MB-1 (issue #111) mở đầu bằng copy/share/moderate và còn neo
+ * xem/sửa vào quiz:* của Chặng 3. Vẫn cấp qua đúng hai vai
+ * qbankmember/qbanklead tại context bank.
+ */
+const MATRIX_MEMBER_CAPS = ['matrix:use', 'matrix:copy'];
+const MATRIX_LEAD_CAPS = ['matrix:use', 'matrix:add', 'matrix:edit', 'matrix:copy', 'matrix:share', 'matrix:moderate'];
 /** Bộ quyền cấp tại context bank theo loại món: bank đề (EB-1) tạm dùng khuôn câu hỏi cho đến khi có bộ exam:* riêng. */
 function memberCapsForKind(kind: BankKind): string[] { return kind === 'matrix' ? MATRIX_MEMBER_CAPS : MEMBER_CAPS; }
 function leadCapsForKind(kind: BankKind): string[] { return kind === 'matrix' ? MATRIX_LEAD_CAPS : LEAD_CAPS; }
@@ -452,7 +458,10 @@ export class QuestionBanksService {
     if (bank.bankKind === 'matrix') {
       const caps = await this.bankLocalMatrixCaps(actorId, bank);
       return {
-        use: caps.view, add: false, edit: false, manageCategory: false,
+        // Khuôn chung ba thực thể (S3): use/add/edit của bank ma trận
+        // đọc từ đúng bộ matrix:* bank-local (trước S3 hai trường này
+        // luôn false vì ma trận chưa có capability add/edit riêng).
+        use: caps.view, add: caps.add, edit: caps.manage, manageCategory: false,
         copy: caps.copy, share: caps.share, moderate: caps.moderate,
         matrixView: caps.view, matrixManage: caps.manage, matrixCopy: caps.copy, matrixShare: caps.share, matrixModerate: caps.moderate,
       };
@@ -532,10 +541,10 @@ export class QuestionBanksService {
    * nguồn duy nhất là bank", E-8); site admin vẫn toàn quyền.
    */
   async bankLocalMatrixCaps(actorId: string, bank: QuestionBankRow): Promise<{
-    view: boolean; manage: boolean; copy: boolean; share: boolean; moderate: boolean;
+    view: boolean; add: boolean; manage: boolean; copy: boolean; share: boolean; moderate: boolean;
   }> {
-    const none = { view: false, manage: false, copy: false, share: false, moderate: false };
-    if (await this.evaluator.isSiteAdmin(actorId)) return { view: true, manage: true, copy: true, share: true, moderate: true };
+    const none = { view: false, add: false, manage: false, copy: false, share: false, moderate: false };
+    if (await this.evaluator.isSiteAdmin(actorId)) return { view: true, add: true, manage: true, copy: true, share: true, moderate: true };
     // Bank personal là khu vực riêng (issue #123): người không phải chủ
     // sở hữu không có quyền bank-local nào, kể cả khi còn assignment sót.
     if (bank.scope === 'personal' && bank.ownerId !== actorId) return none;
@@ -548,7 +557,9 @@ export class QuestionBanksService {
     const isLead = leadRole ? roleIds.has(leadRole.id) : false;
     const isMember = memberRole ? roleIds.has(memberRole.id) : false;
     if (!isLead && !isMember) return none;
-    return { view: true, manage: isLead, copy: true, share: isLead, moderate: isLead };
+    // add (tạo ma trận mới trong bank) cùng tầng với manage: chỉ phụ
+    // trách bank — thành viên thường chỉ xem + copy như trước.
+    return { view: true, add: isLead, manage: isLead, copy: true, share: isLead, moderate: isLead };
   }
 
   /**
@@ -747,6 +758,17 @@ export class QuestionBanksService {
    * dùng getAttribution không cổng vì caller đã qua cổng copy.
    */
   async getAttributionForViewer(actorId: string, questionId: string): Promise<AttributionView> {
+    await this.assertQuestionReadableByViewer(actorId, questionId);
+    return this.getAttribution(questionId);
+  }
+
+  /**
+   * Cổng đọc cho người xem một câu hỏi (dùng chung cho attribution
+   * và truy nguồn chiều ngược): câu không tồn tại, câu thuộc bank
+   * personal của người khác, hoặc actor không có `question:useall`
+   * tại context của category chứa câu → 404 đồng nhất, không oracle.
+   */
+  private async assertQuestionReadableByViewer(actorId: string, questionId: string): Promise<void> {
     const q = await this.questionsRepo.getQuestion(questionId);
     if (!q) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
     const category = await this.questionsRepo.getCategory(q.category);
@@ -759,7 +781,16 @@ export class QuestionBanksService {
     }
     const canUse = await this.evaluator.hasCapability(actorId, 'question:useall', category.contextId).catch(() => false);
     if (!canUse) throw new NotFoundException({ message: `Question ${questionId} not found`, code: 'question.not_found' });
-    return this.getAttribution(questionId);
+  }
+
+  /**
+   * Truy nguồn chiều ngược của câu hỏi: các version đề đang chứa
+   * câu này — cùng cổng đọc với attribution (không có cổng thì 404,
+   * không lộ đề nào đang dùng câu).
+   */
+  async listContainingExams(actorId: string, questionId: string) {
+    await this.assertQuestionReadableByViewer(actorId, questionId);
+    return this.repo.listContainingExams(questionId);
   }
 
   /**

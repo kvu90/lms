@@ -20,6 +20,7 @@ import {
   updateExamMatrixSchema,
   updateExamPinOverrideSchema,
   updateExamPinSchema,
+  withdrawExamMatrixSchema,
   type ApplyPinVersionUpdate,
   type ApproveMatrixContribution,
   type CopyExamMatrix,
@@ -41,6 +42,7 @@ import {
   type UpdateExamMatrixCell,
   type UpdateExamPin,
   type UpdateExamPinOverride,
+  type WithdrawExamMatrix,
 } from '@lms/contracts';
 
 /**
@@ -69,6 +71,7 @@ export {
   updateExamMatrixSchema,
   updateExamPinOverrideSchema,
   updateExamPinSchema,
+  withdrawExamMatrixSchema,
 };
 export type CreateExamPinDto = CreateExamPin;
 export type UpdateExamPinDto = UpdateExamPin;
@@ -88,6 +91,7 @@ export type UpdateExamMatrixDto = UpdateExamMatrix;
 export type CreateExamMatrixCellDto = CreateExamMatrixCell;
 export type UpdateExamMatrixCellDto = UpdateExamMatrixCell;
 export type GenerateFromMatrixDto = GenerateFromMatrix;
+export type WithdrawExamMatrixDto = WithdrawExamMatrix;
 export type CreateExamPinFeedbackDto = CreateExamPinFeedback;
 export type GradeQuizQuestionDto = GradeQuizQuestion;
 export type RecordQuizAttemptEventDto = RecordQuizAttemptEvent;

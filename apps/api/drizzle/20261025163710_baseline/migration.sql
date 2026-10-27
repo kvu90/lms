@@ -3310,3 +3310,80 @@ ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_rejected_by_users_
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_settled_by_users_id_fkey" FOREIGN KEY ("settled_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_mDfM3SsyKuiG_fkey" FOREIGN KEY ("settled_event_id") REFERENCES "payment_provider_events"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_review_handled_by_users_id_fkey" FOREIGN KEY ("review_handled_by") REFERENCES "users"("id") ON DELETE RESTRICT;
+CREATE TABLE "exam_contribution_reviews" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"contribution_id" uuid NOT NULL,
+	"level" integer NOT NULL,
+	"reviewer_id" uuid NOT NULL,
+	"decision" text NOT NULL,
+	"reason" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_contribution_reviews_level_check" CHECK ("level" in (1, 2)),
+	CONSTRAINT "exam_contribution_reviews_decision_check" CHECK ("decision" in ('approved', 'rejected'))
+);
+--> statement-breakpoint
+CREATE TABLE "exam_matrix_versions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
+	"matrix_id" uuid NOT NULL,
+	"version" integer NOT NULL,
+	"preset_kind" text DEFAULT 'cv7991_periodic' NOT NULL,
+	"target_form_percents" jsonb,
+	"target_level_percents" jsonb,
+	"level_set" text DEFAULT 'three' NOT NULL,
+	"scope_note" text,
+	"scope_node_ids" jsonb,
+	"total_score" double precision DEFAULT 10 NOT NULL,
+	"created_by" uuid NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "exam_matrix_versions_matrix_version_unique" UNIQUE("matrix_id","version"),
+	CONSTRAINT "exam_matrix_versions_preset_kind_check" CHECK ("preset_kind" in ('cv7991_periodic')),
+	CONSTRAINT "exam_matrix_versions_level_set_check" CHECK ("level_set" in ('three', 'four'))
+);
+--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "mode" text DEFAULT 'new' NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "target_exam_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_exam_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_exam_version_number" integer;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_matrix_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_matrix_version" integer;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_matrix_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "dossier_spec_snapshot" jsonb;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD COLUMN "source_dossier_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD COLUMN "matrix_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD COLUMN "matrix_version_id" uuid;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "derived_from_bank_id" uuid;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "derived_from_version_number" integer;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "withdrawn_reason" text;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "withdrawn_by" uuid;--> statement-breakpoint
+ALTER TABLE "exams" ADD COLUMN "withdrawn_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "derived_from_bank_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "original_author_id" uuid;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "copy_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "withdrawn_reason" text;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "withdrawn_by" uuid;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD COLUMN "withdrawn_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD COLUMN "matrix_version_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrix_contributions" ADD COLUMN "content_hash" text DEFAULT '' NOT NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrix_contributions" ADD COLUMN "near_duplicate_of" uuid;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" DROP CONSTRAINT "exam_matrix_cells_unique";--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_unique" UNIQUE("matrix_version_id","curriculum_node_id","cognitive_level","qtype");--> statement-breakpoint
+CREATE INDEX "exam_contribution_reviews_contribution_idx" ON "exam_contribution_reviews" ("contribution_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_dossier_version_idx" ON "exam_contributions" ("dossier_exam_version_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_source_dossier_idx" ON "exam_contributions" ("source_dossier_id");--> statement-breakpoint
+CREATE INDEX "exam_dossiers_matrix_version_idx" ON "exam_dossiers" ("matrix_version_id");--> statement-breakpoint
+CREATE INDEX "exam_versions_matrix_version_idx" ON "exam_versions" ("matrix_version_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_cells_matrix_version_idx" ON "exam_matrix_cells" ("matrix_version_id");--> statement-breakpoint
+CREATE INDEX "exam_matrix_versions_matrix_idx" ON "exam_matrix_versions" ("matrix_id");--> statement-breakpoint
+ALTER TABLE "exam_contribution_reviews" ADD CONSTRAINT "exam_contribution_reviews_hUekEJmRoOaz_fkey" FOREIGN KEY ("contribution_id") REFERENCES "exam_contributions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_KrKf14oi3y6U_fkey" FOREIGN KEY ("dossier_exam_version_id") REFERENCES "exam_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_dossier_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("dossier_matrix_id") REFERENCES "exam_matrices"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_l35tB426bbJw_fkey" FOREIGN KEY ("dossier_matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_source_dossier_id_exam_dossiers_id_fkey" FOREIGN KEY ("source_dossier_id") REFERENCES "exam_dossiers"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_dossiers" ADD CONSTRAINT "exam_dossiers_matrix_version_id_exam_matrix_versions_id_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_matrix_version_id_exam_matrix_versions_id_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_wW8crdJbee98_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_matrix_versions" ADD CONSTRAINT "exam_matrix_versions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_mode_check" CHECK ("mode" in ('new', 'update'));--> statement-breakpoint
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_status_check" CHECK ("status" in ('pending', 'pending_board', 'approved', 'rejected'));--> statement-breakpoint
+CREATE INDEX "exam_contributions_dossier_matrix_idx" ON "exam_contributions" ("dossier_matrix_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_dossier_matrix_version_idx" ON "exam_contributions" ("dossier_matrix_version_id");

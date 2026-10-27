@@ -819,6 +819,111 @@ describe('MCP server (MCP-0, issue #110)', () => {
     expect(gh.code).toBe('question.not_found');
   });
 
+  it('submit_contribution đối xứng đề + ma trận (issue #228): examIds/matrixIds của chính chủ thành pending, của người khác bị chặn ở biên, payload rỗng bị schema chặn', async () => {
+    // Bank đích dùng chung cho đề và cho ma trận (admin tạo qua REST).
+    const examSchool = await http(app).post('/api/v1/question-banks').set(bearer(admin))
+      .send({ name: uniqueName('Bank đề trường MCP'), scope: 'school', bankKind: 'exam' });
+    expect(examSchool.status, JSON.stringify(examSchool.body)).toBeLessThan(300);
+    const examSchoolId = examSchool.body.id as string;
+    const matrixSchool = await http(app).post('/api/v1/question-banks').set(bearer(admin))
+      .send({ name: uniqueName('Bank ma trận trường MCP'), scope: 'school', bankKind: 'matrix' });
+    expect(matrixSchool.status, JSON.stringify(matrixSchool.body)).toBeLessThan(300);
+    const matrixSchoolId = matrixSchool.body.id as string;
+
+    // ── Đề ready của teacherA trong bank đề cá nhân ──
+    const examBanks = await http(app).get('/api/v1/question-banks?kind=exam').set(bearer(teacherA.token));
+    const myExamBank = (examBanks.body as any[]).find((b) => b.scope === 'personal' && b.ownerId === teacherA.id);
+    const qRes = await http(app).post('/api/v1/questions').set(bearer(teacherA.token)).send({
+      categoryId: catA, qtype: 'multichoice', questionText: 'Câu cho đề MCP?',
+      answers: [{ text: 'Đúng', correct: true }, { text: 'Sai', correct: false }, { text: 'Khác 1', correct: false }, { text: 'Khác 2', correct: false }],
+    });
+    expect(qRes.status, JSON.stringify(qRes.body)).toBe(201);
+    const qid = (qRes.body as any).question.id as string;
+    const paperRes = await http(app).post(`/api/v1/exams/banks/${myExamBank.id}/exams`).set(bearer(teacherA.token))
+      .send({ name: 'Đề MCP của A', slots: [{ questionId: qid }] });
+    expect(paperRes.status, JSON.stringify(paperRes.body)).toBe(201);
+    const paperId = (paperRes.body as any).paper.id as string;
+    const readyRes = await http(app).post(`/api/v1/exams/${paperId}/status`).set(bearer(teacherA.token)).send({ status: 'ready' });
+    expect(readyRes.status, JSON.stringify(readyRes.body)).toBe(201);
+
+    const subExam = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: examSchoolId, examIds: [paperId], idempotencyKey: uniqueName('key'),
+    });
+    expect(subExam.isError).toBe(false);
+    expect(subExam.structured!.created).toBe(1);
+    expect(subExam.structured!.failed).toBe(0);
+    const er = (subExam.structured!.examResults as any[])[0];
+    expect(er.status).toBe('pending');
+    expect(er.contributionId).toBeTruthy();
+    const erow = await sqlOne<{ status: string; mode: string }>(
+      'SELECT status, mode FROM exam_contributions WHERE id = $1', [er.contributionId]);
+    expect(erow.status).toBe('pending');
+    expect(erow.mode).toBe('new');
+
+    // ── Đề của teacherB: A không nộp thay được (cổng chủ sở hữu ở biên chạy trước mọi cổng nghiệp vụ) ──
+    const examBanksB = await http(app).get('/api/v1/question-banks?kind=exam').set(bearer(teacherB.token));
+    const bankB = (examBanksB.body as any[]).find((b) => b.scope === 'personal' && b.ownerId === teacherB.id);
+    const paperB = await http(app).post(`/api/v1/exams/banks/${bankB.id}/exams`).set(bearer(teacherB.token))
+      .send({ name: 'Đề của B', slots: [] });
+    const paperBId = (paperB.body as any).paper.id as string;
+    const foreignExam = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: examSchoolId, examIds: [paperBId], idempotencyKey: uniqueName('key'),
+    });
+    const fe = (foreignExam.structured!.examResults as any[])[0];
+    expect(fe.status).toBe('failed');
+    expect(fe.code).toBe('exam.contribution_source_not_own');
+    const cntE = await sqlOne<{ n: string }>(
+      'SELECT COUNT(*)::text AS n FROM exam_contributions WHERE exam_id = $1', [paperBId]);
+    expect(Number(cntE.n)).toBe(0);
+
+    // ── Ma trận ready của teacherA trong bank ma trận cá nhân ──
+    const contexts = await http(app).get('/api/v1/access/contexts').set(bearer(admin));
+    const systemCtx = (contexts.body as any[]).find((c) => c.contextLevel === 10);
+    const subj = await http(app).post('/api/v1/curriculum/subjects').set(bearer(admin))
+      .send({ contextId: systemCtx.id, name: uniqueName('Môn MCP'), slug: uniqueName('mon-mcp') });
+    const curr = await http(app).post('/api/v1/curriculum/curricula').set(bearer(admin))
+      .send({ subjectId: subj.body.id, grade: 10 });
+    const matrixBanksRes = await http(app).get('/api/v1/question-banks?kind=matrix').set(bearer(teacherA.token));
+    const myMatrixBank = (matrixBanksRes.body as any[]).find((b) => b.scope === 'personal' && b.ownerId === teacherA.id);
+    const matrixRes = await http(app).post('/api/v1/exam-matrices').set(bearer(teacherA.token)).send({
+      name: 'Ma trận MCP của A', subjectId: subj.body.id, curriculumId: curr.body.id, bankId: myMatrixBank.id, totalScore: 10,
+    });
+    expect(matrixRes.status, JSON.stringify(matrixRes.body)).toBeLessThan(300);
+    const matrixId = (matrixRes.body as any).id as string;
+    const mReady = await http(app).patch(`/api/v1/exam-matrices/${matrixId}`).set(bearer(teacherA.token)).send({ status: 'ready' });
+    expect(mReady.status, JSON.stringify(mReady.body)).toBe(200);
+
+    const subMatrix = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: matrixSchoolId, matrixIds: [matrixId], idempotencyKey: uniqueName('key'),
+    });
+    expect(subMatrix.isError).toBe(false);
+    const mr = (subMatrix.structured!.matrixResults as any[])[0];
+    expect(mr.status).toBe('pending');
+    expect(mr.contributionId).toBeTruthy();
+    const mrow = await sqlOne<{ status: string; content_hash: string }>(
+      'SELECT status, content_hash FROM exam_matrix_contributions WHERE id = $1', [mr.contributionId]);
+    expect(mrow.status).toBe('pending');
+    expect(mrow.content_hash).toBeTruthy();
+
+    // ── Ma trận của admin: A không nộp thay được ──
+    const adminMatrix = await http(app).post('/api/v1/exam-matrices').set(bearer(admin)).send({
+      name: 'Ma trận của admin', subjectId: subj.body.id, curriculumId: curr.body.id, totalScore: 10,
+    });
+    const adminMatrixId = (adminMatrix.body as any).id as string;
+    const foreignM = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: matrixSchoolId, matrixIds: [adminMatrixId], idempotencyKey: uniqueName('key'),
+    });
+    const fm = (foreignM.structured!.matrixResults as any[])[0];
+    expect(fm.status).toBe('failed');
+    expect(fm.code).toBe('quiz.matrix_contribution_source_not_own');
+
+    // ── Payload không có danh sách nào: schema chặn ở biên tool ──
+    const empty = await callTool(app, teacherA.token, 'submit_contribution', {
+      targetBankId: examSchoolId, idempotencyKey: uniqueName('key'),
+    });
+    expect(empty.isError).toBe(true);
+  });
+
   it('legacy era: create_question chạy qua initialize + tools/call (SSE)', async () => {
     const init = await mcpCall(app, teacherA.token, 'initialize', {
       protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'mcp-spec', version: '0.1' },
