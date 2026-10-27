@@ -8,7 +8,7 @@ import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 
-/** UsersModule facade: UsersService + PasswordService. Imports Access (evaluator/contexts) and EventsModule (global outbox) per the dependency graph. */
+/** Facade của UsersModule: UsersService + PasswordService. Import Access (evaluator/contexts) và EventsModule (outbox toàn cục) theo đồ thị phụ thuộc. */
 /**
  * Vòng phụ thuộc tường minh với BetterAuthModule (GĐ2 chặng 2.6):
  * BetterAuthModule cần PasswordService của module này, UsersService

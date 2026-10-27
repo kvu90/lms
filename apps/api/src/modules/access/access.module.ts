@@ -8,7 +8,7 @@ import { PermissionEvaluator } from './permission-evaluator.service';
 import { PlanLimitsService } from './plan-limits.service';
 import { RolesService } from './roles.service';
 
-/** AccessModule facade: ContextsService, RolesService, PermissionEvaluator. Repositories stay private.
+/** Facade của AccessModule: ContextsService, RolesService, PermissionEvaluator. Các repository giữ ở chế độ private.
  * PlanLimitsService (thực thi giới hạn slot của gói, issue #189) đặt tại
  * module này vì đây là tầng chung thấp nhất mà mọi bề mặt điểm chặn
  * (access/tenants/users/courses) đều phụ thuộc vào. */

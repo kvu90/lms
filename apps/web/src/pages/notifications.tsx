@@ -109,10 +109,10 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
 }
 
 /**
- * Notification centre. The centre is the v2 grouped list (issue
- * #51): rows are grouped by (type × source × day) with cursor
- * pagination, group/unread filters, expandable detail, deep links
- * via context_url that mark items read, and per-row delete.
+ * Trung tâm thông báo. Trung tâm này là danh sách đã nhóm dạng v2 (issue
+ * #51): các dòng được nhóm theo (type × source × day) với phân trang
+ * theo cursor, bộ lọc theo nhóm/chưa đọc, chi tiết mở rộng được, deep link
+ * qua context_url để đánh dấu đã đọc, và xoá theo từng dòng.
  *
  * Từ issue #288 trang này CHỈ còn trung tâm thông báo: phần tuỳ
  * chọn (mô hình v2 của NB-2, issue #174) và ngoại lệ theo khoá đã

@@ -44,11 +44,11 @@ export function sniffImageMimeType(data: Buffer): string | null {
 }
 
 /**
- * FilesModule facade (Moodle core_files). Logical records in `files` point at
- * content-addressed physical bytes; identical content is stored ONCE no
- * matter how many records reference it. Files are never public by path: a
- * download requires the file context capability check first, then either a
- * short-lived signed URL or a guarded stream.
+ * Facade của FilesModule (Moodle core_files). Các bản ghi logic trong `files` trỏ tới
+ * các byte vật lý được định địa chỉ theo nội dung; nội dung giống hệt chỉ được lưu MỘT lần bất kể
+ * có bao nhiêu bản ghi tham chiếu tới nó. File không bao giờ public theo đường dẫn: một lần
+ * tải xuống yêu cầu kiểm tra capability của context file trước, rồi hoặc dùng một
+ * URL đã ký ngắn hạn hoặc một luồng stream có guard.
  */
 @Injectable()
 /**
@@ -73,7 +73,7 @@ export class FilesService {
       throw new BadRequestException({ message: 'Invalid filename', code: 'file.invalid_filename' });
     }
     const contentHash = sha256Hex(input.data);
-    await this.storage.put(contentHash, input.data); // put() is a no-op when the hash already exists (dedup)
+    await this.storage.put(contentHash, input.data); // put() là no-op khi hash đã tồn tại (dedup)
     return this.repo.insert({
       contentHash, contextId: input.contextId, component: input.component, fileArea: input.fileArea,
       itemId: input.itemId ?? null, filePath: input.filePath ?? '/', fileName: input.fileName,
@@ -167,9 +167,9 @@ export class FilesService {
   async physicalExists(contentHash: string): Promise<boolean> { return this.storage.exists(contentHash); }
 
   /**
-   * Deleting a record NEVER deletes bytes while other records reference the
-   * same hash; when the refcount reaches zero an orphan-cleanup job is queued
-   * for the worker (jobId dedups repeated enqueues for the same hash).
+   * Xoá một bản ghi KHÔNG BAO GIỜ xoá byte khi các bản ghi khác còn tham chiếu tới
+   * cùng hash đó; khi refcount về 0, một job dọn file mồ côi được đưa vào hàng đợi
+   * cho worker (jobId khử trùng các lần enqueue lặp lại cho cùng một hash).
    */
   /**
    * Xoá bản ghi file; xoá nội dung vật lý khi refcount về 0.
@@ -184,7 +184,7 @@ export class FilesService {
     return { deleted: true, contentHash: row.contentHash, refcount };
   }
 
-  /** Worker-side: remove physical bytes only if the hash is still unreferenced at execution time. */
+  /** Phía worker: chỉ xoá byte vật lý nếu hash vẫn không còn ai tham chiếu tại thời điểm thực thi. */
   /**
    * Dọn một nội dung vật lý mồ côi theo hash (worker file-cleanup gọi).
    */
@@ -207,9 +207,9 @@ export class FilesService {
     await this.evaluator.requireCapability(actor.id, 'files:upload', contextId, { isGuest: actor.username === 'guest' });
   }
 
-  /** Capability-checked signed URL issuance: the check happens HERE (server), the signature only transports the result briefly.
-   * Issuance itself is delegated to FileSigningService, which returns a presigned S3 URL when the
-   * storage adapter supports it (driver=s3) and the HMAC API URL otherwise (driver=local, unchanged). */
+  /** Cấp URL đã ký có kiểm tra capability: việc kiểm tra diễn ra TẠI ĐÂY (phía server), chữ ký chỉ vận chuyển kết quả trong thời gian ngắn.
+   * Bản thân việc cấp được uỷ quyền cho FileSigningService, service này trả về URL presigned của S3 khi
+   * adapter lưu trữ hỗ trợ (driver=s3) và trả về URL API kiểu HMAC trong trường hợp còn lại (driver=local, không đổi). */
   /**
    * Tạo URL tải có ký + hạn dùng (presigned khi driver S3, HMAC khi local).
    */

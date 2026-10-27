@@ -19,7 +19,7 @@ export interface AnalyticsModelProvider {
 }
 
 /**
- * AnalyticsModule facade (Moodle core_analytics, §2#23).
+ * Facade của AnalyticsModule (Moodle core_analytics, §2#23).
  * Model/indicator là provider đăng ký trong code. Insight là SUY LUẬN —
  * chỉ hiển thị cho user có capability ở context liên quan, và dự đoán
  * KHÔNG BAO GIỜ tự thay đổi điểm/ghi danh.

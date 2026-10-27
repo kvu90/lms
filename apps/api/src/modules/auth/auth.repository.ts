@@ -86,7 +86,7 @@ export class AuthRepository {
     for (const family of targets) await this.revokeFamily(family.id);
     return targets.length;
   }
-  // --- OAuth linked logins (auth_oauth2) ------------------------------------
+  // --- Liên kết đăng nhập OAuth (auth_oauth2) ------------------------------------
   /**
    * Tạo liên kết đăng nhập ngoài cho user; ràng buộc duy nhất ở DB chặn
    * một tài khoản provider nối hai user hoặc một user hai liên kết/issuer.
@@ -162,7 +162,7 @@ export class AuthRepository {
    * Ghi một lần thử đăng nhập (thành công/thất bại, IP) phục vụ khoá tạm thời.
    */
   async recordAttempt(v: typeof loginAttempts.$inferInsert): Promise<void> { await this.db.insert(loginAttempts).values(v); }
-  /** Failed attempts for a user inside the lockout window, newest first. */
+  /** Các lần thử thất bại của một người dùng trong cửa sổ khoá, mới nhất trước. */
   /**
    * Số lần đăng nhập thất bại gần đây của username — đầu vào của chính sách lockout.
    */

@@ -9,7 +9,7 @@ import { CompletionController } from './completion.controller';
 import { CompletionRepository } from './completion.repository';
 import { COMPLETION_QUEUE, CompletionService } from './completion.service';
 
-/** CompletionModule facade: CompletionService. Depends on Courses, Enrol, Availability registry, Access (report §3.12). */
+/** Facade của CompletionModule: CompletionService. Phụ thuộc Courses, Enrol, registry Availability, Access (report §3.12). */
 @Module({
   imports: [
     AccessModule, CoursesModule, EnrolModule, AvailabilityModule, EventsModule,

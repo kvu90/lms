@@ -55,6 +55,15 @@ export interface ExamSlotView {
   entryStatus: string | null;
   pinnedVersionId: string | null;
   pinnedVersionNumber: number | null;
+  /** Số version ready MỚI NHẤT của câu trong ngân hàng (null khi câu chưa có bản ready nào). */
+  latestReadyVersionNumber: number | null;
+  /**
+   * Huy hiệu "có bản ready mới" ở bề mặt soạn đề (issue #254): slot đang
+   * ghim version cũ hơn bản ready mới nhất của câu — giáo viên thấy được
+   * ngay trong lúc soạn; cập nhật vẫn là thao tác tường minh (sửa đề tạo
+   * version mới của đề, hoặc cập nhật pin ở cấp lần ghim), không tự trôi.
+   */
+  hasNewerVersion: boolean;
   maxMark: number;
   clusterId: string | null;
   /** Ô ma trận nguồn (chỉ ở snapshot materialize từ recipe — neo swap-cùng-ô). */
@@ -339,19 +348,34 @@ export class ExamsService {
     ]);
     const infoById = new Map(infos.map((i) => [i.questionId, i]));
     const statusById = new Map(statuses.map((s) => [s.questionId, s.status]));
-    return slots.map((s) => ({
-      position: s.position,
-      section: s.section,
-      questionId: s.questionId,
-      questionName: infoById.get(s.questionId)?.name ?? null,
-      qtype: infoById.get(s.questionId)?.qtype ?? null,
-      entryStatus: statusById.get(s.questionId) ?? null,
-      pinnedVersionId: s.pinnedVersionId,
-      pinnedVersionNumber: s.pinnedVersionNumber,
-      maxMark: s.maxMark,
-      clusterId: s.clusterId,
-      matrixCellId: s.matrixCellId,
-    }));
+    // Bản ready mới nhất của từng câu (cho huy hiệu "có bản ready mới"
+    // ở bề mặt soạn đề, issue #254) — tra qua QuestionBanksService như
+    // bề mặt quiz vẫn làm cho cùng một dữ kiện.
+    const latestReadyById = new Map<string, number | null>();
+    for (const questionId of questionIds) {
+      const bankInfo = await this.banks.getQuestionBankInfo(questionId).catch(() => null);
+      latestReadyById.set(questionId, bankInfo?.latestReadyVersionNumber ?? null);
+    }
+    return slots.map((s) => {
+      const latestReadyVersionNumber = latestReadyById.get(s.questionId) ?? null;
+      return {
+        position: s.position,
+        section: s.section,
+        questionId: s.questionId,
+        questionName: infoById.get(s.questionId)?.name ?? null,
+        qtype: infoById.get(s.questionId)?.qtype ?? null,
+        entryStatus: statusById.get(s.questionId) ?? null,
+        pinnedVersionId: s.pinnedVersionId,
+        pinnedVersionNumber: s.pinnedVersionNumber,
+        latestReadyVersionNumber,
+        hasNewerVersion: s.pinnedVersionNumber !== null
+          && latestReadyVersionNumber !== null
+          && latestReadyVersionNumber > s.pinnedVersionNumber,
+        maxMark: s.maxMark,
+        clusterId: s.clusterId,
+        matrixCellId: s.matrixCellId,
+      };
+    });
   }
 
   async paperView(actorId: string, paper: ExamRow): Promise<ExamView> {
@@ -853,6 +877,7 @@ export class ExamsService {
       reviewOverallFeedback: input.reviewOverallFeedback,
       preset: input.preset, lateEntryMinutes: input.lateEntryMinutes, monitorEvents: input.monitorEvents,
       variantCount: input.variantCount,
+      versionMode: input.versionMode,
       targetGroupId: input.targetGroupId ?? null,
     });
   }

@@ -11,8 +11,8 @@ import { t } from '@nestjs/i18n';
 import type { Response } from 'express';
 
 /**
- * Global RFC 7807 Problem Details filter (self-built on Nest's ExceptionFilter
- * primitive — Nest has no built-in Problem Details format).
+ * Filter Problem Details theo RFC 7807 dùng cho toàn hệ (tự dựng trên ExceptionFilter của Nest —
+ * Nest không có sẵn định dạng Problem Details).
  */
 const STATUS_TITLES: Record<number, string> = {
   400: 'Bad Request',

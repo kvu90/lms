@@ -21,11 +21,11 @@ export interface ListedWebSession { id: string; session: WebSession }
 const TOUCH_INTERVAL_MS = 60_000;
 
 /**
- * SessionModule (inside AuthModule per report §3.7): server-side web sessions
- * in the Redis *session* cache namespace. The cookie carries only the id;
- * login rotates the id (fixation protection) and suspended/deleted users'
- * sessions stop validating because AuthService re-checks account status on
- * every session read.
+ * SessionModule (nằm trong AuthModule theo report §3.7): phiên web phía server
+ * trong namespace cache *session* của Redis. Cookie chỉ mang id;
+ * đăng nhập sẽ xoay vòng id (chống fixation) và phiên của người dùng bị đình chỉ/đã xoá
+ * sẽ ngừng hợp lệ vì AuthService kiểm tra lại trạng thái tài khoản ở
+ * mỗi lần đọc phiên.
  *
  * Ngoài bản ghi phiên, service duy trì một chỉ mục nhẹ theo user
  * (`webindex:<userId>` → danh sách session id) để trang "Phiên đăng nhập"
@@ -92,7 +92,7 @@ export class SessionService {
     await this.store.delete(`web:${id}`);
     if (session) await this.indexRemove(session.userId, id);
   }
-  /** Rotate: destroy the old id (if any) and issue a fresh one for the same identity. */
+  /** Xoay vòng: huỷ id cũ (nếu có) và cấp một id mới cho cùng một danh tính. */
   /**
    * Xoay session id (sau đăng nhập/leo quyền) để chống fixation; phiên cũ bị huỷ.
    */

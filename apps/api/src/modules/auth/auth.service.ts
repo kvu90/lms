@@ -80,11 +80,11 @@ export interface MySessionView {
 function hashToken(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 
 /**
- * AuthModule facade (report §3.7). Authentication is NOT enrolment and NOT a
- * role assignment: a successful login only proves identity; what the user may
- * do is decided by PermissionEvaluator, and course access by Enrol.
- * Refresh tokens are opaque, stored hashed, grouped in families, rotated on
- * every use; replaying a rotated-out token revokes the whole family.
+ * Facade của AuthModule (report §3.7). Xác thực KHÔNG phải ghi danh và KHÔNG phải
+ * gán role: một lần đăng nhập thành công chỉ chứng minh danh tính; người dùng được
+ * làm gì do PermissionEvaluator quyết định, còn quyền vào khoá học do Enrol quyết định.
+ * Refresh token là opaque, được lưu dưới dạng đã băm, nhóm theo family, được xoay vòng ở
+ * mỗi lần dùng; phát lại một token đã bị xoay vòng sẽ thu hồi toàn bộ family.
  */
 @Injectable()
 /**
@@ -276,7 +276,7 @@ export class AuthService {
     return user;
   }
 
-  /** Issue a fresh refresh-token family + access token (used after the local strategy validated credentials). */
+  /** Cấp một family refresh-token mới + access token (dùng sau khi local strategy đã kiểm chứng thông tin đăng nhập). */
   /**
    * Phát hành access token (JWT) + refresh token mới trong một family.
    */
@@ -307,7 +307,7 @@ export class AuthService {
     return { accessToken, refreshToken, expiresIn: accessTtl };
   }
 
-  /** Rotation: the presented token must be the family's current token. Presenting the previous (rotated-out) token = reuse ⇒ revoke family. */
+  /** Xoay vòng: token được trình ra phải là token hiện tại của family. Trình ra token trước đó (đã bị xoay vòng) = dùng lại ⇒ thu hồi family. */
   /**
    * Xoay refresh token: token cũ chỉ dùng được một lần; tái sử dụng → thu hồi family (auth.token_reuse).
    */
@@ -395,7 +395,7 @@ export class AuthService {
     }
   }
 
-  /** Password change honours the policy; clearing forcePasswordChange is part of the first-login flow. */
+  /** Đổi mật khẩu phải tuân thủ chính sách; việc xoá forcePasswordChange là một phần của luồng đăng nhập lần đầu. */
   /**
    * Đổi mật khẩu: kiểm mật khẩu cũ + chính sách, sau đó thu hồi mọi phiên khác.
    */
@@ -411,9 +411,9 @@ export class AuthService {
   }
 
   /**
-   * "Login as" (Moodle): an admin holding user:loginas acts as another
-   * user. The session records who logged in as whom; role assignments of the
-   * admin are NOT carried over — evaluation always uses the target identity.
+   * "Đăng nhập với tư cách" (Moodle): một admin nắm quyền user:loginas sẽ hành động thay một
+   * người dùng khác. Phiên ghi lại ai đã đăng nhập thay ai; các assignment role của
+   * admin KHÔNG được mang theo — việc đánh giá luôn dùng danh tính của người dùng đích.
    */
   /**
    * Đăng nhập thay (login-as) cho quản trị/giáo viên có capability; phiên mang dấu vết người mạo danh.
@@ -480,7 +480,7 @@ export class AuthService {
     return { mode: 'legacy', user: target, tokens: tokens as TokenPair, tenantId: tenant.id };
   }
 
-  // --- web sessions -----------------------------------------------------------
+  // --- phiên web -----------------------------------------------------------
   /**
    * Đăng nhập kiểu session-cookie: bước mật khẩu dùng chung
    * `validateCredentials`; user đã bật MFA thì dừng ở challenge của
@@ -537,7 +537,7 @@ export class AuthService {
     }
   }
 
-  // --- my sessions (report_usersessions) --------------------------------------
+  // --- phiên của tôi (report_usersessions) --------------------------------------
   /**
    * Mọi phiên đang hoạt động của chính user: phiên web (bản ghi trong kho
    * phiên) gộp với phiên API (họ refresh token đang hiệu lực), đánh dấu

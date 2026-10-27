@@ -11,10 +11,10 @@ import { SocialRepository } from './social.repository';
 import { TagsService } from './tags.service';
 
 /**
- * SocialModule — the four polymorphic sub-systems of report §2#16
- * (Tags / Comments / Ratings / Notes) sharing one repository over
- * (component, itemType/area, itemId, contextId) tables with no hard FKs.
- * Each sub-service is exported as its own facade.
+ * SocialModule — bốn hệ thống con đa hình của report §2#16
+ * (Tags / Comments / Ratings / Notes) dùng chung một repository trên
+ * các bảng (component, itemType/area, itemId, contextId) không có FK cứng.
+ * Mỗi service con được export dưới dạng facade riêng của nó.
  */
 @Module({
   imports: [AccessModule, CoursesModule, EnrolModule, GradesModule],

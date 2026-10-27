@@ -5,8 +5,8 @@ import Keyv from 'keyv';
 import { cacheRedisConfigFromUrl } from '../../config/env';
 
 /**
- * MUC "session" mode: Redis-backed but in its own namespace (`lms:session`),
- * physically separated from the application cache keys.
+ * Chế độ "session" của MUC: backed bởi Redis nhưng nằm trong namespace riêng (`lms:session`),
+ * tách biệt về mặt vật lý khỏi các khoá cache của ứng dụng.
  */
 @Injectable()
 export class SessionCacheService implements OnModuleDestroy {

@@ -8,9 +8,9 @@ import { redisTlsFromUrl } from '../../config/env';
 import type { Database } from '../../db/database';
 
 /**
- * Structured runtime checks in the spirit of Moodle's Check API:
- * each dependency reports up/down independently; the payload is validated
- * against the shared contract before it leaves the process.
+ * Các kiểm tra runtime có cấu trúc theo tinh thần Check API của Moodle:
+ * mỗi phụ thuộc báo up/down độc lập; payload được kiểm chứng
+ * đối chiếu với contract dùng chung trước khi rời khỏi tiến trình.
  */
 @Injectable()
 /**

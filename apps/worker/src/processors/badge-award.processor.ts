@@ -9,10 +9,11 @@ import type { relations } from '../db/relations';
 import {
   badge, badgeCriteria, badgeIssued, badgeManualAward, cohortMembers, competencyUserComp,
   course, courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
-  notifications, outboxEvents, users,
+  outboxEvents, users,
 } from '@lms/db-schema';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
+import { NotificationDeliveryService } from '../notification-delivery.service';
 
 /** Các trường hồ sơ chuẩn mà lá `profile` đọc từ bảng users (khớp phía API; ngoài ra lá nhận custom field theo shortName). */
 const PROFILE_STANDARD_FIELDS = ['username', 'email', 'firstName', 'lastName'] as const;
@@ -34,13 +35,25 @@ export interface BadgeAwardResult { evaluated: number; issued: string[] }
  * khoá duy nhất (badgeId, userId) cộng với bước kiểm tra tồn tại bảo đảm lần chạy thứ hai
  * không cấp trùng gì cả. Mỗi lần cấp mới cũng sinh ra thông báo badge_awarded
  * (kênh popup) và một sự kiện outbox badge_issued.
+ *
+ * Thông báo đi qua hàm luật phân phối trong-app dùng chung của worker
+ * ({@link NotificationDeliveryService}, lát #174-A) — KHÔNG ghi thẳng
+ * như trước (lớp G10): chính sách cấp site (NB-7), tắt tiếng theo
+ * khoá (NB-4, qua courseId của huy hiệu) và tuỳ chọn của chính người
+ * nhận đều áp dụng, và mọi kết quả đều để lại một dòng dispatch log.
+ * Phát bị chặn không bao giờ thu hồi huy hiệu: assertion vẫn đứng,
+ * chỉ thông báo bị giữ lại — đúng như đường phía API.
  */
 @Processor('badge-award')
 /**
  * Xử lý job cấp huy hiệu nền: đánh giá tiêu chí cho user được chỉ định và cấp nếu đủ điều kiện.
  */
 export class BadgeAwardProcessor extends WorkerHost {
-  constructor(@InjectDrizzle() private readonly db: Database, private readonly i18n: I18nService) { super(); }
+  constructor(
+    @InjectDrizzle() private readonly db: Database,
+    private readonly i18n: I18nService,
+    private readonly delivery: NotificationDeliveryService,
+  ) { super(); }
 
   private async leafSatisfied(leaf: { badgeId: string; criteriaType: string; params: unknown }, userId: string): Promise<boolean> {
     const params = (leaf.params ?? {}) as Record<string, unknown>;
@@ -185,13 +198,21 @@ export class BadgeAwardProcessor extends WorkerHost {
         tenantId = courseRow?.tenantId ?? null;
       }
       if (!tenantId) tenantId = await resolveDefaultTenantId(this.db, userId);
-      await this.db.insert(notifications).values({
-        userIdTo: userId, tenantId,
+      // Phát qua hàm luật phân phối chung của worker (lát #174-A, xem
+      // docblock đầu file): truyền `courseId` của huy hiệu để ghi đè
+      // tắt tiếng theo khoá (NB-4) áp đúng như đường API — huy hiệu
+      // cấp site (không gắn khoá) truyền null, ghi đè không áp. Nội
+      // dung giữ nguyên văn như đường ghi thẳng trước đây (subject /
+      // body / smallMessage từ cùng khoá i18n); kết quả phát bị chặn
+      // (mute / admin tắt / tuỳ chọn tắt) KHÔNG ảnh hưởng assertion
+      // vừa cấp ở trên.
+      await this.delivery.deliverInApp(userId, 'badge_awarded', {
         subject: this.i18n.t('platform.badgeAwardedSubject', { locale: recipientLocale, args: { name: badgeRow.name } }),
-        fullMessage: this.i18n.t('platform.badgeAwardedBody', { locale: recipientLocale, args: { name: badgeRow.name, issuer: badgeRow.issuerName } }),
+        body: this.i18n.t('platform.badgeAwardedBody', { locale: recipientLocale, args: { name: badgeRow.name, issuer: badgeRow.issuerName } }),
         smallMessage: this.i18n.t('platform.badgeAwardedSmall', { locale: recipientLocale, args: { name: badgeRow.name } }),
-        component: 'core_badges', eventType: 'badge_awarded',
         contextUrl: `/badges/${badgeRow.id}`,
+        tenantId,
+        courseId: badgeRow.courseId ?? null,
       });
       await this.db.insert(outboxEvents).values({
         aggregate: 'badges', type: 'badge_issued', tenantId,

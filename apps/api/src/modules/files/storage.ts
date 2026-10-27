@@ -7,10 +7,10 @@ import { join } from 'node:path';
 export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
 
 /**
- * ObjectStorage port (report §3.8): the physical layer is content-addressed —
- * key = `<2 chars>/<next 2 chars>/<sha256>` exactly like Moodle's filedir,
- * except the hash is SHA-256 (project decision: no legacy compatibility).
- * The local adapter ships now; an S3 adapter can implement the same port.
+ * Port ObjectStorage (report §3.8): tầng vật lý được định địa chỉ theo nội dung —
+ * khoá = `<2 chars>/<next 2 chars>/<sha256>` đúng như filedir của Moodle,
+ * ngoại trừ hash là SHA-256 (quyết định của dự án: không tương thích legacy).
+ * Adapter cục bộ được giao ngay bây giờ; một adapter S3 có thể cài đặt cùng port này.
  */
 /** Hợp đồng kho lưu trữ nội dung file: ghi/đọc/xoá theo key suy từ contentHash. */
 export interface ObjectStorage {
@@ -30,7 +30,7 @@ export interface ObjectStorage {
    * Kiểm tra key đã có nội dung chưa.
    */
   exists(contentHash: string): Promise<boolean>;
-  /** Absolute path/key for a hash — exposed for tests and orphan cleanup. */
+  /** Đường dẫn/khoá tuyệt đối cho một hash — phơi bày cho test và việc dọn file mồ côi. */
   /**
    * Suy key lưu trữ từ contentHash.
    */
@@ -41,10 +41,10 @@ export function sha256Hex(data: Buffer): string { return createHash('sha256').up
 export function contentKey(contentHash: string): string { return `${contentHash.slice(0, 2)}/${contentHash.slice(2, 4)}/${contentHash}`; }
 
 /**
- * Optional adapter capability: issue a presigned direct-download URL
- * pointing at the external store itself, instead of proxying bytes
- * through the API behind an HMAC signature. The local adapter does not
- * have this capability — issuance falls back to HMAC for it.
+ * Năng lực tuỳ chọn của adapter: cấp một URL tải xuống trực tiếp dạng presigned
+ * trỏ thẳng tới chính kho lưu trữ bên ngoài, thay vì proxy byte
+ * qua API phía sau một chữ ký HMAC. Adapter cục bộ không
+ * có năng lực này — việc cấp phát fallback về HMAC cho nó.
  */
 /** Năng lực tuỳ chọn của adapter: phát URL tải trực tiếp có ký (presigned) trỏ thẳng tới kho ngoài. */
 export interface PresignedDownloadStorage {
@@ -74,7 +74,7 @@ export class LocalObjectStorage implements ObjectStorage {
     const path = this.keyFor(contentHash);
     await mkdir(join(path, '..'), { recursive: true });
     await writeFile(path, data, { flag: 'wx' }).catch((err: NodeJS.ErrnoException) => {
-      if (err.code !== 'EEXIST') throw err; // dedup: same content already stored physically once
+      if (err.code !== 'EEXIST') throw err; // dedup: nội dung giống hệt đã được lưu vật lý một lần
     });
   }
   async get(contentHash: string): Promise<Buffer> { return readFile(this.keyFor(contentHash)); }

@@ -38,7 +38,7 @@ export class JwtAuthStrategy extends PassportStrategy(JwtStrategy, 'jwt') {
       secretOrKey: config.getOrThrow<string>('JWT_SECRET'),
     });
   }
-  /** Identity only — and the account must still be active: suspended/deleted users' tokens die here. */
+  /** Chỉ danh tính — và tài khoản phải còn đang hoạt động: token của người dùng bị đình chỉ/đã xoá sẽ chết tại đây. */
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
     // Challenge token của bước MFA (scope 'mfa_challenge', không có sid
     // phiên) chỉ dùng được cho POST /auth/mfa/verify — không phải access

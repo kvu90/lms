@@ -103,8 +103,8 @@ export class CoursesController {
    * GET /courses/:id — chi tiết khoá học.
    */
   async get(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() viewer: AuthenticatedUser) {
-    // Listing a course's identity is open to enrolled/staff via the content gate;
-    // bare metadata for hidden courses still goes through assertCourseAccess.
+    // Việc liệt kê danh tính của một khoá học mở cho người đã ghi danh/nhân sự qua cổng nội dung;
+    // metadata trần của khoá học bị ẩn vẫn phải đi qua assertCourseAccess.
     const course = await this.courses.assertCourseAccess(viewer.id, id);
     return { ...course, contextId: await this.courses.courseContextId(id), customFields: await this.courses.getCourseCustomFields(id), formatOptions: await this.courses.getFormatOptions(id) };
   }
@@ -194,7 +194,7 @@ export class CoursesController {
     return { sectionId, available: true };
   }
 
-  // --- course modules --------------------------------------------------------------
+  // --- mô-đun của khoá học --------------------------------------------------------------
   @Post(':id/modules')
   /**
    * POST /courses/:id/modules — thêm course module.
@@ -212,7 +212,7 @@ export class CoursesController {
     const cm = await this.courses.getCm(cmId);
     return { ...cm, contextId: await this.courses.cmContextId(cm.id) };
   }
-  /** Attempt to access the activity content — server-side availability gate (show/showc NEVER grant access). */
+  /** Thử truy cập nội dung hoạt động — cổng availability phía server (show/showc KHÔNG BAO GIỜ cấp quyền truy cập). */
   @Get(':id/modules/:cmId/access')
   /**
    * GET /courses/:id/modules/:cmId/access — kết quả availability của cm.

@@ -8,7 +8,7 @@ import { CohortsController, CourseGroupsController } from './groups.controller';
 import { GroupsRepository } from './groups.repository';
 import { GroupsService } from './groups.service';
 
-/** GroupsModule facade: GroupsService (groups, groupings, cohorts). Depends on Courses + Access + Availability registry. */
+/** Facade của GroupsModule: GroupsService (groups, groupings, cohorts). Phụ thuộc Courses + Access + registry Availability. */
 @Module({
   imports: [AccessModule, CoursesModule, AvailabilityModule, EventsModule, TenantsModule],
   controllers: [CourseGroupsController, CohortsController],

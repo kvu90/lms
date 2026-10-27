@@ -16,7 +16,7 @@ import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 import { curricula, curriculumNodes, subjects } from '../curriculum/schema';
 import { courseGroups } from '../groups/schema';
-import { question, questionBanks, questionCategories, questionUsages } from '../questions/schema';
+import { question, questionAttempts, questionBanks, questionCategories, questionUsages, questionVersions } from '../questions/schema';
 import { examVersions, exams } from '../exams/schema';
 import { tenants } from '../tenants/schema';
 
@@ -211,6 +211,22 @@ export const examPins = pgTable('exam_pins', {
    * exam_kind của exam_versions (loại kiểm tra của NỘI DUNG đề).
    */
   preset: text('preset'),
+  /**
+   * Chế độ tham chiếu version của câu hỏi cho các lượt làm MỚI của lần
+   * ghim (issue #254 — mô hình lai ghim/trôi): 'pinned' (mặc định) =
+   * mọi lượt dùng đúng version câu đã chụp trong exam version đã ghim,
+   * hai học sinh cùng cửa sổ luôn thấy cùng một version; 
+   * 'float_latest_ready' = lúc bắt đầu lượt, mỗi slot phân giải bản
+   * ready MỚI NHẤT của câu tại thời điểm đó (attempt vẫn ghim version
+   * đã phân giải, không trôi giữa chừng). Float CHỈ được phép cho lần
+   * ghim luyện tập — cụ thể hoá theo preset: preset 'regular' (thường
+   * xuyên/luyện tập) mới được float; preset kiểm tra chính thức
+   * ('periodic', 'mock') hoặc không preset thì API chặn ở tầng service
+   * bằng lỗi `exam.version_mode_not_allowed`. Cột này KHÔNG đổi cách
+   * các attempt đã bắt đầu được chấm — attempt luôn neo version đã
+   * ghim trong question_attempts.
+   */
+  versionMode: text('version_mode').notNull().default('pinned'),
   /** Số phút tối đa được vào thi muộn từ time_open hiệu lực (preset thi thử = 15 theo TT 24/2024); null = không áp. */
   lateEntryMinutes: integer('late_entry_minutes'),
   /** Bật ghi nhận sự kiện giám sát lúc làm bài — CHỈ ghi nhận + báo cáo, không tự kết luận gian lận. */
@@ -229,6 +245,7 @@ export const examPins = pgTable('exam_pins', {
       index('exam_pins_exam_version_idx').on(table.examVersionId),
       index('exam_pins_target_group_idx').on(table.targetGroupId),
       check('exam_pins_preset_check', sql`${table.preset} is null or ${table.preset} in ('regular', 'periodic', 'mock')`),
+      check('exam_pins_version_mode_check', sql`${table.versionMode} in ('pinned', 'float_latest_ready')`),
   ]);
 
 /**
@@ -349,4 +366,90 @@ export const examAttemptEvents = pgTable('exam_attempt_events', {
 },
   (table) => [
       index('exam_attempt_events_attempt_idx').on(table.attemptId),
+  ]);
+
+/**
+ * Vết một lần CẬP NHẬT TƯỜNG MINH exam version đã ghim của một pin
+ * (issue #254): giáo viên xem diff từng slot giữa version đang ghim và
+ * version đích rồi mới áp; mỗi lần áp ghi đúng một dòng ở đây — ai
+ * (actor_id), khi nào (created_at), từ exam version nào lên exam
+ * version nào. Thao tác áp chỉ đi được khi pin CHƯA có lượt làm thật
+ * (luật khoá exam.pin_locked ở tầng service); pin đã có attempt thì
+ * đường duy nhất để sửa hệ quả điểm là chấm lại theo đáp án (bảng
+ * exam_attempt_regrades), không phải bảng này. Bảng con của exam_pins
+ * theo đúng khuôn exam_attempt_events: không mang tenant_id riêng,
+ * mọi truy cập đều đi qua pin/khoá của nó.
+ */
+export const examPinVersionUpdates = pgTable('exam_pin_version_updates', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  pinId: uuid('pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
+  actorId: uuid('actor_id').notNull(),
+  fromExamVersionId: uuid('from_exam_version_id').notNull().references(() => examVersions.id, { onDelete: 'cascade' }),
+  toExamVersionId: uuid('to_exam_version_id').notNull().references(() => examVersions.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_pin_version_updates_pin_idx').on(table.pinId),
+      index('exam_pin_version_updates_from_version_idx').on(table.fromExamVersionId),
+      index('exam_pin_version_updates_to_version_idx').on(table.toExamVersionId),
+  ]);
+
+/**
+ * Một lần CHẤM LẠI THEO ĐÁP ÁN của một pin (issue #254): giáo viên đã
+ * sửa đáp án bằng cách tạo version mới của câu hỏi, rồi chấm lại các
+ * lượt đã nộp đang ghim version cũ theo dữ kiện chấm của version đích.
+ * Đây là cơ chế RIÊNG, tách khỏi chấm tay essay (sự kiện
+ * `exam_attempt_regraded` của chấm tay không dùng lại — chấm lại theo
+ * đáp án phát sự kiện `exam_attempt_answer_key_regraded`). Một dòng =
+ * một thao tác áp thật cho một câu (dry-run KHÔNG ghi bảng này); điểm
+ * đổi của từng lượt nằm ở exam_attempt_regrade_items. from_version_id
+ * là version mà các lượt ứng viên đang ghim lúc chấm lại. Một thao
+ * tác áp gồm nhiều version nguồn khác nhau (chỉ xảy ra ở pin trôi —
+ * các lượt bắt đầu ở các thời điểm khác nhau đã phân giải các bản
+ * ready khác nhau) thì ghi MỘT DÒNG cho mỗi version nguồn, cùng
+ * actor/thời điểm áp; version đích là bản ready giáo viên chỉ định.
+ */
+export const examAttemptRegrades = pgTable('exam_attempt_regrades', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  pinId: uuid('pin_id').notNull().references(() => examPins.id, { onDelete: 'cascade' }),
+  questionId: uuid('question_id').notNull().references(() => question.id, { onDelete: 'cascade' }),
+  fromVersionId: uuid('from_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
+  toVersionId: uuid('to_version_id').notNull().references(() => questionVersions.id, { onDelete: 'cascade' }),
+  actorId: uuid('actor_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_attempt_regrades_pin_idx').on(table.pinId),
+      index('exam_attempt_regrades_question_idx').on(table.questionId),
+      index('exam_attempt_regrades_from_version_idx').on(table.fromVersionId),
+      index('exam_attempt_regrades_to_version_idx').on(table.toVersionId),
+  ]);
+
+/**
+ * Điểm đổi của TỪNG lượt trong một lần chấm lại theo đáp án: fraction
+ * của câu được chấm lại và tổng điểm của lượt (sum_grades, thang điểm
+ * slot) trước/sau. user_id ghi kèm (phi chuẩn hoá từ exam_attempts) để
+ * bề mặt "lịch sử sửa điểm của tôi" của học sinh truy vấn thẳng theo
+ * người mà không phải giải usage của engine; học sinh chỉ đọc được các
+ * dòng của chính mình và chỉ sau khi pin đã công bố kết quả (cổng công
+ * bố ở tầng service). Chỉ các lượt có điểm THẬT SỰ đổi mới có dòng ở
+ * đây — lượt chấm lại ra cùng fraction thì không ghi.
+ */
+export const examAttemptRegradeItems = pgTable('exam_attempt_regrade_items', {
+  id: uuid('id').primaryKey().default(sql`uuidv7()`),
+  regradeId: uuid('regrade_id').notNull().references(() => examAttemptRegrades.id, { onDelete: 'cascade' }),
+  examAttemptId: uuid('exam_attempt_id').notNull().references(() => examAttempts.id, { onDelete: 'cascade' }),
+  questionAttemptId: uuid('question_attempt_id').notNull().references(() => questionAttempts.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull(),
+  oldFraction: doublePrecision('old_fraction'),
+  newFraction: doublePrecision('new_fraction'),
+  oldSumGrades: doublePrecision('old_sum_grades'),
+  newSumGrades: doublePrecision('new_sum_grades'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+},
+  (table) => [
+      index('exam_attempt_regrade_items_regrade_idx').on(table.regradeId),
+      index('exam_attempt_regrade_items_user_idx').on(table.userId),
+      index('exam_attempt_regrade_items_attempt_idx').on(table.examAttemptId),
+      index('exam_attempt_regrade_items_question_attempt_idx').on(table.questionAttemptId),
   ]);

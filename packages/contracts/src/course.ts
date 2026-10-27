@@ -3,7 +3,7 @@ import { uuidIdSchema } from './ids.js';
 import { courseSectionFrameSchema } from './curriculum.js';
 import { courseSectionBookFrameSchema } from './books.js';
 
-/** Course & Enrolment contracts — the single shape source between api and web. */
+/** Contract Khoá học & Ghi danh — nguồn shape duy nhất giữa api và web. */
 
 export const GROUPMODE = { NOGROUPS: 0, SEPARATEGROUPS: 1, VISIBLEGROUPS: 2 } as const;
 export const ENROL_STATUS = { ACTIVE: 0, SUSPENDED: 1, WITHDRAWN: 2 } as const;
@@ -28,7 +28,7 @@ export interface CourseCategoryTreeNode extends CourseCategory {
 export const courseCategoryTreeNodeSchema: z.ZodType<CourseCategoryTreeNode> = courseCategorySchema.extend({
   children: z.lazy(() => z.array(courseCategoryTreeNodeSchema)),
 });
-/** The /categories/tree response: an array of root nodes. */
+/** Response của /categories/tree: một mảng các nút gốc. */
 export const courseCategoryTreeSchema = z.array(courseCategoryTreeNodeSchema);
 
 export const courseSchema = z.object({
@@ -204,7 +204,7 @@ export const courseCompletionSchema = z.object({
 });
 export type CourseCompletion = z.infer<typeof courseCompletionSchema>;
 
-/** Availability tree JSON (Moodle core_availability shape): ops & | !& !| with showc/show at the root. */
+/** JSON cây availability (shape của Moodle core_availability): các op & | !& !| với showc/show ở gốc. */
 export const availabilityOps = ['&', '|', '!&', '!|'] as const;
 
 /* ---- Request payload schemas (Zod — nguồn sự thật duy nhất) ---- */

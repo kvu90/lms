@@ -6,7 +6,7 @@ import { PermissionEvaluator } from '../modules/access/permission-evaluator.serv
 import { CONTEXT_LEVELS } from '../modules/access/domain/capabilities';
 import type { AuthenticatedUser } from './current-user.decorator';
 
-/** Enforces @RequireCapability metadata through PermissionEvaluator. Runs after JwtAuthGuard. */
+/** Thực thi metadata @RequireCapability thông qua PermissionEvaluator. Chạy sau JwtAuthGuard. */
 @Injectable()
 export class CapabilityGuard {
   constructor(

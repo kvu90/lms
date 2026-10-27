@@ -8,11 +8,11 @@ import { tenantAls } from '../../modules/tenants/tenant-als';
 import { EventLogWriter } from './event-log-writer.service';
 
 /**
- * Publishes committed outbox rows to the in-process EventEmitter (and, in the
- * worker process, to BullMQ consumers). Rows are marked published only after
- * the emit, so a crash mid-relay replays instead of losing events. Each
- * published row is also mirrored into the event log by the single logstore
- * observer (EventLogWriter) — mirroring never changes publish semantics.
+ * Phát các dòng outbox đã commit tới EventEmitter trong cùng tiến trình (và, trong
+ * tiến trình worker, tới các consumer của BullMQ). Các dòng chỉ được đánh dấu đã phát sau
+ * khi emit xong, nên nếu tiến trình sập giữa lúc relay thì sự kiện được phát lại thay vì bị mất. Mỗi
+ * dòng đã phát cũng được phản chiếu vào nhật ký sự kiện bởi observer logstore duy nhất
+ * (EventLogWriter) — việc phản chiếu không bao giờ làm đổi ngữ nghĩa của việc phát sự kiện.
  */
 @Injectable()
 export class OutboxRelayService {
