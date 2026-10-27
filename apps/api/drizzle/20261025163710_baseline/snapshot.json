@@ -18444,6 +18444,46 @@
         "n|sch|public",
         "n|col|public.exam_contributions.status"
       ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_contributions",
+        "exam_contributions_dossier_matrix_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_contributions_dossier_matrix_idx",
+        "n|idx|public.exam_contributions_dossier_matrix_idx",
+        "e|idx|public.exam_contributions_dossier_matrix_idx",
+        "n|rel|public.exam_contributions_dossier_matrix_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.dossier_matrix_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_contributions",
+        "exam_contributions_dossier_matrix_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_contributions_dossier_matrix_version_idx",
+        "n|idx|public.exam_contributions_dossier_matrix_version_idx",
+        "e|idx|public.exam_contributions_dossier_matrix_version_idx",
+        "n|rel|public.exam_contributions_dossier_matrix_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_contributions",
+        "n|sch|public",
+        "n|col|public.exam_contributions.dossier_matrix_version_id"
+      ]
     }
   ],
   "ddl": [
@@ -60372,6 +60412,48 @@
       "name": "exam_contributions_status_check",
       "value": "\"status\" in ('pending', 'pending_board', 'approved', 'rejected')",
       "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_dossier_matrix_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "dossier_matrix_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_contributions",
+      "name": "exam_contributions_dossier_matrix_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "dossier_matrix_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
     }
   ]
 }

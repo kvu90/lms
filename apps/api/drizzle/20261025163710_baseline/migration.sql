@@ -3340,4 +3340,6 @@ ALTER TABLE "exam_versions" ADD CONSTRAINT "exam_versions_matrix_version_id_exam
 ALTER TABLE "exam_matrix_cells" ADD CONSTRAINT "exam_matrix_cells_wW8crdJbee98_fkey" FOREIGN KEY ("matrix_version_id") REFERENCES "exam_matrix_versions"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_matrix_versions" ADD CONSTRAINT "exam_matrix_versions_matrix_id_exam_matrices_id_fkey" FOREIGN KEY ("matrix_id") REFERENCES "exam_matrices"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_mode_check" CHECK ("mode" in ('new', 'update'));--> statement-breakpoint
-ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_status_check" CHECK ("status" in ('pending', 'pending_board', 'approved', 'rejected'));
+ALTER TABLE "exam_contributions" ADD CONSTRAINT "exam_contributions_status_check" CHECK ("status" in ('pending', 'pending_board', 'approved', 'rejected'));--> statement-breakpoint
+CREATE INDEX "exam_contributions_dossier_matrix_idx" ON "exam_contributions" ("dossier_matrix_id");--> statement-breakpoint
+CREATE INDEX "exam_contributions_dossier_matrix_version_idx" ON "exam_contributions" ("dossier_matrix_version_id");

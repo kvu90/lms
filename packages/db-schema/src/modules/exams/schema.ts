@@ -257,6 +257,8 @@ export const examContributions = pgTable('exam_contributions', {
       index('exam_contributions_proposer_idx').on(table.proposerId),
       index('exam_contributions_status_idx').on(table.status),
       index('exam_contributions_dossier_version_idx').on(table.dossierExamVersionId),
+      index('exam_contributions_dossier_matrix_idx').on(table.dossierMatrixId),
+      index('exam_contributions_dossier_matrix_version_idx').on(table.dossierMatrixVersionId),
       index('exam_contributions_source_dossier_idx').on(table.sourceDossierId),
       check('exam_contributions_mode_check', sql`${table.mode} in ('new', 'update')`),
       check('exam_contributions_status_check', sql`${table.status} in ('pending', 'pending_board', 'approved', 'rejected')`),

@@ -245,6 +245,19 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     const paper = await mkMemberPaper();
     const dossierId = await insertHistoricalDossier({ paper, targetBankId: teamBank.id, proposerId: member.id, status: 'pending' });
 
+    // Hàng chờ TRƯỚC: bề mặt này qua cổng bank (đồng bộ tư cách thành
+    // viên bank của người gọi) — tổ trưởng thấy bộ; thành viên khác
+    // của tổ chỉ thấy bộ của mình (không có bộ này) và mở trực tiếp
+    // bị 404. Đặt trước chi tiết vì cổng xem chi tiết đọc tư cách đã
+    // được đồng bộ, đúng thứ tự thao tác thật của người duyệt.
+    const queue = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(leader.token));
+    expect(queue.status).toBe(200);
+    expect((queue.body as DossierBody[]).map((d) => d.id)).toContain(dossierId);
+    const queueOther = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(member2.token));
+    expect((queueOther.body as DossierBody[]).map((d) => d.id)).not.toContain(dossierId);
+    const directOther = await http(app).get(`/api/v1/exams/dossiers/${dossierId}`).set(bearer(member2.token));
+    expect(directOther.status).toBe(404);
+
     // Chi tiết: bộ ba đã ghim tại lúc nộp còn nguyên (version đề + version ma trận), cờ cấp 2 mặc định tắt.
     const detail = await http(app).get(`/api/v1/exams/dossiers/${dossierId}`).set(bearer(leader.token));
     expect(detail.status, JSON.stringify(detail.body)).toBe(200);
@@ -255,15 +268,6 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     expect(dossier.matrixId).toBe(matrixId);
     expect(dossier.matrixVersion).toBe(matrixVersion);
     expect(dossier.boardApprovalRequired).toBe(false);
-
-    // Hàng chờ: tổ trưởng thấy bộ; thành viên khác của tổ chỉ thấy bộ của mình (không có bộ này) và mở trực tiếp bị 404.
-    const queue = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(leader.token));
-    expect(queue.status).toBe(200);
-    expect((queue.body as DossierBody[]).map((d) => d.id)).toContain(dossierId);
-    const queueOther = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(member2.token));
-    expect((queueOther.body as DossierBody[]).map((d) => d.id)).not.toContain(dossierId);
-    const directOther = await http(app).get(`/api/v1/exams/dossiers/${dossierId}`).set(bearer(member2.token));
-    expect(directOther.status).toBe(404);
 
     // Tổ trưởng mở bản đặc tả ĐÃ CHỤP: đúng cấu trúc ma trận + vị trí câu của đề; lần mở của người duyệt có audit.
     const spec = await http(app).get(`/api/v1/exams/dossiers/${dossierId}/specification`).set(bearer(leader.token));
@@ -329,6 +333,10 @@ describe('EB-3 dossier approval + paper specification + periodic paper security'
     const paper = await mkMemberPaper();
     const dossierId = await insertHistoricalDossier({ paper, targetBankId: teamBank.id, proposerId: member.id, status: 'pending' });
 
+    // Chạm bề mặt hàng chờ trước để tư cách bank của tổ trưởng được
+    // đồng bộ (như TC1) rồi mới đọc chi tiết.
+    const queue = await http(app).get(`/api/v1/exams/banks/${teamBank.id}/dossiers`).set(bearer(leader.token));
+    expect((queue.body as DossierBody[]).map((d) => d.id)).toContain(dossierId);
     const off = await http(app).get(`/api/v1/exams/dossiers/${dossierId}`).set(bearer(leader.token));
     expect((off.body as DossierBody).boardApprovalRequired).toBe(false);
     const on = await http(app).put('/api/v1/site-config/exam/requireboardapproval').set(bearer(admin)).send({ value: true });
