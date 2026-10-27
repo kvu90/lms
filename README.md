@@ -132,17 +132,24 @@ badge "Huy hiệu khởi đầu" already awarded to student1, and a course
 calendar event for tomorrow 09:00.
 
 The seed also loads the **full GDPT 2018 national programme**: all 21
-verified datasets vendored in the repo (2,126 records across 20
-subjects, checked verbatim against the Ministry's documents) are
-imported through the same `ProgramImportService` the admin page uses,
-so a database built from the baseline + `pnpm seed` already contains
-the complete programme tree — **no manual "import" step in the admin
-UI is needed after a reset** (the admin page keeps re-sync only as a
-utility). Programme rows carry deterministic UUIDv5 identities derived
-from natural keys,
-so the id sets are identical in every environment; re-running the
-seed is a no-op for the programme (0 created / 0 updated). On a local
-machine the programme phase of the seed takes roughly 10–17 seconds.
+đã kiểm chứng được vendor sẵn trong repo (2.115 bản ghi trên 19 môn
+có dữ liệu — môn thứ 20, GDQP&AN, chưa có dataset đã kiểm chứng —
+đối chiếu nguyên văn với tài liệu của Bộ). Seed **không** nạp từng
+dataset theo từng bản ghi: nó restore bản dump chương trình đông
+cứng đóng gói sẵn trong repo
+(`apps/api/src/modules/curriculum/program-data-dump/program-dump.sql`,
+được `ProgramDumpService` tạo một lần từ cơ sở dữ liệu chuẩn đã
+kiểm chứng), nên một cơ sở dữ liệu dựng từ baseline + `pnpm seed`
+đã chứa trọn cây chương trình với đúng cùng một tập định danh bản
+ghi ở mọi môi trường — **sau khi reset không cần bước "import" thủ
+công nào trong giao diện quản trị** (trang quản trị chỉ giữ đồng bộ
+lại qua `ProgramImportService` như một tiện ích khi đính chính
+dataset). Chạy lại seed sẽ bỏ qua phần chương trình khi dữ liệu đã
+có mặt (restore theo cơ chế restore-if-empty), nên định danh chương
+trình không bao giờ thay đổi khi seed lại. Đính chính một dataset
+nghĩa là sửa ở cơ sở dữ liệu chuẩn rồi xuất lại dump
+(`apps/api/src/export-program-dump.ts`), tuyệt đối không sửa tay
+file dump.
 
 ### Main flows to review
 
