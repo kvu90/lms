@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
-import {
-  extractRichTextPlainText,
-  type QuestionCategory,
-  type QuestionUsage,
-  type QuestionView,
-  type RichTextDocument,
-  type StimulusView,
-} from '@lms/contracts';
+import { Link, useLocation, useNavigate } from 'react-router';
+import type { QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -31,21 +24,18 @@ import { CollapsibleSection } from '../components/collapsible-section';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch, apiJson, ApiError } from '#lib/api';
+import { apiFetch } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 import {
   examDossierSpecQueryOptions,
-  pinnedQuestionVersionsQueryOptions,
   questionAttributionQueryOptions,
   questionDetailQueryOptions,
   questionDiscoveryQueryOptions,
   questionVersionsQueryOptions,
-  stimulusDetailQueryOptions,
   useCopyExamPaper,
   useCopyMatrixToMyBank,
   useCopyQuestionToMyBank,
-  useCreateQuestionCategory,
   useCreateQuestionUsage,
   useCreateStimulus,
   useDeleteBankQuestion,
@@ -53,21 +43,15 @@ import {
   useDeleteMatrix,
   useDeleteStimulus,
   useDeployExamPin,
-  useFinishQuestionUsage,
-  useFinishUsageAttempt,
   useProposeExamDossierContribution,
   useProposeExamPaperContribution,
   useProposeMatrixContribution,
   useProposeQuestionContribution,
-  useQuestionUsage,
   useRestoreQuestion,
   useReviewExamPaperContribution,
   useReviewMatrixContribution,
   useReviewQuestionContribution,
   useSetExamPaperStatus,
-  useStartQuestionUsage,
-  useStartUsageAttempt,
-  useSubmitUsageAttempt,
   useUpdateStimulus,
   useWithdrawQuestion,
   useBankDossiers,
@@ -81,7 +65,6 @@ import {
   useMyBankQuestions,
   useMyDossiers,
   useQuestionBanks,
-  clearQuestionBankListCache,
   useQuestionCategories,
   type AttributionLite,
   type BankLite,
@@ -94,141 +77,42 @@ import {
   type PaperSummaryLite,
 } from '#lib/questions-data';
 import { useCurriculumSubjects } from '#lib/matrix-data';
-import { accessContextsQueryOptions } from '#lib/access';
 import { courseContentQueryOptions, coursesListQueryOptions } from '#lib/course-builder-data';
 import { courseGroupsQueryOptions } from '#lib/progress-report-data';
 import { DataTable, type DataColumn } from '#components/data-table';
-
-/**
- * Thông báo lỗi kèm lý do thật từ API (ProblemDetails.detail) — trước
- * đây các catch nuốt lỗi gốc và chỉ hiện câu chung chung, giáo viên
- * không biết sai ở đâu (issue #55 mục 3). Export để màn editor riêng
- * (question-editor.tsx) dùng chung đúng hành vi này.
- */
-export function withApiReason(fallback: string, err: unknown): string {
-  if (err instanceof ApiError) {
-    const reason = err.problem.detail ?? err.problem.title;
-    if (reason) return `${fallback} ${reason}`;
-  }
-  return fallback;
-}
-
-/** Một lựa chọn ngữ cảnh cho form danh mục mới. */
-interface ContextOption {
-  id: string;
-  level: number;
-  label: string;
-}
-
-export const QTYPES = ['multichoice', 'truefalse', 'shortanswer', 'essay'] as const;
-export type Qtype = (typeof QTYPES)[number];
-
-export const QTYPE_LABEL_KEYS: Record<Qtype, string> = {
-  multichoice: 'qtypeMultichoice',
-  truefalse: 'qtypeTruefalse',
-  shortanswer: 'qtypeShortanswer',
-  essay: 'qtypeEssay',
-};
-
-/** Mức độ nhận thức trên dòng nối câu hỏi × YCCĐ (issue #20 Chặng 2, mục A.2). */
-export const COGNITIVE_LEVELS = ['biet', 'hieu', 'van_dung', 'van_dung_cao'] as const;
-export const LEVEL_LABEL_KEYS: Record<(typeof COGNITIVE_LEVELS)[number], string> = {
-  biet: 'levelBiet',
-  hieu: 'levelHieu',
-  van_dung: 'levelVanDung',
-  van_dung_cao: 'levelVanDungCao',
-};
-
-/** Gắn kết chương trình của một câu hỏi — hình dạng của GET /questions/:id/curriculum-links. */
-export interface CurriculumLinksView {
-  questionId: string;
-  subjectIds: string[];
-  outcomes: { outcomeId: string; cognitiveLevel: string }[];
-}
-
-/** Một node trong cây chương trình trả về bởi GET /curriculum/curricula/:id/tree. */
-export interface CurriculumTreeNode {
-  id: string;
-  title: string;
-  outcomes: { id: string; content: string }[];
-  children: CurriculumTreeNode[];
-}
+import {
+  COGNITIVE_LEVELS,
+  hasAllOptions,
+  LEVEL_LABEL_KEYS,
+  plainText,
+  QTYPE_LABEL_KEYS,
+  QTYPES,
+  questionExcerpt,
+  withApiReason,
+  type BankArea,
+  type CurriculumLinksView,
+  type CurriculumTreeNode,
+  type Qtype,
+} from '../components/questions/shared';
 
 
-
-
-
-
-
-
-
-
-/** Khoá học cho hộp thoại triển khai đề vào quiz. */
-interface CourseLite {
-  id: string;
-  fullName: string;
-}
-
-/** Nhóm của khoá cho hộp thoại ghim đề (GET /courses/:id/groups). */
-interface CourseGroupLite {
-  id: string;
-  name: string;
-}
-
-export function plainText(doc: RichTextDocument | null | undefined): string {
-  return doc ? extractRichTextPlainText(doc) : '';
-}
-
-/**
- * Nhãn hiển thị của một câu hỏi = TRÍCH ĐOẠN nội dung thân câu của
- * phiên bản mới nhất (tối đa 120 ký tự). Câu hỏi không còn trường tên
- * (quyết 11:28 ngày 26/10/2026) nên mọi bề mặt cần nhãn — danh sách,
- * hộp xác nhận xoá, bộ chọn, panel xem trước — đều dùng trích đoạn
- * này thay cho tên.
- *
- * @param view - View câu hỏi như API trả về.
- * @returns Chuỗi thuần trích từ thân câu.
- */
-export function questionExcerpt(view: QuestionView): string {
-  return plainText(view.latestVersion.questionText).slice(0, 120);
-}
-
-export type OptionsRecord = Record<string, unknown>;
-
-/**
- * Các trường options phải còn nguyên khi sửa; thiếu trường nào thì form
- * sẽ tìm thêm ở endpoint versions. Multichoice chỉ còn các trường của
- * mô hình mới — `single`, `showNumCorrect` và `partiallyCorrectFeedback`
- * đã bỏ hẳn cùng tỉ trọng đáp án (quyết 12:04 + điểm quyết D-5 ngày
- * 26/10/2026).
- */
-const OPTION_KEYS_BY_QTYPE: Record<Qtype, string[]> = {
-  multichoice: [
-    'shuffleAnswers',
-    'answerNumbering',
-    'showStandardInstruction',
-    'correctFeedback',
-    'incorrectFeedback',
-  ],
-  truefalse: ['showStandardInstruction'],
-  shortanswer: ['useCase'],
-  essay: [
-    'responseFormat',
-    'responseRequired',
-    'responseFieldLines',
-    'minWordLimit',
-    'maxWordLimit',
-    'graderInfo',
-    'responseTemplate',
-  ],
-};
-
-export function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | undefined): boolean {
-  if (!options) return false;
-  return OPTION_KEYS_BY_QTYPE[qtype].every(
-    (key) => Object.prototype.hasOwnProperty.call(options, key) && options[key] !== undefined,
-  );
-}
+export { QuestionCategoryNewPage } from '../components/questions/category-new-page';
+export { QuestionUsagePage } from '../components/questions/usage-page';
+export {
+  COGNITIVE_LEVELS,
+  hasAllOptions,
+  LEVEL_LABEL_KEYS,
+  plainText,
+  QTYPE_LABEL_KEYS,
+  QTYPES,
+  questionExcerpt,
+  withApiReason,
+  type BankArea,
+  type CurriculumLinksView,
+  type CurriculumTreeNode,
+  type OptionsRecord,
+  type Qtype,
+} from '../components/questions/shared';
 
 /**
  * Ngân hàng câu hỏi: các danh mục, các câu hỏi với huy hiệu phiên bản HIỆN TẠI
@@ -236,21 +120,6 @@ export function hasAllOptions(qtype: Qtype, options: OptionsRecord | null | unde
  * tăng lên và lịch sử phiên bản hiển thị mọi phiên bản (các lượt làm đã
  * bắt đầu giữ phiên bản chúng đã ghim; bất biến đó nằm phía API).
  */
-/**
- * Khu vực ngân hàng mà trang này đang phục vụ (chuẩn đường dẫn, issue
- * #221 — lát R1): mỗi khu vực có PATH RIÊNG, trang suy ra khu vực từ
- * route (prop do route module truyền vào), KHÔNG còn đọc ?bank=/
- * ?section= từ URL như trước. URL cũ dạng ?bank=... được lớp tương
- * thích ở route module questions chuyển hướng (replace) sang path mới.
- */
-export type BankArea =
-  | 'my-questions'
-  | 'stimuli'
-  | 'my-exams'
-  | 'my-matrices'
-  | 'system-questions'
-  | 'system-exams'
-  | 'system-matrices';
 
 export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const { t } = useTranslation('app');
@@ -2219,423 +2088,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   );
 }
 
-/**
- * Màn tạo danh mục câu hỏi RIÊNG theo chuẩn §9 (route
- * /questions/categories/new): trước đây form này nhồi ngay dưới danh
- * sách ngân hàng trong cùng một trang (§9: tạo mới là màn riêng, không
- * nhồi form vào danh sách). Ngữ cảnh vẫn là control Select của @lms/ui
- * chỉ liệt kê ngữ cảnh người dùng thật sự có question:managecategory
- * (issue #55 mục 2), mặc định ngữ cảnh hệ thống. Tạo xong quay về danh
- * sách ngân hàng (trang danh sách tự nạp lại khi mở).
- */
-export function QuestionCategoryNewPage() {
-  const { t } = useTranslation('app');
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const createCategoryMutation = useCreateQuestionCategory();
-  const perms = usePermissions();
-  const [catName, setCatName] = useState('');
-  const [contextId, setContextId] = useState('');
-  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const contexts = await queryClient.fetchQuery(accessContextsQueryOptions());
-        const manageable = new Set(
-          (perms.access?.contexts ?? [])
-            .filter((c) => c.capabilities.includes('question:managecategory'))
-            .map((c) => c.contextId),
-        );
-        const courseName = (instanceId: string) =>
-          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
-        const options: ContextOption[] = contexts
-          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
-          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
-          .map((c) => ({
-            id: c.id,
-            level: c.contextLevel,
-            label:
-              c.contextLevel === 10
-                ? t('contextSystem')
-                : c.contextLevel === 50
-                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
-                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
-          }));
-        if (cancelled) return;
-        setContextOptions(options);
-        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
-      } catch {
-        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
-        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
-
-  async function createCategory(event: FormEvent) {
-    event.preventDefault();
-    try {
-      await createCategoryMutation.mutateAsync({ name: catName, contextId });
-      clearQuestionBankListCache(queryClient);
-      navigate('/questions');
-    } catch (err) {
-      setMessage(withApiReason(t('categoryCreateFailedShort'), err));
-    }
-  }
-
-  if (!perms.ready) {
-    return (
-      <PageShell width="medium">
-        <PageHeader title={t('newCategory')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </div>
-      </PageShell>
-    );
-  }
-  if (!perms.canUseQuestionBank) {
-    return (
-      <PageShell width="medium">
-        <PageHeader title={t('newCategory')} />
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('questionBank')}</CardTitle>
-            <CardDescription>{t('questionBankForbidden')}</CardDescription>
-          </CardHeader>
-        </Card>
-        <p>
-          <Link to="/questions" className="text-sm underline">
-            {t('backToQuestionBankList')}
-          </Link>
-        </p>
-      </PageShell>
-    );
-  }
-
-  return (
-    <PageShell width="medium">
-      <PageHeader title={t('newCategory')} />
-      {message ? (
-        <Alert role="status">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
-      ) : null}
-      <Card>
-        <CardContent>
-          <form onSubmit={(e) => void createCategory(e)}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="qcat-name">{t('name')}</FieldLabel>
-                <Input id="qcat-name" value={catName} onChange={(e) => setCatName(e.target.value)} />
-              </Field>
-              <Field>
-                <FieldLabel id="qcat-context-label">{t('questionCategoryContext')}</FieldLabel>
-                <Select
-                  items={Object.fromEntries(contextOptions.map((option) => [option.id, option.label]))}
-                  value={contextId === '' ? null : contextId}
-                  onValueChange={(v) => setContextId(v ?? '')}
-                >
-                  <SelectTrigger aria-labelledby="qcat-context-label" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contextOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <div className="flex justify-end">
-                <Button type="submit" disabled={!contextId}>
-                  {t('createCategory')}
-                </Button>
-              </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
-      <p>
-        <Link to="/questions" className="text-sm underline">
-          {t('backToQuestionBankList')}
-        </Link>
-      </p>
-    </PageShell>
-  );
-}
-
-/** Một phiên bản câu hỏi như endpoint versions trả về (có stimulusId để tra ngữ liệu đã gắn). */
-interface PinnedVersion {
-  id: string;
-  version: number;
-  questionText: RichTextDocument;
-  stimulusId: string | null;
-}
-
-/** Nội dung hiển thị của một attempt: đề của phiên bản đã pin + ngữ liệu gắn kèm (nếu có). */
-interface PinnedContent {
-  questionText: string;
-  stimulusText: string | null;
-}
-
-/**
- * Lượt làm bài câu hỏi: thao tác theo trạng thái của usage và từng attempt
- * (bắt đầu usage/attempt, nộp câu trả lời, kết thúc attempt/usage). Sau mỗi
- * thao tác trang nạp lại usage từ API để hiển thị state/fraction mới nhất.
- * Behaviour mặc định là deferredfeedback: nộp chỉ ghi đáp án thành step,
- * điểm (fraction) chỉ chốt khi kết thúc attempt hoặc toàn bộ usage.
- */
-export function QuestionUsagePage() {
-  const { t } = useTranslation('app');
-  const { id } = useParams();
-  const perms = usePermissions();
-  const queryClient = useQueryClient();
-  // Usage đọc qua TanStack Query (F-01 của rà soát #133): cổng vai
-  // của trang là điều kiện bật query; lỗi tải hiện qua trạng thái
-  // lỗi của query, thao tác làm bài là đột biến tự làm mới usage.
-  const usageQuery = useQuestionUsage(id ?? '', perms.ready && perms.canUseQuestionBank);
-  const usage = usageQuery.data ?? null;
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [pinned, setPinned] = useState<Record<string, PinnedContent>>({});
-  const startUsageMutation = useStartQuestionUsage();
-  const finishUsageMutation = useFinishQuestionUsage();
-  const startAttemptMutation = useStartUsageAttempt();
-  const submitAttemptMutation = useSubmitUsageAttempt();
-  const finishAttemptMutation = useFinishUsageAttempt();
-
-  /**
-   * Nạp nội dung của phiên bản ĐÃ PIN cho từng attempt đã bắt đầu: usage chỉ
-   * mang questionId/questionVersionId, nên đề và ngữ liệu phải tra qua
-   * endpoint versions (đúng phiên bản đã pin, không phải bản mới nhất) rồi
-   * endpoint stimuli. Lỗi ở bước phụ này không chặn thao tác làm bài.
-   */
-  const loadPinned = useCallback(async (fresh: QuestionUsage) => {
-    const entries = await Promise.all(
-      fresh.attempts
-        .filter((a) => a.questionVersionId)
-        .map(async (a) => {
-          try {
-            const versions = await queryClient.fetchQuery(pinnedQuestionVersionsQueryOptions(a.questionId));
-            const version = versions.find((v) => v.id === a.questionVersionId);
-            if (!version) return null;
-            let stimulusText: string | null = null;
-            if (version.stimulusId) {
-              const stimulus = await queryClient.fetchQuery(stimulusDetailQueryOptions(version.stimulusId));
-              stimulusText = plainText(stimulus.content);
-            }
-            return [a.id, { questionText: plainText(version.questionText), stimulusText }] as const;
-          } catch {
-            return null;
-          }
-        }),
-    );
-    setPinned((prev) => {
-      const next = { ...prev };
-      for (const entry of entries) {
-        if (entry) next[entry[0]] = entry[1];
-      }
-      return next;
-    });
-  }, []);
-
-  // Mỗi khi usage (lại) tải về thì nạp nội dung đã ghim cho các
-  // attempt đã bắt đầu — đúng nhịp loadPinned sau mỗi reload() thủ
-  // công trước đây (mở trang và sau mỗi thao tác).
-  useEffect(() => {
-    if (usageQuery.data) void loadPinned(usageQuery.data);
-  }, [usageQuery.data, loadPinned]);
-
-  /** Chạy một thao tác làm bài (đột biến tự làm mới usage); lỗi hiện thân thiện qua i18n. */
-  async function act(run: () => Promise<unknown>) {
-    setActionError(null);
-    try {
-      await run();
-    } catch {
-      setActionError(t('usageActionFailed'));
-    }
-  }
-
-  if (!perms.ready)
-    return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        {t('loading')}
-      </main>
-    );
-  if (!perms.canUseQuestionBank)
-    return (
-      <main className="@container/main flex flex-1 flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('questionBank')}</CardTitle>
-            <CardDescription>{t('questionBankForbidden')}</CardDescription>
-          </CardHeader>
-        </Card>
-      </main>
-    );
-  if (usageQuery.isError)
-    return (
-      <PageShell width="medium">
-        <PageHeader title={t('questionAttemptTitle', { component: '' })} />
-        <Alert variant="destructive">
-          <AlertDescription>{t('attemptLoadFailed')}</AlertDescription>
-        </Alert>
-        <div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void usageQuery.refetch();
-            }}
-          >
-            {t('retry')}
-          </Button>
-        </div>
-      </PageShell>
-    );
-  if (!usage)
-    return (
-      <PageShell width="medium">
-        <div className="space-y-2" aria-label={t('attemptLoading')}>
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </PageShell>
-    );
-  const usageId = usage.usage.id;
-  const gradedStates = ['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'];
-  return (
-    <PageShell width="medium">
-      <PageHeader
-        title={t('questionAttemptTitle', { component: usage.usage.component })}
-        description={t('usageState', { state: usage.state })}
-      />
-      <Card>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">{t('deferredFeedbackNote')}</p>
-          {actionError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
-          ) : null}
-          <div className="flex gap-2">
-            {usage.state === 'notstarted' ? (
-              <Button
-                type="button"
-                onClick={() =>
-                  void act(() => startUsageMutation.mutateAsync({ usageId }))
-                }
-              >
-                {t('usageStart')}
-              </Button>
-            ) : null}
-            {usage.state === 'inprogress' ? (
-              <Button
-                type="button"
-                onClick={() =>
-                  void act(() => finishUsageMutation.mutateAsync({ usageId }))
-                }
-              >
-                {t('usageFinish')}
-              </Button>
-            ) : null}
-          </div>
-          <ul className="space-y-4">
-            {usage.attempts.map((a) => {
-              const started = a.state !== 'notstarted';
-              const finishedAttempt = gradedStates.includes(a.state);
-              const lastAnswer = [...a.steps].reverse().find((s) => s.data.answer)?.data.answer ?? '';
-              const content = pinned[a.id];
-              return (
-                <li key={a.id} data-testid={`attempt-${a.id}`} className="space-y-2">
-                  <div>
-                    {t('slotLine', { slot: a.slot })} <strong>{a.state}</strong>
-                    {a.fraction !== null ? ` ${t('fractionSuffix', { fraction: a.fraction })}` : ''}
-                    {a.questionVersionId ? ` ${t('pinnedVersionSuffix', { versionId: a.questionVersionId })}` : ''}
-                    <span className="block text-sm text-muted-foreground">
-                      {t('stepsLine', { steps: a.steps.map((s) => s.state).join(' → ') || t('stepsNone') })}
-                    </span>
-                  </div>
-                  {content ? (
-                    <div className="space-y-2">
-                      {content.stimulusText ? (
-                        <div data-testid={`attempt-stimulus-${a.id}`} className="rounded-md border p-3">
-                          <h4 className="text-sm font-medium">{t('stimulusHeading')}</h4>
-                          <p className="text-sm whitespace-pre-wrap">{content.stimulusText}</p>
-                        </div>
-                      ) : null}
-                      <p className="text-sm whitespace-pre-wrap">{content.questionText}</p>
-                    </div>
-                  ) : null}
-                  {!started ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        void act(() => startAttemptMutation.mutateAsync({ usageId, attemptId: a.id }))
-                      }
-                    >
-                      {t('attemptStart')}
-                    </Button>
-                  ) : null}
-                  {started && !finishedAttempt ? (
-                    <div className="space-y-2">
-                      <Field>
-                        <FieldLabel htmlFor={`answer-${a.id}`}>{t('answerForSlot', { slot: a.slot })}</FieldLabel>
-                        <Input
-                          id={`answer-${a.id}`}
-                          value={answers[a.id] ?? lastAnswer}
-                          onChange={(e) => setAnswers((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                        />
-                      </Field>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            void act(() =>
-                              submitAttemptMutation.mutateAsync({
-                                usageId,
-                                attemptId: a.id,
-                                response: (answers[a.id] ?? lastAnswer).trim() ? (answers[a.id] ?? lastAnswer) : null,
-                              }),
-                            )
-                          }
-                        >
-                          {t('attemptSubmit')}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            void act(() => finishAttemptMutation.mutateAsync({ usageId, attemptId: a.id }))
-                          }
-                        >
-                          {t('attemptFinish')}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-          <p className="mt-4 text-sm">
-            <Link to="/questions">{t('backToQuestionBank')}</Link>
-          </p>
-        </CardContent>
-      </Card>
-    </PageShell>
-  );
-}
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default QuestionsPage;
