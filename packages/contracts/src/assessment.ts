@@ -812,6 +812,24 @@ export const quizViewSchema = z.object({
   examId: uuidIdSchema,
   /** Exam version đã ghim lúc tạo pin. */
   examVersionId: uuidIdSchema,
+  /** Số version của exam version đang ghim (để UI hiện "đang ghim bản đề v[n]"). */
+  examVersionNumber: z.number().int(),
+  /** Số version mới nhất của đề (mọi trạng thái); so với examVersionNumber để biết pin có đang trỏ bản cũ hay không. */
+  latestExamVersionNumber: z.number().int(),
+  /**
+   * Huy hiệu "có bản ready mới" ở cấp pin (issue #254): true khi đề đang ở
+   * trạng thái ready VÀ bản mới nhất của đề mới hơn bản đang ghim — lúc đó
+   * thao tác cập nhật tường minh (xem trước diff rồi áp) mới có đích.
+   */
+  hasNewerExamVersion: z.boolean(),
+  /**
+   * Chế độ tham chiếu version của câu hỏi cho các lượt làm MỚI (issue #254):
+   * `pinned` = dùng đúng version câu đã chụp trong exam version đã ghim;
+   * `float_latest_ready` = lúc bắt đầu lượt, mỗi câu phân giải bản ready mới
+   * nhất. Float chỉ hợp lệ với pin luyện tập (preset `regular`) — API chặn
+   * ở tầng nghiệp vụ bằng lỗi `exam.version_mode_not_allowed`.
+   */
+  versionMode: z.enum(['pinned', 'float_latest_ready']),
   /** Thang Đ–S của câu đúng/sai chùm (TF-A) hiệu lực của đề; null = mặc định QĐ 764 [0, 10, 25, 50, 100]. */
   tfScale: tfScaleSchema.nullable(),
   /** Hình thức kiểm tra TT 22 đã chọn preset: regular (thường xuyên) | periodic (định kỳ) | mock (thi thử); null = không theo preset. */
@@ -1865,6 +1883,13 @@ export const createExamPinSchema = z.strictObject({
   shuffleAnswers: z.boolean().optional(),
   /** Số mã đề sinh cho lần ghim này (mỗi mã 001, 002… kèm seed hoán vị để in/chấm khớp); bỏ trống = 1. */
   variantCount: z.number().int().min(1).max(50).optional(),
+  /**
+   * Chế độ tham chiếu version của câu hỏi (issue #254); bỏ trống = `pinned`.
+   * `float_latest_ready` chỉ hợp lệ khi preset là `regular` (luyện tập) —
+   * preset kiểm tra chính thức (`periodic`/`mock`) hoặc không preset bị API
+   * chặn bằng lỗi `exam.version_mode_not_allowed`.
+   */
+  versionMode: z.enum(['pinned', 'float_latest_ready']).optional(),
   ...pinAccessRuleFields,
 });
 export type CreateExamPin = z.infer<typeof createExamPinSchema>;
@@ -1886,9 +1911,140 @@ export const updateExamPinSchema = z.strictObject({
   shuffleAnswers: z.boolean().optional(),
   examVersionId: uuidIdSchema.optional(),
   variantCount: z.number().int().min(1).max(50).optional(),
+  /**
+   * Đổi chế độ tham chiếu version của câu hỏi (issue #254): bật
+   * `float_latest_ready` chỉ khi preset hiệu lực của pin là `regular`;
+   * đổi preset rời `regular` trong lúc pin đang float cũng bị chặn — cả
+   * hai vi phạm đều nhận lỗi `exam.version_mode_not_allowed` ở API.
+   */
+  versionMode: z.enum(['pinned', 'float_latest_ready']).optional(),
   ...pinAccessRuleFields,
 });
 export type UpdateExamPin = z.infer<typeof updateExamPinSchema>;
+
+/**
+ * Một dòng diff giữa exam version đang ghim và exam version đích, so theo
+ * VỊ TRÍ slot (issue #254 — xem trước khi áp cập nhật pin): `added`/`removed`
+ * là slot chỉ có ở một phía; `question_changed` là cùng vị trí nhưng khác
+ * câu; `question_version_changed` là cùng câu nhưng version câu đã ghim
+ * khác; `mark_changed` là chỉ khác điểm của slot; `unchanged` là giống hệt.
+ * Phía vắng mặt (slot thêm/bớt) mang các trường tương ứng là null.
+ */
+export const pinVersionUpdateSlotDiffSchema = z.object({
+  position: z.number().int(),
+  change: z.enum(['added', 'removed', 'question_changed', 'question_version_changed', 'mark_changed', 'unchanged']),
+  fromQuestionId: uuidIdSchema.nullable(),
+  toQuestionId: uuidIdSchema.nullable(),
+  fromPinnedVersionNumber: z.number().int().nullable(),
+  toPinnedVersionNumber: z.number().int().nullable(),
+  fromMaxMark: z.number().nullable(),
+  toMaxMark: z.number().nullable(),
+});
+export type PinVersionUpdateSlotDiff = z.infer<typeof pinVersionUpdateSlotDiffSchema>;
+
+/**
+ * Xem trước thao tác "Cập nhật đề lên bản ready mới nhất" của một pin
+ * (issue #254): đích cập nhật là exam version mới nhất của đề — chỉ tồn tại
+ * khi đề đang ở trạng thái `ready` và bản mới nhất mới hơn bản đang ghim
+ * (`available`). `blockedByAttempts` cho UI cảnh báo trước: pin đã có lượt
+ * làm thật thì thao tác ÁP sẽ bị API chặn bằng `exam.pin_locked` — sửa hệ
+ * quả điểm của các lượt đã làm chỉ đi qua đường chấm lại theo đáp án.
+ */
+export const pinVersionUpdatePreviewSchema = z.object({
+  pinId: uuidIdSchema,
+  fromExamVersionId: uuidIdSchema,
+  fromVersionNumber: z.number().int(),
+  /** Exam version đích (bản mới nhất của đề); null khi không có đích cập nhật. */
+  toExamVersionId: uuidIdSchema.nullable(),
+  toVersionNumber: z.number().int().nullable(),
+  /** Trạng thái hiện tại của đề (draft | ready | hidden) — giải thích vì sao chưa có bản ready mới khi `available` là false. */
+  examStatus: z.string(),
+  available: z.boolean(),
+  blockedByAttempts: z.boolean(),
+  slotDiffs: z.array(pinVersionUpdateSlotDiffSchema),
+});
+export type PinVersionUpdatePreview = z.infer<typeof pinVersionUpdatePreviewSchema>;
+
+/** Payload áp cập nhật exam version cho pin (issue #254): đích phải là đúng exam version đã xem trước ở bước diff. */
+export const applyPinVersionUpdateSchema = z.strictObject({
+  toExamVersionId: uuidIdSchema,
+});
+export type ApplyPinVersionUpdate = z.infer<typeof applyPinVersionUpdateSchema>;
+
+/**
+ * Yêu cầu chấm lại theo đáp án cho một câu trong một pin (issue #254):
+ * `toVersionId` là version ĐÚNG của câu mà giáo viên đã sửa đáp án;
+ * `dryRun` = true chỉ tính và trả điểm đổi, không ghi gì — kết quả dry-run
+ * và kết quả áp thật dùng cùng một hàm tính nên khớp nhau tuyệt đối.
+ */
+export const regradePinQuestionSchema = z.strictObject({
+  questionId: uuidIdSchema,
+  toVersionId: uuidIdSchema,
+  dryRun: z.boolean(),
+});
+export type RegradePinQuestion = z.infer<typeof regradePinQuestionSchema>;
+
+/**
+ * Điểm đổi của MỘT lượt trong một lần chấm lại theo đáp án (issue #254):
+ * fraction của câu được chấm lại và tổng điểm của lượt (thang điểm slot)
+ * trước/sau. `changed` = fraction hoặc tổng điểm thật sự khác — chỉ các
+ * lượt `changed` mới được ghi khi áp thật.
+ */
+export const pinRegradeChangeSchema = z.object({
+  examAttemptId: uuidIdSchema,
+  userId: uuidIdSchema,
+  attemptNumber: z.number().int(),
+  questionAttemptId: uuidIdSchema,
+  oldFraction: z.number().nullable(),
+  newFraction: z.number().nullable(),
+  oldSumGrades: z.number().nullable(),
+  newSumGrades: z.number().nullable(),
+  changed: z.boolean(),
+});
+export type PinRegradeChange = z.infer<typeof pinRegradeChangeSchema>;
+
+/** Kết quả một lần chấm lại theo đáp án (dry-run hoặc áp thật) cho một câu của pin. */
+export const pinRegradeResultSchema = z.object({
+  dryRun: z.boolean(),
+  pinId: uuidIdSchema,
+  questionId: uuidIdSchema,
+  /** Các version nguồn mà các lượt ứng viên đang ghim (thường đúng một; nhiều hơn chỉ ở pin trôi). */
+  fromVersionIds: z.array(uuidIdSchema),
+  toVersionId: uuidIdSchema,
+  changes: z.array(pinRegradeChangeSchema),
+});
+export type PinRegradeResult = z.infer<typeof pinRegradeResultSchema>;
+
+/** Một mục điểm đổi trong nhật ký chấm lại (theo từng lượt của từng học sinh). */
+export const pinRegradeLogItemSchema = z.object({
+  examAttemptId: uuidIdSchema,
+  userId: uuidIdSchema,
+  attemptNumber: z.number().int(),
+  oldFraction: z.number().nullable(),
+  newFraction: z.number().nullable(),
+  oldSumGrades: z.number().nullable(),
+  newSumGrades: z.number().nullable(),
+});
+export type PinRegradeLogItem = z.infer<typeof pinRegradeLogItemSchema>;
+
+/**
+ * Một dòng nhật ký chấm lại theo đáp án của một pin (issue #254): ai chấm
+ * lại, khi nào, câu nào, từ version nào lên version nào, và điểm đổi của
+ * từng lượt bị ảnh hưởng. Giáo viên xem toàn bộ nhật ký của pin; học sinh
+ * chỉ xem các dòng có mục của chính mình và chỉ sau khi pin đã công bố
+ * kết quả (cùng cổng công bố điểm như mọi đường đọc điểm khác).
+ */
+export const pinRegradeLogEntrySchema = z.object({
+  id: uuidIdSchema,
+  pinId: uuidIdSchema,
+  questionId: uuidIdSchema,
+  fromVersionId: uuidIdSchema,
+  toVersionId: uuidIdSchema,
+  actorId: uuidIdSchema,
+  createdAt: z.string(),
+  items: z.array(pinRegradeLogItemSchema),
+});
+export type PinRegradeLogEntry = z.infer<typeof pinRegradeLogEntrySchema>;
 
 
 

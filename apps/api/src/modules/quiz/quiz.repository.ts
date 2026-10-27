@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { examAttemptEvents, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examPinFeedbacks, examPinOverrides, examPins, examSlots, examVersions, exams } from '../../db/schema';
+import { examAttemptEvents, examAttemptRegradeItems, examAttemptRegrades, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examPinFeedbacks, examPinOverrides, examPinVersionUpdates, examPins, examSlots, examVersions, exams } from '../../db/schema';
 
 export type ExamPinRow = typeof examPins.$inferSelect;
 export type ExamAttemptRow = typeof examAttempts.$inferSelect;
@@ -12,6 +12,9 @@ export type ExamMatrixCellRow = typeof examMatrixCells.$inferSelect;
 export type ExamMatrixContributionRow = typeof examMatrixContributions.$inferSelect;
 export type ExamPinFeedbackRow = typeof examPinFeedbacks.$inferSelect;
 export type ExamAttemptEventRow = typeof examAttemptEvents.$inferSelect;
+export type ExamPinVersionUpdateRow = typeof examPinVersionUpdates.$inferSelect;
+export type ExamAttemptRegradeRow = typeof examAttemptRegrades.$inferSelect;
+export type ExamAttemptRegradeItemRow = typeof examAttemptRegradeItems.$inferSelect;
 export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
@@ -77,6 +80,11 @@ export class QuizRepository {
   /** Slots cua mot exam version theo thu tu position (nguon cau cua pin snapshot). */
   async listExamSlots(examVersionId: string) {
     return this.db.select().from(examSlots).where(eq(examSlots.examVersionId, examVersionId)).orderBy(asc(examSlots.position));
+  }
+
+  /** Mọi exam version của một đề theo số version tăng dần (nguồn xác định "bản mới nhất" của đề cho luồng cập nhật pin). */
+  async listExamVersions(examId: string) {
+    return this.db.select().from(examVersions).where(eq(examVersions.examId, examId)).orderBy(asc(examVersions.version));
   }
 
   async insertAttempt(v: typeof examAttempts.$inferInsert, tx?: DbTx): Promise<ExamAttemptRow> {
@@ -312,5 +320,47 @@ export class QuizRepository {
   /** Nhật ký sự kiện của một lượt làm theo thời gian ghi. */
   async listAttemptEvents(attemptId: string): Promise<ExamAttemptEventRow[]> {
     return this.db.select().from(examAttemptEvents).where(eq(examAttemptEvents.attemptId, attemptId)).orderBy(asc(examAttemptEvents.createdAt), asc(examAttemptEvents.id));
+  }
+
+  // --- cập nhật version của pin + chấm lại theo đáp án (issue #254) --------------
+
+  /** Ghi vết một lần áp cập nhật exam version đã ghim (ai, khi nào, từ version nào lên version nào). */
+  async insertPinVersionUpdate(v: typeof examPinVersionUpdates.$inferInsert, tx?: DbTx): Promise<ExamPinVersionUpdateRow> {
+    const [row] = await (tx ?? this.db).insert(examPinVersionUpdates).values(v).returning(); return row!;
+  }
+
+  /** Các lần cập nhật exam version của một pin theo thời gian (vết truy vết cho giáo viên/quản trị). */
+  async listPinVersionUpdates(pinId: string): Promise<ExamPinVersionUpdateRow[]> {
+    return this.db.select().from(examPinVersionUpdates).where(eq(examPinVersionUpdates.pinId, pinId)).orderBy(asc(examPinVersionUpdates.createdAt), asc(examPinVersionUpdates.id));
+  }
+
+  /** Ghi một lần chấm lại theo đáp án đã áp thật (dry-run không ghi). */
+  async insertRegrade(v: typeof examAttemptRegrades.$inferInsert, tx?: DbTx): Promise<ExamAttemptRegradeRow> {
+    const [row] = await (tx ?? this.db).insert(examAttemptRegrades).values(v).returning(); return row!;
+  }
+
+  /** Ghi điểm đổi của một lượt trong một lần chấm lại. */
+  async insertRegradeItem(v: typeof examAttemptRegradeItems.$inferInsert, tx?: DbTx): Promise<ExamAttemptRegradeItemRow> {
+    const [row] = await (tx ?? this.db).insert(examAttemptRegradeItems).values(v).returning(); return row!;
+  }
+
+  /** Nhật ký chấm lại theo đáp án của một pin theo thời gian (cũ nhất trước). */
+  async listRegrades(pinId: string): Promise<ExamAttemptRegradeRow[]> {
+    return this.db.select().from(examAttemptRegrades).where(eq(examAttemptRegrades.pinId, pinId)).orderBy(asc(examAttemptRegrades.createdAt), asc(examAttemptRegrades.id));
+  }
+
+  /** Các mục điểm đổi của một lần chấm lại. */
+  async listRegradeItems(regradeId: string): Promise<ExamAttemptRegradeItemRow[]> {
+    return this.db.select().from(examAttemptRegradeItems).where(eq(examAttemptRegradeItems.regradeId, regradeId)).orderBy(asc(examAttemptRegradeItems.createdAt), asc(examAttemptRegradeItems.id));
+  }
+
+  /** Các mục điểm đổi của chính một học sinh trong một pin (nguồn cho bề mặt lịch sử sửa điểm của học sinh). */
+  async listRegradeItemsForUser(pinId: string, userId: string): Promise<{ regrade: ExamAttemptRegradeRow; item: ExamAttemptRegradeItemRow }[]> {
+    const rows = await this.db.select({ regrade: examAttemptRegrades, item: examAttemptRegradeItems })
+      .from(examAttemptRegradeItems)
+      .innerJoin(examAttemptRegrades, eq(examAttemptRegradeItems.regradeId, examAttemptRegrades.id))
+      .where(and(eq(examAttemptRegrades.pinId, pinId), eq(examAttemptRegradeItems.userId, userId)))
+      .orderBy(asc(examAttemptRegrades.createdAt), asc(examAttemptRegradeItems.id));
+    return rows;
   }
 }

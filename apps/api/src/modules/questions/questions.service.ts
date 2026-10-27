@@ -8,7 +8,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { FilesService } from '../files/files.service';
-import { BEHAVIOURS, canTransition, gradedStateForFraction, usageState, type GradingData, type QuestionState } from './domain/question-engine';
+import { BEHAVIOURS, canTransition, gradeAnswer, gradedStateForFraction, usageState, type GradingData, type GradeOutcome, type QuestionState } from './domain/question-engine';
 import {
   QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
   type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
@@ -1650,6 +1650,125 @@ export class QuestionsService {
     await this.appendStep(updated, graderId, state, fraction, data);
     const usage = await this.getUsage(attempt.questionUsageId);
     return usage.attempts.find((a) => a.id === attemptId)!;
+  }
+
+  /**
+   * Tính thử kết quả chấm lại của một question attempt theo dữ kiện chấm
+   * của một version ĐÍCH (issue #254 — đường chấm lại theo đáp án): chấm
+   * lại CHÍNH response đã lưu trong các step của attempt bằng
+   * `gradeAnswer` với dữ liệu chấm của version đích — KHÔNG ghi gì xuống
+   * DB. Dry-run ở tầng quiz và đường áp thật dùng chung đúng phép tính
+   * này (qua {@link regradeAttemptWithVersion}) nên điểm xem trước khớp
+   * tuyệt đối điểm sau khi áp.
+   *
+   * Điều kiện (ném BadRequestException): attempt phải ĐÃ được chấm tự
+   * động (trạng thái gradedright/gradedpartial/gradedwrong/gaveup —
+   * essay chờ chấm tay hoặc đã chấm tay không thuộc đường này), version
+   * đích phải thuộc đúng câu của attempt và đang ở trạng thái `ready`.
+   *
+   * @param attemptId - Question attempt cần tính thử.
+   * @param toVersionId - Version đích (bản đã sửa đáp án) để chấm lại theo.
+   * @param tfScale - Thang Đ–S của lần ghim (cấu hình của lần ghim, như lúc chốt usage).
+   * @returns Version đang ghim, version đích, fraction/trạng thái hiện tại và sau chấm lại.
+   */
+  async previewRegradeAttempt(attemptId: string, toVersionId: string, tfScale?: readonly number[] | null): Promise<{
+    fromVersionId: string; toVersionId: string;
+    oldFraction: number | null; oldState: string;
+    newFraction: number | null; newState: string;
+  }> {
+    const attempt = await this.getAttempt(attemptId);
+    const computed = await this.computeRegradeOutcome(attempt, toVersionId, tfScale);
+    return {
+      fromVersionId: attempt.questionVersionId!,
+      toVersionId,
+      oldFraction: attempt.fraction,
+      oldState: attempt.state,
+      newFraction: computed.outcome.fraction,
+      newState: computed.outcome.state,
+    };
+  }
+
+  /**
+   * Chấm lại thật một question attempt theo version đích (issue #254):
+   * cùng phép tính với {@link previewRegradeAttempt}, sau đó GHI —
+   * fraction/trạng thái/rightAnswer mới và attempt CHUYỂN GHIM sang
+   * version đích (từ đây attempt đứng trên bản đã sửa đáp án). Việc
+   * chấm lại được ghi thành một step hiệu chỉnh mang step-data
+   * `regradedBy`/`fromVersionId`/`toVersionId` trong lịch sử attempt.
+   * Đây là bước HIỆU CHỈNH chứ không phải chuyển trạng thái vòng đời
+   * (đúng ngữ nghĩa regrade của Moodle: append step vào attempt đã
+   * graded) nên KHÔNG đi qua máy chuyển trạng thái `canTransition` —
+   * các trạng thái graded* vốn không có cạnh ra trong máy đó.
+   *
+   * @param graderId - Người thực hiện chấm lại (ghi vào step).
+   * @param attemptId - Question attempt cần chấm lại.
+   * @param toVersionId - Version đích (bản đã sửa đáp án, phải `ready`).
+   * @param tfScale - Thang Đ–S của lần ghim.
+   * @returns Attempt sau chấm lại kèm fraction trước/sau để tầng gọi đồng bộ điểm.
+   */
+  async regradeAttemptWithVersion(graderId: string, attemptId: string, toVersionId: string, tfScale?: readonly number[] | null): Promise<{
+    attempt: AttemptView; fromVersionId: string; oldFraction: number | null; newFraction: number | null;
+  }> {
+    const attempt = await this.getAttempt(attemptId);
+    const computed = await this.computeRegradeOutcome(attempt, toVersionId, tfScale);
+    const fromVersionId = attempt.questionVersionId!;
+    const oldFraction = attempt.fraction;
+    await this.repo.updateAttempt(attempt.id, {
+      state: computed.outcome.state,
+      fraction: computed.outcome.fraction,
+      rightAnswer: computed.outcome.rightAnswer,
+      questionVersionId: toVersionId,
+    });
+    const updated = await this.getAttempt(attempt.id);
+    await this.appendStep(updated, graderId, computed.outcome.state, computed.outcome.fraction, {
+      regradedBy: graderId, fromVersionId, toVersionId,
+    });
+    const usage = await this.getUsage(attempt.questionUsageId);
+    return {
+      attempt: usage.attempts.find((a) => a.id === attemptId)!,
+      fromVersionId, oldFraction, newFraction: computed.outcome.fraction,
+    };
+  }
+
+  /**
+   * Phép tính chấm lại dùng chung cho xem thử và áp thật: kiểm điều
+   * kiện của đường chấm lại theo đáp án rồi chấm response đã lưu theo
+   * dữ kiện chấm của version đích. Response trống (lượt bỏ trống câu)
+   * giữ ngữ nghĩa như lúc chốt usage: gaveup với fraction 0.
+   */
+  private async computeRegradeOutcome(attempt: AttemptRow, toVersionId: string, tfScale?: readonly number[] | null): Promise<{ outcome: GradeOutcome }> {
+    if (!['gradedright', 'gradedpartial', 'gradedwrong', 'gaveup'].includes(attempt.state)) {
+      throw new BadRequestException({
+        message: `Question attempt ${attempt.id} is not auto-graded yet (state ${attempt.state}); only auto-graded attempts can be regraded against a corrected version`,
+        code: 'question.attempt_not_graded',
+      });
+    }
+    if (!attempt.questionVersionId) {
+      throw new BadRequestException({ message: 'Attempt has no pinned version', code: 'question.no_version' });
+    }
+    const q = await this.repo.getQuestion(attempt.questionId);
+    if (q?.qtype === 'essay') {
+      throw new BadRequestException({
+        message: 'Essay attempts are graded manually and cannot be regraded against an answer key',
+        code: 'question.regrade_not_supported',
+      });
+    }
+    const version = await this.repo.getVersion(toVersionId);
+    if (!version || version.questionId !== attempt.questionId) {
+      throw new NotFoundException({ message: `Question version ${toVersionId} not found for question ${attempt.questionId}`, code: 'question.version_not_found' });
+    }
+    if (version.status !== 'ready') {
+      throw new BadRequestException({
+        message: `Question version ${toVersionId} is not ready (status ${version.status}); regrading needs the corrected ready version`,
+        code: 'question.regrade_version_not_ready',
+      });
+    }
+    const response = await this.latestResponse(attempt.id);
+    if (response === null || response.trim() === '') {
+      return { outcome: { fraction: 0, state: 'gaveup', rightAnswer: attempt.rightAnswer ?? '' } };
+    }
+    const gradingData = await this.gradingDataFor(version, q?.qtype ?? '', tfScale);
+    return { outcome: gradeAnswer(q?.qtype ?? '', gradingData, response) };
   }
 
   /** Start all attempts of a usage (questionusagebyactivity_test::start_all_questions). */
