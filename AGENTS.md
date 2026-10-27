@@ -74,26 +74,52 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
    tắt có chủ đích trong `.github/ISSUE_TEMPLATE/config.yml` để mọi
    issue đều đi qua một mẫu có đủ các mục bắt buộc.
 
-## Luật flow GitHub
+## Quy trình tạo Issue và PR
 
-- **1 issue = 1 PR.** Mỗi issue chỉ có đúng một PR triển khai; PR đó
-  dùng `Closes #<số issue>` để đóng issue khi được merge. Quy ước chia
-  một issue thành nhiều PR theo lát (lát giữa ghi `Refs`, lát cuối
-  ghi `Closes`) bị bãi bỏ.
-- **Việc con theo dõi bằng task list.** Các việc con của issue được
-  liệt kê thành task list (checkbox) trong mục "Việc con" của thân PR
-  và tích dần khi hoàn thành; tiến độ của issue đọc ngay tại PR đó.
-- **Ngoại lệ duy nhất:** khi một PR duy nhất thật sự quá lớn tới mức
-  không thể đánh giá được, mới được chia thành nhiều PR — và chỉ khi
-  đã được điều phối duyệt trước, với số PR ở mức tối thiểu; trường
-  hợp đó tiến độ vẫn theo dõi bằng task list trong chính issue.
+### Tạo Issue
+
+1. Dùng Issue template của repo (mẫu tính năng/nghiệp vụ hoặc mẫu báo
+   lỗi trong `.github/ISSUE_TEMPLATE/`); issue trống bị tắt, không mở
+   issue ngoài mẫu.
+2. Thân issue tự chứa đầy đủ: bối cảnh và vấn đề; mục tiêu; phạm vi
+   (làm / không làm); chi tiết việc cần làm kèm task list các việc con
+   ngay trong issue; quyết định liên quan viết lại trọn vẹn; mục
+   `## Nghiệm thu` dạng checklist kiểm chứng được; phụ thuộc và thứ
+   tự.
+3. Một issue là một đơn vị việc mạch lạc. Việc quá lớn cho một PR thì
+   tách thành nhiều issue (mỗi issue một PR), không tách thành nhiều
+   PR cho một issue.
+
+### Tạo PR
+
+1. Một nhánh từ `main` cho mỗi issue; đúng một PR cho mỗi issue.
+2. Thân PR theo `.github/pull_request_template.md`, gồm: `Closes
+   #<số issue>`; tóm tắt thay đổi; bản đồ thay đổi theo phạm vi; task
+   list toàn bộ việc con của issue (mang từ issue sang) và tích khi
+   xong từng mục; đối chiếu nghiệm thu từng tiêu chí kèm bằng chứng;
+   kết quả kiểm chứng và CI.
+3. Toàn bộ việc con nằm trong PR duy nhất này (nhiều commit là bình
+   thường). Tuyệt đối không mở PR thứ hai cho cùng một issue. Nếu PR
+   có nguy cơ quá lớn tới mức không đánh giá nổi thì dừng và báo điều
+   phối — việc chia là ngoại lệ hiếm, phải được duyệt trước, giữ số
+   PR ở mức tối thiểu và vẫn theo dõi bằng task list trong issue.
+
+### Review và merge
+
+1. Đội thi công không tự merge và không tự đóng issue của mình; đội
+   đánh giá độc lập phán quyết trước.
+2. Cổng merge: phán quyết đạt (hoặc đã thoả các điều kiện của phán
+   quyết) + CI `verify` success trên head cuối của PR + PR đã rời
+   trạng thái draft.
+3. Merge kiểu squash; issue tự đóng qua `Closes` trong thân PR.
 
 ## Kỷ luật PR liên quan
 
 - Một issue = một feat. Việc phát sinh thuộc cùng feat thì ghi vào đúng
   issue của feat đó (mở lại nếu đã đóng), không xé issue/PR mới.
-- 1 issue = 1 PR theo mục "Luật flow GitHub" của tài liệu này; việc
-  con liệt kê thành task list trong thân PR, không chia lát nhiều PR.
+- 1 issue = 1 PR theo mục "Quy trình tạo Issue và PR" của tài liệu
+  này; việc con liệt kê thành task list trong thân PR, không chia
+  một issue thành nhiều PR.
 - Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**`, có mục "Việc
   con", mục "Bản đồ thay đổi theo phạm vi" và mục "Kỷ luật đã giữ".
 - Đội thi công không tự merge PR; việc merge chờ đánh giá độc lập.
