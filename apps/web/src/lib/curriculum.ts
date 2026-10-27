@@ -97,11 +97,13 @@ export function curriculumSubjectsScopedQueryOptions(contextId: string, forCours
  * Hook đọc môn chương trình cho các bề mặt xem/nạp khung: chưa có
  * context hệ thống thì chưa gọi API (trang tự suy trạng thái rỗng).
  * Lỗi (kể cả 403 thiếu quyền đọc) nổi lên query để trang xử lý.
+ * `enabled` cho phép trang chờ thêm điều kiện riêng (ví dụ danh sách
+ * khoá neo quyền xem phải về trước).
  */
-export function useCurriculumSubjectsScoped(contextId: string | null, forCourseId?: string) {
+export function useCurriculumSubjectsScoped(contextId: string | null, forCourseId?: string, enabled = true) {
   return useQuery({
     ...curriculumSubjectsScopedQueryOptions(contextId ?? '', forCourseId),
-    enabled: contextId !== null,
+    enabled: enabled && contextId !== null,
   });
 }
 
@@ -114,10 +116,10 @@ export function curriculumCurriculaScopedQueryOptions(subjectId: string, forCour
 }
 
 /** Hook đọc các chương trình (theo khối) của môn đang chọn; chưa chọn môn thì chưa gọi API. */
-export function useCurriculumCurriculaScoped(subjectId: string, forCourseId?: string) {
+export function useCurriculumCurriculaScoped(subjectId: string, forCourseId?: string, enabled = true) {
   return useQuery({
     ...curriculumCurriculaScopedQueryOptions(subjectId, forCourseId),
-    enabled: subjectId !== '',
+    enabled: enabled && subjectId !== '',
   });
 }
 
@@ -130,10 +132,10 @@ export function curriculumTreeScopedQueryOptions(curriculumId: string, forCourse
 }
 
 /** Hook đọc cây chương trình của chương trình đang chọn; chưa chọn thì chưa gọi API. */
-export function useCurriculumTreeScoped(curriculumId: string, forCourseId?: string) {
+export function useCurriculumTreeScoped(curriculumId: string, forCourseId?: string, enabled = true) {
   return useQuery({
     ...curriculumTreeScopedQueryOptions(curriculumId, forCourseId),
-    enabled: curriculumId !== '',
+    enabled: enabled && curriculumId !== '',
   });
 }
 

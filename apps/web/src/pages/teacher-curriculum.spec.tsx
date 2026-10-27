@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { TestProviders } from '#test/providers';
 import { TeacherCurriculumPage } from './teacher-curriculum';
 
 /**
@@ -114,7 +115,13 @@ function renderPage() {
   const router = createMemoryRouter([{ path: '/curriculum', element: <TeacherCurriculumPage /> }], {
     initialEntries: ['/curriculum'],
   });
-  render(<RouterProvider router={router} />);
+  // Trang đọc dữ liệu qua TanStack Query (F-01 của #133) nên render
+  // trong TestProviders như mọi spec trang đã chuyển khuôn.
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 describe('Teacher curriculum page', () => {
