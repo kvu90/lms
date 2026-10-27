@@ -2346,20 +2346,30 @@ export class QuizService {
    * chọn) vị trí câu của một tập slot cụ thể — slot của quiz (đặc tả
    * theo ma trận, C.6) hoặc slot của paper version (đặc tả theo đề,
    * E-6). `slots = null` nghĩa là bản đặc tả dự kiến chưa có vị trí.
+   * Các lần đọc môn/chương trình/node/YCCĐ trong builder đi qua
+   * đường tham chiếu nội bộ của CurriculumService (không tự đòi
+   * `curriculum:view` tại context của môn), vì cổng quyền của bản
+   * đặc tả đã neo ở nơi khác trước khi vào builder: wrapper theo
+   * ma trận chốt quyền xem ma trận tại bank đích, còn bản đặc tả
+   * theo đề thì phía gọi của đề đã gác cổng của đề. Đọc qua đường
+   * công khai ở đây từng chặn nhầm giáo viên chủ bank cá nhân
+   * (đã qua cổng xem ma trận) khi môn neo tại context hệ thống.
+   * Tham số `actorId` giữ lại cho chữ ký chung của builder; các
+   * đường tham chiếu nội bộ không dùng tới nó.
    */
   private async buildSpecification(actorId: string, matrix: ExamMatrixRow, opts: {
     quiz: { id: string; name: string } | null;
     slots: SpecificationSlot[] | null;
   }): Promise<MatrixSpecification> {
-    const subject = await this.curriculum.getSubject(actorId, matrix.subjectId);
-    const curriculum = await this.curriculum.getCurriculum(actorId, matrix.curriculumId);
+    const subject = await this.curriculum.getSubjectReference(matrix.subjectId);
+    const curriculum = await this.curriculum.getCurriculumReference(matrix.curriculumId);
     const cells = await this.repo.listMatrixCells(matrix.id);
     const slots = opts.slots;
-    const nodeCache = new Map<string, Awaited<ReturnType<CurriculumService['getNode']>>>();
+    const nodeCache = new Map<string, Awaited<ReturnType<CurriculumService['getNodeReference']>>>();
     const getNode = async (id: string) => {
       let node = nodeCache.get(id);
       if (!node) {
-        node = await this.curriculum.getNode(actorId, id);
+        node = await this.curriculum.getNodeReference(id);
         nodeCache.set(id, node);
       }
       return node;
@@ -2410,14 +2420,14 @@ export class QuizService {
         // mang trạng thái hiện hành của GỐC: gốc đã rút (hoặc không
         // còn tra được) thì derived cũng rời bản đặc tả — cùng một
         // định nghĩa "hiện hành" với pool sinh đề (issue #161).
-        const outcomes = await this.curriculum.listOutcomes(actorId, node.id);
+        const outcomes = await this.curriculum.listOutcomesReference(node.id);
         for (const outcome of outcomes) {
           let programContent: string | null = null;
           let derivedContent: string | null = null;
           let position: number | null = outcome.position;
           let code: string | null = null;
           if (outcome.sourceKind === 'derived' && outcome.derivedFromId) {
-            const parent = await this.curriculum.getOutcome(actorId, outcome.derivedFromId).catch(() => undefined);
+            const parent = await this.curriculum.getOutcomeReference(outcome.derivedFromId).catch(() => undefined);
             if (!parent || parent.retiredAt !== null) continue;
             programContent = parent.content;
             derivedContent = outcome.content;

@@ -579,4 +579,56 @@ describe('I-2 với diễn viên giáo viên mô hình seed (hồi quy D-3, issu
     expect(imp.status).toBe(403);
     expect(await countMatricesByName('Ma trận của học sinh seed')).toBe(0);
   });
+
+  it('giáo viên mở và xuất bản đặc tả của ma trận trong bank cá nhân của mình: đạt (điều kiện Mục 7, issue #233)', async () => {
+    // Ma trận của giáo viên A trong bank cá nhân của chính mình, có
+    // một ô neo ĐVK 1: bản đặc tả dựng từ ma trận này phải đi qua
+    // các đường đọc tham chiếu nội bộ (môn/chương trình/node/YCCĐ),
+    // không còn vấp `curriculum:view` tại context hệ thống của môn.
+    // Trước điều kiện Mục 7, chính bước này 403 dù giáo viên đã qua
+    // cổng xem ma trận tại bank đích.
+    const created = await http(app).post('/api/v1/exam-matrices').set(auth(teacherA.token))
+      .send({ name: 'Ma trận đặc tả của giáo viên seed', subjectId, curriculumId, bankId: bankAId });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const matrixId = (created.body as { id: string }).id;
+    const withCell = await http(app).post(`/api/v1/exam-matrices/${matrixId}/cells`).set(auth(teacherA.token))
+      .send({ curriculumNodeId: lesson1Id, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 1 });
+    expect(withCell.status, JSON.stringify(withCell.body)).toBeLessThan(300);
+
+    const spec = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification`).set(auth(teacherA.token)).expect(200);
+    expect(spec.body.subject.id).toBe(subjectId);
+    expect(spec.body.curriculum.id).toBe(curriculumId);
+    const nodeIds = (spec.body.topics as { nodes: { nodeId: string; outcomes: { content: string }[] }[] }[])
+      .flatMap((t) => t.nodes.map((n) => n.nodeId));
+    expect(nodeIds).toContain(lesson1Id);
+    const specNode = (spec.body.topics as { nodes: { nodeId: string; outcomes: { content: string }[] }[] }[])
+      .flatMap((t) => t.nodes).find((n) => n.nodeId === lesson1Id)!;
+    expect(specNode.outcomes.map((o) => o.content)).toContain('Nhận biết được hàm số bậc hai');
+    expect(spec.body.totals.totalScore).toBe(1);
+    expect(spec.body.totals.totalQuestions).toBe(2);
+
+    const xlsx = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification/export?format=xlsx`)
+      .set(auth(teacherA.token)).responseType('arraybuffer');
+    expect(xlsx.status).toBe(200);
+    expect(xlsx.headers['content-type']).toContain('spreadsheetml');
+    expect(Buffer.from(xlsx.body as ArrayBuffer).subarray(0, 2).toString()).toBe('PK');
+  });
+
+  it('giáo viên khác xem đặc tả ma trận trong bank cá nhân của người khác: bị chặn tại cổng xem ma trận của bank', async () => {
+    // Giáo viên B mở đặc tả của ma trận trong bank cá nhân của giáo
+    // viên A: cổng `requireMatrixCap` chặn ngay từ nhánh bank cá
+    // nhân của người khác — ma trận hiện như không tồn tại (404
+    // quiz.matrix_not_found) thay vì lộ nội dung, đúng hành vi ẩn
+    // bank cá nhân của người khác đã chốt cho các bề mặt đọc ma trận.
+    const created = await http(app).post('/api/v1/exam-matrices').set(auth(teacherA.token))
+      .send({ name: 'Ma trận đặc tả riêng của giáo viên seed', subjectId, curriculumId, bankId: bankAId });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    const matrixId = (created.body as { id: string }).id;
+    const spec = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification`).set(auth(teacherB.token));
+    expect(spec.status).toBe(404);
+    expect(spec.body.code).toBe('quiz.matrix_not_found');
+    const exported = await http(app).get(`/api/v1/exam-matrices/${matrixId}/specification/export?format=xlsx`).set(auth(teacherB.token));
+    expect(exported.status).toBe(404);
+    expect(exported.body.code).toBe('quiz.matrix_not_found');
+  });
 });
