@@ -17,7 +17,14 @@ import {
  * site tắt (NB-7) thì bị chặn trước tuỳ chọn người dùng
  * (`skipped-admin-disabled`); tuỳ chọn trong-app của người nhận
  * được tôn trọng (`skipped-preference`); loại bắt buộc (P2,
- * `mandatoryInApp`) ép bật kênh trong-app bất kể tuỳ chọn đã lưu.
+ * `mandatoryInApp`) ép bật kênh trong-app bất kể tuỳ chọn đã lưu
+ * VÀ bất kể chính sách admin cấp site — vế admin được khẳng định
+ * qua `deliverInApp` bằng một provider bắt buộc tổng hợp đăng ký
+ * tạm vào bản chiếu ngay trong ca test (bản chiếu hiện chưa có
+ * provider bắt buộc thật nào — hai provider phía worker hiện tại
+ * đều không bắt buộc — nên ca qua đường phát thật bằng provider
+ * thật chưa dựng được; probe tổng hợp đi qua đúng đường luật
+ * production, không qua lối tắt nào khác).
  * Phía API đã có spec riêng cho các ca này
  * (messaging-admin-policy.spec.ts, notifications-admin-policy.e2e-spec.ts);
  * ở đây chạy `NotificationDeliveryService` THẬT của worker với DB
@@ -150,5 +157,35 @@ describe('Notification parity: worker delivery law matches the API hard laws (is
     // resolveNotificationPreference phía API.
     expect(await delivery.resolvePopupEnabled('user-parity', mandatory)).toBe(true);
     expect(await delivery.resolvePopupEnabled('user-parity', optional)).toBe(false);
+  });
+
+  it('a mandatory provider (P2) is delivered end-to-end even when the site admin policy disables it and the stored preference is off', async () => {
+    // Bản chiếu hiện chưa có provider bắt buộc thật (cả hai provider
+    // phía worker đều `mandatoryInApp: false`), nên ca này đăng ký
+    // tạm hai provider tổng hợp vào bản chiếu và gỡ ngay trong
+    // `finally`: một bắt buộc, một thường — cùng điều kiện khắc
+    // nghiệt nhất (admin cấp site tắt + tuỳ chọn đã lưu tắt). Loại
+    // bắt buộc phải đi qua CẢ HAI cổng tới `delivered` (đúng mục
+    // 4(c) của issue #293: tuỳ chọn tắt và chính sách admin đều
+    // không chặn được loại bắt buộc); loại thường bị cổng admin
+    // chặn trước, làm đối chứng ngay trong cùng ca.
+    WORKER_PROVIDERS['parity_mandatory_probe'] = { name: 'parity_mandatory_probe', component: 'core_probe', mandatoryInApp: true };
+    WORKER_PROVIDERS['parity_optional_probe'] = { name: 'parity_optional_probe', component: 'core_probe', mandatoryInApp: false };
+    try {
+      const { delivery, insertedNotifications, insertedLogs } = buildDelivery({
+        user: ACTIVE_USER, sitePolicyValue: 'false', preferenceValue: '0',
+      });
+      const mandatoryResult = await delivery.deliverInApp('user-parity', 'parity_mandatory_probe', CALENDAR_INPUT);
+      expect(mandatoryResult.status).toBe('delivered');
+      expect(insertedNotifications).toHaveLength(1);
+      expect(insertedNotifications[0]).toMatchObject({ eventType: 'parity_mandatory_probe', component: 'core_probe' });
+      const optionalResult = await delivery.deliverInApp('user-parity', 'parity_optional_probe', CALENDAR_INPUT);
+      expect(optionalResult.status).toBe('skipped-admin-disabled');
+      expect(insertedNotifications).toHaveLength(1);
+      expect(insertedLogs.map((l) => l.status)).toEqual(['delivered', 'skipped-admin-disabled']);
+    } finally {
+      delete WORKER_PROVIDERS['parity_mandatory_probe'];
+      delete WORKER_PROVIDERS['parity_optional_probe'];
+    }
   });
 });
