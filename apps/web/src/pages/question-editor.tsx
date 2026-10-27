@@ -1,45 +1,26 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
-import { extractRichTextPlainText } from '@lms/contracts';
-import {
-  MultipleChoiceEditor,
-  RichTextEditor,
-  RichTextView,
-  TrueFalseEditor,
-  composeMultipleChoiceDocument,
-  composeTrueFalseDocument,
-  createEmptyMultipleChoiceDocument,
-  createEmptyTrueFalseDocument,
-  splitMultipleChoiceDocument,
-  splitTrueFalseDocument,
-  type MultipleChoiceDocumentJson,
-  type RichTextImagePick,
-  type TrueFalseDocumentJson,
-} from '@lms/editor';
+import type { QuestionCategory, QuestionView, StimulusView } from '@lms/contracts';
+import { composeMultipleChoiceDocument, splitMultipleChoiceDocument } from '@lms/editor';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Checkbox } from '@lms/ui/components/checkbox';
-import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@lms/ui/components/select';
+import { Card, CardContent } from '@lms/ui/components/card';
+import { FieldGroup } from '@lms/ui/components/field';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
+import { AnswersSection } from '../components/question-editor/answers-section';
 import {
-  QUESTION_IMAGE_ACCEPT,
-  QuestionImageError,
-  uploadQuestionImage,
-  type QuestionFileArea,
-} from '../lib/question-files';
+  editorFormContent,
+  editorFormFromView,
+  emptyEditorForm,
+  entryStatus,
+  type Doc,
+  type QuestionEditorFormState,
+} from '../components/question-editor/form-model';
+import { GeneralSection } from '../components/question-editor/general-section';
+import { ProgrammeLinks } from '../components/question-editor/programme-links';
+import { StudentPreview, formExcerpt } from '../components/question-editor/student-preview';
 import '../i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import { accessContextsQueryOptions } from '#lib/access';
@@ -66,19 +47,9 @@ import {
   useUpdateQuestionContent,
   useUpdateQuestionOutcomeLink,
 } from '#lib/questions-data';
-import {
-  COGNITIVE_LEVELS,
-  LEVEL_LABEL_KEYS,
-  QTYPES,
-  QTYPE_LABEL_KEYS,
-  hasAllOptions,
-  plainText,
-  withApiReason,
-  type CurriculumLinksView,
-  type CurriculumTreeNode,
-  type OptionsRecord,
-  type Qtype,
-} from './questions';
+import { QTYPES, hasAllOptions, withApiReason, type CurriculumLinksView, type Qtype } from './questions';
+
+export { editorFormContent, editorFormFromView, emptyEditorForm, type QuestionEditorFormState };
 
 /**
  * Màn soạn câu hỏi (issue #248) — flow tổng thể:
@@ -122,724 +93,8 @@ import {
  */
 
 // ---------------------------------------------------------------------------
-// Tiện ích tài liệu rich text
-// ---------------------------------------------------------------------------
-
-type Doc = RichTextDocument;
-
-/** Tài liệu rỗng chuẩn: một doc chứa đúng một paragraph rỗng. */
-const emptyDoc = (): Doc => ({ type: 'doc', content: [{ type: 'paragraph' }] });
-
-/** Tài liệu một paragraph từ chuỗi thuần (chỉ dùng cho dữ liệu cũ dạng chuỗi). */
-function docFromText(text: string): Doc {
-  return text
-    ? { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }
-    : emptyDoc();
-}
-
-/** Ép giá trị options (có thể là tài liệu, chuỗi thuần, hoặc rác) về tài liệu. */
-function asDoc(value: unknown): Doc | undefined {
-  if (typeof value === 'string') return value ? docFromText(value) : undefined;
-  if (value && typeof value === 'object' && (value as { type?: unknown }).type === 'doc') {
-    return value as Doc;
-  }
-  return undefined;
-}
-
-/** Tài liệu có nội dung thật (chữ, hoặc node phi văn bản như ảnh/công thức) hay không. */
-function docHasContent(doc: Doc | null | undefined): boolean {
-  if (!doc) return false;
-  if (extractRichTextPlainText(doc).trim() !== '') return true;
-  return (doc.content ?? []).some((node) =>
-    ((node as { content?: { type: string }[] }).content ?? []).some((child) => child.type !== 'text'),
-  );
-}
-
-/** Bỏ qua tài liệu rỗng khi dựng payload (trường tuỳ chọn không gửi doc rỗng). */
-function docOrUndefined(doc: Doc | undefined): Doc | undefined {
-  return docHasContent(doc) ? doc : undefined;
-}
-
-/** Trạng thái bank của một view như API trả về (contracts chưa khai `status` ở entry). */
-function entryStatus(view: QuestionView | null | undefined): string | undefined {
-  return (view?.entry as { status?: string } | undefined)?.status;
-}
-
-// ---------------------------------------------------------------------------
-// Mô hình form
-// ---------------------------------------------------------------------------
-
-/**
- * Trạng thái form của màn soạn. Ranh giới dữ liệu theo mô hình port
- * giaokhoa (quyết 12:04 + 12:12 ngày 26/10/2026):
- * - multichoice: thân câu + lựa chọn sống trong MỘT tài liệu thống
- *   nhất (`mcDocument`); đáp án đúng là `mcCorrectChoiceId` (id của
- *   choice, nằm NGOÀI tài liệu); phản hồi theo lựa chọn là map theo
- *   id choice (`mcChoiceFeedbacks`) vì nó là metadata của dòng đáp
- *   án, không phải nội dung lựa chọn.
- * - truefalse (TF-A): thân câu + 4 mệnh đề sống trong MỘT tài liệu
- *   (`tfDocument` — cũng chính là tài liệu lưu trữ); đáp án Đ/S của
- *   từng mệnh đề là map theo id mệnh đề (`tfAnswers`, nằm NGOÀI tài
- *   liệu), khi lưu thành `solution.answers` ở phía đáp án.
- * - `guidance` (hướng dẫn) và `essaySolution` (lời giải mẫu của tự
- *   luận) là trường soạn riêng cho MỌI/loại tương ứng — khi lưu
- *   chúng đi ở cấp `guidance`/`solution` của payload (phía đáp án),
- *   không bao giờ nằm trong thân câu.
- */
-export interface QuestionEditorFormState {
-  qtype: Qtype;
-  questionText: Doc;
-  generalFeedback: Doc | undefined;
-  /** Hướng dẫn (guidance) — gợi ý cách làm cho học sinh, phía đáp án. */
-  guidance: Doc | undefined;
-  stimulusId: string;
-  // multichoice: tài liệu thống nhất + metadata ngoài tài liệu
-  mcDocument: MultipleChoiceDocumentJson;
-  mcCorrectChoiceId: string | undefined;
-  mcChoiceFeedbacks: Record<string, Doc | undefined>;
-  mcShuffleAnswers: boolean;
-  mcAnswerNumbering: string;
-  mcShowStandardInstruction: boolean;
-  mcCorrectFeedback: Doc | undefined;
-  mcIncorrectFeedback: Doc | undefined;
-  // truefalse TF-A: tài liệu thống nhất (thân + 4 mệnh đề) + đáp án theo mệnh đề
-  tfDocument: TrueFalseDocumentJson;
-  tfAnswers: Record<string, boolean>;
-  // shortanswer: đáp án là mẫu khớp nên giữ chuỗi thuần; mọi mẫu đều được chấp nhận
-  saUseCase: boolean;
-  saNumericAnswer: boolean;
-  saNumericMaxLength: string;
-  saNumericAllowSign: boolean;
-  saNumericAllowDecimal: boolean;
-  saAnswers: { text: string }[];
-  // essay
-  essayResponseFormat: string;
-  essayResponseRequired: boolean;
-  essayResponseFieldLines: string;
-  essayMinWords: string;
-  essayMaxWords: string;
-  essayGraderInfo: Doc | undefined;
-  essayResponseTemplate: Doc | undefined;
-  /** Lời giải mẫu của tự luận (solution.answer ở phía đáp án). */
-  essaySolution: Doc | undefined;
-}
-
-export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFormState {
-  return {
-    qtype,
-    questionText: emptyDoc(),
-    generalFeedback: undefined,
-    guidance: undefined,
-    stimulusId: '',
-    mcDocument: createEmptyMultipleChoiceDocument(),
-    mcCorrectChoiceId: undefined,
-    mcChoiceFeedbacks: {},
-    mcShuffleAnswers: true,
-    mcAnswerNumbering: 'abc',
-    mcShowStandardInstruction: true,
-    mcCorrectFeedback: undefined,
-    mcIncorrectFeedback: undefined,
-    tfDocument: createEmptyTrueFalseDocument(),
-    tfAnswers: {},
-    saUseCase: false,
-    saNumericAnswer: false,
-    saNumericMaxLength: '',
-    saNumericAllowSign: false,
-    saNumericAllowDecimal: false,
-    saAnswers: [{ text: '' }],
-    essayResponseFormat: 'editor',
-    essayResponseRequired: true,
-    essayResponseFieldLines: '15',
-    essayMinWords: '',
-    essayMaxWords: '',
-    essayGraderInfo: undefined,
-    essayResponseTemplate: undefined,
-    essaySolution: undefined,
-  };
-}
-
-/**
- * Nạp form từ view của một câu có sẵn, GIỮ NGUYÊN tài liệu Tiptap của
- * thân câu/phương án/phản hồi (điều kiện để câu draft MCP mở ra sửa được
- * nguyên trạng). `fallbackOptions` lấy từ endpoint versions khi view
- * chưa mang đủ options của loại câu.
- */
-export function editorFormFromView(
-  view: QuestionView,
-  fallbackOptions?: OptionsRecord | null,
-): QuestionEditorFormState {
-  const options = (view.options ?? fallbackOptions ?? {}) as OptionsRecord;
-  const qtype = (QTYPES as readonly string[]).includes(view.question.qtype)
-    ? (view.question.qtype as Qtype)
-    : 'multichoice';
-  const form = emptyEditorForm(qtype);
-  form.questionText = view.latestVersion.questionText ?? emptyDoc();
-  form.generalFeedback = view.latestVersion.generalFeedback ?? undefined;
-  form.stimulusId = view.latestVersion.stimulusId ?? view.stimulus?.id ?? '';
-  // Hướng dẫn nằm ở bản ghi phía đáp án của phiên bản (answerKey),
-  // không còn ở phiên bản — nạp thẳng từ đó.
-  form.guidance = view.answerKey?.guidance ?? undefined;
-
-  if (qtype === 'multichoice') {
-    form.mcShuffleAnswers = options.shuffleAnswers !== false;
-    form.mcAnswerNumbering = typeof options.answerNumbering === 'string' ? options.answerNumbering : 'abc';
-    form.mcShowStandardInstruction = options.showStandardInstruction !== false;
-    form.mcCorrectFeedback = asDoc(options.correctFeedback);
-    form.mcIncorrectFeedback = asDoc(options.incorrectFeedback);
-    // Lắp thân câu + các dòng answers thành tài liệu thống nhất:
-    // id của choice = id của dòng answers, đáp án đúng = dòng mang
-    // isCorrect, phản hồi theo lựa chọn vào map theo id choice.
-    const answers = [...(view.answers ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-    form.mcDocument = composeMultipleChoiceDocument(view.latestVersion.questionText, answers);
-    form.mcCorrectChoiceId = answers.find((a) => a.isCorrect)?.id;
-    form.mcChoiceFeedbacks = Object.fromEntries(
-      answers.filter((a) => a.feedback).map((a) => [a.id, a.feedback ?? undefined]),
-    );
-  }
-
-  if (qtype === 'truefalse') {
-    // TF-A: thân câu đã lưu CHÍNH LÀ tài liệu soạn (thân + danh sách
-    // mệnh đề trong cùng một tài liệu); đáp án từng mệnh đề nạp từ
-    // phía đáp án của version (answerKey.solution dạng {answers}).
-    form.tfDocument = composeTrueFalseDocument(view.latestVersion.questionText);
-    const solution = view.answerKey?.solution;
-    form.tfAnswers =
-      solution && 'answers' in solution
-        ? Object.fromEntries(
-            (solution.answers as unknown[])
-              .filter(
-                (a): a is { statementId: string; value: boolean } =>
-                  typeof a === 'object' && a !== null && 'statementId' in a,
-              )
-              .map((a) => [a.statementId, a.value]),
-          )
-        : {};
-  }
-
-  if (qtype === 'shortanswer') {
-    form.saUseCase = options.useCase === true;
-    form.saNumericAnswer = options.numericAnswer === true;
-    form.saNumericMaxLength =
-      typeof options.numericMaxLength === 'number' ? String(options.numericMaxLength) : '';
-    form.saNumericAllowSign = options.numericAllowSign === true;
-    form.saNumericAllowDecimal = options.numericAllowDecimal === true;
-    const answers = [...(view.answers ?? [])]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((answer) => ({ text: plainText(answer.answer) }));
-    if (answers.length > 0) form.saAnswers = answers;
-  }
-
-  if (qtype === 'essay') {
-    form.essayResponseFormat = typeof options.responseFormat === 'string' ? options.responseFormat : 'editor';
-    form.essayResponseRequired = options.responseRequired !== false;
-    form.essayResponseFieldLines =
-      typeof options.responseFieldLines === 'number' ? String(options.responseFieldLines) : '15';
-    form.essayMinWords = typeof options.minWordLimit === 'number' ? String(options.minWordLimit) : '';
-    form.essayMaxWords = typeof options.maxWordLimit === 'number' ? String(options.maxWordLimit) : '';
-    form.essayGraderInfo = asDoc(options.graderInfo);
-    form.essayResponseTemplate = asDoc(options.responseTemplate);
-    // Lời giải mẫu của tự luận nằm ở phía đáp án (answerKey.solution
-    // dạng {answer}) — khác graderInfo là thông tin cho người chấm.
-    const solution = view.answerKey?.solution;
-    form.essaySolution =
-      solution && 'answer' in solution ? (solution.answer as Doc) : undefined;
-  }
-
-  return form;
-}
-
-function numberOrUndefined(value: string): number | undefined {
-  if (value.trim() === '') return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-/**
- * Dựng phần thân payload tạo/sửa từ form (chưa gồm `categoryId`, `qtype`,
- * `stimulusId` — nơi gọi gắn tuỳ đường tạo/sửa) theo hợp đồng port
- * giaokhoa. Các bước tách theo loại:
- * - Chung: KHÔNG còn trường tên; `guidance` (khi có nội dung) gắn ở
- *   cấp payload để tầng nghiệp vụ ghi vào phía đáp án — nó không bao
- *   giờ nằm trong `questionText`.
- * - Multichoice: TÁCH tài liệu thống nhất bằng
- *   `splitMultipleChoiceDocument` — phần thân câu thành `questionText`
- *   (tài liệu hợp đồng thuần, không node lựa chọn), từng choice theo
- *   đúng thứ tự trong tài liệu thành một dòng `answers` (`correct`
- *   khi id của choice khớp đáp án đúng đã chọn; phản hồi lấy từ map
- *   theo id choice).
- * - Truefalse (TF-A): tài liệu thống nhất đi thẳng vào
- *   `questionText` (thân + 4 mệnh đề); đáp án Đ/S theo từng mệnh đề
- *   thành `solution: {answers}` ở phía đáp án theo đúng thứ tự mệnh
- *   đề trong tài liệu; KHÔNG có dòng answers.
- * - Shortanswer: mọi mẫu liệt kê đều là đáp án được chấp nhận
- *   (`correct: true`) — chấm khớp chính xác, không tỉ trọng.
- * - Essay: không dòng answers; lời giải mẫu (khi có) đi qua
- *   `solution: {answer}` ở phía đáp án.
- */
-export function editorFormContent(form: QuestionEditorFormState): Record<string, unknown> {
-  const generalFeedback = docOrUndefined(form.generalFeedback);
-  const guidance = docOrUndefined(form.guidance);
-  const base: Record<string, unknown> = {
-    questionText: form.questionText,
-    ...(generalFeedback ? { generalFeedback } : {}),
-    ...(guidance ? { guidance } : {}),
-  };
-
-  if (form.qtype === 'multichoice') {
-    const correctFeedback = docOrUndefined(form.mcCorrectFeedback);
-    const incorrectFeedback = docOrUndefined(form.mcIncorrectFeedback);
-    const { question, choices } = splitMultipleChoiceDocument(form.mcDocument);
-    return {
-      ...base,
-      questionText: question as Doc,
-      answers: choices.map((choice) => {
-        const feedback = docOrUndefined(form.mcChoiceFeedbacks[choice.attrs.id]);
-        return {
-          text: { type: 'doc', content: choice.content ?? [] } as Doc,
-          correct: choice.attrs.id === form.mcCorrectChoiceId,
-          ...(feedback ? { feedback } : {}),
-        };
-      }),
-      options: {
-        shuffleAnswers: form.mcShuffleAnswers,
-        answerNumbering: form.mcAnswerNumbering,
-        showStandardInstruction: form.mcShowStandardInstruction,
-        ...(correctFeedback ? { correctFeedback } : {}),
-        ...(incorrectFeedback ? { incorrectFeedback } : {}),
-      },
-    };
-  }
-
-  if (form.qtype === 'truefalse') {
-    const { statements } = splitTrueFalseDocument(form.tfDocument);
-    return {
-      questionText: form.tfDocument as Doc,
-      ...(generalFeedback ? { generalFeedback } : {}),
-      ...(guidance ? { guidance } : {}),
-      solution: {
-        // Chỉ gửi các mệnh đề ĐÃ chọn Đ/S: mệnh đề chưa chọn làm
-        // payload thiếu phủ tập mệnh đề và bị API từ chối với lỗi rõ
-        // ràng — tuyệt đối không mặc định "Sai" cho mệnh đề chưa chọn.
-        answers: statements
-          .filter((statement) => typeof form.tfAnswers[statement.attrs.id] === 'boolean')
-          .map((statement) => ({
-            statementId: statement.attrs.id,
-            value: form.tfAnswers[statement.attrs.id] === true,
-          })),
-      },
-    };
-  }
-
-  if (form.qtype === 'shortanswer') {
-    const numericMaxLength = numberOrUndefined(form.saNumericMaxLength);
-    return {
-      ...base,
-      answers: form.saAnswers.map((answer) => ({
-        text: answer.text,
-        correct: true,
-      })),
-      options: {
-        useCase: form.saUseCase,
-        numericAnswer: form.saNumericAnswer,
-        ...(form.saNumericAnswer && numericMaxLength !== undefined ? { numericMaxLength } : {}),
-        ...(form.saNumericAnswer
-          ? { numericAllowSign: form.saNumericAllowSign, numericAllowDecimal: form.saNumericAllowDecimal }
-          : {}),
-      },
-    };
-  }
-
-  // essay
-  const minWordLimit = numberOrUndefined(form.essayMinWords);
-  const maxWordLimit = numberOrUndefined(form.essayMaxWords);
-  const graderInfo = docOrUndefined(form.essayGraderInfo);
-  const responseTemplate = docOrUndefined(form.essayResponseTemplate);
-  const solution = docOrUndefined(form.essaySolution);
-  return {
-    ...base,
-    ...(solution ? { solution: { answer: solution } } : {}),
-    options: {
-      responseFormat: form.essayResponseFormat,
-      responseRequired: form.essayResponseRequired,
-      responseFieldLines: numberOrUndefined(form.essayResponseFieldLines) ?? 15,
-      ...(minWordLimit !== undefined ? { minWordLimit } : {}),
-      ...(maxWordLimit !== undefined ? { maxWordLimit } : {}),
-      ...(graderInfo ? { graderInfo } : {}),
-      ...(responseTemplate ? { responseTemplate } : {}),
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Trường soạn rich text kèm chèn ảnh
-// ---------------------------------------------------------------------------
-
-/**
- * Mở trình chọn tệp để xin MỘT tệp ảnh cho callback `onRequestImage` khi
- * người soạn bấm nút ảnh trong toolbar của editor (trường hợp callback
- * được gọi KHÔNG kèm tệp). Input được tạo tạm, gắn vào cuối body trong
- * lúc chọn rồi tự gỡ bỏ; người soạn huỷ chọn thì trả `null`.
- */
-function pickImageFile(): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = QUESTION_IMAGE_ACCEPT;
-    input.style.display = 'none';
-    const settle = (file: File | null) => {
-      input.remove();
-      resolve(file);
-    };
-    input.addEventListener('change', () => settle(input.files?.[0] ?? null), { once: true });
-    input.addEventListener('cancel', () => settle(null), { once: true });
-    document.body.appendChild(input);
-    input.click();
-  });
-}
-
-/**
- * Đường chèn ảnh dùng chung của mọi trường soạn trong form câu hỏi
- * (giao diện chốt ở comment 6405254997 trên issue #248, bàn giao QE-1
- * ở comment 6406028273): editor gọi kèm tệp khi người soạn dán/kéo-thả
- * ảnh — tải thẳng tệp đó; gọi không kèm tệp khi bấm nút ảnh — mở
- * trình chọn tệp trước. Chưa có context của bank đích hoặc tải ảnh
- * lỗi thì trả `null` (editor không chèn gì) và lỗi được giữ ở
- * `imageError` để trường soạn hiện ngay dưới trường.
- *
- * @param contextId - Context của bank đích; chưa có thì đường ảnh tắt.
- * @param fileArea - Khu vực file của trường soạn (metadata phân loại).
- * @param itemId - Id câu hỏi đang sửa (định danh mục của file).
- * @returns Handler xin ảnh cho editor + thông báo lỗi tải ảnh hiện tại.
- */
-function useQuestionImageHandler(
-  contextId: string | undefined,
-  fileArea: QuestionFileArea,
-  itemId: string | undefined,
-): {
-  handleRequestImage: (file?: File) => Promise<RichTextImagePick | null>;
-  imageError: string | null;
-} {
-  const { t } = useTranslation('app');
-  const [imageError, setImageError] = useState<string | null>(null);
-  const handleRequestImage = useCallback(
-    async (file?: File): Promise<RichTextImagePick | null> => {
-      if (!contextId) return null;
-      const chosen = file ?? (await pickImageFile());
-      if (!chosen) return null;
-      try {
-        const result = await uploadQuestionImage(chosen, { contextId, fileArea, itemId });
-        setImageError(null);
-        return { src: result.src, alt: result.alt };
-      } catch (err) {
-        if (err instanceof QuestionImageError && err.code === 'file.image_too_large') {
-          setImageError(t('questionImageTooLarge'));
-        } else if (err instanceof QuestionImageError && err.code === 'file.not_image') {
-          setImageError(t('questionImageNotImage'));
-        } else {
-          setImageError(t('questionImageFailed'));
-        }
-        return null;
-      }
-    },
-    [contextId, fileArea, itemId, t],
-  );
-  return { handleRequestImage, imageError };
-}
-
-/**
- * Một trường nội dung rich text của form câu hỏi. Chèn ảnh chỉ còn MỘT
- * đường qua chính editor (lát E3 #248, theo mô hình một-toolbar của
- * giaokhoa): nút ảnh trên toolbar của editor đang active, dán và
- * kéo-thả vào vùng soạn — cả ba đều gọi callback `onRequestImage`,
- * tải qua `uploadQuestionImage` của lát files và editor tự chèn
- * node `image` tại con trỏ bằng định danh bền mà callback trả về. Hàng
- * chọn ảnh riêng bọc ngoài từng trường (QuestionImagePicker) đã bỏ —
- * trước lát này mỗi trường mang một hàng như vậy, lặp 10 lần trên form.
- */
-function RichField({
-  label,
-  value,
-  onChange,
-  fileArea,
-  contextId,
-  itemId,
-  size = 'compact',
-}: {
-  label: string;
-  value: Doc | undefined;
-  onChange: (doc: Doc) => void;
-  fileArea: QuestionFileArea;
-  contextId?: string;
-  itemId?: string;
-  /** Cỡ vùng soạn của editor: trường thân câu là `default`, còn lại `compact`. */
-  size?: 'default' | 'compact';
-}) {
-  const doc = value ?? emptyDoc();
-  const { handleRequestImage, imageError } = useQuestionImageHandler(contextId, fileArea, itemId);
-
-  return (
-    <Field>
-      <FieldLabel>{label}</FieldLabel>
-      <RichTextEditor
-        value={doc}
-        onChange={onChange}
-        ariaLabel={label}
-        size={size}
-        onRequestImage={contextId ? handleRequestImage : undefined}
-      />
-      {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
-    </Field>
-  );
-}
-
-/**
- * Trường soạn trắc nghiệm trên tài liệu thống nhất: thân câu + bốn
- * lựa chọn trong MỘT editor (`MultipleChoiceEditor` của @lms/editor),
- * radio đáp án đúng gắn tại từng lựa chọn. Đường chèn ảnh dùng chung
- * một handler cho cả tài liệu — khu vực file ghi là `questiontext`
- * vì vị trí con trỏ (thân câu hay trong lựa chọn) không lộ ra qua
- * callback ảnh của editor; khu vực chỉ là metadata phân loại của bản
- * ghi file, ảnh vẫn tải/hiển thị theo định danh bền như mọi trường
- * khác.
- */
-function McDocumentField({
-  label,
-  value,
-  correctChoiceId,
-  onChange,
-  onCorrectChoiceChange,
-  contextId,
-  itemId,
-}: {
-  label: string;
-  value: MultipleChoiceDocumentJson;
-  correctChoiceId: string | undefined;
-  onChange: (doc: MultipleChoiceDocumentJson) => void;
-  onCorrectChoiceChange: (choiceId: string) => void;
-  contextId?: string;
-  itemId?: string;
-}) {
-  const { handleRequestImage, imageError } = useQuestionImageHandler(
-    contextId,
-    'questiontext',
-    itemId,
-  );
-
-  return (
-    <Field>
-      <FieldLabel>{label}</FieldLabel>
-      <MultipleChoiceEditor
-        value={value}
-        onChange={onChange}
-        correctChoiceId={correctChoiceId}
-        onCorrectChoiceChange={onCorrectChoiceChange}
-        ariaLabel={label}
-        onRequestImage={contextId ? handleRequestImage : undefined}
-      />
-      {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
-    </Field>
-  );
-}
-
-/**
- * Trường soạn Đúng/Sai trên tài liệu thống nhất TF-A: thân chung +
- * đúng 4 mệnh đề trong MỘT editor (`TrueFalseEditor` của @lms/editor),
- * cặp radio Đ/S gắn tại từng mệnh đề để chọn đáp án của mệnh đề đó
- * (đáp án sống ngoài tài liệu qua `answers`/`onAnswerChange`). Đường
- * chèn ảnh dùng chung một handler cho cả tài liệu như trường MC.
- */
-function TfDocumentField({
-  label,
-  value,
-  answers,
-  onChange,
-  onAnswerChange,
-  contextId,
-  itemId,
-}: {
-  label: string;
-  value: TrueFalseDocumentJson;
-  answers: Record<string, boolean | undefined>;
-  onChange: (doc: TrueFalseDocumentJson) => void;
-  onAnswerChange: (statementId: string, value: boolean) => void;
-  contextId?: string;
-  itemId?: string;
-}) {
-  const { handleRequestImage, imageError } = useQuestionImageHandler(
-    contextId,
-    'questiontext',
-    itemId,
-  );
-
-  return (
-    <Field>
-      <FieldLabel>{label}</FieldLabel>
-      <TrueFalseEditor
-        value={value}
-        onChange={onChange}
-        answers={answers}
-        onAnswerChange={onAnswerChange}
-        ariaLabel={label}
-        onRequestImage={contextId ? handleRequestImage : undefined}
-      />
-      {imageError ? <p className="mt-1 text-sm text-red-600">{imageError}</p> : null}
-    </Field>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Xem trước như học sinh
-// ---------------------------------------------------------------------------
-
-/** Nhãn thứ tự của một phương án theo kiểu đánh số giáo viên đã chọn. */
-function numberingLabel(numbering: string, index: number): string {
-  switch (numbering) {
-    case 'ABC':
-      return `${'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[index] ?? index + 1}.`;
-    case '123':
-      return `${index + 1}.`;
-    case 'iii':
-      return `${['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][index] ?? index + 1}.`;
-    case 'IIII':
-      return `${['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][index] ?? index + 1}.`;
-    case 'none':
-      return '';
-    default:
-      return `${'abcdefghijklmnopqrstuvwxyz'[index] ?? index + 1}.`;
-  }
-}
-
-/**
- * Cột xem trước TRỰC TIẾP như học sinh sẽ thấy câu hỏi: ngữ liệu (nếu
- * gắn), thân câu, khối Hướng dẫn (guidance hiện kèm câu hỏi trong lúc
- * làm — điểm quyết D-4) và vùng trả lời tĩnh theo loại câu. Với
- * multichoice, bản xem trước dựng từ tài liệu thống nhất ĐÃ TÁCH
- * (cùng hàm split với đường lưu) nên thứ tự/đánh số lựa chọn khớp
- * đúng thứ tự đáp án khi lưu; đáp án đúng không lộ ở bề mặt này.
- * Riêng tự luận có thêm khối Lời giải mẫu ở cuối — đó là phần giáo
- * viên đối chiếu khi soạn (học sinh chỉ thấy ở màn xem lại sau khi
- * nộp, theo cổng xem lại của lần ghim). Phản hồi sau làm bài không
- * thuộc bề mặt này.
- */
-function StudentPreview({ form, stimulus }: { form: QuestionEditorFormState; stimulus: StimulusView | null }) {
-  const { t } = useTranslation('app');
-  const mcSplit =
-    form.qtype === 'multichoice' ? splitMultipleChoiceDocument(form.mcDocument) : null;
-  const tfSplit =
-    form.qtype === 'truefalse' ? splitTrueFalseDocument(form.tfDocument) : null;
-  return (
-    <Card className="lg:sticky lg:top-4">
-      <CardHeader>
-        <CardTitle>{t('questionStudentPreview')}</CardTitle>
-        <CardDescription>{t('questionStudentPreviewHint')}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {stimulus ? (
-          <div className="rounded-md bg-slate-50 p-3">
-            <p className="mb-1 text-xs font-semibold tracking-wide text-slate-500 uppercase">
-              {t('stimulusHeading')}
-            </p>
-            <RichTextView value={stimulus.content} />
-          </div>
-        ) : null}
-        {form.qtype === 'multichoice' && mcSplit ? (
-          <RichTextView value={mcSplit.question as Doc} />
-        ) : form.qtype === 'truefalse' && tfSplit ? (
-          <RichTextView value={tfSplit.stem as Doc} />
-        ) : form.qtype !== 'truefalse' ? (
-          <RichTextView value={form.questionText} />
-        ) : null}
-        {docHasContent(form.guidance) ? (
-          <div className="rounded-md border p-3">
-            <p className="mb-1 text-sm font-medium">{t('guidanceHeading')}</p>
-            <RichTextView value={form.guidance ?? null} />
-          </div>
-        ) : null}
-        {form.qtype === 'multichoice' && mcSplit ? (
-          <div className="space-y-2">
-            {mcSplit.choices.map((choice, index) => (
-              <div key={choice.attrs.id} className="flex items-start gap-2 text-sm">
-                <input type="radio" disabled className="mt-1" />
-                <span className="font-medium">{numberingLabel(form.mcAnswerNumbering, index)}</span>
-                <span className="min-w-0 flex-1">
-                  {/* Nội dung choice là lát block của hợp đồng —
-                      ép về Doc tại biên xem trước như đường lưu. */}
-                  <RichTextView value={{ type: 'doc', content: choice.content ?? [] } as Doc} />
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {form.qtype === 'truefalse' && tfSplit ? (
-          <div className="space-y-3">
-            {tfSplit.statements.map((statement, index) => (
-              <div key={statement.attrs.id} className="space-y-1">
-                <div className="flex items-start gap-2">
-                  <span className="font-medium">{`${'abcd'[index] ?? index + 1})`}</span>
-                  <span className="min-w-0 flex-1">
-                    <RichTextView value={{ type: 'doc', content: statement.content ?? [] } as Doc} />
-                  </span>
-                </div>
-                <div className="flex gap-4 text-sm">
-                  <span className="flex items-center gap-1">
-                    <input type="radio" disabled /> {t('questionTrue')}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <input type="radio" disabled /> {t('questionFalse')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {form.qtype === 'shortanswer' ? (
-          <Input disabled placeholder={t('questionAnswerPlaceholder')} />
-        ) : null}
-        {form.qtype === 'essay' ? (
-          <textarea
-            disabled
-            rows={Math.min(15, Math.max(3, Number(form.essayResponseFieldLines) || 15))}
-            className="w-full rounded-md border p-2 text-sm"
-            placeholder={t('questionAnswerPlaceholder')}
-          />
-        ) : null}
-        {form.qtype === 'essay' && docHasContent(form.essaySolution) ? (
-          <div className="rounded-md border p-3">
-            <p className="mb-1 text-sm font-medium">{t('modelAnswerHeading')}</p>
-            <RichTextView value={form.essaySolution ?? null} />
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Trang soạn
 // ---------------------------------------------------------------------------
-
-/**
- * Trích đoạn nội dung của form đang soạn — nhãn hiển thị của câu hỏi
- * ở các bề mặt cần nhãn (tiêu đề màn sửa) vì câu hỏi không còn trường
- * tên (quyết 11:28 ngày 26/10/2026). Nguồn trích đoạn theo loại:
- * multichoice lấy phần thân câu của tài liệu thống nhất đã tách,
- * truefalse lấy phần thân chung của tài liệu TF-A đã tách, hai loại
- * còn lại lấy thân câu.
- *
- * @param form - Trạng thái form hiện tại.
- * @returns Chuỗi thuần tối đa 80 ký tự đầu của nội dung câu hỏi.
- */
-function formExcerpt(form: QuestionEditorFormState): string {
-  if (form.qtype === 'multichoice') {
-    const { question } = splitMultipleChoiceDocument(form.mcDocument);
-    return plainText(question as Doc).slice(0, 80);
-  }
-  if (form.qtype === 'truefalse') {
-    const { stem } = splitTrueFalseDocument(form.tfDocument);
-    return plainText(stem as Doc).slice(0, 80);
-  }
-  return plainText(form.questionText).slice(0, 80);
-}
 
 export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const { t } = useTranslation('app');
@@ -889,30 +144,36 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   // lib/questions-data và các module miền liên quan (F-01 của rà
   // soát #133): vẫn qua bộ nhớ đệm + dedupe của TanStack, nhịp
   // trạng thái tại chỗ của màn giữ nguyên như bản fetch thủ công.
-  const loadStimuli = useCallback(async (catId: string) => {
-    const rows = await queryClient.fetchQuery(categoryStimuliQueryOptions(catId));
-    setStimuli(rows);
-  }, [queryClient]);
+  const loadStimuli = useCallback(
+    async (catId: string) => {
+      const rows = await queryClient.fetchQuery(categoryStimuliQueryOptions(catId));
+      setStimuli(rows);
+    },
+    [queryClient],
+  );
 
   /** Nạp gắn kết chương trình của câu hỏi + nhãn nội dung cho các YCCĐ đã gắn. */
-  const loadCurriculumLinks = useCallback(async (qid: string) => {
-    try {
-      const view = await queryClient.fetchQuery(questionCurriculumLinksQueryOptions(qid));
-      setLinks(view);
-      const labels: Record<string, string> = {};
-      for (const o of view.outcomes) {
-        try {
-          const oc = await queryClient.fetchQuery(curriculumOutcomeQueryOptions(o.outcomeId));
-          labels[oc.id] = oc.content;
-        } catch {
-          // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
+  const loadCurriculumLinks = useCallback(
+    async (qid: string) => {
+      try {
+        const view = await queryClient.fetchQuery(questionCurriculumLinksQueryOptions(qid));
+        setLinks(view);
+        const labels: Record<string, string> = {};
+        for (const o of view.outcomes) {
+          try {
+            const oc = await queryClient.fetchQuery(curriculumOutcomeQueryOptions(o.outcomeId));
+            labels[oc.id] = oc.content;
+          } catch {
+            // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
+          }
         }
+        if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
+      } catch {
+        setLinks(null);
       }
-      if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
-    } catch {
-      setLinks(null);
-    }
-  }, [queryClient]);
+    },
+    [queryClient],
+  );
 
   /** Môn học cho khối Chương trình: chương trình quốc gia GDPT 2018 neo ở context hệ thống. */
   const loadLinkSubjects = useCallback(async () => {
@@ -997,9 +258,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   /** Đưa trạng thái bank của câu về trạng thái đích sau khi lưu nội dung (không tạo phiên bản). */
   async function applyStatus(id: string, current: string | undefined, target: 'draft' | 'ready') {
     const needsCall =
-      current === 'draft' || current === 'ready'
-        ? current !== target
-        : current === undefined && target === 'draft';
+      current === 'draft' || current === 'ready' ? current !== target : current === undefined && target === 'draft';
     if (!needsCall) return;
     await setStatusMutation.mutateAsync({ questionId: id, status: target });
   }
@@ -1053,6 +312,40 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     void submitWith('ready');
   }
 
+  /** Đổi danh mục đích: chốt danh mục mới, bỏ ngữ liệu đang gắn và nạp ngữ liệu của danh mục mới. */
+  function handleCategoryChange(v: string | null) {
+    if (!v) return;
+    setCategoryId(v);
+    patchForm({ stimulusId: '' });
+    void loadStimuli(v).catch(() => setMessage(t('stimulusLoadFailed')));
+  }
+
+  /** Đổi loại câu hỏi: dựng form của loại mới, giữ các trường chung và đưa thân câu qua lại với tài liệu thống nhất của trắc nghiệm. */
+  function handleQtypeChange(v: string | null) {
+    const qtype = (v ?? 'multichoice') as Qtype;
+    setForm((prev) => {
+      const next = {
+        ...emptyEditorForm(qtype),
+        questionText: prev.questionText,
+        generalFeedback: prev.generalFeedback,
+        guidance: prev.guidance,
+        stimulusId: prev.stimulusId,
+      };
+      // Thân câu đi theo khi đổi loại: rời trắc
+      // nghiệm thì tách phần thân câu khỏi tài
+      // liệu thống nhất; vào trắc nghiệm thì lắp
+      // thân câu hiện có vào tài liệu thống nhất
+      // mới (lựa chọn bắt đầu rỗng).
+      if (prev.qtype === 'multichoice' && qtype !== 'multichoice') {
+        next.questionText = splitMultipleChoiceDocument(prev.mcDocument).question as Doc;
+      }
+      if (qtype === 'multichoice' && prev.qtype !== 'multichoice') {
+        next.mcDocument = composeMultipleChoiceDocument(prev.questionText, []);
+      }
+      return next;
+    });
+  }
+
   /** Chọn môn → nạp cây của mọi khối thuộc môn đó → danh sách YCCĐ chọn được. */
   async function pickLinkSubject(subjectId: string) {
     setLinkSubjectPick(subjectId);
@@ -1097,9 +390,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   async function detachLinkSubject(subjectId: string) {
     if (!editing) return;
     try {
-      setLinks(
-        await detachSubjectMutation.mutateAsync({ questionId: editing.question.id, subjectId }),
-      );
+      setLinks(await detachSubjectMutation.mutateAsync({ questionId: editing.question.id, subjectId }));
     } catch {
       setMessage(t('programmeSaveFailed'));
     }
@@ -1139,9 +430,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   async function detachLinkOutcome(outcomeId: string) {
     if (!editing) return;
     try {
-      setLinks(
-        await detachOutcomeMutation.mutateAsync({ questionId: editing.question.id, outcomeId }),
-      );
+      setLinks(await detachOutcomeMutation.mutateAsync({ questionId: editing.question.id, outcomeId }));
     } catch {
       setMessage(t('programmeSaveFailed'));
     }
@@ -1193,10 +482,6 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     return next;
   };
 
-  // Các lựa chọn hiện tại của tài liệu thống nhất (theo thứ tự soạn)
-  // — chỉ để dựng hàng phản hồi theo lựa chọn ở dưới editor.
-  const mcSplit = form.qtype === 'multichoice' ? splitMultipleChoiceDocument(form.mcDocument) : null;
-
   return (
     <PageShell width="full">
       <PageHeader title={mode === 'edit' ? t('editQuestionTitle', { name: formExcerpt(form) }) : t('newQuestion')} />
@@ -1245,464 +530,24 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
                 lát E3 cột xem trước bị bó cố định 360px. */}
             <div className="grid items-start gap-6 lg:grid-cols-2">
               <FieldGroup>
-                {!editing && (
-                  <Field>
-                    <FieldLabel id="q-category-label">{t('category')}</FieldLabel>
-                    <Select
-                      items={Object.fromEntries(categories.map((c) => [c.id, c.name]))}
-                      value={categoryId}
-                      onValueChange={(v) => {
-                        if (!v) return;
-                        setCategoryId(v);
-                        patchForm({ stimulusId: '' });
-                        void loadStimuli(v).catch(() => setMessage(t('stimulusLoadFailed')));
-                      }}
-                    >
-                      <SelectTrigger aria-labelledby="q-category-label" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-                <Field>
-                  <FieldLabel id="q-type-label">{t('questionType')}</FieldLabel>
-                  <Select
-                    items={Object.fromEntries(QTYPES.map((qtype) => [qtype, t(QTYPE_LABEL_KEYS[qtype])]))}
-                    value={form.qtype}
-                    disabled={editing !== null}
-                    onValueChange={(v) => {
-                      const qtype = (v ?? 'multichoice') as Qtype;
-                      setForm((prev) => {
-                        const next = {
-                          ...emptyEditorForm(qtype),
-                          questionText: prev.questionText,
-                          generalFeedback: prev.generalFeedback,
-                          guidance: prev.guidance,
-                          stimulusId: prev.stimulusId,
-                        };
-                        // Thân câu đi theo khi đổi loại: rời trắc
-                        // nghiệm thì tách phần thân câu khỏi tài
-                        // liệu thống nhất; vào trắc nghiệm thì lắp
-                        // thân câu hiện có vào tài liệu thống nhất
-                        // mới (lựa chọn bắt đầu rỗng).
-                        if (prev.qtype === 'multichoice' && qtype !== 'multichoice') {
-                          next.questionText = splitMultipleChoiceDocument(prev.mcDocument)
-                            .question as Doc;
-                        }
-                        if (qtype === 'multichoice' && prev.qtype !== 'multichoice') {
-                          next.mcDocument = composeMultipleChoiceDocument(prev.questionText, []);
-                        }
-                        return next;
-                      });
-                    }}
-                  >
-                    <SelectTrigger aria-labelledby="q-type-label" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {QTYPES.map((qtype) => (
-                        <SelectItem key={qtype} value={qtype}>
-                          {t(QTYPE_LABEL_KEYS[qtype])}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel id="q-stimulus-label">{t('attachedStimulus')}</FieldLabel>
-                  <Select
-                    items={Object.fromEntries([
-                      ['none', t('noStimulus')],
-                      ...stimuli.map((s) => [s.id, plainText(s.content).slice(0, 80)] as [string, string]),
-                    ])}
-                    value={form.stimulusId === '' ? 'none' : form.stimulusId}
-                    onValueChange={(v) => patchForm({ stimulusId: v === 'none' || v === null ? '' : v })}
-                  >
-                    <SelectTrigger aria-labelledby="q-stimulus-label" className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t('noStimulus')}</SelectItem>
-                      {stimuli.map((stimulus) => (
-                        <SelectItem key={stimulus.id} value={stimulus.id}>
-                          {plainText(stimulus.content).slice(0, 80)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                {form.qtype !== 'truefalse' && form.qtype !== 'multichoice' && (
-                  <RichField
-                    label={t('questionText')}
-                    value={form.questionText}
-                    onChange={(questionText) => patchForm({ questionText })}
-                    size="default"
-                    fileArea="questiontext"
-                    contextId={contextId}
-                    itemId={editing?.question.id}
-                  />
-                )}
-
-                {form.qtype === 'multichoice' && (
-                  <fieldset className="space-y-3">
-                    <legend className="sr-only">{t('choices')}</legend>
-                    {/* Soạn thống nhất kiểu giaokhoa: thân câu + 4
-                        lựa chọn trong một tài liệu; chọn đáp án
-                        đúng bằng radio tại từng lựa chọn trong
-                        chính editor; kéo-thả trong editor để đổi
-                        thứ tự lựa chọn. */}
-                    <McDocumentField
-                      label={t('questionText')}
-                      value={form.mcDocument}
-                      correctChoiceId={form.mcCorrectChoiceId}
-                      onChange={(mcDocument) => patchForm({ mcDocument })}
-                      onCorrectChoiceChange={(mcCorrectChoiceId) => patchForm({ mcCorrectChoiceId })}
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                    <p className="text-sm text-muted-foreground">{t('mcAuthoringHint')}</p>
-                    {/* Phản hồi theo lựa chọn là metadata của dòng
-                        đáp án nên soạn ở các trường riêng bám theo
-                        id choice (đi theo lựa chọn khi kéo-thả đổi
-                        thứ tự), không nằm trong tài liệu lựa chọn. */}
-                    {mcSplit?.choices.map((choice, index) => (
-                      <RichField
-                        key={choice.attrs.id}
-                        label={t('answerFeedback', { index: index + 1 })}
-                        value={form.mcChoiceFeedbacks[choice.attrs.id]}
-                        onChange={(feedback) =>
-                          patchForm({
-                            mcChoiceFeedbacks: {
-                              ...form.mcChoiceFeedbacks,
-                              [choice.attrs.id]: feedback,
-                            },
-                          })
-                        }
-                        fileArea="feedback"
-                        contextId={contextId}
-                        itemId={editing?.question.id}
-                      />
-                    ))}
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="q-mc-shuffle"
-                          checked={form.mcShuffleAnswers}
-                          onCheckedChange={(checked) => patchForm({ mcShuffleAnswers: checked === true })}
-                        />
-                        <Label htmlFor="q-mc-shuffle">{t('shuffleAnswers')}</Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="q-mc-instruction"
-                          checked={form.mcShowStandardInstruction}
-                          onCheckedChange={(checked) =>
-                            patchForm({ mcShowStandardInstruction: checked === true })
-                          }
-                        />
-                        <Label htmlFor="q-mc-instruction">{t('showStandardInstruction')}</Label>
-                      </div>
-                      <Field>
-                        <FieldLabel id="q-mc-numbering-label">{t('answerNumbering')}</FieldLabel>
-                        <Select
-                          items={{
-                            abc: t('answerNumberingAbc'),
-                            ABC: t('answerNumberingABC'),
-                            '123': t('answerNumbering123'),
-                            iii: t('answerNumberingIii'),
-                            IIII: t('answerNumberingIIII'),
-                            none: t('answerNumberingNone'),
-                          }}
-                          value={form.mcAnswerNumbering}
-                          onValueChange={(v) => patchForm({ mcAnswerNumbering: v ?? 'abc' })}
-                        >
-                          <SelectTrigger aria-labelledby="q-mc-numbering-label" className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="abc">{t('answerNumberingAbc')}</SelectItem>
-                            <SelectItem value="ABC">{t('answerNumberingABC')}</SelectItem>
-                            <SelectItem value="123">{t('answerNumbering123')}</SelectItem>
-                            <SelectItem value="iii">{t('answerNumberingIii')}</SelectItem>
-                            <SelectItem value="IIII">{t('answerNumberingIIII')}</SelectItem>
-                            <SelectItem value="none">{t('answerNumberingNone')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    </div>
-                    <RichField
-                      label={t('correctFeedback')}
-                      value={form.mcCorrectFeedback}
-                      onChange={(mcCorrectFeedback) => patchForm({ mcCorrectFeedback })}
-                      fileArea="feedback"
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                    <RichField
-                      label={t('incorrectFeedback')}
-                      value={form.mcIncorrectFeedback}
-                      onChange={(mcIncorrectFeedback) => patchForm({ mcIncorrectFeedback })}
-                      fileArea="feedback"
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                  </fieldset>
-                )}
-
-                {form.qtype === 'truefalse' && (
-                  <fieldset className="space-y-3">
-                    <legend className="sr-only">{t('tfStatementsHeading')}</legend>
-                    {/* Soạn thống nhất kiểu giaokhoa (TF-A): thân
-                        chung + đúng 4 mệnh đề trong một tài liệu; đáp
-                        án Đ/S của từng mệnh đề chọn bằng cặp radio
-                        gắn tại mệnh đề trong chính editor. */}
-                    <TfDocumentField
-                      label={t('questionText')}
-                      value={form.tfDocument}
-                      answers={form.tfAnswers}
-                      onChange={(tfDocument) => patchForm({ tfDocument })}
-                      onAnswerChange={(statementId, value) =>
-                        patchForm({ tfAnswers: { ...form.tfAnswers, [statementId]: value } })
-                      }
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                    <p className="text-sm text-muted-foreground">{t('tfAuthoringHint')}</p>
-                  </fieldset>
-                )}
-
-                {form.qtype === 'shortanswer' && (
-                  <fieldset className="space-y-3">
-                    <legend className="text-sm font-medium">{t('acceptedAnswers')}</legend>
-                    {form.saAnswers.map((answer, index) => (
-                      <div key={index} className="flex flex-wrap items-end gap-3 rounded-md border p-3">
-                        <Field className="min-w-48 flex-1">
-                          <FieldLabel htmlFor={`q-sa-answer-${index}`}>
-                            {t('acceptedAnswerText', { index: index + 1 })}
-                          </FieldLabel>
-                          <Input
-                            id={`q-sa-answer-${index}`}
-                            value={answer.text}
-                            onChange={(e) =>
-                              patchForm({
-                                saAnswers: form.saAnswers.map((a, i) =>
-                                  i === index ? { ...a, text: e.target.value } : a,
-                                ),
-                              })
-                            }
-                          />
-                        </Field>
-                        <div className="flex gap-1 pb-1">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={index === 0}
-                            aria-label={t('questionMoveUp')}
-                            onClick={() => patchForm({ saAnswers: moveItem(form.saAnswers, index, -1) })}
-                          >
-                            ↑
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={index === form.saAnswers.length - 1}
-                            aria-label={t('questionMoveDown')}
-                            onClick={() => patchForm({ saAnswers: moveItem(form.saAnswers, index, 1) })}
-                          >
-                            ↓
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={form.saAnswers.length <= 1}
-                            onClick={() => patchForm({ saAnswers: form.saAnswers.filter((_, i) => i !== index) })}
-                          >
-                            {t('removeAnswer', { index: index + 1 })}
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '' }] })}
-                    >
-                      {t('addAnswer')}
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="q-sa-usecase"
-                        checked={form.saUseCase}
-                        onCheckedChange={(checked) => patchForm({ saUseCase: checked === true })}
-                      />
-                      <Label htmlFor="q-sa-usecase">{t('caseSensitive')}</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="q-sa-numeric"
-                        checked={form.saNumericAnswer}
-                        onCheckedChange={(checked) => patchForm({ saNumericAnswer: checked === true })}
-                      />
-                      <Label htmlFor="q-sa-numeric">{t('numericAnswer')}</Label>
-                    </div>
-                    {form.saNumericAnswer && (
-                      <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
-                        <Field>
-                          <FieldLabel htmlFor="q-sa-numeric-maxlength">{t('numericMaxLength')}</FieldLabel>
-                          <Input
-                            id="q-sa-numeric-maxlength"
-                            type="number"
-                            min="1"
-                            value={form.saNumericMaxLength}
-                            onChange={(e) => patchForm({ saNumericMaxLength: e.target.value })}
-                          />
-                        </Field>
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id="q-sa-numeric-sign"
-                            checked={form.saNumericAllowSign}
-                            onCheckedChange={(checked) => patchForm({ saNumericAllowSign: checked === true })}
-                          />
-                          <Label htmlFor="q-sa-numeric-sign">{t('numericAllowSign')}</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            id="q-sa-numeric-decimal"
-                            checked={form.saNumericAllowDecimal}
-                            onCheckedChange={(checked) => patchForm({ saNumericAllowDecimal: checked === true })}
-                          />
-                          <Label htmlFor="q-sa-numeric-decimal">{t('numericAllowDecimal')}</Label>
-                        </div>
-                      </div>
-                    )}
-                  </fieldset>
-                )}
-
-                {form.qtype === 'essay' && (
-                  <fieldset className="space-y-3">
-                    <legend className="text-sm font-medium">{t('questionOptions')}</legend>
-                    <Field>
-                      <FieldLabel id="q-essay-format-label">{t('responseFormat')}</FieldLabel>
-                      <Select
-                        items={{ editor: t('responseFormatEditor'), plain: t('responseFormatPlain') }}
-                        value={form.essayResponseFormat}
-                        onValueChange={(v) => patchForm({ essayResponseFormat: v ?? 'editor' })}
-                      >
-                        <SelectTrigger aria-labelledby="q-essay-format-label" className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="editor">{t('responseFormatEditor')}</SelectItem>
-                          <SelectItem value="plain">{t('responseFormatPlain')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="q-essay-required"
-                        checked={form.essayResponseRequired}
-                        onCheckedChange={(checked) => patchForm({ essayResponseRequired: checked === true })}
-                      />
-                      <Label htmlFor="q-essay-required">{t('responseRequired')}</Label>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <Field>
-                        <FieldLabel htmlFor="q-essay-lines">{t('responseFieldLines')}</FieldLabel>
-                        <Input
-                          id="q-essay-lines"
-                          type="number"
-                          min="1"
-                          value={form.essayResponseFieldLines}
-                          onChange={(e) => patchForm({ essayResponseFieldLines: e.target.value })}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="q-essay-minwords">{t('minWordLimit')}</FieldLabel>
-                        <Input
-                          id="q-essay-minwords"
-                          type="number"
-                          min="0"
-                          value={form.essayMinWords}
-                          onChange={(e) => patchForm({ essayMinWords: e.target.value })}
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel htmlFor="q-essay-maxwords">{t('maxWordLimit')}</FieldLabel>
-                        <Input
-                          id="q-essay-maxwords"
-                          type="number"
-                          min="0"
-                          value={form.essayMaxWords}
-                          onChange={(e) => patchForm({ essayMaxWords: e.target.value })}
-                        />
-                      </Field>
-                    </div>
-                    <RichField
-                      label={t('graderInfo')}
-                      value={form.essayGraderInfo}
-                      onChange={(essayGraderInfo) => patchForm({ essayGraderInfo })}
-                      fileArea="guidance"
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                    <RichField
-                      label={t('responseTemplate')}
-                      value={form.essayResponseTemplate}
-                      onChange={(essayResponseTemplate) => patchForm({ essayResponseTemplate })}
-                      fileArea="guidance"
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                    {/* Lời giải mẫu thuộc phía đáp án (answer_key)
-                        như guidance — học sinh chỉ thấy ở màn xem
-                        lại sau khi nộp; khác graderInfo ở trên là
-                        thông tin riêng cho người chấm. */}
-                    <RichField
-                      label={t('modelAnswer')}
-                      value={form.essaySolution}
-                      onChange={(essaySolution) => patchForm({ essaySolution })}
-                      fileArea="guidance"
-                      contextId={contextId}
-                      itemId={editing?.question.id}
-                    />
-                  </fieldset>
-                )}
-
-                {/* Hướng dẫn (guidance) có ở MỌI loại câu: gợi ý
-                    cách làm hiện kèm câu hỏi khi học sinh làm bài
-                    (điểm quyết D-4) — khác phản hồi chung/lời giải
-                    là phần chỉ hiện sau khi nộp. Khi lưu nó đi ở
-                    phía đáp án, không nằm trong thân câu. */}
-                <div className="space-y-1">
-                  <RichField
-                    label={t('guidance')}
-                    value={form.guidance}
-                    onChange={(guidance) => patchForm({ guidance })}
-                    fileArea="guidance"
-                    contextId={contextId}
-                    itemId={editing?.question.id}
-                  />
-                  <p className="text-sm text-muted-foreground">{t('guidanceHint')}</p>
-                </div>
-
-                <RichField
-                  label={t('generalFeedback')}
-                  value={form.generalFeedback}
-                  onChange={(generalFeedback) => patchForm({ generalFeedback })}
-                  fileArea="generalfeedback"
+                <GeneralSection
+                  form={form}
+                  patchForm={patchForm}
+                  categories={categories}
+                  categoryId={categoryId}
+                  editing={editing !== null}
+                  stimuli={stimuli}
                   contextId={contextId}
                   itemId={editing?.question.id}
+                  onCategoryChange={handleCategoryChange}
+                  onQtypeChange={handleQtypeChange}
+                />
+                <AnswersSection
+                  form={form}
+                  patchForm={patchForm}
+                  contextId={contextId}
+                  itemId={editing?.question.id}
+                  moveItem={moveItem}
                 />
               </FieldGroup>
               <StudentPreview form={form} stimulus={selectedStimulus} />
@@ -1712,144 +557,23 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       </form>
 
       {editing && (
-        <Card data-testid="question-programme">
-          <CardHeader>
-            <CardTitle>{t('programmeHeading')}</CardTitle>
-            <CardDescription>{t('programmeDescription')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {links === null ? (
-              <p className="text-sm text-muted-foreground">{t('programmeLoadFailed')}</p>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label>{t('programmeSubjects')}</Label>
-                  <ul className="space-y-2">
-                    {links.subjectIds.map((subjectId) => (
-                      <li key={subjectId} data-testid={`programme-subject-${subjectId}`} className="flex items-center gap-2">
-                        <span className="flex-1 text-sm">
-                          {linkSubjects.find((s) => s.id === subjectId)?.name ?? subjectId}
-                        </span>
-                        <Button type="button" variant="outline" onClick={() => void detachLinkSubject(subjectId)}>
-                          {t('programmeDetach')}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex items-end gap-2">
-                    <Field className="flex-1">
-                      <FieldLabel id="programme-subject-pick-label">{t('programmePickSubject')}</FieldLabel>
-                      <Select
-                        items={Object.fromEntries(linkSubjects.map((s) => [s.id, s.name]))}
-                        value={linkSubjectPick === '' ? null : linkSubjectPick}
-                        onValueChange={(v) => {
-                          // Base UI tự phát null khi giá trị đang chọn bị
-                          // lọc khỏi options (môn vừa gắn xong bị loại khỏi
-                          // danh sách chọn) — đó không phải thao tác chọn
-                          // của người dùng; bỏ qua để không xoá mất danh
-                          // sách YCCĐ vừa nạp cho môn đó. Select native
-                          // trước đây không có hiệu ứng phụ này.
-                          if (!v) return;
-                          void pickLinkSubject(v);
-                        }}
-                      >
-                        <SelectTrigger aria-labelledby="programme-subject-pick-label" className="w-full">
-                          <SelectValue placeholder={t('programmePickSubject')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {linkSubjects
-                            .filter((s) => !links.subjectIds.includes(s.id))
-                            .map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {s.name}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Button type="button" onClick={() => void attachLinkSubject()} disabled={!linkSubjectPick}>
-                      {t('programmeAttach')}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('programmeOutcomes')}</Label>
-                  <ul className="space-y-2">
-                    {links.outcomes.map((o) => (
-                      <li key={o.outcomeId} data-testid={`programme-outcome-${o.outcomeId}`} className="flex items-center gap-2">
-                        <span className="flex-1 text-sm">{outcomeLabels[o.outcomeId] ?? o.outcomeId}</span>
-                        <Select
-                          items={Object.fromEntries(COGNITIVE_LEVELS.map((level) => [level, t(LEVEL_LABEL_KEYS[level])]))}
-                          value={o.cognitiveLevel}
-                          onValueChange={(v) => void changeOutcomeLevel(o.outcomeId, v ?? o.cognitiveLevel)}
-                        >
-                          <SelectTrigger aria-label={t('programmeLevel')} className="w-40">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {COGNITIVE_LEVELS.map((level) => (
-                              <SelectItem key={level} value={level}>
-                                {t(LEVEL_LABEL_KEYS[level])}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button type="button" variant="outline" onClick={() => void detachLinkOutcome(o.outcomeId)}>
-                          {t('programmeDetach')}
-                        </Button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex items-end gap-2">
-                    <Field className="flex-1">
-                      <FieldLabel id="programme-outcome-pick-label">{t('programmePickOutcome')}</FieldLabel>
-                      <Select
-                        items={Object.fromEntries(
-                          linkOutcomeOptions
-                            .filter((o) => !links.outcomes.some((l) => l.outcomeId === o.id))
-                            .map((o) => [o.id, o.label]),
-                        )}
-                        value={linkOutcomePick === '' ? null : linkOutcomePick}
-                        onValueChange={(v) => setLinkOutcomePick(v ?? '')}
-                      >
-                        <SelectTrigger aria-labelledby="programme-outcome-pick-label" className="w-full">
-                          <SelectValue placeholder={t('programmePickOutcome')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {linkOutcomeOptions
-                            .filter((o) => !links.outcomes.some((l) => l.outcomeId === o.id))
-                            .map((o) => (
-                              <SelectItem key={o.id} value={o.id}>
-                                {o.label}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel id="programme-level-pick-label">{t('programmeLevel')}</FieldLabel>
-                      <Select items={Object.fromEntries(COGNITIVE_LEVELS.map((level) => [level, t(LEVEL_LABEL_KEYS[level])]))} value={linkLevelPick} onValueChange={(v) => setLinkLevelPick(v ?? 'biet')}>
-                        <SelectTrigger aria-labelledby="programme-level-pick-label" className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {COGNITIVE_LEVELS.map((level) => (
-                            <SelectItem key={level} value={level}>
-                              {t(LEVEL_LABEL_KEYS[level])}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Button type="button" onClick={() => void attachLinkOutcome()} disabled={!linkOutcomePick}>
-                      {t('programmeAttach')}
-                    </Button>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+        <ProgrammeLinks
+          links={links}
+          linkSubjects={linkSubjects}
+          outcomeLabels={outcomeLabels}
+          linkSubjectPick={linkSubjectPick}
+          linkOutcomeOptions={linkOutcomeOptions}
+          linkOutcomePick={linkOutcomePick}
+          linkLevelPick={linkLevelPick}
+          pickLinkSubject={pickLinkSubject}
+          attachLinkSubject={attachLinkSubject}
+          detachLinkSubject={detachLinkSubject}
+          attachLinkOutcome={attachLinkOutcome}
+          changeOutcomeLevel={changeOutcomeLevel}
+          detachLinkOutcome={detachLinkOutcome}
+          setLinkOutcomePick={setLinkOutcomePick}
+          setLinkLevelPick={setLinkLevelPick}
+        />
       )}
 
       <p>
