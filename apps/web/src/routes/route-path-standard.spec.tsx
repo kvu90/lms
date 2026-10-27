@@ -23,19 +23,22 @@ import routesConfig from '../routes';
  *   tham số không phải định danh của tài nguyên đứng trước nó).
  */
 
-/** Mọi path đã khai trong bảng route thật (layout Shell + các route ngoài vỏ). */
-const ALL_PATHS: string[] = (() => {
-  const collected: string[] = [];
+/** Mọi (path, route module) đã khai trong bảng route thật (layout Shell + các route ngoài vỏ). */
+const ALL_ROUTES: Array<{ path: string; file: string }> = (() => {
+  const collected: Array<{ path: string; file: string }> = [];
   const walk = (entries: unknown) => {
     if (!Array.isArray(entries)) return;
-    for (const entry of entries as Array<{ path?: string; children?: unknown }>) {
-      if (typeof entry.path === 'string') collected.push(entry.path);
+    for (const entry of entries as Array<{ path?: string; file?: string; children?: unknown }>) {
+      if (typeof entry.path === 'string') collected.push({ path: entry.path, file: entry.file ?? '' });
       walk(entry.children);
     }
   };
   walk(routesConfig);
   return collected;
 })();
+
+/** Mọi path đã khai trong bảng route thật. */
+const ALL_PATHS: string[] = ALL_ROUTES.map((route) => route.path);
 
 /** Ánh xạ tài nguyên → tên tham số định danh của chính nó trong họ admin/curriculum. */
 const RESOURCE_PARAM: Record<string, string> = {
@@ -72,6 +75,16 @@ describe('Bản đồ route của lát R2–R4 (chuẩn đường dẫn #221)', 
     for (const path of ['contentbank', 'contentbank/new', 'contentbank/:id/edit']) {
       expect(ALL_PATHS).toContain(path);
     }
+  });
+
+  it('không có hai path nào dùng chung một route module (id route suy ra từ file, trùng là lỗi cấu hình khi build)', () => {
+    const byFile = new Map<string, string[]>();
+    for (const route of ALL_ROUTES) {
+      if (!route.file) continue;
+      byFile.set(route.file, [...(byFile.get(route.file) ?? []), route.path]);
+    }
+    const duplicated = [...byFile.entries()].filter(([, paths]) => paths.length > 1);
+    expect(duplicated).toEqual([]);
   });
 
   it('R4: họ admin/curriculum khớp đúng bản đồ rà soát đã duyệt', () => {

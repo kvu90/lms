@@ -105,7 +105,7 @@ export default [
     // /guardian?student=<id> được chính trang guardian chuyển hướng
     // thay thế sang path này (id không thuộc các con đang liên kết
     // thì về gốc /guardian).
-    route('guardian/students/:studentId', 'pages/guardian.tsx'),
+    route('guardian/students/:studentId', 'routes/guardian-student.tsx'),
     route('calendar', 'pages/calendar.tsx'),
     route('badges', 'pages/badges.tsx'),
     route('learning-plan', 'pages/learning-plan.tsx'),
