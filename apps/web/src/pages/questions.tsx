@@ -5,25 +5,20 @@ import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
-import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
 import { BankAreaTabs } from '../components/bank-area-tabs';
+import { MyMatricesPanel, SystemMatricesPanel } from '../components/questions/my-matrices-panel';
+import { MyPapersPanel } from '../components/questions/my-papers-panel';
+import { MyQuestionsPanel } from '../components/questions/my-questions-panel';
 import { CollapsibleSection } from '../components/collapsible-section';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
@@ -34,36 +29,24 @@ import {
   questionDiscoveryQueryOptions,
   questionVersionsQueryOptions,
   useCopyExamPaper,
-  useCopyMatrixToMyBank,
   useCopyQuestionToMyBank,
   useCreateQuestionUsage,
   useCreateStimulus,
-  useDeleteBankQuestion,
-  useDeleteExamPaper,
-  useDeleteMatrix,
   useDeleteStimulus,
-  useDeployExamPin,
-  useProposeExamDossierContribution,
-  useProposeExamPaperContribution,
-  useProposeMatrixContribution,
-  useProposeQuestionContribution,
-  useRestoreQuestion,
   useReviewExamPaperContribution,
-  useReviewMatrixContribution,
   useReviewQuestionContribution,
-  useSetExamPaperStatus,
-  useUpdateStimulus,
+  useDeleteBankQuestion,
+  useRestoreQuestion,
   useWithdrawQuestion,
+  useUpdateStimulus,
   useBankDossiers,
   useBankExamContributions,
   useBankExams,
   useBankMatrices,
-  useBankMatrixContributions,
   useBankQuestionContributions,
   useCategoryQuestions,
   useCategoryStimuli,
   useMyBankQuestions,
-  useMyDossiers,
   useQuestionBanks,
   useQuestionCategories,
   type AttributionLite,
@@ -77,8 +60,6 @@ import {
   type PaperSummaryLite,
 } from '#lib/questions-data';
 import { useCurriculumSubjects } from '#lib/matrix-data';
-import { courseContentQueryOptions, coursesListQueryOptions } from '#lib/course-builder-data';
-import { courseGroupsQueryOptions } from '#lib/progress-report-data';
 import { DataTable, type DataColumn } from '#components/data-table';
 import {
   COGNITIVE_LEVELS,
@@ -178,19 +159,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const [discResults, setDiscResults] = useState<DiscoveryItemLite[]>([]);
   const contributions = useBankQuestionContributions(discBankId).data ?? [];
   const [previewItem, setPreviewItem] = useState<QuestionView | null>(null);
-  const [proposeQuestionId, setProposeQuestionId] = useState('');
-  const [proposeBankId, setProposeBankId] = useState('');
   // Ngân hàng ma trận (MB-1, issue #111): khu riêng "Ma trận của tôi" +
   // section ma trận chung trong Ngân hàng hệ thống — cùng khuôn hai khu
   // vực phân biệt của ngân hàng câu hỏi.
   const matrixBanks = useQuestionBanks('matrix').data ?? [];
   const subjects = useCurriculumSubjects(true).data ?? [];
-  const [sharedMatrixBankId, setSharedMatrixBankId] = useState('');
-  const sharedMatrices = useBankMatrices(sharedMatrixBankId || undefined).data ?? [];
-  const [matrixSubjectFilter, setMatrixSubjectFilter] = useState('');
-  const matrixContributions = useBankMatrixContributions(sharedMatrixBankId).data ?? [];
-  const [proposeMatrixId, setProposeMatrixId] = useState('');
-  const [proposeMatrixBankId, setProposeMatrixBankId] = useState('');
 
   // Ngân hàng đề (EB-1, issue #113): bank đề dùng chung khuôn bank đa
   // loại (kind=exam); "Đề của tôi" là khu riêng song song "Ngân
@@ -213,8 +186,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const contributionBySourceDossierId = new Map(
     examContributions.filter((c) => c.sourceDossierId).map((c) => [c.sourceDossierId!, c]),
   );
-  const [proposePaperId, setProposePaperId] = useState('');
-  const [proposePaperBankId, setProposePaperBankId] = useState('');
   // Bộ hồ sơ đề (EB-3, issue #165): hàng chờ của bank đích đang chọn,
   // danh sách bộ của chính giáo viên, form nộp bộ và bản đặc tả đang mở.
   // Sau Q4 bề mặt hồ sơ là CHỈ-ĐỌC (lịch sử): hàng chờ chỉ còn các bộ
@@ -225,34 +196,12 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     const linked = contributionBySourceDossierId.get(d.id);
     return !linked || linked.status === 'pending' || linked.status === 'pending_board';
   });
-  const myDossiers = useMyDossiers().data ?? [];
-  const [dossierPaperId, setDossierPaperId] = useState('');
-  const [dossierBankId, setDossierBankId] = useState('');
   const [openDossierSpec, setOpenDossierSpec] = useState<{ dossierId: string; spec: DossierSpecLite } | null>(null);
   // Bản đặc tả đang mở của một ĐÓNG GÓP kèm hồ sơ: đặc tả đã chụp nằm
   // ngay trong payload đóng góp (dossierSpecSnapshot) nên mở tại chỗ,
   // không gọi thêm endpoint như bề mặt hồ sơ lịch sử.
   const [openContributionSpec, setOpenContributionSpec] = useState<{ contributionId: string; spec: DossierSpecLite } | null>(null);
-  const [deployPaper, setDeployPaper] = useState<PaperSummaryLite | null>(null);
-  const deployCourses = useQuery({ ...coursesListQueryOptions(), enabled: !!deployPaper }).data ?? [];
-  const [deployCourseId, setDeployCourseId] = useState('');
-  const deployContentQuery = useQuery({
-    ...courseContentQueryOptions(deployCourseId),
-    enabled: !!deployCourseId,
-  });
-  const deploySections = deployContentQuery.data?.sections ?? [];
-  const [deploySectionId, setDeploySectionId] = useState('');
-  const deployGroups = useQuery({ ...courseGroupsQueryOptions(deployCourseId), enabled: !!deployCourseId }).data ?? [];
-  const [deployGroupId, setDeployGroupId] = useState('');
-  const [deployVariantCount, setDeployVariantCount] = useState('1');
 
-  // Chọn chương đầu tiên khi nội dung khoá đích tải về (nhịp của
-  // loadDeployQuizzes thủ công trước đây).
-  useEffect(() => {
-    if (deployContentQuery.data && !deploySectionId) {
-      setDeploySectionId(deployContentQuery.data.sections[0]?.id ?? '');
-    }
-  }, [deployContentQuery.data, deploySectionId]);
 
 
 
@@ -308,67 +257,15 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
 
 
 
-  /** Copy một ma trận chung về ngân hàng ma trận cá nhân (cầu nối hai khu vực, MB-1). */
-  async function copyMatrixToMyBank(matrixId: string) {
-    try {
-      await copyMatrixMutation.mutateAsync(matrixId);
-      setMessage(t('matrixCopiedToMyBank'));
-      refreshMatrixBanks();
-    } catch {
-      setMessage(t('matrixCopyFailed'));
-    }
-  }
 
-  /** Xoá một ma trận của mình ngay tại dòng (§9). */
-  async function deleteMyMatrix(matrixId: string) {
-    if (!window.confirm(t('matrixDeleteConfirm'))) return;
-    try {
-      await deleteMatrixMutation.mutateAsync(matrixId);
-      setMessage(t('matrixDeleted'));
-      refreshMatrixBanks();
-    } catch {
-      setMessage(t('matrixDeleteFailed'));
-    }
-  }
 
-  /** Đề xuất đóng góp một ma trận ready của mình lên bank ma trận chung. */
-  async function proposeMatrixToBank(matrixId: string, targetBankId: string) {
-    if (!matrixId || !targetBankId) return;
-    try {
-      await proposeMatrixMutation.mutateAsync({ matrixId, targetBankId });
-      setMessage(t('proposedOk'));
-    } catch {
-      setMessage(t('proposeFailed'));
-    }
-  }
 
-  /** Duyệt/từ chối một đóng góp ma trận (từ chối hỏi lý do — bắt buộc). */
-  async function reviewMatrixContribution(bankId: string, contributionId: string, approve: boolean) {
-    try {
-      if (approve) {
-        await reviewMatrixContributionMutation.mutateAsync({ bankId, contributionId, approve: true });
-      } else {
-        const reason = window.prompt(t('contributionReject')) ?? '';
-        if (!reason.trim()) return;
-        await reviewMatrixContributionMutation.mutateAsync({ bankId, contributionId, approve: false, reason });
-      }
-      refreshSharedMatrices(bankId);
-    } catch {
-      setMessage(t('proposeFailed'));
-    }
-  }
 
-  const subjectName = (subjectId: string) => subjects.find((s) => s.id === subjectId)?.name ?? '';
-  const matrixStatusKey = (status: string) => `matrixStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
   /** Khoá i18n cho trạng thái chờ duyệt (EB-3): từ vựng trạng thái của hồ sơ và của đóng góp đề là một (pending/pending_board/approved/rejected) nên dùng chung — pending_board là khoá ghép riêng. */
   const dossierStatusKey = (status: string) =>
     status === 'pending_board'
       ? 'dossierStatusPendingBoard'
       : `dossierStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
-  const filteredSharedMatrices = sharedMatrices.filter(
-    (m) =>
-      !matrixSubjectFilter || m.subjectId === matrixSubjectFilter,
-  );
 
   const personalExamBank = examBanks.find((b) => b.scope === 'personal');
   const sharedExamBanks = examBanks.filter((b) => b.scope !== 'personal');
@@ -383,19 +280,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // Thao tác ghi của trang qua các đột biến của lib/questions-data
   // (F-01 của rà soát #133): đột biến chỉ ghi, việc làm mới theo cụm
   // vẫn do các hàm refresh* dưới đây quyết định như bản thủ công.
-  const copyMatrixMutation = useCopyMatrixToMyBank();
-  const deleteMatrixMutation = useDeleteMatrix();
-  const proposeMatrixMutation = useProposeMatrixContribution();
-  const reviewMatrixContributionMutation = useReviewMatrixContribution();
-  const proposeDossierContributionMutation = useProposeExamDossierContribution();
   const copyPaperMutation = useCopyExamPaper();
-  const paperStatusMutation = useSetExamPaperStatus();
-  const deletePaperMutation = useDeleteExamPaper();
-  const proposePaperMutation = useProposeExamPaperContribution();
   const reviewPaperContributionMutation = useReviewExamPaperContribution();
-  const deployPinMutation = useDeployExamPin();
   const copyQuestionMutation = useCopyQuestionToMyBank();
-  const proposeQuestionMutation = useProposeQuestionContribution();
   const reviewContributionMutation = useReviewQuestionContribution();
   const deleteQuestionMutation = useDeleteBankQuestion();
   const restoreQuestionMutation = useRestoreQuestion();
@@ -440,29 +327,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.categoryStimuli(qCategory) });
   };
 
-  /**
-   * Nộp một BỘ HỒ SƠ: từ S4/Q4 (issue #228) bộ hồ sơ không còn là
-   * đường riêng — thao tác này là ĐỀ XUẤT ĐÓNG GÓP kèm bộ hồ sơ đính
-   * kèm (`withDossier: true`) trên ĐƯỜNG ĐÓNG GÓP DUY NHẤT của đề.
-   * Phía API ghim bộ ba (version đề + version ma trận + bản đặc tả)
-   * tại đúng lúc đề xuất và tính chống trùng như mọi đóng góp; duyệt
-   * hai cấp đi theo trạng thái của chính đóng góp (`pending` →
-   * `pending_board` khi tenant của bank đích bật cấp duyệt 2).
-   */
-  async function proposeDossier() {
-    if (!dossierPaperId || !dossierBankId) return;
-    try {
-      await proposeDossierContributionMutation.mutateAsync({ bankId: dossierBankId, examId: dossierPaperId });
-      setMessage(t('dossierProposedOk'));
-      // Đóng góp mới thuộc hàng chờ của bank đích: làm tươi đúng cụm
-      // khoá của bank đích (hàng đóng góp + bề mặt hồ sơ lịch sử).
-      void queryClient.invalidateQueries({ queryKey: queryKeys.bankExamContributions(dossierBankId) });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.bankDossiers(dossierBankId) });
-      refreshMyDossiers();
-    } catch (err) {
-      setMessage(withApiReason(t('dossierFailed'), err));
-    }
-  }
 
   /**
    * Một mốc duyệt tại hàng chờ BỘ HỒ SƠ: hồ sơ là bề mặt CHỈ-ĐỌC
@@ -548,37 +412,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
-  async function setPaperStatus(paperId: string, status: 'ready' | 'hidden' | 'draft') {
-    try {
-      await paperStatusMutation.mutateAsync({ paperId, status });
-      refreshExamBanks();
-      if (systemExamBankId) refreshSystemPapers(systemExamBankId);
-    } catch (err) {
-      setMessage(withApiReason(t('examPaperSaveFailed'), err));
-    }
-  }
 
-  async function deletePaper(paperId: string) {
-    if (!window.confirm(t('examPaperDeleteConfirm'))) return;
-    try {
-      await deletePaperMutation.mutateAsync(paperId);
-      setMessage(t('examPaperDeleted'));
-      refreshExamBanks();
-    } catch (err) {
-      setMessage(withApiReason(t('examPaperDeleteFailed'), err));
-    }
-  }
 
-  /** Đề xuất một đề của tôi lên bank đề chung (khuôn QB-4 cho đơn vị đề; trường định danh theo hợp đồng là `examId`). */
-  async function proposePaper() {
-    if (!proposePaperId || !proposePaperBankId) return;
-    try {
-      await proposePaperMutation.mutateAsync({ bankId: proposePaperBankId, paperId: proposePaperId });
-      setMessage(t('paperProposedOk'));
-    } catch (err) {
-      setMessage(withApiReason(t('proposeFailed'), err));
-    }
-  }
 
   /**
    * Một mốc duyệt của một đề xuất đóng góp đề tại bank đích: cấp 1
@@ -609,33 +444,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   /** Mở hộp thoại GHIM: danh sách khoá học là query dùng chung khoá
    *  factory courses (bật khi hộp thoại mở); invalidate để danh sách
    *  tươi như nhịp tải lại mỗi lần mở trước đây. */
-  function openDeploy(paper: PaperSummaryLite) {
-    setDeployPaper(paper);
-    setDeploySectionId('');
-    setDeployGroupId('');
-    void queryClient.invalidateQueries({ queryKey: queryKeys.courses });
-  }
 
-  /** Ghim đề vào khoá đã chọn (toàn khoá hoặc một nhóm đích) — một thao tác exam-pins. */
-  async function runDeploy() {
-    if (!deployPaper || !deployCourseId || !deploySectionId) return;
-    try {
-      const pin = await deployPinMutation.mutateAsync({
-        courseId: deployCourseId,
-        body: {
-          sectionId: deploySectionId,
-          examId: deployPaper.id,
-          variantCount: Math.min(50, Math.max(1, Number(deployVariantCount) || 1)),
-          ...(deployGroupId ? { targetGroupId: deployGroupId } : {}),
-        },
-      });
-      setMessage(t('pinOk', { version: deployPaper.latestVersion }));
-      setDeployPaper(null);
-      navigate(`/courses/${deployCourseId}/exams/${pin.id}`);
-    } catch (err) {
-      setMessage(withApiReason(t('pinFailed'), err));
-    }
-  }
 
   useEffect(() => {
     void loadAttributionsFor(questions);
@@ -665,16 +474,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
-  /** Đề xuất đóng góp một câu (của mình) lên một bank chung. */
-  async function proposeToBank(questionId: string, targetBankId: string) {
-    if (!targetBankId) return;
-    try {
-      await proposeQuestionMutation.mutateAsync({ bankId: targetBankId, questionId });
-      setMessage(t('proposedOk'));
-    } catch {
-      setMessage(t('proposeFailed'));
-    }
-  }
 
   async function reviewContribution(bankId: string, contributionId: string, approve: boolean) {
     try {
@@ -691,18 +490,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     }
   }
 
-  /** Xoá vật lý một câu của mình (API chặn khi câu đã được dùng — khi đó hãy rút câu). */
-  async function deleteMyQuestion(questionId: string) {
-    if (!window.confirm(t('deleteQuestionConfirm'))) return;
-    try {
-      await deleteQuestionMutation.mutateAsync(questionId);
-      setMessage(t('questionDeleted'));
-      refreshBanks();
-      refreshCategoryQuestions();
-    } catch {
-      setMessage(t('deleteFailed'));
-    }
-  }
+
+
+
 
   /** Rút / hoàn rút một câu khỏi bank của nó. */
   async function toggleWithdraw(view: QuestionView) {
@@ -722,12 +512,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     } catch {
       setMessage(t('proposeFailed'));
     }
-  }
-
-
-  /** Sửa một câu trong ngân hàng riêng: mở màn sửa riêng của câu đó. */
-  function editMine(view: QuestionView) {
-    navigate(`/questions/${view.question.id}/edit?category=${view.question.category}`);
   }
 
   async function submitStimulus(event: FormEvent) {
@@ -1039,438 +823,41 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           <AlertDescription>{message}</AlertDescription>
         </Alert>
       ) : null}
+
       {area === 'my-questions' ? (
-        <>
-      {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính của Lão gia):
-          tách hẳn khỏi Ngân hàng hệ thống. Danh sách câu của chính
-          giáo viên hiện THẲNG trong trang, không bọc thẻ thu/mở —
-          chốt 23:43 ngày 26/10/2026 (sổ quyết định mục B); nút tạo
-          câu nằm ở PageHeader, không lặp trong danh sách. */}
-      <div className="space-y-4">
-            {myQuestions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
-            ) : (
-              <ul className="space-y-2">
-                {myQuestions.map((view) => {
-                  const a = attributions[view.question.id];
-                  const isCopy = Boolean(
-                    (view.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId,
-                  );
-                  return (
-                    <li key={view.question.id} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        {questionExcerpt(view)}
-                        {(view.entry as { status?: string }).status === 'hidden' ? (
-                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
-                        ) : null}
-                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{view.entry.latestVersion}</span>
-                        {isCopy && a ? (
-                          <span className="block text-xs text-muted-foreground">
-                            {t('copiedFromLine', { author: a.originalAuthorName ?? '—', bank: a.sourceBankName ?? '—' })}
-                          </span>
-                        ) : null}
-                      </span>
-                      <Button type="button" variant="outline" onClick={() => editMine(view)}>
-                        {t('editRow')}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => void toggleWithdraw(view)}>
-                        {(view.entry as { status?: string }).status === 'hidden' ? t('restoreQuestion') : t('withdrawQuestion')}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => void deleteMyQuestion(view.question.id)}>
-                        {t('deleteRow')}
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {sharedBanks.length > 0 && myQuestions.length > 0 ? (
-              <div className="flex flex-wrap items-end gap-2">
-                <div>
-                  <Label htmlFor="propose-question">{t('proposeToBank')}</Label>
-                  <select
-                    id="propose-question"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={proposeQuestionId}
-                    onChange={(e) => setProposeQuestionId(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {myQuestions.map((view) => (
-                      <option key={view.question.id} value={view.question.id}>
-                        {questionExcerpt(view)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="propose-bank">{t('pickBank')}</Label>
-                  <select
-                    id="propose-bank"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={proposeBankId}
-                    onChange={(e) => setProposeBankId(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {sharedBanks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button
-                  type="button"
-                  disabled={!proposeQuestionId || !proposeBankId}
-                  onClick={() => void proposeToBank(proposeQuestionId, proposeBankId)}
-                >
-                  {t('propose')}
-                </Button>
-              </div>
-            ) : null}
-      </div>
-        </>
+        <MyQuestionsPanel
+          myQuestions={myQuestions}
+          attributions={attributions}
+          sharedBanks={sharedBanks}
+          refreshBanks={refreshBanks}
+          refreshCategoryQuestions={refreshCategoryQuestions}
+          setMessage={setMessage}
+        />
       ) : null}
 
       {area === 'my-matrices' ? (
-        <>
-      {/* Khu vực RIÊNG — Ma trận của tôi (MB-1, issue #111): phân
-          biệt hẳn với Ngân hàng hệ thống. Danh sách ma trận của
-          chính giáo viên hiện THẲNG trong trang, không bọc thẻ
-          thu/mở — chốt 23:43 ngày 26/10/2026 (sổ quyết định mục
-          B); nút Ma trận mới + Nhập từ file nằm ở PageHeader,
-          Sửa/Xoá tại dòng. Dữ liệu nạp ngay khi vào trang qua các
-          query của component (trước đây mở thẻ còn gọi
-          refreshMatrixBanks — các đột biến trong trang vẫn tự
-          refresh như cũ). */}
-      <div className="space-y-4">
-            {myMatrices.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
-            ) : (
-              <ul className="space-y-2">
-                {myMatrices.map((m) => (
-                  <li key={m.id} className="flex flex-wrap items-center gap-2">
-                    <span className="min-w-0 flex-1">
-                      {m.name}
-                      {m.isTemplate ? (
-                        <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('matrixTemplateBadge')}</span>
-                      ) : null}
-                      <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t(matrixStatusKey(m.status))}</span>
-                      <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{m.version}</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {subjectName(m.subjectId)} · {t('matrixCellsCount', { count: m.cells.length })}
-                        {m.derivedFromMatrixId ? ` · ${t('matrixDerivedNote')}` : ''}
-                      </span>
-                    </span>
-                    <Button type="button" variant="outline" onClick={() => navigate(`/matrices/${m.id}/edit`)}>
-                      {t('editRow')}
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => void deleteMyMatrix(m.id)}>
-                      {t('deleteRow')}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {sharedMatrixBanks.length > 0 && myMatrices.some((m) => m.status === 'ready') ? (
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-end gap-2">
-                  <div>
-                    <Label htmlFor="propose-matrix">{t('proposeToBank')}</Label>
-                    <select
-                      id="propose-matrix"
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={proposeMatrixId}
-                      onChange={(e) => setProposeMatrixId(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {myMatrices
-                        .filter((m) => m.status === 'ready')
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="propose-matrix-bank">{t('pickBank')}</Label>
-                    <select
-                      id="propose-matrix-bank"
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={proposeMatrixBankId}
-                      onChange={(e) => setProposeMatrixBankId(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {sharedMatrixBanks.map((bank) => (
-                        <option key={bank.id} value={bank.id}>
-                          {bank.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    type="button"
-                    disabled={!proposeMatrixId || !proposeMatrixBankId}
-                    onClick={() => void proposeMatrixToBank(proposeMatrixId, proposeMatrixBankId)}
-                  >
-                    {t('propose')}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">{t('matrixProposeHint')}</p>
-              </div>
-            ) : null}
-      </div>
-        </>
+        <MyMatricesPanel
+          myMatrices={myMatrices}
+          sharedMatrixBanks={sharedMatrixBanks}
+          subjects={subjects}
+          refreshMatrixBanks={refreshMatrixBanks}
+          setMessage={setMessage}
+        />
       ) : null}
 
       {area === 'my-exams' ? (
-        <>
-      {/* Khu vực "Đề của tôi" (EB-1): khu vực riêng của giáo viên
-          cho ĐỀ — song song khu câu hỏi ở trên theo mô hình hai khu
-          vực đã chốt. Danh sách đề của chính giáo viên hiện THẲNG
-          trong trang, không bọc thẻ thu/mở — chốt 23:43 ngày
-          26/10/2026 (sổ quyết định mục B); nút Đề mới nằm ở
-          PageHeader, Sửa/Xoá tại dòng. */}
-      <div className="space-y-4">
-            {myPapers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('examPaperEmpty')}</p>
-            ) : (
-              <ul className="space-y-2">
-                {myPapers.map((paper) => (
-                  <li key={paper.id} className="flex flex-wrap items-center gap-2">
-                    <span className="min-w-0 flex-1">
-                      {paper.name}
-                      <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
-                        {paper.status === 'ready'
-                          ? t('examPaperStatusReady')
-                          : paper.status === 'hidden'
-                            ? t('examPaperStatusHidden')
-                            : t('examPaperStatusDraft')}
-                      </span>
-                      <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {t('examPaperSlotsCount', { count: paper.slotCount })}
-                      </span>
-                    </span>
-                    <Button type="button" variant="outline" onClick={() => navigate(`/exams/${paper.id}/edit`)}>
-                      {t('editRow')}
-                    </Button>
-                    {paper.status === 'draft' ? (
-                      <Button type="button" variant="outline" onClick={() => void setPaperStatus(paper.id, 'ready')}>
-                        {t('examPaperMarkReady')}
-                      </Button>
-                    ) : null}
-                    {paper.status === 'ready' ? (
-                      <Button type="button" variant="outline" onClick={() => void setPaperStatus(paper.id, 'hidden')}>
-                        {t('examPaperHide')}
-                      </Button>
-                    ) : null}
-                    {paper.status === 'hidden' ? (
-                      <Button type="button" variant="outline" onClick={() => void setPaperStatus(paper.id, 'ready')}>
-                        {t('examPaperRestore')}
-                      </Button>
-                    ) : null}
-                    {paper.status === 'ready' && paper.capabilities.deploy ? (
-                      <Button type="button" variant="outline" onClick={() => void openDeploy(paper)}>
-                        {t('pinExamAction')}
-                      </Button>
-                    ) : null}
-                    <Button type="button" variant="outline" onClick={() => void deletePaper(paper.id)}>
-                      {t('deleteRow')}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {deployPaper ? (
-              <div className="flex flex-wrap items-end gap-2 rounded-md border p-3">
-                <div>
-                  <Label htmlFor="deploy-course">{t('deployPickCourse')}</Label>
-                  <select
-                    id="deploy-course"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={deployCourseId}
-                    onChange={(e) => {
-                    setDeployCourseId(e.target.value);
-                    setDeploySectionId('');
-                    setDeployGroupId('');
-                  }}
-                  >
-                    <option value="">—</option>
-                    {deployCourses.map((c) => (
-                      <option key={c.id} value={c.id}>{c.fullName}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="deploy-section">{t('pinPickSection')}</Label>
-                  <select
-                    id="deploy-section"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={deploySectionId}
-                    onChange={(e) => setDeploySectionId(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {deploySections.map((sec) => (
-                      <option key={sec.id} value={sec.id}>{sec.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="deploy-group">{t('pinPickGroup')}</Label>
-                  <select
-                    id="deploy-group"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={deployGroupId}
-                    onChange={(e) => setDeployGroupId(e.target.value)}
-                  >
-                    <option value="">{t('pinExamWholeCourse')}</option>
-                    {deployGroups.map((g) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="deploy-variants">{t('deployVariantCount')}</Label>
-                  <Input
-                    id="deploy-variants"
-                    type="number"
-                    min={1}
-                    max={50}
-                    className="w-24"
-                    value={deployVariantCount}
-                    onChange={(e) => setDeployVariantCount(e.target.value)}
-                  />
-                </div>
-                <Button type="button" disabled={!deployCourseId || !deploySectionId} onClick={() => void runDeploy()}>
-                  {t('pinExamAction')}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setDeployPaper(null)}>
-                  ✕
-                </Button>
-              </div>
-            ) : null}
-            {sharedExamBanks.length > 0 && myPapers.length > 0 ? (
-              <div className="flex flex-wrap items-end gap-2">
-                <div>
-                  <Label htmlFor="propose-paper">{t('proposePaperToBank')}</Label>
-                  <select
-                    id="propose-paper"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={proposePaperId}
-                    onChange={(e) => setProposePaperId(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {myPapers.filter((p) => p.status === 'ready').map((paper) => (
-                      <option key={paper.id} value={paper.id}>{paper.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="propose-paper-bank">{t('pickBank')}</Label>
-                  <select
-                    id="propose-paper-bank"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={proposePaperBankId}
-                    onChange={(e) => setProposePaperBankId(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {sharedExamBanks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>{bank.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <Button type="button" disabled={!proposePaperId || !proposePaperBankId} onClick={() => void proposePaper()}>
-                  {t('propose')}
-                </Button>
-              </div>
-            ) : null}
-            {/* Nộp BỘ HỒ SƠ (EB-3): đề ready CÓ ma trận nộp theo cả bộ
-                (ma trận + đề + đặc tả) vào bank tổ/trường. Từ S4/Q4
-                thao tác này là đề xuất ĐÓNG GÓP kèm bộ hồ sơ đính kèm
-                trên đường đóng góp duy nhất (xem proposeDossier);
-                trạng thái và lý do từ chối theo dõi ở hàng chờ đóng
-                góp/hồ sơ của bank đích và danh sách lịch sử dưới đây. */}
-            {sharedExamBanks.length > 0 && myPapers.length > 0 ? (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-end gap-2">
-                  <div>
-                    <Label htmlFor="dossier-paper">{t('dossierPropose')}</Label>
-                    <select
-                      id="dossier-paper"
-                      data-testid="dossier-paper-select"
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={dossierPaperId}
-                      onChange={(e) => setDossierPaperId(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {myPapers.filter((p) => p.status === 'ready').map((paper) => (
-                        <option key={paper.id} value={paper.id}>{paper.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="dossier-bank">{t('pickBank')}</Label>
-                    <select
-                      id="dossier-bank"
-                      data-testid="dossier-bank-select"
-                      className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                      value={dossierBankId}
-                      onChange={(e) => setDossierBankId(e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {sharedExamBanks.map((bank) => (
-                        <option key={bank.id} value={bank.id}>{bank.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <Button
-                    type="button"
-                    data-testid="dossier-submit-button"
-                    disabled={!dossierPaperId || !dossierBankId}
-                    onClick={() => void proposeDossier()}
-                  >
-                    {t('dossierPropose')}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">{t('dossierProposeHint')}</p>
-              </div>
-            ) : null}
-            <div className="space-y-2">
-              <h4 className="font-medium">{t('dossierMine')}</h4>
-              {myDossiers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('dossierEmpty')}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {myDossiers.map((d) => {
-                    const rejection = [...d.reviews].reverse().find((r) => r.decision === 'rejected');
-                    return (
-                      <li key={d.id} className="flex flex-wrap items-center gap-2" data-testid="my-dossier-row">
-                        <span className="min-w-0 flex-1">
-                          {d.examName ?? d.examId}
-                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
-                            {t(dossierStatusKey(d.status))}
-                          </span>
-                          {d.examVersionNumber !== null ? (
-                            <span className="ml-2 text-xs text-muted-foreground">
-                              {t('dossierPinned', { paperVersion: d.examVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}
-                            </span>
-                          ) : null}
-                          {d.status === 'rejected' && rejection?.reason ? (
-                            <span className="block text-xs text-destructive">
-                              {t('dossierRejectedReason', { reason: rejection.reason })}
-                            </span>
-                          ) : null}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-      </div>
-        </>
+        <MyPapersPanel
+          myPapers={myPapers}
+          sharedExamBanks={sharedExamBanks}
+          systemExamBankId={systemExamBankId}
+          refreshExamBanks={refreshExamBanks}
+          refreshSystemPapers={refreshSystemPapers}
+          refreshMyDossiers={refreshMyDossiers}
+          setMessage={setMessage}
+        />
       ) : null}
+
+
 
       {area.startsWith('system') ? (
         <>
@@ -1844,112 +1231,13 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
             </>
             ) : null}
             {area === 'system-matrices' ? (
-            <section id="system-matrices" className="space-y-3 scroll-mt-24">
-              <h3 className="font-medium">{t('sharedMatrixBank')}</h3>
-              <div className="flex flex-wrap items-end gap-2">
-                <div>
-                  <Label htmlFor="shared-matrix-bank">{t('pickBank')}</Label>
-                  <select
-                    id="shared-matrix-bank"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={sharedMatrixBankId}
-                    onChange={(e) => {
-                      setSharedMatrixBankId(e.target.value);
-                    }}
-                  >
-                    <option value="">—</option>
-                    {sharedMatrixBanks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.name} ({t(`bankScope${bank.scope[0]!.toUpperCase()}${bank.scope.slice(1)}`)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="matrix-subject-filter">{t('matrixFilterSubject')}</Label>
-                  <select
-                    id="matrix-subject-filter"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={matrixSubjectFilter}
-                    onChange={(e) => setMatrixSubjectFilter(e.target.value)}
-                  >
-                    <option value="">{t('matrixAllSubjects')}</option>
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {!sharedMatrixBankId ? (
-                <p className="text-sm text-muted-foreground">{t('discoveryEmpty')}</p>
-              ) : filteredSharedMatrices.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('dashboard:emptyTable')}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {filteredSharedMatrices.map((m) => (
-                    <li key={m.id} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        {m.name}
-                        {m.isTemplate ? (
-                          <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('matrixTemplateBadge')}</span>
-                        ) : null}
-                        <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t(matrixStatusKey(m.status))}</span>
-                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{m.version}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {subjectName(m.subjectId)} · {t('matrixCellsCount', { count: m.cells.length })}
-                        </span>
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        title={t('copyToMyBankFull')}
-                        aria-label={t('copyToMyBankFull')}
-                        onClick={() => void copyMatrixToMyBank(m.id)}
-                      >
-                        {t('copyToMyBank')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {sharedMatrixBankId ? (
-                <div className="space-y-2">
-                  <h4 className="font-medium">{t('contributionQueue')}</h4>
-                  {matrixContributions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('contributionEmpty')}</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {matrixContributions.map((c) => (
-                        <li key={c.id} className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 flex-1">
-                            {c.matrixName ?? c.matrixId}
-                            <span className="block text-xs text-muted-foreground">
-                              {t('contributionBy', { name: c.proposerName ?? '—' })}
-                            </span>
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void reviewMatrixContribution(sharedMatrixBankId, c.id, true)}
-                          >
-                            {t('contributionApprove')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void reviewMatrixContribution(sharedMatrixBankId, c.id, false)}
-                          >
-                            {t('contributionReject')}
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
-            </section>
+              <SystemMatricesPanel
+                sharedMatrixBanks={sharedMatrixBanks}
+                subjects={subjects}
+                refreshMatrixBanks={refreshMatrixBanks}
+                refreshSharedMatrices={refreshSharedMatrices}
+                setMessage={setMessage}
+              />
             ) : null}
       </div>
         </>
