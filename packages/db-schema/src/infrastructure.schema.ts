@@ -52,7 +52,7 @@ export const adminSettingAudit = pgTable('admin_setting_audit', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/** Transactional outbox (self-built, ADR-004). `tenant_id` nạp từ ngữ cảnh tenant của request/job khi phát sinh (TENANT-0, #168) — NULL = sự kiện platform/không gian chung. */
+/** Transactional outbox (self-built). `tenant_id` nạp từ ngữ cảnh tenant của request/job khi phát sinh (TENANT-0, #168) — NULL = sự kiện platform/không gian chung. */
 export const outboxEvents = pgTable('outbox_events', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`).$defaultFn(() => uuidv7()),
   seq: bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity().unique(),

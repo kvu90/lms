@@ -71,8 +71,7 @@ export const envSchema = z.object({
   // hạn mức chung cho mọi route và hạn mức chặt riêng cho các route
   // cấp token. Khoá tài khoản sau LOCKOUT_THRESHOLD lần sai vẫn là lớp
   // bảo vệ theo tài khoản; hai lớp này bổ sung cho nhau. Mặc định phải
-  // đủ rộng cho cả lớp học cùng ra Internet qua một IP NAT của trường
-  // — xem runbook vận hành trước khi siết chặt hơn.
+  // đủ rộng cho cả lớp học cùng ra Internet qua một IP NAT của trường.
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(3000),
   RATE_LIMIT_AUTH_PER_MINUTE: z.coerce.number().int().positive().default(300),
   // Danh sách origin được phép gọi API trực tiếp (phân tách bằng dấu

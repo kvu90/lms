@@ -77,7 +77,7 @@ export class BackupProcessor extends WorkerHost {
     for (const name of contributorNames) {
       await this.db.insert(backupJobSteps).values({ jobId: row.id, name, status: 'completed', detail: { worker: true } });
     }
-    // Archive dùng CHUNG định dạng lms-backup v1 với API (ADR-007): bản tóm
+    // Archive dùng CHUNG định dạng lms-backup v1 với API: bản tóm
     // tắt của worker mang đủ các section contributor mới (questions/badges/
     // calendar) bên cạnh các section cũ; attempts/usages của question bank
     // và assertions của badge KHÔNG bao giờ vào archive (dữ liệu vận hành /

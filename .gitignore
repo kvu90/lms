@@ -12,7 +12,7 @@ apps/api/drizzle/meta/*_snapshot.json.tmp
 # local content-addressed file storage (dev default)
 data/
 
-# Compiled output lives only in dist/ (ADR-010) — never next to sources:
+# Compiled output lives only in dist/ — never next to sources:
 # app-root config builds (e.g. drizzle.config.ts) and stray emit in src/test.
 apps/*/*.js
 apps/*/*.d.ts

@@ -9,8 +9,7 @@ import {
 } from '@nestjs/i18n';
 
 /**
- * Cấu hình i18n dùng chung (gói chính thức `@nestjs/i18n`, ghim exact 0.0.1 —
- * xem ADR tương ứng): catalog JSON tập trung tại `src/i18n/<locale>/*.json`,
+ * Cấu hình i18n dùng chung (gói chính thức `@nestjs/i18n`, ghim exact 0.0.1): catalog JSON tập trung tại `src/i18n/<locale>/*.json`,
  * locale mặc định là tiếng Việt, kèm tiếng Anh. Thứ tự resolver: query `lang`
  * → header `x-lang` → `Accept-Language` → cookie. `missingKey` ném lỗi ngoài
  * production để test phát hiện thiếu khoá sớm, production thì fallback về

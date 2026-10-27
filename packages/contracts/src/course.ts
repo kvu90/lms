@@ -207,7 +207,7 @@ export type CourseCompletion = z.infer<typeof courseCompletionSchema>;
 /** Availability tree JSON (Moodle core_availability shape): ops & | !& !| with showc/show at the root. */
 export const availabilityOps = ['&', '|', '!&', '!|'] as const;
 
-/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất; xem ADR Zod-only) ---- */
+/* ---- Request payload schemas (Zod — nguồn sự thật duy nhất) ---- */
 
 /** Payload tạo danh mục khoá học. */
 export const createCourseCategorySchema = z.strictObject({

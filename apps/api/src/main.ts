@@ -43,7 +43,7 @@ async function bootstrap(): Promise<void> {
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   // Validation toàn cục đi qua APP_PIPE (I18nStandardSchemaValidationPipe) đã
-  // đăng ký trong AppModule — mọi payload đều là schema Zod (ADR-009).
+  // đăng ký trong AppModule — mọi payload đều là schema Zod.
   app.useGlobalFilters(new ProblemDetailsFilter());
   // CORS chỉ mở cho các origin khai trong CORS_ORIGINS (mặc định là web
   // dev); không phản chiếu mọi origin như mặc định của enableCors().

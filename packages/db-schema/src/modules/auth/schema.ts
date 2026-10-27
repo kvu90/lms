@@ -179,7 +179,7 @@ export const authTwoFactor = pgTable('two_factor', {
  * `MCP_AS_ENABLED` bật; baseline mang DDL từ lát này như khuôn GĐ1 đã
  * làm với `two_factor`.
  *
- * HAI ngoại lệ định danh có chủ đích (ADR-018, allowlist tường minh
+ * HAI ngoại lệ định danh có chủ đích (allowlist tường minh
  * trong spec uuidv7):
  * - `oauth_client.id` là TEXT: khoá chính NỘI BỘ của dòng client,
  *   PostgreSQL sinh lúc ghi bằng `DEFAULT gen_random_uuid()::text`
@@ -221,7 +221,7 @@ export const authJwks = pgTable('jwks', {
  * khoá chính nội bộ do PostgreSQL sinh (`gen_random_uuid()::text`);
  * `client_id` TEXT (unique)
  * là định danh công khai mà các bảng oauth_* khác tham chiếu qua
- * field `clientId` (xem ngoại lệ ADR-018 phía trên).
+ * field `clientId` (xem ngoại lệ phía trên).
  */
 export const oauthClient = pgTable('oauth_client', {
   id: text('id').primaryKey().default(sql`gen_random_uuid()::text`),
@@ -371,7 +371,7 @@ export const oauthConsent = pgTable('oauth_consent', {
 /**
  * Bản ghi dùng-một-lần cho `jti` của client assertion `private_key_jwt`
  * (model `oauthClientAssertion`): `id` TEXT do provider tự cấp bằng hàm
- * băm xác định (xem ngoại lệ ADR-018) — chống phát lại ở tầng PK.
+ * băm xác định (xem ngoại lệ phía trên) — chống phát lại ở tầng PK.
  */
 export const oauthClientAssertion = pgTable('oauth_client_assertion', {
   id: text('id').primaryKey(),

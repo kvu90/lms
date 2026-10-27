@@ -8,7 +8,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from './identity-access-helpers';
 
 /**
- * Kiểm chứng nền tảng khóa chính UUIDv7 (ADR-013).
+ * Kiểm chứng nền tảng khóa chính UUIDv7.
  * Nguồn: báo cáo nghiên cứu nội bộ postgresql-18-uuidv7 §4.6 — đây là test
  * kiểm chứng nền tảng, KHÔNG phải oracle Moodle.
  */
@@ -129,7 +129,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // oauth_refresh_token, oauth_consent, oauth_client_assertion) →
     // trên cây hợp nhất: 195 bảng tổng, 181 bảng có PK mặc định
     // uuidv7(). HAI bảng không có PK uuidv7 là ngoại lệ định danh có
-    // chủ đích theo ADR-018: oauth_client.id là TEXT — khoá NỘI BỘ do
+    // chủ đích: oauth_client.id là TEXT — khoá NỘI BỘ do
     // DB sinh bằng gen_random_uuid() (định danh công khai client_id,
     // gồm cả URL của client CIMD, nằm ở cột client_id riêng) và
     // oauth_client_assertion.id là TEXT do provider tự cấp bằng hàm
@@ -201,7 +201,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     // bảng blog bị gỡ ở issue #173, 8 bảng điểm của mô hình cũ bị gỡ ở
     // issue #224 và trừ ròng 3 bảng của feat gộp Đề #226: −8 bảng
     // quiz/triển khai cũ +5 bảng họ pin mới) + ĐÚNG
-    // 2 ngoại lệ text của ADR-018 (lát MCP-1, issue #163) liệt kê
+    // 2 ngoại lệ text (lát MCP-1, issue #163) liệt kê
     // tường minh dưới đây — bảng nào khác lọt vào allowlist này là
     // hồi quy định danh, không phải ngoại lệ mới.
     const TEXT_ID_ALLOWLIST = ['oauth_client', 'oauth_client_assertion'];
@@ -211,7 +211,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
         if (row.table_name === 'oauth_client') {
           // id TEXT là khoá NỘI BỘ do PostgreSQL sinh
           // (gen_random_uuid()) — instance chạy generateId:false nên
-          // adapter chèn DEFAULT cho cột này (ADR-018 đính chính).
+          // adapter chèn DEFAULT cho cột này (đính chính).
           expect(row.column_default, `table ${row.table_name}`).toBe('gen_random_uuid()');
         } else {
           // oauth_client_assertion: id TEXT không default — giá trị
@@ -225,7 +225,7 @@ describe('UUIDv7 primary keys (PostgreSQL 18 platform verification)', () => {
     expect(
       defaults.rows.filter((row) => TEXT_ID_ALLOWLIST.includes(row.table_name)).map((row) => row.table_name).sort(),
     ).toEqual([...TEXT_ID_ALLOWLIST].sort());
-    // Bảng nối thuần túy (ADR-013): không cột id — PK phức hợp từ hai FK,
+    // Bảng nối thuần túy: không cột id — PK phức hợp từ hai FK,
     // trừ hai bảng mà PK đồng thời là FK duy nhất thì giữ PK một cột.
     const joinTables: Record<string, number> = {
       cohort_members: 2,

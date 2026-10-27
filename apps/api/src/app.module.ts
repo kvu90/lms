@@ -108,8 +108,7 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
      * hạn mức chung cho mọi route và hạn mức chặt chỉ áp cho các route
      * xác thực có kiểm chứng mật khẩu. Lưu trữ mặc định trong bộ nhớ của
      * tiến trình — đủ cho mô hình modular monolith một instance; khi
-     * scale nhiều instance API phải chuyển sang storage dùng chung
-     * (xem runbook vận hành).
+     * scale nhiều instance API phải chuyển sang storage dùng chung.
      */
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
