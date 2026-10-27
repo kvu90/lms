@@ -50,6 +50,21 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     return { id: user.id, token };
   }
 
+  /**
+   * Nhân sự HAI VAI (teacher + student ở context hệ thống): từ lát
+   * audience (issue #288), loại phía học sinh như grade_updated chỉ
+   * nằm trong bề mặt của người có context học sinh thật — ca nào cần
+   * nhân sự đặt tuỳ chọn cho loại phía học sinh thì dùng fixture này.
+   */
+  async function staffDualUser(): Promise<{ id: string; token: string }> {
+    const user = await createUserViaApi(app, admin);
+    const sys = await systemContextId(app, admin);
+    await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'teacher'), sys);
+    await assignRole(app, admin, user.id, await roleIdByShortname(app, admin, 'student'), sys);
+    const token = (await login(app, user.username, STRONG_PASSWORD)).accessToken;
+    return { id: user.id, token };
+  }
+
   /** Học sinh thuần: chỉ ghi danh vào một khoá, không vai nhân sự nào. */
   async function studentInCourse(): Promise<{ courseId: string; id: string; token: string }> {
     const cat = await createCategory(app, admin);
@@ -87,7 +102,9 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
   });
 
   it('admin disable blocks delivery for everyone before user preferences, logs skipped-admin-disabled; re-enable restores', async () => {
-    const staff = await staffUser();
+    // Nhân sự hai vai: grade_updated là loại phía học sinh nên chỉ
+    // người có context học sinh mới đặt được tuỳ chọn cho nó (#288).
+    const staff = await staffDualUser();
     const student = await studentInCourse();
 
     // Tuỳ chọn cá nhân của nhân sự đang BẬT tường minh cho grade_updated.
@@ -144,7 +161,7 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     expect(sent.body.channels.popup).toBe('delivered');
   });
 
-  it('student: per-type PUT 403, GET empty, course mute override still works; staff keeps the full surface', async () => {
+  it('student: per-type PUT 403, GET empty, course mute override still works; staff keeps their side of the surface', async () => {
     const student = await studentInCourse();
 
     const put = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${student.token}`)
@@ -170,13 +187,16 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
     );
     expect(prefRow.rows[0]?.value).toBe('mute');
 
-    // Đối chứng: nhân sự giữ bề mặt v2 đầy đủ (20 dòng + PUT được).
+    // Đối chứng: nhân sự giữ bề mặt v2 ở PHÍA VAI CỦA MÌNH (issue
+    // #288: giáo viên thuần thấy 10 loại phía nhân sự + mọi vai, đặt
+    // được loại phía mình; loại chỉ học sinh nhận không thuộc bề mặt
+    // của họ nữa — ca lọc đầy đủ ở spec notifications-preferences-v2).
     const staff = await staffUser();
     const staffGet = await http(app).get('/api/v1/messages/preferences').set('Authorization', `Bearer ${staff.token}`);
     expect(staffGet.status).toBe(200);
-    expect(staffGet.body).toHaveLength(20);
+    expect(staffGet.body).toHaveLength(10);
     const staffPut = await http(app).put('/api/v1/messages/preferences').set('Authorization', `Bearer ${staff.token}`)
-      .send({ provider: 'grade_updated', popupEnabled: false });
+      .send({ provider: 'assignment_submitted', popupEnabled: false });
     expect(staffPut.status).toBe(200);
     expect(staffPut.body.popupEnabled).toBe(false);
   });

@@ -4,7 +4,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, n
 import type { Database } from '../../db/database';
 import { tenantAls } from '../tenants/tenant-als';
 import {
-  assignments, assignGrades, assignSubmissions, classes, cohortMembers, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers,
+  assignments, assignGrades, assignSubmissions, classes, cohortMembers, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers, guardianLinks,
   message, messageContacts, messageContactRequests, messageConversationMembers, messageConversationReports, messageConversations, messageModeratorActions, messageUserDeletions, messageUsersBlocked,
   notificationDispatchLog, notifications, examAttempts, examPins, examVersions, role, roleAssignments, tenantMemberships, tenants, userEnrolments, users,
 } from '../../db/schema';
@@ -995,6 +995,60 @@ export class MessagingRepository {
       .from(roleAssignments)
       .innerJoin(role, eq(role.id, roleAssignments.roleId))
       .where(and(eq(roleAssignments.userId, userId), inArray(role.archetype, [...STAFF_ARCHETYPES])))
+      .limit(1);
+    return rows.length > 0;
+  }
+
+  /**
+   * User có ÍT NHẤT một context HỌC SINH thật hay không — căn cứ của
+   * tầng audience phía học sinh trong tuỳ chọn thông báo (lát phân
+   * chia theo vai, issue #288). "Context học sinh" theo đúng hợp nhất
+   * mà hệ đã dùng cho tư cách thành viên khoá (ghi danh hiệu lực ∪
+   * gán vai tại context khoá): ở đây gồm (a) một ghi danh ĐANG HIỆU
+   * LỰC ở bất kỳ khoá nào — cùng điều kiện hiệu lực với
+   * `listActiveEnrolledUserIds` (trạng thái ghi danh + trạng thái
+   * instance đều 0, nằm trong cửa sổ thời gian) nhưng không ghim một
+   * khoá cụ thể; hoặc (b) một gán vai archetype `student` ở bất kỳ
+   * context nào — đối xứng với `hasStaffRoleAssignment` phía nhân sự.
+   * Giáo viên thuần (không ghi danh học viên ở đâu) trả false.
+   */
+  async hasStudentContext(userId: string): Promise<boolean> {
+    const now = new Date();
+    const enrolled = await this.db.select({ id: userEnrolments.id })
+      .from(userEnrolments)
+      .innerJoin(enrol, eq(userEnrolments.enrolId, enrol.id))
+      .where(and(
+        eq(userEnrolments.userId, userId),
+        eq(userEnrolments.status, 0),
+        eq(enrol.status, 0),
+        lte(userEnrolments.timeStart, now),
+        or(isNull(userEnrolments.timeEnd), gte(userEnrolments.timeEnd, now)),
+      ))
+      .limit(1);
+    if (enrolled.length > 0) return true;
+    const assigned = await this.db.select({ id: roleAssignments.id })
+      .from(roleAssignments)
+      .innerJoin(role, eq(role.id, roleAssignments.roleId))
+      .where(and(eq(roleAssignments.userId, userId), eq(role.archetype, 'student')))
+      .limit(1);
+    return assigned.length > 0;
+  }
+
+  /**
+   * User có ÍT NHẤT một liên kết giám hộ ĐANG HIỆU LỰC trong vai trò
+   * PHỤ HUYNH hay không (`guardian_links.status = 'active'` với
+   * guardianUserId là chính user) — căn cứ của tầng audience phía
+   * phụ huynh trong tuỳ chọn thông báo (issue #288): chỉ người thật
+   * sự đang là phụ huynh mới thấy hai loại guardian_*; liên kết đã
+   * thu hồi không tính. Đọc thẳng bảng dùng chung như kỷ luật của
+   * phần staff ở trên, không import module Guardians (module đó đang
+   * phụ thuộc MessagingService để phát thông báo — import ngược sẽ
+   * thành vòng).
+   */
+  async hasActiveGuardianLink(userId: string): Promise<boolean> {
+    const rows = await this.db.select({ id: guardianLinks.id })
+      .from(guardianLinks)
+      .where(and(eq(guardianLinks.guardianUserId, userId), eq(guardianLinks.status, 'active')))
       .limit(1);
     return rows.length > 0;
   }
