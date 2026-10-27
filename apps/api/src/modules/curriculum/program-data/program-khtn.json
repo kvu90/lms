@@ -9,7 +9,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Mở đầu",
    "content": "Giới thiệu một số dụng cụ đo và quy tắc an toàn trong phòng thực hành",
    "kind": "content",
    "outcomes": [
@@ -101,7 +101,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Chất và sự biến đổi của chất",
    "content": "Các thể (trạng thái) của chất – Sự đa dạng của chất – Ba thể (trạng thái) cơ bản của chất – Sự chuyển đổi thể (trạng thái) của chất",
    "kind": "content",
    "outcomes": [
@@ -221,7 +221,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Chất và sự biến đổi của chất",
    "content": "Oxygen (oxi) và không khí",
    "kind": "content",
    "outcomes": [
@@ -342,7 +342,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Chất và sự biến đổi của chất",
    "content": "Một số vật liệu, nhiên liệu, nguyên liệu, lương thực, thực phẩm thông dụng; tính chất và ứng dụng của chúng – Một số vật liệu – Một số nhiên liệu – Một số nguyên liệu – Một số lương thực – thực phẩm",
    "kind": "content",
    "outcomes": [
@@ -481,7 +481,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Chất và sự biến đổi của chất",
    "content": "Chất tinh khiết, hỗn hợp, dung dịch",
    "kind": "content",
    "outcomes": [
@@ -587,7 +587,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Chất và sự biến đổi của chất",
    "content": "Tách chất ra khỏi hỗn hợp",
    "kind": "content",
    "outcomes": [
@@ -651,7 +651,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Tế bào",
    "content": "Tế bào – đơn vị cơ sở của sự sống – Khái niệm tế bào – Hình dạng và kích thước tế bào – Cấu tạo và chức năng tế bào",
    "kind": "content",
    "outcomes": [
@@ -716,7 +716,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Tế bào",
    "content": "– Sự lớn lên và sinh sản của tế bào – Tế bào là đơn vị cơ sở của sự sống",
    "kind": "content",
    "outcomes": [
@@ -808,7 +808,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Tế bào",
    "content": "Từ tế bào đến cơ thể – Từ tế bào đến mô – Từ mô đến cơ quan – Từ cơ quan đến hệ cơ quan – Từ hệ cơ quan đến cơ thể",
    "kind": "content",
    "outcomes": [
@@ -4152,7 +4152,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Mở đầu",
    "content": "Mở đầu",
    "kind": "content",
    "outcomes": [
@@ -4216,7 +4216,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "Phản ứng hoá học – Biến đổi vật lí và biến đổi hoá học",
    "kind": "content",
    "outcomes": [
@@ -4266,7 +4266,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Phản ứng hoá học",
    "kind": "content",
    "outcomes": [
@@ -4344,7 +4344,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Năng lượng trong các phản ứng hoá học",
    "kind": "content",
    "outcomes": [
@@ -4394,7 +4394,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Định luật bảo toàn khối lượng",
    "kind": "content",
    "outcomes": [
@@ -4444,7 +4444,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Phương trình hoá học",
    "kind": "content",
    "outcomes": [
@@ -4509,7 +4509,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Mol và tỉ khối của chất khí",
    "kind": "content",
    "outcomes": [
@@ -4615,7 +4615,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Tính theo phương trình hoá học",
    "kind": "content",
    "outcomes": [
@@ -4665,7 +4665,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "– Nồng độ dung dịch",
    "kind": "content",
    "outcomes": [
@@ -4743,7 +4743,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phản ứng hoá học",
    "content": "Tốc độ phản ứng và chất xúc tác",
    "kind": "content",
    "outcomes": [
@@ -4855,7 +4855,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Acid – Base – pH – Oxide – Muối",
    "content": "Acid – Base – pH – Oxide – Muối – Acid (axit)",
    "kind": "content",
    "outcomes": [
@@ -4919,7 +4919,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Acid – Base – pH – Oxide – Muối",
    "content": "– Base (bazơ)",
    "kind": "content",
    "outcomes": [
@@ -4997,7 +4997,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Acid – Base – pH – Oxide – Muối",
    "content": "– Thang đo pH",
    "kind": "content",
    "outcomes": [
@@ -5062,7 +5062,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Acid – Base – pH – Oxide – Muối",
    "content": "– Oxide (oxit)",
    "kind": "content",
    "outcomes": [
@@ -5140,7 +5140,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Acid – Base – pH – Oxide – Muối",
    "content": "– Muối",
    "kind": "content",
    "outcomes": [
@@ -5246,7 +5246,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Phân bón hoá học",
    "content": "Phân bón hoá học",
    "kind": "content",
    "outcomes": [
@@ -5325,7 +5325,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Khối lượng riêng và áp suất",
    "content": "Khối lượng riêng và áp suất – Khái niệm khối lượng riêng – Đo khối lượng riêng – Áp suất trên một bề mặt – Tăng, giảm áp suất – Áp suất trong chất lỏng, trong chất khí",
    "kind": "content",
    "outcomes": [
@@ -5502,7 +5502,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Tác dụng làm quay của lực",
    "content": "Tác dụng làm quay của lực – Lực có thể làm quay vật – Đòn bẩy và moment lực",
    "kind": "content",
    "outcomes": [
@@ -5594,7 +5594,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Điện",
    "content": "Điện – Hiện tượng nhiễm điện – Dòng điện – Tác dụng của dòng điện – Nguồn điện – Mạch điện đơn giản – Đo cường độ dòng điện và hiệu điện thế",
    "kind": "content",
    "outcomes": [
@@ -7791,7 +7791,7 @@
    "level": "THCS",
    "stream": "",
    "section": "",
-   "topic": "",
+   "topic": "Cân bằng tự nhiên",
    "content": "– Biện pháp duy trì cân bằng tự nhiên",
    "kind": "content",
    "outcomes": [
