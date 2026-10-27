@@ -294,4 +294,29 @@ export const queryKeys = {
   questionUsage: (usageId: string) => ['question-usages', usageId] as const,
   /** Một ngữ liệu theo id (GET /stimuli/:id) — trang làm thử (nội dung của phiên bản đã ghim). */
   stimulusDetail: (stimulusId: string) => ['stimuli', stimulusId] as const,
+  /** Cây nhóm của tab Nhóm (GET /messages/group-tree) — trang tin nhắn. */
+  messagingGroupTree: ['messages', 'group-tree'] as const,
+  /** Danh sách hội thoại chính (GET /messages/conversations) — trang tin nhắn. */
+  messagingConversations: ['messages', 'conversations'] as const,
+  /** Danh sách hội thoại đã lưu (GET /messages/conversations?archived=true) — trang tin nhắn. */
+  messagingArchivedConversations: ['messages', 'conversations', 'archived'] as const,
+  /** Danh sách người đã chặn (GET /messages/contacts/blocked) — trang tin nhắn. */
+  messagingBlockedContacts: ['messages', 'contacts', 'blocked'] as const,
+  /** Danh bạ đã duyệt (GET /messages/contacts) — trang tin nhắn. */
+  messagingContacts: ['messages', 'contacts'] as const,
+  /** Hàng chờ kết bạn (GET /messages/contacts/requests) — trang tin nhắn. */
+  messagingContactRequests: ['messages', 'contacts', 'requests'] as const,
+  /** Các khoá của người xem (GET /messages/courses) — trang tin nhắn. */
+  messagingCourses: ['messages', 'courses'] as const,
+  /** Chi tiết một hội thoại (GET /messages/conversations/:id) — trang tin nhắn. */
+  messagingConversationDetail: (conversationId: string) => ['messages', 'conversations', conversationId] as const,
+  /** Một cửa sổ tin theo mốc seq (GET /messages/conversations/:id/messages?beforeSeq=) — trang tin nhắn. */
+  messagingMessagesPage: (conversationId: string, beforeSeq: number) =>
+    ['messages', 'conversations', conversationId, 'messages', beforeSeq] as const,
+  /** Kết quả tìm nội dung trong một hội thoại (GET /messages/conversations/:id/search) — trang tin nhắn. */
+  messagingSearch: (conversationId: string, q: string) => ['messages', 'conversations', conversationId, 'search', q] as const,
+  /** Một trang roster lớp/khoá theo URL đầy đủ — trang tin nhắn (panel thành viên + bộ chọn người). */
+  messagingRosterPage: (url: string) => ['messages', 'roster', url] as const,
+  /** Chat cấp lớp được ensure (GET /messages/classes/:id/conversation) — trang tin nhắn. */
+  messagingClassConversation: (classId: string) => ['messages', 'classes', classId, 'conversation'] as const,
 };

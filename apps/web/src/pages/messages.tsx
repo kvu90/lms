@@ -4,7 +4,38 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import '../i18n';
 import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
-import { apiJson, ApiError } from '#lib/api';
+import { ApiError } from '#lib/api';
+import {
+  classConversationQueryOptions,
+  conversationDetailQueryOptions,
+  conversationMessagesPageQueryOptions,
+  courseConversationQueryOptions,
+  messageSearchQueryOptions,
+  messagingArchivedConversationsQueryOptions,
+  messagingBlockedContactsQueryOptions,
+  messagingContactRequestsQueryOptions,
+  messagingContactsQueryOptions,
+  messagingConversationsQueryOptions,
+  messagingCoursesQueryOptions,
+  messagingGroupTreeQueryOptions,
+  rosterPageQueryOptions,
+  useBulkRemoveMessages,
+  useCreateDirectConversation,
+  useCreateFreeGroup,
+  useCreateGroupConversation,
+  useDeleteMessageForMe,
+  useHardDeleteMessage,
+  useMarkConversationRead,
+  useRecallMessage,
+  useRemoveConversationMember,
+  useReportConversation,
+  useRespondContactRequest,
+  useSendContactRequest,
+  useSendMessage,
+  useSetContactBlocked,
+  useSetConversationEnabled,
+  useSetConversationState,
+} from '#lib/messaging-data';
 import { useAuth } from '#lib/auth';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '#lib/messaging-socket';
 import { queryKeys } from '#lib/query-keys';
@@ -378,15 +409,35 @@ export function MessagesPage() {
   /** Tên hiển thị của một user; chưa tra được thông tin thì lùi về chính id như trước. */
   const nameOf = useCallback((userId: string) => people[userId]?.displayName ?? userId, [people]);
 
+  // Thao tác ghi của trang qua các đột biến của lib/messaging-data
+  // (F-01 của rà soát #133): đột biến mỏng, trang tự áp kết quả vào
+  // state của nó như bản thủ công (kênh realtime không đổi).
+  const conversationStateMutation = useSetConversationState();
+  const markReadMutation = useMarkConversationRead();
+  const contactBlockedMutation = useSetContactBlocked();
+  const sendMessageMutation = useSendMessage();
+  const contactRequestMutation = useSendContactRequest();
+  const respondRequestMutation = useRespondContactRequest();
+  const directConversationMutation = useCreateDirectConversation();
+  const groupConversationMutation = useCreateGroupConversation();
+  const freeGroupMutation = useCreateFreeGroup();
+  const reportConversationMutation = useReportConversation();
+  const removeMemberMutation = useRemoveConversationMember();
+  const conversationEnabledMutation = useSetConversationEnabled();
+  const deleteMessageMutation = useDeleteMessageForMe();
+  const recallMessageMutation = useRecallMessage();
+  const hardDeleteMutation = useHardDeleteMessage();
+  const bulkRemoveMutation = useBulkRemoveMessages();
+
   /** Nạp cây nhóm cho tab Nhóm (lát MSG-T3): đường riêng, lỗi thì giữ cây gần nhất. */
   const loadGroupTree = useCallback(async () => {
     try {
-      const tree = await apiJson<ConversationGroupTreeView>('/api/v1/messages/group-tree');
+      const tree = await queryClient.fetchQuery(messagingGroupTreeQueryOptions());
       setGroupTree(tree);
     } catch {
       // Giữ cây gần nhất.
     }
-  }, []);
+  }, [queryClient]);
 
   /** Đổi tab khung trái (lát MSG-T3): cập nhật state + lưu bền để lần quay lại vẫn gặp tab này. */
   const setSidebarTab = useCallback((value: string) => {
@@ -396,8 +447,8 @@ export function MessagesPage() {
 
   const reload = useCallback(async () => {
     const [list, blockedRes] = await Promise.all([
-      apiJson<ConversationView[]>('/api/v1/messages/conversations'),
-      apiJson<{ blocked: string[]; profiles?: Record<string, PersonSummary> }>('/api/v1/messages/contacts/blocked'),
+      queryClient.fetchQuery(messagingConversationsQueryOptions()),
+      queryClient.fetchQuery(messagingBlockedContactsQueryOptions()),
     ]);
     setConversations(list);
     recountUnread(list);
@@ -409,11 +460,8 @@ export function MessagesPage() {
     // được phép làm hỏng danh sách cuộc trò chuyện ở trên.
     try {
       const [contactsRes, requestsRes] = await Promise.all([
-        apiJson<{ contacts: string[]; profiles?: Record<string, PersonSummary> }>('/api/v1/messages/contacts'),
-        apiJson<{
-          incoming: ContactRequestView[];
-          outgoing: ContactRequestView[];
-        }>('/api/v1/messages/contacts/requests'),
+        queryClient.fetchQuery(messagingContactsQueryOptions()),
+        queryClient.fetchQuery(messagingContactRequestsQueryOptions()),
       ]);
       setContacts(contactsRes.contacts);
       mergePeople(contactsRes.profiles);
@@ -425,7 +473,7 @@ export function MessagesPage() {
     // Khoá của tôi (luồng tìm bạn theo khoá): đường riêng, lỗi thì
     // giữ danh sách khoá gần nhất như danh bạ.
     try {
-      const coursesRes = await apiJson<{ courses: MessagingCourse[] }>('/api/v1/messages/courses');
+      const coursesRes = await queryClient.fetchQuery(messagingCoursesQueryOptions());
       setMyCourses(coursesRes.courses);
     } catch {
       // Giữ danh sách khoá gần nhất.
@@ -438,18 +486,18 @@ export function MessagesPage() {
     }
     // Cây nhóm đi cùng nhịp nạp (tab Nhóm luôn tươi như danh sách).
     await loadGroupTree();
-  }, [loadGroupTree, mergePeople, recountUnread]);
+  }, [loadGroupTree, mergePeople, queryClient, recountUnread]);
 
   /** Nạp mục ĐÃ LƯU (lát M5): danh sách riêng của server, lỗi thì giữ bản gần nhất. */
   const loadArchived = useCallback(async () => {
     try {
-      const list = await apiJson<ConversationView[]>('/api/v1/messages/conversations?archived=true');
+      const list = await queryClient.fetchQuery(messagingArchivedConversationsQueryOptions());
       setArchivedConversations(list);
       for (const c of list) mergePeople(c.memberProfiles);
     } catch {
       // Giữ mục đã lưu gần nhất.
     }
-  }, [mergePeople]);
+  }, [mergePeople, queryClient]);
 
   /**
    * Đặt một cờ trạng thái cá nhân trên một cuộc trò chuyện (lát M5):
@@ -460,10 +508,7 @@ export function MessagesPage() {
   const updateConversationState = useCallback(async (conversation: ConversationView, patch: ConversationStatePatch) => {
     setStateError(null);
     try {
-      const res = await apiJson<ConversationStateView>(
-        `/api/v1/messages/conversations/${conversation.id}/state`,
-        { method: 'PATCH', body: JSON.stringify(patch) },
-      );
+      const res = await conversationStateMutation.mutateAsync({ conversationId: conversation.id, patch });
       const applyState = (c: ConversationView): ConversationView => (c.id === conversation.id
         ? { ...c, pinnedAt: res.pinnedAt, archivedAt: res.archivedAt, muted: res.muted }
         : c);
@@ -491,10 +536,7 @@ export function MessagesPage() {
   /** Đánh dấu đã đọc ở server và phản ánh ngay vào state (mốc của mình + unread của conversation). */
   const markRead = useCallback(async (conversationId: string) => {
     try {
-      const res = await apiJson<{ marked: number; lastReadSeq: number }>(
-        `/api/v1/messages/conversations/${conversationId}/read`,
-        { method: 'POST', body: '{}' },
-      );
+      const res = await markReadMutation.mutateAsync(conversationId);
       if (myId) setReadMarkers((prev) => ({ ...prev, [myId]: res.lastReadSeq }));
       setConversations((prev) => {
         const next = prev.map((c) => (c.id === conversationId ? { ...c, unread: 0, lastReadSeq: res.lastReadSeq } : c));
@@ -510,10 +552,7 @@ export function MessagesPage() {
   async function blockContact(userId: string) {
     setBlockMessage(null);
     try {
-      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, {
-        method: 'POST',
-        body: '{}',
-      });
+      const res = await contactBlockedMutation.mutateAsync({ userId, block: true });
       setBlocked(res.blocked);
       setBlockMessage(t('contactBlocked'));
     } catch {
@@ -525,9 +564,7 @@ export function MessagesPage() {
   async function unblockContact(userId: string) {
     setBlockMessage(null);
     try {
-      const res = await apiJson<{ blocked: string[] }>(`/api/v1/messages/contacts/${userId}/block`, {
-        method: 'DELETE',
-      });
+      const res = await contactBlockedMutation.mutateAsync({ userId, block: false });
       setBlocked(res.blocked);
       setBlockMessage(t('contactUnblocked'));
     } catch {
@@ -600,7 +637,7 @@ export function MessagesPage() {
         // trần thì panel hiện phần đã nạp thay vì vòng lặp vô hạn.
         for (let page = 0; page < 25; page += 1) {
           const url: string = cursor ? `${base}?limit=100&cursor=${encodeURIComponent(cursor)}` : `${base}?limit=100`;
-          const res: { members: RosterMember[]; nextCursor: string | null } = await apiJson(url);
+          const res = await queryClient.fetchQuery(rosterPageQueryOptions(url));
           all.push(...res.members);
           cursor = res.nextCursor;
           if (!cursor) break;
@@ -648,7 +685,7 @@ export function MessagesPage() {
     }
     void (async () => {
       try {
-        const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${deepLinkId}`);
+        const detail = await queryClient.fetchQuery(conversationDetailQueryOptions(deepLinkId));
         const summary: ConversationView = {
           id: detail.id,
           type: detail.type,
@@ -688,7 +725,7 @@ export function MessagesPage() {
     }
     void (async () => {
       try {
-        const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${savedId}`);
+        const detail = await queryClient.fetchQuery(conversationDetailQueryOptions(savedId));
         const { messages: _detailMessages, hasMoreBefore: _hasMore, memberReadMarkers: _markers, ...summary } = detail;
         setConversations((prev) => (prev.some((c) => c.id === summary.id) ? prev : [summary, ...prev]));
         await open(summary);
@@ -772,7 +809,7 @@ export function MessagesPage() {
         if (activeRef.current?.id === conversationId) {
           void (async () => {
             try {
-              const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conversationId}`);
+              const detail = await queryClient.fetchQuery(conversationDetailQueryOptions(conversationId));
               setMessages(detail.messages);
               setHasMoreBefore(detail.hasMoreBefore ?? false);
               const markers: Record<string, number> = {};
@@ -851,7 +888,7 @@ export function MessagesPage() {
     setSendError(null);
     // Kết quả tìm là của conversation trước — không mang sang.
     setMessageSearch({ query: '', results: [], loading: false, failed: false, submitted: false });
-    const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conv.id}`);
+    const detail = await queryClient.fetchQuery(conversationDetailQueryOptions(conv.id));
     // Chi tiết mang theo enabled + thẩm quyền của chính user (Lớp B):
     // gộp vào conversation đang mở để header/khung soạn biết đường hiển thị.
     const { messages: _detailMessages, ...detailView } = detail;
@@ -873,9 +910,7 @@ export function MessagesPage() {
     if (!active) return;
     const oldest = messages.find((m) => !m.localStatus);
     if (!oldest) return;
-    const page = await apiJson<{ messages: MessageView[]; hasMoreBefore: boolean }>(
-      `/api/v1/messages/conversations/${active.id}/messages?beforeSeq=${oldest.seq}&limit=50`,
-    );
+    const page = await queryClient.fetchQuery(conversationMessagesPageQueryOptions(active.id, oldest.seq));
     setMessages((prev) => mergeMessages(page.messages, prev));
     setHasMoreBefore(page.hasMoreBefore);
   }
@@ -901,12 +936,12 @@ export function MessagesPage() {
       localStatus: 'sending',
     }]));
     try {
-      const saved = await apiJson<MessageView>(`/api/v1/messages/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({
+      const saved = await sendMessageMutation.mutateAsync({
+        conversationId,
+        body: {
           text, clientMessageId,
           ...(quote ? { replyToMessageId: quote.replyToMessageId } : {}),
-        }),
+        },
       });
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (saved.seq > seen) lastSeqRef.current.set(conversationId, saved.seq);
@@ -1050,9 +1085,7 @@ export function MessagesPage() {
       return;
     }
     try {
-      const page = await apiJson<{ messages: MessageView[]; hasMoreBefore: boolean }>(
-        `/api/v1/messages/conversations/${active.id}/messages?beforeSeq=${seq + 1}&limit=50`,
-      );
+      const page = await queryClient.fetchQuery(conversationMessagesPageQueryOptions(active.id, seq + 1));
       setMessages((prev) => mergeMessages(page.messages, prev));
       if (page.hasMoreBefore) setHasMoreBefore(true);
       if (page.messages.some((m) => m.id === messageId)) scrollAndHighlight();
@@ -1082,9 +1115,7 @@ export function MessagesPage() {
     }
     setMessageSearch({ query: q, results: [], loading: true, failed: false, submitted: true });
     try {
-      const res = await apiJson<{ results: MessageSearchResultView[] }>(
-        `/api/v1/messages/conversations/${conversationId}/search?q=${encodeURIComponent(q)}&limit=50`,
-      );
+      const res = await queryClient.fetchQuery(messageSearchQueryOptions(conversationId, q));
       // Người dùng đã chuyển conversation trong lúc chờ: bỏ kết quả cũ.
       if (activeRef.current?.id !== conversationId) return;
       setMessageSearch({ query: q, results: res.results, loading: false, failed: false, submitted: true });
@@ -1128,10 +1159,7 @@ export function MessagesPage() {
   async function sendContactRequestTo(userId: string) {
     setContactMessage(null);
     try {
-      const res = await apiJson<{ status: 'pending' | 'accepted' }>(`/api/v1/messages/contacts/${userId}`, {
-        method: 'POST',
-        body: '{}',
-      });
+      const res = await contactRequestMutation.mutateAsync(userId);
       setContactMessage(res.status === 'accepted' ? t('contactRequestAccepted') : t('contactRequestSent'));
       // Phản ánh ngay lên dòng roster đang hiện, rồi đồng bộ lại toàn bộ.
       patchRosterRelationship(userId, res.status === 'accepted' ? 'contact' : 'pending_outgoing');
@@ -1164,7 +1192,7 @@ export function MessagesPage() {
     const url = pickerRosterUrl(context);
     if (!url) return;
     try {
-      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(url);
+      const res = await queryClient.fetchQuery(rosterPageQueryOptions(url));
       setPickerMembers(res.members);
       setPickerCursor(res.nextCursor);
       mergePeople(Object.fromEntries(res.members.map((m) => [m.userId, m])));
@@ -1179,7 +1207,7 @@ export function MessagesPage() {
     const url = pickerRosterUrl(pickerContext, pickerCursor);
     if (!url) return;
     try {
-      const res = await apiJson<{ members: RosterMember[]; nextCursor: string | null }>(url);
+      const res = await queryClient.fetchQuery(rosterPageQueryOptions(url));
       setPickerMembers((prev) => [...prev, ...res.members]);
       setPickerCursor(res.nextCursor);
       mergePeople(Object.fromEntries(res.members.map((m) => [m.userId, m])));
@@ -1192,7 +1220,7 @@ export function MessagesPage() {
   async function respondContactRequest(userId: string, action: 'accept' | 'decline') {
     setContactMessage(null);
     try {
-      await apiJson(`/api/v1/messages/contacts/requests/${userId}/${action}`, { method: 'POST', body: '{}' });
+      await respondRequestMutation.mutateAsync({ userId, action });
       patchRosterRelationship(userId, action === 'accept' ? 'contact' : 'none');
       patchPanelRelationship(userId, action === 'accept' ? 'contact' : 'none');
       await reload();
@@ -1203,10 +1231,7 @@ export function MessagesPage() {
 
   /** Mở cuộc trò chuyện 1-1 với một liên hệ đã duyệt. */
   async function messageContact(userId: string) {
-    const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
-      method: 'POST',
-      body: JSON.stringify({ memberIds: [userId] }),
-    });
+    const conv = await directConversationMutation.mutateAsync(userId);
     await reload();
     await open(conv);
   }
@@ -1226,7 +1251,7 @@ export function MessagesPage() {
       return;
     }
     try {
-      const detail = await apiJson<ConversationDetailView>(`/api/v1/messages/conversations/${conversationId}`);
+      const detail = await queryClient.fetchQuery(conversationDetailQueryOptions(conversationId));
       const { messages: _detailMessages, hasMoreBefore: _hasMore, memberReadMarkers: _markers, ...summary } = detail;
       setConversations((prev) => (prev.some((c) => c.id === summary.id) ? prev : [summary, ...prev]));
       await open(summary);
@@ -1243,7 +1268,7 @@ export function MessagesPage() {
    */
   async function openClassChat(classId: string) {
     try {
-      const conv = await apiJson<ConversationView>(`/api/v1/messages/classes/${classId}/conversation`);
+      const conv = await queryClient.fetchQuery(classConversationQueryOptions(classId));
       await reload();
       await open(conv);
     } catch {
@@ -1258,7 +1283,7 @@ export function MessagesPage() {
    */
   async function openCourseChat(courseId: string) {
     try {
-      const conv = await apiJson<ConversationView>(`/api/v1/messages/courses/${courseId}/conversation`);
+      const conv = await queryClient.fetchQuery(courseConversationQueryOptions(courseId));
       await reload();
       await open(conv);
     } catch {
@@ -1273,10 +1298,7 @@ export function MessagesPage() {
    */
   async function openGroupConversation(groupId: string) {
     try {
-      const conv = await apiJson<ConversationView>('/api/v1/messages/conversations/group', {
-        method: 'POST',
-        body: JSON.stringify({ groupId }),
-      });
+      const conv = await groupConversationMutation.mutateAsync(groupId);
       await reload();
       await open(conv);
     } catch {
@@ -1296,10 +1318,7 @@ export function MessagesPage() {
   async function createFreeGroup(name: string, memberIds: string[]): Promise<boolean> {
     setGroupCreateError(null);
     try {
-      const conv = await apiJson<ConversationView>('/api/v1/messages/conversations', {
-        method: 'POST',
-        body: JSON.stringify({ type: 2, name, memberIds }),
-      });
+      const conv = await freeGroupMutation.mutateAsync({ name, memberIds });
       await reload();
       await open(conv);
       return true;
@@ -1318,7 +1337,7 @@ export function MessagesPage() {
     if (!active) return;
     setReportMessage(null);
     try {
-      await apiJson(`/api/v1/messages/conversations/${active.id}/report`, { method: 'POST', body: '{}' });
+      await reportConversationMutation.mutateAsync(active.id);
       setReportMessage(t('conversationReported'));
     } catch {
       setReportMessage(t('reportFailed'));
@@ -1337,9 +1356,7 @@ export function MessagesPage() {
     if (!window.confirm(t('memberRemoveConfirm', { name: nameOf(userId) }))) return;
     setActionMessage(null);
     try {
-      const updated = await apiJson<ConversationView>(`/api/v1/messages/conversations/${active.id}/members/${userId}`, {
-        method: 'DELETE',
-      });
+      const updated = await removeMemberMutation.mutateAsync({ conversationId: active.id, userId });
       setActive((prev) => (prev ? { ...prev, members: updated.members } : prev));
       setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, members: updated.members } : c)));
       setPanelRefreshTick((n) => n + 1);
@@ -1352,9 +1369,9 @@ export function MessagesPage() {
   /** Bật/tắt chat của cuộc trò chuyện đang mở (chỉ hiện khi canManage). */
   async function toggleActiveChat() {
     if (!active) return;
-    const updated = await apiJson<ConversationView>(`/api/v1/messages/conversations/${active.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ enabled: !(active.enabled ?? true) }),
+    const updated = await conversationEnabledMutation.mutateAsync({
+      conversationId: active.id,
+      enabled: !(active.enabled ?? true),
     });
     setActive((prev) => (prev ? { ...prev, enabled: updated.enabled } : prev));
     setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, enabled: updated.enabled } : c)));
@@ -1369,7 +1386,7 @@ export function MessagesPage() {
   async function deleteMessage(message: MessageView) {
     setActionMessage(null);
     try {
-      const deleted = await apiJson<MessageView>(`/api/v1/messages/messages/${message.id}`, { method: 'DELETE' });
+      const deleted = await deleteMessageMutation.mutateAsync(message.id);
       setMessages((prev) => prev.map((m) => (m.id === message.id
         ? { ...m, deletedAt: deleted.deletedAt ?? new Date().toISOString(), deletedBy: deleted.deletedBy ?? myId ?? null }
         : m)));
@@ -1394,7 +1411,7 @@ export function MessagesPage() {
   async function recallMessage(message: MessageView) {
     setActionMessage(null);
     try {
-      const recalled = await apiJson<MessageView>(`/api/v1/messages/messages/${message.id}/recall`, { method: 'POST', body: '{}' });
+      const recalled = await recallMessageMutation.mutateAsync(message.id);
       setMessages((prev) => prev.map((m) => (m.id === message.id
         ? { ...m, fullMessage: '', recalledAt: recalled.recalledAt ?? new Date().toISOString(), recalledBy: recalled.recalledBy ?? myId ?? null }
         : m)));
@@ -1410,9 +1427,7 @@ export function MessagesPage() {
     const reason = window.prompt(t('hardDeleteReasonPrompt'));
     if (!reason || !reason.trim()) return;
     try {
-      await apiJson(`/api/v1/messages/messages/${message.id}/hard-delete`, {
-        method: 'POST', body: JSON.stringify({ reason: reason.trim() }),
-      });
+      await hardDeleteMutation.mutateAsync({ messageId: message.id, reason: reason.trim() });
       setMessages((prev) => prev.filter((m) => m.id !== message.id));
       setSelectedForBulk((prev) => {
         const next = new Set(prev);
@@ -1433,9 +1448,7 @@ export function MessagesPage() {
     const reason = window.prompt(t('bulkRemoveReasonPrompt'));
     if (!reason || !reason.trim()) return;
     try {
-      await apiJson('/api/v1/messages/messages/bulk-remove', {
-        method: 'POST', body: JSON.stringify({ messageIds, reason: reason.trim() }),
-      });
+      await bulkRemoveMutation.mutateAsync({ messageIds, reason: reason.trim() });
       setMessages((prev) => prev.filter((m) => !selectedForBulk.has(m.id)));
       setSelectedForBulk(new Set());
     } catch {
