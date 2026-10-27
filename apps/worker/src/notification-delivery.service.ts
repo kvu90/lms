@@ -29,18 +29,43 @@ export interface WorkerProviderLaw {
 
 /**
  * Sổ provider phía worker — chỉ gồm các provider mà WORKER là nơi phát
- * (hai đường trước đây ghi thẳng vào bảng notifications). `component` và
+ * (các đường trước đây ghi thẳng vào bảng notifications). `component` và
  * `mandatoryInApp` PHẢI khớp `MESSAGE_PROVIDERS` phía API
- * (apps/api/src/modules/messaging/messaging.service.ts) — nguồn sự thật
- * của registry vẫn là phía API; bảng này là bản chiếu tối thiểu để worker
- * áp đúng luật mà không import ngược từ app API (khác tiến trình).
+ * (apps/api/src/modules/messaging/notification-providers.ts) — nguồn
+ * sự thật của registry vẫn là phía API; bảng này là bản chiếu tối thiểu
+ * để worker áp đúng luật mà không import ngược từ app API (khác tiến
+ * trình). Spec parity của issue #293 gác đối chiếu này tự động: đổi
+ * registry mà không cập nhật bản chiếu ở đây thì spec đỏ.
+ *
+ * `badge_awarded` vào sổ ở lát #174-A: đường cấp huy hiệu nền của
+ * `BadgeAwardProcessor` quy về hàm luật chung này thay cho đường ghi
+ * thẳng trước đây (lớp G10) — từ đây thông báo huy hiệu phía worker áp
+ * đủ luật như hai đường NB-6 (đình chỉ / chính sách admin NB-7 / ghi đè
+ * tắt tiếng theo khoá NB-4 / tuỳ chọn người dùng) và có dispatch log.
  */
 export const WORKER_PROVIDERS: Record<string, WorkerProviderLaw> = {
   calendar_reminder: { name: 'calendar_reminder', component: 'core_calendar', mandatoryInApp: false },
   report_scheduled: { name: 'report_scheduled', component: 'core_reportbuilder', mandatoryInApp: false },
+  badge_awarded: { name: 'badge_awarded', component: 'core_badges', mandatoryInApp: false },
 };
 
-export type InAppDeliveryStatus = 'delivered' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'unknown-provider';
+/**
+ * Các loại KHÔNG bao giờ bị ghi đè tắt tiếng theo khoá chặn — bản chiếu
+ * của `COURSE_MUTE_EXEMPT_PROVIDERS` + luật P2 phía API (xem
+ * `isExemptFromCourseMute` trong registry): chính sách P3 chừa điểm mới
+ * và sắp hết hạn ghi danh của chính khoá bị mute; hai loại bắt buộc P2
+ * (`mandatoryInApp`) cũng không bị chặn. Hai loại P3 không nằm trong
+ * `WORKER_PROVIDERS` hôm nay; giữ bản chiếu đủ để luật ở đây khớp nguyên
+ * văn luật phía API nếu sau này worker thành nơi phát của chúng.
+ */
+const COURSE_MUTE_EXEMPT_PROVIDERS = new Set(['grade_updated', 'enrol_expiry_warning']);
+
+/** Provider này có được miễn trừ khỏi ghi đè tắt tiếng theo khoá hay không (khớp `isExemptFromCourseMute` phía API). */
+function isExemptFromCourseMute(provider: WorkerProviderLaw): boolean {
+  return provider.mandatoryInApp === true || COURSE_MUTE_EXEMPT_PROVIDERS.has(provider.name);
+}
+
+export type InAppDeliveryStatus = 'delivered' | 'skipped-suspended' | 'skipped-preference' | 'skipped-admin-disabled' | 'skipped-course-mute' | 'unknown-provider';
 export interface InAppDeliveryResult { status: InAppDeliveryStatus; notificationId?: string }
 
 /**
@@ -56,6 +81,13 @@ export interface InAppDeliveryResult { status: InAppDeliveryStatus; notification
  *   dispatch log `skipped-admin-disabled`, không sinh thông báo. Luật
  *   này chạy TRƯỚC tuỳ chọn người dùng, như notify() phía API; loại
  *   bắt buộc (P2) không bao giờ bị chặn ở đây.
+ * - Ghi đè TẮT TIẾNG THEO KHOÁ (NB-4, áp ở lát #174-A cho đường huy
+ *   hiệu): nơi phát biết sự kiện thuộc khoá nào thì truyền `courseId`;
+ *   người nhận đã đặt `notif.course.<courseId>` = 'mute' thì ghi
+ *   dispatch log `skipped-course-mute`, không sinh thông báo — đúng
+ *   thứ tự luật của notify() phía API (sau NB-7, trước tuỳ chọn theo
+ *   loại) và cùng tập miễn trừ P3/P2 (xem `isExemptFromCourseMute`).
+ *   Không truyền `courseId` = sự kiện không gắn khoá, ghi đè không áp.
  * - Tuỳ chọn hiệu lực theo đúng luật NB-2 (`resolveNotificationPreference`
  *   phía API): khoá v2 `message_provider_<p>_popup_v2` trước; chưa có thì
  *   suy từ dữ liệu cũ theo thứ tự loggedin → loggedoff; chưa đặt ở đâu
@@ -180,6 +212,11 @@ export class NotificationDeliveryService implements OnModuleDestroy {
     // thông báo + dispatch log mang đúng tenant; không truyền thì giữ
     // hành vi cũ (không gắn tenant — chỉ hiển thị ở ngữ cảnh platform).
     tenantId?: string | null;
+    // NB-4 (áp ở lát #174-A): khoá nguồn của sự kiện — nơi phát biết sự
+    // kiện thuộc khoá nào thì truyền vào để áp ghi đè tắt tiếng theo
+    // khoá của người nhận, như tham số cùng tên của notify() phía API.
+    // Không truyền = sự kiện không gắn khoá, ghi đè không áp dụng.
+    courseId?: string | null;
   }): Promise<InAppDeliveryResult> {
     const provider = WORKER_PROVIDERS[providerName];
     if (!provider) return { status: 'unknown-provider' };
@@ -205,6 +242,23 @@ export class NotificationDeliveryService implements OnModuleDestroy {
         subject: input.subject, dedupeKey: `admin-disabled-${providerName}-${userId}-${randomUUID()}`,
       }).onConflictDoNothing();
       return { status: 'skipped-admin-disabled' };
+    }
+
+    // Ghi đè tắt tiếng theo khoá (NB-4): áp SAU chính sách admin và
+    // TRƯỚC tuỳ chọn theo loại — đúng thứ tự của notify() phía API.
+    // Khoá nguồn đã bị người nhận tắt tiếng thì không sinh thông báo,
+    // chỉ ghi dispatch log 'skipped-course-mute' để truy vết; các loại
+    // miễn trừ P3/P2 không bao giờ bị chặn ở đây (luật toàn cục thắng
+    // ghi đè theo khoá). Khoá tuỳ chọn dùng đúng hình dạng khoá phía
+    // API: `notif.course.<courseId>` mang 'all' | 'mute'.
+    if (input.courseId && !isExemptFromCourseMute(provider)
+      && (await this.getPreference(userId, `notif.course.${input.courseId}`)) === 'mute') {
+      await this.db.insert(notificationDispatchLog).values({
+        userId, provider: providerName, channel: 'popup', status: 'skipped-course-mute',
+        subject: input.subject, dedupeKey: `course-mute-${providerName}-${userId}-${randomUUID()}`,
+        tenantId: input.tenantId ?? null,
+      }).onConflictDoNothing();
+      return { status: 'skipped-course-mute' };
     }
 
     if (!(await this.resolvePopupEnabled(userId, provider))) {

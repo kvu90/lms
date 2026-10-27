@@ -421,6 +421,22 @@ export class BadgesService implements OnModuleInit {
    */
   /**
    * Cấp huy hiệu: tạo assertion với uniqueHash và gửi notification đã dịch cho người nhận.
+   *
+   * Flow: kiểm tra chưa từng cấp (idempotent — một user giữ một huy hiệu
+   * tối đa một assertion) → trong MỘT transaction: ghi assertion (snapshot
+   * huy hiệu + tiêu chí) và enqueue outbox `badge_issued` → SAU khi commit
+   * mới phát thông báo `badge_awarded` qua `MessagingService.notify()` —
+   * lỗi phát không bao giờ chặn việc cấp (`.catch` nuốt lỗi) → đánh dấu
+   * `issuerNotified`.
+   *
+   * Ghi nhận #174-A (issue #174): call-site này truyền `courseId` của
+   * huy hiệu vào `notify()` để luật ghi đè tắt tiếng theo khoá (NB-4) áp
+   * được cho thông báo huy hiệu thuộc khoá — người nhận đã tắt tiếng khoá
+   * nguồn thì không sinh thông báo ở kênh nào, chỉ còn dispatch log
+   * `skipped-course-mute`. Huy hiệu cấp site (`courseId = null`) thì
+   * không gắn khoá: truyền `undefined`, ghi đè theo khoá không áp dụng.
+   * Assertion vẫn được cấp bất kể kết quả phát — mute chỉ tắt thông báo,
+   * không tước huy hiệu đã đạt.
    */
   async issueBadge(badgeId: string, userId: string, evidence?: Record<string, unknown>): Promise<IssuedRow> {
     const badgeRow = await this.getBadge(badgeId);
@@ -450,6 +466,10 @@ export class BadgesService implements OnModuleInit {
       subject: this.i18n.t('platform.badgeAwardedSubject', { args: { name: badgeRow.name } }),
       body: this.i18n.t('platform.badgeAwardedBody', { args: { name: badgeRow.name, issuer: badgeRow.issuerName } }),
       contextUrl: `/badges/${badgeId}`,
+      // #174-A: gắn khoá nguồn để notify() áp ghi đè tắt tiếng theo khoá
+      // (NB-4) — xem TSDoc của issueBadge. Huy hiệu cấp site không gắn
+      // khoá thì giữ undefined như hành vi trước NB-4.
+      courseId: badgeRow.courseId ?? undefined,
     }).catch(() => undefined);
     await this.repo.updateIssued(issued.id, { issuerNotified: true });
     return issued;
