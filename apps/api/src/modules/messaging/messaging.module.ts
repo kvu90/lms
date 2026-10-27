@@ -20,6 +20,8 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
  * Facade của MessagingModule: MessagingService (conversations, messages,
  * notifications, tuỳ chọn provider, blocked contacts). Các module khác
  * thông báo cho người dùng CHỈ thông qua facade này (report §3.12).
+ * Bên trong, MessagingService là facade uỷ quyền cho năm service cụm
+ * theo ca sử dụng (tách cụm, issue #295) — wiring của module không đổi.
  */
 @Module({
   imports: [
