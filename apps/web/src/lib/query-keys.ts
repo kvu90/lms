@@ -288,4 +288,10 @@ export const queryKeys = {
   examPinVersionUpdate: (pinId: string) => ['exam-pins', pinId, 'version-update'] as const,
   /** Gắn kết chương trình của một câu hỏi (GET /questions/:id/curriculum-links) — trình soạn câu hỏi. */
   questionCurriculumLinks: (questionId: string) => ['questions', questionId, 'curriculum-links'] as const,
+  /** Bản đặc tả đã chụp của một bộ hồ sơ đề (GET /exams/dossiers/:id/specification) — trang ngân hàng. */
+  examDossierSpec: (dossierId: string) => ['exams', 'dossiers', dossierId, 'specification'] as const,
+  /** Một lượt dùng câu hỏi (GET /question-usages/:id) — trang làm thử câu hỏi. */
+  questionUsage: (usageId: string) => ['question-usages', usageId] as const,
+  /** Một ngữ liệu theo id (GET /stimuli/:id) — trang làm thử (nội dung của phiên bản đã ghim). */
+  stimulusDetail: (stimulusId: string) => ['stimuli', stimulusId] as const,
 };

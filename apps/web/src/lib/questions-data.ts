@@ -1,5 +1,7 @@
-import { queryOptions, useMutation, useQuery, type QueryClient } from '@tanstack/react-query';
-import type { QuestionCategory, QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import type {
+  QuestionCategory, QuestionUsage, QuestionView, RichTextDocument, StimulusView,
+} from '@lms/contracts';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
 import { queryClient } from './query-client';
@@ -529,4 +531,378 @@ export function useDetachQuestionOutcome() {
         method: 'DELETE',
       }),
   });
+}
+
+// --- Thao tác ghi của trang ngân hàng + trang làm thử (F-01) --------------------
+//
+// Các đột biến dưới đây KHÔNG tự làm mới danh sách: trang ngân hàng
+// có sẵn các hàm refresh* theo cụm (đích làm mới phụ thuộc bank đang
+// chọn của trang) và giữ nguyên quyền quyết định đó sau mỗi thao
+// tác, đúng như bản thủ công. Riêng các thao tác của trang làm thử
+// (usage) thì làm mới đúng khoá usage — trang nạp lại usage sau mỗi
+// thao tác như reload() thủ công của nó.
+
+/** Đột biến copy một ma trận chung về ngân hàng ma trận cá nhân (POST /exam-matrices/:id/copy). */
+export function useCopyMatrixToMyBank() {
+  return useMutation({
+    mutationFn: (matrixId: string) =>
+      apiJson(`/api/v1/exam-matrices/${matrixId}/copy`, { method: 'POST', body: '{}' }),
+  });
+}
+
+/** Đột biến xoá một ma trận của mình (DELETE /exam-matrices/:id). */
+export function useDeleteMatrix() {
+  return useMutation({
+    mutationFn: (matrixId: string) => apiJson(`/api/v1/exam-matrices/${matrixId}`, { method: 'DELETE' }),
+  });
+}
+
+/** Đột biến đề xuất đóng góp một ma trận ready lên bank ma trận chung (POST /exam-matrices/:id/contributions). */
+export function useProposeMatrixContribution() {
+  return useMutation({
+    mutationFn: ({ matrixId, targetBankId }: { matrixId: string; targetBankId: string }) =>
+      apiJson(`/api/v1/exam-matrices/${matrixId}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({ targetBankId }),
+      }),
+  });
+}
+
+/** Quyết định duyệt một đóng góp: duyệt (approve) hoặc từ chối kèm lý do bắt buộc. */
+export interface ContributionReviewVars {
+  contributionId: string;
+  approve: boolean;
+  reason?: string;
+}
+
+/** Đột biến duyệt/từ chối một đóng góp ma trận tại bank đích (POST /question-banks/:bankId/matrix-contributions/:id/approve|reject). */
+export function useReviewMatrixContribution() {
+  return useMutation({
+    mutationFn: ({ bankId, ...vars }: ContributionReviewVars & { bankId: string }) =>
+      vars.approve
+        ? apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${vars.contributionId}/approve`, {
+            method: 'POST',
+            body: '{}',
+          })
+        : apiJson(`/api/v1/question-banks/${bankId}/matrix-contributions/${vars.contributionId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ reason: vars.reason ?? '' }),
+          }),
+  });
+}
+
+/** Đột biến lập bộ hồ sơ cho một đề (POST /exams/:paperId/dossiers) — trả về hồ sơ vừa lập để nộp tiếp. */
+export function useCreateExamDossier() {
+  return useMutation({
+    mutationFn: ({ paperId, targetBankId }: { paperId: string; targetBankId: string }) =>
+      apiJson<ExamDossierLite>(`/api/v1/exams/${paperId}/dossiers`, {
+        method: 'POST',
+        body: JSON.stringify({ targetBankId }),
+      }),
+  });
+}
+
+/** Đột biến nộp một bộ hồ sơ (POST /exams/dossiers/:id/submit). */
+export function useSubmitExamDossier() {
+  return useMutation({
+    mutationFn: (dossierId: string) =>
+      apiJson(`/api/v1/exams/dossiers/${dossierId}/submit`, { method: 'POST', body: '{}' }),
+  });
+}
+
+/** Đột biến một mốc duyệt của bộ hồ sơ: cấp 1 (approve/reject) hoặc cấp 2 BGH (board-approve/board-reject); từ chối kèm lý do. */
+export function useReviewExamDossier() {
+  return useMutation({
+    mutationFn: ({
+      dossierId,
+      action,
+      reason,
+    }: {
+      dossierId: string;
+      action: 'approve' | 'reject' | 'board-approve' | 'board-reject';
+      reason?: string;
+    }) =>
+      action === 'approve' || action === 'board-approve'
+        ? apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, { method: 'POST', body: '{}' })
+        : apiJson(`/api/v1/exams/dossiers/${dossierId}/${action}`, {
+            method: 'POST',
+            body: JSON.stringify({ reason: reason ?? '' }),
+          }),
+  });
+}
+
+/** Tuỳ chọn truy vấn bản đặc tả đã chụp của một bộ hồ sơ (GET /exams/dossiers/:id/specification) — đọc theo yêu cầu qua fetchQuery. */
+export function examDossierSpecQueryOptions(dossierId: string) {
+  return queryOptions({
+    queryKey: queryKeys.examDossierSpec(dossierId),
+    queryFn: () => apiJson<DossierSpecLite>(`/api/v1/exams/dossiers/${dossierId}/specification`),
+  });
+}
+
+/** Đột biến copy một đề từ ngân hàng hệ thống về ngân hàng đề cá nhân (POST /exams/:id/copy). */
+export function useCopyExamPaper() {
+  return useMutation({
+    mutationFn: (paperId: string) => apiJson(`/api/v1/exams/${paperId}/copy`, { method: 'POST', body: '{}' }),
+  });
+}
+
+/** Đột biến đặt trạng thái của một đề (POST /exams/:id/status). */
+export function useSetExamPaperStatus() {
+  return useMutation({
+    mutationFn: ({ paperId, status }: { paperId: string; status: 'ready' | 'hidden' | 'draft' }) =>
+      apiJson(`/api/v1/exams/${paperId}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      }),
+  });
+}
+
+/** Đột biến xoá một đề (DELETE /exams/:id). */
+export function useDeleteExamPaper() {
+  return useMutation({
+    mutationFn: (paperId: string) => apiJson(`/api/v1/exams/${paperId}`, { method: 'DELETE' }),
+  });
+}
+
+/** Đột biến đề xuất một đề của tôi lên bank đề chung (POST /exams/banks/:bankId/contributions, khuôn QB-4). */
+export function useProposeExamPaperContribution() {
+  return useMutation({
+    mutationFn: ({ bankId, paperId }: { bankId: string; paperId: string }) =>
+      apiJson(`/api/v1/exams/banks/${bankId}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({ paperId }),
+      }),
+  });
+}
+
+/** Đột biến duyệt/từ chối một đóng góp đề tại bank đích (POST /exams/banks/:bankId/contributions/:id/approve|reject). */
+export function useReviewExamPaperContribution() {
+  return useMutation({
+    mutationFn: ({ bankId, ...vars }: ContributionReviewVars & { bankId: string }) =>
+      vars.approve
+        ? apiJson(`/api/v1/exams/banks/${bankId}/contributions/${vars.contributionId}/approve`, {
+            method: 'POST',
+            body: '{}',
+          })
+        : apiJson(`/api/v1/exams/banks/${bankId}/contributions/${vars.contributionId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ reason: vars.reason ?? '' }),
+          }),
+  });
+}
+
+/** Đột biến ghim một đề vào một khoá (POST /courses/:courseId/exam-pins) — trả về id lần ghim để điều hướng. */
+export function useDeployExamPin() {
+  return useMutation({
+    mutationFn: ({ courseId, body }: { courseId: string; body: Record<string, unknown> }) =>
+      apiJson<{ id: string }>(`/api/v1/courses/${courseId}/exam-pins`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  });
+}
+
+/** Đột biến copy một câu về ngân hàng cá nhân (POST /questions/:id/copy). */
+export function useCopyQuestionToMyBank() {
+  return useMutation({
+    mutationFn: (questionId: string) =>
+      apiJson(`/api/v1/questions/${questionId}/copy`, { method: 'POST', body: '{}' }),
+  });
+}
+
+/** Đột biến đề xuất đóng góp một câu lên một bank chung (POST /question-banks/:bankId/contributions). */
+export function useProposeQuestionContribution() {
+  return useMutation({
+    mutationFn: ({ bankId, questionId }: { bankId: string; questionId: string }) =>
+      apiJson(`/api/v1/question-banks/${bankId}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({ questionId }),
+      }),
+  });
+}
+
+/** Đột biến duyệt/từ chối một đóng góp câu hỏi tại bank đích (POST /question-banks/:bankId/contributions/:id/approve|reject). */
+export function useReviewQuestionContribution() {
+  return useMutation({
+    mutationFn: ({ bankId, ...vars }: ContributionReviewVars & { bankId: string }) =>
+      vars.approve
+        ? apiJson(`/api/v1/question-banks/${bankId}/contributions/${vars.contributionId}/approve`, {
+            method: 'POST',
+            body: '{}',
+          })
+        : apiJson(`/api/v1/question-banks/${bankId}/contributions/${vars.contributionId}/reject`, {
+            method: 'POST',
+            body: JSON.stringify({ reason: vars.reason ?? '' }),
+          }),
+  });
+}
+
+/** Đột biến xoá vật lý một câu (DELETE /questions/:id) — API chặn khi câu đã được dùng. */
+export function useDeleteBankQuestion() {
+  return useMutation({
+    mutationFn: (questionId: string) => apiJson(`/api/v1/questions/${questionId}`, { method: 'DELETE' }),
+  });
+}
+
+/** Đột biến hoàn rút một câu về bank của nó (POST /questions/:id/restore). */
+export function useRestoreQuestion() {
+  return useMutation({
+    mutationFn: (questionId: string) =>
+      apiJson(`/api/v1/questions/${questionId}/restore`, { method: 'POST', body: '{}' }),
+  });
+}
+
+/** Đột biến rút một câu khỏi bank của nó, kèm lý do bắt buộc (POST /questions/:id/withdraw). */
+export function useWithdrawQuestion() {
+  return useMutation({
+    mutationFn: ({ questionId, reason }: { questionId: string; reason: string }) =>
+      apiJson(`/api/v1/questions/${questionId}/withdraw`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+  });
+}
+
+/** Đột biến sửa nội dung một ngữ liệu (PATCH /stimuli/:id) — thân `content` gửi nguyên như trang soạn (chuỗi thuần hoặc tài liệu rich-text). */
+export function useUpdateStimulus() {
+  return useMutation({
+    mutationFn: ({ stimulusId, content }: { stimulusId: string; content: RichTextDocument | string }) =>
+      apiJson(`/api/v1/stimuli/${stimulusId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ content }),
+      }),
+  });
+}
+
+/** Đột biến tạo ngữ liệu mới trong danh mục (POST /stimuli) — thân `content` gửi nguyên như trang soạn. */
+export function useCreateStimulus() {
+  return useMutation({
+    mutationFn: ({ categoryId, content }: { categoryId: string; content: RichTextDocument | string }) =>
+      apiJson('/api/v1/stimuli', { method: 'POST', body: JSON.stringify({ categoryId, content }) }),
+  });
+}
+
+/** Đột biến xoá một ngữ liệu (DELETE /stimuli/:id). */
+export function useDeleteStimulus() {
+  return useMutation({
+    mutationFn: (stimulusId: string) => apiJson(`/api/v1/stimuli/${stimulusId}`, { method: 'DELETE' }),
+  });
+}
+
+/** Đột biến tạo danh mục câu hỏi (POST /questions/categories) ở màn tạo riêng. */
+export function useCreateQuestionCategory() {
+  return useMutation({
+    mutationFn: (body: { name: string; contextId: string }) =>
+      apiJson('/api/v1/questions/categories', { method: 'POST', body: JSON.stringify(body) }),
+  });
+}
+
+/** Đột biến tạo lượt làm bài từ các câu đã chọn (POST /question-usages) — trả về usage để điều hướng sang trang làm thử. */
+export function useCreateQuestionUsage() {
+  return useMutation({
+    mutationFn: (body: { component: string; slots: { questionId: string }[] }) =>
+      apiJson<QuestionUsage>('/api/v1/question-usages', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  });
+}
+
+// --- Trang làm thử câu hỏi (usage) ----------------------------------------------
+
+/** Tuỳ chọn truy vấn một lượt dùng câu hỏi (GET /question-usages/:id). */
+export function questionUsageQueryOptions(usageId: string) {
+  return queryOptions({
+    queryKey: queryKeys.questionUsage(usageId),
+    queryFn: () => apiJson<QuestionUsage>(`/api/v1/question-usages/${usageId}`),
+  });
+}
+
+/** Hook đọc usage cho trang làm thử; chỉ bật khi đã qua cổng vai của trang. */
+export function useQuestionUsage(usageId: string, enabled: boolean) {
+  return useQuery({ ...questionUsageQueryOptions(usageId), enabled });
+}
+
+/** Một phiên bản câu hỏi như endpoint versions trả về (có stimulusId để tra ngữ liệu đã gắn). */
+export interface PinnedQuestionVersion {
+  id: string;
+  version: number;
+  questionText: RichTextDocument;
+  stimulusId: string | null;
+}
+
+/**
+ * Tuỳ chọn truy vấn các version của một câu cho trang làm thử: dùng
+ * chung khoá factory `questionVersions` — bề mặt này đọc thêm id và
+ * stimulusId của cùng một đáp ứng.
+ */
+export function pinnedQuestionVersionsQueryOptions(questionId: string) {
+  return queryOptions({
+    queryKey: queryKeys.questionVersions(questionId),
+    queryFn: () => apiJson<PinnedQuestionVersion[]>(`/api/v1/questions/${questionId}/versions`),
+  });
+}
+
+/** Tuỳ chọn truy vấn một ngữ liệu theo id (GET /stimuli/:id) — nội dung gắn với phiên bản đã ghim. */
+export function stimulusDetailQueryOptions(stimulusId: string) {
+  return queryOptions({
+    queryKey: queryKeys.stimulusDetail(stimulusId),
+    queryFn: () => apiJson<StimulusView>(`/api/v1/stimuli/${stimulusId}`),
+  });
+}
+
+/** Dựng một đột biến thao tác usage: thành công thì làm mới đúng khoá usage (trang nạp lại state/fraction mới nhất). */
+function useUsageAction<TVars>(mutationFn: (vars: TVars) => Promise<unknown>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (_data, vars) => {
+      const usageId = (vars as { usageId: string }).usageId;
+      void client.invalidateQueries({ queryKey: queryKeys.questionUsage(usageId) });
+    },
+  });
+}
+
+/** Đột biến bắt đầu một usage (POST /question-usages/:id/start). */
+export function useStartQuestionUsage() {
+  return useUsageAction((vars: { usageId: string }) =>
+    apiJson(`/api/v1/question-usages/${vars.usageId}/start`, { method: 'POST', body: '{}' }),
+  );
+}
+
+/** Đột biến kết thúc một usage (POST /question-usages/:id/finish) — điểm của mọi attempt được chốt. */
+export function useFinishQuestionUsage() {
+  return useUsageAction((vars: { usageId: string }) =>
+    apiJson(`/api/v1/question-usages/${vars.usageId}/finish`, { method: 'POST', body: '{}' }),
+  );
+}
+
+/** Đột biến bắt đầu một attempt trong usage (POST /question-usages/:id/attempts/:attemptId/start). */
+export function useStartUsageAttempt() {
+  return useUsageAction((vars: { usageId: string; attemptId: string }) =>
+    apiJson(`/api/v1/question-usages/${vars.usageId}/attempts/${vars.attemptId}/start`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  );
+}
+
+/** Đột biến nộp đáp án của một attempt (POST .../attempts/:attemptId/submit) — deferredfeedback: chỉ ghi step, chưa chốt điểm. */
+export function useSubmitUsageAttempt() {
+  return useUsageAction((vars: { usageId: string; attemptId: string; response: string | null }) =>
+    apiJson(`/api/v1/question-usages/${vars.usageId}/attempts/${vars.attemptId}/submit`, {
+      method: 'POST',
+      body: JSON.stringify({ response: vars.response }),
+    }),
+  );
+}
+
+/** Đột biến kết thúc một attempt (POST .../attempts/:attemptId/finish) — fraction của attempt được chốt. */
+export function useFinishUsageAttempt() {
+  return useUsageAction((vars: { usageId: string; attemptId: string }) =>
+    apiJson(`/api/v1/question-usages/${vars.usageId}/attempts/${vars.attemptId}/finish`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  );
 }
