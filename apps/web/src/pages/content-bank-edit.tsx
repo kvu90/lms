@@ -195,7 +195,7 @@ export function ContentBankEditPage() {
           const contentBase64 = await fileToBase64(file);
           await uploadItemFile(item.id, file.name, contentBase64, file.type || undefined);
         }
-        navigate('/contentbank');
+        navigate('/content-bank');
       } catch (err) {
         setError(errorText(err, t('libraryActionFailed')));
       } finally {
@@ -218,7 +218,7 @@ export function ContentBankEditPage() {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{editing ? t('libraryFormTitleEdit') : t('libraryFormTitleNew')}</h1>
         <Link
-          to="/contentbank"
+          to="/content-bank"
           className="inline-flex h-9 items-center rounded-md border border-input bg-transparent px-4 text-sm"
         >
           {t('libraryFormBack')}
@@ -424,7 +424,7 @@ export function ContentBankEditPage() {
                 {t('libraryFormSave')}
               </Button>
               <Link
-                to="/contentbank"
+                to="/content-bank"
                 className="inline-flex h-9 items-center rounded-md border border-input bg-transparent px-4 text-sm"
               >
                 {t('libraryFormCancel')}
