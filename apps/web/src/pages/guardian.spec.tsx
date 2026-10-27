@@ -143,12 +143,19 @@ function baseHandler(withChildren: boolean): Handler {
 }
 
 function renderPage(entry = '/guardian') {
-  const router = createMemoryRouter([{ path: '/guardian', element: <GuardianPage /> }], { initialEntries: [entry] });
+  const router = createMemoryRouter(
+    [
+      { path: '/guardian', element: <GuardianPage /> },
+      { path: '/guardian/students/:studentId', element: <GuardianPage /> },
+    ],
+    { initialEntries: [entry] },
+  );
   render(
     <TestProviders>
       <RouterProvider router={router} />
     </TestProviders>,
   );
+  return router;
 }
 
 describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
@@ -190,13 +197,16 @@ describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
     expect(buttons.map((b) => b.textContent)).toEqual(['Trần An', 'Trần Bình', 'Hàng tuần', 'Hàng ngày', 'Tắt']);
   });
 
-  it('chuyển con: dữ liệu đổi đúng sang con thứ hai (trống)', async () => {
+  it('chuyển con: điều hướng sang path của con đó và dữ liệu đổi đúng sang con thứ hai (trống)', async () => {
     stubFetch(baseHandler(true));
-    renderPage();
+    const router = renderPage();
     expect(await screen.findByText('Bài nộp quá hạn')).toBeTruthy();
 
     await userEvent.click(screen.getByRole('button', { name: 'Trần Bình' }));
 
+    // Chọn con là điều hướng theo path (chuẩn #221, lát R2): URL
+    // cuối là path của con thứ hai, dữ liệu hiện của đúng con đó.
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/guardian/students/${CHILD_B}`));
     expect(await screen.findByText('Tuần này con không có việc nào đến hạn.')).toBeTruthy();
     expect(screen.getByText('Chưa có kết quả mới kể từ lần xem trước.')).toBeTruthy();
     expect(screen.queryByText('Bài nộp quá hạn')).toBeNull();
@@ -211,14 +221,50 @@ describe('Trang phụ huynh chỉ-xem (PH-1, issue #130)', () => {
     await waitFor(() => expect(screen.queryByText('Tuần này của con')).toBeNull());
   });
 
-  it('PH-2: link sâu ?student= chọn đúng con khi mở trang từ thông báo digest', async () => {
+  it('PH-2 + #221 R2: link sâu cũ ?student= từ thông báo digest chuyển hướng thay thế sang path theo con và chọn đúng con', async () => {
     stubFetch(baseHandler(true));
-    renderPage(`/guardian?student=${CHILD_B}`);
+    const router = renderPage(`/guardian?student=${CHILD_B}`);
 
-    // Con B (khối trống) được chọn ngay, không phải con đầu tiên.
+    // Đích cuối là path của con B (không còn ở URL dạng query), và
+    // con B (khối trống) được chọn, không phải con đầu tiên.
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/guardian/students/${CHILD_B}`));
+    expect(router.state.location.search).toBe('');
     expect(await screen.findByText('Tuần này con không có việc nào đến hạn.')).toBeTruthy();
     expect(screen.queryByText('Bài nộp quá hạn')).toBeNull();
     expect(screen.getByRole('button', { name: 'Trần Bình' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('#221 R2: mở thẳng path theo con /guardian/students/:studentId hiện đúng dữ liệu của con đó', async () => {
+    stubFetch(baseHandler(true));
+    const router = renderPage(`/guardian/students/${CHILD_B}`);
+
+    expect(await screen.findByText('Tuần này con không có việc nào đến hạn.')).toBeTruthy();
+    expect(router.state.location.pathname).toBe(`/guardian/students/${CHILD_B}`);
+    expect(screen.queryByText('Bài nộp quá hạn')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Trần Bình' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('#221 R2: link sâu ?student= mang id không thuộc các con liên kết thì về gốc /guardian và hiện con đầu tiên', async () => {
+    stubFetch(baseHandler(true));
+    const router = renderPage('/guardian?student=01900000-0000-7000-8000-0000000000ff');
+
+    // Pathname vốn đã là /guardian ngay từ đầu nên phải chờ cả hai
+    // dấu hiệu của lượt chuyển hướng: pathname giữ /guardian VÀ
+    // query ?student= đã bị xoá (chờ riêng pathname sẽ xong trước
+    // khi chuyển hướng kịp chạy).
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/guardian');
+      expect(router.state.location.search).toBe('');
+    });
+    expect(await screen.findByText('Bài nộp quá hạn')).toBeTruthy();
+  });
+
+  it('#221 R2: path theo con trỏ tới con không thuộc các con liên kết thì về gốc /guardian', async () => {
+    stubFetch(baseHandler(true));
+    const router = renderPage('/guardian/students/01900000-0000-7000-8000-0000000000ff');
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/guardian'));
+    expect(await screen.findByText('Bài nộp quá hạn')).toBeTruthy();
   });
 
   it('PH-2: đổi tần suất digest — mặc định Hàng tuần, bấm Hàng ngày thì lưu và hiệu lực ngay trên trang', async () => {

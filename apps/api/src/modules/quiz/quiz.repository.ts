@@ -186,8 +186,20 @@ export class QuizRepository {
   /**
    * Lấy một ma trận.
    */
-  async getMatrix(id: string): Promise<ExamMatrixRow | undefined> {
-    const [row] = await this.db.select().from(examMatrices).where(eq(examMatrices.id, id)); return row;
+  async getMatrix(id: string, tx?: DbTx): Promise<ExamMatrixRow | undefined> {
+    const [row] = await (tx ?? this.db).select().from(examMatrices).where(eq(examMatrices.id, id)); return row;
+  }
+  /**
+   * Ma trận trong một bank theo chữ ký nội dung đã ghi (lát chống
+   * trùng của issue #233): đường ghi dùng hàm này sau khi transaction
+   * của mình chạm ràng buộc duy nhất (bank, chữ ký) để đọc lại bản
+   * thắng cuộc và trả về thay vì lỗi.
+   */
+  async findMatrixByBankAndSignature(bankId: string, contentSignature: string): Promise<ExamMatrixRow | undefined> {
+    const [row] = await this.db.select().from(examMatrices).where(and(
+      eq(examMatrices.bankId, bankId),
+      eq(examMatrices.contentSignature, contentSignature),
+    )); return row;
   }
   /**
    * Các ma trận của một môn (mới nhất trước).

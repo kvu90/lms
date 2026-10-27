@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AdminCurriculumPage, AdminCurriculumTreePage } from './admin-curriculum';
+import { TestProviders } from '#test/providers';
 
 /**
  * Spec trang quản trị chương trình (K0a): danh sách môn thu/mở ra
@@ -164,7 +165,11 @@ function renderList() {
   const router = createMemoryRouter([{ path: '/admin/curriculum', element: <AdminCurriculumPage /> }], {
     initialEntries: ['/admin/curriculum'],
   });
-  render(<RouterProvider router={router} />);
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 function renderTree() {
@@ -172,7 +177,11 @@ function renderTree() {
     [{ path: '/admin/curriculum/curricula/:curriculumId', element: <AdminCurriculumTreePage /> }],
     { initialEntries: ['/admin/curriculum/curricula/curr-5'] },
   );
-  render(<RouterProvider router={router} />);
+  render(
+    <TestProviders>
+      <RouterProvider router={router} />
+    </TestProviders>,
+  );
 }
 
 describe('Admin curriculum pages', () => {

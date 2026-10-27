@@ -21,6 +21,7 @@ import {
   updateNotificationGroupsCache,
   useMarkNotificationRead,
   useNotificationGroups,
+  useNotificationUnreadCount,
   useReadNotificationGroup,
   type NotificationGroupFilter,
   type NotificationGroupView,
@@ -67,12 +68,10 @@ export function NotificationBell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Cùng truy vấn hệt sidebar (cùng khoá + cùng endpoint): TanStack
-  // gộp thành một lần gọi và một mục cache cho cả hai bề mặt.
-  const unreadQuery = useQuery({
-    queryKey: queryKeys.notificationUnreadCount,
-    queryFn: () => apiJson<{ unread: number }>('/api/v1/notifications/unread-count'),
-  });
+  // Cùng truy vấn hệt sidebar (options dùng chung của
+  // lib/notifications, cùng khoá nhà máy): TanStack gộp thành một
+  // lần gọi và một mục cache cho cả hai bề mặt.
+  const unreadQuery = useNotificationUnreadCount();
   const unread = unreadQuery.data?.unread ?? 0;
 
   const groupsQuery = useNotificationGroups('all', false);

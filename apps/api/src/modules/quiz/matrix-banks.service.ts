@@ -8,6 +8,7 @@ import type { QuestionBankRow } from '../questions/question-banks.repository';
 import type { CopyExamMatrixDto, CreateMatrixContributionDto, RejectMatrixContributionDto } from './dto/quiz.dto';
 import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixContributionRow, type ExamMatrixRow } from './quiz.repository';
 import { QuizService } from './quiz.service';
+import { isMatrixContentSignatureConflict, matrixContentSignature } from './matrix-content-signature';
 
 /**
  * Dòng ghi công của một ma trận (theo đúng khuôn AttributionView
@@ -118,47 +119,72 @@ export class MatrixBanksService {
    * đó là hàng version bất biến của chính bản copy (chụp cấu hình
    * của nguồn tại thời điểm copy), toàn bộ ô sao thuộc về version
    * này: bản copy có lịch sử version độc lập với nguồn ngay từ đầu.
+   *
+   * Chữ ký nội dung của bản sao (lát chống trùng của issue #233)
+   * tính từ ĐÚNG nội dung của bản sao — tên sau ghi đè nếu có + phần
+   * đầu và toàn bộ ô của nguồn — và ghi ngay trong transaction: nếu
+   * bank đích đã có một ma trận trùng toàn bộ nội dung, ràng buộc
+   * duy nhất (bank, chữ ký) chặn bản sao và toàn bộ transaction
+   * rollback, dịch thành 409 `quiz.matrix_duplicate_content` thay vì
+   * lỗi 500 thô.
+   *
+   * @throws ConflictException khi bank đích đã có ma trận trùng toàn
+   *   bộ nội dung với bản sao.
    */
   private async deepCopyMatrix(actorId: string, source: ExamMatrixRow, targetBank: QuestionBankRow, opts: {
     status: 'draft' | 'ready'; isTemplate: boolean; name?: string;
   }): Promise<ExamMatrixRow> {
     const cells = await this.repo.listMatrixCells(source.id);
-    return this.repo.dbHandle.transaction(async (tx) => {
-      const copy = await this.repo.insertMatrix({
-        tenantId: targetBank.tenantId,
-        name: opts.name ?? source.name,
-        subjectId: source.subjectId, curriculumId: source.curriculumId,
-        contextId: source.contextId,
-        bankId: targetBank.id, status: opts.status, isTemplate: opts.isTemplate,
-        derivedFromMatrixId: source.id, version: 1,
-        // Truy vết copy đầy đủ theo khuôn câu hỏi: bank nguồn tại
-        // thời điểm copy + tác giả gốc giữ nguyên qua các đời copy;
-        // bộ đếm của nguồn tăng trong cùng transaction.
-        derivedFromBankId: source.bankId,
-        originalAuthorId: source.originalAuthorId ?? source.createdBy,
-        presetKind: source.presetKind,
-        targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
-        levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
-        totalScore: source.totalScore, createdBy: actorId,
-      }, tx);
-      const firstVersion = await this.repo.insertMatrixVersion({
-        matrixId: copy.id, version: 1,
-        presetKind: source.presetKind,
-        targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
-        levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
-        totalScore: source.totalScore, createdBy: actorId,
-      }, tx);
-      for (const cell of cells) {
-        await this.repo.insertMatrixCell({
-          matrixId: copy.id, matrixVersionId: firstVersion.id, curriculumNodeId: cell.curriculumNodeId,
-          cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
-          questionCount: cell.questionCount, cellScore: cell.cellScore,
-          minutes: cell.minutes, tfScale: cell.tfScale, position: cell.position,
-        }, tx);
-      }
-      await this.repo.bumpMatrixCopyCount(source.id, tx);
-      return copy;
+    const contentSignature = matrixContentSignature({
+      name: opts.name ?? source.name,
+      subjectId: source.subjectId, curriculumId: source.curriculumId,
+      levelSet: source.levelSet, totalScore: source.totalScore,
+      scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
+      cells,
     });
+    try {
+      return await this.repo.dbHandle.transaction(async (tx) => {
+        const copy = await this.repo.insertMatrix({
+          tenantId: targetBank.tenantId,
+          name: opts.name ?? source.name,
+          subjectId: source.subjectId, curriculumId: source.curriculumId,
+          contextId: source.contextId,
+          bankId: targetBank.id, status: opts.status, isTemplate: opts.isTemplate,
+          derivedFromMatrixId: source.id, version: 1,
+          // Truy vết copy đầy đủ theo khuôn câu hỏi: bank nguồn tại
+          // thời điểm copy + tác giả gốc giữ nguyên qua các đời copy;
+          // bộ đếm của nguồn tăng trong cùng transaction.
+          derivedFromBankId: source.bankId,
+          originalAuthorId: source.originalAuthorId ?? source.createdBy,
+          presetKind: source.presetKind,
+          targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
+          levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
+          totalScore: source.totalScore, contentSignature, createdBy: actorId,
+        }, tx);
+        const firstVersion = await this.repo.insertMatrixVersion({
+          matrixId: copy.id, version: 1,
+          presetKind: source.presetKind,
+          targetFormPercents: source.targetFormPercents, targetLevelPercents: source.targetLevelPercents,
+          levelSet: source.levelSet, scopeNote: source.scopeNote, scopeNodeIds: source.scopeNodeIds,
+          totalScore: source.totalScore, createdBy: actorId,
+        }, tx);
+        for (const cell of cells) {
+          await this.repo.insertMatrixCell({
+            matrixId: copy.id, matrixVersionId: firstVersion.id, curriculumNodeId: cell.curriculumNodeId,
+            cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
+            questionCount: cell.questionCount, cellScore: cell.cellScore,
+            minutes: cell.minutes, tfScale: cell.tfScale, position: cell.position,
+          }, tx);
+        }
+        await this.repo.bumpMatrixCopyCount(source.id, tx);
+        return copy;
+      });
+    } catch (err) {
+      if (isMatrixContentSignatureConflict(err)) {
+        throw new ConflictException({ message: 'A matrix with identical content already exists in the target bank', code: 'quiz.matrix_duplicate_content' });
+      }
+      throw err;
+    }
   }
 
   private async contributionView(row: ExamMatrixContributionRow): Promise<ExamMatrixContributionView> {

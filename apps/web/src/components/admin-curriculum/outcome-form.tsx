@@ -6,7 +6,9 @@ import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
-import { apiJson } from '#lib/api';
+import {
+  useCreateCurriculumOutcome, useUpdateCurriculumOutcome,
+} from '#lib/curriculum';
 import { errorText } from './shared';
 
 export interface OutcomeRow {
@@ -28,6 +30,10 @@ export function OutcomeForm({ nodeId, initial, backTo }: { nodeId: string; initi
   const [sourceRef, setSourceRef] = useState(initial?.sourceRef ?? '');
   const [derivedFromId, setDerivedFromId] = useState(initial?.derivedFromId ?? '');
   const [error, setError] = useState<string | null>(null);
+  // Ghi YCCĐ qua các đột biến của lib/curriculum (F-01 của rà soát
+  // #133) — cây chứa YCCĐ được làm mới sau khi ghi thành công.
+  const createOutcome = useCreateCurriculumOutcome();
+  const updateOutcome = useUpdateCurriculumOutcome();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -41,12 +47,9 @@ export function OutcomeForm({ nodeId, initial, backTo }: { nodeId: string; initi
     };
     try {
       if (initial) {
-        await apiJson(`/api/v1/curriculum/outcomes/${initial.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        await updateOutcome.mutateAsync({ outcomeId: initial.id, payload });
       } else {
-        await apiJson('/api/v1/curriculum/outcomes', {
-          method: 'POST',
-          body: JSON.stringify({ nodeId, ...payload }),
-        });
+        await createOutcome.mutateAsync({ nodeId, payload });
       }
       navigate(backTo);
     } catch (err) {

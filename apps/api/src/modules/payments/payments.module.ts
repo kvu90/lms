@@ -21,7 +21,13 @@ import { SepayMatchingService } from './sepay-matching.service';
  * Lát 2 (#189): SiteConfigModule cho điểm đọc GIÁ GÓI từ cấu hình hệ
  * thống (giá không ghim trong code); PlanEntitlementsService lo kích
  * hoạt/đình chỉ quyền lợi gói cho cả hai đường thành công (webhook
- * manual và matching SePay). */
+ * manual và matching SePay).
+ * Lát 3 (#189): vòng đời duyệt hoàn + hàng đợi `needs_review` theo chủ
+ * tiền nằm ở PaymentsService; điểm đọc ngưỡng duyệt hoàn/ngưỡng quá
+ * hạn theo tenant dùng TenantConfigService của TenantsModule; sự kiện
+ * `debit` được SepayMatchingService uỷ thác về PaymentsService để đối
+ * khớp lệnh chi hoàn (PaymentsService không phụ thuộc matching nên
+ * chiều phụ thuộc này không tạo vòng). */
 @Module({
   imports: [AccessModule, EnrolModule, EventsModule, TenantsModule, ClassesModule, SiteConfigModule],
   controllers: [PaymentsController],

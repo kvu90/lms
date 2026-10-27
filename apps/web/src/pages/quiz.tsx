@@ -26,13 +26,24 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson, ApiError } from '#lib/api';
+import { ApiError } from '#lib/api';
 import {
   examPinQueryOptions,
+  examPinVersionUpdateQueryOptions,
+  regradeQuestionVersionsQueryOptions,
+  useApplyExamPinVersionUpdate,
   useCourseRoster,
+  useCreateExamPinOverride,
+  useDeleteExamPinOverride,
   useExamPin,
+  useExamPinMyRegrades,
   useExamPinOverrides,
+  useExamPinRegrades,
   useExamSource,
+  useRunExamPinRegrade,
+  useStartExamPinAttempt,
+  useUpdateExamPinOverride,
+  useUpdateExamPinSettings,
 } from '#lib/quiz-data';
 import { courseGroupsQueryOptions } from '#lib/progress-report-data';
 import { queryClient } from '#lib/query-client';
@@ -98,17 +109,20 @@ export function QuizPage() {
   const [regradeVersions, setRegradeVersions] = useState<{ id: string; version: number; status: string }[]>([]);
   const [regradeVersionId, setRegradeVersionId] = useState('');
   const [regradePreview, setRegradePreview] = useState<PinRegradeResult | null>(null);
-  const [regradeLog, setRegradeLog] = useState<PinRegradeLogEntry[] | null>(null);
   const [regradeError, setRegradeError] = useState<string | null>(null);
 
   // Lịch sử sửa điểm của chính người xem (API tự gác cổng công bố:
   // chưa công bố thì trả rỗng, mục này tự ẩn).
-  const myRegradesQuery = useQuery({
-    queryKey: ['exam-pin-my-regrades', quizId],
-    queryFn: () => apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${quizId}/my-regrades`),
-    enabled: !!quizId,
-  });
+  const myRegradesQuery = useExamPinMyRegrades(quizId ?? '');
   const myRegrades = myRegradesQuery.data ?? [];
+
+  // Nhật ký chấm lại của pin: query bật khi người xem có quyền chấm
+  // (panel chấm lại dùng chung dữ kiện này); lỗi tải thì coi như
+  // nhật ký rỗng như bản thủ công.
+  const regradeLogQuery = useExamPinRegrades(quizId ?? '', !!data?.permissions.grade);
+  const regradeLog: PinRegradeLogEntry[] | null = regradeLogQuery.isError
+    ? []
+    : (regradeLogQuery.data ?? null);
 
   // Thông tin ĐỀ nguồn của lần ghim (tên + version hiện hành ở bank) — chỉ tải khi có quyền manage.
   const examInfo = useExamSource(data?.quiz.examId, !!data?.permissions.manage).data ?? null;
@@ -119,7 +133,6 @@ export function QuizPage() {
   const overridesQuery = useExamPinOverrides(quizId ?? '', !!data?.permissions.manageOverrides);
   const overrides = overridesQuery.data ?? [];
   const overridesLoaded = overridesQuery.isSuccess || overridesQuery.isError;
-  const { refetch: refetchOverrides } = overridesQuery;
   const roster = useCourseRoster(courseId ?? '', !!(data?.permissions.manageOverrides || data?.permissions.grade)).data ?? [];
   const groups = useQuery({
     ...courseGroupsQueryOptions(courseId ?? ''),
@@ -130,11 +143,6 @@ export function QuizPage() {
     if (overridesQuery.isError) setOvError(t('quizOverridesLoadFailed'));
   }, [overridesQuery.isError, overridesQuery.errorUpdatedAt, t]);
 
-  // Nhật ký chấm lại nạp một lần khi người xem có quyền chấm (panel chấm lại dùng chung dữ kiện này).
-  useEffect(() => {
-    if (data?.permissions.grade) void loadRegradeLog();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data?.permissions.grade]);
   const [editingOverride, setEditingOverride] = useState<QuizOverrideView | null>(null);
   const [ovTargetKind, setOvTargetKind] = useState<'user' | 'group'>('user');
   const [ovUserId, setOvUserId] = useState('');
@@ -163,18 +171,23 @@ export function QuizPage() {
     setVersionMode(data.quiz.versionMode);
   }, [data]);
 
-  // Các thao tác ghi gọi reload()/reloadOverrides() như cũ — nay là
-  // refetch của query tương ứng; lỗi refetch vẫn ném ra để các nhánh
-  // bắt lỗi cũ chạy nguyên trạng.
+  // Nạp lại view lần ghim sau các thao tác ghi không qua đột biến
+  // tự làm mới (chấm lại áp thật): refetch của query; lỗi refetch vẫn
+  // ném ra để các nhánh bắt lỗi cũ chạy nguyên trạng.
   const reload = useCallback(async () => {
     const result = await refetch();
     if (result.error) throw result.error;
   }, [refetch]);
 
-  const reloadOverrides = useCallback(async () => {
-    const result = await refetchOverrides();
-    if (result.error) throw result.error;
-  }, [refetchOverrides]);
+  // Các đột biến của trang lần ghim (F-01 của rà soát #133): ghi đè,
+  // cài đặt, cập nhật version, chấm lại, bắt đầu lượt làm.
+  const createOverrideMutation = useCreateExamPinOverride(quizId ?? '');
+  const updateOverrideMutation = useUpdateExamPinOverride(quizId ?? '');
+  const deleteOverrideMutation = useDeleteExamPinOverride(quizId ?? '');
+  const settingsMutation = useUpdateExamPinSettings(quizId ?? '');
+  const versionUpdateMutation = useApplyExamPinVersionUpdate(quizId ?? '');
+  const regradeMutation = useRunExamPinRegrade(quizId ?? '');
+  const startAttemptMutation = useStartExamPinAttempt(quizId ?? '');
 
   function resetOverrideForm() {
     setEditingOverride(null);
@@ -204,13 +217,12 @@ export function QuizPage() {
     setOvError(null);
   }
 
-  /** Chạy một thao tác ghi đè rồi nạp lại danh sách; mã lỗi của API được dịch riêng cho luật lý do. */
+  /** Chạy một thao tác ghi đè (đột biến tự làm mới danh sách); mã lỗi của API được dịch riêng cho luật lý do. */
   async function actOverride(run: () => Promise<unknown>) {
     setOvError(null);
     setBusy(true);
     try {
       await run();
-      await reloadOverrides();
       resetOverrideForm();
     } catch (err) {
       setOvError(
@@ -247,13 +259,13 @@ export function QuizPage() {
     if (editingOverride) {
       const target = editingOverride;
       await actOverride(() =>
-        apiJson(`/api/v1/exam-pin-overrides/${target.id}`, { method: 'PATCH', body: JSON.stringify(fields) }),
+        updateOverrideMutation.mutateAsync({ overrideId: target.id, fields }),
       );
     } else {
       await actOverride(() =>
-        apiJson(`/api/v1/exam-pins/${quizId}/overrides`, {
-          method: 'POST',
-          body: JSON.stringify({ ...(ovTargetKind === 'user' ? { userId: ovUserId } : { groupId: ovGroupId }), ...fields }),
+        createOverrideMutation.mutateAsync({
+          ...(ovTargetKind === 'user' ? { userId: ovUserId } : { groupId: ovGroupId }),
+          ...fields,
         }),
       );
     }
@@ -261,21 +273,7 @@ export function QuizPage() {
 
   async function removeOverride(ov: QuizOverrideView) {
     if (editingOverride?.id === ov.id) resetOverrideForm();
-    await actOverride(() => apiJson(`/api/v1/exam-pin-overrides/${ov.id}`, { method: 'DELETE' }));
-  }
-
-  /** Chạy một thao tác rồi nạp lại trang; lỗi hiện qua i18n. */
-  async function act(run: () => Promise<unknown>) {
-    setActionError(null);
-    setBusy(true);
-    try {
-      await run();
-      await reload();
-    } catch {
-      setActionError(t('quizActionFailed'));
-    } finally {
-      setBusy(false);
-    }
+    await actOverride(() => deleteOverrideMutation.mutateAsync(ov.id));
   }
 
   async function saveSettings(event: FormEvent) {
@@ -286,20 +284,17 @@ export function QuizPage() {
     setActionError(null);
     setBusy(true);
     try {
-      await apiJson(`/api/v1/exam-pins/${quizId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          name: name.trim(),
-          intro,
-          timeOpen: timeOpen ? new Date(timeOpen).toISOString() : null,
-          timeClose: timeClose ? new Date(timeClose).toISOString() : null,
-          timeLimitSeconds: timeLimitMinutes.trim() ? Math.max(1, Math.round(Number(timeLimitMinutes))) * 60 : null,
-          attemptsAllowed: Math.max(0, Math.trunc(Number(attemptsAllowed) || 0)),
-          gradeMethod,
-          grade: Number(grade) || 10,
-          shuffleAnswers,
-          versionMode,
-        }),
+      await settingsMutation.mutateAsync({
+        name: name.trim(),
+        intro,
+        timeOpen: timeOpen ? new Date(timeOpen).toISOString() : null,
+        timeClose: timeClose ? new Date(timeClose).toISOString() : null,
+        timeLimitSeconds: timeLimitMinutes.trim() ? Math.max(1, Math.round(Number(timeLimitMinutes))) * 60 : null,
+        attemptsAllowed: Math.max(0, Math.trunc(Number(attemptsAllowed) || 0)),
+        gradeMethod,
+        grade: Number(grade) || 10,
+        shuffleAnswers,
+        versionMode,
       });
       await reload();
     } catch (err) {
@@ -313,12 +308,12 @@ export function QuizPage() {
     }
   }
 
-  /** Tải xem trước cập nhật version (diff từng slot) cho lần ghim này. */
+  /** Tải xem trước cập nhật version (diff từng slot) cho lần ghim này — đọc theo yêu cầu qua fetchQuery. */
   async function loadUpdatePreview() {
     setUpdateError(null);
     setBusy(true);
     try {
-      setUpdatePreview(await apiJson<PinVersionUpdatePreview>(`/api/v1/exam-pins/${quizId}/version-update`));
+      setUpdatePreview(await queryClient.fetchQuery(examPinVersionUpdateQueryOptions(quizId ?? '')));
     } catch {
       setUpdateError(t('pinVersionUpdateFailed'));
     } finally {
@@ -332,10 +327,7 @@ export function QuizPage() {
     setUpdateError(null);
     setBusy(true);
     try {
-      await apiJson(`/api/v1/exam-pins/${quizId}/version-update`, {
-        method: 'POST',
-        body: JSON.stringify({ toExamVersionId: updatePreview.toExamVersionId }),
-      });
+      await versionUpdateMutation.mutateAsync(updatePreview.toExamVersionId);
       setUpdatePreview(null);
       await reload();
     } catch (err) {
@@ -359,7 +351,7 @@ export function QuizPage() {
       return;
     }
     try {
-      const versions = await apiJson<{ id: string; version: number; status: string }[]>(`/api/v1/questions/${questionId}/versions`);
+      const versions = await queryClient.fetchQuery(regradeQuestionVersionsQueryOptions(questionId));
       setRegradeVersions(versions);
       const ready = versions.filter((v) => v.status === 'ready');
       setRegradeVersionId((ready.length ? ready[ready.length - 1]! : versions[versions.length - 1])?.id ?? '');
@@ -376,13 +368,14 @@ export function QuizPage() {
     setRegradeError(null);
     setBusy(true);
     try {
-      const result = await apiJson<PinRegradeResult>(`/api/v1/exam-pins/${quizId}/regrades`, {
-        method: 'POST',
-        body: JSON.stringify({ questionId: regradeQuestionId, toVersionId: regradeVersionId, dryRun }),
+      const result = await regradeMutation.mutateAsync({
+        questionId: regradeQuestionId,
+        toVersionId: regradeVersionId,
+        dryRun,
       });
       setRegradePreview(result);
       if (!dryRun) {
-        setRegradeLog(await apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${quizId}/regrades`));
+        await regradeLogQuery.refetch();
         await reload();
         void myRegradesQuery.refetch();
       }
@@ -393,22 +386,10 @@ export function QuizPage() {
     }
   }
 
-  /** Tải nhật ký chấm lại của pin (chỉ người có quyền xem báo cáo mới gọi được — panel chỉ hiện cho vai chấm). */
-  async function loadRegradeLog() {
-    try {
-      setRegradeLog(await apiJson<PinRegradeLogEntry[]>(`/api/v1/exam-pins/${quizId}/regrades`));
-    } catch {
-      setRegradeLog([]);
-    }
-  }
-
   async function startAttempt(preview: boolean) {
     setActionError(null);
     try {
-      const view = await apiJson<{ attempt: { id: string } }>(`/api/v1/exam-pins/${quizId}/attempts`, {
-        method: 'POST',
-        body: JSON.stringify({ preview }),
-      });
+      const view = await startAttemptMutation.mutateAsync(preview);
       await navigate(`/quiz-attempts/${view.attempt.id}`);
     } catch {
       setActionError(t('quizActionFailed'));

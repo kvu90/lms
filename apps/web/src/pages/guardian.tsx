@@ -1,22 +1,18 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router';
-import type { GuardianDigestFrequency, GuardianDigestPreferenceView, GuardianStudentOverviewView, GuardianStudentResultsView } from '@lms/contracts';
+import { useQuery } from '@tanstack/react-query';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import type { GuardianDigestFrequency } from '@lms/contracts';
 import '../i18n';
-import { apiJson } from '#lib/api';
-import { queryKeys } from '#lib/query-keys';
+import {
+  guardianDigestPreferenceQueryOptions, guardianMyStudentsQueryOptions, guardianOverviewQueryOptions,
+  guardianResultsQueryOptions, useUpdateGuardianDigestPreference,
+} from '#lib/guardian-data';
 import { SectionCards, type StatCard } from '#components/section-cards';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageShell } from '../components/page-shell';
-
-/** Một liên kết con của phụ huynh (GET /guardian-links/mine/students). */
-interface MyStudentEntry {
-  student: { id: string; firstName: string; lastName: string; username: string };
-}
 
 /** Tên hiển thị của học sinh: Họ + Tên như hồ sơ người dùng. */
 function studentName(s: { firstName: string; lastName: string }): string {
@@ -53,8 +49,15 @@ function BlockTitle({ children }: { children: string }) {
  * bất kỳ nút hành động nào thay con — dữ liệu đã qua cổng liên kết
  * giám hộ + cổng công bố phía server, trang chỉ trình bày. Ngoại lệ
  * duy nhất thuộc về chính phụ huynh: khối cài đặt tần suất digest
- * (PH-2, issue #159) và link sâu `?student=` từ thông báo digest chọn
- * đúng con khi mở trang.
+ * (PH-2, issue #159).
+ *
+ * Đường dẫn (chuẩn đường dẫn #221, lát R2): con đang xem do path
+ * quyết định — `/guardian/students/:studentId`; gốc `/guardian`
+ * hiện con đầu tiên trong danh sách liên kết. Link sâu digest PH-2
+ * nay trỏ thẳng path theo con; các link cũ dạng
+ * `/guardian?student=<id>` còn lưu trong thông báo đã phát được
+ * trang này chuyển hướng thay thế sang path mới (id không thuộc
+ * các con đang liên kết thì về gốc `/guardian`).
  */
 /**
  * Khối cài đặt digest của chính phụ huynh cho con đang chọn (PH-2,
@@ -64,20 +67,8 @@ function BlockTitle({ children }: { children: string }) {
  */
 function DigestSettings({ studentId }: { studentId: string }) {
   const { t } = useTranslation('guardian');
-  const queryClient = useQueryClient();
-  const preferenceQuery = useQuery({
-    queryKey: queryKeys.guardianDigestPreference(studentId),
-    queryFn: () => apiJson<GuardianDigestPreferenceView>(`/api/v1/guardian/students/${studentId}/digest-preference`),
-  });
-  const mutation = useMutation({
-    mutationFn: (frequency: GuardianDigestFrequency) => apiJson<GuardianDigestPreferenceView>(
-      `/api/v1/guardian/students/${studentId}/digest-preference`,
-      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frequency }) },
-    ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.guardianDigestPreference(studentId) });
-    },
-  });
+  const preferenceQuery = useQuery(guardianDigestPreferenceQueryOptions(studentId));
+  const mutation = useUpdateGuardianDigestPreference(studentId);
   const current = preferenceQuery.data?.frequency ?? 'weekly';
   const options: { value: GuardianDigestFrequency; label: string }[] = [
     { value: 'weekly', label: t('digestWeekly') },
@@ -117,31 +108,30 @@ export function GuardianPage() {
   const { t, i18n } = useTranslation('guardian');
   const locale = i18n.language;
 
-  const studentsQuery = useQuery({
-    queryKey: queryKeys.guardianMyStudents,
-    queryFn: () => apiJson<MyStudentEntry[]>('/api/v1/guardian-links/mine/students'),
-  });
+  const studentsQuery = useQuery(guardianMyStudentsQueryOptions());
   const students = studentsQuery.data ?? [];
-  // Link sâu từ thông báo digest (PH-2): ?student=<id> chọn đúng con
-  // nếu id thuộc các con đang liên kết; phụ huynh bấm chọn con khác thì
-  // lựa chọn tay thắng tham số.
+  // Con đang xem do path quyết định (chuẩn #221, lát R2): tham số
+  // :studentId của route con; ở gốc /guardian trang hiện con đầu
+  // tiên trong danh sách liên kết như hành vi trước lát.
+  const params = useParams();
+  const routeStudentId = params.studentId ?? null;
+  const navigate = useNavigate();
+  // Lớp tương thích cho link cũ /guardian?student=<id>: phán quyết
+  // chỉ chốt khi danh sách con đã nạp xong (trước đó trang giữ
+  // trạng thái đang tải); id thuộc các con đang liên kết thì sang
+  // path mới của đúng con đó, id lạ thì về gốc /guardian bỏ query.
   const [searchParams] = useSearchParams();
-  const linkedParam = searchParams.get('student');
-  const [pickedId, setPickedId] = useState<string | null>(null);
-  const studentId = pickedId && students.some((s) => s.student.id === pickedId)
-    ? pickedId
-    : linkedParam && students.some((s) => s.student.id === linkedParam)
-      ? linkedParam
-      : students[0]?.student.id;
+  const legacyStudentId = searchParams.get('student');
+  const studentsSettled = studentsQuery.isSuccess;
+  const routeStudentLinked = routeStudentId !== null && students.some((s) => s.student.id === routeStudentId);
+  const studentId = routeStudentLinked ? routeStudentId : students[0]?.student.id;
 
   const overviewQuery = useQuery({
-    queryKey: queryKeys.guardianOverview(studentId ?? ''),
-    queryFn: () => apiJson<GuardianStudentOverviewView>(`/api/v1/guardian/students/${studentId}/overview`),
+    ...guardianOverviewQueryOptions(studentId ?? ''),
     enabled: !!studentId,
   });
   const resultsQuery = useQuery({
-    queryKey: queryKeys.guardianResults(studentId ?? ''),
-    queryFn: () => apiJson<GuardianStudentResultsView>(`/api/v1/guardian/students/${studentId}/results`),
+    ...guardianResultsQueryOptions(studentId ?? ''),
     enabled: !!studentId,
   });
   const overview = overviewQuery.data;
@@ -155,6 +145,19 @@ export function GuardianPage() {
         { id: 'overdue', label: t('statOverdue'), value: String(overview.weekly.overdue) },
       ]
     : [];
+
+  // Chuyển hướng thay thế của lớp tương thích (chỉ khi danh sách
+  // con đã nạp xong): link cũ ?student= hợp lệ → path theo con;
+  // path theo con trỏ tới con không thuộc liên kết → về gốc khu
+  // vực, tránh hiện dữ liệu của con khác dưới URL của con lạ (đọc
+  // dữ liệu vẫn do API gác theo liên kết như mọi đường khác).
+  if (studentsSettled && !routeStudentId && legacyStudentId) {
+    const legacyLinked = students.some((s) => s.student.id === legacyStudentId);
+    return <Navigate to={legacyLinked ? `/guardian/students/${legacyStudentId}` : '/guardian'} replace />;
+  }
+  if (studentsSettled && routeStudentId && !routeStudentLinked) {
+    return <Navigate to="/guardian" replace />;
+  }
 
   return (
     <PageShell width="wide" className="px-0 lg:px-0">
@@ -176,6 +179,8 @@ export function GuardianPage() {
         </div>
       ) : (
         <>
+          {/* Chọn con là điều hướng sang path của con đó (chuẩn
+              #221, lát R2) — URL luôn phản ánh đúng con đang xem. */}
           {students.length > 1 && (
             <div className="flex flex-wrap items-center gap-2 px-4 lg:px-6" role="group" aria-label={t('chooseChild')}>
               {students.map((entry) => (
@@ -184,7 +189,7 @@ export function GuardianPage() {
                   type="button"
                   variant={entry.student.id === studentId ? 'default' : 'outline'}
                   aria-pressed={entry.student.id === studentId}
-                  onClick={() => setPickedId(entry.student.id)}
+                  onClick={() => navigate(`/guardian/students/${entry.student.id}`)}
                 >
                   {studentName(entry.student)}
                 </Button>
@@ -370,6 +375,10 @@ export function GuardianPage() {
 }
 
 export default GuardianPage;
+
+// clientLoader (F-01, rà soát #133): prefetch danh sách con + bộ dữ
+// liệu của con đầu tiên vào QueryClient singleton, đúng khoá trang đọc.
+export { guardianPageClientLoader as clientLoader } from '#lib/guardian-data';
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';

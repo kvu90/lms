@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -319,5 +320,128 @@ describe('I-2: ghi nguyên tử khi nhập ma trận', () => {
   it('thiếu file: 400 quiz.matrix_import_file_required', async () => {
     const res = await http(app).post('/api/v1/exam-matrices/import').set(auth(admin)).expect(400);
     expect(res.body.code).toBe('quiz.matrix_import_file_required');
+  });
+});
+
+/** Đọc thẳng cột chữ ký nội dung của một ma trận trong DB. */
+async function readMatrixSignature(matrixId: string): Promise<string | null> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("select set_config('app.platform', 'on', false)");
+    const res = await client.query('select content_signature from exam_matrices where id = $1', [matrixId]);
+    return (res.rows[0]?.content_signature ?? null) as string | null;
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Lát D-1 của issue #233 — đóng cửa sổ đua của chống trùng bằng
+ * schema: chữ ký nội dung được ghi xuống DB (cột `content_signature`)
+ * và ràng buộc duy nhất theo cặp (bank đích, chữ ký) giữ cho hai
+ * request ghi trùng ĐỒNG THỜI tuyệt đối cũng chỉ tạo một ma trận.
+ * Các ca dưới đây kiểm ở cả ba tầng: hành vi API khi đua, ràng buộc
+ * ở tầng DB, và tính nhất quán của cột chữ ký qua các đường tạo/sửa.
+ */
+describe('D-1 (issue #233): chữ ký nội dung ở DB và cửa sổ đua', () => {
+  it('hai request ghi trùng đồng thời tuyệt đối: chỉ tạo một ma trận, cả hai request nhận cùng một ma trận, không request nào nhận lỗi', async () => {
+    const wb = await downloadTemplate(admin);
+    fillValid(wb, 'Ma trận đua đồng thời');
+    const buffer = await toBuffer(wb);
+    // Bắn hai request cùng lúc bằng Promise.all: tầng đối chiếu trong
+    // code có thể cùng đọc "chưa có" — điểm giữ cuối cùng là ràng
+    // buộc duy nhất ở DB và đường thua cuộc phải nhận về bản thắng.
+    const [r1, r2] = await Promise.all([postImport(admin, buffer), postImport(admin, buffer)]);
+    expect(r1.status).toBe(201);
+    expect(r2.status).toBe(201);
+    expect((r1.body as { id: string }).id).toBe((r2.body as { id: string }).id);
+    expect(await countMatricesByName('Ma trận đua đồng thời')).toBe(1);
+    // Bản thắng mang chữ ký đã ghi ở DB, không phải chỉ tính trong code.
+    expect(await readMatrixSignature((r1.body as { id: string }).id)).toBeTruthy();
+  });
+
+  it('tầng DB: unique (bank_id, content_signature) chặn insert trùng trong cùng bank; bank_id null nằm ngoài ràng buộc', async () => {
+    // Bank đích lấy từ một lần nhập thật (bank cá nhân của admin).
+    const wb = await downloadTemplate(admin);
+    fillValid(wb, 'Ma trận neo bank D-1');
+    const imported = await postImport(admin, await toBuffer(wb)).expect(201);
+    const bankId = (imported.body as { bankId: string }).bankId;
+    expect(bankId).toBeTruthy();
+
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const insertedIds: string[] = [];
+    try {
+      await client.query("select set_config('app.platform', 'on', false)");
+      const signature = `d1-db-layer-${Date.now().toString(36)}`;
+      const insertSql = `insert into exam_matrices (name, subject_id, curriculum_id, context_id, bank_id, content_signature)
+        values ($1, $2, $3, $4, $5, $6) returning id`;
+      // context_id không có khoá ngoại (chỉ là neo ngữ cảnh của môn)
+      // nên một uuid bất kỳ là đủ cho ca kiểm ở tầng ràng buộc này.
+      const baseParams = ['Ma trận D-1 tầng DB', subjectId, curriculumId, randomUUID()];
+      const first = await client.query(insertSql, [...baseParams, bankId, signature]);
+      insertedIds.push(first.rows[0].id as string);
+      // Cùng bank + cùng chữ ký: insert thứ hai PHẢI bị ràng buộc chặn.
+      let violation: { code?: string; constraint?: string; message?: string } | null = null;
+      try {
+        await client.query(insertSql, [...baseParams, bankId, signature]);
+      } catch (err) {
+        violation = err as { code?: string; constraint?: string; message?: string };
+      }
+      expect(violation?.code).toBe('23505');
+      expect(violation?.constraint ?? violation?.message).toContain('exam_matrices_bank_content_signature_unique');
+      // bank_id NULL: hai bản ghi cùng chữ ký cùng tồn tại được (mỗi
+      // NULL là phân biệt theo ngữ nghĩa PostgreSQL) — đường nhập
+      // luôn có bank đích nên phạm vi này chấp nhận được.
+      const nullBank1 = await client.query(insertSql, [...baseParams, null, signature]);
+      const nullBank2 = await client.query(insertSql, [...baseParams, null, signature]);
+      insertedIds.push(nullBank1.rows[0].id as string, nullBank2.rows[0].id as string);
+    } finally {
+      for (const id of insertedIds) {
+        await client.query('delete from exam_matrices where id = $1', [id]);
+      }
+      await client.end();
+    }
+  });
+
+  it('chữ ký được ghi ở đường tạo tay và tính lại khi nội dung đổi; sửa ngoài thành phần chữ ký thì chữ ký giữ nguyên', async () => {
+    // Tạo tay KHÔNG gắn bank: chữ ký vẫn được tính và ghi (việc ghi
+    // chữ ký không phụ thuộc bank; chỉ ràng buộc duy nhất mới theo bank).
+    const created = await http(app).post('/api/v1/exam-matrices').set(auth(admin))
+      .send({ name: 'Ma trận D-1 tạo tay', subjectId, curriculumId });
+    expect(created.status).toBeLessThan(300);
+    const id = (created.body as { id: string }).id;
+    const sig0 = await readMatrixSignature(id);
+    expect(sig0).toBeTruthy();
+
+    // Thêm ô (đổi tập ô — thành phần chữ ký) → chữ ký đổi.
+    const withCell = await http(app).post(`/api/v1/exam-matrices/${id}/cells`).set(auth(admin))
+      .send({ curriculumNodeId: lesson1Id, cognitiveLevel: 'biet', qtype: 'multichoice', questionCount: 2, cellScore: 1 });
+    expect(withCell.status).toBeLessThan(300);
+    const sig1 = await readMatrixSignature(id);
+    expect(sig1).toBeTruthy();
+    expect(sig1).not.toBe(sig0);
+
+    // Sửa số câu của ô → chữ ký đổi tiếp.
+    const cellId = (withCell.body.cells as { id: string }[])[0]!.id;
+    const cellPatch = await http(app).patch(`/api/v1/exam-matrices/${id}/cells/${cellId}`).set(auth(admin))
+      .send({ questionCount: 3 });
+    expect(cellPatch.status).toBeLessThan(300);
+    const sig2 = await readMatrixSignature(id);
+    expect(sig2).not.toBe(sig1);
+
+    // Đổi tên (thành phần chữ ký) ở tầng ma trận → chữ ký đổi.
+    const renamed = await http(app).patch(`/api/v1/exam-matrices/${id}`).set(auth(admin))
+      .send({ name: 'Ma trận D-1 đã đổi tên' });
+    expect(renamed.status).toBeLessThan(300);
+    const sig3 = await readMatrixSignature(id);
+    expect(sig3).not.toBe(sig2);
+
+    // Đổi trạng thái (KHÔNG thuộc thành phần chữ ký) → chữ ký giữ nguyên.
+    const statusOnly = await http(app).patch(`/api/v1/exam-matrices/${id}`).set(auth(admin))
+      .send({ status: 'ready' });
+    expect(statusOnly.status).toBeLessThan(300);
+    expect(await readMatrixSignature(id)).toBe(sig3);
   });
 });

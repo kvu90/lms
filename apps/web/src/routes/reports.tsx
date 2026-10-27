@@ -7,3 +7,6 @@ import { platformKeyMeta } from '../lib/route-meta';
 export function meta() {
   return platformKeyMeta('reportsTitle');
 }
+
+// clientLoader (F-01, rà soát #133): prefetch danh sách báo cáo vào QueryClient singleton.
+export { reportsPageClientLoader as clientLoader } from '../lib/platform-data';

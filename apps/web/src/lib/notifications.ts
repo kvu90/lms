@@ -1,4 +1,5 @@
 import {
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -103,6 +104,24 @@ export function groupsUrl(group: string, unreadOnly: boolean, cursor?: string): 
   if (unreadOnly) params.set('unreadOnly', 'true');
   if (cursor) params.set('cursor', cursor);
   return `/api/v1/notifications?${params.toString()}`;
+}
+
+/**
+ * Số thông báo chưa đọc cho huy hiệu (GET /notifications/unread-count):
+ * options dùng chung cho chuông thông báo và sidebar — cùng khoá nhà
+ * máy nên TanStack gộp thành một lần gọi và một mục cache cho cả hai
+ * bề mặt (F-01 của rà soát #133).
+ */
+export function notificationUnreadCountQueryOptions() {
+  return queryOptions({
+    queryKey: queryKeys.notificationUnreadCount,
+    queryFn: () => apiJson<{ unread: number }>('/api/v1/notifications/unread-count'),
+  });
+}
+
+/** Hook đọc số thông báo chưa đọc qua options dùng chung. */
+export function useNotificationUnreadCount() {
+  return useQuery(notificationUnreadCountQueryOptions());
 }
 
 /**

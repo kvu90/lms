@@ -13,7 +13,16 @@ import { Label } from '@lms/ui/components/label';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
 import { useTranslation } from 'react-i18next';
-import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  commentBankQueryOptions,
+  submissionDetailQueryOptions,
+  useAddSubmissionAnnotation,
+  useCreateCommentBankEntry,
+  useDeleteSubmissionAnnotation,
+  useGradeSubmission,
+  useReleaseSubmission,
+} from '#lib/assignment-data';
 import { FeedbackMessages } from './feedback-messages';
 import { ANNOTATION_KINDS, SubmissionFileView, type AnnotationKind } from './submission-file';
 import { dateLabel, selectClass } from './shared';
@@ -53,9 +62,15 @@ export function GradingPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const gradeMutation = useGradeSubmission();
+  const addAnnotationMutation = useAddSubmissionAnnotation();
+  const deleteAnnotationMutation = useDeleteSubmissionAnnotation();
+  const releaseMutation = useReleaseSubmission();
+  const createBankEntryMutation = useCreateCommentBankEntry();
 
   const loadDetail = useCallback(async () => {
-    const fresh = await apiJson<AssignSubmissionDetail>(`/api/v1/assignments/${assignmentId}/submissions/${summary.userId}`);
+    const fresh = await queryClient.fetchQuery(submissionDetailQueryOptions(assignmentId, summary.userId));
     setDetail(fresh);
     setGradeInput(fresh.grade?.grade !== null && fresh.grade?.grade !== undefined ? String(fresh.grade.grade) : '');
     setLevelInput(fresh.grade?.level ?? '');
@@ -71,17 +86,18 @@ export function GradingPanel({
         ]),
       ),
     );
-  }, [assignmentId, summary.userId]);
+  }, [assignmentId, queryClient, summary.userId]);
 
   useEffect(() => {
     void loadDetail().catch(() => setError(t('assignLoadFailed')));
   }, [loadDetail, t]);
 
   useEffect(() => {
-    void apiJson<TeacherCommentBankEntryView[]>('/api/v1/assign-comment-bank')
+    void queryClient
+      .fetchQuery(commentBankQueryOptions())
       .then(setBank)
       .catch(() => undefined);
-  }, []);
+  }, [queryClient]);
 
   async function act(run: () => Promise<unknown>, doneNotice?: string) {
     setBusy(true);
@@ -116,9 +132,10 @@ export function GradingPanel({
       .filter((e) => e !== null);
     await act(
       () =>
-        apiJson(`/api/v1/assignments/${assignmentId}/submissions/${summary.userId}/grade`, {
-          method: 'POST',
-          body: JSON.stringify({
+        gradeMutation.mutateAsync({
+          assignmentId,
+          userId: summary.userId,
+          body: {
             ...(resultMode === 'level'
               ? { level: levelInput || null }
               : gradeInput.trim()
@@ -129,7 +146,7 @@ export function GradingPanel({
             feedbackStrengths: feedbackStrengths || null,
             feedbackWeaknesses: feedbackWeaknesses || null,
             ...(evalPayload.length ? { evaluations: evalPayload } : {}),
-          }),
+          },
         }),
       t('assignGradeSaved'),
     );
@@ -138,9 +155,10 @@ export function GradingPanel({
   function placeAnnotation(fileId: string, point: { x: number; y: number }, points?: { x: number; y: number }[]) {
     const isDraw = points !== undefined;
     void act(() =>
-      apiJson(`/api/v1/assignments/${assignmentId}/submissions/${summary.userId}/annotations`, {
-        method: 'POST',
-        body: JSON.stringify({
+      addAnnotationMutation.mutateAsync({
+        assignmentId,
+        userId: summary.userId,
+        body: {
           fileId,
           page: 1,
           x: point.x,
@@ -148,7 +166,7 @@ export function GradingPanel({
           kind: isDraw ? 'draw' : annKind,
           text: !isDraw && annText.trim() ? annText.trim() : null,
           ...(isDraw ? { points } : {}),
-        }),
+        },
       }),
     );
   }
@@ -219,7 +237,11 @@ export function GradingPanel({
                     disabled={busy}
                     onClick={() =>
                       void act(() =>
-                        apiJson(`/api/v1/assignments/${assignmentId}/submissions/${summary.userId}/annotations/${a.id}`, { method: 'DELETE' }),
+                        deleteAnnotationMutation.mutateAsync({
+                          assignmentId,
+                          userId: summary.userId,
+                          annotationId: a.id,
+                        }),
                       )
                     }
                   >
@@ -319,9 +341,9 @@ export function GradingPanel({
                 void (async () => {
                   setBusy(true);
                   try {
-                    const created = await apiJson<TeacherCommentBankEntryView>('/api/v1/assign-comment-bank', {
-                      method: 'POST',
-                      body: JSON.stringify({ category: bankCategory, text: bankDraft.trim() }),
+                    const created = await createBankEntryMutation.mutateAsync({
+                      category: bankCategory,
+                      text: bankDraft.trim(),
                     });
                     setBank((prev) => [...prev, created]);
                     setBankDraft('');
@@ -394,7 +416,7 @@ export function GradingPanel({
               disabled={busy || detail.grade?.status === 'released'}
               onClick={() =>
                 void act(
-                  () => apiJson(`/api/v1/assignments/${assignmentId}/submissions/${summary.userId}/release`, { method: 'POST' }),
+                  () => releaseMutation.mutateAsync({ assignmentId, userId: summary.userId }),
                   t('assignReleased'),
                 )
               }

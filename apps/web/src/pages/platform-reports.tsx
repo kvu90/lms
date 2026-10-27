@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -16,47 +16,36 @@ import {
 } from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
+import { useCreateReport, usePlatformReports, useReportRun, useScheduleReport } from '#lib/platform-data';
 
-interface ReportView {
-  id: string;
-  name: string;
-  dataSource: string;
-  columns: string[];
-}
-
-/** Report builder tối thiểu (platform services): chọn dataSource/column, xem kết quả, đặt lịch. */
+/**
+ * Report builder tối thiểu (platform services): chọn dataSource/column,
+ * xem kết quả, đặt lịch. Dữ liệu đọc qua tầng TanStack Query
+ * (`lib/platform-data.ts`, khoá `platformReports`/`reportRun`;
+ * `clientLoader` của route nạp trước danh sách báo cáo); kết quả chạy
+ * chỉ tải khi người dùng bấm chạy một báo cáo, tạo báo cáo qua đột biến
+ * làm mới danh sách như lần tải lại thủ công trước đây.
+ */
 export function ReportsPage() {
   const { t: t } = useTranslation();
-  const [reports, setReports] = useState<ReportView[]>([]);
+  const reportsQuery = usePlatformReports();
+  const createReport = useCreateReport();
+  const scheduleReport = useScheduleReport();
+  const reports = reportsQuery.data ?? [];
   const [name, setName] = useState('');
   const [dataSource, setDatasource] = useState('enrolments');
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const reload = useCallback(async () => {
-    setReports(await apiJson<ReportView[]>('/api/v1/reports'));
-  }, []);
-  useEffect(() => {
-    void reload()
-      .catch(() => setLoadError(t('reportsLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const runQuery = useReportRun(selectedReportId);
+  const rows = runQuery.data?.rows ?? [];
+  const loading = reportsQuery.isPending || (reportsQuery.isError && reportsQuery.isFetching);
+  const loadError = reportsQuery.isError && !reportsQuery.isFetching ? t('reportsLoadFailed') : null;
   async function create(event: FormEvent) {
     event.preventDefault();
-    await apiJson('/api/v1/reports', {
-      method: 'POST',
-      body: JSON.stringify({ name, dataSource, columns: ['userId', 'courseId', 'status'], filters: {} }),
-    });
+    await createReport.mutateAsync({ name, dataSource });
     setName('');
-    await reload();
-  }
-  async function run(id: string) {
-    const result = await apiJson<{ rows: Record<string, unknown>[] }>(`/api/v1/reports/${id}/run`);
-    setRows(result.rows);
   }
   async function schedule(id: string) {
-    await apiJson(`/api/v1/reports/${id}/schedules`, { method: 'POST', body: JSON.stringify({ cron: 'daily' }) });
+    await scheduleReport.mutateAsync(id);
   }
   return (
     <PageShell width="wide">
@@ -67,17 +56,7 @@ export function ReportsPage() {
             <AlertDescription>{loadError}</AlertDescription>
           </Alert>
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLoadError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setLoadError(t('reportsLoadFailed')))
-                  .finally(() => setLoading(false));
-              }}
-            >
+            <Button type="button" variant="outline" onClick={() => void reportsQuery.refetch()}>
               {t('retry')}
             </Button>
           </div>
@@ -131,7 +110,7 @@ export function ReportsPage() {
                     <span>
                       {r.name} ({r.dataSource})
                     </span>
-                    <Button type="button" variant="outline" onClick={() => void run(r.id)}>
+                    <Button type="button" variant="outline" onClick={() => setSelectedReportId(r.id)}>
                       {t('run')}
                     </Button>
                     <Button type="button" variant="outline" onClick={() => void schedule(r.id)}>

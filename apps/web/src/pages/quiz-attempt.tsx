@@ -28,13 +28,11 @@
  * chọn một (mô hình giaokhoa khoá đúng một đáp án đúng — quyết
  * 12:04 ngày 26/10/2026), không còn nhánh checkbox chọn-nhiều.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import {
   extractRichTextPlainText,
   getTrueFalseStatements,
-  type QuestionSolution,
-  type QuizView,
   type RichTextDocument,
 } from '@lms/contracts';
 import { RichTextView } from '@lms/editor';
@@ -47,64 +45,13 @@ import { Spinner } from '@lms/ui/components/spinner';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { apiJson } from '#lib/api';
-
-/**
- * Một câu trong lượt làm như GET /quiz-attempts/:id trả về (nội dung
- * của version đã pin).
- *
- * Hai trường phía đáp án do lát P3 cấp theo mô hình giaokhoa:
- * `guidance` là HƯỚNG DẪN (gợi ý cách làm — hiện kèm câu hỏi ngay
- * trong lúc làm theo điểm quyết D-4, không qua cổng xem lại);
- * `solution` là đáp án đúng dạng cấu trúc, API chỉ trả khi cổng
- * `reviewRightAnswer` của lần ghim cho phép tại cửa sổ xem lại —
- * ngoài cửa sổ đó trường này là `null`. Câu hỏi không còn trường
- * tên: `questionExcerpt` là trích đoạn nội dung thân câu.
- */
-interface AttemptQuestion {
-  slot: number;
-  page: number;
-  questionAttemptId: string;
-  questionId: string;
-  qtype: string;
-  questionExcerpt: string;
-  questionText: RichTextDocument;
-  /** Hướng dẫn (guidance) của version đã pin; null khi câu không có hướng dẫn. */
-  guidance: RichTextDocument | null;
-  /** Đáp án đúng dạng cấu trúc khi cổng xem lại cho phép; null khi cổng đóng. */
-  solution: QuestionSolution | null;
-  stimulus: { id: string; content: RichTextDocument } | null;
-  answers: { id: string; text: RichTextDocument }[];
-  options: Record<string, unknown> | null;
-  maxMark: number;
-  state: string;
-  response: string | null;
-  fraction: number | null;
-  mark: number | null;
-  rightAnswer: string | null;
-  /** Phản hồi riêng cho đáp án đã chọn — API chỉ trả khi cổng review của quiz cho xem ở thời điểm xem lại. */
-  feedback: RichTextDocument | null;
-  /** Lời giải chung của câu — cùng cổng review phía API. */
-  generalFeedback: RichTextDocument | null;
-  /** Nhận xét của giáo viên khi chấm tay câu này — cùng cổng review phía API. */
-  manualComment: string | null;
-}
-
-/** Hình dạng trả về của các endpoint lượt làm quiz. */
-interface AttemptView {
-  attempt: {
-    id: string; quizId: string; userId: string; attemptNumber: number; state: string;
-    preview: boolean; timeStart: string; timeFinish: string | null;
-    sumGrades: number | null; grade: number | null;
-  };
-  quiz: QuizView;
-  questions: AttemptQuestion[];
-  totalMax: number;
-  pendingManualCount: number;
-  closedDueToTimeLimit: boolean;
-  /** Nhận xét tổng quát theo dải điểm của cả bài — API chỉ trả khi cổng review cho xem. */
-  overallFeedback: string | null;
-}
+import {
+  quizAttemptPageClientLoader,
+  useQuizAttempt,
+  useSaveQuizResponse,
+  useSubmitQuizAttempt,
+  type AttemptQuestion,
+} from '#lib/quiz-data';
 
 function plainText(doc: RichTextDocument | null | undefined): string {
   return doc ? extractRichTextPlainText(doc) : '';
@@ -231,17 +178,28 @@ function shuffled<T>(items: T[], seedText: string): T[] {
 export function QuizAttemptPage() {
   const { t } = useTranslation('app');
   const { attemptId } = useParams();
-  const [view, setView] = useState<AttemptView | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // View lượt làm qua TanStack Query (F-01 của #133,
+  // `lib/quiz-data.ts`): clientLoader của route nạp trước đúng khoá;
+  // tải hỏng khi chưa có dữ liệu thì trang báo lỗi tải như bản thủ
+  // công, lỗi ở lần nạp lại sau đó giữ nguyên view đang hiện.
+  const attemptQuery = useQuizAttempt(attemptId);
+  const view = attemptQuery.data ?? null;
+  const error = attemptQuery.isError && !attemptQuery.data ? t('quizAttemptLoadFailed') : null;
+  const saveResponseMutation = useSaveQuizResponse();
+  const submitMutation = useSubmitQuizAttempt();
   const [actionError, setActionError] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [nowTick, setNowTick] = useState(() => Date.now());
 
-  const reload = useCallback(async () => {
-    const fresh = await apiJson<AttemptView>(`/api/v1/quiz-attempts/${attemptId}`);
-    setView(fresh);
+  // Mỗi khi view mới về (tải đầu, nạp lại sau lưu/nộp, hết giờ tự
+  // chốt): lấp các ô trả lời cục bộ còn trống bằng response phía
+  // server — đúng nhịp gộp của reload thủ công trước đây, không bao
+  // giờ đè lên chữ người dùng đang gõ.
+  useEffect(() => {
+    const fresh = attemptQuery.data;
+    if (!fresh) return;
     setResponses((prev) => {
       const next = { ...prev };
       for (const q of fresh.questions) {
@@ -249,11 +207,7 @@ export function QuizAttemptPage() {
       }
       return next;
     });
-  }, [attemptId]);
-
-  useEffect(() => {
-    void reload().catch(() => setError(t('quizAttemptLoadFailed')));
-  }, [reload, t]);
+  }, [attemptQuery.data]);
 
   const inProgress = view?.attempt.state === 'inprogress';
   const deadline = useMemo(() => {
@@ -268,9 +222,14 @@ export function QuizAttemptPage() {
   }, [deadline]);
 
   const remainingSeconds = deadline ? Math.max(0, Math.floor((deadline - nowTick) / 1000)) : null;
+  // Hết giờ: nạp lại view đúng một lần ở nhịp đồng hồ chạm 0 (server
+  // tự chốt lượt ở tương tác này) — ref giữ hàm refetch mới nhất để
+  // effect chỉ chạy theo hai điều kiện dưới đây như bản thủ công.
+  const refetchRef = useRef(attemptQuery.refetch);
+  refetchRef.current = attemptQuery.refetch;
   useEffect(() => {
-    if (remainingSeconds === 0 && inProgress) void reload().catch(() => undefined);
-  }, [remainingSeconds, inProgress, reload]);
+    if (remainingSeconds === 0 && inProgress) void refetchRef.current().catch(() => undefined);
+  }, [remainingSeconds, inProgress]);
 
   const pages = useMemo(() => {
     if (!view) return [1];
@@ -283,7 +242,6 @@ export function QuizAttemptPage() {
     setBusy(true);
     try {
       await run();
-      await reload();
     } catch {
       setActionError(t('quizAttemptActionFailed'));
     } finally {
@@ -292,19 +250,19 @@ export function QuizAttemptPage() {
   }
 
   async function saveResponse(q: AttemptQuestion) {
+    if (!attemptId) return;
     await act(() =>
-      apiJson(`/api/v1/quiz-attempts/${attemptId}/responses`, {
-        method: 'POST',
-        body: JSON.stringify({
-          questionAttemptId: q.questionAttemptId,
-          response: (responses[q.questionAttemptId] ?? '').trim() ? responses[q.questionAttemptId] : null,
-        }),
+      saveResponseMutation.mutateAsync({
+        attemptId,
+        questionAttemptId: q.questionAttemptId,
+        response: (responses[q.questionAttemptId] ?? '').trim() ? responses[q.questionAttemptId]! : null,
       }),
     );
   }
 
   async function submitAll() {
-    await act(() => apiJson(`/api/v1/quiz-attempts/${attemptId}/submit`, { method: 'POST', body: '{}' }));
+    if (!attemptId) return;
+    await act(() => submitMutation.mutateAsync(attemptId));
   }
 
   if (error)
@@ -652,6 +610,20 @@ function QuestionAnswerInput(props: {
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default function QuizAttemptRoute() {
   return <QuizAttemptPage />;
+}
+
+/**
+ * clientLoader (F-01, rà soát #133): prefetch view lượt làm vào
+ * QueryClient singleton dùng chung (đúng khoá factory) trước khi
+ * component mount — điều hướng vào trang không còn thác nước
+ * mount-rồi-fetch. prefetchQuery không ném lỗi: tải hỏng thì
+ * component tự xử lý qua useQuery như trước.
+ */
+export async function clientLoader({ params }: { params: Record<string, string | undefined> }) {
+  if (params.attemptId) {
+    await quizAttemptPageClientLoader(params.attemptId);
+  }
+  return null;
 }
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).

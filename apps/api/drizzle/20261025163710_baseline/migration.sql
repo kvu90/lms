@@ -3091,6 +3091,8 @@ ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_payment_id_payment
 ALTER TABLE "payments" ADD CONSTRAINT "payments_account_id_payment_accounts_id_fkey" FOREIGN KEY ("account_id") REFERENCES "payment_accounts"("id");--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_tenant_id_tenants_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenants"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "privacy_export_files" ADD CONSTRAINT "privacy_export_files_request_id_privacy_requests_id_fkey" FOREIGN KEY ("request_id") REFERENCES "privacy_requests"("id") ON DELETE CASCADE;
+ALTER TABLE "exam_matrices" ADD COLUMN "content_signature" text;--> statement-breakpoint
+ALTER TABLE "exam_matrices" ADD CONSTRAINT "exam_matrices_bank_content_signature_unique" UNIQUE("bank_id","content_signature");--> statement-breakpoint
 -- TENANT-0 (issue #168) + TENANT-1 (issue #196): ROW LEVEL SECURITY —
 -- cổng cách ly cứng ở tầng cơ sở dữ liệu. Mọi bảng mang tenant_id đều
 -- ENABLE + FORCE RLS với MỘT policy "tenant_isolation":
@@ -3266,6 +3268,48 @@ CREATE TABLE "payment_coupons" (
 --> statement-breakpoint
 CREATE INDEX "payment_coupons_created_by_idx" ON "payment_coupons" ("created_by");--> statement-breakpoint
 ALTER TABLE "payment_coupons" ADD CONSTRAINT "payment_coupons_created_by_users_id_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+
+-- Lát 3 (issue #189): vòng đời hoàn tiền + vết xử lý hàng đợi
+-- `needs_review`. `payment_refunds` thêm cột trạng thái vòng đời
+-- (requested/approved/settled/rejected), cấp duyệt + ngưỡng hiệu lực
+-- tại thời điểm tạo, và trọn vết kiểm toán (người tạo, người duyệt,
+-- người từ chối kèm lý do, xác nhận chi bởi người hoặc bởi sự kiện
+-- `debit` của provider) — không thêm bảng mới. `payments` thêm bốn
+-- cột vết xử lý tay của hàng đợi (quyết định, lý do, người xử lý,
+-- thời điểm). Mọi khoá ngoại cột đơn mới đều có index dẫn đầu theo
+-- đúng kỷ luật của spec uuidv7 (mục 6b). Gộp tay vào baseline duy
+-- nhất như các lát trước.
+ALTER TABLE "payment_refunds" ADD COLUMN "status" text DEFAULT 'requested' NOT NULL;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "created_by" uuid;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "approval_level" integer;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "approval_threshold" integer;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "approved_by" uuid;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "approved_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "rejected_by" uuid;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "rejected_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "rejection_reason" text;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "settled_by" uuid;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "settled_event_id" uuid;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "settled_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+ALTER TABLE "payments" ADD COLUMN "review_decision" text;--> statement-breakpoint
+ALTER TABLE "payments" ADD COLUMN "review_reason" text;--> statement-breakpoint
+ALTER TABLE "payments" ADD COLUMN "review_handled_by" uuid;--> statement-breakpoint
+ALTER TABLE "payments" ADD COLUMN "review_handled_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "payment_refunds_status_idx" ON "payment_refunds" ("status");--> statement-breakpoint
+CREATE INDEX "payment_refunds_external_tx_idx" ON "payment_refunds" ("external_transaction_id");--> statement-breakpoint
+CREATE INDEX "payment_refunds_created_by_idx" ON "payment_refunds" ("created_by");--> statement-breakpoint
+CREATE INDEX "payment_refunds_approved_by_idx" ON "payment_refunds" ("approved_by");--> statement-breakpoint
+CREATE INDEX "payment_refunds_rejected_by_idx" ON "payment_refunds" ("rejected_by");--> statement-breakpoint
+CREATE INDEX "payment_refunds_settled_by_idx" ON "payment_refunds" ("settled_by");--> statement-breakpoint
+CREATE INDEX "payment_refunds_settled_event_id_idx" ON "payment_refunds" ("settled_event_id");--> statement-breakpoint
+CREATE INDEX "payments_review_handled_by_idx" ON "payments" ("review_handled_by");--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_created_by_users_id_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_approved_by_users_id_fkey" FOREIGN KEY ("approved_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_rejected_by_users_id_fkey" FOREIGN KEY ("rejected_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_settled_by_users_id_fkey" FOREIGN KEY ("settled_by") REFERENCES "users"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payment_refunds" ADD CONSTRAINT "payment_refunds_mDfM3SsyKuiG_fkey" FOREIGN KEY ("settled_event_id") REFERENCES "payment_provider_events"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "payments" ADD CONSTRAINT "payments_review_handled_by_users_id_fkey" FOREIGN KEY ("review_handled_by") REFERENCES "users"("id") ON DELETE RESTRICT;
 CREATE TABLE "exam_contribution_reviews" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"contribution_id" uuid NOT NULL,

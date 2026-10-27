@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import '../i18n';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
@@ -8,15 +8,17 @@ import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { PageHeader, PageShell } from '../components/page-shell';
-import { apiJson } from '#lib/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { systemCapabilities, usePermissions } from '#lib/permissions';
+import { globalSearchQueryOptions } from '#lib/search-data';
+import { globalSearchTarget, type GlobalSearchDoc } from '#lib/search-target';
 
-interface SearchDoc {
-  id: string;
-  area: string;
-  itemId: string;
-  title: string;
-  content: string;
-}
+/** Khoá nhãn loại kết quả theo `area` của API tìm kiếm; area lạ chưa có nhãn thì hiển thị nguyên mã area. */
+const AREA_LABEL_KEYS: Record<string, string> = {
+  courses: 'searchAreaCourses',
+  users: 'searchAreaUsers',
+  contentbank: 'searchAreaContentBank',
+};
 
 /**
  * Tìm kiếm toàn cục (platform services): kết quả đã được server lọc theo quyền của người
@@ -31,21 +33,52 @@ interface SearchDoc {
  *    bằng từ khoá trống.
  * 2. Form ngay trong trang — giữ nguyên hành vi cũ: gõ tiếp rồi bấm
  *    "Tìm kiếm" là chạy lại bằng chữ đang có trong ô, không đổi URL.
+ *
+ * Mỗi kết quả ĐIỀU HƯỚNG ĐƯỢC vào đúng item (chốt gộp tìm kiếm ngày
+ * 27/10/2026 — trước đó danh sách chỉ là chữ tĩnh không bấm được):
+ * đích lấy từ ánh xạ dùng chung lib/search-target (khoá học →
+ * trang khoá, người dùng → màn quản trị người dùng, học liệu →
+ * màn của học liệu đó), cùng ánh xạ với nhóm "Nội dung" của bề mặt
+ * Ctrl/Cmd+K. Kết quả thuộc area chưa có route đích thì giữ dạng
+ * khối thông tin không liên kết, không bịa đường dẫn. Riêng kết
+ * quả người dùng: đích màn quản trị CHỈ gắn khi ảnh chụp quyền của
+ * người đang tìm có quyền quản trị người dùng (site admin hoặc
+ * `user:update` tại context hệ thống) — mọi vai trò đều nhận kết
+ * quả `users` từ API nhưng vai trò không có quyền đó bấm vào màn
+ * quản trị chỉ là ngõ cụt, nên giữ dạng khối thông tin như area
+ * chưa có đích.
  */
 export function SearchPage() {
   const { t: t } = useTranslation();
+  const queryClient = useQueryClient();
+  const perms = usePermissions();
+  // Quyền quản trị người dùng của chính người đang tìm, suy từ ảnh
+  // chụp quyền: điều kiện duy nhất để kết quả `users` gắn đích màn
+  // quản trị (màn đích tự gác `user:update`). Ảnh chụp chưa tải
+  // được thì coi như không có quyền — kết quả giữ dạng thông tin,
+  // đúng chiều an toàn của ánh xạ.
+  const canManageUsers =
+    (perms.access?.isSiteAdmin ?? false) ||
+    (perms.access ? systemCapabilities(perms.access).includes('user:update') : false);
   const [searchParams] = useSearchParams();
   const urlQ = searchParams.get('q');
   const [q, setQ] = useState('');
-  const [results, setResults] = useState<SearchDoc[]>([]);
+  const [results, setResults] = useState<GlobalSearchDoc[]>([]);
   const [searched, setSearched] = useState(false);
 
-  /** Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ đã tìm. */
+  /**
+   * Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ
+   * đã tìm. Đọc qua tầng TanStack Query (`fetchQuery` với options của
+   * `lib/search-data.ts`, khoá `globalSearch` — F-01 của rà soát
+   * #133): trang giữ máy trạng thái riêng nên không đổi sang
+   * `useQuery` khai báo; options đặt `staleTime: 0` để mỗi lượt chạy
+   * tìm gọi API thật như bản fetch thủ công.
+   */
   const runSearch = useCallback(async (keyword: string) => {
-    const docs = await apiJson<SearchDoc[]>(`/api/v1/search?q=${encodeURIComponent(keyword)}`);
+    const docs = await queryClient.fetchQuery(globalSearchQueryOptions(keyword));
     setResults(docs);
     setSearched(true);
-  }, []);
+  }, [queryClient]);
 
   // Đồng bộ theo q trên URL: chạy mỗi lần q xuất hiện/đổi (lần vào
   // trang đầu tiên cũng là một lần q "xuất hiện"). Không có tham số
@@ -83,15 +116,29 @@ export function SearchPage() {
             <Button type="submit">{t('searchButton')}</Button>
           </form>
           <ul aria-label={t('searchResults')} className="space-y-2">
-            {results.map((d) => (
-              <li key={d.id} className="rounded border p-2">
-                <p className="font-medium">{d.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {d.area} · item {d.itemId}
-                </p>
-                <p className="text-sm">{d.content}</p>
-              </li>
-            ))}
+            {results.map((d) => {
+              const target = globalSearchTarget(d, { canManageUsers });
+              const body = (
+                <>
+                  <p className="font-medium">{d.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {AREA_LABEL_KEYS[d.area] ? t(AREA_LABEL_KEYS[d.area]) : d.area}
+                  </p>
+                  <p className="text-sm">{d.content}</p>
+                </>
+              );
+              return (
+                <li key={d.id}>
+                  {target ? (
+                    <Link to={target} className="block rounded border p-2 hover:bg-accent" data-testid={`search-result-${d.id}`}>
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="rounded border p-2">{body}</div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           {searched && results.length === 0 ? (
             <Empty className="p-6">

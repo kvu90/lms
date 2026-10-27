@@ -22,6 +22,7 @@ import type { CreateExamMatrixCellDto, CreateExamMatrixDto, CreateExamPinOverrid
 import { effectiveTfScale, EXAM_KIND_PRESETS, isValidTfScale, MATRIX_PRESETS, matrixWarnings, tfScaleLabel, type ExamKind } from './domain/matrix';
 import { ipMatchesSubnetList, isValidSubnetList } from './domain/subnet';
 import { QuizRepository, type DbTx, type ExamMatrixCellRow, type ExamMatrixRow, type ExamMatrixVersionRow, type ExamAttemptEventRow, type ExamAttemptRow, type ExamPinFeedbackRow, type ExamPinOverrideRow, type ExamPinRow } from './quiz.repository';
+import { isMatrixContentSignatureConflict, matrixContentSignature } from './matrix-content-signature';
 
 export const QUIZ_COMPONENT = 'mod_quiz';
 export const QUIZ_CAPABILITIES = {
@@ -1569,33 +1570,52 @@ export class QuizService {
     const presetKind = 'cv7991_periodic';
     const preset = MATRIX_PRESETS[presetKind];
     const tenantId = bankTenantId !== undefined ? bankTenantId : await this.matrixTenantId();
-    // Ma trận và hàng version bất biến đầu tiên sinh trong MỘT
-    // transaction: không tồn tại ma trận nào không có version 1 chứa
-    // cấu hình khởi tạo của nó (bất biến nền của cơ chế version hoá).
-    const row = await this.repo.dbHandle.transaction(async (tx) => {
-      const created = await this.repo.insertMatrix({
-        tenantId,
-        name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
-        contextId: subject.contextId, presetKind,
-        targetFormPercents: input.targetFormPercents !== undefined ? input.targetFormPercents : (preset?.targetFormPercents ?? null),
-        targetLevelPercents: input.targetLevelPercents !== undefined ? input.targetLevelPercents : (preset?.targetLevelPercents ?? null),
-        levelSet: input.levelSet ?? 'three',
-        scopeNote: input.scopeNote ?? null,
-        scopeNodeIds: input.scopeNodeIds ?? null,
-        totalScore: input.totalScore ?? 10,
-        createdBy: actorId,
-        // Trường ngân hàng (MB-0/MB-1): bankId đã gác quyền tại context
-        // bank ở trên; copy mẫu/đóng góp đi qua MatrixBanksService.
-        bankId: input.bankId ?? null,
-        status: input.status ?? 'draft',
-        isTemplate: input.isTemplate ?? false,
-        derivedFromMatrixId: input.derivedFromMatrixId ?? null,
-      }, tx);
-      await this.repo.insertMatrixVersion({
-        matrixId: created.id, version: 1, ...this.matrixVersionConfigOf(created), createdBy: actorId,
-      }, tx);
-      return created;
+    // Chữ ký nội dung (lát chống trùng của issue #233): ma trận mới
+    // tạo chưa có ô nên chữ ký tính trên tập ô rỗng; các thao tác ô
+    // về sau tính lại trong cùng thao tác ghi. Ma trận gắn bank mà
+    // trùng toàn bộ nội dung với một ma trận đã có trong bank đó thì
+    // ràng buộc duy nhất ở DB chặn insert — dịch thành 409 tường
+    // minh thay vì lỗi 500 thô.
+    const contentSignature = matrixContentSignature({
+      name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
+      levelSet: input.levelSet ?? 'three', totalScore: input.totalScore ?? 10,
+      scopeNote: input.scopeNote ?? null, scopeNodeIds: input.scopeNodeIds ?? null,
+      cells: [],
     });
+    // Ma trận (kèm chữ ký nội dung) và hàng version bất biến đầu
+    // tiên sinh trong MỘT transaction: không tồn tại ma trận nào
+    // không có version 1 chứa cấu hình khởi tạo của nó (bất biến
+    // nền của cơ chế version hoá).
+    let row: ExamMatrixRow;
+    try {
+      row = await this.repo.dbHandle.transaction(async (tx) => {
+        const created = await this.repo.insertMatrix({
+          tenantId,
+          name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
+          contextId: subject.contextId, presetKind,
+          targetFormPercents: input.targetFormPercents !== undefined ? input.targetFormPercents : (preset?.targetFormPercents ?? null),
+          targetLevelPercents: input.targetLevelPercents !== undefined ? input.targetLevelPercents : (preset?.targetLevelPercents ?? null),
+          levelSet: input.levelSet ?? 'three',
+          scopeNote: input.scopeNote ?? null,
+          scopeNodeIds: input.scopeNodeIds ?? null,
+          totalScore: input.totalScore ?? 10,
+          contentSignature,
+          createdBy: actorId,
+          // Trường ngân hàng (MB-0/MB-1): bankId đã gác quyền tại context
+          // bank ở trên; copy mẫu/đóng góp đi qua MatrixBanksService.
+          bankId: input.bankId ?? null,
+          status: input.status ?? 'draft',
+          isTemplate: input.isTemplate ?? false,
+          derivedFromMatrixId: input.derivedFromMatrixId ?? null,
+        }, tx);
+        await this.repo.insertMatrixVersion({
+          matrixId: created.id, version: 1, ...this.matrixVersionConfigOf(created), createdBy: actorId,
+        }, tx);
+        return created;
+      });
+    } catch (err) {
+      this.rethrowAsDuplicateContentConflict(err);
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_created', payload: { matrixId: row.id, subjectId: subject.id, actorId } });
     return this.matrixView(row);
   }
@@ -1608,6 +1628,13 @@ export class QuizService {
    * lát I-1). Hai nội dung cho cùng một chữ ký là TRÙNG TOÀN BỘ theo
    * nghĩa nghiệp vụ của đường nhập file — cơ sở cho chống ghi trùng
    * của {@link createMatrixFromImport}.
+   *
+   * Thuật toán sống ở module dùng chung `matrix-content-signature`
+   * (lát schema của issue #233): cùng một hàm tính chữ ký cho tầng
+   * đối chiếu trong code, cho cột `content_signature` ghi xuống DB ở
+   * mọi đường tạo/sửa ma trận, và cho script lấp dữ liệu cũ — method
+   * này chỉ là lớp uỷ quyền giữ nguyên chữ ký gọi của các điểm dùng
+   * trong service.
    */
   private importedMatrixSignature(input: {
     name: string; subjectId: string; curriculumId: string;
@@ -1615,15 +1642,52 @@ export class QuizService {
     scopeNodeIds: string[] | null;
     cells: { curriculumNodeId: string; cognitiveLevel: string; qtype: string; questionCount: number; cellScore: number }[];
   }): string {
-    const norm = (n: number) => Math.round(n * 10000) / 10000;
-    return JSON.stringify({
-      name: input.name, subjectId: input.subjectId, curriculumId: input.curriculumId,
-      levelSet: input.levelSet, totalScore: norm(input.totalScore), scopeNote: input.scopeNote,
-      scopeNodeIds: [...(input.scopeNodeIds ?? [])].sort(),
-      cells: input.cells
-        .map((c) => [c.curriculumNodeId, c.cognitiveLevel, c.qtype, c.questionCount, norm(c.cellScore)].join('|'))
-        .sort(),
-    });
+    return matrixContentSignature(input);
+  }
+
+  /**
+   * Tính lại và ghi chữ ký nội dung của một ma trận từ trạng thái đã
+   * lưu hiện tại (phần đầu + toàn bộ ô), trong cùng transaction của
+   * thao tác sửa nội dung khi người gọi truyền `tx` (lát schema của
+   * issue #233).
+   *
+   * Mọi đường sửa làm đổi thành phần chữ ký — sửa ô (số câu/điểm ô,
+   * thêm/xoá ô) — phải gọi hàm này để cột `content_signature` không
+   * lệch nội dung thật: lệch chữ ký làm chống trùng ở DB so sai và
+   * ràng buộc duy nhất (bank, chữ ký) mất tác dụng. Va chạm ràng buộc
+   * duy nhất tại bước ghi này (nội dung sau sửa trùng toàn bộ với một
+   * ma trận khác trong cùng bank) huỷ toàn bộ transaction của thao
+   * tác sửa — người gọi dịch thành 409 `quiz.matrix_duplicate_content`.
+   *
+   * @param matrixId - Ma trận cần tính lại chữ ký.
+   * @param tx - Transaction của thao tác sửa, nếu có; thiếu thì đọc
+   *   và ghi trên kết nối thường.
+   */
+  private async refreshMatrixContentSignature(matrixId: string, tx?: DbTx): Promise<void> {
+    const row = await this.repo.getMatrix(matrixId, tx);
+    if (!row) return;
+    const cells = await this.repo.listMatrixCells(matrixId, tx);
+    await this.repo.updateMatrix(matrixId, {
+      contentSignature: matrixContentSignature({ ...row, cells }),
+    }, tx);
+  }
+
+  /**
+   * Dịch lỗi va chạm ràng buộc duy nhất (bank, chữ ký nội dung)
+   * thành 409 tường minh cho các đường ghi ma trận KHÔNG có hành vi
+   * "trả bản đã có" (tạo tay, sửa, thao tác ô): trùng toàn bộ nội
+   * dung trong cùng một bank là lỗi nghiệp vụ của người gọi, không
+   * phải lỗi 500 thô của DB. Lỗi khác được ném lại nguyên vẹn.
+   *
+   * @param err - Lỗi bắt được từ thao tác ghi.
+   * @throws ConflictException `quiz.matrix_duplicate_content` khi
+   *   `err` là va chạm của ràng buộc chữ ký.
+   */
+  private rethrowAsDuplicateContentConflict(err: unknown): never {
+    if (isMatrixContentSignatureConflict(err)) {
+      throw new ConflictException({ message: 'A matrix with identical content already exists in the target bank', code: 'quiz.matrix_duplicate_content' });
+    }
+    throw err;
   }
 
   /**
@@ -1641,18 +1705,25 @@ export class QuizService {
    *    chủ). Ma trận vào bank ở trạng thái `draft`, không phải mẫu —
    *    cùng vị thế với ma trận tạo tay, muốn lên bank chung phải đi
    *    đường copy/đóng góp hiện có.
-   * 3. CHỐNG GHI TRÙNG: đối chiếu chữ ký nội dung với các ma trận
-   *    chính người nhập đã có trong bank đích — trùng toàn bộ thì trả
-   *    ngay ma trận đã có, KHÔNG tạo bản thứ hai (gửi lại cùng một
-   *    file do double submit/retry không nhân đôi dữ liệu). Phạm vi
-   *    không đổi schema nên không có khoá duy nhất ở DB: hai request
-   *    trùng chạy ĐỒNG THỜI tuyệt đối vẫn là cửa sổ đua lý thuyết —
-   *    ghi nhận thẳng, xử lý khi có quyết định đổi schema riêng.
+   * 3. CHỐNG GHI TRÙNG hai tầng (lát schema của issue #233 đóng cửa
+   *    sổ đua của tầng một): tầng một đối chiếu chữ ký nội dung với
+   *    các ma trận chính người nhập đã có trong bank đích — trùng
+   *    toàn bộ thì trả ngay ma trận đã có, KHÔNG tạo bản thứ hai
+   *    (gửi lại cùng một file do double submit/retry không nhân đôi
+   *    dữ liệu). Tầng hai là ràng buộc duy nhất (bank_id,
+   *    content_signature) ở DB: chữ ký được ghi xuống cột
+   *    `content_signature` ngay trong transaction tạo ma trận, nên
+   *    hai request trùng chạy ĐỒNG THỜI tuyệt đối cũng chỉ một
+   *    transaction thắng; transaction thua chạm ràng buộc, rollback
+   *    toàn bộ, rồi đọc lại ma trận thắng cuộc theo (bank, chữ ký)
+   *    và trả về — người dùng không nhận lỗi, đúng hành vi "trùng
+   *    toàn bộ thì trả bản đã có".
    * 4. Ghi ma trận + toàn bộ ô trong MỘT transaction: bất kỳ lỗi nào
    *    giữa chừng (khoá ngoại, ràng buộc duy nhất của ô, check của
    *    DB) đều rollback toàn bộ — không để lại ma trận mồ côi hay ô
    *    ghi dở. Sự kiện outbox `exam_matrix_created` phát SAU khi
-   *    transaction đã commit, như createMatrix.
+   *    transaction đã commit, như createMatrix; riêng request thua
+   *    cuộc ở bước 3 không phát sự kiện vì không tạo dữ liệu nào.
    *
    * @param actorId - Người nhập (chủ bank đích).
    * @param input - Dự thảo đã parse hợp lệ: thông tin chung + phạm vi
@@ -1684,12 +1755,19 @@ export class QuizService {
     // Bước chống ghi trùng: chỉ đối chiếu ma trận của CHÍNH người
     // nhập trong bank đích có cùng định danh thô (tên/môn/chương
     // trình) rồi mới so chữ ký đầy đủ kèm ô — tránh nạp ô của mọi ma
-    // trận trong bank.
+    // trận trong bank. Bản ghi đã có chữ ký ghi ở cột
+    // `content_signature` thì so thẳng theo cột (không cần nạp ô);
+    // bản ghi lịch sử chưa lấp chữ ký (cột null) mới tính lại từ ô đã
+    // lưu — cùng một thuật toán nên hai cách cho cùng một kết quả.
     const signature = this.importedMatrixSignature(input);
     const candidates = (await this.repo.listMatricesByBank(bank.id))
       .filter((r) => r.createdBy === actorId && r.name === input.name
         && r.subjectId === subject.id && r.curriculumId === curriculum.id);
     for (const candidate of candidates) {
+      if (candidate.contentSignature !== null) {
+        if (candidate.contentSignature === signature) return this.matrixView(candidate);
+        continue;
+      }
       const existingCells = await this.repo.listMatrixCells(candidate.id);
       if (this.importedMatrixSignature({ ...candidate, cells: existingCells }) === signature) {
         return this.matrixView(candidate);
@@ -1698,38 +1776,54 @@ export class QuizService {
     // Khuôn ma trận duy nhất là CV 7991 như createMatrix: tỉ lệ tham
     // chiếu chụp từ hằng cấu hình của preset duy nhất còn hiệu lực.
     const preset = MATRIX_PRESETS['cv7991_periodic'];
-    const row = await this.repo.dbHandle.transaction(async (tx) => {
-      const matrix = await this.repo.insertMatrix({
-        tenantId: bank.tenantId,
-        name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
-        contextId: subject.contextId, presetKind: 'cv7991_periodic',
-        targetFormPercents: preset?.targetFormPercents ?? null,
-        targetLevelPercents: preset?.targetLevelPercents ?? null,
-        levelSet: input.levelSet,
-        scopeNote: input.scopeNote,
-        scopeNodeIds: input.scopeNodeIds,
-        totalScore: input.totalScore,
-        createdBy: actorId,
-        bankId: bank.id,
-        status: 'draft',
-        isTemplate: false,
-        derivedFromMatrixId: null,
-      }, tx);
-      // Version bất biến đầu tiên của ma trận nhập: cấu hình chụp
-      // từ chính ma trận vừa tạo; toàn bộ ô thuộc về version này.
-      const firstVersion = await this.repo.insertMatrixVersion({
-        matrixId: matrix.id, version: 1, ...this.matrixVersionConfigOf(matrix), createdBy: actorId,
-      }, tx);
-      for (const cell of input.cells) {
-        await this.repo.insertMatrixCell({
-          matrixId: matrix.id, matrixVersionId: firstVersion.id, curriculumNodeId: cell.curriculumNodeId,
-          cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
-          questionCount: cell.questionCount, cellScore: cell.cellScore,
-          minutes: null, tfScale: null, position: cell.position,
+    let row: ExamMatrixRow;
+    try {
+      row = await this.repo.dbHandle.transaction(async (tx) => {
+        const matrix = await this.repo.insertMatrix({
+          tenantId: bank.tenantId,
+          name: input.name, subjectId: subject.id, curriculumId: curriculum.id,
+          contextId: subject.contextId, presetKind: 'cv7991_periodic',
+          targetFormPercents: preset?.targetFormPercents ?? null,
+          targetLevelPercents: preset?.targetLevelPercents ?? null,
+          levelSet: input.levelSet,
+          scopeNote: input.scopeNote,
+          scopeNodeIds: input.scopeNodeIds,
+          totalScore: input.totalScore,
+          contentSignature: signature,
+          createdBy: actorId,
+          bankId: bank.id,
+          status: 'draft',
+          isTemplate: false,
+          derivedFromMatrixId: null,
         }, tx);
+        // Version bất biến đầu tiên của ma trận nhập: cấu hình chụp
+        // từ chính ma trận vừa tạo; toàn bộ ô thuộc về version này.
+        const firstVersion = await this.repo.insertMatrixVersion({
+          matrixId: matrix.id, version: 1, ...this.matrixVersionConfigOf(matrix), createdBy: actorId,
+        }, tx);
+        for (const cell of input.cells) {
+          await this.repo.insertMatrixCell({
+            matrixId: matrix.id, matrixVersionId: firstVersion.id, curriculumNodeId: cell.curriculumNodeId,
+            cognitiveLevel: cell.cognitiveLevel, qtype: cell.qtype,
+            questionCount: cell.questionCount, cellScore: cell.cellScore,
+            minutes: null, tfScale: null, position: cell.position,
+          }, tx);
+        }
+        return matrix;
+      });
+    } catch (err) {
+      // Đua ghi đồng thời tuyệt đối: transaction của request này
+      // chạm ràng buộc duy nhất (bank, chữ ký) — lỗi 23505 chỉ nổi
+      // SAU khi transaction thắng cuộc đã commit, nên đọc lại theo
+      // (bank, chữ ký) tại thời điểm này chắc chắn thấy bản thắng
+      // cuộc. Trả bản đó như hành vi trùng tuần tự ở trên; không
+      // thấy (ràng buộc khác/đua xoá) thì ném lại lỗi gốc.
+      if (isMatrixContentSignatureConflict(err)) {
+        const winner = await this.repo.findMatrixByBankAndSignature(bank.id, signature);
+        if (winner) return this.matrixView(winner);
       }
-      return matrix;
-    });
+      throw err;
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_created', payload: { matrixId: row.id, subjectId: subject.id, actorId } });
     return this.matrixView(row);
   }
@@ -1891,11 +1985,38 @@ export class QuizService {
     // đã bị sửa sau khi rời draft" mà các bề mặt cũ đang dựa vào.
     const contentChanged = ['name', 'targetFormPercents', 'targetLevelPercents', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore']
       .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
+    // Chữ ký nội dung (lát chống trùng của issue #233): patch chạm
+    // một thành phần của chữ ký (tên, bộ mức, tổng điểm, ghi chú
+    // phạm vi, phạm vi) hoặc CHUYỂN BANK (bank là một nửa của cặp
+    // duy nhất) thì tính lại chữ ký từ trạng thái sau patch + ô hiện
+    // tại và ghi trong CÙNG câu update — chữ ký không bao giờ lệch
+    // nội dung đã lưu. Sửa chỉ đổi tỉ lệ mục tiêu/trạng thái/mẫu thì
+    // chữ ký giữ nguyên vì các trường đó không thuộc chữ ký. Nội
+    // dung sau sửa trùng toàn bộ với một ma trận khác trong cùng
+    // bank (hoặc chuyển bank vào bank đã có nội dung này) thì ràng
+    // buộc duy nhất chặn lại — dịch thành 409 tường minh ở cả hai
+    // đường ghi dưới đây.
+    const signatureChanged = ['name', 'levelSet', 'scopeNote', 'scopeNodeIds', 'totalScore', 'bankId']
+      .some((k) => (patch as Record<string, unknown>)[k] !== undefined);
+    if (signatureChanged) {
+      const cells = await this.repo.listMatrixCells(row.id);
+      patch.contentSignature = matrixContentSignature({
+        name: patch.name ?? row.name,
+        subjectId: row.subjectId,
+        curriculumId: row.curriculumId,
+        levelSet: patch.levelSet ?? row.levelSet,
+        totalScore: patch.totalScore ?? row.totalScore,
+        scopeNote: patch.scopeNote !== undefined ? patch.scopeNote : row.scopeNote,
+        scopeNodeIds: patch.scopeNodeIds !== undefined ? patch.scopeNodeIds : row.scopeNodeIds,
+        cells,
+      });
+    }
     if (contentChanged && row.status !== 'draft') {
       // Fork + áp patch trong MỘT transaction: hàng version mới
       // chụp cấu hình sau patch và mang toàn bộ ô (nội dung ô không
       // đổi ở đường sửa này); exam_matrices nhận patch làm bản hiện
-      // hành đồng thời với số version mới do fork tăng.
+      // hành đồng thời với số version mới do fork tăng (bước 3 của
+      // forkMatrixVersion — không tăng tay ở đây nữa).
       const config = {
         presetKind: row.presetKind,
         targetFormPercents: patch.targetFormPercents !== undefined ? patch.targetFormPercents : row.targetFormPercents,
@@ -1905,12 +2026,20 @@ export class QuizService {
         scopeNodeIds: patch.scopeNodeIds !== undefined ? patch.scopeNodeIds : row.scopeNodeIds,
         totalScore: patch.totalScore !== undefined ? patch.totalScore : row.totalScore,
       };
-      await this.repo.dbHandle.transaction(async (tx) => {
-        await this.forkMatrixVersion(row, actorId, config, tx);
-        if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch, tx);
-      });
+      try {
+        await this.repo.dbHandle.transaction(async (tx) => {
+          await this.forkMatrixVersion(row, actorId, config, tx);
+          if (Object.keys(patch).length) await this.repo.updateMatrix(row.id, patch, tx);
+        });
+      } catch (err) {
+        this.rethrowAsDuplicateContentConflict(err);
+      }
     } else if (Object.keys(patch).length) {
-      await this.repo.updateMatrix(row.id, patch);
+      try {
+        await this.repo.updateMatrix(row.id, patch);
+      } catch (err) {
+        this.rethrowAsDuplicateContentConflict(err);
+      }
     }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_updated', payload: { matrixId: row.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
@@ -2103,17 +2232,34 @@ export class QuizService {
       questionCount: input.questionCount, cellScore: input.cellScore,
       minutes: input.minutes ?? null, tfScale: input.tfScale ?? null, position,
     };
-    if (matrix.status !== 'draft') {
-      // Ma trận đã rời draft: ô mới thuộc về VERSION MỚI — fork
-      // toàn bộ ô hiện hành sang version mới rồi mới thêm ô vào bản
-      // sao, version cũ không thêm ô nào.
-      await this.repo.dbHandle.transaction(async (tx) => {
-        const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
-        await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: next.id }, tx);
-      });
-    } else {
-      const current = await this.ensureCurrentMatrixVersionRow(matrix, actorId);
-      await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: current.id });
+    // Ô là thành phần của chữ ký nội dung: ghi ô + tính lại chữ ký
+    // chạy trong MỘT transaction ở cả hai đường dưới đây — nếu tập
+    // ô sau ghi làm ma trận trùng toàn bộ với một ma trận khác
+    // trong cùng bank, ràng buộc duy nhất (bank, chữ ký) huỷ cả
+    // thao tác thay vì để lại ô đã ghi mà chữ ký không ghi được,
+    // và lỗi được dịch thành 409 tường minh.
+    try {
+      if (matrix.status !== 'draft') {
+        // Ma trận đã rời draft: ô mới thuộc về VERSION MỚI — fork
+        // toàn bộ ô hiện hành sang version mới rồi mới thêm ô vào
+        // bản sao, version cũ không thêm ô nào; chữ ký tính lại từ
+        // tập ô của version mới trong cùng transaction.
+        await this.repo.dbHandle.transaction(async (tx) => {
+          const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
+          await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: next.id }, tx);
+          await this.refreshMatrixContentSignature(matrix.id, tx);
+        });
+      } else {
+        // Ma trận còn draft: ô ghi thẳng vào version đang mở, chữ
+        // ký tính lại trong cùng transaction.
+        await this.repo.dbHandle.transaction(async (tx) => {
+          const current = await this.ensureCurrentMatrixVersionRow(matrix, actorId, tx);
+          await this.repo.insertMatrixCell({ ...cellValues, matrixVersionId: current.id }, tx);
+          await this.refreshMatrixContentSignature(matrix.id, tx);
+        });
+      }
+    } catch (err) {
+      this.rethrowAsDuplicateContentConflict(err);
     }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_created', payload: { matrixId: matrix.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));
@@ -2132,17 +2278,40 @@ export class QuizService {
     if (input.tfScale !== undefined) patch.tfScale = input.tfScale;
     if (input.position !== undefined) patch.position = input.position;
     if (Object.keys(patch).length) {
+      // Chỉ số câu/điểm ô thuộc thành phần chữ ký nội dung: sửa
+      // hai trường này thì tính lại chữ ký trong CÙNG transaction
+      // với thao tác ghi (va chạm ràng buộc duy nhất huỷ cả thao
+      // tác, dịch 409). Sửa phút/thang Đ–S/vị trí không đổi chữ ký
+      // nên không tính lại — nhưng trên ma trận đã rời draft vẫn
+      // phải fork version như mọi sửa ô (bản đặc tả khớp nội dung
+      // tại version, không khớp theo trường).
+      const touchesSignature = patch.questionCount !== undefined || patch.cellScore !== undefined;
       if (matrix.status !== 'draft') {
         // Sửa ô trên ma trận đã rời draft: fork sang version mới
         // rồi sửa BẢN SAO của ô (định vị theo khoá tự nhiên trong
-        // version mới) — ô của version cũ giữ nguyên giá trị.
-        await this.repo.dbHandle.transaction(async (tx) => {
-          const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
-          const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
-          const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
-            && c.cognitiveLevel === cell.cognitiveLevel && c.qtype === cell.qtype);
-          if (copy) await this.repo.updateMatrixCell(copy.id, patch, tx);
-        });
+        // version mới) — ô của version cũ giữ nguyên giá trị; fork
+        // đã tăng số version trong cùng transaction.
+        try {
+          await this.repo.dbHandle.transaction(async (tx) => {
+            const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
+            const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
+            const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
+              && c.cognitiveLevel === cell.cognitiveLevel && c.qtype === cell.qtype);
+            if (copy) await this.repo.updateMatrixCell(copy.id, patch, tx);
+            if (touchesSignature) await this.refreshMatrixContentSignature(matrix.id, tx);
+          });
+        } catch (err) {
+          this.rethrowAsDuplicateContentConflict(err);
+        }
+      } else if (touchesSignature) {
+        try {
+          await this.repo.dbHandle.transaction(async (tx) => {
+            await this.repo.updateMatrixCell(cell.id, patch, tx);
+            await this.refreshMatrixContentSignature(matrix.id, tx);
+          });
+        } catch (err) {
+          this.rethrowAsDuplicateContentConflict(err);
+        }
       } else {
         await this.repo.updateMatrixCell(cell.id, patch);
       }
@@ -2156,18 +2325,31 @@ export class QuizService {
     const matrix = await this.getMatrixRow(matrixId);
     await this.requireMatrixCap(actorId, matrix, QUIZ_CAPABILITIES.manageMatrix);
     const cell = await this.getMatrixCellRow(matrix, cellId);
-    if (matrix.status !== 'draft') {
-      // Xoá ô trên ma trận đã rời draft: fork sang version mới rồi
-      // xoá BẢN SAO của ô trong version mới — version cũ vẫn còn ô.
-      await this.repo.dbHandle.transaction(async (tx) => {
-        const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
-        const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
-        const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
-          && c.cognitiveLevel === cell.cognitiveLevel && c.qtype === cell.qtype);
-        if (copy) await this.repo.deleteMatrixCell(copy.id, tx);
-      });
-    } else {
-      await this.repo.deleteMatrixCell(cell.id);
+    // Xoá ô đổi tập ô của chữ ký nội dung: xoá + tính lại chữ ký
+    // trong MỘT transaction ở cả hai đường, cùng lý do nguyên tử
+    // như thêm ô (xem createMatrixCell).
+    try {
+      if (matrix.status !== 'draft') {
+        // Xoá ô trên ma trận đã rời draft: fork sang version mới
+        // rồi xoá BẢN SAO của ô trong version mới — version cũ vẫn
+        // còn ô; chữ ký tính lại từ tập ô của version mới trong
+        // cùng transaction.
+        await this.repo.dbHandle.transaction(async (tx) => {
+          const next = await this.forkMatrixVersion(matrix, actorId, this.matrixVersionConfigOf(matrix), tx);
+          const copies = await this.repo.listMatrixCellsByVersionId(next.id, tx);
+          const copy = copies.find((c) => c.curriculumNodeId === cell.curriculumNodeId
+            && c.cognitiveLevel === cell.cognitiveLevel && c.qtype === cell.qtype);
+          if (copy) await this.repo.deleteMatrixCell(copy.id, tx);
+          await this.refreshMatrixContentSignature(matrix.id, tx);
+        });
+      } else {
+        await this.repo.dbHandle.transaction(async (tx) => {
+          await this.repo.deleteMatrixCell(cell.id, tx);
+          await this.refreshMatrixContentSignature(matrix.id, tx);
+        });
+      }
+    } catch (err) {
+      this.rethrowAsDuplicateContentConflict(err);
     }
     await this.outbox.enqueueStandalone({ aggregate: 'quiz', type: 'exam_matrix_cell_deleted', payload: { matrixId: matrix.id, cellId: cell.id, actorId } });
     return this.matrixView(await this.getMatrixRow(matrixId));

@@ -20,6 +20,7 @@ import {
   classOverviewSchema,
   classPublicViewSchema, classSchema, updateClassSchema,
   createCouponSchema, purchasePlanSchema, updateCouponSchema,
+  createRefundSchema, paymentRefundStatusSchema, rejectRefundSchema, resolvePaymentReviewSchema, settleRefundSchema,
 } from './index.js';
 
 describe('contracts', () => {
@@ -974,5 +975,40 @@ describe('coupon + purchase plan contracts (phần còn lại của lát 2, #189
     expect(updateCouponSchema.parse({ isActive: false }).isActive).toBe(false);
     expect(updateCouponSchema.parse({ maxRedemptions: null }).maxRedemptions).toBeNull();
     expect(() => updateCouponSchema.parse({ code: 'NEWCODE' })).toThrow();
+  });
+});
+
+describe('refund lifecycle + review queue contracts (lát 3, #189)', () => {
+  it('tạo yêu cầu hoàn: lý do là BẮT BUỘC (kể cả lý do toàn khoảng trắng), amount là số nguyên dương', () => {
+    // Ràng buộc nghiệp vụ của vòng đời hoàn: mọi khoản chi hoàn đều
+    // phải có lý do để lại vết kiểm toán — thiếu lý do hoặc lý do
+    // rỗng sau khi cắt khoảng trắng bị từ chối ngay ở biên hình dạng.
+    expect(createRefundSchema.parse({ amount: 50000, reason: 'Học viên chuyển lớp' }).amount).toBe(50000);
+    expect(() => createRefundSchema.parse({ amount: 50000 })).toThrow();
+    expect(() => createRefundSchema.parse({ amount: 50000, reason: '   ' })).toThrow();
+    expect(() => createRefundSchema.parse({ amount: 0, reason: 'x' })).toThrow();
+    expect(() => createRefundSchema.parse({ amount: 1.5, reason: 'x' })).toThrow();
+    // Client không tự chọn cấp duyệt hay trạng thái — cấp duyệt do
+    // service quyết từ ngưỡng cấu hình + luật hoàn đủ (strictObject).
+    expect(() => createRefundSchema.parse({ amount: 50000, reason: 'x', approvalLevel: 1 })).toThrow();
+    expect(() => createRefundSchema.parse({ amount: 50000, reason: 'x', status: 'settled' })).toThrow();
+  });
+
+  it('vòng đời hoàn có đúng bốn trạng thái đã chốt; từ chối bắt buộc lý do; xác nhận chi chỉ mang mã lệnh chi', () => {
+    expect(paymentRefundStatusSchema.options).toEqual(['requested', 'approved', 'settled', 'rejected']);
+    expect(() => rejectRefundSchema.parse({})).toThrow();
+    expect(() => rejectRefundSchema.parse({ reason: ' ' })).toThrow();
+    expect(rejectRefundSchema.parse({ reason: 'Thiếu chứng từ' }).reason).toBe('Thiếu chứng từ');
+    expect(settleRefundSchema.parse({}).externalTransactionId).toBeUndefined();
+    expect(settleRefundSchema.parse({ externalTransactionId: 'FT123' }).externalTransactionId).toBe('FT123');
+    expect(() => settleRefundSchema.parse({ externalTransactionId: '' })).toThrow();
+  });
+
+  it('xử lý hàng đợi needs_review: quyết định thuộc đúng tập matched/rejected và lý do bắt buộc', () => {
+    expect(resolvePaymentReviewSchema.parse({ decision: 'matched', reason: 'Đã đối chiếu sao kê' }).decision).toBe('matched');
+    expect(resolvePaymentReviewSchema.parse({ decision: 'rejected', reason: 'Không có khoản tiền này' }).decision).toBe('rejected');
+    expect(() => resolvePaymentReviewSchema.parse({ decision: 'ignored', reason: 'x' })).toThrow();
+    expect(() => resolvePaymentReviewSchema.parse({ decision: 'matched' })).toThrow();
+    expect(() => resolvePaymentReviewSchema.parse({ decision: 'matched', reason: '' })).toThrow();
   });
 });

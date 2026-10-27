@@ -8,6 +8,8 @@
 export const queryKeys = {
   /** Ảnh chụp quyền của người đang đăng nhập (GET /users/me/capabilities). */
   capabilities: ['capabilities'] as const,
+  /** Kết quả tìm kiếm toàn cục theo từ khoá (GET /search — nhóm Nội dung của bề mặt tìm kiếm hợp nhất ở header). */
+  globalSearch: (keyword: string) => ['global-search', keyword] as const,
   /** Danh sách toàn bộ khoá học (GET /courses). */
   courses: ['courses'] as const,
   /** Kết quả + hàng đợi chấm tay của một quiz (trang quiz-results). */
@@ -187,4 +189,160 @@ export const queryKeys = {
   siteConfig: ['site-config'] as const,
   /** Vết thay đổi cấu hình site gần nhất (GET /site-config/audit). */
   siteConfigAudit: ['site-config', 'audit'] as const,
+  /** Insight phân tích của chính người dùng (GET /analytics/insights/me) — trang insights nền tảng. */
+  myInsights: ['analytics', 'insights', 'me'] as const,
+  /** Yêu cầu quyền riêng tư (GET /privacy/requests) — trang privacy nền tảng. */
+  privacyRequests: ['privacy', 'requests'] as const,
+  /** Việc sao lưu/khôi phục (GET /backup/jobs) — trang backup nền tảng. */
+  backupJobs: ['backup', 'jobs'] as const,
+  /** Các bước của một việc sao lưu (GET /backup/jobs/:id/steps) — trang backup nền tảng. */
+  backupSteps: (jobId: string) => ['backup', 'jobs', jobId, 'steps'] as const,
+  /** Dịch vụ webservice (GET /webservice/services) — trang tokens nền tảng. */
+  webserviceServices: ['webservice', 'services'] as const,
+  /** Token tích hợp (GET /webservice/tokens) — trang tokens nền tảng. */
+  webserviceTokens: ['webservice', 'tokens'] as const,
+  /** Báo cáo tự dựng (GET /reports) — trang reports nền tảng. */
+  platformReports: ['reports'] as const,
+  /** Kết quả chạy một báo cáo (GET /reports/:id/run) — trang reports nền tảng. */
+  reportRun: (reportId: string) => ['reports', reportId, 'run'] as const,
+  /** Kế hoạch học tập của một người dùng (GET /competencies/plans/user/:userId) — trang learning-plan. */
+  userLearningPlans: (userId: string) => ['competencies', 'plans', 'user', userId] as const,
+  /** Chi tiết một kế hoạch học tập (GET /competencies/plans/:id) — trang learning-plan. */
+  learningPlanDetail: (planId: string) => ['competencies', 'plans', planId] as const,
+  /** Lô in phiếu của một lần ghim (GET /exam-batches?pinId=) — trang chấm bài giấy. */
+  examBatches: (pinId: string) => ['exam-batches', pinId] as const,
+  /** Phiếu đã quét của một lần ghim (GET /exam-scans?pinId=) — trang chấm bài giấy. */
+  examScans: (pinId: string) => ['exam-scans', pinId] as const,
+  /** View một lượt làm quiz (GET /quiz-attempts/:id) — trang làm bài/xem lại. */
+  quizAttempt: (attemptId: string) => ['quiz-attempts', attemptId] as const,
+  /** Danh sách mẫu khoá học (GET /courses/templates) — wizard tạo khoá. */
+  courseTemplates: ['courses', 'templates'] as const,
+  /**
+   * Môn chương trình trong một context, kèm ngữ cảnh khoá mở quyền
+   * đọc cho giáo viên (GET /curriculum/subjects?contextId=&forCourseId=)
+   * — khác khoá `curriculumSubjects` của màn ma trận (không tham số).
+   */
+  curriculumSubjectsScoped: (contextId: string, forCourseId: string | null) =>
+    ['curriculum', 'subjects', 'scoped', contextId, forCourseId] as const,
+  /** Các chương trình của một môn kèm ngữ cảnh khoá (GET /curriculum/curricula?subjectId=&forCourseId=). */
+  curriculumCurriculaScoped: (subjectId: string, forCourseId: string | null) =>
+    ['curriculum', 'curricula', 'scoped', subjectId, forCourseId] as const,
+  /** Cây chương trình kèm ngữ cảnh khoá (GET /curriculum/curricula/:id/tree?forCourseId=). */
+  curriculumTreeScoped: (curriculumId: string, forCourseId: string | null) =>
+    ['curriculum', 'tree', 'scoped', curriculumId, forCourseId] as const,
+  /** Đơn vị khung chọn được của cặp (môn, khối) — suy từ curricula + cây qua tầng curriculum. */
+  curriculumFrameUnits: (subjectId: string, grade: number, forCourseId: string | null) =>
+    ['curriculum', 'frame-units', subjectId, grade, forCourseId] as const,
+  /**
+   * Chi tiết trọn vẹn một đề cho màn soạn (GET /exams/:id) — khác
+   * khoá `examSource` của trang lần ghim (cùng endpoint nhưng chỉ
+   * lấy phần thông tin nguồn, hình dạng cache khác hẳn).
+   */
+  examPaperDetail: (paperId: string) => ['exam-papers', paperId] as const,
+  /** Các lần ghim của một đề (GET /exams/:id/pins) — màn soạn đề. */
+  examPaperPins: (paperId: string) => ['exam-papers', paperId, 'pins'] as const,
+  /** Trạng thái các dataset chương trình chuẩn (GET /curriculum/program-import) — trang quản trị chương trình. */
+  programDatasetStatus: ['curriculum', 'program-import'] as const,
+  /** Trạng thái các dataset SGK (GET /books/dataset-import) — trang quản trị chương trình. */
+  bookDatasetStatus: ['books', 'dataset-import'] as const,
+  /** Danh sách SGK đã nạp (GET /books) — trang quản trị chương trình. */
+  books: ['books'] as const,
+  /** Cây của một cuốn SGK (GET /books/:id/tree) — trang quản trị chương trình. */
+  bookTree: (bookId: string) => ['books', bookId, 'tree'] as const,
+  /** Một môn chương trình theo id (GET /curriculum/subjects/:id) — màn sửa môn. */
+  curriculumSubjectRow: (subjectId: string) => ['curriculum', 'subjects', 'row', subjectId] as const,
+  /** Một chương trình theo id (GET /curriculum/curricula/:id) — màn sửa chương trình. */
+  curriculumRow: (curriculumId: string) => ['curriculum', 'curricula', 'row', curriculumId] as const,
+  /** Một node chương trình theo id (GET /curriculum/nodes/:id) — màn sửa node/YCCĐ. */
+  curriculumNode: (nodeId: string) => ['curriculum', 'nodes', nodeId] as const,
+  /** Một YCCĐ theo id (GET /curriculum/outcomes/:id) — màn sửa YCCĐ. */
+  curriculumOutcome: (outcomeId: string) => ['curriculum', 'outcomes', outcomeId] as const,
+  /** Chi tiết một khoá học (GET /courses/:id) — trang quản trị khoá (chế độ nhóm). */
+  courseDetail: (courseId: string) => ['courses', courseId, 'detail'] as const,
+  /** Các grouping của một khoá (GET /courses/:id/groupings) — trang quản trị khoá. */
+  courseGroupings: (courseId: string) => ['courses', courseId, 'groupings'] as const,
+  /** Các nhóm trong một grouping (GET /courses/:id/groupings/:id/groups) — trang quản trị khoá. */
+  courseGroupingGroups: (courseId: string, groupingId: string) =>
+    ['courses', courseId, 'groupings', groupingId, 'groups'] as const,
+  /** Thành viên của một nhóm khoá (GET /courses/:id/groups/:id/members) — trang quản trị khoá. */
+  courseGroupMembers: (courseId: string, groupId: string) =>
+    ['courses', courseId, 'groups', groupId, 'members'] as const,
+  /** Danh sách cohort (GET /cohorts) — trang quản trị khoá. */
+  cohorts: ['cohorts'] as const,
+  /** Thành viên của một cohort (GET /cohorts/:id/members) — trang quản trị khoá. */
+  cohortMembers: (cohortId: string) => ['cohorts', cohortId, 'members'] as const,
+  /** Các instance ghi danh của một khoá (GET /courses/:id/enrol/instances) — trang quản trị khoá. */
+  courseEnrolInstances: (courseId: string) => ['courses', courseId, 'enrol-instances'] as const,
+  /** Các ghi danh của một khoá (GET /courses/:id/enrolments) — trang quản trị khoá. */
+  courseEnrolments: (courseId: string) => ['courses', courseId, 'enrolments'] as const,
+  /** Tiến độ hoàn thành của một khoá (GET /courses/:id/completion) — trang quản trị khoá. */
+  courseCompletions: (courseId: string) => ['courses', courseId, 'completion'] as const,
+  /** Hội thoại chat toàn lớp của một khoá (GET /messages/courses/:id/conversation) — trang quản trị khoá. */
+  courseConversation: (courseId: string) => ['messages', 'courses', courseId, 'conversation'] as const,
+  /** Lịch sử điểm của một học viên trên một mục điểm (GET /courses/grades/items/:id/users/:userId/history) — trang bảng điểm. */
+  gradeItemHistory: (itemId: string, userId: string) =>
+    ['grades', 'items', itemId, 'users', userId, 'history'] as const,
+  /** Nhật ký chấm lại của một lần ghim (GET /exam-pins/:id/regrades) — trang lần ghim. */
+  examPinRegrades: (pinId: string) => ['exam-pins', pinId, 'regrades'] as const,
+  /** Lịch sử chấm lại của chính người xem trên một lần ghim (GET /exam-pins/:id/my-regrades) — trang lần ghim. */
+  examPinMyRegrades: (pinId: string) => ['exam-pins', pinId, 'my-regrades'] as const,
+  /** Xem trước cập nhật version của một lần ghim (GET /exam-pins/:id/version-update) — trang lần ghim. */
+  examPinVersionUpdate: (pinId: string) => ['exam-pins', pinId, 'version-update'] as const,
+  /** Gắn kết chương trình của một câu hỏi (GET /questions/:id/curriculum-links) — trình soạn câu hỏi. */
+  questionCurriculumLinks: (questionId: string) => ['questions', questionId, 'curriculum-links'] as const,
+  /** Bản đặc tả đã chụp của một bộ hồ sơ đề (GET /exams/dossiers/:id/specification) — trang ngân hàng. */
+  examDossierSpec: (dossierId: string) => ['exams', 'dossiers', dossierId, 'specification'] as const,
+  /** Một lượt dùng câu hỏi (GET /question-usages/:id) — trang làm thử câu hỏi. */
+  questionUsage: (usageId: string) => ['question-usages', usageId] as const,
+  /** Một ngữ liệu theo id (GET /stimuli/:id) — trang làm thử (nội dung của phiên bản đã ghim). */
+  stimulusDetail: (stimulusId: string) => ['stimuli', stimulusId] as const,
+  /** Cây nhóm của tab Nhóm (GET /messages/group-tree) — trang tin nhắn. */
+  messagingGroupTree: ['messages', 'group-tree'] as const,
+  /** Danh sách hội thoại chính (GET /messages/conversations) — trang tin nhắn. */
+  messagingConversations: ['messages', 'conversations'] as const,
+  /** Danh sách hội thoại đã lưu (GET /messages/conversations?archived=true) — trang tin nhắn. */
+  messagingArchivedConversations: ['messages', 'conversations', 'archived'] as const,
+  /** Danh sách người đã chặn (GET /messages/contacts/blocked) — trang tin nhắn. */
+  messagingBlockedContacts: ['messages', 'contacts', 'blocked'] as const,
+  /** Danh bạ đã duyệt (GET /messages/contacts) — trang tin nhắn. */
+  messagingContacts: ['messages', 'contacts'] as const,
+  /** Hàng chờ kết bạn (GET /messages/contacts/requests) — trang tin nhắn. */
+  messagingContactRequests: ['messages', 'contacts', 'requests'] as const,
+  /** Các khoá của người xem (GET /messages/courses) — trang tin nhắn. */
+  messagingCourses: ['messages', 'courses'] as const,
+  /** Chi tiết một hội thoại (GET /messages/conversations/:id) — trang tin nhắn. */
+  messagingConversationDetail: (conversationId: string) => ['messages', 'conversations', conversationId] as const,
+  /** Một cửa sổ tin theo mốc seq (GET /messages/conversations/:id/messages?beforeSeq=) — trang tin nhắn. */
+  messagingMessagesPage: (conversationId: string, beforeSeq: number) =>
+    ['messages', 'conversations', conversationId, 'messages', beforeSeq] as const,
+  /** Kết quả tìm nội dung trong một hội thoại (GET /messages/conversations/:id/search) — trang tin nhắn. */
+  messagingSearch: (conversationId: string, q: string) => ['messages', 'conversations', conversationId, 'search', q] as const,
+  /** Một trang roster lớp/khoá theo URL đầy đủ — trang tin nhắn (panel thành viên + bộ chọn người). */
+  messagingRosterPage: (url: string) => ['messages', 'roster', url] as const,
+  /** Chat cấp lớp được ensure (GET /messages/classes/:id/conversation) — trang tin nhắn. */
+  messagingClassConversation: (classId: string) => ['messages', 'classes', classId, 'conversation'] as const,
+  /** Danh sách bài nộp của một bài tập (GET /assignments/:id/submissions) — panel giáo viên. */
+  assignmentSubmissions: (assignmentId: string) => ['assignments', assignmentId, 'submissions'] as const,
+  /** Chi tiết một bài nộp (GET /assignments/:id/submissions/:userId) — panel chấm. */
+  submissionDetail: (assignmentId: string, userId: string) =>
+    ['assignments', assignmentId, 'submissions', userId] as const,
+  /** Ngân hàng câu nhận xét mẫu của giáo viên (GET /assign-comment-bank) — panel chấm. */
+  commentBank: ['assign-comment-bank'] as const,
+  /** Người dùng hiện tại rút gọn (GET /users/me) — panel học sinh của bài tập. */
+  currentUser: ['users', 'me'] as const,
+  /** Không gian kho học liệu (GET /contentbank/spaces) — trang kho học liệu + màn tạo/sửa học liệu. */
+  contentBankSpaces: ['content-bank', 'spaces'] as const,
+  /** Toàn bộ học liệu thuộc các không gian người xem thấy (GET /contentbank) — trang kho học liệu. */
+  contentBankItems: ['content-bank', 'items'] as const,
+  /** Chi tiết một học liệu (GET /contentbank/:id) — màn sửa học liệu. */
+  contentBankItem: (itemId: string) => ['content-bank', 'items', itemId] as const,
+  /** URL tải tệp đã ký của một học liệu (GET /contentbank/:id/file-url) — trang kho học liệu. */
+  contentBankItemFileUrl: (itemId: string) => ['content-bank', 'items', itemId, 'file-url'] as const,
+  /** Môn học trong context hệ thống cho bộ lọc của kho học liệu (chuỗi GET /access/contexts → GET /curriculum/subjects) — trang kho + màn tạo/sửa. */
+  contentBankSubjects: ['content-bank', 'subjects'] as const,
+  /** Danh mục câu hỏi trong context hệ thống (chuỗi GET /access/contexts → GET /questions/categories?contextId=) — màn tạo/sửa học liệu loại bộ câu hỏi. */
+  contentBankQuestionCategories: ['content-bank', 'question-categories'] as const,
+  /** Node chương trình đã phẳng hoá theo môn + khối (chuỗi GET /curriculum/curricula → GET /curriculum/curricula/:id/tree) — màn tạo/sửa học liệu. */
+  contentBankCurriculumNodes: (subjectId: string, grade: number) =>
+    ['content-bank', 'curriculum-nodes', subjectId, grade] as const,
 };

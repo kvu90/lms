@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Capability, Role } from '@lms/contracts';
 import { apiJson } from './api';
 import { queryKeys } from './query-keys';
@@ -35,12 +35,17 @@ export function useAccessCapabilities() {
   });
 }
 
-/** Cây context phân quyền (GET /access/contexts). */
-export function useAccessContexts() {
-  return useQuery({
+/** Tuỳ chọn truy vấn cây context phân quyền (GET /access/contexts) — dùng chung cho hook và clientLoader. */
+export function accessContextsQueryOptions() {
+  return queryOptions({
     queryKey: queryKeys.accessContexts,
     queryFn: () => apiJson<ContextRow[]>('/api/v1/access/contexts'),
   });
+}
+
+/** Cây context phân quyền (GET /access/contexts). */
+export function useAccessContexts() {
+  return useQuery(accessContextsQueryOptions());
 }
 
 /** Ma trận capability của một vai — chỉ tải khi vai được chọn xem ma trận. */

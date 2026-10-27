@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { PageShell } from '../page-shell';
-import { apiJson } from '#lib/api';
+import { useCurriculumNode } from '#lib/curriculum';
 import { FormScreen } from './form-screen';
-import { NodeForm, type NodeRow } from './node-form';
+import { NodeForm } from './node-form';
 
 export function AdminNodeNewPage() {
   const { t } = useTranslation('app');
@@ -21,11 +20,10 @@ export function AdminNodeNewPage() {
 export function AdminNodeEditPage() {
   const { t } = useTranslation('app');
   const { nodeId } = useParams();
-  const [node, setNode] = useState<NodeRow | null>(null);
-  useEffect(() => {
-    if (!nodeId) return;
-    void apiJson<NodeRow>(`/api/v1/curriculum/nodes/${nodeId}`).then(setNode).catch(() => setNode(null));
-  }, [nodeId]);
+  // Đọc node qua TanStack Query (F-01 của rà soát #133); chưa có dữ
+  // liệu thì màn giữ trạng thái đang tải như trước.
+  const nodeQuery = useCurriculumNode(nodeId);
+  const node = nodeQuery.data;
   if (!node) {
     return (
       <PageShell width="narrow">

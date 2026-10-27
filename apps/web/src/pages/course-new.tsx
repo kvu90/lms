@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import type { Course, CourseCategory, CourseCategoryTreeNode } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
@@ -7,13 +7,20 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { apiJson } from '#lib/api';
 import { FrameUnitPicker } from '../components/frame-picker';
+import { useAccessContexts } from '#lib/access';
+import { useCurriculumFrameUnits, useCurriculumSubjectsScoped } from '#lib/curriculum';
 import {
-  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId,
-  type CurriculumSubject, type FrameUnit,
-} from '#lib/curriculum';
-import { createClass, fetchClasses, type ClassView } from '#lib/classes';
+  courseNewPageClientLoader,
+  useApplyCurriculumFrame,
+  useCourseCategoryTree,
+  useCourseList,
+  useCourseTemplates,
+  useCreateClassForWizard,
+  useCreateCourse,
+  useDuplicateCourse,
+  useWizardClasses,
+} from '#lib/course-new-data';
 
 /**
  * Wizard tạo khoá học (K1 — issue #68): màn riêng theo chuẩn §9 với
@@ -47,12 +54,39 @@ export function CourseNewPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [path, setPath] = useState<WizardPath>('blank');
-  const [categories, setCategories] = useState<CourseCategory[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [templates, setTemplates] = useState<Course[]>([]);
+  // Dữ liệu nền của wizard qua TanStack Query (F-01 của #133,
+  // `lib/course-new-data.ts` + hook chương trình của
+  // `lib/curriculum.ts`): clientLoader của route nạp trước các danh
+  // sách nền; tải hỏng từng danh sách thì coi như rỗng như bản thủ
+  // công. Các lựa chọn suy từ dữ liệu (danh mục đầu, lớp chọn sẵn)
+  // giữ nguyên quy tắc chọn của bản thủ công.
+  const treeQuery = useCourseCategoryTree();
+  const categories = useMemo(() => {
+    const flat: CourseCategory[] = [];
+    const walk = (nodes: CourseCategoryTreeNode[]) => {
+      for (const n of nodes) {
+        flat.push(n);
+        walk(n.children);
+      }
+    };
+    walk(treeQuery.data ?? []);
+    return flat;
+  }, [treeQuery.data]);
+  const courses = useCourseList().data ?? [];
+  const templates = useCourseTemplates().data ?? [];
+  const classes = useWizardClasses().data ?? [];
+  const contextsQuery = useAccessContexts();
+  const systemContextId = contextsQuery.data?.find((c) => c.contextLevel === 10)?.id ?? null;
+  const subjects = useCurriculumSubjectsScoped(systemContextId).data ?? [];
+  const createCourse = useCreateCourse();
+  const duplicateCourse = useDuplicateCourse();
+  const applyFrame = useApplyCurriculumFrame();
+  const createClassMutation = useCreateClassForWizard();
   const [fullName, setFullName] = useState('');
   const [shortName, setShortName] = useState('');
-  const [category, setCategory] = useState('');
+  const [categoryChoice, setCategoryChoice] = useState('');
+  const category = categoryChoice || (categories.length > 0 ? String(categories[0]!.id) : '');
+  const setCategory = setCategoryChoice;
   const [startDate, setStartDate] = useState('');
   const [sourceId, setSourceId] = useState('');
   const [templateId, setTemplateId] = useState('');
@@ -61,68 +95,31 @@ export function CourseNewPage() {
   // Bước lớp (CLASS-1, issue #184): khoá PHẢI thuộc một lớp (API bắt
   // classId từ CLASS-0). GV chưa có lớp nào thì wizard chèn bước tạo lớp
   // nội tuyến 1 trường tên — KHÔNG sinh lớp mặc định ẩn.
-  const [classes, setClasses] = useState<ClassView[]>([]);
-  const [classId, setClassId] = useState('');
+  const [classChoice, setClassChoice] = useState<string | null>(null);
+  // Chọn sẵn lớp từ ?classId= (nút "Tạo khoá trong lớp" ở chi tiết
+  // lớp) nếu lớp đó có trong danh sách, không thì lớp đang hoạt động
+  // đầu tiên — như nhịp chọn sẵn sau khi nạp của bản thủ công; người
+  // dùng đổi lựa chọn thì lựa chọn của họ thắng.
+  const classPreselect = (() => {
+    const wanted = new URLSearchParams(location.search).get('classId');
+    if (wanted && classes.some((c) => c.id === wanted)) return wanted;
+    return classes.find((c) => c.status === 'active')?.id ?? '';
+  })();
+  const classId = classChoice ?? classPreselect;
+  const setClassId = setClassChoice;
   const [newClassName, setNewClassName] = useState('');
   // Đường khung chương trình.
-  const [subjects, setSubjects] = useState<CurriculumSubject[]>([]);
   const [subjectId, setSubjectId] = useState('');
   const [grade, setGrade] = useState('');
-  const [frameUnits, setFrameUnits] = useState<FrameUnit[]>([]);
-  const [frameCurriculumId, setFrameCurriculumId] = useState<string | null>(null);
+  const frameQuery = useCurriculumFrameUnits(subjectId, grade ? Number(grade) : null);
+  const frameUnits = frameQuery.data?.units ?? [];
+  const frameCurriculumId = frameQuery.data?.curriculumId ?? null;
   const [frameSelected, setFrameSelected] = useState<string[]>([]);
 
-  useEffect(() => {
-    void (async () => {
-      const [tree, list, tpl] = await Promise.all([
-        apiJson<CourseCategoryTreeNode[]>('/api/v1/courses/categories/tree').catch(() => []),
-        apiJson<Course[]>('/api/v1/courses').catch(() => []),
-        apiJson<Course[]>('/api/v1/courses/templates').catch(() => []),
-      ]);
-      const flat: CourseCategory[] = [];
-      const walk = (nodes: CourseCategoryTreeNode[]) => {
-        for (const n of nodes) {
-          flat.push(n);
-          walk(n.children);
-        }
-      };
-      walk(tree);
-      setCategories(flat);
-      if (flat.length > 0) setCategory(String(flat[0]!.id));
-      setCourses(list);
-      setTemplates(tpl);
-      // Nạp danh sách lớp của GV cho bước lớp; chọn sẵn lớp từ
-      // ?classId= (nút "Tạo khoá trong lớp" ở chi tiết lớp) nếu có.
-      const myClasses = await fetchClasses().catch(() => [] as ClassView[]);
-      setClasses(myClasses);
-      const wanted = new URLSearchParams(location.search).get('classId');
-      const preselect = wanted && myClasses.some((c) => c.id === wanted) ? wanted : myClasses.find((c) => c.status === 'active')?.id;
-      if (preselect) setClassId(preselect);
-      try {
-        const contextId = await fetchSystemContextId();
-        if (contextId) setSubjects(await fetchSubjects(contextId));
-      } catch {
-        setSubjects([]);
-      }
-    })();
-  }, []);
-
+  // Đổi (môn, khối) thì bỏ các đơn vị khung đã tích của cặp cũ — như
+  // nhịp đặt lại của bản thủ công.
   useEffect(() => {
     setFrameSelected([]);
-    if (!subjectId || !grade) {
-      setFrameUnits([]);
-      setFrameCurriculumId(null);
-      return;
-    }
-    void fetchFrameUnitsFor(subjectId, Number(grade))
-      .then(({ curriculumId, units }) => {
-        setFrameCurriculumId(curriculumId);
-        setFrameUnits(units);
-      })
-      .catch(() => {
-        setFrameCurriculumId(null);
-        setFrameUnits([]);
-      });
   }, [subjectId, grade]);
 
   /** Chọn khoá nguồn (nhân bản/mẫu): điền sẵn tên + mã cho bản sao để giáo viên sửa tối thiểu. Lớp đích của bản sao do BƯỚC LỚP quyết (mặc định chọn sẵn lớp đang hoạt động đầu tiên và hiện rõ để GV đổi; API giữ lớp nguồn chỉ khi không gửi classId — wizard luôn gửi lớp đang hiện nên không có thừa kế ẩn). */
@@ -142,8 +139,7 @@ export function CourseNewPage() {
     if (classes.length > 0) return classId ? { id: classId } : { error: 'required' };
     if (!newClassName.trim()) return { error: 'required' };
     try {
-      const created = await createClass({ name: newClassName.trim() });
-      setClasses([created]);
+      const created = await createClassMutation.mutateAsync({ name: newClassName.trim() });
       setClassId(created.id);
       return { id: created.id };
     } catch {
@@ -178,15 +174,15 @@ export function CourseNewPage() {
         setBusy(false);
         return;
       }
-      const created = await apiJson<Course>(`/api/v1/courses/${fromId}/duplicate`, {
-        method: 'POST',
-        body: JSON.stringify({
+      const created = await duplicateCourse.mutateAsync({
+        fromId,
+        body: {
           fullName,
           shortName,
           ...(category ? { category } : {}),
           ...(startDate ? { startDate } : {}),
           ...(effectiveClassId ? { classId: effectiveClassId } : {}),
-        }),
+        },
       });
       await goToBuilder(created.id);
     } catch {
@@ -208,23 +204,21 @@ export function CourseNewPage() {
         return;
       }
       const effectiveClassId = resolved.id;
-      const created = await apiJson<Course>('/api/v1/courses', {
-        method: 'POST',
-        body: JSON.stringify({
-          fullName,
-          shortName,
-          category,
-          classId: effectiveClassId,
-          ...(startDate ? { startDate } : {}),
-          ...(path === 'frame' && subjectId ? { subjectId } : {}),
-          ...(path === 'frame' && grade ? { grade: Number(grade) } : {}),
-        }),
+      const created = await createCourse.mutateAsync({
+        fullName,
+        shortName,
+        category,
+        classId: effectiveClassId,
+        ...(startDate ? { startDate } : {}),
+        ...(path === 'frame' && subjectId ? { subjectId } : {}),
+        ...(path === 'frame' && grade ? { grade: Number(grade) } : {}),
       });
       if (path === 'frame' && frameCurriculumId && frameSelected.length > 0) {
         try {
-          await apiJson(`/api/v1/courses/${created.id}/curriculum-frame`, {
-            method: 'POST',
-            body: JSON.stringify({ curriculumId: frameCurriculumId, nodeIds: frameSelected }),
+          await applyFrame.mutateAsync({
+            courseId: created.id,
+            curriculumId: frameCurriculumId,
+            nodeIds: frameSelected,
           });
         } catch {
           // Khoá đã tạo nhưng nạp khung lỗi: vẫn vào builder, báo rõ để nạp lại từ panel khung.
@@ -430,6 +424,18 @@ export function CourseNewPage() {
 
 /** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
 export default CourseNewPage;
+
+/**
+ * clientLoader (F-01, rà soát #133): prefetch các danh sách nền của
+ * wizard vào QueryClient singleton dùng chung (đúng khoá factory)
+ * trước khi component mount — điều hướng vào trang không còn thác
+ * nước mount-rồi-fetch. prefetchQuery không ném lỗi: tải hỏng thì
+ * component tự xử lý qua useQuery như trước.
+ */
+export async function clientLoader() {
+  await courseNewPageClientLoader();
+  return null;
+}
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';

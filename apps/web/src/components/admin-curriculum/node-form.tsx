@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
@@ -6,8 +6,10 @@ import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
-import { apiJson } from '#lib/api';
-import { fetchTree, type CurriculumTreeNode } from '#lib/curriculum';
+import {
+  useCreateCurriculumNode, useCurriculumTreeScoped, useUpdateCurriculumNode,
+  type CurriculumTreeNode,
+} from '#lib/curriculum';
 import { errorText } from './shared';
 
 export interface NodeRow {
@@ -38,14 +40,16 @@ export function NodeForm({ curriculumId, initial, parentId }: { curriculumId: st
   const [position, setPosition] = useState(String(initial?.position ?? 1));
   const [durationPeriods, setDurationPeriods] = useState(initial?.durationPeriods != null ? String(initial.durationPeriods) : '');
   const [durationPercent, setDurationPercent] = useState(initial?.durationPercent != null ? String(initial.durationPercent) : '');
-  const [parentOptions, setParentOptions] = useState<{ id: string; title: string; depth: number }[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void fetchTree(curriculumId)
-      .then((tree) => setParentOptions(flattenNodes(tree.nodes).filter((n) => n.id !== initial?.id)))
-      .catch(() => setParentOptions([]));
-  }, [curriculumId, initial?.id]);
+  // Danh sách node cha chọn được lấy từ cây của chương trình qua
+  // TanStack Query (F-01 của rà soát #133): cây tải lỗi thì danh sách
+  // rỗng như bản thủ công; loại chính node đang sửa khỏi ứng viên cha.
+  const treeQuery = useCurriculumTreeScoped(curriculumId, undefined);
+  const parentOptions = treeQuery.data
+    ? flattenNodes(treeQuery.data.nodes).filter((n) => n.id !== initial?.id)
+    : [];
+  const createNode = useCreateCurriculumNode();
+  const updateNode = useUpdateCurriculumNode();
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -60,12 +64,9 @@ export function NodeForm({ curriculumId, initial, parentId }: { curriculumId: st
     };
     try {
       if (initial) {
-        await apiJson(`/api/v1/curriculum/nodes/${initial.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        await updateNode.mutateAsync({ nodeId: initial.id, payload });
       } else {
-        await apiJson('/api/v1/curriculum/nodes', {
-          method: 'POST',
-          body: JSON.stringify({ curriculumId, ...payload }),
-        });
+        await createNode.mutateAsync({ curriculumId, payload });
       }
       navigate(`/admin/curriculum/curricula/${curriculumId}`);
     } catch (err) {

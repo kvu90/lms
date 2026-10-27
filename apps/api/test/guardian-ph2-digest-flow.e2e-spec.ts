@@ -140,7 +140,7 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     const notif = await waitForNotification(guardianToken, 'guardian_digest');
     expect(notif.subject).toContain('Tổng hợp tuần');
     expect(notif.fullMessage).toContain('Kết quả mới đã công bố: 1');
-    expect(notif.contextUrl).toBe(`/guardian?student=${student.id}`);
+    expect(notif.contextUrl).toBe(`/guardian/students/${student.id}`);
     // Không điểm số, không tên item trong nội dung thông báo.
     expect(notif.fullMessage).not.toContain('7.25');
     expect(notif.fullMessage).not.toContain('Điểm miệng PH2 bí mật');
@@ -303,7 +303,7 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
 
     const notif = await waitForNotification(guardianToken, 'guardian_overdue_alert');
     expect(notif.subject).toContain('Kiểm tra chương 1');
-    expect(notif.contextUrl).toBe(`/guardian?student=${student.id}`);
+    expect(notif.contextUrl).toBe(`/guardian/students/${student.id}`);
     const row = await waitDigestStatus(digestId);
     expect(row.status).toBe('sent');
 

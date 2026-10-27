@@ -1008,6 +1008,12 @@ export class CompetenciesService implements OnModuleInit {
       await this.messaging.notify(plan.reviewerId, 'competency_review_requested', {
         subject: this.i18n.t('platform.planReviewRequestedSubject', { args: { name: plan.name } }),
         body: this.i18n.t('platform.planReviewRequestedBody', { args: { userId: plan.userId, planId: plan.id } }),
+        // Luật C-5 (issue #219): provider này thuộc diện tối thiểu
+        // hoá — bản kênh ngoài KHÔNG mang UUID nội bộ (userId/planId)
+        // như bản trong app, chỉ nêu có kế hoạch chờ duyệt + tên
+        // kế hoạch; chi tiết xem trong app sau đăng nhập.
+        externalSubject: this.i18n.t('platform.planReviewRequestedSubject', { args: { name: plan.name } }),
+        externalBody: this.i18n.t('platform.planReviewRequestedExternalBody', { args: { name: plan.name } }),
         contextUrl: `/competencies/plans/${plan.id}`,
       }).catch(() => undefined);
     }

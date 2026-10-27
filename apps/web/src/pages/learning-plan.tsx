@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -11,14 +11,24 @@ import { DataTable, type DataColumn } from '#components/data-table';
 import { CompetencyAdmin } from '../components/learning-plan/competency-admin';
 import { COMPETENCY_INDENT, type PlanDetail, type PlanView } from '../components/learning-plan/types';
 import { PageHeader, PageShell } from '../components/page-shell';
+import {
+  useLearningPlanDetail,
+  useRequestCompetencyReview,
+  useRequestPlanReview,
+  useUserLearningPlans,
+} from '#lib/learning-plan-data';
 import '../i18n';
-import { apiJson } from '#lib/api';
 
 /**
  * Kế hoạch học tập: học viên thấy các kế hoạch của mình, mức thành thạo
  * của từng competency (do thang của framework quyết định, không bao giờ suy ra từ điểm)
  * và trạng thái review, và có thể yêu cầu review một competency — hành động
  * khởi đầu quy trình của người review.
+ *
+ * Dữ liệu phần người học đọc qua tầng TanStack Query
+ * (`lib/learning-plan-data.ts`): danh sách kế hoạch theo khoá của
+ * người dùng trong phiên, chi tiết theo khoá của kế hoạch đang chọn
+ * xem; gửi yêu cầu duyệt qua đột biến làm mới đúng bề mặt liên quan.
  */
 export function LearningPlanPage() {
   const { t } = useTranslation('app');
@@ -36,8 +46,13 @@ export function LearningPlanPage() {
   };
   const { user } = useAuth();
   const perms = usePermissions();
-  const [plans, setPlans] = useState<PlanView[]>([]);
-  const [detail, setDetail] = useState<PlanDetail | null>(null);
+  const plansQuery = useUserLearningPlans(user?.id);
+  const plans = plansQuery.data ?? [];
+  const [selectedPlan, setSelectedPlan] = useState<PlanView | null>(null);
+  const detailQuery = useLearningPlanDetail(selectedPlan?.id ?? null);
+  const detail = detailQuery.data ?? null;
+  const requestPlanReview = useRequestPlanReview();
+  const requestCompetencyReviewMutation = useRequestCompetencyReview();
   /** Cột của bảng năng lực trong một kế hoạch trên DataTable dùng chung: sắp xếp/lọc theo tên năng lực và mức thành thạo, thao tác gửi duyệt giữ nguyên ở cột cuối. */
   const planCompetencyColumns: DataColumn<PlanDetail['competencies'][number]>[] = [
     {
@@ -75,39 +90,27 @@ export function LearningPlanPage() {
     },
   ];
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const loading = plansQuery.isPending || (plansQuery.isError && plansQuery.isFetching);
+  const error = plansQuery.isError && !plansQuery.isFetching ? t('plansLoadFailed') : null;
 
-  const reload = useCallback(async () => {
-    if (!user) return;
-    const list = await apiJson<PlanView[]>(`/api/v1/competencies/plans/user/${user.id}`);
-    setPlans(list);
-  }, [user]);
-
-  useEffect(() => {
-    void reload()
-      .catch(() => setError(t('plansLoadFailed')))
-      .finally(() => setLoading(false));
-  }, [reload, t]);
-
-  async function open(plan: PlanView) {
-    const d = await apiJson<PlanDetail>(`/api/v1/competencies/plans/${plan.id}`);
-    setDetail(d);
+  function open(plan: PlanView) {
+    setSelectedPlan(plan);
   }
 
   async function requestReview(planId: string) {
-    await apiJson(`/api/v1/competencies/plans/${planId}/request-review`, { method: 'POST', body: '{}' });
+    if (!user) return;
+    await requestPlanReview.mutateAsync({ planId, userId: user.id });
     setMessage(t('reviewRequested'));
-    await reload();
   }
 
   async function requestCompetencyReview(usercompId: string) {
-    await apiJson(`/api/v1/competencies/usercomp/${usercompId}/evidence`, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'evidence', description: t('evidenceReviewDescription'), sendForReview: true }),
+    if (!detail) return;
+    await requestCompetencyReviewMutation.mutateAsync({
+      usercompId,
+      planId: detail.plan.id,
+      description: t('evidenceReviewDescription'),
     });
     setMessage(t('competencySentForReview'));
-    if (detail) await open(detail.plan);
   }
 
   return (
@@ -119,17 +122,7 @@ export function LearningPlanPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
           <div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setError(null);
-                setLoading(true);
-                void reload()
-                  .catch(() => setError(t('plansLoadFailed')))
-                  .finally(() => setLoading(false));
-              }}
-            >
+            <Button type="button" variant="outline" onClick={() => void plansQuery.refetch()}>
               {t('retry')}
             </Button>
           </div>
@@ -154,7 +147,7 @@ export function LearningPlanPage() {
                   <li key={p.id} className="flex items-center gap-3 text-sm">
                     <span className="font-medium">{p.name}</span>
                     <span>{PLAN_STATUS[p.status] ?? p.status}</span>
-                    <Button type="button" variant="outline" onClick={() => void open(p)}>
+                    <Button type="button" variant="outline" onClick={() => open(p)}>
                       {t('view')}
                     </Button>
                     {p.status === 1 ? (
