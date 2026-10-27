@@ -1,7 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, http } from './identity-access-helpers';
+import {
+  STRONG_PASSWORD, adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname,
+} from './identity-access-helpers';
+import { createCategory, createCourse } from './course-enrolment-helpers';
+import { courseContextId } from './engagement-helpers';
 
 /**
  * Lát I-1 nhập ma trận từ file (issue #233): sinh workbook mẫu + parse
@@ -14,7 +18,12 @@ import { adminToken, createTestApp, http } from './identity-access-helpers';
  *  - file sai khuôn → lỗi cứng định vị đúng sheet/dòng/cột (ô chữ,
  *    Mã ĐVK bịa, lệch tổng điểm, checkbox Vận dụng cao không khớp
  *    lưới, thiếu điểm mỗi câu, ma trận rỗng);
- *  - preview không tạo ma trận nào trong hệ.
+ *  - preview không tạo ma trận nào trong hệ;
+ *  - giáo viên theo mô hình gán vai của dữ liệu mẫu (editingteacher
+ *    tại context khoá, không vai nào tại context hệ thống) tải mẫu
+ *    và xem trước được — hồi quy điểm chặn D-3 của issue #233, khi
+ *    hai đầu này còn đòi quyền tại context của môn; học sinh bị
+ *    chặn 403 tại cổng bank của luồng ở cả hai đầu.
  */
 describe('Matrix import I-1 (template + preview, no DB write)', () => {
   let app: INestApplication;
@@ -265,5 +274,143 @@ describe('Matrix import I-1 (template + preview, no DB write)', () => {
     expect(res.status).toBe(200);
     expect(res.body.valid).toBe(false);
     expect(res.body.errors[0].code).toBe('quiz.matrix_import_file_unreadable');
+  });
+});
+
+/**
+ * I-1 với DIỄN VIÊN GIÁO VIÊN MÔ HÌNH SEED (hồi quy điểm chặn D-3,
+ * issue #233): giáo viên chỉ có vai `editingteacher` tại context
+ * khoá mình dạy — không vai nào tại context hệ thống, đúng mô hình
+ * teacher1 — phải tải được mẫu và xem trước được file hợp lệ theo
+ * môn neo tại context hệ thống; học sinh (vai `student` tại context
+ * khoá) bị chặn 403 tại cổng bank của luồng ở cả hai đầu. Dữ kiện
+ * môn/chương trình dựng riêng cho describe này bằng admin như
+ * describe chính.
+ */
+describe('Matrix import I-1 with seed-model teacher actor (D-3 regression, issue #233)', () => {
+  let app: INestApplication;
+  let admin: string;
+  let subjectId: string;
+  let curriculumId: string;
+  let lesson1Id: string;
+  let teacher: string;
+  let student: string;
+
+  const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    admin = await adminToken(app);
+    const contexts = await http(app).get('/api/v1/access/contexts').set(bearer(admin));
+    const systemCtx = (contexts.body as { id: string; contextLevel: number }[]).find((c) => c.contextLevel === 10)!;
+    const suffix = Date.now().toString(36);
+    const subjRes = await http(app).post('/api/v1/curriculum/subjects').set(bearer(admin))
+      .send({ contextId: systemCtx.id, name: 'Toán học', slug: `toan-import-gv-${suffix}` });
+    expect(subjRes.status, JSON.stringify(subjRes.body)).toBe(201);
+    subjectId = subjRes.body.id as string;
+    const currRes = await http(app).post('/api/v1/curriculum/curricula').set(bearer(admin))
+      .send({ subjectId, grade: 10 });
+    expect(currRes.status, JSON.stringify(currRes.body)).toBe(201);
+    curriculumId = currRes.body.id as string;
+    const topicRes = await http(app).post('/api/v1/curriculum/nodes').set(bearer(admin))
+      .send({ curriculumId, title: 'Hàm số', kind: 'topic' });
+    expect(topicRes.status, JSON.stringify(topicRes.body)).toBe(201);
+    const lesson1Res = await http(app).post('/api/v1/curriculum/nodes').set(bearer(admin))
+      .send({ curriculumId, parentId: topicRes.body.id, title: 'Hàm số bậc hai', kind: 'lesson' });
+    expect(lesson1Res.status, JSON.stringify(lesson1Res.body)).toBe(201);
+    lesson1Id = lesson1Res.body.id as string;
+    const lesson2Res = await http(app).post('/api/v1/curriculum/nodes').set(bearer(admin))
+      .send({ curriculumId, parentId: topicRes.body.id, title: 'Hàm số bậc nhất', kind: 'lesson' });
+    expect(lesson2Res.status, JSON.stringify(lesson2Res.body)).toBe(201);
+    const outcomeRes = await http(app).post('/api/v1/curriculum/outcomes').set(bearer(admin))
+      .send({ nodeId: lesson1Id, content: 'Nhận biết được hàm số bậc hai.' });
+    expect(outcomeRes.status, JSON.stringify(outcomeRes.body)).toBe(201);
+
+    // Khoá + gán vai đúng mô hình seed: giáo viên dạy một khoá (vai
+    // tại context khoá), học sinh học cùng khoá đó.
+    const category = await createCategory(app, admin);
+    const course = await createCourse(app, admin, category.id);
+    const courseCtx = await courseContextId(app, admin, course.id);
+    const editingTeacherRole = await roleIdByShortname(app, admin, 'editingteacher');
+    const studentRole = await roleIdByShortname(app, admin, 'student');
+    const gv = await createUserViaApi(app, admin, { username: `gv_i1_${suffix}` });
+    await assignRole(app, admin, gv.id, editingTeacherRole, courseCtx);
+    teacher = (await login(app, gv.username, STRONG_PASSWORD)).accessToken;
+    const hs = await createUserViaApi(app, admin, { username: `hs_i1_${suffix}` });
+    await assignRole(app, admin, hs.id, studentRole, courseCtx);
+    student = (await login(app, hs.username, STRONG_PASSWORD)).accessToken;
+  });
+  afterAll(async () => { await app.close(); });
+
+  /** Tải workbook mẫu bằng một token bất kỳ (ném lỗi khi không 200 để ca chặn dùng đường raw riêng). */
+  async function downloadTemplateAs(token: string): Promise<ExcelJS.Workbook> {
+    const qs = new URLSearchParams({ subjectId, curriculumId }).toString();
+    const res = await http(app).get(`/api/v1/exam-matrices/template?${qs}`)
+      .set(bearer(token))
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (c: Buffer) => chunks.push(c));
+        response.on('end', () => callback(null, Buffer.concat(chunks)));
+      });
+    if (res.status !== 200) throw new Error(`template failed: ${res.status} ${JSON.stringify(res.body)}`);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(res.body as unknown as ExcelJS.Buffer);
+    return wb;
+  }
+
+  /** Điền file hợp lệ tối thiểu: một ô duy nhất khớp tổng khai (1 câu Tự luận Vận dụng × 1,5đ, tổng 1,5) — đủ để preview hợp lệ. */
+  function fillMinimalValid(wb: ExcelJS.Workbook): ExcelJS.Workbook {
+    const ws = wb.getWorksheet('Ma trận')!;
+    ws.getCell('B2').value = 'Ma trận của giáo viên seed';
+    ws.getCell('B5').value = 1.5;
+    ws.getCell('B10').value = 1.5; // điểm mỗi câu Tự luận
+    ws.getCell('Q15').value = 1; // Tự luận — Vận dụng, ĐVK 1
+    return wb;
+  }
+
+  it('giáo viên mô hình seed: tải mẫu được (hàng theo ĐVK của chương trình hệ thống)', async () => {
+    const wb = await downloadTemplateAs(teacher);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Hướng dẫn', 'Ma trận', 'Đặc tả']);
+    expect(wb.getWorksheet('Ma trận')!.getCell('A15').value).toBe(lesson1Id);
+  });
+
+  it('giáo viên mô hình seed: preview file hợp lệ → valid, khớp ô đã điền', async () => {
+    const wb = fillMinimalValid(await downloadTemplateAs(teacher));
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const res = await http(app).post('/api/v1/exam-matrices/import/preview')
+      .set(bearer(teacher))
+      .attach('file', buffer, 'ma-tran.xlsx');
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.valid).toBe(true);
+    expect(res.body.errors).toEqual([]);
+    expect(res.body.cells).toHaveLength(1);
+    expect(res.body.cells[0]).toMatchObject({
+      curriculumNodeId: lesson1Id, cognitiveLevel: 'van_dung', qtype: 'essay', questionCount: 1, cellScore: 1.5,
+    });
+  });
+
+  it('giáo viên mô hình seed: preview file ghi mã môn không tồn tại → vẫn trả lỗi subject_not_found trong payload (không nuốt, không 404 thô)', async () => {
+    const wb = fillMinimalValid(await downloadTemplateAs(teacher));
+    wb.getWorksheet('Ma trận')!.getCell('D3').value = '123e4567-e89b-42d3-a456-426614174000';
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const res = await http(app).post('/api/v1/exam-matrices/import/preview')
+      .set(bearer(teacher))
+      .attach('file', buffer, 'ma-tran.xlsx');
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(res.body.valid).toBe(false);
+    expect((res.body.errors as { code: string }[]).some((e) => e.code === 'quiz.matrix_import_subject_not_found')).toBe(true);
+  });
+
+  it('học sinh: bị chặn 403 ở cả tải mẫu và preview', async () => {
+    const qs = new URLSearchParams({ subjectId, curriculumId }).toString();
+    const tpl = await http(app).get(`/api/v1/exam-matrices/template?${qs}`).set(bearer(student));
+    expect(tpl.status).toBe(403);
+    const wb = fillMinimalValid(await downloadTemplateAs(teacher));
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const prev = await http(app).post('/api/v1/exam-matrices/import/preview')
+      .set(bearer(student))
+      .attach('file', buffer, 'ma-tran.xlsx');
+    expect(prev.status).toBe(403);
   });
 });

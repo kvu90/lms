@@ -6,12 +6,16 @@ import type { Request, Response } from 'express';
 import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { QuizService } from './quiz.service';
+import { MatrixBanksService } from './matrix-banks.service';
 import { MatrixImportService } from './matrix-import.service';
+import { ExamsService } from '../exams/exams.service';
 import {
-  createExamMatrixCellSchema, createExamMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema,
+  copyExamMatrixSchema, createExamMatrixCellSchema, createExamMatrixSchema, createMatrixContributionSchema,
+  generateFromMatrixSchema, gradeQuizQuestionSchema, manualGradeQuizSchema,
   recordQuizAttemptEventSchema, submitQuizResponseSchema, updateExamMatrixCellSchema, updateExamMatrixSchema,
   withdrawExamMatrixSchema,
-  type CreateExamMatrixCellDto, type CreateExamMatrixDto, type GradeQuizQuestionDto, type ManualGradeQuizDto,
+  type CopyExamMatrixDto, type CreateExamMatrixCellDto, type CreateExamMatrixDto, type CreateMatrixContributionDto,
+  type GenerateFromMatrixDto, type GradeQuizQuestionDto, type ManualGradeQuizDto,
   type RecordQuizAttemptEventDto, type SubmitQuizResponseDto, type UpdateExamMatrixCellDto, type UpdateExamMatrixDto,
   type WithdrawExamMatrixDto,
 } from './dto/quiz.dto';
@@ -29,14 +33,24 @@ import {
 @Controller({ path: 'exam-matrices', version: '1' })
 /**
  * API ma trận đề (Quiz Chặng 3): thực thể lưu trữ neo Chương trình GDPT
- * 2018, các ô YCCĐ × mức × dạng, kiểm tra khả dụng ngân hàng và (ở
- * ExamsModule) sinh đề từ ma trận. Đây là nền của ngân hàng ma
- * trận trong khu vực Ngân hàng hệ thống về sau.
+ * 2018, các ô YCCĐ × mức × dạng, kiểm tra khả dụng ngân hàng và sinh
+ * đề từ ma trận. Đây là nền của ngân hàng ma trận trong khu vực Ngân
+ * hàng hệ thống về sau.
+ *
+ * Đây là controller sở hữu duy nhất của tiền tố `/exam-matrices`
+ * (issue #343): hai hành động bank neo trên một ma trận (copy, đóng
+ * góp — MB-1 của issue #111) trước đây nằm ở một controller riêng
+ * cùng khai tiền tố này, và handler sinh đề trước đây nằm ở
+ * ExamsModule; cả ba đã chuyển về lớp này. Handler sinh đề vẫn uỷ
+ * thác `ExamsService` của ExamsModule — chỉ lớp controller di
+ * chuyển, tầng service không đổi.
  */
 export class ExamMatricesController {
   constructor(
     private readonly quiz: QuizService,
     private readonly matrixImport: MatrixImportService,
+    private readonly matrixBanks: MatrixBanksService,
+    private readonly exams: ExamsService,
   ) {}
 
   @Post()
@@ -212,9 +226,18 @@ export class ExamMatricesController {
   async availability(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.quiz.matrixAvailability(actor.id, id);
   }
-  // POST /exam-matrices/:id/generate ở ExamsModule (EB-2: generate
-  // hai bước matrix → exam → ghim, xem ExamMatrixGenerateController)
-  // — route giữ nguyên URL cho GV.
+  @Post(':id/generate')
+  /**
+   * POST /exam-matrices/:id/generate — sinh đề từ ma trận (một thao
+   * tác): rút một bộ câu cố định thành đề snapshot rồi ghim vào khoá.
+   * Generate hai bước (EB-2, điểm E-3) giữ nguyên URL + payload của
+   * Chặng 3 nhưng điều phối ở lớp ngân hàng đề qua `ExamsService`:
+   * matrix → exams (snapshot) → ghim vào khoá qua exam-pins. Thiếu
+   * câu ở bất kỳ ô nào trả 422 kèm chi tiết từng ô.
+   */
+  async generate(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: generateFromMatrixSchema }) dto: GenerateFromMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.exams.generateFromMatrix(actor.id, id, dto);
+  }
   @Get(':id/specification')
   /**
    * GET /exam-matrices/:id/specification — view model bản đặc tả theo
@@ -241,6 +264,43 @@ export class ExamMatricesController {
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buffer);
+  }
+
+  // --- Lớp BANK trên ma trận (MB-1, issue #111) ----------------------------
+  // Ba handler dưới đây trước đây nằm ở ExamMatrixBankController
+  // riêng cùng khai tiền tố `exam-matrices`; đã chuyển về lớp này để
+  // tiền tố có đúng một controller sở hữu (issue #343). Tầng service
+  // giữ nguyên: mọi handler vẫn uỷ thác `MatrixBanksService`.
+
+  @Get(':id/attribution')
+  /**
+   * GET /exam-matrices/:id/attribution — dòng ghi công của ma trận
+   * theo đúng khuôn attribution của câu hỏi: nguồn đã copy, tác giả
+   * gốc, bank nguồn và hai bộ đếm dùng thật (lượt copy đi + số
+   * version đề đã sinh từ ma trận). Cổng: quyền xem trên ma trận.
+   */
+  async attribution(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.matrixBanks.getAttribution(actor.id, id);
+  }
+
+  @Post(':id/copy')
+  /**
+   * POST /exam-matrices/:id/copy — copy sâu ma trận (kèm toàn bộ ô) về
+   * bank đích; không gửi targetBankId thì về bank ma trận cá nhân của
+   * người copy. Bản copy là ma trận LÀM VIỆC (draft, không phải mẫu),
+   * derived_from_matrix_id trỏ về nguồn.
+   */
+  async copy(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: copyExamMatrixSchema }) dto: CopyExamMatrixDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.matrixBanks.copyMatrix(actor.id, id, dto);
+  }
+
+  @Post(':id/contributions')
+  /**
+   * POST /exam-matrices/:id/contributions — đề xuất đóng góp ma trận
+   * ready này vào một bank ma trận dùng chung (hàng chờ duyệt QB-4).
+   */
+  async propose(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: createMatrixContributionSchema }) dto: CreateMatrixContributionDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.matrixBanks.proposeContribution(actor.id, id, dto);
   }
 }
 

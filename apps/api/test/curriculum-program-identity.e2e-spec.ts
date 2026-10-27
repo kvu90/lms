@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -41,6 +42,11 @@ import {
  * 8. FK restrict chặn xoá thật (giữ từ phương án D): bề mặt quản trị
  *    trả 409 `curriculum.delete_referenced`; gỡ tham chiếu xong xoá
  *    được.
+ * 9. Restore artifact CỦA MÔI TRƯỜNG KHÁC (issue #233): dump luôn
+ *    mang context_id của máy sinh dump; bước restore neo lại các
+ *    môn mới nạp về context hệ thống của chính môi trường đích —
+ *    nếu không, môn thành mồ côi (context lạ không tồn tại ở đích)
+ *    và mọi bề mặt theo môn gãy dù dữ liệu nguyên vẹn.
  */
 
 const DATASET_KEY = 'gdcd';
@@ -251,6 +257,42 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     lessonC = await lessonIdOf(recC.id);
     outcomeB1 = (await outcomesOf(lessonB))[0]!.id;
     outcomeA1 = (await outcomesOf(lessonA))[0]!.id;
+  }, 180_000);
+
+  it('restore dump của môi trường khác: môn neo lại về context hệ thống của môi trường đích (issue #233)', async () => {
+    // Ca này đứng ngay sau ca xuất → restore ở trên, khi cây vừa
+    // restore còn "sạch" (chưa có ánh xạ sách/liên kết câu hỏi nào
+    // tham chiếu node — các ca patch phía sau mới dựng chúng, và
+    // FK restrict sẽ chặn wipeSubject từ lúc đó).
+    // Chụp tập id hiện hành để đối chiếu tính nguyên vẹn sau restore.
+    const before = await snapshotIds();
+    // Dump sinh từ trạng thái hiện tại, rồi GIẢ LẬP artifact của
+    // một môi trường khác: thay context hệ thống trong dump bằng
+    // một id context không tồn tại ở đây — đúng hiện tượng đã xảy
+    // ra trên production (artifact mang context_id của máy sinh
+    // dump; cột không có FK nên trước đây restore nhận im lặng và
+    // môn thành mồ côi, mọi lần đọc theo môn ném
+    // access.context_not_found).
+    const dump = await dumpSvc.buildDumpSql({ datasetKey: DATASET_KEY });
+    const foreignCtx = randomUUID();
+    const foreignDump = dump.split(systemCtxId).join(foreignCtx);
+    expect(foreignDump).toContain(foreignCtx);
+
+    await wipeSubject();
+    await dumpSvc.restoreDumpSql(foreignDump);
+
+    // Môn neo về context hệ thống CỦA MÔI TRƯỜNG ĐÍCH; cây + sổ
+    // giữ nguyên tập id như trước khi xoá.
+    const rows = await sql<{ id: string; context_id: string }>(
+      `select id, context_id from subjects where slug = $1`, [SLUG]);
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.context_id).toBe(systemCtxId);
+    expect(await snapshotIds()).toEqual(before);
+    // Bề mặt đọc công khai đọc được môn (khi chưa có bước neo,
+    // lần đọc này ném access.context_not_found vì context lạ
+    // không tồn tại ở môi trường đích).
+    const view = await curriculumSvc.getSubject(adminId, rows[0]!.id);
+    expect(view.id).toBe(rows[0]!.id);
   }, 180_000);
 
   it('central patch — text correction keeps the same outcome id and every reference', async () => {
