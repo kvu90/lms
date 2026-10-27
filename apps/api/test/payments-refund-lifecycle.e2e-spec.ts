@@ -23,7 +23,11 @@ import { createCategory, createCourse, createEnrolInstance } from './course-enro
  *     `payment.refund_exceeds_total`.
  *  4. Đảo quyền lợi CHỈ tại mốc `settled` khi cộng dồn đã chi đạt
  *     100%, theo thứ tự đình chỉ-trước-ghi-sau: khâu đình chỉ lỗi ⇒
- *     chưa ghi gì, khoản thu còn `succeeded`, gọi lại được.
+ *     chưa ghi gì, khoản thu còn `succeeded`, gọi lại được. Quyết
+ *     định đình chỉ phải dựa trên tổng đã khoá dòng khoản thu: hai
+ *     dòng hoàn bù nhau cùng xác nhận chi ĐỒNG THỜI thì lượt làm
+ *     cộng dồn đạt 100% phải đình chỉ thật — không được lật
+ *     `refunded` trong khi quyền lợi chưa hề bị đình chỉ (ca 10).
  *  5. Sự kiện `debit` SePay khớp dòng hoàn đang chờ theo (mã lệnh
  *     chi, tài khoản, số tiền) → tự xác nhận chi; debit không khớp →
  *     `needs_review` của chủ tài khoản, hiện trong hàng đợi.
@@ -541,6 +545,62 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
       const clear = await http(app).delete('/api/v1/site-config/payments/reviewtargethours')
         .set('Authorization', `Bearer ${admin}`);
       expect(clear.status).toBeLessThan(300);
+    }
+  });
+
+  it('10. hồi quy: hai dòng hoàn bù nhau (60.000 + 40.000) xác nhận chi ĐỒNG THỜI → lượt làm đủ 100% đình chỉ thật, kết cục nhất quán', async () => {
+    // Hai vòng độc lập (mỗi vòng một khoản thu mới) để cửa sổ đua
+    // phải lộ diện rõ: trên code quyết định đình chỉ bằng lượt đọc
+    // NGOÀI khoá, cả hai lượt đều thấy tổng settled = 0 nên không
+    // lượt nào đình chỉ, nhưng transaction vào sau vẫn lật refunded.
+    for (let round = 1; round <= 2; round++) {
+      const { course, buyerToken, payment } = await manualSucceededPayment();
+      const mgr2 = await secondManager();
+
+      // Đợt 1: 60.000 — một phần dưới ngưỡng → một cấp, approved ngay.
+      const r60 = await createRefund(admin, payment.id, {
+        amount: 60000, reason: `Hoàn đợt 1 (vòng ${round})`,
+        externalTransactionId: `FT-S3-RACE-${round}-A-${Date.now()}`,
+      });
+      expect(r60.status).toBeLessThan(300);
+      expect(r60.body.status).toBe('approved');
+      expect(r60.body.approvalLevel).toBe(1);
+
+      // Đợt 2: 40.000 bù đủ 100% → hai cấp (requested), duyệt bởi
+      // người khác người tạo → approved. Cả hai dòng cùng chờ ở
+      // approved, chưa dòng nào settled, ghi danh còn active.
+      const r40 = await createRefund(admin, payment.id, { amount: 40000, reason: `Hoàn đợt 2 bù đủ 100% (vòng ${round})` });
+      expect(r40.status).toBeLessThan(300);
+      expect(r40.body.status).toBe('requested');
+      expect(r40.body.approvalLevel).toBe(2);
+      const approved40 = await approveRefund(mgr2.token, payment.id, r40.body.id);
+      expect(approved40.status).toBeLessThan(300);
+      expect(approved40.body.status).toBe('approved');
+      expect(await enrolmentActive(course.id, buyerToken)).toBe(true);
+
+      // Xác nhận chi ĐỒNG THỜI cả hai dòng (Promise.all): bất kể
+      // thứ tự xen kẽ, kết cục cuối phải là MỘT trạng thái nhất
+      // quán — cả hai settled; đúng dòng làm cộng dồn đạt 100% ghi
+      // nhận đảo quyền lợi; khoản thu refunded VÀ ghi danh THẬT SỰ
+      // bị đình chỉ (không được refunded trong khi ghi danh còn
+      // active — đó là trạng thái tiền đã ghi hoàn mà quyền lợi
+      // vẫn chạy).
+      const [s60, s40] = await Promise.all([
+        settleRefund(admin, payment.id, r60.body.id),
+        settleRefund(admin, payment.id, r40.body.id, { externalTransactionId: `FT-S3-RACE-${round}-B-${Date.now()}` }),
+      ]);
+      expect(s60.status).toBeLessThan(300);
+      expect(s60.body.status).toBe('settled');
+      expect(s40.status).toBeLessThan(300);
+      expect(s40.body.status).toBe('settled');
+
+      const refunds = await listRefunds(payment.id);
+      expect(refunds).toHaveLength(2);
+      expect(refunds.every((r) => r.status === 'settled')).toBe(true);
+      expect(refunds.filter((r) => r.entitlementReversed === true)).toHaveLength(1);
+      expect(refunds.filter((r) => r.entitlementReversed === false)).toHaveLength(1);
+      expect((await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`)).body.status).toBe('refunded');
+      expect(await enrolmentActive(course.id, buyerToken)).toBe(false);
     }
   });
 });
