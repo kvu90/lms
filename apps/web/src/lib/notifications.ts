@@ -232,11 +232,11 @@ export function useDeleteNotification() {
   });
 }
 
-/** Đánh dấu tất cả đã đọc (POST /notifications/read-all): làm mới mọi danh sách nhóm + huy hiệu. */
+/** Đánh dấu tất cả đã đọc (POST /notifications/mark-read với thân yêu cầu `{"scope": "all"}`): làm mới mọi danh sách nhóm + huy hiệu. */
 export function useMarkAllNotificationsRead() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => apiJson('/api/v1/notifications/read-all', { method: 'POST', body: '{}' }),
+    mutationFn: () => apiJson('/api/v1/notifications/mark-read', { method: 'POST', body: JSON.stringify({ scope: 'all' }) }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationGroupsRoot });
       void queryClient.invalidateQueries({ queryKey: queryKeys.notificationUnreadCount });

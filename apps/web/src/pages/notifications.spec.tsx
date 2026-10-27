@@ -78,7 +78,7 @@ function stubFetch(calls: RecordedCall[], state: { unread: number; allRead: bool
           nextCursor: null,
         });
       }
-      if (url === '/api/v1/notifications/read-all' && method === 'POST') {
+      if (url === '/api/v1/notifications/mark-read' && method === 'POST') {
         state.allRead = true;
         state.unread = 0;
         return respond({});
@@ -161,7 +161,7 @@ describe('Notifications page — TanStack invalidation (F-01)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Đánh dấu đã đọc tất cả' }));
 
     await waitFor(() =>
-      expect(calls.some((c) => c.url === '/api/v1/notifications/read-all' && c.method === 'POST')).toBe(true),
+      expect(calls.some((c) => c.url === '/api/v1/notifications/mark-read' && c.method === 'POST')).toBe(true),
     );
     // Huy hiệu (query độc lập cùng khoá) chỉ về 0 được nếu mutation đã
     // invalidate đúng khoá factory — đây là hành vi F-01 thêm vào.

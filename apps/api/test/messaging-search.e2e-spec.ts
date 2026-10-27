@@ -190,7 +190,7 @@ describe('Messaging M4 — tìm kiếm trong conversation (issue #237)', () => {
     const reply = await send(b.token, convId, 'đã nhận nhé', original.body.id as string);
     expect(reply.status).toBe(201);
 
-    const recall = await http(app).post(`/api/v1/messages/messages/${original.body.id as string}/recall`)
+    const recall = await http(app).post(`/api/v1/messages/${original.body.id as string}/recall`)
       .set('Authorization', `Bearer ${a.token}`).send({});
     expect(recall.status).toBe(201);
 
@@ -206,7 +206,7 @@ describe('Messaging M4 — tìm kiếm trong conversation (issue #237)', () => {
     const sent = await send(a.token, convId, 'tin a tự ẩn phía mình m4');
     expect(sent.status).toBe(201);
 
-    const hide = await http(app).delete(`/api/v1/messages/messages/${sent.body.id as string}`)
+    const hide = await http(app).delete(`/api/v1/messages/${sent.body.id as string}`)
       .set('Authorization', `Bearer ${a.token}`);
     expect(hide.status).toBe(200);
 
@@ -218,7 +218,7 @@ describe('Messaging M4 — tìm kiếm trong conversation (issue #237)', () => {
   it('7. người có thẩm quyền kiểm duyệt tìm thấy tin đã thu hồi theo tầm nhìn truy vết; học sinh thì không', async () => {
     const sent = await send(s2.token, groupConvId, 'nội dung kiểm duyệt sẽ thu hồi m4');
     expect(sent.status).toBe(201);
-    const recall = await http(app).post(`/api/v1/messages/messages/${sent.body.id as string}/recall`)
+    const recall = await http(app).post(`/api/v1/messages/${sent.body.id as string}/recall`)
       .set('Authorization', `Bearer ${s2.token}`).send({});
     expect(recall.status).toBe(201);
 
