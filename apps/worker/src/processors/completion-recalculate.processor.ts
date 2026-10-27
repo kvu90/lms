@@ -19,14 +19,14 @@ export interface CompletionRecalculateResult { courseId: string; users: number; 
 const ENROL_WITHDRAWN = 2;
 
 /**
- * Completion recalculation (report §2#9): when course criteria change
- * after completion data exists, the API flags reaggregation and enqueues
- * this job; the job recomputes every enrolled user's course_completions
- * from the CURRENT criteria — all 8 Moodle criteria types with the same
- * semantics as the API-side evaluator (module/date/grade/self/course/
- * duration/role/unenrol) — idempotently, in the worker, not inline in the
- * request. When users newly complete a course that other courses list as
- * a prerequisite, recalculation jobs are enqueued for those dependents.
+ * Tính lại completion (report §2#9): khi tiêu chí của khoá học thay đổi
+ * sau khi dữ liệu completion đã tồn tại, API gắn cờ reaggregation và đưa
+ * job này vào queue; job tính lại course_completions của mọi user đã ghi danh
+ * từ các tiêu chí HIỆN TẠI — đủ 8 loại tiêu chí của Moodle với cùng
+ * ngữ nghĩa như evaluator phía API (module/date/grade/self/course/
+ * duration/role/unenrol) — một cách idempotent, trong worker, không chạy inline trong
+ * request. Khi user mới hoàn thành một khoá học mà các khoá học khác liệt kê là
+ * điều kiện tiên quyết, các job tính lại sẽ được đưa vào queue cho các khoá phụ thuộc đó.
  */
 @Processor('completion-recalculate')
 /**
@@ -57,8 +57,8 @@ export class CompletionRecalculateProcessor extends WorkerHost {
       .where(eq(courseCompletionSettings.course, courseId));
     const method = settings?.method ?? 1; // 1=ALL, 2=ANY
 
-    // Candidate users: everyone enrolled in the course (any instance) plus
-    // anyone who already has a stored course completion.
+    // User ứng viên: mọi người đã ghi danh vào khoá học (bất kỳ instance nào) cộng với
+    // bất kỳ ai đã có một completion của khoá học được lưu.
     const instances = await this.db.select().from(enrol).where(eq(enrol.courseId, courseId));
     const userIds = new Set<string>();
     const ues = instances.length
@@ -71,9 +71,9 @@ export class CompletionRecalculateProcessor extends WorkerHost {
     for (const cc of existingCompletions) userIds.add(cc.userId);
     const candidateIds = [...userIds];
 
-    // Enrolment facts per user: the duration anchor spans all instances
-    // (as in the API evaluator), while the unenrol state mirrors
-    // EnrolService.isEnrolled — only ENABLED instances count.
+    // Dữ kiện ghi danh theo từng user: mốc neo duration trải khắp mọi instance
+    // (như trong evaluator phía API), trong khi trạng thái unenrol phản chiếu
+    // EnrolService.isEnrolled — chỉ các instance ENABLED mới được tính.
     const liveUesByUser = new Map<string, typeof ues>();
     const enabledInstanceIds = new Set(instances.filter((i) => i.status === 0).map((i) => i.id));
     const enrolledUserIds = new Set<string>();
@@ -84,14 +84,14 @@ export class CompletionRecalculateProcessor extends WorkerHost {
       liveUesByUser.set(ue.userId, list);
       if (enabledInstanceIds.has(ue.enrolId)) enrolledUserIds.add(ue.userId);
     }
-    // Manual criteria (self/role) evidence rows for all candidates at once.
+    // Các dòng bằng chứng của tiêu chí thủ công (self/role) cho mọi ứng viên trong một lần.
     const manualIds = criteria.filter((c) => c.criteriaType === 'self' || c.criteriaType === 'role').map((c) => c.id);
     const marks = manualIds.length && candidateIds.length
       ? await this.db.select().from(courseCompletionCritCompl)
         .where(and(inArray(courseCompletionCritCompl.criteriaId, manualIds), inArray(courseCompletionCritCompl.userId, candidateIds)))
       : [];
     const markedKeys = new Set(marks.map((m) => `${m.criteriaId}|${m.userId}`));
-    // Prerequisite completions (stored rows of the referenced courses).
+    // Các completion tiên quyết (các dòng đã lưu của các khoá học được tham chiếu).
     const prereqIds = [...new Set(criteria.filter((c) => c.criteriaType === 'course' && c.courseInstance).map((c) => c.courseInstance as string))];
     const prereqRows = prereqIds.length && candidateIds.length
       ? await this.db.select().from(courseCompletions)
@@ -112,7 +112,7 @@ export class CompletionRecalculateProcessor extends WorkerHost {
         } else if (c.criteriaType === 'date' && c.date) {
           results.push(now >= c.date);
         } else if (c.criteriaType === 'grade') {
-          // Grades: course grade criterion — the course total meets the course item's gradePass.
+          // Điểm: tiêu chí điểm của khoá học — tổng điểm của khoá học đạt gradePass của item của khoá học.
           const [courseItem] = await this.db.select().from(gradeItems)
             .where(and(eq(gradeItems.courseId, courseId), eq(gradeItems.itemType, 'course')));
           if (!courseItem) { results.push(false); continue; }
@@ -158,9 +158,9 @@ export class CompletionRecalculateProcessor extends WorkerHost {
       });
     }
 
-    // Prerequisite propagation: newly completed users may satisfy 'course'
-    // criteria in dependent courses. Only a NEW completion enqueues, so a
-    // prerequisite cycle settles instead of ping-ponging forever.
+    // Lan truyền tiên quyết: user mới hoàn thành có thể thoả mãn tiêu chí 'course'
+    // trong các khoá học phụ thuộc. Chỉ completion MỚI mới đưa vào queue, nên một
+    // chu trình tiên quyết sẽ lắng xuống thay vì ping-pong mãi mãi.
     if (newlyCompletedUsers.length) {
       const dependents = await this.db.select({ course: courseCompletionCriteria.course }).from(courseCompletionCriteria)
         .where(and(eq(courseCompletionCriteria.criteriaType, 'course'), eq(courseCompletionCriteria.courseInstance, courseId)));

@@ -10,9 +10,9 @@ import { TaskLogService } from '../src/task-log.service';
 import { WorkerModule } from '../src/worker.module';
 
 /**
- * task_log + logstore mirror (issue #22): scheduled worker runs leave a
- * task_log row (success/failed), and the worker relay mirrors every outbox
- * row it publishes into event_log with the normalised payload fields.
+ * task_log + phản chiếu logstore (issue #22): các lượt chạy worker theo lịch để lại một
+ * dòng task_log (success/failed), và relay của worker phản chiếu mọi dòng outbox
+ * mà nó phát hành vào event_log với các trường payload đã chuẩn hoá.
  */
 describe('Worker: task_log recording and outbox → event_log mirroring', () => {
   let context: INestApplicationContext;

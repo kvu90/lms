@@ -12,7 +12,7 @@ type Database = NodePgDatabase<typeof relations>;
 export interface NotificationDispatchJobData {
   userId: string;
   provider: string;
-  channel: string; // email | push (external ports)
+  channel: string; // email | push (các cổng kênh ngoài)
   subject: string;
   body: string;
   notificationId?: string | null;
@@ -34,12 +34,12 @@ export interface NotificationDispatchResult {
 const MANDATORY_PROVIDERS = new Set(['enrol_expiry_warning', 'admin_announcement']);
 
 /**
- * Notification dispatch: the worker end of the channel PORTS. Email and
- * push are never actually sent — the dispatch is LOGGED (that log is the
- * deliverable of the port). Delivery law is re-checked here, at dispatch
- * time, against live data: a suspended user gets nothing, and a preference
- * disabled after enqueueing still suppresses the dispatch. Idempotent via
- * the job's dedupeKey (unique in notification_dispatch_log).
+ * Phân phối thông báo: đầu phía worker của các PORT kênh. Email và
+ * push không bao giờ thật sự được gửi — lần phân phối được GHI LOG (log đó là
+ * sản phẩm bàn giao của port). Luật phân phối được kiểm tra lại tại đây, tại thời điểm phân phối,
+ * dựa trên dữ liệu sống: user bị đình chỉ không nhận gì cả, và một tuỳ chọn
+ * bị tắt sau khi đưa vào queue vẫn chặn lần phân phối. Idempotent qua
+ * dedupeKey của job (duy nhất trong notification_dispatch_log).
  */
 @Processor('notification-dispatch')
 /**
@@ -73,10 +73,10 @@ export class NotificationDispatchProcessor extends WorkerHost {
       }).onConflictDoNothing();
       return { status: 'skipped-suspended', channel };
     }
-    // Admin site policy re-check (NB-7): the type may have been
-    // disabled site-wide AFTER the job was queued — the dispatch-time
-    // law wins, like the suspended/preference re-checks. Mandatory P2
-    // types are never blocked here either.
+    // Kiểm tra lại chính sách admin cấp site (NB-7): loại này có thể đã bị
+    // tắt trên toàn site SAU khi job được đưa vào queue — luật tại thời điểm phân phối
+    // thắng, giống như các lần kiểm tra lại suspended/preference. Các loại P2 bắt buộc
+    // cũng không bao giờ bị chặn ở đây.
     if (!MANDATORY_PROVIDERS.has(provider)) {
       const [policy] = await this.db.select({ value: pluginConfig.value }).from(pluginConfig)
         .where(and(
@@ -96,7 +96,7 @@ export class NotificationDispatchProcessor extends WorkerHost {
         return { status: 'skipped-admin-disabled', channel };
       }
     }
-    // Preference re-check for both login states: disabled in both ⇒ no dispatch.
+    // Kiểm tra lại tuỳ chọn cho cả hai trạng thái đăng nhập: bị tắt ở cả hai ⇒ không phân phối.
     const prefName = (state: string) => `message_provider_${provider}_${channel}_${state}`;
     const prefs = await this.db.select().from(userPreferences).where(and(
       eq(userPreferences.userId, userId),

@@ -2,7 +2,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 
-/** Registers the repeatable enrol-expiry sweep (every 5 minutes, BullMQ job scheduler). The job itself is idempotent. */
+/** Đăng ký lượt quét hết hạn ghi danh lặp lại (mỗi 5 phút, BullMQ job scheduler). Bản thân job có tính idempotent. */
 @Injectable()
 /**
  * Lập lịch quét ghi danh quá hạn theo chu kỳ (đưa job enrol-expiry vào queue).
