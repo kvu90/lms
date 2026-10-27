@@ -418,7 +418,7 @@ export class GradesService implements OnModuleInit {
       const policy = item.postingPolicy === 'manual' ? 'manual' : 'auto';
       states.set(item.id, {
         policy,
-        published: policy === 'auto' ? true : latestByItem.get(item.id) !== 'unpublish',
+        published: policy === 'auto' ? true : latestByItem.get(item.id) === 'publish',
       });
     }
     return states;
