@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -1211,8 +1211,15 @@ describe('Stimulus in the question bank UI', () => {
 
     // Ngữ liệu là trang riêng /questions/stimuli (chuẩn đường dẫn
     // #221, lát R1) — tạo ngữ liệu ở đó trước.
-    await router.navigate('/questions/stimuli');
-    await screen.findByText('General');
+    // Điều hướng phải bọc trong act để React flush xong render sau
+    // điều hướng trước khi đọc DOM, và tín hiệu chờ phải là phần tử
+    // chỉ có ở trang ngữ liệu: 'General' là tên danh mục, render ở
+    // cả hai trang nên không tự chứng minh render mới đã xong, và
+    // lệnh đọc nhãn đồng bộ ngay sau đó có thể đọc phải DOM cũ.
+    await act(async () => {
+      await router.navigate('/questions/stimuli');
+    });
+    await screen.findByRole('button', { name: 'Tạo ngữ liệu' });
     await userEvent.type(screen.getByLabelText('Ngữ liệu mới'), 'Đoạn văn về thủ đô Hà Nội.');
     await userEvent.click(screen.getByRole('button', { name: 'Tạo ngữ liệu' }));
 
@@ -1222,7 +1229,10 @@ describe('Stimulus in the question bank UI', () => {
     expect(await screen.findByTestId(`stimulus-row-${STIMULUS_ID}`)).toHaveTextContent('Đoạn văn về thủ đô Hà Nội.');
 
     // Quay về trang câu hỏi để tạo câu hỏi gắn ngữ liệu vừa tạo.
-    await router.navigate('/questions');
+    // Cùng mẫu rủi ro như lần điều hướng trên nên bọc trong act.
+    await act(async () => {
+      await router.navigate('/questions');
+    });
     await openNewQuestionForm();
     await userEvent.type(questionForm().getByLabelText('Nội dung câu hỏi'), 'Theo đoạn văn, thủ đô là gì?');
     await userEvent.type(questionForm().getByLabelText('Lựa chọn 1'), 'Hà Nội');
