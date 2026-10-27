@@ -26,6 +26,33 @@ backend code or DB schema.
 - PostgreSQL 18.6 at `localhost:5432` (user `postgres`/`postgres`, DBs `lms` and `lms_test`) — 18.x is required: primary keys default to the native `uuidv7()` function
 - Redis at `localhost:6379`
 
+## Develop in a Dev Container
+
+No host setup beyond Docker and VS Code is needed: the repo ships a Dev
+Container definition in `.devcontainer/` that reproduces the
+prerequisites above — an `app` service (Node 24; pnpm 12.14 provided by
+corepack, the version pinned in the root `packageManager` field) plus
+`db` (PostgreSQL 18.6) and `redis` (Redis 7) services, mirroring the
+images CI uses. All three services share one network namespace, so the
+repo's localhost defaults (`localhost:5432`, `localhost:6379`) work
+unchanged inside the container — the same layout as the local-machine
+setup below. On first start the database service creates the `lms`,
+`lms_test`, `lms_test_api` and `lms_test_worker` databases (user and
+password `postgres`/`postgres`). On container creation, dependencies are
+installed (`pnpm install --frozen-lockfile`) and `apps/api/.env` /
+`apps/worker/.env` are copied from their `.env.example` files.
+
+Open the folder in VS Code and run "Dev Containers: Reopen in
+Container", then follow the same steps as the local review environment
+below (migrate, seed, `pnpm dev`) in the container terminal. Ports 3000
+(API) and 5173 (web) are forwarded to the host.
+
+This container is a **development environment only** — there is no
+Docker deployment path. The root `Dockerfile` (a multi-target Heroku
+Container Registry image) was **removed on 2026-10-27** by product
+decision; deployment runs on the Heroku buildpack path described under
+[Review](#review), and its future is decided separately.
+
 ## Run
 
 ```bash
@@ -157,10 +184,10 @@ blocker forces a pin (recorded below). Current pins/blocks:
 
 ## Known simplifications
 
-- The worker keeps a subset view of the shared DB schema in
-  `apps/worker/src/db/schema.ts` (only the tables its processors touch,
-  with only the columns they use); the canonical schema lives in the API,
-  split per bounded context (see Conventions).
+- The DB schema is shared, not duplicated: the canonical schema lives in
+  `packages/db-schema` (split per bounded context, see Conventions) and is
+  imported by both the API and the worker — the worker no longer keeps a
+  subset schema copy of its own.
 - The API `dev` script is `tsc --watch` + `node --watch` rather than the Nest
   CLI, keeping the build identical to CI (`tsc`).
 
@@ -180,12 +207,15 @@ blocker forces a pin (recorded below). Current pins/blocks:
   error codes in English; **comments in Vietnamese in TSDoc style**
   (`/** */` with `@param`/`@returns`/`@throws` where fitting) for every
   public API and for non-obvious business logic.
-- **Database schema is split by bounded context**: each module
-  owns its Drizzle tables in `apps/api/src/modules/<module>/schema.ts`;
-  platform-infrastructure tables live in `apps/api/src/db/infrastructure.schema.ts`;
-  `apps/api/src/db/schema.ts` is only a barrel re-exporting everything for
-  `drizzle.config.ts` and the Drizzle module. Table/column names never
-  change when a schema file moves.
+- **Database schema is split by bounded context**: the schema
+  lives in the shared package `packages/db-schema` — each module owns its
+  Drizzle tables in `packages/db-schema/src/modules/<module>/schema.ts`,
+  platform-infrastructure tables live in
+  `packages/db-schema/src/infrastructure.schema.ts`, and the package index
+  is the single barrel both the API and the worker import (the API's
+  `apps/api/src/db/schema.ts` only re-exports it for `drizzle.config.ts`
+  and the Drizzle module). Table/column names never change when a schema
+  file moves.
 - **Naming & repo hygiene**: everything is named after the
   business / bounded context — **no phase labels** in code, comments, test
   names or commit subjects; **never commit compiled output** (`dist/`,
