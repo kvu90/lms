@@ -8,6 +8,7 @@ import {
 import type { MyTenant, Tenant as TenantDto, TenantMembership as TenantMembershipDto } from '@lms/contracts';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { PlanLimitsService } from '../access/plan-limits.service';
 import { UsersService } from '../users/users.service';
 import type { UserRow } from '../users/users.repository';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -69,6 +70,7 @@ export class TenantsService {
     private readonly evaluator: PermissionEvaluator,
     private readonly users: UsersService,
     private readonly outbox: OutboxService,
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   // --- tenant-zero + seed helpers ------------------------------------------
@@ -364,6 +366,20 @@ export class TenantsService {
       throw new BadRequestException({ message: `Tenant ${tenantId} is not active`, code: 'tenant.not_active' });
     }
     const user = await this.users.getUser(dto.userId);
+    // Điểm chặn SLOT GÓI TRUNG TÂM (issue #189 — đặc tả slot đã
+    // duyệt): thêm thành viên là hành động "mời giáo viên" khi người
+    // được mời ĐÃ giữ vai trò giảng dạy trong cây context của tenant
+    // — membership chuyển sang `active` là họ được đếm thành một
+    // slot ngay. Membership đã `active` sẵn thì số đếm không đổi,
+    // không chặn. Tài khoản đang đình chỉ/đã xoá chưa được đếm nên
+    // cũng không chặn ở đây (điểm chặn tương ứng nằm ở khâu bỏ đình
+    // chỉ tài khoản và kích hoạt lại membership).
+    const existingMembership = await this.repo.getMembership(tenantId, user.id);
+    if (existingMembership?.status !== 'active' && !user.suspended && !user.deleted) {
+      if (await this.planLimits.userHoldsTeachingRoleInTenant(tenantId, user.id)) {
+        await this.planLimits.assertTenantSlotForNewTeacher(tenantId, user.id);
+      }
+    }
     const row = await this.ensureActiveMembership(tenantId, user.id);
     await this.outbox.enqueueStandalone({
       aggregate: 'tenant',
@@ -394,6 +410,21 @@ export class TenantsService {
     await this.assertTenantManager(actorId, tenantId);
     const existing = await this.repo.getMembership(tenantId, userId);
     if (!existing) throw new NotFoundException({ message: 'Membership not found', code: 'tenant.membership_not_found' });
+    // Điểm chặn SLOT GÓI TRUNG TÂM (issue #189 — đặc tả slot đã
+    // duyệt): kích hoạt lại membership (`suspended`/`ended` →
+    // `active`) của một người đã giữ vai trò giảng dạy trong cây
+    // context của tenant, với tài khoản đang hoạt động, là hành động
+    // làm tăng số slot — chặn khi tenant đã chạm hạn mức hiệu lực.
+    // Các chuyển trạng thái khác (đình chỉ, kết thúc, hoặc kích hoạt
+    // lại người chưa có vai trò giảng dạy) không đổi số đếm.
+    if (status === 'active' && existing.status !== 'active') {
+      const user = await this.users.getUser(userId);
+      if (!user.suspended && !user.deleted) {
+        if (await this.planLimits.userHoldsTeachingRoleInTenant(tenantId, userId)) {
+          await this.planLimits.assertTenantSlotForNewTeacher(tenantId, userId);
+        }
+      }
+    }
     await this.repo.updateMembership(existing.id, {
       status,
       endedAt: status === 'ended' ? new Date() : null,

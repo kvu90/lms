@@ -4,6 +4,7 @@ import { AccessRepository, type RoleRow } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, DEFAULT_ROLES } from './domain/capabilities';
 import { CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT } from './domain/permission';
+import { PlanLimitsService, TEACHING_ROLE_ARCHETYPES } from './plan-limits.service';
 
 const VALID_PERMISSIONS = [CAP_PROHIBIT, CAP_PREVENT, CAP_INHERIT, CAP_ALLOW];
 
@@ -36,6 +37,7 @@ export class RolesService {
     private readonly repo: AccessRepository,
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   /** Idempotent seed: sync capability definitions from code (definitions no longer in the registry are pruned, together with their role overrides), create the standard Moodle core roles and their archetype defaults at the system context. */
@@ -115,8 +117,28 @@ export class RolesService {
    * nguồn nào chỉ mất dòng của nguồn đó.
    */
   async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource): Promise<unknown> {
-    await this.getRole(roleId);
+    const roleRow = await this.getRole(roleId);
     await this.contexts.getContext(contextId);
+    // Điểm chặn SLOT GÓI TRUNG TÂM (phần còn lại của lát 2, issue
+    // #189 — đặc tả slot đã duyệt): gán một vai trò GIẢNG DẠY tại bất
+    // kỳ context nào trong cây của một tenant khách hàng cho một
+    // thành viên đang hoạt động mà tài khoản đang hoạt động và CHƯA
+    // được đếm là hành động làm tăng số slot của tenant đó — mọi
+    // nguồn gán đều qua điểm này (gán tay qua API quản trị, ghi danh
+    // cấp vai trò giảng dạy, gán chủ lớp/chủ khoá của các module
+    // nghiệp vụ). Đã chạm hạn mức hiệu lực thì chặn TRƯỚC khi chèn
+    // dòng gán, không dòng gán nào được tạo. Người đã được đếm, vai
+    // trò không phải giảng dạy, và context ngoài cây tenant khách
+    // hàng (tenant platform, context hệ thống) đều không bị chặn.
+    if ((TEACHING_ROLE_ARCHETYPES as readonly string[]).includes(roleRow.archetype ?? '')) {
+      const tenantId = await this.planLimits.tenantIdForContext(contextId);
+      if (tenantId) {
+        const facts = await this.planLimits.describeUserInTenant(tenantId, userId);
+        if (facts.membershipActive && facts.accountActive && !facts.counted) {
+          await this.planLimits.assertTenantSlotForNewTeacher(tenantId, userId);
+        }
+      }
+    }
     const component = source?.component ?? '';
     const itemId = source?.itemId ?? null;
     const existing = await this.repo.listAssignments({ userId, contextId });

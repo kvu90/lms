@@ -109,6 +109,28 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   { component: 'payments', name: 'tenantplanperioddays', type: 'number', defaultValue: 365, scope: 'platform' },
   { component: 'payments', name: 'teacherplanprice', type: 'number', defaultValue: 990000, scope: 'platform' },
   { component: 'payments', name: 'teacherplanperioddays', type: 'number', defaultValue: 365, scope: 'platform' },
+  // HẠN MỨC SLOT của gói (phần còn lại của lát 2, issue #189 — đặc tả
+  // slot đã được duyệt toàn bộ ngày 27/10/2026, ghi tại comment
+  // 6434192125 của issue): giống hệt giá gói, hạn mức slot là CẤU HÌNH
+  // HỆ THỐNG do quản trị chỉnh trong Cài đặt hệ thống, không ghim cứng
+  // trong code — `defaultValue` dưới đây chỉ là giá trị KHỞI TẠO đã
+  // duyệt. `tenantplanslots`: số tài khoản giảng dạy tối đa của một
+  // trung tâm khi gói trung tâm đang hoạt động (mặc định 30);
+  // `teacherplancourseslots`: số khoá học làm chủ tối đa của một giáo
+  // viên khi gói giáo viên đang hoạt động (mặc định 10);
+  // `tenantplanfreeslots` / `teacherplanfreecourseslots`: MỨC NỀN áp
+  // dụng khi không có gói đang hoạt động và đã qua ân hạn (mặc định
+  // 3 / 1) — thực thể vượt mức nền vẫn giữ nguyên, chỉ chặn tạo thêm;
+  // `plangracedays`: số ngày ÂN HẠN sau khi gói hết hạn mà hạn mức của
+  // gói vẫn được áp (mặc định 7), hết ân hạn mới rơi về mức nền. Việc
+  // thực thi (đếm slot, điểm chặn, hạn mức hiệu lực gồm cả ân hạn)
+  // nằm ở PlanLimitsService của module access; các con số khởi tạo ở
+  // đây phải khớp hằng số dự phòng trong service đó.
+  { component: 'payments', name: 'tenantplanslots', type: 'number', defaultValue: 30, scope: 'platform' },
+  { component: 'payments', name: 'teacherplancourseslots', type: 'number', defaultValue: 10, scope: 'platform' },
+  { component: 'payments', name: 'tenantplanfreeslots', type: 'number', defaultValue: 3, scope: 'platform' },
+  { component: 'payments', name: 'teacherplanfreecourseslots', type: 'number', defaultValue: 1, scope: 'platform' },
+  { component: 'payments', name: 'plangracedays', type: 'number', defaultValue: 7, scope: 'platform' },
   // Chính sách phát thông báo theo loại ở cấp site (NB-7, issue #174 —
   // quyết của Lão gia 23:09 ngày 25/10/2026: "loại sự kiện nào thì gửi
   // thông báo" là cài đặt của ADMIN): MỘT khoá boolean cho MỖI provider

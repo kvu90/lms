@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Headers, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Patch, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
-import { createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, purchasePlanSchema, type CreateAccountDto, type CreatePaymentDto, type PurchasePlanDto, type RefundDto, type WebhookDto } from './dto/payments.dto';
+import { createCouponSchema, createPaymentAccountSchema, createPaymentSchema, createRefundSchema, paymentWebhookSchema, purchasePlanSchema, updateCouponSchema, type CreateAccountDto, type CreateCouponDto, type CreatePaymentDto, type PurchasePlanDto, type RefundDto, type UpdateCouponDto, type WebhookDto } from './dto/payments.dto';
 import { PaymentsService } from './payments.service';
 
 /** Controller thanh toán: accounts, payments, webhook (public, idempotent), refunds, IPN SePay. */
@@ -39,16 +39,38 @@ export class PaymentsController {
     return this.payments.createClassFeePayment(actor.id, classId);
   }
   /**
-   * POST /payments/plans — mua/nâng GÓI (lát 2, issue #189): thân chỉ
-   * gồm loại gói (`tenant_plan` | `teacher_plan`); số tiền do hệ thống
-   * lấy từ CẤU HÌNH giá tại thời điểm giao dịch (component `payments`
-   * ở Cài đặt hệ thống), client không gửi amount. Payment sinh ra chạy
+   * POST /payments/plans — mua/nâng GÓI (lát 2, issue #189): thân gồm
+   * loại gói (`tenant_plan` | `teacher_plan`) và `couponCode` tuỳ
+   * chọn; số tiền do hệ thống lấy từ CẤU HÌNH giá tại thời điểm giao
+   * dịch (component `payments` ở Cài đặt hệ thống) trừ mức giảm của
+   * coupon nếu có, client không gửi amount. Payment sinh ra chạy
    * đúng pipeline VietQR/IPN như mọi component khác; quyền lợi gói chỉ
    * kích hoạt khi payment succeeded qua đường đã xác thực.
    */
   @Post('plans')
   async purchasePlan(@Body({ schema: purchasePlanSchema }) dto: PurchasePlanDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.payments.createPlanPayment(actor.id, dto);
+  }
+  /**
+   * Bề mặt quản trị COUPON (phần còn lại của lát 2, issue #189): tạo,
+   * liệt kê, xem và cập nhật coupon giảm giá cho đường mua gói. Mọi
+   * route đều gác bằng capability `payment:managecoupons` trong
+   * service (chỉ quản trị platform). Khai báo TRƯỚC các route `:id`
+   * của payment để đoạn tĩnh `coupons` không bị nuốt vào tham số id.
+   */
+  @Post('coupons')
+  async createCoupon(@Body({ schema: createCouponSchema }) dto: CreateCouponDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.createCoupon(actor.id, dto);
+  }
+  @Get('coupons')
+  async listCoupons(@CurrentUser() actor: AuthenticatedUser) { return this.payments.listCoupons(actor.id); }
+  @Get('coupons/:id')
+  async getCoupon(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.getCoupon(actor.id, id);
+  }
+  @Patch('coupons/:id')
+  async updateCoupon(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateCouponSchema }) dto: UpdateCouponDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.payments.updateCoupon(actor.id, id, dto);
   }
   /**
    * GET /payments/plans/me — quyền lợi gói của chính người gọi: gói

@@ -12,6 +12,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { PlanLimitsService } from '../access/plan-limits.service';
 import { AvailabilityService, type AvailabilityContext } from '../availability/availability.service';
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
@@ -199,6 +200,7 @@ export class CoursesService {
     private readonly emitter: EventEmitter2,
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
+    private readonly planLimits: PlanLimitsService,
   ) {}
 
   // --- helper tenant (TENANT-0, #168) ---------------------------------------
@@ -454,6 +456,15 @@ export class CoursesService {
       throw new BadRequestException({ message: 'A course must belong to a class: classId is required', code: 'course.class_required' });
     }
     if (input.subjectId != null) await this.assertSubjectExists(input.subjectId);
+    // Điểm chặn SLOT GÓI GIÁO VIÊN (issue #189 — đặc tả slot đã
+    // duyệt): tạo khoá là thời điểm đếm slot của gói giáo viên — khi
+    // khoá thuộc tenant platform, chủ khoá tương lai (chủ của lớp
+    // chứa khoá) bị chặn tạo thêm khoá khi số khoá đang làm chủ đã
+    // bằng hạn mức hiệu lực của gói giáo viên (hạn mức gói / ân hạn
+    // / mức nền). Khoá thuộc tenant khách hàng không qua điểm chặn
+    // này. Chặn TRƯỚC khi chèn bản ghi khoá; các khoá đang có của
+    // giáo viên không bị đụng tới.
+    await this.planLimits.assertTeacherCourseSlotForNewCourse(category.tenantId, classRef.classId);
     const shortName = input.shortName.trim();
     if (await this.repo.getCourseByShortname(shortName)) {
       throw new ConflictException({ message: `Course shortName ${shortName} is taken`, code: 'course.shortname_taken' });

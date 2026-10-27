@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
 import { OutboxService } from '../../infra/events/outbox.service';
@@ -9,10 +9,10 @@ import { EnrolService } from '../enrol/enrol.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { PaymentsRepository, type AccountRow, type EntitlementRow, type PaymentRow, type RefundRow } from './payments.repository';
+import { PaymentsRepository, type AccountRow, type CouponRow, type EntitlementRow, type PaymentRow, type RefundRow } from './payments.repository';
 import { PlanEntitlementsService, type PlanSnapshot } from './plan-entitlements.service';
 import { buildVietQrPayload, extractPaymentCode, maskAccountConfig, paymentCodeFromSequence, readAccountConfig, PAYMENT_CODE_TTL_MS } from './vietqr';
-import type { PlanEntitlement } from '@lms/contracts';
+import type { Coupon, CreateCoupon, PlanEntitlement, UpdateCoupon } from '@lms/contracts';
 
 /** Tên header mang shared secret xác thực webhook của gateway 'manual'. */
 export const PAYMENT_WEBHOOK_SECRET_HEADER = 'x-payment-webhook-secret';
@@ -120,6 +120,12 @@ export class PaymentsService {
   private async requireManageAccounts(actorId: string): Promise<void> {
     const sys = await this.contexts.ensureSystemContext();
     await this.evaluator.requireCapability(actorId, 'payment:manageaccounts', sys.id);
+  }
+
+  /** Cổng quản trị coupon: capability riêng `payment:managecoupons` tại context hệ thống (chỉ quản trị platform). */
+  private async requireManageCoupons(actorId: string): Promise<void> {
+    const sys = await this.contexts.ensureSystemContext();
+    await this.evaluator.requireCapability(actorId, 'payment:managecoupons', sys.id);
   }
 
   /** Tenant hiệu lực: ngữ cảnh request; ngoài request (seed/job) rơi về tenant-zero. */
@@ -312,6 +318,178 @@ export class PaymentsService {
     return this.createPaymentInTenant(userId, { accountId, amount: target.feeCost, currency: target.feeCurrency || 'VND', component: 'class_fee', itemId: target.classId }, target.tenantId);
   }
 
+  // --- Coupon giảm giá mua gói (phần còn lại của lát 2, issue #189) --------
+  //
+  // Luồng nghiệp vụ: coupon là DỮ LIỆU do quản trị platform tạo ở bề
+  // mặt quản trị dưới đây (gác bằng `payment:managecoupons`) — mã,
+  // loại giảm, mức giảm, phạm vi gói, cửa sổ hiệu lực, giới hạn lượt
+  // dùng đều nằm ở bản ghi coupon, không có giá trị nào ghim trong
+  // code. Coupon chỉ phát huy tại ĐIỂM TẠO payment gói
+  // (`createPlanPayment`): mức giảm trừ vào giá đang cấu hình, số
+  // tiền của payment là giá sau giảm (đây là số tiền pipeline
+  // VietQR/SePay khớp), và ảnh chụp `payments.data.plan` ghi lại mã
+  // coupon + số tiền đã giảm để đối soát về sau. Coupon không đổi
+  // chu kỳ gói, không đổi bên hưởng và không đổi định nghĩa slot.
+
+  /** Chiếu một bản ghi coupon thành dạng API (mốc thời gian dạng ISO). */
+  private toCouponView(row: CouponRow): Coupon {
+    return {
+      id: row.id,
+      code: row.code,
+      discountType: row.discountType as Coupon['discountType'],
+      discountValue: row.discountValue,
+      appliesTo: row.appliesTo as Coupon['appliesTo'],
+      startsAt: row.startsAt ? row.startsAt.toISOString() : null,
+      endsAt: row.endsAt ? row.endsAt.toISOString() : null,
+      maxRedemptions: row.maxRedemptions,
+      isActive: row.isActive,
+      createdBy: row.createdBy,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  /**
+   * Kiểm tra chéo các trường tiền bạc/cửa sổ của coupon trên TRẠNG
+   * THÁI CUỐI CÙNG (payload tạo mới hoặc trạng thái gộp sau cập
+   * nhật): phần trăm hợp lệ 1–99 (hợp đồng hình dạng đã chặn ở biên
+   * tạo mới; đường cập nhật từng phần phải kiểm lại ở đây), số tiền
+   * cố định là số nguyên dương, cửa sổ hiệu lực có đầu trước cuối.
+   */
+  private assertCouponFieldsValid(fields: {
+    discountType: string; discountValue: number; startsAt: Date | null; endsAt: Date | null;
+  }): void {
+    if (fields.discountType === 'percent' && (fields.discountValue < 1 || fields.discountValue > 99)) {
+      throw new BadRequestException({ message: 'Percent discount value must be between 1 and 99', code: 'payment.coupon_invalid' });
+    }
+    if (fields.discountType === 'fixed' && (!Number.isInteger(fields.discountValue) || fields.discountValue < 1)) {
+      throw new BadRequestException({ message: 'Fixed discount value must be a positive integer', code: 'payment.coupon_invalid' });
+    }
+    if (fields.discountType !== 'percent' && fields.discountType !== 'fixed') {
+      throw new BadRequestException({ message: `Unknown coupon discount type: ${fields.discountType}`, code: 'payment.coupon_invalid' });
+    }
+    if (fields.startsAt && fields.endsAt && fields.startsAt.getTime() >= fields.endsAt.getTime()) {
+      throw new BadRequestException({ message: 'Coupon endsAt must be after startsAt', code: 'payment.coupon_invalid' });
+    }
+  }
+
+  /**
+   * Tạo coupon mới. Mã được chuẩn hoá chữ hoa trước khi lưu (tra cứu
+   * khi áp dụng cũng chuẩn hoá nên người mua nhập hoa/thường đều
+   * khớp); mã trùng với coupon đã có → `payment.coupon_code_taken`.
+   */
+  async createCoupon(actorId: string, input: CreateCoupon): Promise<Coupon> {
+    await this.requireManageCoupons(actorId);
+    const code = input.code.trim().toUpperCase();
+    const startsAt = input.startsAt ? new Date(input.startsAt) : null;
+    const endsAt = input.endsAt ? new Date(input.endsAt) : null;
+    this.assertCouponFieldsValid({ discountType: input.discountType, discountValue: input.discountValue, startsAt, endsAt });
+    if (await this.repo.getCouponByCode(code)) {
+      throw new ConflictException({ message: `Coupon code ${code} is already taken`, code: 'payment.coupon_code_taken' });
+    }
+    const row = await this.repo.insertCoupon({
+      code,
+      discountType: input.discountType,
+      discountValue: input.discountValue,
+      appliesTo: input.appliesTo,
+      startsAt,
+      endsAt,
+      maxRedemptions: input.maxRedemptions ?? null,
+      isActive: input.isActive,
+      createdBy: actorId,
+    });
+    return this.toCouponView(row);
+  }
+
+  /** Danh sách coupon cho bề mặt quản trị (mọi trạng thái, kể cả đã tắt). */
+  async listCoupons(actorId: string): Promise<Coupon[]> {
+    await this.requireManageCoupons(actorId);
+    return (await this.repo.listCoupons()).map((r) => this.toCouponView(r));
+  }
+
+  /** Một coupon theo id cho bề mặt quản trị; không có → `payment.coupon_not_found`. */
+  async getCoupon(actorId: string, id: string): Promise<Coupon> {
+    await this.requireManageCoupons(actorId);
+    const row = await this.repo.getCoupon(id);
+    if (!row) throw new NotFoundException({ message: `Coupon ${id} not found`, code: 'payment.coupon_not_found' });
+    return this.toCouponView(row);
+  }
+
+  /**
+   * Cập nhật coupon theo từng phần; mã coupon không sửa được (mã là
+   * định danh tra cứu khi áp dụng). Trạng thái gộp sau cập nhật phải
+   * qua cùng kiểm tra chéo như khi tạo. Ngừng sử dụng coupon bằng
+   * `isActive = false` — không có đường xoá cứng.
+   */
+  async updateCoupon(actorId: string, id: string, input: UpdateCoupon): Promise<Coupon> {
+    await this.requireManageCoupons(actorId);
+    const row = await this.repo.getCoupon(id);
+    if (!row) throw new NotFoundException({ message: `Coupon ${id} not found`, code: 'payment.coupon_not_found' });
+    const merged = {
+      discountType: input.discountType ?? row.discountType,
+      discountValue: input.discountValue ?? row.discountValue,
+      startsAt: input.startsAt !== undefined ? (input.startsAt ? new Date(input.startsAt) : null) : row.startsAt,
+      endsAt: input.endsAt !== undefined ? (input.endsAt ? new Date(input.endsAt) : null) : row.endsAt,
+    };
+    this.assertCouponFieldsValid(merged);
+    const updated = await this.repo.updateCoupon(id, {
+      discountType: merged.discountType,
+      discountValue: merged.discountValue,
+      appliesTo: input.appliesTo ?? row.appliesTo,
+      startsAt: merged.startsAt,
+      endsAt: merged.endsAt,
+      maxRedemptions: input.maxRedemptions !== undefined ? input.maxRedemptions : row.maxRedemptions,
+      isActive: input.isActive ?? row.isActive,
+    });
+    return this.toCouponView(updated);
+  }
+
+  /**
+   * Phân giải coupon tại điểm tạo payment gói: tra mã (đã chuẩn hoá
+   * chữ hoa) và kiểm tra lần lượt — tồn tại, đang bật, trong cửa sổ
+   * hiệu lực, đúng loại gói, còn lượt dùng — rồi tính mức giảm trên
+   * GIÁ ĐANG CẤU HÌNH của gói. Mỗi trường hợp sai phạm có mã lỗi
+   * riêng để bề mặt mua gói hiển thị đúng lý do. Mức giảm không được
+   * làm số tiền phải trả nhỏ hơn 1 đơn vị tiền (pipeline khớp số
+   * tiền chuyển khoản không vận hành được với khoản thu 0 đồng) —
+   * chạm trường hợp đó thì từ chối áp coupon thay vì âm thầm đổi mức
+   * giảm.
+   */
+  private async resolveCouponDiscount(
+    couponCode: string,
+    component: 'tenant_plan' | 'teacher_plan',
+    configuredPrice: number,
+  ): Promise<{ coupon: CouponRow; discountAmount: number }> {
+    const code = couponCode.trim().toUpperCase();
+    const coupon = await this.repo.getCouponByCode(code);
+    if (!coupon) {
+      throw new BadRequestException({ message: `Coupon ${code} not found`, code: 'payment.coupon_not_found' });
+    }
+    if (!coupon.isActive) {
+      throw new BadRequestException({ message: `Coupon ${code} is not active`, code: 'payment.coupon_inactive' });
+    }
+    const now = Date.now();
+    if ((coupon.startsAt && now < coupon.startsAt.getTime()) || (coupon.endsAt && now >= coupon.endsAt.getTime())) {
+      throw new BadRequestException({ message: `Coupon ${code} is outside its validity window`, code: 'payment.coupon_not_in_window' });
+    }
+    if (coupon.appliesTo !== 'all' && coupon.appliesTo !== component) {
+      throw new BadRequestException({ message: `Coupon ${code} does not apply to ${component}`, code: 'payment.coupon_not_applicable' });
+    }
+    if (coupon.maxRedemptions !== null && (await this.repo.countCouponRedemptions(coupon.id)) >= coupon.maxRedemptions) {
+      throw new BadRequestException({ message: `Coupon ${code} has no redemptions left`, code: 'payment.coupon_exhausted' });
+    }
+    const discountAmount = coupon.discountType === 'percent'
+      ? Math.floor((configuredPrice * coupon.discountValue) / 100)
+      : coupon.discountValue;
+    if (discountAmount < 1 || discountAmount >= configuredPrice) {
+      throw new BadRequestException({
+        message: `Coupon ${code} discount must leave a payable amount of at least 1`,
+        code: 'payment.coupon_exceeds_price',
+      });
+    }
+    return { coupon, discountAmount };
+  }
+
   /**
    * Tạo payment mua/nâng GÓI (lát 2, issue #189) — hàm song song với
    * `createFeePayment`/`createClassFeePayment`, dùng đúng seam
@@ -340,8 +518,14 @@ export class PaymentsService {
    * nhất, rồi id (xem thân hàm). Bên hưởng: `tenant_plan` hưởng theo
    * tenant hiệu lực của người mua; `teacher_plan` hưởng theo chính
    * người mua.
+   *
+   * COUPON (phần còn lại của lát 2): người mua có thể kèm `couponCode`
+   * — coupon do quản trị platform tạo, được phân giải tại đây qua
+   * {@link PaymentsService.resolveCouponDiscount}: số tiền của
+   * payment là giá cấu hình TRỪ mức giảm, và ảnh chụp bổ sung mã
+   * coupon + số tiền đã giảm (giá gốc vẫn ở `configuredPrice`).
    */
-  async createPlanPayment(userId: string, input: { component: string }): Promise<PaymentView> {
+  async createPlanPayment(userId: string, input: { component: string; couponCode?: string }): Promise<PaymentView> {
     if (input.component !== 'tenant_plan' && input.component !== 'teacher_plan') {
       throw new BadRequestException({ message: `Unknown plan component: ${input.component}`, code: 'payment.unknown_plan_component' });
     }
@@ -367,15 +551,30 @@ export class PaymentsService {
       )[0];
     if (!account) throw new BadRequestException({ message: 'No payment account configured for plan purchases', code: 'payment.no_account' });
     const beneficiaryTenantId = await this.effectiveTenantId();
+    // Coupon áp tại điểm tạo khoản thu: mức giảm tính trên giá cấu
+    // hình vừa đọc ở trên; số tiền thực thu của payment là giá sau
+    // giảm — pipeline khớp đúng số tiền này như mọi payment khác.
+    let amount = price;
+    let couponSnapshot: Pick<PlanSnapshot, 'couponId' | 'couponCode' | 'discountAmount'> = {};
+    if (input.couponCode) {
+      const resolved = await this.resolveCouponDiscount(input.couponCode, component, price);
+      amount = price - resolved.discountAmount;
+      couponSnapshot = {
+        couponId: resolved.coupon.id,
+        couponCode: resolved.coupon.code,
+        discountAmount: resolved.discountAmount,
+      };
+    }
     const snapshot: PlanSnapshot = {
       component,
       configuredPrice: price,
       periodDays,
       beneficiaryTenantId,
       beneficiaryUserId: component === 'teacher_plan' ? userId : null,
+      ...couponSnapshot,
     };
     return this.createPaymentInTenant(userId, {
-      accountId: account.id, amount: price, currency: 'VND', component,
+      accountId: account.id, amount, currency: 'VND', component,
       itemId: component === 'tenant_plan' ? beneficiaryTenantId : userId,
       data: { plan: snapshot },
     }, platformTenantId);
