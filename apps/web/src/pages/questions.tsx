@@ -1,80 +1,39 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import type { QuestionView, RichTextDocument, StimulusView } from '@lms/contracts';
+import type { QuestionView } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Checkbox } from '@lms/ui/components/checkbox';
-import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
-import { Label } from '@lms/ui/components/label';
-import { Skeleton } from '@lms/ui/components/skeleton';
-import { Textarea } from '@lms/ui/components/textarea';
+import { Card, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { useTranslation } from 'react-i18next';
 import { BankAreaTabs } from '../components/bank-area-tabs';
+import { CategoryBrowser } from '../components/questions/category-browser';
+import { DiscoveryPanel } from '../components/questions/discovery-panel';
+import { DossierQueuePanel } from '../components/questions/dossier-queue-panel';
 import { MyMatricesPanel, SystemMatricesPanel } from '../components/questions/my-matrices-panel';
 import { MyPapersPanel } from '../components/questions/my-papers-panel';
 import { MyQuestionsPanel } from '../components/questions/my-questions-panel';
-import { CollapsibleSection } from '../components/collapsible-section';
+import { StimuliPanel } from '../components/questions/stimuli-panel';
+import { SystemPapersPanel } from '../components/questions/system-papers-panel';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from '#lib/api';
 import { usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 import {
-  examDossierSpecQueryOptions,
   questionAttributionQueryOptions,
-  questionDetailQueryOptions,
-  questionDiscoveryQueryOptions,
-  questionVersionsQueryOptions,
-  useCopyExamPaper,
-  useCopyQuestionToMyBank,
-  useCreateQuestionUsage,
-  useCreateStimulus,
-  useDeleteStimulus,
-  useReviewExamPaperContribution,
-  useReviewQuestionContribution,
-  useDeleteBankQuestion,
-  useRestoreQuestion,
-  useWithdrawQuestion,
-  useUpdateStimulus,
   useBankDossiers,
   useBankExamContributions,
   useBankExams,
   useBankMatrices,
-  useBankQuestionContributions,
   useCategoryQuestions,
   useCategoryStimuli,
   useMyBankQuestions,
   useQuestionBanks,
   useQuestionCategories,
   type AttributionLite,
-  type BankLite,
-  type ContributionLite,
-  type DiscoveryItemLite,
-  type DossierSpecLite,
-  type ExamContributionLite,
-  type MatrixContributionLite,
-  type MatrixLite,
-  type PaperSummaryLite,
 } from '#lib/questions-data';
 import { useCurriculumSubjects } from '#lib/matrix-data';
-import { DataTable, type DataColumn } from '#components/data-table';
-import {
-  COGNITIVE_LEVELS,
-  hasAllOptions,
-  LEVEL_LABEL_KEYS,
-  plainText,
-  QTYPE_LABEL_KEYS,
-  QTYPES,
-  questionExcerpt,
-  withApiReason,
-  type BankArea,
-  type CurriculumLinksView,
-  type CurriculumTreeNode,
-  type Qtype,
-} from '../components/questions/shared';
+import { type BankArea } from '../components/questions/shared';
 
 
 export { QuestionCategoryNewPage } from '../components/questions/category-new-page';
@@ -109,15 +68,8 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // Client theo context (root gắn singleton phía client; test gắn
   // client riêng) — invalidate/fetchQuery phải đi qua client này.
   const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<string[]>([]);
-  const [versionsOf, setVersionsOf] = useState<{
-    questionId: string;
-    versions: { version: number; questionText: RichTextDocument }[];
-  } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [qCategory, setQCategory] = useState('');
-  const [stimulusContent, setStimulusContent] = useState('');
-  const [editingStimulus, setEditingStimulus] = useState<StimulusView | null>(null);
   const [loading, setLoading] = useState(true);
   // Dữ liệu trang qua TanStack (F-01 đợt 1): danh mục + câu hỏi/ngữ
   // liệu theo danh mục là các query theo khoá factory (clientLoader
@@ -153,12 +105,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // vực render THẲNG trong trang, không bọc thẻ thu/mở nữa; mỗi
   // route chỉ render đúng khu vực của path đó.)
   const [attributions, setAttributions] = useState<Record<string, AttributionLite>>({});
-  const [discBankId, setDiscBankId] = useState('');
-  const [discKeyword, setDiscKeyword] = useState('');
-  const [discQtype, setDiscQtype] = useState('');
-  const [discResults, setDiscResults] = useState<DiscoveryItemLite[]>([]);
-  const contributions = useBankQuestionContributions(discBankId).data ?? [];
-  const [previewItem, setPreviewItem] = useState<QuestionView | null>(null);
   // Ngân hàng ma trận (MB-1, issue #111): khu riêng "Ma trận của tôi" +
   // section ma trận chung trong Ngân hàng hệ thống — cùng khuôn hai khu
   // vực phân biệt của ngân hàng câu hỏi.
@@ -170,7 +116,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // hàng riêng của tôi" của câu hỏi, theo mô hình hai khu vực đã chốt.
   const examBanks = useQuestionBanks('exam').data ?? [];
   const [systemExamBankId, setSystemExamBankId] = useState('');
-  const systemPapers = useBankExams(systemExamBankId || undefined).data ?? [];
   // Hàng chờ ĐÓNG GÓP đề của bank đang chọn — ĐƯỜNG ĐÓNG GÓP DUY NHẤT
   // của đề (S4/Q4 của issue #228): cả hai trạng thái chờ đều hành động
   // được ngay tại hàng chờ (pending = chờ duyệt cấp 1; pending_board =
@@ -196,13 +141,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     const linked = contributionBySourceDossierId.get(d.id);
     return !linked || linked.status === 'pending' || linked.status === 'pending_board';
   });
-  const [openDossierSpec, setOpenDossierSpec] = useState<{ dossierId: string; spec: DossierSpecLite } | null>(null);
-  // Bản đặc tả đang mở của một ĐÓNG GÓP kèm hồ sơ: đặc tả đã chụp nằm
-  // ngay trong payload đóng góp (dossierSpecSnapshot) nên mở tại chỗ,
-  // không gọi thêm endpoint như bề mặt hồ sơ lịch sử.
-  const [openContributionSpec, setOpenContributionSpec] = useState<{ contributionId: string; spec: DossierSpecLite } | null>(null);
-
-
 
 
   // Thông báo mang về từ màn sửa riêng (vd "Đã lưu thành phiên bản N…"
@@ -217,7 +155,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // (Đã gỡ cơ chế đọc ?bank=/?section= để mở collapse + cuộn neo:
   // khu vực nay do PATH quyết định — xem BankArea ở đầu component.
   // URL cũ được lớp tương thích ở route module chuyển hướng sang.)
-
 
 
   const personalBank = banks.find((b) => b.scope === 'personal');
@@ -246,7 +183,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   }, [myQuestions, loadAttributionsFor]);
 
 
-
   // --- ngân hàng ma trận (MB-1) -------------------------------------------------
 
   const personalMatrixBank = matrixBanks.find((b) => b.scope === 'personal');
@@ -254,23 +190,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const myMatrices = useBankMatrices(personalMatrixBank?.id).data ?? [];
 
 
-
-
-
-
-
-
-
-  /** Khoá i18n cho trạng thái chờ duyệt (EB-3): từ vựng trạng thái của hồ sơ và của đóng góp đề là một (pending/pending_board/approved/rejected) nên dùng chung — pending_board là khoá ghép riêng. */
-  const dossierStatusKey = (status: string) =>
-    status === 'pending_board'
-      ? 'dossierStatusPendingBoard'
-      : `dossierStatus${status[0]!.toUpperCase()}${status.slice(1)}`;
-
   const personalExamBank = examBanks.find((b) => b.scope === 'personal');
   const sharedExamBanks = examBanks.filter((b) => b.scope !== 'personal');
   const myPapers = useBankExams(personalExamBank?.id).data ?? [];
-
 
 
   // Làm mới theo cụm sau mỗi đột biến: invalidate đúng khoá
@@ -280,17 +202,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   // Thao tác ghi của trang qua các đột biến của lib/questions-data
   // (F-01 của rà soát #133): đột biến chỉ ghi, việc làm mới theo cụm
   // vẫn do các hàm refresh* dưới đây quyết định như bản thủ công.
-  const copyPaperMutation = useCopyExamPaper();
-  const reviewPaperContributionMutation = useReviewExamPaperContribution();
-  const copyQuestionMutation = useCopyQuestionToMyBank();
-  const reviewContributionMutation = useReviewQuestionContribution();
-  const deleteQuestionMutation = useDeleteBankQuestion();
-  const restoreQuestionMutation = useRestoreQuestion();
-  const withdrawQuestionMutation = useWithdrawQuestion();
-  const updateStimulusMutation = useUpdateStimulus();
-  const createStimulusMutation = useCreateStimulus();
-  const deleteStimulusMutation = useDeleteStimulus();
-  const createUsageMutation = useCreateQuestionUsage();
 
   const refreshBanks = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.questionBanks('question') });
@@ -317,412 +228,15 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const refreshMyDossiers = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.myDossiers });
   };
-  const refreshContributions = (bankId: string) => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.bankQuestionContributions(bankId) });
-  };
   const refreshCategoryQuestions = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.categoryQuestions(qCategory) });
   };
-  const refreshCategoryStimuli = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.categoryStimuli(qCategory) });
-  };
-
-
-  /**
-   * Một mốc duyệt tại hàng chờ BỘ HỒ SƠ: hồ sơ là bề mặt CHỈ-ĐỌC
-   * (lịch sử) — thao tác duyệt thật đi trên ĐÓNG GÓP đã chuyển đổi từ
-   * chính hồ sơ đó, nối bằng `sourceDossierId` (đợt chuyển đổi hồ sơ
-   * treo của Q4); cấp do trạng thái đóng góp quyết định: `pending` →
-   * cấp 1 (approve/reject), `pending_board` → cấp 2 BGH
-   * (board-approve/board-reject); từ chối bắt buộc lý do. Hồ sơ chưa
-   * có đóng góp liên kết (chưa qua đợt chuyển đổi) thì không còn thao
-   * tác ghi nào — đường ghi hồ sơ đã đóng (API trả 410).
-   */
-  async function reviewDossier(dossierId: string, action: 'approve' | 'reject' | 'board-approve' | 'board-reject') {
-    const contribution = contributionBySourceDossierId.get(dossierId);
-    if (!contribution || !systemExamBankId) return;
-    try {
-      if (action === 'approve' || action === 'board-approve') {
-        await reviewPaperContributionMutation.mutateAsync({
-          bankId: systemExamBankId,
-          contributionId: contribution.id,
-          action,
-        });
-      } else {
-        const reason = window.prompt(t('contributionReject')) ?? '';
-        if (!reason.trim()) return;
-        await reviewPaperContributionMutation.mutateAsync({
-          bankId: systemExamBankId,
-          contributionId: contribution.id,
-          action,
-          reason,
-        });
-      }
-      if (systemExamBankId) refreshSystemPapers(systemExamBankId);
-      refreshMyDossiers();
-    } catch (err) {
-      setMessage(withApiReason(t('dossierFailed'), err));
-    }
-  }
-
-  /** Mở/đóng bản đặc tả ĐÃ CHỤP của một đóng góp kèm hồ sơ ngay trong hàng chờ đóng góp (đặc tả nằm sẵn trong payload đóng góp). */
-  function toggleContributionSpec(contribution: ExamContributionLite) {
-    if (openContributionSpec?.contributionId === contribution.id) { setOpenContributionSpec(null); return; }
-    if (contribution.dossierSpecSnapshot) {
-      setOpenContributionSpec({ contributionId: contribution.id, spec: contribution.dossierSpecSnapshot });
-    }
-  }
-
-  /** Mở/đóng bản đặc tả ĐÃ CHỤP của bộ hồ sơ ngay trong hàng chờ. */
-  async function toggleDossierSpec(dossierId: string) {
-    if (openDossierSpec?.dossierId === dossierId) { setOpenDossierSpec(null); return; }
-    try {
-      const spec = await queryClient.fetchQuery(examDossierSpecQueryOptions(dossierId));
-      setOpenDossierSpec({ dossierId, spec });
-    } catch (err) {
-      setMessage(withApiReason(t('dossierFailed'), err));
-    }
-  }
-
-  /** Tải bản đặc tả đã chụp của bộ hồ sơ ra file xlsx. */
-  async function downloadDossierSpec(dossierId: string) {
-    try {
-      const res = await apiFetch(`/api/v1/exams/dossiers/${dossierId}/specification/export?format=xlsx`);
-      if (!res.ok) throw new Error(String(res.status));
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'ban-dac-ta.xlsx';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setMessage(withApiReason(t('dossierFailed'), err));
-    }
-  }
-
-  /** Copy một đề từ ngân hàng hệ thống về ngân hàng đề cá nhân (cầu nối hai khu vực cho ĐỀ). */
-  async function copyPaperToMine(paperId: string) {
-    try {
-      await copyPaperMutation.mutateAsync(paperId);
-      setMessage(t('paperCopiedToMyBank'));
-      refreshExamBanks();
-    } catch (err) {
-      setMessage(withApiReason(t('examPaperCopyFailed'), err));
-    }
-  }
-
-
-
-
-  /**
-   * Một mốc duyệt của một đề xuất đóng góp đề tại bank đích: cấp 1
-   * (approve/reject khi đóng góp `pending`) hoặc cấp 2 ban giám hiệu
-   * (board-approve/board-reject khi đóng góp `pending_board` — chỉ
-   * đóng góp kèm bộ hồ sơ mới lên được trạng thái này); từ chối ở cả
-   * hai cấp đều bắt buộc lý do.
-   */
-  async function reviewPaperContribution(
-    bankId: string,
-    contributionId: string,
-    action: 'approve' | 'reject' | 'board-approve' | 'board-reject',
-  ) {
-    try {
-      if (action === 'approve' || action === 'board-approve') {
-        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, action });
-      } else {
-        const reason = window.prompt(t('contributionReject')) ?? '';
-        if (!reason.trim()) return;
-        await reviewPaperContributionMutation.mutateAsync({ bankId, contributionId, action, reason });
-      }
-      refreshSystemPapers(bankId);
-    } catch (err) {
-      setMessage(withApiReason(t('proposeFailed'), err));
-    }
-  }
-
-  /** Mở hộp thoại GHIM: danh sách khoá học là query dùng chung khoá
-   *  factory courses (bật khi hộp thoại mở); invalidate để danh sách
-   *  tươi như nhịp tải lại mỗi lần mở trước đây. */
 
 
   useEffect(() => {
     void loadAttributionsFor(questions);
   }, [questions, loadAttributionsFor]);
 
-  async function runDiscovery() {
-    try {
-      const params = new URLSearchParams();
-      if (discBankId) params.set('bankId', discBankId);
-      if (discKeyword.trim()) params.set('keyword', discKeyword.trim());
-      if (discQtype) params.set('qtype', discQtype);
-      const rows = await queryClient.fetchQuery(questionDiscoveryQueryOptions(params.toString()));
-      setDiscResults(rows);
-    } catch {
-      setDiscResults([]);
-    }
-  }
-
-  /** Copy một câu về ngân hàng cá nhân của mình (cầu nối hai khu vực). */
-  async function copyToMyBank(questionId: string) {
-    try {
-      await copyQuestionMutation.mutateAsync(questionId);
-      setMessage(t('copiedToMyBank'));
-      refreshBanks();
-    } catch {
-      setMessage(t('copyFailed'));
-    }
-  }
-
-
-  async function reviewContribution(bankId: string, contributionId: string, approve: boolean) {
-    try {
-      if (approve) {
-        await reviewContributionMutation.mutateAsync({ bankId, contributionId, approve: true });
-      } else {
-        const reason = window.prompt(t('contributionReject')) ?? '';
-        if (!reason.trim()) return;
-        await reviewContributionMutation.mutateAsync({ bankId, contributionId, approve: false, reason });
-      }
-      refreshContributions(bankId);
-    } catch {
-      setMessage(t('proposeFailed'));
-    }
-  }
-
-
-
-
-
-  /** Rút / hoàn rút một câu khỏi bank của nó. */
-  async function toggleWithdraw(view: QuestionView) {
-    const status = (view.entry as { status?: string }).status;
-    try {
-      if (status === 'hidden') {
-        await restoreQuestionMutation.mutateAsync(view.question.id);
-        setMessage(t('questionRestored'));
-      } else {
-        const reason = window.prompt(t('withdrawQuestion')) ?? '';
-        if (!reason.trim()) return;
-        await withdrawQuestionMutation.mutateAsync({ questionId: view.question.id, reason });
-        setMessage(t('questionWithdrawn'));
-      }
-      refreshBanks();
-      refreshCategoryQuestions();
-    } catch {
-      setMessage(t('proposeFailed'));
-    }
-  }
-
-  async function submitStimulus(event: FormEvent) {
-    event.preventDefault();
-    if (editingStimulus) {
-      try {
-        await updateStimulusMutation.mutateAsync({ stimulusId: editingStimulus.id, content: stimulusContent });
-        setEditingStimulus(null);
-        setStimulusContent('');
-        refreshCategoryStimuli();
-      } catch {
-        setMessage(t('stimulusSaveFailed'));
-      }
-      return;
-    }
-    try {
-      await createStimulusMutation.mutateAsync({ categoryId: qCategory, content: stimulusContent });
-      setStimulusContent('');
-      refreshCategoryStimuli();
-    } catch {
-      setMessage(t('stimulusCreateFailed'));
-    }
-  }
-
-  async function deleteStimulus(stimulus: StimulusView) {
-    try {
-      await deleteStimulusMutation.mutateAsync(stimulus.id);
-      if (editingStimulus?.id === stimulus.id) {
-        setEditingStimulus(null);
-        setStimulusContent('');
-      }
-      refreshCategoryStimuli();
-    } catch {
-      setMessage(t('stimulusDeleteFailed'));
-    }
-  }
-
-  /**
-   * Tạo lượt làm bài từ các câu hỏi đã chọn: slot chỉ cần `questionId`
-   * (schema `questionUsageSlotSchema`) — server tự gắn phiên bản mới nhất
-   * khi attempt bắt đầu, nên trang không gửi version id nào. Component
-   * `mod_quiz` khớp cách API/e2e tạo usage cho một hoạt động quiz.
-   */
-  async function startUsageFromSelection() {
-    try {
-      const created = await createUsageMutation.mutateAsync({
-        component: 'mod_quiz',
-        slots: selected.map((questionId) => ({ questionId })),
-      });
-      await navigate(`/question-usages/${created.usage.id}`);
-    } catch {
-      setMessage(t('usageCreateFailed'));
-    }
-  }
-
-  /** Xoá một câu hỏi qua DELETE /questions/:id sau khi xác nhận (§9: Xoá ngay tại dòng). */
-  async function deleteQuestion(view: QuestionView) {
-    if (!window.confirm(t('confirmDeleteQuestion', { name: questionExcerpt(view) }))) return;
-    setMessage(null);
-    try {
-      await deleteQuestionMutation.mutateAsync(view.question.id);
-      setMessage(t('questionDeleted'));
-      setSelected((prev) => prev.filter((qid) => qid !== view.question.id));
-      refreshCategoryQuestions();
-    } catch {
-      setMessage(t('questionDeleteFailed'));
-    }
-  }
-
-  async function showVersions(view: QuestionView) {
-    const versions = await queryClient.fetchQuery(questionVersionsQueryOptions(view.question.id));
-    setVersionsOf({ questionId: view.question.id, versions });
-  }
-
-  /** Nội dung ngữ liệu gắn với phiên bản mới nhất của câu hỏi (rỗng khi không gắn). */
-  function stimulusTextOf(view: QuestionView): string {
-    if (view.stimulus) return plainText(view.stimulus.content);
-    const stimulusId = view.latestVersion.stimulusId;
-    if (!stimulusId) return '';
-    const found = stimuli.find((s) => s.id === stimulusId);
-    return found ? plainText(found.content) : '';
-  }
-
-  /**
-   * Cột của bảng ngân hàng câu hỏi trên DataTable dùng chung (TanStack
-   * Table): chọn câu hỏi để làm bài vẫn là state của trang (checkbox ở
-   * cột đầu ghi vào `selected`), trích đoạn nội dung/phiên bản sắp xếp
-   * được, ô lọc toàn bảng quét theo trích đoạn và nội dung câu hỏi
-   * (câu hỏi không còn trường tên — nhãn là trích đoạn, xem
-   * `questionExcerpt`). Trước đây danh sách này là một <ul> tự chế
-   * không sắp xếp/lọc/phân trang.
-   */
-  const questionColumns: DataColumn<QuestionView>[] = [
-    {
-      id: 'select',
-      header: '',
-      cell: (view) => (
-        <Checkbox
-          aria-label={t('selectQuestionForAttempt', { name: questionExcerpt(view) })}
-          checked={selected.includes(view.question.id)}
-          onCheckedChange={(checked) =>
-            setSelected((prev) =>
-              checked === true ? [...prev, view.question.id] : prev.filter((qid) => qid !== view.question.id),
-            )
-          }
-        />
-      ),
-    },
-    {
-      id: 'excerpt',
-      header: t('questionText'),
-      cell: (view) => {
-        // Dòng ghi công KHÔNG tắt được cho câu copy (QB-2): hiện ngay
-        // dưới trích đoạn câu khi đã nạp được attribution; câu đã rút có nhãn.
-        const a = attributions[view.question.id];
-        const isCopy = Boolean((view.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId);
-        return (
-          <span>
-            {questionExcerpt(view)}
-            {(view.entry as { status?: string }).status === 'hidden' ? (
-              <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">{t('withdrawnBadge')}</span>
-            ) : null}
-            {isCopy && a ? (
-              <span className="block text-xs text-muted-foreground">
-                {t('copiedFromLine', { author: a.originalAuthorName ?? '—', bank: a.sourceBankName ?? '—' })}
-              </span>
-            ) : null}
-          </span>
-        );
-      },
-      sortValue: (view) => questionExcerpt(view),
-      filterValue: (view) => questionExcerpt(view),
-    },
-    {
-      id: 'qtype',
-      header: t('questionType'),
-      cell: (view) =>
-        t(QTYPE_LABEL_KEYS[(QTYPES as readonly string[]).includes(view.question.qtype) ? (view.question.qtype as Qtype) : 'truefalse']),
-      sortValue: (view) => view.question.qtype,
-      filterValue: (view) => view.question.qtype,
-    },
-    {
-      id: 'version',
-      header: t('version'),
-      cell: (view) => (
-        <span data-testid={`version-badge-${view.question.id}`} className="rounded bg-secondary px-2 py-0.5 text-xs">
-          v{view.entry.latestVersion}
-        </span>
-      ),
-      sortValue: (view) => view.entry.latestVersion,
-    },
-    {
-      id: 'text',
-      header: t('questionText'),
-      cell: (view) => (
-        <span>
-          <span className="text-sm text-muted-foreground">{plainText(view.latestVersion.questionText)}</span>
-          {stimulusTextOf(view) ? (
-            <span data-testid={`stimulus-of-${view.question.id}`} className="block text-sm">
-              {t('stimulusPreview', { content: stimulusTextOf(view) })}
-            </span>
-          ) : null}
-        </span>
-      ),
-      filterValue: (view) => `${plainText(view.latestVersion.questionText)} ${stimulusTextOf(view)}`,
-    },
-    {
-      id: 'actions',
-      header: t('actions'),
-      cell: (view) => (
-        <span className="flex gap-2">
-          {/* §9: Sửa đi sang màn editor riêng; Xoá ngay tại dòng. */}
-          <Button
-            type="button"
-            variant="outline"
-            render={<Link to={`/questions/${view.question.id}/edit?category=${view.question.category}`} />}
-          >
-            {t('editNewVersion')}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => void showVersions(view)}>
-            {t('history')}
-          </Button>
-          <Button type="button" variant="destructive" onClick={() => void deleteQuestion(view)}>
-            {t('deleteAction')}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            title={t('copyToMyBankFull')}
-            aria-label={t('copyToMyBankFull')}
-            onClick={() => void copyToMyBank(view.question.id)}
-          >
-            {t('copyToMyBank')}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => void toggleWithdraw(view)}>
-            {(view.entry as { status?: string }).status === 'hidden' ? t('restoreQuestion') : t('withdrawQuestion')}
-          </Button>
-        </span>
-      ),
-    },
-  ];
-
-  /** Xem trước một câu trong trang khám phá ngân hàng chung. */
-  async function previewDiscoveryItem(questionId: string) {
-    try {
-      const view = await queryClient.fetchQuery(questionDetailQueryOptions(questionId));
-      setPreviewItem(view);
-    } catch {
-      setPreviewItem(null);
-    }
-  }
 
   // Chặn trang theo vai (issue #55 mục 1): sidebar đã ẩn mục điều hướng
   // với vai không có capability ngân hàng, trang chặn nốt khi vào thẳng
@@ -858,7 +372,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       ) : null}
 
 
-
       {area.startsWith('system') ? (
         <>
       {/* Khu vực Ngân hàng hệ thống: ba ngân hàng CHUNG (câu hỏi /
@@ -872,126 +385,11 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           nhân. Các neo #system-* trên từng <section> giữ nguyên. */}
       <div className="space-y-6">
             {area === 'system-questions' ? (
-            <section id="system-questions" className="space-y-3 scroll-mt-24">
-              <h3 className="font-medium">{t('sharedQuestionBank')}</h3>
-              <div className="flex flex-wrap items-end gap-2">
-                <div>
-                  <Label htmlFor="disc-bank">{t('pickBank')}</Label>
-                  <select
-                    id="disc-bank"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={discBankId}
-                    onChange={(e) => {
-                      setDiscBankId(e.target.value);
-                    }}
-                  >
-                    <option value="">{t('allSharedBanks')}</option>
-                    {sharedBanks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.name} ({t(`bankScope${bank.scope[0]!.toUpperCase()}${bank.scope.slice(1)}`)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="disc-keyword">{t('discoveryKeyword')}</Label>
-                  <Input
-                    id="disc-keyword"
-                    value={discKeyword}
-                    onChange={(e) => setDiscKeyword(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="disc-qtype">{t('questionType')}</Label>
-                  <select
-                    id="disc-qtype"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={discQtype}
-                    onChange={(e) => setDiscQtype(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {QTYPES.map((qtype) => (
-                      <option key={qtype} value={qtype}>
-                        {t(QTYPE_LABEL_KEYS[qtype])}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <Button type="button" onClick={() => void runDiscovery()}>
-                  {t('discoverySearch')}
-                </Button>
-              </div>
-              {discResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('discoveryEmpty')}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {discResults.map((item) => (
-                    <li key={item.questionId} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        {item.excerpt}
-                        <span className="block text-xs text-muted-foreground">
-                          {item.bankName} · {item.authorName ?? '—'} · {t('usedTimes', { count: item.useCount })} ·{' '}
-                          {t('copiedTimes', { count: item.copyCount })}
-                        </span>
-                      </span>
-                      <Button type="button" variant="outline" onClick={() => void previewDiscoveryItem(item.questionId)}>
-                        {t('previewQuestion')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        title={t('copyToMyBankFull')}
-                        aria-label={t('copyToMyBankFull')}
-                        onClick={() => void copyToMyBank(item.questionId)}
-                      >
-                        {t('copyToMyBank')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {previewItem ? (
-                <div className="rounded-md border p-3">
-                  <p className="font-medium">{questionExcerpt(previewItem)}</p>
-                  <p className="text-sm text-muted-foreground">{plainText(previewItem.latestVersion.questionText)}</p>
-                </div>
-              ) : null}
-              {discBankId ? (
-                <div className="space-y-2">
-                  <h4 className="font-medium">{t('contributionQueue')}</h4>
-                  {contributions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('contributionEmpty')}</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {contributions.map((c) => (
-                        <li key={c.id} className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 flex-1">
-                            {c.questionName ?? c.questionId}
-                            <span className="block text-xs text-muted-foreground">
-                              {t('contributionBy', { name: c.proposerName ?? '—' })}
-                            </span>
-                          </span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void reviewContribution(discBankId, c.id, true)}
-                          >
-                            {t('contributionApprove')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => void reviewContribution(discBankId, c.id, false)}
-                          >
-                            {t('contributionReject')}
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
-            </section>
+              <DiscoveryPanel
+                sharedBanks={sharedBanks}
+                refreshBanks={refreshBanks}
+                setMessage={setMessage}
+              />
             ) : null}
             {area === 'system-exams' ? (
             <>
@@ -999,234 +397,23 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
                 sách đề ready của bank đó + Copy về ngân hàng đề của tôi
                 tại dòng; người duyệt của bank thấy hàng chờ đóng góp đề. */}
             <section id="system-papers" className="space-y-3 scroll-mt-24">
-              <h3 className="font-medium">{t('sharedExamBank')}</h3>
-              <div className="flex flex-wrap items-end gap-2">
-                <div>
-                  <Label htmlFor="exam-bank-pick">{t('pickBank')}</Label>
-                  <select
-                    id="exam-bank-pick"
-                    className="h-9 w-full rounded-md border border-input bg-transparent px-2.5 text-sm shadow-xs"
-                    value={systemExamBankId}
-                    onChange={(e) => setSystemExamBankId(e.target.value)}
-                  >
-                    <option value="">—</option>
-                    {sharedExamBanks.map((bank) => (
-                      <option key={bank.id} value={bank.id}>
-                        {bank.name} ({t(`bankScope${bank.scope[0]!.toUpperCase()}${bank.scope.slice(1)}`)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              {systemExamBankId && systemPapers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('examPaperEmpty')}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {systemPapers.map((paper) => (
-                    <li key={paper.id} className="flex flex-wrap items-center gap-2">
-                      <span className="min-w-0 flex-1">
-                        {paper.name}
-                        <span className="ml-2 rounded bg-secondary px-2 py-0.5 text-xs">v{paper.latestVersion}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {t('examPaperSlotsCount', { count: paper.slotCount })} · {t('copiedTimes', { count: paper.copyCount })}
-                        </span>
-                      </span>
-                      {paper.capabilities.edit ? (
-                        <Button type="button" variant="outline" onClick={() => navigate(`/exams/${paper.id}/edit`)}>
-                          {t('editRow')}
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        title={t('copyToMyBankFull')}
-                        aria-label={t('copyToMyBankFull')}
-                        onClick={() => void copyPaperToMine(paper.id)}
-                      >
-                        {t('copyPaperToMyBank')}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {systemExamBankId && paperContributions.length > 0 ? (
-                <div className="space-y-2">
-                  <h4 className="font-medium">{t('examContributionQueue')}</h4>
-                  <ul className="space-y-2">
-                    {paperContributions.map((c) => (
-                      <li key={c.id} className="space-y-1" data-testid="exam-contribution-row">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 flex-1">
-                            {c.paperName ?? c.examId}
-                            {c.status === 'pending_board' ? (
-                              <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
-                                {t(dossierStatusKey(c.status))}
-                              </span>
-                            ) : null}
-                            {c.dossierExamVersionNumber !== null ? (
-                              <span className="block text-xs text-muted-foreground">
-                                {t('dossierPinned', { paperVersion: c.dossierExamVersionNumber, matrixVersion: c.dossierMatrixVersion ?? '—' })}
-                              </span>
-                            ) : null}
-                          </span>
-                          {c.dossierSpecSnapshot ? (
-                            <Button type="button" variant="outline" onClick={() => toggleContributionSpec(c)}>
-                              {t('dossierViewSpec')}
-                            </Button>
-                          ) : null}
-                          {c.status === 'pending_board' ? (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'board-approve')}
-                              >
-                                {t('dossierBoardApprove')}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'board-reject')}
-                              >
-                                {t('dossierBoardReject')}
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'approve')}
-                              >
-                                {t('contributionApprove')}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => void reviewPaperContribution(systemExamBankId, c.id, 'reject')}
-                              >
-                                {t('contributionReject')}
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                        {openContributionSpec?.contributionId === c.id ? (
-                          <div className="rounded-md border p-3 text-sm" data-testid="contribution-spec-panel">
-                            <p className="font-medium">
-                              {t('dossierSpecTotals', {
-                                count: openContributionSpec.spec.totals.totalQuestions,
-                                score: openContributionSpec.spec.totals.totalScore,
-                              })}
-                            </p>
-                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                              {openContributionSpec.spec.topics.flatMap((topic) =>
-                                topic.nodes.flatMap((node) =>
-                                  node.outcomes.flatMap((outcome) =>
-                                    outcome.cells.map((cell, idx) => (
-                                      <li key={idx}>
-                                        {cell.cognitiveLevel} · {cell.questionCount} · {cell.cellScore}
-                                        {cell.slotNumbers?.length
-                                          ? ` · ${t('dossierSpecSlots', { slots: cell.slotNumbers.join(', ') })}`
-                                          : ''}
-                                      </li>
-                                    )),
-                                  ),
-                                ),
-                              )}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              {/* Hàng chờ BỘ HỒ SƠ (EB-3): bề mặt ĐỌC lịch sử của các
-                  bộ đã nộp theo đường hồ sơ cũ — người duyệt mở bản
-                  đặc tả đã chụp ngay tại hàng chờ. Thao tác DUYỆT đi
-                  trên đóng góp đã chuyển đổi từ chính bộ hồ sơ (nối
-                  bằng sourceDossierId): cấp 1 khi đóng góp `pending`,
-                  cấp 2 (BGH) khi đóng góp `pending_board`; bộ chưa có
-                  đóng góp liên kết thì chỉ còn xem/tải đặc tả. */}
-              {systemExamBankId && bankDossiers.length > 0 ? (
-                <div className="space-y-2">
-                  <h4 className="font-medium">{t('dossierQueue')}</h4>
-                  <ul className="space-y-2">
-                    {bankDossiers.map((d) => {
-                      const linkedContribution = contributionBySourceDossierId.get(d.id);
-                      return (
-                      <li key={d.id} className="space-y-1" data-testid="dossier-queue-row">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="min-w-0 flex-1">
-                            {d.examName ?? d.examId}
-                            <span className="ml-2 rounded bg-secondary px-1.5 py-0.5 text-xs">
-                              {t(dossierStatusKey(d.status))}
-                            </span>
-                            <span className="block text-xs text-muted-foreground">
-                              {t('contributionBy', { name: d.proposerName ?? '—' })}
-                              {d.examVersionNumber !== null
-                                ? ` · ${t('dossierPinned', { paperVersion: d.examVersionNumber, matrixVersion: d.matrixVersion ?? '—' })}`
-                                : ''}
-                            </span>
-                          </span>
-                          <Button type="button" variant="outline" onClick={() => void toggleDossierSpec(d.id)}>
-                            {t('dossierViewSpec')}
-                          </Button>
-                          <Button type="button" variant="outline" onClick={() => void downloadDossierSpec(d.id)}>
-                            {t('dossierDownloadSpec')}
-                          </Button>
-                          {linkedContribution?.status === 'pending' ? (
-                            <>
-                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'approve')}>
-                                {t('contributionApprove')}
-                              </Button>
-                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'reject')}>
-                                {t('contributionReject')}
-                              </Button>
-                            </>
-                          ) : linkedContribution?.status === 'pending_board' ? (
-                            <>
-                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'board-approve')}>
-                                {t('dossierBoardApprove')}
-                              </Button>
-                              <Button type="button" variant="outline" onClick={() => void reviewDossier(d.id, 'board-reject')}>
-                                {t('dossierBoardReject')}
-                              </Button>
-                            </>
-                          ) : null}
-                        </div>
-                        {openDossierSpec?.dossierId === d.id ? (
-                          <div className="rounded-md border p-3 text-sm" data-testid="dossier-spec-panel">
-                            <p className="font-medium">
-                              {t('dossierSpecTotals', {
-                                count: openDossierSpec.spec.totals.totalQuestions,
-                                score: openDossierSpec.spec.totals.totalScore,
-                              })}
-                            </p>
-                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                              {openDossierSpec.spec.topics.flatMap((topic) =>
-                                topic.nodes.flatMap((node) =>
-                                  node.outcomes.flatMap((outcome) =>
-                                    outcome.cells.map((cell, idx) => (
-                                      <li key={idx}>
-                                        {cell.cognitiveLevel} · {cell.questionCount} · {cell.cellScore}
-                                        {cell.slotNumbers?.length
-                                          ? ` · ${t('dossierSpecSlots', { slots: cell.slotNumbers.join(', ') })}`
-                                          : ''}
-                                      </li>
-                                    )),
-                                  ),
-                                ),
-                              )}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : null}
+              <SystemPapersPanel
+                systemExamBankId={systemExamBankId}
+                setSystemExamBankId={setSystemExamBankId}
+                sharedExamBanks={sharedExamBanks}
+                paperContributions={paperContributions}
+                refreshExamBanks={refreshExamBanks}
+                refreshSystemPapers={refreshSystemPapers}
+                setMessage={setMessage}
+              />
+              <DossierQueuePanel
+                bankDossiers={bankDossiers}
+                contributionBySourceDossierId={contributionBySourceDossierId}
+                systemExamBankId={systemExamBankId}
+                refreshSystemPapers={refreshSystemPapers}
+                refreshMyDossiers={refreshMyDossiers}
+                setMessage={setMessage}
+              />
             </section>
             </>
             ) : null}
@@ -1243,134 +430,24 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         </>
       ) : null}
 
+
       {isQuestionArea ? (
-        <>
-      {/* §9: mỗi danh mục là một mục thu/mở — bấm vào thì hiện danh sách
-          câu hỏi của chính danh mục đó ngay dưới. */}
-      {categories.map((cat) => {
-        const isActive = qCategory === String(cat.id);
-        return (
-          <CollapsibleSection
-            key={cat.id}
-            title={cat.name}
-            open={isActive}
-            onOpenChange={(open) => {
-              if (open) {
-                setQCategory(String(cat.id));
-              }
-            }}
-            paddedContent={false}
-          >
-            {isActive ? (
-              <>
-                    <DataTable
-                      data={questions}
-                      columns={questionColumns}
-                      labels={{
-                        columns: t('dashboard:tableColumns'),
-                        previous: t('dashboard:tablePrevious'),
-                        next: t('dashboard:tableNext'),
-                        empty: t('dashboard:emptyTable'),
-                        filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
-                        pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
-                      }}
-                      getRowId={(view) => view.question.id}
-                      rowTestId={(view) => `question-${view.question.id}`}
-                    />
-                    <CardContent className="space-y-4">
-                      <Button
-                        type="button"
-                        disabled={selected.length === 0}
-                        onClick={() => void startUsageFromSelection()}
-                      >
-                        {t('startAttemptFromSelection')}
-                      </Button>
-                      {versionsOf && (
-                        <div data-testid="version-history">
-                          <h3 className="font-medium">{t('versionHistory')}</h3>
-                          <ul>
-                            {versionsOf.versions.map((v) => (
-                              <li key={v.version}>
-                                v{v.version} — {plainText(v.questionText)}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </CardContent>
-                  </>
-            ) : null}
-          </CollapsibleSection>
-        );
-      })}
-      {loading && categories.length === 0 ? (
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : null}
-        </>
+        <CategoryBrowser
+          categories={categories}
+          questions={questions}
+          stimuli={stimuli}
+          attributions={attributions}
+          qCategory={qCategory}
+          setQCategory={setQCategory}
+          loading={loading}
+          refreshBanks={refreshBanks}
+          refreshCategoryQuestions={refreshCategoryQuestions}
+          setMessage={setMessage}
+        />
       ) : null}
 
       {area === 'stimuli' ? (
-      <Card id="stimuli" className="scroll-mt-24">
-        <CardHeader>
-          <CardTitle>{t('stimuli')}</CardTitle>
-          <CardDescription>{t('stimuliDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ul className="space-y-2">
-            {stimuli.map((stimulus) => (
-              <li key={stimulus.id} data-testid={`stimulus-row-${stimulus.id}`} className="flex items-start gap-2">
-                <span className="flex-1 text-sm">{plainText(stimulus.content)}</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingStimulus(stimulus);
-                    setStimulusContent(plainText(stimulus.content));
-                  }}
-                >
-                  {t('editStimulus')}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => void deleteStimulus(stimulus)}>
-                  {t('deleteStimulus')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <form onSubmit={(e) => void submitStimulus(e)}>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="stimulus-content">
-                  {editingStimulus ? t('stimulusContent') : t('newStimulus')}
-                </FieldLabel>
-                <Textarea
-                  id="stimulus-content"
-                  rows={4}
-                  value={stimulusContent}
-                  onChange={(e) => setStimulusContent(e.target.value)}
-                />
-              </Field>
-              <div className="flex gap-2">
-                <Button type="submit">{editingStimulus ? t('saveStimulus') : t('createStimulus')}</Button>
-                {editingStimulus && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setEditingStimulus(null);
-                      setStimulusContent('');
-                    }}
-                  >
-                    {t('cancelStimulusEdit')}
-                  </Button>
-                )}
-              </div>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+        <StimuliPanel stimuli={stimuli} qCategory={qCategory} setMessage={setMessage} />
       ) : null}
     </PageShell>
   );

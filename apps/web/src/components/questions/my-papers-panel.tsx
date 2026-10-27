@@ -134,6 +134,9 @@ export function MyPapersPanel({
     }
   }
 
+  /** Mở hộp thoại GHIM: danh sách khoá học là query dùng chung khoá
+   *  factory courses (bật khi hộp thoại mở); invalidate để danh sách
+   *  tươi như nhịp tải lại mỗi lần mở trước đây. */
   function openDeploy(paper: PaperSummaryLite) {
     setDeployPaper(paper);
     setDeploySectionId('');
