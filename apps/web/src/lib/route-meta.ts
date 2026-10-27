@@ -21,3 +21,8 @@ export function appKeyMeta(key: string): { title: string }[] {
 export function platformKeyMeta(key: string): { title: string }[] {
   return titleMeta(i18n.t(key, { ns: 'platform' }));
 }
+
+/** Tiêu đề từ một khoá của namespace `guardian` (title…). */
+export function guardianKeyMeta(key: string): { title: string }[] {
+  return titleMeta(i18n.t(key, { ns: 'guardian' }));
+}
