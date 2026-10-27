@@ -51,6 +51,18 @@ function isUniqueViolation(err: unknown): boolean {
  * thống, nhưng chương trình là dữ liệu quốc gia công khai trong trường
  * và việc nạp khung vào khoá đó vốn đã đòi `course:update` tại khoá.
  * Nhánh này không áp cho bề mặt quản trị cây (vẫn `curriculum:manage`).
+ * Nhóm thứ hai là các đường đọc THAM CHIẾU NỘI BỘ
+ * (`getSubjectReference`/`getCurriculumReference`/`getTreeReference`/
+ * `getNodeReference`/`listOutcomesReference`/`getOutcomeReference`)
+ * cho các luồng của module khác mà cổng quyền đã neo ở nơi khác
+ * (đường nhập ma trận từ file và đường tạo ma trận gắn bank của Quiz:
+ * cổng chốt là quyền ghi tại bank đích; bản đặc tả của ma trận:
+ * cổng chốt là quyền xem ma trận tại bank đích ở wrapper của nó,
+ * còn bản đặc tả theo đề thì cổng chốt nằm ở phía gọi của đề) —
+ * cùng khuôn với {@link getFrameUnits}: hàm nội bộ không tự đòi
+ * `curriculum:view` tại context của môn, caller phải tự gác cổng
+ * của luồng mình trước khi gọi. Bề mặt đọc công khai không qua các
+ * hàm này nên cổng của nó không đổi.
  */
 export class CurriculumService implements OnModuleInit {
   constructor(
@@ -331,6 +343,79 @@ export class CurriculumService implements OnModuleInit {
     return units;
   }
 
+  // --- đường đọc tham chiếu nội bộ cho các luồng của module khác ----------------
+
+  /**
+   * Đọc THAM CHIẾU môn học theo id (đường NỘI BỘ, không cổng
+   * capability riêng — cùng khuôn {@link getFrameUnits} và
+   * {@link programRecordIdForNode}): môn học là dữ liệu tham chiếu
+   * của chương trình quốc gia, và các luồng tiêu thụ nó để GHI ở nơi
+   * khác (nhập ma trận từ file, tạo ma trận gắn bank — tầng Quiz)
+   * chốt quyền tại cổng của chính luồng đó (quyền ghi tại bank
+   * đích), nên không đòi thêm `curriculum:view` tại context của môn
+   * ở đây. Đòi quyền đọc đó từng chặn nhầm mọi giáo viên: giáo viên
+   * chỉ được gán vai tại context khoá/trung tâm trong khi môn GDPT
+   * neo tại context hệ thống (điểm chặn của nghiệm thu D-3 trên
+   * production, issue #233). CHỈ dùng cho caller đã tự gác cổng của
+   * luồng mình trước khi gọi; bề mặt đọc công khai giữ nguyên cổng
+   * ở {@link getSubject}.
+   *
+   * @param id - Id môn học cần đọc tham chiếu.
+   * @returns Dòng môn học.
+   * @throws NotFoundException `curriculum.subject_not_found` khi môn
+   *   không tồn tại — caller dịch sang lỗi của luồng mình nếu cần.
+   */
+  async getSubjectReference(id: string): Promise<SubjectRow> {
+    return this.subjectOr404(id);
+  }
+
+  /**
+   * Đọc THAM CHIẾU chương trình theo id — bản nội bộ của
+   * {@link getCurriculum}, cùng khuôn và cùng điều kiện dùng như
+   * {@link getSubjectReference}.
+   *
+   * @param id - Id chương trình cần đọc tham chiếu.
+   * @returns Dòng chương trình.
+   * @throws NotFoundException `curriculum.curriculum_not_found` khi
+   *   chương trình không tồn tại.
+   */
+  async getCurriculumReference(id: string): Promise<CurriculumRow> {
+    return (await this.curriculumChainOr404(id)).curriculum;
+  }
+
+  /**
+   * Đọc THAM CHIẾU cây nội dung trọn vẹn của một chương trình — bản
+   * nội bộ của {@link getTree}, cùng khuôn và cùng điều kiện dùng
+   * như {@link getSubjectReference} (luồng nhập ma trận cần cây để
+   * dựng mẫu và đối chiếu Mã ĐVK sau khi đã qua cổng bank của
+   * luồng).
+   *
+   * @param curriculumId - Id chương trình cần đọc cây tham chiếu.
+   * @returns Cây nội dung kèm môn và chương trình.
+   * @throws NotFoundException `curriculum.curriculum_not_found` khi
+   *   chương trình không tồn tại.
+   */
+  async getTreeReference(curriculumId: string): Promise<CurriculumTreeView> {
+    const { curriculum, subject } = await this.curriculumChainOr404(curriculumId);
+    return this.buildTree(curriculum, subject);
+  }
+
+  /**
+   * Đọc THAM CHIẾU node theo id — bản nội bộ của {@link getNode},
+   * cùng khuôn và cùng điều kiện dùng như {@link getSubjectReference}
+   * (bản đặc tả của ma trận dùng node để dựng chủ đề/ĐVK sau khi
+   * wrapper của nó đã gác cổng xem ma trận tại bank đích, hoặc sau
+   * khi phía gọi của đề đã gác cổng của đề).
+   *
+   * @param id - Id node cần đọc tham chiếu.
+   * @returns Dòng node.
+   * @throws NotFoundException `curriculum.node_not_found` khi node
+   *   không tồn tại.
+   */
+  async getNodeReference(id: string): Promise<CurriculumNodeRow> {
+    return (await this.nodeChainOr404(id)).node;
+  }
+
   // --- outcomes ---------------------------------------------------------------------
 
   /** Tạo yêu cầu cần đạt dưới một node, kèm truy vết nguồn (mục A.3). */
@@ -358,6 +443,25 @@ export class CurriculumService implements OnModuleInit {
     return this.repo.listOutcomes(nodeId, opts);
   }
   /**
+   * Liệt kê THAM CHIẾU YCCĐ của một node — bản nội bộ của
+   * {@link listOutcomes}, cùng khuôn và cùng điều kiện dùng như
+   * {@link getSubjectReference}: không tự đòi `curriculum:view`,
+   * chỉ dùng cho caller đã gác cổng của luồng mình trước. Ngữ nghĩa
+   * lọc giữ nguyên bản công khai: mặc định chỉ dòng hiện hành (loại
+   * dòng đã rút), `includeRetired` truyền thẳng xuống repository
+   * như bản công khai.
+   *
+   * @param nodeId - Id node cần liệt kê YCCĐ tham chiếu.
+   * @param opts - Tuỳ chọn lọc như bản công khai.
+   * @returns Danh sách YCCĐ của node.
+   * @throws NotFoundException `curriculum.node_not_found` khi node
+   *   không tồn tại.
+   */
+  async listOutcomesReference(nodeId: string, opts?: { includeRetired?: boolean }): Promise<LearningOutcomeRow[]> {
+    await this.nodeChainOr404(nodeId);
+    return this.repo.listOutcomes(nodeId, opts);
+  }
+  /**
    * Mã bản ghi chương trình của một node thuộc dataset (null khi node
    * không thuộc bản ghi dataset nào) — căn cứ suy MÃ YCCĐ VỊ TRÍ
    * `<recordId>.<position 2 số>` cho bản đặc tả (một nguồn sự thật
@@ -374,6 +478,21 @@ export class CurriculumService implements OnModuleInit {
     const { outcome, subject } = await this.outcomeChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
     return outcome;
+  }
+  /**
+   * Đọc THAM CHIẾU YCCĐ theo id — bản nội bộ của {@link getOutcome},
+   * cùng khuôn và cùng điều kiện dùng như {@link getSubjectReference}
+   * (bản đặc tả của ma trận tra YCCĐ gốc của dòng derived sau khi
+   * wrapper của nó đã gác cổng xem ma trận tại bank đích, hoặc sau
+   * khi phía gọi của đề đã gác cổng của đề).
+   *
+   * @param id - Id YCCĐ cần đọc tham chiếu.
+   * @returns Dòng YCCĐ.
+   * @throws NotFoundException `curriculum.outcome_not_found` khi
+   *   YCCĐ không tồn tại.
+   */
+  async getOutcomeReference(id: string): Promise<LearningOutcomeRow> {
+    return (await this.outcomeChainOr404(id)).outcome;
   }
   /**
    * Tìm YCCĐ theo từ khoá (đường của tool MCP search_curriculum_outcomes,

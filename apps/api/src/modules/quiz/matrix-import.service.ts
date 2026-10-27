@@ -35,14 +35,12 @@
  * chung; bộ mức là 3 mức CV 7991, cột Vận dụng cao chỉ tồn tại khi
  * file khai "Có" ở trường checkbox và lưới cột phải khớp khai đó.
  */
-import { BadRequestException, Injectable, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import type {
   ExamMatrixView, MatrixImportIssue, MatrixImportPreview, MatrixImportPreviewCell,
 } from '@lms/contracts';
-import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { CurriculumService, type CurriculumTreeView } from '../curriculum/curriculum.service';
-import { QUIZ_CAPABILITIES } from './quiz.service';
 import { MATRIX_PRESETS, matrixWarnings } from './domain/matrix';
 import { QuizService } from './quiz.service';
 
@@ -119,13 +117,27 @@ type RawCellValue = { kind: 'number'; value: number } | { kind: 'text'; value: s
  * Service của chuỗi lát nhập ma trận: sinh workbook mẫu +
  * parse/preview file nhập (I-1, không ghi DB) và ghi nguyên tử khi
  * người nhập xác nhận (I-2 — parse lại từ file gốc tại thời điểm ghi,
- * không tin kết quả xem trước phía client). Quyền tạo ma trận gác tại
- * context của môn đúng như đường tạo tay (`matrix:add`).
+ * không tin kết quả xem trước phía client).
+ *
+ * Phân quyền của cả ba đầu chốt tại BANK ĐÍCH — bank ma trận cá nhân
+ * của người nhập — qua cổng dùng chung
+ * `QuizService.requirePersonalMatrixBankManage` (học thuyết neo bank
+ * MB-0/MB-1: ma trận nằm trong bank nào thì quyền theo bank đó,
+ * context của môn chỉ là phạm vi dữ liệu). Dữ liệu tham chiếu
+ * môn/chương trình/cây đọc bằng đường tham chiếu nội bộ của
+ * CurriculumService sau khi đã qua cổng bank. Trước đây luồng còn
+ * gác thêm `quiz:managematrix` và (qua đường đọc công khai)
+ * `curriculum:view` tại context của môn: môn GDPT neo tại context hệ
+ * thống trong khi giáo viên chỉ được gán vai tại context khoá/trung
+ * tâm, nên hai lớp cổng đó chặn nhầm mọi giáo viên ở cả ba đầu, và
+ * lỗi quyền ở bước đọc môn còn bị nuốt thành "môn không tồn tại"
+ * (điểm chặn của nghiệm thu D-3 trên production, issue #233). Các
+ * endpoint đọc công khai của chương trình không qua luồng này nên
+ * cổng của chúng không đổi.
  */
 export class MatrixImportService {
   constructor(
     private readonly curriculum: CurriculumService,
-    private readonly evaluator: PermissionEvaluator,
     private readonly quiz: QuizService,
   ) {}
 
@@ -134,16 +146,22 @@ export class MatrixImportService {
   /**
    * Sinh workbook mẫu cho một (môn, chương trình, phạm vi, bộ mức).
    *
-   * Flow: đối chiếu chương trình thuộc môn → gác `matrix:add`
-   * tại context môn (cùng cổng với tạo ma trận tay, không gắn bank) →
-   * lấy cây chương trình, làm phẳng thành danh sách ĐVK theo thứ tự
-   * cây (lọc theo `scopeNodeIds` nếu có: giữ ĐVK nằm trong phạm vi đã
-   * chọn hoặc thuộc subtree của node trong phạm vi) → dựng 3 sheet.
+   * Flow: gác cổng bank cá nhân của luồng nhập (cổng duy nhất của cả
+   * ba đầu — chạy TRƯỚC mọi lần đọc để người không đủ tư cách không
+   * dò được dữ liệu môn/chương trình qua đầu này) → đối chiếu chương
+   * trình thuộc môn bằng đường đọc tham chiếu nội bộ → lấy cây
+   * chương trình, làm phẳng thành danh sách ĐVK theo thứ tự cây (lọc
+   * theo `scopeNodeIds` nếu có: giữ ĐVK nằm trong phạm vi đã chọn
+   * hoặc thuộc subtree của node trong phạm vi) → dựng 3 sheet.
    *
    * @param actorId - Người gọi (giáo viên).
    * @param input - subjectId/curriculumId bắt buộc; levelSet mặc định
    *   'three'; scopeNodeIds null/rỗng = toàn bộ ĐVK của chương trình.
    * @returns Tên file + buffer .xlsx sẵn sàng trả về client.
+   * @throws ForbiddenException khi người gọi không qua được cổng bank
+   *   cá nhân của luồng nhập (xem
+   *   `QuizService.requirePersonalMatrixBankManage`).
+   * @throws NotFoundException khi môn hoặc chương trình không tồn tại.
    * @throws BadRequestException khi chương trình không thuộc môn, hoặc
    *   phạm vi không chứa ĐVK nào.
    */
@@ -151,14 +169,14 @@ export class MatrixImportService {
     subjectId: string; curriculumId: string;
     levelSet?: 'three' | 'four'; scopeNodeIds?: string[] | null;
   }): Promise<{ filename: string; contentType: string; buffer: Buffer }> {
-    const subject = await this.curriculum.getSubject(actorId, input.subjectId);
-    const curriculum = await this.curriculum.getCurriculum(actorId, input.curriculumId);
+    await this.quiz.requirePersonalMatrixBankManage(actorId);
+    const subject = await this.curriculum.getSubjectReference(input.subjectId);
+    const curriculum = await this.curriculum.getCurriculumReference(input.curriculumId);
     if (curriculum.subjectId !== subject.id) {
       throw new BadRequestException({ message: 'Curriculum does not belong to the subject', code: 'quiz.matrix_curriculum_mismatch' });
     }
-    await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.addMatrix, subject.contextId);
     const levelSet = input.levelSet ?? 'three';
-    const tree = await this.curriculum.getTree(actorId, curriculum.id);
+    const tree = await this.curriculum.getTreeReference(curriculum.id);
     const units = this.flattenUnits(tree).filter((u) => this.inScope(u.nodeId, tree, input.scopeNodeIds));
     if (!units.length) {
       throw new BadRequestException({ message: 'The selected scope contains no knowledge units', code: 'quiz.matrix_import_scope_empty' });
@@ -411,9 +429,14 @@ export class MatrixImportService {
    *    bắt buộc và tính khớp giữa trường checkbox Vận dụng cao với
    *    lưới cột thực tế (khai "Có" mà không có cột VDC — hoặc ngược
    *    lại — là lỗi cứng yêu cầu sinh lại mẫu, không tự suy diễn).
-   * 3. Đối chiếu môn/chương trình trong file với dữ liệu thật (phải
-   *    tồn tại và đi đúng cặp), rồi gác `matrix:add` tại
-   *    context của môn như đường tạo tay.
+   * 3. Gác cổng bank cá nhân của luồng nhập (ném 403 thẳng ra ngoài
+   *    như mọi cổng quyền — người không đủ tư cách không đi tiếp
+   *    được và không nhận được tín hiệu nào về dữ liệu môn), rồi đối
+   *    chiếu môn/chương trình trong file với dữ liệu thật bằng đường
+   *    đọc tham chiếu nội bộ: phải tồn tại và đi đúng cặp; "không
+   *    tồn tại thật" dịch thành lỗi định vị trong payload như cũ,
+   *    mọi lỗi khác truyền thẳng — không còn nuốt lỗi thành "môn
+   *    không tồn tại" như khi đọc qua đường công khai bị gác quyền.
    * 4. Đối chiếu từng Mã ĐVK với `curriculum_nodes` của đúng chương
    *    trình đó (không tồn tại/không phải đơn vị kiến thức/trùng hàng
    *    → lỗi cứng tại dòng); kiểm từng ô số là số nguyên ≥ 0; dạng nào
@@ -502,13 +525,26 @@ export class MatrixImportService {
       return preview;
     }
 
-    // Bước 3 — đối chiếu môn/chương trình thật + gác quyền tạo ma trận.
-    const subject = await this.curriculum.getSubject(actorId, preview.subjectId).catch(() => null);
+    // Bước 3 — cổng bank của luồng + đối chiếu môn/chương trình thật.
+    // Cổng bank ném 403 thẳng ra ngoài (đúng vị trí và hình dạng của
+    // cổng quyền trước đây ở bước này): chỉ người phụ trách được bank
+    // ma trận cá nhân của mình mới đi tiếp. Sau cổng, lần đọc tham
+    // chiếu chỉ còn ném NotFoundException khi dữ liệu thật sự vắng —
+    // dịch đúng lỗi đó thành lỗi định vị trong payload; mọi lỗi khác
+    // truyền thẳng, không nuốt thành "không tồn tại".
+    await this.quiz.requirePersonalMatrixBankManage(actorId);
+    const subject = await this.curriculum.getSubjectReference(preview.subjectId).catch((e: unknown) => {
+      if (e instanceof NotFoundException) return null;
+      throw e;
+    });
     if (!subject) {
       err({ row: info.rows.subjectId ?? null, column: 'D', code: 'quiz.matrix_import_subject_not_found', message: 'Môn học trong file không tồn tại trong hệ thống.' });
       return preview;
     }
-    const curriculum = await this.curriculum.getCurriculum(actorId, preview.curriculumId).catch(() => null);
+    const curriculum = await this.curriculum.getCurriculumReference(preview.curriculumId).catch((e: unknown) => {
+      if (e instanceof NotFoundException) return null;
+      throw e;
+    });
     if (!curriculum) {
       err({ row: info.rows.curriculumId ?? null, column: 'D', code: 'quiz.matrix_import_curriculum_not_found', message: 'Chương trình trong file không tồn tại trong hệ thống.' });
       return preview;
@@ -517,10 +553,9 @@ export class MatrixImportService {
       err({ row: info.rows.curriculumId ?? null, column: 'D', code: 'quiz.matrix_import_curriculum_mismatch', message: 'Chương trình trong file không thuộc môn học trong file — có thể đã nhập nhầm file của môn khác.' });
       return preview;
     }
-    await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.addMatrix, subject.contextId);
 
     // Bước 4 — đối chiếu từng hàng ĐVK + đọc các ô số.
-    const tree = await this.curriculum.getTree(actorId, curriculum.id);
+    const tree = await this.curriculum.getTreeReference(curriculum.id);
     const units = this.flattenUnits(tree);
     const unitById = new Map(units.map((u) => [u.nodeId, u]));
     const seenNodes = new Map<string, number>();
@@ -638,10 +673,11 @@ export class MatrixImportService {
    * 1. Parse lại CHÍNH file tải lên bằng đúng đường của bước xem
    *    trước ({@link previewImport}): toàn bộ luật hợp lệ chạy lại ở
    *    phía server tại thời điểm ghi — lỗi cứng hai tầng, tính lại
-   *    điểm ô/tổng, khả dụng ngân hàng, và cổng `matrix:add`
-   *    tại context môn (ném 403 như đường tạo tay khi người gọi
-   *    thiếu quyền). KHÔNG tin dữ liệu phía client gửi kèm (kể cả khi
-   *    client nói "đã xem trước"): file là nguồn sự thật duy nhất.
+   *    điểm ô/tổng, khả dụng ngân hàng, và cổng bank cá nhân của
+   *    luồng (ném 403 khi người gọi không phụ trách được bank ma
+   *    trận cá nhân của mình). KHÔNG tin dữ liệu phía client gửi kèm
+   *    (kể cả khi client nói "đã xem trước"): file là nguồn sự thật
+   *    duy nhất.
    * 2. Kết quả parse không còn hợp lệ (file bị sửa tay sau xem trước
    *    mà vi phạm luật) → TỪ CHỐI ghi toàn bộ: ném
    *    `UnprocessableEntityException` 422 mang mã
@@ -663,8 +699,8 @@ export class MatrixImportService {
    * @returns View ma trận đã ghi (hoặc bản đã có khi trùng nội dung).
    * @throws UnprocessableEntityException 422 khi file không hợp lệ
    *   tại thời điểm ghi (kèm `matrixImportIssues` định vị).
-   * @throws ForbiddenException khi người gọi thiếu `matrix:add`
-   *   tại context của môn trong file (ném từ bước parse lại).
+   * @throws ForbiddenException khi người gọi không qua được cổng bank
+   *   cá nhân của luồng nhập (ném từ bước parse lại).
    */
   async commitImport(actorId: string, buffer: Buffer): Promise<ExamMatrixView> {
     const preview = await this.previewImport(actorId, buffer);
