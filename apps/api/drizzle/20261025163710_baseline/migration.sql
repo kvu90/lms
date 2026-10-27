@@ -2641,6 +2641,11 @@ CREATE INDEX "exam_attempt_regrade_items_attempt_idx" ON "exam_attempt_regrade_i
 CREATE INDEX "exam_attempt_regrades_pin_idx" ON "exam_attempt_regrades" ("pin_id");--> statement-breakpoint
 CREATE INDEX "exam_attempt_regrades_question_idx" ON "exam_attempt_regrades" ("question_id");--> statement-breakpoint
 CREATE INDEX "exam_pin_version_updates_pin_idx" ON "exam_pin_version_updates" ("pin_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrade_items_question_attempt_idx" ON "exam_attempt_regrade_items" ("question_attempt_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrades_from_version_idx" ON "exam_attempt_regrades" ("from_version_id");--> statement-breakpoint
+CREATE INDEX "exam_attempt_regrades_to_version_idx" ON "exam_attempt_regrades" ("to_version_id");--> statement-breakpoint
+CREATE INDEX "exam_pin_version_updates_from_version_idx" ON "exam_pin_version_updates" ("from_exam_version_id");--> statement-breakpoint
+CREATE INDEX "exam_pin_version_updates_to_version_idx" ON "exam_pin_version_updates" ("to_exam_version_id");
 CREATE INDEX "exam_attempts_pin_id_idx" ON "exam_attempts" ("pin_id");--> statement-breakpoint
 CREATE INDEX "exam_attempts_user_id_idx" ON "exam_attempts" ("user_id");--> statement-breakpoint
 CREATE INDEX "exam_matrices_tenant_id_idx" ON "exam_matrices" ("tenant_id");--> statement-breakpoint

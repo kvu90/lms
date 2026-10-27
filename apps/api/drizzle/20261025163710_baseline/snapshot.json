@@ -17352,6 +17352,106 @@
         "n|col|public.exam_versions.id",
         "e|uniqueness|public.exam_versions.id"
       ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrade_items",
+        "exam_attempt_regrade_items_question_attempt_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "n|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "e|idx|public.exam_attempt_regrade_items_question_attempt_idx",
+        "n|rel|public.exam_attempt_regrade_items_question_attempt_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrade_items",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrade_items.question_attempt_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_from_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_from_version_idx",
+        "n|idx|public.exam_attempt_regrades_from_version_idx",
+        "e|idx|public.exam_attempt_regrades_from_version_idx",
+        "n|rel|public.exam_attempt_regrades_from_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.from_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_attempt_regrades",
+        "exam_attempt_regrades_to_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_attempt_regrades_to_version_idx",
+        "n|idx|public.exam_attempt_regrades_to_version_idx",
+        "e|idx|public.exam_attempt_regrades_to_version_idx",
+        "n|rel|public.exam_attempt_regrades_to_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_attempt_regrades",
+        "n|sch|public",
+        "n|col|public.exam_attempt_regrades.to_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_from_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_pin_version_updates_from_version_idx",
+        "n|idx|public.exam_pin_version_updates_from_version_idx",
+        "e|idx|public.exam_pin_version_updates_from_version_idx",
+        "n|rel|public.exam_pin_version_updates_from_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.from_exam_version_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "exam_pin_version_updates",
+        "exam_pin_version_updates_to_version_idx"
+      ],
+      "writes": [
+        "s|idx|public.exam_pin_version_updates_to_version_idx",
+        "n|idx|public.exam_pin_version_updates_to_version_idx",
+        "e|idx|public.exam_pin_version_updates_to_version_idx",
+        "n|rel|public.exam_pin_version_updates_to_version_idx"
+      ],
+      "reads": [
+        "n|tbl|public.exam_pin_version_updates",
+        "n|sch|public",
+        "n|col|public.exam_pin_version_updates.to_exam_version_id"
+      ]
     }
   ],
   "ddl": [
@@ -57742,6 +57842,111 @@
       "name": "exam_pins_version_mode_check",
       "value": "\"version_mode\" in ('pinned', 'float_latest_ready')",
       "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrade_items",
+      "name": "exam_attempt_regrade_items_question_attempt_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "question_attempt_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_from_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "from_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_attempt_regrades",
+      "name": "exam_attempt_regrades_to_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "to_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_from_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "from_exam_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "exam_pin_version_updates",
+      "name": "exam_pin_version_updates_to_version_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "to_exam_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
     }
   ]
 }

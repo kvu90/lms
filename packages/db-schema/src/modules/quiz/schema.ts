@@ -390,6 +390,8 @@ export const examPinVersionUpdates = pgTable('exam_pin_version_updates', {
 },
   (table) => [
       index('exam_pin_version_updates_pin_idx').on(table.pinId),
+      index('exam_pin_version_updates_from_version_idx').on(table.fromExamVersionId),
+      index('exam_pin_version_updates_to_version_idx').on(table.toExamVersionId),
   ]);
 
 /**
@@ -419,6 +421,8 @@ export const examAttemptRegrades = pgTable('exam_attempt_regrades', {
   (table) => [
       index('exam_attempt_regrades_pin_idx').on(table.pinId),
       index('exam_attempt_regrades_question_idx').on(table.questionId),
+      index('exam_attempt_regrades_from_version_idx').on(table.fromVersionId),
+      index('exam_attempt_regrades_to_version_idx').on(table.toVersionId),
   ]);
 
 /**
@@ -447,4 +451,5 @@ export const examAttemptRegradeItems = pgTable('exam_attempt_regrade_items', {
       index('exam_attempt_regrade_items_regrade_idx').on(table.regradeId),
       index('exam_attempt_regrade_items_user_idx').on(table.userId),
       index('exam_attempt_regrade_items_attempt_idx').on(table.examAttemptId),
+      index('exam_attempt_regrade_items_question_attempt_idx').on(table.questionAttemptId),
   ]);
