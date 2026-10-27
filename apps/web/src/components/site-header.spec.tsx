@@ -16,8 +16,9 @@ import { SiteHeader } from './site-header';
  * - Đang ở `/search` thì ô giữa đồng bộ đúng tham số `q` hiện tại:
  *   mở thẳng link có `q` là ô hiện sẵn `q`, `q` đổi thì ô đổi theo.
  * - Ô trống (hoặc chỉ khoảng trắng) + Enter → KHÔNG điều hướng.
- * - Bảng lệnh ⌘K giữ nguyên vai trong header mới: trigger còn ở
- *   vùng phải và Ctrl+K vẫn mở được bảng lệnh.
+ * - Bề mặt tìm kiếm hợp nhất (chốt gộp 27/10/2026): nút "Tìm
+ *   nhanh…" riêng ở vùng phải đã BỎ (không còn trigger trong
+ *   header) nhưng Ctrl+K vẫn mở được bề mặt từ header.
  *
  * Dựng SiteHeader thật trong SidebarProvider + router nhớ giống
  * shell thật; fetch chỉ stub cho chuông thông báo (số chưa đọc) vì
@@ -134,10 +135,11 @@ describe('site-header — ô tìm kiếm ở giữa (issue #303)', () => {
     expect(screen.queryByText('Trang kết quả thử')).not.toBeInTheDocument();
   });
 
-  it('bảng lệnh ⌘K vẫn mở được từ header mới', async () => {
+  it('không còn nút Tìm nhanh riêng ở header; Ctrl+K vẫn mở bề mặt hợp nhất', async () => {
     stubFetch();
     renderHeader('/');
-    expect(screen.getByTestId('command-palette-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('command-palette-trigger')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tìm nhanh…')).not.toBeInTheDocument();
     const user = userEvent.setup();
     await user.keyboard('{Control>}k{/Control}');
     expect(await screen.findByTestId('command-palette')).toBeInTheDocument();

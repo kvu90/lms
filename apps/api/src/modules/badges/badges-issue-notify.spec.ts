@@ -42,10 +42,13 @@ describe('BadgesService.issueBadge — badge_awarded notification honours the pe
     const notifyOutbox = { enqueueStandalone: vi.fn(async () => undefined) };
     const siteConfig = { getValue: vi.fn(async () => undefined) };
     const sendThrottle = { consume: vi.fn(async () => undefined) };
+    // Tham số thứ 11 là I18n (luật C-5, issue #219): spec này phát
+    // qua provider badge_awarded ('original-ok') nên không đi đường
+    // bản tóm tắt mặc định — stub rỗng là đủ.
     const messaging = new MessagingService(
       messagingRepo as never, users as never, {} as never, {} as never, notifyOutbox as never,
       {} as never, unreadStream as never, dispatchQueue as never, siteConfig as never,
-      sendThrottle as never,
+      sendThrottle as never, {} as never,
     );
 
     const issuedRows: Record<string, unknown>[] = [];

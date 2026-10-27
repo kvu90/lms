@@ -17549,6 +17549,45 @@
       "statementTarget": [
         "column",
         "public",
+        "exam_matrices",
+        "content_signature"
+      ],
+      "writes": [
+        "s|col|public.exam_matrices.content_signature",
+        "n|col|public.exam_matrices.content_signature",
+        "e|col|public.exam_matrices.content_signature"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "add_unique",
+      "statementTarget": [
+        "table",
+        "public",
+        "exam_matrices"
+      ],
+      "writes": [
+        "s|uq|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "n|uq|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "e|uq|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "n|con|public.exam_matrices.exam_matrices_bank_content_signature_unique",
+        "n|rel|public.exam_matrices_bank_content_signature_unique"
+      ],
+      "reads": [
+        "n|tbl|public.exam_matrices",
+        "n|sch|public",
+        "n|col|public.exam_matrices.bank_id",
+        "n|col|public.exam_matrices.content_signature"
+      ]
+    },
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "public",
         "payment_refunds",
         "status"
       ],
@@ -31122,6 +31161,19 @@
       "notNull": true,
       "dimensions": 0,
       "default": "10",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "content_signature",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
       "generated": null,
       "identity": null,
       "entityType": "columns"
@@ -56335,6 +56387,18 @@
         "pin_id",
         "user_id",
         "attempt_number"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    },
+    {
+      "schema": "public",
+      "table": "exam_matrices",
+      "name": "exam_matrices_bank_content_signature_unique",
+      "nameExplicit": true,
+      "columns": [
+        "bank_id",
+        "content_signature"
       ],
       "nullsNotDistinct": false,
       "entityType": "uniques"
