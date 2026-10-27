@@ -2,10 +2,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Test } from '@nestjs/testing';
 import type { INestApplicationContext } from '@nestjs/common';
 import { getDrizzleToken } from '@nestjs/drizzle';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { notificationDispatchLog, userPreferences } from '@lms/db-schema';
+import { notificationDispatchLog, pluginConfig, userPreferences } from '@lms/db-schema';
 import { WorkerModule } from '../src/worker.module';
 import { NotificationDispatchProcessor } from '../src/processors/notification-dispatch.processor';
 import { NotificationDigestProcessor } from '../src/processors/notification-digest.processor';
@@ -34,14 +34,22 @@ import type { WorkerMailMessage, WorkerMailSendResult } from '../src/resend-mail
  *   `skipped-suspended` và không có mail nào; chạy lại lượt quét
  *   không gửi trùng; transport chưa cấu hình thì các mục GIỮ trạng
  *   thái chờ (không mất, không ghi nhận giả).
+ * - Luật tại lúc tổng hợp (sửa theo phán quyết review vòng 2 của PR
+ *   này): digest kiểm LẠI tuỳ chọn và chính sách site tại lúc gửi —
+ *   người dùng tắt email theo loại sau khi xếp hàng thì mục chốt
+ *   `skipped-preference`; admin tắt loại ở cấp site (NB-7) thì mục
+ *   chốt `skipped-admin-disabled`; loại bắt buộc P2 được miễn trừ
+ *   NB-7 như mọi đường phát; transport ném lỗi thì mục giữ trạng
+ *   thái chờ và lượt quét không sập.
  */
 
-/** Transport giả: chế độ 'sent' ghi lại mail; 'skipped' giả lập chưa cấu hình Resend. */
+/** Transport giả: 'sent' ghi lại mail; 'skipped' giả lập chưa cấu hình Resend; 'throw' giả lập Resend trả lỗi thật. */
 class FakeMail {
   readonly sent: WorkerMailMessage[] = [];
-  mode: 'sent' | 'skipped' = 'sent';
+  mode: 'sent' | 'skipped' | 'throw' = 'sent';
   async send(message: WorkerMailMessage): Promise<WorkerMailSendResult> {
     if (this.mode === 'skipped') return { status: 'skipped', reason: 'resend_not_configured' };
+    if (this.mode === 'throw') throw new Error('Resend API trả 500 (giả lập)');
     this.sent.push(message);
     return { status: 'sent', providerId: 'fake-resend-id' };
   }
@@ -73,6 +81,10 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
   const userSuspended = `01920000-0000-7000-8000-${String(320000 + suffix).padStart(12, '0')}`;
   const userDigest = `01920000-0000-7000-8000-${String(420000 + suffix).padStart(12, '0')}`;
   const userDeferred = `01920000-0000-7000-8000-${String(520000 + suffix).padStart(12, '0')}`;
+  const userDigestOff = `01920000-0000-7000-8000-${String(620000 + suffix).padStart(12, '0')}`;
+  const userPolicy = `01920000-0000-7000-8000-${String(720000 + suffix).padStart(12, '0')}`;
+  const userMandatory = `01920000-0000-7000-8000-${String(820000 + suffix).padStart(12, '0')}`;
+  const userThrow = `01920000-0000-7000-8000-${String(920000 + suffix).padStart(12, '0')}`;
 
   const mail = new FakeMail();
   let dispatch: NotificationDispatchProcessor;
@@ -88,6 +100,10 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
       [userSuspended, `nb5-s-${suffix}`, true],
       [userDigest, `nb5-d-${suffix}`, false],
       [userDeferred, `nb5-x-${suffix}`, false],
+      [userDigestOff, `nb5-o-${suffix}`, false],
+      [userPolicy, `nb5-y-${suffix}`, false],
+      [userMandatory, `nb5-m-${suffix}`, false],
+      [userThrow, `nb5-t-${suffix}`, false],
     ];
     for (const [id, username, suspended] of rows) {
       await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${username}, ${`${username}@x.io`}, ${suspended}, false) on conflict (id) do nothing`);
@@ -95,6 +111,11 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     // Người dùng đã tắt email của calendar_reminder ở tuỳ chọn v2.
     await db.insert(userPreferences).values({
       userId: userPrefOff, name: 'message_provider_calendar_reminder_email_v2', value: 'off',
+    }).onConflictDoNothing();
+    // Người dùng đã tắt email của grade_updated ở tuỳ chọn v2 — ca
+    // digest tôn trọng tuỳ chọn tại lúc tổng hợp dùng người này.
+    await db.insert(userPreferences).values({
+      userId: userDigestOff, name: 'message_provider_grade_updated_email_v2', value: 'off',
     }).onConflictDoNothing();
     dispatch = new NotificationDispatchProcessor(db, mail as never);
     digest = new NotificationDigestProcessor(db, mail as never, buildFakeI18n() as never);
@@ -143,9 +164,9 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
     expect((await logRow(`nb5-off-${suffix}`)).status).toBe('skipped-preference');
   });
 
-  async function seedQueued(userId: string, key: string, subject: string) {
+  async function seedQueued(userId: string, key: string, subject: string, provider = 'grade_updated') {
     await db.insert(notificationDispatchLog).values({
-      userId, provider: 'grade_updated', channel: 'email', status: 'digest-queued',
+      userId, provider, channel: 'email', status: 'digest-queued',
       subject, dedupeKey: key,
     }).onConflictDoNothing();
   }
@@ -200,6 +221,59 @@ describe('Worker notification email channel + daily digest (NB-5, issue #174)', 
       expect(sweep.usersDeferred).toBeGreaterThanOrEqual(1);
       expect(sweep.itemsSent).toBe(0);
       expect((await logRow(`nb5-dg5-${suffix}`)).status).toBe('digest-queued');
+    } finally {
+      mail.mode = 'sent';
+    }
+  });
+
+  it('the digest respects a per-provider email opt-out set after queueing (send-time law)', async () => {
+    // Hai mục của grade_updated đã xếp hàng chờ; người nhận tắt
+    // email của grade_updated ở tuỳ chọn v2 → lượt tổng hợp phải
+    // chốt các mục skipped-preference và KHÔNG gửi mail nào cho họ.
+    await seedQueued(userDigestOff, `nb5-dg6-${suffix}`, 'Có điểm mới: Sinh 6');
+    await seedQueued(userDigestOff, `nb5-dg7-${suffix}`, 'Có điểm mới: Sử 6');
+    const sweep = await digest.process({} as never);
+    expect(sweep.itemsSuppressedPreference).toBeGreaterThanOrEqual(2);
+    expect((await logRow(`nb5-dg6-${suffix}`)).status).toBe('skipped-preference');
+    expect((await logRow(`nb5-dg7-${suffix}`)).status).toBe('skipped-preference');
+    expect(mail.sent.some((m) => m.to === `nb5-o-${suffix}@x.io`)).toBe(false);
+  });
+
+  it('the digest respects the site policy (NB-7) at send time, with the P2 mandatory exemption', async () => {
+    // Admin tắt grade_updated và cả admin_announcement ở cấp site
+    // SAU khi các mục đã xếp hàng: mục grade_updated bị chặn ở lúc
+    // tổng hợp; mục admin_announcement là loại bắt buộc P2 — chính
+    // sách site không chặn được nó ở bất kỳ đường phát nào.
+    await db.insert(pluginConfig).values({ plugin: 'notifications', name: 'provider_grade_updated_enabled', value: 'false' }).onConflictDoNothing();
+    await db.insert(pluginConfig).values({ plugin: 'notifications', name: 'provider_admin_announcement_enabled', value: 'false' }).onConflictDoNothing();
+    try {
+      await seedQueued(userPolicy, `nb5-dg8-${suffix}`, 'Có điểm mới: Toán 7');
+      await seedQueued(userMandatory, `nb5-dg9-${suffix}`, 'Thông báo quản trị & an toàn', 'admin_announcement');
+      const sweep = await digest.process({} as never);
+      expect(sweep.itemsSuppressedAdmin).toBeGreaterThanOrEqual(1);
+      expect((await logRow(`nb5-dg8-${suffix}`)).status).toBe('skipped-admin-disabled');
+      expect(mail.sent.some((m) => m.to === `nb5-y-${suffix}@x.io`)).toBe(false);
+      // P2: vẫn gửi bình thường bất chấp công tắc site.
+      expect((await logRow(`nb5-dg9-${suffix}`)).status).toBe('digest-sent');
+      const mandatoryMail = mail.sent.filter((m) => m.to === `nb5-m-${suffix}@x.io`);
+      expect(mandatoryMail).toHaveLength(1);
+      expect(mandatoryMail[0]!.text).toContain('Thông báo quản trị & an toàn');
+    } finally {
+      await db.delete(pluginConfig).where(and(
+        eq(pluginConfig.plugin, 'notifications'),
+        inArray(pluginConfig.name, ['provider_grade_updated_enabled', 'provider_admin_announcement_enabled']),
+      ));
+    }
+  });
+
+  it('a transport error leaves the items queued for the next sweep and does not fail the sweep', async () => {
+    await seedQueued(userThrow, `nb5-dg10-${suffix}`, 'Nhắc lịch: Lớp học bù', 'calendar_reminder');
+    mail.mode = 'throw';
+    try {
+      const sweep = await digest.process({} as never);
+      expect(sweep.usersFailed).toBeGreaterThanOrEqual(1);
+      expect((await logRow(`nb5-dg10-${suffix}`)).status).toBe('digest-queued');
+      expect(mail.sent.some((m) => m.to === `nb5-t-${suffix}@x.io`)).toBe(false);
     } finally {
       mail.mode = 'sent';
     }
