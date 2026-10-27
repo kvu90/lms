@@ -162,29 +162,42 @@ export function useMatrixBanks(enabled: boolean) {
   return useQuery({ ...matrixBanksQueryOptions(), enabled });
 }
 
-export function curriculumSubjectsQueryOptions() {
+/**
+ * Tuỳ chọn truy vấn danh sách môn học chương trình. Kèm `forCourseId`
+ * thì API mở nhánh `course:update` tại chính khoá đó cho giáo viên
+ * không có `curriculum:view` tại context hệ thống (điểm nghẽn D-3 của
+ * issue #233: giáo viên chỉ có quyền tại khoá mình dạy). Khoá truy vấn
+ * mang theo `forCourseId` để kết quả theo khoá không lẫn với kết quả
+ * không kèm khoá; vắng khoá thì giữ nguyên khoá cũ để các lời gọi
+ * không kèm khoá (prefetch của route, trang danh sách câu hỏi) dùng
+ * chung cache như trước.
+ */
+export function curriculumSubjectsQueryOptions(forCourseId?: string) {
+  const frame = forCourseId ? `?forCourseId=${forCourseId}` : '';
   return queryOptions({
-    queryKey: queryKeys.curriculumSubjects,
-    queryFn: () => apiJson<SubjectLite[]>('/api/v1/curriculum/subjects'),
+    queryKey: forCourseId ? [...queryKeys.curriculumSubjects, forCourseId] : queryKeys.curriculumSubjects,
+    queryFn: () => apiJson<SubjectLite[]>(`/api/v1/curriculum/subjects${frame}`),
   });
 }
 
-/** Danh sách môn học chương trình; chỉ tải khi `enabled`. */
-export function useCurriculumSubjects(enabled: boolean) {
-  return useQuery({ ...curriculumSubjectsQueryOptions(), enabled });
+/** Danh sách môn học chương trình; chỉ tải khi `enabled`. Lỗi tải nổi lên query để trang hiện trạng thái lỗi thay vì danh sách rỗng im lặng. */
+export function useCurriculumSubjects(enabled: boolean, forCourseId?: string) {
+  return useQuery({ ...curriculumSubjectsQueryOptions(forCourseId), enabled });
 }
 
-export function curriculaBySubjectQueryOptions(subjectId: string) {
+/** Tuỳ chọn truy vấn các chương trình của một môn, kèm `forCourseId` như danh sách môn (cùng nhánh quyền theo khoá). */
+export function curriculaBySubjectQueryOptions(subjectId: string, forCourseId?: string) {
+  const frame = forCourseId ? `&forCourseId=${forCourseId}` : '';
   return queryOptions({
-    queryKey: queryKeys.curriculaBySubject(subjectId),
-    queryFn: () => apiJson<CurriculumLite[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}`),
+    queryKey: forCourseId ? [...queryKeys.curriculaBySubject(subjectId), forCourseId] : queryKeys.curriculaBySubject(subjectId),
+    queryFn: () => apiJson<CurriculumLite[]>(`/api/v1/curriculum/curricula?subjectId=${subjectId}${frame}`),
   });
 }
 
 /** Các chương trình của môn đang chọn; chưa chọn môn thì query tắt. */
-export function useCurriculaBySubject(subjectId: string) {
+export function useCurriculaBySubject(subjectId: string, forCourseId?: string) {
   return useQuery({
-    ...curriculaBySubjectQueryOptions(subjectId),
+    ...curriculaBySubjectQueryOptions(subjectId, forCourseId),
     enabled: !!subjectId,
   });
 }

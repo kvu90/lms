@@ -26,6 +26,7 @@ import {
   useUpdateMatrix,
   type SpecificationOutcomeLite,
 } from '#lib/matrix-data';
+import { useCourseList } from '#lib/course-new-data';
 import { usePermissions } from '#lib/permissions';
 import {
   COGNITIVE_LEVELS, LEVEL_LABEL_KEYS, QTYPES, QTYPE_LABEL_KEYS, withApiReason,
@@ -95,11 +96,19 @@ export function MatrixNewPage() {
   const banksQuery = useMatrixBanks(canLoad);
   const personalBankId = banksQuery.data?.find((b) => b.scope === 'personal')?.id ?? null;
   const bankLoaded = banksQuery.isSuccess || banksQuery.isError;
-  const subjects = useCurriculumSubjects(canLoad).data ?? [];
+  // Khoá của giáo viên để mở nhánh đọc khung theo khoá, cùng gốc
+  // điểm nghẽn D-3 của issue #233 như wizard nhập ma trận: danh sách
+  // môn/chương trình là dữ liệu quốc gia chung nên khoá nào của giáo
+  // viên cũng cho cùng danh sách — `forCourseId` chỉ mở cổng đọc.
+  // Danh sách khoá phải về trước mới gọi, để tránh lượt gọi không kèm
+  // khoá rồi nhận lỗi trước khi khoá kịp về.
+  const coursesQuery = useCourseList();
+  const forCourseId = coursesQuery.data?.[0]?.id;
+  const subjects = useCurriculumSubjects(canLoad && coursesQuery.data !== undefined, forCourseId).data ?? [];
   const [name, setName] = useState('');
   const [subjectId, setSubjectId] = useState('');
   const [curriculumId, setCurriculumId] = useState('');
-  const curriculaQuery = useCurriculaBySubject(subjectId);
+  const curriculaQuery = useCurriculaBySubject(subjectId, forCourseId);
   const curricula = curriculaQuery.data ?? [];
   const [includeAdvanced, setIncludeAdvanced] = useState(false);
   const [totalScore, setTotalScore] = useState('10');
