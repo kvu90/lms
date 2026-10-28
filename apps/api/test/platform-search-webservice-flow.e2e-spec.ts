@@ -3,10 +3,10 @@ import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, assignRole, createTestApp, createRoleViaApi, createUserViaApi, http, login,
-  roleIdByShortname, setOverride, STRONG_PASSWORD,
+  roleIdByShortname, setOverride, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
-import { courseContextId } from './engagement-helpers';
+import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 const PROHIBIT = -1000;
@@ -85,6 +85,143 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     expect(idx2.body.indexed).toBe(false);
     const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(user.username)}`).set('Authorization', `Bearer ${admin}`);
     expect((res.body as { itemId: string }[]).some((d) => d.itemId === user.id)).toBe(false);
+  });
+
+  it('search users: email stays hidden from non-managers in payload and matching, managers keep full behaviour, before and after a full reindex', async () => {
+    type Doc = { area: string; itemId: string; content: string };
+    const searchAs = async (token: string, q: string): Promise<Doc[]> => {
+      const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(q)}`).set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      return res.body as Doc[];
+    };
+    // Người dùng đích, được lập chỉ mục qua area thật (fetch mới không
+    // còn đưa email vào nội dung lập chỉ mục).
+    const target = await createUserViaApi(app, admin);
+    const idx = await http(app).post('/api/v1/search/index').set('Authorization', `Bearer ${admin}`).send({ area: 'users', itemId: target.id });
+    expect(idx.body.indexed).toBe(true);
+    const sysCtx = await systemContextId(app, admin);
+    const ALLOW = 1;
+    // Người tìm KHÔNG có quyền quản trị người dùng nhưng xem được hồ sơ
+    // (role riêng chỉ có override ALLOW cho user:viewdetails tại context
+    // hệ thống — đúng cổng lớp 1 hiện hành của area users; không phải
+    // site admin, không giữ user:update ở bất kỳ đâu).
+    const viewer = await createUserViaApi(app, admin);
+    const viewerRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, viewer.id, viewerRole, sysCtx);
+    await setOverride(app, admin, viewerRole, 'user:viewdetails', sysCtx, ALLOW);
+    const viewerToken = (await login(app, viewer.username, STRONG_PASSWORD)).accessToken;
+    // Một tài khoản hoàn toàn thường (không gán thêm quyền nào): dù thấy
+    // hay không thấy tài liệu, payload của họ không bao giờ chứa email.
+    const plain = await createUserViaApi(app, admin);
+    const plainToken = (await login(app, plain.username, STRONG_PASSWORD)).accessToken;
+    // Người tìm CÓ quyền quản trị người dùng theo đúng định nghĩa áp cho
+    // bề mặt này: không phải site admin, nhưng giữ user:update tại
+    // context hệ thống (kèm user:viewdetails để qua cổng lớp 1 như một
+    // tài khoản quản trị người dùng thật).
+    const mgr = await createUserViaApi(app, admin);
+    const mgrRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, mgr.id, mgrRole, sysCtx);
+    await setOverride(app, admin, mgrRole, 'user:viewdetails', sysCtx, ALLOW);
+    await setOverride(app, admin, mgrRole, 'user:update', sysCtx, ALLOW);
+    const mgrToken = (await login(app, mgr.username, STRONG_PASSWORD)).accessToken;
+
+    const expectHiddenForNonManager = async (token: string) => {
+      // Tìm theo username: tài liệu users hiện ra nhưng toàn bộ payload
+      // không chứa email của người bị tìm ở bất kỳ trường nào.
+      const byName = await searchAs(token, target.username);
+      expect(byName.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(true);
+      expect(JSON.stringify(byName)).not.toContain(target.email);
+      // Tìm bằng địa chỉ email đầy đủ: không có kết quả users nào khớp
+      // theo email đó — tính chất truy vấn cũng không được lộ email.
+      const byEmail = await searchAs(token, target.email);
+      expect(byEmail.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(false);
+      expect(JSON.stringify(byEmail)).not.toContain(target.email);
+    };
+    const expectFullForManager = async (token: string) => {
+      // Payload giữ nguyên như trước khi sửa: content mang email.
+      const byName = await searchAs(token, target.username);
+      const doc = byName.find((d) => d.area === 'users' && d.itemId === target.id);
+      expect(doc?.content).toContain(target.email);
+      // Khớp được theo email đầy đủ như trước khi sửa.
+      const byEmail = await searchAs(token, target.email);
+      expect(byEmail.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(true);
+    };
+
+    await expectHiddenForNonManager(viewerToken);
+    // Tài khoản thường: khẳng định theo payload thật họ nhận được.
+    expect(JSON.stringify(await searchAs(plainToken, target.username))).not.toContain(target.email);
+    expect((await searchAs(plainToken, target.email)).some((d) => d.area === 'users' && d.itemId === target.id)).toBe(false);
+    await expectFullForManager(admin);
+    await expectFullForManager(mgrToken);
+
+    // Sau khi lập chỉ mục lại toàn bộ, cả hai hành vi vẫn đúng — cơ chế
+    // sửa không bị việc dựng lại chỉ mục phá vỡ.
+    const re = await http(app).post('/api/v1/search/reindex').set('Authorization', `Bearer ${admin}`).send({});
+    expect(re.status).toBeLessThan(300);
+    await expectHiddenForNonManager(viewerToken);
+    await expectFullForManager(admin);
+    await expectFullForManager(mgrToken);
+  });
+
+  it('search users: a stale legacy users document keeps email hidden from non-managers and visible to managers', async () => {
+    type Doc = { area: string; itemId: string; content: string };
+    const searchAs = async (token: string, q: string): Promise<Doc[]> => {
+      const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(q)}`).set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      return res.body as Doc[];
+    };
+    // Người dùng đích, nhưng tài liệu trong chỉ mục là bản kiểu cũ còn
+    // sót từ trước khi sửa: content mang cả username lẫn email, ghi
+    // thẳng qua route index-raw thay vì qua fetch mới. Tài liệu cũ thật
+    // phải mang đúng context mà fetch của area users từng ghi — context
+    // người dùng cấp 30 của chính target (tạo cùng lúc với tài khoản);
+    // ghi context hệ thống thì lớp re-check loại tài liệu vì context
+    // không khớp bản ghi gốc, và đó không còn là tài liệu cũ thật.
+    const target = await createUserViaApi(app, admin);
+    const sysCtx = await systemContextId(app, admin);
+    const userCtx = await contextIdByLevelInstance(app, admin, 30, target.id);
+    const stale = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
+      .send({ area: 'users', itemId: target.id, title: 'Test User', content: `${target.username} ${target.email}`, contextId: userCtx, ownerId: target.id });
+    expect(stale.status).toBeLessThan(300);
+    const ALLOW = 1;
+    // Người tìm KHÔNG có quyền quản trị người dùng: không phải site
+    // admin, không giữ user:update ở bất kỳ đâu, chỉ có user:viewdetails
+    // tại context hệ thống để qua cổng lớp 1 của area users.
+    const viewer = await createUserViaApi(app, admin);
+    const viewerRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, viewer.id, viewerRole, sysCtx);
+    await setOverride(app, admin, viewerRole, 'user:viewdetails', sysCtx, ALLOW);
+    const viewerToken = (await login(app, viewer.username, STRONG_PASSWORD)).accessToken;
+    // Người tìm CÓ quyền quản trị người dùng theo đúng định nghĩa áp
+    // cho bề mặt này: không phải site admin, nhưng giữ user:update tại
+    // context hệ thống (kèm user:viewdetails để qua cổng lớp 1).
+    const mgr = await createUserViaApi(app, admin);
+    const mgrRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, mgr.id, mgrRole, sysCtx);
+    await setOverride(app, admin, mgrRole, 'user:viewdetails', sysCtx, ALLOW);
+    await setOverride(app, admin, mgrRole, 'user:update', sysCtx, ALLOW);
+    const mgrToken = (await login(app, mgr.username, STRONG_PASSWORD)).accessToken;
+
+    // Người không có quyền: tìm theo username vẫn nhận tài liệu, nhưng
+    // payload đã định hình lại thành đúng username, không còn email ở
+    // bất kỳ trường nào; tìm bằng email đầy đủ không ra tài liệu đó.
+    const byName = await searchAs(viewerToken, target.username);
+    const hiddenDoc = byName.find((d) => d.area === 'users' && d.itemId === target.id);
+    expect(hiddenDoc).toBeDefined();
+    expect(hiddenDoc?.content).toBe(target.username);
+    expect(JSON.stringify(byName)).not.toContain(target.email);
+    const byEmail = await searchAs(viewerToken, target.email);
+    expect(byEmail.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(false);
+    expect(JSON.stringify(byEmail)).not.toContain(target.email);
+
+    // Người có quyền: vẫn nhận content mang email, cả khi tìm theo
+    // username lẫn khi tìm bằng email đầy đủ.
+    for (const token of [admin, mgrToken]) {
+      const mgrByName = await searchAs(token, target.username);
+      expect(mgrByName.find((d) => d.area === 'users' && d.itemId === target.id)?.content).toContain(target.email);
+      const mgrByEmail = await searchAs(token, target.email);
+      expect(mgrByEmail.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(true);
+    }
   });
 
   it('webservice DoD: a student token cannot call a function requiring a teacher capability (403), but can call a view function in its service', async () => {
@@ -208,3 +345,4 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     void b;
   });
 });
+

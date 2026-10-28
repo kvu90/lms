@@ -39,4 +39,19 @@ export class SearchRepository {
     const res = (await this.db.execute(sql`select id, area, item_id as "itemId", title, content, context_id as "contextId", owner_id as "ownerId", updated_at as "updatedAt" from search_documents where to_tsvector('simple', title || ' ' || content) @@ plainto_tsquery('simple', ${q}) order by id`)) as unknown as { rows: SearchDocRow[] };
     return res.rows;
   }
+
+  /**
+   * Kiểm tra một cặp (title, content) CHO TRƯỚC có khớp truy vấn hay
+   * không, dùng đúng biểu thức tsvector của engine (`to_tsvector` trên
+   * `title || ' ' || content` với `plainto_tsquery`, cùng cấu hình
+   * 'simple'). Service dùng phép kiểm này để đối chiếu ứng viên với nội
+   * dung công khai hiện hành của bản ghi gốc — không qua hàng đã lập chỉ
+   * mục — nên kết luận khớp không phụ thuộc dữ liệu cũ còn sót trong
+   * bảng `search_documents`.
+   */
+  async matchesContent(title: string, content: string, q: string): Promise<boolean> {
+    if (!q.trim()) return false;
+    const res = (await this.db.execute(sql`select (to_tsvector('simple', ${title} || ' ' || ${content}) @@ plainto_tsquery('simple', ${q})) as matched`)) as unknown as { rows: { matched: boolean }[] };
+    return res.rows[0]?.matched === true;
+  }
 }
