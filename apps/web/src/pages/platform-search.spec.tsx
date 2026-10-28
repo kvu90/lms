@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -197,6 +197,71 @@ describe('trang kết quả tìm kiếm — đọc tham số q (issue #303)', ()
     await user.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
     expect(await screen.findByText('Khoá Toán 10')).toBeInTheDocument();
     expect(searchCalls).toEqual([`/api/v1/search?q=${encodeURIComponent('văn')}`]);
+  });
+});
+
+describe('trang kết quả tìm kiếm — chốt trình tự các lượt tìm chồng nhau', () => {
+  const SLOW_DOC = {
+    id: 'doc-slow',
+    area: 'courses',
+    itemId: 'course-slow',
+    title: 'Kết quả của lượt chậm',
+    content: 'Nội dung lượt chậm',
+  };
+  const FAST_DOC = {
+    id: 'doc-fast',
+    area: 'courses',
+    itemId: 'course-fast',
+    title: 'Kết quả của lượt nhanh',
+    content: 'Nội dung lượt nhanh',
+  };
+
+  it('lượt tìm cũ trả về sau không ghi đè kết quả của lượt mới nhất', async () => {
+    // Cổng giữ lượt tìm "chậm" treo cho tới khi ca kiểm chứng thả
+    // ra — mô phỏng request của lượt đầu trả về sau lượt thứ hai.
+    let releaseSlow!: () => void;
+    const slowGate = new Promise<void>((resolve) => {
+      releaseSlow = resolve;
+    });
+    searchCalls = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.startsWith('/api/v1/search?q=')) {
+          searchCalls.push(url);
+          if (url.includes(encodeURIComponent('chậm'))) {
+            await slowGate;
+            return jsonResponse([SLOW_DOC]);
+          }
+          return jsonResponse([FAST_DOC]);
+        }
+        return jsonResponse({}, 404);
+      }),
+    );
+    renderSearch('/search');
+    const user = userEvent.setup();
+    const input = screen.getByLabelText('Từ khoá tìm kiếm');
+
+    // Lượt 1 (chậm) bắt đầu và treo ở cổng.
+    await user.type(input, 'chậm');
+    await user.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
+    // Lượt 2 (nhanh) chạy chồng lên và về trước: kết quả nhanh hiện.
+    await user.clear(input);
+    await user.type(input, 'nhanh');
+    await user.click(screen.getByRole('button', { name: 'Tìm kiếm' }));
+    expect(await screen.findByText('Kết quả của lượt nhanh')).toBeInTheDocument();
+    expect(searchCalls).toEqual([
+      `/api/v1/search?q=${encodeURIComponent('chậm')}`,
+      `/api/v1/search?q=${encodeURIComponent('nhanh')}`,
+    ]);
+
+    // Thả lượt chậm về sau: kết quả của nó không được ghi đè.
+    await act(async () => {
+      releaseSlow();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.queryByText('Kết quả của lượt chậm')).not.toBeInTheDocument();
+    expect(screen.getByText('Kết quả của lượt nhanh')).toBeInTheDocument();
   });
 });
 
