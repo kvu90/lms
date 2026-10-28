@@ -6,7 +6,7 @@ import { queryKeys } from './query-keys';
 /**
  * Bộ chọn tenant (TENANT-0, #168): người dùng thuộc nhiều tenant (giáo
  * viên dạy hai trường, admin vận hành) chuyển không gian làm việc trong
- * phiên qua POST /auth/switch-tenant — máy chủ đổi ngữ cảnh tenant
+ * phiên qua POST /api/v1/auth/switch-tenant — máy chủ đổi ngữ cảnh tenant
  * gắn với phiên hiện tại (sau GĐ2 là phiên cookie Better Auth; xem
  * switchTenant bên dưới); giao diện nạp lại toàn bộ để mọi dữ liệu
  * theo tenant hiệu lực mới. Người chỉ thuộc một tenant thì không
