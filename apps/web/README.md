@@ -1,8 +1,8 @@
 # @lms/web — README nghiệp vụ
 
 > File này ghi các **quyết định nghiệp vụ quan trọng và còn đang hiệu lực** của package.
-> Nguồn sự thật cao nhất về quyết định: sổ quyết định `~/workspace/lms-nest-ops/decisions.md`.
-> Quyết định đã bị đánh dấu "ĐÃ THAY THẾ" trong sổ thì không ghi ở đây như còn hiệu lực.
+> Nguồn sự thật về quyết định của package là chính file này, `AGENTS.md` của package và `AGENTS.md` ở thư mục gốc; quyết định liên quan tới một việc cụ thể được viết trọn vẹn trong issue đặc tả của việc đó trên GitHub.
+> Quyết định đã bị đánh dấu "ĐÃ THAY THẾ" thì không ghi ở đây như còn hiệu lực.
 
 ## Package phụ trách nghiệp vụ gì
 

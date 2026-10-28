@@ -48,7 +48,7 @@ của repo.
 - **Typecheck trước khi push** là bắt buộc; build lại `dist` của package trước
   khi kết luận lỗi ở apps/web.
 - CI là cổng chính; kết luận CI chỉ từ LOG THẬT. Suite nặng local giữ khoá
-  `flock ~/workspace/lms-nest-ops/heavy-suite.lock`.
+  `flock /tmp/lms-heavy-suite.lock`.
 
 ## Kỷ luật test theo nghiệp vụ
 

@@ -55,10 +55,10 @@ của repo.
   typecheck để CI đổ ở bước rẻ nhất. Đụng package dùng chung thì build lại dist của
   package đó trước khi kết luận lỗi type (dist cũ = lỗi type giả kinh điển).
 - CI trên PR là cổng kiểm chứng chính; kết luận về CI chỉ từ **LOG THẬT**
-  (`~/workspace/lms-nest-ops/fetch-job-log.py <job_id> <prefix>`), không suy từ thời
+  (log của job `verify` trên GitHub Actions của chính PR), không suy từ thời
   lượng bước hay thông báo của helper.
 - Local chỉ chạy test targeted của đúng phần mình đụng. Chạy suite e2e/vitest nặng ở
-  local phải giữ khoá `flock ~/workspace/lms-nest-ops/heavy-suite.lock` suốt lượt
+  local phải giữ khoá `flock /tmp/lms-heavy-suite.lock` suốt lượt
   chạy; tối đa một vòng nặng tại một thời điểm trên máy này.
 - Suite api và worker không chạy đồng thời trên cùng một DB; giữ cách ly DB như CI
   (`lms_test_api` / `lms_test_worker`).

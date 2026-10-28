@@ -44,7 +44,7 @@ của repo.
   rồi build để `dist` mới — sau đó mới typecheck các app tiêu thụ trong cùng feat.
 - CI là cổng chính; kết luận CI chỉ từ LOG THẬT. Local chỉ test targeted
   (`contracts.spec`); suite nặng giữ khoá `flock
-  ~/workspace/lms-nest-ops/heavy-suite.lock`.
+  /tmp/lms-heavy-suite.lock`.
 
 ## Kỷ luật test theo nghiệp vụ
 

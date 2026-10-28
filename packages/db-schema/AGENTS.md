@@ -49,7 +49,7 @@ của repo.
 - Kiểm chứng migrate phải làm trên **cây merge** (hoặc chờ CI trên PR): kiểm trên
   cây branch riêng không đủ — bẫy hai baseline chỉ lộ ở cây merge.
 - CI là cổng chính; kết luận CI chỉ từ LOG THẬT. Suite nặng local giữ khoá
-  `flock ~/workspace/lms-nest-ops/heavy-suite.lock`, tối đa một vòng nặng một lúc.
+  `flock /tmp/lms-heavy-suite.lock`, tối đa một vòng nặng một lúc.
 
 ## Kỷ luật test theo nghiệp vụ
 

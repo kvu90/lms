@@ -1,7 +1,7 @@
 # @lms/ui — README
 
 > File này ghi các **quyết định quan trọng và còn đang hiệu lực** của package.
-> Nguồn sự thật cao nhất về quyết định: sổ quyết định `~/workspace/lms-nest-ops/decisions.md`.
+> Nguồn sự thật về quyết định của package là chính file này, `AGENTS.md` của package và `AGENTS.md` ở thư mục gốc; quyết định liên quan tới một việc cụ thể được viết trọn vẹn trong issue đặc tả của việc đó trên GitHub.
 
 ## Package phụ trách gì
 
