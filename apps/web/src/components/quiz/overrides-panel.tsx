@@ -11,14 +11,13 @@
  * @param props.pinId - Id lần ghim (khoá của các đột biến ghi đè).
  * @param props.overrides - Danh sách ghi đè của lần ghim.
  * @param props.overridesLoaded - Danh sách đã tải xong (để hiện trạng thái rỗng).
- * @param props.overridesIsError - Lượt tải danh sách ghi đè có lỗi hay không.
- * @param props.overridesErrorUpdatedAt - Mốc cập nhật lỗi của query ghi đè (kích hoạt thông báo lỗi tải).
+ * @param props.overridesIsError - Lượt tải danh sách ghi đè có lỗi hay không (panel suy thông báo lỗi tải ngay khi render).
  * @param props.roster - Danh sách thành viên khoá (chọn học sinh đích).
  * @param props.groups - Nhóm của khoá (chọn nhóm đích).
  * @param props.busy - Đang có thao tác ghi chạy ở trang (khoá nút).
  * @param props.setBusy - Setter của cờ bận dùng chung.
  */
-import { useEffect, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
+import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import type { CourseRosterMember, ExamPinOverrideView as QuizOverrideView } from '@lms/contracts';
 import type { CourseGroup } from '#lib/progress-report-data';
 import { Button } from '@lms/ui/components/button';
@@ -38,7 +37,6 @@ interface OverridesPanelProps {
   overrides: QuizOverrideView[];
   overridesLoaded: boolean;
   overridesIsError: boolean;
-  overridesErrorUpdatedAt: number;
   roster: CourseRosterMember[];
   groups: CourseGroup[];
   busy: boolean;
@@ -50,7 +48,6 @@ export function OverridesPanel({
   overrides,
   overridesLoaded,
   overridesIsError,
-  overridesErrorUpdatedAt,
   roster,
   groups,
   busy,
@@ -70,9 +67,11 @@ export function OverridesPanel({
   const [ovReason, setOvReason] = useState('');
   const [ovError, setOvError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (overridesIsError) setOvError(t('quizOverridesLoadFailed'));
-  }, [overridesIsError, overridesErrorUpdatedAt, t]);
+  // Lỗi tải danh sách suy ngay khi render từ cờ lỗi của query —
+  // không chép qua effect vào state như bản cũ: banner hiện lỗi
+  // của thao tác (ovError) nếu có, không thì lỗi tải.
+  const loadError = overridesIsError ? t('quizOverridesLoadFailed') : null;
+  const displayOvError = ovError ?? loadError;
 
   // Các đột biến ghi đè của lần ghim (F-01 của rà soát #133):
   // đột biến tự làm mới danh sách ghi đè sau mỗi thao tác.
@@ -178,9 +177,9 @@ export function OverridesPanel({
         <CardDescription>{t('quizOverridesDescription')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {ovError ? (
+        {displayOvError ? (
           <ErrorAlert variant="destructive">
-            {ovError}
+            {displayOvError}
           </ErrorAlert>
         ) : null}
         <ul className="space-y-2">

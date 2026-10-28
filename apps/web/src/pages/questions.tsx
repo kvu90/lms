@@ -70,7 +70,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [qCategory, setQCategory] = useState('');
-  const [loading, setLoading] = useState(true);
   // Dữ liệu trang qua TanStack (F-01 đợt 1): danh mục + câu hỏi/ngữ
   // liệu theo danh mục là các query theo khoá factory (clientLoader
   // của route module đã prefetch); vai không có capability ngân
@@ -82,17 +81,17 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const stimuliQuery = useCategoryStimuli(qCategory, bankGate);
   const stimuli = stimuliQuery.data ?? [];
 
-  useEffect(() => {
-    if (!categoriesQuery.isPending) setLoading(false);
-  }, [categoriesQuery.isPending]);
-
-  useEffect(() => {
-    if (categoriesQuery.isError) setMessage(t('questionBankLoadFailed'));
-  }, [categoriesQuery.isError, categoriesQuery.errorUpdatedAt, t]);
-
-  useEffect(() => {
-    if (stimuliQuery.isError) setMessage(t('stimulusLoadFailed'));
-  }, [stimuliQuery.isError, stimuliQuery.errorUpdatedAt, t]);
+  // Trạng thái tải + lỗi tải suy ngay khi render từ các query —
+  // không chép qua effect vào state như bản cũ: banner hiện
+  // message của thao tác nếu có, không thì lỗi tải (danh mục ưu
+  // tiên trước ngữ liệu như thứ tự các effect cũ ghi đè).
+  const loading = categoriesQuery.isPending;
+  const loadError = categoriesQuery.isError
+    ? t('questionBankLoadFailed')
+    : stimuliQuery.isError
+      ? t('stimulusLoadFailed')
+      : null;
+  const displayMessage = message ?? loadError;
 
   useEffect(() => {
     if (categories.length && !qCategory) setQCategory(String(categories[0]!.id));
@@ -343,9 +342,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         }
       />
       <BankAreaTabs area={area} />
-      {message ? (
+      {displayMessage ? (
         <ErrorAlert>
-          {message}
+          {displayMessage}
         </ErrorAlert>
       ) : null}
 

@@ -51,11 +51,10 @@ export function QuizPage() {
   const data = pinQuery.data?.view ?? null;
   const slotNames = pinQuery.data?.slotNames ?? {};
   const { refetch } = pinQuery;
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (pinQuery.isError) setError(t('quizLoadFailed'));
-  }, [pinQuery.isError, pinQuery.errorUpdatedAt, t]);
+  // Lỗi tải suy ngay khi render từ trạng thái query — không chép
+  // qua effect vào state như bản cũ; nút thử lại chỉ refetch,
+  // refetch thành công thì màn hình lỗi tự rời.
+  const error = pinQuery.isError ? t('quizLoadFailed') : null;
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -282,8 +281,9 @@ export function QuizPage() {
             type="button"
             variant="outline"
             onClick={() => {
-              setError(null);
-              void reload().catch(() => setError(t('quizLoadFailed')));
+              // Lỗi refetch bị nuốt tại đây: query vẫn ở trạng thái
+              // lỗi nên màn hình lỗi suy từ query giữ nguyên.
+              void reload().catch(() => undefined);
             }}
           >
             {t('retry')}
@@ -377,7 +377,6 @@ export function QuizPage() {
           overrides={overrides}
           overridesLoaded={overridesLoaded}
           overridesIsError={overridesQuery.isError}
-          overridesErrorUpdatedAt={overridesQuery.errorUpdatedAt}
           roster={roster}
           groups={groups}
           busy={busy}

@@ -77,9 +77,11 @@ export function CoursesPage() {
   const [catName, setCatName] = useState('');
   const [catParent, setCatParent] = useState('0');
   const [catEdits, setCatEdits] = useState<Record<string, string>>({});
-  useEffect(() => {
-    if (coursesQuery.isError || treeQuery.isError) setMessage(t('coursesLoadFailed'));
-  }, [coursesQuery.isError, treeQuery.isError, t]);
+  // Lỗi tải suy ngay khi render từ trạng thái hai query — không
+  // chép qua effect vào state như bản cũ: banner hiện message của
+  // thao tác nếu có, không thì lỗi tải.
+  const loadError = coursesQuery.isError || treeQuery.isError ? t('coursesLoadFailed') : null;
+  const displayMessage = message ?? loadError;
 
   const loading = treeQuery.isPending || coursesQuery.isPending;
 
@@ -254,9 +256,9 @@ export function CoursesPage() {
         </CardContent>
       </Card>
 
-      {message ? (
+      {displayMessage ? (
         <ErrorAlert>
-          {message}
+          {displayMessage}
         </ErrorAlert>
       ) : null}
 
