@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { MyTenant, Tenant, TenantMembership } from '@lms/contracts';
+import type { Tenant, TenantMembership } from '@lms/contracts';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -94,11 +94,11 @@ export function AdminTenantsPage() {
     }
   }, [platformMode, platformTenants, selectedTenantId]);
 
-  // Chế độ platform giữ bản ghi tenant đầy đủ; chế độ tenant chỉ có
-  // bản ghi rút gọn `MyTenant` của endpoint current (không có gói,
-  // trạng thái vòng đời hay mốc thời gian) — thẻ hiển thị ở chế độ
-  // tenant vì vậy chỉ đọc các trường thật của hợp đồng đó.
-  const selectedTenant: Tenant | MyTenant | null = platformMode
+  // Cả hai chế độ đều giữ bản ghi tenant đầy đủ `Tenant`: endpoint
+  // current trả cùng DTO với danh sách platform, nên thẻ hiển thị ở
+  // chế độ tenant đọc trạng thái vòng đời từ trường `status` như chế
+  // độ platform.
+  const selectedTenant: Tenant | null = platformMode
     ? (platformTenants.find((tenant) => tenant.id === selectedTenantId) ?? null)
     : (currentTenantQuery.data ?? null);
   const selectedTenantIdEffective = selectedTenant?.id ?? '';
@@ -320,8 +320,8 @@ export function AdminTenantsPage() {
                   {selectedTenant.slug} · {kindLabel(selectedTenant.kind)}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant={(selectedTenant as MyTenant).active ? 'default' : 'secondary'}>
-                    {(selectedTenant as MyTenant).active ? t('tenantStatusActive') : t('tenantStatusSuspended')}
+                  <Badge variant={selectedTenant.status === 'active' ? 'default' : 'secondary'}>
+                    {tenantStatusLabel(selectedTenant.status)}
                   </Badge>
                 </div>
               </div>
@@ -417,7 +417,15 @@ export function AdminTenantsPage() {
                 </Button>
               </ErrorAlert>
             ) : null}
-            {membersQuery.isPending || usersQuery.isPending ? (
+            {!canViewSelected ? (
+              // Ảnh chụp quyền đã sẵn sàng nhưng người dùng không có
+              // quyền tại tenant đang chọn/hiệu lực (quyền tenant chỉ
+              // nằm ở một tenant khác): hai truy vấn thành viên bị tắt
+              // theo `canViewSelected` nên rơi xuống nhánh chờ sẽ treo
+              // khung chờ vô hạn — hiện trạng thái cấm như các khu vực
+              // khác của trang.
+              <ErrorAlert variant="destructive">{t('tenantsForbidden')}</ErrorAlert>
+            ) : membersQuery.isPending || usersQuery.isPending ? (
               <PageSkeleton rows={['h-12 w-full', 'h-12 w-full', 'h-12 w-full']} label={t('loading')} />
             ) : memberRows.length === 0 ? (
               <Empty className="p-6">

@@ -16,7 +16,11 @@ import { AdminTenantsPage } from './admin-tenants';
  * xem phía tenant không có điều khiển ghi; người không có capability
  * tenant không thấy dữ liệu quản trị và trang không gọi endpoint
  * tenant nào; lỗi 403 ở thao tác ghi hiện thông báo và không đổi
- * trạng thái hiển thị thành công giả.
+ * trạng thái hiển thị thành công giả. Huy hiệu trạng thái của thẻ
+ * tenant hiệu lực đi theo trường `status` của DTO tenant đầy đủ mà
+ * endpoint current trả về; người chỉ có capability tại một tenant
+ * khác với tenant hiệu lực thấy trạng thái cấm ở khu thành viên
+ * thay vì khung chờ treo.
  */
 
 const ME_ID = '01900000-0000-7000-8000-0000000000d1';
@@ -48,7 +52,7 @@ const TENANT_B = {
   createdAt: '2026-09-01T00:00:00.000Z',
   updatedAt: '2026-09-02T00:00:00.000Z',
 };
-const MY_TENANT_A = { id: TENANT_A_ID, slug: TENANT_A.slug, name: TENANT_A.name, kind: 'center', active: true };
+
 
 const PROFILE = {
   id: ME_ID,
@@ -74,10 +78,12 @@ interface RecordedCall {
 interface AccessOptions {
   systemCaps?: string[];
   tenantCaps?: string[] | null;
+  /** Tenant mà gán vai cấp tenant trỏ tới; mặc định là tenant Alpha — cũng là tenant hiệu lực mà stub `/tenants/current` trả về. */
+  capsTenantId?: string;
 }
 
-/** Ảnh chụp quyền theo kịch bản vai: capability hệ thống và/hoặc capability tại context của tenant Alpha. */
-function accessView({ systemCaps = [], tenantCaps = null }: AccessOptions) {
+/** Ảnh chụp quyền theo kịch bản vai: capability hệ thống và/hoặc capability tại context của một tenant. */
+function accessView({ systemCaps = [], tenantCaps = null, capsTenantId = TENANT_A_ID }: AccessOptions) {
   const contexts = [
     { contextId: SYS_CTX_ID, contextLevel: 10, contextPath: '/1', capabilities: systemCaps },
   ];
@@ -92,7 +98,7 @@ function accessView({ systemCaps = [], tenantCaps = null }: AccessOptions) {
       contextId: TENANT_CTX_ID,
       contextLevel: 20,
       contextPath: '/1/2',
-      instanceId: TENANT_A_ID,
+      instanceId: capsTenantId,
     });
   }
   return { userId: ME_ID, isSiteAdmin: false, assignments, contexts, hasLearnerArtifacts: false };
@@ -100,6 +106,8 @@ function accessView({ systemCaps = [], tenantCaps = null }: AccessOptions) {
 
 interface StubOptions extends AccessOptions {
   failAddMember?: boolean;
+  /** Trạng thái vòng đời của tenant hiệu lực mà stub `/tenants/current` trả về; mặc định theo `TENANT_A` (đang hoạt động). */
+  currentTenantStatus?: string;
 }
 
 /**
@@ -147,7 +155,10 @@ function stubFetch(calls: RecordedCall[], options: StubOptions) {
         tenants.push(created);
         return respond(created, 201);
       }
-      if (url === '/api/v1/tenants/current') return respond(MY_TENANT_A);
+      // Endpoint current trả DTO tenant đầy đủ như danh sách platform
+      // (cùng `toTenantDto` phía API), không phải hình dạng rút gọn.
+      if (url === '/api/v1/tenants/current')
+        return respond({ ...TENANT_A, status: options.currentTenantStatus ?? TENANT_A.status });
       if (url === `/api/v1/tenants/${TENANT_A_ID}/members` && method === 'GET') return respond(membersA);
       if (url === `/api/v1/tenants/${TENANT_B_ID}/members` && method === 'GET') return respond(membersB);
       if (url === `/api/v1/tenants/${TENANT_A_ID}/users` && method === 'GET') return respond(usersA);
@@ -249,6 +260,12 @@ describe('Admin tenants page', () => {
     renderPage();
 
     expect(await screen.findByText('Trung tâm Alpha')).toBeInTheDocument();
+    // Huy hiệu trạng thái của thẻ tenant đi theo trường `status` của
+    // DTO đầy đủ mà endpoint current trả về: đang hoạt động thì hiện
+    // "Đang hoạt động" (khẳng định khoanh trong đúng thẻ tenant).
+    const tenantCard = screen.getByText('Trung tâm Alpha').closest('div');
+    expect(tenantCard).not.toBeNull();
+    expect(within(tenantCard!).getByText('Đang hoạt động')).toBeInTheDocument();
     expect(await screen.findByText('membera')).toBeInTheDocument();
     // Chế độ tenant không bao giờ gọi danh sách platform và không thấy tenant khác.
     expect(calls.some((c) => c.url === '/api/v1/tenants')).toBe(false);
@@ -303,6 +320,35 @@ describe('Admin tenants page', () => {
     expect(screen.queryByRole('button', { name: 'Tạm dừng' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Tên đăng nhập')).not.toBeInTheDocument();
     expect(calls.every((c) => c.method === 'GET')).toBe(true);
+  });
+
+  it('tenant hiệu lực đang tạm dừng: huy hiệu của thẻ tenant hiện "Đã tạm dừng" theo status', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { tenantCaps: ['tenant:viewall'], currentTenantStatus: 'suspended' });
+    renderPage();
+
+    const tenantCard = (await screen.findByText('Trung tâm Alpha')).closest('div');
+    expect(tenantCard).not.toBeNull();
+    expect(within(tenantCard!).getByText('Đã tạm dừng')).toBeInTheDocument();
+    expect(within(tenantCard!).queryByText('Đang hoạt động')).not.toBeInTheDocument();
+  });
+
+  it('quyền tenant chỉ ở tenant khác: khu thành viên hiện trạng thái cấm thay vì treo khung chờ', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { tenantCaps: ['tenant:viewall'], capsTenantId: TENANT_B_ID });
+    renderPage();
+
+    // Thẻ tenant hiệu lực vẫn hiện từ endpoint current...
+    expect(await screen.findByText('Trung tâm Alpha')).toBeInTheDocument();
+    // ...nhưng khu thành viên hiện trạng thái cấm (không treo khung
+    // chờ vô hạn) và trang không gọi endpoint thành viên/người dùng
+    // của tenant hiệu lực, vì người dùng không có quyền tại tenant đó.
+    expect(
+      await screen.findByText('Bạn không có capability quản trị tenant cho phạm vi này.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('membera')).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url === `/api/v1/tenants/${TENANT_A_ID}/members`)).toBe(false);
+    expect(calls.some((c) => c.url === `/api/v1/tenants/${TENANT_A_ID}/users`)).toBe(false);
   });
 
   it('giáo viên thường: chỉ thấy trạng thái không có quyền và trang không gọi endpoint tenant nào', async () => {

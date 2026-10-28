@@ -2,7 +2,6 @@ import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query
 import type {
   CreateTenant,
   CreateUser,
-  MyTenant,
   Tenant,
   TenantMembership,
 } from '@lms/contracts';
@@ -51,15 +50,18 @@ export function tenantsQueryOptions() {
 /**
  * Tuỳ chọn truy vấn tenant hiệu lực cho chế độ chủ trung tâm.
  *
- * Đáp ứng là bản ghi rút gọn `MyTenant` (id, slug, name, kind, active)
- * của chính người dùng đang đăng nhập — không phải bản ghi tenant đầy
- * đủ phía platform — nên tầng hiển thị không được đọc gói, trạng thái
- * vòng đời hay mốc thời gian từ đáp ứng này.
+ * Đáp ứng là bản ghi tenant ĐẦY ĐỦ `Tenant` — endpoint này trả cùng
+ * DTO `toTenantDto` với danh sách platform (id, slug, name, kind,
+ * status, plan, createdAt, updatedAt) — nên tầng hiển thị đọc được
+ * trạng thái vòng đời và gói từ đáp ứng này như ở chế độ platform.
+ * Hình dạng rút gọn `MyTenant` kèm cờ `active` (nghĩa là tenant đang
+ * hiệu lực trong phiên) chỉ thuộc về `GET /auth/tenants`, không phải
+ * endpoint này.
  */
 export function currentTenantQueryOptions() {
   return queryOptions({
     queryKey: queryKeys.currentTenant,
-    queryFn: () => apiJson<MyTenant>('/api/v1/tenants/current'),
+    queryFn: () => apiJson<Tenant>('/api/v1/tenants/current'),
   });
 }
 
