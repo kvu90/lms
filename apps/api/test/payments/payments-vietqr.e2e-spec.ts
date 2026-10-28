@@ -7,13 +7,13 @@ import {
   roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from '../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from '../support/course-enrolment-helpers';
-import { buildVietQrPayload } from '../../src/modules/payments/vietqr';
 
 /**
  * Lát 1 VietQR (issue #189, hồ sơ payment-vietqr §6.4) — bộ nghiệm thu
  * 6.4.1–6.4.7: IPN SePay (verify hai lớp, idempotency, matching 3 điều
- * kiện), QR động + vector vàng của hệ thống, che config 6.4.5, cách ly
- * tenant 6.4.6, cổng cộng dồn hoàn + đảo quyền lợi 6.4.7.
+ * kiện), QR động, che config 6.4.5, cách ly tenant 6.4.6, cổng cộng dồn
+ * hoàn + đảo quyền lợi 6.4.7. Riêng vector vàng 6.4.4 nằm ở spec unit
+ * `src/modules/payments/vietqr.spec.ts`.
  */
 /** Secret webhook gateway 'manual' (cổng verify fail-closed của H1, PR #191): vitest config cấp qua env, spec đọc cùng giá trị để gắn header. */
 const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET ?? '';
@@ -127,21 +127,6 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     sepayAccountId = await createSepayAccount();
   });
   afterAll(async () => { await pg.end(); await app.close(); });
-
-  it('6.4.4: QR động khớp vector vàng của hệ thống từng byte và giải mã ngược đúng 54 + 62/08', async () => {
-    const payload = buildVietQrPayload(
-      { gateway: 'sepay', config: { bankCode: 'MBBANK', bankAccountNumber: BANK_ACCOUNT, sepayBankAccountXid: SEPAY_XID } },
-      100000, 'LMS7K3QX9P2M',
-    );
-    // Vector vàng khoá cứng (sinh qua vn-qr-pay 0.0.5, CRC16-CCITT hợp lệ):
-    // trường 01=12 (động), 38/02=QRIBFTTA, 54=100000, 62/08=LMS7K3QX9P2M.
-    expect(payload).toBe('00020101021238560010A0000007270126000697042201121133666688880208QRIBFTTA530370454061000005802VN62160812LMS7K3QX9P2M6304630E');
-    const decoded = decodeQr(payload!);
-    expect(decoded.isValid).toBe(true);
-    expect(decoded.amount).toBe('100000');
-    expect(decoded.consumer.bankNumber).toBe(BANK_ACCOUNT);
-    expect((decoded.additionalData as { purpose?: string }).purpose).toBe('LMS7K3QX9P2M');
-  });
 
   it('6.4.4 + 6.4.5: payment trên account SePay có mã + QR + hạn 24h; config bị che ở list và get', async () => {
     const { instance, buyerToken } = await createFeeCourse(sepayAccountId);

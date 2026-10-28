@@ -13,7 +13,7 @@ import { encodeVietQr } from 'vn-qr-pay';
  *   (`99998888`) và CRC cuối mẫu không tái tạo được bằng vn-qr-pay kể cả
  *   khi ép cùng tham số; vì vậy tiêu chí 6.4.4 được khoá bằng vector vàng
  *   của chính hệ thống (sinh qua vn-qr-pay, giải mã ngược đúng 54/62-08,
- *   CRC hợp lệ) trong payments-vietqr.e2e-spec.ts, không giả mạo khớp mẫu.
+ *   CRC hợp lệ) trong vietqr.spec.ts cạnh mã nguồn, không giả mạo khớp mẫu.
  */
 
 export const PAYMENT_CODE_PREFIX = 'LMS';
