@@ -3,6 +3,7 @@ import {
   IconAward,
   IconBell,
   IconBook,
+  IconBuildingCommunity,
   IconCalendar,
   IconChartBar,
   IconDatabase,
@@ -93,8 +94,12 @@ function readStoredOpenGroups(): string[] {
  * - Hai nhóm quản trị ("Người dùng & quyền", "Cài đặt hệ thống") chỉ
  *   hiện khi người dùng có ít nhất một capability quản trị cấp hệ thống
  *   (canAdminister do PermissionsProvider đọc từ ảnh chụp quyền
- *   GET /users/me/capabilities). Phần tử không có quyền thì KHÔNG
- *   render — không render rồi disable, không để link dẫn tới trang 403.
+ *   GET /users/me/capabilities). Riêng mục "Trung tâm" trong nhóm thứ
+ *   nhất còn mở theo capability tenant (`canViewTenantAdmin`) để chủ
+ *   trung tâm không có quyền quản trị site vẫn tới được bề mặt của
+ *   mình; các mục con khác vẫn giữ cổng riêng của chúng. Phần tử không
+ *   có quyền thì KHÔNG render — không render rồi disable, không để link
+ *   dẫn tới trang 403.
  * - Mục Thông báo mang huy hiệu số chưa đọc: số ban đầu từ GET
  *   /notifications/unread-count, sau đó được stream SSE đẩy cập nhật
  *   thời gian thực (không polling) — số này dùng chung đúng một khoá
@@ -231,33 +236,46 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           { title: t('app:navTeacherProgramme'), url: '/curriculum', icon: IconNotebook },
         ]
       : []),
-    ...(perms.canAdminister
+    ...(perms.canAdminister || perms.canViewTenantAdmin
       ? [
           {
             groupId: 'users-access',
             title: t('app:navGroupUsersAccess'),
             icon: IconUsers,
             children: [
-              { title: t('app:navUsers'), url: '/admin/users', icon: IconUsers },
-              { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
-              { title: t('app:navTokens'), url: '/tokens', icon: IconSettings },
+              ...(perms.canAdminister
+                ? [{ title: t('app:navUsers'), url: '/admin/users', icon: IconUsers }]
+                : []),
+              ...(perms.canViewTenantAdmin
+                ? [{ title: t('app:navTenants'), url: '/admin/tenants', icon: IconBuildingCommunity }]
+                : []),
+              ...(perms.canAdminister
+                ? [
+                    { title: t('app:navRoles'), url: '/admin/roles', icon: IconShieldLock },
+                    { title: t('app:navTokens'), url: '/tokens', icon: IconSettings },
+                  ]
+                : []),
             ],
           },
-          {
-            groupId: 'system-data',
-            title: t('app:navGroupSystemData'),
-            icon: IconSettings,
-            children: [
-              { title: t('app:navSiteConfig'), url: '/admin/site-config', icon: IconSettings },
-              { title: t('app:navCurriculum'), url: '/admin/curriculum', icon: IconNotebook },
-              { title: t('app:navReports'), url: '/reports', icon: IconReport },
-              { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
-              { title: t('app:navContentBank'), url: '/content-bank', icon: IconDatabase },
-              { title: t('app:navBackup'), url: '/backup', icon: IconDatabase },
-              { title: t('app:navPrivacy'), url: '/privacy', icon: IconShieldLock },
-              { title: t('app:navHealth'), url: '/health', icon: IconHelpCircle },
-            ],
-          },
+          ...(perms.canAdminister
+            ? [
+                {
+                  groupId: 'system-data',
+                  title: t('app:navGroupSystemData'),
+                  icon: IconSettings,
+                  children: [
+                    { title: t('app:navSiteConfig'), url: '/admin/site-config', icon: IconSettings },
+                    { title: t('app:navCurriculum'), url: '/admin/curriculum', icon: IconNotebook },
+                    { title: t('app:navReports'), url: '/reports', icon: IconReport },
+                    { title: t('app:navInsights'), url: '/insights', icon: IconChartBar },
+                    { title: t('app:navContentBank'), url: '/content-bank', icon: IconDatabase },
+                    { title: t('app:navBackup'), url: '/backup', icon: IconDatabase },
+                    { title: t('app:navPrivacy'), url: '/privacy', icon: IconShieldLock },
+                    { title: t('app:navHealth'), url: '/health', icon: IconHelpCircle },
+                  ],
+                },
+              ]
+            : []),
         ]
       : []),
   ];

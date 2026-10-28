@@ -25,6 +25,7 @@ export default [
     route('admin/users', 'pages/admin-users.tsx'),
     route('admin/users/new', 'routes/admin-user-new.tsx'),
     route('admin/users/:userId/edit', 'routes/admin-user-edit.tsx'),
+    route('admin/tenants', 'pages/admin-tenants.tsx'),
     route('admin/roles', 'pages/admin-roles.tsx'),
     // Quản lý liên kết giám hộ phụ huynh–học viên (gói kích hoạt phụ
     // huynh): trang chỉ dành cho người có capability guardian:manage

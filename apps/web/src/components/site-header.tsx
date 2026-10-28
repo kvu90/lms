@@ -13,6 +13,7 @@ import '../i18n';
 /** Ánh xạ tiền tố đường dẫn → khoá i18n của tiêu đề trang, cho header trên cùng. */
 const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [
   { prefix: '/admin/users', key: 'navUsers', ns: 'app' },
+  { prefix: '/admin/tenants', key: 'navTenants', ns: 'app' },
   { prefix: '/admin/roles', key: 'navRoles', ns: 'app' },
   { prefix: '/admin/site-config', key: 'navSiteConfig', ns: 'app' },
   { prefix: '/courses', key: 'navCourses', ns: 'app' },
