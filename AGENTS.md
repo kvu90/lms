@@ -36,7 +36,44 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   lượt thay đổi; comment lệch code thật là lỗi phải sửa trong cùng
   lượt, không để tồn đọng.
 
-## Chuẩn Issue và PR — văn bản tự chứa
+## Quy trình tạo Issue và PR
+
+Chương này là chuẩn GitHub đầy đủ và duy nhất của repo: flow
+nhánh, đặt tên branch, tạo issue, tạo PR, chuẩn tiêu đề và
+commit, đóng issue, review và merge, vòng đời label. Khi repo
+được tạo lại từ đầu, toàn bộ quy trình được dựng lại theo đúng
+chương này.
+
+### Flow nhánh dev và main
+
+Flow này có hiệu lực từ khi nhánh `dev` được thiết lập trong đợt tái
+cấu trúc repo; trước thời điểm đó, mọi PR vẫn mở vào `main` như quy
+trình hiện tại trong tài liệu này.
+
+1. **Hai nhánh dài hạn.** `dev` là nhánh tích hợp và là default
+   branch của repo. `main` là nhánh production.
+2. **Việc thường theo issue.** Mỗi issue mở một branch từ `dev` (đặt
+   tên theo mục "Đặt tên branch" trong tài liệu này), đúng một PR vào `dev` cho mỗi issue theo luật 1
+   issue = 1 PR, thân PR có `Closes #<issue>`, squash merge vào
+   `dev`. Chuẩn Issue và PR trong tài liệu này (văn bản tự chứa, mẫu
+   issue/PR, task list trong thân PR, mục Nghiệm thu) giữ nguyên,
+   không đổi.
+3. **CI.** PR vào `dev` không chờ CI đầy đủ, và CI đầy đủ không chạy
+   theo từng commit/push trên branch của PR vào `dev`. CI đầy đủ —
+   job `verify` trong `.github/workflows/ci.yml` và job
+   `verify-stack` trong `.github/workflows/deploy-check.yml` — chỉ
+   chạy tại PR phát hành `dev → main` và PR hotfix vào `main`; cả
+   hai job phải success trên head cuối của các PR đó mới được merge.
+4. **Phát hành.** Phát hành bằng PR từ `dev` vào `main`, merge bằng
+   merge commit (không squash), cần 1 approval của chủ dự án. Sau
+   khi merge, gắn tag phát hành dạng `vYYYY.MM.DD.N` trên `main`
+   (`N` là số thứ tự của đợt phát hành trong ngày).
+5. **Hotfix.** Việc khẩn cấp trên production mở branch từ `main`, mở
+   PR vào `main`, squash merge vào `main`. Sau khi hotfix đã vào
+   `main`, bắt buộc mở PR đồng bộ `main → dev` để hai nhánh không
+   lệch nhau.
+
+### Văn bản tự chứa
 
 1. **Issue là bản đặc tả tự chứa.** Mọi issue phải chứa đủ: bối cảnh và
    vấn đề, mục tiêu, phạm vi (làm / không làm), chi tiết việc cần làm,
@@ -74,37 +111,18 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
    tắt có chủ đích trong `.github/ISSUE_TEMPLATE/config.yml` để mọi
    issue đều đi qua một mẫu có đủ các mục bắt buộc.
 
-## Quy trình tạo Issue và PR
+### Đặt tên branch
 
-### Flow nhánh dev và main
-
-Flow này có hiệu lực từ khi nhánh `dev` được thiết lập trong đợt tái
-cấu trúc repo; trước thời điểm đó, mọi PR vẫn mở vào `main` như quy
-trình hiện tại trong tài liệu này.
-
-1. **Hai nhánh dài hạn.** `dev` là nhánh tích hợp và là default
-   branch của repo. `main` là nhánh production.
-2. **Việc thường theo issue.** Mỗi issue mở một branch từ `dev` (đặt
-   tên theo quy ước hiện hành của repo: `feat/<slug>`, `docs/<slug>`,
-   `ci/<slug>`), đúng một PR vào `dev` cho mỗi issue theo luật 1
-   issue = 1 PR, thân PR có `Closes #<issue>`, squash merge vào
-   `dev`. Chuẩn Issue và PR trong tài liệu này (văn bản tự chứa, mẫu
-   issue/PR, task list trong thân PR, mục Nghiệm thu) giữ nguyên,
-   không đổi.
-3. **CI.** PR vào `dev` không chờ CI đầy đủ, và CI đầy đủ không chạy
-   theo từng commit/push trên branch của PR vào `dev`. CI đầy đủ —
-   job `verify` trong `.github/workflows/ci.yml` và job
-   `verify-stack` trong `.github/workflows/deploy-check.yml` — chỉ
-   chạy tại PR phát hành `dev → main` và PR hotfix vào `main`; cả
-   hai job phải success trên head cuối của các PR đó mới được merge.
-4. **Phát hành.** Phát hành bằng PR từ `dev` vào `main`, merge bằng
-   merge commit (không squash), cần 1 approval của chủ dự án. Sau
-   khi merge, gắn tag phát hành dạng `vYYYY.MM.DD.N` trên `main`
-   (`N` là số thứ tự của đợt phát hành trong ngày).
-5. **Hotfix.** Việc khẩn cấp trên production mở branch từ `main`, mở
-   PR vào `main`, squash merge vào `main`. Sau khi hotfix đã vào
-   `main`, bắt buộc mở PR đồng bộ `main → dev` để hai nhánh không
-   lệch nhau.
+1. Mỗi issue mở một branch riêng từ nhánh tích hợp (`dev`; trong
+   giai đoạn chuyển tiếp chưa có `dev` thì từ `main`).
+2. Tên branch theo mẫu `<type>/<số issue>-<slug>`: `type` thuộc
+   nhóm type của Conventional Commits (`feat`, `fix`, `docs`,
+   `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
+   `revert`); `slug` là cụm tiếng Anh dạng kebab-case, ngắn, mô
+   tả việc. Ví dụ: `fix/442-tenant-api-prefix`.
+3. Branch hotfix mở từ `main`, đặt tên `hotfix/<số issue>-<slug>`.
+4. Branch đồng bộ sau hotfix (PR `main → dev`) đặt tên cố định
+   `sync/main-to-dev`.
 
 ### Tạo Issue
 
@@ -118,24 +136,18 @@ trình hiện tại trong tài liệu này.
    tự.
 3. Một issue là một đơn vị việc mạch lạc. Việc quá lớn cho một PR thì
    tách thành nhiều issue (mỗi issue một PR), không tách thành nhiều
-   PR cho một issue.
-
-### Tạo PR
-
-1. Một nhánh từ `dev` cho mỗi issue, mở đúng một PR vào `dev` cho
-   mỗi issue (theo mục "Flow nhánh dev và main" ở trên; trong giai
-   đoạn chuyển tiếp chưa có nhánh `dev` thì nhánh từ `main`, PR vào
-   `main`).
-2. Thân PR theo `.github/pull_request_template.md`, gồm: `Closes
-   #<số issue>`; tóm tắt thay đổi; bản đồ thay đổi theo phạm vi; task
-   list toàn bộ việc con của issue (mang từ issue sang) và tích khi
-   xong từng mục; đối chiếu nghiệm thu từng tiêu chí kèm bằng chứng;
-   kết quả kiểm chứng và CI.
-3. Toàn bộ việc con nằm trong PR duy nhất này (nhiều commit là bình
-   thường). Tuyệt đối không mở PR thứ hai cho cùng một issue. Nếu PR
-   có nguy cơ quá lớn tới mức không đánh giá nổi thì dừng và báo điều
-   phối — việc chia là ngoại lệ hiếm, phải được duyệt trước, giữ số
-   PR ở mức tối thiểu và vẫn theo dõi bằng task list trong issue.
+   PR cho một issue. Khi tách, các issue con (child issue) phải được
+   gắn vào issue cha bằng tính năng sub-issues native của GitHub
+   ngay khi tạo — cấm chỉ nhắc tới nhau bằng chữ trong thân issue.
+   Việc con nằm gọn trong một issue thì theo dõi bằng task list
+   trong thân issue và thân PR, không tách thành issue riêng.
+4. **Nhãn khi tạo issue.** Khi tạo issue, gắn label loại (`tính năng`
+   cho việc tính năng hoặc nghiệp vụ, `lỗi` cho việc báo lỗi) theo
+   đặc tả bộ label ở mục "Label trạng thái của issue"; khi bắt đầu
+   làm issue, gắn thêm label trạng thái `đang thi công`.
+5. **Một issue = một feat.** Việc phát sinh thuộc cùng feat thì ghi
+   vào đúng issue của feat đó (mở lại nếu đã đóng), không xé
+   issue/PR mới.
 
 ### Chuẩn tiêu đề
 
@@ -161,17 +173,56 @@ trình hiện tại trong tài liệu này.
    footer `BREAKING CHANGE:` ở thân commit. Phần thân commit
    (khi cần) viết bằng tiếng Việt.
 
+### Tạo PR
+
+1. Một nhánh từ `dev` cho mỗi issue, mở đúng một PR vào `dev` cho
+   mỗi issue (theo mục "Flow nhánh dev và main" ở trên; trong giai
+   đoạn chuyển tiếp chưa có nhánh `dev` thì nhánh từ `main`, PR vào
+   `main`).
+2. Thân PR theo `.github/pull_request_template.md`, gồm: `Closes
+   #<số issue>`; tóm tắt thay đổi; bản đồ thay đổi theo phạm vi; task
+   list toàn bộ việc con của issue (mang từ issue sang) và tích khi
+   xong từng mục; đối chiếu nghiệm thu từng tiêu chí kèm bằng chứng;
+   kết quả kiểm chứng và CI.
+3. Toàn bộ việc con nằm trong PR duy nhất này (nhiều commit là bình
+   thường). Tuyệt đối không mở PR thứ hai cho cùng một issue. Nếu PR
+   có nguy cơ quá lớn tới mức không đánh giá nổi thì dừng và báo điều
+   phối — việc chia là ngoại lệ hiếm, phải được duyệt trước, giữ số
+   PR ở mức tối thiểu và vẫn theo dõi bằng task list trong issue.
+4. Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**` và có đủ
+   các mục "Việc con", "Bản đồ thay đổi theo phạm vi" và "Kỷ luật đã
+   giữ" theo mẫu PR của repo. Dòng `Closes #<số issue>` ở các điểm
+   trên là bắt buộc — đây là cơ chế duy nhất để đóng issue, theo mục
+   "Đóng issue" trong tài liệu này.
+
 ### Review và merge
 
 1. Đội thi công không tự merge và không tự đóng issue của mình; đội
    đánh giá độc lập phán quyết trước.
-2. Cổng merge: phán quyết đạt (hoặc đã thoả các điều kiện của phán
-   quyết) + PR đã rời trạng thái draft. Riêng PR vào `main` (phát
-   hành và hotfix) phải có thêm CI đầy đủ — job `verify` và job
-   `verify-stack` — success trên head cuối của PR.
+2. Cổng merge gồm đủ: phán quyết đạt (hoặc đã thoả các điều kiện
+   của phán quyết) + CI success trên head cuối theo phạm vi CI của
+   loại PR đó (PR vào `main` — phát hành và hotfix — phải có CI đầy
+   đủ: job `verify` và job `verify-stack` success trên head cuối) +
+   PR đã rời trạng thái draft + mergeable sạch. Mergeable phải được
+   kiểm lại ngay trước lệnh merge, vì số liệu ở lần đọc trước có
+   thể đã cũ.
 3. PR của issue merge kiểu squash; issue tự đóng qua `Closes` trong
    thân PR. PR phát hành `dev → main` merge bằng merge commit theo
    mục "Flow nhánh dev và main" ở trên.
+4. Ở từng chặng (bắt đầu thi công, bắt đầu review, có phán quyết,
+   merge xong), label trạng thái của issue được đổi theo mục "Label
+   trạng thái của issue" trong tài liệu này.
+
+### Đóng issue
+
+1. Issue chỉ đóng bằng cơ chế tự đóng qua dòng `Closes #<số
+   issue>` trong thân PR khi PR merge. Cấm đóng tay issue trước
+   khi PR của nó merge.
+2. Sau khi merge, phải kiểm chứng issue đã thật sự đóng. Nếu PR
+   đã merge mà issue chưa đóng (sai từ khoá đóng hoặc sai nhánh
+   đích), đóng issue kèm comment dẫn tới commit merge.
+3. Issue cha chỉ đóng khi child issue cuối cùng về đích: PR
+   cuối cùng ghi `Closes` cả child issue của nó lẫn issue cha.
 
 ### Label trạng thái của issue
 
@@ -205,17 +256,3 @@ label mặc định đó.
 | `chờ merge` | `0e8a16` | Review đã đạt, chờ merge | Khi phán quyết đạt | Đội review |
 | `lỗi` | `d73a4a` | Có gì đó không hoạt động | Label loại cho issue lỗi | Đội mở issue |
 | `tính năng` | `a2eeef` | Tính năng mới hoặc yêu cầu | Label loại cho issue tính năng | Đội mở issue |
-
-## Kỷ luật PR liên quan
-
-- Một issue = một feat. Việc phát sinh thuộc cùng feat thì ghi vào đúng
-  issue của feat đó (mở lại nếu đã đóng), không xé issue/PR mới.
-- 1 issue = 1 PR theo mục "Quy trình tạo Issue và PR" của tài liệu
-  này; việc con liệt kê thành task list trong thân PR, không chia
-  một issue thành nhiều PR.
-- Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**`, có mục "Việc
-  con", mục "Bản đồ thay đổi theo phạm vi" và mục "Kỷ luật đã giữ".
-- Đội thi công không tự merge PR; việc merge chờ đánh giá độc lập.
-- CI của repo gồm job `verify` trong `.github/workflows/ci.yml` và
-  job `verify-stack` trong `.github/workflows/deploy-check.yml`; kết
-  luận về CI chỉ lấy từ log thật của job.
