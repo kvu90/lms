@@ -113,10 +113,9 @@ export const examMatrices = pgTable('exam_matrices', {
    * tạo đều tính và ghi cột này; mọi đường sửa làm đổi một thành
    * phần của chữ ký (tên, bộ mức, tổng điểm, ghi chú phạm vi, phạm
    * vi, ô) đều tính lại trong cùng thao tác ghi. Cột nullable ở tầng
-   * DB để chứa các bản ghi lịch sử có trước cột này: script lấp dữ
-   * liệu (entry `backfill-matrix-content-signature` của apps/api)
-   * tính lại chữ ký cho mọi bản ghi đang có bằng cùng thuật toán và
-   * báo cáo các cặp trùng sẵn có thay vì tự xoá.
+   * DB để chứa các bản ghi lịch sử có trước cột này; mọi bản ghi tạo
+   * sau khi cột ra đời đều được các đường ghi đóng dấu chữ ký ngay
+   * trong cùng thao tác ghi.
    */
   contentSignature: text('content_signature'),
   createdBy: uuid('created_by'),
