@@ -15,6 +15,9 @@ import { ExamPaperEditPage } from './exam-paper-editor';
 const PAPER_ID = '01900000-0000-7000-8000-0000000000e1';
 const Q1 = '01900000-0000-7000-8000-0000000000q1'.replace('q', 'a');
 const Q2 = '01900000-0000-7000-8000-0000000000q2'.replace('q', 'a');
+const COURSE_ID = '01900000-0000-7000-8000-0000000000c1';
+const SECTION_ID = '01900000-0000-7000-8000-000000000051';
+const PIN_ID = '01900000-0000-7000-8000-0000000000b1';
 
 const PAPER_VIEW = {
   paper: { id: PAPER_ID, bankId: 'bank-1', kind: 'exam', status: 'ready', latestVersion: 3, derivedFromPaperId: null },
@@ -110,5 +113,126 @@ describe('Exam paper editor (F-01 của #133)', () => {
     expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
     const discovery = calls.find((c) => c.url.startsWith('/api/v1/questions/discovery?'));
     expect(discovery?.url).toContain('keyword=hai');
+  });
+});
+
+/**
+ * Ghim đề vào khoá ngay tại màn soạn: form ghim chỉ mở khi đề
+ * `ready` và view đề mang cờ deploy; thao tác gọi đúng endpoint
+ * exam-pins của hộp ghim ở trang ngân hàng (chọn khoá → chương tự
+ * chọn chương đầu → ghim), thành công thì lần ghim mới hiện ngay
+ * trong thẻ từ cùng nguồn danh sách lần ghim của đề; API từ chối
+ * thì báo kèm lý do và không sinh lần ghim.
+ */
+function stubPinFetch(calls: RecordedCall[], opts: { deploy: boolean; status?: string; failPin?: boolean }) {
+  let pinned = false;
+  const view = {
+    ...PAPER_VIEW,
+    paper: { ...PAPER_VIEW.paper, status: opts.status ?? 'ready' },
+    capabilities: { edit: true, deploy: opts.deploy },
+  };
+  const pinRow = {
+    id: PIN_ID, courseId: COURSE_ID, courseName: 'Khoá Toán 5', versionNumber: 3,
+    name: null, variantCount: 1, variantCodes: ['001'], createdAt: '2026-10-28T01:00:00.000Z',
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const respond = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === `/api/v1/exams/${PAPER_ID}` && method === 'GET') return respond(view);
+      if (url === `/api/v1/exams/${PAPER_ID}/pins`) return respond(pinned ? [pinRow] : []);
+      if (url === '/api/v1/courses') return respond([{ id: COURSE_ID, fullName: 'Khoá Toán 5' }]);
+      if (url === `/api/v1/courses/${COURSE_ID}/content`)
+        return respond({
+          course: { id: COURSE_ID }, contextId: 'ctx-1', customFields: [],
+          sections: [{ id: SECTION_ID, name: 'Chương 1', modules: [] }],
+        });
+      if (url === `/api/v1/courses/${COURSE_ID}/groups`) return respond([]);
+      if (url === `/api/v1/courses/${COURSE_ID}/exam-pins` && method === 'POST') {
+        if (opts.failPin) {
+          return respond(
+            {
+              type: 'about:blank', title: 'Forbidden', status: 403, code: 'course.pin_forbidden',
+              detail: 'Thiếu quyền tạo hoạt động trong khoá',
+            },
+            403,
+          );
+        }
+        pinned = true;
+        return respond({ id: PIN_ID });
+      }
+      return respond({}, 404);
+    }),
+  );
+}
+
+describe('Exam paper editor — pin into a course from the editor', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('pins the ready paper into the picked course and shows the new pin in place', async () => {
+    const calls: RecordedCall[] = [];
+    stubPinFetch(calls, { deploy: true });
+    renderPage();
+
+    expect(await screen.findByDisplayValue('Đề giữa kỳ')).toBeInTheDocument();
+    // Form ghim hiện dù đề chưa có lần ghim nào.
+    await userEvent.selectOptions(await screen.findByLabelText('Chọn khoá học'), COURSE_ID);
+    // Chương đầu tiên của khoá đích tự được chọn khi nội dung khoá về.
+    await waitFor(() =>
+      expect((screen.getByLabelText('Chọn chương') as HTMLSelectElement).value).toBe(SECTION_ID),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Ghim vào khoá' }));
+
+    // Đúng thao tác exam-pins dùng chung với hộp ghim ở trang ngân hàng.
+    const post = calls.find((c) => c.method === 'POST' && c.url === `/api/v1/courses/${COURSE_ID}/exam-pins`);
+    expect(post?.body).toEqual({ sectionId: SECTION_ID, examId: PAPER_ID, variantCount: 1 });
+    // Báo thành công kèm phiên bản đã ghim + lần ghim mới hiện tại chỗ.
+    expect(await screen.findByText('Đã ghim đề vào khoá (phiên bản v3).')).toBeInTheDocument();
+    await waitFor(() => expect(document.body.textContent).toContain('Khoá Toán 5 · v3'));
+  });
+
+  it('hides the pin form when the viewer lacks the deploy capability', async () => {
+    const calls: RecordedCall[] = [];
+    stubPinFetch(calls, { deploy: false });
+    renderPage();
+
+    expect(await screen.findByDisplayValue('Đề giữa kỳ')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Chọn khoá học')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ghim vào khoá' })).not.toBeInTheDocument();
+    // Chưa có lần ghim + không được ghim → thẻ lần ghim không hiện.
+    expect(screen.queryByText('Các lần ghim của đề')).not.toBeInTheDocument();
+  });
+
+  it('hides the pin form while the paper is not ready', async () => {
+    const calls: RecordedCall[] = [];
+    stubPinFetch(calls, { deploy: true, status: 'draft' });
+    renderPage();
+
+    expect(await screen.findByDisplayValue('Đề giữa kỳ')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Chọn khoá học')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ghim vào khoá' })).not.toBeInTheDocument();
+  });
+
+  it('reports the API reason when pinning is rejected and creates no pin', async () => {
+    const calls: RecordedCall[] = [];
+    stubPinFetch(calls, { deploy: true, failPin: true });
+    renderPage();
+
+    expect(await screen.findByDisplayValue('Đề giữa kỳ')).toBeInTheDocument();
+    await userEvent.selectOptions(await screen.findByLabelText('Chọn khoá học'), COURSE_ID);
+    await waitFor(() =>
+      expect((screen.getByLabelText('Chọn chương') as HTMLSelectElement).value).toBe(SECTION_ID),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Ghim vào khoá' }));
+
+    expect(await screen.findByText(/Ghim đề thất bại/)).toBeInTheDocument();
+    expect(screen.getByText(/Thiếu quyền tạo hoạt động trong khoá/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('Khoá Toán 5 · v3');
   });
 });
