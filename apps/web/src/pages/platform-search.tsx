@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
 import '../i18n';
@@ -65,6 +65,13 @@ export function SearchPage() {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<GlobalSearchDoc[]>([]);
   const [searched, setSearched] = useState(false);
+  // Chốt trình tự các lượt tìm: số thứ tự của lượt MỚI NHẤT còn hiệu
+  // lực. Mỗi lượt chạy lấy một số tăng dần; một lượt chỉ được ghi
+  // kết quả khi số của nó vẫn là mới nhất lúc request trả về — lượt
+  // cũ về sau (mạng chậm) không ghi đè kết quả của lượt mới hơn, và
+  // nhánh dọn trạng thái cũng tăng số này để vô hiệu hoá mọi lượt
+  // đang bay.
+  const latestSearchRef = useRef(0);
 
   /**
    * Chạy một lượt tìm bằng đúng từ khoá đưa vào và ghi kết quả + cờ
@@ -73,9 +80,16 @@ export function SearchPage() {
    * #133): trang giữ máy trạng thái riêng nên không đổi sang
    * `useQuery` khai báo; options đặt `staleTime: 0` để mỗi lượt chạy
    * tìm gọi API thật như bản fetch thủ công.
+   *
+   * Hai lượt tìm chồng nhau dùng hai khoá khác nhau nên cả hai
+   * request đều chạy thật tới khi trả về; chốt trình tự ở đây là nơi
+   * duy nhất quyết định lượt nào được ghi vào state (chỉ lượt mới
+   * nhất — xem `latestSearchRef`).
    */
   const runSearch = useCallback(async (keyword: string) => {
+    const runId = ++latestSearchRef.current;
     const docs = await queryClient.fetchQuery(globalSearchQueryOptions(keyword));
+    if (runId !== latestSearchRef.current) return;
     setResults(docs);
     setSearched(true);
   }, [queryClient]);
@@ -89,6 +103,10 @@ export function SearchPage() {
     if (urlQ.trim()) {
       void runSearch(urlQ);
     } else {
+      // Dọn về trạng thái chưa tìm VÀ vô hiệu hoá mọi lượt đang bay:
+      // kết quả của chúng về sau không được hồi sinh danh sách vừa
+      // dọn.
+      latestSearchRef.current += 1;
       setResults([]);
       setSearched(false);
     }
