@@ -411,7 +411,7 @@ export function programLessonNodeId(datasetKey: string, recordId: string): strin
 }
 
 /**
- * ĐỊNH DANH CỦA YCCĐ — CHỐT CUỐI (Lão gia chốt 20:09 ngày 26/10/2026,
+ * ĐỊNH DANH CỦA YCCĐ — CHỐT CUỐI (Quyết định 20:09 ngày 26/10/2026,
  * sổ quyết định mục E, THAY mọi công thức v5 cho YCCĐ trước đó):
  * YCCĐ program KHÔNG có hàm tính id nào cả. Id của một dòng là
  * **uuidv7 mờ do DB cấp MỘT LẦN khi tạo dòng** (DEFAULT của cột —

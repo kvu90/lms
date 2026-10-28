@@ -16,7 +16,7 @@ import {
 
 /**
  * Định danh + phân phối dữ liệu chương trình chuẩn (issue #161) —
- * MÔ HÌNH DUMP ĐÔNG CỨNG (Lão gia chốt cuối 20:09 ngày 26/10/2026,
+ * MÔ HÌNH DUMP ĐÔNG CỨNG — CHỐT CUỐI (Quyết định 20:09 ngày 26/10/2026,
  * sổ quyết định mục E; thay mô hình UUIDv5 cho YCCĐ trước đó):
  *
  * 1. SẢN XUẤT Ở TRUNG TÂM: importer nạp GDCD vào DB chuẩn; id của
