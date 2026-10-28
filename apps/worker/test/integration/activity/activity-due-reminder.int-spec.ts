@@ -3,12 +3,12 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { getQueueToken } from '@nestjs/bullmq';
 import type { Queue } from 'bullmq';
 import { eq, sql } from 'drizzle-orm';
-import { ActivityDueReminderProcessor } from '../../src/processors/activity-due-reminder.processor';
+import { ActivityDueReminderProcessor } from '../../../src/processors/activity-due-reminder.processor';
 import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * Lát N5 (issue #50): nhắc hạn nộp tự động trước 24 giờ.
