@@ -63,6 +63,16 @@ export interface PermissionsState {
   canManageRoles: boolean;
   /** Có ít nhất một quyền quản trị cấp hệ thống — điều kiện hiện khối quản trị. */
   canAdminister: boolean;
+  /**
+   * Có capability guardian:manage ở ít nhất một context trong ảnh chụp
+   * (hoặc là site admin) — điều kiện hiện bề mặt quản lý liên kết giám
+   * hộ. Khớp cổng phía API của module guardians: quản lý liên kết đòi
+   * capability này từ một gán vai thật ở bất kỳ context nào
+   * (hasCapabilityFromRealAssignmentAnywhere), nên phía web cũng quét
+   * MỌI context của ảnh chụp thay vì chỉ context hệ thống; API vẫn là
+   * nơi thực thi quyền thật ở từng endpoint.
+   */
+  canManageGuardians: boolean;
   /** Có capability ngân hàng câu hỏi ở ít nhất một context — điều kiện hiện mục ngân hàng câu hỏi. */
   canUseQuestionBank: boolean;
   /** Mọi khoá học kèm quyền của người dùng trong từng khoá. */
@@ -220,6 +230,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         canViewUsers: false,
         canManageRoles: false,
         canAdminister: false,
+        canManageGuardians: false,
         canUseQuestionBank: false,
         courses: [],
         teaching: [],
@@ -255,6 +266,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       // cấu hình site) hoặc cờ site admin mới mở được khu vực này —
       // API vẫn là nơi thực thi quyền thật ở từng endpoint.
       canAdminister: (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('site:config'),
+      canManageGuardians:
+        (access?.isSiteAdmin ?? false) ||
+        (access?.contexts.some((c) => c.capabilities.includes('guardian:manage')) ?? false),
       canUseQuestionBank:
         (access?.isSiteAdmin ?? false) ||
         (access?.contexts.some((c) =>
