@@ -216,8 +216,18 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
       .send({ email: ghost, redirectTo: `${TRUSTED_ORIGIN}/reset-password` });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe(true);
-    // Cho consumer vài nhịp quét: vẫn không có mail nào cho địa chỉ lạ.
-    await new Promise((resolve) => setTimeout(resolve, 1600));
+    // Neo chốt qua chính consumer: phát một yêu cầu đặt lại THẬT cho
+    // người dùng có thật NGAY SAU yêu cầu lạ và chờ mail của họ tới.
+    // Consumer thư xử lý outbox theo seq tăng dần nên khi mail thật
+    // đã được gửi, lượt quét đã đi qua cửa sổ của yêu cầu lạ — nếu yêu
+    // cầu lạ có sinh mail thì mail đó đã phải nằm trong hộp thư stub.
+    // Thay sleep cố định 1.600ms "cho consumer vài nhịp quét".
+    const sentinel = await createMailUser('bamailchotreset');
+    await http(app)
+      .post('/api/v1/auth/request-password-reset')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: sentinel.email, redirectTo: `${TRUSTED_ORIGIN}/reset-password` });
+    await waitForMailTo(sentinel.email);
     expect(sentMails.some((mail) => mail.to === ghost)).toBe(false);
     const outbox = await pg.query(
       "select count(*)::int as n from outbox_events where type = 'auth_mail_requested' and payload->>'to' = $1",
@@ -306,7 +316,17 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     // tài khoản nào tồn tại) — nhưng KHÔNG có mail nào được gửi.
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    await new Promise((resolve) => setTimeout(resolve, 1600));
+    // Neo chốt qua chính consumer (cùng lập luận với ca đặt lại mật
+    // khẩu cho email lạ ở trên): gửi OTP thật cho người dùng có thật
+    // ngay sau yêu cầu lạ và chờ mail OTP của họ — consumer đã quét
+    // qua cửa sổ của yêu cầu lạ thì mới gửi được mail này. Thay sleep
+    // cố định 1.600ms.
+    const sentinel = await createMailUser('bamailchototp');
+    await http(app)
+      .post('/api/v1/auth/email-otp/send-verification-otp')
+      .set('Origin', TRUSTED_ORIGIN)
+      .send({ email: sentinel.email, type: 'sign-in' });
+    await waitForMailTo(sentinel.email);
     expect(sentMails.some((mail) => mail.to === ghost)).toBe(false);
     const users = await pg.query('select count(*)::int as n from users where email = $1', [ghost]);
     expect(users.rows[0].n).toBe(0);

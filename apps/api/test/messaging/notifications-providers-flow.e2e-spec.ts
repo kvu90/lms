@@ -1,10 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
+import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from '../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from '../support/course-enrolment-helpers';
 import { addExamSlot, createExamDraft, createReadyQuestion, pinExam } from '../support/exam-pin-helpers';
 import { createGradeItem, setGrade } from '../support/assessment-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
 
 /**
  * Lát N1 (issue #49): nối dây 3 provider thông báo từng là CÔNG TẮC GIẢ
@@ -31,14 +33,16 @@ describe('Notification providers wired (N1, issue #49)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
+  let redis: Redis;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
+    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
   });
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { redis.disconnect(); await pg.end(); await app.close(); });
 
   interface Notif { id: string; eventType: string; subject: string; fullMessage: string; contextUrl: string | null; timeRead: string | null }
 
@@ -75,6 +79,11 @@ describe('Notification providers wired (N1, issue #49)', () => {
     const { course, student, token } = await setupStudentInCourse();
     const item = await createGradeItem(app, admin, course.id, { itemName: 'Bài kiểm tra 15 phút', gradeMax: 100 });
     await setGrade(app, admin, item.id, student.id, 73.5);
+    // Mốc seq của toàn bộ sự kiện grade_updated mà lời gọi chấm điểm
+    // vừa phát (gồm cả sự kiện cho item tổng do tính lại tổng): consumer
+    // xử lý theo seq nên watermark vượt mốc này nghĩa là mọi sự kiện —
+    // kể cả nhánh item tổng bị bỏ qua không thông báo — đã xử lý xong.
+    const gradeSeq = await latestOutboxSeq(pg, 'grade_updated', 'userId', student.id);
 
     const notif = await waitForNotification(token, 'grade_updated');
     expect(notif.subject).toContain(course.fullName ?? '');
@@ -85,8 +94,11 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect(notif.fullMessage).toContain('Bài kiểm tra 15 phút');
 
     // Tính lại tổng (regradeUser phát thêm sự kiện cho item tổng) không
-    // sinh thông báo thứ hai: chờ thêm vài nhịp quét rồi đếm lại.
-    await new Promise((r) => setTimeout(r, 2500));
+    // sinh thông báo thứ hai: chờ watermark của consumer thông báo
+    // vượt mốc seq đã lấy ở trên — mọi sự kiện grade_updated của học
+    // sinh này, kể cả nhánh item tổng bị bỏ qua, đã xử lý xong — rồi
+    // mới đếm lại.
+    await waitForOutboxWatermark(redis, 'notifications', gradeSeq);
     const all = (await notificationsOf(token)).filter((n) => n.eventType === 'grade_updated');
     expect(all).toHaveLength(1);
   });
@@ -167,7 +179,12 @@ describe('Notification providers wired (N1, issue #49)', () => {
     const sent2 = await http(app).post(`/api/v1/messages/conversations/${conversationId}/messages`)
       .set('Authorization', `Bearer ${aToken}`).send({ text: 'tin thứ hai' });
     expect(sent2.status).toBeLessThan(300);
-    await new Promise((r) => setTimeout(r, 2500));
+    // Chờ consumer xử lý xong sự kiện của tin thứ hai (watermark vượt
+    // seq lớn nhất của message_sent trong conversation này) rồi mới
+    // đếm: khẳng định "không sinh bản mới" chỉ có nghĩa trên trạng
+    // thái đã xử lý chốt.
+    const secondSeq = await latestOutboxSeq(pg, 'message_sent', 'conversationId', conversationId);
+    await waitForOutboxWatermark(redis, 'notifications', secondSeq);
     const afterSecond = (await notificationsOf(bToken)).filter((n) => n.eventType === 'message_new');
     expect(afterSecond).toHaveLength(1);
 
@@ -261,14 +278,16 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
+  let redis: Redis;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
+    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
   });
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { redis.disconnect(); await pg.end(); await app.close(); });
 
   interface Notif { id: string; eventType: string; subject: string; fullMessage: string; contextUrl: string | null; timeRead: string | null }
 
@@ -520,15 +539,17 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
       [quizId, ctx.student.id, usageId]);
     const attemptId = (attemptRows.rows[0] as { id: string }).id;
 
-    async function emitFinished(overrides: Record<string, unknown>) {
-      await pg.query(
-        `insert into outbox_events (aggregate, type, payload) values ('quiz', 'quiz_attempt_finished', $1::jsonb)`,
+    /** Chèn một sự kiện quiz_attempt_finished và trả seq của nó để chờ watermark. */
+    async function emitFinished(overrides: Record<string, unknown>): Promise<number> {
+      const rows = await pg.query(
+        `insert into outbox_events (aggregate, type, payload) values ('quiz', 'quiz_attempt_finished', $1::jsonb) returning seq`,
         [JSON.stringify({
           pinId: quizId, courseId: ctx.course.id, attemptId, usageId, userId: ctx.student.id,
           attemptNumber: 1, preview: false, sumGrades: 0, needsGrading: true,
           closedDueToTimeLimit: false, actorId: ctx.student.id, ...overrides,
         })],
       );
+      return Number((rows.rows[0] as { seq: string | number }).seq);
     }
 
     await emitFinished({});
@@ -537,11 +558,13 @@ describe('Notification providers wired (NB-1, issue #174)', () => {
     expect(notif.contextUrl).toBe(`/courses/${ctx.course.id}/exams/${quizId}/results`);
 
     // Sự kiện trùng (cùng trạng thái) + lượt tự chấm hết + lượt
-    // preview: không sinh thêm bản nào cho GV.
+    // preview: không sinh thêm bản nào cho GV. Chờ watermark vượt seq
+    // của sự kiện cuối trong ba sự kiện — cả ba đã xử lý xong (hai
+    // nhánh sau bị bỏ qua không sinh bản) — rồi mới đếm.
     await emitFinished({});
     await emitFinished({ needsGrading: false });
-    await emitFinished({ preview: true });
-    await new Promise((r) => setTimeout(r, 3000));
+    const lastSeq = await emitFinished({ preview: true });
+    await waitForOutboxWatermark(redis, 'notifications', lastSeq);
     const all = (await notificationsOf(ctx.teacherToken)).filter((n) => n.eventType === 'quiz_attempt_finished');
     expect(all).toHaveLength(1);
   });

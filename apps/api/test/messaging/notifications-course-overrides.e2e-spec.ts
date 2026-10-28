@@ -150,8 +150,13 @@ describe('Notification course overrides (NB-4, issue #174)', () => {
     const notifB = await waitForNotification(token, 'activity_due_soon', (n) => n.contextUrl === `/courses/${courseB.id}/exams/${quizB}`);
     expect(notifB.subject).toContain('Bài kiểm tra chương 1');
     await waitForDispatchLog(student.id, 'activity_due_soon', 'skipped-course-mute');
-    // Chờ thêm vài nhịp quét để chắc chắn bản của A không tới muộn.
-    await new Promise((r) => setTimeout(r, 3000));
+    // Không cần chờ thêm nhịp quét nào: khẳng định phủ định dưới đây
+    // đã đứng trên trạng thái chốt. Consumer xử lý sự kiện theo seq
+    // tăng dần và sự kiện của A đứng trước sự kiện của B — thông báo
+    // của B đã tới (chờ ở trên) nghĩa là lượt xử lý của A đã xong; hơn
+    // nữa dòng dispatch log 'skipped-course-mute' của chính A là kết
+    // quả chốt của lượt xử lý đó (bị chặn, không sinh thông báo). Sleep
+    // cố định 3.000ms ở đây trước đây không gắn với tín hiệu nào.
     const dueSoons = (await notificationsOf(token)).filter((n) => n.eventType === 'activity_due_soon');
     expect(dueSoons.map((n) => n.contextUrl)).not.toContain(`/courses/${courseA.id}/exams/${quizA}`);
 

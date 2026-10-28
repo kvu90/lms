@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
+import { getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { eq, sql } from 'drizzle-orm';
 import { ActivityDueReminderProcessor } from '../../src/processors/activity-due-reminder.processor';
 import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db';
@@ -128,13 +130,44 @@ describe('Worker activity due-soon reminders (N5, issue #50)', () => {
     const cls = await db.execute(sql`insert into classes (tenant_id, name, owner_id, cohort_id) values ((select id from tenants where slug = 'worker-fixture'), 'wk fixture class', ${ownerId}, ${cohId}) returning id`);
     return (cls.rows[0] as { id: string }).id;
   }
+  let queue: Queue;
+
   beforeAll(async () => {
     harness = await bootWorkerModuleAsOrdinaryRole();
     context = harness.context;
     db = harness.adminDb;
+    // Tắt tài xế nền của chính queue này trong suốt lượt chạy của
+    // spec: module boot nguyên vẹn (như production) có scheduler
+    // đăng ký job lặp 5 phút cho CÙNG processor mà các ca dưới đây
+    // gọi trực tiếp — hai tài xế cùng quét thì lượt nền có thể chạy
+    // giữa lúc dựng fixture và lúc khẳng định, phát sự kiện cho
+    // trạng thái trung gian và làm số đếm lệch ngẫu nhiên (gốc cấu
+    // trúc của ca chập chờn ở spec này). Suite worker chạy nhiều
+    // file song song trên cùng một Redis và các context song song
+    // liên tục đăng ký lại scheduler của queue, nên gỡ scheduler
+    // không đủ: phải TẠM DỪNG queue (mọi worker đều tôn trọng cờ
+    // dừng ở tầng Redis) rồi chờ job đang chạy dở tại thời điểm dừng
+    // kết thúc — sau mốc này không lượt quét nền nào của queue chạy
+    // nữa. Mở lại queue ở afterAll. Harness giữ nguyên (vẫn boot cả
+    // scheduler như production), khẳng định nghiệp vụ không đổi.
+    queue = context.get<Queue>(getQueueToken('activity-due-reminders'));
+    await queue.pause();
+    await queue.removeJobScheduler('activity-due-reminder-scheduler');
+    const drainDeadline = Date.now() + 15000;
+    for (;;) {
+      const counts = await queue.getJobCounts('active');
+      if ((counts.active ?? 0) === 0) break;
+      if (Date.now() > drainDeadline) {
+        throw new Error(`activity-due-reminders queue still has active jobs after 15000ms (counts=${JSON.stringify(counts)})`);
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
     await db.execute(sql`insert into tenants (slug, name, kind, status) values ('worker-fixture', 'Worker fixture tenant', 'school', 'active') on conflict (slug) do nothing`);
   });
-  afterAll(async () => { await harness.close(); });
+  afterAll(async () => {
+    if (queue) await queue.resume().catch(() => undefined);
+    await harness.close();
+  });
 
   it('reminds each not-yet-submitted enrolled student exactly once; re-running the sweep does not duplicate', async () => {
     const { quizId, instanceId: inst } = await makeQuiz({ closeInHours: 12 });

@@ -5,6 +5,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
+import { baSessionBody } from '#test/ba-session';
 import { LoginPage } from './login';
 import { ProfilePage } from './profile';
 
@@ -35,25 +36,15 @@ const PROFILE = {
   customFields: [{ shortName: 'department', name: 'Department', type: 'select', value: 'Sales' }],
 };
 
-const SESSION_BODY = {
-  session: {
-    id: '01900000-0000-7000-8000-000000000101',
-    userId: PROFILE.id,
-    token: 'session-token',
-    expiresAt: '2026-11-01T00:00:00.000Z',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-  },
-  user: {
-    id: PROFILE.id,
-    username: 'learner',
-    name: 'Learn Er',
-    email: 'learner@example.com',
-    emailVerified: true,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-  },
-};
+// Thân phiên lấy từ fixture dùng chung `baSessionBody`: mốc hết hạn
+// tính tương đối theo thời điểm chạy nên không hết hạn theo lịch
+// (bản tự khai trước đây ghim ngày cứng và suýt nổ cả bộ spec).
+const SESSION_BODY = baSessionBody({
+  id: PROFILE.id,
+  username: 'learner',
+  name: 'Learn Er',
+  email: 'learner@example.com',
+});
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

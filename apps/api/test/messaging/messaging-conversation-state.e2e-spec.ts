@@ -1,8 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
+import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
 } from '../support/identity-access-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
 
 /**
  * Lát M5 — GHIM / LƯU TRỮ / TẮT TIẾNG theo hội thoại (issue #240).
@@ -36,6 +39,8 @@ interface Notif { id: string; eventType: string; contextUrl: string | null; time
 
 let app: INestApplication;
 let admin: string;
+let pg: Client;
+let redis: Redis;
 
 let counter = 0;
 async function person(): Promise<Person> {
@@ -114,6 +119,9 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
+    pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
     a = await person();
     b = await person();
     d = await person();
@@ -124,7 +132,7 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
     convD = await openConversation(a, d);
   });
 
-  afterAll(async () => { await app.close(); });
+  afterAll(async () => { redis.disconnect(); await pg.end(); await app.close(); });
 
   it('ghim: hội thoại đã ghim lên đầu và giữ thứ tự qua tải lại; trạng thái chỉ của người ghim', async () => {
     // Hoạt động gần nhất ở convD → danh sách chính của A: convD trước, convB sau.
@@ -259,12 +267,22 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
     const cleared = await http(app).post('/api/v1/notifications/clear-read').set('Authorization', `Bearer ${a.token}`).send({});
     expect(cleared.status).toBeLessThan(300);
 
-    // A tắt tiếng convD rồi D gửi tiếp hai tin: chờ quá nhịp quét
-    // của consumer — không được có message_new nào cho convD.
+    // A tắt tiếng convD rồi D gửi tiếp hai tin: không được có
+    // message_new nào cho convD. Nhánh tắt tiếng bị consumer bỏ qua
+    // TRƯỚC khi notify nên không để lại tín hiệu nhìn thấy nào (không
+    // thông báo, không dispatch log) — tín hiệu chốt duy nhất là
+    // watermark: chờ watermark của consumer thông báo vượt seq của cả
+    // hai sự kiện message_sent lúc tắt tiếng rồi mới khẳng định 0.
+    // Sleep cố định 5.000ms ở đây trước đây là gốc của ca chập chờn đã
+    // ghi nhận: nhịp quét + tải CI có thể vượt cửa sổ chờ đó.
     await setState(a.token, convD, { muted: true });
-    await send(d.token, convD, 'tin khi đang tắt tiếng 1');
-    await send(d.token, convD, 'tin khi đang tắt tiếng 2');
-    await sleep(5000);
+    const muted1 = await send(d.token, convD, 'tin khi đang tắt tiếng 1');
+    const muted2 = await send(d.token, convD, 'tin khi đang tắt tiếng 2');
+    const mutedSeq = Math.max(
+      await latestOutboxSeq(pg, 'message_sent', 'messageId', (muted1 as { id: string }).id),
+      await latestOutboxSeq(pg, 'message_sent', 'messageId', (muted2 as { id: string }).id),
+    );
+    await waitForOutboxWatermark(redis, 'notifications', mutedSeq);
     const whileMuted = (await notificationsOf(a.token))
       .filter((n) => n.eventType === 'message_new' && n.contextUrl === `/messages?conversation=${convD}`);
     expect(whileMuted).toHaveLength(0);

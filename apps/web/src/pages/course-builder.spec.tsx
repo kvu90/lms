@@ -499,11 +499,22 @@ describe('Builder Outline K1 (teacher)', () => {
     stubFetch(calls);
     renderCourseBuilder();
 
+    // Ngày mở phải ở tương lai theo đồng hồ chạy test: tính tương đối
+    // (+7 ngày, giờ địa phương) thay vì ghim ngày cứng theo lịch — ngày
+    // cứng sẽ thành quá khứ và bị validation phía form/API bác.
+    const openDay = (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      const m = `${d.getMonth() + 1}`.padStart(2, '0');
+      const dd = `${d.getDate()}`.padStart(2, '0');
+      return `${d.getFullYear()}-${m}-${dd}`;
+    })();
+
     const row = await screen.findByTestId(`module-builder-${MODULE_ID}`);
     await userEvent.selectOptions(within(row).getByLabelText('Trạng thái'), 'scheduled');
     const dateInput = within(row).getByLabelText('Ngày mở');
     await userEvent.clear(dateInput);
-    await userEvent.type(dateInput, '2026-11-02');
+    await userEvent.type(dateInput, openDay);
     await userEvent.click(within(row).getByRole('button', { name: 'Lưu module' }));
 
     await waitFor(() =>
@@ -524,7 +535,7 @@ describe('Builder Outline K1 (teacher)', () => {
     );
     const body = patch?.body as { visible: boolean; openAt: string };
     expect(body.visible).toBe(true);
-    expect(body.openAt.slice(0, 10)).toBe('2026-11-02');
+    expect(body.openAt.slice(0, 10)).toBe(openDay);
   });
 });
 

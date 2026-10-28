@@ -87,6 +87,33 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     throw new Error(`payment ${id} did not reach status ${want} (last: ${String(last.status)})`);
   }
 
+  /**
+   * Chờ chuỗi đối soát của một payment chốt xong: sự kiện nhà cung
+   * cấp đã sang trạng thái 'matched' — matching chỉ chốt 'matched' ở
+   * cuối nhịp xử lý của nó, sau khi đã kích hoạt quyền lợi, lật trạng
+   * thái payment và ghi sự kiện outbox `payment_succeeded` — đồng
+   * thời sự kiện outbox đó đã tồn tại. Sau mốc này không còn khâu bất
+   * đồng bộ nào trong chuỗi payment có thể đổi các số đếm được khẳng
+   * định, nên việc đếm sau replay IPN chờ tín hiệu này thay cho sleep
+   * cố định (cùng khuôn với spec payments-class-fee).
+   */
+  async function waitForPaymentReconciled(paymentId: string, timeoutMs = 12000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const matched = await pg.query(
+        `select count(*)::int as c from payment_provider_events where matched_payment_id = $1 and match_status = 'matched'`,
+        [paymentId],
+      );
+      const outbox = await pg.query(
+        `select count(*)::int as c from outbox_events where type = 'payment_succeeded' and payload->>'paymentId' = $1`,
+        [paymentId],
+      );
+      if (matched.rows[0].c >= 1 && outbox.rows[0].c >= 1) return;
+      if (Date.now() > deadline) throw new Error(`payment ${paymentId} reconciliation did not settle within ${timeoutMs}ms`);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+  }
+
   async function enrolmentActive(courseId: string, token: string): Promise<boolean> {
     const res = await http(app).get(`/api/v1/courses/${courseId}/enrolments/me`).set('Authorization', `Bearer ${token}`);
     return res.body.active === true;
@@ -201,7 +228,11 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     const replay = await postIpn(body);
     expect(replay.status).toBeLessThan(300);
     expect(replay.body.duplicate).toBe(true);
-    await new Promise((r) => setTimeout(r, 1500));
+    // Replay bị từ chối ĐỒNG BỘ ngay trong response (duplicate) nên
+    // không phát sinh xử lý nền nào từ phía nó; phía chuỗi đầu thì chờ
+    // tín hiệu chốt đối soát tường minh rồi mới đếm — thay sleep cố
+    // định 1.500ms không gắn với tín hiệu hoàn tất nào.
+    await waitForPaymentReconciled(payment.id);
 
     const events = await pg.query(
       'select count(*)::int as c from payment_provider_events where external_transaction_id = $1',

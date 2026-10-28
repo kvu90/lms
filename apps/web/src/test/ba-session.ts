@@ -13,16 +13,28 @@ export function isGetSessionUrl(url: unknown): boolean {
   return String(url).endsWith('/api/v1/auth/get-session');
 }
 
-/** Thân đáp ứng get-session khi đã có phiên (đúng hình BA trả). */
+/**
+ * Thân đáp ứng get-session khi đã có phiên (đúng hình BA trả).
+ *
+ * Mọi mốc thời gian tính TƯƠNG ĐỐI theo thời điểm chạy: `expiresAt`
+ * luôn ở tương lai đủ xa (30 ngày) và `createdAt`/`updatedAt` là hiện
+ * tại. Fixture dùng chung này từng ghim ngày hết hạn cứng theo lịch —
+ * tới ngày đó toàn bộ spec dùng chung đỏ đồng loạt dù code không đổi —
+ * nên mốc tuyệt đối bị cấm ở đây: phiên stub không được hết hạn theo
+ * lịch bao giờ nữa.
+ */
 export function baSessionBody(user: { id: string; username?: string; email?: string; name?: string }) {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const expiresAt = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();
   return {
     session: {
       id: '01900000-0000-7000-8000-000000000101',
       userId: user.id,
       token: 'session-token',
-      expiresAt: '2027-01-01T00:00:00.000Z',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      expiresAt,
+      createdAt: nowIso,
+      updatedAt: nowIso,
     },
     user: {
       id: user.id,
@@ -30,8 +42,8 @@ export function baSessionBody(user: { id: string; username?: string; email?: str
       name: user.name ?? 'Test User',
       email: user.email ?? 'user@example.com',
       emailVerified: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
+      createdAt: nowIso,
+      updatedAt: nowIso,
     },
   };
 }

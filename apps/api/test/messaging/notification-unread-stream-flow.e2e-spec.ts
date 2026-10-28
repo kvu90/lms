@@ -144,8 +144,14 @@ describe('Notification unread count SSE stream', () => {
     await sendNotificationTo(userA.id, 'Huy hiệu cho A');
     await streamA.waitForUnread(1);
 
-    // Cho tín hiệu (nếu có) thời gian tới B rồi khẳng định B chỉ có snapshot.
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    // Không cần chờ thêm cho "tín hiệu tới B": chu trình đã khép kín
+    // ở hai đầu chờ tường minh ngay trên đây. Lời gọi gửi thông báo
+    // trả về đồng bộ kênh popup 'delivered' (sendNotificationTo đã
+    // khẳng định), và stream của A đã hiện số 1 qua cùng một lần phát
+    // pub/sub — kênh unread-changed phát theo từng người dùng, một
+    // lần phát sai sang B (nếu có) đi qua đúng lần phát mà stream của
+    // A vừa nhận được. Sleep cố định 600ms ở đây trước đây không gắn
+    // với tín hiệu hoàn tất nào khác.
     expect(streamB.unreadEvents()).toEqual([0]);
   });
 

@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from '../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../support/course-enrolment-helpers';
 import { createGradeItem, setGrade } from '../support/assessment-helpers';
+import { waitForOutboxWatermark } from '../support/outbox-wait-helpers';
 
 /**
  * PH-2 (issue #159) — nửa API của digest phụ huynh: consumer quét
@@ -188,14 +189,16 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
     }
 
     // Phát lại cùng sự kiện (consumer ít-nhất-một-lần): không gửi trùng.
-    await pg.query(
-      `insert into outbox_events (aggregate, type, payload) values ('guardian', 'guardian_digest_due', $1::jsonb)`,
+    // Chờ watermark của consumer digest vượt seq của sự kiện phát lại —
+    // lượt xử lý trùng đã chốt (bị dedupe bỏ qua) — rồi mới đếm.
+    const replay = await pg.query(
+      `insert into outbox_events (aggregate, type, payload) values ('guardian', 'guardian_digest_due', $1::jsonb) returning seq`,
       [JSON.stringify({
         guardianUserId: guardian.id, studentUserId: student.id, digestId, kind: 'weekly',
         windowStart: new Date(now - 7 * 86_400_000).toISOString(), windowEnd: new Date(now + 86_400_000).toISOString(),
       })],
     );
-    await new Promise((r) => setTimeout(r, 2500));
+    await waitForOutboxWatermark(redis, 'guardian-digest', Number((replay.rows[0] as { seq: string | number }).seq));
     const all = (await notificationsOf(guardianToken)).filter((n) => n.eventType === 'guardian_digest');
     expect(all).toHaveLength(1);
 
@@ -328,8 +331,11 @@ describe('PH-2: digest phụ huynh — consumer + tuỳ chọn (issue #159)', ()
       expect((log.rows[0] as { subject: string }).subject).toBe('Có việc quá hạn 7 ngày chưa nộp');
     }
 
-    await pg.query(`insert into outbox_events (aggregate, type, payload) values ('guardian', 'guardian_overdue_alert', $1::jsonb)`, [JSON.stringify(payload)]);
-    await new Promise((r) => setTimeout(r, 2500));
+    // Phát lại cùng sự kiện quá hạn: chờ watermark của consumer digest
+    // vượt seq của sự kiện phát lại — lượt trùng đã xử lý chốt — rồi
+    // mới đếm, khẳng định không gửi trùng.
+    const replay = await pg.query(`insert into outbox_events (aggregate, type, payload) values ('guardian', 'guardian_overdue_alert', $1::jsonb) returning seq`, [JSON.stringify(payload)]);
+    await waitForOutboxWatermark(redis, 'guardian-digest', Number((replay.rows[0] as { seq: string | number }).seq));
     const all = (await notificationsOf(guardianToken)).filter((n) => n.eventType === 'guardian_overdue_alert');
     expect(all).toHaveLength(1);
   }, 180000);

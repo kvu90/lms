@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '#lib/auth';
 import { createQueryClient } from '#lib/query-client';
@@ -954,6 +954,17 @@ describe('Messages page — M1: sắp xếp, thời gian tương đối, nháp, 
   });
 
   it('hiện thời gian tương đối của tin cuối và đẩy conversation có tin mới lên đầu khi nhận conversation.updated', async () => {
+    // Ghim đồng hồ cho riêng ca này về một mốc cố định lấy tại đầu
+    // ca: nhãn tương đối tính từ Date.now() ở CẢ hai phía — stub dựng
+    // mốc tin cuối bằng isoMinutesAgo (Date.now lúc dựng stub) còn
+    // relativeTime đọc Date.now lúc hiển thị — hai lần đọc đồng hồ
+    // thật lệch nhau qua biên phút/giờ làm nhãn "30 phút trước" /
+    // "2 giờ trước" trượt ngẫu nhiên trên máy tải nặng. Ghim để cả
+    // hai phía dùng chung một đồng hồ; khôi phục khi ca kết thúc.
+    // (new Date() không bị ghim ảnh hưởng nên tin realtime ở dưới vẫn
+    // mang mốc thật, chỉ lệch mốc ghim vài mili-giây — vẫn "vừa xong".)
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(Date.now());
+    onTestFinished(() => nowSpy.mockRestore());
     const calls: RecordedCall[] = [];
     stubFetchM1(calls);
     renderMessages();

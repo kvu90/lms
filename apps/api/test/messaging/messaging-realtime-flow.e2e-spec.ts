@@ -375,9 +375,19 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
       .set('Authorization', `Bearer ${m2Token}`);
     expect(detail.status).toBe(403);
 
-    // message.new phát một lần vào room: m1 đã nhận mà m2 không nhận
-    // trong cùng nhịp phát thì sự kiện không rò sang socket của m2.
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    // Tin neo chốt lượt: gửi thêm một tin nữa và chờ m1 nhận nó.
+    // Distributor xử lý sự kiện theo seq tăng dần nên lượt phân phối
+    // của tin neo hoàn tất nghĩa là lượt phân phối của tin 'sau khi
+    // gỡ' (đứng trước) đã chốt xong cho mọi socket — nếu lượt đó có
+    // rò sang m2 thì sự kiện rò đã phải tới trước cả tin neo. Khẳng
+    // định rỗng sau mốc này là trên trạng thái đã chốt, thay sleep cố
+    // định 800ms "chờ cùng nhịp phát".
+    const anchorSeenByM1 = waitForSocketEvent<{ conversationId: string; message: WireMessage }>(
+      socketM1, 'message.new', (p) => p.conversationId === gConvId && p.message.fullMessage === 'tin neo chốt lượt',
+    );
+    await http(app).post(`/api/v1/messages/conversations/${gConvId}/messages`)
+      .set('Authorization', `Bearer ${m1Token}`).send({ text: 'tin neo chốt lượt' });
+    await anchorSeenByM1;
     expect(leaked).toEqual([]);
 
     socketM1.disconnect();
