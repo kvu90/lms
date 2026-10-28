@@ -6,7 +6,7 @@ import {
   roleIdByShortname, setOverride, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
-import { courseContextId } from './engagement-helpers';
+import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 const PROHIBIT = -1000;
@@ -172,11 +172,16 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     };
     // Người dùng đích, nhưng tài liệu trong chỉ mục là bản kiểu cũ còn
     // sót từ trước khi sửa: content mang cả username lẫn email, ghi
-    // thẳng qua route index-raw thay vì qua fetch mới.
+    // thẳng qua route index-raw thay vì qua fetch mới. Tài liệu cũ thật
+    // phải mang đúng context mà fetch của area users từng ghi — context
+    // người dùng cấp 30 của chính target (tạo cùng lúc với tài khoản);
+    // ghi context hệ thống thì lớp re-check loại tài liệu vì context
+    // không khớp bản ghi gốc, và đó không còn là tài liệu cũ thật.
     const target = await createUserViaApi(app, admin);
     const sysCtx = await systemContextId(app, admin);
+    const userCtx = await contextIdByLevelInstance(app, admin, 30, target.id);
     const stale = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
-      .send({ area: 'users', itemId: target.id, title: 'Test User', content: `${target.username} ${target.email}`, contextId: sysCtx, ownerId: target.id });
+      .send({ area: 'users', itemId: target.id, title: 'Test User', content: `${target.username} ${target.email}`, contextId: userCtx, ownerId: target.id });
     expect(stale.status).toBeLessThan(300);
     const ALLOW = 1;
     // Người tìm KHÔNG có quyền quản trị người dùng: không phải site
