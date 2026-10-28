@@ -52,7 +52,6 @@ của repo.
   → xem tĩnh hiển thị đúng cùng nội dung; nội dung ngoài hợp đồng bị từ chối.
   Không test chi tiết nội bộ của TipTap (thứ tự plugin, cấu trúc transaction).
 - Thêm một khả năng soạn mới mà test phía xem không có ca tương ứng = chưa xong.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 

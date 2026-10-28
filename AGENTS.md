@@ -104,10 +104,7 @@ trình hiện tại trong tài liệu này.
    phong kỹ thuật trung tính. Tuyệt đối không dùng danh xưng hay cách
    xưng hô nội bộ trong văn bản của codebase, và không ghi quyết định
    thuộc về cá nhân nào — quyết định luôn được trình bày là yêu cầu
-   kỹ thuật. Cấm chữ ký và danh xưng đội trong mọi văn bản của repo:
-   không ký dạng `[ĐỘI MUSE — <vai trò>]` hay bất kỳ biến thể nào ở
-   đầu hoặc cuối issue, PR, comment, thông điệp commit và tài liệu;
-   nội dung phải đứng độc lập như tài liệu kỹ thuật của chính dự án.
+   kỹ thuật.
 6. **Mẫu là cơ chế thực thi chuẩn.** Issue mở qua một mẫu trong
    `.github/ISSUE_TEMPLATE/`; PR mở theo
    `.github/pull_request_template.md`. Issue trống (không theo mẫu) bị
@@ -193,11 +190,10 @@ trình hiện tại trong tài liệu này.
    phối — việc chia là ngoại lệ hiếm, phải được duyệt trước, giữ số
    PR ở mức tối thiểu và vẫn theo dõi bằng task list trong issue.
 4. Thân PR có đủ các mục "Việc con", "Bản đồ thay đổi theo phạm vi"
-   và "Kỷ luật đã giữ" theo mẫu PR của repo, và mở đầu thẳng bằng
-   mục "Liên kết issue" — không chèn dòng chữ ký hay danh xưng đội
-   (theo mục "Văn bản tự chứa"). Dòng `Closes #<số issue>` ở các
-   điểm trên là bắt buộc — đây là cơ chế duy nhất để đóng issue,
-   theo mục "Đóng issue" trong tài liệu này.
+   và "Kỷ luật đã giữ" theo mẫu PR của repo, mở đầu bằng mục "Liên
+   kết issue". Dòng `Closes #<số issue>` ở các điểm trên là bắt buộc
+   — đây là cơ chế duy nhất để đóng issue, theo mục "Đóng issue"
+   trong tài liệu này.
 
 ### Review và merge
 

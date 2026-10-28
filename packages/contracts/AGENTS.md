@@ -53,7 +53,6 @@ của repo.
   parse được JSON mẫu". Nới một ràng buộc nghiệp vụ thì test phải fail.
 - Đổi schema mà mọi test vẫn xanh nguyên = dấu hiệu test chưa bám nghiệp vụ — bổ
   sung test bám quyết định trong cùng lượt.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 
