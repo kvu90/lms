@@ -30,7 +30,7 @@
  */
 import { dehydrate, type DehydratedState, type QueryClient } from '@tanstack/react-query';
 import { createQueryClient } from './query-client';
-import { fetchApiJsonForRequest } from './server-api';
+import { fetchApiJsonForRequest, fetchApiJsonForRequestOrThrow } from './server-api';
 
 /** Hình dạng dữ liệu loader mà mọi route tầng SL trả về cho root.tsx gom qua HydrationBoundary. */
 export interface SsrLoaderData {
@@ -53,18 +53,29 @@ export function hasSessionCookie(request: Request): boolean {
 
 /**
  * queryFn phía server cho một endpoint đọc: gọi API nội bộ bằng cookie
- * của chính request và TRẢ dữ liệu đã parse; đáp ứng rỗng/lỗi (helper
- * `fetchApiJsonForRequest` nuốt mọi lỗi thành null) thì NÉM lỗi để
- * query mang trạng thái lỗi và bị loại khỏi dehydrated state (xem bất
- * biến an toàn ở đầu file).
+ * của chính request qua hợp đồng NGHIÊM (`fetchApiJsonForRequestOrThrow`
+ * ở `lib/server-api.ts`) và TRẢ dữ liệu đã parse. HTTP lỗi thì
+ * `ApiError` mang đúng status được ném nguyên ra — query mang trạng
+ * thái lỗi và bị loại khỏi dehydrated state (xem bất biến an toàn ở
+ * đầu file), ĐỒNG THỜI chính sách retry của QueryClient nhận diện
+ * được status nên không thử lại 401/403/404 (trước đây status bị nuốt
+ * thành null rồi ném Error chung, một đáp ứng 403 vẫn bị gọi 3 lượt).
+ * Signal hủy của TanStack Query được chuyển tiếp xuống lượt fetch để
+ * lượt prefetch bị hủy thì request nội bộ cũng dừng. Riêng thân đáp
+ * ứng 200 là `null` vẫn coi là lỗi như trước (có endpoint trả null khi
+ * không có dữ liệu — ví dụ token xuất lịch — và phía client cũng
+ * không coi null là dữ liệu hợp lệ của query đó).
  *
  * @param request - Request đang được loader phục vụ (nguồn cookie).
  * @param path - Đường dẫn API đầy đủ, gồm cả `/api/v1` và query string.
  * @returns Hàm queryFn dùng cho prefetchQuery/prefetchInfiniteQuery.
  */
-export function serverQueryFn<T>(request: Request, path: string): () => Promise<T> {
-  return async () => {
-    const body = await fetchApiJsonForRequest(request, path);
+export function serverQueryFn<T>(
+  request: Request,
+  path: string,
+): (context?: { signal?: AbortSignal }) => Promise<T> {
+  return async (context) => {
+    const body = await fetchApiJsonForRequestOrThrow(request, path, context?.signal);
     if (body === null) throw new Error(`SSR prefetch failed: ${path}`);
     return body as T;
   };
