@@ -161,6 +161,26 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     return this.repo.getConversationTenantId(conversationId).catch(() => null);
   }
 
+  /**
+   * Tra danh sách user mà `userId` đã chặn, theo kỷ luật FAIL-CLOSED
+   * của cổng chặn cặp 1–1: tra cứu thành công trả danh sách (có thể
+   * rỗng); tra cứu LỖI trả `null` và ghi log lỗi — phía gọi phải coi
+   * `null` là "không xác minh được quan hệ chặn" và NÉN toàn bộ lượt
+   * phân phối. Nuốt lỗi thành danh sách rỗng (khuôn cũ) làm cổng chặn
+   * fail-open: lỗi cơ sở dữ liệu đúng lúc phân phối là tin/biên sự
+   * kiện vẫn lộ sang phía đang bị chặn.
+   */
+  private async blockedCounterpartIdsFailClosed(userId: string): Promise<string[] | null> {
+    try {
+      return await this.repo.listBlockedCounterpartIds(userId);
+    } catch (error) {
+      this.logger.error(
+        `Không tra được danh sách chặn của user ${userId}, nén phân phối realtime theo kỷ luật fail-closed: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
   // --- phân phối sự kiện nghiệp vụ (consumer của outbox gọi) -------------
 
   /**
@@ -190,8 +210,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       const first = memberIds[0];
       const second = memberIds[1];
       if (first === undefined || second === undefined) return;
-      const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
-      if (blocked.includes(second)) {
+      // Cổng chặn fail-closed: không tra được danh sách chặn thì
+      // nén luôn lượt phát này (xem blockedCounterpartIdsFailClosed).
+      const blocked = await this.blockedCounterpartIdsFailClosed(first);
+      if (blocked === null || blocked.includes(second)) {
         return;
       }
     }
@@ -246,8 +268,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
       const first = memberIds[0];
       const second = memberIds[1];
       if (first === undefined || second === undefined) return;
-      const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
-      if (blocked.includes(second)) {
+      // Cổng chặn fail-closed như ở distributeNewMessage: không tra
+      // được danh sách chặn thì nén luôn lượt phát này.
+      const blocked = await this.blockedCounterpartIdsFailClosed(first);
+      if (blocked === null || blocked.includes(second)) {
         return;
       }
     }
@@ -289,7 +313,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     const first = memberIds[0];
     const second = memberIds[1];
     if (first === undefined || second === undefined) return true;
-    const blocked: string[] = await this.repo.listBlockedCounterpartIds(first).catch(() => []);
+    // Fail-closed: không tra được danh sách chặn thì coi như phải
+    // nén (trả true) — không xác minh được quan hệ chặn thì không phát.
+    const blocked = await this.blockedCounterpartIdsFailClosed(first);
+    if (blocked === null) return true;
     if (!blocked.includes(second)) return false;
     return true;
   }
@@ -414,8 +441,10 @@ export class MessagingRealtimeService implements OnModuleDestroy {
     if (conversation?.type === 1 && memberIds?.length === 2) {
       const other = memberIds.find((id) => id !== payload.userId);
       if (other) {
-        const blocked: string[] = await this.repo.listBlockedCounterpartIds(payload.userId).catch(() => []);
-        if (blocked.includes(other)) {
+        // Cổng chặn fail-closed như các đường phân phối còn lại:
+        // không tra được danh sách chặn thì nén biên đã-đọc này.
+        const blocked = await this.blockedCounterpartIdsFailClosed(payload.userId);
+        if (blocked === null || blocked.includes(other)) {
           return;
         }
       }
