@@ -31,7 +31,7 @@ RUN pnpm --filter @lms/api deploy --prod /out/api \
 # ----- Runtime API -----
 # Tiến trình API NestJS đã biên dịch (dist/main.js). Dữ liệu tệp tải lên
 # nằm ở FILE_STORAGE_DIR (mặc định ./data/files theo cấu hình app) —
-# docker-compose gắn volume bền vào đúng thư mục này.
+# compose.yaml gắn volume bền vào đúng thư mục này.
 FROM node:24-bookworm-slim AS api
 ENV NODE_ENV=production
 WORKDIR /app

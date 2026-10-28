@@ -1,5 +1,5 @@
 {
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": "compose.yaml",
   "forwardPorts": [
     3000,
     5173,

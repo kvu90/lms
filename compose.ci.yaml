@@ -1,7 +1,7 @@
-# docker-compose.ci.yml — file override CHỈ dùng trong CI bởi workflow
+# compose.ci.yaml — file override CHỈ dùng trong CI bởi workflow
 # .github/workflows/deploy-check.yml, KHÔNG dùng cho deploy thật:
 # Dokploy và các lần chạy tay trên máy tự host chỉ dùng một mình
-# docker-compose.yml như trước, hành vi không đổi.
+# compose.yaml như trước, hành vi không đổi.
 #
 # File này chỉ bổ sung cache layer cho bước build: mỗi service có
 # build đọc cache từ GitHub Actions cache (cache_from, kiểu type=gha)
@@ -13,11 +13,11 @@
 #
 # Ngoài cache build, file này KHÔNG thay đổi bất kỳ cấu hình chạy nào
 # (không environment, không ports, không depends_on, không command):
-# khi gộp với docker-compose.yml, cấu hình chạy của stack giữ nguyên
+# khi gộp với compose.yaml, cấu hình chạy của stack giữ nguyên
 # như bản production.
 #
 # Cách workflow dùng (mọi lệnh compose đều gộp cả hai file):
-#   docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+#   docker compose -f compose.yaml -f compose.ci.yaml up -d --build
 
 services:
   api:

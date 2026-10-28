@@ -1,4 +1,4 @@
-# docker-compose.yml ở gốc repo — stack production TỰ HOST toàn bộ hệ
+# compose.yaml ở gốc repo — stack production TỰ HOST toàn bộ hệ
 # thống trên một máy (nền tảng đích: Dokploy quản lý chính file compose
 # này, Cloudflare Tunnel công bố service web ra ngoài).
 #

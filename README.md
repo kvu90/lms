@@ -49,7 +49,7 @@ mục dưới (migrate, seed, `pnpm dev`) trong terminal của container.
 Cổng 3000 (API) và 5173 (web) được chuyển tiếp ra máy host.
 
 Container này CHỈ phục vụ phát triển. Đường triển khai production
-dùng `Dockerfile` đa target và `docker-compose.yml` ở gốc repo như mô
+dùng `Dockerfile` đa target và `compose.yaml` ở gốc repo như mô
 tả ở mục [Triển khai production (tự host)](#triển-khai-production-tự-host) —
 hai bộ file phục vụ hai mục đích khác nhau: devcontainer cho phát
 triển local, compose ở gốc cho production tự host.
@@ -74,7 +74,7 @@ Toàn bộ stack production chạy tự host bằng Docker Compose trên máy
 chủ tự quản; nền tảng quản lý đích là Dokploy (quản lý chính file
 compose này) và Cloudflare Tunnel công bố service web ra ngoài.
 
-- `docker-compose.yml` ở gốc repo khai báo năm service: `postgres`
+- `compose.yaml` ở gốc repo khai báo năm service: `postgres`
   (image `postgres:18.6` — bắt buộc vì schema dùng `uuidv7()` của
   PostgreSQL 18), `redis`, `api`, `worker`, `web`; kèm healthcheck,
   thứ tự khởi động theo healthcheck và volume bền cho dữ liệu
