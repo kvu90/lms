@@ -96,3 +96,15 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   tượng sai rằng chúng là một phần của bộ component đang dùng. Nếu
   lần đồng bộ shadcn sau sinh lại hai file này, đánh giá lại theo nhu
   cầu dùng thật tại thời điểm đó thay vì giữ sẵn.
+- `src/components/drawer.tsx`, `src/components/sonner.tsx` và
+  `src/components/radio-group.tsx` (issue #438): đã XOÁ khỏi package,
+  kèm các dependency chỉ còn chúng dùng (`vaul`, `sonner`,
+  `next-themes`) và selector mồ côi
+  `has-[>[data-slot=radio-group]]:gap-3` trong
+  `src/components/field.tsx`. Lý do: tại thời điểm xoá, quét toàn repo
+  theo tên file, tên export và đường import cho 0 điểm dùng ngoài
+  chính các file này — component stock do CLI sinh ra nhưng không bề
+  mặt nào của sản phẩm sử dụng, giữ lại chỉ tạo ấn tượng sai rằng
+  chúng là một phần của bộ component đang dùng. Nếu lần đồng bộ
+  shadcn sau sinh lại các file này, đánh giá lại theo nhu cầu dùng
+  thật tại thời điểm đó thay vì giữ sẵn.
