@@ -69,7 +69,7 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     );
     expect(Number(staleOverrides.rows[0].n)).toBe(0);
 
-    // The registry itself is intact: 111 definitions trên main 7ff4691
+    // Registry vẫn nguyên vẹn: 124 định nghĩa
     // (105 + 6 quyền exam:* của Ngân hàng đề EB-1, issue #113:
     // exam:view, exam:edit, exam:copy, exam:share, exam:moderate,
     // exam:deploy) + 1 quyền moderation:manage của vòng đời tin nhắn
@@ -86,7 +86,7 @@ describe('Access: seed prunes stale capability definitions (issue #35)', () => {
     // matrix:add / matrix:edit và exam:add, exam:view đổi tên thành
     // exam:use — ròng +2) → 123, + 1 quyền payment:managecoupons của
     // bề mặt quản trị coupon mua gói (phần còn lại của lát 2, issue
-    // #189) → 124, every one không có tiền tố,
+    // #189) → 124, mọi định nghĩa đều không có tiền tố,
     // và các mặc định đã đổi tên đã được seed lại tại context hệ thống.
     const defs = await pg.query<{ n: string }>(`select count(*) as n from capabilities`);
     expect(Number(defs.rows[0].n)).toBe(124);
