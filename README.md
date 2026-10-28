@@ -92,10 +92,15 @@ Dựng stack trên máy trống:
 
 ```bash
 cp .env.example .env              # điền các bí mật bắt buộc và URL công khai
-docker compose run --rm migrate   # áp migration lên cơ sở dữ liệu trống
-docker compose up -d --build
+docker compose up -d --build      # migration tự áp xong trước khi api/worker khởi động
 curl http://localhost:8080/api/v1/health   # kỳ vọng {"status":"ok",...}
 ```
+
+- Migration được áp tự động ở mỗi lần khởi động stack: `api` và
+  `worker` khai `depends_on` điều kiện
+  `service_completed_successfully` vào service `migrate`, nên cơ sở
+  dữ liệu trống được tự dựng ở lần `up` đầu tiên. Áp riêng khi cần:
+  `docker compose run --rm migrate`.
 
 - Lần đầu trên cơ sở dữ liệu trống, API tự tạo tài khoản quản trị
   theo `ADMIN_USERNAME` / `ADMIN_PASSWORD` trong `.env`; đổi mật

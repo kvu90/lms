@@ -10,9 +10,15 @@
 #
 # Cách dùng:
 #   cp .env.example .env   # rồi điền các giá trị bí mật thật
-#   docker compose run --rm migrate   # áp migration vào DB trống (lần đầu)
 #   docker compose up -d --build
 # Kiểm tra: curl http://localhost:8080/api/v1/health
+#
+# Migration cơ sở dữ liệu tự chạy ở mỗi lần khởi động stack: service
+# migrate luôn thuộc stack và api/worker chỉ khởi động sau khi nó kết
+# thúc thành công (depends_on điều kiện
+# service_completed_successfully), nên cơ sở dữ liệu trống được tự
+# dựng ở lần up đầu tiên. Cần áp riêng thì chạy tay vẫn được:
+#   docker compose run --rm migrate
 #
 # Seed dữ liệu mẫu (CHỈ cho môi trường thử nghiệm, không chạy trên
 # production thật): docker compose --profile seed run --rm seed
@@ -100,6 +106,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3100/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
       interval: 10s
@@ -131,6 +139,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web:
     build:
@@ -156,15 +166,20 @@ services:
       retries: 12
       start_period: 20s
 
-  # Chạy một lần để áp migration (thư mục drizzle đi kèm image api)
-  # trước khi khởi động stack trên cơ sở dữ liệu trống:
+  # Áp migration (thư mục drizzle đi kèm image api) rồi kết thúc.
+  # Service này luôn thuộc stack, không nằm trong profile: api và
+  # worker khai depends_on điều kiện service_completed_successfully
+  # vào nó nên mỗi lần `docker compose up`, migration được áp xong
+  # (phần đã áp được bỏ qua, chạy lại an toàn) mới tới lượt api/worker
+  # khởi động. Nền tảng quản lý qua giao diện như Dokploy không chạy
+  # được service one-off theo profile, nên cổng thứ tự này là cơ chế
+  # kích hoạt migrate ở đó. Áp riêng khi cần:
   #   docker compose run --rm migrate
   migrate:
     build:
       context: .
       dockerfile: Dockerfile
       target: api
-    profiles: ["tools"]
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
     depends_on:
