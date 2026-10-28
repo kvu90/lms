@@ -61,8 +61,16 @@ jobs:
         run: pnpm exec turbo run build
       - name: Typecheck
         run: pnpm exec turbo run typecheck
+      # E2e của API không còn chạy trong job này: nó chạy ở 4 job
+      # shard song song của job test-api-e2e bên dưới để rút thời gian
+      # tường của bước Test. Job này chạy mọi suite còn lại — các
+      # package ngoài API qua turbo, cộng project unit và project int
+      # của API qua script riêng đã khai trong package.json của API.
       - name: Test
-        run: pnpm exec turbo run test
+        run: |
+          pnpm exec turbo run test --filter='!@lms/api'
+          pnpm --filter @lms/api run test:unit
+          pnpm --filter @lms/api run test:int
       # Smoke test topology production (lát 3 của issue #294): boot cả
       # cặp hai tiến trình của topology C (API ở cổng nội bộ; SSR bind
       # cổng công khai, proxy /api/* về API) — khởi động tách rời đúng
@@ -155,3 +163,123 @@ jobs:
           grep -Eq '<dd>[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:' smoke-ssr.html || { echo "::error::SSR /health HTML lacks a live ISO timestamp from the loader"; exit 1; }
 
           echo "Smoke topology passed in $(( $(date +%s) - smoke_started ))s"
+
+  # E2e của API chia thành 4 shard chạy song song bằng matrix, theo
+  # khuôn chính thức của Vitest (mục Sharding trong tài liệu
+  # Improving Performance): mỗi shard chạy vitest với cờ --shard kèm
+  # --reporter=blob, một job gộp riêng (merge-e2e-reports) tải các
+  # blob report xuống và chạy --merge-reports để tổng hợp kết quả.
+  # Mỗi shard có service PostgreSQL/Redis riêng của job (mỗi job
+  # chạy trên một runner riêng) và dùng DB riêng
+  # lms_test_api_<số shard>: các file e2e dùng chung dữ liệu toàn
+  # cục (outbox, event_log) nên shard dùng chung tài nguyên sẽ giẫm
+  # dữ liệu của nhau. Redis tách bằng service riêng cho từng shard,
+  # không tách bằng DB logic trong URL: kết nối hàng đợi BullMQ của
+  # ứng dụng dựng từ host/cổng của URL (không mang chỉ số DB), trong
+  # khi các client Redis đọc trực tiếp trong spec lại mang chỉ số DB
+  # theo URL — trộn hai cách sẽ làm phía ghi và phía đọc lệch DB.
+  # Trong một shard, fileParallelism vẫn tắt như cấu hình Vitest
+  # hiện hành.
+  # fail-fast tắt để một shard đỏ không huỷ các shard còn lại — job
+  # gộp vẫn nhận đủ blob report và chỉ đúng shard lỗi.
+  test-api-e2e:
+    name: test-api-e2e (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
+    services:
+      postgres:
+        image: postgres:18.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Create the test database of this shard
+        run: PGPASSWORD=postgres psql -h localhost -U postgres -c 'CREATE DATABASE lms_test_api_${{ matrix.shardIndex }}'
+      - name: Migrate the test database of this shard from empty
+        run: DATABASE_URL=postgres://postgres:postgres@localhost:5432/lms_test_api_${{ matrix.shardIndex }} pnpm --filter @lms/api db:migrate
+      - name: Build the API and its dependencies
+        run: pnpm exec turbo run build --filter=@lms/api...
+      - name: Run this e2e shard
+        working-directory: apps/api
+        env:
+          LMS_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/lms_test_api_${{ matrix.shardIndex }}
+        run: pnpm exec vitest run --project e2e --reporter=blob --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      # Blob report tải lên kể cả khi shard đỏ (chỉ trừ lúc lượt bị
+      # huỷ) để job gộp luôn có đủ kết quả của cả 4 shard.
+      - name: Upload the blob report of this shard
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-e2e-${{ matrix.shardIndex }}
+          path: apps/api/.vitest
+          include-hidden-files: true
+          retention-days: 1
+
+      # In tổng số file/ca của riêng shard này thành annotation, đọc
+      # lại từ chính blob report vừa ghi bằng --merge-reports: cộng
+      # tổng của 4 shard phải bằng tổng của job gộp và bằng số ca của
+      # suite trước khi chia shard — đó là bằng chứng không shard nào
+      # mất ca hay chạy trùng ca của shard khác.
+      - name: Print the totals of this shard
+        working-directory: apps/api
+        run: |
+          pnpm exec vitest run --merge-reports | tee "$RUNNER_TEMP/shard-summary.txt"
+          sed -e 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/shard-summary.txt" > "$RUNNER_TEMP/shard-summary-clean.txt" || true
+          summary=$(grep -E '^[[:space:]]*(Test Files|Tests)[[:space:]]' "$RUNNER_TEMP/shard-summary-clean.txt" | sed 's/^ *//' | paste -sd '; ') || true
+          echo "Tổng số của shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}: $summary"
+
+  # Job gộp blob report của 4 shard: chỉ tổng hợp kết quả đã chạy,
+  # không chạy lại test. Job vẫn chạy khi một shard đỏ (miễn lượt
+  # chưa bị huỷ) và kết quả gộp phản ánh đúng shard lỗi; tổng số ca
+  # trong đầu ra của bước gộp là bằng chứng không shard nào mất ca
+  # hay chạy trùng ca của shard khác.
+  merge-e2e-reports:
+    name: merge-e2e-reports
+    if: ${{ !cancelled() }}
+    needs: [test-api-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download the blob reports of all shards
+        uses: actions/download-artifact@v4
+        with:
+          path: apps/api/.vitest
+          merge-multiple: true
+      - name: Merge the blob reports
+        working-directory: apps/api
+        run: |
+          set -o pipefail
+          pnpm exec vitest run --merge-reports | tee "$RUNNER_TEMP/merge-reports.txt"
+          sed -e 's/\x1b\[[0-9;]*m//g' "$RUNNER_TEMP/merge-reports.txt" > "$RUNNER_TEMP/merge-reports-clean.txt" || true
+          summary=$(grep -E '^[[:space:]]*(Test Files|Tests)[[:space:]]' "$RUNNER_TEMP/merge-reports-clean.txt" | sed 's/^ *//' | paste -sd '; ') || true
+          echo "Kết quả gộp blob report e2e: $summary"
