@@ -2,8 +2,8 @@ import { useId, useMemo, useRef } from 'react';
 import { Decoration, Extension, type WidgetDecoration } from '@tiptap/core';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import type { RichTextDocument } from '@lms/contracts';
-import { RichTextEditor } from './RichTextEditor.js';
-import type { RichTextImagePick } from './RichTextEditor.js';
+import { RichTextEditor } from './rich-text-editor.js';
+import type { RichTextImagePick } from './rich-text-editor.js';
 import {
   CHOICE_LIST_NODE_TYPE,
   CHOICE_NODE_TYPE,

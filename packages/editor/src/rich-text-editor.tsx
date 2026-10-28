@@ -23,7 +23,7 @@ import {
   contentForSave,
   ensureTerminalContinuation,
 } from './document-continuation.js';
-import { MathEditorPanel, type MathNodeKind } from './MathEditorPanel.js';
+import { MathEditorPanel, type MathNodeKind } from './math-editor-panel.js';
 import { validateMathLatex } from './math.js';
 
 /**

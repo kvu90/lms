@@ -16,8 +16,8 @@ export {
   type MultipleChoiceChoiceJson,
   type MultipleChoiceDocumentJson,
 } from './multiple-choice.js';
-export { MultipleChoiceEditor } from './MultipleChoiceEditor.js';
-export type { MultipleChoiceEditorProps } from './MultipleChoiceEditor.js';
+export { MultipleChoiceEditor } from './multiple-choice-editor.js';
+export type { MultipleChoiceEditorProps } from './multiple-choice-editor.js';
 export {
   STATEMENT_LIST_NODE_TYPE,
   STATEMENT_NODE_TYPE,
@@ -36,15 +36,15 @@ export {
   type TrueFalseDocumentJson,
   type TrueFalseStatementJson,
 } from './true-false.js';
-export { TrueFalseEditor } from './TrueFalseEditor.js';
-export type { TrueFalseEditorProps } from './TrueFalseEditor.js';
+export { TrueFalseEditor } from './true-false-editor.js';
+export type { TrueFalseEditorProps } from './true-false-editor.js';
 export { contentForSave, ensureTerminalContinuation } from './document-continuation.js';
-export { RichTextEditor } from './RichTextEditor.js';
-export type { RichTextEditorProps, RichTextImagePick } from './RichTextEditor.js';
-export { RichTextView } from './RichTextView.js';
-export type { RichTextViewProps } from './RichTextView.js';
-export { MathEditorPanel } from './MathEditorPanel.js';
-export type { MathEditorPanelProps, MathNodeKind } from './MathEditorPanel.js';
+export { RichTextEditor } from './rich-text-editor.js';
+export type { RichTextEditorProps, RichTextImagePick } from './rich-text-editor.js';
+export { RichTextView } from './rich-text-view.js';
+export type { RichTextViewProps } from './rich-text-view.js';
+export { MathEditorPanel } from './math-editor-panel.js';
+export type { MathEditorPanelProps, MathNodeKind } from './math-editor-panel.js';
 export { renderMathHtml, validateMathLatex } from './math.js';
 export type {
   RichTextBlockMathNode,

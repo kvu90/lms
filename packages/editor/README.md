@@ -17,7 +17,7 @@ mọi bề mặt khác.
 | Quyết định | Nguồn |
 |---|---|
 | Nội dung soạn thảo lưu ở **dạng cấu trúc theo hợp đồng rich-text của `packages/contracts`**, không lưu HTML tự do — nhờ vậy nội dung render được nhất quán ở web, ở phía xem của học sinh, và kiểm soát được những gì được phép xuất hiện trong nội dung (không nhúng script/HTML tuỳ ý của người soạn vào trang người học). | Hợp đồng `rich-text.ts` của @lms/contracts |
-| Phía XEM nội dung (học sinh đọc đề/phản hồi) dùng trình render tĩnh (`RichTextView`, static renderer) — bề mặt học không tải cả bộ editor: nhẹ hơn và không có đường nào để người xem sửa nội dung qua giao diện xem. | `RichTextView.tsx` |
+| Phía XEM nội dung (học sinh đọc đề/phản hồi) dùng trình render tĩnh (`RichTextView`, static renderer) — bề mặt học không tải cả bộ editor: nhẹ hơn và không có đường nào để người xem sửa nội dung qua giao diện xem. | `rich-text-view.tsx` |
 | Annotation/phản hồi khi chấm bài: phản hồi gắn theo vị trí trên nội dung/ảnh (annotation vector theo trang + toạ độ %) là hướng đã chốt cho chấm/phản hồi theo năng lực — editor phục vụ việc soạn/gắn phản hồi đó, không tự định nghĩa vòng đời trả bài (vòng đời trả bài NGUYÊN TỬ nằm ở apps/api). | Research chấm/phản hồi 24/10/2026; issue #88 |
 | **Vỏ editor (lát E1 #248, theo editor giaokhoa)**: package có CSS riêng `src/editor.css` (app nạp qua `@lms/editor/editor.css`) lo khung vùng soạn (bo góc, cao tối thiểu ~20rem trường chính / ~6rem trường phụ theo prop `size`), trạng thái `aria-pressed` của toolbar, và panel công thức dạng **overlay nổi**. Toolbar dùng **nút icon lucide** (bộ icon của hệ) theo đúng thông số thị giác của Button/Toggle ghost `icon-sm` của `@lms/ui` — package này KHÔNG import `@lms/ui` vì ui là package source-only cho Vite còn editor build dist bằng `tsc` (NodeNext, rootDir riêng); các nút vì vậy là `<button>` mang class trong `editor.css` + icon `lucide-react` (dependency trực tiếp, cùng phiên bản ui đang dùng). | Hồ sơ `editor-giaokhoa-gap-2026-10-26.md`; quyết định 11:20 ngày 26/10/2026 |
 | **Hoàn tác/làm lại (lát E2 #248)**: extension `UndoRedo` của `@tiptap/extensions` nằm trong `plainTextExtensions`; hai nút ở đầu toolbar, disabled theo `can()`. Chỉ là hành vi soạn — không đổi hình dạng tài liệu. | Hồ sơ gap, trục 4 |
@@ -37,5 +37,5 @@ mọi bề mặt khác.
 - Xây trên TipTap 3 (`@tiptap/*`); tập extension chốt ở `src/extensions.ts` — thêm
   extension mới là thay đổi hợp đồng nội dung, phải cân nhắc phía xem tĩnh render
   được hay không.
-- Nguồn: `RichTextEditor.tsx`, `RichTextView.tsx`, `extensions.ts`; test ở
+- Nguồn: `rich-text-editor.tsx`, `rich-text-view.tsx`, `extensions.ts`; test ở
   `editor.spec.tsx`.
