@@ -195,6 +195,22 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
       scale += ues.length;
       const ueByUser = new Map(ues.map((ue) => [ue.userId, ue]));
       const courseCtx = await this.courseContextId(instance.courseId);
+      // Gán vai của instance nạp MỘT lần cho cả instance (một truy
+      // vấn inArray trên tập thành viên) rồi đối chiếu trong bộ nhớ —
+      // thay cho truy vấn theo từng cặp (instance × thành viên) trước
+      // đây. Điều kiện lọc giữ nguyên: đúng context của khoá, đúng
+      // vai của instance, đúng component và itemId của instance.
+      const assignedUserIds = new Set<string>();
+      if (instance.roleId && courseCtx && memberIds.size > 0) {
+        const assignments = await this.db.select({ userId: roleAssignments.userId }).from(roleAssignments).where(and(
+          inArray(roleAssignments.userId, [...memberIds]),
+          eq(roleAssignments.contextId, courseCtx),
+          eq(roleAssignments.roleId, instance.roleId),
+          eq(roleAssignments.component, ENROL_ASSIGNMENT_COMPONENT),
+          eq(roleAssignments.itemId, instance.id),
+        ));
+        for (const assignment of assignments) assignedUserIds.add(assignment.userId);
+      }
       for (const userId of memberIds) {
         const ue = ueByUser.get(userId);
         if (!ue) {
@@ -212,16 +228,10 @@ export class ClassEnrolReconcileProcessor extends WorkerHost {
           planned.push({ kind: 'reactivate', instance, userId, ueId: ue.id });
           continue;
         }
-        // ACTIVE: chỉ còn kiểm tra gán vai của instance có còn đủ không.
+        // ACTIVE: chỉ còn kiểm tra gán vai của instance có còn đủ
+        // không — đối chiếu với tập đã nạp theo instance ở trên.
         if (instance.roleId && courseCtx) {
-          const [assignment] = await this.db.select().from(roleAssignments).where(and(
-            eq(roleAssignments.userId, userId),
-            eq(roleAssignments.contextId, courseCtx),
-            eq(roleAssignments.roleId, instance.roleId),
-            eq(roleAssignments.component, ENROL_ASSIGNMENT_COMPONENT),
-            eq(roleAssignments.itemId, instance.id),
-          ));
-          if (!assignment) planned.push({ kind: 'role', instance, userId, ueId: ue.id });
+          if (!assignedUserIds.has(userId)) planned.push({ kind: 'role', instance, userId, ueId: ue.id });
         }
       }
       for (const ue of ues) {
