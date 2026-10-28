@@ -129,7 +129,18 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     for (const p of [teacher, s1, s2]) await enrolUser(app, admin, course.id, instance.id, p.id);
     const courseCtx = await contextIdByLevelInstance(app, admin, 50, course.id);
     const editingTeacher = await roleIdByShortname(app, admin, 'editingteacher');
-    await assignRole(app, admin, teacher.id, editingTeacher, courseCtx);
+    // Persona giáo viên ở đây vừa ghi danh trong khoá vừa giữ vai
+    // giảng dạy tại context khoá (giáo viên hiện diện trong khoá như
+    // một thành viên và giữ vai trò kiểm duyệt). Từ issue #425,
+    // trạng thái lẫn vai cùng khoá này không còn tạo được qua API —
+    // cả hai chiều ghi danh/gán vai đều bị chốt tách vai chặn — và
+    // chỉ còn tồn tại như dữ kiện có sẵn; các ca của spec này kiểm
+    // hành vi nhắn tin trên đúng dữ kiện đó, nên dòng gán vai được
+    // ghi thẳng vào DB trong lúc phần ghi danh vẫn đi qua API.
+    await pg.query(
+      `insert into role_assignments (role_id, user_id, context_id, component) values ($1, $2, $3, '')`,
+      [editingTeacher, teacher.id, courseCtx],
+    );
 
     // Giáo viên khoá khác: có vai staff nhưng NGOÀI phạm vi khoá chính.
     const category2 = await createCategory(app, admin);

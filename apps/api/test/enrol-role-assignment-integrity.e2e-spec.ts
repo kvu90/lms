@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, assignRole, createTestApp, createUserViaApi, hasCapability, http, login,
+  adminToken, assignRole, createRoleViaApi, createTestApp, createUserViaApi, hasCapability, http, login,
   roleIdByShortname, STRONG_PASSWORD,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
@@ -28,13 +28,11 @@ describe('Enrol role-assignment integrity (#157)', () => {
   let app: INestApplication;
   let admin: string;
   let studentRole: string;
-  let teacherRole: string;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
     studentRole = await roleIdByShortname(app, admin, 'student');
-    teacherRole = await roleIdByShortname(app, admin, 'teacher');
   });
   afterAll(async () => { await app.close(); });
 
@@ -141,9 +139,15 @@ describe('Enrol role-assignment integrity (#157)', () => {
     // Dòng còn nguyên sau lần xoá bị chặn.
     expect((await assignmentsOf(user.id, ctxId)).some((a) => a.id === enrolRow.id)).toBe(true);
 
-    // Gán tay (không nguồn enrol) vẫn xoá được như cũ.
-    await assignRole(app, admin, user.id, teacherRole, ctxId);
-    const manualRow = (await assignmentsOf(user.id, ctxId)).find((a) => a.roleId === teacherRole)!;
+    // Gán tay (không nguồn enrol) vẫn xoá được như cũ. Vai dùng cho
+    // dòng gán tay là một vai tự tạo KHÔNG thuộc archetype giảng dạy:
+    // từ issue #425, gán vai giảng dạy tại context khoá cho học viên
+    // đang học đang hoạt động trong chính khoá đó bị chốt tách vai
+    // chặn (lẫn vai cùng khoá), còn ngữ nghĩa xoá dòng gán tay được
+    // kiểm ở đây không phụ thuộc archetype của vai.
+    const manualRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, user.id, manualRole, ctxId);
+    const manualRow = (await assignmentsOf(user.id, ctxId)).find((a) => a.roleId === manualRole)!;
     expect(manualRow.component).toBe('');
     expect(manualRow.itemId).toBeNull();
     const ok = await http(app).delete(`/api/v1/access/assignments/${manualRow.id}`).set('Authorization', `Bearer ${admin}`);

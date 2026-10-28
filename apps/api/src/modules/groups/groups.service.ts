@@ -5,6 +5,7 @@ import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { RoleSeparationService } from '../access/role-separation.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { CoursesService, GROUPMODE_SEPARATEGROUPS } from '../courses/courses.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
@@ -45,6 +46,7 @@ export class GroupsService implements OnModuleInit {
     private readonly i18n: I18nService,
     private readonly tenantContext: TenantContextService,
     private readonly tenants: TenantsService,
+    private readonly roleSeparation: RoleSeparationService,
   ) {}
 
   /** Tenant hiệu lực cho cohort mới: category (nếu có) quyết định, không thì tenant của request, ngoài request rơi về tenant-zero. */
@@ -494,6 +496,15 @@ export class GroupsService implements OnModuleInit {
   async addCohortMember(actorId: string, cohortId: string, userId: string): Promise<void> {
     const cohortRow = await this.getCohort(cohortId);
     await this.evaluator.requireCapability(actorId, 'cohort:manage', cohortRow.contextId);
+    // Chốt TÁCH VAI — funnel 2 (RoleSeparationService giữ định nghĩa
+    // dùng chung): vào cohort của một lớp đồng nghĩa được ghi danh
+    // học viên vào mọi khoá của lớp đó, nên người đang DẠY bất kỳ
+    // khoá nào thuộc lớp/cohort này bị từ chối tại đây với mã
+    // `access.role_context_conflict`, TRƯỚC khi dòng thành viên được
+    // tạo (và trước khi sự kiện đồng bộ phát ra). Mọi đường roster
+    // của lớp — theo userId, khớp email/số điện thoại, nhập Excel —
+    // đều đi qua điểm vào này hoặc điểm vào hệ thống bên dưới.
+    await this.roleSeparation.assertCohortMembershipAllowed(userId, cohortId);
     const added = await this.repo.addCohortMember(cohortId, userId);
     if (!added) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_added', payload: { cohortId, userId } });
@@ -521,6 +532,11 @@ export class GroupsService implements OnModuleInit {
    */
   async addCohortMemberInternal(cohortId: string, userId: string): Promise<void> {
     await this.getCohort(cohortId);
+    // Chốt TÁCH VAI — funnel 2, điểm vào hệ thống: cùng kiểm tra như
+    // addCohortMember (đường này phục vụ tham gia lớp bằng mã và kích
+    // hoạt sau thanh toán gói lớp — người xin vào vẫn không được là
+    // giáo viên của chính lớp/khoá đích).
+    await this.roleSeparation.assertCohortMembershipAllowed(userId, cohortId);
     const added = await this.repo.addCohortMember(cohortId, userId);
     if (!added) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_added', payload: { cohortId, userId } });

@@ -6,6 +6,7 @@ import { ContextsService } from './contexts.service';
 import { CAP_ALLOW } from './domain/permission';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import type { PlanLimitsService } from './plan-limits.service';
+import type { RoleSeparationService } from './role-separation.service';
 import { RolesService } from './roles.service';
 
 /**
@@ -126,9 +127,14 @@ function makeWorld() {
   // không bao giờ được gọi; stub rỗng là đủ và cố ý để lộ nếu bị gọi.
   const planLimits = {};
 
+  // Role trong spec có archetype ngoài nhóm giảng dạy nên chốt tách
+  // vai (issue #425) ở assignRole không bao giờ chạm tới
+  // RoleSeparationService; stub rỗng là đủ và cố ý để lộ nếu bị gọi.
+  const roleSeparation = {};
+
   const repoCast = repo as unknown as AccessRepository;
   const contextsService = new ContextsService(repoCast);
-  const rolesService = new RolesService(repoCast, contextsService, outbox as unknown as OutboxService, planLimits as PlanLimitsService);
+  const rolesService = new RolesService(repoCast, contextsService, outbox as unknown as OutboxService, planLimits as PlanLimitsService, roleSeparation as RoleSeparationService);
   const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache);
   return { state, rolesService, evaluator };
 }

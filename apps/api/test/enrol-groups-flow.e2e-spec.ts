@@ -85,8 +85,14 @@ describe('Enrol & groups/cohorts', () => {
     await enrolUser(app, admin, course.id, instance.id, user.id);
     const content = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${admin}`);
     const teacherRole = await roleIdByShortname(app, admin, 'teacher');
-    await assignRole(app, admin, user.id, teacherRole, content.body.contextId);
+    // Thứ tự fixture: đình chỉ ghi danh TRƯỚC khi gán vai giáo viên.
+    // Từ issue #425, gán vai giảng dạy cho học viên đang học ĐANG
+    // HOẠT ĐỘNG trong chính khoá đó bị chốt tách vai chặn (lẫn vai
+    // cùng khoá); ghi danh đã đình chỉ (status khác 0) không thuộc
+    // định nghĩa lẫn vai nên trạng thái "đã đình chỉ + có gán vai
+    // thật" của ca này vẫn dựng được nguyên vẹn.
     await http(app).post(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${user.id}/suspend`).set('Authorization', `Bearer ${admin}`);
+    await assignRole(app, admin, user.id, teacherRole, content.body.contextId);
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`);
     expect(res.status).toBe(200);

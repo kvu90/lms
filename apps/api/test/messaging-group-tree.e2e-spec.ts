@@ -45,6 +45,67 @@ interface TreeBody {
   freeGroups: (TreeLeaf & { conversationId: string })[];
 }
 
+/**
+ * Ghi thẳng một dòng gán vai vào DB cho fixture. Các fixture của bộ
+ * spec nhắn tin dựng persona giáo viên vừa ghi danh trong khoá vừa
+ * giữ vai giảng dạy tại context khoá (giáo viên hiện diện trong khoá
+ * như một thành viên và giữ vai trò kiểm duyệt). Từ issue #425,
+ * trạng thái lẫn vai cùng khoá này không còn tạo được qua API — cả
+ * hai chiều ghi danh/gán vai đều bị chốt tách vai chặn — và chỉ còn
+ * tồn tại như dữ kiện có sẵn; các ca của bộ spec này kiểm hành vi
+ * nhắn tin trên đúng dữ kiện đó, nên dòng gán vai được ghi thẳng
+ * vào DB trong lúc phần ghi danh vẫn đi qua API như cũ.
+ */
+async function insertAssignmentRow(roleId: string, userId: string, contextId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `insert into role_assignments (role_id, user_id, context_id, component) values ($1, $2, $3, '')`,
+      [roleId, userId, contextId],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+/**
+ * Dựng thẳng vào DB một ghi danh học viên đang hoạt động cho
+ * fixture: bản ghi user_enrolments + dòng gán vai do ghi danh cấp
+ * (component 'enrol', item_id là instance) + tư cách thành viên
+ * tenant của khoá — đúng các dòng EnrolService.enrolUserInternal
+ * vẫn ghi. Chỉ dùng cho persona giáo viên chủ lớp ở khoá 1 của spec
+ * này: từ issue #425, ghi danh một chủ lớp vào khoá thuộc lớp mình
+ * chủ nhiệm bị chốt funnel 1 chặn qua API (chủ lớp đã có cấp quyền
+ * giảng dạy bao phủ khoá qua context lớp), nên ghi danh "theo thông
+ * lệ seed" của fixture chỉ còn dựng được như dữ kiện có sẵn.
+ */
+async function insertLegacyEnrolment(instanceId: string, userId: string, courseId: string, contextId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `insert into user_enrolments (enrol_id, user_id, status) values ($1, $2, 0)`,
+      [instanceId, userId],
+    );
+    await client.query(
+      `insert into role_assignments (role_id, user_id, context_id, component, item_id)
+         select role_id, $2, $3, 'enrol', id from enrol where id = $1 and role_id is not null`,
+      [instanceId, userId, contextId],
+    );
+    await client.query(
+      `insert into tenant_memberships (tenant_id, user_id, status)
+         select tenant_id, $2, 'active' from course
+          where id = $1 and not exists (
+            select 1 from tenant_memberships tm where tm.tenant_id = course.tenant_id and tm.user_id = $2
+          )`,
+      [courseId, userId],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
   let app: INestApplication;
   let admin: string;
@@ -128,8 +189,13 @@ describe('Messaging — cây nhóm theo vai (MSG-T1, issue #33)', () => {
 
     // GV cũng ghi danh ở khoá 1 (thông lệ seed như test chat cấp
     // khoá): cổng thêm thành viên nhóm con đòi ghi danh hiệu lực.
+    // Từ issue #425, ghi danh này không còn đi qua API được — chốt
+    // funnel 1 chặn vì GV là chủ lớp 1, đã có cấp quyền giảng dạy
+    // bao phủ khoá 1 qua context lớp — nên ghi danh được dựng thẳng
+    // vào DB như dữ kiện có sẵn (xem insertLegacyEnrolment).
     const instance1 = await createEnrolInstance(app, admin, course1);
-    await enrolUser(app, admin, course1, instance1.id, teacher.id);
+    const course1Ctx = await contextIdByLevelInstance(app, admin, 50, course1);
+    await insertLegacyEnrolment(instance1.id, teacher.id, course1, course1Ctx);
 
     // Nhóm con trong khoá 1, HS là thành viên.
     const group = await createGroupViaApi(app, admin, course1, 'Tổ 1');
