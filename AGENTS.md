@@ -27,6 +27,10 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   đọc) viết bằng tiếng Anh.
 - **Comment trong code viết bằng tiếng Việt:** toàn bộ comment trong
   code — gồm comment mô tả luồng nghiệp vụ — viết bằng tiếng Việt.
+- **Mô tả test viết bằng tiếng Việt:** chuỗi mô tả của `describe`,
+  `it` và `test` trong các file test viết bằng tiếng Việt; mỗi mô tả
+  phải nêu rõ hành vi đang được kiểm chứng — cấm mô tả mơ hồ, không
+  nói lên hành vi (ví dụ chỉ ghi tên hàm hoặc "hoạt động đúng").
 - **Tài liệu và văn bản GitHub viết bằng tiếng Việt:** mọi tài liệu
   trong repo (README, các file AGENTS, tài liệu của package) và mọi
   văn bản trên GitHub (issue, PR, comment) viết bằng tiếng Việt, văn
