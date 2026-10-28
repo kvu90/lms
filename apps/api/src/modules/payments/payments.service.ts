@@ -12,7 +12,7 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantConfigService } from '../tenants/tenant-config.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { PaymentsRepository, type AccountRow, type CouponRow, type EntitlementRow, type PaymentRow, type ProviderEventRow, type RefundRow } from './payments.repository';
-import { PlanEntitlementsService, type PlanSnapshot } from './plan-entitlements.service';
+import { PlanEntitlementsService, planChargedAmountOf, type PlanSnapshot } from './plan-entitlements.service';
 import { buildVietQrPayload, extractPaymentCode, maskAccountConfig, paymentCodeFromSequence, readAccountConfig, PAYMENT_CODE_TTL_MS } from './vietqr';
 import type { Coupon, CreateCoupon, CreateRefund, PaymentRefund, PaymentReviewQueueItem, PlanEntitlement, RejectRefund, ResolvePaymentReview, SettleRefund, UpdateCoupon } from '@lms/contracts';
 
@@ -78,6 +78,17 @@ export interface SepayIpnInput {
 }
 
 /**
+ * Các component CẤP QUYỀN LỢI của pipeline thanh toán (issue #419):
+ * payment mang một trong bốn component này, khi chốt thành công, sẽ
+ * sinh ghi danh khoá (`enrol_fee`), ghi danh lớp + membership tenant
+ * của lớp (`class_fee`) hoặc quyền lợi gói (`tenant_plan` /
+ * `teacher_plan`). Vì hệ quả đó, chúng chỉ được sinh từ các đường
+ * tạo chuyên trách đã chốt giá phía server; đường tạo chung và phép
+ * đối chiếu tại điểm kích hoạt đều neo vào danh sách này.
+ */
+export const ENTITLEMENT_COMPONENTS = ['enrol_fee', 'class_fee', 'tenant_plan', 'teacher_plan'] as const;
+
+/**
  * Facade của PaymentsModule (Moodle core_payment, §2#27).
  * Bất biến: amount là số nguyên đơn vị nhỏ nhất + currency (không float);
  * payment thành công là bất biến — hoàn tiền là giao dịch bù trừ riêng;
@@ -113,6 +124,20 @@ export interface SepayIpnInput {
  * của chủ tiền. Hàng đợi `needs_review` và cổng `payment:manageaccounts`
  * đều NEO THEO CHỦ TIỀN: tiền platform gác tại context hệ thống, tiền
  * của trung tâm gác tại context tenant của chính trung tâm đó.
+ *
+ * Chốt chặn component cấp quyền (issue #419): bốn component sinh
+ * quyền lợi (`enrol_fee`, `class_fee`, `tenant_plan`, `teacher_plan`)
+ * CHỈ được sinh từ các đường tạo chuyên trách đã chốt giá phía
+ * server (`createFeePayment`, `createClassFeePayment`,
+ * `createPlanPayment`) — đường tạo chung `createPayment` từ chối
+ * chúng, vì giá và bên hưởng của một giao dịch cấp quyền chỉ lấy từ
+ * đối tượng phía server (instance/lớp/cấu hình gói), không bao giờ
+ * lấy từ `amount`/`itemId` do client gửi lên. Phòng thủ chiều sâu:
+ * cả ba điểm kích hoạt quyền lợi (matching SePay, webhook,
+ * `resolvePaymentReview`) đều đối chiếu lại payment với giá + tenant
+ * phía server của đối tượng đích qua
+ * `verifyPaymentAgainstServerTarget` trước khi kích hoạt; lệch thì
+ * rơi vào hàng đợi `needs_review`, không kích hoạt.
  */
 @Injectable()
 export class PaymentsService {
@@ -256,8 +281,26 @@ export class PaymentsService {
     return rows.map((r) => this.toRefundView(r));
   }
 
-  /** Tạo payment ở trạng thái pending cho một user. */
+  /**
+   * Tạo payment ở trạng thái pending cho một user — đường tạo CHUNG
+   * của `POST /payments`, nơi `amount`/`component`/`itemId` do
+   * client đặt. Vì vậy đường này bị cấm sinh payment mang component
+   * CẤP QUYỀN LỢI (issue #419): bốn component `enrol_fee`,
+   * `class_fee`, `tenant_plan`, `teacher_plan` chỉ được sinh từ các
+   * đường tạo chuyên trách tương ứng (`createFeePayment`,
+   * `createClassFeePayment`, `createPlanPayment`), nơi số tiền và
+   * bên hưởng được lấy từ chính đối tượng phía server (instance có
+   * phí / cấu hình học phí trên lớp / cấu hình giá gói), không từ dữ
+   * kiện client gửi lên. Payment mang component thường (không sinh
+   * quyền lợi) giữ nguyên hành vi như trước.
+   */
   async createPayment(userId: string, input: { accountId: string; amount: number; currency: string; component?: string; itemId?: string }): Promise<PaymentView> {
+    if (input.component !== undefined && (ENTITLEMENT_COMPONENTS as readonly string[]).includes(input.component)) {
+      throw new BadRequestException({
+        message: `Component ${input.component} grants entitlements and can only be created through its dedicated server-priced purchase endpoint`,
+        code: 'payment.entitlement_component_forbidden',
+      });
+    }
     const active = this.tenantContext.currentTenantId();
     return this.createPaymentInTenant(userId, input, active);
   }
@@ -302,6 +345,69 @@ export class PaymentsService {
       paymentCode, expiresAt, data: input.data ?? null,
     });
     return { ...row, vietqrPayload };
+  }
+
+  /**
+   * Đối chiếu phòng thủ chiều sâu của một payment cấp quyền lợi với
+   * ĐỐI TƯỢNG PHÍA SERVER của nó (issue #419) — phép kiểm bắt buộc
+   * tại cả ba điểm kích hoạt quyền lợi (matching SePay, webhook,
+   * `resolvePaymentReview`), chạy TRƯỚC mọi khâu kích hoạt:
+   *
+   *  1. `payment.amount` phải bằng đúng giá phía server của đối
+   *     tượng đích: `instance.cost` với `enrol_fee`; học phí đang
+   *     cấu hình trên lớp với `class_fee`; giá cấu hình trừ mức
+   *     giảm coupon trong ảnh chụp do server ghi với gói.
+   *  2. `payment.tenantId` phải bằng tenant của đối tượng đích:
+   *     tenant sở hữu khoá với `enrol_fee`, tenant sở hữu lớp với
+   *     `class_fee`, tenant platform (chủ của tài khoản nhận tiền
+   *     gói) với gói — bên hưởng quyền lợi gói nằm trong ảnh chụp
+   *     và được khâu kích hoạt gói tự kiểm, không phải tenant của
+   *     payment.
+   *
+   * Nguyên tắc: giá và bên hưởng chỉ lấy từ đối tượng phía server,
+   * không lấy từ chính payment — payment là dữ kiện có thể đã bị
+   * can thiệp (tạo qua đường chung trước khi có chốt chặn, hoặc bị
+   * sửa trực tiếp), nên "payment khớp với chính nó" không chứng
+   * minh được gì. Đối tượng đích không tồn tại, không còn cấu hình
+   * phí, hoặc ảnh chụp gói thiếu/sai hình dạng đều coi là KHÔNG
+   * khớp (fail-closed): thà đẩy vào `needs_review` để vận hành xử
+   * lý còn hơn kích hoạt một quyền lợi không xác minh được.
+   *
+   * @param payment - Bản ghi payment sắp được kích hoạt quyền lợi.
+   * @returns `true` khi payment mang component thường (không có
+   *   quyền lợi để đối chiếu) hoặc khớp cả giá lẫn tenant phía
+   *   server; `false` khi lệch hoặc không xác minh được.
+   */
+  async verifyPaymentAgainstServerTarget(payment: PaymentRow): Promise<boolean> {
+    switch (payment.component) {
+      case 'enrol_fee': {
+        if (!payment.itemId) return false;
+        let instance: Awaited<ReturnType<EnrolService['getInstance']>>;
+        try {
+          instance = await this.enrol.getInstance(payment.itemId);
+        } catch {
+          return false;
+        }
+        if (instance.enrol !== 'fee' || !instance.cost || instance.cost <= 0) return false;
+        const courseTenantId = await this.repo.getCourseTenantId(instance.courseId);
+        if (!courseTenantId) return false;
+        return payment.amount === instance.cost && payment.tenantId === courseTenantId;
+      }
+      case 'class_fee': {
+        if (!payment.itemId) return false;
+        const target = await this.classes.getClassFeeTarget(payment.itemId);
+        if (!target || !target.feeCost || target.feeCost <= 0) return false;
+        return payment.amount === target.feeCost && payment.tenantId === target.tenantId;
+      }
+      case 'tenant_plan':
+      case 'teacher_plan': {
+        const expectedAmount = planChargedAmountOf(payment);
+        if (expectedAmount === null) return false;
+        return payment.amount === expectedAmount && payment.tenantId === (await this.platformTenantId());
+      }
+      default:
+        return true;
+    }
   }
 
   /**
@@ -678,6 +784,17 @@ export class PaymentsService {
     if (input.status !== 'succeeded') {
       await this.repo.updatePayment(payment.id, { status: 'failed', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
       return { status: 'failed', payment: await this.getPayment(payment.id) };
+    }
+    // Đối chiếu phòng thủ chiều sâu TRƯỚC khi kích hoạt (issue
+    // #419): webhook đã xác thực chỉ chứng minh gateway báo tiền về,
+    // không chứng minh payment khớp giá/tenant phía server của đối
+    // tượng đích. Payment lệch (số tiền hoặc tenant bị can thiệp)
+    // → `needs_review` để vận hành đối soát, TUYỆT ĐỐI không kích
+    // hoạt quyền lợi và không đánh `failed` (tiền có thể là thật,
+    // chỉ là payment không đáng tin).
+    if (!(await this.verifyPaymentAgainstServerTarget(payment))) {
+      await this.repo.updatePayment(payment.id, { status: 'needs_review', gateway: input.gateway, externalTransactionId: input.externalTransactionId });
+      return { status: 'needs_review', payment: await this.getPayment(payment.id) };
     }
     // Nghiệp vụ hưởng lợi chạy TRƯỚC nhịp lật trạng thái — cùng bất
     // biến đồng bộ với đường matching SePay: trạng thái `succeeded`
@@ -1172,6 +1289,10 @@ export class PaymentsService {
   // quá tuổi cấu hình (`payments/reviewtargethours`) chỉ bị đánh dấu
   // QUÁ HẠN để cảnh báo — hệ thống không bao giờ tự xử lý, vì xử lý
   // tay là xác nhận tiền thật và phải có người chịu trách nhiệm.
+  // Riêng quyết định `matched` còn một cổng nữa (issue #419):
+  // payment phải khớp giá + tenant phía server của đối tượng đích
+  // qua `verifyPaymentAgainstServerTarget`; lệch thì quyết định bị
+  // từ chối và khoản thu ở nguyên trong hàng đợi.
 
   /**
    * Phạm vi hàng đợi của một người xem: tenant platform nếu người đó
@@ -1301,6 +1422,20 @@ export class PaymentsService {
       await this.repo.updatePayment(payment.id, { status: 'failed', ...trail });
       return this.getPayment(payment.id);
     }
+    // Quyết định `matched` cũng không được lách phép đối chiếu giá
+    // phía server (issue #419): người xử lý xác nhận tiền đã về bằng
+    // bằng chứng ngoài hệ thống, nhưng quyền lợi chỉ được kích hoạt
+    // khi payment khớp giá + tenant của đối tượng đích phía server.
+    // Payment bị can thiệp (số tiền tự đặt thấp hơn giá thật, tenant
+    // khác tenant đích) phải ở lại hàng đợi để rà soát/hoàn tiền —
+    // từ chối quyết định khớp, giữ nguyên trạng thái `needs_review`
+    // và không ghi vết xử lý `matched` lên một khoản thu chưa sạch.
+    if (!(await this.verifyPaymentAgainstServerTarget(payment))) {
+      throw new BadRequestException({
+        message: 'Payment amount or tenant does not match the server-side price and tenant of its target; refusing to activate entitlements',
+        code: 'payment.target_mismatch',
+      });
+    }
     // matched: mã giao dịch ngoài lấy từ sự kiện liên quan gần nhất
     // (mã tham chiếu trong nội dung chuyển khoản nếu có, không thì mã
     // giao dịch của sự kiện) để khoản thu mang đúng định danh đối soát
@@ -1318,7 +1453,10 @@ export class PaymentsService {
     // khâu đều idempotent; khâu nào lỗi thì khoản thu còn nguyên ở
     // hàng đợi, người xử lý gọi lại được). Khác đường khớp tự động ở
     // chỗ: quyết định khớp ở đây là của NGƯỜI xử lý (đã đối chiếu
-    // bằng chứng ngoài hệ thống), không phải của luật 3 điều kiện.
+    // bằng chứng ngoài hệ thống), không phải của luật 3 điều kiện —
+    // nhưng vẫn phải qua phép đối chiếu giá + tenant phía server ở
+    // trên (issue #419): người xử lý xác nhận TIỀN, hệ thống xác
+    // nhận QUYỀN LỢI chỉ sinh cho payment khớp đối tượng phía server.
     if (payment.component === 'enrol_fee' && payment.itemId) {
       await this.enrol.activatePaidEnrol(payment.itemId, payment.userId);
     }

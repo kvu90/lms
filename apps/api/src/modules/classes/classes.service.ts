@@ -1088,6 +1088,30 @@ export class ClassesService implements OnModuleInit {
   }
 
   /**
+   * Đích học phí của lớp phục vụ ĐỐI CHIẾU tại điểm kích hoạt quyền
+   * lợi của pipeline thanh toán (issue #419): chỉ đọc tenant sở hữu
+   * và học phí đang cấu hình của lớp từ bản ghi phía server, KHÔNG
+   * áp các cổng phía người mua của `resolveClassFeePurchase` — tại
+   * thời điểm kích hoạt, lớp đã lưu trữ hay người mua đã thuộc
+   * roster đều là trạng thái có thể hợp lệ của một payment đã tạo
+   * trước đó, và phép đối chiếu chỉ cần trả lời "payment có khớp
+   * giá + tenant của lớp đích hay không". Chạy trong ngữ cảnh
+   * platform tường minh vì các điểm kích hoạt (matching SePay bất
+   * đồng bộ, webhook gateway) không mang phiên tenant của lớp đích
+   * — cùng khuôn đọc của `activatePaidClassEnrol` ngay dưới đây.
+   *
+   * @param classId - Id của lớp (chính là `item_id` của payment `class_fee`).
+   * @returns Tenant sở hữu và học phí đang cấu hình của lớp; null khi lớp không tồn tại.
+   */
+  async getClassFeeTarget(classId: string): Promise<{ tenantId: string; feeCost: number | null } | null> {
+    return this.tenantContext.run({ platform: true }, async () => {
+      const row = await this.repo.getClass(classId);
+      if (!row) return null;
+      return { tenantId: row.tenantId, feeCost: row.feeCost };
+    });
+  }
+
+  /**
    * Kích hoạt ghi danh cấp lớp sau khi payment `class_fee` thành công —
    * hàm song song với `EnrolService.activatePaidEnrol`, chỉ
    * PaymentsService gọi sau khi payment đã `succeeded` qua đường đã xác
