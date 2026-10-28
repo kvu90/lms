@@ -215,9 +215,93 @@ export class QuizAttemptsService {
   }
 
   /**
+   * Hạng mục điểm của bài đã ở trạng thái ĐÃ CÔNG BỐ hay chưa, hỏi qua
+   * cổng công bố chung của module điểm
+   * (`GradesService.itemPublicationState`): hạng mục có chính sách
+   * `auto` luôn coi là đã công bố; hạng mục `manual` chỉ được coi là
+   * đã công bố khi vết công bố theo phạm vi hạng mục gần nhất là hành
+   * động công bố. Bài chưa gắn course module, hoặc chưa có hạng mục
+   * điểm (lần ghim đời cũ, trước cơ chế hạng mục), thì không có cổng
+   * công bố nào áp lên được — coi như đã công bố để giữ nguyên hành vi
+   * cũ, phần gác còn lại do mặt nạ xem lại đảm nhiệm.
+   */
+  private async gradeTotalsPublished(quiz: PinRow): Promise<boolean> {
+    if (!quiz.cmId) return true;
+    const item = await this.grades.getItemForCm(quiz.course, quiz.cmId).catch(() => undefined);
+    if (!item) return true;
+    return (await this.grades.itemPublicationState(item)).published;
+  }
+
+  /**
+   * Mặt nạ `reviewMarks` có đang mở cho CHỦ LƯỢT tại cửa sổ xem lại
+   * hiện tại của lượt này không — cùng phép tính với điểm từng câu
+   * trong `buildAttemptView`: cổng `reviewAttempt` phải mở tại cửa sổ
+   * hiện tại trước, rồi bit `reviewMarks` tại đúng cửa sổ đó mới có
+   * hiệu lực. Lượt đang làm dở thì chưa có điểm tổng nào được phép
+   * hiện.
+   */
+  private async ownerMarksVisible(quiz: PinRow, row: ExamAttemptRow, now: Date): Promise<boolean> {
+    if (row.state === 'inprogress') return false;
+    const windowBit = await this.reviewWindowBit(quiz, row, now);
+    if ((quiz.reviewAttempt & windowBit) === 0) return false;
+    return (quiz.reviewMarks & windowBit) !== 0;
+  }
+
+  /**
+   * Che điểm tổng (`grade` + `sumGrades`) trong tóm tắt lượt phía CHỦ
+   * LƯỢT (issue #411).
+   *
+   * Quy tắc nghiệp vụ (mục quy tắc về điểm trong `apps/api/AGENTS.md`):
+   * học sinh/phụ huynh chỉ thấy điểm ĐÃ CÔNG BỐ, và mọi đường đọc điểm
+   * phải qua cùng một cổng công bố. Điểm tổng vì thế chỉ hiện khi ĐỒNG
+   * THỜI thoả cả hai điều kiện độc lập:
+   *
+   * 1. mặt nạ `reviewMarks` đang mở tại cửa sổ xem lại hiện tại của
+   *    lượt (`marksVisible` do nơi gọi tính, dùng cùng phép tính với
+   *    điểm từng câu); và
+   * 2. hạng mục điểm của bài đã ở trạng thái đã công bố qua cổng công
+   *    bố chung của module điểm (`gradeTotalsPublished`).
+   *
+   * Thiếu một trong hai điều kiện, cả `grade` lẫn `sumGrades` đều về
+   * `null` — che một mình `grade` là không đủ, vì `sumGrades` cùng
+   * thang tối đa của lượt cho phép suy ngược ra điểm. Lượt chưa có
+   * điểm nào (cả hai trường đang `null`) được trả nguyên, không tốn
+   * thêm lượt hỏi cổng công bố. Đường phía giáo viên/người có đặc
+   * quyền không đi qua hàm này và giữ nguyên số thật.
+   */
+  private async maskOwnerTotals(quiz: PinRow, summary: QuizAttemptSummary, marksVisible: boolean): Promise<QuizAttemptSummary> {
+    if (summary.grade === null && summary.sumGrades === null) return summary;
+    if (marksVisible && (await this.gradeTotalsPublished(quiz))) return summary;
+    return { ...summary, grade: null, sumGrades: null };
+  }
+
+  /**
+   * Điểm bài hiện tại (`myGrade`) cho trang thông tin quiz phía CHỦ
+   * LƯỢT: nhân sự (quản lý/chấm/báo cáo/preview) thấy số thật như hiện
+   * tại; học viên chỉ thấy số thật khi điểm tổng qua được cổng che hai
+   * điều kiện của `maskOwnerTotals`, xét trên lượt đã chốt điểm GẦN
+   * NHẤT của chính người xem — lượt gần nhất có cửa sổ xem lại khắt
+   * khe nhất nên lấy nó làm chuẩn là phía an toàn. Đường ghi sổ điểm
+   * (`pushGrade`) KHÔNG đi qua hàm này: nó dùng thẳng
+   * `currentGradeForUser` để luôn ghi số thật vào sổ điểm.
+   */
+  private async myGradeForViewer(quiz: PinRow, userId: string, ownAttempts: ExamAttemptRow[], isStaffViewer: boolean): Promise<number | null> {
+    const value = await this.currentGradeForUser(quiz, userId);
+    if (value === null || isStaffViewer) return value;
+    const contributing = ownAttempts.filter((a) => !a.preview && a.state === 'finished' && a.sumGrades !== null);
+    const latest = contributing[contributing.length - 1];
+    if (!latest) return null;
+    const marksVisible = await this.ownerMarksVisible(quiz, latest, new Date());
+    return marksVisible && (await this.gradeTotalsPublished(quiz)) ? value : null;
+  }
+
+  /**
    * Trang thông tin quiz cho người xem: cấu hình + slots, các lượt của
    * chính người xem, điểm bài hiện tại và các cờ quyền để client hiển thị
-   * đúng thao tác.
+   * đúng thao tác. Điểm tổng trong các lượt của chính người xem và điểm
+   * bài hiện tại phía học viên đều qua cổng che hai điều kiện (mặt nạ
+   * reviewMarks + hạng mục điểm đã công bố) — xem maskOwnerTotals và
+   * myGradeForViewer (issue #411).
    */
   async getQuizForUser(actorId: string, pinId: string): Promise<{
     quiz: QuizView;
@@ -237,11 +321,6 @@ export class QuizAttemptsService {
     const quiz = await this.shared.getPin(pinId);
     await this.shared.requireAnyViewCap(actorId, quiz);
     const view = await this.shared.pinView(quiz);
-    const mine = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
-    const summaries: QuizAttemptSummary[] = [];
-    for (const a of mine) summaries.push(await this.shared.attemptSummary(quiz, a));
-    const eligibility = await this.attemptEligibility(quiz, actorId, new Date());
-    const effective = await this.resolveEffectiveSettings(quiz, actorId);
     const [manage, manageOverrides, grade, viewReports, preview, attempt] = await Promise.all([
       this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.manage),
       this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.manageOverrides),
@@ -257,10 +336,24 @@ export class QuizAttemptsService {
     if (!isStaffViewer && !(await this.isInTargetGroup(quiz, actorId))) {
       throw new NotFoundException({ message: `Exam pin ${pinId} not found`, code: 'exam.pin_not_found' });
     }
+    const mine = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
+    const summaries: QuizAttemptSummary[] = [];
+    for (const a of mine) {
+      const summary = await this.shared.attemptSummary(quiz, a);
+      // Điểm tổng phía học viên phải qua cổng che hai điều kiện (mặt
+      // nạ reviewMarks tại cửa sổ hiện tại + hạng mục điểm đã công
+      // bố) — xem maskOwnerTotals. Nhân sự và lượt preview của giáo
+      // viên không bị che.
+      summaries.push(!isStaffViewer && !a.preview
+        ? await this.maskOwnerTotals(quiz, summary, await this.ownerMarksVisible(quiz, a, new Date()))
+        : summary);
+    }
+    const eligibility = await this.attemptEligibility(quiz, actorId, new Date());
+    const effective = await this.resolveEffectiveSettings(quiz, actorId);
     return {
       quiz: view,
       myAttempts: summaries,
-      myGrade: await this.currentGradeForUser(quiz, actorId),
+      myGrade: await this.myGradeForViewer(quiz, actorId, mine, isStaffViewer),
       canAttempt: attempt && eligibility.canAttempt,
       attemptBlockedReason: eligibility.canAttempt ? null : eligibility.reason,
       inProgressAttemptId: eligibility.inProgressAttemptId,
@@ -488,7 +581,10 @@ export class QuizAttemptsService {
    * trường `answers` của câu shortanswer cũng qua đúng cổng đáp án
    * đúng này (xem chốt trong vòng lặp dựng câu): các dòng đáp án của
    * shortanswer chính là tập đáp án được chấp nhận, để nguyên là lộ
-   * đáp án đúng dù `solution` đã bị che. Người có
+   * đáp án đúng dù `solution` đã bị che. Riêng điểm TỔNG của lượt
+   * còn phải qua thêm cổng công bố của hạng mục điểm (issue #411,
+   * xem maskOwnerTotals): mặt nạ reviewMarks mở là chưa đủ nếu điểm
+   * chưa được công bố. Người có
    * quiz:grade/viewreports/manage và lượt preview không bị giới hạn.
    */
   async buildAttemptView(quiz: PinRow, row: ExamAttemptRow, closedDueToTimeLimit: boolean, viewerId?: string): Promise<QuizAttemptView> {
@@ -658,8 +754,18 @@ export class QuizAttemptsService {
         overallFeedback = band?.feedback ?? null;
       }
     }
+    const rawSummary = await this.shared.attemptSummary(quiz, row);
+    // Điểm tổng trong view của CHỦ LƯỢT thường phải qua cùng cổng che
+    // hai điều kiện như các đường đọc phía học viên khác (issue #411):
+    // mặt nạ reviewMarks tại cửa sổ hiện tại — dùng đúng aspectOn như
+    // điểm từng câu ở trên — cộng điều kiện hạng mục điểm đã công bố
+    // qua cổng công bố chung (xem maskOwnerTotals). Người có đặc quyền
+    // và lượt preview giữ nguyên số thật.
+    const attemptSummary = !privileged && submitted
+      ? await this.maskOwnerTotals(quiz, rawSummary, aspectOn(quiz.reviewMarks))
+      : rawSummary;
     return {
-      attempt: await this.shared.attemptSummary(quiz, row),
+      attempt: attemptSummary,
       quiz: await this.shared.pinView(quiz),
       questions,
       totalMax: this.shared.usageTotalMax(usage),
@@ -1096,17 +1202,32 @@ export class QuizAttemptsService {
 
   /**
    * Các lượt làm của một quiz cho chủ nhân hoặc giáo viên — dùng cho
-   * trang thông tin (lượt của tôi) và báo cáo.
+   * trang thông tin (lượt của tôi) và báo cáo. Nhánh có
+   * quiz:viewreports (cả lớp) giữ nguyên số thật; nhánh chủ lượt thì
+   * điểm tổng phải qua cổng che hai điều kiện như mọi đường đọc phía
+   * học viên (xem maskOwnerTotals, issue #411), trừ người có quyền
+   * chấm/quản lý và lượt preview của giáo viên.
    */
   async listAttemptSummaries(actorId: string, pinId: string): Promise<QuizAttemptSummary[]> {
     const quiz = await this.shared.getPin(pinId);
     await this.shared.requireAnyViewCap(actorId, quiz);
     const canSeeAll = await this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
-    const rows = canSeeAll
-      ? (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview)
-      : await this.repo.listAttemptsForUser(quiz.id, actorId, true);
+    if (canSeeAll) {
+      const rows = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview);
+      const out: QuizAttemptSummary[] = [];
+      for (const r of rows) out.push(await this.shared.attemptSummary(quiz, r));
+      return out;
+    }
+    const isStaffViewer = (await this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.grade))
+      || (await this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.manage));
+    const rows = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
     const out: QuizAttemptSummary[] = [];
-    for (const r of rows) out.push(await this.shared.attemptSummary(quiz, r));
+    for (const r of rows) {
+      const summary = await this.shared.attemptSummary(quiz, r);
+      out.push(!isStaffViewer && !r.preview
+        ? await this.maskOwnerTotals(quiz, summary, await this.ownerMarksVisible(quiz, r, new Date()))
+        : summary);
+    }
     return out;
   }
 }
