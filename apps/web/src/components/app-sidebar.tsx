@@ -175,6 +175,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     ...(hasGuardianChildren
       ? [{ title: t('app:navGuardian'), url: '/guardian', icon: IconUsers }]
       : []),
+    // Mục "Liên kết phụ huynh" (gói kích hoạt phụ huynh): bề mặt
+    // quản lý liên kết giám hộ — chỉ hiện khi người dùng có
+    // capability guardian:manage (cờ canManageGuardians từ ảnh chụp
+    // quyền), theo cùng khuôn có điều kiện của mục "Phụ huynh" ở
+    // trên; người không có quyền không render mục này, và API vẫn
+    // thực thi quyền thật ở mọi endpoint quản lý.
+    ...(perms.canManageGuardians
+      ? [{ title: t('app:navGuardianLinks'), url: '/admin/guardian-links', icon: IconUsers }]
+      : []),
     ...(perms.hasLearnerFootprint
       ? [
           {

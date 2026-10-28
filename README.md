@@ -151,10 +151,13 @@ pnpm dev
 | Giáo viên (giáo viên biên tập của khoá học mẫu) | `teacher1` | `Teacher123!` |
 | Học viên | `student1` | `Student123!` |
 | Học viên | `student2` | `Student123!` |
+| Phụ huynh (phụ huynh của học viên mẫu student1) | `parent1` | `Parent123!` |
 
 Tài khoản admin do chính bootstrap của API tạo từ
 `ADMIN_USERNAME` / `ADMIN_PASSWORD` (các giá trị mặc định ở trên; ghi đè qua
-`apps/api/.env`). Seed bổ sung: khoá học **DEMO101 — "Khoá học mẫu: Làm
+`apps/api/.env`). Seed bổ sung: tài khoản phụ huynh **parent1** liên kết
+giám hộ sẵn với student1 (quan hệ Cha) để đăng nhập xem bề mặt phụ
+huynh, và khoá học **DEMO101 — "Khoá học mẫu: Làm
 quen với LMS"** với 3 section và 3 module, cả hai học viên đều đã ghi
 danh, điểm mẫu (student1 = 8.5, student2 = 6.5 ở "Bài kiểm tra 1"), huy
 hiệu "Huy hiệu khởi đầu" đã trao cho student1, và một sự kiện lịch của
