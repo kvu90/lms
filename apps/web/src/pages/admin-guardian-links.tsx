@@ -356,3 +356,13 @@ export function AdminGuardianLinksPage() {
     </PageShell>
   );
 }
+
+/** Export mặc định cho route module React Router framework mode (xem src/routes.ts). */
+export default AdminGuardianLinksPage;
+
+// Biên lỗi + tiêu đề theo route (cụm khung SSR, cùng mẫu các trang quản trị khác).
+export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
+import { appKeyMeta } from '../lib/route-meta';
+export function meta() {
+  return appKeyMeta('guardianLinksTitle');
+}
