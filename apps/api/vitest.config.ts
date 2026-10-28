@@ -4,7 +4,6 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
-    include: ['src/**/*.spec.ts', 'test/**/*.e2e-spec.ts'],
     testTimeout: 30000,
     hookTimeout: 30000,
     fileParallelism: false,
@@ -25,9 +24,45 @@ export default defineConfig({
       PAYMENT_WEBHOOK_SECRET: 'test-only-payment-webhook-secret-0123456789',
       // Bộ test e2e bắn hàng nghìn request từ một IP: nới hạn mức để
       // rate limit không chặn test; hành vi 429 có spec riêng với hạn
-      // mức thấp (test/platform/platform-hardening.e2e-spec.ts).
+      // mức thấp (test/e2e/platform/platform-hardening.e2e-spec.ts).
       RATE_LIMIT_PER_MINUTE: '1000000',
       RATE_LIMIT_AUTH_PER_MINUTE: '1000000',
     },
+    // Ba tầng test chạy tách nhau bằng Vitest projects: unit (spec cạnh
+    // mã nguồn trong src), int (test/integration — spec gọi trực tiếp
+    // service), e2e (test/e2e — spec lái qua HTTP). Mỗi project khai
+    // include tường minh neo thư mục + hậu tố của tầng mình, vì pattern
+    // khám phá mặc định của Vitest không nhận `.e2e-spec.ts` lẫn
+    // `.int-spec.ts` — thiếu khai là test âm thầm không chạy. Các tuỳ
+    // chọn dùng chung (env, timeout, fileParallelism) khai ở gốc để
+    // project con kế thừa. Chạy riêng từng tầng: pnpm test:unit /
+    // test:int / test:e2e; script test chạy đủ cả ba project.
+    projects: [
+      { test: { name: 'unit', include: ['src/**/*.spec.ts'] } },
+      { test: { name: 'int', include: ['test/integration/**/*.int-spec.ts'] } },
+      {
+        test: {
+          name: 'e2e',
+          include: [
+            'test/e2e/**/*.e2e-spec.ts',
+            // 11 file dưới đây đang được một PR khác sửa nên chưa di
+            // chuyển vào test/e2e/ trong lượt này; khai tường minh từng
+            // đường dẫn để chúng vẫn chạy ở project e2e. Khi các file
+            // này được di chuyển ở lượt sau, xoá các dòng này (issue #454).
+            'test/auth/better-auth-mail-flow.e2e-spec.ts',
+            'test/classes/classes-teacher-surface.e2e-spec.ts',
+            'test/guardians/guardian-ph2-digest-flow.e2e-spec.ts',
+            'test/messaging/messaging-block-visibility.e2e-spec.ts',
+            'test/messaging/messaging-conversation-state.e2e-spec.ts',
+            'test/messaging/messaging-message-lifecycle.e2e-spec.ts',
+            'test/messaging/messaging-realtime-flow.e2e-spec.ts',
+            'test/messaging/notification-unread-stream-flow.e2e-spec.ts',
+            'test/messaging/notifications-course-overrides.e2e-spec.ts',
+            'test/messaging/notifications-providers-flow.e2e-spec.ts',
+            'test/payments/payments-vietqr.e2e-spec.ts',
+          ],
+        },
+      },
+    ],
   },
 });
