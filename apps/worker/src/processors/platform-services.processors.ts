@@ -14,7 +14,7 @@ import {
   privacyRequests, question, questionBankEntries, questionCategories, questionVersions,
   reportBuilderReport, reportBuilderSchedule, role, roleAssignments,
   searchDocuments, userEnrolments, userPreferences, users, badgeIssued, files,
-} from '@lms/db-schema';
+} from '@lms/db';
 import { NotificationDeliveryService } from '../notification-delivery.service';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';

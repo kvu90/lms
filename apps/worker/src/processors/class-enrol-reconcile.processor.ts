@@ -25,7 +25,7 @@ import type { relations } from '../db/relations';
 import {
   classes, cohortMembers, context, course, enrol, groupsMembers, outboxEvents,
   roleAssignments, userEnrolments,
-} from '@lms/db-schema';
+} from '@lms/db';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
 

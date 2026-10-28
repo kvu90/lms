@@ -10,7 +10,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
 
 type Database = NodePgDatabase<typeof relations>;
-import { files } from '@lms/db-schema';
+import { files } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 
 export interface FileCleanupJobData { contentHash: string }

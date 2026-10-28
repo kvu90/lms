@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { uuidIdSchema } from '@lms/contracts';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from './db/relations';
-import { context as contextTable, eventLog, outboxEvents } from '@lms/db-schema';
+import { context as contextTable, eventLog, outboxEvents } from '@lms/db';
 
 type Database = NodePgDatabase<typeof relations>;
 

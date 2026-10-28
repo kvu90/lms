@@ -10,7 +10,7 @@ import {
   badge, badgeCriteria, badgeIssued, badgeManualAward, cohortMembers, competencyUserComp,
   course, courseCompletions, courseModulesCompletion, customFieldCategory, customFieldData, customFieldField,
   outboxEvents, users,
-} from '@lms/db-schema';
+} from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 import { resolveDefaultTenantId } from '../db/default-tenant';
 import { NotificationDeliveryService } from '../notification-delivery.service';

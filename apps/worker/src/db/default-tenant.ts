@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { tenantMemberships, tenants } from '@lms/db-schema';
+import { tenantMemberships, tenants } from '@lms/db';
 import type { relations } from './relations';
 
 type Database = NodePgDatabase<typeof relations>;

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import { GuardianDigestProcessor } from '../../src/processors/guardian-digest.processor';
-import { guardianDigests, outboxEvents, userPreferences } from '@lms/db-schema';
+import { guardianDigests, outboxEvents, userPreferences } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

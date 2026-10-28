@@ -5,7 +5,7 @@ import { BadgeAwardProcessor } from '../../src/processors/badge-award.processor'
 import {
   badge, badgeCriteria, badgeIssued, courseCompletions,
   notificationDispatchLog, notifications, userPreferences,
-} from '@lms/db-schema';
+} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

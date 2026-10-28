@@ -6,7 +6,7 @@ import { EnrolExpiryProcessor } from '../../src/processors/enrol-expiry.processo
 import {
   courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
   courseModulesCompletion, enrol, outboxEvents, userEnrolments,
-} from '@lms/db-schema';
+} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

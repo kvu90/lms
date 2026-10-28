@@ -7,7 +7,7 @@ import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import type { relations } from './db/relations';
 import { redisConnectionFromUrl } from './config/env';
-import { notificationDispatchLog, notifications, pluginConfig, userPreferences, users } from '@lms/db-schema';
+import { notificationDispatchLog, notifications, pluginConfig, userPreferences, users } from '@lms/db';
 
 type Database = NodePgDatabase<typeof relations>;
 
