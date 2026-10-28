@@ -1,9 +1,10 @@
 import type { INestApplication } from '@nestjs/common';
 import type { AddressInfo } from 'node:net';
+import { Client } from 'pg';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
+  adminToken, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
 import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from './engagement-helpers';
@@ -84,6 +85,30 @@ async function listMessages(token: string, conversationId: string): Promise<Mess
   return res.body.messages as MessageBody[];
 }
 
+/**
+ * Ghi thẳng một dòng gán vai vào DB cho fixture. Các fixture của bộ
+ * spec nhắn tin dựng persona giáo viên vừa ghi danh trong khoá vừa
+ * giữ vai giảng dạy tại context khoá (giáo viên hiện diện trong khoá
+ * như một thành viên và giữ vai trò kiểm duyệt). Từ issue #425,
+ * trạng thái lẫn vai cùng khoá này không còn tạo được qua API — cả
+ * hai chiều ghi danh/gán vai đều bị chốt tách vai chặn — và chỉ còn
+ * tồn tại như dữ kiện có sẵn; các ca của bộ spec này kiểm hành vi
+ * nhắn tin trên đúng dữ kiện đó, nên dòng gán vai được ghi thẳng
+ * vào DB trong lúc phần ghi danh vẫn đi qua API như cũ.
+ */
+async function insertAssignmentRow(roleId: string, userId: string, contextId: string): Promise<void> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `insert into role_assignments (role_id, user_id, context_id, component) values ($1, $2, $3, '')`,
+      [roleId, userId, contextId],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
   let a: Person; let b: Person; let convId: string;
   let teacher: Person; let s1: Person; let s2: Person; let groupConvId: string;
@@ -110,7 +135,9 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
     for (const p of [teacher, s1, s2]) await enrolUser(app, admin, course.id, instance.id, p.id);
     const courseCtx = await contextIdByLevelInstance(app, admin, 50, course.id);
     const editingTeacher = await roleIdByShortname(app, admin, 'editingteacher');
-    await assignRole(app, admin, teacher.id, editingTeacher, courseCtx);
+    // Persona giáo viên ở đây vừa ghi danh vừa giữ vai giảng dạy tại
+    // chính khoá: dòng gán vai ghi thẳng vào DB (xem insertAssignmentRow).
+    await insertAssignmentRow(editingTeacher, teacher.id, courseCtx);
     const group = await createGroupViaApi(app, admin, course.id, 'Lớp trích dẫn M3');
     for (const p of [teacher, s1, s2]) await addGroupMember(app, admin, course.id, group.id, p.id);
     const created = await http(app).post('/api/v1/messages/conversations/group')
