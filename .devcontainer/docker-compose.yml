@@ -35,7 +35,11 @@ services:
       # lms_test_worker) do init-db.sql tạo thêm ở lần khởi tạo đầu tiên.
       POSTGRES_DB: lms
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18 đổi bố cục: mount phải đặt tại /var/lib/postgresql
+      # (image tự quản thư mục con theo major version). Mount vào
+      # /var/lib/postgresql/data như khuôn của bản 17 trở xuống sẽ làm
+      # container lỗi khởi động.
+      - pgdata:/var/lib/postgresql
       - ./init-db.sql:/docker-entrypoint-initdb.d/10-init-db.sql:ro
 
   redis:

@@ -51,7 +51,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}
       POSTGRES_DB: ${POSTGRES_DB:-lms}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18 đổi bố cục: mount phải đặt tại /var/lib/postgresql
+      # (image tự quản thư mục con theo major version). Mount vào
+      # /var/lib/postgresql/data như khuôn của bản 17 trở xuống sẽ làm
+      # container lỗi khởi động.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lms}"]
       interval: 5s
