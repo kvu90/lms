@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { tenantAls } from '../tenants/tenant-als';
 import {
   assignments, assignGrades, assignSubmissions, classes, cohortMembers, context, course, courseGroups, courseModules, enrol, gradeGrades, gradeItems, groupsMembers, guardianLinks,
@@ -220,7 +220,6 @@ export type CourseGroupRow = typeof courseGroups.$inferSelect;
  * các vai trò mặc định (user/guest) KHÔNG nằm trong tập này.
  */
 export const STAFF_ARCHETYPES = ['manager', 'coursecreator', 'editingteacher', 'teacher'] as const;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

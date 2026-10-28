@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings, courseModulesCompletion } from '../../db/schema';
 
 export type CmCompletionRow = typeof courseModulesCompletion.$inferSelect;
 export type CriteriaRow = typeof courseCompletionCriteria.$inferSelect;
 export type CritComplRow = typeof courseCompletionCritCompl.$inferSelect;
 export type CourseCompletionRow = typeof courseCompletions.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

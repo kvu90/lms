@@ -397,7 +397,7 @@ export class CompetenciesService implements OnModuleInit {
         description: doc.framework.description, contextId: await this.systemCtx(),
         scaleConfiguration: doc.framework.scale, taxonomies: doc.framework.taxonomies,
         visible: doc.framework.visible,
-      }, tx as never);
+      }, tx);
       // Chèn theo thứ tự topo: cha trước con (tài liệu export vốn đã xếp theo path,
       // nhưng import từ ngoài vào không được tin cậy thứ tự đó).
       const mapped = new Map<string, { id: string; path: string; depth: number }>();
@@ -411,9 +411,9 @@ export class CompetenciesService implements OnModuleInit {
           frameworkId: framework.id, shortName: node.shortName, idNumber: node.idNumber,
           description: node.description, parentId: parentInfo?.id ?? null,
           path: '', depth: parentInfo ? parentInfo.depth + 1 : 1, sortOrder: node.sortOrder,
-        }, tx as never);
+        }, tx);
         const path = parentInfo ? `${parentInfo.path}/${created.id}` : `/${created.id}`;
-        await this.repo.updateCompetency(created.id, { path }, tx as never);
+        await this.repo.updateCompetency(created.id, { path }, tx);
         mapped.set(node.key, { id: created.id, path, depth: parentInfo ? parentInfo.depth + 1 : 1 });
       }
       // Rule gắn sau khi mọi competency đã có id mới (config tham chiếu id con).
@@ -425,7 +425,7 @@ export class CompetenciesService implements OnModuleInit {
         };
         await this.repo.updateCompetency(mapped.get(node.key)!.id, {
           ruleType: 'points', ruleConfig: config, ruleOutcome: node.rule.outcome,
-        }, tx as never);
+        }, tx);
       }
       return framework.id;
     });
@@ -602,22 +602,22 @@ export class CompetenciesService implements OnModuleInit {
         description: input.description, url: input.url ?? null,
         grade: input.grade ?? null, note: input.note ?? '',
         contextId: await this.systemCtx(),
-      }, tx as never);
+      }, tx);
       if (input.grade !== undefined && canRate) {
         const framework = await this.getFramework(competencyRow.frameworkId);
         await this.repo.updateUsercomp(usercomp.id, {
           grade: input.grade, proficiency: isProficientGrade(framework, input.grade),
-        }, tx as never);
+        }, tx);
         await this.emitter.emitAsync('competency_proficiency_changed', { userId: input.userId, competencyId: input.competencyId });
       }
       if (input.sendForReview) {
-        await this.repo.updateUsercomp(usercomp.id, { status: USERCOMP_REVIEW.WAITING }, tx as never);
+        await this.repo.updateUsercomp(usercomp.id, { status: USERCOMP_REVIEW.WAITING }, tx);
         await this.repo.insertEvidence({
           userCompetencyId: usercomp.id, actionUserId: actorId, action: 'review_requested',
           description: 'Sent for review with evidence', grade: null,
-        }, tx as never);
+        }, tx);
       }
-      await this.outbox.enqueue(tx as never, {
+      await this.outbox.enqueue(tx, {
         aggregate: 'competency', type: 'competency_evidence_added',
         payload: { userId: input.userId, competencyId: input.competencyId, evidenceId: evidence.id },
       });
@@ -886,8 +886,8 @@ export class CompetenciesService implements OnModuleInit {
       const created = await this.repo.insertPlan({
         name: template.shortName, description: template.description, userId: userId,
         templateId: template.id, status: PLAN_STATUS.ACTIVE, dueDate: template.dueDate,
-      }, tx as never);
-      for (const c of competencies) await this.repo.addPlanCompetency(created.id, c.id, tx as never);
+      }, tx);
+      for (const c of competencies) await this.repo.addPlanCompetency(created.id, c.id, tx);
       return created;
     });
     for (const c of competencies) {

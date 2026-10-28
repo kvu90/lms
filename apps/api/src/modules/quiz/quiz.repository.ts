@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { examAttemptEvents, examAttemptRegradeItems, examAttemptRegrades, examAttempts, examMatrices, examMatrixCells, examMatrixContributions, examMatrixVersions, examPinFeedbacks, examPinOverrides, examPinVersionUpdates, examPins, examSlots, examVersions, exams } from '../../db/schema';
 
 export type ExamPinRow = typeof examPins.$inferSelect;
@@ -16,7 +16,6 @@ export type ExamAttemptEventRow = typeof examAttemptEvents.$inferSelect;
 export type ExamPinVersionUpdateRow = typeof examPinVersionUpdates.$inferSelect;
 export type ExamAttemptRegradeRow = typeof examAttemptRegrades.$inferSelect;
 export type ExamAttemptRegradeItemRow = typeof examAttemptRegradeItems.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

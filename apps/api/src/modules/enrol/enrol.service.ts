@@ -344,8 +344,8 @@ export class EnrolService implements OnModuleInit {
     } else {
       try {
         ue = await this.repo.dbHandle.transaction(async (tx) => {
-          const row = await this.repo.insertUserEnrolment({ enrolId: instance.id, userId: userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId }, tx as never);
-          await this.outbox.enqueue(tx as never, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol, actorId: modifierId ?? null } });
+          const row = await this.repo.insertUserEnrolment({ enrolId: instance.id, userId: userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId }, tx);
+          await this.outbox.enqueue(tx, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol, actorId: modifierId ?? null } });
           return row;
         });
         isNewEnrolment = true;
@@ -547,8 +547,8 @@ export class EnrolService implements OnModuleInit {
       // khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
       // class-enrol-reconcile chỉ tôn trọng/không kích hoạt lại đúng các
       // dòng mang vết người này — issue #184, ca "miễn môn").
-      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'enrol', type: suspended ? 'user_enrolment_suspended' : 'user_enrolment_reactivated',
         payload: { courseId: instance.courseId, userId, instanceId, actorId },
       });
@@ -582,9 +582,9 @@ export class EnrolService implements OnModuleInit {
     const hasRelated = await this.hasRelatedData(instance.courseId, userId);
     await this.repo.dbHandle.transaction(async (tx) => {
       if (hasRelated) {
-        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_WITHDRAWN, modifierId: modifierId }, tx as never);
+        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_WITHDRAWN, modifierId: modifierId }, tx);
       }
-      await this.outbox.enqueue(tx as never, {
+      await this.outbox.enqueue(tx, {
         aggregate: 'enrol', type: 'user_unenrolled',
         payload: { courseId: instance.courseId, userId, instanceId: instance.id, keptData: hasRelated, actorId: modifierId ?? null },
       });
@@ -693,8 +693,8 @@ export class EnrolService implements OnModuleInit {
     for (const ue of expired) {
       const instance = await this.repo.getInstance(ue.enrolId);
       await this.repo.dbHandle.transaction(async (tx) => {
-        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED }, tx as never);
-        await this.outbox.enqueue(tx as never, {
+        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED }, tx);
+        await this.outbox.enqueue(tx, {
           aggregate: 'enrol', type: 'user_enrolment_suspended',
           payload: { courseId: instance?.courseId, userId: ue.userId, instanceId: ue.enrolId, reason: 'expired' },
         });

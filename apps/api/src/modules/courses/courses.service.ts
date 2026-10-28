@@ -7,7 +7,7 @@ import {
   courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeItems,
   examPins,
 } from '../../db/schema';
-import type { Database } from '../../db/database';
+import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -17,7 +17,7 @@ import { AvailabilityService, type AvailabilityContext } from '../availability/a
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type DbTx, type SectionRow } from './courses.repository';
+import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type SectionRow } from './courses.repository';
 
 export const GROUPMODE_NOGROUPS = 0;
 export const GROUPMODE_SEPARATEGROUPS = 1;
@@ -485,8 +485,8 @@ export class CoursesService {
         groupMode: input.groupMode ?? GROUPMODE_NOGROUPS, groupModeForce: input.groupModeForce ?? false, sortOrder: siblings.length,
         subjectId: input.subjectId ?? null, grade: input.grade ?? null,
         classId: classRef?.classId ?? null,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId }, tenantId: category.tenantId });
+      }, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: category.id, actorId }, tenantId: category.tenantId });
       return row;
     });
     // Khoá thuộc lớp: context khoá neo dưới context LỚP (thay vì danh mục)
@@ -994,7 +994,7 @@ export class CoursesService {
     const count = fresh.length;
     const created: (SectionRow & { frame: SectionFrameView })[] = [];
     await this.repo.dbHandle.transaction(async (tx) => {
-      const handle = tx as never;
+      const handle = tx;
       if (input.insertAtSection !== undefined && insertAt <= maxSection) {
         // Hai pass qua vùng đệm +100000 để unique (course, section) không vỡ giữa chừng.
         await this.repo.shiftSections(handle, courseId, insertAt, 100000);
@@ -1095,7 +1095,7 @@ export class CoursesService {
     tx: DbTx, source: CmRow, targetCourseId: string, targetSectionId: string,
     deltaMs: number, cmMap: Map<string, string>,
   ): Promise<CmRow> {
-    const db = tx as unknown as Database;
+    const db = tx;
     let instanceId = source.instanceId;
     if (source.component === QUIZ_COMPONENT_NAME && source.instanceId) {
       const [pin] = await db.select().from(examPins).where(eq(examPins.id, source.instanceId));
@@ -1149,7 +1149,7 @@ export class CoursesService {
     tx: DbTx, source: SectionRow, targetCourseId: string, targetNumber: number,
     deltaMs: number, cmMap: Map<string, string>,
   ): Promise<SectionRow> {
-    const db = tx as unknown as Database;
+    const db = tx;
     const [created] = await db.insert(courseSectionsTable).values({
       course: targetCourseId, section: targetNumber, name: source.name, summary: source.summary,
       visible: source.visible,
@@ -1184,7 +1184,7 @@ export class CoursesService {
   private async copyGradeStructure(
     tx: DbTx, sourceCourseId: string, targetCourseId: string, cmMap: Map<string, string>, deltaMs = 0,
   ): Promise<void> {
-    const db = tx as unknown as Database;
+    const db = tx;
     const sourceItems = await db.select().from(gradeItems).where(eq(gradeItems.courseId, sourceCourseId));
     for (const item of sourceItems) {
       let itemInstance = item.itemInstance;
@@ -1278,9 +1278,9 @@ export class CoursesService {
         groupMode: source.groupMode, groupModeForce: source.groupModeForce, sortOrder: siblings.length,
         subjectId: source.subjectId, grade: source.grade, isTemplate: false,
         classId: classRef?.classId ?? null,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId }, tenantId: targetCategory.tenantId });
-      await this.outbox.enqueue(tx as never, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId }, tenantId: targetCategory.tenantId });
+      }, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'course', type: 'course_created', payload: { courseId: row.id, categoryId: targetCategory.id, actorId, duplicatedFrom: sourceCourseId }, tenantId: targetCategory.tenantId });
+      await this.outbox.enqueue(tx, { aggregate: 'course', type: 'course_duplicated', payload: { courseId: row.id, sourceCourseId, actorId }, tenantId: targetCategory.tenantId });
       return row;
     });
     // Khoá thuộc lớp: context neo dưới context lớp như đường tạo thường.
@@ -1293,7 +1293,7 @@ export class CoursesService {
       const sourceSections = await this.repo.listSections(sourceCourseId);
       const ordered = [...sourceSections].sort((a, b) => a.section - b.section);
       if (!ordered.some((s) => s.section === 0)) {
-        await this.repo.insertSection({ course: created.id, section: 0, name: null, summary: '', visible: true }, tx as never);
+        await this.repo.insertSection({ course: created.id, section: 0, name: null, summary: '', visible: true }, tx);
       }
       for (const s of ordered) {
         await this.copySectionRow(tx as DbTx, s, created.id, s.section, deltaMs, cmMap);
@@ -1301,7 +1301,7 @@ export class CoursesService {
       await this.copyGradeStructure(tx as DbTx, sourceCourseId, created.id, cmMap, deltaMs);
       // Format options (sectionId map lại theo section mới khi có) —
       // đọc section mới ngay trong transaction để thấy dữ liệu vừa chèn.
-      const db = tx as unknown as Database;
+      const db = tx;
       const sectionMap = new Map<string, string>();
       const newSections = await db.select().from(courseSectionsTable).where(eq(courseSectionsTable.course, created.id));
       for (const s of ordered) {
@@ -1379,7 +1379,7 @@ export class CoursesService {
       for (const [sourceSectionId, cms] of groups) {
         const sourceSection = sourceSections.find((s) => s.id === sourceSectionId);
         if (!sourceSection) continue;
-        const db = tx as unknown as Database;
+        const db = tx;
         const [created] = await db.insert(courseSectionsTable).values({
           course: targetCourseId, section: nextNumber++, name: sourceSection.name, summary: sourceSection.summary,
           visible: sourceSection.visible, availability: sourceSection.availability as never, openAt: sourceSection.openAt,
@@ -1409,13 +1409,13 @@ export class CoursesService {
     const cmMap = new Map<string, string>();
     let created!: SectionRow;
     await this.repo.dbHandle.transaction(async (tx) => {
-      const handle = tx as never;
+      const handle = tx;
       // Hai pass qua vùng đệm +100000 như đường chèn khung (K0a).
       await this.repo.shiftSections(handle, section.course, section.section + 1, 100000);
       await this.repo.shiftSections(handle, section.course, section.section + 1 + 100000, 1 - 100000);
       created = await this.copySectionRow(tx as DbTx, section, section.course, section.section + 1, 0, cmMap);
       // Item điểm 'mod' của các cm gốc trỏ sang cm bản sao.
-      const db = tx as unknown as Database;
+      const db = tx;
       for (const [oldCmId, newCmId] of cmMap) {
         const items = await db.select().from(gradeItems).where(and(
           eq(gradeItems.courseId, section.course), eq(gradeItems.itemType, 'mod'), eq(gradeItems.itemInstance, oldCmId),
@@ -1445,7 +1445,7 @@ export class CoursesService {
     const cmMap = new Map<string, string>();
     let created!: CmRow;
     await this.repo.dbHandle.transaction(async (tx) => {
-      const db = tx as unknown as Database;
+      const db = tx;
       // Đẩy các module sau module gốc xuống một bậc sortOrder.
       await db.update(courseModulesTable)
         .set({ sortOrder: sql`${courseModulesTable.sortOrder} + 1` })
@@ -1484,10 +1484,10 @@ export class CoursesService {
       throw new BadRequestException({ message: 'Reorder list must contain every section of the course exactly once', code: 'course.reorder_sections_mismatch' });
     }
     await this.repo.dbHandle.transaction(async (tx) => {
-      const handle = tx as never;
+      const handle = tx;
       // Vùng đệm +100000 tránh vỡ unique (course, section) giữa chừng.
       await this.repo.shiftSections(handle, courseId, 0, 100000);
-      const db = tx as unknown as Database;
+      const db = tx;
       for (const [i, id] of sectionIds.entries()) {
         await db.update(courseSectionsTable).set({ section: i, updatedAt: new Date() }).where(eq(courseSectionsTable.id, id));
       }
@@ -1508,7 +1508,7 @@ export class CoursesService {
       throw new BadRequestException({ message: 'Reorder list must contain every module of the section exactly once', code: 'course.reorder_modules_mismatch' });
     }
     await this.repo.dbHandle.transaction(async (tx) => {
-      const db = tx as unknown as Database;
+      const db = tx;
       for (const [i, id] of moduleIds.entries()) {
         await db.update(courseModulesTable).set({ sortOrder: i }).where(eq(courseModulesTable.id, id));
       }
@@ -1557,7 +1557,7 @@ export class CoursesService {
     const count = selected.length;
     const created: (SectionRow & { bookFrame: SectionBookFrameView })[] = [];
     await this.repo.dbHandle.transaction(async (tx) => {
-      const handle = tx as never;
+      const handle = tx;
       if (input.insertAtSection !== undefined && insertAt <= maxSection) {
         // Hai pass qua vùng đệm +100000 để unique (course, section) không vỡ giữa chừng (như khung chương trình).
         await this.repo.shiftSections(handle, courseId, insertAt, 100000);

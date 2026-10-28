@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   gradeGrades, gradeGradesHistory, gradeItems, gradePublications,
 } from '../../db/schema';
@@ -9,7 +9,6 @@ import {
 export type ItemRow = typeof gradeItems.$inferSelect;
 export type GradeRow = typeof gradeGrades.$inferSelect;
 export type GradePublicationRow = typeof gradePublications.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

@@ -4,13 +4,14 @@ import {
   richTextBlocksHaveContent, toRichTextDocument, TRUE_FALSE_STATEMENT_COUNT, uuidIdSchema,
   type RichTextDocument, type RichTextInput,
 } from '@lms/contracts';
+import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { FilesService } from '../files/files.service';
 import { BEHAVIOURS, canTransition, gradeAnswer, gradedStateForFraction, usageState, type GradingData, type GradeOutcome, type QuestionState } from './domain/question-engine';
 import {
-  QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type DbTx, type EntryRow, type QCategoryRow,
+  QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type EntryRow, type QCategoryRow,
   type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
 } from './questions.repository';
 
@@ -1398,10 +1399,10 @@ export class QuestionsService {
     await this.repo.dbHandle.transaction(async (tx) => {
       const step = await this.repo.insertStep({
         questionAttemptId: attempt.id, sequenceNumber: seq, state, fraction, userId: userId,
-      }, tx as never);
+      }, tx);
       if (data) {
         for (const [name, value] of Object.entries(data)) {
-          await this.repo.insertStepData({ attemptStepId: step.id, name, value }, tx as never);
+          await this.repo.insertStepData({ attemptStepId: step.id, name, value }, tx);
         }
       }
     });

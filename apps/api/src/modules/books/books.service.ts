@@ -209,14 +209,14 @@ export class BookService implements OnModuleInit {
           const lesson = await this.repo.insertBookNode({
             bookId: book.id, parentId: chapter.id, title: record.lesson, kind: 'lesson',
             volume: record.volume, lessonNumber: record.lessonNumber, position,
-          }, tx as never);
+          }, tx);
           for (const [mi, nodeId] of mappingNodeIds.entries()) {
-            await this.repo.insertMapping({ bookNodeId: lesson.id, curriculumNodeId: nodeId, learningOutcomeId: null, position: mi + 1 }, tx as never);
+            await this.repo.insertMapping({ bookNodeId: lesson.id, curriculumNodeId: nodeId, learningOutcomeId: null, position: mi + 1 }, tx);
           }
           await this.repo.insertBookRecord({
             datasetKey: def.key, recordId: record.id, bookId: book.id,
             nodeId: lesson.id, contentHash: hash, source: record.source,
-          }, tx as never);
+          }, tx);
         });
         created += 1;
         mappingsWritten += mappingNodeIds.length;
@@ -232,14 +232,14 @@ export class BookService implements OnModuleInit {
           patch.parentId = chapter.id;
           patch.position = this.takePosition(index, chapter.id);
         }
-        await this.repo.updateBookNode(reg.nodeId, patch, tx as never);
-        await this.repo.deleteMappingsForNode(reg.nodeId, tx as never);
+        await this.repo.updateBookNode(reg.nodeId, patch, tx);
+        await this.repo.deleteMappingsForNode(reg.nodeId, tx);
         for (const [mi, nodeId] of mappingNodeIds.entries()) {
-          await this.repo.insertMapping({ bookNodeId: reg.nodeId, curriculumNodeId: nodeId, learningOutcomeId: null, position: mi + 1 }, tx as never);
+          await this.repo.insertMapping({ bookNodeId: reg.nodeId, curriculumNodeId: nodeId, learningOutcomeId: null, position: mi + 1 }, tx);
         }
         await this.repo.updateBookRecord(reg.id, {
           bookId: book.id, nodeId: reg.nodeId, contentHash: hash, source: record.source,
-        }, tx as never);
+        }, tx);
       });
       updated += 1;
       mappingsWritten += mappingNodeIds.length;

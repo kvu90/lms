@@ -138,14 +138,14 @@ export class CalendarService {
     const occurrences: CalendarEventRow[] = [];
     let root: CalendarEventRow | undefined;
     await this.repo.dbHandle.transaction(async (tx) => {
-      root = await this.repo.insertEvent({ ...base, timeStart: starts[0]!, rrule: formatRrule(spec), repeatId: null }, tx as never);
-      await this.repo.updateEvent(root.id, { repeatId: root.id }, tx as never);
+      root = await this.repo.insertEvent({ ...base, timeStart: starts[0]!, rrule: formatRrule(spec), repeatId: null }, tx);
+      await this.repo.updateEvent(root.id, { repeatId: root.id }, tx);
       root = { ...root, repeatId: root.id };
       occurrences.push(root);
       for (const s of starts.slice(1)) {
-        occurrences.push(await this.repo.insertEvent({ ...base, timeStart: s, repeatId: root.id }, tx as never));
+        occurrences.push(await this.repo.insertEvent({ ...base, timeStart: s, repeatId: root.id }, tx));
       }
-      await this.outbox.enqueue(tx as never, { aggregate: 'calendar', type: 'calendar_event_created', payload: { eventId: root.id, eventType: input.eventType, series: true, count: starts.length } });
+      await this.outbox.enqueue(tx, { aggregate: 'calendar', type: 'calendar_event_created', payload: { eventId: root.id, eventType: input.eventType, series: true, count: starts.length } });
     });
     return { event: root!, occurrences };
   }

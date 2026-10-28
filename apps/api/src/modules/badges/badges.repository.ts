@@ -1,14 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { badge, badgeCriteria, badgeIssued, badgeManualAward } from '../../db/schema';
 
 export type BadgeRow = typeof badge.$inferSelect;
 export type CriteriaRow = typeof badgeCriteria.$inferSelect;
 export type IssuedRow = typeof badgeIssued.$inferSelect;
 export type ManualAwardRow = typeof badgeManualAward.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

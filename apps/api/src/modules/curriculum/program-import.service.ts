@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ProgramDatasetStatus, ProgramImportChange, ProgramImportResult } from '@lms/contracts';
+import type { DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
-import { CurriculumRepository, type CurriculumNodeRow, type DbTx } from './curriculum.repository';
+import { CurriculumRepository, type CurriculumNodeRow } from './curriculum.repository';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from './curriculum.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,
@@ -270,17 +271,17 @@ export class ProgramImportService {
         await this.repo.dbHandle.transaction(async (tx) => {
           const lesson = await this.repo.insertNode({
             id: lessonId, curriculumId, parentId, title, kind: 'lesson', position,
-          }, tx as never);
+          }, tx);
           for (const entry of entries) {
             await this.repo.insertOutcome({
               nodeId: lesson.id, content: entry.doc, position: entry.position,
               sourceKind: 'program', sourceRef, derivedFromId: null,
-            }, tx as never);
+            }, tx);
           }
           await this.repo.insertProgramRecord({
             datasetKey: def.key, recordId: record.id, subjectId: subject.id,
             curriculumId, nodeId: lesson.id, contentHash: hash, source: record.source,
-          }, tx as never);
+          }, tx);
           index.childByKey.set(childKey(parentId, 'lesson', title), lesson);
         });
         created += 1;
@@ -306,11 +307,11 @@ export class ProgramImportService {
           patch.parentId = parentId;
           patch.position = this.takePosition(index, parentId);
         }
-        await this.repo.updateNode(reg.nodeId, patch, tx as never);
-        await this.applyOutcomeWrites(tx as never, reg.nodeId, sourceRef, diff.writes);
+        await this.repo.updateNode(reg.nodeId, patch, tx);
+        await this.applyOutcomeWrites(tx, reg.nodeId, sourceRef, diff.writes);
         await this.repo.updateProgramRecord(reg.id, {
           subjectId: subject.id, curriculumId, nodeId: reg.nodeId, contentHash: hash, source: record.source,
-        }, tx as never);
+        }, tx);
         if (current) index.childByKey.set(childKey(parentId, 'lesson', title), { ...current, ...patch });
       });
       updated += 1;
@@ -334,7 +335,7 @@ export class ProgramImportService {
       const links = await this.repo.countOutcomeLinks(currentManaged.map((o) => o.id));
       await this.repo.dbHandle.transaction(async (tx) => {
         for (const outcome of currentManaged) {
-          await this.repo.updateOutcome(outcome.id, { retiredAt: new Date() }, tx as never);
+          await this.repo.updateOutcome(outcome.id, { retiredAt: new Date() }, tx);
         }
       });
       for (const outcome of currentManaged) {

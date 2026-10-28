@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { enrol, userEnrolments } from '../../db/schema';
 
 export type EnrolRow = typeof enrol.$inferSelect;
 export type UserEnrolmentRow = typeof userEnrolments.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**
