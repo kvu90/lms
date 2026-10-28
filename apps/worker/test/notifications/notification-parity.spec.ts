@@ -6,7 +6,7 @@ import {
 } from '../../src/notification-delivery.service';
 import {
   notifications, pluginConfig, userPreferences, users,
-} from '@lms/db-schema';
+} from '@lms/db';
 
 /**
  * Parity luật thông báo API ↔ worker — nửa HÀNH VI (issue #293).

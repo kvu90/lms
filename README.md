@@ -228,7 +228,7 @@ ghim/trở ngại hiện tại:
 ## Các đơn giản hoá đã biết
 
 - Schema cơ sở dữ liệu là DÙNG CHUNG, không nhân đôi: schema canonical
-  nằm ở `packages/db-schema` (chia theo bounded context, xem mục
+  nằm ở `packages/db` (chia theo bounded context, xem mục
   Quy ước) và được cả API lẫn worker import — worker không còn giữ
   bản sao schema rút gọn của riêng mình.
 - Script `dev` của API là `tsc --watch` + `node --watch` thay vì Nest
@@ -255,10 +255,10 @@ ghim/trở ngại hiện tại:
   — README, các tài liệu còn giữ trong repo, AGENTS.md và cả tài liệu API —
   không có ngoại lệ tiếng Anh cho bất kỳ tài liệu nào.
 - **Schema cơ sở dữ liệu chia theo bounded context**: schema nằm ở
-  package dùng chung `packages/db-schema` — mỗi module sở hữu các bảng
-  Drizzle của mình tại `packages/db-schema/src/modules/<module>/schema.ts`,
+  package dùng chung `packages/db` — mỗi module sở hữu các bảng
+  Drizzle của mình tại `packages/db/src/<module>.schema.ts`,
   các bảng hạ tầng của platform nằm ở
-  `packages/db-schema/src/infrastructure.schema.ts`, và index của package
+  `packages/db/src/infrastructure.schema.ts`, và index của package
   là barrel duy nhất mà cả API lẫn worker import (file
   `apps/api/src/db/schema.ts` của API chỉ re-export barrel đó cho
   `drizzle.config.ts` và Drizzle module). Tên bảng/cột không bao giờ đổi

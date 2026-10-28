@@ -62,7 +62,7 @@ export const betterAuthAccount = pgTable('account', {
 
 /**
  * Ánh xạ model `twoFactor`: bảng vật lý `two_factor` đã có trong
- * baseline từ Giai đoạn 1 (định nghĩa ở packages/db-schema) và hình
+ * baseline từ Giai đoạn 1 (định nghĩa ở packages/db) và hình
  * cột khớp từng field của plugin twoFactor 1.7.12. Ánh xạ được giữ
  * vì adapter khai đủ model của schema, NHƯNG plugin twoFactor chủ
  * đích không được đăng ký (lý do ở khối plugins của factory) và
@@ -95,7 +95,7 @@ export const betterAuthVerification = pgTable('verification', {
 
 /**
  * Các bảng OAuth của lát MCP-1 (issue #163): định nghĩa vật lý ở
- * `packages/db-schema` (mục OAuth trong modules/auth/schema.ts), ở đây
+ * `packages/db` (mục OAuth trong auth.schema.ts), ở đây
  * chỉ là lớp ánh xạ field cho adapter — property là TÊN FIELD của
  * model Better Auth, chuỗi trong ngoặc là TÊN CỘT vật lý.
  *

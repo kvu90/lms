@@ -5,7 +5,7 @@ import { ClassEnrolReconcileProcessor } from '../../src/processors/class-enrol-r
 import {
   classes, cohort, cohortMembers, context, course, courseGroups, enrol,
   role, roleAssignments, userEnrolments, users,
-} from '@lms/db-schema';
+} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

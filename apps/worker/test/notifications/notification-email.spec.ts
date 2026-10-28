@@ -3,7 +3,7 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { notificationDispatchLog, pluginConfig, userPreferences } from '@lms/db-schema';
+import { notificationDispatchLog, pluginConfig, userPreferences } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

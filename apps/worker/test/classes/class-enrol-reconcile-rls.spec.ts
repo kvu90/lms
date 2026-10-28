@@ -10,7 +10,7 @@ import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from '../suppor
 import {
   classes, cohort, cohortMembers, context, course, courseGroups, enrol,
   role, roleAssignments, userEnrolments, users,
-} from '@lms/db-schema';
+} from '@lms/db';
 
 /**
  * Hồi quy issue #292 — job đối soát ghi danh lớp chạy bằng role DB

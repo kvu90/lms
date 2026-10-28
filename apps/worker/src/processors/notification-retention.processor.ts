@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { and, isNotNull, isNull, lt } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { notificationDispatchLog, notifications } from '@lms/db-schema';
+import { notificationDispatchLog, notifications } from '@lms/db';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
 

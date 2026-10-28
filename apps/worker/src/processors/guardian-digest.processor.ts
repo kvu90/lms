@@ -7,7 +7,7 @@ import type { relations } from '../db/relations';
 import {
   assignments, assignSubmissions, course, courseModules, enrol, guardianDigests, guardianLinks,
   outboxEvents, examAttempts, examPins, examVersions, userEnrolments, userPreferences,
-} from '@lms/db-schema';
+} from '@lms/db';
 import { TaskLogService } from '../task-log.service';
 import { tenantAls } from '../db/tenant-als';
 

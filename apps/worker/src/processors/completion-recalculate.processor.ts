@@ -8,7 +8,7 @@ import {
   courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
   courseModules, courseModulesCompletion, userEnrolments, enrol,
   gradeGrades, gradeItems,
-} from '@lms/db-schema';
+} from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 
 type Database = NodePgDatabase<typeof relations>;

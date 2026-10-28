@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { FileCleanupProcessor } from '../../src/processors/file-cleanup.processor';
-import { files } from '@lms/db-schema';
+import { files } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

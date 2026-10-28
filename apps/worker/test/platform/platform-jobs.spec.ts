@@ -8,7 +8,7 @@ import {
 import {
   backupJobs, enrol, gradeGrades, insights, payments, privacyRequests, reportBuilderReport,
   reportBuilderSchedule, searchDocuments, userEnrolments, users,
-} from '@lms/db-schema';
+} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

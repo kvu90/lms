@@ -68,7 +68,7 @@ logic phức tạp; đội đánh giá độc lập soi như tiêu chí đạt.
 - `tsconfig/base.json` — nền dùng chung cho mọi package (target ES2023,
   `strict: true` và các kỷ luật kiểu nền).
 - `tsconfig/nest.json` — kế thừa `base.json`, dòng backend (module CommonJS,
-  moduleResolution Node10): `apps/api`, `apps/worker`, `packages/db-schema`
+  moduleResolution Node10): `apps/api`, `apps/worker`, `packages/db`
   dùng qua `extends: "@lms/config/tsconfig/nest.json"`.
 - `tsconfig/react.json` — kế thừa `base.json`, dòng frontend (module ESNext,
   moduleResolution bundler): `apps/web`, `packages/editor`, `packages/ui`

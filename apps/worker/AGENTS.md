@@ -38,7 +38,7 @@ của repo.
 - Cấm custom jobId BullMQ chứa dấu `:`.
 - Cấm consumer giữ watermark chỉ trong bộ nhớ mà không có cơ chế tự neo khi DB
   reset (seq tối đa < watermark → neo lại).
-- Cấm bản sao schema/logic riêng: schema lấy từ `packages/db-schema`; không định
+- Cấm bản sao schema/logic riêng: schema lấy từ `packages/db`; không định
   nghĩa lại bảng trong worker.
 - Khi dựng cụm Postgres local để test: cụm phải gọn (giữ ở `~/workspace` hoặc
   `/dev/shm` có cap WAL), tắt postmaster + xoá pgdata ngay khi xong.
@@ -46,7 +46,7 @@ của repo.
 ## Kiểm chứng bắt buộc
 
 - **Typecheck trước khi push**: `pnpm --filter @lms/worker typecheck`; build lại
-  dist của `packages/db-schema`/`packages/contracts` trước khi kết luận lỗi type.
+  dist của `packages/db`/`packages/contracts` trước khi kết luận lỗi type.
 - CI là cổng chính (suite worker có DB riêng `lms_test_worker` — không chạy đồng
   thời với suite api trên cùng DB); kết luận CI chỉ từ LOG THẬT.
 - Local chỉ test targeted; suite nặng giữ khoá
@@ -98,7 +98,7 @@ vào trí nhớ của trợ lý:
   retention, chu kỳ đối soát) → đẩy job vào hàng đợi BullMQ (custom jobId
   **không chứa dấu `:`**) → processor trong `src/processors/` thực thi luật
   đã chốt ở API/sổ quyết định → ghi DB dùng chung với API (schema lấy từ
-  `packages/db-schema`, ngữ cảnh tenant qua `src/db/` — `tenant-pool`,
+  `packages/db`, ngữ cảnh tenant qua `src/db/` — `tenant-pool`,
   `tenant-als`, `relations`, `default-tenant`) → phát ra ngoài qua
   `notification-delivery.service.ts` và hàm luật phân phối chung (kênh ngoài
   tối thiểu hoá theo P4) → ghi vết bằng `event-log-writer.service.ts` /
