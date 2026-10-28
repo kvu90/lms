@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { SearchRepository, type SearchDocRow } from './search.repository';
@@ -85,7 +85,10 @@ export class SearchService {
         if (!ctx) return null;
         return { title: c.fullName, content: `${c.shortName} ${c.summary}`, contextId: ctx.id };
       },
-      listIds: async () => (await db.select().from(course)).map((r) => r.id),
+      // Chỉ lấy cột id: tập id phải y hệt liệt kê toàn bộ khoá (kể cả
+      // khoá đang ẩn) — khâu fetch mới quyết định item có vào chỉ mục
+      // hay không, listIds không tự lọc thêm điều kiện nào.
+      listIds: async () => (await db.select({ id: course.id }).from(course)).map((r) => r.id),
     });
     // Area: users — hồ sơ công khai; user suspended/deleted không được index.
     // Nội dung công khai đem lập chỉ mục chỉ gồm username (họ tên nằm ở
@@ -106,7 +109,11 @@ export class SearchService {
         const sys = ctx ?? (await this.contexts.ensureSystemContext());
         return { title: `${u.firstName} ${u.lastName}`.trim() || u.username, content: u.username, contextId: sys.id, ownerId: u.id, privilegedContent: `${u.username} ${u.email}` };
       },
-      listIds: async () => (await db.select().from(users)).filter((u) => !u.suspended && !u.deleted).map((r) => r.id),
+      // Chỉ lấy cột id của user chưa suspended/chưa deleted, lọc
+      // ngay ở WHERE — cùng tập id với cách lọc ở tầng ứng dụng trước
+      // đây (hai cột đều boolean NOT NULL nên điều kiện tương đương).
+      listIds: async () => (await db.select({ id: users.id }).from(users)
+        .where(and(eq(users.suspended, false), eq(users.deleted, false)))).map((r) => r.id),
     });
     // Area: contentbank — chỉ nội dung public mới vào index.
     this.registerArea({
@@ -116,7 +123,10 @@ export class SearchService {
         if (!c || c.visibility !== 'public') return null;
         return { title: c.name, content: `${c.name} ${c.contentType}`, contextId: c.contextId, ownerId: c.creatorId };
       },
-      listIds: async () => (await db.select().from(contentBankContent)).filter((c) => c.visibility === 'public').map((r) => r.id),
+      // Chỉ lấy cột id của nội dung public, lọc ngay ở WHERE — cùng
+      // tập id với cách lọc ở tầng ứng dụng trước đây.
+      listIds: async () => (await db.select({ id: contentBankContent.id }).from(contentBankContent)
+        .where(eq(contentBankContent.visibility, 'public'))).map((r) => r.id),
     });
   }
 
@@ -288,7 +298,8 @@ export class SearchService {
   }
   async removeDoc(area: string, itemId: string): Promise<void> { return this.repo.remove(area, itemId); }
   async listDocs(): Promise<SearchDocRow[]> { return this.repo.listAll(); }
-  async countDocs(): Promise<number> { return (await this.repo.listAll()).length; }
+  /** Số tài liệu trong chỉ mục — đếm ở SQL qua repository, không nạp toàn bộ bảng về để lấy độ dài. */
+  async countDocs(): Promise<number> { return this.repo.countAll(); }
   /** Truy vấn SQL thô phục vụ chẩn đoán — không dùng trong luồng nghiệp vụ. */
   async ping(): Promise<boolean> { await this.repo.dbHandle.execute(sql`select 1`); return true; }
 }

@@ -33,6 +33,11 @@ export class SearchRepository {
     return row;
   }
   async listAll(): Promise<SearchDocRow[]> { return this.db.select().from(searchDocuments); }
+  /** Tổng số tài liệu trong chỉ mục, đếm ở SQL — không nạp toàn bộ bảng về để lấy độ dài mảng. */
+  async countAll(): Promise<number> {
+    const [row] = await this.db.select({ total: sql<number>`count(*)::int` }).from(searchDocuments);
+    return row?.total ?? 0;
+  }
   /** Truy vấn engine Postgres: khớp tsvector, không lọc quyền ở đây — việc lọc là của service tại thời điểm truy vấn. */
   async queryEngine(q: string): Promise<SearchDocRow[]> {
     if (!q.trim()) return [];
