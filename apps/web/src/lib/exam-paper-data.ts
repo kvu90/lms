@@ -56,7 +56,13 @@ export interface PaperView {
     matrixId: string | null; matrixVersion: number | null;
   };
   slots: PaperSlotView[];
-  capabilities: { edit: boolean };
+  /**
+   * Cờ quyền của người xem tại bank của đề (API trả cùng bộ
+   * `ExamCapabilitiesView` với phía ngân hàng): `edit` — được sửa
+   * chính đề này; `deploy` — được ghim đề vào khoá (cổng
+   * `exam:deploy` tại bank), là căn cứ hiện form ghim trong màn sửa.
+   */
+  capabilities: { edit: boolean; deploy: boolean };
 }
 
 /** Một dòng kết quả khám phá ngân hàng câu hỏi (GET /questions/discovery) như màn soạn đề tiêu thụ. */
