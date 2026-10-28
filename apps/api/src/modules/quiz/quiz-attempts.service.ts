@@ -484,7 +484,11 @@ export class QuizAttemptsService {
    * PIN trong engine. Với CHỦ LƯỢT (không có quyền chấm/báo cáo), các
    * khía cạnh sau nộp (đúng/sai, điểm câu, đáp án đúng, nhận xét) chỉ lộ
    * khi bitmask review_* của quiz cho phép tại cửa sổ hiện tại — cổng
-   * nằm ở tầng server, client không nhận được dữ liệu bị tắt. Người có
+   * nằm ở tầng server, client không nhận được dữ liệu bị tắt. Riêng
+   * trường `answers` của câu shortanswer cũng qua đúng cổng đáp án
+   * đúng này (xem chốt trong vòng lặp dựng câu): các dòng đáp án của
+   * shortanswer chính là tập đáp án được chấp nhận, để nguyên là lộ
+   * đáp án đúng dù `solution` đã bị che. Người có
    * quiz:grade/viewreports/manage và lượt preview không bị giới hạn.
    */
   async buildAttemptView(quiz: PinRow, row: ExamAttemptRow, closedDueToTimeLimit: boolean, viewerId?: string): Promise<QuizAttemptView> {
@@ -539,6 +543,25 @@ export class QuizAttemptsService {
         } else {
           stimulus = null;
         }
+      }
+      // Chốt bảo mật cho câu shortanswer: các dòng đáp án của dạng câu
+      // này CHÍNH LÀ tập đáp án được chấp nhận (chấm khớp chính xác
+      // theo cờ đúng), nên trường `answers` — vốn dựng vô điều kiện ở
+      // cả hai đường trên cho mọi dạng câu — là đáp án đúng trá hình.
+      // Khi người xem là chủ lượt không đặc quyền và cổng đáp án đúng
+      // chưa mở cho người xem này (đúng điều kiện đang làm `solution`
+      // thành null ở dưới: đang làm bài, hoặc sau nộp mà
+      // reviewRightAnswer đóng tại cửa sổ hiện tại), trả `answers`
+      // rỗng để đáp án được chấp nhận không rời server ở bất kỳ bề
+      // mặt nào của lượt. Client không tiêu thụ trường này cho
+      // shortanswer (lúc làm chỉ render ô nhập; lúc xem lại đọc đáp
+      // án từ `solution` đã qua cổng) nên việc làm rỗng không phá
+      // tính năng. Các dạng câu khác giữ nguyên: dòng đáp án của
+      // multichoice là lựa chọn phải hiển thị, truefalse/essay không
+      // mang đáp án trong trường này. Người có đặc quyền không qua
+      // chốt này — vẫn thấy đủ như trước.
+      if (!privileged && qv.question.qtype === 'shortanswer' && !aspectOn(quiz.reviewRightAnswer)) {
+        answers = [];
       }
       const lastResponse = [...a.steps].reverse().find((s) => s.data.answer !== undefined)?.data.answer ?? null;
       // Step chấm tay gần nhất có nhận xét: engine ghi data.gradedBy +
