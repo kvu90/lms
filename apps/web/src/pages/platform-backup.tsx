@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useBackupJobs, useBackupSteps, useCreateBackupJob, useRestoreBackup } from '#lib/platform-data';
 
@@ -43,9 +43,9 @@ export function BackupPage() {
       <PageHeader title={t('backupTitle')} />
       {loadError ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{loadError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {loadError}
+          </ErrorAlert>
           <div>
             <Button type="button" variant="outline" onClick={() => void jobsQuery.refetch()}>
               {t('retry')}

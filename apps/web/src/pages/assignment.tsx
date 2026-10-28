@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 import { Link, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AssignmentForUserView } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { ManagePanel } from '../components/assignment/manage-panel';
 import { RubricView } from '../components/assignment/rubric-view';
@@ -43,9 +43,9 @@ export function AssignmentPage() {
   if (assignmentQuery.isError && !data) {
     return (
       <PageShell width="wide">
-        <Alert variant="destructive">
-          <AlertDescription>{t('assignLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('assignLoadFailed')}
+        </ErrorAlert>
         <p className="mt-3 text-sm">
           <Link to={`/courses/${courseId}`} className="underline">
             {t('assignBackToCourse')}

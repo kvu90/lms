@@ -4,10 +4,10 @@ import { useLoaderData } from 'react-router';
 import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
 import { healthStatusSchema } from '@lms/contracts';
-import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { fetchApiJson } from '#lib/server-api';
 
@@ -92,10 +92,9 @@ export function HealthPage({ initialHealth }: { initialHealth?: HealthStatus | n
             </div>
           )}
           {state.kind === 'error' && (
-            <Alert variant="destructive">
-              <AlertTitle>{t('healthTitle')}</AlertTitle>
-              <AlertDescription>{t('healthLoadFailed', { message: state.message })}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive" title={t('healthTitle')}>
+              {t('healthLoadFailed', { message: state.message })}
+            </ErrorAlert>
           )}
           {state.kind === 'ready' && (
             <dl className="space-y-2">

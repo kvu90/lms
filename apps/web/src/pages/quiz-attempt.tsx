@@ -36,12 +36,12 @@ import {
   type RichTextDocument,
 } from '@lms/contracts';
 import { RichTextView } from '@lms/editor';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Spinner } from '@lms/ui/components/spinner';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -268,9 +268,9 @@ export function QuizAttemptPage() {
   if (error)
     return (
       <PageShell width="narrow">
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {error}
+        </ErrorAlert>
       </PageShell>
     );
   if (!view)
@@ -306,9 +306,9 @@ export function QuizAttemptPage() {
             </p>
           ) : null}
           {view.closedDueToTimeLimit ? (
-            <Alert variant="destructive">
-              <AlertDescription>{t('quizClosedByTimeLimit')}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {t('quizClosedByTimeLimit')}
+            </ErrorAlert>
           ) : null}
           {submitted ? (
             <div className="text-sm">
@@ -329,9 +329,9 @@ export function QuizAttemptPage() {
             <p className="text-sm text-muted-foreground">{t('quizAttemptInstructions')}</p>
           )}
           {actionError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {actionError}
+            </ErrorAlert>
           ) : null}
           {pages.length > 1 ? (
             <div className="flex gap-2">

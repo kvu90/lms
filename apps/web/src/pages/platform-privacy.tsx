@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useCreatePrivacyRequest, useDecidePrivacyRequest, usePrivacyRequests } from '#lib/platform-data';
 
@@ -38,9 +38,9 @@ export function PrivacyPage() {
       <PageHeader title={t('privacyTitle')} />
       {loadError ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{loadError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {loadError}
+          </ErrorAlert>
           <div>
             <Button type="button" variant="outline" onClick={() => void requestsQuery.refetch()}>
               {t('retry')}
@@ -59,9 +59,9 @@ export function PrivacyPage() {
             </Button>
           </div>
           {sent ? (
-            <Alert>
-              <AlertDescription>{sent}</AlertDescription>
-            </Alert>
+            <ErrorAlert>
+              {sent}
+            </ErrorAlert>
           ) : null}
           {loading ? (
             <div className="space-y-2" aria-label={t('loading')}>

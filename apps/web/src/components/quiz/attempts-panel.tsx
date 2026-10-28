@@ -16,9 +16,9 @@
 import type { PinRegradeLogEntry } from '@lms/contracts';
 import { formatDateTime } from '#lib/date-format';
 import type { QuizForUser } from '#lib/quiz-data';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
@@ -76,9 +76,9 @@ export function AttemptsPanel({ courseId, quizId, data, myRegrades, actionError,
         </ul>
         {hasOwnOverride ? <p className="text-sm font-medium">{t('quizEffectiveNote')}</p> : null}
         {actionError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {actionError}
+          </ErrorAlert>
         ) : null}
         <div className="flex flex-wrap gap-2">
           {permissions.attempt && data.inProgressAttemptId ? (

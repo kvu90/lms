@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { formatDate } from '#lib/date-format';
 import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
@@ -149,9 +149,9 @@ export function BadgesPage() {
       <PageHeader title={t('badgesHeading')} />
       {loadFailed ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{t('badgesLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('badgesLoadFailed')}
+          </ErrorAlert>
           <div>
             <Button
               type="button"
@@ -213,9 +213,9 @@ export function BadgesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {message ? (
-              <Alert>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
+              <ErrorAlert>
+                {message}
+              </ErrorAlert>
             ) : null}
             <ul className="space-y-1" aria-label={t('allBadgesLabel')}>
               {all.map((b) => (
@@ -234,9 +234,9 @@ export function BadgesPage() {
               ))}
             </ul>
             {issuedError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{issuedError}</AlertDescription>
-              </Alert>
+              <ErrorAlert variant="destructive">
+                {issuedError}
+              </ErrorAlert>
             ) : null}
             {issuedOpen ? (
               <div className="space-y-2">

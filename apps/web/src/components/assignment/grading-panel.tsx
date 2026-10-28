@@ -5,13 +5,13 @@ import type {
   AssignmentForUserView,
   TeacherCommentBankEntryView,
 } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -187,14 +187,14 @@ export function GradingPanel({
         ) : null}
       </h3>
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {error}
+        </ErrorAlert>
       ) : null}
       {notice ? (
-        <Alert>
-          <AlertDescription>{notice}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {notice}
+        </ErrorAlert>
       ) : null}
       {detail.files.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('assignNoFiles')}</p>

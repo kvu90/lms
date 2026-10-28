@@ -21,10 +21,10 @@
  * @param props.runRegrade - Handler chạy chấm lại (dryRun = chỉ xem trước).
  */
 import type { CourseRosterMember, PinRegradeLogEntry, PinRegradeResult, QuizView } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 
 import { formatDateTime } from '#lib/date-format';
@@ -70,9 +70,9 @@ export function RegradePanel({
       </CardHeader>
       <CardContent className="space-y-4">
         {regradeError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{regradeError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {regradeError}
+          </ErrorAlert>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Select

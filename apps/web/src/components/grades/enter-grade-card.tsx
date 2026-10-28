@@ -11,12 +11,12 @@ import type { FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { CourseActivityGrid, GradeItem } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 
 import type { GradeHistoryView } from '#lib/course-grade-data';
 
@@ -177,9 +177,9 @@ export function EnterGradeCard({
           </Button>
         </form>
         {historyError && (
-          <Alert variant="destructive" className="mt-3">
-            <AlertDescription>{historyError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive" className="mt-3">
+            {historyError}
+          </ErrorAlert>
         )}
         {historyRows && (
           <ul className="mt-3 space-y-1 text-sm">

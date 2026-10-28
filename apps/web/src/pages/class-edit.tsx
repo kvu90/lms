@@ -1,5 +1,4 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
@@ -7,6 +6,7 @@ import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
+import { ErrorAlert } from '#components/error-alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -112,16 +112,16 @@ export function ClassEditPage() {
     <PageShell width="narrow">
       <PageHeader title={t('classEditTitle')} />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       {classQuery.isPending ? (
         <Skeleton className="h-64 w-full" />
       ) : classQuery.isError || !cls ? (
-        <Alert variant="destructive">
-          <AlertDescription>{t('classDetailLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('classDetailLoadFailed')}
+        </ErrorAlert>
       ) : (
         <div className="flex flex-col gap-4">
           <Card>

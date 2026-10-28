@@ -1,5 +1,4 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
@@ -20,6 +19,7 @@ import {
   SheetTrigger,
 } from '@lms/ui/components/sheet';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -366,9 +366,9 @@ export function CalendarPage() {
       />
       {loadFailed ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{t('calendarLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('calendarLoadFailed')}
+          </ErrorAlert>
           <div>
             <Button
               type="button"
@@ -385,9 +385,9 @@ export function CalendarPage() {
         </>
       ) : null}
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardContent className="space-y-4">

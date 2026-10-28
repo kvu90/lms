@@ -2,11 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { errorText } from '../components/admin-curriculum/shared';
 import { ApiError } from '#lib/api';
@@ -320,19 +320,19 @@ export function AdminCurriculumPage() {
     <PageShell>
       <PageHeader title={t('curriculumAdminTitle')} description={t('curriculumAdminDescription')} />
       {forbidden ? (
-        <Alert variant="destructive">
-          <AlertDescription>{t('curriculumForbidden')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('curriculumForbidden')}
+        </ErrorAlert>
       ) : null}
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {error}
+        </ErrorAlert>
       ) : null}
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
 
       {!forbidden ? (

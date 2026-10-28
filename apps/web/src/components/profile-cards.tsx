@@ -9,7 +9,6 @@ import {
   oauthLinksResponseSchema,
   oauthProvidersResponseSchema,
 } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/components/card';
@@ -17,6 +16,7 @@ import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/table';
+import { ErrorAlert } from '#components/error-alert';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
@@ -112,9 +112,9 @@ export function LinkedAccountsCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {linksQuery.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{t('linkedAccountsLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('linkedAccountsLoadFailed')}
+          </ErrorAlert>
         ) : links.length === 0 ? (
           <Empty className="p-6">
             <EmptyHeader>
@@ -147,9 +147,9 @@ export function LinkedAccountsCard() {
           <p className="text-sm text-muted-foreground">{t('setPasswordBeforeUnlinkHint')}</p>
         )}
         {actionError && (
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {actionError}
+          </ErrorAlert>
         )}
         {linkableIssuers.map((issuer) => (
           <Button key={issuer} type="button" variant="outline" onClick={() => void startLink(issuer)}>
@@ -253,9 +253,9 @@ export function TwoFactorCard() {
         {/* Huy hiệu trạng thái chỉ hiện khi đã có dữ liệu thật: lúc
             đang tải mà hiện "Chưa bật" là khẳng định sai về tài khoản. */}
         {statusQuery.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{t('twoFactorLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('twoFactorLoadFailed')}
+          </ErrorAlert>
         ) : statusQuery.data ? (
           <p>
             <Badge variant={enabled ? 'default' : 'outline'}>
@@ -264,14 +264,14 @@ export function TwoFactorCard() {
           </p>
         ) : null}
         {feedback && (
-          <Alert>
-            <AlertDescription>{feedback}</AlertDescription>
-          </Alert>
+          <ErrorAlert>
+            {feedback}
+          </ErrorAlert>
         )}
         {actionError && (
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {actionError}
+          </ErrorAlert>
         )}
         {step === 'idle' &&
           statusQuery.data &&
@@ -436,9 +436,9 @@ export function SessionsCard() {
       </CardHeader>
       <CardContent className="space-y-4">
         {sessionsQuery.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{t('sessionsLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('sessionsLoadFailed')}
+          </ErrorAlert>
         ) : sessions.length === 0 ? (
           <Empty className="p-6">
             <EmptyHeader>
@@ -488,9 +488,9 @@ export function SessionsCard() {
           </Table>
         )}
         {actionError && (
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {actionError}
+          </ErrorAlert>
         )}
         {hasOtherSessions && (
           <Button

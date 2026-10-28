@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -8,6 +7,7 @@ import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import type { SiteSetting, SiteSettingAuditEntry } from '@lms/contracts';
@@ -181,19 +181,19 @@ export function AdminSiteConfigPage() {
       <Card>
         <CardContent className="flex flex-col gap-6">
           {forbidden ? (
-            <Alert variant="destructive">
-              <AlertDescription>{t('siteConfigForbidden')}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {t('siteConfigForbidden')}
+            </ErrorAlert>
           ) : null}
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {error}
+            </ErrorAlert>
           ) : null}
           {message ? (
-            <Alert>
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
+            <ErrorAlert>
+              {message}
+            </ErrorAlert>
           ) : null}
           {!forbidden && settings.length === 0 && !error ? (
             <Empty className="p-6">

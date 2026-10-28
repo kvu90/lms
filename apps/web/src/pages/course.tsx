@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import type { CourseContent } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -223,9 +223,9 @@ export function CoursePage() {
           </CardContent>
         </Card>
         {completionError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{completionError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {completionError}
+          </ErrorAlert>
         ) : null}
         {content.sections.map((section) => (
           <Card key={section.id}>
@@ -364,14 +364,14 @@ export function CoursePage() {
         <CardContent className="space-y-4">
           <p>{t('enrolPanelDescription')}</p>
           {message ? (
-            <Alert>
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
+            <ErrorAlert>
+              {message}
+            </ErrorAlert>
           ) : null}
           {actionError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {actionError}
+            </ErrorAlert>
           ) : null}
           {enrolOptions.length === 0 ? (
             <Empty className="p-6">
@@ -438,9 +438,9 @@ export function CoursePage() {
             })}
           </ul>
           {enrolOptions.length === 0 && !headerCourse ? (
-            <Alert variant="destructive">
-              <AlertDescription>{t('courseAccessDenied')}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {t('courseAccessDenied')}
+            </ErrorAlert>
           ) : null}
         </CardContent>
       </Card>

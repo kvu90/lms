@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -347,9 +347,9 @@ export function NotificationsPage() {
             </label>
           </div>
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {error}
+            </ErrorAlert>
           ) : null}
           {groups.length === 0 && !error ? (
             <Empty className="p-6">

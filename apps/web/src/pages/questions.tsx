@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import type { QuestionView } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { BankAreaTabs } from '../components/bank-area-tabs';
 import { CategoryBrowser } from '../components/questions/category-browser';
@@ -333,9 +333,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
       />
       <BankAreaTabs area={area} />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
 
       {area === 'my-questions' ? (

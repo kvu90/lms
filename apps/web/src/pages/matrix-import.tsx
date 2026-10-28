@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
@@ -8,6 +7,7 @@ import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -277,9 +277,9 @@ export function MatrixImportPage() {
     <PageShell width="medium">
       <PageHeader title={t('matrixImport')} />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       {/* Chỉ báo bước: bước hiện tại đánh dấu aria-current, các bước đã qua giữ nguyên thứ tự để giáo viên biết mình đang ở đâu. */}
       <ol className="flex flex-wrap gap-2 text-sm">
@@ -333,9 +333,9 @@ export function MatrixImportPage() {
                 </select>
               </Field>
               {subjectsLoadFailed ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{t('matrixImportSubjectsFailed')}</AlertDescription>
-                </Alert>
+                <ErrorAlert variant="destructive">
+                  {t('matrixImportSubjectsFailed')}
+                </ErrorAlert>
               ) : null}
               <p className="text-sm text-muted-foreground">{t('matrixCv7991Note')}</p>
               <div className="flex items-center gap-2">

@@ -10,12 +10,12 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { CourseActivityGrid, GradeItem } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 
 /** Bản sửa tên/thang điểm đang soạn của một mục điểm. */
 export interface GradeItemEdit {
@@ -86,9 +86,9 @@ export function GradeItemsAdminCard({
       </CardHeader>
       <CardContent>
         {adminMessage && (
-          <Alert className="mb-4">
-            <AlertDescription>{adminMessage}</AlertDescription>
-          </Alert>
+          <ErrorAlert className="mb-4">
+            {adminMessage}
+          </ErrorAlert>
         )}
         <ul className="divide-y">
           {items.map((item) => {

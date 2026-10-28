@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { CAP, type Role } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
@@ -14,6 +13,7 @@ import {
   SelectValue,
 } from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -101,9 +101,9 @@ export function AdminRolesPage() {
       <PageHeader title={t('rolesTitle')} description={t('rolesDescription')} />
       {loadFailed ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{t('rolesLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('rolesLoadFailed')}
+          </ErrorAlert>
           <div>
             <Button
               type="button"

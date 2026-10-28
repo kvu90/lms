@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Textarea } from '@lms/ui/components/textarea';
+import { ErrorAlert } from '#components/error-alert';
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -49,9 +49,9 @@ export function ClassNewPage() {
     <PageShell width="narrow">
       <PageHeader title={t('classCreateTitle')} description={t('classCreateDescription')} />
       {message ? (
-        <Alert variant="destructive">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardHeader>

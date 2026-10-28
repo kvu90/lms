@@ -30,7 +30,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -38,6 +37,7 @@ import { Checkbox } from '@lms/ui/components/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { ErrorAlert } from '#components/error-alert';
 import {
   Select,
   SelectContent,
@@ -410,14 +410,14 @@ export function CompetencyAdmin() {
         </CardHeader>
         <CardContent className="space-y-6">
           {adminError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{adminError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {adminError}
+            </ErrorAlert>
           ) : null}
           {adminMessage ? (
-            <Alert>
-              <AlertDescription>{adminMessage}</AlertDescription>
-            </Alert>
+            <ErrorAlert>
+              {adminMessage}
+            </ErrorAlert>
           ) : null}
           <div className="space-y-3">
             <h3 className="font-medium">{t('compFrameworksTitle')}</h3>
@@ -520,9 +520,9 @@ export function CompetencyAdmin() {
                   />
                 </Field>
                 {importError ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{importError}</AlertDescription>
-                  </Alert>
+                  <ErrorAlert variant="destructive">
+                    {importError}
+                  </ErrorAlert>
                 ) : null}
                 <div className="flex justify-end">
                   <Button type="submit" variant="outline" disabled={!importFile}>

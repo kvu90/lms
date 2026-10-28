@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button, buttonVariants } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
@@ -83,9 +83,9 @@ export function ClassPublicPage() {
       {publicQuery.isPending ? (
         <Skeleton className="h-64 w-full" />
       ) : publicQuery.isError || !pub ? (
-        <Alert variant="destructive">
-          <AlertDescription>{t('classPublicLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('classPublicLoadFailed')}
+        </ErrorAlert>
       ) : (
         <Card>
           {/* Tên lớp chỉ hiện ở PageHeader phía trên — không lặp lại
@@ -98,9 +98,9 @@ export function ClassPublicPage() {
 
             {pub.isMember || succeeded ? (
               <div className="flex flex-col gap-3">
-                <Alert>
-                  <AlertDescription>{succeeded ? t('classPublicPaySucceeded') : t('classPublicMember')}</AlertDescription>
-                </Alert>
+                <ErrorAlert>
+                  {succeeded ? t('classPublicPaySucceeded') : t('classPublicMember')}
+                </ErrorAlert>
                 <div>
                   <Link className={buttonVariants()} to={`/classes/${pub.classId}`}>
                     {t('classPublicGoToClass')}
@@ -108,9 +108,9 @@ export function ClassPublicPage() {
                 </div>
               </div>
             ) : pub.status === 'archived' ? (
-              <Alert>
-                <AlertDescription>{t('classPublicArchived')}</AlertDescription>
-              </Alert>
+              <ErrorAlert>
+                {t('classPublicArchived')}
+              </ErrorAlert>
             ) : !pub.feeEnabled ? (
               <p className="text-sm text-muted-foreground">{t('classPublicNoFee')}</p>
             ) : livePayment ? (
@@ -139,9 +139,9 @@ export function ClassPublicPage() {
                 </p>
                 <p className="text-sm text-muted-foreground">{t('classPublicBuyHint')}</p>
                 {payError ? (
-                  <Alert variant="destructive">
-                    <AlertDescription>{payError}</AlertDescription>
-                  </Alert>
+                  <ErrorAlert variant="destructive">
+                    {payError}
+                  </ErrorAlert>
                 ) : null}
                 <div>
                   <Button type="button" disabled={buyMutation.isPending} onClick={() => buyMutation.mutate()}>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '../components/collapsible-section';
 import { SettingsShell } from '../components/settings-shell';
@@ -222,9 +222,9 @@ export function SettingsNotificationsPage() {
   return (
     <SettingsShell>
       {loadError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{loadError}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {loadError}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardHeader>
@@ -232,9 +232,9 @@ export function SettingsNotificationsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {prefError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{prefError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {prefError}
+            </ErrorAlert>
           ) : null}
           {/* NB-7: học sinh chỉ có bề mặt tối thiểu — API trả danh sách
               theo loại rỗng cho họ; trang nói rõ thay vì hiện một thẻ
@@ -383,9 +383,9 @@ export function SettingsNotificationsPage() {
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">{t('courseExceptionsDescription')}</p>
           {overrideError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{overrideError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {overrideError}
+            </ErrorAlert>
           ) : null}
           {overrideCourses.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('courseExceptionsEmpty')}</p>

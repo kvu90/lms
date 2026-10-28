@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { PaperBatch, PaperScan } from '@lms/contracts';
-import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -343,17 +343,15 @@ export default function QuizPaperPage() {
         }
       />
       {failed ? (
-        <Alert variant="destructive">
-          <AlertTitle>{t('paperLoadFailed')}</AlertTitle>
-        </Alert>
+        <ErrorAlert variant="destructive" title={t('paperLoadFailed')} />
       ) : batches === null || scans === null ? (
         <Skeleton className="h-64 w-full" />
       ) : (
         <div className="flex flex-col gap-6">
           {actionError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {actionError}
+            </ErrorAlert>
           ) : null}
 
           <Card>

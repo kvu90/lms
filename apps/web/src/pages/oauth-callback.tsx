@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Spinner } from '@lms/ui/components/spinner';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { PageShell } from '../components/page-shell';
@@ -60,9 +60,9 @@ export function OAuthCallbackPage() {
           )}
           {failed && (
             <>
-              <Alert variant="destructive">
-                <AlertDescription>{t('oauthCallbackFailed')}</AlertDescription>
-              </Alert>
+              <ErrorAlert variant="destructive">
+                {t('oauthCallbackFailed')}
+              </ErrorAlert>
               <Button type="button" variant="outline" className="w-full" onClick={() => navigate('/login')}>
                 {t('backToLogin')}
               </Button>
