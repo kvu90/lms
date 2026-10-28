@@ -37,10 +37,13 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   đúng tầng integration, không mang danh e2e.
 - **Cấu trúc thư mục test:** test tách theo tầng thành hai thư
   mục — `test/e2e/<module>/…` chỉ chứa test e2e (kích hoạt qua HTTP
-  bằng supertest), `test/integration/<module>/…` chỉ chứa
-  integration test (gọi service, tích hợp); bên trong mỗi thư mục
-  tầng lại chia theo module. Test đơn vị (unit) đặt cạnh mã nguồn
-  theo thông lệ NestJS.
+  bằng supertest, hậu tố `*.e2e-spec.ts`),
+  `test/integration/<module>/…` chỉ chứa integration test (gọi
+  service, tích hợp, hậu tố `*.int-spec.ts`); bên trong mỗi thư
+  mục tầng lại chia theo module. Test đơn vị (unit) đặt cạnh mã
+  nguồn theo thông lệ NestJS, hậu tố `*.spec.ts`. Script test chạy
+  tách theo từng loại theo thư mục — unit, integration và e2e có
+  lệnh chạy riêng.
 - **Tài liệu và văn bản GitHub viết bằng tiếng Việt:** mọi tài liệu
   trong repo (README, các file AGENTS, tài liệu của package) và mọi
   văn bản trên GitHub (issue, PR, comment) viết bằng tiếng Việt, văn
