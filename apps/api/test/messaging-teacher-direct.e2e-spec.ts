@@ -7,7 +7,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { contextIdByLevelInstance } from './engagement-helpers';
 
 /**
- * Ngoại lệ nhắn riêng GV–HS (Lão gia chốt bổ sung 25/10/2026 trên
+ * Ngoại lệ nhắn riêng GV–HS (quyết định bổ sung ngày 25/10/2026 trên
  * issue #33, comment 6394872043): cặp GIÁO VIÊN của khoá (gán vai
  * archetype staff tại context khoá) ↔ HỌC SINH đang ghi danh chính
  * khoá đó nhắn riêng TRỰC TIẾP không cần kết bạn — cả mở hội thoại

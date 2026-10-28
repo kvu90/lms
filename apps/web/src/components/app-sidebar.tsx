@@ -68,7 +68,7 @@ function readStoredOpenGroups(): string[] {
  *
  * - 5 mục trực tiếp (Tổng quan, Khoá học, Lịch, Tin nhắn, Thông
  *   báo): các trang mọi người dùng đăng nhập đều tự phục vụ được.
- *   Mục "Tìm kiếm" KHÔNG còn ở sidebar: Lão gia chốt 23:52 ngày
+ *   Mục "Tìm kiếm" KHÔNG còn ở sidebar: quyết định 23:52 ngày
  *   26/10/2026 (issue #303) đưa ô tìm kiếm ra GIỮA header theo khuôn
  *   Facebook/YouTube; trang kết quả /search vẫn tới được từ ô đó và
  *   từ bảng lệnh ⌘K (mục màn hình của bảng lệnh giữ khoá navSearch).
@@ -78,8 +78,8 @@ function readStoredOpenGroups(): string[] {
  *   qua cờ hasLearnerFootprint). Ẩn điều hướng ≠ khoá trang: gõ thẳng
  *   /badges hay /learning-plan vẫn vào được, API hai trang vốn chỉ trả
  *   dữ liệu của chính người gọi.
- * - Ba mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (Lão gia
- *   chốt lại 11:40 ngày 26/10/2026, issue #228 — BỎ hẳn mục "Ngân
+ * - Ba mục ngân hàng ở CẤP CAO NHẤT ngay sau nhóm Học tập (quyết
+ *   định chốt lại 11:40 ngày 26/10/2026, issue #228 — BỎ hẳn mục "Ngân
  *   hàng hệ thống" ở sidebar): "Ngân hàng câu hỏi" (thân mục dẫn tới
  *   /questions, thu/mở ra mục con "Ngữ liệu" ở /questions/stimuli),
  *   "Ngân hàng đề" (/exams) và "Ngân hàng ma trận" (/matrices) —

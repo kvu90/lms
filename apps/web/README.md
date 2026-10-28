@@ -36,7 +36,7 @@ biến nằm ở `apps/api`; web không tự "gác" nghiệp vụ bằng cách g
 - Không chứa trình soạn thảo rich-text: dùng `packages/editor`.
 - Không tự chế vỏ collapse/section riêng cho từng trang: dùng component dùng chung
   của dự án (vỏ thống nhất: trigger full-width, chevron, hover, tiêu đề nhất quán) —
-  mỗi lát tự chế một kiểu vỏ là lỗi đã bị Lão gia bắt (25/10/2026, trang /questions).
+  mỗi lát tự chế một kiểu vỏ là lỗi đã được ghi nhận (25/10/2026, trang /questions).
 - Không chứa quy tắc nghiệp vụ: điểm số, quyền, trạng thái đều do API quyết; web chỉ
   hiển thị theo dữ liệu API trả.
 

@@ -139,7 +139,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
   it('audience split (issue #288): a pure teacher neither sees nor can set student-only or guardian types', async () => {
     const { service } = buildService({ staffAssignment: true });
     const names = (await service.getPreferences('teacher-1')).map((r) => r.provider);
-    // Loại chỉ học sinh nhận (báo điểm là ca Lão gia bắt tại trận) và
+    // Loại chỉ học sinh nhận (báo điểm là ca đã bị bắt lỗi tại trận) và
     // loại của phụ huynh đều vắng khỏi bề mặt của giáo viên thuần.
     for (const hidden of ['grade_updated', 'assignment_assigned', 'assignment_returned', 'quiz_available', 'enrol_welcome', 'guardian_digest', 'guardian_overdue_alert']) {
       expect(names).not.toContain(hidden);

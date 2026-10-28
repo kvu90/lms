@@ -6,8 +6,8 @@ import type { MailMessage, MailSendResult } from './mail.types';
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 
 /**
- * Transport gửi mail qua Resend (issue #7 chặng 2.5; quyết định của
- * Lão gia 26/10/2026: email hệ thống gửi qua Resend thay SMTP).
+ * Transport gửi mail qua Resend (issue #7 chặng 2.5; quyết định
+ * ngày 26/10/2026: email hệ thống gửi qua Resend thay SMTP).
  *
  * Cấu hình qua env:
  * - `RESEND_API_KEY`: khoá API của Resend.

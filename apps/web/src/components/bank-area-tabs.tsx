@@ -7,7 +7,7 @@ import '../i18n';
 
 /**
  * Thanh tab Cá nhân | Hệ thống dùng CHUNG cho mọi màn danh sách ngân
- * hàng (Lão gia chốt lại 11:40 ngày 26/10/2026, issue #228 — thay mục
+ * hàng (quyết định chốt lại 11:40 ngày 26/10/2026, issue #228 — thay mục
  * "Ngân hàng hệ thống" riêng ở sidebar): mỗi loại thực thể (câu hỏi /
  * đề / ma trận) có đúng hai tab, dùng chung một khung danh sách, chỉ
  * khác nguồn dữ liệu của trang đích. Tab là ĐIỀU HƯỚNG theo route —

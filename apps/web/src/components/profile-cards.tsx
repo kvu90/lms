@@ -27,7 +27,7 @@ import { queryKeys } from '#lib/query-keys';
 
 /**
  * Ba thẻ CÀI ĐẶT tài khoản tự chứa, tách khỏi trang Hồ sơ (issue #288 —
- * Lão gia chốt 21:29 ngày 26/10/2026 theo research chuẩn site lớn: Hồ
+ * quyết định 21:29 ngày 26/10/2026 theo research chuẩn site lớn: Hồ
  * sơ chỉ còn thông tin user, mọi cài đặt nằm ở khu Cài đặt riêng):
  *
  * - `LinkedAccountsCard` — tài khoản liên kết OAuth, đặt ở

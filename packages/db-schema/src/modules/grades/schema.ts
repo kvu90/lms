@@ -14,7 +14,7 @@ import { sql } from 'drizzle-orm';
 import { course } from '../courses/schema';
 
 /**
- * Grade items — ĐIỂM THEO TỪNG BÀI (quyết định Lão gia 23:49 ngày
+ * Grade items — ĐIỂM THEO TỪNG BÀI (quyết định 23:49 ngày
  * 25/10/2026, issue #224): nguồn sự thật duy nhất của điểm là điểm của
  * từng hoạt động. Mỗi hoạt động có đúng một item loại 'mod'
  * (item_instance = course_modules id, item_module = component); GV cũng

@@ -60,7 +60,7 @@ export function LegacyMatrixEditRedirect() {
 
 /**
  * Nhóm tương thích cho cây Đề CŨ `/exam-papers*`: tên tài nguyên đã
- * chốt là "exams" (Lão gia chốt tối 25/10/2026 — bỏ hậu tố "papers")
+ * chốt là "exams" (quyết định tối 25/10/2026 — bỏ hậu tố "papers")
  * nên cả cây cũ chuyển hướng thay thế sang cây `/exams*`, giữ nguyên
  * phần query (prefill F2 như ?bank= khi tạo đề).
  */

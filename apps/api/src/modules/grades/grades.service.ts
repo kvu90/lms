@@ -28,7 +28,7 @@ export interface ActivityGradeView {
 }
 
 /**
- * GradesModule facade — ĐIỂM THEO TỪNG BÀI (quyết định Lão gia 23:49
+ * GradesModule facade — ĐIỂM THEO TỪNG BÀI (quyết định 23:49
  * ngày 25/10/2026, issue #224). Nguồn sự thật duy nhất của điểm là điểm
  * của từng hoạt động: quiz attempt ghi qua recordActivityGrade, bài tập
  * chấm theo bài, GV nhập/sửa điểm của một bài qua setGrade/updateGrade.

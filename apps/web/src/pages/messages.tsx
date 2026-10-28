@@ -230,7 +230,7 @@ export function MessagesPage() {
       {/*
         Master–detail nhắn tin (issue #256) nằm TRONG vùng nội dung
         của khung app chung — sidebar + header của app giữ nguyên
-        (chốt Lão gia 08:20 ngày 26/10/2026, sổ quyết định mục D).
+        (quyết định 08:20 ngày 26/10/2026, sổ quyết định mục D).
         Desktop: hai khung cuộn độc lập; mobile: một khung tại một
         thời điểm, khung chat có nút quay lại (CSS thuần, cả hai
         khung luôn mounted).

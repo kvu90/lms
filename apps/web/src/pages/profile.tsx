@@ -14,7 +14,7 @@ import { apiJson } from '#lib/api';
 import { useAuth } from '#lib/auth';
 
 /**
- * Trang HỒ SƠ (`/profile`) — từ issue #288 (Lão gia chốt 21:29 ngày
+ * Trang HỒ SƠ (`/profile`) — từ issue #288 (quyết định 21:29 ngày
  * 26/10/2026 theo research chuẩn site lớn) trang này CHỈ còn thông tin
  * user: form họ/tên/email + các trường tuỳ biến, lưu qua
  * `PATCH /api/v1/users/:id` rồi nạp lại phiên (`reload`) để mọi bề mặt

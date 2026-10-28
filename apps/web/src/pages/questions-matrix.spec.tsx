@@ -274,7 +274,7 @@ describe('Matrix bank UI (MB-1)', () => {
     expect(screen.getByText('Mẫu')).toBeInTheDocument();
 
     // Nút tại dòng mang nhãn gọn "Lấy về" và tên đầy đủ cho
-    // title/aria-label (ủy quyền quyết chữ của Lão gia, 26/10/2026).
+    // title/aria-label (quyết định về nhãn chữ ngày 26/10/2026).
     const copyButton = screen.getByRole('button', { name: 'Lấy về ngân hàng của tôi' });
     expect(copyButton).toHaveTextContent('Lấy về');
     expect(copyButton).toHaveAttribute('title', 'Lấy về ngân hàng của tôi');

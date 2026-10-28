@@ -3,7 +3,7 @@ import { boolean, check, foreignKey, index, integer, jsonb, pgTable, smallint, t
 import { curriculumNodes, learningOutcomes, subjects } from '../curriculum/schema';
 
 // ---------------------------------------------------------------------------
-// Tầng SÁCH (K0b tái cấu trúc theo chốt của Lão gia tối 24/10/2026): sách
+// Tầng SÁCH (K0b tái cấu trúc theo quyết định tối 24/10/2026): sách
 // là THỰC THỂ ĐỘC LẬP (`books`), không nằm dưới chương trình và không
 // khoá cứng một bộ sách. Chương trình GDPT 2018 chỉ liên quan qua lớp
 // ÁNH XẠ riêng (`book_mappings`: node sách → node chương trình / YCCĐ).

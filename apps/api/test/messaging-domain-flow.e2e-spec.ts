@@ -9,7 +9,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from './
 import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from './engagement-helpers';
 
 /**
- * Lớp B (nghiệp vụ) của issue #33 — bộ chính sách Lão gia đã chốt
+ * Lớp B (nghiệp vụ) của issue #33 — bộ chính sách đã chốt
  * (comment 6367872889 + 6368023587 trên issue):
  *  1. Nhắn riêng CHỈ giữa liên hệ đã duyệt kết bạn (yêu cầu–chấp
  *     nhận thay danh bạ một chiều) — mô hình chốt lại 24/10/2026:

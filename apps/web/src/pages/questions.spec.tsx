@@ -747,8 +747,8 @@ describe('Bank list pages — header create buttons (issue #228)', () => {
 });
 
 /**
- * Thanh tab Cá nhân | Hệ thống trên màn danh sách ngân hàng (chốt
- * trình bày của Lão gia 11:40 ngày 26/10/2026, issue #228 — thay mục
+ * Thanh tab Cá nhân | Hệ thống trên màn danh sách ngân hàng (quyết
+ * định trình bày 11:40 ngày 26/10/2026, issue #228 — thay mục
  * "Ngân hàng hệ thống" ở sidebar): cả 6 màn danh sách (câu hỏi / đề /
  * ma trận × cá nhân / hệ thống) dùng CHUNG một thanh tab ở đầu vùng
  * danh sách; tab đang đứng mang aria-current="page", bấm tab là điều

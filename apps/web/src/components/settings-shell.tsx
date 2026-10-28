@@ -7,7 +7,7 @@ import { PageHeader, PageShell } from './page-shell';
 import '../i18n';
 
 /**
- * Khung KHU CÀI ĐẶT cá nhân (issue #288 — Lão gia chốt 21:29 ngày
+ * Khung KHU CÀI ĐẶT cá nhân (issue #288 — quyết định 21:29 ngày
  * 26/10/2026 theo research chuẩn site lớn): mọi trang `/settings/*`
  * dùng chung khung này — tiêu đề khu "Cài đặt" + MENU TRÁI theo mục
  * (Bảo mật / Tài khoản liên kết / Thông báo), nội dung của mục đang

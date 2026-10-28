@@ -162,7 +162,7 @@ interface MemberActionMenuProps {
  *   nhận/Từ chối; đang chờ đi thì một mục mờ ghi trạng thái.
  * - "Xem thông tin" luôn có (trừ khi bị chặn hai chiều — dòng đó
  *   vốn đã bị ẩn khỏi roster/panel ở tầng dữ liệu).
- * - Chặn/Bỏ chặn (quyết Lão gia 23:16 ngày 26/10/2026 — chặn ở
+ * - Chặn/Bỏ chặn (quyết định 23:16 ngày 26/10/2026 — chặn ở
  *   chat nhóm đi qua menu này, không còn nút ở header): chưa bị
  *   tôi chặn thì có mục "Chặn liên lạc"; người TÔI đã chặn thì
  *   menu rút gọn còn "Bỏ chặn" + "Xem thông tin" để còn đường
