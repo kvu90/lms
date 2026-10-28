@@ -170,13 +170,13 @@ export function AnswersSection({ form, patchForm, contextId, itemId, moveItem }:
         <fieldset className="space-y-3">
           <legend className="text-sm font-medium">{t('acceptedAnswers')}</legend>
           {form.saAnswers.map((answer, index) => (
-            <div key={index} className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+            <div key={answer.id} className="flex flex-wrap items-end gap-3 rounded-md border p-3">
               <Field className="min-w-48 flex-1">
-                <FieldLabel htmlFor={`q-sa-answer-${index}`}>
+                <FieldLabel htmlFor={`q-sa-answer-${answer.id}`}>
                   {t('acceptedAnswerText', { index: index + 1 })}
                 </FieldLabel>
                 <Input
-                  id={`q-sa-answer-${index}`}
+                  id={`q-sa-answer-${answer.id}`}
                   value={answer.text}
                   onChange={(e) =>
                     patchForm({
@@ -221,7 +221,7 @@ export function AnswersSection({ form, patchForm, contextId, itemId, moveItem }:
           <Button
             type="button"
             variant="outline"
-            onClick={() => patchForm({ saAnswers: [...form.saAnswers, { text: '' }] })}
+            onClick={() => patchForm({ saAnswers: [...form.saAnswers, { id: crypto.randomUUID(), text: '' }] })}
           >
             {t('addAnswer')}
           </Button>
