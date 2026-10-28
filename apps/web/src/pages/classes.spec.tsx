@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { ClassDetailPage } from './class-detail';
+import { ClassesPage } from './classes';
 import { ClassJoinPage } from './class-join';
 
 /**
@@ -98,6 +99,12 @@ const MEMBER_OVERVIEW = {
   courses: [COURSE_A],
 };
 
+/** Danh sách lớp phía học sinh: mọi cờ quản trị false, mã vào lớp bị ẩn — trang danh sách không được vẽ hành động nào ngoài lối vào chi tiết. */
+const MEMBER_CLASS_LIST = [{ ...CLASS_VIEW, joinCode: null, canCreate: false, canUpdate: false, canDelete: false, canManageRoster: false }];
+
+/** Danh sách lớp phía chủ lớp: đủ cờ — trang danh sách giữ nguyên mọi hành động như trước. */
+const OWNER_CLASS_LIST = [{ ...CLASS_VIEW, canCreate: true, canUpdate: true, canDelete: true, canManageRoster: true }];
+
 const REQUESTS = [
   {
     id: REQUEST_ID,
@@ -119,7 +126,7 @@ interface RecordedCall {
   body: unknown;
 }
 
-function stubFetch(calls: RecordedCall[], overview: unknown = OWNER_OVERVIEW) {
+function stubFetch(calls: RecordedCall[], overview: unknown = OWNER_OVERVIEW, classList: unknown = OWNER_CLASS_LIST) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -128,6 +135,7 @@ function stubFetch(calls: RecordedCall[], overview: unknown = OWNER_OVERVIEW) {
       calls.push({ url, method, body: isForm ? 'form-data' : init?.body ? JSON.parse(String(init.body)) : undefined });
       const respond = (body: unknown, status = 200) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/classes' && method === 'GET') return respond(classList);
       if (url === `/api/v1/classes/${CLASS_ID}`) return respond(CLASS_VIEW);
       if (url === `/api/v1/classes/${CLASS_ID}/overview`) return respond(overview);
       if (url === `/api/v1/classes/${CLASS_ID}/courses`) return respond([]);
@@ -347,6 +355,81 @@ describe('Chi tiết lớp — dashboard theo vai (CLASS-2)', () => {
     expect(calls.some((c) => c.url === `/api/v1/classes/${CLASS_ID}/roster`)).toBe(false);
     expect(calls.some((c) => c.url.endsWith('/roster/suspended'))).toBe(false);
     expect(calls.some((c) => c.url.endsWith('/join-requests'))).toBe(false);
+  });
+});
+
+/**
+ * Danh sách lớp theo vai + header trang chi tiết (issue #381): trang
+ * danh sách vẽ hành động thuần theo cờ server trả trong đáp số
+ * GET /classes — học viên không thấy "Tạo lớp"/"Sửa"/"Lưu trữ"/"Xoá"
+ * (các thao tác mà API sẽ trả 403), chủ lớp thấy đủ; lối vào trang
+ * chi tiết giữ cho mọi vai thuộc lớp. Header trang chi tiết không
+ * được chớp liên kết "Sửa" trong lúc gói tổng quan chưa tải xong
+ * (vai chưa được khẳng định thì không vẽ hành động quản trị). Đổi
+ * luật vẽ theo cờ thì các ca này phải đỏ.
+ */
+describe('Danh sách lớp — hành động theo cờ quyền của server (issue #381)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  function renderList() {
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const router = createMemoryRouter([{ path: '/classes', element: <ClassesPage /> }], { initialEntries: ['/classes'] });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+  }
+
+  it('học viên: không có Tạo lớp/Sửa/Lưu trữ/Xoá; vẫn thấy lớp của mình và lối vào trang chi tiết', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, OWNER_OVERVIEW, MEMBER_CLASS_LIST);
+    renderList();
+
+    expect(await screen.findByText('Lớp 10A1')).toBeTruthy();
+    // Header không có nút tạo lớp vì người gọi không có khả năng tạo lớp.
+    expect(screen.queryByRole('link', { name: 'Tạo lớp' })).toBeNull();
+    // Mở rộng dòng lớp: chỉ còn lối vào trang chi tiết.
+    await userEvent.click(screen.getByRole('button', { name: /Lớp 10A1/ }));
+    expect(await screen.findByRole('link', { name: 'Danh sách học sinh' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Sửa' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Lưu trữ' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Xoá' })).toBeNull();
+  });
+
+  it('chủ lớp: đủ Tạo lớp và mọi hành động của dòng lớp như trước', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, OWNER_OVERVIEW, OWNER_CLASS_LIST);
+    renderList();
+
+    expect(await screen.findByText('Lớp 10A1')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Tạo lớp' })).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: /Lớp 10A1/ }));
+    expect(await screen.findByRole('link', { name: 'Danh sách học sinh' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Sửa' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Lưu trữ' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Xoá' })).toBeTruthy();
+  });
+
+  it('header trang chi tiết: gói tổng quan chưa trả về thì liên kết "Sửa" không có trong DOM', async () => {
+    // Gói overview treo (không bao giờ resolve): trang đang ở trạng
+    // thái tải — header chỉ được giữ nút Chat lớp, không vẽ "Sửa"
+    // theo mặc định "chưa biết vai thì coi như không phải học viên".
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === `/api/v1/classes/${CLASS_ID}/overview`) return new Promise<Response>(() => {});
+        return new Response(JSON.stringify({}), { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+    renderDetail();
+
+    expect(await screen.findByRole('button', { name: 'Chat lớp' })).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Sửa' })).toBeNull();
   });
 });
 

@@ -15,7 +15,9 @@ import { tenantAls } from './modules/tenants/tenant-als';
  * chính HTTP API công khai — cùng đường mà giao diện dùng. Mọi bước đều
  * find-or-create nên chạy lại nhiều lần không tạo trùng (idempotent).
  *
- * Dữ liệu tạo ra: teacher1, student1, student2; một khoá học mẫu có
+ * Dữ liệu tạo ra: teacher1, student1, student2, parent1 (phụ huynh của
+ * student1, kèm một liên kết giám hộ đang hiệu lực parent1 → student1
+ * để đăng nhập nghiệm thu được bề mặt phụ huynh); một khoá học mẫu có
  * sections + module, ghi danh, điểm mẫu, một huy hiệu đã cấp cho student1
  * và một sự kiện lịch của khoá học. Mật khẩu xem tại README, mục Review —
  * CHỈ dùng cho môi trường dev/review.
@@ -27,11 +29,14 @@ import { tenantAls } from './modules/tenants/tenant-als';
 const ADMIN = { username: process.env['ADMIN_USERNAME'] ?? 'admin', password: process.env['ADMIN_PASSWORD'] ?? 'Admin123!' };
 const TEACHER_PASSWORD = ['Teacher', '123', '!'].join('');
 const STUDENT_PASSWORD = ['Student', '123', '!'].join('');
+const GUARDIAN_PASSWORD = ['Parent', '123', '!'].join('');
 const TEACHER = { username: 'teacher1', password: TEACHER_PASSWORD, firstName: 'Lan Anh', lastName: 'Nguyễn', email: 'teacher1@example.com' };
 const STUDENTS = [
   { username: 'student1', password: STUDENT_PASSWORD, firstName: 'Minh Quân', lastName: 'Trần', email: 'student1@example.com' },
   { username: 'student2', password: STUDENT_PASSWORD, firstName: 'Thu Hằng', lastName: 'Phạm', email: 'student2@example.com' },
 ];
+/** Phụ huynh mẫu của student1 (họ Trần như student1): tài khoản để nghiệm thu vai phụ huynh; liên kết giám hộ tới student1 được tạo ở bước riêng sau khi cả hai đã là thành viên tenant. */
+const GUARDIAN = { username: 'parent1', password: GUARDIAN_PASSWORD, firstName: 'Văn Đức', lastName: 'Trần', email: 'parent1@example.com' };
 const COURSE_SHORTNAME = 'DEMO101';
 
 interface Api {
@@ -79,6 +84,7 @@ async function main(): Promise<void> {
     };
     const teacherId = await ensureUser(TEACHER);
     const studentIds = [await ensureUser(STUDENTS[0]!), await ensureUser(STUDENTS[1]!)];
+    const guardianId = await ensureUser(GUARDIAN);
 
     // Chặng 2.6 (issue #7): tài khoản mẫu phải đăng nhập được qua
     // Better Auth NGAY sau seed. User tạo mới trong chính lượt seed
@@ -91,7 +97,7 @@ async function main(): Promise<void> {
     if (baService.enabled) {
       const bridge = app.get(CredentialBridgeService, { strict: false });
       const adminId = (await findUser(ADMIN.username))?.id;
-      for (const uid of [adminId, teacherId, ...studentIds]) {
+      for (const uid of [adminId, teacherId, ...studentIds, guardianId]) {
         if (!uid) continue;
         const linked = await bridge.syncCredentialPassword(uid);
         console.log(`[seed] better-auth credential ${linked ? 'linked' : 'already in sync'} for user #${uid}`);
@@ -110,7 +116,10 @@ async function main(): Promise<void> {
     const myTenants = must(await call('GET', '/auth/tenants', admin), 'list admin tenants') as { id: string; slug: string }[];
     const school = myTenants.find((t) => t.slug === 'truong-mac-dinh');
     if (!school) throw new Error('default school tenant (truong-mac-dinh) is not seeded');
-    for (const uid of [teacherId, ...studentIds]) {
+    // Phụ huynh mẫu cũng phải là thành viên tenant: tạo liên kết giám
+    // hộ trong tenant này đòi cả hai phía là thành viên đang hiệu lực
+    // (assertBothMembers của GuardiansService).
+    for (const uid of [teacherId, ...studentIds, guardianId]) {
       must(await call('POST', `/tenants/${school.id}/members`, admin, { userId: uid }), `add tenant member ${uid}`);
     }
     const switched = must(await call('POST', `/auth/switch-tenant/${school.id}`, admin), 'switch admin to school tenant') as { accessToken: string };
@@ -195,6 +204,23 @@ async function main(): Promise<void> {
         must(await call('POST', '/access/assignments', admin, { userId: teacherId, roleId: teacherRole.id, contextId: content.contextId }), 'assign teacher role');
         console.log('[seed] teacher1 assigned editingteacher at the course');
       } else console.log('[seed] teacher role assignment exists');
+    }
+
+    // Liên kết giám hộ mẫu (gói kích hoạt phụ huynh): parent1 là phụ
+    // huynh của student1. Tạo bằng chính endpoint quản lý liên kết
+    // trong phiên tenant của admin (admin là quản trị site nên qua
+    // cổng guardian:manage); cả parent1 và student1 đều đã là thành
+    // viên tenant ở bước trên nên điều kiện thành viên của liên kết
+    // được thoả. Idempotent: cặp đã có liên kết đang hiệu lực thì bỏ
+    // qua (tạo trùng sẽ bị API trả 409).
+    const existingLinks = must(await call('GET', `/guardian-links?guardianUserId=${guardianId}&studentUserId=${studentIds[0]}&status=active`, admin), 'list guardian links') as { id: string }[];
+    if (existingLinks.length > 0) {
+      console.log('[seed] guardian link parent1 → student1 already active');
+    } else {
+      const link = must(await call('POST', '/guardian-links', admin, {
+        guardianUserId: guardianId, studentUserId: studentIds[0], relationship: 'Cha',
+      }), 'create guardian link') as { id: string };
+      console.log(`[seed] guardian link parent1 → student1 created (#${link.id})`);
     }
 
     // Bài tập mẫu mod_assign (ĐX-1, issue #179): một hoạt động Bài tập

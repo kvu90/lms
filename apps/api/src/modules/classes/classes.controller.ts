@@ -48,7 +48,7 @@ export class ClassesController {
   }
 
   @Get()
-  /** GET /classes — các lớp của tenant hiệu lực mà người gọi có liên hệ (chủ lớp / vai tại lớp / thành viên roster); quản trị tenant thấy toàn bộ. */
+  /** GET /classes — các lớp của tenant hiệu lực mà người gọi có liên hệ (chủ lớp / vai tại lớp / thành viên roster); quản trị tenant thấy toàn bộ. Mỗi dòng kèm bốn cờ khả năng do server suy cho đúng người gọi (tạo lớp / sửa / xoá / quản roster) để web vẽ hành động theo vai; gác quyền thật vẫn ở từng endpoint ghi. */
   async list(@CurrentUser() actor: AuthenticatedUser) {
     return this.classes.listClasses(actor.id);
   }
@@ -112,7 +112,7 @@ export class ClassesController {
   }
 
   @Get(':id/roster')
-  /** GET /classes/:id/roster — danh sách học sinh của lớp (≡ cohort_members của backing cohort) kèm thông tin hiển thị. */
+  /** GET /classes/:id/roster — danh sách học sinh của lớp (≡ cohort_members của backing cohort) kèm thông tin hiển thị; trường liên hệ (email, username) chỉ đầy đủ với người có quyền quản roster, các vai xem lớp còn lại nhận hai trường này đã làm rỗng. */
   async roster(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.classes.listRoster(actor.id, id);
   }

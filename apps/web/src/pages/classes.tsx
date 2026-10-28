@@ -10,17 +10,23 @@ import { Link } from 'react-router';
 import { CollapsibleSection } from '../components/collapsible-section';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
-import { archiveClass, deleteClass, fetchClasses, type ClassView } from '#lib/classes';
+import { archiveClass, deleteClass, fetchClasses, type ClassListItem } from '#lib/classes';
 import { queryKeys } from '#lib/query-keys';
 
 /**
  * Danh sách lớp của người gọi (CLASS-1, issue #184) — chuẩn giao diện đã
  * chốt: danh sách dùng thu/mở (khuôn CollapsibleSection dùng chung của
  * web), tạo mới là màn riêng (/classes/new), sửa là màn riêng
- * (/classes/:id/edit), mỗi dòng có Sửa/Lưu trữ/Xoá ngay tại dòng (trong
- * phần mở của chính dòng đó). Dữ liệu từ GET /classes (API tự giới hạn
- * theo liên hệ của người gọi: lớp của tôi + lớp tôi được phân quyền).
- * Xoá/lưu trữ là thao tác có xác nhận vì đổi vòng đời lớp.
+ * (/classes/:id/edit). Dữ liệu từ GET /classes (API tự giới hạn theo
+ * liên hệ của người gọi: lớp của tôi + lớp tôi được phân quyền) và mỗi
+ * dòng mang cờ khả năng do server suy cho đúng người gọi: nút "Tạo
+ * lớp" chỉ hiện khi người gọi có khả năng tạo lớp; trong phần mở của
+ * mỗi dòng, Sửa/Lưu trữ hiện theo cờ sửa của chính lớp đó, Xoá theo
+ * cờ xoá — học viên chỉ còn thấy lối vào trang chi tiết ("Danh sách
+ * học sinh"). Vẽ theo cờ chỉ để đúng vai; gác quyền thật vẫn ở API
+ * (mọi thao tác ghi đều bị API kiểm capability và trả 403 với người
+ * không có quyền). Xoá/lưu trữ là thao tác có xác nhận vì đổi vòng
+ * đời lớp.
  */
 export function ClassesPage() {
   const { t } = useTranslation('app');
@@ -47,17 +53,23 @@ export function ClassesPage() {
     onError: () => setMessage(t('classDeleteFailed')),
   });
 
-  function onArchive(cls: ClassView) {
+  function onArchive(cls: ClassListItem) {
     if (!window.confirm(t('classArchiveConfirm', { name: cls.name }))) return;
     setMessage(null);
     archiveMutation.mutate(cls.id);
   }
 
-  function onDelete(cls: ClassView) {
+  function onDelete(cls: ClassListItem) {
     if (!window.confirm(t('classDeleteConfirm', { name: cls.name }))) return;
     setMessage(null);
     deleteMutation.mutate(cls.id);
   }
+
+  // Khả năng tạo lớp neo tại tenant nên giống nhau ở mọi dòng của đáp
+  // số; danh sách rỗng thì không có dòng nào mang cờ — nút tạo lớp
+  // không hiện (mặc định an toàn), người có quyền vẫn vào thẳng
+  // /classes/new được như trước.
+  const canCreateClass = (classesQuery.data ?? []).some((cls) => cls.canCreate);
 
   return (
     <PageShell>
@@ -65,9 +77,11 @@ export function ClassesPage() {
         title={t('classesHeading')}
         description={t('classesDescription')}
         actions={
-          <Link className={buttonVariants()} to="/classes/new">
-            {t('classesCreate')}
-          </Link>
+          canCreateClass ? (
+            <Link className={buttonVariants()} to="/classes/new">
+              {t('classesCreate')}
+            </Link>
+          ) : undefined
         }
       />
       {message ? (
@@ -113,17 +127,21 @@ export function ClassesPage() {
                 <Link className={buttonVariants({ size: 'sm' })} to={`/classes/${cls.id}`}>
                   {t('classRoster')}
                 </Link>
-                <Link className={buttonVariants({ size: 'sm', variant: 'outline' })} to={`/classes/${cls.id}/edit`}>
-                  {t('classEdit')}
-                </Link>
-                {cls.status === 'active' ? (
+                {cls.canUpdate ? (
+                  <Link className={buttonVariants({ size: 'sm', variant: 'outline' })} to={`/classes/${cls.id}/edit`}>
+                    {t('classEdit')}
+                  </Link>
+                ) : null}
+                {cls.canUpdate && cls.status === 'active' ? (
                   <Button type="button" size="sm" variant="outline" onClick={() => onArchive(cls)}>
                     {t('classArchive')}
                   </Button>
                 ) : null}
-                <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(cls)}>
-                  {t('classDelete')}
-                </Button>
+                {cls.canDelete ? (
+                  <Button type="button" size="sm" variant="destructive" onClick={() => onDelete(cls)}>
+                    {t('classDelete')}
+                  </Button>
+                ) : null}
               </div>
             </CollapsibleSection>
           ))}

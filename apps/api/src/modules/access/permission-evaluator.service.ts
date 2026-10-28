@@ -3,7 +3,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { AccessRepository, type ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
-import { CONTEXT_LEVELS } from './domain/capabilities';
+import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from './domain/capabilities';
 import { aggregateRoleResults, evaluateSingleRole, type RoleOverridePoint } from './domain/permission';
 
 /** Kết quả cổng tenant: `allowed=false` = chặn tuyệt đối; `assignmentScope` = tập context mà gán vai được tính (null = không thu hẹp). */
@@ -135,6 +135,185 @@ export class PermissionEvaluator {
       roleResults.push(evaluateSingleRole(points));
     }
     return aggregateRoleResults(roleResults);
+  }
+
+  /**
+   * Phân giải capability THEO LÔ cho một tập context đích — đường riêng
+   * của ảnh chụp quyền (`UsersService.getMyAccess`), KHÔNG phải đường gác
+   * route: các route nghiệp vụ vẫn đi qua `hasCapability` như cũ.
+   *
+   * Vì sao cần: ảnh chụp quyền phải phân giải toàn bộ capability đã đăng
+   * ký tại mọi context liên quan của người dùng. Gọi `hasCapability`
+   * tuần tự cho từng cặp (context × capability) tốn vài truy vấn
+   * Postgres cho mỗi cặp (đọc context, đọc path, cổng tenant — trước cả
+   * khi tra cache kết quả), nên một request ảnh chụp quyền phát sinh
+   * hàng nghìn truy vấn. Phép này nạp dữ kiện MỘT lần theo lô rồi tính
+   * trong bộ nhớ:
+   *   1. Path (lá → gốc) của từng đích dựng từ cột `path` vật chất hoá
+   *      và bảng context được truyền vào; id nào còn thiếu thì nạp bổ
+   *      sung đúng một truy vấn cho mọi đích.
+   *   2. Cổng tenant của từng đích tính từ HAI truy vấn dùng chung
+   *      (thông tin cổng của mọi tenant xuất hiện trên các path + trạng
+   *      thái membership của user ở các tenant đó). Kết quả cổng của
+   *      một đích chỉ phụ thuộc tenant trên path của nó và membership
+   *      của user nên dùng chung không đổi kết quả so với `tenantGate`.
+   *   3. Lối tắt site admin tra một lần, chỉ áp cho các đích ngoài cây
+   *      tenant (cổng không thu hẹp) — đúng điều kiện của
+   *      `hasCapability`.
+   *   4. Các đích còn lại được đánh giá bằng đúng các hàm thuần
+   *      `evaluateSingleRole`/`aggregateRoleResults` trên dữ kiện nạp
+   *      theo lô: gán vai của user trên hợp nhất các path (một truy
+   *      vấn, lọc lại theo path và `assignmentScope` của từng đích),
+   *      vai mặc định `user`/`guest`, và toàn bộ override của các vai
+   *      đó trên các path (một truy vấn, không lọc theo capability).
+   *
+   * Bất biến tương đương: với cùng dữ kiện, kết quả tại từng đích bằng
+   * đúng kết quả `hasCapability(userId, capability, đích, opts)` cho
+   * mọi capability — thứ tự tổ tiên lá → gốc, PROHIBIT thắng tuyệt đối,
+   * PREVENT/ALLOW, vai mặc định, thu hẹp gán vai theo cổng tenant và
+   * lối tắt site admin đều giữ nguyên. Khác biệt duy nhất: đường này
+   * KHÔNG qua cache kết quả phân giải trên Redis của `hasCapability`.
+   * Cache đó chỉ là bản ghi nhớ của cùng phép đánh giá, khoá bằng dấu
+   * version của path và bị vô hiệu hoá mỗi khi dữ kiện quyền thay đổi
+   * (`markContextDirty`), nên tính tươi từ dữ kiện vừa nạp cho cùng một
+   * đáp án; đổi lại ảnh chụp quyền không phải trả hàng trăm vòng đi
+   * Redis cho mỗi request.
+   *
+   * @param targets - Các context đích cần phân giải.
+   * @param contextRowsById - Bảng tra các context đã nạp sẵn (phải gồm
+   *   mọi tổ tiên của mọi đích — `getMyAccess` nạp đúng tập này; id nào
+   *   thiếu vẫn được nạp bổ sung ở bước 1).
+   * @returns Map từ id context đích sang danh sách capability đạt được
+   *   tại context đó, theo đúng thứ tự của sổ đăng ký capability.
+   */
+  async resolveCapabilitiesForContexts(
+    userId: string,
+    targets: ContextRow[],
+    contextRowsById: Map<string, ContextRow>,
+    opts?: { isGuest?: boolean },
+  ): Promise<Map<string, string[]>> {
+    const resolved = new Map<string, string[]>();
+    if (targets.length === 0) return resolved;
+
+    // Bước 1: path của từng đích + nạp bổ sung các context còn thiếu.
+    const known = new Map(contextRowsById);
+    const pathIdsByTarget = new Map<string, string[]>();
+    const missingIds = new Set<string>();
+    for (const target of targets) {
+      const ids = target.path.split('/').filter(Boolean).reverse();
+      pathIdsByTarget.set(target.id, ids);
+      for (const id of ids) if (!known.has(id)) missingIds.add(id);
+    }
+    if (missingIds.size > 0) {
+      for (const row of await this.repo.getContextsByIds([...missingIds])) known.set(row.id, row);
+    }
+    const pathContextsOf = (targetId: string): ContextRow[] =>
+      (pathIdsByTarget.get(targetId) ?? []).map((id) => known.get(id)!).filter(Boolean);
+
+    // Bước 2: cổng tenant cho mọi đích từ hai truy vấn dùng chung.
+    const tenantIds = new Set<string>();
+    for (const target of targets) {
+      const tenantCtx = pathContextsOf(target.id).find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
+      if (tenantCtx?.instanceId) tenantIds.add(tenantCtx.instanceId);
+    }
+    const gateInfoByTenant = new Map(
+      (await this.repo.getTenantGateInfos([...tenantIds])).map((info) => [info.id, info]),
+    );
+    const membershipByTenant = new Map(
+      (await this.repo.getMembershipStatuses([...tenantIds], userId)).map((m) => [m.tenantId, m.status]),
+    );
+    const gateByTarget = new Map<string, TenantGate>();
+    for (const target of targets) {
+      const pathContexts = pathContextsOf(target.id);
+      const tenantCtx = pathContexts.find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
+      if (!tenantCtx?.instanceId) {
+        gateByTarget.set(target.id, { allowed: true, assignmentScope: null });
+        continue;
+      }
+      const info = gateInfoByTenant.get(tenantCtx.instanceId);
+      if (!info || (info.kind !== 'school' && info.kind !== 'center')) {
+        gateByTarget.set(target.id, { allowed: true, assignmentScope: null });
+        continue;
+      }
+      if (info.status !== 'active' || membershipByTenant.get(tenantCtx.instanceId) !== 'active') {
+        gateByTarget.set(target.id, { allowed: false, assignmentScope: null });
+        continue;
+      }
+      const scope = new Set(pathContexts.filter((c) => c.path.startsWith(tenantCtx.path)).map((c) => c.id));
+      gateByTarget.set(target.id, { allowed: true, assignmentScope: scope });
+    }
+
+    // Bước 3: phân loại các đích — cổng chặn (không capability nào),
+    // lối tắt site admin (trọn bộ capability đã đăng ký), còn lại phải
+    // đánh giá thật. Cờ site admin chỉ tra một lần khi có đích ngoài
+    // cây tenant.
+    const toEvaluate: ContextRow[] = [];
+    let needsAdminCheck = false;
+    for (const target of targets) {
+      const gate = gateByTarget.get(target.id)!;
+      if (!gate.allowed) {
+        resolved.set(target.id, []);
+      } else {
+        if (gate.assignmentScope === null) needsAdminCheck = true;
+        toEvaluate.push(target);
+      }
+    }
+    const isAdmin = needsAdminCheck ? await this.isSiteAdmin(userId) : false;
+    const evaluated: ContextRow[] = [];
+    for (const target of toEvaluate) {
+      const gate = gateByTarget.get(target.id)!;
+      if (gate.assignmentScope === null && isAdmin) {
+        resolved.set(target.id, CAPABILITY_DEFINITIONS.map((def) => def.name));
+      } else {
+        evaluated.push(target);
+      }
+    }
+    if (evaluated.length === 0) return resolved;
+
+    // Bước 4: nạp theo lô dữ kiện đánh giá cho mọi đích còn lại — mỗi
+    // loại dữ kiện đúng một truy vấn.
+    const unionPathIds = [...new Set(evaluated.flatMap((t) => pathIdsByTarget.get(t.id) ?? []))];
+    const allAssignments = await this.repo.getAssignmentsForUserInContexts(userId, unionPathIds);
+    const defaultRole = await this.repo.getRoleByShortname(opts?.isGuest ? 'guest' : 'user');
+    const roleIds = new Set<string>(allAssignments.map((a) => a.roleId));
+    if (defaultRole) roleIds.add(defaultRole.id);
+    const allOverrides = await this.repo.getOverridesForRolesInContexts([...roleIds], unionPathIds);
+    const overrideByKey = new Map<string, number>();
+    for (const o of allOverrides) overrideByKey.set(`${o.roleId}|${o.capability}|${o.contextId}`, o.permission);
+
+    // Bước 5: tính trong bộ nhớ cho từng đích, đúng thuật toán của
+    // evaluate(): lọc gán vai theo path (và theo assignmentScope khi
+    // cổng tenant thu hẹp), cộng vai mặc định, rồi với từng capability
+    // duyệt override theo thứ tự lá → gốc cho từng vai và tổng hợp.
+    for (const target of evaluated) {
+      const gate = gateByTarget.get(target.id)!;
+      const pathIds = pathIdsByTarget.get(target.id) ?? [];
+      const pathIdSet = new Set(pathIds);
+      const targetRoleIds = new Set<string>();
+      for (const a of allAssignments) {
+        if (!pathIdSet.has(a.contextId)) continue;
+        if (gate.assignmentScope && !gate.assignmentScope.has(a.contextId)) continue;
+        targetRoleIds.add(a.roleId);
+      }
+      if (defaultRole) targetRoleIds.add(defaultRole.id);
+      const capabilities: string[] = [];
+      if (targetRoleIds.size > 0) {
+        for (const def of CAPABILITY_DEFINITIONS) {
+          const roleResults: number[] = [];
+          for (const roleId of targetRoleIds) {
+            const points: RoleOverridePoint[] = [];
+            for (const contextId of pathIds) {
+              const permission = overrideByKey.get(`${roleId}|${def.name}|${contextId}`);
+              if (permission !== undefined) points.push({ contextId, permission });
+            }
+            roleResults.push(evaluateSingleRole(points));
+          }
+          if (aggregateRoleResults(roleResults)) capabilities.push(def.name);
+        }
+      }
+      resolved.set(target.id, capabilities);
+    }
+    return resolved;
   }
 
   /**

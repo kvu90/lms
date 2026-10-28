@@ -18,6 +18,7 @@ import {
   mcpSubmitContributionInputSchema, mcpSubmitContributionOutputSchema,
   conversationGroupTreeSchema,
   classOverviewSchema,
+  classListItemSchema,
   classPublicViewSchema, classSchema, updateClassSchema,
   createCouponSchema, purchasePlanSchema, updateCouponSchema,
   exportGradesSchema, exportGradesVneduSchema, gradeExportProviderSchema,
@@ -828,6 +829,39 @@ describe('class fee contracts (CLASS-3, #184)', () => {
     expect(parsed.canPurchase).toBe(true);
     expect(() => classPublicViewSchema.parse({ ...pub, status: 'deleted' })).toThrow();
     expect(() => classPublicViewSchema.parse({ ...pub, feeCost: 1.5 })).toThrow();
+  });
+});
+
+describe('class list item contracts (danh sách lớp kèm cờ quyền theo người gọi)', () => {
+  const classView = {
+    id: '01900000-0000-7000-8000-0000000000c1', tenantId: '01900000-0000-7000-8000-0000000000a1',
+    name: 'Lớp 10A1', code: '10A1', schoolYear: '2026-2027',
+    ownerId: '01900000-0000-7000-8000-0000000000b1', cohortId: '01900000-0000-7000-8000-0000000000d1',
+    allowSelfReport: true, joinCode: null, joinAutoApprove: false, onLeave: 'suspend', status: 'active',
+    description: '', feeCost: null, feeCurrency: 'VND', feePaymentAccountId: null,
+    createdAt: '2026-10-26T00:00:00.000Z', updatedAt: '2026-10-26T00:00:00.000Z',
+  };
+
+  it('parses a list item carrying the four caller capability flags (cờ hiển thị do server suy)', () => {
+    const parsed = classListItemSchema.parse({ ...classView, canCreate: true, canUpdate: true, canDelete: false, canManageRoster: true });
+    expect(parsed.canCreate).toBe(true);
+    expect(parsed.canUpdate).toBe(true);
+    expect(parsed.canDelete).toBe(false);
+    expect(parsed.canManageRoster).toBe(true);
+    // Mọi trường của ClassView gốc giữ nguyên trong hình dạng danh sách.
+    expect(parsed.name).toBe('Lớp 10A1');
+    expect(parsed.joinCode).toBeNull();
+  });
+
+  it('rejects a list item missing a flag (dòng danh sách thiếu cờ thì web không có căn cứ vẽ theo vai)', () => {
+    expect(() => classListItemSchema.parse({ ...classView, canCreate: true, canUpdate: true, canDelete: true })).toThrow();
+    expect(() => classListItemSchema.parse({ ...classView, canCreate: 'yes', canUpdate: true, canDelete: true, canManageRoster: true })).toThrow();
+  });
+
+  it('keeps plain ClassView free of the flags (chi tiết/tạo/sửa lớp không mang cờ danh sách)', () => {
+    const parsed = classSchema.parse(classView);
+    expect('canCreate' in parsed).toBe(false);
+    expect('canManageRoster' in parsed).toBe(false);
   });
 });
 

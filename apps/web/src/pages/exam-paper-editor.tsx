@@ -11,7 +11,11 @@ import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch } from '#lib/api';
+import { courseContentQueryOptions, coursesListQueryOptions } from '#lib/course-builder-data';
 import { formatDateTime } from '#lib/date-format';
+import { courseGroupsQueryOptions } from '#lib/progress-report-data';
+import { queryKeys } from '#lib/query-keys';
+import { useDeployExamPin } from '#lib/questions-data';
 import {
   examQuestionDiscoveryQueryOptions,
   useCreateExamPaper,
@@ -58,6 +62,11 @@ const selectClass = 'h-9 w-full rounded-md border border-input bg-transparent px
  * từ khoá) → thứ tự/phần/điểm từng câu → lưu. Lưu sửa tạo paper
  * version mới phía server (metadata qua PATCH, slots qua PUT — chỉ
  * gọi phần thật sự đổi); server ghim bản ready mới nhất của mỗi câu.
+ * Ở chế độ sửa, thẻ các lần ghim còn cho ghim đề vào khoá ngay tại
+ * chỗ (đề `ready` + cờ `capabilities.deploy`): cùng thao tác
+ * exam-pins, cùng cổng quyền với hộp ghim của panel "Đề của tôi" ở
+ * trang ngân hàng — luồng soạn → soát → giao liền một mạch, trạng
+ * thái lần ghim hiển thị đọc từ cùng nguồn `GET /exams/:id/pins`.
  */
 export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   const { t } = useTranslation('app');
@@ -99,6 +108,69 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
   });
   const results = discoveryQuery.data ?? [];
   const searched = submittedSearch !== null && !discoveryQuery.isFetching;
+
+  // --- Ghim đề vào khoá ngay tại màn sửa -------------------------------------
+  //
+  // Form ghim chỉ mở khi đề đã `ready` và người xem có cờ deploy tại
+  // bank của đề — đúng điều kiện hiện nút ghim của panel "Đề của tôi"
+  // ở trang ngân hàng. Các query chọn khoá/chương/nhóm và đột biến
+  // ghim dùng chung đúng bộ của hộp ghim ở panel đó (không có đường
+  // ghim thứ hai): danh sách khoá là query dùng chung toàn app, chương
+  // và nhóm nạp theo khoá đã chọn.
+  const deployPin = useDeployExamPin();
+  const canPin = mode === 'edit' && !!original && original.paper.status === 'ready' && original.capabilities.deploy;
+  const [pinCourseId, setPinCourseId] = useState('');
+  const [pinSectionId, setPinSectionId] = useState('');
+  const [pinGroupId, setPinGroupId] = useState('');
+  const [pinVariantCount, setPinVariantCount] = useState('1');
+  const pinCourses = useQuery({ ...coursesListQueryOptions(), enabled: canPin }).data ?? [];
+  const pinContentQuery = useQuery({
+    ...courseContentQueryOptions(pinCourseId),
+    enabled: canPin && !!pinCourseId,
+  });
+  const pinSections = pinContentQuery.data?.sections ?? [];
+  const pinGroups = useQuery({
+    ...courseGroupsQueryOptions(pinCourseId),
+    enabled: canPin && !!pinCourseId,
+  }).data ?? [];
+
+  // Chọn chương đầu tiên khi nội dung khoá đích tải về (cùng nhịp
+  // hộp ghim của panel ngân hàng).
+  useEffect(() => {
+    if (pinContentQuery.data && !pinSectionId) {
+      setPinSectionId(pinContentQuery.data.sections[0]?.id ?? '');
+    }
+  }, [pinContentQuery.data, pinSectionId]);
+
+  /**
+   * Ghim đề vào khoá đã chọn (toàn khoá hoặc một nhóm đích) — một
+   * thao tác exam-pins như ở panel ngân hàng. Thành công: báo kèm số
+   * phiên bản đã ghim, nạp lại danh sách lần ghim của đề từ cùng
+   * nguồn dữ kiện phía khoá đọc để lần ghim mới hiện ngay tại chỗ,
+   * và làm mới gói dựng khoá + nội dung của khoá đích. Thất bại: báo
+   * kèm lý do API trả và giữ nguyên lựa chọn trong form.
+   */
+  async function runPin() {
+    if (!paperId || !original || !pinCourseId || !pinSectionId) return;
+    setMessage(null);
+    try {
+      await deployPin.mutateAsync({
+        courseId: pinCourseId,
+        body: {
+          sectionId: pinSectionId,
+          examId: paperId,
+          variantCount: Math.min(50, Math.max(1, Number(pinVariantCount) || 1)),
+          ...(pinGroupId ? { targetGroupId: pinGroupId } : {}),
+        },
+      });
+      setMessage(t('pinOk', { version: original.paper.latestVersion }));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.examPaperPins(paperId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courseBuilder(pinCourseId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courseContent(pinCourseId) });
+    } catch (err) {
+      setMessage(withApiReason(t('pinFailed'), err));
+    }
+  }
 
   /** Ánh xạ slots của view đề thành slots nháp của form. */
   function toSlotDrafts(view: PaperView): SlotDraft[] {
@@ -417,26 +489,97 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
 
         <Button type="submit" disabled={!name.trim()}>{t('saveAction')}</Button>
       </form>
-      {mode === 'edit' && pins.length > 0 ? (
+      {/* Thẻ các lần ghim (chế độ sửa): danh sách đọc từ cùng nguồn
+          phía khoá đọc; form ghim hiện khi đề ready + có cờ deploy —
+          thẻ hiện cả khi chưa có lần ghim nào nếu người dùng được
+          ghim, để bước giao bài làm được ngay tại màn soạn. */}
+      {mode === 'edit' && (pins.length > 0 || canPin) ? (
         <Card>
           <CardHeader>
             <CardTitle>{t('examPinsTitle')}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {pins.map((pin) => (
-                <li key={pin.id} className="flex flex-wrap items-center gap-2">
-                  <span className="min-w-0 flex-1">
-                    {pin.courseName} · v{pin.versionNumber} · {formatDateTime(pin.createdAt)} · {t('deploymentVariants', { count: pin.variantCount, codes: pin.variantCodes.join(', ') })}
-                  </span>
-                  {pin.variantCodes.map((code) => (
-                    <Button key={code} type="button" variant="outline" onClick={() => void printVariant(pin.id, code)}>
-                      {t('printVariant', { code })}
-                    </Button>
-                  ))}
-                </li>
-              ))}
-            </ul>
+          <CardContent className="space-y-4">
+            {pins.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {pins.map((pin) => (
+                  <li key={pin.id} className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 flex-1">
+                      {pin.courseName} · v{pin.versionNumber} · {formatDateTime(pin.createdAt)} · {t('deploymentVariants', { count: pin.variantCount, codes: pin.variantCodes.join(', ') })}
+                    </span>
+                    {pin.variantCodes.map((code) => (
+                      <Button key={code} type="button" variant="outline" onClick={() => void printVariant(pin.id, code)}>
+                        {t('printVariant', { code })}
+                      </Button>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {canPin ? (
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <Label htmlFor="pin-course">{t('deployPickCourse')}</Label>
+                  <select
+                    id="pin-course"
+                    className={selectClass}
+                    value={pinCourseId}
+                    onChange={(e) => {
+                      setPinCourseId(e.target.value);
+                      setPinSectionId('');
+                      setPinGroupId('');
+                    }}
+                  >
+                    <option value="">—</option>
+                    {pinCourses.map((c) => (
+                      <option key={c.id} value={c.id}>{c.fullName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="pin-section">{t('pinPickSection')}</Label>
+                  <select
+                    id="pin-section"
+                    className={selectClass}
+                    value={pinSectionId}
+                    onChange={(e) => setPinSectionId(e.target.value)}
+                  >
+                    <option value="">—</option>
+                    {pinSections.map((sec) => (
+                      <option key={sec.id} value={sec.id}>{sec.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="pin-group">{t('pinPickGroup')}</Label>
+                  <select
+                    id="pin-group"
+                    className={selectClass}
+                    value={pinGroupId}
+                    onChange={(e) => setPinGroupId(e.target.value)}
+                  >
+                    <option value="">{t('pinExamWholeCourse')}</option>
+                    {pinGroups.map((g) => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="pin-variants">{t('deployVariantCount')}</Label>
+                  <Input
+                    id="pin-variants"
+                    type="number"
+                    min={1}
+                    max={50}
+                    className="w-24"
+                    value={pinVariantCount}
+                    onChange={(e) => setPinVariantCount(e.target.value)}
+                  />
+                </div>
+                <Button type="button" disabled={!pinCourseId || !pinSectionId || deployPin.isPending} onClick={() => void runPin()}>
+                  {t('pinExamAction')}
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

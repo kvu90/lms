@@ -55,6 +55,40 @@ export const classSchema = z.object({
 export type ClassView = z.infer<typeof classSchema>;
 
 /**
+ * Một dòng của đáp số danh sách lớp (`GET /classes`): toàn bộ trường
+ * của `ClassView` cộng bốn cờ khả năng do server suy cho ĐÚNG người
+ * gọi, để trang danh sách lớp vẽ hành động theo vai (cùng khuôn gói
+ * tổng quan đã có `canManageRoster`/`canShare` và gói công khai đã
+ * có `isMember`/`canPurchase`). Các cờ chỉ là dữ kiện hiển thị —
+ * gác quyền thật vẫn nằm ở từng endpoint (tạo/sửa/lưu trữ/xoá đều
+ * kiểm capability tại context tương ứng và trả 403 với người không
+ * có quyền, bất kể cờ ở đây nói gì):
+ *  - `canCreate`: người gọi có `class:create` tại context tenant —
+ *    phục vụ nút "Tạo lớp"; giá trị giống nhau ở mọi dòng của cùng
+ *    một đáp số vì khả năng này neo tại tenant, không neo tại lớp.
+ *  - `canUpdate`: người gọi có `class:update` tại context của chính
+ *    lớp này (chủ lớp luôn có) — phục vụ hành động Sửa và Lưu trữ.
+ *  - `canDelete`: người gọi qua được cổng xoá của lớp này
+ *    (`class:delete` tại context lớp và, khi không phải chủ lớp,
+ *    thêm `tenant:manage` tại context tenant) — phục vụ hành động
+ *    Xoá. Lớp còn khoá học vẫn bị chặn ở tầng nghiệp vụ khi xoá
+ *    thật; cờ này chỉ phản ánh phần quyền.
+ *  - `canManageRoster`: người gọi có `class:manageroster` tại
+ *    context của chính lớp này (chủ lớp luôn có) — cùng ngữ nghĩa
+ *    với cờ tương ứng trong gói tổng quan.
+ * `ClassView` ở các endpoint còn lại (chi tiết, tạo, sửa, lưu trữ)
+ * không mang các cờ này vì các bề mặt đó đã có gói theo vai riêng
+ * hoặc không vẽ hành động theo danh sách.
+ */
+export const classListItemSchema = classSchema.extend({
+  canCreate: z.boolean(),
+  canUpdate: z.boolean(),
+  canDelete: z.boolean(),
+  canManageRoster: z.boolean(),
+});
+export type ClassListItem = z.infer<typeof classListItemSchema>;
+
+/**
  * Tạo lớp — chỉ `name` bắt buộc. `ownerId` chỉ dùng khi người tạo có
  * `tenant:manage` tại tenant (admin trung tâm/platform tạo lớp hộ giáo
  * viên); mặc định chủ lớp là chính người tạo.
@@ -98,6 +132,12 @@ export type UpdateClass = z.infer<typeof updateClassSchema>;
  * Một dòng roster của lớp (≡ một dòng cohort_members của backing
  * cohort) kèm thông tin hiển thị của tài khoản — bề mặt GV (CLASS-1)
  * cần tên/định danh để quản danh sách, không tra cứu thêm từng người.
+ * Thu hẹp theo quyền của người gọi (phía server, hình dạng không
+ * đổi): email là dữ kiện liên hệ phía quản trị và `username` của tài
+ * khoản tạo qua đường nạp roster chính là số điện thoại, nên người
+ * gọi KHÔNG có quyền quản roster của lớp nhận hai trường này dưới
+ * dạng chuỗi rỗng — bạn học cùng lớp chỉ thấy họ tên nhau; người có
+ * quyền quản roster (chủ lớp / vai quản roster) nhận đáp số đầy đủ.
  */
 export const classRosterMemberSchema = z.object({
   userId: uuidIdSchema,

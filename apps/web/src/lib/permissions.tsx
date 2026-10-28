@@ -71,6 +71,16 @@ export interface PermissionsState {
   canViewTenantAdmin: boolean;
   /** Có quyền quản lý membership ở phạm vi platform hoặc tại ít nhất một context tenant. */
   canManageTenantAdmin: boolean;
+  /**
+   * Có capability guardian:manage ở ít nhất một context trong ảnh chụp
+   * (hoặc là site admin) — điều kiện hiện bề mặt quản lý liên kết giám
+   * hộ. Khớp cổng phía API của module guardians: quản lý liên kết đòi
+   * capability này từ một gán vai thật ở bất kỳ context nào
+   * (hasCapabilityFromRealAssignmentAnywhere), nên phía web cũng quét
+   * MỌI context của ảnh chụp thay vì chỉ context hệ thống; API vẫn là
+   * nơi thực thi quyền thật ở từng endpoint.
+   */
+  canManageGuardians: boolean;
   /** Có capability ngân hàng câu hỏi ở ít nhất một context — điều kiện hiện mục ngân hàng câu hỏi. */
   canUseQuestionBank: boolean;
   /** Mọi khoá học kèm quyền của người dùng trong từng khoá. */
@@ -274,6 +284,7 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         canManagePlatformTenants: false,
         canViewTenantAdmin: false,
         canManageTenantAdmin: false,
+        canManageGuardians: false,
         canUseQuestionBank: false,
         courses: [],
         teaching: [],
@@ -323,6 +334,9 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       canManagePlatformTenants,
       canViewTenantAdmin,
       canManageTenantAdmin,
+      canManageGuardians:
+        (access?.isSiteAdmin ?? false) ||
+        (access?.contexts.some((c) => c.capabilities.includes('guardian:manage')) ?? false),
       canUseQuestionBank:
         (access?.isSiteAdmin ?? false) ||
         (access?.contexts.some((c) =>

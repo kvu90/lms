@@ -155,6 +155,8 @@ export const queryKeys = {
   courseCards: ['dashboard', 'course-cards'] as const,
   /** Các con đang liên kết giám hộ với chính người dùng (GET /guardian-links/mine/students) — PH-1. */
   guardianMyStudents: ['guardian', 'my-students'] as const,
+  /** Danh sách liên kết giám hộ cho bề mặt quản lý của người có guardian:manage (GET /guardian-links). */
+  guardianLinks: ['guardian', 'links'] as const,
   /** Danh sách lớp mà người gọi có liên hệ (GET /classes) — CLASS-1, issue #184. */
   classes: ['classes'] as const,
   /** Gốc khoá lớp — tiền tố làm mới mọi truy vấn của một lớp sau đột biến. */

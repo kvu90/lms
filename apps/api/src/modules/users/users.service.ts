@@ -3,9 +3,10 @@ import type { MyAccessView } from '@lms/contracts';
 import { and, eq } from 'drizzle-orm';
 import { badgeIssued, learningPlans } from '../../db/schema';
 import { OutboxService } from '../../infra/events/outbox.service';
+import type { ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
 import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
-import { CAPABILITY_DEFINITIONS, CONTEXT_LEVELS } from '../access/domain/capabilities';
+import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { PlanLimitsService } from '../access/plan-limits.service';
 import { RolesService } from '../access/roles.service';
@@ -73,10 +74,29 @@ export class UsersService {
    * quản trị): có phải site admin không, các gán vai trò của họ kèm thông
    * tin context, và capability ĐÃ PHÂN GIẢI tại từng context liên quan
    * (context được gán vai trò, mọi tổ tiên của chúng và context hệ thống).
-   * Kết quả phân giải đi qua PermissionEvaluator nên PROHIBIT/PREVENT và
-   * vai trò mặc định `user`/`guest` được tính đúng như khi chặn route —
-   * giao diện dùng dữ liệu này để chỉ hiển thị chức năng người dùng thật
-   * sự thao tác được thay vì dò quyền bằng request thử.
+   * Kết quả phân giải dùng cùng ngữ nghĩa của PermissionEvaluator nên
+   * PROHIBIT/PREVENT và vai trò mặc định `user`/`guest` được tính đúng
+   * như khi chặn route — giao diện dùng dữ liệu này để chỉ hiển thị chức
+   * năng người dùng thật sự thao tác được thay vì dò quyền bằng request
+   * thử.
+   *
+   * Luồng tính (theo lô — KHÔNG gọi `hasCapability` lặp cho từng cặp
+   * context × capability nữa vì mỗi lần gọi như vậy tốn vài truy vấn
+   * Postgres ngay cả khi cache nóng, làm một request ảnh chụp quyền
+   * phát sinh hàng nghìn truy vấn):
+   *   1. Nạp một lần các gán vai trò của người dùng và toàn bộ vai trò.
+   *   2. Nạp theo lô mọi context liên quan: context của các gán vai
+   *      (khử trùng theo id — nhiều gán vai cùng một context chỉ đọc
+   *      một lần) rồi toàn bộ tổ tiên trên `path` của chúng, mỗi nhóm
+   *      đúng một truy vấn. Thứ tự hợp nhất tập context liên quan giữ
+   *      nguyên như trước: context hệ thống trước, rồi với từng gán
+   *      vai theo thứ tự liệt kê, các context trên path của nó theo
+   *      thứ tự lá → gốc, context đã có thì không chèn lại.
+   *   3. Phân giải capability cho mọi context liên quan trong một lần
+   *      qua `PermissionEvaluator.resolveCapabilitiesForContexts`
+   *      (nạp theo lô gán vai/override/cổng tenant rồi tính trong bộ
+   *      nhớ bằng đúng hàm thuần phân giải — kết quả bằng đúng phép
+   *      phân giải từng cặp trước đây).
    */
   async getMyAccess(userId: string, opts?: { isGuest?: boolean }): Promise<MyAccessView> {
     const isSiteAdmin = await this.evaluator.isSiteAdmin(userId);
@@ -85,12 +105,36 @@ export class UsersService {
     }[];
     const roleById = new Map((await this.roles.listRoles()).map((r) => [r.id, r]));
 
+    // Bước 2a: nạp theo lô các context của chính các gán vai (khử trùng
+    // theo id). Một gán vai trỏ tới context không còn tồn tại vẫn ném
+    // access.context_not_found như đường đọc từng context trước đây.
+    const contextById = new Map<string, ContextRow>();
+    const assignmentContextIds = [...new Set(assignmentRows.map((r) => r.contextId))];
+    for (const row of await this.contexts.getContextsByIds(assignmentContextIds)) {
+      contextById.set(row.id, row);
+    }
+    // Bước 2b: nạp theo lô mọi tổ tiên còn thiếu trên path của các
+    // context đó — tổ tiên của một tổ tiên cũng nằm trên cùng path nên
+    // một lần nạp này khép kín toàn bộ cây liên quan.
+    const ancestorIds = new Set<string>();
+    for (const id of assignmentContextIds) {
+      const ctx = contextById.get(id);
+      if (!ctx) throw new NotFoundException({ message: `Context ${id} not found`, code: 'access.context_not_found' });
+      for (const pathId of ctx.path.split('/').filter(Boolean)) {
+        if (!contextById.has(pathId)) ancestorIds.add(pathId);
+      }
+    }
+    for (const row of await this.contexts.getContextsByIds([...ancestorIds])) {
+      contextById.set(row.id, row);
+    }
+
     const assignments: MyAccessView['assignments'] = [];
-    const relatedContexts = new Map<string, { id: string; contextLevel: number; path: string }>();
+    const relatedContexts = new Map<string, ContextRow>();
     const system = await this.contexts.ensureSystemContext();
     relatedContexts.set(system.id, system);
+    if (!contextById.has(system.id)) contextById.set(system.id, system);
     for (const row of assignmentRows) {
-      const ctx = await this.contexts.getContext(row.contextId);
+      const ctx = contextById.get(row.contextId)!;
       const role = roleById.get(row.roleId);
       assignments.push({
         id: row.id,
@@ -102,26 +146,23 @@ export class UsersService {
         contextPath: ctx.path,
         instanceId: ctx.instanceId,
       });
-      for (const pathCtx of await this.contexts.getPathContexts(ctx)) {
-        relatedContexts.set(pathCtx.id, pathCtx);
+      // Path vật chất hoá lưu từ gốc xuống lá; duyệt ngược lại (lá →
+      // gốc) như getPathContexts để thứ tự hợp nhất khớp trước đây.
+      for (const pathId of ctx.path.split('/').filter(Boolean).reverse()) {
+        const pathCtx = contextById.get(pathId);
+        if (pathCtx) relatedContexts.set(pathCtx.id, pathCtx);
       }
     }
 
-    const contexts: MyAccessView['contexts'] = [];
-    for (const ctx of relatedContexts.values()) {
-      const capabilities: string[] = [];
-      for (const def of CAPABILITY_DEFINITIONS) {
-        if (await this.evaluator.hasCapability(userId, def.name, ctx.id, opts)) {
-          capabilities.push(def.name);
-        }
-      }
-      contexts.push({
-        contextId: ctx.id,
-        contextLevel: ctx.contextLevel,
-        contextPath: ctx.path,
-        capabilities,
-      });
-    }
+    // Bước 3: phân giải theo lô cho mọi context liên quan trong một lần.
+    const related = [...relatedContexts.values()];
+    const resolvedByContext = await this.evaluator.resolveCapabilitiesForContexts(userId, related, contextById, opts);
+    const contexts: MyAccessView['contexts'] = related.map((ctx) => ({
+      contextId: ctx.id,
+      contextLevel: ctx.contextLevel,
+      contextPath: ctx.path,
+      capabilities: resolvedByContext.get(ctx.id) ?? [],
+    }));
     // Cờ hiện vật học tập (issue #176, nhánh A của dấu chân học tập):
     // hai EXISTS qua index sẵn có — badge_issued_user_id_idx (chỉ tính
     // huy hiệu chưa thu hồi) và learning_plans_user_id_idx — không thêm

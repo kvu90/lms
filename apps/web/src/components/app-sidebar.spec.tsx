@@ -619,3 +619,40 @@ describe('nhóm Học tập theo dấu chân (issue #176, quy tắc M+A)', () =>
     expect(screen.queryByRole('button', { name: 'Học tập' })).not.toBeInTheDocument();
   });
 });
+
+describe('mục quản lý liên kết phụ huynh — gác theo guardian:manage (gói kích hoạt phụ huynh)', () => {
+  // Người phụ trách có guardian:manage ở một context tenant (cấp 30)
+  // — đúng hình dạng gán vai thật mà cổng API của module guardians
+  // kiểm (capability từ gán vai ở bất kỳ context nào).
+  const GUARDIAN_MANAGER_ACCESS = {
+    userId: TEACHER_ID,
+    isSiteAdmin: false,
+    assignments: [],
+    contexts: [
+      {
+        contextId: '01900000-0000-7000-8000-0000000000d5',
+        contextLevel: 30,
+        contextPath: '/1/2',
+        capabilities: ['guardian:manage'],
+      },
+    ],
+    hasLearnerArtifacts: false,
+  };
+
+  it('người có guardian:manage thấy mục Liên kết phụ huynh dẫn tới trang quản lý', async () => {
+    stubFetch(profileOf(TEACHER_ID, 'teacher1'), GUARDIAN_MANAGER_ACCESS);
+    renderShell();
+
+    const link = await screen.findByRole('link', { name: 'Liên kết phụ huynh' });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/admin/guardian-links');
+  });
+
+  it('học viên không có guardian:manage thì không thấy mục Liên kết phụ huynh', async () => {
+    stubFetch(profileOf(STUDENT_ID, 'student1'), STUDENT_ACCESS);
+    renderShell();
+
+    expect(await screen.findByRole('link', { name: 'Khoá học' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Liên kết phụ huynh' })).not.toBeInTheDocument();
+  });
+});
