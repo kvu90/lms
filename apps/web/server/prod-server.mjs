@@ -17,7 +17,9 @@
  *      cache immutable; asset text được nén brotli/gzip theo
  *      Accept-Encoding — xem `compression.mjs`, CHỈ ở đường tĩnh này)
  *      và giao mọi request còn lại cho server build
- *      của React Router (SSR) qua createRequestListener.
+ *      của React Router (SSR) qua createRequestListener. Mọi tài
+ *      liệu HTML ở cả hai đường (tĩnh lẫn SSR) đều mang header bảo
+ *      mật Content-Security-Policy — xem `security-headers.mjs`.
  *
  * Chạy độc lập: `node server/prod-server.mjs` (cần `react-router
  * build` trước) — đây cũng là cách target `web` của Dockerfile ở gốc
@@ -34,6 +36,7 @@ import { createRequestListener } from '@react-router/node';
 import * as serverBuild from '../build/server/index.js';
 import { isProxyPath } from './proxy-paths.mjs';
 import { compressBuffer, isCompressibleType, MIN_COMPRESS_BYTES, pickEncoding } from './compression.mjs';
+import { applyDocumentSecurityHeaders } from './security-headers.mjs';
 
 const apiOrigin = new URL(process.env.LMS_API_INTERNAL_URL ?? 'http://127.0.0.1:3000');
 const publicPort = Number(process.env.PORT ?? process.env.PUBLIC_PORT ?? 8080);
@@ -176,6 +179,14 @@ async function tryStatic(req, res) {
         : 'public, max-age=3600';
     const body = await readFile(filePath);
     const headers = { 'Content-Type': type, 'Cache-Control': cache };
+    // Tài liệu HTML tĩnh (gồm bản prerender) mang cùng header bảo
+    // mật như tài liệu SSR — xem security-headers.mjs. Đặt qua
+    // object header của writeHead vì đường tĩnh không đi qua
+    // ServerResponse.setHeader như đường SSR.
+    if (type.startsWith('text/html')) {
+      const docRes = { setHeader: (name, value) => { headers[name] = value; } };
+      applyDocumentSecurityHeaders(docRes);
+    }
     let payload = body;
     // Nén CHỈ ở đường tĩnh này (F-12 của #133): SSR streaming và proxy
     // không đi qua đây. File text đủ lớn + client chấp nhận thì nén,
@@ -202,6 +213,12 @@ const server = createServer(async (req, res) => {
   try {
     if (req.url && isProxyPath(req.url)) return proxyHttp(req, res);
     if (await tryStatic(req, res)) return;
+    // Mọi đáp ứng còn lại là tài liệu SSR của React Router (kèm các
+    // đáp ứng dữ kiện điều hướng của nó): gắn header bảo mật tài
+    // liệu TRƯỚC khi giao cho listener — header đặt bằng setHeader
+    // được giữ nguyên khi listener gọi writeHead với bộ header của
+    // riêng nó (không có CSP) — xem security-headers.mjs.
+    applyDocumentSecurityHeaders(res);
     return ssrListener(req, res);
   } catch (error) {
     console.error('[ssr] request error', error);

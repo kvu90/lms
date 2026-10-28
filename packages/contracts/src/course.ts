@@ -488,23 +488,45 @@ export const updatePageSchema = z.strictObject({
 });
 export type UpdatePage = z.infer<typeof updatePageSchema>;
 
+/**
+ * Kiểm scheme của URL tài nguyên ngoài ngay tại biên hợp đồng: phía
+ * web đưa URL này thẳng vào `href` của trang học nên chỉ `http:`/
+ * `https:` được phép — scheme `javascript:`/`data:` sẽ thực thi khi
+ * người xem bấm liên kết. URL tương đối bị từ chối vì tài nguyên
+ * ngoài theo định nghĩa là đích tuyệt đối. Package này không mang
+ * kiểu Node/DOM nên phép kiểm ở đây là kiểm tiền tố sau khi gạt ký
+ * tự điều khiển/khoảng trắng ở đầu chuỗi (đủ để chốt scheme đứng
+ * đầu); tầng nghiệp vụ của `apps/api` kiểm lại độc lập bằng bộ phân
+ * tích URL đầy đủ và ném mã lỗi `content.url_scheme_not_allowed`
+ * (HTTP 400) cho cùng ràng buộc.
+ */
+function isSafeExternalResourceUrl(url: string): boolean {
+  const normalized = url.replace(/^[\s\u0000-\u001f]+/, '').toLowerCase();
+  return normalized.startsWith('http://') || normalized.startsWith('https://');
+}
+
+/** URL của tài nguyên ngoài (mod_resource): URL tuyệt đối chỉ mang scheme http/https (xem {@link isSafeExternalResourceUrl}). */
+export const externalResourceUrlSchema = z.string().min(1).refine(isSafeExternalResourceUrl, {
+  message: 'url must use the http or https scheme',
+});
+
 /** Payload tạo tài nguyên (mod_resource): đúng một nguồn — fileId (tệp đã tải lên qua Files) hoặc url (liên kết ngoài/video nhúng). Mặc định hoàn thành theo loại nội dung: video = progress (≥90%), tài liệu = manual, tệp khác/liên kết = none. transcript là bản chữ đi kèm video (cho học sinh mạng yếu/khuyết tật đọc thay xem). */
 export const createResourceSchema = z.strictObject({
   sectionId: uuidIdSchema,
   name: z.string().min(1),
   kind: z.enum(['file', 'url']),
   fileId: uuidIdSchema.optional(),
-  url: z.string().min(1).optional(),
+  url: externalResourceUrlSchema.optional(),
   transcript: z.string().optional(),
   completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
 });
 export type CreateResource = z.infer<typeof createResourceSchema>;
 
-/** Payload sửa tài nguyên (mọi trường tuỳ chọn; fileId/url nhận null để gỡ nguồn). */
+/** Payload sửa tài nguyên (mọi trường tuỳ chọn; fileId/url nhận null để gỡ nguồn; url không-null vẫn phải mang scheme http/https như đường tạo). */
 export const updateResourceSchema = z.strictObject({
   name: z.string().min(1).optional(),
   fileId: uuidIdSchema.nullable().optional(),
-  url: z.string().min(1).nullable().optional(),
+  url: externalResourceUrlSchema.nullable().optional(),
   transcript: z.string().nullable().optional(),
   completionMode: z.enum(CONTENT_COMPLETION_MODES).optional(),
 });

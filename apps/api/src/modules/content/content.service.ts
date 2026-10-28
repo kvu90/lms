@@ -8,6 +8,7 @@ import type { CmRow } from '../courses/courses.repository';
 import { FilesService } from '../files/files.service';
 import { courseGroups, courseModulesCompletion, enrol, groupsMembers, userEnrolments, users } from '../../db/schema';
 import { ContentRepository, type PageRow, type ResourceRow } from './content.repository';
+import { isSafeExternalResourceUrl, sanitizePageContent } from './page-content-sanitizer';
 
 export const PAGE_COMPONENT = 'mod_page';
 export const RESOURCE_COMPONENT = 'mod_resource';
@@ -124,13 +125,17 @@ export class ContentService {
    * Mặc định hoàn thành kiểu manual (mở xem + học sinh tự xác nhận "Đã
    * học") — nội dung đọc không đo được "đã đọc thật" (bảng 2.1 nghiên
    * cứu học liệu số VN); giáo viên đặt 'view' nếu chỉ cần xem là đủ.
+   * Nội dung HTML được LÀM SẠCH THEO ALLOWLIST trước khi ghi DB (xem
+   * page-content-sanitizer): nội dung trang được phía web render bằng
+   * `dangerouslySetInnerHTML`, nên mã thực thi (thẻ script, thuộc tính
+   * sự kiện) không được phép tới DB qua đường ghi này.
    */
   async createPage(actorId: string, courseId: string, input: {
     sectionId: string; name: string; content?: string; completionMode?: CompletionMode;
   }): Promise<PageRow & { completionMode: CompletionMode }> {
     await this.courses.getCourse(courseId);
     const mode = input.completionMode ?? 'manual';
-    const page = await this.repo.insertPage({ course: courseId, cmId: null, name: input.name, content: input.content ?? '' });
+    const page = await this.repo.insertPage({ course: courseId, cmId: null, name: input.name, content: sanitizePageContent(input.content ?? '') });
     try {
       const cm = await this.courses.createCm(actorId, courseId, {
         sectionId: input.sectionId, component: PAGE_COMPONENT, instanceId: page.id, name: input.name,
@@ -145,11 +150,20 @@ export class ContentService {
     return { ...created, completionMode: mode };
   }
 
-  /** Lấy trang đọc (kèm chế độ hoàn thành suy từ cm của nó). */
+  /**
+   * Lấy trang đọc (kèm chế độ hoàn thành suy từ cm của nó).
+   * Nội dung được làm sạch LẠI ở đường đọc: bản ghi đã lưu từ trước
+   * khi đường ghi có cổng làm sạch (hoặc được ghi qua đường vòng như
+   * import backup bằng repository trực tiếp) có thể còn mang mã thực
+   * thi — điểm này là điểm nghẽn đọc mà cả `getPageForUser` lẫn
+   * `getPlayer` đều đi qua, nên làm sạch tại đây phủ mọi bề mặt hiển
+   * thị nội dung trang. Hàm làm sạch idempotent nên dữ kiện đã qua
+   * cổng ghi không bị biến dạng khi làm sạch lần hai.
+   */
   async getPage(id: string): Promise<PageRow> {
     const row = await this.repo.getPage(id);
     if (!row) throw new NotFoundException({ message: `Page ${id} not found`, code: 'content.page_not_found' });
-    return row;
+    return { ...row, content: sanitizePageContent(row.content) };
   }
 
   /** Đọc trang đọc cho người xem: phải qua được cổng truy cập khoá học. */
@@ -160,7 +174,11 @@ export class ContentService {
     return { ...page, completionMode: cm ? modeOfCm(cm) : 'view' };
   }
 
-  /** Sửa trang đọc (course:manageactivities tại khoá); đổi tên/chế độ hoàn thành đồng bộ sang cm. */
+  /**
+   * Sửa trang đọc (course:manageactivities tại khoá); đổi tên/chế độ
+   * hoàn thành đồng bộ sang cm. Nội dung mới cũng qua cùng cổng làm
+   * sạch allowlist như đường tạo trước khi ghi DB.
+   */
   async updatePage(actorId: string, id: string, input: {
     name?: string; content?: string; completionMode?: CompletionMode;
   }): Promise<PageRow> {
@@ -168,7 +186,7 @@ export class ContentService {
     await this.evaluator.requireCapability(actorId, 'course:manageactivities', await this.courses.courseContextId(page.course));
     const patch: Partial<PageRow> = {};
     if (input.name !== undefined) patch.name = input.name;
-    if (input.content !== undefined) patch.content = input.content;
+    if (input.content !== undefined) patch.content = sanitizePageContent(input.content);
     if (Object.keys(patch).length) await this.repo.updatePage(id, patch);
     if (page.cmId && (input.name !== undefined || input.completionMode !== undefined)) {
       await this.courses.updateCm(actorId, page.cmId, {
@@ -189,6 +207,21 @@ export class ContentService {
   // --- mod_resource -------------------------------------------------------------
 
   /**
+   * Chặn URL tài nguyên ngoài mang scheme nguy hiểm: phía web đưa URL
+   * này thẳng vào `href` của trang học nên chỉ http/https được phép
+   * lưu; scheme kiểu `javascript:`/`data:` bị từ chối bằng mã
+   * `content.url_scheme_not_allowed` (tầng hợp đồng cũng có refine
+   * tương ứng — hai tầng gác độc lập).
+   *
+   * @throws BadRequestException khi URL không dùng scheme http/https.
+   */
+  private assertSafeResourceUrl(url: string): void {
+    if (!isSafeExternalResourceUrl(url)) {
+      throw new BadRequestException({ message: 'url must use the http or https scheme', code: 'content.url_scheme_not_allowed' });
+    }
+  }
+
+  /**
    * Tạo tài nguyên: đúng một nguồn (file đã tải lên qua Files, hoặc URL
    * ngoài/video nhúng). Mặc định hoàn thành theo loại nội dung (bảng
    * 2.1): video → progress (xem ≥ ngưỡng), tài liệu → manual, tệp
@@ -205,6 +238,7 @@ export class ContentService {
       fileMime = (await this.files.getFile(input.fileId)).mimeType;
     } else {
       if (!input.url) throw new BadRequestException({ message: 'url is required for a link resource', code: 'content.url_required' });
+      this.assertSafeResourceUrl(input.url);
     }
     const mode = input.completionMode ?? (input.kind === 'file' ? defaultModeForFile(fileMime) : 'none');
     const resource = await this.repo.insertResource({
@@ -234,7 +268,14 @@ export class ContentService {
     return row;
   }
 
-  /** Đọc tài nguyên cho người xem: qua cổng khoá học; file kèm URL đã ký để xem/tải. */
+  /**
+   * Đọc tài nguyên cho người xem: qua cổng khoá học; file kèm URL đã
+   * ký để xem/tải. URL ngoài đã lưu từ trước khi có cổng scheme có
+   * thể mang scheme nguy hiểm — đường đọc này KHÔNG phát URL đó ra
+   * đáp ứng (trả `url: null`, không tính embed) để href nguy hiểm
+   * không tới được trang học; bản ghi trong DB giữ nguyên, giáo viên
+   * sửa lại URL hợp lệ là hiển thị trở lại bình thường.
+   */
   async getResourceForUser(userId: string, id: string): Promise<{
     resource: ResourceRow & { completionMode: CompletionMode };
     file: { id: string; fileName: string; mimeType: string | null; fileSize: number; signedUrl: string; signedUrlExpiresAt: number } | null;
@@ -249,14 +290,23 @@ export class ContentService {
       const signed = await this.files.createSignedUrl(resource.fileId, userId);
       file = { id: row.id, fileName: row.fileName, mimeType: row.mimeType, fileSize: row.fileSize, signedUrl: signed.url, signedUrlExpiresAt: signed.expiresAt };
     }
+    const safeUrl = resource.kind === 'url' && resource.url && isSafeExternalResourceUrl(resource.url) ? resource.url : null;
     return {
-      resource: { ...resource, completionMode: cm ? modeOfCm(cm) : 'view' },
+      resource: {
+        ...resource,
+        ...(resource.kind === 'url' ? { url: safeUrl } : {}),
+        completionMode: cm ? modeOfCm(cm) : 'view',
+      },
       file,
-      embedUrl: resource.kind === 'url' && resource.url ? embedUrlFor(resource.url) : null,
+      embedUrl: safeUrl ? embedUrlFor(safeUrl) : null,
     };
   }
 
-  /** Sửa tài nguyên (course:manageactivities tại khoá); tên/chế độ hoàn thành đồng bộ sang cm. */
+  /**
+   * Sửa tài nguyên (course:manageactivities tại khoá); tên/chế độ
+   * hoàn thành đồng bộ sang cm. URL ngoài mới (khi không phải null gỡ
+   * nguồn) phải qua cùng cổng scheme như đường tạo.
+   */
   async updateResource(actorId: string, id: string, input: {
     name?: string; fileId?: string | null; url?: string | null; transcript?: string | null; completionMode?: CompletionMode;
   }): Promise<ResourceRow> {
@@ -268,7 +318,10 @@ export class ContentService {
       if (input.fileId) await this.files.getFile(input.fileId);
       patch.fileId = input.fileId; patch.kind = input.fileId ? 'file' : resource.kind;
     }
-    if (input.url !== undefined) patch.url = input.url;
+    if (input.url !== undefined) {
+      if (input.url !== null) this.assertSafeResourceUrl(input.url);
+      patch.url = input.url;
+    }
     if (input.transcript !== undefined) patch.transcript = input.transcript;
     if (Object.keys(patch).length) await this.repo.updateResource(id, patch);
     if (resource.cmId && (input.name !== undefined || input.completionMode !== undefined)) {
