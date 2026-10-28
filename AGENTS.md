@@ -76,6 +76,36 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 
 ## Quy trình tạo Issue và PR
 
+### Flow nhánh dev và main
+
+Flow này có hiệu lực từ khi nhánh `dev` được thiết lập trong đợt tái
+cấu trúc repo; trước thời điểm đó, mọi PR vẫn mở vào `main` như quy
+trình hiện tại trong tài liệu này.
+
+1. **Hai nhánh dài hạn.** `dev` là nhánh tích hợp và là default
+   branch của repo. `main` là nhánh production.
+2. **Việc thường theo issue.** Mỗi issue mở một branch từ `dev` (đặt
+   tên theo quy ước hiện hành của repo: `feat/<slug>`, `docs/<slug>`,
+   `ci/<slug>`), đúng một PR vào `dev` cho mỗi issue theo luật 1
+   issue = 1 PR, thân PR có `Closes #<issue>`, squash merge vào
+   `dev`. Chuẩn Issue và PR trong tài liệu này (văn bản tự chứa, mẫu
+   issue/PR, task list trong thân PR, mục Nghiệm thu) giữ nguyên,
+   không đổi.
+3. **CI.** PR vào `dev` không chờ CI đầy đủ, và CI đầy đủ không chạy
+   theo từng commit/push trên branch của PR vào `dev`. CI đầy đủ —
+   job `verify` trong `.github/workflows/ci.yml` và job
+   `verify-stack` trong `.github/workflows/deploy-check.yml` — chỉ
+   chạy tại PR phát hành `dev → main` và PR hotfix vào `main`; cả
+   hai job phải success trên head cuối của các PR đó mới được merge.
+4. **Phát hành.** Phát hành bằng PR từ `dev` vào `main`, merge bằng
+   merge commit (không squash), cần 1 approval của chủ dự án. Sau
+   khi merge, gắn tag phát hành dạng `vYYYY.MM.DD.N` trên `main`
+   (`N` là số thứ tự của đợt phát hành trong ngày).
+5. **Hotfix.** Việc khẩn cấp trên production mở branch từ `main`, mở
+   PR vào `main`, squash merge vào `main`. Sau khi hotfix đã vào
+   `main`, bắt buộc mở PR đồng bộ `main → dev` để hai nhánh không
+   lệch nhau.
+
 ### Tạo Issue
 
 1. Dùng Issue template của repo (mẫu tính năng/nghiệp vụ hoặc mẫu báo
@@ -92,7 +122,10 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 
 ### Tạo PR
 
-1. Một nhánh từ `main` cho mỗi issue; đúng một PR cho mỗi issue.
+1. Một nhánh từ `dev` cho mỗi issue, mở đúng một PR vào `dev` cho
+   mỗi issue (theo mục "Flow nhánh dev và main" ở trên; trong giai
+   đoạn chuyển tiếp chưa có nhánh `dev` thì nhánh từ `main`, PR vào
+   `main`).
 2. Thân PR theo `.github/pull_request_template.md`, gồm: `Closes
    #<số issue>`; tóm tắt thay đổi; bản đồ thay đổi theo phạm vi; task
    list toàn bộ việc con của issue (mang từ issue sang) và tích khi
@@ -109,9 +142,12 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 1. Đội thi công không tự merge và không tự đóng issue của mình; đội
    đánh giá độc lập phán quyết trước.
 2. Cổng merge: phán quyết đạt (hoặc đã thoả các điều kiện của phán
-   quyết) + CI `verify` success trên head cuối của PR + PR đã rời
-   trạng thái draft.
-3. Merge kiểu squash; issue tự đóng qua `Closes` trong thân PR.
+   quyết) + PR đã rời trạng thái draft. Riêng PR vào `main` (phát
+   hành và hotfix) phải có thêm CI đầy đủ — job `verify` và job
+   `verify-stack` — success trên head cuối của PR.
+3. PR của issue merge kiểu squash; issue tự đóng qua `Closes` trong
+   thân PR. PR phát hành `dev → main` merge bằng merge commit theo
+   mục "Flow nhánh dev và main" ở trên.
 
 ## Kỷ luật PR liên quan
 
@@ -123,5 +159,6 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 - Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**`, có mục "Việc
   con", mục "Bản đồ thay đổi theo phạm vi" và mục "Kỷ luật đã giữ".
 - Đội thi công không tự merge PR; việc merge chờ đánh giá độc lập.
-- CI của repo là job `verify` trong `.github/workflows/ci.yml`; kết luận
-  về CI chỉ lấy từ log thật của job.
+- CI của repo gồm job `verify` trong `.github/workflows/ci.yml` và
+  job `verify-stack` trong `.github/workflows/deploy-check.yml`; kết
+  luận về CI chỉ lấy từ log thật của job.
