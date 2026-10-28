@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { IconBuildingCommunity, IconCheck } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import type { MyTenant } from '@lms/contracts';
@@ -9,7 +8,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@lms/ui/components/dropdown-menu';
-import { fetchMyTenants, switchTenant } from '#lib/tenants';
+import { switchTenant, useMyTenants } from '#lib/tenants';
 import '../i18n';
 
 /**
@@ -17,21 +16,12 @@ import '../i18n';
  * #168): chỉ hiện khi người dùng là thành viên active của TỪ HAI tenant
  * trở lên. Tenant hiệu lực được đánh dấu; chọn tenant khác là chuyển
  * phiên thật ở máy chủ (token mới mang claim `tid` của tenant đích).
+ * Danh sách đọc qua `useMyTenants` (TanStack): chưa tải xong hoặc lỗi
+ * thì dữ kiện vắng, mục bị ẩn như bản fetch tay trước đây.
  */
 export function TenantSwitcherMenu() {
   const { t } = useTranslation('app');
-  const [tenants, setTenants] = useState<MyTenant[]>([]);
-  useEffect(() => {
-    let alive = true;
-    fetchMyTenants()
-      .then((rows) => {
-        if (alive) setTenants(rows);
-      })
-      .catch(() => undefined);
-    return () => {
-      alive = false;
-    };
-  }, []);
+  const tenants: MyTenant[] = useMyTenants().data ?? [];
   if (tenants.length < 2) return null;
   return (
     <>

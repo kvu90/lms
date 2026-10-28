@@ -1,5 +1,7 @@
 import type { MyTenant } from '@lms/contracts';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { apiJson } from './api';
+import { queryKeys } from './query-keys';
 
 /**
  * Bộ chọn tenant (TENANT-0, #168): người dùng thuộc nhiều tenant (giáo
@@ -12,6 +14,23 @@ import { apiJson } from './api';
  */
 export async function fetchMyTenants(): Promise<MyTenant[]> {
   return apiJson<MyTenant[]>('/auth/tenants');
+}
+
+/**
+ * Tuỳ chọn truy vấn các tenant người dùng là thành viên (GET
+ * /auth/tenants): mục chuyển không gian đọc qua TanStack để hưởng
+ * cache + dedupe theo khoá nhà máy thay cho fetch tay trong effect.
+ */
+export function myTenantsQueryOptions() {
+  return queryOptions({
+    queryKey: queryKeys.myTenants,
+    queryFn: () => fetchMyTenants(),
+  });
+}
+
+/** Hook đọc các tenant người dùng là thành viên cho mục chuyển không gian; lỗi tải cho dữ kiện vắng (mục bị ẩn như trước). */
+export function useMyTenants() {
+  return useQuery(myTenantsQueryOptions());
 }
 
 /**
