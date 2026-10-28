@@ -2,7 +2,6 @@
 name: Báo lỗi
 about: Báo một lỗi đã quan sát được. Bằng chứng và các bước tái hiện phải nằm ngay trong issue này, không dẫn nguồn ngoài repo làm căn cứ duy nhất.
 title: ""
-labels: bug
 assignees: ""
 ---
 

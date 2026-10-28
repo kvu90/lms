@@ -137,6 +137,30 @@ trình hiện tại trong tài liệu này.
    phối — việc chia là ngoại lệ hiếm, phải được duyệt trước, giữ số
    PR ở mức tối thiểu và vẫn theo dõi bằng task list trong issue.
 
+### Chuẩn tiêu đề
+
+1. **Tiêu đề issue.** Tối đa khoảng 70 ký tự, theo cấu trúc: động
+   từ + đối tượng + tối đa một cụm phân biệt ngắn. Không liệt kê
+   phạm vi trong tiêu đề và không chất chi tiết vào tiêu đề —
+   toàn bộ chi tiết thuộc về thân issue.
+2. **Tiêu đề PR.** Mang mẫu Conventional Commits theo mục "Chuẩn
+   commit" ngay dưới đây, vì khi squash merge, tiêu đề PR trở
+   thành thông điệp commit trên nhánh chính. Tiêu đề PR cũng nằm
+   trong trần khoảng 70 ký tự.
+
+### Chuẩn commit
+
+1. Mọi thông điệp commit tuân theo Conventional Commits 1.0.0,
+   dạng `type(scope): mô tả`.
+2. `type` thuộc nhóm: `feat`, `fix`, `docs`, `style`,
+   `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+3. `scope` là tên module hoặc package ngắn, viết bằng tiếng Anh.
+4. Phần mô tả viết bằng tiếng Việt, ngắn gọn; toàn bộ dòng
+   subject tối đa khoảng 72 ký tự.
+5. Thay đổi phá vỡ tương thích ghi `type(scope)!:` và thêm
+   footer `BREAKING CHANGE:` ở thân commit. Phần thân commit
+   (khi cần) viết bằng tiếng Việt.
+
 ### Review và merge
 
 1. Đội thi công không tự merge và không tự đóng issue của mình; đội
@@ -148,6 +172,22 @@ trình hiện tại trong tài liệu này.
 3. PR của issue merge kiểu squash; issue tự đóng qua `Closes` trong
    thân PR. PR phát hành `dev → main` merge bằng merge commit theo
    mục "Flow nhánh dev và main" ở trên.
+
+### Label trạng thái của issue
+
+1. Mọi issue đang mở mang đúng MỘT label trạng thái trong bộ
+   bốn label dưới đây, và label được đổi ngay khi chặng làm
+   việc đổi. Trạng thái của issue đọc từ label, không suy từ
+   ghi chú hay comment trong issue.
+2. `đang thi công` — đội thi công gắn khi bắt đầu làm issue.
+3. `đang review` — đội review gắn khi bắt đầu chấm.
+4. `chờ sửa` — đội review gắn khi phán quyết là chưa đạt; đội
+   thi công đổi ngược về `đang thi công` khi quay lại sửa.
+5. `chờ merge` — đội review gắn khi phán quyết đạt; đội merge
+   gỡ label trạng thái khi issue đóng sau khi merge.
+6. Các mẫu issue trong `.github/ISSUE_TEMPLATE/` không tự gắn
+   label loại khi tạo issue; label trên issue chỉ là label
+   trạng thái theo quy định này.
 
 ## Kỷ luật PR liên quan
 

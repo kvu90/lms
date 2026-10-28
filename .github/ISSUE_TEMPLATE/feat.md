@@ -2,7 +2,6 @@
 name: Tính năng / nghiệp vụ
 about: Đặc tả một việc tính năng hoặc nghiệp vụ. Issue phải tự chứa đầy đủ — người đọc chỉ có repo này vẫn hiểu, thi công và kiểm chứng được toàn bộ việc.
 title: ""
-labels: enhancement
 assignees: ""
 ---
 
