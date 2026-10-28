@@ -325,6 +325,18 @@ describe('assessment contracts', () => {
 });
 
 describe('identity contracts', () => {
+  it('accepts an empty TOTP setup payload and a 6-digit current code, rejects malformed codes and unknown fields', async () => {
+    const { mfaTotpSetupSchema } = await import('./identity.js');
+    // Thân không bắt buộc: client hiện tại gọi setup không kèm thân vẫn hợp lệ.
+    expect(mfaTotpSetupSchema.parse(undefined)).toBeUndefined();
+    expect(mfaTotpSetupSchema.parse({})).toEqual({});
+    expect(mfaTotpSetupSchema.parse({ currentCode: '123456' })).toEqual({ currentCode: '123456' });
+    // Mã hiện tại phải đúng khuôn mã TOTP 6 chữ số; trường lạ bị chặn (strict).
+    expect(() => mfaTotpSetupSchema.parse({ currentCode: '12345' })).toThrow();
+    expect(() => mfaTotpSetupSchema.parse({ currentCode: '12ab56' })).toThrow();
+    expect(() => mfaTotpSetupSchema.parse({ currentCode: '123456', other: 'x' })).toThrow();
+  });
+
   it('parses a login response and a profile without email (identity field hidden)', () => {
     expect(loginResponseSchema.parse({
       accessToken: 'a', refreshToken: 'r', expiresIn: 900,

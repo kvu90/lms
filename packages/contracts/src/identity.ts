@@ -198,6 +198,21 @@ export const mfaTotpCodeSchema = z.strictObject({
 });
 export type MfaTotpCode = z.infer<typeof mfaTotpCodeSchema>;
 
+/**
+ * Payload khởi tạo MFA TOTP. Toàn bộ thân là KHÔNG bắt buộc (client hiện
+ * tại gọi setup không kèm thân vẫn hợp lệ). Trường `currentCode` — mã
+ * authenticator hiện tại — chỉ bắt buộc về mặt nghiệp vụ ở phía server khi
+ * tài khoản ĐÃ có một factor đang bật: setup lại lúc đó là thao tác thay
+ * factor đang hoạt động nên phải tái xác thực trước khi ghi đè (cùng khuôn
+ * với payload tắt MFA ở trên); chưa có factor đang bật thì không cần mã.
+ */
+export const mfaTotpSetupSchema = z
+  .strictObject({
+    currentCode: totpCodeSchema.optional(),
+  })
+  .optional();
+export type MfaTotpSetup = z.infer<typeof mfaTotpSetupSchema>;
+
 /** Payload hoàn tất đăng nhập hai lớp: challenge token ngắn hạn + mã TOTP. */
 export const mfaVerifySchema = z.strictObject({
   challengeToken: z.string().min(1),

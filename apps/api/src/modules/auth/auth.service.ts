@@ -205,10 +205,12 @@ export class AuthService {
   async isMfaEnabled(userId: string): Promise<boolean> { return this.totp.isEnabled(userId); }
 
   /**
-   * Khởi tạo MFA TOTP cho chính user (chỉ trả secret ở bước này).
+   * Khởi tạo MFA TOTP cho chính user (chỉ trả secret ở bước này). Khi
+   * user đã có factor đang bật, `currentCode` là mã TOTP hiện tại để
+   * tái xác thực trước khi thay factor — cổng nằm ở `TotpService.setup`.
    */
-  async setupTotp(user: UserRow): Promise<{ secret: string; otpauthUrl: string }> {
-    return this.totp.setup(user.id, user.username);
+  async setupTotp(user: UserRow, currentCode?: string): Promise<{ secret: string; otpauthUrl: string }> {
+    return this.totp.setup(user.id, user.username, currentCode);
   }
 
   /**
