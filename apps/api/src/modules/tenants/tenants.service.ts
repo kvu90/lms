@@ -54,6 +54,49 @@ export function toMembershipDto(row: TenantMembershipRow): TenantMembershipDto {
 }
 
 /**
+ * Hình chiếu hồ sơ người dùng cho bề mặt tenant (`GET
+ * /tenants/:tenantId/users` và đáp ứng của `POST
+ * /tenants/:tenantId/users`): đúng 7 trường mà phía tiêu thụ (giao
+ * diện quản trị tenant) cần để ghép hồ sơ với membership — định danh,
+ * tên hiển thị, email và hai cờ trạng thái tài khoản.
+ */
+export interface TenantUserView {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  suspended: boolean;
+  deleted: boolean;
+}
+
+/**
+ * Chiếu một dòng `users` đầy đủ thành `TenantUserView`.
+ *
+ * Lý do tồn tại của hàm chiếu này: dòng `users` (kiểu `UserRow`) chứa
+ * `passwordHash` và nhiều trường nội bộ (`emailVerified`, `image`,
+ * `forcePasswordChange`, `isGuest`, `lastLogin`, mốc thời gian) chỉ
+ * được phép sống ở tầng nội bộ (xác thực, phân giải quyền). Mọi đáp
+ * ứng HTTP của bề mặt tenant PHẢI đi qua hàm chiếu tường minh này —
+ * trả nguyên dòng sẽ phơi bày băm mật khẩu của mọi thành viên tenant
+ * cho bất kỳ ai có quyền xem tenant (vấn đề đã ghi tại issue của đợt
+ * sửa này). Danh sách trường ở đây phải khớp đúng tập trường phía
+ * tiêu thụ khai báo; cần thêm trường thì thêm tường minh tại đây kèm
+ * cập nhật test e2e khẳng định hình dạng đáp ứng.
+ */
+export function toTenantUserView(row: UserRow): TenantUserView {
+  return {
+    id: row.id,
+    username: row.username,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    email: row.email,
+    suspended: row.suspended,
+    deleted: row.deleted,
+  };
+}
+
+/**
  * TenantsService — vòng đời tenant + membership (TENANT-0, #168; hồ sơ
  * mục 2, 4, 6.2). Nguyên tắc cứng đã chốt: tenant CHỈ do
  * platform admin tạo khi khách đăng ký gói tổ chức — KHÔNG có đường tự
@@ -457,15 +500,17 @@ export class TenantsService {
   /**
    * Tenant admin tạo người dùng: tạo tài khoản TOÀN CỤC rồi gắn
    * membership ngay — tài khoản vẫn là một người duy nhất trên toàn hệ
-   * thống (đăng nhập một lần, thuộc được nhiều tenant).
+   * thống (đăng nhập một lần, thuộc được nhiều tenant). Đáp ứng ra
+   * HTTP là `TenantUserView` đã chiếu qua `toTenantUserView` — dòng
+   * `users` đầy đủ (gồm `passwordHash`) chỉ ở lại tầng nội bộ.
    */
-  async createTenantUser(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<UserRow> {
+  async createTenantUser(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
     // Ngữ cảnh platform (HOTFIX #196 vòng 2): membership gắn ngay sau
     // khi tạo user thuộc tenant đích — cùng lý do với addMember.
     return tenantAls.run({ platform: true }, () => this.createTenantUserInContext(actorId, tenantId, dto));
   }
 
-  private async createTenantUserInContext(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<UserRow> {
+  private async createTenantUserInContext(actorId: string, tenantId: string, dto: CreateTenantUserDto): Promise<TenantUserView> {
     await this.assertTenantManager(actorId, tenantId);
     const user = await this.users.createUser({
       username: dto.username,
@@ -477,21 +522,26 @@ export class TenantsService {
       customFields: dto.customFields,
     });
     await this.ensureActiveMembership(tenantId, user.id);
-    return user;
+    return toTenantUserView(user);
   }
 
-  /** Danh sách người dùng mà tenant admin của tenant này thấy: CHỈ thành viên của tenant. */
-  async listTenantUsers(actorId: string, tenantId: string): Promise<UserRow[]> {
+  /**
+   * Danh sách người dùng mà tenant admin của tenant này thấy: CHỈ
+   * thành viên của tenant, mỗi phần tử đã chiếu qua `toTenantUserView`
+   * (không bao giờ trả nguyên dòng `users` ra HTTP).
+   */
+  async listTenantUsers(actorId: string, tenantId: string): Promise<TenantUserView[]> {
     // Ngữ cảnh platform (HOTFIX #196 vòng 2) — đọc membership của
     // tenant đích, cùng lý do với listMembers.
     return tenantAls.run({ platform: true }, () => this.listTenantUsersInContext(actorId, tenantId));
   }
 
-  private async listTenantUsersInContext(actorId: string, tenantId: string): Promise<UserRow[]> {
+  private async listTenantUsersInContext(actorId: string, tenantId: string): Promise<TenantUserView[]> {
     await this.assertTenantViewer(actorId, tenantId);
     const members = await this.repo.listMembershipsForTenant(tenantId);
     if (!members.length) return [];
-    return this.users.getUsersByIds(members.map((m) => m.userId));
+    const rows = await this.users.getUsersByIds(members.map((m) => m.userId));
+    return rows.map(toTenantUserView);
   }
 
   // --- phân giải tenant cho phiên đăng nhập -----------------------------------
