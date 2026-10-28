@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, courseGroupingSchema, enrolInstanceSchema,
+  badgeSchema, calendarEventSchema, conversationSchema, courseCategoryTreeSchema, courseContentSchema, courseGroupingSchema, createResourceSchema, enrolInstanceSchema, updateResourceSchema,
   myActivityGradesSchema, courseActivityGridSchema, healthStatusSchema, issuedBadgeSchema, learningPlanSchema, loginResponseSchema, notificationPreferenceSchema, noteSchema, notificationSchema, problemDetailsSchema,
   questionUsageSchema, ratingAggregateSchema, userCompetencySchema, userProfileSchema,
   createExternalTokenSchema, createPaymentSchema, createPrivacyRequestSchema, createReportSchema,
@@ -234,6 +234,32 @@ describe('course contracts', () => {
     expect(courseGroupingSchema.parse({
       id: '01900000-0000-7000-8000-000000000020', courseId: '01900000-0000-7000-8000-000000000010', name: 'Nhóm A', idNumber: 'GA', description: '',
     }).name).toBe('Nhóm A');
+  });
+
+  it('chỉ cho phép URL tài nguyên ngoài dùng scheme http/https (gác XSS qua href của trang học)', () => {
+    // URL https/http hợp lệ (kể cả đích nhúng video) đi qua nguyên vẹn
+    // ở cả đường tạo lẫn đường sửa.
+    expect(createResourceSchema.parse({
+      sectionId: '01900000-0000-7000-8000-000000000100', name: 'Video bài giảng', kind: 'url', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', completionMode: 'none',
+    }).url).toBe('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    expect(updateResourceSchema.parse({ url: 'http://example.com/tai-lieu' }).url).toBe('http://example.com/tai-lieu');
+    // Scheme thực thi khi người xem bấm liên kết phải bị schema từ
+    // chối — kể cả biến thể bọc khoảng trắng ở đầu và khác chữ hoa.
+    for (const bad of [
+      'javascript:alert(document.domain)',
+      'JaVaScRiPt:alert(1)',
+      '  javascript:alert(1)',
+      'data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==',
+      'vbscript:msgbox(1)',
+      '/duong-dan-tuong-doi',
+      'example.com/khong-scheme',
+    ]) {
+      expect(createResourceSchema.safeParse({ sectionId: '01900000-0000-7000-8000-000000000100', name: 'Liên kết', kind: 'url', url: bad, completionMode: 'none' }).success).toBe(false);
+      expect(updateResourceSchema.safeParse({ url: bad }).success).toBe(false);
+    }
+    // update cho phép url null (xoá nguồn URL khi chuyển loại) — hành
+    // vi cũ không đổi.
+    expect(updateResourceSchema.parse({ url: null }).url).toBeNull();
   });
 });
 
