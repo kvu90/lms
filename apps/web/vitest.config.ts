@@ -19,7 +19,21 @@ export default defineConfig({
     // nhất là các file trong cùng worker dùng chung một tiến trình.
     pool: 'vmThreads',
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.spec.tsx', 'src/**/*.spec.ts', 'server/**/*.spec.mjs'],
+    // apps/web chỉ có MỘT tầng test: unit — mọi spec là test đơn
+    // vị/component đặt cạnh file nguồn trong src/ (cộng spec của các
+    // module server trong server/), render bằng jsdom với API được
+    // mock. Web không có tầng integration/e2e như backend nên chỉ
+    // khai đúng một project unit này; chạy riêng bằng script
+    // test:unit. Các tuỳ chọn dùng chung ở cấu hình gốc (environment,
+    // pool, setupFiles, testTimeout) được project kế thừa.
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          include: ['src/**/*.spec.tsx', 'src/**/*.spec.ts', 'server/**/*.spec.mjs'],
+        },
+      },
+    ],
     // Trần mặc định 5s quá sát cho test UI khi chạy song song dưới tải.
     testTimeout: 20_000,
   },
