@@ -15,7 +15,7 @@ RUN corepack enable
 
 # Client PostgreSQL để tiện dùng psql kiểm tra dữ liệu trong lúc phát
 # triển. Đây chỉ là công cụ client — server PostgreSQL 18.6 chạy ở
-# service `db` của docker-compose.yml cùng thư mục.
+# service `db` của compose.yaml cùng thư mục.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends postgresql-client \
   && rm -rf /var/lib/apt/lists/*

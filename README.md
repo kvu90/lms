@@ -48,12 +48,11 @@ Container", rồi thực hiện đúng các bước như môi trường review l
 mục dưới (migrate, seed, `pnpm dev`) trong terminal của container.
 Cổng 3000 (API) và 5173 (web) được chuyển tiếp ra máy host.
 
-Container này CHỈ phục vụ phát triển — không còn đường triển khai
-bằng Docker. `Dockerfile` ở gốc repo (image triển khai đa target cho
-Heroku Container Registry) đã bị XOÁ ngày 27/10/2026 theo quyết định
-về đường Docker của repo; triển khai chạy theo đường buildpack Heroku
-như mô tả ở mục [Môi trường review](#môi-trường-review), và hướng triển khai tương lai sẽ
-được quyết định riêng.
+Container này CHỈ phục vụ phát triển. Đường triển khai production
+dùng `Dockerfile` đa target và `compose.yaml` ở gốc repo như mô
+tả ở mục [Triển khai production (tự host)](#triển-khai-production-tự-host) —
+hai bộ file phục vụ hai mục đích khác nhau: devcontainer cho phát
+triển local, compose ở gốc cho production tự host.
 
 ## Chạy ứng dụng
 
@@ -69,26 +68,56 @@ pnpm --filter @lms/web dev                   # web ở cổng :5173 (proxy /api 
 - Health: `GET http://localhost:3000/api/v1/health`
 - OpenAPI: `http://localhost:3000/api/docs`
 
+## Triển khai production (tự host)
+
+Toàn bộ stack production chạy tự host bằng Docker Compose trên máy
+chủ tự quản; nền tảng quản lý đích là Dokploy (quản lý chính file
+compose này) và Cloudflare Tunnel công bố service web ra ngoài.
+
+- `compose.yaml` ở gốc repo khai báo năm service: `postgres`
+  (image `postgres:18.6` — bắt buộc vì schema dùng `uuidv7()` của
+  PostgreSQL 18), `redis`, `api`, `worker`, `web`; kèm healthcheck,
+  thứ tự khởi động theo healthcheck và volume bền cho dữ liệu
+  PostgreSQL, Redis và tệp tải lên.
+- `Dockerfile` ở gốc repo build cả ba ứng dụng từ monorepo (pnpm +
+  turbo) và đóng gói bằng `pnpm deploy --prod` thành ba target
+  runtime `api`, `worker`, `web`.
+- Topology giữ một-origin: chỉ service `web` publish cổng ra máy chủ
+  (mặc định 8080, đổi bằng biến `WEB_PORT` trong `.env`); web proxy
+  `/api/*`, `/socket.io/*`, `/mcp` và `/.well-known/*` về `api` trong
+  mạng nội bộ của compose, nên cookie đăng nhập và realtime giữ
+  nguyên hành vi như đường chạy production trước đây.
+
+Dựng stack trên máy trống:
+
+```bash
+cp .env.example .env              # điền các bí mật bắt buộc và URL công khai
+docker compose up -d --build      # migration tự áp xong trước khi api/worker khởi động
+curl http://localhost:8080/api/v1/health   # kỳ vọng {"status":"ok",...}
+```
+
+- Migration được áp tự động ở mỗi lần khởi động stack: `api` và
+  `worker` khai `depends_on` điều kiện
+  `service_completed_successfully` vào service `migrate`, nên cơ sở
+  dữ liệu trống được tự dựng ở lần `up` đầu tiên. Áp riêng khi cần:
+  `docker compose run --rm migrate`.
+
+- Lần đầu trên cơ sở dữ liệu trống, API tự tạo tài khoản quản trị
+  theo `ADMIN_USERNAME` / `ADMIN_PASSWORD` trong `.env`; đổi mật
+  khẩu ngay sau lần đăng nhập đầu tiên.
+- Khôi phục dữ liệu từ hệ thống cũ: nạp bản `pg_dump` vào service
+  `postgres` (bản đích cũng phải là PostgreSQL 18) trước khi khởi
+  động `api`/`worker`; không chạy service `seed` trên dữ liệu đã
+  khôi phục.
+- Seed dữ liệu mẫu chỉ dùng cho môi trường thử nghiệm:
+  `docker compose --profile seed run --rm seed`, rồi đăng nhập bằng
+  các tài khoản mẫu ở mục [Môi trường review](#môi-trường-review).
+
 ## Môi trường review
-
-### Bản review đã triển khai (chính)
-
-Toàn bộ stack chạy trên Heroku dưới dạng app `kvu-lms` (triển khai bằng buildpack):
-
-- App: https://kvu-lms-573c864b6f10.herokuapp.com/ (đăng nhập tại `/login`)
-- Health: `GET https://kvu-lms-573c864b6f10.herokuapp.com/api/v1/health`
-- Hostname do Heroku cấp ở trên mới là hostname thật — tên
-  `kvu-lms.herokuapp.com` không được cấp và trả về "No such app".
-- Dyno Eco ngủ sau 30 phút không hoạt động, nên request đầu tiên có thể
-  mất vài giây để đánh thức app.
-- Vấn đề đã biết: data plane mini của Key-Value Store (Redis) hiện từ
-  chối bắt tay TLS từ các dyno của app, nên health báo
-  `redis: down` trong khi `database: up`. Đăng nhập, dữ liệu khoá học và giao diện
-  vẫn hoạt động; các tính năng dựa trên cache/queue bị suy giảm.
 
 Dùng các tài khoản mẫu trong bảng dưới đây để đăng nhập.
 
-### Môi trường review local (dự phòng)
+### Môi trường review local
 
 Mọi nội dung dưới đây CHỈ dành cho **môi trường phát triển/review
 local** — các mật khẩu là thông tin đăng nhập mẫu cho các tài khoản

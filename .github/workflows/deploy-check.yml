@@ -1,0 +1,92 @@
+# Workflow kiểm chứng khả năng deploy của stack tự host ngay trong CI.
+#
+# Mục đích: ruleset của nhánh main cần một status check chạy trên head
+# của PR trước khi merge để bảo đảm head đó thật sự dựng được stack
+# production tự host (compose.yaml ở gốc repo). Workflow này dựng
+# toàn bộ stack từ chính head của PR trong runner CI, chờ API khỏe và
+# kiểm tra trang gốc, rồi dọn sạch. Nó KHÔNG deploy lên máy tự host
+# thật — đường deploy production vẫn là Dokploy kéo từ main.
+#
+# Chuỗi status context của job dưới đây là "deploy-check / verify-stack"
+# (theo khuôn "<tên workflow> / <tên job>") — đây là chuỗi cần chọn
+# trong ruleset của nhánh main.
+#
+# Mọi lệnh compose trong workflow đều gộp thêm file override
+# compose.ci.yaml (chỉ dùng trong CI) để các build dùng cache
+# layer qua GitHub Actions cache; file compose.yaml chính giữ
+# nguyên cho đường deploy thật.
+
+name: deploy-check
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-stack:
+    name: verify-stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Dựng builder Buildx (driver docker-container): driver mặc
+      # định của Docker trên runner không xuất được cache layer, nên
+      # cần builder này để cache_from/cache_to kiểu type=gha khai
+      # trong compose.ci.yaml hoạt động (đọc cache từ GitHub
+      # Actions cache trước khi build và ghi lại sau khi build).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Sinh file .env cho môi trường CI từ file mẫu: ba bí mật bắt
+      # buộc (khai ${...:?} trong compose.yaml) được sinh ngẫu
+      # nhiên ngay trong job và không rời khỏi runner; các biến còn
+      # lại giữ nguyên mặc định của file mẫu, trong đó BETTER_AUTH_URL
+      # và CORS_ORIGINS là http://localhost:8080 cho môi trường CI. Các
+      # biến tuỳ chọn (MFA, Resend) giữ ở dạng comment trong file mẫu
+      # nên vắng mặt hẳn — đúng trạng thái ứng dụng hỗ trợ.
+      - name: Generate CI environment file
+        run: |
+          cp .env.example .env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 32)|" .env
+          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" .env
+          sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=$(openssl rand -hex 32)|" .env
+          grep -q '^POSTGRES_PASSWORD=.\+' .env
+          grep -q '^JWT_SECRET=.\+' .env
+          grep -q '^BETTER_AUTH_SECRET=.\+' .env
+
+      - name: Validate compose configuration
+        run: docker compose -f compose.yaml -f compose.ci.yaml config > /dev/null
+
+      # Service migrate tự chạy trước và phải kết thúc thành công thì
+      # api/worker mới khởi động (cổng depends_on trong compose), nên
+      # lệnh up này bao phủ cả bước áp migration vào cơ sở dữ liệu
+      # trống của runner.
+      - name: Build and start the stack
+        run: docker compose -f compose.yaml -f compose.ci.yaml up -d --build
+
+      # Chờ tối đa khoảng 5 phút cho API khỏe qua cửa web (cổng 8080
+      # là cổng duy nhất stack publish ra host). Quá hạn thì in trạng
+      # thái stack và log của api + migrate để chẩn đoán rồi fail.
+      - name: Wait for API health
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/v1/health > /dev/null; then
+              echo "API health OK after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "API health check timed out."
+          docker compose -f compose.yaml -f compose.ci.yaml ps
+          docker compose -f compose.yaml -f compose.ci.yaml logs api migrate
+          exit 1
+
+      - name: Check root page responds
+        run: curl -sf http://localhost:8080/ -o /dev/null
+
+      - name: Tear down the stack
+        if: always()
+        run: docker compose -f compose.yaml -f compose.ci.yaml down -v
