@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../page-shell';
 import { ApiError } from '#lib/api';
 import { queryClient } from '#lib/query-client';
@@ -119,9 +119,9 @@ export function AdminCurriculumTreePage() {
   if (forbidden) {
     return (
       <PageShell>
-        <Alert variant="destructive">
-          <AlertDescription>{t('curriculumForbidden')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('curriculumForbidden')}
+        </ErrorAlert>
       </PageShell>
     );
   }
@@ -175,9 +175,9 @@ export function AdminCurriculumTreePage() {
         description={t('curriculumTreeDescription')}
       />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <div>
         <Button type="button" render={<Link to={`/admin/curriculum/curricula/${tree.curriculum.id}/nodes/new`} />}>

@@ -12,12 +12,12 @@ import type { Dispatch, FormEvent, SetStateAction } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import type { CourseActivityGrid, GradeItem } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 
 import { isVneduExportableItem, type VneduColumnKind } from './gradebook-helpers';
 
@@ -140,9 +140,9 @@ export function VneduExportCard({
             <Button type="submit">{t('exportGradesVnedu')}</Button>
           </div>
           {vneduMessage && (
-            <Alert className="mt-3">
-              <AlertDescription>{vneduMessage}</AlertDescription>
-            </Alert>
+            <ErrorAlert className="mt-3">
+              {vneduMessage}
+            </ErrorAlert>
           )}
         </form>
       </CardContent>

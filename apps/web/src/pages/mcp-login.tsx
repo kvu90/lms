@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { ErrorAlert } from '#components/error-alert';
 
 /**
  * Trang đăng nhập cho luồng uỷ quyền MCP (lát MCP-1, issue #163).
@@ -84,9 +84,9 @@ export default function McpLoginPage() {
           ) : (
             <form className="space-y-4" onSubmit={onSubmit}>
               {error ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
+                <ErrorAlert variant="destructive">
+                  {error}
+                </ErrorAlert>
               ) : null}
               <div className="space-y-2">
                 <Label htmlFor="mcp-username">Tên đăng nhập</Label>

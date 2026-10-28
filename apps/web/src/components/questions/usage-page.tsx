@@ -8,12 +8,12 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 
 import type { QuestionUsage, RichTextDocument } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -144,9 +144,9 @@ export function QuestionUsagePage() {
     return (
       <PageShell width="medium">
         <PageHeader title={t('questionAttemptTitle', { component: '' })} />
-        <Alert variant="destructive">
-          <AlertDescription>{t('attemptLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('attemptLoadFailed')}
+        </ErrorAlert>
         <div>
           <Button
             type="button"
@@ -182,9 +182,9 @@ export function QuestionUsagePage() {
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">{t('deferredFeedbackNote')}</p>
           {actionError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{actionError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {actionError}
+            </ErrorAlert>
           ) : null}
           <div className="flex gap-2">
             {usage.state === 'notstarted' ? (

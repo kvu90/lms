@@ -21,14 +21,15 @@
 import { useEffect, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import type { CourseRosterMember, ExamPinOverrideView as QuizOverrideView } from '@lms/contracts';
 import type { CourseGroup } from '#lib/progress-report-data';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '#lib/api';
+import { formatDateTime } from '#lib/date-format';
 import { useCreateExamPinOverride, useDeleteExamPinOverride, useUpdateExamPinOverride } from '#lib/quiz-data';
 import { toLocalInput } from './utils';
 
@@ -178,9 +179,9 @@ export function OverridesPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         {ovError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{ovError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {ovError}
+          </ErrorAlert>
         ) : null}
         <ul className="space-y-2">
           {overrides.map((ov) => (
@@ -194,7 +195,7 @@ export function OverridesPanel({
                 ) : null}
                 <span className="block text-xs text-muted-foreground">
                   {[
-                    `${t('quizOverrideWindowLabel')}: ${ov.timeOpen ? new Date(ov.timeOpen).toLocaleString() : t('quizOverrideInherit')} → ${ov.timeClose ? new Date(ov.timeClose).toLocaleString() : t('quizOverrideInherit')}`,
+                    `${t('quizOverrideWindowLabel')}: ${ov.timeOpen ? formatDateTime(ov.timeOpen) : t('quizOverrideInherit')} → ${ov.timeClose ? formatDateTime(ov.timeClose) : t('quizOverrideInherit')}`,
                     ov.timeLimitSeconds
                       ? t('quizOverrideLimitLabel', { minutes: Math.round(ov.timeLimitSeconds / 60) })
                       : null,

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useAuth } from '#lib/auth';
 import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
@@ -118,9 +118,9 @@ export function LearningPlanPage() {
       <PageHeader title={t('myLearningPlans')} />
       {error ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {error}
+          </ErrorAlert>
           <div>
             <Button type="button" variant="outline" onClick={() => void plansQuery.refetch()}>
               {t('retry')}
@@ -129,17 +129,14 @@ export function LearningPlanPage() {
         </>
       ) : null}
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardContent className="space-y-2">
           {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-8 w-full', 'h-8 w-full']} />
           ) : (
             <>
               <ul className="space-y-1" aria-label={t('learningPlansLabel')}>

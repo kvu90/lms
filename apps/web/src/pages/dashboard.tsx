@@ -9,6 +9,7 @@ import { useAuth } from '#lib/auth';
 import { usePermissions, type CourseAccess } from '#lib/permissions';
 import { useCoursesGradeData } from '#lib/course-grade-data';
 import { upcomingDaysRangeIso, useCalendarEvents } from '#lib/calendar';
+import { formatWithOptions } from '#lib/date-format';
 import { useAccessRoles } from '#lib/access';
 import { adminUsersQueryOptions } from '#lib/admin-users-data';
 import { useMyBadges } from '#lib/badges';
@@ -39,11 +40,6 @@ function isForbidden(error: unknown): boolean {
   return error instanceof ApiError && error.problem.status === 403;
 }
 
-/** Nhãn ngày dd/MM theo ngôn ngữ giao diện hiện tại. */
-function dayLabel(date: Date, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(date);
-}
-
 /** Tiêu đề một khối vai trò trên trang tổng quan. */
 function SectionHeading({ title }: { title: string }) {
   return (
@@ -60,16 +56,6 @@ function SectionHeading({ title }: { title: string }) {
  * nhật mốc xem trước phía server khi tính xong danh sách "mới".
  * Hook nay nằm ở lib/dashboard-data (F-01 của rà soát #133).
  */
-
-/** Nhãn ngày giờ ngắn theo ngôn ngữ giao diện. */
-function dateTimeLabel(iso: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
 
 /**
  * Khối "Việc cần làm" của học sinh (DASH1): hoạt động sắp đến hạn trong 7
@@ -124,7 +110,7 @@ function StudentTodoBlock() {
                   </Link>
                   <span className="text-muted-foreground">
                     {item.kind === 'quiz' ? t('todoKindQuiz') : t('todoKindAssignment')} · {item.courseName} ·{' '}
-                    {t('todoDueAt', { date: dateTimeLabel(item.dueAt, i18n.language) })}
+                    {t('todoDueAt', { date: formatWithOptions(item.dueAt, i18n.language, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) })}
                   </span>
                 </li>
               ))}
@@ -206,7 +192,7 @@ function TeacherGradingBlock() {
                     </Link>
                   ) : null}
                   {row.oldestPendingAt
-                    ? ` · ${t('gradingOldest', { date: dateTimeLabel(row.oldestPendingAt, i18n.language) })}`
+                    ? ` · ${t('gradingOldest', { date: formatWithOptions(row.oldestPendingAt, i18n.language, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) })}`
                     : ''}
                 </span>
                 <Button size="sm" variant="outline" render={<Link to={`/courses/${row.courseId}/grades`} />}>
@@ -311,7 +297,7 @@ function AdminSection() {
         const created = new Date(u.createdAt);
         return created >= start && created < end;
       }).length;
-      return { label: dayLabel(start, i18n.language), value };
+      return { label: formatWithOptions(start, i18n.language, { day: '2-digit', month: '2-digit' }), value };
     });
   }, [users, i18n.language]);
 
@@ -598,7 +584,7 @@ function StudentSection() {
         const at = new Date(e.timeStart);
         return at >= day && at < next;
       }).length;
-      return { label: dayLabel(day, i18n.language), value };
+      return { label: formatWithOptions(day, i18n.language, { day: '2-digit', month: '2-digit' }), value };
     });
   }, [events, i18n.language]);
 

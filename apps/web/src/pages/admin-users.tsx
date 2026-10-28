@@ -3,12 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import type { PaginationState } from '@tanstack/react-table';
 import type { UserListResponse, UserProfile } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -152,9 +152,9 @@ export function AdminUsersPage() {
         }
       />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardContent className="space-y-4">
@@ -173,14 +173,12 @@ export function AdminUsersPage() {
             </Button>
           </div>
           {usersQuery.isError ? (
-            <Alert variant="destructive">
-              <AlertDescription className="flex items-center justify-between gap-2">
-                <span>{t('usersLoadFailed')}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => void usersQuery.refetch()}>
-                  {t('retry')}
-                </Button>
-              </AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive" descriptionClassName="flex items-center justify-between gap-2">
+              <span>{t('usersLoadFailed')}</span>
+              <Button type="button" variant="outline" size="sm" onClick={() => void usersQuery.refetch()}>
+                {t('retry')}
+              </Button>
+            </ErrorAlert>
           ) : null}
           <p className="text-sm text-muted-foreground">{t('total', { total: data?.total ?? 0 })}</p>
         </CardContent>
@@ -229,9 +227,9 @@ export function AdminUserNewPage() {
       <form onSubmit={(e) => void createUser(e)}>
         <FieldGroup>
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {error}
+            </ErrorAlert>
           ) : null}
           <Field>
             <FieldLabel htmlFor="new-username">{t('username')}</FieldLabel>
@@ -317,11 +315,7 @@ export function AdminUserEditPage() {
     return (
       <PageShell width="narrow">
         <PageHeader title={t('editUserTitle', { username: '' })} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-9 w-full']} />
       </PageShell>
     );
   }
@@ -329,14 +323,12 @@ export function AdminUserEditPage() {
     return (
       <PageShell width="narrow">
         <PageHeader title={t('editUserTitle', { username: '' })} />
-        <Alert variant="destructive">
-          <AlertDescription className="flex items-center justify-between gap-2">
-            <span>{t('userLoadFailed')}</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => void userQuery.refetch()}>
-              {t('retry')}
-            </Button>
-          </AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive" descriptionClassName="flex items-center justify-between gap-2">
+          <span>{t('userLoadFailed')}</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void userQuery.refetch()}>
+            {t('retry')}
+          </Button>
+        </ErrorAlert>
         <p>
           <Link to="/admin/users" className="text-sm underline">
             {t('backToUsersList')}
@@ -351,9 +343,9 @@ export function AdminUserEditPage() {
       <form onSubmit={(e) => void saveUser(e)}>
         <FieldGroup>
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {error}
+            </ErrorAlert>
           ) : null}
           <Field>
             <FieldLabel htmlFor="edit-email">{t('email')}</FieldLabel>

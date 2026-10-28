@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import type { AssignmentForUserView } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Textarea } from '@lms/ui/components/textarea';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useDeleteAssignment, useSaveAssignmentRubric, useUpdateAssignment } from '#lib/assignment-data';
 import { selectClass } from './shared';
@@ -139,14 +139,14 @@ export function ManagePanel({ data, courseId, reload }: { data: AssignmentForUse
       </CardHeader>
       <CardContent className="space-y-6">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {error}
+          </ErrorAlert>
         ) : null}
         {notice ? (
-          <Alert>
-            <AlertDescription>{notice}</AlertDescription>
-          </Alert>
+          <ErrorAlert>
+            {notice}
+          </ErrorAlert>
         ) : null}
         <form onSubmit={(e) => void saveSettings(e)} className="space-y-3">
           <div className="space-y-1">

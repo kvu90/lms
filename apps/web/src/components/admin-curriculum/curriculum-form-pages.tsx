@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 import {
   useCreateCurriculumRow, useCurriculumRow, useUpdateCurriculumRow,
 } from '#lib/curriculum';
@@ -35,9 +35,9 @@ export function AdminCurriculumNewPage() {
     <FormScreen title={t('curriculumCreateCurriculum')} backTo="/admin/curriculum">
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {error}
+          </ErrorAlert>
         ) : null}
         <div className="space-y-2">
           <span id="curriculum-grade-label" className="text-sm font-medium">
@@ -101,9 +101,9 @@ export function AdminCurriculumEditPage() {
     <FormScreen title={t('curriculumEditCurriculum')} backTo="/admin/curriculum">
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {error}
+          </ErrorAlert>
         ) : null}
         <div className="space-y-2">
           <span id="curriculum-grade-edit-label" className="text-sm font-medium">

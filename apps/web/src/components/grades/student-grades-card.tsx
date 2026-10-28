@@ -11,6 +11,8 @@ import type { ActivityGradeView } from '@lms/contracts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 
+import { DataTable, type DataColumn } from '#components/data-table';
+
 import { scoreLabel } from './gradebook-helpers';
 
 /** Props của card điểm của chính người dùng. */
@@ -29,6 +31,26 @@ export interface StudentGradesCardProps {
  */
 export function StudentGradesCard({ activities, locale }: StudentGradesCardProps) {
   const { t } = useTranslation('app');
+  // Cột của bảng điểm từng bài trên bảng dùng chung: đúng bốn cột và
+  // nội dung ô của bảng tự vẽ trước đây (điểm chỉ hiện khi đã có điểm
+  // cuối, kèm mức tối đa của mục điểm; trạng thái đọc từ công bố).
+  const columns: DataColumn<ActivityGradeView>[] = [
+    { id: 'item', header: t('gradeItem'), cell: ({ item }) => item.itemName },
+    {
+      id: 'grade',
+      header: t('grade'),
+      cell: ({ item, grade }) =>
+        grade?.finalGrade !== null && grade?.finalGrade !== undefined
+          ? `${scoreLabel(grade.finalGrade, locale)} / ${scoreLabel(item.gradeMax, locale)}`
+          : '—',
+    },
+    { id: 'feedback', header: t('gradesFeedback'), cell: ({ grade }) => grade?.feedback ?? '' },
+    {
+      id: 'status',
+      header: t('status'),
+      cell: ({ publication }) => (publication.published ? t('gradesPublished') : t('gradesUnpublished')),
+    },
+  ];
   return (
     <Card className="mb-6">
       <CardHeader>
@@ -43,30 +65,19 @@ export function StudentGradesCard({ activities, locale }: StudentGradesCardProps
             </EmptyHeader>
           </Empty>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-muted-foreground">
-                <th className="py-2 pr-4 font-medium">{t('gradeItem')}</th>
-                <th className="py-2 pr-4 font-medium">{t('grade')}</th>
-                <th className="py-2 pr-4 font-medium">{t('gradesFeedback')}</th>
-                <th className="py-2 font-medium">{t('status')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activities.map(({ item, grade, publication }) => (
-                <tr key={item.id} className="border-t">
-                  <td className="py-2 pr-4">{item.itemName}</td>
-                  <td className="py-2 pr-4">
-                    {grade?.finalGrade !== null && grade?.finalGrade !== undefined
-                      ? `${scoreLabel(grade.finalGrade, locale)} / ${scoreLabel(item.gradeMax, locale)}`
-                      : '—'}
-                  </td>
-                  <td className="py-2 pr-4">{grade?.feedback ?? ''}</td>
-                  <td className="py-2">{publication.published ? t('gradesPublished') : t('gradesUnpublished')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <DataTable
+            data={activities}
+            columns={columns}
+            labels={{
+              columns: t('dashboard:tableColumns'),
+              previous: t('dashboard:tablePrevious'),
+              next: t('dashboard:tableNext'),
+              empty: t('dashboard:emptyTable'),
+              pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+            }}
+            getRowId={({ item }) => item.id}
+            pageSize={100}
+          />
         )}
       </CardContent>
     </Card>

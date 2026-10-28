@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -27,6 +27,7 @@ import {
   type NotificationItemView,
   type NotificationPreferenceView,
 } from '#lib/notifications';
+import { formatDate, formatDateTime } from '#lib/date-format';
 import { queryKeys } from '#lib/query-keys';
 import { buildSsrLoaderData, serverProbe, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
 
@@ -92,7 +93,7 @@ function dayLabel(day: string, t: (key: string) => string): string {
   const now = new Date();
   if (day === localDay(now)) return t('todayLabel');
   if (day === localDay(new Date(now.getTime() - 86_400_000))) return t('yesterdayLabel');
-  return new Date(`${day}T00:00:00`).toLocaleDateString();
+  return formatDate(`${day}T00:00:00`);
 }
 
 /** Thời gian tương đối cho mục mới nhất ("vừa xong", "3 giờ trước"…); quá một tuần thì in ngày giờ cụ thể. */
@@ -105,7 +106,7 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
   if (hours < 24) return t('hoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
   if (days < 7) return t('daysAgo', { count: days });
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 /**
@@ -346,9 +347,9 @@ export function NotificationsPage() {
             </label>
           </div>
           {error ? (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {error}
+            </ErrorAlert>
           ) : null}
           {groups.length === 0 && !error ? (
             <Empty className="p-6">

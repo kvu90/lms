@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { usePostFeedbackMessage } from '#lib/assignment-data';
 import { dateLabel } from './shared';
@@ -53,9 +53,9 @@ export function FeedbackMessages({
         ))}
       </ul>
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {error}
+        </ErrorAlert>
       ) : null}
       <form onSubmit={(e) => void send(e)} className="flex gap-2">
         <Input

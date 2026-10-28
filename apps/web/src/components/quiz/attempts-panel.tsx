@@ -14,10 +14,11 @@
  * @param props.startAttempt - Handler bắt đầu lượt làm (preview = xem trước).
  */
 import type { PinRegradeLogEntry } from '@lms/contracts';
+import { formatDateTime } from '#lib/date-format';
 import type { QuizForUser } from '#lib/quiz-data';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
@@ -59,8 +60,8 @@ export function AttemptsPanel({ courseId, quizId, data, myRegrades, actionError,
         <ul className="text-sm text-muted-foreground">
           <li>
             {t('quizWindowLine', {
-              open: eff.timeOpen ? new Date(eff.timeOpen).toLocaleString() : t('quizNoBound'),
-              close: eff.timeClose ? new Date(eff.timeClose).toLocaleString() : t('quizNoBound'),
+              open: eff.timeOpen ? formatDateTime(eff.timeOpen) : t('quizNoBound'),
+              close: eff.timeClose ? formatDateTime(eff.timeClose) : t('quizNoBound'),
             })}
           </li>
           <li>
@@ -75,9 +76,9 @@ export function AttemptsPanel({ courseId, quizId, data, myRegrades, actionError,
         </ul>
         {hasOwnOverride ? <p className="text-sm font-medium">{t('quizEffectiveNote')}</p> : null}
         {actionError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{actionError}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {actionError}
+          </ErrorAlert>
         ) : null}
         <div className="flex flex-wrap gap-2">
           {permissions.attempt && data.inProgressAttemptId ? (
@@ -136,7 +137,7 @@ export function AttemptsPanel({ courseId, quizId, data, myRegrades, actionError,
                 entry.items.map((item) => (
                   <li key={`${entry.id}-${item.examAttemptId}`}>
                     {t('myRegradeLine', {
-                      date: new Date(entry.createdAt).toLocaleString(),
+                      date: formatDateTime(entry.createdAt),
                       number: item.attemptNumber,
                       from: item.oldSumGrades ?? 0,
                       to: item.newSumGrades ?? 0,

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { AssignSubmissionSummary, AssignmentForUserView } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { assignmentSubmissionsQueryOptions, useReleaseSubmissionsBatch } from '#lib/assignment-data';
@@ -54,9 +54,9 @@ export function TeacherPanel({ data }: { data: AssignmentForUserView }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {error}
+          </ErrorAlert>
         ) : null}
         {data.canGrade ? (
           <div className="flex flex-wrap items-center gap-2">

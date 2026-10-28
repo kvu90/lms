@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button, buttonVariants } from '@lms/ui/components/button';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
@@ -71,16 +71,16 @@ export function ClassesPage() {
         }
       />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       {classesQuery.isPending ? (
         <Skeleton className="h-40 w-full" />
       ) : classesQuery.isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{t('classesLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('classesLoadFailed')}
+        </ErrorAlert>
       ) : classesQuery.data.length === 0 ? (
         <Empty>
           <EmptyHeader>

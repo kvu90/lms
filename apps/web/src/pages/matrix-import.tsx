@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
+import { DataTable, type DataColumn } from '#components/data-table';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -73,33 +74,36 @@ const STEP_KEYS = [
 function IssueTable({ issues }: { issues: MatrixImportIssue[] }) {
   const { t } = useTranslation('app');
   if (issues.length === 0) return null;
+  // Khoá hàng giữ đúng công thức của bảng tự vẽ trước đây (mã + dòng +
+  // cột + số thứ tự) để định danh hàng ổn định trong bảng dùng chung.
+  const rows = issues.map((issue, index) => ({
+    ...issue,
+    rowKey: `${issue.code}-${issue.row ?? ''}-${issue.column ?? ''}-${index}`,
+  }));
+  type IssueRow = (typeof rows)[number];
+  const columns: DataColumn<IssueRow>[] = [
+    { id: 'sheet', header: t('matrixImportSheet'), cell: (issue) => issue.sheet ?? '—' },
+    { id: 'row', header: t('matrixImportRow'), cell: (issue) => issue.row ?? '—' },
+    { id: 'column', header: t('matrixImportColumn'), cell: (issue) => issue.column ?? '—' },
+    { id: 'code', header: t('matrixImportCode'), cell: (issue) => issue.code },
+    { id: 'message', header: t('matrixImportMessage'), cell: (issue) => issue.message },
+  ];
   return (
     <div className="space-y-2">
       <h3 className="font-medium">{t('matrixImportErrors')}</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2">{t('matrixImportSheet')}</th>
-              <th className="p-2">{t('matrixImportRow')}</th>
-              <th className="p-2">{t('matrixImportColumn')}</th>
-              <th className="p-2">{t('matrixImportCode')}</th>
-              <th className="p-2">{t('matrixImportMessage')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {issues.map((issue, index) => (
-              <tr key={`${issue.code}-${issue.row ?? ''}-${issue.column ?? ''}-${index}`} className="border-b align-top">
-                <td className="p-2">{issue.sheet ?? '—'}</td>
-                <td className="p-2">{issue.row ?? '—'}</td>
-                <td className="p-2">{issue.column ?? '—'}</td>
-                <td className="p-2">{issue.code}</td>
-                <td className="p-2">{issue.message}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        data={rows}
+        columns={columns}
+        labels={{
+          columns: t('dashboard:tableColumns'),
+          previous: t('dashboard:tablePrevious'),
+          next: t('dashboard:tableNext'),
+          empty: t('dashboard:emptyTable'),
+          pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+        }}
+        getRowId={(issue) => issue.rowKey}
+        pageSize={100}
+      />
     </div>
   );
 }
@@ -240,10 +244,7 @@ export function MatrixImportPage() {
     return (
       <PageShell width="medium">
         <PageHeader title={t('matrixImport')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full']} />
       </PageShell>
     );
   }
@@ -273,13 +274,51 @@ export function MatrixImportPage() {
       (a) => a.curriculumNodeId === nodeId && a.cognitiveLevel === level && a.qtype === qtype,
     );
 
+  // Hàng của bảng ô ma trận ở bước xem trước: làm phẳng cặp (hàng chủ
+  // đề, ô) thành từng hàng dữ liệu cho bảng dùng chung — thứ tự giữ
+  // đúng vòng lặp của bảng tự vẽ trước đây (theo thứ tự hàng chủ đề,
+  // trong mỗi hàng theo thứ tự ô của hàng đó).
+  const previewCellRows = preview
+    ? preview.rows.flatMap((row) =>
+        preview.cells
+          .filter((cell) => cell.curriculumNodeId === row.nodeId)
+          .map((cell) => ({ row, cell })),
+      )
+    : [];
+  type PreviewCellRow = (typeof previewCellRows)[number];
+  const previewCellColumns: DataColumn<PreviewCellRow>[] = [
+    { id: 'node', header: t('matrixCellNode'), cell: ({ row }) => `${row.topicTitle} · ${row.nodeTitle}` },
+    {
+      id: 'level',
+      header: t('matrixCellLevel'),
+      cell: ({ cell }) => t(LEVEL_LABEL_KEYS[cell.cognitiveLevel as (typeof COGNITIVE_LEVELS)[number]]),
+    },
+    {
+      id: 'qtype',
+      header: t('matrixCellQtype'),
+      cell: ({ cell }) => t(QTYPE_LABEL_KEYS[cell.qtype as (typeof QTYPES)[number]]),
+    },
+    { id: 'count', header: t('matrixCellCount'), cell: ({ cell }) => cell.questionCount },
+    { id: 'score', header: t('matrixCellScore'), cell: ({ cell }) => cell.cellScore },
+    {
+      id: 'availability',
+      header: t('matrixImportAvailability'),
+      cell: ({ cell }) => {
+        const av = availabilityOf(cell.curriculumNodeId, cell.cognitiveLevel, cell.qtype);
+        return av
+          ? `${t('matrixAvailabilityRequired')}: ${av.required} · ${t('matrixAvailabilityAvailable')}: ${av.available} · ${t('matrixAvailabilityDeficit')}: ${av.deficit}`
+          : '—';
+      },
+    },
+  ];
+
   return (
     <PageShell width="medium">
       <PageHeader title={t('matrixImport')} />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       {/* Chỉ báo bước: bước hiện tại đánh dấu aria-current, các bước đã qua giữ nguyên thứ tự để giáo viên biết mình đang ở đâu. */}
       <ol className="flex flex-wrap gap-2 text-sm">
@@ -333,9 +372,9 @@ export function MatrixImportPage() {
                 </select>
               </Field>
               {subjectsLoadFailed ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{t('matrixImportSubjectsFailed')}</AlertDescription>
-                </Alert>
+                <ErrorAlert variant="destructive">
+                  {t('matrixImportSubjectsFailed')}
+                </ErrorAlert>
               ) : null}
               <p className="text-sm text-muted-foreground">{t('matrixCv7991Note')}</p>
               <div className="flex items-center gap-2">
@@ -423,47 +462,19 @@ export function MatrixImportPage() {
               <div className="space-y-3">
                 <h3 className="font-medium">{t('matrixImportCells')}</h3>
                 <p className="text-sm text-muted-foreground">{t('matrixImportTruefalseNote')}</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="p-2">{t('matrixCellNode')}</th>
-                        <th className="p-2">{t('matrixCellLevel')}</th>
-                        <th className="p-2">{t('matrixCellQtype')}</th>
-                        <th className="p-2">{t('matrixCellCount')}</th>
-                        <th className="p-2">{t('matrixCellScore')}</th>
-                        <th className="p-2">{t('matrixImportAvailability')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {preview.rows.map((row) =>
-                        preview.cells
-                          .filter((cell) => cell.curriculumNodeId === row.nodeId)
-                          .map((cell) => {
-                            const av = availabilityOf(cell.curriculumNodeId, cell.cognitiveLevel, cell.qtype);
-                            return (
-                              <tr key={`${cell.curriculumNodeId}-${cell.cognitiveLevel}-${cell.qtype}`} className="border-b align-top">
-                                <td className="p-2">
-                                  {row.topicTitle} · {row.nodeTitle}
-                                </td>
-                                <td className="p-2">
-                                  {t(LEVEL_LABEL_KEYS[cell.cognitiveLevel as (typeof COGNITIVE_LEVELS)[number]])}
-                                </td>
-                                <td className="p-2">{t(QTYPE_LABEL_KEYS[cell.qtype as (typeof QTYPES)[number]])}</td>
-                                <td className="p-2">{cell.questionCount}</td>
-                                <td className="p-2">{cell.cellScore}</td>
-                                <td className="p-2">
-                                  {av
-                                    ? `${t('matrixAvailabilityRequired')}: ${av.required} · ${t('matrixAvailabilityAvailable')}: ${av.available} · ${t('matrixAvailabilityDeficit')}: ${av.deficit}`
-                                    : '—'}
-                                </td>
-                              </tr>
-                            );
-                          }),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <DataTable
+                  data={previewCellRows}
+                  columns={previewCellColumns}
+                  labels={{
+                    columns: t('dashboard:tableColumns'),
+                    previous: t('dashboard:tablePrevious'),
+                    next: t('dashboard:tableNext'),
+                    empty: t('dashboard:emptyTable'),
+                    pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
+                  }}
+                  getRowId={({ cell }) => `${cell.curriculumNodeId}-${cell.cognitiveLevel}-${cell.qtype}`}
+                  pageSize={100}
+                />
               </div>
             ) : null}
             <div className="flex gap-2">

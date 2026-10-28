@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { ErrorAlert } from '#components/error-alert';
 import {
   useCreateCurriculumSubject, useUpdateCurriculumSubject, type CurriculumSubject,
 } from '#lib/curriculum';
@@ -41,9 +41,9 @@ export function SubjectForm({ initial, subjectId }: { initial?: CurriculumSubjec
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
       {error ? (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {error}
+        </ErrorAlert>
       ) : null}
       <div className="space-y-2">
         <Label htmlFor="subject-name">{t('curriculumSubjectName')}</Label>

@@ -1,12 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import type { UserProfile } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { Spinner } from '@lms/ui/components/spinner';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
@@ -146,9 +146,9 @@ export function ProfilePage() {
               </div>
             ))}
             {message && (
-              <Alert>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
+              <ErrorAlert>
+                {message}
+              </ErrorAlert>
             )}
             <Button type="submit">{t('saveProfile')}</Button>
           </form>

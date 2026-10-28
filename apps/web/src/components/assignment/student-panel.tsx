@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { AssignmentForUserView } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -91,9 +91,9 @@ export function StudentPanel({ data, reload }: { data: AssignmentForUserView; re
       </CardHeader>
       <CardContent className="space-y-4">
         {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {error}
+          </ErrorAlert>
         ) : null}
         <p className="text-sm text-muted-foreground">
           {assignment.acceptedFileTypes

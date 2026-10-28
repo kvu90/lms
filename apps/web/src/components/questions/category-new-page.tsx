@@ -7,7 +7,6 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
@@ -20,6 +19,7 @@ import {
   SelectValue,
 } from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { ErrorAlert } from '#components/error-alert';
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -133,9 +133,9 @@ export function QuestionCategoryNewPage() {
     <PageShell width="medium">
       <PageHeader title={t('newCategory')} />
       {message ? (
-        <Alert role="status">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert role="status">
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardContent>

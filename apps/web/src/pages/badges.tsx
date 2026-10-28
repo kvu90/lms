@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
+import { formatDate } from '#lib/date-format';
 import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -148,9 +149,9 @@ export function BadgesPage() {
       <PageHeader title={t('badgesHeading')} />
       {loadFailed ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{t('badgesLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('badgesLoadFailed')}
+          </ErrorAlert>
           <div>
             <Button
               type="button"
@@ -171,10 +172,7 @@ export function BadgesPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-10 w-full', 'h-10 w-full']} />
           ) : (
             <>
               <ul className="space-y-2" aria-label={t('myBadgesLabel')}>
@@ -186,10 +184,10 @@ export function BadgesPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {t('issuedLine', {
-                        date: new Date(i.dateIssued).toLocaleDateString(),
+                        date: formatDate(i.dateIssued),
                         hash: i.uniqueHash.slice(0, 12),
                       })}
-                      {i.dateExpire ? ` ${t('expiresSuffix', { date: new Date(i.dateExpire).toLocaleDateString() })}` : ''}
+                      {i.dateExpire ? ` ${t('expiresSuffix', { date: formatDate(i.dateExpire) })}` : ''}
                     </p>
                   </li>
                 ))}
@@ -212,9 +210,9 @@ export function BadgesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {message ? (
-              <Alert>
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
+              <ErrorAlert>
+                {message}
+              </ErrorAlert>
             ) : null}
             <ul className="space-y-1" aria-label={t('allBadgesLabel')}>
               {all.map((b) => (
@@ -233,9 +231,9 @@ export function BadgesPage() {
               ))}
             </ul>
             {issuedError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{issuedError}</AlertDescription>
-              </Alert>
+              <ErrorAlert variant="destructive">
+                {issuedError}
+              </ErrorAlert>
             ) : null}
             {issuedOpen ? (
               <div className="space-y-2">
@@ -244,12 +242,12 @@ export function BadgesPage() {
                   {issuedList.map((i) => (
                     <li key={i.id} className="rounded border p-2 text-sm">
                       <p>
-                        {t('issuedToLine', { userId: i.userId, date: new Date(i.dateIssued).toLocaleDateString() })}
+                        {t('issuedToLine', { userId: i.userId, date: formatDate(i.dateIssued) })}
                         {i.revoked ? ` ${t('revokedSuffix')}` : ''}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {t('issuedLine', {
-                          date: new Date(i.dateIssued).toLocaleDateString(),
+                          date: formatDate(i.dateIssued),
                           hash: i.uniqueHash.slice(0, 12),
                         })}
                       </p>

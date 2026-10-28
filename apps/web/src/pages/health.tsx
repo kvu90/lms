@@ -4,10 +4,10 @@ import { useLoaderData } from 'react-router';
 import '../i18n';
 import type { HealthStatus } from '@lms/contracts';
 import { healthStatusSchema } from '@lms/contracts';
-import { Alert, AlertDescription, AlertTitle } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { fetchApiJson } from '#lib/server-api';
 
@@ -85,17 +85,12 @@ export function HealthPage({ initialHealth }: { initialHealth?: HealthStatus | n
       <Card>
         <CardContent>
           {state.kind === 'loading' && (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-4 w-56" />
-              <Skeleton className="h-4 w-48" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-4 w-40', 'h-4 w-56', 'h-4 w-48']} />
           )}
           {state.kind === 'error' && (
-            <Alert variant="destructive">
-              <AlertTitle>{t('healthTitle')}</AlertTitle>
-              <AlertDescription>{t('healthLoadFailed', { message: state.message })}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive" title={t('healthTitle')}>
+              {t('healthLoadFailed', { message: state.message })}
+            </ErrorAlert>
           )}
           {state.kind === 'ready' && (
             <dl className="space-y-2">

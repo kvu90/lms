@@ -7,6 +7,7 @@ import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
+import { ClassPicker } from '../components/class-picker';
 import { FrameUnitPicker } from '../components/frame-picker';
 import { useAccessContexts } from '#lib/access';
 import { useCurriculumFrameUnits, useCurriculumSubjectsScoped } from '#lib/curriculum';
@@ -336,16 +337,14 @@ export function CourseNewPage() {
               <div className="space-y-2">
                 <Label htmlFor="wizard-class">{t('wizardClass')}</Label>
                   {classes.length > 0 ? (
-                    <select id="wizard-class" className={selectClass} value={classId} onChange={(e) => setClassId(e.target.value)}>
-                      <option value="">{t('wizardClassPick')}</option>
-                      {classes
-                        .filter((c) => c.status === 'active')
-                        .map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                    </select>
+                    <ClassPicker
+                      id="wizard-class"
+                      className={selectClass}
+                      classes={classes}
+                      value={classId}
+                      onChange={setClassId}
+                      emptyLabel={t('wizardClassPick')}
+                    />
                   ) : (
                     <>
                       <Input

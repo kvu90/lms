@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { GradeItem } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -269,20 +269,16 @@ export function GradebookPage() {
     return (
       <PageShell width="full">
         <PageHeader title={t('gradebook')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-2/3" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-10 w-full', 'h-10 w-full', 'h-10 w-2/3']} />
       </PageShell>
     );
   if (!book && !report)
     return (
       <PageShell width="full">
         <PageHeader title={t('gradebook')} />
-        <Alert variant="destructive">
-          <AlertDescription>{error ?? t('gradebookLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {error ?? t('gradebookLoadFailed')}
+        </ErrorAlert>
       </PageShell>
     );
 
@@ -292,14 +288,14 @@ export function GradebookPage() {
     <PageShell width="full">
       <PageHeader title={t('gradebook')} />
       {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive" className="mb-4">
+          {error}
+        </ErrorAlert>
       )}
       {message && (
-        <Alert className="mb-4">
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert className="mb-4">
+          {message}
+        </ErrorAlert>
       )}
 
       {/* Điểm của chính người dùng: từng bài một, kèm trạng thái công bố. */}

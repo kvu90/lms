@@ -1,13 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Checkbox } from '@lms/ui/components/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -148,10 +148,7 @@ export function MatrixNewPage() {
     return (
       <PageShell width="medium">
         <PageHeader title={t('matrixCreate')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full']} />
       </PageShell>
     );
   }
@@ -178,9 +175,9 @@ export function MatrixNewPage() {
     <PageShell width="medium">
       <PageHeader title={t('matrixCreate')} />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardContent className="pt-6">
@@ -380,10 +377,7 @@ export function MatrixEditPage() {
     return (
       <PageShell width="medium">
         <PageHeader title={t('matrixEditTitle')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full']} />
       </PageShell>
     );
   }
@@ -403,9 +397,9 @@ export function MatrixEditPage() {
     <PageShell width="medium">
       <PageHeader title={t('matrixEditTitle')} />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardHeader>
@@ -572,14 +566,11 @@ export function MatrixEditPage() {
             </div>
             {specOpen ? (
               specQuery.isPending ? (
-                <div className="space-y-2" aria-label={t('loading')}>
-                  <Skeleton className="h-9 w-full" />
-                  <Skeleton className="h-9 w-full" />
-                </div>
+                <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full']} />
               ) : specQuery.isError ? (
-                <Alert>
-                  <AlertDescription>{t('specLoadFailed')}</AlertDescription>
-                </Alert>
+                <ErrorAlert>
+                  {t('specLoadFailed')}
+                </ErrorAlert>
               ) : spec ? (
                 <div className="space-y-3">
                   <p className="text-sm text-muted-foreground">{spec.purpose}</p>

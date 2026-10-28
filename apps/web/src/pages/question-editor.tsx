@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { QuestionCategory, QuestionView, StimulusView } from '@lms/contracts';
 import { composeMultipleChoiceDocument, splitMultipleChoiceDocument } from '@lms/editor';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { FieldGroup } from '@lms/ui/components/field';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { AnswersSection } from '../components/question-editor/answers-section';
@@ -440,11 +440,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     return (
       <PageShell width="full">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-24 w-full']} />
       </PageShell>
     );
   }
@@ -452,9 +448,9 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     return (
       <PageShell width="full">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
-        <Alert variant="destructive">
-          <AlertDescription>{loadError}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {loadError}
+        </ErrorAlert>
         <p>
           <Link to="/questions" className="text-sm underline">
             {t('backToQuestionBankList')}
@@ -520,9 +516,9 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
               </div>
             </div>
             {message ? (
-              <Alert role="status" variant="destructive">
-                <AlertDescription>{message}</AlertDescription>
-              </Alert>
+              <ErrorAlert variant="destructive" role="status">
+                {message}
+              </ErrorAlert>
             ) : null}
             {/* Bố cục 2 cột BẰNG NHAU như giaokhoa (grid gap-6
                 lg:grid-cols-2) + trang dùng toàn bề rộng (PageShell

@@ -5,11 +5,11 @@ import type { OAuthProvidersResponse } from '@lms/contracts';
 import { fetchApiJson } from '#lib/server-api';
 import type { OAuthIssuer } from '@lms/contracts';
 import { oauthProvidersResponseSchema } from '@lms/contracts';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { ErrorAlert } from '#components/error-alert';
 import { PageShell } from '../components/page-shell';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
@@ -203,9 +203,9 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
                 />
               </div>
               {mfaError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{mfaError}</AlertDescription>
-                </Alert>
+                <ErrorAlert variant="destructive">
+                  {mfaError}
+                </ErrorAlert>
               )}
               <Button type="submit" disabled={mfaBusy} className="w-full">
                 {mfaBusy ? t('mfaVerifying') : t('mfaVerify')}
@@ -251,9 +251,9 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
                   />
                 </div>
                 {otpError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{otpError}</AlertDescription>
-                  </Alert>
+                  <ErrorAlert variant="destructive">
+                    {otpError}
+                  </ErrorAlert>
                 )}
                 <Button type="submit" disabled={otpBusy} className="w-full">
                   {otpBusy ? t('emailOtpSending') : t('emailOtpSend')}
@@ -276,9 +276,9 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
                   />
                 </div>
                 {otpError && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{otpError}</AlertDescription>
-                  </Alert>
+                  <ErrorAlert variant="destructive">
+                    {otpError}
+                  </ErrorAlert>
                 )}
                 <Button type="submit" disabled={otpBusy} className="w-full">
                   {otpBusy ? t('emailOtpVerifying') : t('emailOtpVerify')}
@@ -333,14 +333,14 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
               />
             </div>
             {oauthError && (
-              <Alert variant="destructive">
-                <AlertDescription>{oauthError}</AlertDescription>
-              </Alert>
+              <ErrorAlert variant="destructive">
+                {oauthError}
+              </ErrorAlert>
             )}
             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
+              <ErrorAlert variant="destructive">
+                {error}
+              </ErrorAlert>
             )}
             <Button type="submit" disabled={busy} className="w-full">
               {busy ? t('signingIn') : t('signIn')}

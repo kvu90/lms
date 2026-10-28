@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 
 /**
  * Trang đồng ý (consent) cho luồng uỷ quyền MCP (lát MCP-1, issue
@@ -133,9 +133,9 @@ export default function McpConsentPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {loadError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{loadError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {loadError}
+            </ErrorAlert>
           ) : null}
           {context ? (
             <>
@@ -171,9 +171,9 @@ export default function McpConsentPage() {
                 })}
               </ul>
               {submitError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{submitError}</AlertDescription>
-                </Alert>
+                <ErrorAlert variant="destructive">
+                  {submitError}
+                </ErrorAlert>
               ) : null}
               <div className="flex gap-3">
                 <Button className="flex-1" disabled={busy || selected.size === 0} onClick={() => void submit(true)}>

@@ -1,5 +1,4 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Badge } from '@lms/ui/components/badge';
 import { Button, buttonVariants } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -9,6 +8,7 @@ import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lms/ui/components/table';
+import { ErrorAlert } from '#components/error-alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -33,6 +33,7 @@ import {
   type ClassRosterImportReport,
   type ClassStaffRole,
 } from '#lib/classes';
+import { formatDate } from '#lib/date-format';
 import { queryKeys } from '#lib/query-keys';
 
 /**
@@ -252,21 +253,21 @@ export function ClassDetailPage() {
         }
       />
       {chatError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{chatError}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {chatError}
+        </ErrorAlert>
       ) : null}
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       {overviewQuery.isPending ? (
         <Skeleton className="h-64 w-full" />
       ) : overviewQuery.isError || !cls || !overview ? (
-        <Alert variant="destructive">
-          <AlertDescription>{t('classDetailLoadFailed')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {t('classDetailLoadFailed')}
+        </ErrorAlert>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -409,7 +410,7 @@ export function ClassDetailPage() {
                         <TableCell>{personName(member)}</TableCell>
                         <TableCell>{member.username}</TableCell>
                         <TableCell>{member.email}</TableCell>
-                        <TableCell>{new Date(member.timeAdded).toLocaleDateString()}</TableCell>
+                        <TableCell>{formatDate(member.timeAdded)}</TableCell>
                         <TableCell className="text-right">
                           {canManageRoster ? (
                             <Button type="button" size="sm" variant="outline" disabled={removeMutation.isPending} onClick={() => onRemove(member.userId, personName(member))}>

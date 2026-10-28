@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Label } from '@lms/ui/components/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { ProgramGroupTable } from '../components/admin-curriculum/program-group-table';
 import { buildProgramGroups, PROGRAM_PAGE_SIZE } from '../components/admin-curriculum/tree-page';
@@ -209,14 +209,14 @@ export function TeacherCurriculumPage() {
     <PageShell>
       <PageHeader title={t('teacherProgrammeTitle')} description={t('teacherProgrammeDescription')} />
       {forbidden ? (
-        <Alert variant="destructive">
-          <AlertDescription>{hasCourses ? t('teacherProgrammeForbidden') : t('teacherProgrammeNoCourse')}</AlertDescription>
-        </Alert>
+        <ErrorAlert variant="destructive">
+          {hasCourses ? t('teacherProgrammeForbidden') : t('teacherProgrammeNoCourse')}
+        </ErrorAlert>
       ) : null}
       {!forbidden && courses !== null && !hasCourses && subjects !== null && subjects.length === 0 ? (
-        <Alert>
-          <AlertDescription>{t('teacherProgrammeNoCourse')}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {t('teacherProgrammeNoCourse')}
+        </ErrorAlert>
       ) : null}
       <div className="flex flex-wrap items-end gap-4">
         {hasCourses ? (

@@ -1,5 +1,4 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
@@ -19,7 +18,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@lms/ui/components/sheet';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -40,6 +40,7 @@ import {
   type CalendarExportTokenView,
   type CalendarSubscriptionView,
 } from '#lib/calendar';
+import { formatTime, formatWithOptions } from '#lib/date-format';
 import { queryKeys } from '#lib/query-keys';
 import { buildSsrLoaderData, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
 
@@ -261,15 +262,11 @@ export function CalendarPage() {
     group.events.push(e);
     byDay.set(key, group);
   }
-  const dayLabel = (date: Date) =>
-    date.toLocaleDateString(i18n.language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const timeLabel = (iso: string) =>
-    new Date(iso).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <PageShell width="full">
       <PageHeader
-        title={t('calendarTitle', { month: now.toLocaleString(i18n.language, { month: 'long', year: 'numeric' }) })}
+        title={t('calendarTitle', { month: formatWithOptions(now, i18n.language, { month: 'long', year: 'numeric' }) })}
         actions={
           <Sheet open={eventSheetOpen} onOpenChange={setEventSheetOpen}>
             <SheetTrigger render={<Button type="button" />}>{t('newEvent')}</SheetTrigger>
@@ -369,9 +366,9 @@ export function CalendarPage() {
       />
       {loadFailed ? (
         <>
-          <Alert variant="destructive">
-            <AlertDescription>{t('calendarLoadFailed')}</AlertDescription>
-          </Alert>
+          <ErrorAlert variant="destructive">
+            {t('calendarLoadFailed')}
+          </ErrorAlert>
           <div>
             <Button
               type="button"
@@ -388,9 +385,9 @@ export function CalendarPage() {
         </>
       ) : null}
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <Card>
         <CardContent className="space-y-4">
@@ -418,22 +415,19 @@ export function CalendarPage() {
             </Field>
           </div>
           {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-16 w-full', 'h-16 w-full']} />
           ) : (
             <>
               {[...byDay.entries()].map(([key, group]) => (
-                <section key={key} aria-label={dayLabel(group.date)}>
-                  <h3 className="font-medium">{dayLabel(group.date)}</h3>
+                <section key={key} aria-label={formatWithOptions(group.date, i18n.language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}>
+                  <h3 className="font-medium">{formatWithOptions(group.date, i18n.language, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h3>
                   <ul className="space-y-1">
                     {group.events.map((e) => (
                       <li key={e.id} className="flex items-center gap-2 rounded border p-2 text-sm">
                         <span className="font-medium">{e.name}</span>
                         <span className="text-muted-foreground">
                           {' '}
-                          · {e.eventType} · {timeLabel(e.timeStart)}
+                          · {e.eventType} · {formatTime(e.timeStart, i18n.language)}
                         </span>
                         {e.isException ? <span> {t('adjustedOccurrence')}</span> : null}
                         <Button type="button" variant="outline" onClick={() => remind(e.id)}>

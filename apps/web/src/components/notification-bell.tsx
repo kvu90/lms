@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@lms/ui/components/dropdown-menu';
 import { apiJson } from '#lib/api';
+import { formatDateTime } from '#lib/date-format';
 import {
   flattenNotificationGroups,
   notificationGroupKey,
@@ -42,7 +43,7 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
   if (hours < 24) return t('hoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
   if (days < 7) return t('daysAgo', { count: days });
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 /**

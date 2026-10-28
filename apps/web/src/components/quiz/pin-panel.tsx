@@ -18,9 +18,9 @@
  */
 import type { PinVersionUpdatePreview, QuizView } from '@lms/contracts';
 import type { CourseGroup } from '#lib/progress-report-data';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import type { ExamSourceInfo } from '#lib/quiz-data';
@@ -90,9 +90,9 @@ export function PinPanel({
             ) : null}
           </div>
           {updateError ? (
-            <Alert variant="destructive">
-              <AlertDescription>{updateError}</AlertDescription>
-            </Alert>
+            <ErrorAlert variant="destructive">
+              {updateError}
+            </ErrorAlert>
           ) : null}
           {updatePreview ? (
             <div className="space-y-2 rounded-md border p-3">

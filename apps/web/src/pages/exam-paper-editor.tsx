@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, AlertDescription } from '@lms/ui/components/alert';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
+import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch } from '#lib/api';
+import { formatDateTime } from '#lib/date-format';
 import {
   examQuestionDiscoveryQueryOptions,
   useCreateExamPaper,
@@ -270,9 +271,9 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         }
       />
       {message ? (
-        <Alert>
-          <AlertDescription>{message}</AlertDescription>
-        </Alert>
+        <ErrorAlert>
+          {message}
+        </ErrorAlert>
       ) : null}
       <form onSubmit={(e) => void submit(e)} className="space-y-6">
         <Card>
@@ -426,7 +427,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
               {pins.map((pin) => (
                 <li key={pin.id} className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 flex-1">
-                    {pin.courseName} · v{pin.versionNumber} · {new Date(pin.createdAt).toLocaleString()} · {t('deploymentVariants', { count: pin.variantCount, codes: pin.variantCodes.join(', ') })}
+                    {pin.courseName} · v{pin.versionNumber} · {formatDateTime(pin.createdAt)} · {t('deploymentVariants', { count: pin.variantCount, codes: pin.variantCodes.join(', ') })}
                   </span>
                   {pin.variantCodes.map((code) => (
                     <Button key={code} type="button" variant="outline" onClick={() => void printVariant(pin.id, code)}>
