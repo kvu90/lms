@@ -3,18 +3,6 @@ import { useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { GradeItem } from '@lms/contracts';
 import { Alert, AlertDescription } from '@lms/ui/components/alert';
-import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
-import { Input } from '@lms/ui/components/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@lms/ui/components/select';
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -32,35 +20,16 @@ import {
   type GradeHistoryView,
 } from '#lib/course-grade-data';
 import { usePermissions } from '#lib/permissions';
-
-/** Loại cột vnEdu (TT 22/2021) mà giáo viên gán cho một mục điểm khi xuất Excel — issue #53. */
-type VneduColumnKind = 'none' | 'regular' | 'midterm' | 'final';
-
-/**
- * Mục điểm đủ điều kiện làm cột thành phần vnEdu: mục của một bài
- * (nhập tay hoặc hoạt động), điểm số dạng value — khớp đúng điều kiện
- * phía API kiểm khi xuất. Từ issue #224, bài còn phải ĐÃ CÔNG BỐ.
- */
-function isVneduExportableItem(item: GradeItem): boolean {
-  return (item.itemType === 'manual' || item.itemType === 'mod') && (item.gradeType ?? 'value') === 'value';
-}
-
-/**
- * Gợi ý loại cột vnEdu từ tên mục điểm. Đây CHỈ là mặc định trên giao diện
- * để giáo viên đỡ phải chọn lại từ đầu — giáo viên xác nhận trước khi xuất
- * và phía API không hề đoán theo tên.
- */
-function guessVneduColumnKind(item: GradeItem): VneduColumnKind {
-  const name = item.itemName.toLowerCase();
-  if (/giữa\s*k[ỳì]|giua\s*ky|midterm|\bgk\b/.test(name)) return 'midterm';
-  if (/cuối\s*k[ỳì]|cuoi\s*ky|học\s*k[ỳì]|hoc\s*ky|\bck\b|final/.test(name)) return 'final';
-  return 'regular';
-}
-
-/** Số điểm hiển thị theo ngôn ngữ (tối đa 2 chữ số thập phân, không ép 0) — cùng quy ước trang phụ huynh. */
-function scoreLabel(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value);
-}
+import { ClassGradesGridCard } from '../components/grades/class-grades-grid-card';
+import { EnterGradeCard } from '../components/grades/enter-grade-card';
+import { GradeItemsAdminCard, type GradeItemEdit } from '../components/grades/grade-items-admin-card';
+import {
+  guessVneduColumnKind,
+  isVneduExportableItem,
+  type VneduColumnKind,
+} from '../components/grades/gradebook-helpers';
+import { StudentGradesCard } from '../components/grades/student-grades-card';
+import { VneduExportCard } from '../components/grades/vnedu-export-card';
 
 /**
  * Trang Điểm theo bài của một khoá (issue #224 — thay trang Sổ điểm
@@ -106,7 +75,7 @@ export function GradebookPage() {
   const items: GradeItem[] = report?.items ?? book?.activities.map((a) => a.item) ?? [];
   const [newItemName, setNewItemName] = useState('');
   const [newItemMax, setNewItemMax] = useState('10');
-  const [itemEdits, setItemEdits] = useState<Record<string, { itemName: string; gradeMax: string }>>({});
+  const [itemEdits, setItemEdits] = useState<Record<string, GradeItemEdit>>({});
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const [vneduKinds, setVneduKinds] = useState<Record<string, VneduColumnKind>>({});
   const [vneduSemester, setVneduSemester] = useState('1');
@@ -334,358 +303,85 @@ export function GradebookPage() {
       )}
 
       {/* Điểm của chính người dùng: từng bài một, kèm trạng thái công bố. */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>{t('myGradesTitle')}</CardTitle>
-          <CardDescription>{t('myGradesDescription')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {myActivities.length === 0 ? (
-            <Empty>
-              <EmptyHeader>
-                <EmptyTitle>{t('gradesNoActivities')}</EmptyTitle>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-muted-foreground">
-                  <th className="py-2 pr-4 font-medium">{t('gradeItem')}</th>
-                  <th className="py-2 pr-4 font-medium">{t('grade')}</th>
-                  <th className="py-2 pr-4 font-medium">{t('gradesFeedback')}</th>
-                  <th className="py-2 font-medium">{t('status')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myActivities.map(({ item, grade, publication }) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="py-2 pr-4">{item.itemName}</td>
-                    <td className="py-2 pr-4">
-                      {grade?.finalGrade !== null && grade?.finalGrade !== undefined
-                        ? `${scoreLabel(grade.finalGrade, i18n.language)} / ${scoreLabel(item.gradeMax, i18n.language)}`
-                        : '—'}
-                    </td>
-                    <td className="py-2 pr-4">{grade?.feedback ?? ''}</td>
-                    <td className="py-2">{publication.published ? t('gradesPublished') : t('gradesUnpublished')}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </CardContent>
-      </Card>
+      <StudentGradesCard activities={myActivities} locale={i18n.language} />
 
       {isStaff && report && (
         <>
           {/* Lưới chỉ-đọc học sinh × các bài cho giáo viên. */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>{t('gradesGridTitle')}</CardTitle>
-              <CardDescription>{t('gradesGridDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-muted-foreground">
-                      <th className="py-2 pr-4 font-medium">{t('gradesStudentColumn')}</th>
-                      {report.items.map((item) => (
-                        <th key={item.id} className="py-2 pr-4 font-medium">
-                          {item.itemName}
-                          <span className="block text-xs font-normal">
-                            {report.publications[item.id]?.published ? t('gradesPublished') : t('gradesUnpublished')}
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.rows.map((row) => (
-                      <tr key={row.userId} className="border-t">
-                        <td className="py-2 pr-4">{row.displayName}</td>
-                        {report.items.map((item) => (
-                          <td key={item.id} className="py-2 pr-4">
-                            {row.grades[item.id] !== null && row.grades[item.id] !== undefined
-                              ? scoreLabel(row.grades[item.id]!, i18n.language)
-                              : '—'}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <ClassGradesGridCard report={report} locale={i18n.language} />
 
           {/* Quản trị mục điểm + công bố theo bài. */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>{t('gradeItemsAdminTitle')}</CardTitle>
-              <CardDescription>{t('gradeAdminDescription')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {adminMessage && (
-                <Alert className="mb-4">
-                  <AlertDescription>{adminMessage}</AlertDescription>
-                </Alert>
-              )}
-              <ul className="divide-y">
-                {items.map((item) => {
-                  const publication = report.publications[item.id] ?? { policy: 'auto' as const, published: true };
-                  const edit = itemEdits[item.id] ?? { itemName: item.itemName, gradeMax: String(item.gradeMax) };
-                  return (
-                    <li key={item.id} className="flex flex-wrap items-center gap-2 py-3">
-                      <Input
-                        aria-label={t('gradeItemName')}
-                        className="w-56"
-                        value={edit.itemName}
-                        onChange={(e) =>
-                          setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, itemName: e.target.value } }))
-                        }
-                      />
-                      <Input
-                        aria-label={t('gradeItemMax')}
-                        className="w-24"
-                        type="number"
-                        value={edit.gradeMax}
-                        onChange={(e) =>
-                          setItemEdits((prev) => ({ ...prev, [item.id]: { ...edit, gradeMax: e.target.value } }))
-                        }
-                      />
-                      <span className="text-sm text-muted-foreground">{item.itemType}</span>
-                      <Select
-                        value={publication.policy}
-                        onValueChange={(value) => void setPostingPolicy(item, value as 'auto' | 'manual')}
-                      >
-                        <SelectTrigger className="w-64" aria-label={t('gradesPostingPolicy')}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="auto">{t('gradesPostingAuto')}</SelectItem>
-                          <SelectItem value="manual">{t('gradesPostingManual')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" variant="outline" onClick={() => void saveItemEdit(item)}>
-                        {t('saveGradeItem')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void setPublished(item, !publication.published)}
-                      >
-                        {publication.published ? t('gradesUnpublish') : t('gradesPublish')}
-                      </Button>
-                      <Button size="sm" variant="destructive" onClick={() => void deleteItem(item)}>
-                        {t('deleteGradeItem')}
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-              <form onSubmit={createItem} className="mt-4 flex flex-wrap items-end gap-2">
-                <Field>
-                  <FieldLabel>{t('gradeItemName')}</FieldLabel>
-                  <Input id="grade-item-name" value={newItemName} onChange={(e) => setNewItemName(e.target.value)} required />
-                </Field>
-                <Field>
-                  <FieldLabel>{t('gradeItemMax')}</FieldLabel>
-                  <Input
-                    id="grade-item-max"
-                    type="number"
-                    className="w-24"
-                    value={newItemMax}
-                    onChange={(e) => setNewItemMax(e.target.value)}
-                    required
-                  />
-                </Field>
-                <Button type="submit">{t('createGradeItem')}</Button>
-              </form>
-            </CardContent>
-          </Card>
+          <GradeItemsAdminCard
+            items={items}
+            publications={report.publications}
+            adminMessage={adminMessage}
+            itemEdits={itemEdits}
+            onItemEditsChange={setItemEdits}
+            newItemName={newItemName}
+            onNewItemNameChange={setNewItemName}
+            newItemMax={newItemMax}
+            onNewItemMaxChange={setNewItemMax}
+            onCreateItem={createItem}
+            onSaveItemEdit={saveItemEdit}
+            onDeleteItem={deleteItem}
+            onSetPostingPolicy={setPostingPolicy}
+            onSetPublished={setPublished}
+          />
 
           {/* Nhập điểm + lịch sử điểm. */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>{t('enterGradeTitle')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={submitGrade}>
-                <FieldGroup>
-                  <Field>
-                    <FieldLabel>{t('gradeItem')}</FieldLabel>
-                    <Select value={gradeItemId} onValueChange={(value) => setGradeItemId(value ?? '')}>
-                      <SelectTrigger aria-label={t('gradeItem')}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {items.map((item) => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.itemName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('gradesStudentColumn')}</FieldLabel>
-                    <Select value={gradeUserId} onValueChange={(value) => setGradeUserId(value ?? '')}>
-                      <SelectTrigger aria-label={t('gradesStudentColumn')}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {report.rows.map((row) => (
-                          <SelectItem key={row.userId} value={row.userId}>
-                            {row.displayName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('gradeValue')}</FieldLabel>
-                    <Input value={gradeValue} onChange={(e) => setGradeValue(e.target.value)} inputMode="decimal" />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('gradesFeedback')}</FieldLabel>
-                    <Input value={gradeFeedback} onChange={(e) => setGradeFeedback(e.target.value)} />
-                  </Field>
-                </FieldGroup>
-                <Button type="submit" className="mt-3" disabled={!gradeItemId || !gradeUserId}>
-                  {t('saveGrade')}
-                </Button>
-              </form>
-
-              <h3 className="mt-8 font-medium">{t('gradeHistoryTitle')}</h3>
-              <p className="text-sm text-muted-foreground">{t('gradeHistoryDescription')}</p>
-              <form onSubmit={loadHistory} className="mt-3 flex flex-wrap items-end gap-2">
-                <Field>
-                  <FieldLabel>{t('gradeItem')}</FieldLabel>
-                  <Select value={historyItemId} onValueChange={(value) => setHistoryItemId(value ?? '')}>
-                    <SelectTrigger aria-label={t('gradeItem')}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {items.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.itemName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel>{t('gradesStudentColumn')}</FieldLabel>
-                  <Select value={historyUserId} onValueChange={(value) => setHistoryUserId(value ?? '')}>
-                    <SelectTrigger aria-label={t('gradesStudentColumn')}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {report.rows.map((row) => (
-                        <SelectItem key={row.userId} value={row.userId}>
-                          {row.displayName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Button type="submit" variant="outline" disabled={!historyItemId || !historyUserId}>
-                  {t('viewHistory')}
-                </Button>
-              </form>
-              {historyError && (
-                <Alert variant="destructive" className="mt-3">
-                  <AlertDescription>{historyError}</AlertDescription>
-                </Alert>
-              )}
-              {historyRows && (
-                <ul className="mt-3 space-y-1 text-sm">
-                  {historyRows.map((row) => (
-                    <li key={row.id}>
-                      {row.updatedAt} · {row.finalGrade ?? '—'} · {row.source ?? ''}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <EnterGradeCard
+            items={items}
+            rows={report.rows}
+            gradeItemId={gradeItemId}
+            onGradeItemIdChange={setGradeItemId}
+            gradeUserId={gradeUserId}
+            onGradeUserIdChange={setGradeUserId}
+            gradeValue={gradeValue}
+            onGradeValueChange={setGradeValue}
+            gradeFeedback={gradeFeedback}
+            onGradeFeedbackChange={setGradeFeedback}
+            onSubmitGrade={submitGrade}
+            historyItemId={historyItemId}
+            onHistoryItemIdChange={setHistoryItemId}
+            historyUserId={historyUserId}
+            onHistoryUserIdChange={setHistoryUserId}
+            historyRows={historyRows}
+            historyError={historyError}
+            onLoadHistory={loadHistory}
+          />
 
           {/* Xuất vnEdu từ các bài đã công bố. */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>{t('exportGradesVnedu')}</CardTitle>
-              <CardDescription>{t('gradesVneduOnlyPublished')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={downloadGradesVnedu}>
-                <ul className="divide-y">
-                  {items.filter(isVneduExportableItem).map((item) => {
-                    const published = report.publications[item.id]?.published ?? false;
-                    return (
-                      <li key={item.id} className="flex flex-wrap items-center gap-2 py-2">
-                        <span className="w-56">{item.itemName}</span>
-                        <Select
-                          value={vneduKinds[item.id] ?? 'none'}
-                          onValueChange={(value) =>
-                            setVneduKinds((prev) => ({ ...prev, [item.id]: value as VneduColumnKind }))
-                          }
-                          disabled={!published}
-                        >
-                          <SelectTrigger className="w-48" aria-label={item.itemName}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">{t('vneduKindNone')}</SelectItem>
-                            <SelectItem value="regular">{t('vneduKindRegular')}</SelectItem>
-                            <SelectItem value="midterm">{t('vneduKindMidterm')}</SelectItem>
-                            <SelectItem value="final">{t('vneduKindFinal')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {!published && <span className="text-sm text-muted-foreground">{t('gradesUnpublished')}</span>}
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div className="mt-4 flex flex-wrap items-end gap-2">
-                  <Field>
-                    <FieldLabel>{t('vneduSemester')}</FieldLabel>
-                    <Select value={vneduSemester} onValueChange={(value) => setVneduSemester(value ?? '1')}>
-                      <SelectTrigger className="w-32" aria-label={t('vneduSemester')}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">1</SelectItem>
-                        <SelectItem value="2">2</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('vneduSchoolYear')}</FieldLabel>
-                    <Input value={vneduSchoolYear} onChange={(e) => setVneduSchoolYear(e.target.value)} />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('vneduSubjectName')}</FieldLabel>
-                    <Input value={vneduSubject} onChange={(e) => setVneduSubject(e.target.value)} />
-                  </Field>
-                  <Field>
-                    <FieldLabel>{t('vneduClassName')}</FieldLabel>
-                    <Input value={vneduClass} onChange={(e) => setVneduClass(e.target.value)} />
-                  </Field>
-                  <Button type="submit">{t('exportGradesVnedu')}</Button>
-                </div>
-                {vneduMessage && (
-                  <Alert className="mt-3">
-                    <AlertDescription>{vneduMessage}</AlertDescription>
-                  </Alert>
-                )}
-              </form>
-            </CardContent>
-          </Card>
+          <VneduExportCard
+            items={items}
+            publications={report.publications}
+            vneduKinds={vneduKinds}
+            onVneduKindsChange={setVneduKinds}
+            vneduSemester={vneduSemester}
+            onVneduSemesterChange={setVneduSemester}
+            vneduSchoolYear={vneduSchoolYear}
+            onVneduSchoolYearChange={setVneduSchoolYear}
+            vneduSubject={vneduSubject}
+            onVneduSubjectChange={setVneduSubject}
+            vneduClass={vneduClass}
+            onVneduClassChange={setVneduClass}
+            vneduMessage={vneduMessage}
+            onDownload={downloadGradesVnedu}
+          />
         </>
       )}
     </PageShell>
   );
 }
+
+/**
+ * Export mặc định cho đích route `courses/:id/grades` trong routes.ts:
+ * quy ước framework lấy component của route từ export mặc định (hoặc
+ * export tên `Component`) của route module, mà file trang trước đây
+ * chỉ export theo tên nên qua router component không được gắn (vùng
+ * nội dung trống dù spec gắn trực tiếp vẫn xanh). Export theo tên
+ * `GradebookPage` ở trên giữ nguyên cho các nơi tiêu thụ hiện hữu.
+ */
+export default GradebookPage;
 
 // Biên lỗi + tiêu đề theo route (cụm khung SSR #146, từ rà soát #133).
 export { RouteErrorBoundary as ErrorBoundary } from '../components/route-error-boundary';
