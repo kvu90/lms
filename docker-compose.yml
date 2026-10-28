@@ -28,7 +28,14 @@ x-api-env: &api-env
   DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
   REDIS_URL: redis://redis:6379
   JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
-  MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+  # Các biến tuỳ chọn có kiểm tra độ dài tối thiểu phía ứng dụng
+  # (MFA_ENCRYPTION_KEY, RESEND_API_KEY, MAIL_FROM) khai báo TRƠ — khoá
+  # không giá trị — như dưới đây: Compose chỉ truyền vào container khi
+  # biến thật sự được đặt ở môi trường triển khai. Khuôn ${BIEN:-} luôn
+  # tiêm chuỗi rỗng khi chưa cấu hình và làm ứng dụng lỗi kiểm tra biến
+  # môi trường (schema yêu cầu độ dài tối thiểu khi biến CÓ MẶT), nên
+  # không dùng khuôn đó cho các biến này.
+  MFA_ENCRYPTION_KEY:
   BETTER_AUTH_ENABLED: ${BETTER_AUTH_ENABLED:-true}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Can dat BETTER_AUTH_SECRET trong file .env}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8080}
@@ -38,8 +45,8 @@ x-api-env: &api-env
   ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
   ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@localhost}
-  RESEND_API_KEY: ${RESEND_API_KEY:-}
-  MAIL_FROM: ${MAIL_FROM:-}
+  RESEND_API_KEY:
+  MAIL_FROM:
   FILE_STORAGE_DIR: /app/data/files
 
 services:
@@ -112,8 +119,10 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
       FILE_STORAGE_DIR: /app/data/files
-      RESEND_API_KEY: ${RESEND_API_KEY:-}
-      MAIL_FROM: ${MAIL_FROM:-}
+      # Biến mail tuỳ chọn: khai báo trơ như x-api-env — chỉ truyền vào
+      # container khi đã đặt thật ở môi trường triển khai.
+      RESEND_API_KEY:
+      MAIL_FROM:
     volumes:
       # Worker đọc/ghi cùng kho tệp tải lên với api.
       - api-files:/app/data/files
