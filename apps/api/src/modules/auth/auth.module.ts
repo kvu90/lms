@@ -28,7 +28,12 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
     // minh, forwardRef ở CẢ hai phía như khuôn UsersModule ↔
     // BetterAuthModule; chuỗi provider kết thúc ở PasswordService +
     // LoginLockoutService (không phụ thuộc ngược vào AuthService).
-    UsersModule, AccessModule, TenantsModule, CacheInfraModule, EventsModule, PassportModule, forwardRef(() => BetterAuthModule),
+    // UsersModule cũng import ngược module này (UsersService cần
+    // AuthRepository để thu hồi family refresh khi đặt mật khẩu)
+    // nên cạnh UsersModule ở đây cũng phải là forwardRef; chuỗi
+    // provider AuthService → UsersService → AuthRepository kết
+    // thúc ở tầng dữ liệu, không phụ thuộc ngược vào AuthService.
+    forwardRef(() => UsersModule), AccessModule, TenantsModule, CacheInfraModule, EventsModule, PassportModule, forwardRef(() => BetterAuthModule),
     JwtModule.registerAsync({
       imports: [ConfigModule], inject: [ConfigService],
       useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('JWT_SECRET') }),
@@ -36,7 +41,11 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
   ],
   controllers: [AuthController, OAuthController],
   providers: [AuthRepository, AuthService, SessionService, TotpService, OAuthService, LoginLockoutService, LocalAuthStrategy, JwtAuthStrategy],
-  exports: [AuthService, SessionService, LoginLockoutService],
+  // AuthRepository được export để UsersService dùng cơ chế thu hồi
+  // family refresh mỗi lần đặt mật khẩu qua đường sửa hồ sơ — cạnh
+  // này làm UsersModule ↔ AuthModule thành vòng module tường minh,
+  // forwardRef ở cả hai phía (xem users.module.ts).
+  exports: [AuthService, SessionService, LoginLockoutService, AuthRepository],
 })
 /** Module xác thực và phiên. */
 export class AuthModule {}

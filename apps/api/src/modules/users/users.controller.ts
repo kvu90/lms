@@ -65,11 +65,15 @@ export class UsersController {
 
   @Patch(':id')
   /**
-   * PATCH /users/:id — cập nhật hồ sơ.
+   * PATCH /users/:id — cập nhật hồ sơ. Định danh người sửa được
+   * truyền xuống service để chốt chặn trường `password` ở trường
+   * hợp tự sửa (tự đổi mật khẩu chỉ qua luồng đổi mật khẩu có tái
+   * xác thực) và để thu hồi phiên của tài khoản đích khi mật khẩu
+   * bị đặt qua đường này.
    */
   async update(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: updateUserSchema }) dto: UpdateUserDto, @CurrentUser() actor: AuthenticatedUser) {
     await this.users.assertCanUpdateProfile(actor.id, id);
-    const user = await this.users.updateUser(id, dto);
+    const user = await this.users.updateUser(id, dto, actor.id);
     return this.users.getProfileView(user.id, actor.id);
   }
 
