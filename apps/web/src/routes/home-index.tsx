@@ -73,7 +73,7 @@ export async function loader({ request }: { request: Request }): Promise<SsrLoad
         queryFn: serverQueryFn<MyBadgeView[]>(req, '/api/v1/badges/mine'),
       }),
       queryClient.prefetchQuery({
-        queryKey: queryKeys.notifications,
+        queryKey: queryKeys.notificationUnreadCount,
         queryFn: serverQueryFn<{ unread: number }>(req, '/api/v1/notifications/unread-count'),
       }),
       queryClient.prefetchQuery({

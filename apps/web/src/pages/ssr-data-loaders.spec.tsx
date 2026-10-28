@@ -334,7 +334,7 @@ describe('SL-1 — loader / (dashboard)', () => {
     expect(findQuery(dehydratedState, queryKeys.courses)?.state.status).toBe('success');
     expect(findQuery(dehydratedState, queryKeys.dashboardOverview)?.state.status).toBe('success');
     expect(findQuery(dehydratedState, queryKeys.myBadges)?.state.status).toBe('success');
-    expect(findQuery(dehydratedState, queryKeys.notifications)?.state.data).toEqual({ unread: 3 });
+    expect(findQuery(dehydratedState, queryKeys.notificationUnreadCount)?.state.data).toEqual({ unread: 3 });
     const range = upcomingDaysRangeIso(30);
     expect(
       findQuery(dehydratedState, queryKeys.calendarEvents(range.from, range.to))?.state.data,
