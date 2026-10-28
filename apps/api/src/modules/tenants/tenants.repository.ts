@@ -39,6 +39,28 @@ export class TenantsRepository {
     return row;
   }
 
+  /** Bản tenant-zero đã tra được, giữ trong singleton của repository. */
+  private platformTenantCache: TenantRow | undefined;
+
+  /**
+   * Tenant-zero (tenant nền tảng) cho TenantGuard: được gieo một lần
+   * lúc bootstrap và không đổi danh tính (id/slug/kind) trong vòng
+   * đời tiến trình, nên tra một lần rồi giữ lại trong singleton này
+   * — bỏ một truy vấn khỏi MỌI request. Chỉ cache khi ĐÃ tra thấy:
+   * trước bootstrap seed (tenant-zero chưa tồn tại) mọi lần gọi vẫn
+   * xuống cơ sở dữ liệu để request đầu tiên sau khi gieo thấy ngay.
+   * Các thay đổi trạng thái/cấu hình của tenant-zero không đi qua
+   * bản cache này (guard chỉ dùng `id` của nó làm tenant hiệu lực
+   * mặc định); đường đọc cần trạng thái tươi dùng `getTenantBySlug` /
+   * `getTenant` như cũ.
+   */
+  async getPlatformTenant(): Promise<TenantRow | undefined> {
+    if (!this.platformTenantCache) {
+      this.platformTenantCache = await this.getTenantBySlug(PLATFORM_TENANT_SLUG);
+    }
+    return this.platformTenantCache;
+  }
+
   async listTenants(): Promise<TenantRow[]> {
     return this.db.select().from(tenants).orderBy(asc(tenants.createdAt));
   }

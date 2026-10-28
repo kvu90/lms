@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../../common/current-user.decorator';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
-import { PLATFORM_TENANT_SLUG, TenantsRepository } from './tenants.repository';
+import { TenantsRepository } from './tenants.repository';
 import { tenantAls } from './tenant-als';
 import { TenantsService } from './tenants.service';
 import { TenantContextService } from './tenant-context.service';
@@ -48,7 +48,10 @@ export class TenantGuard implements CanActivate {
 
   private async resolveRequestTenant(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser; tenantId?: string }>();
-    const zero = await this.repo.getTenantBySlug(PLATFORM_TENANT_SLUG);
+    // Tenant-zero qua bản cache singleton của repository: danh tính
+    // của nó cố định từ lúc bootstrap nên không tra lại xuống DB ở
+    // mọi request (xem TenantsRepository.getPlatformTenant).
+    const zero = await this.repo.getPlatformTenant();
     // Tenant-zero chưa được gieo (chỉ có thể xảy ra trước bootstrap seed
     // trong các test đơn vị không boot app đầy đủ): không gắn ngữ cảnh.
     if (!zero) return true;
