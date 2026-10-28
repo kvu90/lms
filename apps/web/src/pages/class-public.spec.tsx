@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { ClassEditPage } from './class-edit';
-import { ClassPublicPage } from './class-public';
+import { ClassPublicPage, loader as classPublicLoader, meta as classPublicMeta, type ClassPublicSummary } from './class-public';
 
 /**
  * Spec HỌC PHÍ THEO LỚP phía web (CLASS-3, issue #184): kiểm LUỒNG
@@ -175,6 +175,92 @@ describe('Trang công khai mua gói lớp (CLASS-3)', () => {
     renderPublic();
 
     expect(await screen.findByText(/không thu học phí qua hệ thống/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Thanh toán học phí' })).toBeNull();
+  });
+});
+
+const PUBLIC_SUMMARY: ClassPublicSummary = {
+  classId: CLASS_ID,
+  name: 'Lớp 10A1',
+  code: '10A1',
+  schoolYear: '2026-2027',
+  description: 'Lớp toán nâng cao',
+  ownerName: 'Lê Cô',
+  status: 'active',
+  feeCost: 1500000,
+  feeCurrency: 'VND',
+  feeEnabled: true,
+};
+
+describe('Loader phía server của trang lớp public (HTML đầu mang dữ kiện công khai)', () => {
+  it('loader chiếu đúng 10 trường công khai và LOẠI hẳn isMember/canPurchase khỏi kết quả', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        return new Response(JSON.stringify(PUBLIC_PACKAGE), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+    const request = new Request(`http://localhost/classes/${CLASS_ID}/public`, {
+      headers: { Cookie: 'better-auth.session_token=phien-thu' },
+    });
+    const data = await classPublicLoader({ params: { id: CLASS_ID }, request });
+
+    expect(calls).toEqual([`http://127.0.0.1:3000/api/v1/classes/${CLASS_ID}/public`]);
+    expect(data.classPublic).toEqual(PUBLIC_SUMMARY);
+    expect(data.classPublic !== null && 'isMember' in data.classPublic).toBe(false);
+    expect(data.classPublic !== null && 'canPurchase' in data.classPublic).toBe(false);
+  });
+
+  it('loader không có cookie phiên: không gọi API nào và trả null (trang tải phía client như trước)', async () => {
+    const spy = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', spy);
+    const data = await classPublicLoader({
+      params: { id: CLASS_ID },
+      request: new Request(`http://localhost/classes/${CLASS_ID}/public`),
+    });
+    expect(spy).not.toHaveBeenCalled();
+    expect(data.classPublic).toBeNull();
+  });
+
+  it('meta dùng tên lớp thật + mô tả công khai khi có dữ kiện loader; không có thì rơi về tiêu đề tĩnh', () => {
+    expect(classPublicMeta({ data: { classPublic: PUBLIC_SUMMARY } })).toEqual([
+      { title: 'Lớp 10A1 · LMS' },
+      { name: 'description', content: 'Lớp toán nâng cao' },
+    ]);
+    const fallback = classPublicMeta({ data: { classPublic: null } });
+    expect(fallback).toHaveLength(1);
+    expect(JSON.stringify(fallback)).not.toContain('Lớp 10A1');
+  });
+
+  it('query phía client còn pending: trang hiện ngay tên/mô tả lớp từ dữ kiện loader, chưa có nút mua', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url === `/api/v1/classes/${CLASS_ID}/public`
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(new Response('{}', { status: 404 })),
+      ),
+    );
+    localStorage.setItem('lms.accessToken', 'test-token');
+    const router = createMemoryRouter(
+      [{ path: '/classes/:id/public', element: <ClassPublicPage initialPublic={PUBLIC_SUMMARY} /> }],
+      { initialEntries: [`/classes/${CLASS_ID}/public`] },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Lớp 10A1' })).toBeTruthy();
+    expect(screen.getByText('Lớp toán nâng cao')).toBeTruthy();
+    // Trạng thái theo người gọi chưa có dữ kiện: tuyệt đối không hiện
+    // nút mua từ bản chiếu công khai.
     expect(screen.queryByRole('button', { name: 'Thanh toán học phí' })).toBeNull();
   });
 });
