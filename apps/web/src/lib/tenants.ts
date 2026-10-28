@@ -13,13 +13,14 @@ import { queryKeys } from './query-keys';
  * thấy bộ chọn.
  */
 export async function fetchMyTenants(): Promise<MyTenant[]> {
-  return apiJson<MyTenant[]>('/auth/tenants');
+  return apiJson<MyTenant[]>('/api/v1/auth/tenants');
 }
 
 /**
  * Tuỳ chọn truy vấn các tenant người dùng là thành viên (GET
- * /auth/tenants): mục chuyển không gian đọc qua TanStack để hưởng
- * cache + dedupe theo khoá nhà máy thay cho fetch tay trong effect.
+ * /api/v1/auth/tenants): mục chuyển không gian đọc qua TanStack để
+ * hưởng cache + dedupe theo khoá nhà máy thay cho fetch tay trong
+ * effect.
  */
 export function myTenantsQueryOptions() {
   return queryOptions({
@@ -42,6 +43,6 @@ export function useMyTenants() {
  * trang để áp dụng ngữ cảnh mới ở mọi bề mặt (loader SSR + cache).
  */
 export async function switchTenant(tenantId: string): Promise<void> {
-  await apiJson(`/auth/switch-tenant/${tenantId}`, { method: 'POST' });
+  await apiJson(`/api/v1/auth/switch-tenant/${tenantId}`, { method: 'POST' });
   window.location.reload();
 }
