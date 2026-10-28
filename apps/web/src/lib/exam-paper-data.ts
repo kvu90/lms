@@ -49,12 +49,25 @@ export interface PinViewLite {
 
 /** Chi tiết một đề (GET /exam-papers/:id). */
 export interface PaperView {
-  paper: { id: string; bankId: string; kind: string; status: string; latestVersion: number; derivedFromPaperId: string | null };
+  paper: {
+    id: string;
+    bankId: string;
+    kind: string;
+    status: string;
+    latestVersion: number;
+    derivedFromPaperId: string | null;
+  };
   version: {
-    id: string; version: number; name: string;
-    subjectId: string | null; grade: number | null; examKind: string | null;
-    totalScore: number; durationMinutes: number | null;
-    matrixId: string | null; matrixVersion: number | null;
+    id: string;
+    version: number;
+    name: string;
+    subjectId: string | null;
+    grade: number | null;
+    examKind: string | null;
+    totalScore: number;
+    durationMinutes: number | null;
+    matrixId: string | null;
+    matrixVersion: number | null;
   };
   slots: PaperSlotView[];
   /**
