@@ -16,6 +16,10 @@
  *   (c) CHƯA đăng nhập: loader không gọi bất kỳ API dữ liệu nghiệp
  *       vụ nào và trả state rỗng — mặt công khai (bản prerender)
  *       không dính dữ liệu cá nhân.
+ *   (d) HTTP status sống sót qua đường prefetch: đáp ứng 403 thì
+ *       `serverQueryFn` ném `ApiError` đúng status và QueryClient
+ *       KHÔNG thử lại (đúng 1 lượt gọi); đáp ứng 500 vẫn thử lại đủ
+ *       3 lượt theo chính sách retry chung.
  *
  * Cộng kiểm chứng tính tất định của hai helper khoảng ngày theo
  * múi giờ ứng dụng: mốc biên tháng/tuần phải ra cùng một khoảng ở
@@ -30,7 +34,9 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClientProvider, hashKey, hydrate, type DehydratedState } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ApiError } from '../lib/api';
 import { createQueryClient } from '../lib/query-client';
+import { serverQueryFn } from '../lib/ssr-data';
 import { queryKeys } from '../lib/query-keys';
 import { currentMonthRangeIso, upcomingDaysRangeIso, useCalendarEvents } from '../lib/calendar';
 import { loader as calendarLoader } from './calendar';
@@ -234,6 +240,60 @@ describe('SL-1 — loader /admin/site-config', () => {
     });
     expect(findQuery(dehydratedState, queryKeys.siteConfig)).toBeUndefined();
     expect(findQuery(dehydratedState, queryKeys.siteConfigAudit)?.state.status).toBe('success');
+  });
+});
+
+describe('SSR — HTTP status phải sống sót qua đường prefetch (chính sách retry tôn trọng status)', () => {
+  /** Đếm lượt gọi fetch tới một pathname trong spy của stubApi. */
+  function countCalls(spy: ReturnType<typeof stubApi>, pathname: string): number {
+    return spy.mock.calls.filter((call) => {
+      const raw = typeof call[0] === 'string' ? call[0] : (call[0] as { url: string }).url;
+      return new URL(raw, 'http://localhost').pathname === pathname;
+    }).length;
+  }
+
+  it('đáp ứng 403: prefetch chỉ gọi API ĐÚNG 1 lần (không retry) và query vắng trong state', async () => {
+    const spy = stubApi({
+      '/api/v1/site-config': {
+        status: 403,
+        body: { type: 'about:blank', title: 'Forbidden', status: 403, code: 'auth.forbidden' },
+      },
+      '/api/v1/site-config/audit': { body: [] },
+    });
+    const { dehydratedState } = await siteConfigLoader({
+      request: sessionRequest('/admin/site-config'),
+    });
+    expect(countCalls(spy, '/api/v1/site-config')).toBe(1);
+    expect(findQuery(dehydratedState, queryKeys.siteConfig)).toBeUndefined();
+  });
+
+  it('đáp ứng 500: prefetch vẫn thử lại đủ 3 lượt theo chính sách retry (1 gốc + 2 retry)', async () => {
+    const spy = stubApi({
+      '/api/v1/site-config': {
+        status: 500,
+        body: { type: 'about:blank', title: 'Internal Server Error', status: 500, code: 'http.unknown' },
+      },
+      '/api/v1/site-config/audit': { body: [] },
+    });
+    const { dehydratedState } = await siteConfigLoader({
+      request: sessionRequest('/admin/site-config'),
+    });
+    expect(countCalls(spy, '/api/v1/site-config')).toBe(3);
+    expect(findQuery(dehydratedState, queryKeys.siteConfig)).toBeUndefined();
+  });
+
+  it('serverQueryFn ném ApiError mang đúng status 403 của đáp ứng', async () => {
+    stubApi({
+      '/api/v1/site-config': {
+        status: 403,
+        body: { type: 'about:blank', title: 'Forbidden', status: 403, code: 'auth.forbidden' },
+      },
+    });
+    const queryFn = serverQueryFn(sessionRequest('/admin/site-config'), '/api/v1/site-config');
+    const error: unknown = await queryFn().catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).problem.status).toBe(403);
+    expect((error as ApiError).problem.code).toBe('auth.forbidden');
   });
 });
 
