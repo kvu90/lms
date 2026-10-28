@@ -3,7 +3,7 @@
 # Docker đã bỏ khỏi repo (xem mục "Develop in a Dev Container" ở README
 # gốc); triển khai chạy theo đường buildpack được mô tả ở mục Review.
 #
-# Nền Node 24 khớp `.nvmrc` và trường `engines` của package.json gốc.
+# Nền Node 24 khớp trường `engines` của package.json gốc.
 # pnpm được cấp qua corepack theo đúng phiên bản ghim ở trường
 # `packageManager` (pnpm@12.14.0) — không cài pnpm toàn cục bằng npm.
 FROM node:24-bookworm
