@@ -3,6 +3,14 @@ name: CI
 on:
   pull_request:
 
+# Huỷ lượt kiểm của head cũ ngay khi PR có head mới: group tách riêng
+# theo từng PR (dự phòng bằng ref khi sự kiện không gắn với PR), nên các
+# lượt của head đã lỗi thời không chạy hết vô ích; cổng merge vẫn xét
+# lượt completed/success của head cuối như cũ.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
