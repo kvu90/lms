@@ -12,6 +12,8 @@ import { ClassPublicPage } from './class-public';
  *  - người chưa ghi danh thấy gói + nút thanh toán; bấm mua gọi đúng
  *    POST /payments/class-fee/:classId và hiện mã VietQR/mã thanh toán;
  *  - poll thấy payment succeeded → báo đã vào lớp;
+ *  - poll DỪNG hẳn khi payment đã succeeded (không gọi lặp vô thời
+ *    hạn theo trạng thái cũ trong state);
  *  - người ĐÃ ghi danh ACTIVE chỉ thấy trạng thái đã ghi danh, KHÔNG
  *    có nút mua (không bị mời mua lại) và không phát sinh payment nào;
  *  - lớp không bật học phí → không có nút mua;
@@ -139,6 +141,23 @@ describe('Trang công khai mua gói lớp (CLASS-3)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Thanh toán học phí' }));
     expect(await screen.findByText(/Thanh toán thành công — bạn đã vào lớp/, undefined, { timeout: 8000 })).toBeTruthy();
   });
+
+  it('poll dừng hẳn sau khi payment succeeded — không còn gọi GET /payments/:id', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, PUBLIC_PACKAGE, 'succeeded');
+    renderPublic();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Thanh toán học phí' }));
+    expect(await screen.findByText(/Thanh toán thành công — bạn đã vào lớp/, undefined, { timeout: 8000 })).toBeTruthy();
+
+    const paymentCalls = () => calls.filter((c) => c.url === `/api/v1/payments/${PAYMENT_ID}`).length;
+    const settledCount = paymentCalls();
+    expect(settledCount).toBeGreaterThan(0);
+    // Quá một chu kỳ poll (3 giây): số lần gọi phải đứng yên — poll
+    // đã dừng theo trạng thái mới nhất, không chạy vô thời hạn.
+    await new Promise((resolve) => setTimeout(resolve, 3400));
+    expect(paymentCalls()).toBe(settledCount);
+  }, 20000);
 
   it('người đã ghi danh ACTIVE: chỉ thấy trạng thái đã ghi danh, không có nút mua và không tạo payment', async () => {
     const calls: RecordedCall[] = [];

@@ -99,11 +99,10 @@ export function GradebookPage() {
   const postingPolicyMutation = useSetGradePostingPolicy(courseId);
   const publishedMutation = useSetGradeItemPublished(courseId);
 
-  useEffect(() => {
-    if (gradeDataQuery.data) {
-      setError(gradeDataQuery.data.gradebook ? null : t('gradebookLoadFailed'));
-    }
-  }, [gradeDataQuery.data, t]);
+  // Lỗi "tải được dữ kiện nhưng không có sổ điểm" suy ngay khi
+  // render từ dữ kiện query — không chép qua effect vào state như
+  // bản cũ; `error` trong state chỉ còn giữ lỗi của thao tác ghi.
+  const gradebookError = gradeDataQuery.data && !gradeDataQuery.data.gradebook ? t('gradebookLoadFailed') : null;
 
   // Gợi ý ánh xạ vnEdu mặc định theo tên bài khi danh sách bài đổi.
   useEffect(() => {
@@ -287,11 +286,11 @@ export function GradebookPage() {
   return (
     <PageShell width="full">
       <PageHeader title={t('gradebook')} />
-      {error && (
+      {(error ?? gradebookError) ? (
         <ErrorAlert variant="destructive" className="mb-4">
-          {error}
+          {error ?? gradebookError}
         </ErrorAlert>
-      )}
+      ) : null}
       {message && (
         <ErrorAlert className="mb-4">
           {message}

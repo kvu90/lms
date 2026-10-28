@@ -70,7 +70,6 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
   const [qCategory, setQCategory] = useState('');
-  const [loading, setLoading] = useState(true);
   // Dữ liệu trang qua TanStack (F-01 đợt 1): danh mục + câu hỏi/ngữ
   // liệu theo danh mục là các query theo khoá factory (clientLoader
   // của route module đã prefetch); vai không có capability ngân
@@ -82,17 +81,17 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
   const stimuliQuery = useCategoryStimuli(qCategory, bankGate);
   const stimuli = stimuliQuery.data ?? [];
 
-  useEffect(() => {
-    if (!categoriesQuery.isPending) setLoading(false);
-  }, [categoriesQuery.isPending]);
-
-  useEffect(() => {
-    if (categoriesQuery.isError) setMessage(t('questionBankLoadFailed'));
-  }, [categoriesQuery.isError, categoriesQuery.errorUpdatedAt, t]);
-
-  useEffect(() => {
-    if (stimuliQuery.isError) setMessage(t('stimulusLoadFailed'));
-  }, [stimuliQuery.isError, stimuliQuery.errorUpdatedAt, t]);
+  // Trạng thái tải + lỗi tải suy ngay khi render từ các query —
+  // không chép qua effect vào state như bản cũ: banner hiện
+  // message của thao tác nếu có, không thì lỗi tải (danh mục ưu
+  // tiên trước ngữ liệu như thứ tự các effect cũ ghi đè).
+  const loading = categoriesQuery.isPending;
+  const loadError = categoriesQuery.isError
+    ? t('questionBankLoadFailed')
+    : stimuliQuery.isError
+      ? t('stimulusLoadFailed')
+      : null;
+  const displayMessage = message ?? loadError;
 
   useEffect(() => {
     if (categories.length && !qCategory) setQCategory(String(categories[0]!.id));
@@ -165,16 +164,27 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     const derived = views.filter(
       (v) => (v.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId,
     );
-    for (const v of derived) {
-      if (attributions[v.question.id]) continue;
-      try {
-        const a = await queryClient.fetchQuery(questionAttributionQueryOptions(v.question.id));
-        setAttributions((prev) => ({ ...prev, [v.question.id]: a }));
-      } catch {
-        // Không có dòng ghi công thì thôi — không chặn danh sách.
-      }
+    // Mỗi câu một lượt đọc độc lập: nạp SONG SONG rồi gộp vào state
+    // một lần (bản cũ lặp await nối tiếp từng câu); câu nào lỗi thì
+    // bỏ qua như trước — không có dòng ghi công thì thôi, không
+    // chặn danh sách.
+    const entries = await Promise.all(
+      derived
+        .filter((v) => !attributions[v.question.id])
+        .map(async (v) => {
+          try {
+            const a = await queryClient.fetchQuery(questionAttributionQueryOptions(v.question.id));
+            return [v.question.id, a] as const;
+          } catch {
+            return null;
+          }
+        }),
+    );
+    const loaded: (readonly [string, AttributionLite])[] = entries.filter((entry) => entry !== null);
+    if (loaded.length > 0) {
+      setAttributions((prev) => ({ ...prev, ...Object.fromEntries(loaded) }));
     }
-  }, [attributions]);
+  }, [attributions, queryClient]);
 
   // Ghi công cho các câu copy trong bank cá nhân (trước đây do
   // loadMyQuestions gọi nối tiếp ngay sau khi nạp danh sách).
@@ -332,9 +342,9 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
         }
       />
       <BankAreaTabs area={area} />
-      {message ? (
+      {displayMessage ? (
         <ErrorAlert>
-          {message}
+          {displayMessage}
         </ErrorAlert>
       ) : null}
 

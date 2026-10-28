@@ -158,15 +158,22 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
       try {
         const view = await queryClient.fetchQuery(questionCurriculumLinksQueryOptions(qid));
         setLinks(view);
-        const labels: Record<string, string> = {};
-        for (const o of view.outcomes) {
-          try {
-            const oc = await queryClient.fetchQuery(curriculumOutcomeQueryOptions(o.outcomeId));
-            labels[oc.id] = oc.content;
-          } catch {
-            // Thiếu nhãn thì dòng gắn vẫn hiện bằng id của YCCĐ.
-          }
-        }
+        // Nhãn của từng YCCĐ độc lập nhau: nạp SONG SONG (bản cũ
+        // lặp await từng YCCĐ một); YCCĐ nào lỗi thì thiếu nhãn,
+        // dòng gắn vẫn hiện bằng id của nó như trước.
+        const labelEntries = await Promise.all(
+          view.outcomes.map(async (o) => {
+            try {
+              const oc = await queryClient.fetchQuery(curriculumOutcomeQueryOptions(o.outcomeId));
+              return [oc.id, oc.content] as const;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        const labels: Record<string, string> = Object.fromEntries(
+          labelEntries.filter((entry) => entry !== null),
+        );
         if (Object.keys(labels).length > 0) setOutcomeLabels((prev) => ({ ...prev, ...labels }));
       } catch {
         setLinks(null);
@@ -235,10 +242,16 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           catId = String(cats[0]!.id);
           setCategoryId(catId);
         }
-        await loadStimuli(catId).catch(() => setMessage(t('stimulusLoadFailed')));
+        // Ngữ liệu và danh sách câu của danh mục đều chỉ phụ thuộc
+        // catId nên nạp SONG SONG (bản cũ await nối tiếp hai lượt).
+        const [, rows] = await Promise.all([
+          loadStimuli(catId).catch(() => setMessage(t('stimulusLoadFailed'))),
+          mode === 'edit' && questionId
+            ? queryClient.fetchQuery(categoryQuestionsQueryOptions(catId))
+            : Promise.resolve(null),
+        ]);
         if (mode === 'edit' && questionId) {
-          const rows = await queryClient.fetchQuery(categoryQuestionsQueryOptions(catId));
-          const view = rows.find((r) => r.question.id === questionId);
+          const view = rows?.find((r) => r.question.id === questionId);
           if (!view) {
             setLoadError(t('questionBankLoadFailed'));
             return;

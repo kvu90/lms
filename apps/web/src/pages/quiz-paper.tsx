@@ -45,14 +45,35 @@ interface UploadOutcome {
   scan?: PaperScan;
 }
 
+/**
+ * Cache promise tải blob ảnh phiếu theo scanId ở tầng module: một
+ * scan hiện ở nhiều vùng cắt trên cùng màn chấm (RegionCrop ×2 +
+ * RowCrop từng dòng) nhưng chỉ tải xuống MỘT lần; lượt tải lỗi bị
+ * xoá khỏi cache để lần gắn sau thử lại. Object URL vẫn do từng
+ * instance tự tạo từ blob dùng chung và tự thu hồi khi unmount.
+ */
+const warpedBlobPromises = new Map<string, Promise<Blob>>();
+
+function fetchWarpedBlob(scanId: string): Promise<Blob> {
+  const cached = warpedBlobPromises.get(scanId);
+  if (cached) return cached;
+  const promise = apiFetch(`/api/v1/exam-scans/${scanId}/image/warped`).then((res) =>
+    res.ok ? res.blob() : Promise.reject(new Error('image failed')),
+  );
+  warpedBlobPromises.set(scanId, promise);
+  promise.catch(() => {
+    if (warpedBlobPromises.get(scanId) === promise) warpedBlobPromises.delete(scanId);
+  });
+  return promise;
+}
+
 /** URL object của ảnh phiếu đã nắn phẳng (qua endpoint có gác quyền chấm giấy). */
 function useWarpedUrl(scanId: string): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     let objectUrl: string | null = null;
-    void apiFetch(`/api/v1/exam-scans/${scanId}/image/warped`)
-      .then((res) => (res.ok ? res.blob() : Promise.reject(new Error('image failed'))))
+    void fetchWarpedBlob(scanId)
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob);
         if (live) setUrl(objectUrl);

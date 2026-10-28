@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { apiJson } from './api';
 import { queryClient } from './query-client';
 import { queryKeys } from './query-keys';
@@ -9,7 +9,8 @@ import { queryKeys } from './query-keys';
  * `queryKeys`, `clientLoader` của hai route (tạo mới không có gì để
  * nạp trước; sửa nạp trước chi tiết + lần ghim) prefetch đúng khoá.
  * Các thao tác ghi — tạo đề, sửa metadata, thay slots, đổi câu cùng
- * ô — qua `useMutation`; riêng đổi câu cùng ô: đáp ứng là view đề mới
+ * ô — qua `useMutation`; tạo/sửa/thay slots làm mới cache chi tiết +
+ * lần ghim khi thành công; riêng đổi câu cùng ô: đáp ứng là view đề mới
  * được đặt thẳng vào cache chi tiết để form khởi tạo lại từ view mới
  * như nhịp thủ công trước đây. Việc xoá cache danh sách ngân hàng ở
  * điểm lưu trước khi quay về danh sách do trang tự làm qua
@@ -135,14 +136,26 @@ export interface CreateExamPaperBody {
   slots: { questionId: string; maxMark: number; section?: string }[];
 }
 
+/**
+ * Làm mới cache chi tiết + các lần ghim của một đề sau một thao tác
+ * ghi thành công: các bề mặt khác đọc cùng hai khoá (và lần quay lại
+ * màn soạn trong cửa sổ staleTime) không thấy bản cũ sau khi lưu.
+ */
+function invalidateExamPaper(client: QueryClient, paperId: string) {
+  void client.invalidateQueries({ queryKey: queryKeys.examPaperDetail(paperId) });
+  void client.invalidateQueries({ queryKey: queryKeys.examPaperPins(paperId) });
+}
+
 /** Đột biến tạo đề mới trong bank — đáp ứng là view đề vừa tạo. */
 export function useCreateExamPaper() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: ({ bankId, body }: { bankId: string; body: CreateExamPaperBody }) =>
       apiJson<PaperView>(`/api/v1/exams/banks/${bankId}/exams`, {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    onSuccess: (view) => invalidateExamPaper(client, view.paper.id),
   });
 }
 
@@ -157,17 +170,20 @@ export interface UpdateExamPaperMetaBody {
 
 /** Đột biến sửa metadata của đề — đáp ứng là view đề sau khi sửa. */
 export function useUpdateExamPaperMeta() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: ({ paperId, body }: { paperId: string; body: UpdateExamPaperMetaBody }) =>
       apiJson<PaperView>(`/api/v1/exams/${paperId}`, {
         method: 'PATCH',
         body: JSON.stringify(body),
       }),
+    onSuccess: (_view, vars) => invalidateExamPaper(client, vars.paperId),
   });
 }
 
 /** Đột biến thay toàn bộ slots của đề (PUT /exams/:id/slots) — đáp ứng là view đề sau khi thay. */
 export function useReplaceExamPaperSlots() {
+  const client = useQueryClient();
   return useMutation({
     mutationFn: ({
       paperId,
@@ -180,6 +196,7 @@ export function useReplaceExamPaperSlots() {
         method: 'PUT',
         body: JSON.stringify({ slots }),
       }),
+    onSuccess: (_view, vars) => invalidateExamPaper(client, vars.paperId),
   });
 }
 

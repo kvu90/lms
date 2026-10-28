@@ -33,6 +33,8 @@ export const queryKeys = {
   questionDiscovery: (params: string) => ['questions', 'discovery', params] as const,
   /** Danh sách bank theo loại (GET /question-banks[?kind=] — trang questions; kind: 'question' | 'matrix' | 'exam'). */
   questionBanks: (kind: string) => ['question-banks', kind] as const,
+  /** Gốc khoá bank câu hỏi — tiền tố để xoá/làm mới mọi danh sách bank ba loại. */
+  questionBanksRoot: ['question-banks'] as const,
   /** Mọi câu hỏi trong bank cá nhân, gộp theo từng danh mục của bank (trang questions). */
   myBankQuestions: (bankId: string) => ['question-banks', bankId, 'all-questions'] as const,
   /** Ma trận của một bank (GET /question-banks/:id/matrices — trang questions). */
@@ -63,6 +65,8 @@ export const queryKeys = {
   courseContent: (courseId: string) => ['courses', courseId, 'content'] as const,
   /** Thanh toán của chính người dùng (GET /payments/me). */
   myPayments: ['payments', 'me'] as const,
+  /** Chi tiết một thanh toán theo id (GET /payments/:id) — trang lớp công khai poll trạng thái. */
+  payment: (paymentId: string) => ['payments', paymentId] as const,
   /** Chi tiết một bài tập nộp tệp (trang assignment). */
   assignmentDetail: (assignmentId: string) => ['assignments', assignmentId] as const,
   /** Dữ liệu điểm hiển thị theo từng khoá (báo cáo điểm + điểm theo bài của tôi) — tải lười tại bề mặt tiêu thụ qua lib/course-grade-data.ts. */
@@ -141,6 +145,8 @@ export const queryKeys = {
   calendarSubscriptions: ['calendar', 'subscriptions'] as const,
   /** Đường dẫn đăng ký xuất lịch của chính người dùng (GET /calendar/export-token). */
   calendarExportToken: ['calendar', 'export-token'] as const,
+  /** Các tenant người dùng là thành viên (GET /auth/tenants) — mục chuyển không gian làm việc. */
+  myTenants: ['auth', 'tenants'] as const,
   /** Các nhà cung cấp đăng nhập ngoài đang bật (GET /auth/oauth/providers) — dùng chung cho trang login và thẻ liên kết ở hồ sơ. */
   oauthProviders: ['auth', 'oauth', 'providers'] as const,
   /** Các liên kết đăng nhập ngoài của chính người dùng (GET /auth/oauth/links). */
@@ -189,6 +195,10 @@ export const queryKeys = {
   curriculumSubjects: ['curriculum', 'subjects'] as const,
   /** Các chương trình của một môn (GET /curriculum/curricula?subjectId=…). */
   curriculaBySubject: (subjectId: string) => ['curriculum', 'curricula', subjectId] as const,
+  /** Gốc khoá chương trình — tiền tố làm mới mọi truy vấn chương trình sau đột biến quản trị. */
+  curriculaRoot: ['curriculum', 'curricula'] as const,
+  /** Gốc khoá cây chương trình — tiền tố làm mới mọi cây sau đột biến node/YCCĐ. */
+  curriculumTreeRoot: ['curriculum', 'tree'] as const,
   /** Cây chương trình của một chương trình (GET /curriculum/curricula/:id/tree). */
   curriculumTree: (curriculumId: string) => ['curriculum', 'tree', curriculumId] as const,
   /** Chi tiết một ma trận đề (GET /exam-matrices/:id). */
@@ -272,8 +282,13 @@ export const queryKeys = {
   bookDatasetStatus: ['books', 'dataset-import'] as const,
   /** Danh sách SGK đã nạp (GET /books) — trang quản trị chương trình. */
   books: ['books'] as const,
+  /** Gốc khoá SGK — tiền tố làm mới mọi truy vấn sách (danh sách + cây) sau đột biến nạp dataset. */
+  booksRoot: ['books'] as const,
   /** Cây của một cuốn SGK (GET /books/:id/tree) — trang quản trị chương trình. */
   bookTree: (bookId: string) => ['books', bookId, 'tree'] as const,
+  /** Đơn vị khung SGK chọn được của cặp (môn, khối) kèm ngữ cảnh khoá — panel nạp khung SGK. */
+  bookFrameChapters: (subjectId: string, grade: number, forCourseId: string | null) =>
+    ['books', 'frame-chapters', subjectId, grade, forCourseId] as const,
   /** Một môn chương trình theo id (GET /curriculum/subjects/:id) — màn sửa môn. */
   curriculumSubjectRow: (subjectId: string) => ['curriculum', 'subjects', 'row', subjectId] as const,
   /** Một chương trình theo id (GET /curriculum/curricula/:id) — màn sửa chương trình. */
@@ -321,6 +336,8 @@ export const queryKeys = {
   questionUsage: (usageId: string) => ['question-usages', usageId] as const,
   /** Một ngữ liệu theo id (GET /stimuli/:id) — trang làm thử (nội dung của phiên bản đã ghim). */
   stimulusDetail: (stimulusId: string) => ['stimuli', stimulusId] as const,
+  /** URL hiển thị đã ký của một tệp câu hỏi theo định danh bền (màn soạn câu hỏi). */
+  questionFileSrc: (fileId: string | null) => ['question-file-src', fileId] as const,
   /** Cây nhóm của tab Nhóm (GET /messages/group-tree) — trang tin nhắn. */
   messagingGroupTree: ['messages', 'group-tree'] as const,
   /** Danh sách hội thoại chính (GET /messages/conversations) — trang tin nhắn. */

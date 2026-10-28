@@ -3,7 +3,7 @@
  * khỏi trang ngân hàng câu hỏi để mỗi module một màn; hành vi giữ nguyên
  * như khi còn nằm trong trang — xem TSDoc của component bên dưới.
  */
-import { useEffect, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 
@@ -21,7 +21,7 @@ import {
 import { Skeleton } from '@lms/ui/components/skeleton';
 import { ErrorAlert } from '#components/error-alert';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { accessContextsQueryOptions } from '#lib/access';
 import { usePermissions } from '#lib/permissions';
@@ -46,52 +46,50 @@ export function QuestionCategoryNewPage() {
   const perms = usePermissions();
   const [catName, setCatName] = useState('');
   const [contextId, setContextId] = useState('');
-  const [contextOptions, setContextOptions] = useState<ContextOption[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!perms.ready || !perms.canUseQuestionBank) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const contexts = await queryClient.fetchQuery(accessContextsQueryOptions());
-        const manageable = new Set(
-          (perms.access?.contexts ?? [])
-            .filter((c) => c.capabilities.includes('question:managecategory'))
-            .map((c) => c.contextId),
-        );
-        const courseName = (instanceId: string) =>
-          perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
-        const options: ContextOption[] = contexts
-          .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
-          .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
-          .map((c) => ({
-            id: c.id,
-            level: c.contextLevel,
-            label:
-              c.contextLevel === 10
-                ? t('contextSystem')
-                : c.contextLevel === 50
-                  ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
-                  : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
-          }));
-        if (cancelled) return;
-        setContextOptions(options);
-        setContextId((prev) => prev || options.find((o) => o.level === 10)?.id || options[0]?.id || '');
-      } catch {
-        // Không tải được danh sách ngữ cảnh thì select để rỗng; nếu vẫn
-        // gửi tạo danh mục, lỗi hiện lý do thật từ API (mục 3).
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [perms.ready, perms.canUseQuestionBank, perms.access]);
+  // Danh sách ngữ cảnh đọc qua useQuery (chỉ tải khi quyền đã sẵn
+  // sàng); lựa chọn suy thẳng bằng useMemo từ dữ kiện query + ảnh
+  // chụp quyền — lỗi tải thì dữ kiện vắng, select để rỗng như bản
+  // fetch-trong-effect trước đây.
+  const contextsQuery = useQuery({
+    ...accessContextsQueryOptions(),
+    enabled: perms.ready && perms.canUseQuestionBank,
+  });
+  const contextOptions = useMemo<ContextOption[]>(() => {
+    const contexts = contextsQuery.data ?? [];
+    const manageable = new Set(
+      (perms.access?.contexts ?? [])
+        .filter((c) => c.capabilities.includes('question:managecategory'))
+        .map((c) => c.contextId),
+    );
+    const courseName = (instanceId: string) =>
+      perms.courses.find((c) => c.course.id === instanceId)?.course.fullName;
+    return contexts
+      .filter((c) => c.contextLevel === 10 || c.contextLevel === 40 || c.contextLevel === 50)
+      .filter((c) => perms.access?.isSiteAdmin || manageable.has(c.id))
+      .map((c) => ({
+        id: c.id,
+        level: c.contextLevel,
+        label:
+          c.contextLevel === 10
+            ? t('contextSystem')
+            : c.contextLevel === 50
+              ? `${t('contextCourse')}: ${courseName(c.instanceId) ?? c.instanceId.slice(0, 8)}`
+              : `${t('contextCourseCategory')}: ${c.instanceId.slice(0, 8)}`,
+      }));
+  }, [contextsQuery.data, perms.access, perms.courses, t]);
+
+  // Ngữ cảnh hiệu lực: lựa chọn của người dùng nếu có, chưa chọn thì
+  // mặc định ngữ cảnh hệ thống (không có thì lựa chọn đầu tiên) —
+  // suy ngay khi render thay cho việc chép mặc định vào state.
+  const effectiveContextId =
+    contextId || contextOptions.find((o) => o.level === 10)?.id || contextOptions[0]?.id || '';
 
   async function createCategory(event: FormEvent) {
     event.preventDefault();
     try {
-      await createCategoryMutation.mutateAsync({ name: catName, contextId });
+      await createCategoryMutation.mutateAsync({ name: catName, contextId: effectiveContextId });
       clearQuestionBankListCache(queryClient);
       navigate('/questions');
     } catch (err) {
@@ -149,7 +147,7 @@ export function QuestionCategoryNewPage() {
                 <FieldLabel id="qcat-context-label">{t('questionCategoryContext')}</FieldLabel>
                 <Select
                   items={Object.fromEntries(contextOptions.map((option) => [option.id, option.label]))}
-                  value={contextId === '' ? null : contextId}
+                  value={effectiveContextId === '' ? null : effectiveContextId}
                   onValueChange={(v) => setContextId(v ?? '')}
                 >
                   <SelectTrigger aria-labelledby="qcat-context-label" className="w-full">
@@ -165,7 +163,7 @@ export function QuestionCategoryNewPage() {
                 </Select>
               </Field>
               <div className="flex justify-end">
-                <Button type="submit" disabled={!contextId}>
+                <Button type="submit" disabled={!effectiveContextId}>
                   {t('createCategory')}
                 </Button>
               </div>

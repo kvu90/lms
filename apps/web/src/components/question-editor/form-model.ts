@@ -110,7 +110,10 @@ export interface QuestionEditorFormState {
   saNumericMaxLength: string;
   saNumericAllowSign: boolean;
   saNumericAllowDecimal: boolean;
-  saAnswers: { text: string }[];
+  // Mỗi đáp án mang `id` phía client ổn định cho key/id của dòng
+  // đáp án (danh sách có lên/xuống + xoá nên không dùng index làm
+  // key); payload gửi API chỉ gồm `text`, không mang trường này.
+  saAnswers: { id: string; text: string }[];
   // essay
   essayResponseFormat: string;
   essayResponseRequired: boolean;
@@ -145,7 +148,7 @@ export function emptyEditorForm(qtype: Qtype = 'multichoice'): QuestionEditorFor
     saNumericMaxLength: '',
     saNumericAllowSign: false,
     saNumericAllowDecimal: false,
-    saAnswers: [{ text: '' }],
+    saAnswers: [{ id: crypto.randomUUID(), text: '' }],
     essayResponseFormat: 'editor',
     essayResponseRequired: true,
     essayResponseFieldLines: '15',
@@ -223,7 +226,7 @@ export function editorFormFromView(
     form.saNumericAllowDecimal = options.numericAllowDecimal === true;
     const answers = [...(view.answers ?? [])]
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((answer) => ({ text: plainText(answer.answer) }));
+      .map((answer) => ({ id: crypto.randomUUID(), text: plainText(answer.answer) }));
     if (answers.length > 0) form.saAnswers = answers;
   }
 

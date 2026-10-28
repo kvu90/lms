@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
@@ -266,7 +266,7 @@ export function MatrixEditPage() {
   const detailQuery = useMatrixDetail(matrixId, canLoad);
   const matrix = detailQuery.data ?? null;
   const treeQuery = useCurriculumTree(matrix?.curriculumId, !!matrix);
-  const nodes = treeQuery.data ? flattenNodes(treeQuery.data) : [];
+  const nodes = useMemo(() => (treeQuery.data ? flattenNodes(treeQuery.data) : []), [treeQuery.data]);
   const availability = useMatrixAvailability(matrixId, canLoad && !!matrix).data ?? null;
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -314,10 +314,30 @@ export function MatrixEditPage() {
     }
   }
 
-  // Nạp hỏng chi tiết: báo lỗi tải như nhịp loadMatrix thủ công cũ.
-  useEffect(() => {
-    if (detailQuery.isError) setMessage(t('matrixLoadFailed'));
-  }, [detailQuery.isError, t]);
+  // Lỗi tải chi tiết suy ngay khi render từ trạng thái query —
+  // không chép qua effect vào state như bản cũ: banner hiện
+  // message của thao tác nếu có, không thì lỗi tải.
+  const loadError = detailQuery.isError ? t('matrixLoadFailed') : null;
+  const displayMessage = message ?? loadError;
+
+  // Các dòng phẳng của bản đặc tả (một dòng = một ô ma trận, STT
+  // chạy toàn bảng như bản xuất xlsx/docx) + hai Map tra cứu cho
+  // từng ô: memo theo đúng dữ kiện nguồn — bản cũ tính flatMap lại
+  // mỗi render kể cả khi gõ phím và tìm tuyến tính (.find) từng ô.
+  const specRows = useMemo(
+    () =>
+      spec
+        ? spec.topics.flatMap((topic) =>
+            topic.nodes.flatMap((node) => node.cells.map((cell) => ({ topic, node, cell }))),
+          )
+        : [],
+    [spec],
+  );
+  const nodeTitleById = useMemo(() => new Map(nodes.map((n) => [n.id, n.title] as const)), [nodes]);
+  const availabilityByCellId = useMemo(
+    () => new Map((availability?.cells ?? []).map((c) => [c.cellId, c] as const)),
+    [availability],
+  );
 
   // Khởi tạo các trường form từ bản ghi mỗi khi chi tiết (lại) tải về —
   // đúng nhịp loadMatrix cũ, vốn chạy lại sau mỗi đột biến thành công.
@@ -382,23 +402,15 @@ export function MatrixEditPage() {
     );
   }
 
-  // Các dòng phẳng của bản đặc tả: một dòng = một ô ma trận, STT chạy
-  // toàn bảng như bản xuất xlsx/docx.
-  const specRows = spec
-    ? spec.topics.flatMap((topic) =>
-        topic.nodes.flatMap((node) => node.cells.map((cell) => ({ topic, node, cell }))),
-      )
-    : [];
-
-  const nodeLabel = (id: string) => nodes.find((n) => n.id === id)?.title ?? id.slice(0, 8);
-  const availabilityOf = (cellId: string) => availability?.cells.find((c) => c.cellId === cellId);
+  const nodeLabel = (id: string) => nodeTitleById.get(id) ?? id.slice(0, 8);
+  const availabilityOf = (cellId: string) => availabilityByCellId.get(cellId);
 
   return (
     <PageShell width="medium">
       <PageHeader title={t('matrixEditTitle')} />
-      {message ? (
+      {displayMessage ? (
         <ErrorAlert>
-          {message}
+          {displayMessage}
         </ErrorAlert>
       ) : null}
       <Card>

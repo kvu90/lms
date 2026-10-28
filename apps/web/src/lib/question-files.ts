@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, apiJson } from './api';
+import { queryKeys } from './query-keys';
 
 /**
  * Nối editor câu hỏi với module files của hệ (issue #248, lát QE-2):
@@ -87,7 +88,7 @@ export async function resolveFileDisplayUrl(fileId: string): Promise<string> {
 export function useResolvedFileSrc(src: string | undefined): string | undefined {
   const fileId = src ? questionFileIdFromSrc(src) : null;
   const query = useQuery({
-    queryKey: ['question-file-src', fileId],
+    queryKey: queryKeys.questionFileSrc(fileId),
     queryFn: () => resolveFileDisplayUrl(fileId as string),
     enabled: fileId !== null,
     staleTime: 240_000,

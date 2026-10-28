@@ -79,21 +79,35 @@ export function ContentBankEditPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Nạp nền (không gian, môn, danh mục câu hỏi) rồi nạp chính học
+  // Nạp nền (không gian, môn, danh mục câu hỏi) và nạp chính học
   // liệu khi sửa: mọi lần đọc qua tầng TanStack Query (fetchQuery
   // với options của lib/content-bank-data.ts — F-01 của rà soát
   // #133); các chuỗi lỗi-được-nuốt của bản thủ công đã nằm trong
   // chính queryFn của options (môn/danh mục lỗi thì rỗng), lỗi đọc
-  // học liệu vẫn nổi lên để hiện thông báo như trước.
+  // học liệu vẫn nổi lên để hiện thông báo như trước. Bốn lượt đọc
+  // độc lập nhau nên chạy SONG SONG (bản cũ await nối tiếp từng
+  // lượt); kết quả học liệu được bọc ngay từ đầu để lỗi của nó
+  // không thành rejection chưa ai bắt trong lúc chờ ba lượt nền.
   useEffect(() => {
     void (async () => {
-      const spaceRows = await queryClient.fetchQuery(contentBankSpacesQueryOptions()).catch(() => [] as LibrarySpace[]);
+      const itemResult = id
+        ? queryClient.fetchQuery(contentBankItemQueryOptions(id)).then(
+            (item) => ({ ok: true as const, item }),
+            (err: unknown) => ({ ok: false as const, err }),
+          )
+        : null;
+      const [spaceRows, subjectRows, categoryRows] = await Promise.all([
+        queryClient.fetchQuery(contentBankSpacesQueryOptions()).catch(() => [] as LibrarySpace[]),
+        queryClient.fetchQuery(contentBankSubjectsQueryOptions()),
+        queryClient.fetchQuery(contentBankQuestionCategoriesQueryOptions()),
+      ]);
       setSpaces(spaceRows);
-      setSubjects(await queryClient.fetchQuery(contentBankSubjectsQueryOptions()));
-      setCategories(await queryClient.fetchQuery(contentBankQuestionCategoriesQueryOptions()));
-      if (id) {
-        try {
-          const item = await queryClient.fetchQuery(contentBankItemQueryOptions(id));
+      setSubjects(subjectRows);
+      setCategories(categoryRows);
+      if (itemResult) {
+        const result = await itemResult;
+        if (result.ok) {
+          const item = result.item;
           setName(item.name);
           setResourceType(item.resourceType);
           setScope(item.scope);
@@ -117,8 +131,8 @@ export function ContentBankEditPage() {
           setLicense(item.license ?? '');
           setDerivedFromId(item.derivedFromId ?? '');
           setCurrentFileId(item.fileId);
-        } catch (err) {
-          setError(errorText(err, t('libraryLoadFailed')));
+        } else {
+          setError(errorText(result.err, t('libraryLoadFailed')));
         }
         setLoaded(true);
       }

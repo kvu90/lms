@@ -387,7 +387,7 @@ export function questionDiscoveryQueryOptions(params: string) {
  */
 export function clearQuestionBankListCache(client: QueryClient) {
   client.removeQueries({ queryKey: queryKeys.questionCategories });
-  client.removeQueries({ queryKey: ['question-banks'] });
+  client.removeQueries({ queryKey: queryKeys.questionBanksRoot });
 }
 
 /**

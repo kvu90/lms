@@ -12,8 +12,7 @@ import {
 } from '#lib/course-builder-data';
 import { FrameUnitPicker } from './frame-picker';
 import {
-  fetchFrameUnitsFor, fetchSubjects, fetchSystemContextId, fetchBookFrameChaptersFor,
-  type CurriculumSubject, type FrameUnit, type BookFrameChapter,
+  useBookFrameChapters, useCurriculumFrameUnits, useCurriculumSubjectsScoped,
 } from '#lib/curriculum';
 
 /**
@@ -39,15 +38,11 @@ export function CurriculumFramePanel({
   onApplied: () => void;
 }) {
   const { t } = useTranslation('app');
-  const [subjects, setSubjects] = useState<CurriculumSubject[]>([]);
   const [subjectId, setSubjectId] = useState('');
   const [grade, setGrade] = useState('');
-  const [units, setUnits] = useState<FrameUnit[]>([]);
-  const [curriculumId, setCurriculumId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [insertAt, setInsertAt] = useState('');
   const [message, setMessage] = useState<string | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
   const updateFrameInfoMutation = useUpdateCourseFrameInfo();
   const applyFrameMutation = useApplyCurriculumFrame();
 
@@ -58,36 +53,26 @@ export function CurriculumFramePanel({
     setGrade(course.grade != null ? String(course.grade) : '');
   }, [course?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const contextId = await fetchSystemContextId();
-        // forCourseId = chính khoá này: giáo viên cấp khoá đọc được danh
-        // sách môn qua nhánh course:update tại khoá mình dạy (issue #66).
-        if (contextId) setSubjects(await fetchSubjects(contextId, courseId));
-      } catch {
-        setLoadFailed(true);
-      }
-    })();
-  }, [courseId]);
+  // Danh sách môn đọc qua hook TanStack kèm forCourseId = chính khoá
+  // này: giáo viên cấp khoá đọc được qua nhánh course:update tại khoá
+  // mình dạy (issue #66); không cần đọc context hệ thống trước — API
+  // mặc định về context hệ thống khi không kèm contextId. Lỗi tải
+  // (kể cả 403 khi không có cả hai nhánh quyền) suy từ trạng thái
+  // query ngay khi render.
+  const subjectsQuery = useCurriculumSubjectsScoped(null, courseId);
+  const subjects = subjectsQuery.data ?? [];
+  const loadFailed = subjectsQuery.isError;
+
+  // Đơn vị khung của cặp (môn, khối) đang chọn, cũng qua hook: đổi
+  // môn/khối là một khoá cache mới nên không còn race của effect cũ;
+  // lựa chọn đang tích được đặt lại mỗi khi cặp (môn, khối) đổi.
+  const frameUnitsQuery = useCurriculumFrameUnits(subjectId, grade ? Number(grade) : null, courseId);
+  const curriculumId = frameUnitsQuery.data?.curriculumId ?? null;
+  const units = frameUnitsQuery.data?.units ?? [];
 
   useEffect(() => {
     setSelected([]);
-    if (!subjectId || !grade) {
-      setUnits([]);
-      setCurriculumId(null);
-      return;
-    }
-    void fetchFrameUnitsFor(subjectId, Number(grade), courseId)
-      .then(({ curriculumId: found, units: foundUnits }) => {
-        setCurriculumId(found);
-        setUnits(foundUnits);
-      })
-      .catch(() => {
-        setCurriculumId(null);
-        setUnits([]);
-      });
-  }, [subjectId, grade, courseId]);
+  }, [subjectId, grade]);
 
   /** Lưu môn/khối của khoá qua PATCH /courses/:id. */
   async function saveCourseInfo() {
@@ -232,31 +217,22 @@ export function BookFramePanel({
   onApplied: () => void;
 }) {
   const { t } = useTranslation('app');
-  const [bookId, setBookId] = useState<string | null>(null);
-  const [chapters, setChapters] = useState<BookFrameChapter[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [insertAt, setInsertAt] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
+  // Chủ đề SGK của cặp (môn, khối) đã gắn cho khoá, đọc qua hook
+  // TanStack: chưa gắn đủ (môn, khối) hoặc lỗi tải thì coi như chưa
+  // có sách nào để chọn; lựa chọn đang tích đặt lại khi cặp đổi.
+  const subjectId = course?.subjectId ?? '';
+  const grade = course?.grade ?? null;
+  const chaptersQuery = useBookFrameChapters(subjectId, grade, courseId);
+  const bookId = chaptersQuery.data?.bookId ?? null;
+  const chapters = chaptersQuery.data?.chapters ?? [];
+
   useEffect(() => {
     setSelected([]);
-    const subjectId = course?.subjectId ?? '';
-    const grade = course?.grade ?? null;
-    if (!subjectId || grade == null) {
-      setBookId(null);
-      setChapters([]);
-      return;
-    }
-    void fetchBookFrameChaptersFor(subjectId, grade, courseId)
-      .then(({ bookId: found, chapters: foundChapters }) => {
-        setBookId(found);
-        setChapters(foundChapters);
-      })
-      .catch(() => {
-        setBookId(null);
-        setChapters([]);
-      });
-  }, [course?.subjectId, course?.grade, courseId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [subjectId, grade, courseId]);
 
   const applyBookFrameMutation = useApplyBookFrame();
 
