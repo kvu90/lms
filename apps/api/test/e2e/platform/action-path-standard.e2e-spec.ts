@@ -1,5 +1,4 @@
 import { Logger, type INestApplication } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, uniqueName } from '../../support/identity-access-helpers';
 import { createCategory, createCm, createCourse, createSection } from '../../support/course-enrolment-helpers';
@@ -9,20 +8,14 @@ import { createCategory, createCm, createCourse, createSection } from '../../sup
  * #345: giai đoạn 1 các bề mặt ngoài module exams + giai đoạn 2 phần
  * `board-*` của module exams).
  *
- * Ba khẳng định chính:
- * - Bảng route của các bề mặt đổi tên chụp qua tài liệu OpenAPI phải
- *   bằng đúng 16 cặp (method, path): 8 route canonical mang segment
- *   chuẩn (`copy`, `reactivate`, `exports`, `reports`) cộng 8 route
- *   alias mang segment cũ (`duplicate`, `unsuspend`, `export.ics`,
- *   `report.csv`) — thêm/bớt/đổi bất kỳ route nào trong các bề mặt này
- *   đều làm spec đỏ, kể cả khi các flow nghiệp vụ vẫn chạy.
- * - Riêng giai đoạn 2, bảng route của hai bề mặt duyệt đóng góp/bộ hồ
- *   sơ phải bằng đúng 16 cặp: 4 route canonical `/exams` mang
- *   `approve`/`reject`, 4 route alias `/exams` mang `board-*`, và 8
- *   route gương `/exam-papers` của cụm alias #343 (đủ cả `approve`/
- *   `reject` lẫn `board-*`). Hành vi alias của giai đoạn 2 (đường cũ
- *   vẫn duyệt cấp 2, kèm header sắp bỏ) do flow S4 của đóng góp khoá
- *   riêng, không dựng lại ở spec này.
+ * Các khẳng định chính còn lại ở spec này (hành vi qua HTTP):
+ * - Hai bảng route tĩnh của các bề mặt đổi tên (16 cặp của giai đoạn 1
+ *   và 16 cặp của giai đoạn 2) nay được ghim ở spec hợp đồng bảng
+ *   route tại tầng integration:
+ *   `test/integration/platform/route-table-contract.int-spec.ts`.
+ *   Hành vi alias của giai đoạn 2 (đường cũ vẫn duyệt cấp 2, kèm
+ *   header sắp bỏ) do flow S4 của đóng góp khoá riêng, không dựng lại
+ *   ở spec này.
  * - Hành vi alias: path cũ vẫn tới được đúng handler (kết quả như
  *   canonical), response qua alias mang header Deprecation/Sunset và
  *   mỗi lượt gọi alias sinh log có cấu trúc `deprecated_route_alias`;
@@ -37,15 +30,10 @@ import { createCategory, createCm, createCourse, createSection } from '../../sup
 describe('Action path standard (issue #345)', () => {
   let app: INestApplication;
   let admin: string;
-  let document: OpenAPIObject;
 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
-    document = SwaggerModule.createDocument(
-      app,
-      new DocumentBuilder().setTitle('LMS API').setDescription('action path standard probe').setVersion('1.0').build(),
-    );
   });
 
   afterAll(async () => {
@@ -53,54 +41,7 @@ describe('Action path standard (issue #345)', () => {
     await app.close();
   });
 
-  it('documents exactly the 8 canonical and 8 alias routes of the renamed surfaces', () => {
-    // Tập kỳ vọng viết literal: 8 canonical + 8 alias, dạng path OpenAPI.
-    const expected = [
-      // Canonical: động từ chuẩn theo danh sách hành động đóng.
-      'POST /badges/{id}/copy',
-      'POST /competencies/frameworks/{id}/copy',
-      'POST /courses/{id}/copy',
-      'POST /courses/{id}/sections/{sectionId}/copy',
-      'POST /courses/{id}/modules/{cmId}/copy',
-      'POST /users/{id}/reactivate',
-      'GET /calendar/exports',
-      'GET /courses/{courseId}/progress/reports',
-      // Alias: segment cũ giữ song song kèm Deprecation/Sunset + log.
-      'POST /badges/{id}/duplicate',
-      'POST /competencies/frameworks/{id}/duplicate',
-      'POST /courses/{id}/duplicate',
-      'POST /courses/{id}/sections/{sectionId}/duplicate',
-      'POST /courses/{id}/modules/{cmId}/duplicate',
-      'POST /users/{id}/unsuspend',
-      'GET /calendar/export.ics',
-      'GET /courses/{courseId}/progress/report.csv',
-    ];
 
-    // Chỉ chọn đúng các bề mặt đổi tên của issue này: các path có
-    // segment hành động thuộc tập đang đổi (canonical hoặc alias).
-    const surfacePatterns = [
-      /^\/badges\/\{[^}]+\}\/(copy|duplicate)$/,
-      /^\/competencies\/frameworks\/\{[^}]+\}\/(copy|duplicate)$/,
-      /^\/courses\/\{[^}]+\}\/(copy|duplicate)$/,
-      /^\/courses\/\{[^}]+\}\/sections\/\{[^}]+\}\/(copy|duplicate)$/,
-      /^\/courses\/\{[^}]+\}\/modules\/\{[^}]+\}\/(copy|duplicate)$/,
-      /^\/users\/\{[^}]+\}\/(reactivate|unsuspend)$/,
-      /^\/calendar\/(exports|export\.ics)$/,
-      /^\/courses\/\{[^}]+\}\/progress\/(reports|report\.csv)$/,
-    ];
-    const httpMethods = new Set(['get', 'post', 'put', 'patch', 'delete']);
-    const actual: string[] = [];
-    for (const [rawPath, pathItem] of Object.entries(document.paths ?? {})) {
-      // Chuẩn hoá: bỏ tiền tố /api/v1 nếu tài liệu mang tiền tố đó.
-      const path = rawPath.startsWith('/api/v1/') ? rawPath.slice('/api/v1'.length) : rawPath;
-      if (!surfacePatterns.some((pattern) => pattern.test(path))) continue;
-      for (const method of Object.keys(pathItem ?? {})) {
-        if (httpMethods.has(method)) actual.push(`${method.toUpperCase()} ${path}`);
-      }
-    }
-
-    expect(actual.sort()).toEqual([...expected].sort());
-  });
 
   it('serves legacy aliases with deprecation headers and structured logs while canonical routes stay unmarked', async () => {
     // Dựng dữ liệu hoàn toàn bằng path canonical / bề mặt không đổi tên.
@@ -254,47 +195,5 @@ describe('Action path standard (issue #345)', () => {
     expect(loggedPairs).toContain('courses/:courseId/progress/report.csv -> courses/:courseId/progress/reports?format=csv');
   });
 
-  it('documents exactly the exams canonical, board-* alias and exam-papers mirror routes of phase 2', () => {
-    // Tập kỳ vọng viết literal: 4 canonical `/exams` + 4 alias
-    // `/exams` mang `board-*` + 8 route gương `/exam-papers`.
-    const expected = [
-      // Canonical `/exams`: một động từ duyệt duy nhất cho cả hai cấp.
-      'POST /exams/banks/{bankId}/contributions/{contributionId}/approve',
-      'POST /exams/banks/{bankId}/contributions/{contributionId}/reject',
-      'POST /exams/dossiers/{dossierId}/approve',
-      'POST /exams/dossiers/{dossierId}/reject',
-      // Alias `/exams`: segment cũ giữ song song kèm Deprecation/Sunset + log.
-      'POST /exams/banks/{bankId}/contributions/{contributionId}/board-approve',
-      'POST /exams/banks/{bankId}/contributions/{contributionId}/board-reject',
-      'POST /exams/dossiers/{dossierId}/board-approve',
-      'POST /exams/dossiers/{dossierId}/board-reject',
-      // Gương `/exam-papers` của cụm alias #343: giữ đủ cả hai dạng.
-      'POST /exam-papers/banks/{bankId}/contributions/{contributionId}/approve',
-      'POST /exam-papers/banks/{bankId}/contributions/{contributionId}/reject',
-      'POST /exam-papers/banks/{bankId}/contributions/{contributionId}/board-approve',
-      'POST /exam-papers/banks/{bankId}/contributions/{contributionId}/board-reject',
-      'POST /exam-papers/dossiers/{dossierId}/approve',
-      'POST /exam-papers/dossiers/{dossierId}/reject',
-      'POST /exam-papers/dossiers/{dossierId}/board-approve',
-      'POST /exam-papers/dossiers/{dossierId}/board-reject',
-    ];
 
-    // Chỉ chọn đúng hai bề mặt duyệt của giai đoạn 2: đóng góp và bộ
-    // hồ sơ, với động từ thuộc tập đang hợp nhất.
-    const surfacePatterns = [
-      /^\/(exams|exam-papers)\/banks\/\{[^}]+\}\/contributions\/\{[^}]+\}\/(approve|reject|board-approve|board-reject)$/,
-      /^\/(exams|exam-papers)\/dossiers\/\{[^}]+\}\/(approve|reject|board-approve|board-reject)$/,
-    ];
-    const httpMethods = new Set(['get', 'post', 'put', 'patch', 'delete']);
-    const actual: string[] = [];
-    for (const [rawPath, pathItem] of Object.entries(document.paths ?? {})) {
-      const path = rawPath.startsWith('/api/v1/') ? rawPath.slice('/api/v1'.length) : rawPath;
-      if (!surfacePatterns.some((pattern) => pattern.test(path))) continue;
-      for (const method of Object.keys(pathItem ?? {})) {
-        if (httpMethods.has(method)) actual.push(`${method.toUpperCase()} ${path}`);
-      }
-    }
-
-    expect(actual.sort()).toEqual([...expected].sort());
-  });
 });
