@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { queryOptions, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { CourseActivityGrid, MyActivityGrades } from '@lms/contracts';
 import { apiJson } from './api';
@@ -67,17 +66,17 @@ export function useCoursesGradeData(courseIds: string[]) {
       queryFn: () => fetchCourseGradeData(courseId),
     })),
   });
-  return useMemo(() => {
-    const map = new Map<string, CourseGradeData>();
-    courseIds.forEach((courseId, i) => {
-      const data = queries[i]?.data;
-      if (data) map.set(courseId, data);
-    });
-    return map;
-    // queries là mảng kết quả theo đúng thứ tự courseIds; phụ thuộc vào
-    // chữ ký dữ liệu của từng query để Map dựng lại khi có khoá tải xong.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseIds.join(','), queries.map((q) => (q.data ? 1 : 0)).join('')]);
+  // Map dựng thẳng khi render từ dữ kiện hiện tại của các query:
+  // bản cũ memo theo "chữ ký 0/1" (khoá có dữ kiện hay chưa) nên
+  // refetch ra điểm mới mà chữ ký không đổi thì Map giữ điểm cũ.
+  // Dựng Map rất rẻ so với dữ kiện đã nằm trong bộ nhớ nên không
+  // cần memo.
+  const map = new Map<string, CourseGradeData>();
+  courseIds.forEach((courseId, i) => {
+    const data = queries[i]?.data;
+    if (data) map.set(courseId, data);
+  });
+  return map;
 }
 
 // --- Đột biến + lịch sử điểm của trang bảng điểm (F-01 của rà soát #133) -------
