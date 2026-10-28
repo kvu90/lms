@@ -33,8 +33,10 @@ import { MESSAGE_PROVIDERS, providerByName } from './notification-providers';
  *
  * Phạm vi parity — các trường THUỘC đối chiếu: `name`, `component`,
  * `mandatoryInApp` của mọi provider trong bản chiếu; cộng bề mặt
- * phát: mọi tên provider được phát qua `deliverInApp(` trong
- * apps/worker/src phải có mặt trong bản chiếu.
+ * phát: mọi tên provider được phát qua `deliverInApp(` trong các
+ * file nguồn production của apps/worker/src phải có mặt trong bản
+ * chiếu (file test `*.spec.ts` đặt cạnh nguồn không phải đường
+ * phát production — xem ghi chú tại vòng quét bên dưới).
  *
  * NGOÀI parity (kèm lý do, đã ghi tường minh trong issue #293):
  * - `audience`: chỉ gác ở tầng tuỳ chọn phía API (lọc danh sách loại
@@ -50,7 +52,7 @@ import { MESSAGE_PROVIDERS, providerByName } from './notification-providers';
  *
  * Nửa HÀNH VI của parity (luật cứng hai phía cho cùng kết quả:
  * đình chỉ / chính sách admin NB-7 / loại bắt buộc P2) nằm ở phía
- * worker — `apps/worker/test/notifications/notification-parity.spec.ts` — vì nó
+ * worker — `apps/worker/src/notification-parity.spec.ts` — vì nó
  * phải chạy `NotificationDeliveryService` thật của worker.
  */
 
@@ -105,6 +107,12 @@ describe('Notification parity: worker mirror vs API registry (issue #293)', () =
         const full = join(dir, entry.name);
         if (entry.isDirectory()) { walk(full); continue; }
         if (!entry.name.endsWith('.ts')) continue;
+        // File test không phải đường phát production: spec của chính
+        // worker đặt cạnh nguồn (ví dụ notification-parity.spec.ts)
+        // chứa lời gọi deliverInApp bằng provider tổng hợp chỉ phục
+        // vụ ca test của nó — bề mặt phát mà ca này gác chỉ gồm file
+        // nguồn production, nên bỏ qua mọi file *.spec.ts.
+        if (entry.name.endsWith('.spec.ts')) continue;
         const text = readFileSync(full, 'utf-8');
         for (const match of text.matchAll(/deliverInApp\(\s*[^,]+,\s*'([a-z0-9_]+)'/g)) {
           emitted.add(match[1]);
