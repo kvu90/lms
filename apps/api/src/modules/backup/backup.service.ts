@@ -727,12 +727,27 @@ export class BackupService {
    * Tạo và chạy restore job với 3 chế độ tường minh. Backup mức SITE chỉ
    * khôi phục ở chế độ `new` (tạo dữ liệu mức site MỚI, không có khoá đích):
    * merge/replace/khoá đích đều bị từ chối vì không có course đích để gộp.
+   * Trước mọi xử lý, người gọi phải qua cổng đọc tại khoá NGUỒN của job
+   * backup (cùng cổng `assertJobReadable` với các đường đọc) — restore là
+   * đường chép dữ kiện khoá nên không được nhẹ cổng hơn đường đọc.
    */
   async restore(actorId: string, backupJobId: string, mode: 'new' | 'merge' | 'replace', targetCourseId?: string): Promise<JobRow> {
     const backup = await this.getJob(backupJobId);
     if (backup.type !== 'backup' || backup.status !== 'completed' || !backup.archive) {
       throw new BadRequestException({ message: 'Backup job is not a completed backup', code: 'backup.not_completed' });
     }
+    // Cổng đọc tại NGUỒN: mọi đường chép dữ kiện khoá phải qua cùng cổng
+    // đọc tại nguồn như các đường đọc — người gọi phải có
+    // `backup:backupcourse` hoặc `backup:restorecourse` tại context của
+    // khoá thuộc job (job site thì tại context hệ thống, nơi đường
+    // restore site vốn đã đòi `restorecourse` nên hành vi site không
+    // đổi). Biết ID của job không đồng nghĩa có quyền trên dữ kiện của
+    // job. Kiểm này chạy TRƯỚC mọi xử lý archive và trước mọi kiểm tra
+    // phía đích để phủ cả 3 chế độ merge/new/replace: nếu chỉ kiểm phía
+    // đích, ai có quyền khôi phục ở khoá của mình cũng chép được toàn bộ
+    // dữ kiện (ngân hàng câu hỏi kèm đáp án/lời giải, điểm, ghi danh,
+    // tệp) của khoá bất kỳ — kể cả khoá của tenant khác — chỉ bằng ID.
+    await this.assertJobReadable(actorId, backup);
     const archive = backup.archive as {
       format: string; version: number; scope?: string;
       course: { fullName: string; shortName: string; category: string; summary: string } | null;
