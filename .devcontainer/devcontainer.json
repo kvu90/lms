@@ -25,7 +25,7 @@
       "onAutoForward": "ignore"
     }
   },
-  "postCreateCommand": "corepack prepare pnpm@12.14.0 --activate && pnpm install --frozen-lockfile && cp -n apps/api/.env.example apps/api/.env && cp -n apps/worker/.env.example apps/worker/.env",
+  "postCreateCommand": "pnpm install --frozen-lockfile && cp -n apps/api/.env.example apps/api/.env && cp -n apps/worker/.env.example apps/worker/.env",
   "remoteUser": "node",
   "service": "app",
   "workspaceFolder": "/workspaces/lms"

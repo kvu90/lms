@@ -81,10 +81,10 @@ không dựa vào trí nhớ của trợ lý:
 
 ## Bản đồ flow của package
 
-- **Thành phần chính:** `src/RichTextEditor.tsx` — trình soạn (TipTap 3);
-  `src/RichTextView.tsx` — trình xem tĩnh cùng định dạng; `src/extensions.ts`
+- **Thành phần chính:** `src/rich-text-editor.tsx` — trình soạn (TipTap 3);
+  `src/rich-text-view.tsx` — trình xem tĩnh cùng định dạng; `src/extensions.ts`
   — tập extension đã chốt của hợp đồng nội dung (gồm `UndoRedo`); `src/math.ts`
-  + `src/MathEditorPanel.tsx` — soạn công thức bằng panel phủ (overlay);
+  + `src/math-editor-panel.tsx` — soạn công thức bằng panel phủ (overlay);
   `src/document-continuation.ts` — chuẩn hoá đuôi tài liệu
   (`ensureTerminalContinuation` khi nạp, dạng đem-lưu `contentForSave` khi
   phát); `src/editor.css` — vỏ vùng soạn + toolbar; xuất qua `src/index.ts`;

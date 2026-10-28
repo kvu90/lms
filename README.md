@@ -22,7 +22,7 @@ không bao giờ import code backend hay schema cơ sở dữ liệu.
 
 ## Điều kiện tiên quyết
 
-- Node 24 (`.nvmrc`), pnpm 12.14
+- Node 24 (trường `engines` của `package.json` gốc), pnpm theo trường `packageManager` của `package.json` gốc
 - PostgreSQL 18.6 tại `localhost:5432` (người dùng `postgres`/`postgres`, các DB `lms` và `lms_test`) — bắt buộc bản 18.x: khoá chính mặc định dùng hàm `uuidv7()` native
 - Redis tại `localhost:6379`
 

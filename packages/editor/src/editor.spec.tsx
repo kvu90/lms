@@ -2,8 +2,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { richTextDocumentSchema, type RichTextDocument } from '@lms/contracts';
 import { contentForSave, ensureTerminalContinuation } from './document-continuation.js';
-import { RichTextEditor } from './RichTextEditor.js';
-import { RichTextView } from './RichTextView.js';
+import { RichTextEditor } from './rich-text-editor.js';
+import { RichTextView } from './rich-text-view.js';
 import {
   MULTIPLE_CHOICE_COUNT,
   composeMultipleChoiceDocument,
@@ -12,7 +12,7 @@ import {
   splitMultipleChoiceDocument,
   type MultipleChoiceDocumentJson,
 } from './multiple-choice.js';
-import { MultipleChoiceEditor } from './MultipleChoiceEditor.js';
+import { MultipleChoiceEditor } from './multiple-choice-editor.js';
 import {
   TRUE_FALSE_STATEMENT_COUNT,
   composeTrueFalseDocument,
@@ -21,7 +21,7 @@ import {
   isCompleteTrueFalse,
   splitTrueFalseDocument,
 } from './true-false.js';
-import { TrueFalseEditor } from './TrueFalseEditor.js';
+import { TrueFalseEditor } from './true-false-editor.js';
 
 /**
  * Đưa editor vào trạng thái active bằng cách focus vùng soạn — từ lát

@@ -6,12 +6,10 @@
  * ký nội dung — trước đây thuật toán chỉ sống dạng method riêng của
  * `QuizService` phục vụ đối chiếu chống trùng của đường nhập file.
  * Từ lát này, chữ ký còn được GHI XUỐNG DB (cột
- * `exam_matrices.content_signature`) tại mọi đường tạo/sửa ma trận và
- * được lấp cho dữ liệu cũ bằng entry
- * `backfill-matrix-content-signature`, nên thuật toán phải là một
- * hàm thuần dùng chung: đổi thuật toán ở đây là đổi đồng thời ở tầng
- * đối chiếu trong code, ở cột đã ghi và ở script lấp dữ liệu — ba nơi
- * lệch nhau là chống trùng hỏng lặng lẽ.
+ * `exam_matrices.content_signature`) tại mọi đường tạo/sửa ma trận,
+ * nên thuật toán phải là một hàm thuần dùng chung: đổi thuật toán ở
+ * đây là đổi đồng thời ở tầng đối chiếu trong code và ở cột đã ghi —
+ * hai nơi lệch nhau là chống trùng hỏng lặng lẽ.
  *
  * Bất biến của thuật toán (giữ nguyên từ đường nhập file): hai nội
  * dung cho cùng một chữ ký là TRÙNG TOÀN BỘ theo nghĩa nghiệp vụ —
