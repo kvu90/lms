@@ -1,10 +1,13 @@
 import type { AddressInfo } from 'node:net';
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
+import Redis from 'ioredis';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
 } from '../support/identity-access-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
 
 /**
  * Chuẩn app nhắn tin phổ biến, chốt bổ sung trên issue #33
@@ -43,6 +46,8 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
   let a: Person;
   let b: Person;
   let conversationId: string;
+  let pg: Client;
+  let redis: Redis;
 
   async function person(firstName: string, lastName: string): Promise<Person> {
     const admin = await adminToken(app);
@@ -84,6 +89,9 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
 
   beforeAll(async () => {
     app = await createTestApp();
+    pg = new Client({ connectionString: process.env.DATABASE_URL });
+    await pg.connect();
+    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
     const server = app.getHttpServer();
     await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', () => resolve()); });
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -110,6 +118,8 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     expect(read.status).toBe(201);
   });
   afterAll(async () => {
+    redis.disconnect();
+    await pg.end();
     await app.close();
   });
 
@@ -289,10 +299,16 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
           .set('Authorization', `Bearer ${b.token}`);
         expect(delByBlocked.status).toBe(404);
         expect(delByBlocked.body.code).toBe('messaging.conversation_not_found');
-        // Chờ quá chu kỳ tiêu thụ outbox: B không nhận bất kỳ sự
-        // kiện nào của hội thoại này (kể cả conversation.updated
-        // kèm nội dung tin cuối — điểm lộ của vòng 1).
-        await sleep(1500);
+        // Hai lần xoá ở trên trả 404 ĐỒNG BỘ và không ghi outbox, nên
+        // mọi sự kiện có thể tới socket của B đều đã nằm trong outbox
+        // trước thời điểm này. Chờ watermark của consumer phân phối
+        // (distributor) chạm seq cuối cùng hiện có trong outbox — mọi
+        // sự kiện tồn tại đã phân phối xong — rồi mới khẳng định: B
+        // không nhận bất kỳ sự kiện nào của hội thoại này (kể cả
+        // conversation.updated kèm nội dung tin cuối — điểm lộ của
+        // vòng 1). Thay sleep cố định 1.500ms không gắn tín hiệu nào.
+        const tail = await pg.query(`select max(seq) as seq from outbox_events`);
+        await waitForOutboxWatermark(redis, 'distributor', Number((tail.rows[0] as { seq: string | number | null }).seq ?? 0));
         expect(seen.filter((e) => e.conversationId === conversationId)).toEqual([]);
       } finally {
         const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
@@ -327,7 +343,28 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
       expect(block.status).toBe(201);
       presenceEvents.length = 0;
       const aSocket1 = await connectSocket(a.token);
-      await sleep(1500);
+      // Presence KHÔNG đi qua outbox nên không có watermark để chờ:
+      // markConnected ghi A vào tập presence trên Redis rồi phát
+      // broadcastPresence NGAY trong cùng lượt xử lý, và lượt phát đó
+      // loại phòng của phía bị chặn theo trạng thái chặn tại thời
+      // điểm phát — phát là quyết định xác định, không tồn tại "lượt
+      // xử lý dở" nào đến muộn sau đó. Tín hiệu neo: khoá presence
+      // của A xuất hiện trên Redis (markConnected đã chạy tới điểm
+      // phát). Trong cửa sổ quan sát 1.500ms kể từ lúc nối, thăm dò
+      // fail-fast: sự kiện presence nào của A lọt tới B là dừng và đỏ
+      // ngay; hết cửa sổ mà khoá presence chưa từng xuất hiện thì ca
+      // kiểm cũng đỏ (điểm neo không thành — không kết luận trên
+      // khoảng trống mà chưa có gì xảy ra).
+      const presenceDeadline = Date.now() + 1500;
+      let presenceKeySeen = false;
+      while (Date.now() < presenceDeadline) {
+        if (presenceEvents.some((e) => e.userId === a.id)) break;
+        if (!presenceKeySeen) {
+          presenceKeySeen = (await redis.keys(`lms:messaging:presence:*:${a.id}`)).length > 0;
+        }
+        await sleep(50);
+      }
+      if (!presenceKeySeen) throw new Error('presence key of A never appeared in Redis — markConnected did not run');
       expect(presenceEvents.some((e) => e.userId === a.id)).toBe(false);
       aSocket1.disconnect();
 
@@ -370,12 +407,15 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
       expect(block.status).toBe(201);
       const blockDoneAt = Date.now();
       try {
-        // Chờ quá chu kỳ tiêu thụ outbox: biên đã-đọc bị tiêu thụ SAU
-        // khi chặn phải bị cổng chặn ở tầng phân phối chặn lại — B
-        // không được nhận message.read nào tới sau thời điểm chặn
-        // hoàn tất (biên tới trước khi chặn xong là hợp lệ, không
-        // tính là rò).
-        await sleep(1500);
+        // Chờ watermark của distributor vượt seq của chính sự kiện
+        // message_conversation_read vừa ghi: sự kiện đó chắc chắn đã
+        // được tiêu thụ SAU khi chặn (watermark chỉ chạm mốc này khi
+        // consumer đã xử lý tới nó) và cổng chặn ở tầng phân phối phải
+        // đã giữ nó lại — B không được nhận message.read nào tới sau
+        // thời điểm chặn hoàn tất (biên tới trước khi chặn xong là
+        // hợp lệ, không tính là rò). Thay sleep cố định 1.500ms.
+        const readSeq = await latestOutboxSeq(pg, 'message_conversation_read', 'conversationId', conversationId);
+        await waitForOutboxWatermark(redis, 'distributor', readSeq);
         expect(reads.filter((r) => r.conversationId === conversationId && r.receivedAt > blockDoneAt)).toEqual([]);
       } finally {
         const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)

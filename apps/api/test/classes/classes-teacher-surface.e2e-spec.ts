@@ -420,24 +420,40 @@ describe('class teacher surface (CLASS-1, #184)', () => {
     ) as { id: string; enrol: string }[];
     const cohortInstance = instances.find((i) => i.enrol === 'cohort');
     expect(cohortInstance).toBeDefined();
+    // Trạng thái ghi danh lan truyền bất đồng bộ (consumer quét
+    // outbox đồng bộ cohort) nên đọc overview ngay sau lời gọi đình
+    // chỉ/kích hoạt có thể gặp trạng thái chưa lan truyền — ca này
+    // từng đỏ ngẫu nhiên đúng ở hai khẳng định phía dưới. Chờ có điều
+    // kiện trên chính bề mặt overview tới khi khớp trạng thái kỳ
+    // vọng, rồi chạy các khẳng định gốc nguyên văn trên kết quả đó.
+    async function overviewWhen(want: (view: Overview) => boolean, label: string): Promise<Overview> {
+      const deadline = Date.now() + 20000;
+      for (;;) {
+        const view = await must(
+          await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(knownStudent)),
+          label,
+        ) as Overview;
+        if (want(view)) return view;
+        if (Date.now() > deadline) throw new Error(`overview did not reach the expected state within 20000ms (${label})`);
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+
     await must(
       await http(app).post(`/api/v1/courses/${courseId}/enrol/instances/${cohortInstance!.id}/users/${knownStudentId}/suspend`).set(auth(teacher)),
       'suspend student in course',
     );
-    const suspendedView = await must(
-      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(knownStudent)),
-      'student overview after course suspend',
-    ) as Overview;
+    const suspendedView = await overviewWhen((v) => v.courses.length === 0, 'student overview after course suspend');
     expect(suspendedView.viewerRole).toBe('member');
     expect(suspendedView.courses).toEqual([]);
     await must(
       await http(app).post(`/api/v1/courses/${courseId}/enrol/instances/${cohortInstance!.id}/users/${knownStudentId}/reactivate`).set(auth(teacher)),
       'reactivate student in course',
     );
-    const restoredView = await must(
-      await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(knownStudent)),
+    const restoredView = await overviewWhen(
+      (v) => v.courses.length === 1 && v.courses[0]?.id === courseId,
       'student overview after reactivate',
-    ) as Overview;
+    );
     expect(restoredView.courses.map((c) => c.id)).toEqual([courseId]);
 
     // Người ngoài lớp (tài khoản mới, chưa từng có quan hệ gì với

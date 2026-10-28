@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { AddressInfo } from 'node:net';
 import { Client } from 'pg';
+import Redis from 'ioredis';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
@@ -8,6 +9,7 @@ import {
 } from '../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../support/course-enrolment-helpers';
 import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../support/engagement-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
 
 /**
  * Vòng đời tin nhắn THEO VAI (issue #33, bổ sung cho PR #94) — ba lớp
@@ -66,6 +68,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
   let app: INestApplication;
   let base: string;
   let pg: Client;
+  let redis: Redis;
   let admin: string;
   let teacher: Person;
   let otherTeacher: Person;
@@ -117,6 +120,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
+    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
     admin = await adminToken(app);
 
     const category = await createCategory(app, admin);
@@ -161,6 +165,7 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
 
   afterAll(async () => {
     for (const socket of sockets) socket.disconnect();
+    redis.disconnect();
     await pg.end();
     await app.close();
   });
@@ -390,8 +395,12 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     await waitUntil(() => deletedEvents.some((e) => e.messageId === r1Id));
     await waitUntil(() => invalidateEvents.some((e) => e.conversationId === convId));
 
-    // XOÁ-PHÍA-MÌNH: phía kia không nhận BẤT KỲ tín hiệu nào — chờ
-    // quá vài nhịp phân phối outbox (500ms/nhịp) rồi đối chiếu bộ đếm.
+    // XOÁ-PHÍA-MÌNH: phía kia không nhận BẤT KỲ tín hiệu nào. Hành
+    // động này CÓ ghi sự kiện outbox message_deleted_for_me — tín
+    // hiệu chốt là distributor đã tiêu thụ chính sự kiện đó (theo
+    // seq của nó) mà không phát gì cho phía kia; chờ sự kiện xuất
+    // hiện rồi chờ watermark vượt qua nó, sau đó mới đối chiếu bộ
+    // đếm. Thay sleep cố định 2.500ms "quá vài nhịp phân phối".
     const r2 = await send(s1.token, convId, 'tin realtime xoá phía mình');
     expect(r2.status).toBe(201);
     const r2Id = r2.body.id as string;
@@ -401,7 +410,14 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     const del = await http(app).delete(`/api/v1/messages/${r2Id}`)
       .set('Authorization', `Bearer ${s1.token}`);
     expect(del.status).toBe(200);
-    await new Promise((resolve) => { setTimeout(resolve, 2500); });
+    let delSeq = 0;
+    const delDeadline = Date.now() + 12000;
+    while (delSeq === 0 && Date.now() < delDeadline) {
+      delSeq = await latestOutboxSeq(pg, 'message_deleted_for_me', 'messageId', r2Id);
+      if (delSeq === 0) await new Promise((resolve) => { setTimeout(resolve, 100); });
+    }
+    if (delSeq === 0) throw new Error('message_deleted_for_me event was not written for the delete-for-me action');
+    await waitForOutboxWatermark(redis, 'distributor', delSeq);
     expect(deletedEvents).toHaveLength(deletedBefore);
     expect(invalidateEvents).toHaveLength(invalidateBefore);
     expect(deletedEvents.some((e) => e.messageId === r2Id)).toBe(false);
