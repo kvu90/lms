@@ -10,6 +10,11 @@
 # Chuỗi status context của job dưới đây là "deploy-check / verify-stack"
 # (theo khuôn "<tên workflow> / <tên job>") — đây là chuỗi cần chọn
 # trong ruleset của nhánh main.
+#
+# Mọi lệnh compose trong workflow đều gộp thêm file override
+# docker-compose.ci.yml (chỉ dùng trong CI) để các build dùng cache
+# layer qua GitHub Actions cache; file docker-compose.yml chính giữ
+# nguyên cho đường deploy thật.
 
 name: deploy-check
 
@@ -25,7 +30,15 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      # Dựng builder Buildx (driver docker-container): driver mặc
+      # định của Docker trên runner không xuất được cache layer, nên
+      # cần builder này để cache_from/cache_to kiểu type=gha khai
+      # trong docker-compose.ci.yml hoạt động (đọc cache từ GitHub
+      # Actions cache trước khi build và ghi lại sau khi build).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       # Sinh file .env cho môi trường CI từ file mẫu: ba bí mật bắt
       # buộc (khai ${...:?} trong docker-compose.yml) được sinh ngẫu
@@ -45,14 +58,14 @@ jobs:
           grep -q '^BETTER_AUTH_SECRET=.\+' .env
 
       - name: Validate compose configuration
-        run: docker compose config > /dev/null
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml config > /dev/null
 
       # Service migrate tự chạy trước và phải kết thúc thành công thì
       # api/worker mới khởi động (cổng depends_on trong compose), nên
       # lệnh up này bao phủ cả bước áp migration vào cơ sở dữ liệu
       # trống của runner.
       - name: Build and start the stack
-        run: docker compose up -d --build
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
 
       # Chờ tối đa khoảng 5 phút cho API khỏe qua cửa web (cổng 8080
       # là cổng duy nhất stack publish ra host). Quá hạn thì in trạng
@@ -67,8 +80,8 @@ jobs:
             sleep 5
           done
           echo "API health check timed out."
-          docker compose ps
-          docker compose logs api migrate
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.ci.yml logs api migrate
           exit 1
 
       - name: Check root page responds
@@ -76,4 +89,4 @@ jobs:
 
       - name: Tear down the stack
         if: always()
-        run: docker compose down -v
+        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
