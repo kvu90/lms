@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { GradePathsDeprecationInterceptor } from './deprecation.interceptor';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { GradesService } from './grades.service';
 import { createGradeItemSchema, exportGradesVneduSchema, gradePublicationActionSchema, setGradePostingPolicySchema, setGradeSchema, updateGradeItemSchema, updateGradeSchema, type CreateGradeItemDto, type ExportGradesVneduDto, type GradePublicationActionDto, type SetGradeDto, type SetGradePostingPolicyDto, type UpdateGradeDto, type UpdateGradeItemDto } from './dto/grades.dto';
 
@@ -17,7 +17,8 @@ import { createGradeItemSchema, exportGradesVneduSchema, gradePublicationActionS
  * thác đúng các method của `GradesService` như handler canonical
  * tương ứng — cùng schema kiểm chứng, cùng logic nghiệp vụ, cùng kết
  * quả trả về; chỉ khác path. Mỗi lượt gọi qua alias đều đi qua
- * `GradePathsDeprecationInterceptor`: response mang header
+ * `DeprecatedRouteAliasInterceptor` — interceptor alias dùng chung ở
+ * `common/`, mang bảng alias của bề mặt điểm: response mang header
  * `Deprecation: true` và `Sunset: Sun, 01 Feb 2027 00:00:00 GMT`, và
  * hệ thống ghi một bản ghi log có cấu trúc cho lượt gọi đó (sự kiện
  * `deprecated_route_alias`, kèm method, mẫu alias, mẫu canonical và
@@ -42,7 +43,7 @@ import { createGradeItemSchema, exportGradesVneduSchema, gradePublicationActionS
  */
 @ApiTags('grades')
 @Controller({ path: 'courses/:courseId/grades', version: '1' })
-@UseInterceptors(GradePathsDeprecationInterceptor)
+@UseInterceptors(DeprecatedRouteAliasInterceptor)
 /**
  * Alias cho các path cũ thuộc khoá học của module điểm: tạo/liệt kê
  * grade item, lưới báo cáo và xuất vnEdu theo path cũ. Handler canonical
@@ -97,7 +98,7 @@ export class LegacyGradesCourseController {
 
 @ApiTags('grades')
 @Controller({ path: 'courses/grades', version: '1' })
-@UseInterceptors(GradePathsDeprecationInterceptor)
+@UseInterceptors(DeprecatedRouteAliasInterceptor)
 /**
  * Alias cho các path cũ "phantom" của module điểm: các path lồng dưới
  * tiền tố cố định `courses/grades` mà không mang id khoá học trong

@@ -4,7 +4,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Observable } from 'rxjs';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { MessagingService } from './messaging.service';
-import { MessagingDeprecationInterceptor } from './messaging-deprecation.interceptor';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { bulkRemoveMessagesSchema, createConversationSchema, createGroupConversationSchema, hardDeleteMessageSchema, listConversationsQueryServerSchema, listCourseRosterQueryServerSchema, listMessagesQueryServerSchema, listNotificationGroupsQueryServerSchema, listNotificationItemsQueryServerSchema, markNotificationsReadSchema, notifyUserSchema, readNotificationGroupSchema, reportConversationSchema, searchMessagesQueryServerSchema, sendMessageSchema, setNotificationCourseOverrideSchema, setNotificationPreferenceSchema, updateConversationSchema, updateConversationStateSchema, updateReportStatusSchema, type BulkRemoveMessagesDto, type CreateConversationDto, type CreateGroupConversationDto, type HardDeleteMessageDto, type ListConversationsQueryDto, type ListCourseRosterQueryDto, type ListMessagesQueryDto, type ListNotificationGroupsQueryDto, type ListNotificationItemsQueryDto, type MarkNotificationsReadDto, type NotifyDto, type ReadNotificationGroupDto, type ReportConversationDto, type SearchMessagesQueryDto, type SendMessageDto, type SetCourseOverrideDto, type SetPreferenceDto, type UpdateConversationDto, type UpdateConversationStateDto, type UpdateReportStatusDto } from './dto/messaging.dto';
 
 @ApiTags('messaging')
@@ -441,14 +441,16 @@ export class MessagingController {
    * (issue #344, cụm R6-A2): mỗi handler dưới đây chỉ ủy thác cho
    * cùng một phương thức service như path canonical tương ứng, không
    * đổi hành vi nghiệp vụ. Mỗi handler gắn
-   * `MessagingDeprecationInterceptor` để response mang header
+   * `DeprecatedRouteAliasInterceptor` — interceptor alias dùng chung
+   * ở `common/`, mang bảng alias của cụm messaging/notifications —
+   * để response mang header
    * Deprecation/Sunset và mỗi lượt gọi alias sinh một bản ghi log có
    * cấu trúc làm căn cứ gỡ alias (0 lượt gọi trong 14 ngày hoặc khi
    * lên v2). Route chữ `bulk-remove` khai trước các route `:id`
    * trong cùng nhóm alias, như phía canonical.
    */
   @Post('messages/bulk-remove')
-  @UseInterceptors(MessagingDeprecationInterceptor)
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
    * POST /messages/messages/bulk-remove — ALIAS cũ của
    * POST /messages/bulk-remove (gỡ hàng loạt nhiều tin).
@@ -457,14 +459,14 @@ export class MessagingController {
     return this.messaging.bulkRemoveMessages(actor.id, dto);
   }
   @Patch('messages/:id')
-  @UseInterceptors(MessagingDeprecationInterceptor)
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
    * PATCH /messages/messages/:id — ALIAS cũ của PATCH /messages/:id
    * (sửa tin nhắn; vẫn bị từ chối như phía canonical).
    */
   async updateMessageAlias() { return this.messaging.updateMessage(); }
   @Delete('messages/:id')
-  @UseInterceptors(MessagingDeprecationInterceptor)
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
    * DELETE /messages/messages/:id — ALIAS cũ của DELETE /messages/:id
    * (xoá-phía-mình).
@@ -473,7 +475,7 @@ export class MessagingController {
     return this.messaging.deleteMessage(actor.id, id);
   }
   @Post('messages/:id/recall')
-  @UseInterceptors(MessagingDeprecationInterceptor)
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
    * POST /messages/messages/:id/recall — ALIAS cũ của
    * POST /messages/:id/recall (thu hồi tin cho mọi người).
@@ -482,7 +484,7 @@ export class MessagingController {
     return this.messaging.recallMessage(actor.id, id);
   }
   @Post('messages/:id/hard-delete')
-  @UseInterceptors(MessagingDeprecationInterceptor)
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
    * POST /messages/messages/:id/hard-delete — ALIAS cũ của
    * POST /messages/:id/hard-delete (xoá cứng một tin).
@@ -564,7 +566,7 @@ export class NotificationsController {
     return this.messaging.markAllNotificationsRead(actor.id);
   }
   @Post('read-all')
-  @UseInterceptors(MessagingDeprecationInterceptor)
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
   /**
    * POST /notifications/read-all — ALIAS cũ của
    * POST /notifications/mark-read (đánh dấu tất cả đã đọc, tương

@@ -3,7 +3,7 @@ import { uuidIdSchema } from '@lms/contracts';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
-import { ExamPapersDeprecationInterceptor } from './deprecation.interceptor';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { ExamDossiersService } from './exam-dossiers.service';
 import { ExamsService } from './exams.service';
 import {
@@ -33,7 +33,8 @@ import {
  * alias gom về lớp này.
  *
  * Mỗi lượt gọi qua alias đều đi qua
- * `ExamPapersDeprecationInterceptor`: response mang header
+ * `DeprecatedRouteAliasInterceptor` — interceptor alias dùng chung ở
+ * `common/`, mang bảng alias của bề mặt `exam-papers`: response mang header
  * `Deprecation: true` và `Sunset: Sun, 01 Feb 2027 00:00:00 GMT`, và
  * hệ thống ghi một bản ghi log có cấu trúc cho lượt gọi đó (sự kiện
  * `deprecated_route_alias`, kèm method, mẫu alias, mẫu canonical và
@@ -53,7 +54,7 @@ import {
  */
 @ApiTags('exams')
 @Controller({ path: 'exam-papers', version: '1' })
-@UseInterceptors(ExamPapersDeprecationInterceptor)
+@UseInterceptors(DeprecatedRouteAliasInterceptor)
 /**
  * Alias `/exam-papers` của toàn bộ bề mặt `/exams` (đề + đóng góp +
  * bộ hồ sơ đề). Handler canonical tương ứng nằm ở `ExamsController`.
