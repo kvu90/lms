@@ -23,8 +23,8 @@
  * ở đường ghi chỉ được log, không ném ngược vào đáp ứng.
  *
  * IP ghi kèm lấy theo đúng quy ước của dự án (common/client-ip): IP
- * khách thật là phần tử PHẢI NHẤT của `X-Forwarded-For` (router của
- * Heroku nối thêm vào phía phải), chuẩn hoá qua `normalizeIpAddress`.
+ * khách thật là phần tử PHẢI NHẤT của `X-Forwarded-For` (chặng proxy
+ * ở biên nối thêm vào phía phải), chuẩn hoá qua `normalizeIpAddress`.
  */
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { normalizeIpAddress } from '../../../common/client-ip';

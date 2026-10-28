@@ -9,7 +9,7 @@ import { createTestApp } from './identity-access-helpers';
  * khi Nest khởi tạo xong — bước này chuyển mọi Standard Schema của route
  * sang JSON Schema. Một schema chứa kiểu `Date` (z.date/z.coerce.date)
  * làm bước chuyển đổi ném "Date cannot be represented in JSON Schema" và
- * dyno chết trước khi listen, trong khi các e2e thường (chỉ `app.init()`)
+ * tiến trình chết trước khi listen, trong khi các e2e thường (chỉ `app.init()`)
  * không bao giờ chạy bước này nên không bắt được. Spec này chạy đúng bước
  * bootstrap đó trên toàn bộ AppModule để mọi route tương lai thêm schema
  * không biểu diễn được đều đỏ tại CI thay vì tại production.

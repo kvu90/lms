@@ -18,7 +18,6 @@
     "test": "vitest run",
     "dev": "react-router dev",
     "start": "node server/prod-server.mjs",
-    "start:topology": "node server/launcher.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {

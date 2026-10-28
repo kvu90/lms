@@ -3,9 +3,9 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
-  // Bật TLS cho kết nối PostgreSQL khi nhà cung cấp bắt buộc (Heroku
-  // Postgres chỉ nhận kết nối có mã hoá). Mặc định tắt: môi trường local
-  // và CI chạy PostgreSQL thường không có TLS.
+  // Bật TLS cho kết nối PostgreSQL khi nhà cung cấp bắt buộc (một số
+  // nhà cung cấp PostgreSQL chỉ nhận kết nối có mã hoá). Mặc định tắt:
+  // môi trường local và CI chạy PostgreSQL thường không có TLS.
   DATABASE_SSL: z
     .enum(['true', 'false'])
     .default('false')
@@ -79,8 +79,8 @@ export const envSchema = z.object({
   // origin của web; production khai đúng domain thật.
   CORS_ORIGINS: z.string().min(1).default('http://localhost:5173'),
   // Thư mục bản build tĩnh của web app. Khi được đặt và tồn tại, API
-  // phục vụ luôn giao diện từ thư mục này (triển khai gộp một tiến trình
-  // như Heroku); không đặt thì API chỉ phục vụ /api như thường lệ.
+  // phục vụ luôn giao diện từ thư mục này (triển khai gộp một tiến
+  // trình); không đặt thì API chỉ phục vụ /api như thường lệ.
   WEB_DIST_DIR: z.string().optional(),
   // Files
   FILE_STORAGE_DIR: z.string().min(1).default('./data/files'),
@@ -205,9 +205,10 @@ export function validateEnv(config: Record<string, unknown>): Env {
  * Dựng tham số `connection` cho Drizzle từ URL và cờ TLS.
  *
  * Không bật TLS thì trả nguyên chuỗi (hành vi cũ). Bật thì trả PoolConfig
- * có `ssl.rejectUnauthorized = false` — chứng chỉ của Heroku Postgres do
- * CA riêng của họ ký nên không kiểm chứng theo CA hệ thống được, đây là
- * cấu hình Heroku khuyến nghị cho driver `pg`.
+ * có `ssl.rejectUnauthorized = false` — chứng chỉ của nhà cung cấp
+ * PostgreSQL do CA riêng của nhà cung cấp ký nên không kiểm chứng theo
+ * CA hệ thống được; đây là cấu hình driver `pg` cần khi gặp CA riêng
+ * như vậy.
  */
 export function databaseConnectionFromEnv(url: string, ssl: boolean): string | PoolConfig {
   if (!ssl) return url;
@@ -215,9 +216,10 @@ export function databaseConnectionFromEnv(url: string, ssl: boolean): string | P
 }
 
 /**
- * Tuỳ chọn TLS cho ioredis khi URL là rediss:// (Heroku Key-Value
- * Store): chứng chỉ phía addon là tự ký nên phải tắt kiểm chứng, nếu
- * không bắt tay TLS bị ngắt giữa chừng. URL redis:// thường trả rỗng.
+ * Tuỳ chọn TLS cho ioredis khi URL là rediss:// (dịch vụ Redis bắt
+ * buộc TLS): chứng chỉ phía dịch vụ là tự ký hoặc do CA riêng ký nên
+ * phải tắt kiểm chứng, nếu không bắt tay TLS bị ngắt giữa chừng. URL
+ * redis:// thường trả rỗng.
  */
 export function redisTlsFromUrl(url: string): { tls?: { rejectUnauthorized: boolean } } {
   return new URL(url).protocol === 'rediss:' ? { tls: { rejectUnauthorized: false } } : {};
@@ -226,8 +228,8 @@ export function redisTlsFromUrl(url: string): { tls?: { rejectUnauthorized: bool
 /**
  * Cấu hình client cho @keyv/redis (dựng trên @redis/client) từ
  * REDIS_URL: với rediss:// phải khai socket TLS tắt kiểm chứng chứng
- * chỉ như redisTlsFromUrl, nếu không kết nối tới Heroku Key-Value
- * Store gãy ngay ở bước bắt tay.
+ * chỉ như redisTlsFromUrl, nếu không kết nối tới dịch vụ Redis bắt
+ * buộc TLS gãy ngay ở bước bắt tay.
  */
 export function cacheRedisConfigFromUrl(url: string): {
   url: string;
@@ -253,9 +255,8 @@ export function redisConnectionFromUrl(url: string): {
     port: parsed.port ? Number(parsed.port) : 6379,
     username: parsed.username || undefined,
     password: parsed.password || undefined,
-    // URL dạng rediss:// (Heroku Key-Value Store) bắt buộc TLS. Chứng chỉ
-    // phía addon không kiểm chứng theo CA hệ thống được nên tắt kiểm chứng
-    // như khuyến nghị của Heroku cho ioredis.
+    // URL dạng rediss:// bắt buộc TLS. Chứng chỉ phía dịch vụ không
+    // kiểm chứng theo CA hệ thống được nên tắt kiểm chứng cho ioredis.
     ...(parsed.protocol === 'rediss:' ? { tls: { rejectUnauthorized: false } } : {}),
     maxRetriesPerRequest: null,
   };

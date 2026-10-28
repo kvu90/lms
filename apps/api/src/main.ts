@@ -17,8 +17,8 @@ import { mountMcp } from './modules/mcp/mcp.mount';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  // Tin đúng một chặng proxy (router Heroku) để req.ip là IP khách
-  // thật — xem common/client-ip.ts.
+  // Tin đúng một chặng proxy (tiến trình web ở biên) để req.ip là IP
+  // khách thật — xem common/client-ip.ts.
   enableTrustedProxy(app);
 
   // Better Auth (issue #7): chỉ khi instance tồn tại — cờ
@@ -62,7 +62,7 @@ async function bootstrap(): Promise<void> {
   // này (gzip còn ~0,44MB).
   app.use(compression());
 
-  // Triển khai gộp một tiến trình (Heroku): khi WEB_DIST_DIR trỏ tới bản
+  // Triển khai gộp một tiến trình: khi WEB_DIST_DIR trỏ tới bản
   // build của web app, API phục vụ luôn các file tĩnh đó, và mọi GET
   // không thuộc /api được trả index.html để React Router tự điều hướng
   // phía client (SPA fallback). Không đặt biến này thì API giữ hành vi

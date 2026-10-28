@@ -3,20 +3,22 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Request } from 'express';
 
 /**
- * Số chặng proxy tin cậy đứng trước ứng dụng: đúng MỘT chặng — router
- * của Heroku. Theo Heroku Dev Center (bài HTTP Routing), router nối
- * địa chỉ IP gốc mà nó quan sát được vào PHÍA PHẢI của header
- * `X-Forwarded-For`, nên IP khách thật luôn là phần tử phải nhất của
- * danh sách; mọi phần tử bên trái đều do khách tự khai và có thể giả
- * mạo.
+ * Số chặng proxy tin cậy đứng trước ứng dụng: đúng MỘT chặng — tiến
+ * trình web (prod-server) đứng ở biên, sau Cloudflare Tunnel. Chặng
+ * proxy ở biên nối địa chỉ IP gốc mà nó quan sát được vào PHÍA PHẢI
+ * của header `X-Forwarded-For` (prod-server giữ nguyên các chặng
+ * trước rồi nối IP của socket nó nhận — xem
+ * apps/web/server/prod-server.mjs), nên IP khách thật luôn là phần
+ * tử phải nhất của danh sách; mọi phần tử bên trái đều do khách tự
+ * khai và có thể giả mạo.
  *
  * Theo tài liệu chính thức của Express (guide "Behind proxies"),
  * `trust proxy` dạng số n nghĩa là chỉ tin tối đa n chặng tính từ
  * `req.socket.remoteAddress` đi ngược từ phải sang trái trong
  * `X-Forwarded-For`. Với n = 1, `req.ip` cho ra đúng phần tử phải
- * nhất (do router nối thêm) khi chạy trên Heroku, và cho ra địa chỉ
- * socket trực tiếp khi chạy local không qua proxy — đúng ở cả hai
- * môi trường.
+ * nhất (do chặng proxy ở biên nối thêm) khi chạy qua topology
+ * production, và cho ra địa chỉ socket trực tiếp khi chạy local
+ * không qua proxy — đúng ở cả hai môi trường.
  *
  * KHÔNG dùng `trust proxy = true`: giá trị đó tin toàn bộ danh sách
  * và lấy phần tử TRÁI NHẤT — phần tử khách giả mạo được — khiến mọi

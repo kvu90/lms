@@ -58,8 +58,10 @@ jobs:
       - name: Test
         run: pnpm exec turbo run test
       # Smoke test topology production (lát 3 của issue #294): boot cả
-      # cặp launcher topology C (SSR bind cổng công khai, proxy /api/*
-      # về API ở cổng nội bộ) trên chính DB test của job này — DB
+      # cặp hai tiến trình của topology C (API ở cổng nội bộ; SSR bind
+      # cổng công khai, proxy /api/* về API) — khởi động tách rời đúng
+      # như Dockerfile/compose chạy production — trên chính DB test
+      # của job này — DB
       # lms_test_api đã migrate từ trống ở bước trên qua biến môi
       # trường DATABASE_URL cấp job. Probe /health chỉ chạy SELECT 1
       # tới DB và PING Redis nên không cần seed nghiệp vụ nào thêm;
@@ -71,35 +73,45 @@ jobs:
           set -euo pipefail
           smoke_started=$(date +%s)
           public_base="http://127.0.0.1:8080"
-          export PORT=8080
-          export API_INTERNAL_PORT=3100
 
-          # Chạy launcher trong phiên (session) riêng để khi dọn dẹp
-          # giết được cả nhóm tiến trình: pnpm → launcher → hai con
-          # API + SSR (launcher cũng tự chuyển tiếp SIGTERM cho hai
-          # con và tắt cả cặp khi một con chết).
-          setsid pnpm --filter @lms/web start:topology > smoke-topology.log 2>&1 &
-          launcher_pid=$!
+          # Khởi động hai tiến trình TÁCH RỜI trong một phiên (session)
+          # riêng để khi dọn dẹp giết được cả nhóm tiến trình: API
+          # (dist/main.js, cổng nội bộ 3100) và SSR (prod-server qua
+          # script start của @lms/web, cổng công khai 8080) là hai
+          # tiến trình con của cùng một shell — đúng cách production
+          # chạy bằng Docker Compose (api và web là hai service
+          # riêng). `wait -n` làm shell thoát ngay khi một tiến trình
+          # con chết để trap dọn dẹp giết nốt tiến trình còn lại, giữ
+          # tính chất "một con chết là cả cặp tắt" của bước chạy thử.
+          # Biến môi trường cấp job (DATABASE_URL, REDIS_URL,
+          # JWT_SECRET) được cả hai tiến trình thừa hưởng.
+          setsid bash -c '
+            PORT=3100 NODE_ENV=production node apps/api/dist/main.js &
+            PORT=8080 LMS_API_INTERNAL_URL=http://127.0.0.1:3100 NODE_ENV=production pnpm --filter @lms/web start &
+            wait -n
+          ' > smoke-topology.log 2>&1 &
+          topology_pid=$!
           cleanup() {
-            kill -TERM -"$launcher_pid" 2>/dev/null || true
+            kill -TERM -"$topology_pid" 2>/dev/null || true
             # Chờ nhóm tiến trình tắt hẳn (trần 10 giây) để không để
             # lại tiến trình mồ côi giữ cổng sau bước.
             for i in $(seq 1 10); do
-              kill -0 -"$launcher_pid" 2>/dev/null || break
+              kill -0 -"$topology_pid" 2>/dev/null || break
               sleep 1
             done
-            kill -KILL -"$launcher_pid" 2>/dev/null || true
+            kill -KILL -"$topology_pid" 2>/dev/null || true
           }
           trap cleanup EXIT
 
           # Chờ API sống qua mặt tiền công khai: request đi qua proxy
           # /api/* của tiến trình SSR về API nội bộ — đạt probe 1
-          # đồng thời chứng minh cả hai tiến trình đã lên. Launcher
-          # chết giữa chừng thì dừng ngay kèm log, không chờ hết trần.
+          # đồng thời chứng minh cả hai tiến trình đã lên. Cặp tiến
+          # trình chết giữa chừng thì dừng ngay kèm log, không chờ
+          # hết trần.
           api_ready=0
           for attempt in $(seq 1 60); do
-            if ! kill -0 "$launcher_pid" 2>/dev/null; then
-              echo "::error::Launcher exited before the topology became ready"
+            if ! kill -0 "$topology_pid" 2>/dev/null; then
+              echo "::error::Topology processes exited before the topology became ready"
               cat smoke-topology.log
               exit 1
             fi

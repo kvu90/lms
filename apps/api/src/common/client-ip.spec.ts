@@ -41,7 +41,7 @@ describe('clientIpOf', () => {
 });
 
 describe('TRUSTED_PROXY_HOPS', () => {
-  it('trusts exactly one proxy hop (the Heroku router)', () => {
+  it('trusts exactly one proxy hop (the edge proxy)', () => {
     expect(TRUSTED_PROXY_HOPS).toBe(1);
   });
 });

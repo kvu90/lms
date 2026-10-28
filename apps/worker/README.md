@@ -35,5 +35,5 @@ hàm luật dùng chung khi luật đó áp cho cả hai phía.
 ## Kỹ thuật tối thiểu
 
 - NestJS 12, BullMQ + Redis, dùng chung DB với API. Build/start: `pnpm build &&
-  pnpm start`. Sau reset DB production phải restart dyno worker/web rồi mới probe
+  pnpm start`. Sau reset DB production phải khởi động lại các tiến trình worker/web rồi mới probe
   realtime (watermark — xem quyết định tự neo ở trên).

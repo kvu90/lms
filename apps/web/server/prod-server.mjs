@@ -2,8 +2,8 @@
  * Tiến trình SSR của apps/web (Giai đoạn 3 của issue #7, topology C).
  *
  * Một tiến trình Node thuần (không framework ngoài) giữ ba vai:
- *   1. Mặt tiền HTTP duy nhất: bind cổng PUBLIC_PORT (mặc định $PORT,
- *      trên Heroku là cổng dyno cấp).
+ *   1. Mặt tiền HTTP duy nhất: bind cổng PUBLIC_PORT (mặc định $PORT
+ *      do môi trường triển khai cấp).
  *   2. Proxy các đường của API (xem `proxy-paths.mjs`: `/api/*`,
  *      `/socket.io/*`, `/mcp`, `/.well-known/oauth-protected-resource`)
  *      về API ở địa chỉ nội bộ
@@ -20,7 +20,10 @@
  *      của React Router (SSR) qua createRequestListener.
  *
  * Chạy độc lập: `node server/prod-server.mjs` (cần `react-router
- * build` trước). Chạy cả topology hai tiến trình: launcher.mjs.
+ * build` trước) — đây cũng là cách target `web` của Dockerfile ở gốc
+ * repo chạy tiến trình này trong stack Docker Compose. Chạy cả
+ * topology ở local thì khởi động thêm tiến trình API riêng
+ * (`apps/api/dist/main.js`) và trỏ `LMS_API_INTERNAL_URL` về API đó.
  */
 import { createServer, request as httpRequest } from 'node:http';
 import { connect as netConnect } from 'node:net';
@@ -60,7 +63,7 @@ const MIME = {
   '.map': 'application/json; charset=utf-8',
 };
 
-/** Chuỗi X-Forwarded-For: giữ nguyên các chặng trước (router Heroku) rồi nối IP của chặng proxy này. */
+/** Chuỗi X-Forwarded-For: giữ nguyên các chặng trước rồi nối IP của chặng proxy này. */
 function forwardedFor(req) {
   const prior = req.headers['x-forwarded-for'];
   const clientIp = req.socket.remoteAddress ?? '';
