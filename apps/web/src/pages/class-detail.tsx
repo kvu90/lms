@@ -244,7 +244,14 @@ export function ClassDetailPage() {
             <Button type="button" variant="outline" disabled={chatBusy} onClick={() => void openClassChat()}>
               {t('classChatOpen')}
             </Button>
-            {!isMember ? (
+            {/*
+              Liên kết "Sửa" chỉ render khi gói tổng quan ĐÃ VỀ và vai
+              cho phép: suy "không phải member" từ gói chưa tải xong
+              sẽ làm nút chớp hiện với học viên trong lúc trang đang
+              tải (overview rỗng → isMember = false). Trong lúc tải,
+              header chỉ giữ nút Chat lớp dùng cho mọi vai thuộc lớp.
+            */}
+            {overview && !isMember ? (
               <Link className={buttonVariants({ variant: 'outline' })} to={`/classes/${classId}/edit`}>
                 {t('classEdit')}
               </Link>

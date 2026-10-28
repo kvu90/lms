@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto';
 import type {
   AddRosterStudentResult,
   ClassJoinRequest as ClassJoinRequestView,
+  ClassListItem,
   ClassOverview,
   ClassPublicView,
   ClassRosterImportReport,
@@ -185,10 +186,10 @@ export class ClassesService implements OnModuleInit {
     return row;
   }
 
-  /** Người xem thấy được mã tham gia khi có quyền quản roster của lớp (hoặc là chủ lớp / quản trị tenant). */
-  private async canSeeJoinCode(actorId: string, row: ClassRow): Promise<boolean> {
+  /** Người xem thấy được mã tham gia khi có quyền quản roster của lớp (hoặc là chủ lớp / quản trị tenant). `knownCtxId` cho phép nơi gọi đã tra context lớp rồi dùng lại, tránh tra trùng. */
+  private async canSeeJoinCode(actorId: string, row: ClassRow, knownCtxId?: string): Promise<boolean> {
     if (actorId === row.ownerId) return true;
-    const ctxId = await this.classContextId(row.id);
+    const ctxId = knownCtxId ?? (await this.classContextId(row.id));
     return this.evaluator.hasCapability(actorId, 'class:manageroster', ctxId);
   }
 
@@ -281,18 +282,46 @@ export class ClassesService implements OnModuleInit {
     }
   }
 
-  /** Danh sách lớp của tenant hiệu lực mà người xem có liên hệ (chủ lớp / có vai tại lớp / thành viên roster); quản trị tenant thấy toàn bộ. */
-  async listClasses(actorId: string): Promise<ClassView[]> {
+  /**
+   * Danh sách lớp của tenant hiệu lực mà người xem có liên hệ (chủ lớp / có vai tại lớp / thành viên roster); quản trị tenant thấy toàn bộ.
+   *
+   * Mỗi dòng kèm bốn cờ khả năng do server suy cho ĐÚNG người gọi để
+   * trang danh sách vẽ hành động theo vai (học viên không thấy các
+   * hành động quản trị mình không có quyền): khả năng tạo lớp neo tại
+   * context tenant (`class:create`, tính một lần cho cả đáp số); ba
+   * cờ còn lại neo tại context của TỪNG lớp — chủ lớp luôn có đủ,
+   * các vai khác suy qua evaluator như gói tổng quan suy
+   * `canManageRoster`/`canShare`. Cờ xoá phản ánh trọn cổng xoá hiện
+   * hành: `class:delete` tại context lớp và, khi người gọi không
+   * phải chủ lớp, thêm `tenant:manage` tại context tenant. Các cờ
+   * chỉ phục vụ hiển thị — gác quyền thật vẫn ở từng endpoint ghi.
+   */
+  async listClasses(actorId: string): Promise<ClassListItem[]> {
     const tenantId = await this.effectiveTenantId();
     const rows = await this.repo.listClassesByTenant(tenantId);
     const tenantCtx = await this.contexts.getTenantContext(tenantId);
     const seesAll = (await this.evaluator.isSiteAdmin(actorId))
       || (tenantCtx ? await this.evaluator.hasCapability(actorId, 'tenant:manage', tenantCtx.id) : false);
+    const canCreate = tenantCtx ? await this.evaluator.hasCapability(actorId, 'class:create', tenantCtx.id) : false;
     const visible: ClassRow[] = [];
     for (const row of rows) {
       if (seesAll || (await this.canViewClass(actorId, row))) visible.push(row);
     }
-    return Promise.all(visible.map(async (row) => toClassDto(row, await this.canSeeJoinCode(actorId, row))));
+    return Promise.all(visible.map(async (row) => {
+      const ctxId = await this.classContextId(row.id);
+      const isOwner = actorId === row.ownerId;
+      const canUpdate = isOwner || (await this.evaluator.hasCapability(actorId, 'class:update', ctxId));
+      const canManageRoster = isOwner || (await this.evaluator.hasCapability(actorId, 'class:manageroster', ctxId));
+      const canDelete = (isOwner || (tenantCtx ? await this.evaluator.hasCapability(actorId, 'tenant:manage', tenantCtx.id) : false))
+        && (isOwner || (await this.evaluator.hasCapability(actorId, 'class:delete', ctxId)));
+      return {
+        ...toClassDto(row, await this.canSeeJoinCode(actorId, row, ctxId)),
+        canCreate,
+        canUpdate,
+        canDelete,
+        canManageRoster,
+      };
+    }));
   }
 
   /** Chi tiết một lớp (cổng xem như canViewClass). */
@@ -467,12 +496,26 @@ export class ClassesService implements OnModuleInit {
 
   // --- roster (≡ cohort_members của backing cohort) ---------------------------
 
-  /** Danh sách học sinh của lớp kèm thông tin hiển thị của tài khoản (cổng xem lớp). */
+  /**
+   * Danh sách học sinh của lớp kèm thông tin hiển thị của tài khoản (cổng xem lớp).
+   *
+   * Thu hẹp trường liên hệ theo quyền của người gọi: email là dữ
+   * kiện phía quản trị/người được giao quyền, không phải dữ kiện bạn
+   * học được xem; `username` của tài khoản tạo qua đường nạp roster
+   * chính là số điện thoại nên cũng thuộc diện liên hệ. Người gọi có
+   * quyền quản roster của lớp này (chủ lớp hoặc `class:manageroster`
+   * tại context lớp) nhận đáp số đầy đủ; mọi người xem được lớp còn
+   * lại nhận các dòng đã làm rỗng `email` và `username`, giữ nguyên
+   * họ tên và thời điểm vào lớp để các hiển thị lớp học thông thường
+   * (danh sách bạn học theo tên) vẫn dùng được.
+   */
   async listRoster(actorId: string, classId: string): Promise<ClassRosterMember[]> {
     const row = await this.getClassRow(classId);
     if (!(await this.canViewClass(actorId, row))) {
       throw new NotFoundException({ message: `Class ${classId} not found`, code: 'class.not_found' });
     }
+    const ctxId = await this.classContextId(classId);
+    const canManageRoster = actorId === row.ownerId || (await this.evaluator.hasCapability(actorId, 'class:manageroster', ctxId));
     const members = await this.groups.listCohortMembers(row.cohortId);
     const usersById = new Map((await this.users.getUsersByIds(members.map((m) => m.userId))).map((u) => [u.id, u]));
     return members.map((m) => {
@@ -482,8 +525,8 @@ export class ClassesService implements OnModuleInit {
         timeAdded: m.timeAdded.toISOString(),
         firstName: u?.firstName ?? '',
         lastName: u?.lastName ?? '',
-        username: u?.username ?? '',
-        email: u?.email ?? '',
+        username: canManageRoster ? (u?.username ?? '') : '',
+        email: canManageRoster ? (u?.email ?? '') : '',
       };
     });
   }

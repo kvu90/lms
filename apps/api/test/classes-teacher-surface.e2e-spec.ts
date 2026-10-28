@@ -33,6 +33,16 @@ import { createCategory } from './course-enrolment-helpers';
  *      lại; joinAutoApprove → vào thẳng; mã sai → 404;
  *  (7) đình chỉ qua roster → hiện ở danh sách đã đình chỉ; thêm lại →
  *      biến mất khỏi danh sách đó và ACTIVE lại ở khoá.
+ *  (8) dashboard theo lớp (CLASS-2): gói overview theo quan hệ người
+ *      gọi; học sinh chỉ thấy khoá đang ghi danh ACTIVE.
+ *  (9) issue #381: đáp số GET /classes kèm bốn cờ quyền suy cho đúng
+ *      người gọi (chủ lớp đủ cờ; học viên và đồng GV chấm bài không
+ *      cờ quản trị nào) và học viên gọi thẳng POST/PATCH/archive/
+ *      DELETE lớp đều 403 — cờ chỉ phục vụ hiển thị, gác thật ở API.
+ *  (10) issue #381: roster thu hẹp trường liên hệ — chủ lớp và đồng
+ *      GV quản roster nhận email/username đầy đủ; đồng GV chấm bài
+ *      và học viên trong lớp chỉ nhận họ tên, hai trường liên hệ bị
+ *      làm rỗng ở phía server.
  */
 describe('class teacher surface (CLASS-1, #184)', () => {
   let app: INestApplication;
@@ -437,5 +447,77 @@ describe('class teacher surface (CLASS-1, #184)', () => {
     const outsiderToken = (await login(app, outsiderUser.username, STRONG_PASSWORD)).accessToken;
     const outsider = await http(app).get(`/api/v1/classes/${classId}/overview`).set(auth(outsiderToken));
     expect(outsider.status).toBe(404);
+  });
+
+  it('(9) danh sách lớp kèm cờ quyền theo người gọi (issue #381); học viên gọi các mutation của lớp đều 403', async () => {
+    type ListItem = {
+      id: string; canCreate: boolean; canUpdate: boolean; canDelete: boolean; canManageRoster: boolean;
+    };
+
+    // Chủ lớp: đủ cả bốn cờ cho lớp của mình.
+    const ownerList = await must(await http(app).get('/api/v1/classes').set(auth(teacher)), 'owner class list') as ListItem[];
+    const ownerItem = ownerList.find((c) => c.id === classId);
+    expect(ownerItem).toBeTruthy();
+    expect(ownerItem).toMatchObject({ canCreate: true, canUpdate: true, canDelete: true, canManageRoster: true });
+
+    // Học sinh trong roster: thấy lớp của mình nhưng mọi cờ quản trị
+    // (kể cả khả năng tạo lớp ở cấp tenant) đều false.
+    const memberList = await must(await http(app).get('/api/v1/classes').set(auth(knownStudent)), 'member class list') as ListItem[];
+    const memberItem = memberList.find((c) => c.id === classId);
+    expect(memberItem).toBeTruthy();
+    expect(memberItem).toMatchObject({ canCreate: false, canUpdate: false, canDelete: false, canManageRoster: false });
+
+    // Đồng GV chỉ có vai chấm bài: thấy lớp, không cờ quản trị nào.
+    const graderList = await must(await http(app).get('/api/v1/classes').set(auth(coTeacher)), 'grader class list') as ListItem[];
+    const graderItem = graderList.find((c) => c.id === classId);
+    expect(graderItem).toBeTruthy();
+    expect(graderItem).toMatchObject({ canCreate: false, canUpdate: false, canDelete: false, canManageRoster: false });
+
+    // Cờ chỉ là hiển thị — gác thật ở API không đổi: học viên gọi
+    // thẳng cả bốn mutation của lớp đều bị chặn 403.
+    const create = await http(app).post('/api/v1/classes').set(auth(knownStudent)).send({ name: uniqueName('Lớp của học viên') });
+    expect(create.status).toBe(403);
+    const patch = await http(app).patch(`/api/v1/classes/${classId}`).set(auth(knownStudent)).send({ name: 'Đổi tên lén' });
+    expect(patch.status).toBe(403);
+    const archive = await http(app).post(`/api/v1/classes/${classId}/archive`).set(auth(knownStudent)).send({});
+    expect(archive.status).toBe(403);
+    const remove = await http(app).delete(`/api/v1/classes/${classId}`).set(auth(knownStudent));
+    expect(remove.status).toBe(403);
+  });
+
+  it('(10) roster thu hẹp trường liên hệ theo quyền quản roster (issue #381)', async () => {
+    type RosterEntry = { userId: string; firstName: string; lastName: string; username: string; email: string };
+
+    // Chủ lớp: đáp số đầy đủ như trước — email/username của học sinh có mặt.
+    const ownerRoster = await must(await http(app).get(`/api/v1/classes/${classId}/roster`).set(auth(teacher)), 'owner roster') as RosterEntry[];
+    const ownerEntry = ownerRoster.find((m) => m.userId === knownStudentId);
+    expect(ownerEntry).toBeTruthy();
+    expect(ownerEntry!.email).toBe(knownStudentEmail);
+    expect(ownerEntry!.username).toBeTruthy();
+
+    // Đồng GV được gán vai quản roster ở ca (5): cũng nhận đáp số đầy đủ.
+    const mgrRoster = await must(await http(app).get(`/api/v1/classes/${classId}/roster`).set(auth(rosterMgr)), 'roster manager roster') as RosterEntry[];
+    expect(mgrRoster.find((m) => m.userId === knownStudentId)?.email).toBe(knownStudentEmail);
+
+    // Đồng GV chỉ có vai chấm bài (không quản roster): đọc được danh
+    // sách theo tên nhưng email/username của mọi dòng đều bị làm rỗng.
+    const graderRoster = await must(await http(app).get(`/api/v1/classes/${classId}/roster`).set(auth(coTeacher)), 'grader roster') as RosterEntry[];
+    expect(graderRoster.length).toBeGreaterThan(0);
+    for (const entry of graderRoster) {
+      expect(entry.email).toBe('');
+      expect(entry.username).toBe('');
+    }
+    const graderEntry = graderRoster.find((m) => m.userId === knownStudentId);
+    expect(graderEntry).toBeTruthy();
+    expect(`${graderEntry!.lastName} ${graderEntry!.firstName}`).toBe('Đã Biết');
+
+    // Học sinh trong lớp: vẫn đọc được danh sách bạn học theo tên,
+    // không dòng nào kèm trường liên hệ.
+    const memberRoster = await must(await http(app).get(`/api/v1/classes/${classId}/roster`).set(auth(knownStudent)), 'member roster') as RosterEntry[];
+    expect(memberRoster.map((m) => m.userId)).toContain(knownStudentId);
+    for (const entry of memberRoster) {
+      expect(entry.email).toBe('');
+      expect(entry.username).toBe('');
+    }
   });
 });
