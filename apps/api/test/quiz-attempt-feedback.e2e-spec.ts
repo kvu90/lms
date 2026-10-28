@@ -16,6 +16,13 @@ import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
  *  - cổng đóng (masks = 0): cả 4 tầng đều null ở phía HS (không lộ qua
  *    API), trong khi GV (privileged) vẫn thấy — dữ liệu có thật, chính
  *    cổng review là thứ che phía học sinh.
+ * Bổ sung — chốt đáp án shortanswer: trường `answers` của câu
+ * shortanswer chính là tập đáp án được chấp nhận (chấm khớp chính
+ * xác), nên nó phải qua cùng cổng reviewRightAnswer như `solution`.
+ * Các ca shortanswer ở cuối spec khoá ba phía: đang làm và sau nộp
+ * khi cổng đóng thì `answers` rỗng và toàn bộ payload không chứa
+ * nguyên văn đáp án được chấp nhận; cổng mở thì `solution` hiện như
+ * cũ; phía GV (privileged) không bị che.
  */
 describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
   let app: INestApplication;
@@ -34,11 +41,13 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     slot: number;
     questionAttemptId: string;
     questionId: string;
+    qtype: string;
+    answers: { id: string; text: unknown }[];
     feedback: unknown;
     generalFeedback: unknown;
     manualComment: string | null;
     guidance: unknown;
-    solution: { correctAnswerId?: string; answer?: unknown } | null;
+    solution: { correctAnswerId?: string; answer?: unknown; acceptedAnswers?: string[] } | null;
   }
   interface AttemptViewBody {
     attempt: { id: string; state: string; sumGrades: number | null };
@@ -48,6 +57,13 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
 
   const MANUAL_COMMENT = 'Bài viết mạch lạc, dẫn chứng tốt.';
   const BAND_TEXT = 'Nhận xét tổng quát: đã hoàn thành bài.';
+  // Câu shortanswer của fixture: API chuẩn hoá MỌI đáp án liệt kê của
+  // shortanswer đều là đáp án được chấp nhận (các biến thể chính tả
+  // của cùng một đáp án, không có dòng mồi như trắc nghiệm) — cả hai
+  // chuỗi đều không được xuất hiện trong bất kỳ đáp ứng nào phía học
+  // viên khi cổng đáp án đúng đang đóng.
+  const SA_ACCEPTED = 'Hà Nội';
+  const SA_VARIANT = 'hà nội';
 
   async function setup() {
     const contexts = await http(app).get('/api/v1/access/contexts').set('Authorization', `Bearer ${admin}`);
@@ -76,6 +92,13 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
       guidance: 'Gợi ý: viết 3–4 câu, có câu mở đoạn.',
       solution: { answer: 'Bài mẫu: đoạn văn mẫu đạt yêu cầu.' },
     });
+    const saId = await mkQuestion({
+      qtype: 'shortanswer', questionText: 'Thủ đô của Việt Nam là gì?', defaultMark: 1,
+      answers: [
+        { text: SA_ACCEPTED, correct: true },
+        { text: SA_VARIANT, correct: true },
+      ],
+    });
 
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
@@ -88,7 +111,7 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     const teacherView = await http(app).get(`/api/v1/questions/${mcId}`).set('Authorization', `Bearer ${admin}`);
     const wrongAnswerId = (teacherView.body.answers as { id: string; isCorrect: boolean }[]).find((a) => !a.isCorrect)!.id;
 
-    return { courseId: course.id, sectionId, student, mcId, essayId, wrongAnswerId };
+    return { courseId: course.id, sectionId, student, mcId, essayId, saId, wrongAnswerId };
   }
 
   type Ctx = Awaited<ReturnType<typeof setup>>;
@@ -104,6 +127,14 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
       .send({ minPercent: 0, maxPercent: 100, feedback: BAND_TEXT });
     if (band.status !== 201 && band.status !== 200) throw new Error(`band failed: ${band.status} ${JSON.stringify(band.body)}`);
     return quizId;
+  }
+
+  /** Đề chỉ gồm câu shortanswer (tổng 1 điểm) cho các ca gác trường `answers`. */
+  async function mkQuizSa(ctx: Ctx, name: string, extra: Record<string, unknown> = {}): Promise<string> {
+    const draft = await createExamDraft(app, admin, name, 1);
+    await addExamSlot(app, admin, draft, { questionId: ctx.saId });
+    const pin = await pinExam(app, admin, ctx.courseId, draft, { sectionId: ctx.sectionId, ...extra });
+    return pin.id as string;
   }
 
   /** HS làm bài (chọn đáp án SAI của câu MC + viết essay), nộp, GV chấm tay essay kèm nhận xét. */
@@ -226,5 +257,79 @@ describe('Quiz attempt feedback tới học sinh (ĐX-3, #181)', () => {
     const mcT = teacherView.questions.find((q) => q.questionId === ctx.mcId)!;
     expect(essayT.manualComment).toBe(MANUAL_COMMENT);
     expect(JSON.stringify(mcT.feedback)).toContain('Chưa đúng, hãy cộng lại.');
+  });
+
+  it('đang làm: answers của shortanswer rỗng phía HS — đáp án được chấp nhận không có ở bất kỳ trường nào; GV vẫn thấy đủ', async () => {
+    const ctx = await setup();
+    const quizId = await mkQuizSa(ctx, 'Đề shortanswer đang làm');
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    expect(start.status === 200 || start.status === 201).toBe(true);
+    const view = start.body as AttemptViewBody;
+    const sa = view.questions.find((q) => q.questionId === ctx.saId)!;
+    expect(sa.qtype).toBe('shortanswer');
+    expect(sa.answers).toEqual([]);
+    expect(sa.solution).toBeNull();
+    // Toàn bộ payload không chứa nguyên văn bất kỳ đáp án được chấp nhận nào.
+    expect(JSON.stringify(view)).not.toContain(SA_ACCEPTED);
+    expect(JSON.stringify(view)).not.toContain(SA_VARIANT);
+
+    // Lưu một câu trả lời đoán sai rồi tải lại view: bề mặt lưu từng
+    // câu cũng trả lại toàn bộ view qua cùng một hàm dựng — vẫn sạch.
+    await http(app).post(`/api/v1/quiz-attempts/${view.attempt.id}/responses`).set('Authorization', `Bearer ${ctx.student}`)
+      .send({ questionAttemptId: sa.questionAttemptId, response: 'Đà Nẵng' });
+    const reloaded = await getView(view.attempt.id, ctx.student);
+    const saReloaded = reloaded.questions.find((q) => q.questionId === ctx.saId)!;
+    expect(saReloaded.answers).toEqual([]);
+    expect(JSON.stringify(reloaded)).not.toContain(SA_ACCEPTED);
+    expect(JSON.stringify(reloaded)).not.toContain(SA_VARIANT);
+
+    // GV (privileged) xem cùng lượt đang làm: answers vẫn đầy đủ —
+    // chốt chỉ che phía chủ lượt không đặc quyền.
+    const teacherView = await getView(view.attempt.id, admin);
+    const saTeacher = teacherView.questions.find((q) => q.questionId === ctx.saId)!;
+    expect(JSON.stringify(saTeacher.answers)).toContain(SA_ACCEPTED);
+  });
+
+  it('sau nộp với cổng đáp án đúng đóng: shortanswer vẫn không lộ đáp án được chấp nhận', async () => {
+    const ctx = await setup();
+    const quizId = await mkQuizSa(ctx, 'Đề shortanswer đóng cổng đáp án', { reviewRightAnswer: 0 });
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    expect(start.status === 200 || start.status === 201).toBe(true);
+    const doing = start.body as AttemptViewBody;
+    const saDoing = doing.questions.find((q) => q.questionId === ctx.saId)!;
+    await http(app).post(`/api/v1/quiz-attempts/${doing.attempt.id}/responses`).set('Authorization', `Bearer ${ctx.student}`)
+      .send({ questionAttemptId: saDoing.questionAttemptId, response: 'Đà Nẵng' });
+    await http(app).post(`/api/v1/quiz-attempts/${doing.attempt.id}/submit`).set('Authorization', `Bearer ${ctx.student}`).send({});
+
+    const view = await getView(doing.attempt.id, ctx.student);
+    const sa = view.questions.find((q) => q.questionId === ctx.saId)!;
+    // Cửa sổ xem lại mở (thấy nội dung câu) nhưng cổng đáp án đúng
+    // đóng: solution null VÀ answers rỗng — không còn đường vòng.
+    expect(sa.solution).toBeNull();
+    expect(sa.answers).toEqual([]);
+    expect(JSON.stringify(view)).not.toContain(SA_ACCEPTED);
+    expect(JSON.stringify(view)).not.toContain(SA_VARIANT);
+  });
+
+  it('sau nộp với cổng đáp án đúng mở: solution hiện đáp án được chấp nhận như cũ (không mất tính năng xem lại)', async () => {
+    const ctx = await setup();
+    // Mask 4368 = cổng mở ở mọi cửa sổ sau nộp (như ca guidance ở trên).
+    const quizId = await mkQuizSa(ctx, 'Đề shortanswer mở cổng đáp án', { reviewRightAnswer: 4368 });
+    const start = await http(app).post(`/api/v1/exam-pins/${quizId}/attempts`).set('Authorization', `Bearer ${ctx.student}`).send({});
+    expect(start.status === 200 || start.status === 201).toBe(true);
+    const doing = start.body as AttemptViewBody;
+    const saDoing = doing.questions.find((q) => q.questionId === ctx.saId)!;
+    await http(app).post(`/api/v1/quiz-attempts/${doing.attempt.id}/responses`).set('Authorization', `Bearer ${ctx.student}`)
+      .send({ questionAttemptId: saDoing.questionAttemptId, response: 'Đà Nẵng' });
+    await http(app).post(`/api/v1/quiz-attempts/${doing.attempt.id}/submit`).set('Authorization', `Bearer ${ctx.student}`).send({});
+
+    const view = await getView(doing.attempt.id, ctx.student);
+    const sa = view.questions.find((q) => q.questionId === ctx.saId)!;
+    // Tính năng xem lại giữ nguyên: đáp án được chấp nhận hiện qua
+    // solution đã qua cổng. Tại cửa sổ này khía cạnh đáp án đúng đã
+    // được phép hiện nên chốt không áp dụng — answers (nếu còn) cũng
+    // chỉ chứa đúng tập đáp án đã công bố qua solution, không lộ thêm
+    // gì; phần phải khoá là hai ca cổng đóng ở trên.
+    expect(sa.solution).toEqual({ acceptedAnswers: [SA_ACCEPTED, SA_VARIANT] });
   });
 });
