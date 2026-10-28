@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Queue } from 'bullmq';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { FilesRepository, type FileRow } from './files.repository';
@@ -167,21 +167,94 @@ export class FilesService {
   async physicalExists(contentHash: string): Promise<boolean> { return this.storage.exists(contentHash); }
 
   /**
-   * Xoá một bản ghi KHÔNG BAO GIỜ xoá byte khi các bản ghi khác còn tham chiếu tới
-   * cùng hash đó; khi refcount về 0, một job dọn file mồ côi được đưa vào hàng đợi
-   * cho worker (jobId khử trùng các lần enqueue lặp lại cho cùng một hash).
-   */
-  /**
    * Xoá bản ghi file; xoá nội dung vật lý khi refcount về 0.
+   *
+   * Luồng: lấy bản ghi → (khi có `actor`) áp chốt khoá bài nộp → xoá bản
+   * ghi → đếm lại số bản ghi còn tham chiếu cùng contentHash: còn tham
+   * chiếu thì byte vật lý giữ nguyên; refcount về 0 thì enqueue job dọn
+   * file mồ côi cho worker (jobId khử trùng các lần enqueue lặp lại cho
+   * cùng một hash). Bản ghi KHÔNG BAO GIỜ xoá byte khi các bản ghi khác
+   * còn tham chiếu tới cùng hash đó.
+   *
+   * Hai chế độ xoá, phân biệt bằng tham số `actor`:
+   * - **Người dùng khởi tạo** (handler `DELETE /files/:id` truyền
+   *   `actor`): nếu tệp đang gắn với một bài nộp, khoá bài nộp được áp
+   *   ngay tại đây qua {@link assertSubmissionLockForDelete}. Điểm chốt
+   *   phải nằm ở đường xoá dùng chung này vì đây là đường mọi yêu cầu
+   *   xoá của người dùng đều đi qua: chỉ gác ở route của module Bài tập
+   *   thì một yêu cầu trực tiếp tới endpoint tệp dùng chung sẽ vượt qua
+   *   toàn bộ chốt sở hữu/trạng thái của bài nộp.
+   * - **Hệ thống nội bộ** (không truyền `actor`): các luồng dọn dẹp đã
+   *   có cổng riêng ở tầng gọi (xoá bài tập kèm dọn tệp, gỡ tệp bài nộp
+   *   qua route của module Bài tập sau khi đã qua chốt của chính module
+   *   đó, listener sự kiện vòng đời course module, xoá dữ liệu riêng
+   *   tư, dọn tệp quét của module chấm giấy) — giữ nguyên hành vi xoá
+   *   vô điều kiện như trước.
+   *
+   * @param id id bản ghi tệp cần xoá.
+   * @param actor người dùng khởi tạo yêu cầu xoá; vắng mặt = xoá nội bộ
+   * của hệ thống.
+   * @returns contentHash của tệp và refcount sau khi xoá.
+   * @throws NotFoundException `file.not_found` khi tệp không tồn tại;
+   * các mã lỗi của chốt bài nộp xem {@link assertSubmissionLockForDelete}.
    */
-  async deleteFile(id: string): Promise<{ deleted: true; contentHash: string; refcount: number }> {
+  async deleteFile(id: string, actor?: { id: string }): Promise<{ deleted: true; contentHash: string; refcount: number }> {
     const row = await this.getFile(id);
+    if (actor) await this.assertSubmissionLockForDelete(row, actor);
     await this.repo.deleteById(id);
     const refcount = await this.repo.countByHash(row.contentHash);
     if (refcount === 0) {
       await this.cleanupQueue.add('cleanup-orphan', { contentHash: row.contentHash }, { jobId: `orphan-${row.contentHash}`, attempts: 3 });
     }
     return { deleted: true, contentHash: row.contentHash, refcount };
+  }
+
+  /**
+   * Chốt khoá bài nộp cho đường xoá tệp do người dùng khởi tạo: tệp đang
+   * gắn với một bài nộp thì chỉ được xoá khi vượt qua đúng ba chốt mà
+   * module Bài tập áp ở đường gỡ tệp của chính nó
+   * (`AssignmentsService.removeSubmissionFile`), theo đúng thứ tự và mã
+   * lỗi của đường đó:
+   *
+   * 1. **Sở hữu:** bài nộp chứa tệp phải là của chính người gọi. Đường
+   *    Bài tập tra bài nộp theo người gọi nên tệp của người khác không
+   *    bao giờ tới được bước gỡ; tại đây điều đó tương ứng lỗi
+   *    `assign.submission_file_not_found` (404) — tệp không thuộc bài
+   *    nộp nào của người gọi.
+   * 2. **Đã trả bài:** gói chấm thuộc lần nộp hiện hành của bài nộp
+   *    (attempt number khớp) đã ở trạng thái `released` thì ném
+   *    `assign.already_graded` (409) — bài đã trả là chứng cứ chấm,
+   *    khoá hẳn.
+   * 3. **Đã chốt nộp:** bài nộp không ở trạng thái `draft` thì ném
+   *    `assign.submission_finalized` (409) — muốn đổi tệp phải mở lại
+   *    bài nộp về nháp trước.
+   *
+   * Bài nộp chứa tệp được xác định bằng dòng liên kết trong
+   * `assign_submission_files`; phòng khi dòng liên kết vắng mặt, bản
+   * ghi tệp tự khai là tệp bài nộp (component `mod_assign`, file area
+   * `submission_files`, item id là id bài nộp) cũng được tra trực tiếp
+   * tới bài nộp đó. Tệp không gắn bài nộp nào thì hàm này không chặn
+   * gì — hành vi xoá giữ nguyên như trước.
+   */
+  private async assertSubmissionLockForDelete(file: FileRow, actor: { id: string }): Promise<void> {
+    const linked = await this.repo.listSubmissionLinks(file.id);
+    const submissions = new Map(linked.map((s) => [s.submissionId, s]));
+    if (file.component === 'mod_assign' && file.fileArea === 'submission_files' && file.itemId && !submissions.has(file.itemId)) {
+      const byItem = await this.repo.getSubmission(file.itemId);
+      if (byItem) submissions.set(byItem.submissionId, byItem);
+    }
+    for (const s of submissions.values()) {
+      if (s.userId !== actor.id) {
+        throw new NotFoundException({ message: `File ${file.id} is not part of this submission`, code: 'assign.submission_file_not_found' });
+      }
+      const grade = await this.repo.getGradeForSubmission(s.assignmentId, s.userId);
+      if (grade && grade.attemptNumber === s.attemptNumber && grade.status === 'released') {
+        throw new ConflictException({ message: 'Submission has been returned and is locked', code: 'assign.already_graded' });
+      }
+      if (s.status !== 'draft') {
+        throw new ConflictException({ message: 'Submission is finalized; reopen it before changing files', code: 'assign.submission_finalized' });
+      }
+    }
   }
 
   /** Phía worker: chỉ xoá byte vật lý nếu hash vẫn không còn ai tham chiếu tại thời điểm thực thi. */
