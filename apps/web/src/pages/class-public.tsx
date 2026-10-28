@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, buttonVariants } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Skeleton } from '@lms/ui/components/skeleton';
@@ -49,13 +49,17 @@ export function ClassPublicPage() {
     enabled: Boolean(classId),
   });
 
-  // Poll trạng thái payment sau khi tạo: chỉ chạy khi payment đang chờ
-  // đối soát; succeeded là trạng thái kết thúc của vòng poll này.
+  // Poll trạng thái payment sau khi tạo: khoảng poll tính theo
+  // trạng thái MỚI NHẤT đã biết (đáp ứng poll gần nhất; chưa có thì
+  // bản tạo ban đầu trong state) — payment rời `pending` là poll
+  // dừng hẳn. Bản cũ tính `enabled` theo object gốc trong state vốn
+  // không bao giờ được cập nhật nên poll chạy vô thời hạn kể cả khi
+  // payment đã `succeeded`.
   const statusQuery = useQuery({
-    queryKey: ['payments', payment?.id ?? ''],
+    queryKey: queryKeys.payment(payment?.id ?? ''),
     queryFn: () => fetchPayment(payment!.id),
-    enabled: Boolean(payment) && payment!.status === 'pending',
-    refetchInterval: 3000,
+    enabled: Boolean(payment),
+    refetchInterval: (query) => ((query.state.data?.status ?? payment?.status) === 'pending' ? 3000 : false),
   });
   const livePayment = statusQuery.data ?? payment;
   const succeeded = livePayment?.status === 'succeeded';
@@ -69,11 +73,19 @@ export function ClassPublicPage() {
     onError: () => setPayError(t('classPublicPayFailed')),
   });
 
-  if (succeeded && publicQuery.data && !publicQuery.data.isMember) {
-    // Payment đã khớp: nạp lại gói công khai để chuyển sang trạng thái
-    // thành viên (server là nguồn sự thật của roster).
+  // Payment đã khớp mà gói công khai chưa ghi nhận thành viên: nạp
+  // lại gói công khai đúng MỘT lần cho mỗi payment để chuyển sang
+  // trạng thái thành viên (server là nguồn sự thật của roster). Việc
+  // nạp lại nằm trong effect — không gọi invalidate trong lúc
+  // render — và ref ghi nhớ payment đã xử lý chặn vòng lặp nạp lại
+  // khi server chưa kịp lật `isMember`.
+  const refreshedPaymentRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!succeeded || !publicQuery.data || publicQuery.data.isMember) return;
+    if (!payment || refreshedPaymentRef.current === payment.id) return;
+    refreshedPaymentRef.current = payment.id;
     void queryClient.invalidateQueries({ queryKey: queryKeys.classPublic(classId) });
-  }
+  }, [succeeded, publicQuery.data, payment, queryClient, classId]);
 
   const pub = publicQuery.data;
 
