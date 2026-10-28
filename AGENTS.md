@@ -186,8 +186,25 @@ trình hiện tại trong tài liệu này.
 5. `chờ merge` — đội review gắn khi phán quyết đạt; đội merge
    gỡ label trạng thái khi issue đóng sau khi merge.
 6. Các mẫu issue trong `.github/ISSUE_TEMPLATE/` không tự gắn
-   label loại khi tạo issue; label trên issue chỉ là label
-   trạng thái theo quy định này.
+   label khi tạo issue; label trạng thái do đội phụ trách gắn
+   theo vòng đời ở các điểm trên.
+
+#### Đặc tả bộ label của repo
+
+Repo dùng đúng 6 label theo bảng dưới đây. Khi repo được tạo
+lại từ đầu, tạo đúng 6 label này (qua trang Labels của repo
+hoặc qua API) TRƯỚC khi mở issue đầu tiên; xoá các label mặc
+định tiếng Anh của GitHub không thuộc bộ này, không dùng bộ
+label mặc định đó.
+
+| Tên label | Mã màu | Mô tả | Khi nào gắn | Ai gắn |
+| --- | --- | --- | --- | --- |
+| `đang thi công` | `1d76db` | Đội thi công đang làm | Khi bắt đầu làm issue | Đội thi công |
+| `đang review` | `5319e7` | Đội review độc lập đang chấm | Khi bắt đầu chấm | Đội review |
+| `chờ sửa` | `d93f0b` | Review chưa đạt, chờ đội thi công sửa | Khi phán quyết chưa đạt | Đội review |
+| `chờ merge` | `0e8a16` | Review đã đạt, chờ merge | Khi phán quyết đạt | Đội review |
+| `lỗi` | `d73a4a` | Có gì đó không hoạt động | Label loại cho issue lỗi | Đội mở issue |
+| `tính năng` | `a2eeef` | Tính năng mới hoặc yêu cầu | Label loại cho issue tính năng | Đội mở issue |
 
 ## Kỷ luật PR liên quan
 
