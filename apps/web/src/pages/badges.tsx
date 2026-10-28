@@ -6,6 +6,7 @@ import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
 import { Skeleton } from '@lms/ui/components/skeleton';
+import { formatDate } from '#lib/date-format';
 import { usePermissions } from '#lib/permissions';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -186,10 +187,10 @@ export function BadgesPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {t('issuedLine', {
-                        date: new Date(i.dateIssued).toLocaleDateString(),
+                        date: formatDate(i.dateIssued),
                         hash: i.uniqueHash.slice(0, 12),
                       })}
-                      {i.dateExpire ? ` ${t('expiresSuffix', { date: new Date(i.dateExpire).toLocaleDateString() })}` : ''}
+                      {i.dateExpire ? ` ${t('expiresSuffix', { date: formatDate(i.dateExpire) })}` : ''}
                     </p>
                   </li>
                 ))}
@@ -244,12 +245,12 @@ export function BadgesPage() {
                   {issuedList.map((i) => (
                     <li key={i.id} className="rounded border p-2 text-sm">
                       <p>
-                        {t('issuedToLine', { userId: i.userId, date: new Date(i.dateIssued).toLocaleDateString() })}
+                        {t('issuedToLine', { userId: i.userId, date: formatDate(i.dateIssued) })}
                         {i.revoked ? ` ${t('revokedSuffix')}` : ''}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {t('issuedLine', {
-                          date: new Date(i.dateIssued).toLocaleDateString(),
+                          date: formatDate(i.dateIssued),
                           hash: i.uniqueHash.slice(0, 12),
                         })}
                       </p>

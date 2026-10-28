@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
 import { apiFetch } from '#lib/api';
+import { formatDateTime } from '#lib/date-format';
 import {
   examQuestionDiscoveryQueryOptions,
   useCreateExamPaper,
@@ -426,7 +427,7 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
               {pins.map((pin) => (
                 <li key={pin.id} className="flex flex-wrap items-center gap-2">
                   <span className="min-w-0 flex-1">
-                    {pin.courseName} · v{pin.versionNumber} · {new Date(pin.createdAt).toLocaleString()} · {t('deploymentVariants', { count: pin.variantCount, codes: pin.variantCodes.join(', ') })}
+                    {pin.courseName} · v{pin.versionNumber} · {formatDateTime(pin.createdAt)} · {t('deploymentVariants', { count: pin.variantCount, codes: pin.variantCodes.join(', ') })}
                   </span>
                   {pin.variantCodes.map((code) => (
                     <Button key={code} type="button" variant="outline" onClick={() => void printVariant(pin.id, code)}>

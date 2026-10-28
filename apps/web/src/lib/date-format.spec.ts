@@ -68,7 +68,7 @@ describe('formatWithOptions — các khuôn tùy chọn tường minh', () => {
     expect(formatWithOptions(MOMENT, 'en-US', options)).toBe('01/05/2026');
   });
 
-  it('khóa nhãn ngày giờ ngắn không năm (trang tổng quan)', () => {
+  it('khóa nhãn ngày giờ ngắn (trang tổng quan và bề mặt phụ huynh)', () => {
     const options: Intl.DateTimeFormatOptions = {
       day: '2-digit',
       month: '2-digit',
@@ -77,18 +77,6 @@ describe('formatWithOptions — các khuôn tùy chọn tường minh', () => {
     };
     expect(formatWithOptions(MOMENT, 'vi', options)).toBe('14:30 05-01');
     expect(formatWithOptions(MOMENT, 'en-US', options)).toBe('01/05, 02:30 PM');
-  });
-
-  it('khóa nhãn ngày giờ ngắn có năm (bề mặt phụ huynh)', () => {
-    const options: Intl.DateTimeFormatOptions = {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    };
-    expect(formatWithOptions(MOMENT, 'vi', options)).toBe('14:30 05/01/2026');
-    expect(formatWithOptions(MOMENT, 'en-US', options)).toBe('01/05/2026, 02:30 PM');
   });
 
   it('khóa nhãn ngày dài của trang lịch (thứ + ngày + tháng + năm)', () => {

@@ -29,6 +29,7 @@ import { Input } from '@lms/ui/components/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '#lib/api';
+import { formatDateTime } from '#lib/date-format';
 import { useCreateExamPinOverride, useDeleteExamPinOverride, useUpdateExamPinOverride } from '#lib/quiz-data';
 import { toLocalInput } from './utils';
 
@@ -194,7 +195,7 @@ export function OverridesPanel({
                 ) : null}
                 <span className="block text-xs text-muted-foreground">
                   {[
-                    `${t('quizOverrideWindowLabel')}: ${ov.timeOpen ? new Date(ov.timeOpen).toLocaleString() : t('quizOverrideInherit')} → ${ov.timeClose ? new Date(ov.timeClose).toLocaleString() : t('quizOverrideInherit')}`,
+                    `${t('quizOverrideWindowLabel')}: ${ov.timeOpen ? formatDateTime(ov.timeOpen) : t('quizOverrideInherit')} → ${ov.timeClose ? formatDateTime(ov.timeClose) : t('quizOverrideInherit')}`,
                     ov.timeLimitSeconds
                       ? t('quizOverrideLimitLabel', { minutes: Math.round(ov.timeLimitSeconds / 60) })
                       : null,

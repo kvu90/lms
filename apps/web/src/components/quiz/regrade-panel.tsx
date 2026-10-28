@@ -27,6 +27,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { useTranslation } from 'react-i18next';
 
+import { formatDateTime } from '#lib/date-format';
+
 interface RegradePanelProps {
   quiz: QuizView;
   slotNames: Record<string, string>;
@@ -151,7 +153,7 @@ export function RegradePanel({
             <ul className="text-sm">
               {regradeLog.map((entry) => (
                 <li key={entry.id}>
-                  {t('regradeLogLine', { date: new Date(entry.createdAt).toLocaleString(), count: entry.items.length })}
+                  {t('regradeLogLine', { date: formatDateTime(entry.createdAt), count: entry.items.length })}
                 </li>
               ))}
             </ul>

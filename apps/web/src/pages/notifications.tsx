@@ -27,6 +27,7 @@ import {
   type NotificationItemView,
   type NotificationPreferenceView,
 } from '#lib/notifications';
+import { formatDate, formatDateTime } from '#lib/date-format';
 import { queryKeys } from '#lib/query-keys';
 import { buildSsrLoaderData, serverProbe, serverQueryFn, type SsrLoaderData } from '#lib/ssr-data';
 
@@ -92,7 +93,7 @@ function dayLabel(day: string, t: (key: string) => string): string {
   const now = new Date();
   if (day === localDay(now)) return t('todayLabel');
   if (day === localDay(new Date(now.getTime() - 86_400_000))) return t('yesterdayLabel');
-  return new Date(`${day}T00:00:00`).toLocaleDateString();
+  return formatDate(`${day}T00:00:00`);
 }
 
 /** Thời gian tương đối cho mục mới nhất ("vừa xong", "3 giờ trước"…); quá một tuần thì in ngày giờ cụ thể. */
@@ -105,7 +106,7 @@ function relativeTime(iso: string, t: (key: string, opts?: Record<string, unknow
   if (hours < 24) return t('hoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
   if (days < 7) return t('daysAgo', { count: days });
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 /**

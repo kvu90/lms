@@ -21,6 +21,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { ApiError, apiJson, redirectToExternalUrl } from '#lib/api';
+import { formatDate, formatDateTime } from '#lib/date-format';
 import { describeUserAgent } from '#lib/user-agent';
 import { queryKeys } from '#lib/query-keys';
 
@@ -127,7 +128,7 @@ export function LinkedAccountsCard() {
                 <span className="font-medium">{issuerLabel(t, link.issuer)}</span>
                 <span className="text-sm">{link.email}</span>
                 <span className="text-sm text-muted-foreground">
-                  {t('linkedOn', { date: new Date(link.createdAt).toLocaleDateString(i18n.language) })}
+                  {t('linkedOn', { date: formatDate(link.createdAt, i18n.language) })}
                 </span>
                 <Button
                   type="button"
@@ -426,7 +427,6 @@ export function SessionsCard() {
 
   const sessions = sessionsQuery.data?.sessions ?? [];
   const hasOtherSessions = sessions.some((s) => !s.current);
-  const formatDateTime = (iso: string) => new Date(iso).toLocaleString(i18n.language);
 
   return (
     <Card>
@@ -459,8 +459,8 @@ export function SessionsCard() {
             <TableBody>
               {sessions.map((session) => (
                 <TableRow key={session.id}>
-                  <TableCell>{formatDateTime(session.createdAt)}</TableCell>
-                  <TableCell>{formatDateTime(session.lastActivityAt)}</TableCell>
+                  <TableCell>{formatDateTime(session.createdAt, i18n.language)}</TableCell>
+                  <TableCell>{formatDateTime(session.lastActivityAt, i18n.language)}</TableCell>
                   <TableCell>{session.ip ?? t('sessionUnknown')}</TableCell>
                   <TableCell>
                     {describeUserAgent(session.userAgent, t('sessionUnknown'), (browser, os) =>

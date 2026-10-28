@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/car
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { apiFetch } from '#lib/api';
+import { formatDateTime } from '#lib/date-format';
 import {
   courseGroupsQueryOptions,
   progressReportQueryOptions,
@@ -118,7 +119,7 @@ export function ProgressReportPage() {
                         <td key={item.cmId}>{(student.states[item.cmId] ?? 0) !== 0 ? '✓' : '—'}</td>
                       ))}
                       <td>{student.percent !== null ? `${student.percent}%` : '—'}</td>
-                      <td>{student.lastAccessAt ? new Date(student.lastAccessAt).toLocaleString() : '—'}</td>
+                      <td>{student.lastAccessAt ? formatDateTime(student.lastAccessAt) : '—'}</td>
                     </tr>
                   ))}
                   {report.students.length === 0 ? (

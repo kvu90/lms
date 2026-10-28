@@ -1,3 +1,5 @@
+import { formatDateTime } from '#lib/date-format';
+
 import type { MessageQuoteView, MessageView } from './types';
 
 /** Rút gọn excerpt ở client cho bản lạc quan — CÙNG luật với server (120 ký tự theo code point, thêm … khi cắt). */
@@ -39,7 +41,7 @@ export function relativeTime(iso: string, t: (key: string, opts?: Record<string,
   if (hours < 24) return t('hoursAgo', { count: hours });
   const days = Math.floor(hours / 24);
   if (days < 7) return t('daysAgo', { count: days });
-  return new Date(iso).toLocaleString();
+  return formatDateTime(iso);
 }
 
 /**

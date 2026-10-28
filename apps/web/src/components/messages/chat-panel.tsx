@@ -18,6 +18,8 @@ import {
 } from '@lms/ui/components/message-scroller';
 import { useTranslation } from 'react-i18next';
 import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
+
+import { formatDate, formatDateTime } from '#lib/date-format';
 import type { ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, ScrollerHandle } from './types';
 import { MemberActionMenu, MemberPanel, MemberProfileSheet, useMemberProfile, type MemberPanelBundle } from './member-panel';
 import { CHAT_MENU_CONTENT_CLASS, CHAT_MENU_ITEM_CLASS, countMessageCharacters, initialsOf, quoteExcerptOfText } from './utils';
@@ -204,7 +206,7 @@ export function ChatPanel({
     const diffDays = Math.round((startOfDay(new Date()) - startOfDay(new Date(iso))) / 86_400_000);
     if (diffDays <= 0) return t('messagesToday');
     if (diffDays === 1) return t('messagesYesterday');
-    return new Date(iso).toLocaleDateString();
+    return formatDate(iso);
   };
   /** Luồng tin kèm ngăn cách theo ngày (chuẩn app nhắn tin): pill ngày chèn trước tin đầu tiên của mỗi ngày. */
   const threadItems: ReactNode[] = [];
@@ -396,7 +398,7 @@ export function ChatPanel({
             */}
             {isLastMessage || hasOwnStatusNote ? (
               <MessageFooter className="flex-wrap gap-2">
-                {isLastMessage ? <span>{new Date(m.createdAt).toLocaleString()}</span> : null}
+                {isLastMessage ? <span>{formatDateTime(m.createdAt)}</span> : null}
               {m.deletedAt ? (
                 <span className="italic">
                   {t('messageDeletedBy', { userId: m.deletedBy ? nameOf(m.deletedBy) : '' })}

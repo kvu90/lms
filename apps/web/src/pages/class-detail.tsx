@@ -33,6 +33,7 @@ import {
   type ClassRosterImportReport,
   type ClassStaffRole,
 } from '#lib/classes';
+import { formatDate } from '#lib/date-format';
 import { queryKeys } from '#lib/query-keys';
 
 /**
@@ -409,7 +410,7 @@ export function ClassDetailPage() {
                         <TableCell>{personName(member)}</TableCell>
                         <TableCell>{member.username}</TableCell>
                         <TableCell>{member.email}</TableCell>
-                        <TableCell>{new Date(member.timeAdded).toLocaleDateString()}</TableCell>
+                        <TableCell>{formatDate(member.timeAdded)}</TableCell>
                         <TableCell className="text-right">
                           {canManageRoster ? (
                             <Button type="button" size="sm" variant="outline" disabled={removeMutation.isPending} onClick={() => onRemove(member.userId, personName(member))}>

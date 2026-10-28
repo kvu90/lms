@@ -7,6 +7,7 @@ import {
   guardianDigestPreferenceQueryOptions, guardianMyStudentsQueryOptions, guardianOverviewQueryOptions,
   guardianResultsQueryOptions, useUpdateGuardianDigestPreference,
 } from '#lib/guardian-data';
+import { formatWithOptions } from '#lib/date-format';
 import { SectionCards, type StatCard } from '#components/section-cards';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -19,17 +20,6 @@ function studentName(s: { firstName: string; lastName: string }): string {
   return `${s.lastName} ${s.firstName}`.trim();
 }
 
-/** Nhãn ngày dd/MM/yyyy theo ngôn ngữ giao diện. */
-function dayLabel(iso: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date(iso));
-}
-
-/** Nhãn ngày giờ ngắn theo ngôn ngữ giao diện. */
-function dateTimeLabel(iso: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-  }).format(new Date(iso));
-}
 
 /** Số điểm hiển thị theo ngôn ngữ (tối đa 2 chữ số thập phân, không ép 0). */
 function scoreLabel(value: number, locale: string): string {
@@ -215,7 +205,7 @@ export function GuardianPage() {
               <section className="flex flex-col gap-3">
                 <BlockTitle>{t('weeklyTitle')}</BlockTitle>
                 <p className="-mt-2 px-4 text-sm text-muted-foreground lg:px-6">
-                  {t('weeklyRange', { start: dayLabel(overview.weekly.weekStart, locale), end: dayLabel(overview.weekly.weekEnd, locale) })}
+                  {t('weeklyRange', { start: formatWithOptions(overview.weekly.weekStart, locale, { day: '2-digit', month: '2-digit', year: 'numeric' }), end: formatWithOptions(overview.weekly.weekEnd, locale, { day: '2-digit', month: '2-digit', year: 'numeric' }) })}
                 </p>
                 <SectionCards cards={weeklyCards} />
                 <div className="px-4 lg:px-6">
@@ -238,7 +228,7 @@ export function GuardianPage() {
                               <span className="text-muted-foreground">
                                 {item.kind === 'quiz' ? t('kindQuiz') : t('kindAssignment')} · {item.courseName}
                               </span>
-                              <span className="ml-auto text-muted-foreground">{t('dueAt', { date: dateTimeLabel(item.dueAt, locale) })}</span>
+                              <span className="ml-auto text-muted-foreground">{t('dueAt', { date: formatWithOptions(item.dueAt, locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) })}</span>
                             </li>
                           ))}
                         </ul>
@@ -294,7 +284,7 @@ export function GuardianPage() {
                               <div className="flex flex-wrap items-baseline gap-2">
                                 <span className="font-medium">{a.subject}</span>
                                 <span className="text-muted-foreground">{a.courseName}</span>
-                                <span className="ml-auto text-muted-foreground">{dateTimeLabel(a.createdAt, locale)}</span>
+                                <span className="ml-auto text-muted-foreground">{formatWithOptions(a.createdAt, locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
                               <p className="text-muted-foreground">{a.body}</p>
                             </li>
