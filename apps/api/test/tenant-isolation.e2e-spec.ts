@@ -364,4 +364,83 @@ describe('tenant isolation (TENANT-0, #168)', () => {
     expect(inB.some((s) => s.endsWith('-B'))).toBe(true);
     expect(inB.some((s) => s.endsWith('-A'))).toBe(false);
   });
+
+  it('(10) đáp ứng người dùng của tenant chỉ gồm đúng 7 trường hồ sơ, không chứa passwordHash', async () => {
+    // Hợp đồng hình dạng của bề mặt người dùng tenant: đúng 7 trường
+    // phía tiêu thụ cần — thừa hay thiếu một trường đều là đổi hợp
+    // đồng. Trước đợt sửa này cả hai đáp ứng trả nguyên dòng `users`
+    // (15 trường, gồm `passwordHash`).
+    const expectedKeys = ['deleted', 'email', 'firstName', 'id', 'lastName', 'suspended', 'username'];
+
+    const list = await http(app).get(`/api/v1/tenants/${tenantA}/users`).set(auth(adminZero));
+    expect(list.status).toBe(200);
+    const rows = list.body as Record<string, unknown>[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(Object.keys(row).sort()).toEqual(expectedKeys);
+    }
+    expect(JSON.stringify(list.body)).not.toContain('passwordHash');
+    expect(JSON.stringify(list.body)).not.toContain('password_hash');
+    // Các trường cần thiết giữ đúng giá trị như trước khi sửa.
+    const teacherRow = rows.find((r) => r.id === teacherId);
+    expect(teacherRow?.username).toBe(teacherUsername);
+    expect(teacherRow?.suspended).toBe(false);
+    expect(teacherRow?.deleted).toBe(false);
+
+    // POST tạo người dùng ngay trong tenant: đáp ứng cùng hình dạng chiếu.
+    const username = uniqueName('tuser');
+    const created = await http(app).post(`/api/v1/tenants/${tenantA}/users`).set(auth(adminZero)).send({
+      username, email: `${username}@example.com`, password: STRONG_PASSWORD, firstName: 'Tenant', lastName: 'User',
+    });
+    expect(created.status).toBe(201);
+    const createdBody = created.body as Record<string, unknown>;
+    expect(Object.keys(createdBody).sort()).toEqual(expectedKeys);
+    expect(createdBody.username).toBe(username);
+    expect(createdBody.email).toBe(`${username}@example.com`);
+    expect(createdBody.firstName).toBe('Tenant');
+    expect(createdBody.lastName).toBe('User');
+    expect(JSON.stringify(created.body)).not.toContain('passwordHash');
+    expect(JSON.stringify(created.body)).not.toContain('password_hash');
+
+    // Người vừa tạo xuất hiện trong danh sách GET với cùng hình dạng.
+    const after = await must(await http(app).get(`/api/v1/tenants/${tenantA}/users`).set(auth(adminZero)), 'list tenant users after create') as Record<string, unknown>[];
+    const createdRow = after.find((r) => r.id === createdBody.id);
+    expect(createdRow).toBeDefined();
+    expect(Object.keys(createdRow!).sort()).toEqual(expectedKeys);
+  });
+
+  it('(11) quét sâu các bề mặt trả dữ liệu người dùng: không bề mặt nào chứa passwordHash', async () => {
+    // Tiêu chí toàn cục của đợt sửa: `passwordHash` không được xuất
+    // hiện trong BẤT KỲ đáp ứng HTTP nào — quét đệ quy theo khoá ở
+    // mọi mức lồng trên các bề mặt tiêu biểu trả dữ liệu người dùng,
+    // kèm quét dạng chuỗi cho dạng snake_case của tên cột.
+    const containsKeyDeep = (value: unknown, key: string): boolean => {
+      if (Array.isArray(value)) return value.some((v) => containsKeyDeep(v, key));
+      if (value && typeof value === 'object') {
+        return Object.entries(value as Record<string, unknown>)
+          .some(([k, v]) => k === key || containsKeyDeep(v, key));
+      }
+      return false;
+    };
+    const surfaces: { name: string; body: unknown }[] = [];
+    const tokenRes = await http(app).post('/api/v1/auth/token').send({ username: teacherUsername, password: STRONG_PASSWORD });
+    expect(tokenRes.status).toBe(201);
+    surfaces.push({ name: 'POST /auth/token', body: tokenRes.body });
+    const me = await http(app).get('/api/v1/users/me').set(auth(adminZero));
+    expect(me.status).toBe(200);
+    surfaces.push({ name: 'GET /users/me', body: me.body });
+    const profile = await http(app).get(`/api/v1/users/${teacherId}`).set(auth(adminZero));
+    expect(profile.status).toBe(200);
+    surfaces.push({ name: 'GET /users/:id', body: profile.body });
+    const userList = await http(app).get('/api/v1/users').query({ page: 1, pageSize: 5 }).set(auth(adminZero));
+    expect(userList.status).toBe(200);
+    surfaces.push({ name: 'GET /users', body: userList.body });
+    const members = await http(app).get(`/api/v1/tenants/${tenantA}/members`).set(auth(adminZero));
+    expect(members.status).toBe(200);
+    surfaces.push({ name: 'GET /tenants/:tenantId/members', body: members.body });
+    for (const surface of surfaces) {
+      expect(containsKeyDeep(surface.body, 'passwordHash'), surface.name).toBe(false);
+      expect(JSON.stringify(surface.body), surface.name).not.toContain('password_hash');
+    }
+  });
 });
