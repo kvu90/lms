@@ -6,7 +6,7 @@ import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import {
@@ -103,10 +103,7 @@ export function TokensPage() {
             </ErrorAlert>
           ) : null}
           {loading ? (
-            <div className="space-y-2" aria-label={tr('loading')}>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
+            <PageSkeleton label={tr('loading')} rows={['h-10 w-full', 'h-10 w-full']} />
           ) : (
             <>
               <ul aria-label={tr('services')} className="space-y-2">

@@ -12,7 +12,7 @@ import { SectionCards, type StatCard } from '#components/section-cards';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { PageShell } from '../components/page-shell';
 
 /** Tên hiển thị của học sinh: Họ + Tên như hồ sơ người dùng. */
@@ -157,10 +157,7 @@ export function GuardianPage() {
       </div>
 
       {studentsQuery.isPending ? (
-        <div className="flex flex-col gap-4 px-4 lg:px-6" data-testid="guardian-loading">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
+        <PageSkeleton className="flex flex-col gap-4 px-4 lg:px-6" testId="guardian-loading" rows={['h-24 w-full', 'h-48 w-full']} />
       ) : students.length === 0 ? (
         <div className="px-4 lg:px-6">
           <Card>
@@ -195,10 +192,7 @@ export function GuardianPage() {
           {overviewQuery.isError || resultsQuery.isError ? (
             <p className="px-4 text-sm text-destructive lg:px-6">{t('loadError')}</p>
           ) : !overview || !results ? (
-            <div className="flex flex-col gap-4 px-4 lg:px-6" data-testid="guardian-loading">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-48 w-full" />
-            </div>
+            <PageSkeleton className="flex flex-col gap-4 px-4 lg:px-6" testId="guardian-loading" rows={['h-24 w-full', 'h-48 w-full']} />
           ) : (
             <>
               {/* Khối (a): tóm tắt tuần của con. */}

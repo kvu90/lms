@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@lms/ui/components/select';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { DataTable, type DataColumn } from '#components/data-table';
@@ -122,11 +122,7 @@ export function AdminRolesPage() {
       <Card>
         <CardContent>
           {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-              <Skeleton className="h-9 w-full" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-9 w-full']} />
           ) : (
             <>
               <ul className="divide-y">

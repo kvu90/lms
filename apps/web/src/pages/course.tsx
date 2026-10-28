@@ -4,7 +4,7 @@ import type { CourseContent } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -153,11 +153,7 @@ export function CoursePage() {
   if (pageQuery.isPending)
     return (
       <PageShell width="wide">
-        <div className="space-y-3" aria-label={t('courseLoading')}>
-          <Skeleton className="h-8 w-72" />
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
-        </div>
+        <PageSkeleton className="space-y-3" label={t('courseLoading')} rows={['h-8 w-72', 'h-28 w-full', 'h-28 w-full']} />
       </PageShell>
     );
 

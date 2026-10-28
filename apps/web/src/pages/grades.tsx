@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { GradeItem } from '@lms/contracts';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -269,11 +269,7 @@ export function GradebookPage() {
     return (
       <PageShell width="full">
         <PageHeader title={t('gradebook')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-2/3" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-10 w-full', 'h-10 w-full', 'h-10 w-2/3']} />
       </PageShell>
     );
   if (!book && !report)

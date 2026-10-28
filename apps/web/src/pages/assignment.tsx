@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { AssignmentForUserView } from '@lms/contracts';
 import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { ManagePanel } from '../components/assignment/manage-panel';
@@ -57,11 +57,7 @@ export function AssignmentPage() {
   if (assignmentQuery.isPending || !data) {
     return (
       <PageShell width="wide">
-        <div className="space-y-3" aria-label={t('assignLoading')}>
-          <Skeleton className="h-8 w-72" />
-          <Skeleton className="h-28 w-full" />
-          <Skeleton className="h-28 w-full" />
-        </div>
+        <PageSkeleton className="space-y-3" label={t('assignLoading')} rows={['h-8 w-72', 'h-28 w-full', 'h-28 w-full']} />
       </PageShell>
     );
   }

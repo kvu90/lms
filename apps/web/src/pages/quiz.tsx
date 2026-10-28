@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { type PinRegradeLogEntry, type PinRegradeResult, type PinVersionUpdatePreview } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -295,11 +295,7 @@ export function QuizPage() {
     return (
       <PageShell width="medium">
         <PageHeader title={t('quizHeading')} />
-        <div className="space-y-2" aria-label={t('quizLoading')}>
-          <Skeleton className="h-4 w-56" />
-          <Skeleton className="h-4 w-80" />
-          <Skeleton className="h-4 w-64" />
-        </div>
+        <PageSkeleton label={t('quizLoading')} rows={['h-4 w-56', 'h-4 w-80', 'h-4 w-64']} />
       </PageShell>
     );
 

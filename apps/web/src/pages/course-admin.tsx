@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@lms/ui/components/select';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
 import '../i18n';
@@ -587,11 +587,7 @@ export function CourseAdminPage() {
     <PageShell width="full">
       <PageHeader title={t('courseAdminHeading')} />
       {loading ? (
-        <div className="flex flex-col gap-4" aria-hidden="true">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
-        </div>
+        <PageSkeleton className="flex flex-col gap-4" ariaHidden rows={['h-40 w-full', 'h-40 w-full', 'h-40 w-full']} />
       ) : null}
       {!loading && (<>
       {canBuild && (

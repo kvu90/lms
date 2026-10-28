@@ -18,7 +18,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@lms/ui/components/sheet';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -415,10 +415,7 @@ export function CalendarPage() {
             </Field>
           </div>
           {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-16 w-full', 'h-16 w-full']} />
           ) : (
             <>
               {[...byDay.entries()].map(([key, group]) => (

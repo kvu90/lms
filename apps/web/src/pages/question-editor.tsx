@@ -5,7 +5,7 @@ import { composeMultipleChoiceDocument, splitMultipleChoiceDocument } from '@lms
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { FieldGroup } from '@lms/ui/components/field';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -440,11 +440,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     return (
       <PageShell width="full">
         <PageHeader title={mode === 'edit' ? t('editNewVersion') : t('newQuestion')} />
-        <div className="space-y-2" aria-label={t('loading')}>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
+        <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-24 w-full']} />
       </PageShell>
     );
   }

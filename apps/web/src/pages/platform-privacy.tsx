@@ -4,7 +4,7 @@ import '../i18n';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { PageHeader, PageShell } from '../components/page-shell';
 import { useCreatePrivacyRequest, useDecidePrivacyRequest, usePrivacyRequests } from '#lib/platform-data';
@@ -64,10 +64,7 @@ export function PrivacyPage() {
             </ErrorAlert>
           ) : null}
           {loading ? (
-            <div className="space-y-2" aria-label={t('loading')}>
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
+            <PageSkeleton label={t('loading')} rows={['h-10 w-full', 'h-10 w-full']} />
           ) : (
             <>
               <ul aria-label={t('privacyRequests')} className="space-y-2">

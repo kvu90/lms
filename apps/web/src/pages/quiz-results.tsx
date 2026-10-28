@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Input } from '@lms/ui/components/input';
 import { Label } from '@lms/ui/components/label';
-import { Skeleton } from '@lms/ui/components/skeleton';
+import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
 import { PageHeader, PageShell } from '../components/page-shell';
@@ -71,11 +71,7 @@ export function QuizResultsPage() {
     return (
       <PageShell width="medium">
         <PageHeader title={t('quizResultsHeading')} />
-        <div className="space-y-2" aria-label={t('quizResultsLoading')}>
-          <Skeleton className="h-4 w-56" />
-          <Skeleton className="h-4 w-80" />
-          <Skeleton className="h-4 w-64" />
-        </div>
+        <PageSkeleton label={t('quizResultsLoading')} rows={['h-4 w-56', 'h-4 w-80', 'h-4 w-64']} />
       </PageShell>
     );
 
