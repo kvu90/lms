@@ -55,7 +55,7 @@ của repo.
   chevron, khoảng cách) — không chỉ kiểm cấu trúc/chức năng.
 - CI là cổng chính; kết luận CI chỉ từ LOG THẬT. Local chỉ test targeted
   (`pnpm --filter @lms/web test -- <spec liên quan>`); suite nặng phải giữ khoá
-  `flock ~/workspace/lms-nest-ops/heavy-suite.lock`.
+  `flock /tmp/lms-heavy-suite.lock`.
 
 ## Kỷ luật test theo nghiệp vụ
 

@@ -44,7 +44,7 @@ của repo.
   typecheck` và `pnpm --filter @lms/editor test`; build lại `dist` trước khi
   typecheck apps/web trong cùng feat.
 - CI là cổng chính; kết luận CI chỉ từ LOG THẬT. Suite nặng local giữ khoá
-  `flock ~/workspace/lms-nest-ops/heavy-suite.lock`.
+  `flock /tmp/lms-heavy-suite.lock`.
 
 ## Kỷ luật test theo nghiệp vụ
 

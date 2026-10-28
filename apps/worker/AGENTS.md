@@ -50,7 +50,7 @@ của repo.
 - CI là cổng chính (suite worker có DB riêng `lms_test_worker` — không chạy đồng
   thời với suite api trên cùng DB); kết luận CI chỉ từ LOG THẬT.
 - Local chỉ test targeted; suite nặng giữ khoá
-  `flock ~/workspace/lms-nest-ops/heavy-suite.lock` suốt lượt chạy.
+  `flock /tmp/lms-heavy-suite.lock` suốt lượt chạy.
 
 ## Kỷ luật test theo nghiệp vụ
 
