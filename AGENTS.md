@@ -20,6 +20,20 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 5. Issue đặc tả của việc đang làm — bối cảnh, phạm vi, quyết định liên
    quan (viết trọn vẹn trong issue) và tiêu chí nghiệm thu.
 
+## Quy tắc làm việc chung
+
+- **Bám pattern của package trước khi sửa code:** trước khi sửa
+  code thuộc phạm vi của bất kỳ package/app nào, đội thi công PHẢI
+  nghiên cứu pattern của chính package đó trước — `AGENTS.md` và
+  `README.md` của package, các quy ước sẵn có và cách các vấn đề
+  tương tự đã được giải quyết trong code của package — rồi bám
+  đúng pattern đó. Cấm áp thói quen từ package khác hay thực hành
+  bên ngoài đè lên pattern của package.
+- **Thay đổi tối thiểu theo đúng task:** mọi thay đổi phải là tối
+  thiểu cần thiết cho task: không mở rộng phạm vi, không refactor
+  tiện tay, không đụng code không liên quan. Phát hiện ngoài phạm
+  vi thì ghi lại và báo cáo, không đưa vào thay đổi.
+
 ## Chuẩn ngôn ngữ
 
 - **Code viết bằng tiếng Anh:** định danh, tên hàm/biến/lớp và các
