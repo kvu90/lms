@@ -7,12 +7,13 @@ import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
 import { BadgesPage } from './badges';
 import { NotificationsPage } from './notifications';
-import { SettingsNotificationsPage } from './settings-notifications';
 
 /**
- * Test web cho mảng tương tác (Testing Library): hai hành vi sát DoD —
- * một nút gạt tuỳ chọn thông báo ghi thẳng xuống API, và danh sách
- * "huy hiệu của tôi" hiển thị các assertion đã cấp của chính người gọi.
+ * Test web cho mảng tương tác (Testing Library): trung tâm thông báo
+ * (nhóm theo ngữ cảnh, lọc theo nhóm học, mở một thông báo thì đánh
+ * dấu đã đọc và đi sâu vào ngữ cảnh) và danh sách "huy hiệu của tôi"
+ * hiển thị các assertion đã cấp của chính người gọi. Tuỳ chọn thông
+ * báo của khu Cài đặt được kiểm ở settings-notifications.spec.tsx.
  */
 const PROFILE = {
   id: '01900000-0000-7000-8000-000000000007',
@@ -39,130 +40,6 @@ function stubFetch(handler: (url: string, init?: RequestInit) => unknown) {
     }),
   );
 }
-
-describe('Settings — notification preferences (moved off the centre page, #288)', () => {
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllGlobals();
-  });
-
-  // Hình dạng thật của GET /messages/preferences ở mô hình v2 (NB-2 +
-  // trường siteEnabled của NB-7): MỘT dòng cho mỗi provider, nhãn/mô
-  // tả vi/en từ registry ở API, popup bật/tắt + tần suất email; không
-  // còn trục loggedin/loggedoff, không có kênh push. Từ #288 các dòng
-  // này sống ở lớp 2 "Tuỳ chỉnh từng loại" của /settings/notifications
-  // — ba ca dưới đây là ca gốc của trang /notifications cũ, chuyển
-  // nguyên ý đồ sang bề mặt mới.
-  const PREF_ROW = {
-    provider: 'badge_awarded', component: 'core_badges', group: 'people',
-    label: { vi: 'Huy hiệu mới', en: 'New badge' },
-    description: { vi: 'Khi bạn được trao một huy hiệu.', en: 'When you are awarded a badge.' },
-    teacherOnly: false, mandatoryInApp: false, popupEnabled: true, emailFrequency: 'immediate', emailAvailable: false,
-    siteEnabled: true,
-  };
-  const PREF_ROWS = [PREF_ROW];
-
-  function renderSettingsPage() {
-    const router = createMemoryRouter(
-      [{ path: '/settings/notifications', element: <SettingsNotificationsPage /> }],
-      { initialEntries: ['/settings/notifications'] },
-    );
-    render(
-      <TestProviders>
-        <RouterProvider router={router} />
-      </TestProviders>,
-    );
-    return router;
-  }
-
-  /** Mở lớp 2 "Tuỳ chỉnh từng loại" — các dòng theo provider chỉ dựng khi mục này mở. */
-  async function openCustomize() {
-    await userEvent.click(await screen.findByText('Tuỳ chỉnh từng loại'));
-  }
-
-  it('renders the v2 provider row with its registry label and PUTs exactly the popup patch', async () => {
-    const puts: unknown[] = [];
-    stubFetch((url, init) => {
-      if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
-        const body = JSON.parse(String(init.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
-        puts.push(body);
-        // API thật trả lại dòng đầy đủ của provider vừa đặt.
-        return { ...PREF_ROW, ...body };
-      }
-      if (url === '/api/v1/messages/preferences') return PREF_ROWS;
-      // Ghi đè theo khoá (NB-4): trang tải thêm danh sách khoá của user.
-      if (url === '/api/v1/messages/preferences/courses') return { courses: [] };
-      return undefined;
-    });
-    renderSettingsPage();
-    await openCustomize();
-    // Nhãn hiển thị là nhãn registry (vi), không còn khoá thô nào.
-    expect(await screen.findByText('Huy hiệu mới')).toBeInTheDocument();
-    expect(screen.queryByText('badge_awarded')).not.toBeInTheDocument();
-    expect(screen.queryByText(/loggedin|loggedoff/)).not.toBeInTheDocument();
-    const toggle = screen.getByLabelText('Huy hiệu mới — Trong ứng dụng');
-    expect(toggle).toBeChecked();
-    await userEvent.click(toggle);
-    await waitFor(() => expect(puts).toHaveLength(1));
-    expect(puts[0]).toEqual({ provider: 'badge_awarded', popupEnabled: false });
-    await waitFor(() => expect(toggle).not.toBeChecked());
-  });
-
-  it('changing the email frequency PUTs that patch only, and the unavailable-channel note is shown', async () => {
-    const puts: unknown[] = [];
-    stubFetch((url, init) => {
-      if (url === '/api/v1/messages/preferences' && init?.method === 'PUT') {
-        const body = JSON.parse(String(init.body)) as { provider: string; popupEnabled?: boolean; emailFrequency?: string };
-        puts.push(body);
-        return { ...PREF_ROW, ...body };
-      }
-      if (url === '/api/v1/messages/preferences') return PREF_ROWS;
-      // Ghi đè theo khoá (NB-4): trang tải thêm danh sách khoá của user.
-      if (url === '/api/v1/messages/preferences/courses') return { courses: [] };
-      return undefined;
-    });
-    renderSettingsPage();
-    await openCustomize();
-    const select = await screen.findByLabelText('Huy hiệu mới — Email');
-    expect(select).toHaveValue('immediate');
-    // Trung thực kênh: email chưa gửi thật thì phải có ghi chú, và
-    // không có bất kỳ bề mặt push nào trên trang.
-    expect(screen.getByText('Chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở')).toBeInTheDocument();
-    expect(screen.queryByText(/push/i)).not.toBeInTheDocument();
-    await userEvent.selectOptions(select, 'off');
-    await waitFor(() => expect(puts).toHaveLength(1));
-    expect(puts[0]).toEqual({ provider: 'badge_awarded', emailFrequency: 'off' });
-    await waitFor(() => expect(select).toHaveValue('off'));
-  });
-
-  it('reverts the toggle and reports an error when the PUT fails', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string, init?: RequestInit) => {
-        if (url === '/api/v1/messages/preferences' && init?.method === 'PUT')
-          return new Response(
-            JSON.stringify({ type: 'about:blank', title: 'Bad Request', status: 400, code: 'messaging.unknown_provider' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } },
-          );
-        if (url === '/api/v1/messages/preferences')
-          return new Response(JSON.stringify(PREF_ROWS), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        // Ghi đè theo khoá (NB-4): danh sách khoá tải tốt — lỗi duy nhất
-        // của ca này là PUT tuỳ chọn, để role=alert chỉ có một nguồn.
-        if (url === '/api/v1/messages/preferences/courses')
-          return new Response(JSON.stringify({ courses: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-      }),
-    );
-    renderSettingsPage();
-    await openCustomize();
-    const toggle = await screen.findByLabelText('Huy hiệu mới — Trong ứng dụng');
-    expect(toggle).toBeChecked();
-    await userEvent.click(toggle);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Không lưu được tuỳ chọn thông báo');
-    expect(toggle).toBeChecked();
-    expect(toggle).not.toBeDisabled();
-  });
-});
 
 describe('Notifications centre v2 (issue #51)', () => {
   afterEach(() => {

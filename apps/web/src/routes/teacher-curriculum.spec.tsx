@@ -1,6 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { RouteErrorBoundary } from '../components/route-error-boundary';
-import i18n from '../i18n';
 import { TeacherCurriculumPage } from '../pages/teacher-curriculum';
 import * as teacherCurriculumRoute from './teacher-curriculum';
 
@@ -14,22 +12,14 @@ import * as teacherCurriculumRoute from './teacher-curriculum';
  * nhờ `meta()`, khung shell vẫn hiện, vùng nội dung trống, không
  * thông báo lỗi), trong khi spec gắn component trực tiếp vẫn xanh
  * nên lỗi không lộ. Spec này ghim đúng mối nối đó: export mặc định
- * của route module phải là đúng component trang, `ErrorBoundary`
- * phải là component dùng chung, `meta()` phải trả đúng tiêu đề của
- * trang — để lỗi nối route không thể quay lại trong im lặng.
+ * của route module phải là đúng component trang — để lỗi nối route
+ * không thể quay lại trong im lặng. Hai mối nối còn lại của route
+ * module (ErrorBoundary dùng chung và `meta()` theo trang) được ghim
+ * trong bảng 10 module của `pages/shell-pages-routes.spec.tsx`, có
+ * điểm teacher-curriculum với cùng các khẳng định.
  */
 describe('Route /curriculum — route module nối đúng component trang', () => {
   it('export mặc định của route module là đúng component TeacherCurriculumPage', () => {
     expect(teacherCurriculumRoute.default).toBe(TeacherCurriculumPage);
-  });
-
-  it('ErrorBoundary của route module là RouteErrorBoundary dùng chung', () => {
-    expect(teacherCurriculumRoute.ErrorBoundary).toBe(RouteErrorBoundary);
-  });
-
-  it('meta() của route module trả tiêu đề chương trình GDPT của trang', () => {
-    const expectedTitle = i18n.t('teacherProgrammeTitle', { ns: 'app' });
-    expect(expectedTitle).not.toBe('teacherProgrammeTitle');
-    expect(teacherCurriculumRoute.meta()).toEqual([{ title: `${expectedTitle} · LMS` }]);
   });
 });

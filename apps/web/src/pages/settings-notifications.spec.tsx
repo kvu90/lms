@@ -297,4 +297,72 @@ describe('Settings — notification preferences, two-layer model (#288)', () => 
     expect(await screen.findByText('Ngoại lệ theo khoá học')).toBeInTheDocument();
     expect(screen.getByLabelText('Tắt tiếng khoá này: Khoá Toán 10')).toBeInTheDocument();
   });
+
+  // Hai ca dưới đây giữ các hành vi của trang vốn được ghim ở
+  // engagement.spec.tsx (describe tuỳ chọn thông báo đặt sai file):
+  // đổi tần suất email của một loại và hoàn trạng thái khi PUT lỗi.
+  it('đổi tần suất email của một loại ở lớp tuỳ chỉnh: chỉ PUT đúng provider đó, hiện ghi chú kênh chưa khả dụng', async () => {
+    const calls: RecordedCall[] = [];
+    // Dòng badge_awarded giữ mặc định của row(): emailAvailable=false
+    // (kênh email chưa gửi thật), tần suất immediate.
+    stubFetch(calls, {
+      rows: [
+        row({ provider: 'badge_awarded', group: 'people', label: { vi: 'Huy hiệu mới', en: 'New badge' }, emailFrequency: 'immediate' }),
+      ],
+      courses: [],
+    });
+    renderPage();
+
+    await screen.findByLabelText('Lớp & mọi người — Trong ứng dụng');
+    await userEvent.click(screen.getByText('Tuỳ chỉnh từng loại'));
+    // Nhãn hiển thị là nhãn registry (vi), không lộ khoá thô của
+    // provider và không còn trục loggedin/loggedoff của mô hình cũ.
+    expect(await screen.findByText('Huy hiệu mới')).toBeInTheDocument();
+    expect(screen.queryByText('badge_awarded')).not.toBeInTheDocument();
+    expect(screen.queryByText(/loggedin|loggedoff/)).not.toBeInTheDocument();
+    const select = await screen.findByLabelText('Huy hiệu mới — Email');
+    expect(select).toHaveValue('immediate');
+    // Trung thực kênh: email chưa gửi thật thì phải có ghi chú, và
+    // không có bất kỳ bề mặt push nào trên trang.
+    expect(screen.getByText('Chưa khả dụng — cài đặt sẽ áp dụng khi kênh mở')).toBeInTheDocument();
+    expect(screen.queryByText(/push/i)).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(select, 'off');
+    await waitFor(() => expect(prefPuts(calls)).toHaveLength(1));
+    expect(prefPuts(calls)[0]!.body).toEqual({ provider: 'badge_awarded', emailFrequency: 'off' });
+    await waitFor(() => expect(screen.getByLabelText('Huy hiệu mới — Email')).toHaveValue('off'));
+  });
+
+  it('PUT tuỳ chọn thất bại: công tắc hoàn về trạng thái cũ và hiện cảnh báo lỗi', async () => {
+    const badgeRow = row({
+      provider: 'badge_awarded', group: 'people', label: { vi: 'Huy hiệu mới', en: 'New badge' }, emailFrequency: 'immediate',
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === '/api/v1/messages/preferences' && init?.method === 'PUT')
+          return new Response(
+            JSON.stringify({ type: 'about:blank', title: 'Bad Request', status: 400, code: 'messaging.unknown_provider' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } },
+          );
+        if (url === '/api/v1/messages/preferences')
+          return new Response(JSON.stringify([badgeRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        // Ghi đè theo khoá (NB-4): danh sách khoá tải tốt — lỗi duy nhất
+        // của ca này là PUT tuỳ chọn, để role=alert chỉ có một nguồn.
+        if (url === '/api/v1/messages/preferences/courses')
+          return new Response(JSON.stringify({ courses: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+    renderPage();
+
+    await screen.findByLabelText('Lớp & mọi người — Trong ứng dụng');
+    await userEvent.click(screen.getByText('Tuỳ chỉnh từng loại'));
+    const toggle = await screen.findByLabelText('Huy hiệu mới — Trong ứng dụng');
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Không lưu được tuỳ chọn thông báo');
+    expect(toggle).toBeChecked();
+    expect(toggle).not.toBeDisabled();
+  });
 });
