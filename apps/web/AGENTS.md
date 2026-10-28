@@ -66,6 +66,20 @@ của repo.
 - Neo URL/trạng thái điều hướng đã nghiệm thu là hành vi nghiệp vụ: test phải giữ
   được chúng khi refactor vỏ.
 
+## Cấu trúc tầng test
+
+- `apps/web` chỉ có **một tầng test: unit**. Mọi spec là test đơn vị/component
+  render trong jsdom với dữ liệu/API được mock; spec `.spec.ts`/`.spec.tsx`
+  đặt cạnh file nguồn trong `src/`, riêng spec `.spec.mjs` của các module
+  server Node của app đặt trong `server/`.
+- Cấu trúc `test/e2e/`, `test/integration/` cùng hậu tố `.e2e-spec`/`.int-spec`
+  là của backend (`apps/api`, `apps/worker`) — không áp dụng cho web và không
+  tạo tầng rỗng cho web.
+- `vitest.config.ts` khai một project Vitest tên `unit` giữ danh sách
+  `include` neo đúng các vị trí trên; script `test` chạy toàn bộ test của app,
+  script `test:unit` chạy riêng project `unit` (hiện cùng một tập test vì web
+  chỉ có một tầng).
+
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 
 Mọi code TypeScript/TSX viết mới hoặc sửa trong `apps/web` phải có comment
