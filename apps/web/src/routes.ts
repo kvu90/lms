@@ -25,6 +25,7 @@ export default [
     route('admin/users', 'pages/admin-users.tsx'),
     route('admin/users/new', 'routes/admin-user-new.tsx'),
     route('admin/users/:userId/edit', 'routes/admin-user-edit.tsx'),
+    route('admin/tenants', 'pages/admin-tenants.tsx'),
     route('admin/roles', 'pages/admin-roles.tsx'),
     route('admin/site-config', 'pages/admin-site-config.tsx'),
     route('admin/curriculum', 'routes/admin-curriculum.tsx'),

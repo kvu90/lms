@@ -472,6 +472,47 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
     // Giáo viên thuần vẫn không thấy nhóm quản trị.
     expect(screen.queryByRole('button', { name: 'Người dùng & quyền' })).not.toBeInTheDocument();
   });
+
+  it('chủ trung tâm không có quyền quản trị site: nhóm Người dùng & quyền chỉ chứa mục Trung tâm', async () => {
+    // Chủ trung tâm: không capability hệ thống nào ngoài quyền tại
+    // context tenant của chính mình (tenant:manage ở cấp 20) — bề mặt
+    // quản trị tenant phải tới được, còn các mục quản trị site và nhóm
+    // Cài đặt hệ thống vẫn ẩn hẳn.
+    const tenantOwnerAccess = {
+      userId: TEACHER_ID,
+      isSiteAdmin: false,
+      assignments: [
+        {
+          id: '01900000-0000-7000-8000-0000000000f9',
+          roleId: '01900000-0000-7000-8000-0000000000b9',
+          roleShortname: 'manager',
+          roleName: 'Chủ trung tâm',
+          contextId: '01900000-0000-7000-8000-0000000000e9',
+          contextLevel: 20,
+          contextPath: '/1/2',
+          instanceId: '01900000-0000-7000-8000-0000000000a9',
+        },
+      ],
+      contexts: [
+        { contextId: SYSTEM_CONTEXT_ID, contextLevel: 10, contextPath: '/1', capabilities: [] as string[] },
+        {
+          contextId: '01900000-0000-7000-8000-0000000000e9',
+          contextLevel: 20,
+          contextPath: '/1/2',
+          capabilities: ['tenant:manage'],
+        },
+      ],
+      hasLearnerArtifacts: true,
+    };
+    stubFetch(profileOf(TEACHER_ID, 'owner1'), tenantOwnerAccess);
+    renderShell();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Người dùng & quyền' }, { timeout: 10000 }));
+    expect(await screen.findByRole('link', { name: 'Trung tâm' })).toHaveAttribute('href', '/admin/tenants');
+    expect(screen.queryByRole('link', { name: 'Người dùng' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Vai trò' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cài đặt hệ thống' })).not.toBeInTheDocument();
+  });
 });
 
 describe('cây điều hướng sidebar — chế độ rail icon', () => {

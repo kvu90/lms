@@ -22,7 +22,7 @@ export interface CourseAccess {
 }
 
 /** Cấp context theo quy ước của hệ thống quyền (khớp CONTEXT_LEVELS phía API). */
-const CONTEXT_LEVEL = { SYSTEM: 10, COURSECAT: 40, COURSE: 50 } as const;
+const CONTEXT_LEVEL = { SYSTEM: 10, TENANT: 20, COURSECAT: 40, COURSE: 50 } as const;
 
 /** Các capability mở quyền dùng ngân hàng câu hỏi ở ít nhất một context. */
 const QUESTION_CAPABILITIES = [
@@ -63,6 +63,14 @@ export interface PermissionsState {
   canManageRoles: boolean;
   /** Có ít nhất một quyền quản trị cấp hệ thống — điều kiện hiện khối quản trị. */
   canAdminister: boolean;
+  /** Có `tenant:viewall` hoặc `tenant:manage` tại context hệ thống — điều kiện mở chế độ platform của bề mặt tenant. */
+  canViewPlatformTenants: boolean;
+  /** Có `tenant:manage` tại context hệ thống — điều kiện tạo tenant và quản lý membership từ phía platform. */
+  canManagePlatformTenants: boolean;
+  /** Có quyền xem tenant ở phạm vi platform hoặc tại ít nhất một context tenant — điều kiện hiện bề mặt quản trị tenant. */
+  canViewTenantAdmin: boolean;
+  /** Có quyền quản lý membership ở phạm vi platform hoặc tại ít nhất một context tenant. */
+  canManageTenantAdmin: boolean;
   /** Có capability ngân hàng câu hỏi ở ít nhất một context — điều kiện hiện mục ngân hàng câu hỏi. */
   canUseQuestionBank: boolean;
   /** Mọi khoá học kèm quyền của người dùng trong từng khoá. */
@@ -129,6 +137,48 @@ export function courseCapabilities(access: MyAccessView, course: Course): string
     if (matched) return [...caps];
   }
   return systemCapabilities(access);
+}
+
+/**
+ * Capability hiệu lực tại đúng một tenant.
+ *
+ * Luồng suy luận bám ảnh chụp quyền của API: capability tại context hệ
+ * thống luôn được cộng vào vì quyền platform kế thừa xuống context
+ * tenant; phần riêng của tenant chỉ lấy từ các gán vai có context cấp
+ * tenant và `instanceId` bằng đúng tenant đang xét, sau đó tra capability
+ * đã phân giải của chính context đó. Hàm không dùng membership để suy
+ * quyền quản trị — thuộc về tenant và quản lý tenant là hai quan hệ khác
+ * nhau, API vẫn thực thi lại ở từng endpoint.
+ *
+ * @param access - Ảnh chụp quyền của người đang đăng nhập.
+ * @param tenantId - Tenant cần xét quyền.
+ * @returns Danh sách capability hiệu lực tại tenant đó.
+ */
+export function tenantCapabilities(access: MyAccessView | null, tenantId: string): string[] {
+  if (!access) return [];
+  const caps = new Set(systemCapabilities(access));
+  const capsByContext = new Map(access.contexts.map((c) => [c.contextId, c.capabilities]));
+  for (const assignment of access.assignments) {
+    if (assignment.contextLevel !== CONTEXT_LEVEL.TENANT || assignment.instanceId !== tenantId) continue;
+    for (const cap of capsByContext.get(assignment.contextId) ?? []) caps.add(cap);
+  }
+  return [...caps];
+}
+
+/**
+ * Người dùng có một capability tenant tại ít nhất một tenant hay không.
+ * Hàm chỉ phục vụ việc mở điều hướng: trang đích vẫn phải xét tenant hiệu
+ * lực hoặc tenant được chọn bằng `tenantCapabilities` và vẫn chịu cổng
+ * 403 của API.
+ */
+function hasTenantCapabilitySomewhere(access: MyAccessView, capability: string): boolean {
+  if (access.isSiteAdmin || systemCapabilities(access).includes(capability)) return true;
+  const capsByContext = new Map(access.contexts.map((c) => [c.contextId, c.capabilities]));
+  return access.assignments.some(
+    (assignment) =>
+      assignment.contextLevel === CONTEXT_LEVEL.TENANT &&
+      (capsByContext.get(assignment.contextId) ?? []).includes(capability),
+  );
 }
 
 /** Người dùng thuộc đội giảng dạy của khoá khi có grade:viewall tại context khoá (site admin luôn đúng). */
@@ -220,6 +270,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
         canViewUsers: false,
         canManageRoles: false,
         canAdminister: false,
+        canViewPlatformTenants: false,
+        canManagePlatformTenants: false,
+        canViewTenantAdmin: false,
+        canManageTenantAdmin: false,
         canUseQuestionBank: false,
         courses: [],
         teaching: [],
@@ -235,6 +289,16 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
     const sysCaps = access ? systemCapabilities(access) : [];
     const canViewUsers = (access?.isSiteAdmin ?? false) || sysCaps.includes('user:viewdetails');
     const canManageRoles = (access?.isSiteAdmin ?? false) || sysCaps.includes('role:manage');
+    const canViewPlatformTenants =
+      (access?.isSiteAdmin ?? false) || sysCaps.includes('tenant:viewall') || sysCaps.includes('tenant:manage');
+    const canManagePlatformTenants = (access?.isSiteAdmin ?? false) || sysCaps.includes('tenant:manage');
+    const canViewTenantAdmin =
+      canViewPlatformTenants ||
+      (access
+        ? hasTenantCapabilitySomewhere(access, 'tenant:viewall') || hasTenantCapabilitySomewhere(access, 'tenant:manage')
+        : false);
+    const canManageTenantAdmin =
+      canManagePlatformTenants || (access ? hasTenantCapabilitySomewhere(access, 'tenant:manage') : false);
     const teaching = courses.filter(
       (c) => hasCourseAssignment(access, c.course) && isCourseStaff(access, c),
     );
@@ -255,6 +319,10 @@ export function PermissionsProvider({ children }: { children: ReactNode }) {
       // cấu hình site) hoặc cờ site admin mới mở được khu vực này —
       // API vẫn là nơi thực thi quyền thật ở từng endpoint.
       canAdminister: (access?.isSiteAdmin ?? false) || canManageRoles || sysCaps.includes('site:config'),
+      canViewPlatformTenants,
+      canManagePlatformTenants,
+      canViewTenantAdmin,
+      canManageTenantAdmin,
       canUseQuestionBank:
         (access?.isSiteAdmin ?? false) ||
         (access?.contexts.some((c) =>

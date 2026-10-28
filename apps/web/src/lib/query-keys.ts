@@ -73,6 +73,16 @@ export const queryKeys = {
   adminUsers: (page: number, pageSize: number, search = '') => ['admin', 'users', page, pageSize, search] as const,
   /** Chi tiết một người dùng ở khu quản trị (F-05, rà soát #133). */
   adminUserDetail: (userId: string) => ['admin', 'users', 'detail', userId] as const,
+  /** Gốc khu quản trị tenant — tiền tố làm mới mọi truy vấn tenant sau đột biến. */
+  tenantsRoot: ['admin', 'tenants'] as const,
+  /** Danh sách tenant toàn hệ thống cho chế độ platform (GET /tenants). */
+  tenants: ['admin', 'tenants', 'list'] as const,
+  /** Tenant hiệu lực cho chế độ chủ trung tâm (GET /tenants/current). */
+  currentTenant: ['admin', 'tenants', 'current'] as const,
+  /** Membership của một tenant (GET /tenants/:tenantId/members). */
+  tenantMembers: (tenantId: string) => ['admin', 'tenants', tenantId, 'members'] as const,
+  /** Hồ sơ người dùng thuộc một tenant (GET /tenants/:tenantId/users). */
+  tenantUsers: (tenantId: string) => ['admin', 'tenants', tenantId, 'users'] as const,
   /** Cây danh mục khoá học cho khối quản trị. */
   categoryTree: ['courses', 'categories', 'tree'] as const,
   /** Tiến độ học của chính người dùng trong một khoá (% hoàn thành; probe lỗi → null). */
