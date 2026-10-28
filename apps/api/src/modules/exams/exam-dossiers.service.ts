@@ -268,9 +268,8 @@ export class ExamDossiersService {
 
   /**
    * Chuyển đổi toàn bộ hồ sơ còn treo sang ĐƯỜNG ĐÓNG GÓP DUY NHẤT
-   * — thao tác vận hành chạy MỘT LẦN ở ngữ cảnh platform khi cắt
-   * đường hồ sơ (script `convert-dossiers`), quy tắc theo quyết
-   * định hấp thụ đường hồ sơ:
+   * — thao tác vận hành đã chạy MỘT LẦN ở ngữ cảnh platform khi cắt
+   * đường hồ sơ, quy tắc theo quyết định hấp thụ đường hồ sơ:
    *
    * - Hồ sơ `pending`/`pending_board`: sinh MỘT đóng góp mode 'new'
    *   mang NGUYÊN trạng thái đang chờ + bộ hồ sơ đã ghim (version

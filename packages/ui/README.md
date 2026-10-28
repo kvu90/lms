@@ -88,3 +88,11 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   mới khớp trình bày chuẩn của các app nhắn tin. Khi đồng bộ upstream:
   giữ nguyên thay đổi này (file không bị CLI ghi đè vì upstream không
   có component `message`).
+- `src/components/breadcrumb.tsx` và `src/components/marker.tsx`
+  (issue #394): đã XOÁ khỏi package. Lý do: tại thời điểm xoá, quét
+  toàn repo theo tên file, tên export và đường import `@lms/ui/...`
+  cho 0 điểm dùng ngoài chính hai file — hai component do CLI sinh ra
+  nhưng không bề mặt nào của sản phẩm sử dụng, giữ lại chỉ tạo ấn
+  tượng sai rằng chúng là một phần của bộ component đang dùng. Nếu
+  lần đồng bộ shadcn sau sinh lại hai file này, đánh giá lại theo nhu
+  cầu dùng thật tại thời điểm đó thay vì giữ sẵn.
