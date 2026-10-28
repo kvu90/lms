@@ -1671,7 +1671,7 @@ CREATE TABLE "learning_outcomes" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7(),
 	"tenant_id" uuid,
 	"node_id" uuid NOT NULL,
-	"content" text NOT NULL,
+	"content" jsonb NOT NULL,
 	"position" integer DEFAULT 1 NOT NULL,
 	"source_kind" text DEFAULT 'program' NOT NULL,
 	"source_ref" text,

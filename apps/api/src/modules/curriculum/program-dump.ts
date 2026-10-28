@@ -47,7 +47,7 @@ import {
  * chuẩn đã patch; version được ghi vào đầu file SQL và vào log seed
  * để mọi môi trường đối chiếu được mình đang chạy bản dump nào.
  */
-export const PROGRAM_DUMP_VERSION = '2026-10-28.1';
+export const PROGRAM_DUMP_VERSION = '2026-10-28.2';
 
 /** Tên file artifact trong repo (cạnh module này), được copy sang dist khi build. */
 export const PROGRAM_DUMP_FILE_NAME = 'program-dump.sql';
@@ -186,6 +186,9 @@ export async function buildProgramDumpSql(db: Database, opts?: { datasetKey?: st
       [r.id, r.curriculumId, r.parentId, r.title, r.kind, r.position, r.durationPeriods, r.durationPercent, r.createdAt, r.updatedAt]));
   }
   for (const r of outcomeRows) {
+    // Cột content nay là tài liệu Tiptap (jsonb): sqlLiteral render
+    // đối tượng thành literal `'...json...'::jsonb`, restore vào cột
+    // jsonb nguyên văn, giữ cấu trúc cha–con của tài liệu.
     lines.push(insertStatement('learning_outcomes',
       ['id', 'tenant_id', 'node_id', 'content', 'position', 'source_kind', 'source_ref', 'derived_from_id', 'retired_at', 'created_at', 'updated_at'],
       [r.id, r.tenantId, r.nodeId, r.content, r.position, r.sourceKind, r.sourceRef, r.derivedFromId, r.retiredAt, r.createdAt, r.updatedAt]));

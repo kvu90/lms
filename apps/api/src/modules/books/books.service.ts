@@ -4,6 +4,7 @@ import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { CoursesService } from '../courses/courses.service';
 import { CurriculumRepository, type SubjectRow } from '../curriculum/curriculum.repository';
+import { programOutcomeDocText } from '../curriculum/program-datasets';
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from '../curriculum/curriculum.service';
 import { BookRepository, type BookNodeRow, type BookRow } from './books.repository';
 import {
@@ -357,7 +358,9 @@ export class BookService implements OnModuleInit {
     const outcomesByNode = new Map<string, { outcomeId: string; content: string }[]>();
     for (const o of outcomes) {
       const list = outcomesByNode.get(o.nodeId) ?? [];
-      list.push({ outcomeId: o.id, content: o.content });
+      // Cột content nay là tài liệu Tiptap (jsonb): bề mặt sách chỉ
+      // cần text canonical trích từ tài liệu, không cần cấu trúc.
+      list.push({ outcomeId: o.id, content: programOutcomeDocText(o.content) });
       outcomesByNode.set(o.nodeId, list);
     }
     const nodeTitleById = new Map<string, string>();
@@ -365,11 +368,11 @@ export class BookService implements OnModuleInit {
       const node = await this.curriculumRepo.getNode(nodeId);
       if (node) nodeTitleById.set(nodeId, node.title);
     }
-    const outcomeContentById = new Map(outcomes.map((o) => [o.id, o.content]));
+    const outcomeContentById = new Map(outcomes.map((o) => [o.id, programOutcomeDocText(o.content)]));
     for (const m of mappings) {
       if (m.learningOutcomeId && !outcomeContentById.has(m.learningOutcomeId)) {
         const o = await this.curriculumRepo.getOutcome(m.learningOutcomeId);
-        if (o) outcomeContentById.set(o.id, o.content);
+        if (o) outcomeContentById.set(o.id, programOutcomeDocText(o.content));
       }
     }
 

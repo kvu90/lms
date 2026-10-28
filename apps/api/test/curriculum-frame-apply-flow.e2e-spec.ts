@@ -49,8 +49,8 @@ const toan = JSON.parse(
  * dòng, listItem cho dòng của paragraph của nó rồi tới các dòng của
  * bulletList lồng bên trong (đệ quy); các dòng nối bằng '\n', cắt
  * khoảng trắng hai đầu — đúng semantics text canonical mà hệ lưu vào
- * `learning_outcomes.content` ở lát này (cột text; bản doc đầy đủ chỉ
- * lưu ở lát JSONB xếp sau đợt #161).
+ * `learning_outcomes.content` nay là cột jsonb lưu trực tiếp tài liệu
+ * này; text canonical trích từ tài liệu bằng đúng semantics này.
  */
 function docOutcomeText(doc: OutcomeDoc): string {
   const lines: string[] = [];

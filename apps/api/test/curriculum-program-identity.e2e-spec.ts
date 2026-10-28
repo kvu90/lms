@@ -10,7 +10,8 @@ import { QuestionsRepository } from '../src/modules/questions/questions.reposito
 import { QuizService } from '../src/modules/quiz/quiz.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,
-  programRecordOutcomeEntries, programSubjectId, type ProgramDatasetFile, type ProgramRecord,
+  programOutcomeDocText, programRecordOutcomeEntries, programSubjectId, type ProgramDatasetFile,
+  type ProgramOutcomeDoc, type ProgramRecord,
 } from '../src/modules/curriculum/program-datasets';
 
 /**
@@ -118,7 +119,13 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     return rows[0]!.node_id;
   }
 
-  async function outcomesOf(nodeId: string): Promise<{ id: string; content: string; position: number; retired_at: Date | null }[]> {
+  /**
+   * Đọc các dòng YCCĐ thô của một node: cột content nay là tài liệu
+   * JSONB (issue #334), nên kiểu trả về là tài liệu; mọi khẳng định
+   * so text phải trích text canonical qua programOutcomeDocText
+   * trước khi so, giữ nguyên độ chặt của khẳng định cũ.
+   */
+  async function outcomesOf(nodeId: string): Promise<{ id: string; content: ProgramOutcomeDoc; position: number; retired_at: Date | null }[]> {
     return sql(`select id, content, position, retired_at from learning_outcomes where node_id = $1 order by position`, [nodeId]);
   }
 
@@ -211,7 +218,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     // và id không đổi khi nội dung đổi — khẳng định ở các ca patch).
     const expected = programRecordOutcomeEntries(recA);
     const outcomes = await outcomesOf(lessonA);
-    expect(outcomes.map((o) => o.content)).toEqual(expected.map((e) => e.text));
+    expect(outcomes.map((o) => programOutcomeDocText(o.content))).toEqual(expected.map((e) => e.text));
     expect(outcomes.map((o) => o.position)).toEqual(expected.map((e) => e.position));
     for (const o of outcomes) expect(o.id).toMatch(UUID_V7);
     outcomeA1 = outcomes[0]!.id;
@@ -370,7 +377,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     const bRows = await outcomesOf(lessonB);
     const corrected = bRows.find((r) => r.id === outcomeB1);
     expect(corrected, 'the corrected outcome keeps its row and id').toBeTruthy();
-    expect(corrected!.content).toBe(newTextB);
+    expect(programOutcomeDocText(corrected!.content)).toBe(newTextB);
     expect(corrected!.retired_at).toBeNull();
     expect((await snapshotIds()).outcomes.length).toBe(outcomeTotalBefore);
 
@@ -411,7 +418,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(afterRows[0]!.id).toBe(beforeRows[0]!.id);
     expect(afterRows[1]!.id).toBe(beforeRows[1]!.id);
     // Dòng chèn: id MỚI (uuidv7, chưa từng có), ở vị trí 3.
-    expect(afterRows[2]!.content).toBe(insertedText);
+    expect(programOutcomeDocText(afterRows[2]!.content)).toBe(insertedText);
     expect(afterRows[2]!.id).toMatch(UUID_V7);
     expect(idsBefore.has(afterRows[2]!.id)).toBe(false);
     // Các dòng sau giữ id, chỉ dời vị trí +1.
@@ -505,10 +512,10 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     // đã rút; tập HIỆN HÀNH phải đúng 3 dòng mới theo thứ tự dataset.
     const rows = allRows.filter((r) => r.retired_at === null);
     expect(rows.length).toBe(3);
-    expect(rows.map((r) => r.content)).toEqual([twin, twin, third]);
-    expect(rows[0]!.content).toBe(twin);
-    expect(rows[1]!.content).toBe(twin);
-    expect(rows[2]!.content).toBe(third);
+    expect(rows.map((r) => programOutcomeDocText(r.content))).toEqual([twin, twin, third]);
+    expect(programOutcomeDocText(rows[0]!.content)).toBe(twin);
+    expect(programOutcomeDocText(rows[1]!.content)).toBe(twin);
+    expect(programOutcomeDocText(rows[2]!.content)).toBe(third);
     expect(rows[0]!.id).not.toBe(rows[1]!.id);
     for (const r of rows) expect(r.id).toMatch(UUID_V7);
 

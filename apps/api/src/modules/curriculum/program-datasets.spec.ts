@@ -3,6 +3,8 @@ import {
   assertProgramRecordOutcomeIntegrity,
   programOutcomeDocLines,
   programOutcomeDocText,
+  programOutcomeTextToDoc,
+  programRecordOutcomeDocs,
   programRecordOutcomeEntries,
   programRecordOutcomeTexts,
   type ProgramOutcomeDoc,
@@ -140,6 +142,72 @@ describe('programRecordOutcomeTexts / programRecordOutcomeEntries với outcomes
 
   it('cả outcomes và outcome_text đều rỗng: không có dòng nào', () => {
     expect(programRecordOutcomeTexts(record({ outcomes: [], outcome_text: '' }))).toEqual([]);
+  });
+});
+
+describe('programRecordOutcomeDocs — tài liệu lưu trực tiếp vào cột jsonb', () => {
+  it('phần tử dạng doc giữ nguyên tài liệu gốc (kể cả danh sách cha–con lồng), text trích từ chính tài liệu đó', () => {
+    const nested: ProgramOutcomeDoc = {
+      type: 'doc',
+      content: [
+        paragraph('Nêu được:'),
+        {
+          type: 'bulletList',
+          content: [
+            { type: 'listItem', content: [paragraph('Đặc điểm của hệ thống chính trị.')] },
+            {
+              type: 'listItem',
+              content: [
+                paragraph('Cấu trúc:'),
+                {
+                  type: 'bulletList',
+                  content: [{ type: 'listItem', content: [paragraph('Đảng Cộng sản Việt Nam.')] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const docs = programRecordOutcomeDocs(record({ outcomes: [nested], outcome_text: 'x' }));
+    expect(docs).toHaveLength(1);
+    expect(docs[0]!.doc).toEqual(nested);
+    expect(docs[0]!.text).toBe(
+      'Nêu được:\nĐặc điểm của hệ thống chính trị.\nCấu trúc:\nĐảng Cộng sản Việt Nam.',
+    );
+    expect(docs[0]!.position).toBe(1);
+  });
+
+  it('phần tử dạng chuỗi được gói thành tài liệu một ý, text trích lại khớp chuỗi gốc', () => {
+    const docs = programRecordOutcomeDocs(record({ outcomes: ['Ý một.'], outcome_text: 'Ý một.' }));
+    expect(docs[0]!.doc).toEqual(simpleDoc('Ý một.'));
+    expect(docs[0]!.text).toBe('Ý một.');
+  });
+
+  it('bản ghi chỉ có outcome_text: một tài liệu một ý bằng toàn văn đó', () => {
+    const docs = programRecordOutcomeDocs(record({ outcomes: [], outcome_text: 'Thực hành ứng dụng.' }));
+    expect(docs).toHaveLength(1);
+    expect(docs[0]!.text).toBe('Thực hành ứng dụng.');
+    expect(programOutcomeDocText(docs[0]!.doc)).toBe('Thực hành ứng dụng.');
+  });
+
+  it('cả hai rỗng: không có tài liệu nào', () => {
+    expect(programRecordOutcomeDocs(record({ outcomes: [], outcome_text: '' }))).toEqual([]);
+  });
+});
+
+describe('programOutcomeTextToDoc — gói text thuần thành tài liệu', () => {
+  it('mỗi dòng thành một đoạn văn, trích lại khớp text gốc', () => {
+    const doc = programOutcomeTextToDoc('Dòng một.\nDòng hai.');
+    expect(doc).toEqual({
+      type: 'doc',
+      content: [paragraph('Dòng một.'), paragraph('Dòng hai.')],
+    });
+    expect(programOutcomeDocText(doc)).toBe('Dòng một.\nDòng hai.');
+  });
+
+  it('text một dòng thành tài liệu một đoạn văn', () => {
+    expect(programOutcomeTextToDoc('Một ý duy nhất.')).toEqual(simpleDoc('Một ý duy nhất.'));
   });
 });
 

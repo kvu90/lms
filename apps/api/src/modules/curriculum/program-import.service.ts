@@ -6,8 +6,9 @@ import { CurriculumRepository, type CurriculumNodeRow, type DbTx } from './curri
 import { CURRICULUM_MANAGE, CURRICULUM_VIEW } from './curriculum.service';
 import {
   loadProgramDataset, programAncestorNodeId, programCurriculumId, programDatasetByKey, programLessonNodeId,
-  programRecordAncestors, programRecordEffectiveGrade, programRecordHash, programRecordOutcomeEntries,
-  programRecordSourceRef, programRecordTitle, programSubjectId, PROGRAM_DATASETS,
+  programOutcomeDocText, programRecordAncestors, programRecordEffectiveGrade, programRecordHash,
+  programRecordOutcomeDocs, programRecordSourceRef, programRecordTitle, programSubjectId, PROGRAM_DATASETS,
+  type ProgramOutcomeDoc,
   type ProgramDatasetDef, type ProgramDatasetFile, type ProgramRecord,
 } from './program-datasets';
 
@@ -24,8 +25,11 @@ const IMPORT_CHANGES_CAP = 500;
 type OutcomeWrite =
   // Chèn dòng mới KHÔNG mang id: DB cấp uuidv7 một lần (chốt 20:09
   // ngày 26/10/2026 — id YCCĐ là mờ, không tính từ thuộc tính nào).
-  | { kind: 'insert'; text: string; position: number }
-  | { kind: 'update'; id: string; patch: { position?: number; content?: string; retiredAt?: Date | null } }
+  // `doc` là tài liệu Tiptap lưu trực tiếp vào cột jsonb; `text` là
+  // text canonical trích từ chính tài liệu đó, chỉ dùng cho phép
+  // ghép cặp của diff và báo cáo thay đổi, không phải dữ liệu lưu.
+  | { kind: 'insert'; doc: ProgramOutcomeDoc; text: string; position: number }
+  | { kind: 'update'; id: string; patch: { position?: number; content?: ProgramOutcomeDoc; retiredAt?: Date | null } }
   | { kind: 'retire'; id: string };
 
 /**
@@ -241,7 +245,7 @@ export class ProgramImportService {
       // thì suy xuống topic/section (xem programRecordTitle).
       const title = programRecordTitle(record);
       const hash = programRecordHash(record);
-      const entries = programRecordOutcomeEntries(record);
+      const entries = programRecordOutcomeDocs(record);
       const reg = await this.repo.getProgramRecord(def.key, record.id);
       if (reg && reg.contentHash === hash) {
         // Đã khớp nguyên văn theo hash — nhưng phải loại trừ ca bản
@@ -253,7 +257,7 @@ export class ProgramImportService {
         // trong bản ghi) thì giữ đường nhanh bỏ qua như cũ.
         const managed = await this.repo.listDatasetManagedOutcomes(reg.nodeId);
         const entryTexts = new Set(entries.map((e) => e.text));
-        const revivable = managed.some((o) => o.retiredAt !== null && entryTexts.has(o.content));
+        const revivable = managed.some((o) => o.retiredAt !== null && entryTexts.has(programOutcomeDocText(o.content)));
         if (!revivable) {
           skipped += 1;
           continue;
@@ -269,7 +273,7 @@ export class ProgramImportService {
           }, tx as never);
           for (const entry of entries) {
             await this.repo.insertOutcome({
-              nodeId: lesson.id, content: entry.text, position: entry.position,
+              nodeId: lesson.id, content: entry.doc, position: entry.position,
               sourceKind: 'program', sourceRef, derivedFromId: null,
             }, tx as never);
           }
@@ -336,8 +340,8 @@ export class ProgramImportService {
       for (const outcome of currentManaged) {
         const link = links.get(outcome.id);
         changes.push({
-          recordId: row.recordId, position: outcome.position, kind: 'removed', oldText: outcome.content,
-          identicalTextAmbiguous: currentManaged.filter((o) => o.content === outcome.content).length >= 2 || undefined,
+          recordId: row.recordId, position: outcome.position, kind: 'removed', oldText: programOutcomeDocText(outcome.content),
+          identicalTextAmbiguous: currentManaged.filter((o) => programOutcomeDocText(o.content) === programOutcomeDocText(outcome.content)).length >= 2 || undefined,
           linkedQuestions: link?.questions ?? 0, linkedBookMappings: link?.bookMappings ?? 0,
         });
         outcomesWritten += 1;
@@ -410,7 +414,7 @@ export class ProgramImportService {
     for (const write of writes) {
       if (write.kind === 'insert') {
         await this.repo.insertOutcome({
-          nodeId, content: write.text, position: write.position,
+          nodeId, content: write.doc, position: write.position,
           sourceKind: 'program', sourceRef, derivedFromId: null,
         }, tx);
       }
@@ -448,7 +452,7 @@ export class ProgramImportService {
    */
   private async diffOutcomes(input: {
     recordId: string; nodeId: string;
-    entries: { text: string; position: number }[];
+    entries: { doc: ProgramOutcomeDoc; text: string; position: number }[];
   }): Promise<{ writes: OutcomeWrite[]; changes: ProgramImportChange[] }> {
     const { recordId, entries } = input;
     const managed = await this.repo.listDatasetManagedOutcomes(input.nodeId);
@@ -464,7 +468,7 @@ export class ProgramImportService {
     // P1 — khớp (vị trí + nguyên văn): dòng không đổi, không ghi gì.
     entries.forEach((entry, idx) => {
       const row = current.find(
-        (o) => !takenRows.has(o.id) && o.position === entry.position && o.content === entry.text,
+        (o) => !takenRows.has(o.id) && o.position === entry.position && programOutcomeDocText(o.content) === entry.text,
       );
       if (row) {
         takenEntries.add(idx);
@@ -486,7 +490,8 @@ export class ProgramImportService {
     const entryGroups = groupByText(remainingEntries);
     const rowGroups = new Map<string, typeof remainingCurrent>();
     for (const row of remainingCurrent) {
-      rowGroups.set(row.content, [...(rowGroups.get(row.content) ?? []), row]);
+      const text = programOutcomeDocText(row.content);
+      rowGroups.set(text, [...(rowGroups.get(text) ?? []), row]);
     }
     for (const [text, group] of entryGroups) {
       const rows = rowGroups.get(text);
@@ -513,17 +518,18 @@ export class ProgramImportService {
       if (!row) return;
       takenEntries.add(idx);
       takenRows.add(row.id);
-      writes.push({ kind: 'update', id: row.id, patch: { content: entry.text } });
+      writes.push({ kind: 'update', id: row.id, patch: { content: entry.doc } });
       // P6 — gắn cờ nghi lệch: văn mới trùng văn cũ của một dòng
       // current KHÁC, hoặc văn cũ của dòng này xuất hiện ở một vị trí
       // khác trong dataset mới (dòng mang văn đó đã không được P2
       // ghép về chính dòng này — nó còn đứng ở đây chính là bằng chứng).
+      const rowText = programOutcomeDocText(row.content);
       const shiftSuspected =
-        current.some((o) => o.id !== row.id && o.content === entry.text) ||
-        entries.some((e) => e.text === row.content && e.position !== entry.position);
+        current.some((o) => o.id !== row.id && programOutcomeDocText(o.content) === entry.text) ||
+        entries.some((e) => e.text === rowText && e.position !== entry.position);
       const change: ProgramImportChange = {
         recordId, position: entry.position, kind: 'text-changed',
-        oldText: row.content, newText: entry.text,
+        oldText: rowText, newText: entry.text,
         shiftSuspected: shiftSuspected || undefined,
       };
       changes.push(change);
@@ -535,7 +541,7 @@ export class ProgramImportService {
     for (const [idx, entry] of entries.entries()) {
       if (takenEntries.has(idx)) continue;
       takenEntries.add(idx);
-      const revived = retiredPool.find((o) => !revivedRowIds.has(o.id) && o.content === entry.text);
+      const revived = retiredPool.find((o) => !revivedRowIds.has(o.id) && programOutcomeDocText(o.content) === entry.text);
       if (revived) {
         revivedRowIds.add(revived.id);
         writes.push({ kind: 'update', id: revived.id, patch: { position: entry.position, retiredAt: null } });
@@ -544,7 +550,7 @@ export class ProgramImportService {
       }
       // Thêm mới: chèn dòng mới, DB cấp id uuidv7 mờ một lần —
       // không tính id từ vị trí/nội dung/khoá nào (chốt 20:09).
-      writes.push({ kind: 'insert', text: entry.text, position: entry.position });
+      writes.push({ kind: 'insert', doc: entry.doc, text: entry.text, position: entry.position });
       changes.push({ recordId, position: entry.position, kind: 'added', newText: entry.text });
     }
 
@@ -554,9 +560,10 @@ export class ProgramImportService {
     for (const row of current) {
       if (takenRows.has(row.id)) continue;
       writes.push({ kind: 'retire', id: row.id });
+      const rowText = programOutcomeDocText(row.content);
       const change: ProgramImportChange = {
-        recordId, position: row.position, kind: 'removed', oldText: row.content,
-        identicalTextAmbiguous: current.filter((o) => o.content === row.content).length >= 2 || undefined,
+        recordId, position: row.position, kind: 'removed', oldText: rowText,
+        identicalTextAmbiguous: current.filter((o) => programOutcomeDocText(o.content) === rowText).length >= 2 || undefined,
       };
       changes.push(change);
       linkTargets.push({ outcomeId: row.id, change });

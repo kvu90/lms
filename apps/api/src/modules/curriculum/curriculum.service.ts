@@ -5,6 +5,37 @@ import { CoursesService } from '../courses/courses.service';
 import {
   CurriculumRepository, type CurriculumNodeRow, type CurriculumRow, type LearningOutcomeRow, type SubjectRow,
 } from './curriculum.repository';
+import { programOutcomeDocText, programOutcomeTextToDoc, type ProgramOutcomeDoc } from './program-datasets';
+
+/**
+ * Hình dạng YCCĐ trả ra ngoài tầng service: cột `content` trong DB
+ * nay là tài liệu Tiptap (jsonb) nên mọi bề mặt đọc KHÔNG được phơi
+ * tài liệu thô ở trường `content` — `content` ở đây luôn là text
+ * canonical trích từ tài liệu bằng đúng hàm chuẩn của tầng nạp, giữ
+ * nguyên hợp đồng cũ cho mọi bề mặt tiêu thụ (bản đặc tả, khung
+ * khoá, tìm kiếm, liên kết câu hỏi). Riêng bề mặt bảng chương trình
+ * cần render phân cấp cha–con nên nhận thêm `contentDoc` là tài
+ * liệu gốc; các bề mặt khác bỏ qua trường này.
+ */
+export type CurriculumOutcomeView = Omit<LearningOutcomeRow, 'content'> & {
+  content: string;
+  contentDoc: ProgramOutcomeDoc;
+};
+
+/**
+ * Chuyển một dòng YCCĐ từ DB thành hình dạng trả ra: text canonical
+ * trích từ tài liệu lưu trực tiếp, kèm tài liệu gốc cho bề mặt bảng.
+ * Dòng nào thiếu tài liệu (không xảy ra với dữ liệu đã chuyển đổi)
+ * được coi là tài liệu rỗng thay vì ném lỗi ồn ào ở đường đọc.
+ */
+export function toCurriculumOutcomeView(row: LearningOutcomeRow): CurriculumOutcomeView {
+  const contentDoc = (row.content ?? { type: 'doc' }) as ProgramOutcomeDoc;
+  return {
+    ...row,
+    content: programOutcomeDocText(contentDoc),
+    contentDoc,
+  };
+}
 
 /** Capability đọc cây curriculum tại context của môn học. */
 export const CURRICULUM_VIEW = 'curriculum:view';
@@ -15,7 +46,7 @@ const COURSE_UPDATE = 'course:update';
 
 /** Một node của cây nội dung kèm outcomes của chính nó và các node con (đệ quy). */
 export interface CurriculumNodeView extends CurriculumNodeRow {
-  outcomes: LearningOutcomeRow[];
+  outcomes: CurriculumOutcomeView[];
   children: CurriculumNodeView[];
 }
 
@@ -308,7 +339,7 @@ export class CurriculumService implements OnModuleInit {
     const outcomes = await this.repo.listOutcomesForNodes(nodes.map((n) => n.id));
     const byId = new Map<string, CurriculumNodeView>();
     for (const node of nodes) byId.set(node.id, { ...node, outcomes: [], children: [] });
-    for (const outcome of outcomes) byId.get(outcome.nodeId)?.outcomes.push(outcome);
+    for (const outcome of outcomes) byId.get(outcome.nodeId)?.outcomes.push(toCurriculumOutcomeView(outcome));
     const roots: CurriculumNodeView[] = [];
     for (const node of nodes) {
       const view = byId.get(node.id)!;
@@ -431,14 +462,17 @@ export class CurriculumService implements OnModuleInit {
   async createOutcome(actorId: string, input: {
     nodeId: string; content: string; position?: number;
     sourceKind?: string; sourceRef?: string | null; derivedFromId?: string | null;
-  }): Promise<LearningOutcomeRow> {
+  }): Promise<CurriculumOutcomeView> {
     const { subject } = await this.nodeChainOr404(input.nodeId);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
     await this.assertOutcomeSource({ sourceKind: input.sourceKind ?? 'program', derivedFromId: input.derivedFromId ?? null });
-    return this.repo.insertOutcome({
-      nodeId: input.nodeId, content: input.content, position: input.position ?? 1,
+    // Đường ghi tay qua API nhận text thuần: gói mỗi dòng thành một
+    // đoạn văn để cột jsonb luôn chứa tài liệu hợp lệ; text canonical
+    // trích lại từ tài liệu đó khớp đúng text đã nhập.
+    return toCurriculumOutcomeView(await this.repo.insertOutcome({
+      nodeId: input.nodeId, content: programOutcomeTextToDoc(input.content), position: input.position ?? 1,
       sourceKind: input.sourceKind ?? 'program', sourceRef: input.sourceRef ?? null, derivedFromId: input.derivedFromId ?? null,
-    });
+    }));
   }
   /**
    * Liệt kê yêu cầu cần đạt của một node. Mặc định chỉ dòng HIỆN
@@ -446,10 +480,10 @@ export class CurriculumService implements OnModuleInit {
    * `includeRetired` chỉ dành cho đường nội bộ cần thấy cả dòng đã
    * rút. Mọi bề mặt tiêu thụ (bản đặc tả, cây, picker) dùng mặc định.
    */
-  async listOutcomes(actorId: string, nodeId: string, opts?: { includeRetired?: boolean }): Promise<LearningOutcomeRow[]> {
+  async listOutcomes(actorId: string, nodeId: string, opts?: { includeRetired?: boolean }): Promise<CurriculumOutcomeView[]> {
     const { subject } = await this.nodeChainOr404(nodeId);
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
-    return this.repo.listOutcomes(nodeId, opts);
+    return (await this.repo.listOutcomes(nodeId, opts)).map(toCurriculumOutcomeView);
   }
   /**
    * Liệt kê THAM CHIẾU YCCĐ của một node — bản nội bộ của
@@ -466,9 +500,9 @@ export class CurriculumService implements OnModuleInit {
    * @throws NotFoundException `curriculum.node_not_found` khi node
    *   không tồn tại.
    */
-  async listOutcomesReference(nodeId: string, opts?: { includeRetired?: boolean }): Promise<LearningOutcomeRow[]> {
+  async listOutcomesReference(nodeId: string, opts?: { includeRetired?: boolean }): Promise<CurriculumOutcomeView[]> {
     await this.nodeChainOr404(nodeId);
-    return this.repo.listOutcomes(nodeId, opts);
+    return (await this.repo.listOutcomes(nodeId, opts)).map(toCurriculumOutcomeView);
   }
   /**
    * Mã bản ghi chương trình của một node thuộc dataset (null khi node
@@ -483,10 +517,10 @@ export class CurriculumService implements OnModuleInit {
     return row?.recordId ?? null;
   }
   /** Lấy yêu cầu cần đạt theo id. */
-  async getOutcome(actorId: string, id: string): Promise<LearningOutcomeRow> {
+  async getOutcome(actorId: string, id: string): Promise<CurriculumOutcomeView> {
     const { outcome, subject } = await this.outcomeChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_VIEW, subject.contextId);
-    return outcome;
+    return toCurriculumOutcomeView(outcome);
   }
   /**
    * Đọc THAM CHIẾU YCCĐ theo id — bản nội bộ của {@link getOutcome},
@@ -500,8 +534,8 @@ export class CurriculumService implements OnModuleInit {
    * @throws NotFoundException `curriculum.outcome_not_found` khi
    *   YCCĐ không tồn tại.
    */
-  async getOutcomeReference(id: string): Promise<LearningOutcomeRow> {
-    return (await this.outcomeChainOr404(id)).outcome;
+  async getOutcomeReference(id: string): Promise<CurriculumOutcomeView> {
+    return toCurriculumOutcomeView((await this.outcomeChainOr404(id)).outcome);
   }
   /**
    * Tìm YCCĐ theo từ khoá (đường của tool MCP search_curriculum_outcomes,
@@ -549,7 +583,7 @@ export class CurriculumService implements OnModuleInit {
       if (!readable) continue;
       results.push({
         id: row.outcome.id,
-        content: row.outcome.content,
+        content: programOutcomeDocText(row.outcome.content as ProgramOutcomeDoc),
         sourceKind: row.outcome.sourceKind,
         sourceRef: row.outcome.sourceRef,
         nodeId: row.outcome.nodeId,
@@ -566,15 +600,18 @@ export class CurriculumService implements OnModuleInit {
   async updateOutcome(actorId: string, id: string, input: {
     content?: string; position?: number;
     sourceKind?: string; sourceRef?: string | null; derivedFromId?: string | null;
-  }): Promise<LearningOutcomeRow> {
+  }): Promise<CurriculumOutcomeView> {
     const { outcome, subject } = await this.outcomeChainOr404(id);
     await this.evaluator.requireCapability(actorId, CURRICULUM_MANAGE, subject.contextId);
     await this.assertOutcomeSource({
       sourceKind: input.sourceKind ?? outcome.sourceKind,
       derivedFromId: input.derivedFromId !== undefined ? input.derivedFromId : outcome.derivedFromId,
     }, id);
-    await this.repo.updateOutcome(id, input);
-    return (await this.outcomeChainOr404(id)).outcome;
+    await this.repo.updateOutcome(id, {
+      ...input,
+      content: input.content !== undefined ? programOutcomeTextToDoc(input.content) : undefined,
+    });
+    return toCurriculumOutcomeView((await this.outcomeChainOr404(id)).outcome);
   }
   /**
    * Số câu hỏi sẵn sàng (ready) đã gắn vào một YCCĐ, theo (mức × dạng) —

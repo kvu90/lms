@@ -29,9 +29,30 @@ export interface Curriculum {
   grade: number;
 }
 
+/**
+ * Một node trong tài liệu Tiptap của một YCCĐ, đúng hình dạng tài
+ * liệu mà API lưu trong cột jsonb: đoạn văn mang text, danh sách
+ * gạch đầu dòng lồng mang các ý con. Marks trên node text được giữ
+ * nguyên khi lưu nhưng bị bỏ qua khi trích text canonical.
+ */
+export interface CurriculumOutcomeDocNode {
+  type: string;
+  text?: string;
+  marks?: unknown[];
+  content?: CurriculumOutcomeDocNode[];
+}
+
+/** Tài liệu Tiptap của một YCCĐ, API trả kèm text canonical ở `content`. */
+export interface CurriculumOutcomeDoc {
+  type: 'doc';
+  content?: CurriculumOutcomeDocNode[];
+}
+
 export interface CurriculumOutcome {
   id: string;
   content: string;
+  /** Tài liệu gốc để bảng chương trình render phân cấp cha–con; vắng khi bề mặt cũ chưa trả trường này. */
+  contentDoc?: CurriculumOutcomeDoc;
   position: number;
   sourceKind: string;
   sourceRef: string | null;

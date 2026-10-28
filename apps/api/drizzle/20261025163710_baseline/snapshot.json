@@ -35646,7 +35646,7 @@
       "schema": "public",
       "table": "learning_outcomes",
       "name": "content",
-      "type": "text",
+      "type": "jsonb",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,

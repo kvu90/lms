@@ -746,9 +746,15 @@ describe('MCP-1: máy chủ OAuth (AS) + RS + bộ tool mới (issue #163)', () 
       `insert into curriculum_nodes (curriculum_id, title, kind, position) values ($1, 'Số thập phân', 'topic', 1) returning id`,
       [curriculum.id],
     );
+    // Cột content nay là jsonb (issue #334): gieo tài liệu một đoạn
+    // văn thay vì text trần — text trần bị Postgres từ chối 22P02.
+    // Khẳng định về tool tìm kiếm bên dưới giữ nguyên, không nới.
     await pg.query(
-      `insert into learning_outcomes (node_id, content, position, source_ref) values ($1, $2, 1, 'MCP1-YCCD-1')`,
-      [node.id, 'Viết được số thập phân gồm phần nguyên và phần thập phân'],
+      `insert into learning_outcomes (node_id, content, position, source_ref) values ($1, $2::jsonb, 1, 'MCP1-YCCD-1')`,
+      [node.id, JSON.stringify({
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Viết được số thập phân gồm phần nguyên và phần thập phân' }] }],
+      })],
     );
     const outcomes = await callTool(app, tokens.accessToken, 'search_curriculum_outcomes', {
       query: 'số thập phân',
