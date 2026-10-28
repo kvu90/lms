@@ -451,4 +451,69 @@ describe('Assignment file submission (mod_assign)', () => {
     expect(up2.body.contentHash).toBe(up1.body.contentHash);
     expect(up2.body.fileId).not.toBe(up1.body.fileId);
   });
+
+  it('đường xoá tệp dùng chung tôn trọng khoá bài nộp: nháp xoá được, đã chốt nộp/đã trả bài và tệp của người khác bị chặn', async () => {
+    const ctx = await setup();
+    const assignment = await createAssignment(ctx);
+
+    // Bài còn NHÁP: xoá qua DELETE /files/:id thành công như trước, tệp rời khỏi bài nộp.
+    const draftUp = await upload(ctx.studentToken, assignment.id, 'nhap.jpg', 'tep-ban-nhap');
+    expect(draftUp.status).toBe(201);
+    const delDraft = await http(app).delete(`/api/v1/files/${draftUp.body.fileId}`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(delDraft.status).toBe(200);
+    expect(delDraft.body.deleted).toBe(true);
+    const afterDraftDelete = await http(app).get(`/api/v1/assignments/${assignment.id}`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(afterDraftDelete.body.mySubmission.files).toHaveLength(0);
+
+    // Tệp chính của ca: tải lên rồi CHỐT NỘP.
+    const up = await upload(ctx.studentToken, assignment.id, 'bai-lam.jpg', 'tep-da-nop');
+    expect(up.status).toBe(201);
+    const fileId = up.body.fileId as string;
+    const submitted = await http(app).post(`/api/v1/assignments/${assignment.id}/submission/submit`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(submitted.status).toBe(201);
+
+    // Đã chốt nộp: chủ sở hữu gọi đường xoá dùng chung cũng bị chặn 409 đúng mã của module Bài tập.
+    const delFinalized = await http(app).delete(`/api/v1/files/${fileId}`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(delFinalized.status).toBe(409);
+    expect(delFinalized.body.code).toBe('assign.submission_finalized');
+
+    // Học sinh khác cùng khoá (không phải chủ sở hữu bài nộp) cũng bị chặn; tệp không thuộc bài nộp của họ.
+    const delByOther = await http(app).delete(`/api/v1/files/${fileId}`).set('Authorization', `Bearer ${ctx.student2Token}`);
+    expect(delByOther.status).toBe(404);
+    expect(delByOther.body.code).toBe('assign.submission_file_not_found');
+
+    // Sau hai nỗ lực xoá bị chặn: tệp + liên kết nguyên vẹn, bề mặt chấm của giáo viên không vỡ.
+    const detailAfterBlock = await http(app).get(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(detailAfterBlock.status).toBe(200);
+    expect(detailAfterBlock.body.files).toHaveLength(1);
+    expect(detailAfterBlock.body.files[0].fileId).toBe(fileId);
+    expect(detailAfterBlock.body.files[0].signedUrl).toBeTruthy();
+    const metaAfterBlock = await http(app).get(`/api/v1/files/${fileId}`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(metaAfterBlock.status).toBe(200);
+
+    // Giáo viên thả dấu chấm trên tệp rồi chấm + TRẢ BÀI: bài thành chứng cứ đã công bố.
+    const ann = await http(app).post(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}/annotations`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ fileId, page: 1, x: 10, y: 10, kind: 'correct' });
+    expect(ann.status).toBe(201);
+    const graded = await http(app).post(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}/grade`)
+      .set('Authorization', `Bearer ${ctx.teacher}`).send({ grade: 8 });
+    expect(graded.status).toBe(201);
+    const released = await http(app).post(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}/release`)
+      .set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(released.status).toBe(201);
+
+    // Đã trả bài: xoá qua đường dùng chung bị chặn 409 assign.already_graded.
+    const delGraded = await http(app).delete(`/api/v1/files/${fileId}`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(delGraded.status).toBe(409);
+    expect(delGraded.body.code).toBe('assign.already_graded');
+
+    // Tệp và dấu chấm còn nguyên ở cả hai phía sau nỗ lực xoá bị chặn.
+    const mineAfter = await http(app).get(`/api/v1/assignments/${assignment.id}`).set('Authorization', `Bearer ${ctx.studentToken}`);
+    expect(mineAfter.body.mySubmission.files).toHaveLength(1);
+    expect(mineAfter.body.mySubmission.annotations).toHaveLength(1);
+    const detailFinal = await http(app).get(`/api/v1/assignments/${assignment.id}/submissions/${ctx.student.id}`).set('Authorization', `Bearer ${ctx.teacher}`);
+    expect(detailFinal.status).toBe(200);
+    expect(detailFinal.body.files).toHaveLength(1);
+    expect(detailFinal.body.files[0].fileId).toBe(fileId);
+  });
 });

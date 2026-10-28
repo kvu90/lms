@@ -76,12 +76,15 @@ export class FilesController {
 
   @Delete(':id')
   /**
-   * DELETE /files/:id — xoá file.
+   * DELETE /files/:id — xoá file. Capability tại context của tệp kiểm
+   * tại đây; khoá bài nộp (sở hữu + trạng thái) do FilesService áp khi
+   * xoá vì actor được truyền xuống — tệp thuộc bài nộp đã chốt nộp/đã
+   * trả bài không bị xoá qua đường dùng chung này.
    */
   async remove(@Param('id', { schema: uuidIdSchema }) id: string, @CurrentUser() actor: AuthenticatedUser) {
     const f = await this.files.getFile(id);
     await this.files.assertCanUpload(f.contextId, actor);
-    return this.files.deleteFile(id);
+    return this.files.deleteFile(id, actor);
   }
 
   /** Tải xuống đã ký: route public DUY NHẤT — việc sở hữu một chữ ký chưa hết hạn (được cấp sau khi kiểm tra capability) chính là thông tin xác thực. */
