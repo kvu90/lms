@@ -1,0 +1,183 @@
+# docker-compose.yml ở gốc repo — stack production TỰ HOST toàn bộ hệ
+# thống trên một máy (nền tảng đích: Dokploy quản lý chính file compose
+# này, Cloudflare Tunnel công bố service web ra ngoài).
+#
+# Topology GIỮ NGUYÊN một-origin như đường chạy production hiện hành:
+# trình duyệt chỉ nói chuyện với service web (cổng duy nhất được publish
+# ra host); web proxy /api/*, /socket.io/*, /mcp và /.well-known/* về
+# service api qua mạng nội bộ của compose (LMS_API_INTERNAL_URL), nên
+# cookie đăng nhập và realtime hoạt động đúng như trước.
+#
+# Cách dùng:
+#   cp .env.example .env   # rồi điền các giá trị bí mật thật
+#   docker compose run --rm migrate   # áp migration vào DB trống (lần đầu)
+#   docker compose up -d --build
+# Kiểm tra: curl http://localhost:8080/api/v1/health
+#
+# Seed dữ liệu mẫu (CHỈ cho môi trường thử nghiệm, không chạy trên
+# production thật): docker compose --profile seed run --rm seed
+#
+# postgres và redis KHÔNG publish cổng ra host — cần quản trị thì vào
+# qua `docker compose exec postgres psql ...` hoặc
+# `docker compose exec redis redis-cli ...`.
+
+# Khối biến môi trường dùng chung cho service api và các service chạy
+# một lần dựa trên image api (migrate, seed).
+x-api-env: &api-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
+  MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:-}
+  BETTER_AUTH_ENABLED: ${BETTER_AUTH_ENABLED:-true}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Can dat BETTER_AUTH_SECRET trong file .env}
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8080}
+  BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+  MCP_AS_ENABLED: ${MCP_AS_ENABLED:-true}
+  ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@localhost}
+  RESEND_API_KEY: ${RESEND_API_KEY:-}
+  MAIL_FROM: ${MAIL_FROM:-}
+  FILE_STORAGE_DIR: /app/data/files
+
+services:
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}
+      POSTGRES_DB: ${POSTGRES_DB:-lms}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lms}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    # Bật AOF để hàng đợi BullMQ và cache còn giữ được qua lần khởi động lại.
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    environment:
+      <<: *api-env
+      PORT: 3100
+    volumes:
+      # Tệp tải lên (driver lưu trữ local mặc định) phải nằm trên volume
+      # bền, nếu không sẽ mất mỗi lần tạo lại container.
+      - api-files:/app/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3100/api/v1/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Can dat JWT_SECRET trong file .env}
+      FILE_STORAGE_DIR: /app/data/files
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+    volumes:
+      # Worker đọc/ghi cùng kho tệp tải lên với api.
+      - api-files:/app/data/files
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      LMS_API_INTERNAL_URL: http://api:3100
+    ports:
+      # Cổng duy nhất của stack được publish ra host. Khi gắn Cloudflare
+      # Tunnel, tunnel trỏ vào đúng cổng này của máy host.
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Chạy một lần để áp migration (thư mục drizzle đi kèm image api)
+  # trước khi khởi động stack trên cơ sở dữ liệu trống:
+  #   docker compose run --rm migrate
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    profiles: ["tools"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Can dat POSTGRES_PASSWORD trong file .env}@postgres:5432/${POSTGRES_DB:-lms}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["./node_modules/.bin/drizzle-kit", "migrate"]
+
+  # Chạy một lần để seed dữ liệu mẫu (tài khoản demo + khoá học mẫu).
+  # CHỈ dùng cho môi trường thử nghiệm tự host lần đầu; TUYỆT ĐỐI không
+  # chạy trên cơ sở dữ liệu production đã khôi phục từ bản sao lưu:
+  #   docker compose --profile seed run --rm seed
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    profiles: ["seed"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["node", "dist/review-seed.js"]
+
+volumes:
+  pgdata:
+  redisdata:
+  api-files:

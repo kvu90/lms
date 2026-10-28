@@ -8,7 +8,6 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "heroku-postbuild": "turbo run build --filter=@lms/api --filter=@lms/worker --filter=@lms/web",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "dev": "turbo run dev",
