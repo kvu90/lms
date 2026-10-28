@@ -518,3 +518,136 @@ Tài liệu này là log đính chính của các dataset trong thư mục này
 - Một số bản ghi mang trường lớp lệch so với khối nội dung kề trước
   (ví dụ HDTN-0007, LS-0063, MT-0059, MT-0079, CN-0012): đợt này chỉ
   gán nhóm theo nội dung và YCCĐ, không sửa trường lớp.
+
+## Đợt đính chính ngày 28/10/2026 — tách hai bản ghi Lịch sử đóng gói nhiều ý (issue #391)
+
+Đợt này thi hành luật hạt của YCCĐ: **mỗi dấu gạch ngang trong văn
+bản nguồn là một ý = một YCCĐ riêng**; dấu "+" là ý con nằm trong
+YCCĐ cha; không gộp nhiều ý thành một YCCĐ (mỗi YCCĐ phải tách rời
+để gắn vào câu hỏi). Đối chiếu trực tiếp văn bản chính chủ
+`ct-lichsu-official.pdf` xác nhận hai bản ghi Lịch sử dưới đây mỗi
+bản ghi đang đóng gói 4 ý gạch ngang riêng vào đúng một YCCĐ — trái
+luật hạt — nên tách ngay ở đợt này.
+
+Kèm theo là xử lý hai mảnh chữ lạ ở đầu hai tài liệu đóng gói. Kiểm
+chứng văn bản nguồn bằng ba lớp độc lập (lớp chữ giữ bố cục, toạ độ
+từng từ trên trang, ảnh chụp trang 26/27 và 41/42) cho thấy: ý cuối
+của bản ghi đứng trước mỗi ca (LS-0023, LS-0047) đều là câu trọn
+đóng kín trong trang trước, còn hai mảnh chữ lạ là phần tiếp nối
+của các ý bị cắt tại chân trang trước, thuộc về **hai khối nội dung
+vắng mặt hoàn toàn khỏi dataset** (ghi dấu vết đầy đủ ở mục riêng
+cuối đợt này). Ghép hai mảnh này vào bản ghi đứng trước sẽ tạo ra
+câu không tồn tại trong văn bản nguồn — vi phạm quy tắc chép nguyên
+văn của chính nhật ký này — nên đợt này **loại hai mảnh khỏi hai
+bản ghi khi tách và ghi dấu vết chờ khôi phục**, không sửa
+LS-0023/LS-0047, không khôi phục khối thiếu.
+
+### LS-0024 — SỬA: tách YCCĐ đóng gói 4 ý thành 4 YCCĐ riêng, loại mảnh chữ thuộc khối đang thiếu
+
+- Bản ghi: LS-0024 (file nguồn tr. 27, lớp 10, Chuyên đề 10.2: Bảo
+  tồn và phát huy giá trị di sản văn hoá ở Việt Nam).
+- Hiện trạng trước sửa: toàn bộ phần yêu cầu cần đạt nằm trong đúng
+  một tài liệu YCCĐ duy nhất: một mảnh chữ lạ ở đầu ("văn hoá trong
+  quá trình phát triển bền vững của đất nước.") rồi tới 4 ý hoàn
+  chỉnh ngăn bằng " – ".
+- Đính chính: đối chiếu tr. 27 — cột "Yêu cầu cần đạt" in 4 ý thành
+  4 mục riêng, mỗi mục mở đầu bằng một ký tự "–". Tách thành 4 tài
+  liệu YCCĐ riêng, nguyên văn theo thứ tự nguồn: (1) "Nêu được các
+  giải pháp bảo tồn và phát huy giá trị di sản văn hoá: tuyên truyền
+  giáo dục ý thức bảo tồn di sản, đầu tư cơ sở vật chất, tăng cường
+  biện pháp bảo vệ di sản,..."; (2) "Giải thích được vai trò của hệ
+  thống chính trị, doanh nghiệp, cộng đồng dân cư và của mỗi cá
+  nhân trong công tác bảo tồn và phát huy giá trị di sản văn hoá.";
+  (3) "Trình bày được trách nhiệm của Nhà nước, tổ chức xã hội, nhà
+  trường, cộng đồng, công dân trong việc bảo tồn và phát huy giá
+  trị di sản thông qua ví dụ cụ thể."; (4) "Có ý thức trách nhiệm
+  và sẵn sàng đóng góp và vận động người khác cùng tham gia vào
+  việc bảo tồn và phát huy giá trị các di sản văn hoá ở địa phương
+  và đất nước.". Mảnh chữ lạ ở đầu bị loại (dấu vết ở mục riêng
+  dưới đây). Trường `outcome_text` cập nhật khớp 4 ý đã tách.
+- Khi nạp bằng importer: ý đầu khớp theo vị trí với dòng đóng gói
+  hiện tại nên sửa chữ tại chỗ, giữ ID `01a17873-383e-7755-9570-fdfde0d720d7`;
+  3 ý còn lại là dòng mới nhận ID uuidv7 do cơ sở dữ liệu cấp.
+- Kết quả: bản ghi có 4 YCCĐ hiện hành riêng rẽ.
+
+### LS-0048 — SỬA: tách YCCĐ đóng gói 4 ý thành 4 YCCĐ riêng, loại mảnh chữ thuộc khối đang thiếu
+
+- Bản ghi: LS-0048 (file nguồn tr. 42, lớp 11, chủ đề Một số cuộc
+  cải cách lớn trong lịch sử Việt Nam (trước năm 1858)).
+- Hiện trạng trước sửa: cùng khuôn với LS-0024 — một tài liệu YCCĐ
+  duy nhất gồm mảnh chữ lạ ở đầu ("trong sự nghiệp cải cách và
+  kháng chiến bảo vệ Tổ quốc.") rồi tới 4 ý hoàn chỉnh ngăn bằng
+  " – ".
+- Đính chính: đối chiếu tr. 42 — 4 ý là 4 mục gạch ngang riêng.
+  Tách thành 4 tài liệu YCCĐ riêng, nguyên văn theo thứ tự nguồn:
+  (1) "Phân tích được bối cảnh lịch sử, nội dung và ý nghĩa của
+  cuộc cải cách thời Lê Thánh Tông."; (2) "Phân tích được bối cảnh
+  lịch sử, nội dung và ý nghĩa của cuộc cải cách thời Minh Mạng.";
+  (3) "Đánh giá kết quả và nêu được bài học kinh nghiệm của cuộc
+  cải cách Minh Mạng."; (4) "Có ý thức trân trọng giá trị của các
+  cuộc cải cách trong lịch sử dân tộc.". Mảnh chữ lạ ở đầu bị loại
+  (dấu vết ở mục riêng dưới đây). Trường `outcome_text` cập nhật
+  khớp 4 ý đã tách.
+- Khi nạp bằng importer: ý đầu sửa chữ tại chỗ, giữ ID dòng đóng
+  gói `01a17873-38ae-74f9-a672-c4ac7ff60159`; 3 ý còn lại là dòng
+  mới nhận ID uuidv7 do cơ sở dữ liệu cấp.
+- Kết quả: bản ghi có 4 YCCĐ hiện hành riêng rẽ.
+
+### Dấu vết hai mảnh chữ bị loại và hai khối dữ kiện đang thiếu (chờ khôi phục riêng)
+
+Hai mảnh dưới đây đã bị loại khỏi dataset ở đợt này. Chúng không
+thuộc về bản ghi đứng trước và không thuộc về các ý được tách;
+chúng là phần đuôi của các ý nằm trong hai khối nội dung của văn
+bản nguồn đang vắng mặt hoàn toàn khỏi dataset Lịch sử. Việc khôi
+phục cả hai khối là một đợt riêng (dựng bản ghi mới cho các YCCĐ
+dưới đây theo đúng thứ tự nguồn, đặt giữa hai bản ghi kề như ghi ở
+từng khối); tới khi đợt đó thi hành, ghi ở đây để không ai mất dấu
+và không ai ghép nhầm hai mảnh này vào LS-0023/LS-0047.
+
+- **Mảnh ở LS-0024**: "văn hoá trong quá trình phát triển bền vững
+  của đất nước." — phần tiếp nối của ý "Phân tích được cơ sở khoa
+  học của công tác bảo tồn di sản văn hoá trong quá trình phát
+  triển bền vững của đất nước." (ý bị cắt tại chân tr. 26, phần đầu
+  ý nằm ở tr. 26 nhưng không thuộc về bất kỳ bản ghi nào hiện có).
+  Khối thiếu thứ nhất — "Bảo tồn và phát huy giá trị di sản văn
+  hoá", nằm giữa LS-0023 và LS-0024 trong văn bản nguồn, gồm 3
+  YCCĐ: (1) "Giải thích được khái niệm bảo tồn di sản văn hoá.";
+  (2) "Phân tích được mối quan hệ giữa bảo tồn và phát huy giá trị
+  di sản văn hoá: bảo tồn phải đặt trong bối cảnh phát triển bền
+  vững để bảo tồn không trở thành gánh nặng và rào cản của phát
+  triển."; (3) ý chứa mảnh ở trên.
+- **Mảnh ở LS-0048**: "trong sự nghiệp cải cách và kháng chiến bảo
+  vệ Tổ quốc." — phần tiếp nối của ý "Nêu được nhận xét về nguyên
+  nhân thất bại của triều Hồ trong sự nghiệp cải cách và kháng
+  chiến bảo vệ Tổ quốc." (ý bị cắt tại chân tr. 41). Khối thiếu thứ
+  hai — nội dung về cuộc cải cách của triều Hồ, nằm giữa LS-0047
+  và LS-0048 trong văn bản nguồn, gồm 2 YCCĐ: (1) "Tóm tắt được bối
+  cảnh lịch sử, nội dung và đánh giá ý nghĩa cuộc cải cách của nhà
+  Hồ."; (2) ý chứa mảnh ở trên.
+
+Báo cáo thay đổi của importer khi nạp vào cơ sở dữ liệu chuẩn
+(dựng từ trống, restore nguyên văn dump `2026-10-28.2`): duy nhất
+dataset lichsu thay đổi — created=0, updated=2, skipped=96;
+changeCounts: textChanged=2, added=6, removed=0, moved=0,
+revived=0, shiftSuspected=0; 20 dataset còn lại updated=0, mọi
+changeCounts bằng 0. Số gắn kết câu hỏi và ánh xạ sách vào các
+dòng bị ảnh hưởng bằng 0. Đối chiếu phần khác biệt của dump mới so
+với dump `2026-10-28.2`: ngoài 3 dòng header (version, thời điểm
+sinh, dòng số liệu), chỉ có 2 dòng YCCĐ đóng gói đổi nội dung thành
+ý đầu của từng ca (giữ nguyên ID), 6 dòng YCCĐ mới, và dấu vết tất
+yếu của chính lượt patch trên 2 bản ghi bị sửa (trường
+`content_hash` của dòng sổ đăng ký và `updated_at` của dòng sổ và
+của node chứa bản ghi) — không dòng nào khác thay đổi.
+
+## Số liệu sau đợt đính chính ngày 28/10/2026 (issue #391)
+
+| Dataset | File | Bản ghi | Dòng YCCĐ hiện hành trong DB |
+|---|---|---:|---:|
+| Lịch sử | program-lichsu.json | 98 | 347 |
+| **Tổng** | — | **2.115** | **7.395** |
+
+Phiên bản dump đông cứng sau đợt: `2026-10-28.3` (header dump ghi
+subjects=19, curricula=146, curriculum_nodes=3637,
+learning_outcomes=7398, curriculum_program_records=2115; tổng số
+dòng YCCĐ trong dump là 7.398, gồm 3 dòng đã rút của các đợt trước
+giữ nguyên).
