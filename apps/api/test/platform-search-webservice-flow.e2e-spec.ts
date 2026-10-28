@@ -163,6 +163,62 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     await expectFullForManager(mgrToken);
   });
 
+  it('search users: a stale legacy users document keeps email hidden from non-managers and visible to managers', async () => {
+    type Doc = { area: string; itemId: string; content: string };
+    const searchAs = async (token: string, q: string): Promise<Doc[]> => {
+      const res = await http(app).get(`/api/v1/search?q=${encodeURIComponent(q)}`).set('Authorization', `Bearer ${token}`);
+      expect(res.status).toBe(200);
+      return res.body as Doc[];
+    };
+    // Người dùng đích, nhưng tài liệu trong chỉ mục là bản kiểu cũ còn
+    // sót từ trước khi sửa: content mang cả username lẫn email, ghi
+    // thẳng qua route index-raw thay vì qua fetch mới.
+    const target = await createUserViaApi(app, admin);
+    const sysCtx = await systemContextId(app, admin);
+    const stale = await http(app).post('/api/v1/search/index-raw').set('Authorization', `Bearer ${admin}`)
+      .send({ area: 'users', itemId: target.id, title: 'Test User', content: `${target.username} ${target.email}`, contextId: sysCtx, ownerId: target.id });
+    expect(stale.status).toBeLessThan(300);
+    const ALLOW = 1;
+    // Người tìm KHÔNG có quyền quản trị người dùng: không phải site
+    // admin, không giữ user:update ở bất kỳ đâu, chỉ có user:viewdetails
+    // tại context hệ thống để qua cổng lớp 1 của area users.
+    const viewer = await createUserViaApi(app, admin);
+    const viewerRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, viewer.id, viewerRole, sysCtx);
+    await setOverride(app, admin, viewerRole, 'user:viewdetails', sysCtx, ALLOW);
+    const viewerToken = (await login(app, viewer.username, STRONG_PASSWORD)).accessToken;
+    // Người tìm CÓ quyền quản trị người dùng theo đúng định nghĩa áp
+    // cho bề mặt này: không phải site admin, nhưng giữ user:update tại
+    // context hệ thống (kèm user:viewdetails để qua cổng lớp 1).
+    const mgr = await createUserViaApi(app, admin);
+    const mgrRole = await createRoleViaApi(app, admin);
+    await assignRole(app, admin, mgr.id, mgrRole, sysCtx);
+    await setOverride(app, admin, mgrRole, 'user:viewdetails', sysCtx, ALLOW);
+    await setOverride(app, admin, mgrRole, 'user:update', sysCtx, ALLOW);
+    const mgrToken = (await login(app, mgr.username, STRONG_PASSWORD)).accessToken;
+
+    // Người không có quyền: tìm theo username vẫn nhận tài liệu, nhưng
+    // payload đã định hình lại thành đúng username, không còn email ở
+    // bất kỳ trường nào; tìm bằng email đầy đủ không ra tài liệu đó.
+    const byName = await searchAs(viewerToken, target.username);
+    const hiddenDoc = byName.find((d) => d.area === 'users' && d.itemId === target.id);
+    expect(hiddenDoc).toBeDefined();
+    expect(hiddenDoc?.content).toBe(target.username);
+    expect(JSON.stringify(byName)).not.toContain(target.email);
+    const byEmail = await searchAs(viewerToken, target.email);
+    expect(byEmail.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(false);
+    expect(JSON.stringify(byEmail)).not.toContain(target.email);
+
+    // Người có quyền: vẫn nhận content mang email, cả khi tìm theo
+    // username lẫn khi tìm bằng email đầy đủ.
+    for (const token of [admin, mgrToken]) {
+      const mgrByName = await searchAs(token, target.username);
+      expect(mgrByName.find((d) => d.area === 'users' && d.itemId === target.id)?.content).toContain(target.email);
+      const mgrByEmail = await searchAs(token, target.email);
+      expect(mgrByEmail.some((d) => d.area === 'users' && d.itemId === target.id)).toBe(true);
+    }
+  });
+
   it('webservice DoD: a student token cannot call a function requiring a teacher capability (403), but can call a view function in its service', async () => {
     const { course, student } = await setupCourseWithStudent();
     const svc = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${admin}`)
@@ -284,3 +340,4 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     void b;
   });
 });
+
