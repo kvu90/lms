@@ -90,6 +90,22 @@ export class AccessRepository {
     return row?.status;
   }
 
+  /** Thông tin cổng (kind + status) của NHIỀU tenant trong một truy vấn — bản theo lô của getTenantGateInfo, phục vụ phép phân giải theo lô của ảnh chụp quyền. */
+  async getTenantGateInfos(tenantIds: string[]): Promise<{ id: string; kind: string; status: string }[]> {
+    if (tenantIds.length === 0) return [];
+    return this.db.select({ id: tenants.id, kind: tenants.kind, status: tenants.status })
+      .from(tenants).where(inArray(tenants.id, tenantIds));
+  }
+
+  /** Trạng thái membership của một user trong NHIỀU tenant trong một truy vấn — bản theo lô của getMembershipStatus. */
+  async getMembershipStatuses(tenantIds: string[], userId: string): Promise<{ tenantId: string; status: string }[]> {
+    if (tenantIds.length === 0) return [];
+    return this.db
+      .select({ tenantId: tenantMemberships.tenantId, status: tenantMemberships.status })
+      .from(tenantMemberships)
+      .where(and(inArray(tenantMemberships.tenantId, tenantIds), eq(tenantMemberships.userId, userId)));
+  }
+
   // --- capabilities ---------------------------------------------------------
   /**
    * Khai báo/cập nhật định nghĩa capability (tên, loại rủi ro, contextLevel, archetypes).
@@ -237,6 +253,18 @@ export class AccessRepository {
     return this.db.select().from(roleCapabilities).where(and(
       inArray(roleCapabilities.roleId, roleIds),
       eq(roleCapabilities.capability, capability),
+      inArray(roleCapabilities.contextId, contextIds)));
+  }
+  /**
+   * Lấy mọi override của các role tại các context cho trước mà KHÔNG lọc theo
+   * capability — bản theo lô phục vụ phép phân giải của ảnh chụp quyền: một
+   * truy vấn nạp trọn ma trận override cần cho mọi capability, thay cho một
+   * truy vấn riêng cho từng capability như getOverridesForRoles.
+   */
+  async getOverridesForRolesInContexts(roleIds: string[], contextIds: string[]): Promise<(typeof roleCapabilities.$inferSelect)[]> {
+    if (roleIds.length === 0 || contextIds.length === 0) return [];
+    return this.db.select().from(roleCapabilities).where(and(
+      inArray(roleCapabilities.roleId, roleIds),
       inArray(roleCapabilities.contextId, contextIds)));
   }
   /** Xoá các override mặc định đã seed của một role tại một context (seed dùng để giữ các giá trị mặc định theo archetype đồng bộ với code). */
