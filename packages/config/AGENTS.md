@@ -46,7 +46,6 @@ của repo.
 
 - Package không có test nghiệp vụ (và không được bịa test cho có): kiểm chứng của
   package này là typecheck của các app tiêu thụ, ghi ở mục trên.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 

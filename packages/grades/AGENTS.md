@@ -56,7 +56,6 @@ của repo.
   đổi quyết định tính điểm thì ca tương ứng phải fail trước khi sửa engine.
 - Test kiểm KẾT QUẢ SỐ của các tình huống nghiệp vụ thật (điểm trống, chia 0, làm
   tròn biên 2.5/-2.5…), không test chi tiết cây phân tích cú pháp nội bộ.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc
 

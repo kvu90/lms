@@ -2,7 +2,6 @@
 name: Tính năng / nghiệp vụ
 about: Đặc tả một việc tính năng hoặc nghiệp vụ. Issue phải tự chứa đầy đủ — người đọc chỉ có repo này vẫn hiểu, thi công và kiểm chứng được toàn bộ việc.
 title: ""
-labels: enhancement
 assignees: ""
 ---
 
@@ -20,8 +19,6 @@ QUY TẮC BẮT BUỘC — VĂN BẢN TỰ CHỨA:
 - Giữ nguyên các tiêu đề mục dưới đây; xoá các khối comment hướng dẫn này
   trước khi gửi.
 -->
-
-**[ĐỘI MUSE — <vai trò của đội mở issue>]**
 
 ## Bối cảnh và vấn đề
 

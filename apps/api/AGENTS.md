@@ -72,7 +72,6 @@ của repo.
 - Không yếu hoá assertion, không nới khẳng định để "cho qua" khi sửa spec đếm/cố định
   (registry capability, số bảng/uuidv7 trong baseline): đếm lại trên cây merge cuối
   và ghi con số thật.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 

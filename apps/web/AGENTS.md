@@ -65,7 +65,6 @@ của repo.
   tương ứng phải fail — xanh giả là test sai, sửa cùng lượt.
 - Neo URL/trạng thái điều hướng đã nghiệm thu là hành vi nghiệp vụ: test phải giữ
   được chúng khi refactor vỏ.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 

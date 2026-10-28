@@ -2,7 +2,6 @@
 name: Báo lỗi
 about: Báo một lỗi đã quan sát được. Bằng chứng và các bước tái hiện phải nằm ngay trong issue này, không dẫn nguồn ngoài repo làm căn cứ duy nhất.
 title: ""
-labels: bug
 assignees: ""
 ---
 
@@ -18,8 +17,6 @@ QUY TẮC BẮT BUỘC — VĂN BẢN TỰ CHỨA:
 - Giữ nguyên các tiêu đề mục dưới đây; xoá các khối comment hướng dẫn này
   trước khi gửi.
 -->
-
-**[ĐỘI MUSE — <vai trò của đội mở issue>]**
 
 ## Hiện tượng
 

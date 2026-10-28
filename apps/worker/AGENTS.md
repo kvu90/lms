@@ -60,7 +60,6 @@ của repo.
   gọi nội bộ, tên job). Đổi luật nghiệp vụ thì test tương ứng phải fail.
 - Job định kỳ phải có test về tính idempotent/chạy lại an toàn (chạy trùng không
   phát trùng, không cấp trùng quyền lợi).
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Chuẩn comment TSDoc (sổ quyết định mục F — chốt 13:14 ngày 26/10/2026)
 

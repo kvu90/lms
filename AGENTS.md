@@ -20,6 +20,20 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 5. Issue đặc tả của việc đang làm — bối cảnh, phạm vi, quyết định liên
    quan (viết trọn vẹn trong issue) và tiêu chí nghiệm thu.
 
+## Quy tắc làm việc chung
+
+- **Bám pattern chính thức của package/framework bên ngoài:** khi
+  dùng hay cấu hình bất kỳ package hay framework bên ngoài nào
+  (thư viện bên thứ ba, ví dụ Vitest, NestJS, Drizzle hay plugin
+  ESLint), đội thi công PHẢI nghiên cứu pattern chính thức của
+  chính thư viện đó trước — tài liệu, cách dùng khuyến nghị, bộ
+  rule và quy ước của nhà phát hành — và dùng đúng như vậy. Cấm
+  đoán hành vi của thư viện hay uốn nó theo thói quen từ nơi khác.
+- **Thay đổi tối thiểu theo đúng task:** mọi thay đổi phải là tối
+  thiểu cần thiết cho task: không mở rộng phạm vi, không refactor
+  tiện tay, không đụng code không liên quan. Phát hiện ngoài phạm
+  vi thì ghi lại và báo cáo, không đưa vào thay đổi.
+
 ## Chuẩn ngôn ngữ
 
 - **Code viết bằng tiếng Anh:** định danh, tên hàm/biến/lớp và các
@@ -27,6 +41,37 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   đọc) viết bằng tiếng Anh.
 - **Comment trong code viết bằng tiếng Việt:** toàn bộ comment trong
   code — gồm comment mô tả luồng nghiệp vụ — viết bằng tiếng Việt.
+- **Mô tả test viết bằng tiếng Việt:** chuỗi mô tả của `describe`,
+  `it` và `test` trong các file test viết bằng tiếng Việt; mỗi mô tả
+  phải nêu rõ hành vi đang được kiểm chứng — cấm mô tả mơ hồ, không
+  nói lên hành vi (ví dụ chỉ ghi tên hàm hoặc "hoạt động đúng").
+- **Phân tầng test:** test e2e đi theo quy ước chính thức của
+  NestJS — file nằm trong thư mục `test/`, hậu tố `*.e2e-spec.ts`,
+  khởi động ứng dụng đầy đủ và kích hoạt qua HTTP bằng supertest.
+  Tầng integration là quy định riêng của dự án (NestJS không quy
+  ước tầng này): test gọi trực tiếp service là integration test —
+  phải đặt tên, vị trí và cách chạy đúng tầng integration, không
+  mang danh e2e.
+- **Cấu trúc thư mục test:** backend tách test theo tầng —
+  `test/e2e/<module>/…` chỉ chứa test e2e (hậu tố `*.e2e-spec.ts`),
+  `test/integration/<module>/…` chỉ chứa integration test (hậu tố
+  `*.int-spec.ts`); việc chia thư mục con theo module trong mỗi
+  tầng và toàn bộ tầng integration là quy định riêng của dự án.
+  Test đơn vị (unit) đặt cạnh mã nguồn trong `src`, hậu tố
+  `*.spec.ts`, theo quy ước chính thức của NestJS. Ngoại lệ chưa
+  chuẩn hoá: worker hiện có 19 file test dạng `*.spec.ts` đặt
+  trong thư mục `test/` với nội dung tích hợp và không có spec
+  cạnh mã nguồn — trạng thái này đang được xử lý ở một gói riêng,
+  không phải cấu trúc đích.
+- **Cấu hình chạy test (Vitest):** pattern khám phá mặc định của
+  Vitest không nhận cả `.e2e-spec.ts` lẫn `.int-spec.ts`, nên mỗi
+  tầng bắt buộc khai `include` tường minh neo đúng thư mục và hậu
+  tố của tầng đó trong `projects` của `vitest.config.ts`; quên
+  khai là test âm thầm không chạy. Cấm pattern lỏng (ví dụ
+  `**/*spec.ts`) và include cả thư mục, vì chúng phá tính tách
+  bạch giữa các tầng và có thể làm test chạy trùng. Chạy tách
+  theo từng loại bằng `--project` hoặc script riêng (`test:unit`,
+  `test:int`, `test:e2e`).
 - **Tài liệu và văn bản GitHub viết bằng tiếng Việt:** mọi tài liệu
   trong repo (README, các file AGENTS, tài liệu của package) và mọi
   văn bản trên GitHub (issue, PR, comment) viết bằng tiếng Việt, văn
@@ -36,7 +81,44 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   lượt thay đổi; comment lệch code thật là lỗi phải sửa trong cùng
   lượt, không để tồn đọng.
 
-## Chuẩn Issue và PR — văn bản tự chứa
+## Quy trình tạo Issue và PR
+
+Chương này là chuẩn GitHub đầy đủ và duy nhất của repo: flow
+nhánh, đặt tên branch, tạo issue, tạo PR, chuẩn tiêu đề và
+commit, đóng issue, review và merge, vòng đời label. Khi repo
+được tạo lại từ đầu, toàn bộ quy trình được dựng lại theo đúng
+chương này.
+
+### Flow nhánh dev và main
+
+Flow này có hiệu lực từ khi nhánh `dev` được thiết lập trong đợt tái
+cấu trúc repo; trước thời điểm đó, mọi PR vẫn mở vào `main` như quy
+trình hiện tại trong tài liệu này.
+
+1. **Hai nhánh dài hạn.** `dev` là nhánh tích hợp và là default
+   branch của repo. `main` là nhánh production.
+2. **Việc thường theo issue.** Mỗi issue mở một branch từ `dev` (đặt
+   tên theo mục "Đặt tên branch" trong tài liệu này), đúng một PR vào `dev` cho mỗi issue theo luật 1
+   issue = 1 PR, thân PR có `Closes #<issue>`, squash merge vào
+   `dev`. Chuẩn Issue và PR trong tài liệu này (văn bản tự chứa, mẫu
+   issue/PR, task list trong thân PR, mục Nghiệm thu) giữ nguyên,
+   không đổi.
+3. **CI.** PR vào `dev` không chờ CI đầy đủ, và CI đầy đủ không chạy
+   theo từng commit/push trên branch của PR vào `dev`. CI đầy đủ —
+   job `verify` trong `.github/workflows/ci.yml` và job
+   `verify-stack` trong `.github/workflows/deploy-check.yml` — chỉ
+   chạy tại PR phát hành `dev → main` và PR hotfix vào `main`; cả
+   hai job phải success trên head cuối của các PR đó mới được merge.
+4. **Phát hành.** Phát hành bằng PR từ `dev` vào `main`, merge bằng
+   merge commit (không squash), cần 1 approval của chủ dự án. Sau
+   khi merge, gắn tag phát hành dạng `vYYYY.MM.DD.N` trên `main`
+   (`N` là số thứ tự của đợt phát hành trong ngày).
+5. **Hotfix.** Việc khẩn cấp trên production mở branch từ `main`, mở
+   PR vào `main`, squash merge vào `main`. Sau khi hotfix đã vào
+   `main`, bắt buộc mở PR đồng bộ `main → dev` để hai nhánh không
+   lệch nhau.
+
+### Văn bản tự chứa
 
 1. **Issue là bản đặc tả tự chứa.** Mọi issue phải chứa đủ: bối cảnh và
    vấn đề, mục tiêu, phạm vi (làm / không làm), chi tiết việc cần làm,
@@ -74,37 +156,18 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
    tắt có chủ đích trong `.github/ISSUE_TEMPLATE/config.yml` để mọi
    issue đều đi qua một mẫu có đủ các mục bắt buộc.
 
-## Quy trình tạo Issue và PR
+### Đặt tên branch
 
-### Flow nhánh dev và main
-
-Flow này có hiệu lực từ khi nhánh `dev` được thiết lập trong đợt tái
-cấu trúc repo; trước thời điểm đó, mọi PR vẫn mở vào `main` như quy
-trình hiện tại trong tài liệu này.
-
-1. **Hai nhánh dài hạn.** `dev` là nhánh tích hợp và là default
-   branch của repo. `main` là nhánh production.
-2. **Việc thường theo issue.** Mỗi issue mở một branch từ `dev` (đặt
-   tên theo quy ước hiện hành của repo: `feat/<slug>`, `docs/<slug>`,
-   `ci/<slug>`), đúng một PR vào `dev` cho mỗi issue theo luật 1
-   issue = 1 PR, thân PR có `Closes #<issue>`, squash merge vào
-   `dev`. Chuẩn Issue và PR trong tài liệu này (văn bản tự chứa, mẫu
-   issue/PR, task list trong thân PR, mục Nghiệm thu) giữ nguyên,
-   không đổi.
-3. **CI.** PR vào `dev` không chờ CI đầy đủ, và CI đầy đủ không chạy
-   theo từng commit/push trên branch của PR vào `dev`. CI đầy đủ —
-   job `verify` trong `.github/workflows/ci.yml` và job
-   `verify-stack` trong `.github/workflows/deploy-check.yml` — chỉ
-   chạy tại PR phát hành `dev → main` và PR hotfix vào `main`; cả
-   hai job phải success trên head cuối của các PR đó mới được merge.
-4. **Phát hành.** Phát hành bằng PR từ `dev` vào `main`, merge bằng
-   merge commit (không squash), cần 1 approval của chủ dự án. Sau
-   khi merge, gắn tag phát hành dạng `vYYYY.MM.DD.N` trên `main`
-   (`N` là số thứ tự của đợt phát hành trong ngày).
-5. **Hotfix.** Việc khẩn cấp trên production mở branch từ `main`, mở
-   PR vào `main`, squash merge vào `main`. Sau khi hotfix đã vào
-   `main`, bắt buộc mở PR đồng bộ `main → dev` để hai nhánh không
-   lệch nhau.
+1. Mỗi issue mở một branch riêng từ nhánh tích hợp (`dev`; trong
+   giai đoạn chuyển tiếp chưa có `dev` thì từ `main`).
+2. Tên branch theo mẫu `<type>/<số issue>-<slug>`: `type` thuộc
+   nhóm type của Conventional Commits (`feat`, `fix`, `docs`,
+   `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`,
+   `revert`); `slug` là cụm tiếng Anh dạng kebab-case, ngắn, mô
+   tả việc. Ví dụ: `fix/442-tenant-api-prefix`.
+3. Branch hotfix mở từ `main`, đặt tên `hotfix/<số issue>-<slug>`.
+4. Branch đồng bộ sau hotfix (PR `main → dev`) đặt tên cố định
+   `sync/main-to-dev`.
 
 ### Tạo Issue
 
@@ -118,7 +181,42 @@ trình hiện tại trong tài liệu này.
    tự.
 3. Một issue là một đơn vị việc mạch lạc. Việc quá lớn cho một PR thì
    tách thành nhiều issue (mỗi issue một PR), không tách thành nhiều
-   PR cho một issue.
+   PR cho một issue. Khi tách, các issue con (child issue) phải được
+   gắn vào issue cha bằng tính năng sub-issues native của GitHub
+   ngay khi tạo — cấm chỉ nhắc tới nhau bằng chữ trong thân issue.
+   Việc con nằm gọn trong một issue thì theo dõi bằng task list
+   trong thân issue và thân PR, không tách thành issue riêng.
+4. **Nhãn khi tạo issue.** Khi tạo issue, gắn label loại (`tính năng`
+   cho việc tính năng hoặc nghiệp vụ, `lỗi` cho việc báo lỗi) theo
+   đặc tả bộ label ở mục "Label trạng thái của issue"; khi bắt đầu
+   làm issue, gắn thêm label trạng thái `đang thi công`.
+5. **Một issue = một feat.** Việc phát sinh thuộc cùng feat thì ghi
+   vào đúng issue của feat đó (mở lại nếu đã đóng), không xé
+   issue/PR mới.
+
+### Chuẩn tiêu đề
+
+1. **Tiêu đề issue.** Tối đa khoảng 70 ký tự, theo cấu trúc: động
+   từ + đối tượng + tối đa một cụm phân biệt ngắn. Không liệt kê
+   phạm vi trong tiêu đề và không chất chi tiết vào tiêu đề —
+   toàn bộ chi tiết thuộc về thân issue.
+2. **Tiêu đề PR.** Mang mẫu Conventional Commits theo mục "Chuẩn
+   commit" ngay dưới đây, vì khi squash merge, tiêu đề PR trở
+   thành thông điệp commit trên nhánh chính. Tiêu đề PR cũng nằm
+   trong trần khoảng 70 ký tự.
+
+### Chuẩn commit
+
+1. Mọi thông điệp commit tuân theo Conventional Commits 1.0.0,
+   dạng `type(scope): mô tả`.
+2. `type` thuộc nhóm: `feat`, `fix`, `docs`, `style`,
+   `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+3. `scope` là tên module hoặc package ngắn, viết bằng tiếng Anh.
+4. Phần mô tả viết bằng tiếng Việt, ngắn gọn; toàn bộ dòng
+   subject tối đa khoảng 72 ký tự.
+5. Thay đổi phá vỡ tương thích ghi `type(scope)!:` và thêm
+   footer `BREAKING CHANGE:` ở thân commit. Phần thân commit
+   (khi cần) viết bằng tiếng Việt.
 
 ### Tạo PR
 
@@ -136,29 +234,70 @@ trình hiện tại trong tài liệu này.
    có nguy cơ quá lớn tới mức không đánh giá nổi thì dừng và báo điều
    phối — việc chia là ngoại lệ hiếm, phải được duyệt trước, giữ số
    PR ở mức tối thiểu và vẫn theo dõi bằng task list trong issue.
+4. Thân PR có đủ các mục "Việc con", "Bản đồ thay đổi theo phạm vi"
+   và "Kỷ luật đã giữ" theo mẫu PR của repo, mở đầu bằng mục "Liên
+   kết issue". Dòng `Closes #<số issue>` ở các điểm trên là bắt buộc
+   — đây là cơ chế duy nhất để đóng issue, theo mục "Đóng issue"
+   trong tài liệu này.
 
 ### Review và merge
 
 1. Đội thi công không tự merge và không tự đóng issue của mình; đội
    đánh giá độc lập phán quyết trước.
-2. Cổng merge: phán quyết đạt (hoặc đã thoả các điều kiện của phán
-   quyết) + PR đã rời trạng thái draft. Riêng PR vào `main` (phát
-   hành và hotfix) phải có thêm CI đầy đủ — job `verify` và job
-   `verify-stack` — success trên head cuối của PR.
+2. Cổng merge gồm đủ: phán quyết đạt (hoặc đã thoả các điều kiện
+   của phán quyết) + CI success trên head cuối theo phạm vi CI của
+   loại PR đó (PR vào `main` — phát hành và hotfix — phải có CI đầy
+   đủ: job `verify` và job `verify-stack` success trên head cuối) +
+   PR đã rời trạng thái draft + mergeable sạch. Mergeable phải được
+   kiểm lại ngay trước lệnh merge, vì số liệu ở lần đọc trước có
+   thể đã cũ.
 3. PR của issue merge kiểu squash; issue tự đóng qua `Closes` trong
    thân PR. PR phát hành `dev → main` merge bằng merge commit theo
    mục "Flow nhánh dev và main" ở trên.
+4. Ở từng chặng (bắt đầu thi công, bắt đầu review, có phán quyết,
+   merge xong), label trạng thái của issue được đổi theo mục "Label
+   trạng thái của issue" trong tài liệu này.
 
-## Kỷ luật PR liên quan
+### Đóng issue
 
-- Một issue = một feat. Việc phát sinh thuộc cùng feat thì ghi vào đúng
-  issue của feat đó (mở lại nếu đã đóng), không xé issue/PR mới.
-- 1 issue = 1 PR theo mục "Quy trình tạo Issue và PR" của tài liệu
-  này; việc con liệt kê thành task list trong thân PR, không chia
-  một issue thành nhiều PR.
-- Thân PR mở đầu bằng dòng `**[ĐỘI MUSE — <vai trò>]**`, có mục "Việc
-  con", mục "Bản đồ thay đổi theo phạm vi" và mục "Kỷ luật đã giữ".
-- Đội thi công không tự merge PR; việc merge chờ đánh giá độc lập.
-- CI của repo gồm job `verify` trong `.github/workflows/ci.yml` và
-  job `verify-stack` trong `.github/workflows/deploy-check.yml`; kết
-  luận về CI chỉ lấy từ log thật của job.
+1. Issue chỉ đóng bằng cơ chế tự đóng qua dòng `Closes #<số
+   issue>` trong thân PR khi PR merge. Cấm đóng tay issue trước
+   khi PR của nó merge.
+2. Sau khi merge, phải kiểm chứng issue đã thật sự đóng. Nếu PR
+   đã merge mà issue chưa đóng (sai từ khoá đóng hoặc sai nhánh
+   đích), đóng issue kèm comment dẫn tới commit merge.
+3. Issue cha chỉ đóng khi child issue cuối cùng về đích: PR
+   cuối cùng ghi `Closes` cả child issue của nó lẫn issue cha.
+
+### Label trạng thái của issue
+
+1. Mọi issue đang mở mang đúng MỘT label trạng thái trong bộ
+   bốn label dưới đây, và label được đổi ngay khi chặng làm
+   việc đổi. Trạng thái của issue đọc từ label, không suy từ
+   ghi chú hay comment trong issue.
+2. `đang thi công` — đội thi công gắn khi bắt đầu làm issue.
+3. `đang review` — đội review gắn khi bắt đầu chấm.
+4. `chờ sửa` — đội review gắn khi phán quyết là chưa đạt; đội
+   thi công đổi ngược về `đang thi công` khi quay lại sửa.
+5. `chờ merge` — đội review gắn khi phán quyết đạt; đội merge
+   gỡ label trạng thái khi issue đóng sau khi merge.
+6. Các mẫu issue trong `.github/ISSUE_TEMPLATE/` không tự gắn
+   label khi tạo issue; label trạng thái do đội phụ trách gắn
+   theo vòng đời ở các điểm trên.
+
+#### Đặc tả bộ label của repo
+
+Repo dùng đúng 6 label theo bảng dưới đây. Khi repo được tạo
+lại từ đầu, tạo đúng 6 label này (qua trang Labels của repo
+hoặc qua API) TRƯỚC khi mở issue đầu tiên; xoá các label mặc
+định tiếng Anh của GitHub không thuộc bộ này, không dùng bộ
+label mặc định đó.
+
+| Tên label | Mã màu | Mô tả | Khi nào gắn | Ai gắn |
+| --- | --- | --- | --- | --- |
+| `đang thi công` | `1d76db` | Đội thi công đang làm | Khi bắt đầu làm issue | Đội thi công |
+| `đang review` | `5319e7` | Đội review độc lập đang chấm | Khi bắt đầu chấm | Đội review |
+| `chờ sửa` | `d93f0b` | Review chưa đạt, chờ đội thi công sửa | Khi phán quyết chưa đạt | Đội review |
+| `chờ merge` | `0e8a16` | Review đã đạt, chờ merge | Khi phán quyết đạt | Đội review |
+| `lỗi` | `d73a4a` | Có gì đó không hoạt động | Label loại cho issue lỗi | Đội mở issue |
+| `tính năng` | `a2eeef` | Tính năng mới hoặc yêu cầu | Label loại cho issue tính năng | Đội mở issue |

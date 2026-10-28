@@ -57,7 +57,6 @@ của repo.
   nguyên vẹn sau thay đổi ở package.
 - Đổi hành vi một component nền (đóng/mở, focus, phím…) phải có ca kiểm ở phía
   app thể hiện hành vi người dùng quan sát được, không test class nội bộ.
-- Mọi comment của đội trên GitHub bắt đầu bằng `**[ĐỘI MUSE — <vai trò>]**`.
 
 ## Tính chất vendored & đợt phủ comment TSDoc (sổ mục F — chốt 14:40 ngày 26/10/2026)
 
