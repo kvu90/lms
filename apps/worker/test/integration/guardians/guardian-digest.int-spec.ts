@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { GuardianDigestProcessor } from '../../src/processors/guardian-digest.processor';
+import { GuardianDigestProcessor } from '../../../src/processors/guardian-digest.processor';
 import { guardianDigests, outboxEvents, userPreferences } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * PH-2 (issue #159) — phía phát hiện ở worker: lượt quét guardian-digests

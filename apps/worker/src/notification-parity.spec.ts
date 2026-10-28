@@ -3,7 +3,7 @@ import {
   NotificationDeliveryService,
   WORKER_PROVIDERS,
   type WorkerProviderLaw,
-} from '../../src/notification-delivery.service';
+} from './notification-delivery.service';
 import {
   notifications, pluginConfig, userPreferences, users,
 } from '@lms/db';
@@ -31,7 +31,7 @@ import {
  * giả theo khuôn unit spec phía API.
  *
  * Nửa ĐỐI CHIẾU TRƯỜNG LUẬT của parity (bản chiếu `WORKER_PROVIDERS`
- * ở file `../src/notification-delivery.service.ts` so với registry
+ * ở file `./notification-delivery.service.ts` so với registry
  * phía API) nằm ở phía API —
  * `apps/api/src/modules/messaging/notification-parity.spec.ts` —
  * vì hai app là hai project TypeScript riêng: import chéo app vỡ

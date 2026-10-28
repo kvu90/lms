@@ -2,13 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { eventLog, outboxEvents, taskLog } from '@lms/db';
-import { EnrolExpiryProcessor } from '../../src/processors/enrol-expiry.processor';
-import { OutboxRelayScheduler } from '../../src/outbox-relay.scheduler';
-import { TaskLogService } from '../../src/task-log.service';
+import { EnrolExpiryProcessor } from '../../../src/processors/enrol-expiry.processor';
+import { OutboxRelayScheduler } from '../../../src/outbox-relay.scheduler';
+import { TaskLogService } from '../../../src/task-log.service';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * task_log + phản chiếu logstore (issue #22): các lượt chạy worker theo lịch để lại một

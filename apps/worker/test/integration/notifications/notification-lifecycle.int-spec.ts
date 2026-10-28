@@ -5,14 +5,14 @@ import Redis from 'ioredis';
 import {
   NOTIFICATION_UNREAD_CHANGED_CHANNEL,
   NotificationDeliveryService,
-} from '../../src/notification-delivery.service';
-import { CalendarReminderProcessor } from '../../src/processors/calendar-reminder.processor';
-import { ReportScheduleProcessor } from '../../src/processors/platform-services.processors';
+} from '../../../src/notification-delivery.service';
+import { CalendarReminderProcessor } from '../../../src/processors/calendar-reminder.processor';
+import { ReportScheduleProcessor } from '../../../src/processors/platform-services.processors';
 import {
   NotificationRetentionProcessor,
-} from '../../src/processors/notification-retention.processor';
-import { redisConnectionFromUrl } from '../../src/config/env';
-import { tenantAls } from '../../src/db/tenant-als';
+} from '../../../src/processors/notification-retention.processor';
+import { redisConnectionFromUrl } from '../../../src/config/env';
+import { tenantAls } from '../../../src/db/tenant-als';
 import {
   calendarEvents, notificationDispatchLog, notifications, reportBuilderReport,
   reportBuilderSchedule, taskLog, userPreferences,
@@ -20,7 +20,7 @@ import {
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 const DAY_MS = 24 * 3600_000;
 

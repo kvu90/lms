@@ -4,7 +4,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
-} from '../../src/processors/platform-services.processors';
+} from '../../../src/processors/platform-services.processors';
 import {
   backupJobs, enrol, gradeGrades, insights, payments, privacyRequests, reportBuilderReport,
   reportBuilderSchedule, searchDocuments, userEnrolments, users,
@@ -12,7 +12,7 @@ import {
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * Các job nền tảng (platform) của worker. Oracles: report §4 platform-services DoD (các bước backup, search reindex,
@@ -246,8 +246,8 @@ describe('worker i18n catalogs', () => {
     const flatten = (obj: Record<string, unknown>, prefix = ''): string[] =>
       Object.entries(obj).flatMap(([k, v]) =>
         v && typeof v === 'object' ? flatten(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`]);
-    const vi = JSON.parse(await readFile(join(__dirname, '..', '..', 'src', 'i18n', 'vi', 'platform.json'), 'utf8')) as Record<string, unknown>;
-    const en = JSON.parse(await readFile(join(__dirname, '..', '..', 'src', 'i18n', 'en', 'platform.json'), 'utf8')) as Record<string, unknown>;
+    const vi = JSON.parse(await readFile(join(__dirname, '..', '..', '..', 'src', 'i18n', 'vi', 'platform.json'), 'utf8')) as Record<string, unknown>;
+    const en = JSON.parse(await readFile(join(__dirname, '..', '..', '..', 'src', 'i18n', 'en', 'platform.json'), 'utf8')) as Record<string, unknown>;
     expect(flatten(vi).sort()).toEqual(flatten(en).sort());
     expect(flatten(vi)).toContain('reportReadySubject');
   });
