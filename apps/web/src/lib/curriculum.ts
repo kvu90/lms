@@ -845,3 +845,22 @@ export async function fetchBookFrameChaptersFor(
     }),
   };
 }
+
+/** Tuỳ chọn truy vấn đơn vị khung SGK của cặp (môn, khối) kèm ngữ cảnh khoá. */
+export function bookFrameChaptersQueryOptions(subjectId: string, grade: number, forCourseId?: string) {
+  return queryOptions({
+    queryKey: queryKeys.bookFrameChapters(subjectId, grade, forCourseId ?? null),
+    queryFn: () => fetchBookFrameChaptersFor(subjectId, grade, forCourseId),
+  });
+}
+
+/**
+ * Hook đọc đơn vị khung SGK cho panel nạp khung sách: chưa đủ (môn,
+ * khối) thì chưa gọi API và coi như chưa có sách nào để chọn.
+ */
+export function useBookFrameChapters(subjectId: string, grade: number | null, forCourseId?: string) {
+  return useQuery({
+    ...bookFrameChaptersQueryOptions(subjectId, grade ?? 0, forCourseId),
+    enabled: subjectId !== '' && grade !== null,
+  });
+}
