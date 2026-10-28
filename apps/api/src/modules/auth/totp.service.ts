@@ -76,9 +76,38 @@ export class TotpService {
   /**
    * Bước setup: sinh secret mới, lưu dạng mã hoá ở trạng thái CHƯA xác
    * nhận, và trả secret + otpauth URL — đây là lần duy nhất secret thô
-   * rời khỏi server. Setup lại sẽ thay secret đang chờ/đang dùng.
+   * rời khỏi server.
+   *
+   * Luồng theo trạng thái của factor hiện có:
+   * - Chưa có bản ghi, hoặc bản ghi đang chờ xác nhận (chưa từng kích
+   *   hoạt): setup/setup lại tự do, secret chờ bị thay — chưa có factor
+   *   đang hoạt động nào bị hạ cấp.
+   * - Bản ghi ĐÃ xác nhận (MFA đang bật): setup lại là thao tác THAY một
+   *   factor đang hoạt động. Vì `upsertPendingTotp` đặt `confirmed`
+   *   về false mà cổng đăng nhập chỉ nhìn cờ đó, một lần ghi đè vô điều
+   *   kiện sẽ tắt MFA ngay lập tức và làm authenticator hiện tại thành
+   *   vô dụng — phiên bị lộ là đủ để gỡ im lặng lớp bảo vệ đang bật.
+   *   Do đó bước này áp CỔNG TÁI XÁC THỰC cùng khuôn với luồng tắt MFA:
+   *   người gọi phải trình mã TOTP hiện tại (đúng với secret đang hoạt
+   *   động) TRƯỚC khi ghi đè. Thiếu mã ⇒ `auth.mfa_reauth_required`;
+   *   mã sai ⇒ `auth.mfa_invalid_code`; cả hai trường hợp đều từ chối
+   *   khi CHƯA chạm vào bản ghi nên factor cũ giữ nguyên vẹn (secret
+   *   cũ, `confirmed` vẫn true, MFA vẫn bật). Mã đúng ⇒ ghi đè như
+   *   luồng setup thường: secret mới ở trạng thái chờ xác nhận, chờ
+   *   bước confirm kích hoạt lại.
+   *
+   * @param currentCode Mã TOTP hiện tại — chỉ bắt buộc khi factor đang bật.
    */
-  async setup(userId: string, username: string): Promise<{ secret: string; otpauthUrl: string }> {
+  async setup(userId: string, username: string, currentCode?: string): Promise<{ secret: string; otpauthUrl: string }> {
+    const existing = await this.repo.getTotpByUserId(userId);
+    if (existing?.confirmed) {
+      if (!currentCode) {
+        throw new UnauthorizedException({ message: 'Current two-factor authentication code is required to replace the active authenticator', code: 'auth.mfa_reauth_required' });
+      }
+      if (!(await this.verifyCode(this.decryptSecret(existing.secretEncrypted), currentCode))) {
+        throw new UnauthorizedException({ message: 'Invalid two-factor authentication code', code: 'auth.mfa_invalid_code' });
+      }
+    }
     const secret = generateSecret();
     await this.repo.upsertPendingTotp(userId, this.encryptSecret(secret));
     const otpauthUrl = generateURI({ issuer: TOTP_ISSUER, label: username, secret });

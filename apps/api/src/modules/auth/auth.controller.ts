@@ -8,7 +8,7 @@ import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.d
 import { Public } from '../../common/public.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { UsersService } from '../users/users.service';
-import { changePasswordSchema, loginAsSchema, loginSchema, mfaTotpCodeSchema, mfaVerifySchema, refreshTokenSchema, type ChangePasswordDto, type LoginAsDto, type LoginDto, type MfaTotpCodeDto, type MfaVerifyDto, type RefreshDto } from './dto/auth.dto';
+import { changePasswordSchema, loginAsSchema, loginSchema, mfaTotpCodeSchema, mfaTotpSetupSchema, mfaVerifySchema, refreshTokenSchema, type ChangePasswordDto, type LoginAsDto, type LoginDto, type MfaTotpCodeDto, type MfaTotpSetupDto, type MfaVerifyDto, type RefreshDto } from './dto/auth.dto';
 import { AuthService, type PasswordLoginOutcome } from './auth.service';
 import { BetterAuthService } from './better-auth/better-auth.service';
 
@@ -76,10 +76,14 @@ export class AuthController {
   @Post('mfa/totp/setup')
   /**
    * POST /auth/mfa/totp/setup — khởi tạo secret TOTP chờ xác nhận; secret + otpauth URL chỉ trả ở bước này.
+   * Thân là không bắt buộc; khi tài khoản đã có factor đang bật, thân
+   * phải kèm `currentCode` (mã TOTP hiện tại) để tái xác thực trước
+   * khi thay factor — thiếu/sai mã thì bị từ chối và factor cũ giữ
+   * nguyên (cổng thực thi ở `TotpService.setup`).
    */
-  async mfaTotpSetup(@CurrentUser() actor: AuthenticatedUser) {
+  async mfaTotpSetup(@Body({ schema: mfaTotpSetupSchema }) dto: MfaTotpSetupDto, @CurrentUser() actor: AuthenticatedUser) {
     const user = await this.users.getUser(actor.id);
-    return this.auth.setupTotp(user);
+    return this.auth.setupTotp(user, dto?.currentCode);
   }
 
   @Post('mfa/totp/confirm')

@@ -134,6 +134,9 @@ export class AuthRepository {
   /**
    * Ghi secret TOTP đang chờ xác nhận; setup lại thì thay secret cũ và đưa
    * trạng thái về chưa xác nhận (authenticator cũ ngừng hiệu lực ngay).
+   * Lưu ý: khi factor đang bật (đã xác nhận) thì lời gọi chỉ tới được đây
+   * sau cổng tái xác thực bằng mã hiện tại ở `TotpService.setup` — tầng
+   * lưu trữ này không tự phân biệt các trạng thái setup.
    */
   async upsertPendingTotp(userId: string, secretEncrypted: string): Promise<UserTotpRow> {
     const [row] = await this.db.insert(userTotp)

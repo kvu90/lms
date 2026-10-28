@@ -242,6 +242,59 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(direct.body.accessToken).toBeTruthy();
   });
 
+  it('MFA TOTP: re-setup while enabled requires the current code; rejected attempts keep the active factor intact', async () => {
+    const user = await createUserViaApi(app, admin);
+    const plain = await login(app, user.username, STRONG_PASSWORD);
+    const activeSecret = await enableMfaViaApi(app, plain.accessToken);
+    const auth = { Authorization: `Bearer ${plain.accessToken}` };
+
+    // Setup lại không kèm mã hiện tại ⇒ 401 tái xác thực; MFA vẫn bật nguyên.
+    const noCode = await http(app).post('/api/v1/auth/mfa/totp/setup').set(auth);
+    expect(noCode.status).toBe(401);
+    expect(noCode.body.code).toBe('auth.mfa_reauth_required');
+    const statusAfterNoCode = await http(app).get('/api/v1/auth/mfa/status').set(auth);
+    expect(statusAfterNoCode.body).toEqual({ enabled: true });
+
+    // Setup lại với mã hiện tại sai ⇒ 401 mã không hợp lệ; MFA vẫn bật nguyên,
+    // và đăng nhập vẫn bị chặn ở bước MFA với authenticator hiện tại.
+    const wrong = await http(app).post('/api/v1/auth/mfa/totp/setup').set(auth)
+      .send({ currentCode: await wrongTotpCode(activeSecret) });
+    expect(wrong.status).toBe(401);
+    expect(wrong.body.code).toBe('auth.mfa_invalid_code');
+    const stillBlocked = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(stillBlocked.body.mfaRequired).toBe(true);
+    const verifiedOld = await http(app).post('/api/v1/auth/mfa/verify')
+      .send({ challengeToken: stillBlocked.body.challengeToken, code: await currentTotpCode(activeSecret) });
+    expect(verifiedOld.status).toBe(201);
+
+    // Setup lại với mã hiện tại đúng ⇒ secret mới ở trạng thái chờ xác nhận.
+    const replaced = await http(app).post('/api/v1/auth/mfa/totp/setup').set(auth)
+      .send({ currentCode: await currentTotpCode(activeSecret) });
+    expect(replaced.status).toBe(201);
+    const newSecret = replaced.body.secret as string;
+    expect(newSecret).toBeTruthy();
+    expect(newSecret).not.toBe(activeSecret);
+    const statusPending = await http(app).get('/api/v1/auth/mfa/status').set(auth);
+    expect(statusPending.body).toEqual({ enabled: false });
+
+    // Confirm bằng secret mới ⇒ MFA bật lại; authenticator cũ hết giá trị,
+    // đăng nhập bị chặn và chỉ mở bằng mã của factor mới.
+    const confirm = await http(app).post('/api/v1/auth/mfa/totp/confirm').set(auth)
+      .send({ code: await currentTotpCode(newSecret) });
+    expect(confirm.status).toBe(201);
+    expect(confirm.body.mfaEnabled).toBe(true);
+    const blocked = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(blocked.body.mfaRequired).toBe(true);
+    const oldCodeVerify = await http(app).post('/api/v1/auth/mfa/verify')
+      .send({ challengeToken: blocked.body.challengeToken, code: await currentTotpCode(activeSecret) });
+    expect(oldCodeVerify.status).toBe(401);
+    expect(oldCodeVerify.body.code).toBe('auth.mfa_invalid_code');
+    const verifiedNew = await http(app).post('/api/v1/auth/mfa/verify')
+      .send({ challengeToken: blocked.body.challengeToken, code: await currentTotpCode(newSecret) });
+    expect(verifiedNew.status).toBe(201);
+    expect(verifiedNew.body.accessToken).toBeTruthy();
+  });
+
   it('MFA TOTP: admin reset (user:update capability) gỡ MFA cho user mất authenticator; user thường bị từ chối', async () => {
     const user = await createUserViaApi(app, admin);
     const plain = await login(app, user.username, STRONG_PASSWORD);
