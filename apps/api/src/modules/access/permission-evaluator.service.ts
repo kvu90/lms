@@ -69,12 +69,27 @@ export class PermissionEvaluator {
    * (kind `platform`) là không gian của chính platform nên không cổng,
    * không thu hẹp — hành vi cũ giữ nguyên. Đổi trạng thái membership
    * phải markContextDirty(context tenant) để cache cũ hết hiệu lực.
+   *
+   * Dữ kiện cổng (thông tin tenant + membership) được repository đọc
+   * trong ngữ cảnh platform tường minh, không phụ thuộc phiên tenant
+   * của người gọi — hai bảng `tenants`/`tenant_memberships` bật FORCE
+   * RLS theo tenant của phiên nên đọc bằng phiên thường sẽ làm bản ghi
+   * của tenant khác vô hình. Vì vậy `undefined` tại đây chỉ còn nghĩa
+   * tenant không tồn tại; path vẫn mang context tenant mà dữ kiện cổng
+   * không xác minh được thì cổng TỪ CHỐI (fail-closed). Mặc định cho
+   * qua như trước sẽ vô hiệu cả hai bảo đảm ở trên: lối tắt site admin
+   * áp ngay trong cây tenant và gán vai ngoài cây chảy vào.
    */
   private async tenantGate(userId: string, pathContexts: ContextRow[]): Promise<TenantGate> {
     const tenantCtx = pathContexts.find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
     if (!tenantCtx?.instanceId) return { allowed: true, assignmentScope: null };
     const info = await this.repo.getTenantGateInfo(tenantCtx.instanceId);
-    if (!info || (info.kind !== 'school' && info.kind !== 'center')) return { allowed: true, assignmentScope: null };
+    // Không xác minh được tenant của path → từ chối (fail-closed), kể
+    // cả nhánh lối tắt site admin ở hasCapability: assignmentScope chỉ
+    // được null (không thu hẹp) khi tenant đã xác minh là không thuộc
+    // diện gác (kind `platform`) hoặc path không có context tenant.
+    if (!info) return { allowed: false, assignmentScope: null };
+    if (info.kind !== 'school' && info.kind !== 'center') return { allowed: true, assignmentScope: null };
     // Tenant đã khoá (suspended) hoặc lưu trữ (archived) thì không ai còn
     // quyền trong cây của nó — kể cả thành viên.
     if (info.status !== 'active') return { allowed: false, assignmentScope: null };
@@ -231,7 +246,15 @@ export class PermissionEvaluator {
         continue;
       }
       const info = gateInfoByTenant.get(tenantCtx.instanceId);
-      if (!info || (info.kind !== 'school' && info.kind !== 'center')) {
+      if (!info) {
+        // Cùng quy tắc fail-closed với `tenantGate`: dữ kiện cổng đã
+        // đọc ở ngữ cảnh platform nên vắng mặt trong map nghĩa là
+        // không xác minh được tenant của đích → chặn tuyệt đối, không
+        // cho qua không thu hẹp như nhánh tenant `platform` ở dưới.
+        gateByTarget.set(target.id, { allowed: false, assignmentScope: null });
+        continue;
+      }
+      if (info.kind !== 'school' && info.kind !== 'center') {
         gateByTarget.set(target.id, { allowed: true, assignmentScope: null });
         continue;
       }

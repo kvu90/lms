@@ -3,6 +3,7 @@ import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { capabilities, config, context, role, roleAssignments, roleCapabilities, tenantMemberships, tenants } from '../../db/schema';
+import { tenantAls } from '../tenants/tenant-als';
 
 export type ContextRow = typeof context.$inferSelect;
 export type RoleRow = typeof role.$inferSelect;
@@ -75,35 +76,56 @@ export class AccessRepository {
 
   // --- tenants (cổng membership của evaluator, TENANT-0 #168) --------------
 
-  /** Thông tin cổng của tenant (kind + status) theo id; undefined khi tenant không tồn tại. */
+  /**
+   * Thông tin cổng của tenant (kind + status) theo id; undefined khi tenant không tồn tại.
+   *
+   * Bốn phép đọc dữ kiện cổng trong mục này (thông tin tenant + trạng thái
+   * membership, bản đơn và bản theo lô) LUÔN chạy trong ngữ cảnh platform
+   * tường minh (`tenantAls.run({ platform: true }, ...)`), cùng khuôn đọc
+   * xuyên tenant của `plan-limits.service.ts`. Lý do: `tenants` và
+   * `tenant_memberships` là hai bảng FORCE RLS neo theo tenant của PHIÊN
+   * cơ sở dữ liệu — đọc bằng phiên của người gọi thì bản ghi của tenant
+   * khác vô hình, và kết quả `undefined`/thiếu dòng không phân biệt được
+   * "bị RLS che" với "không tồn tại". Cổng tenant là một kiểm soát an
+   * toàn, nên dữ kiện của nó không được phụ thuộc phiên của người gọi:
+   * sau phép đọc ở ngữ cảnh platform, `undefined` chỉ còn nghĩa thật là
+   * tenant không tồn tại, và evaluator dựa vào đó để từ chối khi không
+   * xác minh được (fail-closed).
+   */
   async getTenantGateInfo(tenantId: string): Promise<{ kind: string; status: string } | undefined> {
-    const [row] = await this.db.select({ kind: tenants.kind, status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId));
-    return row;
+    return tenantAls.run({ platform: true }, async () => {
+      const [row] = await this.db.select({ kind: tenants.kind, status: tenants.status }).from(tenants).where(eq(tenants.id, tenantId));
+      return row;
+    });
   }
 
-  /** Trạng thái membership của user trong tenant; undefined khi chưa từng là thành viên. */
+  /** Trạng thái membership của user trong tenant; undefined khi chưa từng là thành viên. Đọc ở ngữ cảnh platform — xem `getTenantGateInfo`. */
   async getMembershipStatus(tenantId: string, userId: string): Promise<string | undefined> {
-    const [row] = await this.db
-      .select({ status: tenantMemberships.status })
-      .from(tenantMemberships)
-      .where(and(eq(tenantMemberships.tenantId, tenantId), eq(tenantMemberships.userId, userId)));
-    return row?.status;
+    return tenantAls.run({ platform: true }, async () => {
+      const [row] = await this.db
+        .select({ status: tenantMemberships.status })
+        .from(tenantMemberships)
+        .where(and(eq(tenantMemberships.tenantId, tenantId), eq(tenantMemberships.userId, userId)));
+      return row?.status;
+    });
   }
 
-  /** Thông tin cổng (kind + status) của NHIỀU tenant trong một truy vấn — bản theo lô của getTenantGateInfo, phục vụ phép phân giải theo lô của ảnh chụp quyền. */
+  /** Thông tin cổng (kind + status) của NHIỀU tenant trong một truy vấn — bản theo lô của getTenantGateInfo, phục vụ phép phân giải theo lô của ảnh chụp quyền. Đọc ở ngữ cảnh platform — xem `getTenantGateInfo`. */
   async getTenantGateInfos(tenantIds: string[]): Promise<{ id: string; kind: string; status: string }[]> {
     if (tenantIds.length === 0) return [];
-    return this.db.select({ id: tenants.id, kind: tenants.kind, status: tenants.status })
-      .from(tenants).where(inArray(tenants.id, tenantIds));
+    return tenantAls.run({ platform: true }, async () =>
+      this.db.select({ id: tenants.id, kind: tenants.kind, status: tenants.status })
+        .from(tenants).where(inArray(tenants.id, tenantIds)));
   }
 
-  /** Trạng thái membership của một user trong NHIỀU tenant trong một truy vấn — bản theo lô của getMembershipStatus. */
+  /** Trạng thái membership của một user trong NHIỀU tenant trong một truy vấn — bản theo lô của getMembershipStatus. Đọc ở ngữ cảnh platform — xem `getTenantGateInfo`. */
   async getMembershipStatuses(tenantIds: string[], userId: string): Promise<{ tenantId: string; status: string }[]> {
     if (tenantIds.length === 0) return [];
-    return this.db
-      .select({ tenantId: tenantMemberships.tenantId, status: tenantMemberships.status })
-      .from(tenantMemberships)
-      .where(and(inArray(tenantMemberships.tenantId, tenantIds), eq(tenantMemberships.userId, userId)));
+    return tenantAls.run({ platform: true }, async () =>
+      this.db
+        .select({ tenantId: tenantMemberships.tenantId, status: tenantMemberships.status })
+        .from(tenantMemberships)
+        .where(and(inArray(tenantMemberships.tenantId, tenantIds), eq(tenantMemberships.userId, userId))));
   }
 
   // --- capabilities ---------------------------------------------------------
