@@ -31,6 +31,10 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   `it` và `test` trong các file test viết bằng tiếng Việt; mỗi mô tả
   phải nêu rõ hành vi đang được kiểm chứng — cấm mô tả mơ hồ, không
   nói lên hành vi (ví dụ chỉ ghi tên hàm hoặc "hoạt động đúng").
+- **Test e2e theo pattern NestJS:** test e2e khởi động ứng dụng đầy
+  đủ và kích hoạt qua HTTP bằng supertest. Test gọi trực tiếp
+  service là integration test — phải đặt tên, vị trí và cách chạy
+  đúng tầng integration, không mang danh e2e.
 - **Tài liệu và văn bản GitHub viết bằng tiếng Việt:** mọi tài liệu
   trong repo (README, các file AGENTS, tài liệu của package) và mọi
   văn bản trên GitHub (issue, PR, comment) viết bằng tiếng Việt, văn
