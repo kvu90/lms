@@ -20,8 +20,6 @@ QUY TẮC BẮT BUỘC — VĂN BẢN TỰ CHỨA:
   trước khi gửi.
 -->
 
-**[ĐỘI MUSE — <vai trò của đội mở issue>]**
-
 ## Bối cảnh và vấn đề
 
 <!-- Việc gì đang xảy ra, vì sao cần làm việc này. Viết đủ để một người

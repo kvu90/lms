@@ -18,8 +18,6 @@ QUY TẮC BẮT BUỘC — VĂN BẢN TỰ CHỨA:
   trước khi gửi.
 -->
 
-**[ĐỘI MUSE — <vai trò của đội mở issue>]**
-
 ## Hiện tượng
 
 <!-- Lỗi biểu hiện như thế nào, ở đâu (màn hình, API, job nền...), từ khi

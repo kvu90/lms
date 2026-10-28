@@ -1,5 +1,3 @@
-**[ĐỘI MUSE — <vai trò của đội mở PR>]**
-
 <!--
 QUY TẮC BẮT BUỘC — PR TỰ CHỨA:
 - Đối chiếu nghiệm thu phải viết ngay trong PR này, từng tiêu chí kèm
