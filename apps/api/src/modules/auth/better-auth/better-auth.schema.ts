@@ -61,12 +61,14 @@ export const betterAuthAccount = pgTable('account', {
 });
 
 /**
- * Ánh xạ model `twoFactor` của plugin twoFactor (issue #7, chặng 2.2/2.3):
- * bảng vật lý `two_factor` đã có trong baseline từ Giai đoạn 1 (định
- * nghĩa ở packages/db-schema) và hình cột khớp từng field của plugin
- * 1.7.12. Ánh xạ này cần có mặt TRƯỚC khi plugin được bật để adapter tra
- * được bản ghi MFA (cổng OAuth của chặng 2.3 đọc trạng thái `verified`
- * qua chính ánh xạ này); bản thân việc bật plugin thuộc chặng 2.2.
+ * Ánh xạ model `twoFactor`: bảng vật lý `two_factor` đã có trong
+ * baseline từ Giai đoạn 1 (định nghĩa ở packages/db-schema) và hình
+ * cột khớp từng field của plugin twoFactor 1.7.12. Ánh xạ được giữ
+ * vì adapter khai đủ model của schema, NHƯNG plugin twoFactor chủ
+ * đích không được đăng ký (lý do ở khối plugins của factory) và
+ * không luồng nào đọc/ghi bảng này: trạng thái MFA + bước hoàn tất
+ * đều đi qua `user_totp` — nguồn duy nhất (xem `mfa-gate.ts` và
+ * `two-factor-completion.service.ts`).
  */
 export const betterAuthTwoFactor = pgTable('two_factor', {
   id: uuid('id').primaryKey().default(sql`uuidv7()`),

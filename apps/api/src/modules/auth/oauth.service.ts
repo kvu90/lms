@@ -71,6 +71,26 @@ interface OAuthState {
 }
 
 /**
+ * Giá trị lưu cho một mã bàn giao: định danh user + dấu MFA đã qua.
+ * Dấu chỉ do `finishSignIn` đặt (sau cổng MFA hoặc khi tài khoản
+ * không bật MFA). Giá trị lưu DẠNG CŨ là chuỗi định danh user thuần —
+ * `exchangeHandoff` hiểu dạng cũ là chưa qua MFA.
+ */
+interface OAuthHandoffRecord {
+  userId: string;
+  mfaSatisfied: boolean;
+}
+
+/**
+ * Kết quả callback OAuth: hoặc đăng nhập hoàn tất (phiên + mã bàn
+ * giao), hoặc bị chặn ở bước MFA kèm challenge token đích `oauth`
+ * (chưa tồn tại phiên/mã bàn giao nào).
+ */
+export type OAuthCallbackOutcome =
+  | { mfaRequired: false; user: UserRow; sessionId: string; handoffCode: string }
+  | { mfaRequired: true; user: UserRow; challengeToken: string };
+
+/**
  * Đăng nhập xã hội theo mẫu plugin lõi `auth_oauth2` của Moodle: issuer
  * dựng sẵn Google/Facebook chạy luồng authorization code; callback khớp
  * tài khoản theo thứ tự (1) liên kết đã có theo tài khoản provider,
@@ -80,6 +100,15 @@ interface OAuthState {
  * Hoàn tất đăng nhập dùng ĐÚNG cơ chế sẵn có: phiên web cookie được tạo
  * như đăng nhập thường và SPA nhận cặp token qua mã bàn giao một lần —
  * không tồn tại cơ chế phiên thứ hai.
+ *
+ * Cổng MFA: tài khoản đã bật MFA (trạng thái ở `user_totp` — nguồn duy
+ * nhất của hệ, qua `AuthService.isMfaEnabled`) thì callback KHÔNG tạo
+ * phiên và KHÔNG phát mã bàn giao; luồng dừng ở challenge MFA đích
+ * `oauth` và chỉ hoàn tất sau khi qua bước verify (xem
+ * `completeOAuthMfa`). Lớp gác thứ hai nằm ở `exchangeHandoff`: mã bàn
+ * giao mang dấu đã-qua-MFA tại thời điểm phát hành, tài khoản đang bật
+ * MFA mà mã không có dấu thì bị từ chối — chặn cả mã phát hành từ
+ * trước khi có cổng.
  */
 @Injectable()
 export class OAuthService {
@@ -238,15 +267,17 @@ export class OAuthService {
   /**
    * Xử lý callback của provider: kiểm state → đổi code → lấy hồ sơ (bắt
    * buộc email đã xác thực) → khớp/tạo tài khoản như `complete_login` của
-   * Moodle → ghi nhận đăng nhập, tạo phiên web và cấp mã bàn giao một
-   * lần cho SPA đổi lấy cặp token.
+   * Moodle → cổng MFA → ghi nhận đăng nhập, tạo phiên web và cấp mã bàn
+   * giao một lần cho SPA đổi lấy cặp token. Tài khoản đã bật MFA thì
+   * kết quả là nhánh `mfaRequired` kèm challenge token (chưa có phiên,
+   * chưa có mã bàn giao nào tồn tại).
    */
   async handleCallback(
     issuer: OAuthIssuer,
     code: string,
     stateToken: string,
     client: { ip?: string; userAgent?: string },
-  ): Promise<{ user: UserRow; sessionId: string; handoffCode: string }> {
+  ): Promise<OAuthCallbackOutcome> {
     if (!this.isEnabled(issuer)) throw new OAuthFlowException('auth.oauth_issuer_not_configured');
     const state = await this.verifyState(issuer, stateToken);
     const accessToken = await this.exchangeCode(issuer, code, state.redirectUri);
@@ -278,11 +309,54 @@ export class OAuthService {
     }
     if (user.deleted || user.suspended) throw new OAuthFlowException('auth.account_inactive');
 
+    // Cổng MFA: trạng thái lấy từ `user_totp` (nguồn duy nhất — xem
+    // AuthService.isMfaEnabled). Đã bật MFA thì dừng ở challenge đích
+    // `oauth`: phiên và mã bàn giao chỉ sinh ở bước hoàn tất sau khi
+    // qua verify (completeOAuthMfa), không sinh ở đây trong bất kỳ
+    // nhánh khớp tài khoản nào (kể cả nhánh liên kết tường minh của
+    // user đang đăng nhập — cổng áp đồng nhất cho mọi callback).
+    if (await this.auth.isMfaEnabled(user.id)) {
+      const challengeToken = await this.auth.createOAuthMfaChallenge(user);
+      return { mfaRequired: true, user, challengeToken };
+    }
+
+    const { sessionId, handoffCode } = await this.finishSignIn(user, client);
+    return { mfaRequired: false, user, sessionId, handoffCode };
+  }
+
+  /**
+   * Đuôi hoàn tất đăng nhập dùng chung của callback (không qua MFA)
+   * và của bước hoàn tất MFA: ghi nhận đăng nhập, tạo phiên web, phát
+   * mã bàn giao một lần. Mã bàn giao lưu dạng object mang dấu
+   * `mfaSatisfied: true` — dấu này chỉ được đặt TẠI ĐÂY, tức sau khi
+   * cổng MFA đã qua (hoặc tài khoản không bật MFA), và là căn cứ cho
+   * lớp gác thứ hai ở `exchangeHandoff`.
+   */
+  private async finishSignIn(
+    user: UserRow,
+    client: { ip?: string; userAgent?: string },
+  ): Promise<{ sessionId: string; handoffCode: string }> {
     await this.users.recordLogin(user.id);
     const sessionId = await this.sessions.create({ userId: user.id, username: user.username, ip: client.ip, userAgent: client.userAgent });
     const handoffCode = randomUUID();
     const handoffTtlMs = (this.config.get<number>('OAUTH_HANDOFF_TTL_SECONDS') ?? 120) * 1000;
-    await this.store.set(`oauthhandoff:${handoffCode}`, user.id, handoffTtlMs);
+    await this.store.set(`oauthhandoff:${handoffCode}`, { userId: user.id, mfaSatisfied: true }, handoffTtlMs);
+    return { sessionId, handoffCode };
+  }
+
+  /**
+   * Hoàn tất đăng nhập OAuth sau bước hai MFA: challenge đích `oauth`
+   * + mã TOTP qua lõi dùng chung của AuthService (chữ ký/hạn/scope/
+   * flow, trạng thái tài khoản, lockout, ghi attempt) ⇒ chạy đúng
+   * đuôi hoàn tất như callback không qua MFA.
+   */
+  async completeOAuthMfa(
+    challengeToken: string,
+    code: string,
+    client: { ip?: string; userAgent?: string },
+  ): Promise<{ user: UserRow; sessionId: string; handoffCode: string }> {
+    const user = await this.auth.verifyOAuthMfa(challengeToken, code, client.ip);
+    const { sessionId, handoffCode } = await this.finishSignIn(user, client);
     return { user, sessionId, handoffCode };
   }
 
@@ -290,17 +364,31 @@ export class OAuthService {
    * Đổi mã bàn giao một lần lấy cặp token như đăng nhập thường. Mã bị
    * xoá ngay khi đổi (dù thành công hay tài khoản đã mất hiệu lực) nên
    * không dùng lại được lần hai.
+   *
+   * Lớp gác MFA thứ hai: mã bàn giao phát hành trước khi có cổng (dạng
+   * lưu cũ — chỉ là chuỗi định danh user) hoặc từ bất kỳ đường nào
+   * không qua `finishSignIn` đều KHÔNG có dấu `mfaSatisfied`; tài
+   * khoản đang bật MFA cầm mã như vậy thì bị từ chối tại đây, kể cả
+   * khi callback ở thời điểm phát hành chưa bị gác.
    */
   async exchangeHandoff(code: string, client?: SessionClientInfo): Promise<{ user: UserRow; tokens: Awaited<ReturnType<AuthService['issueTokensFor']>> }> {
     const key = `oauthhandoff:${code}`;
-    const userId = await this.store.get<string>(key);
-    if (!userId) {
+    const stored = await this.store.get<string | OAuthHandoffRecord>(key);
+    if (!stored) {
       throw new UnauthorizedException({ message: 'OAuth handoff code is invalid or expired', code: 'auth.oauth_handoff_invalid' });
     }
     await this.store.delete(key);
+    const userId = typeof stored === 'string' ? stored : stored.userId;
+    const mfaSatisfied = typeof stored === 'string' ? false : stored.mfaSatisfied === true;
     const user = await this.users.getByIdOrUndefined(userId);
     if (!user || user.deleted || user.suspended) {
       throw new UnauthorizedException({ message: 'Account is not active', code: 'auth.account_inactive' });
+    }
+    if (!mfaSatisfied && (await this.auth.isMfaEnabled(user.id))) {
+      throw new UnauthorizedException({
+        message: 'Two-factor authentication must be completed before this sign-in can be completed',
+        code: 'auth.oauth_mfa_required',
+      });
     }
     const tokens = await this.auth.issueTokensFor(user, client);
     await this.auth.recordLoginEvent(user, 'oauth', client);

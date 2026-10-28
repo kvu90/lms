@@ -226,8 +226,10 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
 
   /**
    * Hoàn tất đăng nhập sau `twoFactorRedirect`: mã 6 số là TOTP từ
-   * ứng dụng xác thực; mã dài hơn là mã dự phòng (backup code) dùng
-   * một lần — hai đường verify khác nhau của plugin twoFactor.
+   * ứng dụng xác thực; mã dài hơn được gửi sang đường mã dự phòng —
+   * phía API kiểm cả hai vào nguồn trạng thái MFA duy nhất
+   * `user_totp` (sản phẩm hiện không phát mã dự phòng nên đường đó
+   * luôn từ chối, giữ nguyên hợp đồng client).
    */
   const completeMfaLogin = useCallback(
     async (code: string): Promise<UserProfile> => {
@@ -247,11 +249,19 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
     if (error) throw apiErrorFromAuthClient(error);
   }, []);
 
-  /** Đăng nhập bằng mã OTP đã gửi tới email — bước 2 của luồng OTP. */
+  /**
+   * Đăng nhập bằng mã OTP đã gửi tới email — bước 2 của luồng OTP.
+   * Tài khoản đã bật MFA thì đáp ứng mang `twoFactorRedirect` và
+   * chưa có phiên (cổng MFA phía API gác cả đường này) — dịch thành
+   * `TwoFactorRedirectError` như luồng mật khẩu để trang login
+   * chuyển sang bước nhập mã TOTP.
+   */
   const loginWithEmailOtp = useCallback(
     async (email: string, otp: string): Promise<UserProfile> => {
-      const { error } = await authClient.signIn.emailOtp({ email, otp });
+      const { data, error } = await authClient.signIn.emailOtp({ email, otp });
       if (error) throw apiErrorFromAuthClient(error);
+      const redirect = (data as { twoFactorRedirect?: unknown } | null)?.twoFactorRedirect;
+      if (redirect) throw new TwoFactorRedirectError();
       return establishSession();
     },
     [establishSession],

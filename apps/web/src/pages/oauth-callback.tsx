@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Spinner } from '@lms/ui/components/spinner';
@@ -19,6 +19,12 @@ import { useAuth } from '#lib/auth';
  * đường về trang đăng nhập. `reload` chỉ chạy một lần (ref chặn
  * StrictMode mount hai lần) và trạng thái lỗi chỉ chốt sau khi lần
  * resolve đó kết thúc — tránh báo lỗi oan trong lúc phiên đang nạp.
+ *
+ * Ngoại lệ MFA: tài khoản đã bật xác thực hai lớp thì callback bị
+ * cổng phía API chặn — trình duyệt về đây kèm `twoFactorRedirect=true`
+ * và CHƯA có cookie phiên (chỉ có cookie chờ bước hai). Trang chuyển
+ * ngay sang trang đăng nhập mở sẵn bước nhập mã, không thử resolve
+ * phiên (chắc chắn chưa có) và không báo lỗi oan.
  */
 export function OAuthCallbackPage() {
   const { t } = useTranslation('app');
@@ -26,8 +32,14 @@ export function OAuthCallbackPage() {
   const navigate = useNavigate();
   const [settled, setSettled] = useState(false);
   const startedRef = useRef(false);
+  const [searchParams] = useSearchParams();
+  const mfaPending = searchParams.get('twoFactorRedirect') === 'true';
 
   useEffect(() => {
+    if (mfaPending) {
+      navigate('/login?twoFactorRedirect=true', { replace: true });
+      return;
+    }
     if (startedRef.current) return;
     startedRef.current = true;
     let alive = true;
@@ -37,7 +49,7 @@ export function OAuthCallbackPage() {
     return () => {
       alive = false;
     };
-  }, [reload]);
+  }, [reload, navigate, mfaPending]);
 
   useEffect(() => {
     if (settled && user) navigate('/profile', { replace: true });

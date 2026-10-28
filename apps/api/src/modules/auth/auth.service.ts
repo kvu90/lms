@@ -51,6 +51,16 @@ export type SessionLoginOutcome =
   | { mfaRequired: true; user: UserRow; challengeToken: string };
 
 /**
+ * Đích hoàn tất của một challenge MFA: mỗi luồng đăng nhập có đích
+ * riêng và challenge của luồng này KHÔNG dùng chéo sang luồng khác
+ * được (kiểm ở `passMfaChallenge`): `token` → POST /auth/mfa/verify
+ * (cấp cặp token), `session` → POST /auth/session/mfa/verify (tạo
+ * phiên cookie), `oauth` → POST /auth/oauth/mfa/verify (tạo phiên web
+ * + mã bàn giao của luồng OAuth).
+ */
+export type MfaChallengeFlow = 'token' | 'session' | 'oauth';
+
+/**
  * Kết quả login-as theo chặng cutover (GĐ2 chặng 2.6/2.7, issue #7):
  * `legacy` = cặp token JWT của hệ cũ (chặng `AUTH_CUTOVER_STAGE=off`,
  * hiện trạng); `better-auth` = phiên lập trình của Better Auth
@@ -186,10 +196,11 @@ export class AuthService {
    * nó nên không thể dùng để gọi bất kỳ API thường nào. Claim `flow` phân
    * biệt đích hoàn tất: `token` chỉ đổi được ở POST /auth/mfa/verify (cấp
    * cặp token), `session` chỉ đổi được ở POST /auth/session/mfa/verify
-   * (tạo phiên cookie) — challenge của luồng này không dùng chéo sang
-   * luồng kia được.
+   * (tạo phiên cookie), `oauth` chỉ đổi được ở POST /auth/oauth/mfa/verify
+   * (tạo phiên web + mã bàn giao) — challenge của luồng này không dùng
+   * chéo sang luồng kia được.
    */
-  private async signMfaChallenge(user: UserRow, flow: 'token' | 'session'): Promise<string> {
+  private async signMfaChallenge(user: UserRow, flow: MfaChallengeFlow): Promise<string> {
     const ttl = this.config.get<number>('MFA_CHALLENGE_TTL_SECONDS') ?? 300;
     return this.jwt.signAsync(
       { sub: user.id, username: user.username, scope: 'mfa_challenge', flow },
@@ -244,14 +255,34 @@ export class AuthService {
   }
 
   /**
-   * Lõi dùng chung của bước hai MFA cho cả hai luồng hoàn tất: kiểm
+   * Ký challenge MFA cho luồng OAuth: callback OAuth thấy user đã bật
+   * MFA thì dừng ở đây (chưa tạo phiên, chưa phát mã bàn giao) và
+   * chuyển hướng về trang đăng nhập kèm challenge này; bước hoàn tất
+   * là `verifyOAuthMfa` qua POST /auth/oauth/mfa/verify.
+   */
+  async createOAuthMfaChallenge(user: UserRow): Promise<string> {
+    return this.signMfaChallenge(user, 'oauth');
+  }
+
+  /**
+   * Bước hai của đăng nhập OAuth: qua thử thách MFA (dùng chung lõi
+   * với hai luồng còn lại — lockout + ghi attempt như nhau) và trả
+   * user đã qua thử thách. Việc ghi nhận đăng nhập, tạo phiên web và
+   * phát mã bàn giao thuộc về `OAuthService`, chủ của luồng đó.
+   */
+  async verifyOAuthMfa(challengeToken: string, code: string, ip?: string): Promise<UserRow> {
+    return this.passMfaChallenge(challengeToken, code, ip, 'oauth');
+  }
+
+  /**
+   * Lõi dùng chung của bước hai MFA cho cả ba luồng hoàn tất: kiểm
    * challenge token (chữ ký, hạn, scope và đúng `flow` đích), trạng thái
    * tài khoản, lockout, rồi kiểm mã TOTP. Mã sai bị ghi như một lần đăng
    * nhập thất bại nên dùng chung cơ chế lockout sẵn có. Trả user đã qua
    * thử thách; việc ghi nhận đăng nhập + cấp phiên/token thuộc về từng
    * luồng hoàn tất phía trên.
    */
-  private async passMfaChallenge(challengeToken: string, code: string, ip: string | undefined, flow: 'token' | 'session'): Promise<UserRow> {
+  private async passMfaChallenge(challengeToken: string, code: string, ip: string | undefined, flow: MfaChallengeFlow): Promise<UserRow> {
     let payload: { sub?: string; scope?: string; flow?: string };
     try {
       payload = await this.jwt.verifyAsync<{ sub?: string; scope?: string; flow?: string }>(challengeToken);

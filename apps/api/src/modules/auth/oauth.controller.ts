@@ -7,7 +7,7 @@ import { clientIpOf } from '../../common/client-ip';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { Public } from '../../common/public.decorator';
 import { SESSION_COOKIE } from './auth.controller';
-import { oauthHandoffSchema, oauthIssuerSchema, type OAuthHandoffDto, type OAuthIssuerParam } from './dto/auth.dto';
+import { mfaVerifySchema, oauthHandoffSchema, oauthIssuerSchema, type MfaVerifyDto, type OAuthHandoffDto, type OAuthIssuerParam } from './dto/auth.dto';
 import { OAuthFlowException, OAuthService } from './oauth.service';
 
 @ApiTags('auth')
@@ -62,8 +62,11 @@ export class OAuthController {
   /**
    * GET /auth/oauth/:issuer/callback — điểm về của nhà cung cấp. Thành
    * công: đặt cookie phiên như đăng nhập thường rồi chuyển hướng về SPA
-   * kèm mã bàn giao một lần. Thất bại nghiệp vụ: về trang login kèm mã
-   * lỗi để giao diện dịch ra thông báo (không trả JSON giữa luồng duyệt).
+   * kèm mã bàn giao một lần. Tài khoản đã bật MFA: CHƯA đặt cookie nào,
+   * chuyển hướng về trang login kèm challenge MFA đích `oauth` — phiên
+   * và mã bàn giao chỉ sinh ở POST /auth/oauth/mfa/verify sau khi qua
+   * bước hai. Thất bại nghiệp vụ: về trang login kèm mã lỗi để giao
+   * diện dịch ra thông báo (không trả JSON giữa luồng duyệt).
    */
   async callback(
     @Param('issuer', { schema: oauthIssuerSchema }) issuer: OAuthIssuerParam,
@@ -76,15 +79,36 @@ export class OAuthController {
       return res.redirect(this.webUrl('/login?oauthError=auth.oauth_callback_invalid'));
     }
     try {
-      const { sessionId, handoffCode } = await this.oauth.handleCallback(issuer, code, state, {
+      const outcome = await this.oauth.handleCallback(issuer, code, state, {
         ip: clientIpOf(req), userAgent: req.headers['user-agent'],
       });
-      res.cookie(SESSION_COOKIE, sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
-      return res.redirect(this.webUrl(`/oauth/callback?handoff=${encodeURIComponent(handoffCode)}`));
+      if (outcome.mfaRequired) {
+        return res.redirect(this.webUrl(`/login?mfaChallenge=${encodeURIComponent(outcome.challengeToken)}`));
+      }
+      res.cookie(SESSION_COOKIE, outcome.sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
+      return res.redirect(this.webUrl(`/oauth/callback?handoff=${encodeURIComponent(outcome.handoffCode)}`));
     } catch (err) {
       const errorCode = err instanceof OAuthFlowException ? err.code : 'auth.oauth_failed';
       return res.redirect(this.webUrl(`/login?oauthError=${encodeURIComponent(errorCode)}`));
     }
+  }
+
+  @Public()
+  @Post('mfa/verify')
+  /**
+   * POST /auth/oauth/mfa/verify — bước hai của đăng nhập OAuth:
+   * challenge đích `oauth` (callback chuyển hướng về trang login kèm
+   * theo) + mã TOTP ⇒ tạo phiên web (đặt cookie như callback thành
+   * công) và trả mã bàn giao một lần để đổi cặp token như luồng
+   * thường. Mã sai/challenge sai đích bị từ chối bởi lõi MFA dùng
+   * chung (kèm lockout như mọi luồng MFA).
+   */
+  async mfaVerify(@Body({ schema: mfaVerifySchema }) dto: MfaVerifyDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const { user, sessionId, handoffCode } = await this.oauth.completeOAuthMfa(dto.challengeToken, dto.code, {
+      ip: clientIpOf(req), userAgent: req.headers['user-agent'],
+    });
+    res.cookie(SESSION_COOKIE, sessionId, { httpOnly: true, sameSite: 'lax', path: '/' });
+    return { user: { id: user.id, username: user.username, forcePasswordChange: user.forcePasswordChange }, handoffCode };
   }
 
   @Public()
