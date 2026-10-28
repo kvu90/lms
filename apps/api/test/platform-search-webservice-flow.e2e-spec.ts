@@ -6,7 +6,7 @@ import {
   roleIdByShortname, setOverride, STRONG_PASSWORD, systemContextId,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from './course-enrolment-helpers';
-import { contextIdByLevelInstance, courseContextId } from './engagement-helpers';
+import { contextIdByLevelInstance, courseContextId, suspendUser } from './engagement-helpers';
 import { createGradeItem, setGrade } from './assessment-helpers';
 
 const PROHIBIT = -1000;
@@ -251,6 +251,30 @@ describe('Platform services: search permission re-check, webservice tokens, cont
     const forbidden = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${studentToken}`)
       .send({ name: 'X', shortName: `x${Date.now()}`, functions: [] });
     expect(forbidden.status).toBe(403);
+  });
+
+  it('webservice: a token is rejected at call time while its owner is suspended, and the same token works again once the owner is reinstated', async () => {
+    const { student } = await setupCourseWithStudent();
+    const svc = await http(app).post('/api/v1/webservice/services').set('Authorization', `Bearer ${admin}`)
+      .send({ name: `Svc ${Date.now()}`, shortName: `svc${Date.now()}`, functions: ['core_course_get_courses'] });
+    expect(svc.status).toBeLessThan(300);
+    const tok = await http(app).post('/api/v1/webservice/tokens').set('Authorization', `Bearer ${admin}`)
+      .send({ userId: student.id, serviceId: svc.body.id });
+    expect(tok.status).toBeLessThan(300);
+    const call = () => http(app).post('/api/v1/webservice/call').send({ token: tok.body.token, functionName: 'core_course_get_courses', args: {} });
+    // Chủ token đang hoạt động ⇒ gọi được như thường lệ.
+    expect((await call()).status).toBeLessThan(300);
+    // Đình chỉ chủ token: thao tác đình chỉ không thu hồi token, nhưng trạng
+    // thái chủ được kiểm tại lúc dùng nên cùng token đó bị 401 ngay.
+    await suspendUser(app, admin, student.id);
+    const whileSuspended = await call();
+    expect(whileSuspended.status).toBe(401);
+    expect(whileSuspended.body.code).toBe('webservice.owner_inactive');
+    // Gỡ đình chỉ ⇒ chính token cũ gọi lại được, không cần cấp token mới
+    // (đình chỉ là trạng thái khôi phục được, token không bị thu hồi cứng).
+    const reinstated = await http(app).post(`/api/v1/users/${student.id}/reactivate`).set('Authorization', `Bearer ${admin}`).send({});
+    expect(reinstated.status).toBeLessThan(300);
+    expect((await call()).status).toBeLessThan(300);
   });
 
   it('content bank: draft is author-only, public needs the contentbank view capability (not a generic course right), upload attaches a file', async () => {

@@ -2,10 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { eq } from 'drizzle-orm';
 import type { Database } from '../../db/database';
-import { externalServices, externalTokens } from '../../db/schema';
+import { externalServices, externalTokens, users } from '../../db/schema';
 
 export type ServiceRow = typeof externalServices.$inferSelect;
 export type TokenRow = typeof externalTokens.$inferSelect;
+
+/** Trạng thái tài khoản tối thiểu của chủ token, phục vụ lớp kiểm tra tại lúc dùng ở tầng service. */
+export interface TokenOwnerState { suspended: boolean; deleted: boolean }
 
 /** Kho dữ liệu external_services / external_tokens. */
 @Injectable()
@@ -34,5 +37,14 @@ export class IntegrationsRepository {
   async listTokens(): Promise<TokenRow[]> { return this.db.select().from(externalTokens); }
   async updateToken(id: string, v: Partial<typeof externalTokens.$inferInsert>): Promise<void> {
     await this.db.update(externalTokens).set(v).where(eq(externalTokens.id, id));
+  }
+  /**
+   * Nạp trạng thái tài khoản của chủ token (chỉ hai cờ `suspended`/`deleted`).
+   * Trả `undefined` khi không còn dòng user tương ứng — tầng service coi đó
+   * là tài khoản không còn hoạt động.
+   */
+  async getTokenOwnerState(userId: string): Promise<TokenOwnerState | undefined> {
+    const [row] = await this.db.select({ suspended: users.suspended, deleted: users.deleted }).from(users).where(eq(users.id, userId));
+    return row;
   }
 }
