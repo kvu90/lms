@@ -845,6 +845,89 @@ describe('MCP-1: máy chủ OAuth (AS) + RS + bộ tool mới (issue #163)', () 
     expect(probe.isError).toBe(false);
     tokens = { ...tokens, accessToken: rotated.access_token, refreshToken: rotated.refresh_token };
   });
+
+  it('MCP + tài khoản đã bật MFA: authorize không tiến được trước bước TOTP; qua TOTP thì authorize → token → tool chạy trọn', async () => {
+    // Giáo viên thứ hai có bật MFA (factor TOTP đã xác nhận trong
+    // `user_totp` qua chính TotpService của hệ).
+    const { CredentialBridgeService } = await import('../src/modules/auth/better-auth/credential-bridge.service');
+    const { TotpService } = await import('../src/modules/auth/totp.service');
+    const { generate } = await import('otplib');
+    const bridge = app.get(CredentialBridgeService);
+    const totpService = app.get(TotpService);
+    const mfaUsername = helpers.uniqueName('mcpmfa');
+    const created = await bridge.createUserWithCredential({
+      email: `${mfaUsername}@example.com`,
+      username: mfaUsername,
+      firstName: 'MCP',
+      lastName: 'Mfa',
+      password: BA_PASSWORD,
+    });
+    await helpers.assignRole(
+      app,
+      adminLegacy,
+      created.id,
+      await helpers.roleIdByShortname(app, adminLegacy, 'teacher'),
+      await helpers.systemContextId(app, adminLegacy),
+    );
+    const { secret } = await totpService.setup(created.id, mfaUsername);
+    await totpService.confirm(created.id, await generate({ secret }));
+
+    // Đăng nhập web (đường của trang /mcp-login) bị cổng MFA gác:
+    // đáp ứng là dấu twoFactorRedirect, KHÔNG có cookie phiên.
+    const signIn = await helpers
+      .http(app)
+      .post('/api/v1/auth/sign-in/username')
+      .set('Origin', ORIGIN)
+      .send({ username: mfaUsername, password: BA_PASSWORD });
+    expect(signIn.status, `sign-in failed: ${signIn.text.slice(0, 300)}`).toBe(200);
+    expect((signIn.body as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(true);
+    const signInCookies = (signIn.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+    // Không entry cookie phiên nào mang GIÁ TRỊ sống (entry xoá
+    // cookie của cổng — tên + giá trị rỗng — là dấu đúng phải có).
+    expect(
+      signInCookies
+        .filter((c) => c.startsWith('better-auth.session_token='))
+        .every((c) => c.split(';')[0] === 'better-auth.session_token='),
+    ).toBe(true);
+    const twoFactorRaw = signInCookies.find((c) => c.startsWith('better-auth.two_factor='));
+    expect(twoFactorRaw).toBeTruthy();
+    const twoFactorCookie = twoFactorRaw!.split(';')[0]!;
+
+    // Authorize mang chỉ cookie chờ bước hai: không có phiên nên bị
+    // đưa về trang login của MCP như chưa đăng nhập.
+    const { challenge } = pkcePair();
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: REDIRECT_URI,
+      response_type: 'code',
+      scope: ALL_SCOPES,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+      resource: RESOURCE,
+    });
+    const blocked = await helpers
+      .http(app)
+      .get(`/api/v1/auth/oauth2/authorize?${params.toString()}`)
+      .set('Cookie', twoFactorCookie)
+      .redirects(0);
+    expect(blocked.status).toBe(302);
+    expect(blocked.headers.location as string).toContain('/mcp-login');
+
+    // Qua bước TOTP ở endpoint hoàn tất → cookie phiên thật.
+    const verify = await helpers
+      .http(app)
+      .post('/api/v1/auth/two-factor/verify-totp')
+      .set('Origin', ORIGIN)
+      .set('Cookie', twoFactorCookie)
+      .send({ code: await generate({ secret }) });
+    expect(verify.status, `verify-totp failed: ${verify.text.slice(0, 300)}`).toBe(200);
+    const mfaCookie = sessionCookieFrom(verify.headers['set-cookie'] as unknown as string[] | undefined);
+
+    // Từ đây luồng uỷ quyền chạy trọn như tài khoản không MFA.
+    const mfaTokens = await runAuthorizeFlow(app, mfaCookie, clientId, ALL_SCOPES);
+    const probe = await callTool(app, mfaTokens.accessToken, 'list_my_banks', {});
+    expect(probe.isError).toBe(false);
+  });
 });
 
 describe('MCP-1: luồng CIMD — client_id là URL tài liệu metadata (issue #163)', () => {

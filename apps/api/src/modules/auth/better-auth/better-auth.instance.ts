@@ -25,14 +25,13 @@ import { fetchClientMetadataResource as defaultCimdFetch } from '@better-auth/ci
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { mcp } from '@better-auth/mcp';
 import { APIError, betterAuth } from 'better-auth';
-import { createAuthMiddleware } from 'better-auth/api';
+import { createAuthMiddleware, type AuthMiddleware } from 'better-auth/api';
 import { jwt, username } from 'better-auth/plugins';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { PasswordService } from '../../users/password.service';
-import { eq } from 'drizzle-orm';
 import { createEmailOtpPlugin, type AuthMailPort } from '../../mail/email-otp.plugin';
-import { betterAuthSchema, betterAuthTwoFactor } from './better-auth.schema';
-import { createOAuthMfaGateHook } from './oauth-mfa-gate';
+import { betterAuthSchema } from './better-auth.schema';
+import { createMfaGateHook, type MfaGateDeps } from './mfa-gate';
 import type { LockoutGuardPort } from '../login-lockout.service';
 import { lockoutHooks } from './lockout.hooks';
 
@@ -147,6 +146,16 @@ export interface BetterAuthFactoryDeps {
    * thiểu không đổi hành vi).
    */
   lockout?: LockoutGuardPort | null;
+  /**
+   * Cổng MFA thống nhất cho mọi đường đăng nhập (xem `mfa-gate.ts`):
+   * trạng thái MFA đọc từ `user_totp` của hệ tự viết — nguồn duy nhất
+   * mà giao diện bật/tắt MFA ghi vào — qua hàm tra cứu do
+   * `BetterAuthService` truyền vào (nó giữ `TotpService`). Cùng khuôn
+   * `lockout`: truyền qua deps vì factory là hàm thuần; thiếu/`null`
+   * = cổng không gắn (đường kiểm chứng tối thiểu không đổi hành vi),
+   * đường chạy thật của app luôn truyền.
+   */
+  mfa?: MfaGateDeps | null;
 }
 
 /**
@@ -170,45 +179,83 @@ function buildSocialProviders(config: BetterAuthSocialConfig | null | undefined)
  * Chuỗi hoá các after-hook thành một middleware duy nhất (better-auth
  * chỉ nhận một `hooks.after`): `first` (lockout — ghi attempt trước,
  * dựa trên đáp ứng gốc của endpoint) chạy trước `second`. Tại điểm gọi
- * duy nhất, `second` là chuỗi cổng MFA của callback OAuth + đồng bộ
- * ngược hash của cửa sổ bake (xem khối `hooks` trong createBetterAuth):
- * ba khâu tác động lên ba tập đường rời nhau (sign-in credential vs
- * callback OAuth vs change/set-password) nên thứ tự không đổi
- * semantics; lỗi redirect của cổng MFA (APIError) vẫn lan ra ngoài như
- * khi đứng một mình vì dispatch bắt APIError thành response. TUYỆT ĐỐI
- * không ghi đè `hooks` bằng spread sau khối này — spread sau sẽ lặng lẽ
- * thay cả cổng MFA (lỗi đã suýt xảy ra khi rebase 2.4 lên main có cổng
- * MFA).
+ * duy nhất, `second` là chuỗi cổng MFA của mọi đường đăng nhập + đồng
+ * bộ ngược hash của cửa sổ bake (xem khối `hooks` trong
+ * createBetterAuth): các khâu tác động lên các tập đường rời nhau
+ * (lockout chỉ ghi attempt của sign-in credential; cổng MFA gác các
+ * đường vừa tạo phiên; đồng bộ ngược chỉ chạm change/set-password)
+ * nên thứ tự không đổi semantics; lỗi redirect của cổng MFA
+ * (APIError) vẫn lan ra ngoài như khi đứng một mình vì dispatch bắt
+ * APIError thành response. Giá trị trả về của `second` (đáp ứng thay
+ * thế của cổng MFA cho đường sign-in) PHẢI được truyền tiếp ra
+ * ngoài — nuốt nó là đáp ứng gốc của endpoint (kèm token của phiên
+ * cổng vừa huỷ) lọt về client như một lần đăng nhập thành công.
+ * TUYỆT ĐỐI không ghi đè `hooks` bằng spread sau khối này — spread
+ * sau sẽ lặng lẽ thay cả cổng MFA (lỗi đã suýt xảy ra khi rebase
+ * 2.4 lên main có cổng MFA).
  */
 function composeAfterHooks(
-  first: ReturnType<typeof lockoutHooks>['after'] | undefined,
-  second: ReturnType<typeof createOAuthMfaGateHook>,
+  first: AuthMiddleware | undefined,
+  second: AuthMiddleware,
 ) {
   if (!first) return second;
   return createAuthMiddleware(async (ctx) => {
-    await first(ctx);
-    await second(ctx);
+    await invokeChainedHook(first, ctx);
+    return invokeChainedHook(second, ctx);
   });
+}
+
+/**
+ * Gọi một after-hook NGAY BÊN TRONG một after-hook khác (chuỗi hoá
+ * thủ công) và hợp nhất kết quả vào context hiện tại, bắt chước
+ * đúng việc dispatch của Better Auth làm khi hook đứng một mình:
+ *
+ * - Tầng middleware của better-call tạo `responseHeaders` RIÊNG cho
+ *   mỗi lần gọi và trả kết quả dạng `{ headers, response }` khi
+ *   context mang `returnHeaders` (đúng context dispatch truyền cho
+ *   hooks): cookie/header hook ghi (cookie chờ bước hai của cổng
+ *   MFA, xoá cookie phiên…) nằm trong `headers` đó — không hợp nhất
+ *   vào context ngoài thì chúng biến mất lặng lẽ; còn trả nguyên
+ *   lớp bọc ra ngoài thì dispatch hiểu lầm nó là đáp ứng của
+ *   endpoint và làm hỏng cả luồng hook đi qua.
+ * - Phần `response` là đáp ứng thay thế thật của hook (hoặc
+ *   `undefined` khi hook đi qua) — đó là giá trị hàm này trả về.
+ * - Lỗi APIError (redirect của cổng MFA ở đường callback) mang
+ *   header của hook theo cơ chế riêng của better-call và dispatch
+ *   tự hợp nhất khi bắt lỗi — đường ném không qua hàm này.
+ */
+type ChainedHookContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0];
+
+async function invokeChainedHook(hook: AuthMiddleware, ctx: ChainedHookContext): Promise<unknown> {
+  const result: unknown = await hook(ctx as never);
+  if (
+    result !== null &&
+    typeof result === 'object' &&
+    'response' in result &&
+    'headers' in result &&
+    (result as { headers: unknown }).headers instanceof Headers
+  ) {
+    const headers = (result as { headers: Headers }).headers;
+    for (const cookie of headers.getSetCookie()) {
+      ctx.responseHeaders.append('set-cookie', cookie);
+    }
+    for (const [key, value] of headers.entries()) {
+      if (key !== 'set-cookie') ctx.responseHeaders.set(key, value);
+    }
+    return (result as { response: unknown }).response;
+  }
+  return result;
 }
 
 export function createBetterAuth(deps: BetterAuthFactoryDeps) {
   const mcpAs = deps.mcpAs ?? null;
   const lockoutHookSet = deps.lockout ? lockoutHooks(deps.lockout) : null;
-  // Cổng chặn hoàn tất OAuth khi tài khoản đã bật MFA (chặng 2.3) —
-  // xem oauth-mfa-gate.ts; hook tự đi qua ở mọi đường không phải
-  // callback OAuth có phiên mới.
-  const oauthMfaGate = createOAuthMfaGateHook({
-    // Tra bản ghi MFA trực tiếp qua ánh xạ Drizzle — model
-    // twoFactor chưa có trong registry adapter khi plugin chưa
-    // bật (xem OAuthMfaGateDeps).
-    lookupTwoFactorRecord: async (userId) => {
-      const rows = await deps.db
-        .select({ verified: betterAuthTwoFactor.verified })
-        .from(betterAuthTwoFactor)
-        .where(eq(betterAuthTwoFactor.userId, userId))
-        .limit(1);
-      return rows[0] ?? null;
-    },
+  // Cổng MFA cho mọi đường đăng nhập (mật khẩu, email OTP, callback
+  // social) — xem mfa-gate.ts; trạng thái đọc từ `user_totp` qua phụ
+  // thuộc `deps.mfa` do service truyền vào, hook tự đi qua ở mọi
+  // đường không cấp phiên mới.
+  const mfaGate = createMfaGateHook({
+    isMfaEnabled: deps.mfa?.isMfaEnabled,
   });
   return betterAuth({
     secret: deps.secret,
@@ -239,14 +286,21 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
       // đúng — đã đối chiếu dist), nên cả ba khâu after phải chuỗi vào
       // đây qua composeAfterHooks — không phía nào ghi đè phía nào:
       // (1) lockout ghi attempt (điểm 2.4, dựa trên đáp ứng gốc của
-      // endpoint); (2) cổng MFA của callback OAuth (chặng 2.3 — tự đi
-      // qua ở mọi đường không phải callback có phiên mới, và có thể
-      // ném redirect cho đường callback); (3) đồng bộ ngược hash của
-      // cửa sổ bake ở hai endpoint đổi/đặt mật khẩu. Ba khâu tác động
-      // ba tập đường rời nhau nên thứ tự không đổi semantics của nhau.
+      // endpoint); (2) cổng MFA của mọi đường đăng nhập (tự đi qua ở
+      // mọi đường không cấp phiên mới; ném redirect cho đường
+      // callback, trả JSON twoFactorRedirect cho đường sign-in);
+      // (3) đồng bộ ngược hash của cửa sổ bake ở hai endpoint đổi/đặt
+      // mật khẩu. Ba khâu tác động ba tập đường rời nhau nên thứ tự
+      // không đổi semantics của nhau.
       ...(lockoutHookSet?.before ? { before: lockoutHookSet.before } : {}),
       after: composeAfterHooks(lockoutHookSet?.after, createAuthMiddleware(async (ctx) => {
-        await oauthMfaGate(ctx);
+        // Cổng MFA có thể trả đáp ứng thay thế (JSON twoFactorRedirect
+        // cho đường sign-in) — gọi qua invokeChainedHook để header
+        // của cổng (cookie chờ, xoá cookie phiên) được hợp nhất, rồi
+        // truyền đáp ứng thay thế ra ngoài ngay, không chạy khâu sau
+        // trên một đáp ứng đã bị thay.
+        const gateResult = await invokeChainedHook(mfaGate, ctx);
+        if (gateResult !== undefined) return gateResult;
         // Đồng bộ ngược hash trong cửa sổ bake (xem
         // `legacyPasswordSync` ở deps): hai endpoint đổi/đặt mật
         // khẩu của chính user mang phiên trong context — sau khi
@@ -326,6 +380,20 @@ export function createBetterAuth(deps: BetterAuthFactoryDeps) {
     },
     plugins: [
       username({ displayUsername: false }),
+      // Plugin twoFactor của Better Auth CHỦ ĐÍCH không đăng ký:
+      // (1) cổng tự động của nó quyết định theo cờ `twoFactorEnabled`
+      // và kho `two_factor`, trong khi trạng thái MFA của sản phẩm
+      // sống ở `user_totp` — đăng ký một mình không gác được gì;
+      // (2) schema của plugin khai trường user `twoFactorEnabled`
+      // kèm giá trị mặc định, tầng core chèn trường đó vào mọi
+      // payload tạo user và adapter Drizzle từ chối vì ánh xạ user
+      // của hệ không có trường này — bật plugin là hỏng mọi đường
+      // tạo user (đã kiểm chứng trên bản 1.7.12 đã ghim). Thêm cột
+      // thật sẽ dựng nguồn trạng thái MFA thứ hai phải đồng bộ với
+      // `user_totp`. Vì vậy: quyết định gác nằm ở cổng riêng
+      // (mfa-gate.ts) tra `user_totp`, còn bước hoàn tất nằm ở tầng
+      // Nest (`two-factor-completion.*`) kiểm mã thẳng vào
+      // `user_totp` — chi tiết ở đầu file của hai nơi đó.
       // Lát BA-2 (issue #7 chặng 2.5): đăng nhập bằng email OTP — plugin dựng từ factory trong module mail, mã gửi qua cổng mail (outbox → Resend).
       ...(deps.authMail ? [createEmailOtpPlugin(deps.authMail)] : []),
       // ── Lát MCP-1 (issue #163): máy chủ OAuth cho MCP ──────────────

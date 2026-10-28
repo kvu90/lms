@@ -7,6 +7,7 @@ import { authAccount, users } from '../../../db/schema';
 import { PasswordService } from '../../users/password.service';
 import { AuthMailService } from '../../mail/auth-mail.service';
 import { LoginLockoutService } from '../login-lockout.service';
+import { TotpService } from '../totp.service';
 import {
   BETTER_AUTH_SESSION_COOKIE,
   createBetterAuth,
@@ -89,6 +90,16 @@ export class BetterAuthService {
     @Optional()
     @Inject(forwardRef(() => LoginLockoutService))
     lockout?: LoginLockoutService,
+    // Cổng MFA thống nhất: `TotpService` của module auth là nơi duy
+    // nhất đọc được trạng thái + secret của `user_totp` (nguồn trạng
+    // thái MFA duy nhất). Cùng khuôn @Optional như lockout — nơi dựng
+    // service tay (unit spec) không truyền thì instance chạy không
+    // có cổng MFA; app thật luôn có qua AuthModule (module đó xuất
+    // TotpService cho module này, vòng module đã có forwardRef ở cả
+    // hai phía).
+    @Optional()
+    @Inject(forwardRef(() => TotpService))
+    totp?: TotpService,
   ) {
     this.enabled = config.get<boolean>('BETTER_AUTH_ENABLED') ?? false;
     this.mcpAsEnabled = config.get<boolean>('MCP_AS_ENABLED') ?? false;
@@ -165,6 +176,11 @@ export class BetterAuthService {
       // Lockout theo tài khoản (điểm 2.4): instance gắn hooks khi
       // có cổng — chính sách khoá là của tài khoản, không phải của cờ.
       lockout: lockout ?? null,
+      // Cổng MFA thống nhất (xem mfa-gate.ts): trạng thái đọc từ
+      // `user_totp` qua TotpService — nguồn trạng thái MFA duy
+      // nhất. Chưa có TotpService (nơi dựng tay) thì cổng không
+      // gắn — app thật luôn có.
+      mfa: totp ? { isMfaEnabled: (userId: string) => totp.isEnabled(userId) } : null,
       // Cửa sổ bake (chặng 2.7 bước A): mọi lần Better Auth ghi mật
       // khẩu credential mới (đổi mật khẩu, đặt lại qua reset, tạo
       // credential) đều đồng bộ ngược hash hiện hành về

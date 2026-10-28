@@ -37,6 +37,14 @@ const LEGACY_AUTH_SEGMENTS = new Set([
   // viết; thêm route con mới dưới `/auth` là phải thêm segment vào đây.
   'tenants',
   'switch-tenant',
+  // Segment của bước hoàn tất MFA: endpoint verify của Better Auth
+  // theo quy ước nằm tại `/auth/two-factor/*`, nhưng ở hệ này bước
+  // hoàn tất do Nest xử lý để kiểm mã thẳng vào nguồn trạng thái
+  // MFA duy nhất `user_totp` (plugin twoFactor chủ đích không đăng
+  // ký — xem `two-factor-completion.service.ts` và khối plugins
+  // trong factory). Controller Nest tương ứng ở cùng thư mục
+  // better-auth.
+  'two-factor',
 ]);
 
 /**

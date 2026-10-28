@@ -56,13 +56,20 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
   const { login, completeMfaLogin, requestEmailOtp, loginWithEmailOtp, loginWithSocial } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [step, setStep] = useState<LoginStep>('password');
+  // Callback social bị cổng MFA chặn đưa trình duyệt về đây kèm
+  // `twoFactorRedirect=true` (trang /oauth/callback chuyển tiếp
+  // sang): mở thẳng bước nhập mã — cookie chờ bước hai đã có trong
+  // trình duyệt, chỉ còn thiếu mã của người dùng.
+  const [step, setStep] = useState<LoginStep>(() =>
+    searchParams.get('twoFactorRedirect') === 'true' ? 'mfa' : 'password',
+  );
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // Bước MFA: sign-in trả twoFactorRedirect (chưa có phiên nào) thì
-  // chuyển sang nhập mã TOTP/mã dự phòng để hoàn tất qua plugin.
+  // chuyển sang nhập mã TOTP/mã dự phòng để hoàn tất ở endpoint
+  // bước hai (kiểm mã vào nguồn trạng thái MFA duy nhất phía API).
   const [mfaCode, setMfaCode] = useState('');
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaBusy, setMfaBusy] = useState(false);
@@ -158,8 +165,16 @@ export function LoginPage({ initialProviders }: { initialProviders?: OAuthProvid
     try {
       await loginWithEmailOtp(otpEmail, otpCode);
       navigate('/profile');
-    } catch {
-      setOtpError(t('emailOtpInvalidCode'));
+    } catch (err) {
+      // Tài khoản có MFA: mã email đúng vẫn chưa có phiên — chuyển
+      // sang bước nhập mã TOTP như luồng mật khẩu.
+      if (err instanceof TwoFactorRedirectError) {
+        setMfaCode('');
+        setMfaError(null);
+        setStep('mfa');
+      } else {
+        setOtpError(t('emailOtpInvalidCode'));
+      }
     } finally {
       setOtpBusy(false);
     }

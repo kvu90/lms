@@ -45,7 +45,10 @@ import { JwtAuthStrategy, LocalAuthStrategy } from './strategies';
   // family refresh mỗi lần đặt mật khẩu qua đường sửa hồ sơ — cạnh
   // này làm UsersModule ↔ AuthModule thành vòng module tường minh,
   // forwardRef ở cả hai phía (xem users.module.ts).
-  exports: [AuthService, SessionService, LoginLockoutService, AuthRepository],
+  // TotpService được xuất cho BetterAuthModule: cổng MFA của instance
+  // Better Auth tra trạng thái MFA từ `user_totp` qua chính service
+  // này (nguồn trạng thái MFA duy nhất của hệ).
+  exports: [AuthService, SessionService, LoginLockoutService, AuthRepository, TotpService],
 })
 /** Module xác thực và phiên. */
 export class AuthModule {}

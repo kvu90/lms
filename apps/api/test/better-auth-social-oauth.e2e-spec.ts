@@ -3,11 +3,13 @@ import { VersioningType } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
+import { generate } from 'otplib';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { BetterAuthService } from '../src/modules/auth/better-auth/better-auth.service';
 import type { CredentialBridgeService } from '../src/modules/auth/better-auth/credential-bridge.service';
+import type { TotpService } from '../src/modules/auth/totp.service';
 
 /**
  * E2E đăng nhập xã hội Google + Facebook cho Better Auth (issue #7,
@@ -24,10 +26,10 @@ import type { CredentialBridgeService } from '../src/modules/auth/better-auth/cr
  *    cấp provider), redirect lỗi, không user/không session;
  *  - Facebook KHÔNG nằm trong trustedProviders và email của nó không
  *    được Better Auth coi là đã xác thực → KHÔNG liên kết ngầm;
- *  - tài khoản đã bật MFA (có bản ghi two_factor verified) → callback
- *    OAuth bị cổng chặn: KHÔNG tồn tại session dùng được trong lúc chờ
- *    bước hai, redirect mang `twoFactorRedirect=true` + cookie chờ của
- *    plugin twoFactor.
+ *  - tài khoản đã bật MFA (factor TOTP đã xác nhận trong `user_totp`
+ *    — nguồn trạng thái MFA duy nhất) → callback OAuth bị cổng chặn:
+ *    KHÔNG tồn tại session dùng được trong lúc chờ bước hai, redirect
+ *    mang `twoFactorRedirect=true` + cookie chờ bước hai.
  *
  * Biến môi trường phải tồn tại TRƯỚC khi AppModule được nạp
  * (ConfigModule validate ngay lúc import) nên các import của AppModule
@@ -85,6 +87,7 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
   let app: INestApplication;
   let server: ReturnType<INestApplication['getHttpServer']>;
   let bridge: CredentialBridgeService;
+  let totp: TotpService;
   let pg: Client;
   let googlePrivateKey: KeyObject;
   let googleJwks: { keys: unknown[] };
@@ -204,7 +207,9 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
     const { CredentialBridgeService: BridgeClass } = await import(
       '../src/modules/auth/better-auth/credential-bridge.service'
     );
+    const { TotpService: TotpClass } = await import('../src/modules/auth/totp.service');
     bridge = app.get(BridgeClass);
+    totp = app.get(TotpClass);
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
     await pg.query(`DELETE FROM users WHERE email LIKE '%@ba3.test'`);
@@ -298,11 +303,12 @@ describe('Better Auth — đăng nhập xã hội Google/Facebook (e2e, provider
       lastName: 'Mfa',
       password: seedPass
     });
-    await pg.query(
-      `INSERT INTO two_factor (id, user_id, secret, backup_codes, verified)
-       VALUES (gen_random_uuid(), $1, 'ba3-totp-secret', '[]', true)`,
-      [seeded.id],
-    );
+    // Bật MFA qua chính TotpService của hệ: factor TOTP đã xác nhận
+    // trong `user_totp` là tín hiệu duy nhất cổng MFA nhìn (trước đây
+    // ca này chèn thẳng bản ghi two_factor — kho đó không còn là
+    // nguồn trạng thái nữa nên cổng không kích hoạt nếu chỉ có nó).
+    const { secret } = await totp.setup(seeded.id, 'ba3googlemfa');
+    await totp.confirm(seeded.id, await generate({ secret }));
     currentGoogleIdToken = mintGoogleIdToken({ sub: 'google-sub-mfa', email, emailVerified: true });
 
     const { state, cookies } = await startSocial('google');

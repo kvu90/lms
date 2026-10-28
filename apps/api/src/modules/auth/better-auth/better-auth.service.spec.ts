@@ -61,6 +61,13 @@ describe('BetterAuthService', () => {
     expect(auth.options.session?.cookieCache?.enabled).toBe(false);
     // Plugin username chính chủ phải có mặt (đăng nhập bằng username).
     expect(auth.options.plugins?.some((plugin) => plugin.id === 'username')).toBe(true);
+    // Plugin twoFactor chủ đích KHÔNG có mặt: cổng quyết định và
+    // bước hoàn tất MFA đều đi qua `user_totp` (cổng riêng
+    // mfa-gate.ts + endpoint hoàn tất ở tầng Nest), còn plugin đòi
+    // trường user `twoFactorEnabled` không có trong ánh xạ của hệ —
+    // lý do đầy đủ ở khối plugins của factory. Đăng ký lại plugin
+    // này là hỏng mọi đường tạo user, ca này phải đỏ.
+    expect(auth.options.plugins?.some((plugin) => (plugin.id as string) === 'two-factor')).toBe(false);
     // Endpoint hooks của lockout theo tài khoản phải được gắn (điểm
     // 2.4): before chặn trước khi kiểm mật khẩu, after ghi attempt.
     expect(auth.options.hooks?.before).toBeDefined();
