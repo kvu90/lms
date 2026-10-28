@@ -7,7 +7,7 @@ import {
   courseCompletionCriteria, courseCompletionSettings, courseFormatOptions, gradeItems,
   examPins,
 } from '../../db/schema';
-import type { Database } from '../../db/database';
+import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -17,7 +17,7 @@ import { AvailabilityService, type AvailabilityContext } from '../availability/a
 import { CustomFieldsService } from '../custom-fields/custom-fields.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type DbTx, type SectionRow } from './courses.repository';
+import { CoursesRepository, type CategoryRow, type CmRow, type CourseRow, type SectionRow } from './courses.repository';
 
 export const GROUPMODE_NOGROUPS = 0;
 export const GROUPMODE_SEPARATEGROUPS = 1;

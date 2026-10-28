@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   assignAnnotations, assignFeedbackMessages, assignGradeRevisions, assignGrades,
   assignRubricCriteria, assignRubricEvaluations, assignRubricLevels, assignRubrics,
@@ -20,7 +20,6 @@ export type AssignRubricEvaluationRow = typeof assignRubricEvaluations.$inferSel
 export type AssignGradeRevisionRow = typeof assignGradeRevisions.$inferSelect;
 export type AssignFeedbackMessageRow = typeof assignFeedbackMessages.$inferSelect;
 export type TeacherCommentBankRow = typeof teacherCommentBank.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

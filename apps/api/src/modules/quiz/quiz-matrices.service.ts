@@ -10,6 +10,7 @@ import type {
   MatrixCellAvailability,
   MatrixImportCellAvailability,
 } from '@lms/contracts';
+import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -27,7 +28,6 @@ import type {
 import { isValidTfScale, MATRIX_PRESETS, matrixWarnings } from './domain/matrix';
 import {
   QuizRepository,
-  type DbTx,
   type ExamMatrixCellRow,
   type ExamMatrixRow,
   type ExamMatrixVersionRow,

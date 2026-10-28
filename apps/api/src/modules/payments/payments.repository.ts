@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 
 /** Kiểu transaction của Drizzle — các method ghi của vòng đời hoàn
  * tiền (lát 3, issue #189) nhận transaction tuỳ chọn để cổng cộng dồn
  * chạy trong MỘT transaction có khoá dòng `payments`. */
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 import { course, paymentAccounts, paymentCoupons, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '../../db/schema';
 
 export type AccountRow = typeof paymentAccounts.$inferSelect;

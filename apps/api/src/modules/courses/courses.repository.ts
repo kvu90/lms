@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   course, courseCategories, courseFormatOptions, courseModules, courseSectionAnchorOutcomes, courseSectionAnchors,
   courseSectionBookAnchors, courseSectionBookItemOutcomes, courseSectionBookItems,
@@ -17,7 +17,6 @@ export type SectionAnchorOutcomeRow = typeof courseSectionAnchorOutcomes.$inferS
 export type SectionBookAnchorRow = typeof courseSectionBookAnchors.$inferSelect;
 export type SectionBookItemRow = typeof courseSectionBookItems.$inferSelect;
 export type SectionBookItemOutcomeRow = typeof courseSectionBookItemOutcomes.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

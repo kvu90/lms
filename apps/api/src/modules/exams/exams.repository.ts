@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { extractRichTextPlainText, type RichTextDocument } from '@lms/contracts';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   context, course, examContributionReviews, examDossierReviews, examDossiers, examMatrices, examMatrixVersions, examPins,
   examContributions, exams, examSlots, examVersions, question,
@@ -16,7 +16,6 @@ export type ExamContributionRow = typeof examContributions.$inferSelect;
 export type ExamContributionReviewRow = typeof examContributionReviews.$inferSelect;
 export type ExamDossierRow = typeof examDossiers.$inferSelect;
 export type ExamDossierReviewRow = typeof examDossierReviews.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
  * Kho dữ liệu của lớp Ngân hàng đề (EB-1): danh tính đề

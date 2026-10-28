@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, gte, lte } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { calendarEvents, calendarExportTokens, calendarSubscriptions } from '../../db/schema';
 
 export type CalendarEventRow = typeof calendarEvents.$inferSelect;
 export type CalendarSubscriptionRow = typeof calendarSubscriptions.$inferSelect;
 export type CalendarExportTokenRow = typeof calendarExportTokens.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

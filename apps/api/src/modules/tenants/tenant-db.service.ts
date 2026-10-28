@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { TenantContextService } from './tenant-context.service';
 
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /**
  * Cổng DB theo tenant (TENANT-0 #168, hoàn thiện ở TENANT-1 #196).

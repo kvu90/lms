@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { question, questionBankEntries } from '../../db/schema';
 import { curricula, curriculumNodes, curriculumProgramRecords, learningOutcomes, questionLearningOutcomes, subjects } from '../../db/schema';
 import { bookMappings, examMatrixCells } from '../../db/schema';
@@ -13,7 +13,6 @@ export type LearningOutcomeRow = typeof learningOutcomes.$inferSelect;
 export type ProgramRecordRow = typeof curriculumProgramRecords.$inferSelect;
 
 /** Transaction Drizzle đang mở (mẫu của CoursesRepository). */
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

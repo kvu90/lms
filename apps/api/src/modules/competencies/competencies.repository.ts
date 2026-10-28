@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, isNull } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   competency, competencyCourseComp, competencyEvidence, competencyFramework,
   competencyModuleComp, competencyPlanComp, competencyPlanReview, competencyTemplate,
@@ -16,7 +16,6 @@ export type UsercompRow = typeof competencyUserComp.$inferSelect;
 export type EvidenceRow = typeof competencyEvidence.$inferSelect;
 export type CourseLinkRow = typeof competencyCourseComp.$inferSelect;
 export type ModuleLinkRow = typeof competencyModuleComp.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

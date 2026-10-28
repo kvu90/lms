@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   curricula, curriculumNodes, learningOutcomes,
   question, questionAnswerKeys, questionAnswers, questionAttemptStepData, questionAttemptSteps, questionAttempts,
@@ -28,7 +28,6 @@ export type AttemptRow = typeof questionAttempts.$inferSelect;
 export type StepRow = typeof questionAttemptSteps.$inferSelect;
 export type QuestionSubjectLinkRow = typeof questionSubjects.$inferSelect;
 export type QuestionOutcomeLinkRow = typeof questionLearningOutcomes.$inferSelect;
-export type DbTx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 @Injectable()
 /**

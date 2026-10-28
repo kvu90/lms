@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { createHash } from 'node:crypto';
 import { v7 as uuidv7 } from 'uuid';
 import { extractRichTextPlainText, getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT, type RichTextDocument } from '@lms/contracts';
+import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
@@ -13,7 +14,7 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantsService } from '../tenants/tenants.service';
 import { truefalseHashAnswers } from './domain/question-engine';
-import { QuestionsRepository, type DbTx, type QCategoryRow, type QuestionRow } from './questions.repository';
+import { QuestionsRepository, type QCategoryRow, type QuestionRow } from './questions.repository';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
 import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
 
