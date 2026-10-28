@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { I18nService } from '@nestjs/i18n';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
+import { isRoleContextConflictError, RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
 import { CoursesService } from '../courses/courses.service';
 import { GroupsService } from '../groups/groups.service';
@@ -81,6 +82,7 @@ export class EnrolService implements OnModuleInit {
     private readonly messaging: MessagingService,
     private readonly i18n: I18nService,
     private readonly tenants: TenantsService,
+    private readonly roleSeparation: RoleSeparationService,
   ) {}
 
   /**
@@ -188,7 +190,7 @@ export class EnrolService implements OnModuleInit {
     // Đồng bộ cohort: ghi danh mọi người đã ở trong cohort.
     if (input.method === 'cohort' && input.cohortId) {
       const members = await this.groups.listCohortMembers(input.cohortId);
-      for (const m of members) await this.enrolUserInternal(instance, m.userId, actorId);
+      for (const m of members) await this.enrolFromCohortSync(instance, m.userId, actorId);
     }
     return instance;
   }
@@ -222,7 +224,7 @@ export class EnrolService implements OnModuleInit {
       enrolmentKey: null, sendWelcomeMessage: false, welcomeMessage: null,
     });
     const members = await this.groups.listCohortMembers(cohortId);
-    for (const m of members) await this.enrolUserInternal(instance, m.userId);
+    for (const m of members) await this.enrolFromCohortSync(instance, m.userId);
     return instance;
   }
 
@@ -319,6 +321,18 @@ export class EnrolService implements OnModuleInit {
    */
   async enrolUserInternal(instance: EnrolRow, userId: string, modifierId?: string, opts?: { timeStart?: Date; timeEnd?: Date }): Promise<UserEnrolmentRow> {
     if (instance.status !== 0) throw new BadRequestException({ message: 'Enrol instance is disabled', code: 'enrol.instance_disabled' });
+    // Chốt TÁCH VAI — funnel 1 (RoleSeparationService giữ định nghĩa
+    // dùng chung): mọi đường ghi danh đều hội tụ về hàm này (ghi danh
+    // tay, tự ghi danh, kích hoạt sau thanh toán, đồng bộ cohort), nên
+    // chốt tại đây phủ toàn bộ các đường đó. Chỉ áp khi instance cấp
+    // vai HỌC VIÊN: người đã có cấp quyền giảng dạy bao phủ chính
+    // khoá đích bị từ chối với mã `access.role_context_conflict`,
+    // TRƯỚC khi bất kỳ bản ghi ghi danh hay dòng gán vai nào được
+    // tạo. Instance cấp vai giảng dạy là đường cấp vai của quản trị
+    // (nằm ngoài quyết định tách vai) nên không qua chốt.
+    if (await this.roleSeparation.isLearnerGrantRole(instance.roleId)) {
+      await this.roleSeparation.assertLearnerEnrolmentAllowed(userId, instance.courseId);
+    }
     const timeStart = opts?.timeStart ?? new Date();
     const timeEnd = opts?.timeEnd ?? (instance.enrolPeriod > 0 ? new Date(timeStart.getTime() + instance.enrolPeriod * 1000) : null);
     const existing = await this.repo.getUserEnrolment(instance.id, userId);
@@ -366,6 +380,23 @@ export class EnrolService implements OnModuleInit {
     }
     if (isNewEnrolment) await this.maybeSendWelcomeMessage(instance, userId);
     return ue;
+  }
+
+  /**
+   * Ghi danh một thành viên cohort qua đường đồng bộ hàng loạt (backfill
+   * khi tạo/khôi phục instance cohort, listener sự kiện cohort): một
+   * thành viên vi phạm chốt tách vai bị BỎ QUA riêng lẻ — vòng lặp đồng
+   * bộ không được hỏng vì một thành viên, và các caller trực tiếp một
+   * người (ghi danh tay, tự ghi danh, thanh toán) vẫn nhận lỗi tường
+   * minh từ `enrolUserInternal`. Mọi lỗi khác ngoài xung đột vai đều
+   * nổi lên như cũ.
+   */
+  private async enrolFromCohortSync(instance: EnrolRow, userId: string, modifierId?: string): Promise<void> {
+    try {
+      await this.enrolUserInternal(instance, userId, modifierId);
+    } catch (err) {
+      if (!isRoleContextConflictError(err)) throw err;
+    }
   }
 
   /**
@@ -491,12 +522,26 @@ export class EnrolService implements OnModuleInit {
 
   /**
    * Đình chỉ hoặc kích hoạt lại một ghi danh.
+   *
+   * Chốt TÁCH VAI áp cả cho chiều KÍCH HOẠT LẠI: đưa một ghi danh từ
+   * trạng thái đình chỉ về ĐANG HOẠT ĐỘNG là một lần chuyển ghi danh
+   * thành ghi danh học viên đang hoạt động, nên phải qua cùng định
+   * nghĩa dùng chung với funnel 1 — nếu trong lúc ghi danh bị đình
+   * chỉ người dùng đã nhận cấp quyền giảng dạy bao phủ chính khoá
+   * này (đường gán vai cho phép vì lúc đó ghi danh chưa hoạt động),
+   * việc kích hoạt lại bị từ chối với mã
+   * `access.role_context_conflict` thay vì lặng lẽ tạo trạng thái
+   * lẫn vai. Chiều đình chỉ không qua chốt (đình chỉ chỉ làm giảm
+   * trạng thái học viên).
    */
   async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseId);
     const ue = await this.repo.getUserEnrolment(instanceId, userId);
     if (!ue || ue.status === ENROL_WITHDRAWN) throw new NotFoundException({ message: 'User enrolment not found', code: 'enrol.user_not_enrolled' });
+    if (!suspended && ue.status !== ENROL_ACTIVE && await this.roleSeparation.isLearnerGrantRole(instance.roleId)) {
+      await this.roleSeparation.assertLearnerEnrolmentAllowed(userId, instance.courseId);
+    }
     await this.repo.dbHandle.transaction(async (tx) => {
       // modifierId = người thao tác: VẾT phân biệt đình chỉ THỦ CÔNG theo
       // khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
@@ -672,7 +717,10 @@ export class EnrolService implements OnModuleInit {
     const instances = await this.repo.listCohortInstances(payload.cohortId);
     for (const instance of instances) {
       if (instance.status !== 0) continue;
-      await this.enrolUserInternal(instance, payload.userId);
+      // Đồng bộ hàng loạt: thành viên vi phạm chốt tách vai bị bỏ qua
+      // riêng lẻ (xem enrolFromCohortSync) — sự kiện phát lại không
+      // được chết vì một thành viên đã trở thành giáo viên của khoá.
+      await this.enrolFromCohortSync(instance, payload.userId);
     }
   }
 

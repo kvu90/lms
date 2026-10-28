@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
+import { RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
 import { CoursesService } from '../courses/courses.service';
 import { FilesService } from '../files/files.service';
@@ -39,7 +40,14 @@ export interface BackupContributor {
   /** Contributor có dữ liệu ở phạm vi hệ thống (site) hay không. */
   supportsSite?: boolean;
   export(courseId: string | null, anonymize: boolean): Promise<unknown>;
-  import(targetCourseId: string | null, data: never, mapping: RestoreMapping, actorId: string): Promise<void>;
+  /**
+   * Import dữ liệu của contributor vào khoá đích. Trả về tuỳ chọn
+   * `detail` để runner ghi vào chi tiết của bước (step) trong job
+   * restore — kênh ghi nhận chính thức của restore (vd contributor
+   * `enrol` báo số ghi danh bị bỏ qua vì chốt tách vai); không trả gì
+   * thì bước được ghi hoàn tất không kèm chi tiết như trước.
+   */
+  import(targetCourseId: string | null, data: never, mapping: RestoreMapping, actorId: string): Promise<{ detail?: Record<string, unknown> } | void>;
 }
 
 /**
@@ -87,6 +95,7 @@ export class BackupService {
     private readonly roles: RolesService,
     private readonly courses: CoursesService,
     private readonly files: FilesService,
+    private readonly roleSeparation: RoleSeparationService,
   ) {
     this.registerBuiltinContributors();
   }
@@ -154,20 +163,41 @@ export class BackupService {
           }).returning();
           await mapping.map('enrol', inst.id, row!.id);
         }
+        let skippedRoleConflicts = 0;
         for (const ue of d.enrolments) {
           if (!ue.userId) continue; // anonymize: không khôi phục danh tính
           const newInstance = mapping.get('enrol', ue.enrolId);
           if (!newInstance) continue;
+          const inst = d.instances.find((i) => i.id === ue.enrolId);
+          // Chốt TÁCH VAI — funnel 3 (RoleSeparationService giữ định
+          // nghĩa dùng chung): contributor này ghi thẳng ghi danh nên
+          // không đi qua funnel 1/2. Một ghi danh khôi phục sẽ ở trạng
+          // thái ĐANG HOẠT ĐỘNG, qua instance cấp vai học viên, cho
+          // người đã có cấp quyền giảng dạy bao phủ chính khoá ĐÍCH
+          // là lẫn vai cùng khoá — BỎ QUA riêng ghi danh đó (không
+          // tạo bản ghi, không gán vai) và ĐẾM để báo vào chi tiết
+          // bước restore; các ghi danh còn lại khôi phục bình thường,
+          // một ghi danh vi phạm không làm hỏng toàn bộ lượt restore.
+          if (
+            ue.status === 0
+            && inst
+            && (await this.roleSeparation.isLearnerGrantRole(inst.roleId))
+            && (await this.roleSeparation.hasTeachingCoverageForCourse(ue.userId, targetCourseId))
+          ) {
+            skippedRoleConflicts += 1;
+            continue;
+          }
           const [ueRow] = await db.insert(userEnrolments).values({
             enrolId: newInstance, userId: ue.userId, status: ue.status, timeStart: ue.timeStart, timeEnd: ue.timeEnd,
           }).onConflictDoNothing().returning();
           if (ueRow) await mapping.map('user_enrolment', ue.id, ueRow.id);
-          const inst = d.instances.find((i) => i.id === ue.enrolId);
           // Ghi danh khôi phục vẫn là gán do enrol cấp: mang truy vết của
           // instance MỚI ở khoá đích để unenrol sau này gỡ đúng dòng này
           // (issue #157).
           if (inst?.roleId) await this.roles.assignRole(ue.userId, inst.roleId, targetCtx, undefined, { component: ENROL_ASSIGNMENT_COMPONENT, itemId: newInstance }).catch(() => undefined);
         }
+        if (skippedRoleConflicts > 0) return { detail: { skippedRoleConflictEnrolments: skippedRoleConflicts } };
+        return undefined;
       },
     });
     // --- groups ---------------------------------------------------------------
@@ -763,8 +793,11 @@ export class BackupService {
         for (const c of this.contributors) {
           const step = await this.repo.insertStep({ jobId: job.id, name: c.name, status: 'running' });
           const data = archive.contributors[c.name];
-          if (data !== undefined) await c.import(null, data as never, mapping, actorId);
-          await this.repo.updateStep(step.id, { status: 'completed' });
+          const importResult = data !== undefined ? await c.import(null, data as never, mapping, actorId) : undefined;
+          await this.repo.updateStep(step.id, {
+            status: 'completed',
+            ...(importResult?.detail ? { detail: importResult.detail } : {}),
+          });
         }
         await this.repo.updateJob(job.id, { status: 'completed', timeFinished: new Date() });
       } catch (e) {
@@ -809,8 +842,11 @@ export class BackupService {
       for (const c of this.contributors) {
         const step = await this.repo.insertStep({ jobId: job.id, name: c.name, status: 'running' });
         const data = archive.contributors[c.name];
-        if (data !== undefined) await c.import(targetId, data as never, mapping, actorId);
-        await this.repo.updateStep(step.id, { status: 'completed' });
+        const importResult = data !== undefined ? await c.import(targetId, data as never, mapping, actorId) : undefined;
+        await this.repo.updateStep(step.id, {
+          status: 'completed',
+          ...(importResult?.detail ? { detail: importResult.detail } : {}),
+        });
       }
       await this.repo.updateJob(job.id, { status: 'completed', timeFinished: new Date() });
     } catch (e) {

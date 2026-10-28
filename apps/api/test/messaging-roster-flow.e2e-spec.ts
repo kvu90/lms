@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
@@ -93,7 +94,23 @@ describe('Messaging — roster thành viên khoá + cổng nhắn riêng chỉ l
     const courseCtx = await contextIdByLevelInstance(app, admin, 50, courseA);
     const editingTeacher = await roleIdByShortname(app, admin, 'editingteacher');
     await assignRole(app, admin, teacherRoleOnly.id, editingTeacher, courseCtx);
-    await assignRole(app, admin, teacherBoth.id, editingTeacher, courseCtx);
+    // teacherBoth: trạng thái lẫn vai (vừa ghi danh học viên đang hoạt
+    // động vừa có gán vai giảng dạy tại chính khoá) — từ issue #425,
+    // API KHÔNG còn đường nào tạo được trạng thái này (cả hai chiều
+    // gán vai/ghi danh đều bị chốt tách vai chặn); nó chỉ còn tồn tại
+    // như DỮ KIỆN TỒN TẠI từ trước chốt, và hành vi phân loại roster
+    // trên dữ kiện đó vẫn phải được kiểm. Fixture vì vậy ghi thẳng
+    // dòng gán vai vào DB thay vì đi qua API gán vai.
+    const fixtureDb = new Client({ connectionString: process.env.DATABASE_URL });
+    await fixtureDb.connect();
+    try {
+      await fixtureDb.query(
+        `insert into role_assignments (role_id, user_id, context_id, component) values ($1, $2, $3, '')`,
+        [editingTeacher, teacherBoth.id, courseCtx],
+      );
+    } finally {
+      await fixtureDb.end();
+    }
     // Thành viên bị tạm ngưng: vẫn ghi danh nhưng không được hiện ở roster.
     await suspendUser(app, admin, ghost.id);
 

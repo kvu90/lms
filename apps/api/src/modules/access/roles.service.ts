@@ -5,6 +5,7 @@ import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, DEFAULT_ROLES } from './domain/capabilities';
 import { CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT } from './domain/permission';
 import { PlanLimitsService, TEACHING_ROLE_ARCHETYPES } from './plan-limits.service';
+import { RoleSeparationService } from './role-separation.service';
 
 const VALID_PERMISSIONS = [CAP_PROHIBIT, CAP_PREVENT, CAP_INHERIT, CAP_ALLOW];
 
@@ -38,6 +39,7 @@ export class RolesService {
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
     private readonly planLimits: PlanLimitsService,
+    private readonly roleSeparation: RoleSeparationService,
   ) {}
 
   /** Seed có tính idempotent: đồng bộ các định nghĩa capability từ code (định nghĩa không còn trong registry sẽ bị cắt bỏ, cùng với các override role của chúng), tạo các role core chuẩn của Moodle và giá trị mặc định theo archetype của chúng tại context hệ thống. */
@@ -164,6 +166,21 @@ export class RolesService {
     }
     const component = source?.component ?? '';
     const itemId = source?.itemId ?? null;
+    // Chốt TÁCH VAI chiều ngược (RoleSeparationService giữ định nghĩa
+    // dùng chung): gán một vai GIẢNG DẠY không do ghi danh cấp tại
+    // context khoá/lớp cho người đang là HỌC VIÊN ĐANG HOẠT ĐỘNG
+    // trong khoá bị context đó bao phủ sẽ tạo lẫn vai cùng khoá —
+    // từ chối TRƯỚC khi chèn dòng gán, cùng mã lỗi với các chốt ở
+    // ba funnel ghi danh. Gán do ghi danh cấp (component = 'enrol')
+    // không qua chốt này: đó là hệ quả máy móc của một ghi danh đã
+    // được chốt ở funnel ghi danh, và instance cấp vai giảng dạy là
+    // đường cấp vai của quản trị nằm ngoài quyết định tách vai.
+    if (
+      (TEACHING_ROLE_ARCHETYPES as readonly string[]).includes(roleRow.archetype ?? '')
+      && !isEnrolManagedAssignment({ component })
+    ) {
+      await this.roleSeparation.assertTeachingAssignmentAllowed(userId, contextId);
+    }
     const existing = await this.repo.listAssignments({ userId, contextId });
     const alreadyAssigned = existing.some((a) => a.roleId === roleId && a.component === component && (a.itemId ?? null) === itemId);
     const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId, component, itemId });
