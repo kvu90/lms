@@ -40,6 +40,25 @@ export class PaymentsRepository {
     return row;
   }
   async listPayments(): Promise<PaymentRow[]> { return this.db.select().from(payments); }
+  /**
+   * Ba con số đối soát tối giản, đếm ngay ở SQL bằng tổng có điều
+   * kiện (`count(*) filter (...)`) trong MỘT truy vấn — khâu đối soát
+   * không nạp toàn bộ bảng `payments` về tầng ứng dụng để đếm ở JS.
+   * Điều kiện "chưa có mã giao dịch ngoài" giữ đúng ngữ nghĩa đếm cũ
+   * ở tầng ứng dụng (giá trị falsy): `NULL` hoặc chuỗi rỗng đều tính.
+   */
+  async countPaymentsForReconcile(): Promise<{ total: number; succeeded: number; pendingWithoutExternalTx: number }> {
+    const [row] = await this.db.select({
+      total: sql<number>`count(*)::int`,
+      succeeded: sql<number>`count(*) filter (where ${payments.status} = 'succeeded')::int`,
+      pendingWithoutExternalTx: sql<number>`count(*) filter (where ${payments.status} = 'pending' and (${payments.externalTransactionId} is null or ${payments.externalTransactionId} = ''))::int`,
+    }).from(payments);
+    return {
+      total: row?.total ?? 0,
+      succeeded: row?.succeeded ?? 0,
+      pendingWithoutExternalTx: row?.pendingWithoutExternalTx ?? 0,
+    };
+  }
   async listPaymentsForUser(userId: string): Promise<PaymentRow[]> {
     return this.db.select().from(payments).where(eq(payments.userId, userId));
   }
@@ -68,6 +87,29 @@ export class PaymentsRepository {
     const [row] = await (tx ?? this.db).update(paymentRefunds).set({ ...v, updatedAt: new Date() })
       .where(eq(paymentRefunds.id, id)).returning();
     return row!;
+  }
+  /**
+   * Cập nhật một dòng hoàn CHỈ KHI trạng thái hiện tại của nó còn thuộc
+   * `fromStatuses` — điều kiện trạng thái nằm ngay trong `WHERE` của
+   * câu cập nhật nên hai lượt chuyển trạng thái song song không thể
+   * cùng thắng: lượt sau khớp 0 dòng và nhận `undefined` (theo khuôn
+   * kiểm-tra-rồi-ghi an toàn ở Read Committed — đọc trạng thái ở tầng
+   * ứng dụng rồi cập nhật vô điều kiện theo `id` là dạng đua mà hai
+   * người duyệt song song cùng qua cổng, người ghi sau thắng lặng lẽ).
+   * Tầng service dịch `undefined` thành đúng mã lỗi trạng thái của
+   * đường gọi đó. Dùng cho các khâu duyệt/từ chối (không có khoá dòng
+   * bao ngoài); khâu xác nhận chi không dùng hàm này vì nó đã đọc lại
+   * và quyết định dưới khoá `FOR UPDATE` của dòng khoản thu.
+   */
+  async updateRefundFromStatuses(
+    id: string,
+    fromStatuses: string[],
+    v: Partial<typeof paymentRefunds.$inferInsert>,
+    tx?: DbTx,
+  ): Promise<RefundRow | undefined> {
+    const [row] = await (tx ?? this.db).update(paymentRefunds).set({ ...v, updatedAt: new Date() })
+      .where(and(eq(paymentRefunds.id, id), inArray(paymentRefunds.status, fromStatuses))).returning();
+    return row;
   }
   /**
    * Tổng cộng dồn của các dòng hoàn thuộc một TẬP TRẠNG THÁI cho trước.
