@@ -528,27 +528,61 @@ export class QuizMatricesService {
     return this.repo.listExamVersionsByMatrix(matrixId);
   }
 
-  /** Các ma trận của một môn (matrix:use tại context của môn).
-   * Ma trận thuộc bank personal của người khác bị loại khỏi danh sách
-   * (issue #123) — danh sách theo môn không được rò ma trận riêng. */
-
+  /**
+   * Các ma trận của một môn — phân quyền NEO TẠI BANK chứa từng ma
+   * trận (cùng học thuyết với `QuizSharedService.requireMatrixCap`:
+   * điểm neo quyền duy nhất của ma trận là bank chứa nó; context của
+   * môn chỉ là phạm vi dữ liệu). Vì vậy môn được đọc dạng THAM CHIẾU
+   * thuần tuý qua `getSubjectReference` (không gác `curriculum:view`
+   * tại context của môn — môn hệ thống neo tại context hệ thống, nơi
+   * giáo viên không giữ vai trò nào) và KHÔNG còn cổng `matrix:use`
+   * tại context của môn ở đầu hàm; hai cổng neo-tại-môn đó từng trả
+   * 403 cho mọi giáo viên làm việc với môn hệ thống dù họ có đầy đủ
+   * quyền tại bank chứa ma trận (issue #376). Sau khi lấy toàn bộ ma
+   * trận của môn, phân quyền là phép lọc theo từng ma trận:
+   * - Ma trận có bank: chỉ xuất hiện khi người tìm có quyền đọc
+   *   bank-local tại bank đó (`bankLocalMatrixCaps.view` sau khi đồng
+   *   bộ thành viên). Bank personal của người khác bị loại khỏi danh
+   *   sách như trước (issue #123) — danh sách theo môn không được rò
+   *   ma trận riêng; bank dùng chung mà người tìm không phải thành
+   *   viên và không có quyền dùng cũng không xuất hiện.
+   * - Ma trận chưa thuộc bank nào (hoặc bank đã bị xoá): quy tắc
+   *   legacy — `PermissionEvaluator` với `matrix:use` tại context của
+   *   chính ma trận (`matrix.contextId`).
+   * Hệ quả: người không có quyền ở bất kỳ bank liên quan nào nhận
+   * danh sách rỗng thay vì 403 vì context của môn.
+   */
   async listMatrices(actorId: string, subjectId: string): Promise<ExamMatrixView[]> {
-    const subject = await this.curriculum.getSubject(actorId, subjectId);
-    await this.evaluator.requireCapability(actorId, QUIZ_CAPABILITIES.viewMatrix, subject.contextId);
+    const subject = await this.curriculum.getSubjectReference(subjectId);
     const rows = await this.repo.listMatricesBySubject(subject.id);
-    const foreignPersonalByBank = new Map<string, boolean>();
+    const visibleByBank = new Map<string, boolean>();
     const out: ExamMatrixView[] = [];
     for (const r of rows) {
+      let visible: boolean;
       if (r.bankId) {
-        let foreign = foreignPersonalByBank.get(r.bankId);
-        if (foreign === undefined) {
+        const cached = visibleByBank.get(r.bankId);
+        if (cached !== undefined) {
+          visible = cached;
+        } else {
           const bank = await this.banks.findBankById(r.bankId);
-          foreign = bank ? await this.banks.isForeignPersonalBank(actorId, bank) : false;
-          foreignPersonalByBank.set(r.bankId, foreign);
+          if (bank) {
+            visible = !(await this.banks.isForeignPersonalBank(actorId, bank));
+            if (visible) {
+              await this.banks.syncBankMembership(bank);
+              visible = (await this.banks.bankLocalMatrixCaps(actorId, bank)).view;
+            }
+            visibleByBank.set(r.bankId, visible);
+          } else {
+            // Bank đã bị xoá: ma trận rơi về quy tắc legacy tại
+            // context của chính nó — quyết định theo từng ma trận
+            // (contextId là của từng ma trận) nên không cache theo bank.
+            visible = await this.evaluator.hasCapability(actorId, QUIZ_CAPABILITIES.viewMatrix, r.contextId);
+          }
         }
-        if (foreign) continue;
+      } else {
+        visible = await this.evaluator.hasCapability(actorId, QUIZ_CAPABILITIES.viewMatrix, r.contextId);
       }
-      out.push(await this.matrixView(r));
+      if (visible) out.push(await this.matrixView(r));
     }
     return out;
   }
