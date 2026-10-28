@@ -25,7 +25,7 @@ export default defineConfig({
       PAYMENT_WEBHOOK_SECRET: 'test-only-payment-webhook-secret-0123456789',
       // Bộ test e2e bắn hàng nghìn request từ một IP: nới hạn mức để
       // rate limit không chặn test; hành vi 429 có spec riêng với hạn
-      // mức thấp (test/platform-hardening.e2e-spec.ts).
+      // mức thấp (test/platform/platform-hardening.e2e-spec.ts).
       RATE_LIMIT_PER_MINUTE: '1000000',
       RATE_LIMIT_AUTH_PER_MINUTE: '1000000',
     },

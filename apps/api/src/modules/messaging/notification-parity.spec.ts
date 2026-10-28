@@ -50,7 +50,7 @@ import { MESSAGE_PROVIDERS, providerByName } from './notification-providers';
  *
  * Nửa HÀNH VI của parity (luật cứng hai phía cho cùng kết quả:
  * đình chỉ / chính sách admin NB-7 / loại bắt buộc P2) nằm ở phía
- * worker — `apps/worker/test/notification-parity.spec.ts` — vì nó
+ * worker — `apps/worker/test/notifications/notification-parity.spec.ts` — vì nó
  * phải chạy `NotificationDeliveryService` thật của worker.
  */
 
