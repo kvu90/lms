@@ -22,13 +22,13 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
 
 ## Quy tắc làm việc chung
 
-- **Bám pattern của package trước khi sửa code:** trước khi sửa
-  code thuộc phạm vi của bất kỳ package/app nào, đội thi công PHẢI
-  nghiên cứu pattern của chính package đó trước — `AGENTS.md` và
-  `README.md` của package, các quy ước sẵn có và cách các vấn đề
-  tương tự đã được giải quyết trong code của package — rồi bám
-  đúng pattern đó. Cấm áp thói quen từ package khác hay thực hành
-  bên ngoài đè lên pattern của package.
+- **Bám pattern chính thức của package/framework bên ngoài:** khi
+  dùng hay cấu hình bất kỳ package hay framework bên ngoài nào
+  (thư viện bên thứ ba, ví dụ Vitest, NestJS, Drizzle hay plugin
+  ESLint), đội thi công PHẢI nghiên cứu pattern chính thức của
+  chính thư viện đó trước — tài liệu, cách dùng khuyến nghị, bộ
+  rule và quy ước của nhà phát hành — và dùng đúng như vậy. Cấm
+  đoán hành vi của thư viện hay uốn nó theo thói quen từ nơi khác.
 - **Thay đổi tối thiểu theo đúng task:** mọi thay đổi phải là tối
   thiểu cần thiết cho task: không mở rộng phạm vi, không refactor
   tiện tay, không đụng code không liên quan. Phát hiện ngoài phạm
