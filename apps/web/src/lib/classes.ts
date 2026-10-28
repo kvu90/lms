@@ -2,6 +2,7 @@ import type {
   AddRosterStudentResult,
   ClassJoinPreview,
   ClassJoinRequest,
+  ClassListItem,
   ClassOverview,
   ClassPublicView,
   ClassRosterImportReport,
@@ -25,6 +26,7 @@ export type {
   AddRosterStudentResult,
   ClassJoinPreview,
   ClassJoinRequest,
+  ClassListItem,
   ClassOverview,
   ClassPublicView,
   ClassRosterImportReport,
@@ -40,8 +42,15 @@ export type {
 /** Ba vai lớp theo thứ tự hiển thị ở bề mặt phân quyền (giao bài / chấm bài / quản roster). */
 export const CLASS_STAFF_ROLE_ORDER: ClassStaffRole[] = ['classassigner', 'classgrader', 'classrostermanager'];
 
-export function fetchClasses(): Promise<ClassView[]> {
-  return apiJson<ClassView[]>('/api/v1/classes');
+/**
+ * Danh sách lớp của người gọi (GET /classes): mỗi dòng kèm bốn cờ
+ * khả năng do server suy cho đúng người gọi (`canCreate` /
+ * `canUpdate` / `canDelete` / `canManageRoster`) — trang danh sách
+ * lớp vẽ nút "Tạo lớp" và các hành động của từng dòng thuần theo
+ * các cờ này; quyền thật vẫn gác ở API.
+ */
+export function fetchClasses(): Promise<ClassListItem[]> {
+  return apiJson<ClassListItem[]>('/api/v1/classes');
 }
 
 export function fetchClass(classId: string): Promise<ClassView> {
@@ -106,6 +115,13 @@ export function fetchClassCourses(classId: string): Promise<Course[]> {
   return apiJson<Course[]>(`/api/v1/classes/${classId}/courses`);
 }
 
+/**
+ * Roster của lớp (GET /classes/:id/roster): trường liên hệ (email,
+ * username) chỉ đầy đủ khi người gọi có quyền quản roster của lớp —
+ * server làm rỗng hai trường này với các vai xem lớp còn lại, trang
+ * chi tiết chỉ tải roster cho vai được quản trị nên hiển thị không
+ * đổi.
+ */
 export function fetchRoster(classId: string): Promise<ClassRosterMember[]> {
   return apiJson<ClassRosterMember[]>(`/api/v1/classes/${classId}/roster`);
 }
