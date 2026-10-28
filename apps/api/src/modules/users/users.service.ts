@@ -5,6 +5,7 @@ import { badgeIssued, learningPlans } from '../../db/schema';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
+import { AuthRepository } from '../auth/auth.repository';
 import { CredentialBridgeService } from '../auth/better-auth/credential-bridge.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
@@ -51,6 +52,13 @@ export class UsersService {
     // lockout (xem ghi chú tại CredentialBridgeService).
     @Inject(forwardRef(() => CredentialBridgeService))
     private readonly credentialBridge: CredentialBridgeService,
+    // forwardRef: một cạnh nữa của vòng module UsersModule ↔
+    // AuthModule (AuthModule cần UsersService; service này cần
+    // AuthRepository để thu hồi family refresh mỗi lần đặt mật
+    // khẩu qua updateUser). AuthRepository chỉ phụ thuộc tầng dữ
+    // liệu nên chuỗi provider kết thúc ở đó.
+    @Inject(forwardRef(() => AuthRepository))
+    private readonly authRepository: AuthRepository,
   ) {}
 
   /**
@@ -282,8 +290,36 @@ export class UsersService {
 
   /**
    * Cập nhật hồ sơ (họ tên, email, …) với kiểm tra trùng email.
+   *
+   * Luồng riêng khi đầu vào có trường `password` (đặt mật khẩu qua
+   * đường sửa hồ sơ — tách bạch với luồng đổi mật khẩu chính thống):
+   * 1. Người sửa là chính chủ tài khoản (`actorId === id`) → TỪ CHỐI
+   *    bằng `user.password_self_change_forbidden`. Hàm này không có
+   *    tham số mật khẩu hiện tại nên không tồn tại bước tái xác thực;
+   *    nếu cho qua, một phiên bị đánh cắp là đủ để đổi mật khẩu và
+   *    chiếm tài khoản. Tự đổi mật khẩu chỉ đi qua luồng có tái xác
+   *    thực bằng mật khẩu hiện tại (AuthService.changePassword).
+   * 2. Người sửa là người khác (quản trị viên — đã qua cổng
+   *    `user:update` tại assertCanUpdateProfile): kiểm chính sách →
+   *    băm → ghi hash trong transaction kèm sự kiện outbox → đồng bộ
+   *    credential sang hệ đăng nhập thứ hai → THU HỒI mọi family
+   *    refresh của tài khoản đích bằng đúng cơ chế
+   *    AuthRepository.revokeAllForUser của luồng chính thống, để
+   *    phiên cũ của tài khoản đích (kể cả phiên của kẻ đang chiếm
+   *    tài khoản) không còn xoay được token mới.
+   *
+   * @param actorId Định danh người sửa, chỉ đường HTTP (controller
+   * sửa hồ sơ) truyền vào. Đường nội bộ đã tái xác thực trước khi
+   * gọi hàm này (changePassword) không truyền actorId và tự thu hồi
+   * family sau đó; bước thu hồi tại đây với đường đó là idempotent
+   * (đánh dấu thu hồi hai lần cho cùng kết quả).
    */
-  async updateUser(id: string, input: { email?: string; firstName?: string; lastName?: string; password?: string; customFields?: Record<string, string> }): Promise<UserRow> {
+  async updateUser(id: string, input: { email?: string; firstName?: string; lastName?: string; password?: string; customFields?: Record<string, string> }, actorId?: string): Promise<UserRow> {
+    // Chốt chặn tự đặt mật khẩu: phải chạy trước mọi bước ghi nào,
+    // kể cả kiểm tra dữ liệu khác, để yêu cầu bị từ chối nguyên vẹn.
+    if (input.password !== undefined && actorId !== undefined && actorId === id) {
+      throw new ForbiddenException({ message: 'Use the change-password flow with your current password to change your own password', code: 'user.password_self_change_forbidden' });
+    }
     const user = await this.getUser(id);
     if (input.customFields) await this.customFields.validateValuesForInstance(USER_COMPONENT, USER_AREA, input.customFields);
     if (user.deleted) throw new BadRequestException({ message: 'Cannot update a deleted user', code: 'user.deleted' });
@@ -308,7 +344,14 @@ export class UsersService {
     });
     // Chặng 2.6 (issue #7): mật khẩu vừa đặt lại ở hệ cũ cũng là mật
     // khẩu của dòng credential — hai hệ không bao giờ lệch mật khẩu.
-    if (input.password !== undefined) await this.syncCredential(id);
+    // Kèm theo: mật khẩu vừa bị đặt lại thì mọi family refresh đã cấp
+    // trước đó của tài khoản đích phải chết ngay (cùng cơ chế của
+    // luồng đổi mật khẩu chính thống) — nếu không, phiên cũ vẫn tiếp
+    // tục mint access token mới dù mật khẩu đã đổi.
+    if (input.password !== undefined) {
+      await this.syncCredential(id);
+      await this.authRepository.revokeAllForUser(id);
+    }
     if (input.customFields) await this.customFields.setValuesForInstance(USER_COMPONENT, USER_AREA, id, input.customFields);
     return this.getUser(id);
   }

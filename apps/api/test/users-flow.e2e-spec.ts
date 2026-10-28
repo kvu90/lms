@@ -222,3 +222,60 @@ describe('Users: hasLearnerArtifacts in self-service capabilities view', () => {
     expect((await capabilitiesOf(user)).hasLearnerArtifacts).toBe(true);
   });
 });
+
+describe('Users: password set through profile update is guarded', () => {
+  let app: INestApplication;
+  let admin: string;
+  beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
+  afterAll(async () => { await app.close(); });
+
+  it('rejects a self-service password set through PATCH /users/:id and keeps the old password working', async () => {
+    const user = await createUserViaApi(app, admin);
+    const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
+    // Một phiên hợp lệ (kịch bản phiên bị đánh cắp) không được phép tự
+    // đặt mật khẩu qua đường sửa hồ sơ — đường này không có tái xác
+    // thực bằng mật khẩu hiện tại.
+    const res = await http(app).patch(`/api/v1/users/${user.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ password: 'Attacker123!' });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('user.password_self_change_forbidden');
+    // Mật khẩu cũ vẫn đăng nhập được; mật khẩu vừa gửi bị từ chối.
+    const oldLogin = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(oldLogin.status).toBe(201);
+    const attemptedLogin = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: 'Attacker123!' });
+    expect(attemptedLogin.status).toBe(401);
+  });
+
+  it('an admin password set through PATCH /users/:id revokes the target refresh families', async () => {
+    const target = await createUserViaApi(app, admin);
+    const session = await login(app, target.username, STRONG_PASSWORD);
+    const res = await http(app).patch(`/api/v1/users/${target.id}`)
+      .set('Authorization', `Bearer ${admin}`)
+      .send({ password: 'ResetPass123!' });
+    expect(res.status).toBe(200);
+    // Family refresh cấp trước lần đặt lại mật khẩu phải chết: dùng
+    // lại refresh token cũ bị từ chối như token không hợp lệ.
+    const reuse = await http(app).post('/api/v1/auth/refresh').send({ refreshToken: session.refreshToken });
+    expect(reuse.status).toBe(401);
+    expect(reuse.body.code).toBe('auth.refresh_invalid');
+    // Mật khẩu mới đăng nhập được; mật khẩu cũ chết.
+    const newLogin = await http(app).post('/api/v1/auth/token').send({ username: target.username, password: 'ResetPass123!' });
+    expect(newLogin.status).toBe(201);
+    const oldLogin = await http(app).post('/api/v1/auth/token').send({ username: target.username, password: STRONG_PASSWORD });
+    expect(oldLogin.status).toBe(401);
+  });
+
+  it('self-service profile update without a password keeps working unchanged', async () => {
+    const user = await createUserViaApi(app, admin);
+    const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
+    const res = await http(app).patch(`/api/v1/users/${user.id}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ firstName: 'Tên Mới' });
+    expect(res.status).toBe(200);
+    expect(res.body.firstName).toBe('Tên Mới');
+    // Mật khẩu không bị đụng tới: vẫn đăng nhập được như cũ.
+    const relogin = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
+    expect(relogin.status).toBe(201);
+  });
+});
