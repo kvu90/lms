@@ -598,7 +598,7 @@ export function useImportBookDataset() {
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: queryKeys.bookDatasetStatus });
       void client.invalidateQueries({ queryKey: queryKeys.books });
-      void client.invalidateQueries({ queryKey: ['books'] });
+      void client.invalidateQueries({ queryKey: queryKeys.booksRoot });
     },
   });
 }
@@ -624,7 +624,7 @@ export function useDeleteCurriculumRow() {
       apiJson(`/api/v1/curriculum/curricula/${curriculumId}`, { method: 'DELETE' }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: CURRICULA_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'curricula'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculaRoot });
     },
   });
 }
@@ -680,7 +680,7 @@ export function useCreateCurriculumRow() {
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: CURRICULA_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'curricula'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculaRoot });
     },
   });
 }
@@ -696,7 +696,7 @@ export function useUpdateCurriculumRow() {
       }),
     onSuccess: (_data, vars) => {
       void client.invalidateQueries({ queryKey: CURRICULA_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'curricula'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculaRoot });
       void client.invalidateQueries({ queryKey: queryKeys.curriculumRow(vars.curriculumId) });
     },
   });
@@ -725,7 +725,7 @@ export function useCreateCurriculumNode() {
       void client.invalidateQueries({
         queryKey: queryKeys.curriculumTreeScoped(vars.curriculumId, null),
       });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'tree'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculumTreeRoot });
     },
   });
 }
@@ -743,7 +743,7 @@ export function useUpdateCurriculumNode() {
       void client.invalidateQueries({
         queryKey: queryKeys.curriculumTreeScoped(data.curriculumId, null),
       });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'tree'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculumTreeRoot });
       void client.invalidateQueries({ queryKey: queryKeys.curriculumNode(vars.nodeId) });
     },
   });
@@ -756,7 +756,7 @@ export function useDeleteCurriculumNode() {
     mutationFn: (nodeId: string) => apiJson(`/api/v1/curriculum/nodes/${nodeId}`, { method: 'DELETE' }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: TREE_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'tree'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculumTreeRoot });
     },
   });
 }
@@ -781,7 +781,7 @@ export function useCreateCurriculumOutcome() {
       }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: TREE_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'tree'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculumTreeRoot });
     },
   });
 }
@@ -797,7 +797,7 @@ export function useUpdateCurriculumOutcome() {
       }),
     onSuccess: (_data, vars) => {
       void client.invalidateQueries({ queryKey: TREE_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'tree'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculumTreeRoot });
       void client.invalidateQueries({ queryKey: queryKeys.curriculumOutcome(vars.outcomeId) });
     },
   });
@@ -811,7 +811,7 @@ export function useDeleteCurriculumOutcome() {
       apiJson(`/api/v1/curriculum/outcomes/${outcomeId}`, { method: 'DELETE' }),
     onSuccess: () => {
       void client.invalidateQueries({ queryKey: TREE_SCOPED_PREFIX });
-      void client.invalidateQueries({ queryKey: ['curriculum', 'tree'] });
+      void client.invalidateQueries({ queryKey: queryKeys.curriculumTreeRoot });
     },
   });
 }
