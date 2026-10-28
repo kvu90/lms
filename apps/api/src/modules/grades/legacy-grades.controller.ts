@@ -36,23 +36,25 @@ import { createGradeItemSchema, exportGradesVneduSchema, gradePublicationActionS
  *
  * Tên method của mọi handler alias đều mang tiền tố `legacy` và mỗi
  * handler khai `operationId` riêng qua `@ApiOperation`: controller
- * alias dùng chung path `courses` và tag `grades` với controller
- * canonical, nếu trùng tên method thì Swagger không sinh được
- * operationId phân biệt cho hai operation cùng tên và lỗi tại bước
- * tạo tài liệu OpenAPI.
+ * alias dùng chung tag `grades` với controller canonical, nếu trùng tên
+ * method thì Swagger không sinh được operationId phân biệt cho hai
+ * operation cùng tên và lỗi tại bước tạo tài liệu OpenAPI.
  */
 @ApiTags('grades')
-@Controller({ path: 'courses', version: '1' })
+@Controller({ path: 'courses/:courseId/grades', version: '1' })
 @UseInterceptors(GradePathsDeprecationInterceptor)
 /**
  * Alias cho các path cũ thuộc khoá học của module điểm: tạo/liệt kê
  * grade item, lưới báo cáo và xuất vnEdu theo path cũ. Handler canonical
- * tương ứng nằm ở `grades.controller.ts`.
+ * tương ứng nằm ở `grades.controller.ts`. Lớp khai tiền tố con đầy đủ
+ * của chính nó thay vì tiền tố trơ `courses`: tiền tố trơ `courses` chỉ
+ * còn module courses sở hữu. Mọi path alias giữ nguyên từng ký tự so
+ * với trước khi đổi hình thức khai báo.
  */
 export class LegacyGradesCourseController {
   constructor(private readonly grades: GradesService) {}
 
-  @Post(':courseId/grades/items')
+  @Post('items')
   /**
    * POST /courses/:courseId/grades/items — alias cũ của POST /courses/:courseId/grade-items: tạo grade item.
    */
@@ -60,7 +62,7 @@ export class LegacyGradesCourseController {
   async legacyCreateItem(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: createGradeItemSchema }) dto: CreateGradeItemDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.createItem(actor.id, courseId, dto);
   }
-  @Get(':courseId/grades/items')
+  @Get('items')
   /**
    * GET /courses/:courseId/grades/items — alias cũ của GET /courses/:courseId/grade-items: liệt kê item (các bài có điểm) của khoá.
    */
@@ -68,7 +70,7 @@ export class LegacyGradesCourseController {
   async legacyListItems(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.grades.listItems(actor.id, courseId);
   }
-  @Get(':courseId/grades/report')
+  @Get('report')
   /**
    * GET /courses/:courseId/grades/report — alias cũ của GET /courses/:courseId/gradebook/report: lưới CHỈ-ĐỌC học sinh × các bài của khoá cho giáo viên.
    */
@@ -77,7 +79,7 @@ export class LegacyGradesCourseController {
     return this.grades.getCourseActivityGrid(viewer.id, courseId);
   }
 
-  @Post(':courseId/grades/export/vnedu')
+  @Post('export/vnedu')
   @HttpCode(200)
   /**
    * POST /courses/:courseId/grades/export/vnedu — alias cũ của POST /courses/:courseId/grade-exports với provider vnedu: xuất điểm ra Excel theo cấu trúc vnEdu (issue #53).

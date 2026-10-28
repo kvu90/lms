@@ -10,9 +10,14 @@ import {
 } from './dto/completion.dto';
 
 @ApiTags('completion')
-@Controller({ path: 'courses', version: '1' })
+@Controller({ path: 'courses/:courseId/completion', version: '1' })
 /**
- * API hoàn thành: tiến độ của tôi, tiến độ theo học viên, đánh dấu thủ công, tiêu chí và tính lại.
+ * API hoàn thành: tiến độ của tôi, tiến độ theo học viên, tiêu chí và tính lại.
+ *
+ * Lớp này khai tiền tố con đầy đủ của chính nó thay vì tiền tố trơ
+ * `courses`: tiền tố trơ `courses` chỉ còn module courses sở hữu, mỗi
+ * tiền tố đầy đủ khác chỉ có đúng một lớp khai báo. Bảng route giữ
+ * nguyên từng ký tự so với trước khi đổi hình thức khai báo.
  */
 export class CompletionController {
   constructor(
@@ -20,7 +25,7 @@ export class CompletionController {
     private readonly courses: CoursesService,
   ) {}
 
-  @Get(':courseId/completion/me')
+  @Get('me')
   /**
    * GET /courses/:courseId/completion/me — tiến độ hoàn thành của chính user.
    */
@@ -31,7 +36,7 @@ export class CompletionController {
     return { activities, course: courseCompletion };
   }
 
-  @Get(':courseId/completion/users/:userId')
+  @Get('users/:userId')
   /**
    * GET /courses/:courseId/completion/users/:userId — tiến độ của một học viên.
    */
@@ -42,7 +47,7 @@ export class CompletionController {
     return { activities, course: courseCompletion };
   }
 
-  @Get(':courseId/completion')
+  @Get()
   /**
    * GET /courses/:courseId/completion — tiến độ toàn khoá học.
    */
@@ -51,29 +56,21 @@ export class CompletionController {
     return this.completion.listCourseCompletions(courseId);
   }
 
-  @Post(':courseId/modules/:cmId/completion/manual')
-  /**
-   * POST /courses/:courseId/modules/:cmId/completion/manual — đánh dấu hoàn thành thủ công.
-   */
-  async markManual(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
-    return this.completion.markManual(actor.id, cmId, dto.userId, dto.complete);
-  }
-
-  @Get(':courseId/completion/criteria')
+  @Get('criteria')
   /**
    * GET /courses/:courseId/completion/criteria — bộ tiêu chí hiện tại.
    */
   async getCriteria(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.getCriteria(actor.id, courseId);
   }
-  @Put(':courseId/completion/criteria')
+  @Put('criteria')
   /**
    * PUT /courses/:courseId/completion/criteria — đặt bộ tiêu chí.
    */
   async setCriteria(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Body({ schema: setCompletionCriteriaSchema }) dto: SetCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.setCriteria(actor.id, courseId, dto);
   }
-  @Post(':courseId/completion/recalculate')
+  @Post('recalculate')
   /**
    * POST /courses/:courseId/completion/recalculate — tính lại completion toàn khoá học.
    */
@@ -82,7 +79,7 @@ export class CompletionController {
     return this.completion.recalculateCourse(courseId);
   }
 
-  @Post(':courseId/completion/self')
+  @Post('self')
   /**
    * POST /courses/:courseId/completion/self — học viên tự đánh dấu/bỏ đánh
    * dấu hoàn thành khoá học (tiêu chí self của Moodle).
@@ -91,7 +88,7 @@ export class CompletionController {
     return this.completion.markSelfCompletion(actor.id, courseId, dto.complete);
   }
 
-  @Post(':courseId/completion/criteria/:criteriaId/mark')
+  @Post('criteria/:criteriaId/mark')
   /**
    * POST /courses/:courseId/completion/criteria/:criteriaId/mark — người
    * giữ vai trò của tiêu chí role đánh dấu/bỏ đánh dấu hoàn thành cho một
@@ -99,5 +96,27 @@ export class CompletionController {
    */
   async markCriterion(@Param('courseId', { schema: uuidIdSchema }) courseId: string, @Param('criteriaId', { schema: uuidIdSchema }) criteriaId: string, @Body({ schema: markCourseCriteriaCompletionSchema }) dto: MarkCriteriaDto, @CurrentUser() actor: AuthenticatedUser) {
     return this.completion.markCriterionByRole(actor.id, courseId, criteriaId, dto.userId, dto.complete);
+  }
+}
+
+@ApiTags('completion')
+@Controller({ path: 'courses/:courseId/modules/:cmId/completion', version: '1' })
+/**
+ * API đánh dấu hoàn thành thủ công theo từng hoạt động của khoá học.
+ *
+ * Lớp này tách khỏi `CompletionController` vì route của nó không chung
+ * tiền tố con với họ route `courses/:courseId/completion`: nó lồng dưới
+ * một hoạt động (`modules/:cmId`) của khoá học. Bảng route giữ nguyên
+ * từng ký tự so với trước khi đổi hình thức khai báo.
+ */
+export class CourseModuleCompletionController {
+  constructor(private readonly completion: CompletionService) {}
+
+  @Post('manual')
+  /**
+   * POST /courses/:courseId/modules/:cmId/completion/manual — đánh dấu hoàn thành thủ công.
+   */
+  async markManual(@Param('cmId', { schema: uuidIdSchema }) cmId: string, @Body({ schema: markManualCompletionSchema }) dto: MarkManualDto, @CurrentUser() actor: AuthenticatedUser) {
+    return this.completion.markManual(actor.id, cmId, dto.userId, dto.complete);
   }
 }

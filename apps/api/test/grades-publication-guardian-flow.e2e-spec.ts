@@ -144,7 +144,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
       .set('Authorization', `Bearer ${teacher}`).send({ policy: 'manual' });
 
     // Chưa có liên kết: phụ huynh không đọc được gì của học sinh.
-    const noLink = await http(app).get(`/api/v1/guardian/students/${student.id}/courses/${course.id}/gradebook`)
+    const noLink = await http(app).get(`/api/v1/guardian/students/${student.id}/gradebooks/${course.id}`)
       .set('Authorization', `Bearer ${guardianToken}`);
     expect(noLink.status).toBe(403);
     expect(noLink.body.code).toBe('guardian.no_active_link');
@@ -174,15 +174,22 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     expect((myGuardians.body as { guardianUserId: string }[]).map((x) => x.guardianUserId)).toContain(guardian.id);
 
     // Phụ huynh đọc điểm theo bài của con: thấy điểm auto đã công bố, không thấy điểm manual chưa công bố.
-    const gBook = await http(app).get(`/api/v1/guardian/students/${student.id}/courses/${course.id}/gradebook`)
+    const gBook = await http(app).get(`/api/v1/guardian/students/${student.id}/gradebooks/${course.id}`)
       .set('Authorization', `Bearer ${guardianToken}`);
     expect(gBook.status).toBe(200);
     const gGrades = (gBook.body as GuardianBook).activities;
     expect(gGrades.find((g) => g.item.id === autoItem.id)?.grade?.finalGrade).toBe(7);
     expect(gGrades.find((g) => g.item.id === manualItem.id)?.grade).toBeNull();
 
+    // Path cũ vẫn tới được qua alias, kèm header sắp bỏ (issue #346).
+    const aliasBook = await http(app).get(`/api/v1/guardian/students/${student.id}/courses/${course.id}/gradebook`)
+      .set('Authorization', `Bearer ${guardianToken}`);
+    expect(aliasBook.status).toBe(200);
+    expect(aliasBook.headers['deprecation']).toBe('true');
+    expect(aliasBook.headers['sunset']).toContain('2027');
+
     // Người lạ (không liên kết) đọc → 403.
-    const strangerRes = await http(app).get(`/api/v1/guardian/students/${student.id}/courses/${course.id}/gradebook`)
+    const strangerRes = await http(app).get(`/api/v1/guardian/students/${student.id}/gradebooks/${course.id}`)
       .set('Authorization', `Bearer ${strangerToken}`);
     expect(strangerRes.status).toBe(403);
 
@@ -197,7 +204,7 @@ describe('PH-0: công bố điểm theo bài + liên kết giám hộ + audit (i
     const revoked = await http(app).delete(`/api/v1/guardian-links/${linkId}`).set('Authorization', `Bearer ${teacher}`);
     expect(revoked.status).toBe(200);
     expect((revoked.body as { status: string }).status).toBe('revoked');
-    const afterRevoke = await http(app).get(`/api/v1/guardian/students/${student.id}/courses/${course.id}/gradebook`)
+    const afterRevoke = await http(app).get(`/api/v1/guardian/students/${student.id}/gradebooks/${course.id}`)
       .set('Authorization', `Bearer ${guardianToken}`);
     expect(afterRevoke.status).toBe(403);
     const recreated = await http(app).post('/api/v1/guardian-links').set('Authorization', `Bearer ${teacher}`)

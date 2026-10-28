@@ -6,7 +6,8 @@ import { DeprecatedRouteAliasInterceptor } from './deprecated-route-alias.interc
 
 /**
  * Kiểm chứng interceptor alias dùng chung cho các path đổi tên theo
- * danh sách hành động đóng (issue #345): lượt gọi qua path cũ phải
+ * danh sách hành động đóng (issue #345) và path làm phẳng (issue #346):
+ * lượt gọi qua path cũ phải
  * được gắn header Deprecation/Sunset và sinh đúng một bản ghi log có
  * cấu trúc `deprecated_route_alias` trỏ từ alias sang canonical; lượt
  * gọi qua path canonical không bị gắn header và không sinh log alias.
@@ -31,7 +32,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
     return { context, next, headers };
   }
 
-  /** Các cặp alias → canonical của việc áp danh sách hành động đóng: [url cụ thể, method, alias mẫu, canonical mẫu] — tám cặp giai đoạn 1 ngoài module exams cộng bốn cặp giai đoạn 2 trong module exams (`board-*` → `approve`/`reject`). */
+  /** Các cặp alias → canonical của việc áp danh sách hành động đóng: [url cụ thể, method, alias mẫu, canonical mẫu] — tám cặp giai đoạn 1 ngoài module exams cộng bốn cặp giai đoạn 2 trong module exams (`board-*` → `approve`/`reject`) cộng một cặp làm phẳng của issue #346 (gradebook của phụ huynh). */
   const aliasCases: [string, string, string, string][] = [
     ['/api/v1/badges/01900000-0000-7000-8000-000000000001/duplicate', 'POST', 'badges/:id/duplicate', 'badges/:id/copy'],
     ['/api/v1/competencies/frameworks/01900000-0000-7000-8000-000000000001/duplicate', 'POST', 'competencies/frameworks/:id/duplicate', 'competencies/frameworks/:id/copy'],
@@ -45,6 +46,8 @@ describe('DeprecatedRouteAliasInterceptor', () => {
     ['/api/v1/exams/banks/01900000-0000-7000-8000-000000000001/contributions/01900000-0000-7000-8000-000000000002/board-reject', 'POST', 'exams/banks/:bankId/contributions/:contributionId/board-reject', 'exams/banks/:bankId/contributions/:contributionId/reject'],
     ['/api/v1/exams/dossiers/01900000-0000-7000-8000-000000000001/board-approve', 'POST', 'exams/dossiers/:dossierId/board-approve', 'exams/dossiers/:dossierId/approve'],
     ['/api/v1/exams/dossiers/01900000-0000-7000-8000-000000000001/board-reject', 'POST', 'exams/dossiers/:dossierId/board-reject', 'exams/dossiers/:dossierId/reject'],
+    // Cặp làm phẳng của issue #346 (path gradebook cũ của phụ huynh).
+    ['/api/v1/guardian/students/01900000-0000-7000-8000-000000000001/courses/01900000-0000-7000-8000-000000000002/gradebook', 'GET', 'guardian/students/:studentId/courses/:courseId/gradebook', 'guardian/students/:studentId/gradebooks/:courseId'],
   ];
 
   it.each(aliasCases)('marks alias URL %s with Deprecation/Sunset headers and one structured warn log', async (url, method, alias, canonical) => {
@@ -74,6 +77,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
     '/api/v1/courses/01900000-0000-7000-8000-000000000001/progress/reports?format=csv',
     '/api/v1/exams/banks/01900000-0000-7000-8000-000000000001/contributions/01900000-0000-7000-8000-000000000002/approve',
     '/api/v1/exams/dossiers/01900000-0000-7000-8000-000000000001/reject',
+    '/api/v1/guardian/students/01900000-0000-7000-8000-000000000001/gradebooks/01900000-0000-7000-8000-000000000002',
   ])('leaves canonical URL %s untouched: no headers, no warn log', async (url) => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const interceptor = new DeprecatedRouteAliasInterceptor();

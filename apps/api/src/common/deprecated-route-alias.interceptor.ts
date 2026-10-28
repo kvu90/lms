@@ -3,7 +3,8 @@ import type { Observable } from 'rxjs';
 
 /**
  * Interceptor đánh dấu các path cũ bị đổi tên theo danh sách hành động
- * đóng (issue #345) là sắp bỏ (Deprecation + Sunset theo RFC 8594) và
+ * đóng (issue #345) và path cũ bị làm phẳng (issue #346, cặp gradebook
+ * của phụ huynh) là sắp bỏ (Deprecation + Sunset theo RFC 8594) và
  * ghi log có cấu trúc cho mỗi lượt gọi qua path cũ (alias).
  *
  * @remarks
@@ -66,6 +67,9 @@ export class DeprecatedRouteAliasInterceptor implements NestInterceptor {
     { pattern: /^\/api\/v1\/exams\/banks\/[^/]+\/contributions\/[^/]+\/board-reject$/, alias: 'exams/banks/:bankId/contributions/:contributionId/board-reject', canonical: 'exams/banks/:bankId/contributions/:contributionId/reject' },
     { pattern: /^\/api\/v1\/exams\/dossiers\/[^/]+\/board-approve$/, alias: 'exams/dossiers/:dossierId/board-approve', canonical: 'exams/dossiers/:dossierId/approve' },
     { pattern: /^\/api\/v1\/exams\/dossiers\/[^/]+\/board-reject$/, alias: 'exams/dossiers/:dossierId/board-reject', canonical: 'exams/dossiers/:dossierId/reject' },
+    // Issue #346 (làm phẳng path phụ huynh): path gradebook cũ có 3 cấp
+    // tài nguyên nên làm phẳng về 2 cấp.
+    { pattern: /^\/api\/v1\/guardian\/students\/[^/]+\/courses\/[^/]+\/gradebook$/, alias: 'guardian/students/:studentId/courses/:courseId/gradebook', canonical: 'guardian/students/:studentId/gradebooks/:courseId' },
   ];
 
   /**

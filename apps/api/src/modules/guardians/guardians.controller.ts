@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseInterceptors } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
+import { DeprecatedRouteAliasInterceptor } from '../../common/deprecated-route-alias.interceptor';
 import { createGuardianLinkSchema, guardianDigestPreferenceSchema, type CreateGuardianLinkDto, type GuardianDigestPreferenceDto } from './dto/guardians.dto';
 import { GuardianDigestService } from './guardian-digest.service';
 import { GuardianViewService } from './guardian-view.service';
@@ -61,39 +62,58 @@ export class GuardianLinksController {
 @ApiTags('guardians')
 @Controller({ path: 'guardian', version: '1' })
 /**
- * Bề mặt đọc chỉ-xem của phụ huynh (PH-0, issue #116 — qua API, chưa có UI;
- * đăng nhập phụ huynh riêng là PH-1): quyền đọc suy từ liên kết giám hộ
- * đang hiệu lực, dữ liệu sau cổng công bố như chính học sinh tự xem, mọi
- * lần xem ghi audit vào event_log.
- */
-export class GuardianViewsController {
-  constructor(private readonly guardians: GuardiansService) {}
-
-  @Get('students/:studentId/courses/:courseId/gradebook')
-  /**
-   * GET /guardian/students/:studentId/courses/:courseId/gradebook — điểm theo từng bài đã công bố của con trong khoá.
-   */
-  async gradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
-    return this.guardians.studentGradebook(actor.id, studentId, courseId);
-  }
-}
-
-@ApiTags('guardians')
-@Controller({ path: 'guardian', version: '1' })
-/**
- * Bề mặt phụ huynh chỉ-xem PH-1 (issue #130): tổng quan 4 khối + kết quả
- * học tập đã công bố theo môn cho một con. Cổng liên kết trả 404 đồng
+ * Bề mặt phụ huynh chỉ-xem (PH-0, issue #116 và PH-1, issue #130):
+ * điểm theo từng bài đã công bố của con trong khoá, tổng quan 4 khối,
+ * kết quả học tập đã công bố theo môn và tuỳ chọn digest của chính
+ * phụ huynh cho con mình.
+ *
+ * Một lớp duy nhất sở hữu tiền tố `guardian`: trước đây hai lớp cùng
+ * khai tiền tố này trong cùng file (lớp xem điểm theo khoá và lớp bề
+ * mặt tổng quan/kết quả/digest). Quyền đọc suy từ liên kết giám hộ
+ * đang hiệu lực, dữ liệu sau cổng công bố như chính học sinh tự xem,
+ * mọi lần xem ghi audit vào event_log. Cổng liên kết trả 404 đồng
  * nhất khi phụ huynh không có liên kết đang hiệu lực tới học sinh (kể
  * cả học sinh không tồn tại): không lộ sự tồn tại của dữ liệu người
  * khác. Đường ghi duy nhất trên bề mặt này là tuỳ chọn digest PH-2 của
  * CHÍNH phụ huynh cho con mình (dữ liệu của phụ huynh, không phải dữ
  * liệu của con — cùng ngoại lệ với mốc xem trước của PH-1).
+ *
+ * Bảng route giữ nguyên từng ký tự so với trước khi hợp nhất hai lớp,
+ * trừ một ngoại lệ làm phẳng của issue #346: path gradebook của phụ
+ * huynh từ `students/:studentId/courses/:courseId/gradebook` (3 cấp
+ * tài nguyên dưới gốc `guardian`) chuyển thành
+ * `students/:studentId/gradebooks/:courseId` (2 cấp); path cũ giữ lại
+ * dưới dạng handler alias kèm header Deprecation/Sunset và log alias,
+ * uỷ quyền nguyên vẹn cho cùng logic đọc điểm đã công bố.
  */
-export class GuardianSurfaceController {
+export class GuardianController {
   constructor(
+    private readonly guardians: GuardiansService,
     private readonly view: GuardianViewService,
     private readonly digests: GuardianDigestService,
   ) {}
+
+  @Get('students/:studentId/gradebooks/:courseId')
+  /**
+   * GET /guardian/students/:studentId/gradebooks/:courseId — điểm theo từng bài đã công bố của con trong khoá.
+   */
+  async gradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.guardians.studentGradebook(actor.id, studentId, courseId);
+  }
+
+  @Get('students/:studentId/courses/:courseId/gradebook')
+  @UseInterceptors(DeprecatedRouteAliasInterceptor)
+  /**
+   * GET /guardian/students/:studentId/courses/:courseId/gradebook — alias cũ của GET
+   * /guardian/students/:studentId/gradebooks/:courseId (issue #346): path cũ có 3 cấp
+   * tài nguyên nên làm phẳng về 2 cấp; response qua alias mang header
+   * Deprecation/Sunset và mỗi lượt gọi sinh log `deprecated_route_alias`.
+   * Logic đọc điểm giữ nguyên: vẫn qua cổng liên kết giám hộ và cổng
+   * công bố điểm như handler canonical, chỉ khác path gọi vào.
+   */
+  async legacyGradebook(@Param('studentId', { schema: uuidIdSchema }) studentId: string, @Param('courseId', { schema: uuidIdSchema }) courseId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.guardians.studentGradebook(actor.id, studentId, courseId);
+  }
 
   @Get('students/:studentId/overview')
   /**
