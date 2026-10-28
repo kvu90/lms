@@ -31,19 +31,33 @@ hoặc trong issue đặc tả của chính việc đó trên GitHub:
   `it` và `test` trong các file test viết bằng tiếng Việt; mỗi mô tả
   phải nêu rõ hành vi đang được kiểm chứng — cấm mô tả mơ hồ, không
   nói lên hành vi (ví dụ chỉ ghi tên hàm hoặc "hoạt động đúng").
-- **Test e2e theo pattern NestJS:** test e2e khởi động ứng dụng đầy
-  đủ và kích hoạt qua HTTP bằng supertest. Test gọi trực tiếp
-  service là integration test — phải đặt tên, vị trí và cách chạy
-  đúng tầng integration, không mang danh e2e.
-- **Cấu trúc thư mục test:** test tách theo tầng thành hai thư
-  mục — `test/e2e/<module>/…` chỉ chứa test e2e (kích hoạt qua HTTP
-  bằng supertest, hậu tố `*.e2e-spec.ts`),
-  `test/integration/<module>/…` chỉ chứa integration test (gọi
-  service, tích hợp, hậu tố `*.int-spec.ts`); bên trong mỗi thư
-  mục tầng lại chia theo module. Test đơn vị (unit) đặt cạnh mã
-  nguồn theo thông lệ NestJS, hậu tố `*.spec.ts`. Script test chạy
-  tách theo từng loại theo thư mục — unit, integration và e2e có
-  lệnh chạy riêng.
+- **Phân tầng test:** test e2e đi theo quy ước chính thức của
+  NestJS — file nằm trong thư mục `test/`, hậu tố `*.e2e-spec.ts`,
+  khởi động ứng dụng đầy đủ và kích hoạt qua HTTP bằng supertest.
+  Tầng integration là quy định riêng của dự án (NestJS không quy
+  ước tầng này): test gọi trực tiếp service là integration test —
+  phải đặt tên, vị trí và cách chạy đúng tầng integration, không
+  mang danh e2e.
+- **Cấu trúc thư mục test:** backend tách test theo tầng —
+  `test/e2e/<module>/…` chỉ chứa test e2e (hậu tố `*.e2e-spec.ts`),
+  `test/integration/<module>/…` chỉ chứa integration test (hậu tố
+  `*.int-spec.ts`); việc chia thư mục con theo module trong mỗi
+  tầng và toàn bộ tầng integration là quy định riêng của dự án.
+  Test đơn vị (unit) đặt cạnh mã nguồn trong `src`, hậu tố
+  `*.spec.ts`, theo quy ước chính thức của NestJS. Ngoại lệ chưa
+  chuẩn hoá: worker hiện có 19 file test dạng `*.spec.ts` đặt
+  trong thư mục `test/` với nội dung tích hợp và không có spec
+  cạnh mã nguồn — trạng thái này đang được xử lý ở một gói riêng,
+  không phải cấu trúc đích.
+- **Cấu hình chạy test (Vitest):** pattern khám phá mặc định của
+  Vitest không nhận cả `.e2e-spec.ts` lẫn `.int-spec.ts`, nên mỗi
+  tầng bắt buộc khai `include` tường minh neo đúng thư mục và hậu
+  tố của tầng đó trong `projects` của `vitest.config.ts`; quên
+  khai là test âm thầm không chạy. Cấm pattern lỏng (ví dụ
+  `**/*spec.ts`) và include cả thư mục, vì chúng phá tính tách
+  bạch giữa các tầng và có thể làm test chạy trùng. Chạy tách
+  theo từng loại bằng `--project` hoặc script riêng (`test:unit`,
+  `test:int`, `test:e2e`).
 - **Tài liệu và văn bản GitHub viết bằng tiếng Việt:** mọi tài liệu
   trong repo (README, các file AGENTS, tài liệu của package) và mọi
   văn bản trên GitHub (issue, PR, comment) viết bằng tiếng Việt, văn
