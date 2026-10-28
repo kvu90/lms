@@ -87,6 +87,12 @@ export class ContextsService {
     return this.repo.getContextByLevelInstance(contextLevel, instanceId);
   }
   /**
+   * Lấy nhiều context theo danh sách id trong MỘT truy vấn — phục vụ các
+   * đường đọc theo lô (ảnh chụp quyền hợp nhất cây tổ tiên của nhiều gán
+   * vai): tránh một truy vấn cho mỗi context như khi gọi getContext lặp lại.
+   */
+  async getContextsByIds(ids: string[]): Promise<ContextRow[]> { return this.repo.getContextsByIds(ids); }
+  /**
    * Liệt kê toàn bộ context.
    */
   async listContexts(): Promise<ContextRow[]> { return this.repo.listContexts(); }
