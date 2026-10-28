@@ -6,7 +6,7 @@ import type { Config } from '@react-router/dev/config';
  * server build (`build/server`) cạnh client build (`build/client`);
  * tiến trình SSR riêng (apps/web/server/prod-server.mjs) chạy server
  * build đó và proxy `/api/*` về API qua localhost (topology C: hai
- * tiến trình trong cùng một dyno). Mọi route đều render phía server:
+ * tiến trình trên cùng một máy). Mọi route đều render phía server:
  * route công khai có loader lấy dữ liệu thật (login/health), vỏ trang
  * cá nhân hoá theo cookie phiên qua loader gốc, dữ liệu trang của các
  * route đã đăng nhập tải phía client như trước (token Bearer ở

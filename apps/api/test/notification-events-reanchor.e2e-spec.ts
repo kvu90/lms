@@ -9,7 +9,8 @@ import { MessagingService } from '../src/modules/messaging/messaging.service';
 /**
  * Spec hồi quy cho việc nối tiếp của issue #125: `NotificationEventsConsumer`
  * tự neo lại watermark khi DB bị dựng lại trong lúc tiến trình vẫn chạy
- * (reset DB production không kèm restart dyno) — cùng nguyên lý bản sửa
+ * (reset DB production không kèm khởi động lại tiến trình) — cùng
+ * nguyên lý bản sửa
  * của `MessagingOutboxConsumer` ở PR #126, áp cho kênh thông báo.
  *
  * Mô hình hoá sự cố live: watermark của consumer (bộ nhớ + Redis)

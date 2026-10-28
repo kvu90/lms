@@ -1,7 +1,7 @@
 import { defineConfig } from 'drizzle-kit';
 
-// Khi nhà cung cấp PostgreSQL bắt buộc TLS (DATABASE_SSL=true, ví dụ
-// Heroku Postgres), gắn sslmode=no-verify vào URL: ở nhánh mặc định
+// Khi nhà cung cấp PostgreSQL bắt buộc TLS (DATABASE_SSL=true), gắn
+// sslmode=no-verify vào URL: ở nhánh mặc định
 // của pg-connection-string, no-verify là giá trị duy nhất cho
 // ssl.rejectUnauthorized = false (require nay bị đối xử như
 // verify-full và sẽ hỏng với CA riêng của nhà cung cấp). Khớp cấu

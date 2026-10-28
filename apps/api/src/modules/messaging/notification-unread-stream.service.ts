@@ -13,7 +13,7 @@ import { tenantAls } from '../tenants/tenant-als';
  */
 export const NOTIFICATION_UNREAD_CHANGED_CHANNEL = 'lms:notifications:unread-changed';
 
-/** Nhịp heartbeat của stream: đủ dày để qua giới hạn idle 55 giây của Heroku router. */
+/** Nhịp heartbeat của stream: đủ dày để giữ kết nối SSE sống qua giới hạn idle của các chặng proxy ở biên. */
 const HEARTBEAT_INTERVAL_MS = 25_000;
 
 /**

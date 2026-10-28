@@ -2,7 +2,7 @@
  * Điểm chạm phía SERVER của các loader (SSR, Giai đoạn 3–4 của issue #7).
  *
  * Loader chạy trong tiến trình SSR và gọi API qua địa chỉ nội bộ
- * (topology C: API ở cùng máy/dyno, địa chỉ mặc định 127.0.0.1:3000,
+ * (topology C: API ở cùng một máy, địa chỉ mặc định 127.0.0.1:3000,
  * ghi đè bằng biến môi trường `LMS_API_INTERNAL_URL`) — KHÔNG vòng qua
  * URL công khai của chính app. Module này chỉ được loader import;
  * React Router tự loại loader khỏi bản build phía client nên mã này

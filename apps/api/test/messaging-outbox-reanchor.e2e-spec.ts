@@ -8,7 +8,7 @@ import { MessagingRealtimeService } from '../src/modules/messaging/messaging-rea
 /**
  * Spec hồi quy cho issue #125: `MessagingOutboxConsumer` tự neo lại
  * watermark khi DB bị dựng lại trong lúc tiến trình vẫn chạy (reset
- * DB production không kèm restart dyno).
+ * DB production không kèm khởi động lại tiến trình).
  *
  * Mô hình hoá sự cố live: watermark của consumer (bộ nhớ + Redis)
  * thuộc về đời DB trước và CAO hơn mọi `seq` hiện có của

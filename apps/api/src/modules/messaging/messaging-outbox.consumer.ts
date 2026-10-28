@@ -40,8 +40,9 @@ const DISTRIBUTED_TYPES = ['message_sent', 'message_conversation_read', 'message
  * neo tại seq lớn nhất hiện có: không phát lại lịch sử cũ.
  *
  * DB bị dựng lại TRONG LÚC tiến trình vẫn chạy (reset DB production
- * không kèm restart dyno — sự cố live trong issue #125) được phát
- * hiện ở mọi nhịp không có gì phân phối: seq lớn nhất của DB nhỏ
+ * không kèm khởi động lại tiến trình — sự cố live trong issue #125)
+ * được phát hiện ở mọi nhịp không có gì phân phối: seq lớn nhất của
+ * DB nhỏ
  * hơn watermark đang giữ là điều không thể xảy ra trong một đời DB
  * (seq chỉ tăng). Khi đó watermark neo về 0 để mọi sự kiện của đời
  * DB mới được phân phối — neo tại seq hiện tại như lúc khởi động sẽ

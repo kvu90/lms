@@ -4,12 +4,12 @@ import { adminToken, createTestApp, createUserViaApi, http, STRONG_PASSWORD } fr
 
 /**
  * Flow: địa chỉ IP khách thật được ghi lên phiên khi app đứng sau
- * đúng một chặng proxy tin cậy (router Heroku — xem
+ * đúng một chặng proxy tin cậy (tiến trình web ở biên — xem
  * src/common/client-ip.ts).
  *
- * Cơ sở hành vi: Heroku Dev Center (HTTP Routing) — router nối IP
- * gốc nó quan sát được vào phía phải của `X-Forwarded-For`; Express
- * với `trust proxy = 1` lấy đúng phần tử phải nhất đó làm `req.ip`.
+ * Cơ sở hành vi: chặng proxy ở biên nối IP gốc nó quan sát được vào
+ * phía phải của `X-Forwarded-For`; Express với `trust proxy = 1`
+ * lấy đúng phần tử phải nhất đó làm `req.ip`.
  * Ba kịch bản dưới đây khoá ba hệ quả: qua proxy thì ghi IP do
  * router nối thêm, khách không giả mạo được IP bằng cách tự chèn
  * thêm chặng vào đầu danh sách, và không qua proxy thì ghi địa chỉ
