@@ -1,11 +1,11 @@
-# @lms/db-schema — README nghiệp vụ
+# @lms/db — README nghiệp vụ
 
 > File này ghi các **quyết định nghiệp vụ quan trọng và còn đang hiệu lực** của package.
 > Nguồn sự thật về quyết định của package là chính file này, `AGENTS.md` của package và `AGENTS.md` ở thư mục gốc; quyết định liên quan tới một việc cụ thể được viết trọn vẹn trong issue đặc tả của việc đó trên GitHub.
 
 ## Package phụ trách nghiệp vụ gì
 
-`packages/db-schema` là **định nghĩa schema cơ sở dữ liệu dùng chung duy nhất** của hệ
+`packages/db` là **định nghĩa schema cơ sở dữ liệu dùng chung duy nhất** của hệ
 thống (Drizzle): toàn bộ bảng của mọi miền nghiệp vụ (access, courses, questions, quiz,
 grades, messaging, payments, tenants, books, curriculum…) khai ở đây, để `apps/api` và
 `apps/worker` đọc/ghi trên **cùng một mô hình dữ liệu** — không còn bản sao schema
@@ -34,7 +34,7 @@ lớp–khoá, tenant của mọi bản ghi, vết audit.
 
 ## Kỹ thuật tối thiểu
 
-- Nguồn theo miền: `src/modules/<miền>/`, hạ tầng chung ở
+- Nguồn theo miền: `src/<miền>.schema.ts`, hạ tầng chung ở
   `src/infrastructure.schema.ts`, xuất qua `src/index.ts`.
 - App tiêu thụ dùng bản `dist` — sửa schema xong phải build lại package trước khi
   typecheck/migrate ở app (dist cũ = lỗi giả kinh điển).

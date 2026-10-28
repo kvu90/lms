@@ -30,7 +30,7 @@ hàm luật dùng chung khi luật đó áp cho cả hai phía.
 - Không chứa bản sao riêng của luật nghiệp vụ: luật đã có ở API thì worker dùng
   chung/seam đã chốt, không viết bản song song thứ hai (hai bản luật lệch nhau là
   lỗi đã gặp — "bản chiếu tay" phải được ghi nhận và tiến tới dùng chung).
-- Schema DB không định nghĩa ở worker: dùng chung `packages/db-schema`.
+- Schema DB không định nghĩa ở worker: dùng chung `packages/db`.
 
 ## Kỹ thuật tối thiểu
 

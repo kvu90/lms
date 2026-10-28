@@ -19,7 +19,7 @@
  * chữ số thập phân như đường phân tích file.
  */
 
-/** Tên ràng buộc duy nhất theo cặp (bank đích, chữ ký nội dung) trên `exam_matrices` — khai trong schema của package db-schema. */
+/** Tên ràng buộc duy nhất theo cặp (bank đích, chữ ký nội dung) trên `exam_matrices` — khai trong schema của package db. */
 export const MATRIX_CONTENT_SIGNATURE_UNIQUE_CONSTRAINT = 'exam_matrices_bank_content_signature_unique';
 
 /** Một ô ma trận ở dạng tối thiểu tham gia chữ ký nội dung (khớp hình dạng ô của đường nhập và của bản ghi đã lưu). */

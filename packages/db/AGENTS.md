@@ -1,8 +1,8 @@
-# AGENTS.md — Yêu cầu dành cho AI khi làm việc trong `packages/db-schema`
+# AGENTS.md — Yêu cầu dành cho AI khi làm việc trong `packages/db`
 
 ## Nguồn sự thật (đọc trước khi sửa)
 
-1. `README.md` của package này — quyết định nghiệp vụ còn hiệu lực của db-schema.
+1. `README.md` của package này — quyết định nghiệp vụ còn hiệu lực của db.
 2. Issue đặc tả của việc đang làm trên GitHub — nguồn sự thật cho việc đó: bối cảnh,
    phạm vi, các quyết định liên quan (viết trọn vẹn ngay trong issue) và tiêu chí
    nghiệm thu đều nằm trong chính issue. Không viện dẫn sổ quyết định, hồ sơ hay tệp
@@ -44,7 +44,7 @@ của repo.
 
 ## Kiểm chứng bắt buộc
 
-- **Typecheck + build trước khi push**: `pnpm --filter @lms/db-schema typecheck`
+- **Typecheck + build trước khi push**: `pnpm --filter @lms/db typecheck`
   và build lại `dist`, rồi mới typecheck apps/api + apps/worker.
 - Kiểm chứng migrate phải làm trên **cây merge** (hoặc chờ CI trên PR): kiểm trên
   cây branch riêng không đủ — bẫy hai baseline chỉ lộ ở cây merge.
@@ -62,7 +62,7 @@ của repo.
 
 ## Chuẩn comment TSDoc
 
-Mọi code TypeScript viết mới hoặc sửa trong `packages/db-schema` phải có comment
+Mọi code TypeScript viết mới hoặc sửa trong `packages/db` phải có comment
 **tiếng Việt theo chuẩn TSDoc**, chi tiết nhất có thể — luồng nghiệp vụ của dữ
 liệu phải nằm ngay trong code, để lần sửa sau dựa vào nội dung code đang có chứ
 không dựa vào trí nhớ của trợ lý. Chuẩn ngôn ngữ chung của repo: code bằng tiếng

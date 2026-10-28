@@ -28,7 +28,7 @@ vụ" dù không chứa logic chạy.
 - Không chứa logic nghiệp vụ, không truy cập DB, không gác quyền: contracts chỉ mô tả
   HÌNH DẠNG và ràng buộc dữ liệu. Gác quyền/luật nằm ở `apps/api`.
 - Không chứa component hay trình bày (đó là `packages/ui`/`packages/editor`/`apps/web`).
-- Không định nghĩa schema DB (đó là `packages/db-schema`) — schema API và schema DB
+- Không định nghĩa schema DB (đó là `packages/db`) — schema API và schema DB
   là hai hợp đồng khác nhau, không suy ra nhau một-một.
 
 ## Kỹ thuật tối thiểu

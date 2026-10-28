@@ -12,7 +12,7 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
 
 /**
  * Hình dáng row outbox mà writer phản chiếu — suy thẳng từ định nghĩa bảng
- * dùng chung `@lms/db-schema` (trước đây là interface chép tay). `payload`
+ * dùng chung `@lms/db` (trước đây là interface chép tay). `payload`
  * thu hẹp về record vì writer chỉ đọc payload dạng object.
  */
 export type OutboxRowLike = Pick<OutboxRow, 'id' | 'seq' | 'aggregate' | 'type' | 'occurredAt' | 'tenantId'> & {
