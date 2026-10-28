@@ -222,13 +222,13 @@ export class GradesService implements OnModuleInit {
         hidden: existing?.hidden ?? false, locked: existing?.locked ?? false,
         overridden: options?.overridden ?? false, excluded: existing?.excluded ?? false, frozen,
         aggregationStatus: 'used', aggregationWeight: existing?.aggregationWeight ?? null,
-      }, tx as never);
+      }, tx);
       await this.repo.insertHistory({
         action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: itemId, userId: userId,
         rawGrade: clampedRaw, finalGrade, overridden: options?.overridden ?? false, excluded: existing?.excluded ?? false,
         frozen, source: options?.source ?? 'manual', loggedUser: actorId,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'grades', type: 'grade_updated',
         payload: { courseId: item.courseId, itemId, userId, rawGrade: clampedRaw, finalGrade, actorId },
       });
@@ -269,13 +269,13 @@ export class GradesService implements OnModuleInit {
         hidden: existing?.hidden ?? false, locked: existing?.locked ?? false,
         overridden: false, excluded: existing?.excluded ?? false, frozen,
         aggregationStatus: 'used', aggregationWeight: existing?.aggregationWeight ?? null,
-      }, tx as never);
+      }, tx);
       await this.repo.insertHistory({
         action: existing ? 2 : 1, oldId: existing?.id ?? null, itemId: itemId, userId: userId,
         rawGrade: raw, finalGrade, overridden: false, excluded: existing?.excluded ?? false,
         frozen, source, loggedUser: null,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'grades', type: 'grade_updated',
         payload: { courseId: item.courseId, itemId, userId, rawGrade: raw, finalGrade, source },
       });
@@ -307,14 +307,14 @@ export class GradesService implements OnModuleInit {
       throw new BadRequestException({ message: 'Overriding requires a finalGrade', code: 'grades.override_needs_grade' });
     }
     await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.updateGrade(gradeId, patch, tx as never);
+      await this.repo.updateGrade(gradeId, patch, tx);
       await this.repo.insertHistory({
         action: 2, oldId: gradeId, itemId: grade.itemId, userId: grade.userId,
         rawGrade: grade.rawGrade, finalGrade: patch.finalGrade ?? grade.finalGrade,
         overridden: patch.overridden ?? grade.overridden, excluded: patch.excluded ?? grade.excluded,
         frozen: patch.frozen ?? grade.frozen, source: 'override', loggedUser: actorId,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'grades', type: 'grade_updated',
         payload: { courseId: item.courseId, itemId: grade.itemId, userId: grade.userId, finalGrade: patch.finalGrade ?? grade.finalGrade, overridden: patch.overridden ?? grade.overridden, actorId },
       });

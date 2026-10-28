@@ -202,8 +202,8 @@ export class UsersService {
         username, email, passwordHash,
         firstName: input.firstName ?? '', lastName: input.lastName ?? '',
         forcePasswordChange: input.forcePasswordChange ?? false,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
+      }, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
       return created;
     });
     await this.contexts.createContext(CONTEXT_LEVELS.USER, user.id, (await this.contexts.ensureSystemContext()).id);
@@ -255,8 +255,8 @@ export class UsersService {
         username, email, passwordHash: null,
         firstName: input.firstName ?? '', lastName: input.lastName ?? '',
         forcePasswordChange: false,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
+      }, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_created', payload: { userId: created.id, username } });
       return created;
     });
     await this.contexts.createContext(CONTEXT_LEVELS.USER, user.id, (await this.contexts.ensureSystemContext()).id);
@@ -339,8 +339,8 @@ export class UsersService {
       patch.forcePasswordChange = false;
     }
     await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.updateUser(id, patch, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_updated', payload: { userId: id } });
+      await this.repo.updateUser(id, patch, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_updated', payload: { userId: id } });
     });
     // Chặng 2.6 (issue #7): mật khẩu vừa đặt lại ở hệ cũ cũng là mật
     // khẩu của dòng credential — hai hệ không bao giờ lệch mật khẩu.
@@ -373,8 +373,8 @@ export class UsersService {
       await this.planLimits.assertUserReactivationWithinSlotLimits(id);
     }
     await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.updateUser(id, { suspended }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'user', type: suspended ? 'user_suspended' : 'user_unsuspended', payload: { userId: id } });
+      await this.repo.updateUser(id, { suspended }, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'user', type: suspended ? 'user_suspended' : 'user_unsuspended', payload: { userId: id } });
     });
     return this.getUser(id);
   }
@@ -391,8 +391,8 @@ export class UsersService {
       await this.repo.updateUser(id, {
         deleted: true, suspended: true,
         username: `${user.username}.deleted${id}`, email: `${user.email}.deleted${id}`,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, { aggregate: 'user', type: 'user_deleted', payload: { userId: id } });
+      }, tx);
+      await this.outbox.enqueue(tx, { aggregate: 'user', type: 'user_deleted', payload: { userId: id } });
     });
     return this.getUser(id);
   }

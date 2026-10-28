@@ -88,8 +88,8 @@ export class MessagingConversationsService {
       }
     }
     const conversation = await this.repo.dbHandle.transaction(async (tx) => {
-      const created = await this.repo.insertConversation({ type, name: input.name ?? null, createdBy: actorId, tenantId: tenantAls.getStore()?.tenantId ?? null }, tx as never);
-      for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
+      const created = await this.repo.insertConversation({ type, name: input.name ?? null, createdBy: actorId, tenantId: tenantAls.getStore()?.tenantId ?? null }, tx);
+      for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
       return created;
     });
     return { ...conversation, members: memberIds };
@@ -161,8 +161,8 @@ export class MessagingConversationsService {
         type: 2, name: input.name ?? group.name,
         component: 'core_group', itemType: 'groups', itemId: group.id,
         contextId: courseCtx?.id ?? null, createdBy: actorId, tenantId,
-      }, tx as never);
-      for (const id of groupMemberIds) await this.repo.addMember(created.id, id, tx as never);
+      }, tx);
+      for (const id of groupMemberIds) await this.repo.addMember(created.id, id, tx);
       return created;
     });
     return { ...conversation, members: groupMemberIds };
@@ -201,15 +201,15 @@ export class MessagingConversationsService {
       // lượt ensure song song đến sau phải chờ lượt trước commit xong
       // mới qua được khoá, và re-check lúc đó thấy conversation đã
       // tồn tại nên không insert trùng.
-      await this.repo.acquireCourseConversationLock(tx as never, courseId);
-      const rechecked = await this.repo.findCourseConversation(courseId, tx as never);
+      await this.repo.acquireCourseConversationLock(tx, courseId);
+      const rechecked = await this.repo.findCourseConversation(courseId, tx);
       if (rechecked) return { conversation: rechecked, created: false as const };
       const created = await this.repo.insertConversation({
         type: 2, name: course.fullName,
         component: 'core_course', itemType: 'course', itemId: courseId,
         contextId: courseCtx?.id ?? null, createdBy: actorId,
-      }, tx as never);
-      for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
+      }, tx);
+      for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
       return { conversation: created, created: true as const };
     });
     if (!ensured.created) return { ...ensured.conversation, members: await this.membershipSync.syncCourseConversationMembers(ensured.conversation) };
@@ -265,15 +265,15 @@ export class MessagingConversationsService {
     const classCtx = await this.contexts.getByLevelInstance(45, classId);
     const memberIds = await this.repo.listClassConversationMemberIds(classId);
     const ensured = await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.acquireClassConversationLock(tx as never, classId);
-      const rechecked = await this.repo.findClassConversation(classId, tx as never);
+      await this.repo.acquireClassConversationLock(tx, classId);
+      const rechecked = await this.repo.findClassConversation(classId, tx);
       if (rechecked) return { conversation: rechecked, created: false as const };
       const created = await this.repo.insertConversation({
         type: 2, name: cls.name,
         component: 'core_class', itemType: 'class', itemId: classId,
         contextId: classCtx?.id ?? null, createdBy: actorId, tenantId: cls.tenantId,
-      }, tx as never);
-      for (const id of memberIds) await this.repo.addMember(created.id, id, tx as never);
+      }, tx);
+      for (const id of memberIds) await this.repo.addMember(created.id, id, tx);
       return { conversation: created, created: true as const };
     });
     if (!ensured.created) return { ...ensured.conversation, members: await this.membershipSync.syncClassConversationMembers(ensured.conversation) };

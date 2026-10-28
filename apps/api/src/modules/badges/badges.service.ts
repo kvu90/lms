@@ -253,13 +253,13 @@ export class BadgesService implements OnModuleInit {
       }
     }
     await this.repo.dbHandle.transaction(async (tx) => {
-      await this.repo.deleteCriteria(badgeId, tx as never);
-      await this.repo.insertCriteria({ badgeId: badgeId, criteriaType: 'overall', method: input.method, params: {} }, tx as never);
+      await this.repo.deleteCriteria(badgeId, tx);
+      await this.repo.insertCriteria({ badgeId: badgeId, criteriaType: 'overall', method: input.method, params: {} }, tx);
       for (const leaf of input.criteria) {
         await this.repo.insertCriteria({
           badgeId: badgeId, criteriaType: leaf.criteriaType, method: input.method,
           params: leaf.params ?? {}, description: leaf.description ?? '',
-        }, tx as never);
+        }, tx);
       }
     });
     return this.getCriteria(badgeId);
@@ -455,8 +455,8 @@ export class BadgesService implements OnModuleInit {
         },
         evidence: evidence ?? {},
         dateExpire, visible: true,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'badges', type: 'badge_issued',
         payload: { badgeId, userId, issuedId: row.id, uniqueHash },
       });

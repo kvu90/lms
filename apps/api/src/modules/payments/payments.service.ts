@@ -994,7 +994,7 @@ export class PaymentsService {
       // bị hai yêu cầu song song chẻ đôi (mỗi transaction thấy tổng đã
       // gồm dòng của transaction thắng trước).
       await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
-      const counted = await this.repo.sumRefundsByStatuses(payment.id, ['requested', 'approved', 'settled'], tx as never);
+      const counted = await this.repo.sumRefundsByStatuses(payment.id, ['requested', 'approved', 'settled'], tx);
       if (counted + input.amount > payment.amount) {
         throw new BadRequestException({ message: 'Cumulative refunds would exceed the original payment amount', code: 'payment.refund_exceeds_total' });
       }
@@ -1012,7 +1012,7 @@ export class PaymentsService {
         approvalThreshold: threshold,
         approvedBy: dual ? null : actorId,
         approvedAt: dual ? null : now,
-      }, tx as never);
+      }, tx);
     });
     return this.toRefundView(created);
   }
@@ -1153,12 +1153,12 @@ export class PaymentsService {
     const now = new Date();
     const settled = await this.repo.dbHandle.transaction(async (tx) => {
       await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
-      const fresh = await this.repo.getRefund(refund.id, tx as never);
+      const fresh = await this.repo.getRefund(refund.id, tx);
       if (!fresh || fresh.status === 'settled') return fresh ?? refund;
       if (fresh.status !== 'approved') {
         throw new BadRequestException({ message: 'Refund is not approved for settlement', code: 'payment.refund_not_approved' });
       }
-      const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx as never);
+      const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx);
       const full = settledSum + fresh.amount === payment.amount;
       if (full) {
         // Đình chỉ trước mọi ghi sổ, theo đúng tổng đã khoá ở trên:
@@ -1170,8 +1170,8 @@ export class PaymentsService {
         status: 'settled', settledAt: now,
         settledBy: input.settledBy, settledEventId: input.settledEventId,
         externalTransactionId: input.externalTransactionId, data,
-      }, tx as never);
-      if (full) await this.repo.updatePayment(payment.id, { status: 'refunded' }, tx as never);
+      }, tx);
+      if (full) await this.repo.updatePayment(payment.id, { status: 'refunded' }, tx);
       return updated;
     });
     return settled;

@@ -181,8 +181,8 @@ export class CompletionService implements OnModuleInit {
       await this.repo.upsertCmCompletion({
         courseModuleId: cmId, userId: userId, completionState: state,
         viewed: existing?.viewed ?? false, overrideBy: existing?.overrideBy ?? null,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'completion', type: 'cm_completion_changed',
         payload: { cmId, courseId: cm.course, userId, state, via: 'grade' },
       });
@@ -277,8 +277,8 @@ export class CompletionService implements OnModuleInit {
       await this.repo.upsertCmCompletion({
         courseModuleId: cmId, userId: targetUserId, completionState: state,
         viewed: existing?.viewed ?? false, overrideBy: actorId !== targetUserId ? actorId : null,
-      }, tx as never);
-      await this.outbox.enqueue(tx as never, {
+      }, tx);
+      await this.outbox.enqueue(tx, {
         aggregate: 'completion', type: 'cm_completion_changed',
         payload: { cmId, courseId: cm.course, userId: targetUserId, state, manual: true },
       });

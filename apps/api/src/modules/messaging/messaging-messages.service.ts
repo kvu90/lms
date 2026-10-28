@@ -284,18 +284,18 @@ export class MessagingMessagesService {
     await this.sendThrottle.consume(actorId);
     try {
       const saved = await this.repo.dbHandle.transaction(async (tx) => {
-        const seq = await this.repo.allocateNextSeq(conversationId, tx as never);
+        const seq = await this.repo.allocateNextSeq(conversationId, tx);
         const msg = await this.repo.insertMessage({
           conversationId: conversationId, userIdFrom: actorId,
           subject: input.subject ?? '', fullMessage: input.text, smallMessage: input.text.slice(0, 200),
           seq, clientMessageId: input.clientMessageId ?? null,
           replyToMessageId: input.replyToMessageId ?? null,
-        }, tx as never);
+        }, tx);
         // Lát M5: tin mới làm hội thoại ĐÃ LƯU của các thành viên còn
         // lại tự hiện lại (bỏ lưu trong cùng transaction — xem
         // clearArchivedForIncomingMessage ở repository).
-        await this.repo.clearArchivedForIncomingMessage(conversationId, actorId, tx as never);
-        await this.outbox.enqueue(tx as never, {
+        await this.repo.clearArchivedForIncomingMessage(conversationId, actorId, tx);
+        await this.outbox.enqueue(tx, {
           aggregate: 'messaging', type: 'message_sent',
           payload: {
             conversationId, messageId: msg.id, seq, fromUserId: actorId,

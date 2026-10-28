@@ -1399,10 +1399,10 @@ export class QuestionsService {
     await this.repo.dbHandle.transaction(async (tx) => {
       const step = await this.repo.insertStep({
         questionAttemptId: attempt.id, sequenceNumber: seq, state, fraction, userId: userId,
-      }, tx as never);
+      }, tx);
       if (data) {
         for (const [name, value] of Object.entries(data)) {
-          await this.repo.insertStepData({ attemptStepId: step.id, name, value }, tx as never);
+          await this.repo.insertStepData({ attemptStepId: step.id, name, value }, tx);
         }
       }
     });
