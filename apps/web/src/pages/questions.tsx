@@ -165,16 +165,27 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
     const derived = views.filter(
       (v) => (v.question as { derivedFromQuestionId?: string | null }).derivedFromQuestionId,
     );
-    for (const v of derived) {
-      if (attributions[v.question.id]) continue;
-      try {
-        const a = await queryClient.fetchQuery(questionAttributionQueryOptions(v.question.id));
-        setAttributions((prev) => ({ ...prev, [v.question.id]: a }));
-      } catch {
-        // Không có dòng ghi công thì thôi — không chặn danh sách.
-      }
+    // Mỗi câu một lượt đọc độc lập: nạp SONG SONG rồi gộp vào state
+    // một lần (bản cũ lặp await nối tiếp từng câu); câu nào lỗi thì
+    // bỏ qua như trước — không có dòng ghi công thì thôi, không
+    // chặn danh sách.
+    const entries = await Promise.all(
+      derived
+        .filter((v) => !attributions[v.question.id])
+        .map(async (v) => {
+          try {
+            const a = await queryClient.fetchQuery(questionAttributionQueryOptions(v.question.id));
+            return [v.question.id, a] as const;
+          } catch {
+            return null;
+          }
+        }),
+    );
+    const loaded: [string, AttributionLite][] = entries.filter((entry) => entry !== null);
+    if (loaded.length > 0) {
+      setAttributions((prev) => ({ ...prev, ...Object.fromEntries(loaded) }));
     }
-  }, [attributions]);
+  }, [attributions, queryClient]);
 
   // Ghi công cho các câu copy trong bank cá nhân (trước đây do
   // loadMyQuestions gọi nối tiếp ngay sau khi nạp danh sách).
