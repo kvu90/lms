@@ -16,7 +16,7 @@ phẩm, qua cùng một bộ component nền.
 | Quyết định | Nguồn |
 |---|---|
 | Toàn bộ component shadcn/ui của dự án sống DUY NHẤT ở package này. `apps/web` chỉ dùng qua `@lms/ui/...`, cấm sao chép component vào app để sửa riêng. Component nghiệp vụ tự viết nằm ở `apps/web/src/components/`. | README gốc của package; README của apps/web |
-| Nhất quán hình thức là yêu cầu bắt buộc, không phải trang trí: các vỏ tương tác dùng chung (collapse/section, dialog, bảng…) dùng MỘT component/khuôn chung cho mọi trang — mỗi trang tự chế một kiểu vỏ là lỗi (Lão gia bắt lỗi 3 kiểu collapse khác nhau trên trang /questions, 25/10/2026 — lát UI-1 thống nhất vỏ). | Chỉ thị của Lão gia 25/10/2026 23:04; issue #133 (UI-1) |
+| Nhất quán hình thức là yêu cầu bắt buộc, không phải trang trí: các vỏ tương tác dùng chung (collapse/section, dialog, bảng…) dùng MỘT component/khuôn chung cho mọi trang — mỗi trang tự chế một kiểu vỏ là lỗi (đã ghi nhận 3 kiểu collapse khác nhau trên trang /questions, 25/10/2026 — lát UI-1 thống nhất vỏ). | Yêu cầu nghiệp vụ ngày 25/10/2026 23:04; issue #133 (UI-1) |
 | Font chữ của sản phẩm là Inter (bản Variable tự host qua `@fontsource-variable/inter`), áp qua preset hiện hành — không nạp font ngoài theo trang. | `globals.css` + ngoại lệ ghi ở cuối file |
 
 ## Bất biến

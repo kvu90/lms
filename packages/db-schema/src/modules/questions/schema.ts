@@ -140,7 +140,7 @@ export const question = pgTable('question', {
    * cứng và KHÔNG khoá vào bank nội bộ, để gắn book/exam sau này không
    * cần di trú. Khác derived_from_* (chuỗi copy TRONG hệ bank): nguồn
    * ngoài được KẾ THỪA nguyên qua các đời copy.
-   * QUY TẮC BẢN QUYỀN (Lão gia chốt 22:58 24/10/2026): cặp trường này
+   * QUY TẮC BẢN QUYỀN (quyết định 22:58 ngày 24/10/2026): cặp trường này
    * chỉ để TRUY VẾT NỘI BỘ phía server/quản trị — bề mặt học viên
    * (attempt/usage/quiz attempt) KHÔNG BAO GIỜ trả chúng; việc hiện
    * nguồn công khai sau này quyết bởi cờ của SÁCH (theo sách, không

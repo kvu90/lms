@@ -55,7 +55,7 @@ export function toMembershipDto(row: TenantMembershipRow): TenantMembershipDto {
 
 /**
  * TenantsService — vòng đời tenant + membership (TENANT-0, #168; hồ sơ
- * mục 2, 4, 6.2). Nguyên tắc cứng theo chốt của Lão gia: tenant CHỈ do
+ * mục 2, 4, 6.2). Nguyên tắc cứng đã chốt: tenant CHỈ do
  * platform admin tạo khi khách đăng ký gói tổ chức — KHÔNG có đường tự
  * tạo tenant, KHÔNG tự đăng ký thành giáo viên ở platform; học sinh ở
  * Trang chính được tự đăng ký (luồng đăng ký hiện hữu cho ra học sinh ở

@@ -49,7 +49,7 @@ của repo.
   type giả — build lại package phụ thuộc trước khi kết luận.
 - Feat lớn xong phải có lượt nghiệm thu trên **trình duyệt thật** bằng tài khoản seed
   đổi đủ vai liên quan (tài khoản demo ghi công khai trong README gốc của repo — tự
-  đọc mà dùng, tự gõ vào form đăng nhập, không hỏi ngược Lão gia, không chờ thẻ
+  đọc mà dùng, tự gõ vào form đăng nhập, không xin lại thông tin đăng nhập, không chờ thẻ
   Secure Vault).
 - Kiểm chứng gồm cả **tính nhất quán hình thức** (vỏ component, trạng thái hover,
   chevron, khoảng cách) — không chỉ kiểm cấu trúc/chức năng.

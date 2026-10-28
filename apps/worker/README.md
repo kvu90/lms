@@ -16,7 +16,7 @@ hàm luật dùng chung khi luật đó áp cho cả hai phía.
 
 | Quyết định | Nguồn |
 |---|---|
-| Kênh ngoài tối thiểu hoá (P4 — luật CỨNG): email/push/Zalo **không mang điểm, không mang nội dung tin nhắn** — chỉ nhắc + link sâu. Digest phụ huynh là seam log-only cho tới khi có tài khoản Zalo OA/SMTP do Lão gia cấp. | Sổ mục C (P1/P4), chốt 25/10/2026 15:02; issue #174/#159 |
+| Kênh ngoài tối thiểu hoá (P4 — luật CỨNG): email/push/Zalo **không mang điểm, không mang nội dung tin nhắn** — chỉ nhắc + link sâu. Digest phụ huynh là seam log-only cho tới khi có tài khoản Zalo OA/SMTP được cấp qua cấu hình hệ thống. | Sổ mục C (P1/P4), chốt 25/10/2026 15:02; issue #174/#159 |
 | Luật thông báo áp giống hệt ở phía worker như phía API: loại bắt buộc P2 không tắt được; tắt tiếng theo khoá chừa điểm mới + hết hạn ghi danh (P3); chính sách admin cấp site tôn trọng trước tuỳ chọn cá nhân. Đường phát nền phải đi qua **hàm luật phân phối chung** — cấm có đường phát riêng vòng qua cổng chặn (bài học PR #94: đường read-receipt vòng qua cổng làm rò trạng thái). | Sổ mục C; issue #174 (NB-4/NB-6) |
 | Retention thông báo: giữ 90/180 ngày theo loại (NB-6). Dọn dẹp file/ảnh phiếu theo mốc hết hạn giữ ảnh `paperscanretentionmonths` (mặc định 18 tháng) qua port ObjectStorage. | Issue #174; issue #112, chỉ đạo 25/10/2026 16:51 |
 | Sau mỗi lần reset DB, consumer giữ watermark trong bộ nhớ phải **tự neo lại** khi seq DB thấp hơn watermark (không được im lặng no-op). Mọi consumer outbox mới phải theo nguyên lý tự neo này. | Issue #125; áp cho consumer thông báo + cohort |

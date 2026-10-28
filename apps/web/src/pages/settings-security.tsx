@@ -11,7 +11,7 @@ import { SettingsShell } from '../components/settings-shell';
  *
  * Trang này không có luồng dữ liệu riêng: mỗi thẻ tự nạp dữ liệu và
  * tự xử lý đột biến (xem `components/profile-cards.tsx`). Khối đổi
- * mật khẩu KHÔNG nằm ở lát này — Lão gia chốt để lát riêng.
+ * mật khẩu KHÔNG nằm ở lát này — quyết định để lát riêng.
  */
 export function SettingsSecurityPage() {
   return (

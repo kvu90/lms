@@ -149,7 +149,7 @@ export const SITE_SETTINGS: readonly SiteSettingDefinition[] = [
   // nhiệm. scope 'both' như ngưỡng duyệt hoàn ở trên.
   { component: 'payments', name: 'reviewtargethours', type: 'number', defaultValue: 48, scope: 'both' },
   // Chính sách phát thông báo theo loại ở cấp site (NB-7, issue #174 —
-  // quyết của Lão gia 23:09 ngày 25/10/2026: "loại sự kiện nào thì gửi
+  // quyết định 23:09 ngày 25/10/2026: "loại sự kiện nào thì gửi
   // thông báo" là cài đặt của ADMIN): MỘT khoá boolean cho MỖI provider
   // trong registry thông báo, sinh tự động từ MESSAGE_PROVIDERS để không
   // bao giờ lệch sổ — provider mới đăng ký là có ngay khoá chính sách.

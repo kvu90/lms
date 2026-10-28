@@ -55,7 +55,7 @@ describe('RichTextView', () => {
           type: 'paragraph',
           content: [
             { type: 'text', text: 'Xin chào ' },
-            { type: 'text', text: 'Lão gia', marks: [{ type: 'bold' }] },
+            { type: 'text', text: 'bạn', marks: [{ type: 'bold' }] },
           ],
         },
       ],
@@ -65,8 +65,8 @@ describe('RichTextView', () => {
 
     const paragraph = container.querySelector('p');
     expect(paragraph).not.toBeNull();
-    expect(paragraph).toHaveTextContent('Xin chào Lão gia');
-    expect(container.querySelector('strong')).toHaveTextContent('Lão gia');
+    expect(paragraph).toHaveTextContent('Xin chào bạn');
+    expect(container.querySelector('strong')).toHaveTextContent('bạn');
   });
 
   it('renders nothing for a null document without crashing', () => {

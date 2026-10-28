@@ -8,7 +8,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstS
 import { addExamSlot, createExamDraft, pinExam } from './exam-pin-helpers';
 
 /**
- * Issue #141 — kiểm chứng lệnh của Lão gia: phân quyền đọc câu hỏi phải
+ * Issue #141 — kiểm chứng yêu cầu nghiệp vụ: phân quyền đọc câu hỏi phải
  * theo cây CONTEXT của hoạt động (kiểu Moodle), KHÔNG theo nhãn scope
  * của bank. Nếu đường attempt lỡ gác theo bank/scope thì học sinh không
  * đọc được câu khi làm bài.

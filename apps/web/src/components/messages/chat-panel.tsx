@@ -172,7 +172,7 @@ export function ChatPanel({
    */
   const panelEntryById = new Map((memberPanel?.entries ?? []).map((entry) => [entry.userId, entry]));
   /**
-   * Gói panel BỔ SUNG chặn/bỏ chặn (quyết Lão gia 23:16 ngày
+   * Gói panel BỔ SUNG chặn/bỏ chặn (quyết định 23:16 ngày
    * 26/10/2026, sổ quyết định mục D): chặn là hành động theo từng
    * người — ở chat nhóm nó đi qua menu hành động của thành viên,
    * không còn nằm ở thanh header. Trang chỉ đưa handler chặn xuống
@@ -232,7 +232,7 @@ export function ChatPanel({
     const hasOwnStatusNote = Boolean(m.deletedAt || m.recalledAt || m.localStatus);
     /** Dòng panel của tác giả tin này (lát MSG-T4) — có thì avatar dòng tin thành nút mở menu quan hệ. */
     const authorEntry = isGroup && !mine ? panelEntryById.get(m.userIdFrom) : undefined;
-    // Cụm hành động trên tin (chốt Lão gia 26/10, sổ quyết định mục D):
+    // Cụm hành động trên tin (quyết định ngày 26/10, sổ quyết định mục D):
     // icon nhỏ hiện khi hover/focus tin thay cho hàng nút chữ luôn hiện
     // (dòng 11:20); cách ĐẶT đã thay theo dòng 23:16 — toolbar NỔI
     // cạnh bong bóng, bỏ hẳn khỏi luồng dọc (xem khối render dưới).
@@ -297,7 +297,7 @@ export function ChatPanel({
               ) : null}
               <BubbleContent>{m.recalledAt ? t('messageRecalled') : m.fullMessage}</BubbleContent>
               {/*
-                Toolbar hành động NỔI (quyết Lão gia 23:16 ngày
+                Toolbar hành động NỔI (quyết định 23:16 ngày
                 26/10/2026, sổ quyết định mục D — theo cách
                 Messenger): cụm icon nằm NGOÀI luồng dọc, định vị
                 tuyệt đối theo chính bong bóng (Bubble là

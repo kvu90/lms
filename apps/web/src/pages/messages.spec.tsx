@@ -2425,7 +2425,7 @@ describe('Messages page — MSG-T4 phía học sinh: không nới luật nhắn 
 });
 
 /**
- * Lát dọn gọn UI nhắn tin (nối tiếp issue #33 — phàn nàn của Lão gia
+ * Lát dọn gọn UI nhắn tin (nối tiếp issue #33 — ghi nhận phản ánh
  * khi kiểm tra production): hai lỗi TRÌNH BÀY đã chốt cách sửa —
  * (1) avatar phải neo ở ĐẦU dòng tin, không còn neo đáy + hack
  * translate theo footer khiến avatar nằm ngang hàng hàng tuỳ chọn
@@ -2538,7 +2538,7 @@ describe('Messages page — dọn gọn trình bày (avatar neo đầu dòng + m
 
 /**
  * Lát sửa dứt điểm trình bày tin nhắn (nối tiếp issue #33 — quyết
- * Lão gia 23:16 ngày 26/10/2026, sổ quyết định mục D): ba hợp đồng
+ * định 23:16 ngày 26/10/2026, sổ quyết định mục D): ba hợp đồng
  * trình bày mới thay cho cách đặt cũ đã bị chất vấn —
  * (1) cụm hành động trên tin là toolbar NỔI cạnh bong bóng (định
  *     vị tuyệt đối theo bong bóng, ngoài luồng dọc), thay cho một

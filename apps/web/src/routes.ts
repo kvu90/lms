@@ -87,7 +87,7 @@ export default [
     route('questions/matrices/new', 'routes/legacy-matrix-new.tsx'),
     route('questions/matrices/:matrixId/edit', 'routes/legacy-matrix-edit.tsx'),
     route('question-usages/:id', 'routes/question-usage.tsx'),
-    // Cây Đề: tên tài nguyên chốt là "exams" (Lão gia chốt tối
+    // Cây Đề: tên tài nguyên chốt là "exams" (quyết định tối
     // 25/10/2026 — bỏ hậu tố "papers"); cây cũ /exam-papers* giữ làm
     // lớp tương thích chuyển hướng thay thế.
     route('exams', 'routes/exams.tsx'),

@@ -118,7 +118,7 @@ export function MyQuestionsPanel({
 
   return (
     <>
-  {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính của Lão gia):
+  {/* Khu vực RIÊNG của giáo viên (feat #70 theo đính chính đã chốt):
       tách hẳn khỏi Ngân hàng hệ thống. Danh sách câu của chính
       giáo viên hiện THẲNG trong trang, không bọc thẻ thu/mở —
       chốt 23:43 ngày 26/10/2026 (sổ quyết định mục B); nút tạo
