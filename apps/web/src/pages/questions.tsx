@@ -181,7 +181,7 @@ export function QuestionsPage({ area = 'my-questions' }: { area?: BankArea }) {
           }
         }),
     );
-    const loaded: [string, AttributionLite][] = entries.filter((entry) => entry !== null);
+    const loaded: (readonly [string, AttributionLite])[] = entries.filter((entry) => entry !== null);
     if (loaded.length > 0) {
       setAttributions((prev) => ({ ...prev, ...Object.fromEntries(loaded) }));
     }
