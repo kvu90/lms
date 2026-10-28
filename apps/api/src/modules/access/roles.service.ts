@@ -101,10 +101,26 @@ export class RolesService {
   }
   /**
    * Xoá role (kèm gán và override của nó).
+   *
+   * Flow: đọc role → thu thập các context phân biệt từng có gán vai
+   * hoặc override của role (phải đọc TRƯỚC khi xoá, vì xoá xong không
+   * còn dữ kiện để biết cache của context nào đang stale) → xoá role
+   * cùng toàn bộ gán/override của nó → bump version từng context đó.
+   *
+   * Nguyên tắc vô hiệu hoá cache quyền (áp dụng thống nhất cho gán,
+   * gỡ và xoá): MỌI thay đổi về gán vai đều phải làm mới dấu version
+   * của context liên quan qua `markContextDirty`. PermissionEvaluator
+   * cache kết quả theo khoá nhúng dấu version của path với TTL một
+   * giờ; thiếu lần bump này, quyền của role vừa xoá vẫn qua cổng từ
+   * cache cho tới khi mục cache hết hạn.
    */
   async deleteRole(id: string): Promise<void> {
     await this.getRole(id);
+    const assignments = await this.repo.listAssignmentsByRole(id);
+    const overrides = await this.repo.listRoleCapabilities(id);
+    const contextIds = [...new Set([...assignments.map((a) => a.contextId), ...overrides.map((o) => o.contextId)])];
     await this.repo.deleteRole(id);
+    for (const contextId of contextIds) await this.contexts.markContextDirty(contextId);
   }
 
   /**
@@ -115,6 +131,13 @@ export class RolesService {
    * role/user/context có thể có nhiều dòng gán khác nguồn (vd vừa được
    * enrol cấp vừa được quản trị gán tay) — mỗi nguồn một dòng riêng, gỡ
    * nguồn nào chỉ mất dòng của nguồn đó.
+   *
+   * Sau khi chèn, `markContextDirty(contextId)` làm mới dấu version
+   * của context: kết quả đánh giá quyền đã cache (TTL một giờ, khoá
+   * nhúng dấu version của path) không còn khớp khoá mới nên lần kiểm
+   * tra sau tính lại từ dữ kiện thật. Đây là một nửa của nguyên tắc
+   * vô hiệu hoá cache quyền — nửa còn lại nằm ở đường gỡ/xoá: xem
+   * `unassignRole` và `deleteRole`.
    */
   async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource): Promise<unknown> {
     const roleRow = await this.getRole(roleId);
@@ -164,6 +187,13 @@ export class RolesService {
    * xoá sẽ để lại một ghi danh còn hiệu lực mà không còn vai ở khoá. Chỉ
    * đường nội bộ của chính enrol (unenrol/đổi vai instance) mới gỡ được,
    * qua cờ tường minh `allowEnrolManaged`.
+   *
+   * Sau khi xoá dòng gán phải bump version của context của dòng gán
+   * (nguyên tắc vô hiệu hoá cache quyền — xem `deleteRole`): mọi đường
+   * gỡ gán trong sản phẩm đều chảy qua hàm này (API quản trị, rút ghi
+   * danh, đồng bộ danh sách lớp, thu hồi chia sẻ ngân hàng câu hỏi),
+   * nên bump tại đây thì thao tác thu hồi quyền có hiệu lực tức thì ở
+   * mọi đường, thay vì chờ kết quả đã cache hết hạn (TTL một giờ).
    */
   async unassignRole(assignmentId: string, modifierId?: string, opts?: { allowEnrolManaged?: boolean }): Promise<void> {
     const existing = await this.repo.getAssignment(assignmentId);
@@ -175,6 +205,7 @@ export class RolesService {
     }
     await this.repo.deleteAssignment(assignmentId);
     if (existing) {
+      await this.contexts.markContextDirty(existing.contextId);
       // Sự kiện role_unassigned (Moodle \core\event\role_unassigned) cho logstore.
       await this.outbox.enqueueStandalone({
         aggregate: 'access', type: 'role_unassigned',
