@@ -1,34 +1,19 @@
-import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { Test } from '@nestjs/testing';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import type { INestApplication } from '@nestjs/common';
-import request from 'supertest';
+import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validateEnv } from '../../config/env';
 import { CacheInfraModule } from './cache-infra.module';
-import { RequestCacheService } from './request-cache.service';
 import { SessionCacheService } from './session-cache.service';
 
-@Controller('cache-probe')
-class CacheProbeController {
-  constructor(
-    @Inject(RequestCacheService) private readonly requestCache: RequestCacheService,
-  ) {}
-
-  @Get()
-  probe(@Query('value') value: string) {
-    const seen = this.requestCache.get<string>('probe') ?? null;
-    this.requestCache.set('probe', value);
-    return { seen, stored: value };
-  }
-}
-
-describe('CacheInfraModule (3 MUC modes, real Redis)', () => {
+describe('CacheInfraModule (2 MUC modes, real Redis)', () => {
   let app: INestApplication;
   let appCache: Cache;
   let sessionCache: SessionCacheService;
+  let redis: Redis;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
@@ -36,16 +21,18 @@ describe('CacheInfraModule (3 MUC modes, real Redis)', () => {
         ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
         CacheInfraModule,
       ],
-      controllers: [CacheProbeController],
     }).compile();
     app = moduleRef.createNestApplication();
     await app.init();
     appCache = moduleRef.get(CACHE_MANAGER);
     sessionCache = moduleRef.get(SessionCacheService);
+    const config = moduleRef.get(ConfigService);
+    redis = new Redis(config.getOrThrow<string>('REDIS_URL'));
   });
 
   afterAll(async () => {
     await app.close();
+    redis.disconnect();
   });
 
   it('application cache stores and reads values', async () => {
@@ -63,11 +50,23 @@ describe('CacheInfraModule (3 MUC modes, real Redis)', () => {
     await expect(appCache.get('infra:shared-key')).resolves.toBe('from-app');
   });
 
-  it('request cache does not leak across requests', async () => {
-    const server = app.getHttpServer();
-    const first = await request(server).get('/cache-probe?value=one');
-    expect(first.body).toEqual({ seen: null, stored: 'one' });
-    const second = await request(server).get('/cache-probe?value=two');
-    expect(second.body).toEqual({ seen: null, stored: 'two' });
+  it('application cache applies the default TTL when set without one, and honors an explicit TTL', async () => {
+    // Set không truyền TTL: khoá trong Redis phải mang hạn mặc định
+    // của module (300 giây) thay vì tồn tại vô hạn (pttl = -1).
+    await appCache.set('infra:default-ttl-key', 'defaulted');
+    const [defaultedKey] = await redis.keys('*infra:default-ttl-key*');
+    expect(defaultedKey).toBeTruthy();
+    const defaultedPttl = await redis.pttl(defaultedKey!);
+    expect(defaultedPttl).toBeGreaterThan(0);
+    expect(defaultedPttl).toBeLessThanOrEqual(300_000);
+
+    // Set có TTL tường minh ngắn: hạn hiệu lực là TTL đã truyền,
+    // không bị TTL mặc định ghi đè.
+    await appCache.set('infra:explicit-ttl-key', 'explicit', 5_000);
+    const [explicitKey] = await redis.keys('*infra:explicit-ttl-key*');
+    expect(explicitKey).toBeTruthy();
+    const explicitPttl = await redis.pttl(explicitKey!);
+    expect(explicitPttl).toBeGreaterThan(0);
+    expect(explicitPttl).toBeLessThanOrEqual(5_000);
   });
 });
