@@ -12,8 +12,6 @@ export type CurriculumNodeRow = typeof curriculumNodes.$inferSelect;
 export type LearningOutcomeRow = typeof learningOutcomes.$inferSelect;
 export type ProgramRecordRow = typeof curriculumProgramRecords.$inferSelect;
 
-/** Transaction Drizzle đang mở (mẫu của CoursesRepository). */
-
 @Injectable()
 /**
  * Kho dữ liệu Curriculum: subjects → curricula → curriculum_nodes (cây) →
