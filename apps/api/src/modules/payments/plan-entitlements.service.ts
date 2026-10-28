@@ -65,6 +65,30 @@ export function planSnapshotOf(payment: PaymentRow): PlanSnapshot | null {
 }
 
 /**
+ * Số tiền ĐÃ THU của một payment gói theo ảnh chụp do server ghi lúc
+ * tạo (giá cấu hình trừ mức giảm coupon, cả hai nằm trong chính ảnh
+ * chụp) — căn cứ cho khâu đối chiếu tại điểm kích hoạt quyền lợi gói
+ * (issue #419): giá và bên hưởng của một giao dịch gói chỉ lấy từ đối
+ * tượng phía server, không lấy từ dữ kiện client gửi lên. Ảnh chụp
+ * thiếu hoặc sai hình dạng (payment không do đường mua gói chính
+ * thức sinh ra) → trả null, tức không xác minh được và điểm kích
+ * hoạt phải từ chối kích hoạt. Khác `planSnapshotOf` ở chỗ KHÔNG rơi
+ * về `payment.amount` khi `configuredPrice` vắng/sai — rơi về như
+ * vậy sẽ biến phép đối chiếu thành payment tự đối chiếu với chính
+ * nó, mất tác dụng phòng thủ.
+ */
+export function planChargedAmountOf(payment: PaymentRow): number | null {
+  const data = payment.data as { plan?: Partial<PlanSnapshot> } | null;
+  const plan = data?.plan;
+  if (!plan || (plan.component !== 'tenant_plan' && plan.component !== 'teacher_plan')) return null;
+  if (plan.component !== payment.component) return null;
+  if (typeof plan.configuredPrice !== 'number' || !Number.isInteger(plan.configuredPrice) || plan.configuredPrice <= 0) return null;
+  const discount = plan.discountAmount === undefined ? 0 : plan.discountAmount;
+  if (typeof discount !== 'number' || !Number.isInteger(discount) || discount < 0 || discount >= plan.configuredPrice) return null;
+  return plan.configuredPrice - discount;
+}
+
+/**
  * Kích hoạt + đảo quyền lợi gói (lát 2, issue #189).
  *
  * Luồng nghiệp vụ: payment gói (`tenant_plan`/`teacher_plan`) chỉ sinh

@@ -12,7 +12,12 @@ import { PlanEntitlementsService } from './plan-entitlements.service';
  * (match_status `received`) được khớ theo luật 3 điều kiện — (1) mã thanh
  * toán trích từ nội dung chuẩn hoá tìm thấy payment, (2) số tiền bằng đúng,
  * (3) tài khoản nhận trùng account của payment — cộng payment còn `pending`
- * và chưa hết hạn. Đủ: kích hoạt MỌI quyền lợi (enrol có phí / ghi danh
+ * và chưa hết hạn. Cộng thêm phép đối chiếu phòng thủ chiều sâu (issue
+ * #419): payment phải khớp giá + tenant phía server của đối tượng đích
+ * (`PaymentsService.verifyPaymentAgainstServerTarget`) — ba điều kiện
+ * khớp chỉ đối chiếu payment với sự kiện tiền về, một payment tự đặt
+ * số tiền thấp vẫn tự khớp với chính nó nên chưa đủ để kích hoạt. Đủ:
+ * kích hoạt MỌI quyền lợi (enrol có phí / ghi danh
  * lớp / quyền lợi gói) TRƯỚC, rồi mới lật payment → `succeeded` và phát
  * ĐÚNG outbox `payment_succeeded` sẵn có (cùng khuôn với webhook
  * manual). Thứ tự này giữ BẤT BIẾN ĐỒNG BỘ của nhịp chốt: trạng thái
@@ -104,7 +109,19 @@ export class SepayMatchingService {
     const stillPending = !!payment && payment.status === 'pending';
     const notExpired = !!payment && !(payment.expiresAt && payment.expiresAt.getTime() <= Date.now());
 
-    if (payment && accountMatches && amountMatches && stillPending && notExpired) {
+    // Đối chiếu phòng thủ chiều sâu (issue #419): khớp đủ các điều
+    // kiện trên mới chứng minh tiền về đúng payment, chưa chứng minh
+    // payment khớp GIÁ + TENANT phía server của đối tượng đích —
+    // một payment tự đặt số tiền thấp hơn giá thật cũng khớp với
+    // chính nó ở cả ba điều kiện. Trước khi kích hoạt phải đối
+    // chiếu payment với đối tượng phía server; lệch thì rơi xuống
+    // nhánh `needs_review` ở dưới như mọi ca thiếu điều kiện khác,
+    // TUYỆT ĐỐI không kích hoạt.
+    const targetVerified = payment && accountMatches && amountMatches && stillPending && notExpired
+      ? await this.payments.verifyPaymentAgainstServerTarget(payment)
+      : false;
+
+    if (payment && accountMatches && amountMatches && stillPending && notExpired && targetVerified) {
       // Kích hoạt MỌI quyền lợi TRƯỚC nhịp lật trạng thái (bất biến
       // đồng bộ của nhịp chốt, xem docblock đầu file): chừng nào
       // payment còn `pending` thì chưa bên nào được coi giao dịch đã
