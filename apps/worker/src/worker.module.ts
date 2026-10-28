@@ -66,6 +66,20 @@ import {
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: redisConnectionFromUrl(config.getOrThrow<string>('REDIS_URL')),
+        // Chính sách job mặc định thống nhất toàn hệ (bản sao đúng
+        // cùng bộ giá trị ở BullModule.forRoot của apps/api — hai app
+        // dùng chung một Redis và cùng các hàng đợi): thử lại tối đa
+        // 3 lần với giãn cách hàm mũ từ 1 giây; job đã xong/lỗi chỉ
+        // giữ 1.000 bản gần nhất để Redis không tăng vô hạn (mặc định
+        // của BullMQ là giữ vô hạn). Job lặp theo lịch do scheduler
+        // đăng ký cũng chịu chính sách này; processor đều idempotent
+        // nên thử lại an toàn.
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
+        },
       }),
     }),
     BullModule.registerQueue({ name: 'file-cleanup' }),

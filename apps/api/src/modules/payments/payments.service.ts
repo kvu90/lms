@@ -914,6 +914,13 @@ export class PaymentsService {
    * khác người tạo — luật tách nhiệm vụ của dòng tiền, chặn tại tầng
    * service (mọi đường gọi đều qua đây) bằng mã lỗi riêng
    * `payment.refund_approver_must_differ`.
+   *
+   * Chuyển trạng thái bằng cập nhật CÓ ĐIỀU KIỆN (`requested` nằm ngay
+   * trong `WHERE`): kiểm tra đọc ở trên chỉ để báo lỗi sớm cho lượt
+   * gọi thường; hai lượt duyệt song song thì chỉ một câu cập nhật
+   * khớp dòng, lượt còn lại khớp 0 dòng và nhận cùng mã lỗi
+   * `payment.refund_not_pending_approval` — không có chuyện hai người
+   * cùng duyệt qua hoặc duyệt ghi đè lên từ chối.
    */
   async approveRefund(actorId: string, paymentId: string, refundId: string): Promise<PaymentRefund> {
     const payment = await this.getPayment(paymentId);
@@ -925,7 +932,10 @@ export class PaymentsService {
     if (refund.createdBy !== null && refund.createdBy === actorId) {
       throw new BadRequestException({ message: 'The second approver must differ from the refund creator', code: 'payment.refund_approver_must_differ' });
     }
-    const updated = await this.repo.updateRefund(refund.id, { status: 'approved', approvedBy: actorId, approvedAt: new Date() });
+    const updated = await this.repo.updateRefundFromStatuses(refund.id, ['requested'], { status: 'approved', approvedBy: actorId, approvedAt: new Date() });
+    if (!updated) {
+      throw new BadRequestException({ message: 'Refund is not pending approval', code: 'payment.refund_not_pending_approval' });
+    }
     return this.toRefundView(updated);
   }
 
@@ -933,6 +943,12 @@ export class PaymentsService {
    * Từ chối một yêu cầu hoàn (`requested` hoặc `approved`) — lý do bắt
    * buộc. Dòng `rejected` ra khỏi cổng cộng dồn nên ngân sách hoàn của
    * khoản thu được giải phóng cho yêu cầu khác.
+   *
+   * Chuyển trạng thái bằng cập nhật CÓ ĐIỀU KIỆN như ở
+   * {@link approveRefund}: tập trạng thái nguồn (`requested`,
+   * `approved`) nằm ngay trong `WHERE` của câu cập nhật; lượt từ chối
+   * đua với một lượt duyệt/từ chối khác mà về sau thì khớp 0 dòng và
+   * nhận cùng mã lỗi `payment.refund_not_rejectable`.
    */
   async rejectRefund(actorId: string, paymentId: string, refundId: string, input: RejectRefund): Promise<PaymentRefund> {
     const payment = await this.getPayment(paymentId);
@@ -945,9 +961,12 @@ export class PaymentsService {
     if (reason.length === 0) {
       throw new BadRequestException({ message: 'A rejection reason is required', code: 'payment.refund_rejection_reason_required' });
     }
-    const updated = await this.repo.updateRefund(refund.id, {
+    const updated = await this.repo.updateRefundFromStatuses(refund.id, ['requested', 'approved'], {
       status: 'rejected', rejectedBy: actorId, rejectedAt: new Date(), rejectionReason: reason,
     });
+    if (!updated) {
+      throw new BadRequestException({ message: 'Refund can no longer be rejected', code: 'payment.refund_not_rejectable' });
+    }
     return this.toRefundView(updated);
   }
 
@@ -1192,6 +1211,20 @@ export class PaymentsService {
     }
     const now = Date.now();
     const items: PaymentReviewQueueItem[] = [];
+    // Ngưỡng quá hạn là cấu hình hiệu lực THEO TENANT: trong một lần
+    // dựng hàng đợi, mỗi tenant chỉ tra cấu hình một lần rồi dùng lại
+    // cho mọi khoản thu/sự kiện của tenant đó (trước đây tra lại theo
+    // từng dòng). Cache giữ cả Promise để các dòng cùng tenant dùng
+    // chung đúng một lượt tra.
+    const targetHoursByTenant = new Map<string, Promise<number>>();
+    const targetHoursFor = (tenantId: string): Promise<number> => {
+      let cached = targetHoursByTenant.get(tenantId);
+      if (!cached) {
+        cached = this.reviewTargetHours(tenantId);
+        targetHoursByTenant.set(tenantId, cached);
+      }
+      return cached;
+    };
     const payments = await this.repo.listNeedsReviewPayments(scope);
     for (const payment of payments) {
       const event = await this.repo.getLatestEventForPayment(payment);
@@ -1218,7 +1251,7 @@ export class PaymentsService {
         } : null,
         mismatches,
         ageHours,
-        overdue: ageHours > (await this.reviewTargetHours(payment.tenantId)),
+        overdue: ageHours > (await targetHoursFor(payment.tenantId)),
       });
     }
     const events = await this.repo.listNeedsReviewEvents(scope);
@@ -1238,7 +1271,7 @@ export class PaymentsService {
         },
         mismatches: [event.direction === 'debit' ? 'unmatched_debit' : 'unknown_code'],
         ageHours,
-        overdue: ageHours > (await this.reviewTargetHours(event.tenantId)),
+        overdue: ageHours > (await targetHoursFor(event.tenantId)),
       });
     }
     return items;
@@ -1311,13 +1344,13 @@ export class PaymentsService {
 
   async listPaymentsForUser(userId: string): Promise<PaymentRow[]> { return this.repo.listPaymentsForUser(userId); }
 
-  /** Đối soát tối giản ở worker: đếm payment succeeded chưa có external tx (cần rà soát). */
+  /**
+   * Đối soát tối giản ở worker: đếm payment succeeded chưa có external
+   * tx (cần rà soát). Cả ba con số đếm ở SQL (xem
+   * `PaymentsRepository.countPaymentsForReconcile`) — không nạp toàn
+   * bộ bảng payments về để đếm ở tầng ứng dụng.
+   */
   async reconcile(): Promise<{ total: number; succeeded: number; pendingWithoutExternalTx: number }> {
-    const all = await this.repo.listPayments();
-    return {
-      total: all.length,
-      succeeded: all.filter((p) => p.status === 'succeeded').length,
-      pendingWithoutExternalTx: all.filter((p) => p.status === 'pending' && !p.externalTransactionId).length,
-    };
+    return this.repo.countPaymentsForReconcile();
   }
 }

@@ -73,8 +73,13 @@ const MANDATORY_PROVIDERS = new Set(['enrol_expiry_warning', 'admin_announcement
  *     (chưa ghi log nên lần thử lại không vướng dedupe).
  *  6. Kênh push: chưa có hạ tầng push (chờ ứng dụng native) → giữ
  *     chế độ ghi log như trước NB-5: log `logged`.
+ *
+ * Concurrency 10: hàng đợi thuần I/O (gọi dịch vụ gửi thư qua HTTP)
+ * — concurrency mặc định 1 để một email chậm chặn toàn bộ hàng đợi
+ * phía sau. Job mang dedupeKey bền và khâu ghi log chống trùng nên
+ * chạy song song an toàn.
  */
-@Processor('notification-dispatch')
+@Processor('notification-dispatch', { concurrency: 10 })
 export class NotificationDispatchProcessor extends WorkerHost {
   constructor(
     @InjectDrizzle() private readonly db: Database,

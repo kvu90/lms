@@ -90,24 +90,45 @@ export class ActivityDueReminderProcessor extends WorkerHost {
         lte(examPins.timeClose, windowEnd),
       ));
     const reminded: ActivityDueReminderPair[] = [];
+    // Nạp theo lô thay cho kiểm tra từng cặp (học sinh × hoạt động):
+    // học sinh của một khoá chỉ nạp một lần cho cả lượt quét (nhiều
+    // hoạt động cùng khoá dùng chung), tập đã-nộp và tập đã-nhắc của
+    // một hoạt động cũng nạp một lần bằng một truy vấn rồi đối chiếu
+    // trong bộ nhớ — điều kiện phát nhắc giữ nguyên chính xác như
+    // khi kiểm tra từng cặp.
+    const studentsByCourse = new Map<string, Promise<string[]>>();
+    const studentsOf = (courseId: string): Promise<string[]> => {
+      let cached = studentsByCourse.get(courseId);
+      if (!cached) {
+        cached = this.enrolledStudentIds(courseId, now);
+        studentsByCourse.set(courseId, cached);
+      }
+      return cached;
+    };
     for (const row of due) {
       if (!row.timeClose) continue;
       // Module bị ẩn hoặc đang xoá: học sinh không thấy/không vào
       // được hoạt động — nhắc cũng vô ích (cmId null = pin không gắn
       // module thì coi như hiện, theo cột cm_id chỉ là bản sao tra cứu).
       if (row.cmVisible === false || row.cmDeletionInProgress === true) continue;
-      const students = await this.enrolledStudentIds(row.courseId, now);
+      const students = await studentsOf(row.courseId);
+      if (students.length === 0) continue;
+      const submitted = await this.submittedUserIdsForPin(row.pinId, students);
+      const remindedKeys = await this.remindedKeysForPin(row.pinId);
+      const timeCloseIso = row.timeClose.toISOString();
       for (const userId of students) {
-        if (await this.hasSubmitted(row.pinId, userId)) continue;
-        if (await this.alreadyReminded(userId, row.pinId, row.timeClose)) continue;
+        if (submitted.has(userId)) continue;
+        const remindedKey = `${userId}|${timeCloseIso}`;
+        if (remindedKeys.has(remindedKey)) continue;
         await this.db.insert(outboxEvents).values({
           aggregate: 'activity', type: 'activity_due_reminder', tenantId: row.tenantId,
           payload: {
             userId, courseId: row.courseId, pinId: row.pinId, tenantId: row.tenantId,
             activityType: 'quiz', activityName: row.pinName,
-            timeClose: row.timeClose.toISOString(),
+            timeClose: timeCloseIso,
           },
         });
+        remindedKeys.add(remindedKey);
         reminded.push({ userId, pinId: row.pinId });
       }
     }
@@ -128,18 +149,24 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     for (const row of dueAssignments) {
       if (!row.dueDate) continue;
       if (row.cmVisible === false || row.cmDeletionInProgress === true) continue;
-      const students = await this.enrolledStudentIds(row.courseId, now);
+      const students = await studentsOf(row.courseId);
+      if (students.length === 0) continue;
+      const submitted = await this.submittedUserIdsForAssignment(row.assignmentId, students);
+      const remindedKeys = await this.remindedKeysForAssignment(row.assignmentId);
+      const dueDateIso = row.dueDate.toISOString();
       for (const userId of students) {
-        if (await this.hasSubmittedAssignment(row.assignmentId, userId)) continue;
-        if (await this.alreadyRemindedAssignment(userId, row.assignmentId, row.dueDate)) continue;
+        if (submitted.has(userId)) continue;
+        const remindedKey = `${userId}|${dueDateIso}`;
+        if (remindedKeys.has(remindedKey)) continue;
         await this.db.insert(outboxEvents).values({
           aggregate: 'activity', type: 'activity_due_reminder',
           payload: {
             userId, courseId: row.courseId, assignmentId: row.assignmentId,
             activityType: 'assign', activityName: row.assignmentName,
-            timeClose: row.dueDate.toISOString(),
+            timeClose: dueDateIso,
           },
         });
+        remindedKeys.add(remindedKey);
         reminded.push({ userId, assignmentId: row.assignmentId });
       }
     }
@@ -166,63 +193,77 @@ export class ActivityDueReminderProcessor extends WorkerHost {
     return [...new Set(rows.map((r) => r.userId))];
   }
 
-  /** Đã nộp = tồn tại attempt không-preview ở trạng thái đã hoàn tất cho (pin, học sinh). */
-  private async hasSubmitted(pinId: string, userId: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: examAttempts.id }).from(examAttempts)
+  /**
+   * Tập học sinh ĐÃ NỘP của một pin, nạp một lần cho cả hoạt động:
+   * đã nộp = tồn tại attempt không-preview ở trạng thái đã hoàn tất
+   * cho (pin, học sinh) — cùng điều kiện với phép kiểm tra từng cặp
+   * trước đây.
+   */
+  private async submittedUserIdsForPin(pinId: string, studentIds: string[]): Promise<Set<string>> {
+    const rows = await this.db.select({ userId: examAttempts.userId }).from(examAttempts)
       .where(and(
         eq(examAttempts.pinId, pinId),
-        eq(examAttempts.userId, userId),
+        inArray(examAttempts.userId, studentIds),
         eq(examAttempts.preview, false),
         inArray(examAttempts.state, SUBMITTED_ATTEMPT_STATES),
-      ))
-      .limit(1);
-    return row !== undefined;
+      ));
+    return new Set(rows.map((r) => r.userId));
   }
 
   /**
-   * Chống trùng bền: sự kiện nhắc cho đúng (userId, pinId, timeClose)
-   * đã tồn tại trong outbox thì không phát lại — job chạy lại sau 5
-   * phút hay worker khởi động lại đều không spam; mốc hạn đổi thì bộ
-   * ba khác đi và được nhắc lại.
+   * Tập khoá "đã nhắc" của một pin, nạp một lần cho cả hoạt động:
+   * mỗi sự kiện nhắc đã có trong outbox đóng góp một khoá
+   * `<userId>|<timeClose ISO>` — đối chiếu trong bộ nhớ theo đúng bộ
+   * ba (userId, pinId, timeClose) của phép kiểm tra từng cặp trước
+   * đây. Chống trùng bền giữ nguyên: sự kiện nhắc cho đúng bộ ba đã
+   * tồn tại thì không phát lại — job chạy lại sau 5 phút hay worker
+   * khởi động lại đều không spam; mốc hạn đổi thì khoá khác đi và
+   * được nhắc lại.
    */
-  private async alreadyReminded(userId: string, pinId: string, timeClose: Date): Promise<boolean> {
-    const [row] = await this.db.select({ id: outboxEvents.id }).from(outboxEvents)
+  private async remindedKeysForPin(pinId: string): Promise<Set<string>> {
+    const rows = await this.db.select({ payload: outboxEvents.payload }).from(outboxEvents)
       .where(and(
         eq(outboxEvents.type, 'activity_due_reminder'),
-        sql`${outboxEvents.payload}->>'userId' = ${userId}`,
         sql`${outboxEvents.payload}->>'pinId' = ${pinId}`,
-        sql`${outboxEvents.payload}->>'timeClose' = ${timeClose.toISOString()}`,
-      ))
-      .limit(1);
-    return row !== undefined;
+      ));
+    return new Set(rows.map((r) => remindedKeyOf(r.payload)));
   }
 
   /**
-   * Đã nộp bài tập = tồn tại bản nộp hiện hành ở trạng thái
-   * 'submitted' cho (assignment, học sinh); bản nháp ('draft' — chưa
-   * chốt nộp hoặc đã mở lại) tính là CHƯA nộp.
+   * Tập học sinh ĐÃ NỘP của một bài tập, nạp một lần cho cả hoạt
+   * động: đã nộp = tồn tại bản nộp hiện hành ở trạng thái 'submitted'
+   * cho (assignment, học sinh); bản nháp ('draft' — chưa chốt nộp
+   * hoặc đã mở lại) tính là CHƯA nộp.
    */
-  private async hasSubmittedAssignment(assignmentId: string, userId: string): Promise<boolean> {
-    const [row] = await this.db.select({ id: assignSubmissions.id }).from(assignSubmissions)
+  private async submittedUserIdsForAssignment(assignmentId: string, studentIds: string[]): Promise<Set<string>> {
+    const rows = await this.db.select({ userId: assignSubmissions.userId }).from(assignSubmissions)
       .where(and(
         eq(assignSubmissions.assignmentId, assignmentId),
-        eq(assignSubmissions.userId, userId),
+        inArray(assignSubmissions.userId, studentIds),
         eq(assignSubmissions.status, 'submitted'),
-      ))
-      .limit(1);
-    return row !== undefined;
+      ));
+    return new Set(rows.map((r) => r.userId));
   }
 
-  /** Chống trùng bền cho bài tập: đúng khuôn bản quiz, khoá theo (userId, assignmentId, mốc hạn). */
-  private async alreadyRemindedAssignment(userId: string, assignmentId: string, dueDate: Date): Promise<boolean> {
-    const [row] = await this.db.select({ id: outboxEvents.id }).from(outboxEvents)
+  /** Tập khoá "đã nhắc" của một bài tập: đúng khuôn bản quiz, khoá theo (userId, assignmentId, mốc hạn). */
+  private async remindedKeysForAssignment(assignmentId: string): Promise<Set<string>> {
+    const rows = await this.db.select({ payload: outboxEvents.payload }).from(outboxEvents)
       .where(and(
         eq(outboxEvents.type, 'activity_due_reminder'),
-        sql`${outboxEvents.payload}->>'userId' = ${userId}`,
         sql`${outboxEvents.payload}->>'assignmentId' = ${assignmentId}`,
-        sql`${outboxEvents.payload}->>'timeClose' = ${dueDate.toISOString()}`,
-      ))
-      .limit(1);
-    return row !== undefined;
+      ));
+    return new Set(rows.map((r) => remindedKeyOf(r.payload)));
   }
+}
+
+/**
+ * Khoá đối chiếu "đã nhắc" từ payload của một sự kiện nhắc đã phát:
+ * `<userId>|<timeClose>` — payload do chính processor này ghi nên hai
+ * trường luôn là chuỗi; sự kiện lạ thiếu trường cho khoá không khớp
+ * được với bất kỳ cặp nào đang xét (đúng như phép kiểm tra từng cặp
+ * bằng SQL trước đây, vốn đòi khớp cả ba trường).
+ */
+function remindedKeyOf(payload: unknown): string {
+  const p = (payload ?? {}) as { userId?: unknown; timeClose?: unknown };
+  return `${typeof p.userId === 'string' ? p.userId : ''}|${typeof p.timeClose === 'string' ? p.timeClose : ''}`;
 }

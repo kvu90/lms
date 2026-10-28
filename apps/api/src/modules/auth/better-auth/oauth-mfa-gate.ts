@@ -34,9 +34,14 @@
  *   sau khi user qua verify lúc enable; bản ghi chưa verify là trạng
  *   thái đang setup dở, KHÔNG được chặn), nên cổng không phụ thuộc
  *   thứ tự merge giữa các chặng.
+ * - Cổng FAIL-CLOSED khi không xác minh được: tra cứu tín hiệu MFA
+ *   mà lỗi (cơ sở dữ liệu/adapter lỗi đúng lúc callback) thì KHÔNG
+ *   được hiểu là "chưa bật MFA" — cổng ghi log lỗi, huỷ phiên vừa tạo
+ *   ở cả hai tầng như khi cổng kích hoạt, rồi ném lỗi dừng đăng
+ *   nhập. Lỗi tra cứu không bao giờ được để lại một phiên sống.
  */
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { createAuthMiddleware } from 'better-auth/api';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { deleteSessionCookie } from 'better-auth/cookies';
 
 /** Tên cookie chờ bước hai của plugin twoFactor (constant trong dist của plugin). */
@@ -122,7 +127,17 @@ export interface OAuthMfaGateDeps {
   lookupTwoFactorRecord?: (userId: string) => Promise<{ verified: boolean } | null>;
 }
 
-/** User đã bật MFA chưa: cờ của plugin khi có mặt, ngược lại suy từ bản ghi two_factor đã verify. */
+/**
+ * User đã bật MFA chưa: cờ của plugin khi có mặt, ngược lại suy từ bản
+ * ghi two_factor đã verify.
+ *
+ * Lỗi tra cứu (cả hai đường) được để LAN ra ngoài, tuyệt đối không
+ * nuốt thành "chưa bật MFA": đây là cổng an toàn — không xác minh
+ * được thì phải coi là không xác minh được, và phía gọi
+ * ({@link createOAuthMfaGateHook}) xử lý theo kỷ luật fail-closed.
+ * Chỉ kết quả tra cứu thành công mới được diễn giải: có bản ghi đã
+ * verify = đã bật; không có bản ghi / bản ghi chưa verify = chưa bật.
+ */
 async function isMfaEnabled(
   ctx: GateContext,
   deps: OAuthMfaGateDeps,
@@ -130,13 +145,11 @@ async function isMfaEnabled(
 ): Promise<boolean> {
   if (user.twoFactorEnabled === true) return true;
   const record = deps.lookupTwoFactorRecord
-    ? await deps.lookupTwoFactorRecord(user.id).catch(() => null)
-    : await ctx.context.adapter
-        .findOne({
-          model: 'twoFactor',
-          where: [{ field: 'userId', value: user.id }],
-        })
-        .catch(() => null);
+    ? await deps.lookupTwoFactorRecord(user.id)
+    : await ctx.context.adapter.findOne({
+        model: 'twoFactor',
+        where: [{ field: 'userId', value: user.id }],
+      });
   return Boolean(record && (record as { verified?: boolean }).verified === true);
 }
 
@@ -167,7 +180,27 @@ export function createOAuthMfaGateHook(deps: OAuthMfaGateDeps = {}) {
     const data = ctx.context.newSession;
     if (!data) return;
     const { session, user } = data;
-    if (!(await isMfaEnabled(ctx, deps, user))) return;
+    let mfaEnabled: boolean;
+    try {
+      mfaEnabled = await isMfaEnabled(ctx, deps, user);
+    } catch (err) {
+      // FAIL-CLOSED: không xác minh được trạng thái MFA thì phiên vừa
+      // tạo không được sống — huỷ ở cả hai tầng như khi cổng kích
+      // hoạt (cookie trên response + dòng session), ghi log, rồi ném
+      // lỗi dừng đăng nhập. Cho callback đi qua ở đây sẽ là bỏ qua
+      // bước hai lặng lẽ mỗi khi tra cứu lỗi.
+      ctx.context.logger?.error(
+        `OAuth MFA gate could not verify MFA status for user ${user.id}: ${String(err)}`,
+      );
+      deleteSessionCookie(ctx, true);
+      await ctx.context.internalAdapter.deleteSession(session.token);
+      ctx.context.setNewSession(null);
+      throw new APIError('INTERNAL_SERVER_ERROR', {
+        message: 'Could not verify multi-factor authentication status',
+        code: 'oauth_mfa_status_unavailable',
+      });
+    }
+    if (!mfaEnabled) return;
     if (await consumeTrustDevice(ctx, user.id)) return;
 
     // Xoá phiên vừa tạo ở cả hai tầng như plugin làm: cookie trên

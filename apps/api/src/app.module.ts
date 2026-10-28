@@ -3,7 +3,6 @@ import { Module, type ExecutionContext, type MiddlewareConsumer, type NestModule
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { DrizzleModule } from '@nestjs/drizzle';
-import { ScheduleModule } from '@nestjs/schedule';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { databaseConnectionFromEnv, redisConnectionFromUrl, validateEnv } from './config/env';
 import { relations } from './db/relations';
@@ -100,9 +99,22 @@ const CREDENTIAL_ROUTES = /^\/api\/v\d+\/auth\/(token|login|session\/login|chang
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: redisConnectionFromUrl(config.getOrThrow<string>('REDIS_URL')),
+        // Chính sách job mặc định thống nhất toàn hệ (bản sao đúng
+        // cùng bộ giá trị ở BullModule.forRoot của apps/worker — hai
+        // app dùng chung một Redis và cùng các hàng đợi): thử lại tối
+        // đa 3 lần với giãn cách hàm mũ từ 1 giây thay vì dội lại tức
+        // thì khi dịch vụ ngoài/cơ sở dữ liệu lỗi tạm thời; job đã
+        // xong/lỗi chỉ giữ 1.000 bản gần nhất để Redis không tăng vô
+        // hạn (mặc định của BullMQ là giữ vô hạn). Producer vẫn khai
+        // riêng jobId dedupe và có thể ghi đè từng tuỳ chọn khi cần.
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: 1000,
+          removeOnFail: 1000,
+        },
       }),
     }),
-    ScheduleModule.forRoot(),
     /**
      * Giới hạn tốc độ hai lớp theo IP (gói chính thức @nestjs/throttler):
      * hạn mức chung cho mọi route và hạn mức chặt chỉ áp cho các route

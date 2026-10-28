@@ -21,9 +21,12 @@ export interface CalendarImportResult { eventsimported: number; eventsskipped: n
  * của calendar_import_events_from_ical của Moodle (oracle: calendar/
  * tests/lib_test test_add_subscription).
  */
-@Processor('calendar-import')
+@Processor('calendar-import', { concurrency: 5 })
 /**
  * Xử lý job nhập lịch subscription: tải .ics, phân tích bằng domain/ics và đồng bộ sự kiện (không trùng theo uuid).
+ * Concurrency 5: job thuần I/O (tải tệp .ics từ xa) — concurrency mặc định 1 để một
+ * nguồn lịch chậm chặn mọi subscription phía sau; việc nhập lại idempotent theo
+ * (subscriptionId, UID) nên chạy song song an toàn.
  */
 export class CalendarImportProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database) { super(); }

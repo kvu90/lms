@@ -6,6 +6,8 @@ import {
   http, login, roleIdByShortname, setOverride, STRONG_PASSWORD, systemContextId, uniqueName,
 } from './identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from './course-enrolment-helpers';
+import { PaymentsService } from '../src/modules/payments/payments.service';
+import { TenantConfigService } from '../src/modules/tenants/tenant-config.service';
 
 /**
  * Lát 3 (cuối) của issue #189 — vòng đời duyệt hoàn + hàng đợi
@@ -35,6 +37,13 @@ import { createCategory, createCourse, createEnrolInstance } from './course-enro
  *     của mình (gồm tự hoàn học phí bằng cổng neo tại context tenant),
  *     platform không thấy khoản của trung tâm; vết xử lý bắt buộc;
  *     quá hạn theo `payments/reviewtargethours` chỉ là cảnh báo.
+ *  7. Ba chốt kỹ thuật của lượt dọn antipattern backend (ca 11–13):
+ *     duyệt/từ chối hoàn chuyển trạng thái bằng cập nhật CÓ ĐIỀU KIỆN
+ *     nên hai lượt đua trên cùng một dòng chỉ một lượt thắng, lượt
+ *     thua nhận mã lỗi trạng thái của chính đường gọi đó; đối soát
+ *     `reconcile` đếm ở SQL và khớp phép đếm độc lập; hàng đợi duyệt
+ *     tra cấu hình ngưỡng quá hạn tối đa một lần cho mỗi tenant
+ *     trong một lần dựng.
  * Đổi luật (bỏ bắt buộc lý do, cho tự duyệt hai cấp, đảo quyền lợi
  * sớm hơn mốc settled, rò khoản chờ chéo tenant…) thì ca tương ứng
  * phải đỏ.
@@ -602,5 +611,88 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
       expect((await http(app).get(`/api/v1/payments/${payment.id}`).set('Authorization', `Bearer ${admin}`)).body.status).toBe('refunded');
       expect(await enrolmentActive(course.id, buyerToken)).toBe(false);
     }
+  });
+
+  it('11. đua duyệt trên cùng một dòng hoàn: đúng một lượt thắng, lượt thua nhận payment.refund_not_pending_approval và không ghi đè người thắng', async () => {
+    const { payment } = await manualSucceededPayment();
+    const mgrA = await secondManager();
+    const mgrB = await secondManager();
+    // Hoàn 100% → cộng dồn đạt 100% → hai cấp, dòng chờ ở requested;
+    // người tạo là admin nên cả hai quản lý đều đủ tư cách duyệt.
+    const created = await createRefund(admin, payment.id, { amount: 100000, reason: 'Hoàn toàn bộ — đua duyệt' });
+    expect(created.status).toBeLessThan(300);
+    expect(created.body.status).toBe('requested');
+
+    const [a, b] = await Promise.all([
+      approveRefund(mgrA.token, payment.id, created.body.id),
+      approveRefund(mgrB.token, payment.id, created.body.id),
+    ]);
+    const results = [a, b];
+    expect(results.filter((r) => r.status < 300)).toHaveLength(1);
+    const loser = results.find((r) => r.status === 400)!;
+    expect(JSON.stringify(loser.body)).toContain('payment.refund_not_pending_approval');
+
+    const refunds = await listRefunds(payment.id);
+    expect(refunds).toHaveLength(1);
+    expect(refunds[0]!.status).toBe('approved');
+    // Người duyệt ghi trên dòng là đúng người thắng — lượt thua không
+    // ghi đè lặng lẽ như dạng đua đọc-rồi-cập-nhật vô điều kiện.
+    expect(refunds[0]!.approvedBy).toBe(a.status < 300 ? mgrA.id : mgrB.id);
+  });
+
+  it('12. đối soát reconcile: ba con số đếm ở SQL khớp phép đếm độc lập trên cùng dữ kiện và dịch đúng khi có khoản thu mới', async () => {
+    const payments = app.get(PaymentsService);
+    const countViaSql = async () => {
+      const res = await pg.query(
+        `select count(*)::int as total,
+                count(*) filter (where status = 'succeeded')::int as succeeded,
+                count(*) filter (where status = 'pending' and (external_transaction_id is null or external_transaction_id = ''))::int as pending_without
+           from payments`,
+      );
+      const row = res.rows[0] as { total: number; succeeded: number; pending_without: number };
+      return { total: row.total, succeeded: row.succeeded, pendingWithoutExternalTx: row.pending_without };
+    };
+
+    expect(await payments.reconcile()).toEqual(await countViaSql());
+
+    // Thêm một khoản thu succeeded mới bằng fixture chuẩn của spec:
+    // cả hai nguồn đếm phải dịch đúng — tổng +1, succeeded +1, khoản
+    // pending chưa có mã ngoài không đổi.
+    const before = await countViaSql();
+    await manualSucceededPayment();
+    const after = await payments.reconcile();
+    expect(after).toEqual(await countViaSql());
+    expect(after.total).toBe(before.total + 1);
+    expect(after.succeeded).toBe(before.succeeded + 1);
+    expect(after.pendingWithoutExternalTx).toBe(before.pendingWithoutExternalTx);
+  });
+
+  it('13. hàng đợi needs_review: nhiều dòng cùng một tenant chỉ tra cấu hình ngưỡng quá hạn một lần trong một lần dựng hàng đợi', async () => {
+    const payments = app.get(PaymentsService);
+    const tenantConfig = app.get(TenantConfigService);
+    // Hai debit lạ mới → hai dòng needs_review nữa của tenant chủ tài
+    // khoản SePay (tenant nền tảng) trong cùng hàng đợi.
+    await postIpn(ipnBody());
+    await postIpn(ipnBody());
+
+    const config = tenantConfig as unknown as {
+      getEffectiveValue: (tenantId: string, component: string, name: string) => Promise<unknown>;
+    };
+    const original = config.getEffectiveValue.bind(tenantConfig);
+    const seenTenants: string[] = [];
+    config.getEffectiveValue = async (tenantId: string, component: string, name: string) => {
+      if (component === 'payments' && name === 'reviewtargethours') seenTenants.push(tenantId);
+      return original(tenantId, component, name);
+    };
+    try {
+      const queue = await payments.listReviewQueue(adminId);
+      expect(queue.length).toBeGreaterThanOrEqual(2);
+    } finally {
+      config.getEffectiveValue = original;
+    }
+    // Có tra cấu hình cho ít nhất một tenant, và không tenant nào bị
+    // tra hai lần trong cùng một lần dựng hàng đợi.
+    expect(seenTenants.length).toBeGreaterThanOrEqual(1);
+    expect(new Set(seenTenants).size).toBe(seenTenants.length);
   });
 });

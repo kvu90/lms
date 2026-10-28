@@ -81,6 +81,15 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       client.data.tenantId = identity.tenantId;
       await client.join(userRoom(identity.tenantId, identity.userId));
       const conversations = await this.repo.listConversationsForUser(identity.userId);
+      // Danh sách chặn của user là MỘT dữ kiện duy nhất, không đổi
+      // theo hội thoại: tải lười một lần ở hội thoại 1–1 đầu tiên cần
+      // kiểm rồi dùng lại cho cả vòng lặp, thay vì tải lại theo từng
+      // hội thoại như trước.
+      let blockedIds: string[] | undefined;
+      const blockedIdsOnce = async (): Promise<string[]> => {
+        blockedIds ??= await this.repo.listBlockedCounterpartIds(identity.userId);
+        return blockedIds;
+      };
       for (const conversation of conversations) {
         // Lớp phòng thủ thứ hai (việc nối tiếp #33, siết sau PR #94
         // vòng 1): socket mới nối KHÔNG vào room của hội thoại 1–1
@@ -90,7 +99,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
         // đã bị cổng (gửi 403, xoá/đọc 404) nên không còn sự kiện
         // nào của hội thoại đó để lộ; tầng phân phối xoá tin còn
         // chặn nốt trường hợp outbox tới muộn (xem distributeMessageDeleted).
-        if (await this.isBlockedDirectConversation(conversation.id, identity.userId)) continue;
+        if (await this.isBlockedDirectConversation(conversation.id, identity.userId, blockedIdsOnce)) continue;
         await client.join(conversationRoom(conversation.tenantId, conversation.id));
       }
       await this.realtime.markConnected(identity.tenantId, identity.userId, client.id);
@@ -115,13 +124,27 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
    * issue #33): `sync` không trả lịch sử, `join` room bị từ chối,
    * `typing` không chuyển tiếp. Hội thoại nhóm không bị chạm.
    */
-  private async isBlockedDirectConversation(conversationId: string, userId: string): Promise<boolean> {
+  /**
+   * @param blockedIdsSource - Nguồn danh sách chặn dùng thay cho tra
+   *   trực tiếp: `handleConnection` truyền vào một hàm tải-lười-một-
+   *   lần để cả vòng lặp vào room dùng chung đúng một lượt tra; các
+   *   đường theo-từng-sự-kiện (join/sync/typing) không truyền thì tra
+   *   trực tiếp như cũ.
+   */
+  private async isBlockedDirectConversation(
+    conversationId: string,
+    userId: string,
+    blockedIdsSource?: () => Promise<string[]>,
+  ): Promise<boolean> {
     const conversation = await this.repo.getConversation(conversationId);
     if (!conversation || conversation.type !== 1) return false;
     const members = await this.repo.listMembers(conversationId);
     const other = members.find((id) => id !== userId);
     if (!other) return false;
-    return (await this.repo.listBlockedCounterpartIds(userId)).includes(other);
+    const blockedIds = blockedIdsSource
+      ? await blockedIdsSource()
+      : await this.repo.listBlockedCounterpartIds(userId);
+    return blockedIds.includes(other);
   }
 
   /**
