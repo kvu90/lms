@@ -209,6 +209,14 @@ export class AccessRepository {
     return row;
   }
   /**
+   * Liệt kê mọi gán role của một role (mọi user, mọi context). Phục vụ
+   * đường xoá role: phải biết trước các context từng mang gán của role
+   * để vô hiệu hoá cache quyền ở đúng các context đó sau khi xoá.
+   */
+  async listAssignmentsByRole(roleId: string): Promise<(typeof roleAssignments.$inferSelect)[]> {
+    return this.db.select().from(roleAssignments).where(eq(roleAssignments.roleId, roleId));
+  }
+  /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
   async listAssignments(filter: { userId?: string; contextId?: string }): Promise<(typeof roleAssignments.$inferSelect)[]> {
