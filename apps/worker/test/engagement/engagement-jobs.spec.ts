@@ -9,7 +9,7 @@ import {
   badge, badgeCriteria, badgeIssued, calendarEvents, calendarSubscriptions,
   cohortMembers, courseCompletions, customFieldCategory, customFieldData, customFieldField,
   notificationDispatchLog, notifications, userPreferences,
-} from '@lms/db-schema';
+} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

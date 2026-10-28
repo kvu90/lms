@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { eq, sql } from 'drizzle-orm';
-import { classes, cohort, users } from '@lms/db-schema';
+import { classes, cohort, users } from '@lms/db';
 import { ORDINARY_ROLE } from './ordinary-role';
 import {
   bootWorkerModuleAsOrdinaryRole,

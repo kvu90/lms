@@ -19,7 +19,7 @@ import { PermissionEvaluator } from './permission-evaluator.service';
  * Kiểm chứng cổng tenant của PermissionEvaluator trước trạng thái
  * "bản ghi cổng bị RLS che" — lỗ hổng fail-open của cổng:
  *
- * Bối cảnh cơ chế (baseline của packages/db-schema + tenant-pool):
+ * Bối cảnh cơ chế (baseline của packages/db + tenant-pool):
  * `tenants` và `tenant_memberships` bật FORCE ROW LEVEL SECURITY với
  * chính sách chỉ cho thấy dòng khi phiên ở chế độ platform
  * (`app.platform = 'on'`) hoặc dòng thuộc tenant của phiên

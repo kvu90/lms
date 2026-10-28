@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import { ActivityDueReminderProcessor } from '../../src/processors/activity-due-reminder.processor';
-import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db-schema';
+import { assignments, assignSubmissions, enrol, examPins, outboxEvents, userEnrolments } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

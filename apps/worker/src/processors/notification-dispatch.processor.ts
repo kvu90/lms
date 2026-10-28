@@ -4,7 +4,7 @@ import type { Job } from 'bullmq';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { relations } from '../db/relations';
-import { notificationDispatchLog, pluginConfig, userPreferences, users } from '@lms/db-schema';
+import { notificationDispatchLog, pluginConfig, userPreferences, users } from '@lms/db';
 import { tenantAls } from '../db/tenant-als';
 import { ResendMailService } from '../resend-mail.service';
 

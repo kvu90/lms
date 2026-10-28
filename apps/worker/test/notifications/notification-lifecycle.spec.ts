@@ -16,7 +16,7 @@ import { tenantAls } from '../../src/db/tenant-als';
 import {
   calendarEvents, notificationDispatchLog, notifications, reportBuilderReport,
   reportBuilderSchedule, taskLog, userPreferences,
-} from '@lms/db-schema';
+} from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,

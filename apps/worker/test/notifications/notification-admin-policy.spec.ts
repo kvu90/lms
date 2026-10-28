@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { CalendarReminderProcessor } from '../../src/processors/calendar-reminder.processor';
-import { calendarEvents, notificationDispatchLog, notifications, pluginConfig } from '@lms/db-schema';
+import { calendarEvents, notificationDispatchLog, notifications, pluginConfig } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
