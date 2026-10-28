@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { ClassEnrolReconcileProcessor } from '../../src/processors/class-enrol-reconcile.processor';
+import { ClassEnrolReconcileProcessor } from '../../../src/processors/class-enrol-reconcile.processor';
 import {
   classes, cohort, cohortMembers, context, course, courseGroups, enrol,
   role, roleAssignments, userEnrolments, users,
@@ -9,7 +9,7 @@ import {
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * CLASS-0 (issue #184) — job đối soát ghi danh cấp lớp

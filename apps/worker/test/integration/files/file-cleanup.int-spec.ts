@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { FileCleanupProcessor } from '../../src/processors/file-cleanup.processor';
+import { FileCleanupProcessor } from '../../../src/processors/file-cleanup.processor';
 import { files } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 const STORAGE = '/tmp/lms-worker-test-files';
 

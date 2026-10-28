@@ -1,9 +1,9 @@
 import { Test } from '@nestjs/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
-import { OutboxRelayScheduler } from '../../src/outbox-relay.scheduler';
-import { FileCleanupProcessor } from '../../src/processors/file-cleanup.processor';
-import { WorkerModule } from '../../src/worker.module';
+import { OutboxRelayScheduler } from '../../../src/outbox-relay.scheduler';
+import { FileCleanupProcessor } from '../../../src/processors/file-cleanup.processor';
+import { WorkerModule } from '../../../src/worker.module';
 
 describe('Worker smoke (real DB + Redis)', () => {
   let context: INestApplicationContext;

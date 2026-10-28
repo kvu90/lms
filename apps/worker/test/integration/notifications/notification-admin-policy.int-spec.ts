@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { CalendarReminderProcessor } from '../../src/processors/calendar-reminder.processor';
+import { CalendarReminderProcessor } from '../../../src/processors/calendar-reminder.processor';
 import { calendarEvents, notificationDispatchLog, notifications, pluginConfig } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * NB-7 phía worker (issue #174): hàm luật phân phối dùng chung của

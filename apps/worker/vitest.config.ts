@@ -4,7 +4,31 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
-    include: ['test/**/*.spec.ts'],
+    // Tách tầng chạy bằng Vitest projects: mỗi tầng khai include tường
+    // minh neo đúng thư mục + hậu tố của tầng đó, vì pattern khám phá
+    // mặc định của Vitest không nhận hậu tố `.int-spec.ts`. Các tuỳ
+    // chọn dùng chung (timeout, env) khai ở gốc để project con kế thừa.
+    // - unit: spec cạnh nguồn trong `src`, hậu tố `.spec.ts`.
+    // - int: spec tích hợp trong `test/integration/<module>`, hậu tố
+    //   `.int-spec.ts` (hậu tố và tầng integration là quy định riêng
+    //   của dự án, không phải quy ước của NestJS/Vitest).
+    projects: [
+      { test: { name: 'unit', include: ['src/**/*.spec.ts'] } },
+      {
+        test: {
+          name: 'int',
+          include: [
+            'test/integration/**/*.int-spec.ts',
+            // Chuyển tiếp: file dưới đây thuộc tầng integration nhưng
+            // đang được sửa trong PR #451 nên chưa di chuyển vào
+            // `test/integration/activity/`; dòng này giữ nó còn chạy
+            // trong project int và phải được gỡ khi file đó được
+            // chuyển về đúng tầng ở việc nối tiếp.
+            'test/activity/activity-due-reminder.spec.ts',
+          ],
+        },
+      },
+    ],
     testTimeout: 30000,
     hookTimeout: 30000,
     env: {

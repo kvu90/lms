@@ -7,10 +7,10 @@ import { notificationDispatchLog, pluginConfig, userPreferences } from '@lms/db'
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
-import { NotificationDispatchProcessor } from '../../src/processors/notification-dispatch.processor';
-import { NotificationDigestProcessor } from '../../src/processors/notification-digest.processor';
-import type { WorkerMailMessage, WorkerMailSendResult } from '../../src/resend-mail.service';
+} from '../../support/ordinary-worker-module';
+import { NotificationDispatchProcessor } from '../../../src/processors/notification-dispatch.processor';
+import { NotificationDigestProcessor } from '../../../src/processors/notification-digest.processor';
+import type { WorkerMailMessage, WorkerMailSendResult } from '../../../src/resend-mail.service';
 
 /**
  * Kênh email thật qua Resend + tổng hợp theo ngày (NB-5, issue #174).
@@ -70,7 +70,7 @@ class FakeMail {
  */
 function buildFakeI18n() {
   const catalog = JSON.parse(
-    readFileSync(join(__dirname, '../../src/i18n/vi/platform.json'), 'utf-8'),
+    readFileSync(join(__dirname, '../../../src/i18n/vi/platform.json'), 'utf-8'),
   ) as Record<string, string>;
   return {
     t: (key: string, opts?: { args?: Record<string, unknown> }) => {

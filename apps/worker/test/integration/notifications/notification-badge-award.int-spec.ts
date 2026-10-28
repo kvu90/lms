@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { BadgeAwardProcessor } from '../../src/processors/badge-award.processor';
+import { BadgeAwardProcessor } from '../../../src/processors/badge-award.processor';
 import {
   badge, badgeCriteria, badgeIssued, courseCompletions,
   notificationDispatchLog, notifications, userPreferences,
@@ -9,7 +9,7 @@ import {
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * Lát #174-A (issue #174, khép ghi nhận `badge_awarded` phía worker):

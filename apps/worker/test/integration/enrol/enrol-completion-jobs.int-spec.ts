@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { CompletionRecalculateProcessor } from '../../src/processors/completion-recalculate.processor';
-import { EnrolExpiryProcessor } from '../../src/processors/enrol-expiry.processor';
+import { CompletionRecalculateProcessor } from '../../../src/processors/completion-recalculate.processor';
+import { EnrolExpiryProcessor } from '../../../src/processors/enrol-expiry.processor';
 import {
   courseCompletionCriteria, courseCompletionCritCompl, courseCompletions, courseCompletionSettings,
   courseModulesCompletion, enrol, outboxEvents, userEnrolments,
@@ -10,7 +10,7 @@ import {
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * Các job enrol & completion của worker. Oracles nghiệp vụ: ngữ nghĩa hết hạn ghi danh từ

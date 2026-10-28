@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { and, eq, sql } from 'drizzle-orm';
 import { Pool } from 'pg';
-import { ClassEnrolReconcileProcessor } from '../../src/processors/class-enrol-reconcile.processor';
-import { TaskLogService } from '../../src/task-log.service';
-import { TenantAwarePool } from '../../src/db/tenant-pool';
-import { relations } from '../../src/db/relations';
-import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from '../support/ordinary-role';
+import { ClassEnrolReconcileProcessor } from '../../../src/processors/class-enrol-reconcile.processor';
+import { TaskLogService } from '../../../src/task-log.service';
+import { TenantAwarePool } from '../../../src/db/tenant-pool';
+import { relations } from '../../../src/db/relations';
+import { adminDatabaseUrl, ensureOrdinaryRole, ordinaryRoleUrl } from '../../support/ordinary-role';
 import {
   classes, cohort, cohortMembers, context, course, courseGroups, enrol,
   role, roleAssignments, userEnrolments, users,

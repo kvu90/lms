@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { INestApplicationContext } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
-import { BadgeAwardProcessor } from '../../src/processors/badge-award.processor';
-import { CalendarImportProcessor } from '../../src/processors/calendar-import.processor';
-import { CalendarReminderProcessor } from '../../src/processors/calendar-reminder.processor';
-import { NotificationDispatchProcessor } from '../../src/processors/notification-dispatch.processor';
+import { BadgeAwardProcessor } from '../../../src/processors/badge-award.processor';
+import { CalendarImportProcessor } from '../../../src/processors/calendar-import.processor';
+import { CalendarReminderProcessor } from '../../../src/processors/calendar-reminder.processor';
+import { NotificationDispatchProcessor } from '../../../src/processors/notification-dispatch.processor';
 import {
   badge, badgeCriteria, badgeIssued, calendarEvents, calendarSubscriptions,
   cohortMembers, courseCompletions, customFieldCategory, customFieldData, customFieldField,
@@ -13,7 +13,7 @@ import {
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from '../support/ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * Các job tương tác (engagement) của worker. Oracles: report §2#12 (luật phân phối theo preference + suspended,

@@ -2,11 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getDrizzleToken } from '@nestjs/drizzle';
 import { eq, sql } from 'drizzle-orm';
 import { classes, cohort, users } from '@lms/db';
-import { ORDINARY_ROLE } from './ordinary-role';
+import { ORDINARY_ROLE } from '../../support/ordinary-role';
 import {
   bootWorkerModuleAsOrdinaryRole,
   type OrdinaryWorkerModuleHarness,
-} from './ordinary-worker-module';
+} from '../../support/ordinary-worker-module';
 
 /**
  * Kiểm chứng harness boot module bằng role thường (lát 2 của issue
