@@ -5,23 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { QuestionCategoryNewPage, QuestionsPage, QuestionUsagePage } from './questions';
+import { QuestionEditPage } from './question-editor';
 import QuestionsRoute from '../routes/questions';
-import StimuliRoute from '../routes/question-stimuli';
 import ExamsRoute from '../routes/exams';
-import ExamPaperNewRoute from '../routes/exam-paper-new';
-import ExamPaperEditRoute from '../routes/exam-paper-edit';
-import LegacyExamPapersRoute from '../routes/legacy-exam-papers';
-import LegacyExamPaperNewRoute from '../routes/legacy-exam-paper-new';
-import LegacyExamPaperEditRoute from '../routes/legacy-exam-paper-edit';
 import MatricesRoute from '../routes/matrices';
-import MatrixNewRoute from '../routes/question-matrix-new';
-import MatrixEditRoute from '../routes/question-matrix-edit';
-import LegacyMatrixNewRoute from '../routes/legacy-matrix-new';
-import LegacyMatrixEditRoute from '../routes/legacy-matrix-edit';
-import SystemBankRoute from '../routes/system-bank';
 import SystemBankQuestionsRoute from '../routes/system-bank-questions';
 import SystemBankExamsRoute from '../routes/system-bank-exams';
-import LegacySystemBankPapersRoute from '../routes/legacy-system-bank-papers';
 import SystemBankMatricesRoute from '../routes/system-bank-matrices';
 
 /**
@@ -876,96 +865,258 @@ describe('Bank area tabs — Cá nhân | Hệ thống (issue #228)', () => {
   });
 });
 
+
 /**
- * Lớp tương thích đường dẫn cũ (chuẩn đường dẫn #221, mục 3.5 của
- * hồ sơ): URL cũ ?bank=...&section=... và /questions/matrices/* phải
- * CHUYỂN HƯỚNG THAY THẾ sang path mới tương ứng — kiểm bằng route
- * module thật trong memory router, khẳng định pathname cuối cùng.
- * Query thuộc diện F2 còn lại (ngoài bank/section) được giữ nguyên.
+ * Stub fetch theo handler cho describe trang ngân hàng được dời từ
+ * grades.spec.tsx: handler trả body thì đáp 200 với body đó, trả
+ * undefined thì đáp 404 — đúng khuôn stub của file gốc.
  */
-describe('Legacy bank URLs — redirect to new paths (issue #221)', () => {
+function stubBankPageFetch(handler: (url: string, init?: RequestInit) => unknown) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const body = handler(url, init);
+      if (body === undefined)
+        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+}
+
+describe('Trang ngân hàng câu hỏi — huy hiệu phiên bản và trang usage', () => {
   afterEach(() => {
-    cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  function stubRedirectFetch() {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (url: string) => {
-        const respond = (body: unknown) =>
-          new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
-        if (url === '/api/v1/users/me') return respond({ ...PROFILE, username: 'admin' });
-        if (url === '/api/v1/users/me/capabilities')
-          return respond({ userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
-        if (url === '/api/v1/courses') return respond([]);
-        if (url === '/api/v1/questions/categories')
-          return respond([{ id: CATEGORY_ID, name: 'General', contextId: SYSTEM_CTX_ID, info: '', parent: null }]);
-        return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
-      }),
-    );
-  }
-
-  const MATRIX_ID = '01900000-0000-7000-8000-0000000000c9';
-  const REDIRECT_CASES: Array<{ from: string; toPath: string; toSearch?: string }> = [
-    { from: '/questions?bank=my-questions', toPath: '/questions', toSearch: '' },
-    { from: '/questions?bank=my-questions&section=stimuli', toPath: '/questions/stimuli' },
-    { from: '/questions?bank=my-papers', toPath: '/exams' },
-    { from: '/questions?bank=my-matrices', toPath: '/matrices' },
-    { from: '/questions?bank=system', toPath: '/system-bank/questions' },
-    { from: '/questions?bank=system&section=questions', toPath: '/system-bank/questions' },
-    { from: '/questions?bank=system&section=papers', toPath: '/system-bank/exams' },
-    { from: '/questions?bank=system&section=matrices', toPath: '/system-bank/matrices' },
-    { from: '/questions?bank=system&section=papers&x=1', toPath: '/system-bank/exams', toSearch: '?x=1' },
-    { from: '/exam-papers', toPath: '/exams' },
-    { from: '/exam-papers/new', toPath: '/exams/new' },
-    { from: '/exam-papers/01900000-0000-7000-8000-0000000000d7/edit', toPath: '/exams/01900000-0000-7000-8000-0000000000d7/edit' },
-    { from: '/system-bank/papers', toPath: '/system-bank/exams' },
-    { from: '/questions/matrices/new', toPath: '/matrices/new' },
-    { from: `/questions/matrices/${MATRIX_ID}/edit`, toPath: `/matrices/${MATRIX_ID}/edit` },
-    { from: '/system-bank', toPath: '/system-bank/questions' },
-  ];
-
-  for (const redirectCase of REDIRECT_CASES) {
-    it(`${redirectCase.from} → ${redirectCase.toPath}`, async () => {
-      stubRedirectFetch();
-      const router = createMemoryRouter(
-        [
-          { path: '/questions', element: <QuestionsRoute /> },
-          { path: '/questions/stimuli', element: <StimuliRoute /> },
-          { path: '/exams', element: <ExamsRoute /> },
-          { path: '/exams/new', element: <ExamPaperNewRoute /> },
-          { path: '/exams/:paperId/edit', element: <ExamPaperEditRoute /> },
-          { path: '/exam-papers', element: <LegacyExamPapersRoute /> },
-          { path: '/exam-papers/new', element: <LegacyExamPaperNewRoute /> },
-          { path: '/exam-papers/:paperId/edit', element: <LegacyExamPaperEditRoute /> },
-          { path: '/matrices', element: <MatricesRoute /> },
-          { path: '/matrices/new', element: <MatrixNewRoute /> },
-          { path: '/matrices/:matrixId/edit', element: <MatrixEditRoute /> },
-          { path: '/questions/matrices/new', element: <LegacyMatrixNewRoute /> },
-          { path: '/questions/matrices/:matrixId/edit', element: <LegacyMatrixEditRoute /> },
-          { path: '/system-bank', element: <SystemBankRoute /> },
-          { path: '/system-bank/questions', element: <SystemBankQuestionsRoute /> },
-          { path: '/system-bank/exams', element: <SystemBankExamsRoute /> },
-          { path: '/system-bank/papers', element: <LegacySystemBankPapersRoute /> },
-          { path: '/system-bank/matrices', element: <SystemBankMatricesRoute /> },
-        ],
-        { initialEntries: [redirectCase.from] },
-      );
-      render(
-        <TestProviders>
-          <RouterProvider router={router} />
-        </TestProviders>,
-      );
-
-      await waitFor(() => expect(router.state.location.pathname).toBe(redirectCase.toPath));
-      if (redirectCase.toSearch !== undefined) {
-        expect(router.state.location.search).toBe(redirectCase.toSearch);
-      }
+  it('hiện huy hiệu phiên bản, sửa câu thì huy hiệu tăng lên phiên bản mới', async () => {
+    // Trang ngân hàng nay đọc usePermissions() (cổng issue #55): phải bọc
+    // TestProviders và stub ảnh chụp quyền có quyền ngân hàng, nếu không
+    // trang ném lỗi thiếu PermissionsProvider (lỗi CI của PR #61).
+    let edited = false;
+    const questionView = (version: number) => ({
+      question: {
+        id: '01900000-0000-7000-8000-000000000004',
+        category: '01900000-0000-7000-8000-000000000001',
+        qtype: 'truefalse',
+        name: 'Sky',
+        createdBy: '01900000-0000-7000-8000-000000000001',
+        modifiedBy: '01900000-0000-7000-8000-000000000001',
+        createdAt: 'x',
+        updatedAt: 'x',
+      },
+      entry: {
+        id: '01900000-0000-7000-8000-000000000002',
+        questionCategoryId: '01900000-0000-7000-8000-000000000001',
+        questionId: '01900000-0000-7000-8000-000000000004',
+        latestVersion: version,
+        status: 'ready',
+        createdAt: 'x',
+        updatedAt: 'x',
+      },
+      latestVersion: {
+        id: '01900000-0000-7000-8000-000000000008',
+        questionBankEntryId: '01900000-0000-7000-8000-000000000002',
+        questionId: '01900000-0000-7000-8000-000000000004',
+        version,
+        status: 'ready',
+        questionText: {
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: version === 1 ? 'The sky is blue.' : 'The sky is blue. (edited)' }],
+            },
+          ],
+        },
+        defaultMark: 1,
+        createdAt: 'x',
+      },
     });
-  }
+    stubBankPageFetch((url, init) => {
+      if (isGetSessionUrl(url))
+        return baSessionBody({ id: '01900000-0000-7000-8000-0000000000a9', username: 'teacher1', email: 'teacher1@example.com' });
+      if (url === '/api/v1/users/me')
+        return {
+          id: '01900000-0000-7000-8000-0000000000a9',
+          username: 'teacher1',
+          firstName: 'Lan Anh',
+          lastName: 'Nguyễn',
+          email: 'teacher1@example.com',
+          suspended: false,
+          deleted: false,
+          isGuest: false,
+          forcePasswordChange: false,
+          lastLogin: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          customFields: [],
+        };
+      if (url === '/api/v1/users/me/capabilities')
+        return { userId: '01900000-0000-7000-8000-0000000000a9', isSiteAdmin: true, assignments: [], contexts: [] };
+      if (url === '/api/v1/questions/categories')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000001',
+            name: 'General',
+            contextId: '01900000-0000-7000-8000-000000000001',
+            info: '',
+            parent: null,
+            sortOrder: 0,
+            stamp: 's',
+            createdAt: 'x',
+            updatedAt: 'x',
+          },
+        ];
+      if (url === '/api/v1/questions/categories/01900000-0000-7000-8000-000000000001/questions')
+        return [questionView(edited ? 2 : 1)];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004' && init?.method === 'PATCH') {
+        edited = true;
+        return questionView(2);
+      }
+      // Các endpoint màn sửa riêng (/questions/:id/edit) mà nút Sửa điều hướng tới.
+      if (url.startsWith('/api/v1/stimuli')) return [];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004/versions')
+        return [questionView(edited ? 2 : 1).latestVersion];
+      if (url === '/api/v1/questions/01900000-0000-7000-8000-000000000004/curriculum-links')
+        return { questionId: '01900000-0000-7000-8000-000000000004', subjectIds: [], outcomes: [] };
+      if (url === '/api/v1/access/contexts')
+        return [
+          {
+            id: '01900000-0000-7000-8000-000000000001',
+            contextLevel: 10,
+            path: '/1',
+            instanceId: '01900000-0000-7000-8000-000000000001',
+          },
+        ];
+      return undefined;
+    });
+    const router = createMemoryRouter(
+      [
+        { path: '/questions', element: <QuestionsPage /> },
+        { path: '/questions/:questionId/edit', element: <QuestionEditPage /> },
+      ],
+      {
+        initialEntries: ['/questions'],
+      },
+    );
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v1'),
+    );
+    await userEvent.click(screen.getByRole('link', { name: /Sửa \(phiên bản mới\)/ }));
+    // Sửa mở editor theo dạng của câu hỏi; lưu trong editor mới tạo phiên bản mới.
+    await userEvent.click(await screen.findByRole('button', { name: 'Lưu thành phiên bản mới' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('version-badge-01900000-0000-7000-8000-000000000004')).toHaveTextContent('v2'),
+    );
+    expect(screen.getByText(/Các lượt làm đã bắt đầu vẫn giữ phiên bản đã gắn/)).toBeInTheDocument();
+  });
+
+  it('trang usage hiện trạng thái attempt, chuỗi steps và phiên bản đã ghim', async () => {
+    // Trang usage cũng đọc usePermissions() (cổng issue #55): cùng cách bọc
+    // và stub quyền như test ngân hàng ở trên.
+    stubBankPageFetch((url) => {
+      if (isGetSessionUrl(url))
+        return baSessionBody({ id: '01900000-0000-7000-8000-0000000000a9', username: 'teacher1', email: 'teacher1@example.com' });
+      if (url === '/api/v1/users/me')
+        return {
+          id: '01900000-0000-7000-8000-0000000000a9',
+          username: 'teacher1',
+          firstName: 'Lan Anh',
+          lastName: 'Nguyễn',
+          email: 'teacher1@example.com',
+          suspended: false,
+          deleted: false,
+          isGuest: false,
+          forcePasswordChange: false,
+          lastLogin: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          customFields: [],
+        };
+      if (url === '/api/v1/users/me/capabilities')
+        return { userId: '01900000-0000-7000-8000-0000000000a9', isSiteAdmin: true, assignments: [], contexts: [] };
+      if (url === '/api/v1/question-usages/01900000-0000-7000-8000-000000000009') {
+        return {
+          usage: {
+            id: '01900000-0000-7000-8000-000000000009',
+            component: 'mod_quiz',
+            instanceId: '01900000-0000-7000-8000-000000000042',
+            owningContextId: null,
+            preferredBehaviour: 'deferredfeedback',
+            userId: '01900000-0000-7000-8000-000000000007',
+            createdAt: 'x',
+            updatedAt: 'x',
+          },
+          state: 'finished',
+          attempts: [
+            {
+              id: '01900000-0000-7000-8000-000000000011',
+              questionUsageId: '01900000-0000-7000-8000-000000000009',
+              slot: 1,
+              behaviour: 'deferredfeedback',
+              questionId: '01900000-0000-7000-8000-000000000004',
+              questionVersionId: '01900000-0000-7000-8000-000000000008',
+              variant: 1,
+              maxMark: 1,
+              minFraction: 0,
+              maxFraction: 1,
+              flagged: false,
+              questionSummary: 'Q',
+              responseSummary: 'true',
+              rightAnswer: 'True',
+              state: 'gradedright',
+              fraction: 1,
+              userId: '01900000-0000-7000-8000-000000000007',
+              createdAt: 'x',
+              updatedAt: 'x',
+              steps: [
+                {
+                  id: '01900000-0000-7000-8000-000000000001',
+                  sequenceNumber: 0,
+                  state: 'todo',
+                  fraction: null,
+                  data: {},
+                },
+                {
+                  id: '01900000-0000-7000-8000-000000000002',
+                  sequenceNumber: 1,
+                  state: 'complete',
+                  fraction: null,
+                  data: { answer: 'true' },
+                },
+                {
+                  id: '01900000-0000-7000-8000-000000000003',
+                  sequenceNumber: 2,
+                  state: 'gradedright',
+                  fraction: 1,
+                  data: {},
+                },
+              ],
+            },
+          ],
+        };
+      }
+      return undefined;
+    });
+    const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
+      initialEntries: ['/question-usages/01900000-0000-7000-8000-000000000009'],
+    });
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>,
+    );
+    await waitFor(() => expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toBeInTheDocument());
+    expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toHaveTextContent('gradedright');
+    expect(screen.getByTestId('attempt-01900000-0000-7000-8000-000000000011')).toHaveTextContent(
+      'todo → complete → gradedright',
+    );
+    expect(screen.getByText(/Trạng thái lượt làm: finished/)).toBeInTheDocument();
+  });
 });
 
 /**

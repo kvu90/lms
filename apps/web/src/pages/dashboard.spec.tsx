@@ -1,12 +1,9 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestProviders } from '#test/providers';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
 import { PermissionsProvider } from '#lib/permissions';
-import { AppSidebar } from '#components/app-sidebar';
-import { SidebarProvider } from '@lms/ui/components/sidebar';
 import { DashboardPage } from './dashboard';
 
 const ADMIN_ID = '01900000-0000-7000-8000-0000000000a1';
@@ -157,17 +154,11 @@ function stubFetch(handler: Handler) {
   );
 }
 
-function renderApp(withSidebar: boolean) {
+function renderApp() {
   const router = createMemoryRouter([
     {
       path: '/',
-      element: withSidebar ? (
-        <SidebarProvider>
-          <AppSidebar />
-        </SidebarProvider>
-      ) : (
-        <DashboardPage />
-      ),
+      element: <DashboardPage />,
     },
   ]);
   render(
@@ -320,7 +311,7 @@ describe('Dashboard theo vai trò', () => {
 
   it('student thấy khối việc cần làm DASH1 ở đầu dashboard: quá hạn tách rõ + điểm mới', async () => {
     stubFetch(baseHandler('student'));
-    renderApp(false);
+    renderApp();
     // Chờ nội dung thật (skeleton chờ tải mang cùng testid nên không chờ theo testid).
     expect(await screen.findByText('Bài nộp quá hạn')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-todo')).toBeInTheDocument();
@@ -341,7 +332,7 @@ describe('Dashboard theo vai trò', () => {
 
   it('teacher thấy hàng đợi chấm DASH1 gộp theo khoá với số chờ đúng', async () => {
     stubFetch(baseHandler('teacher'));
-    renderApp(false);
+    renderApp();
     const row = await screen.findByTestId('grading-queue-row');
     expect(screen.getByTestId('dashboard-grading-queue')).toBeInTheDocument();
     expect(row).toHaveTextContent('Khoá học mẫu');
@@ -359,7 +350,7 @@ describe('Dashboard theo vai trò', () => {
 
   it('admin thấy khối quản trị hệ thống, không thấy khối giảng dạy/học tập', async () => {
     stubFetch(baseHandler('admin'));
-    renderApp(false);
+    renderApp();
     expect(await screen.findByText('Quản trị hệ thống')).toBeInTheDocument();
     expect(await screen.findByText('Tổng người dùng')).toBeInTheDocument();
     // Bảng người dùng thật từ API quản trị.
@@ -370,7 +361,7 @@ describe('Dashboard theo vai trò', () => {
 
   it('student chỉ thấy khối học tập của mình với điểm thật, không thấy khối quản trị/giảng dạy', async () => {
     stubFetch(baseHandler('student'));
-    renderApp(false);
+    renderApp();
     expect(await screen.findByText('Học tập của tôi')).toBeInTheDocument();
     // Điểm trung bình từ điểm bài 8.5/10 đã công bố của học sinh — hiện ở
     // cả thẻ thống kê lẫn cột điểm của khoá trong bảng (cùng một giá trị).
@@ -383,7 +374,7 @@ describe('Dashboard theo vai trò', () => {
 
   it('teacher thấy khối giảng dạy với hàng đợi chấm thật, không thấy khối quản trị/học tập', async () => {
     stubFetch(baseHandler('teacher'));
-    renderApp(false);
+    renderApp();
     expect(await screen.findByText('Giảng dạy')).toBeInTheDocument();
     // Báo cáo lớp có 2 học viên, 1 người chưa có điểm → thẻ "Chưa có điểm" = 1.
     const ungradedCard = await screen.findByTestId('stat-card-teacher-ungraded');
@@ -392,31 +383,4 @@ describe('Dashboard theo vai trò', () => {
     expect(screen.queryByText('Học tập của tôi')).not.toBeInTheDocument();
   });
 
-  it('sidebar của admin có các nhóm quản trị thu/mở được, sidebar của student thì không', async () => {
-    stubFetch(baseHandler('admin'));
-    renderApp(true);
-    // Mục quản trị nay nằm trong nhóm cha thu/mở: mở nhóm "Người dùng
-    // & quyền" mới thấy Người dùng và Vai trò.
-    await userEvent.click(await screen.findByRole('button', { name: 'Người dùng & quyền' }));
-    expect(await screen.findByText('Người dùng')).toBeInTheDocument();
-    expect(screen.getByText('Vai trò')).toBeInTheDocument();
-    // Ngân hàng được phép với admin — ba mục ngân hàng CẤP CAO NHẤT
-    // ngay sau nhóm Học tập (chốt lại 26/10/2026, issue #228: bỏ hẳn
-    // mục "Ngân hàng hệ thống" ở sidebar, khu hệ thống thành tab
-    // trong trang danh sách): ba mục là link, hiện ngay ở sidebar.
-    expect(await screen.findByText('Ngân hàng câu hỏi')).toBeInTheDocument();
-    expect(screen.getByText('Ngân hàng đề')).toBeInTheDocument();
-    expect(screen.queryByText('Ngân hàng hệ thống')).not.toBeInTheDocument();
-  });
-
-  it('sidebar của student không có mục quản trị và không có ngân hàng câu hỏi', async () => {
-    stubFetch(baseHandler('student'));
-    renderApp(true);
-    expect(await screen.findByText('Tổng quan')).toBeInTheDocument();
-    expect(screen.getByText('Khoá học')).toBeInTheDocument();
-    expect(screen.queryByText('Người dùng')).not.toBeInTheDocument();
-    expect(screen.queryByText('Vai trò')).not.toBeInTheDocument();
-    expect(screen.queryByText('Ngân hàng câu hỏi')).not.toBeInTheDocument();
-    expect(screen.queryByText('Ngân hàng hệ thống')).not.toBeInTheDocument();
-  });
 });
