@@ -204,10 +204,12 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     setSlots(toSlotDrafts(view));
   }, [paperQuery.data]);
 
-  // Nạp hỏng chi tiết: báo lỗi tải như nhịp loadPaper thủ công cũ.
-  useEffect(() => {
-    if (paperQuery.isError) setMessage(withApiReason(t('examPaperSaveFailed'), paperQuery.error));
-  }, [paperQuery.isError, paperQuery.error, t]);
+  // Lỗi nạp chi tiết đề suy ngay khi render từ trạng thái
+  // query — không chép qua effect vào state như bản cũ (cùng
+  // khuôn pages/questions.tsx): banner hiện thông báo của thao
+  // tác nếu có, không thì lỗi nạp kèm lý do API trả.
+  const loadError = paperQuery.isError ? withApiReason(t('examPaperSaveFailed'), paperQuery.error) : null;
+  const displayMessage = message ?? loadError;
 
   /** Đổi câu của slot đang chọn sang câu khác CÙNG Ô (server gác pool của ô nguồn). */
   async function doSwap(questionId: string) {
@@ -342,9 +344,9 @@ export function ExamPaperEditorPage({ mode }: { mode: 'new' | 'edit' }) {
           </Button>
         }
       />
-      {message ? (
+      {displayMessage ? (
         <ErrorAlert>
-          {message}
+          {displayMessage}
         </ErrorAlert>
       ) : null}
       <form onSubmit={(e) => void submit(e)} className="space-y-6">

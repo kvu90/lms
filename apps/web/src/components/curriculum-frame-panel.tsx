@@ -46,12 +46,21 @@ export function CurriculumFramePanel({
   const updateFrameInfoMutation = useUpdateCourseFrameInfo();
   const applyFrameMutation = useApplyCurriculumFrame();
 
-  // Khởi tạo môn/khối từ chính khoá khi dữ liệu khoá về.
+  // Khởi tạo môn/khối từ chính khoá khi dữ liệu khoá về. Ba giá
+  // trị nguyên thuỷ của khoá được tách ra trước hiệu ứng để mảng
+  // phụ thuộc bám đúng những gì hiệu ứng đọc: hiệu ứng chỉ chạy
+  // lại khi id/môn/khối của khoá thật sự đổi — không chạy lại khi
+  // các trường khác của khoá đổi (ví dụ sửa tên khoá ở thẻ thông
+  // tin cùng trang), tránh đè lựa chọn giáo viên đang chọn dở tại
+  // panel này.
+  const loadedCourseId = course?.id;
+  const loadedSubjectId = course?.subjectId;
+  const loadedGrade = course?.grade;
   useEffect(() => {
-    if (!course) return;
-    setSubjectId(course.subjectId ?? '');
-    setGrade(course.grade != null ? String(course.grade) : '');
-  }, [course?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (loadedCourseId == null) return;
+    setSubjectId(loadedSubjectId ?? '');
+    setGrade(loadedGrade != null ? String(loadedGrade) : '');
+  }, [loadedCourseId, loadedSubjectId, loadedGrade]);
 
   // Danh sách môn đọc qua hook TanStack kèm forCourseId = chính khoá
   // này: giáo viên cấp khoá đọc được qua nhánh course:update tại khoá

@@ -81,10 +81,11 @@ export function useConversationRestore({
         // Không phải thành viên hoặc conversation không tồn tại: bỏ qua deep-link.
       }
     })();
-    // `open` là hàm của chính trang (định nghĩa dưới đây), không phải
-    // dependency cần theo dõi — mốc chạy một lần do deepLinkHandledRef gác.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deepLinkId, listLoaded, conversations]);
+    // Mảng phụ thuộc liệt kê đủ mọi giá trị hiệu ứng đọc; mốc
+    // chạy một lần do deepLinkHandledRef gác nên các lần chạy
+    // thêm (khi `open`/danh sách đổi danh tính) thoát ngay ở đầu
+    // hiệu ứng, hành vi không đổi.
+  }, [deepLinkId, listLoaded, conversations, open, queryClient, setConversations]);
 
   // Khôi phục NGỮ CẢNH GẦN NHẤT (lát MSG-T3): không có deep-link
   // thì mở lại hội thoại đã lưu bền khi danh sách nạp xong — đúng
@@ -111,8 +112,9 @@ export function useConversationRestore({
         // Không còn mở được hội thoại đã lưu: bỏ qua êm.
       }
     })();
-    // Chạy một lần theo mốc listLoaded — `open`/`conversations` không
-    // phải dependency cần theo dõi (cùng kỷ luật với deep-link ở trên).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deepLinkId, listLoaded]);
+    // Mảng phụ thuộc liệt kê đủ mọi giá trị hiệu ứng đọc; mốc
+    // chạy một lần do contextRestoredRef gác (cùng kỷ luật với
+    // deep-link ở trên) nên các lần chạy thêm thoát ngay ở đầu
+    // hiệu ứng, hành vi không đổi.
+  }, [deepLinkId, listLoaded, conversations, open, queryClient, setConversations]);
 }
