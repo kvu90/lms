@@ -6,7 +6,7 @@ import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { GuardianDigestEventsProcessor } from '../../../src/processors/guardian-digest-events.processor';
 import type { OutboxEventJobData } from '../../../src/outbox-event-routes';
 import {
-  guardianDigests, notifications, notificationDispatchLog, outboxEvents,
+  guardianDigests, notifications, notificationDispatchLog, outboxEvents, userPreferences,
 } from '@lms/db';
 import {
   bootWorkerModuleAsOrdinaryRole,
@@ -81,7 +81,32 @@ describe('Worker guardian digest delivery (PH-2, issue #159; chuyển worker ở
     await db.execute(sql`insert into users (id, username, email, first_name, last_name, suspended, deleted) values (${id}, ${`ph2d-${id.slice(-6)}-${suffix}`}, ${`ph2d-${id.slice(-6)}-${suffix}@x.io`}, 'An', 'Nguyễn Văn', false, false) on conflict (id) do nothing`);
   }
 
+  /**
+   * Cách ly dữ kiện email giữa các spec tích hợp: phụ huynh fixture
+   * đặt tường minh tần suất email `immediate` cho hai provider digest
+   * phụ huynh. Nếu để tần suất mặc định theo nhóm (`daily`), mỗi
+   * dispatch email sinh ra từ các ca dưới đây sẽ nằm chờ ở trạng thái
+   * `digest-queued` trong database dùng chung của suite, và lượt quét
+   * tổng hợp ngày của spec email
+   * (notifications/notification-email.int-spec.ts) — vốn khẳng định
+   * tổng số trên TOÀN database — sẽ gom cả các mục chờ đó vào kết quả
+   * của nó. Với `immediate`, dispatch vẫn đi trọn đường thật
+   * (notify → hàng đợi dispatch → processor phát) nhưng chốt ngay
+   * bằng một dòng dispatch log, không vào bể chờ digest; bằng chứng
+   * kênh email của các ca dưới đây (job trên hàng đợi hoặc dispatch
+   * log theo dedupeKey) không đổi. Luật gộp digest ngày tự nó được
+   * kiểm chứng ở chính spec email.
+   */
+  async function setEmailImmediate(guardianId: string) {
+    for (const provider of ['guardian_digest', 'guardian_overdue_alert']) {
+      await db.insert(userPreferences).values({
+        userId: guardianId, name: `message_provider_${provider}_email_v2`, value: 'immediate',
+      }).onConflictDoNothing();
+    }
+  }
+
   async function makeLink(guardianId: string, studentId: string, status = 'active') {
+    await setEmailImmediate(guardianId);
     // SQL thô như spec quét: bảng thật còn các cột NOT NULL
     // (relationship, created_by) nằm ngoài view subset của worker.
     const rows = await execRows<{ id: string }>(sql`insert into guardian_links (guardian_user_id, student_user_id, relationship, status, created_by, created_at, updated_at, tenant_id) values (${guardianId}, ${studentId}, 'Cha', ${status}, ${guardianId}, ${new Date(Date.now() - 10 * DAY)}, now(), (select id from tenants where slug = 'worker-fixture')) returning id`);

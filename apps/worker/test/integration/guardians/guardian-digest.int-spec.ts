@@ -41,7 +41,30 @@ describe('Worker guardian digest sweep (PH-2, issue #159)', () => {
     await db.execute(sql`insert into users (id, username, email, suspended, deleted) values (${id}, ${`ph2-${id.slice(-6)}-${suffix}`}, ${`ph2-${id.slice(-6)}-${suffix}@x.io`}, false, false) on conflict (id) do nothing`);
   }
 
+  /**
+   * Cách ly dữ kiện email giữa các spec tích hợp: phụ huynh fixture
+   * đặt tường minh tần suất email `immediate` cho hai provider digest
+   * phụ huynh. Nếu để tần suất mặc định theo nhóm (`daily`), mỗi
+   * dispatch email sinh ra từ các ca dưới đây sẽ nằm chờ ở trạng thái
+   * `digest-queued` trong database dùng chung của suite, và lượt quét
+   * tổng hợp ngày của spec email
+   * (notifications/notification-email.int-spec.ts) — vốn khẳng định
+   * tổng số trên TOÀN database — sẽ gom cả các mục chờ đó vào kết quả
+   * của nó. Với `immediate`, dispatch vẫn đi trọn đường thật
+   * (notify → hàng đợi dispatch → processor phát) nhưng chốt ngay
+   * bằng một dòng dispatch log, không vào bể chờ digest; luật gộp
+   * digest ngày tự nó được kiểm chứng ở chính spec email.
+   */
+  async function setEmailImmediate(guardianId: string) {
+    for (const provider of ['guardian_digest', 'guardian_overdue_alert']) {
+      await db.insert(userPreferences).values({
+        userId: guardianId, name: `message_provider_${provider}_email_v2`, value: 'immediate',
+      }).onConflictDoNothing();
+    }
+  }
+
   async function makeLink(guardianId: string, studentId: string, createdDaysAgo = 10, status = 'active') {
+    await setEmailImmediate(guardianId);
     // SQL thô: bảng thật còn các cột NOT NULL (relationship, created_by)
     // nằm ngoài view subset của worker.
     const rows = await db.execute(sql`insert into guardian_links (guardian_user_id, student_user_id, relationship, status, created_by, created_at, updated_at, tenant_id) values (${guardianId}, ${studentId}, 'Cha', ${status}, ${guardianId}, ${new Date(Date.now() - createdDaysAgo * DAY)}, now(), (select id from tenants where slug = 'worker-fixture')) returning id`);
