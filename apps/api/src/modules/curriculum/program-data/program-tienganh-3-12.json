@@ -285,6 +285,72 @@
    }
   },
   {
+   "id": "TA-0096",
+   "subject": "Tiếng Anh",
+   "grade": 3,
+   "level": "Tiểu học",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kỹ năng ngôn ngữ: Viết",
+   "content": "",
+   "kind": "skill",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các từ, cụm từ rất đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Điền thông tin cá nhân vào các mẫu rất đơn giản (tên, địa chỉ…)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các văn bản ngắn khoảng 10 - 20 từ (có gợi ý) trong phạm vi các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "- Viết các từ, cụm từ rất đơn giản. - Điền thông tin cá nhân vào các mẫu rất đơn giản (tên, địa chỉ…). - Viết các văn bản ngắn khoảng 10 - 20 từ (có gợi ý) trong phạm vi các chủ đề trong Chương trình.",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     26,
+     27,
+     28
+    ]
+   }
+  },
+  {
    "id": "TA-0006",
    "subject": "Tiếng Anh",
    "grade": 3,
@@ -587,21 +653,78 @@
        "content": [
         {
          "type": "text",
-         "text": "Tính từ miêu tả: big, small, new, old,"
+         "text": "Tính từ miêu tả: big, small, new, old, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Từ chỉ số lượng: a lot, many, some, ..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên từ: and"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mạo từ: a/an, the"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ (chỉ địa điểm): in, at, on, ... …"
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Thì hiện tại đơn Thì hiện tại tiếp diễn Câu đơn Đại từ chỉ định: this/that/these/those There is/There are Câu hỏi có từ để hỏi: what, where, who, how, how old… Câu hỏi nghi vấn (Yes/No question) Câu mệnh lệnh: Stand up, please. Don’t talk, please,… Động từ tình thái: may, can Đại từ nhân xưng: I, you, he, she, it, we, they Tính từ sở hữu: my, your, his, her, its, our, their Danh từ (số ít, số nhiều): pen(s), book(s), chair(s), ... Tính từ miêu tả: big, small, new, old,",
+   "outcome_text": "Thì hiện tại đơn – Thì hiện tại tiếp diễn – Câu đơn – Đại từ chỉ định: this/that/these/those – There is/There are – Câu hỏi có từ để hỏi: what, where, who, how, how old… – Câu hỏi nghi vấn (Yes/No question) – Câu mệnh lệnh: Stand up, please. Don’t talk, please,… – Động từ tình thái: may, can – Đại từ nhân xưng: I, you, he, she, it, we, they – Tính từ sở hữu: my, your, his, her, its, our, their – Danh từ (số ít, số nhiều): pen(s), book(s), chair(s), ... – Tính từ miêu tả: big, small, new, old, … – Từ chỉ số lượng: a lot, many, some, ... – Liên từ: and – Mạo từ: a/an, the – Giới từ (chỉ địa điểm): in, at, on, ... …",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      26,
-     27
+     27,
+     28
     ]
    }
   },
@@ -1451,7 +1574,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, … - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc."
+         "text": "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, …"
         }
        ]
       }
@@ -1465,14 +1588,28 @@
        "content": [
         {
          "type": "text",
-         "text": "Ðọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản."
+         "text": "Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, … - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc. - Ðọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản.",
+   "outcome_text": "Đọc những đoạn văn bản ngắn, đơn giản đã được chuẩn bị trước về những chủ đề quen thuộc như bạn bè, gia đình, nhà trường, … - Đọc hiểu các đoạn văn bản ngắn, đơn giản khoảng 60 - 80 từ về các chủ đề quen thuộc. - Đọc hiểu các thông điệp ngắn, đơn giản trên bưu thiếp; các chỉ dẫn ngắn, đơn giản.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -1480,6 +1617,72 @@
     "pdf_pages": [
      30,
      31
+    ]
+   }
+  },
+  {
+   "id": "TA-0097",
+   "subject": "Tiếng Anh",
+   "grade": 5,
+   "level": "Tiểu học",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kỹ năng ngôn ngữ: Viết",
+   "content": "",
+   "kind": "skill",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các cụm từ, câu đơn giản về các chủ đề quen thuộc như bản thân, gia đình, trường học, bạn bè, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các đoạn văn bản ngắn, đơn giản khoảng 30 - 40 từ (có gợi ý) về các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết hoặc điền thông tin vào biểu bảng đơn giản, tin nhắn, …"
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "- Viết các cụm từ, câu đơn giản về các chủ đề quen thuộc như bản thân, gia đình, trường học, bạn bè, … - Viết các đoạn văn bản ngắn, đơn giản khoảng 30 - 40 từ (có gợi ý) về các chủ đề quen thuộc. - Viết hoặc điền thông tin vào biểu bảng đơn giản, tin nhắn, …",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     30,
+     31,
+     32
     ]
    }
   },
@@ -1558,7 +1761,30 @@
        ]
       }
      ]
-    },
+    }
+   ],
+   "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 5",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     30,
+     31
+    ]
+   }
+  },
+  {
+   "id": "TA-0098",
+   "subject": "Tiếng Anh",
+   "grade": 5,
+   "level": "Tiểu học",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kiến thức ngôn ngữ: Ngữ pháp",
+   "content": "",
+   "kind": "knowledge",
+   "outcomes": [
     {
      "type": "doc",
      "content": [
@@ -1567,7 +1793,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Ngữ pháp: Thì quá khứ đơn (củng cố và mở rộng)"
+         "text": "Thì quá khứ đơn (củng cố và mở rộng)"
         }
        ]
       }
@@ -1672,7 +1898,7 @@
      ]
     }
    ],
-   "outcome_text": "Các từ liên quan đến chủ điểm, chủ đề của lớp 5 Ngữ pháp: Thì quá khứ đơn (củng cố và mở rộng) Thì tương lai đơn Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) (củng cố và mở rộng) Động từ tình thái: should, could, would Tính từ chỉ tính chất đơn giản Trạng từ (chỉ cách thức hành động): fast, hard, well, ...; Trạng từ (chỉ tần suất): always, usually, often, never,... Giới từ: by, on, ... …",
+   "outcome_text": "- Thì quá khứ đơn (củng cố và mở rộng) - Thì tương lai đơn - Câu hỏi có từ để hỏi - Câu hỏi nghi vấn (Yes/No question) (củng cố và mở rộng) - Động từ tình thái: should, could, would - Tính từ chỉ tính chất đơn giản - Trạng từ (chỉ cách thức hành động): fast, hard, well, ...; Trạng từ (chỉ tần suất): always, usually, often, never,... - Giới từ: by, on, ... …",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -1839,7 +2065,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Hỏi và trả lời ngắn gọn về các chủ đề trong Chương trình như nhà trường, bạn bè, lễ hội, danh lam thắng cảnh, … - Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình."
+         "text": "Hỏi và trả lời ngắn gọn về các chủ đề trong Chương trình như nhà trường, bạn bè, lễ hội, danh lam thắng cảnh, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày có chuẩn bị trước và có gợi ý các dự án về các chủ đề trong Chương trình."
         }
        ]
       }
@@ -1898,6 +2138,58 @@
     }
    ],
    "outcome_text": "Đọc hiểu nội dung chính, nội dung tương đối chi tiết các đoạn hội thoại, độc thoại đơn giản về các chủ đề trong Chương trình. - Đọc hiểu nội dung chính các thư cá nhân, thông báo, đoạn văn ngắn, đơn giản khoảng 100 - 120 từ thuộc phạm vi các chủ đề quen thuộc (có thể có một số từ, cấu trúc mới).",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     32,
+     33,
+     34
+    ]
+   }
+  },
+  {
+   "id": "TA-0099",
+   "subject": "Tiếng Anh",
+   "grade": 6,
+   "level": "THCS",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kỹ năng ngôn ngữ: Viết",
+   "content": "",
+   "kind": "skill",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết (có hướng dẫn) một đoạn văn ngắn, đơn giản khoảng 40 - 60 từ về các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết thư, bưu thiếp, tin nhắn hoặc ghi chép cá nhân ngắn, đơn giản liên quan đến nhu cầu giao tiếp hằng ngày trong phạm vi các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "- Viết (có hướng dẫn) một đoạn văn ngắn, đơn giản khoảng 40 - 60 từ về các chủ đề trong Chương trình. - Viết thư, bưu thiếp, tin nhắn hoặc ghi chép cá nhân ngắn, đơn giản liên quan đến nhu cầu giao tiếp hằng ngày trong phạm vi các chủ đề trong Chương trình.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -2217,16 +2509,171 @@
        ]
       }
      ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh từ: đếm được/không đếm được"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tính từ so sánh tương đối và tuyệt đối"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sở hữu cách"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ sở hữu: mine, yours, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lượng từ không xác định: some, any, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ chỉ vị trí, thời gian, …"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trạng từ chỉ tần suất"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liên từ: because, ..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mạo từ: a/an, the"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu điều kiện (loại 1) …"
+        }
+       ]
+      }
+     ]
     }
    ],
-   "outcome_text": "Thì hiện tại đơn (củng cố và mở rộng) Thì hiện tại tiếp diễn (củng cố và mở rộng) Thì tương lai đơn (củng cố và mở rộng) Thì quá khứ đơn (củng cố và mở rộng) Câu đơn Câu ghép Động từ tình thái: should/shouldn’t, might Câu hỏi có từ để hỏi Câu hỏi nghi vấn (Yes/No question) Câu mệnh lệnh: khẳng định/phủ định",
+   "outcome_text": "Thì hiện tại đơn (củng cố và mở rộng) – Thì hiện tại tiếp diễn (củng cố và mở rộng) – Thì tương lai đơn (củng cố và mở rộng) – Thì quá khứ đơn (củng cố và mở rộng) – Câu đơn – Câu ghép – Động từ tình thái: should/shouldn’t, might – Câu hỏi có từ để hỏi – Câu hỏi nghi vấn (Yes/No question) – Câu mệnh lệnh: khẳng định/phủ định – Danh từ: đếm được/không đếm được – Tính từ – Tính từ so sánh tương đối và tuyệt đối – Sở hữu cách – Đại từ sở hữu: mine, yours, … – Lượng từ không xác định: some, any, … – Giới từ chỉ vị trí, thời gian, … – Trạng từ chỉ tần suất – Liên từ: because, ... – Mạo từ: a/an, the – Câu điều kiện (loại 1) …",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      32,
-     33
+     33,
+     34
     ]
    }
   },
@@ -2459,6 +2906,58 @@
     }
    ],
    "outcome_text": "Đọc hiểu nội dung chính, nội dung chi tiết các đoạn hội thoại, độc thoại đơn giản khoảng 120 - 150 từ về các chủ đề trong Chương trình. - Đọc hiểu nội dung chính các mẩu tin, thực đơn, quảng cáo… ngắn, đơn giản thuộc phạm vi chủ đề quen thuộc (có thể có một số từ, cấu trúc mới).",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     34,
+     35,
+     36
+    ]
+   }
+  },
+  {
+   "id": "TA-0100",
+   "subject": "Tiếng Anh",
+   "grade": 7,
+   "level": "THCS",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kỹ năng ngôn ngữ: Viết",
+   "content": "",
+   "kind": "skill",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết một đoạn văn ngắn, đơn giản, có gợi ý khoảng 60 - 80 từ để mô tả các sự kiện, hoạt động cá nhân liên quan đến các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết thư, bưu thiếp, tin nhắn hoặc ghi chép cá nhân ngắn, đơn giản liên quan đến nhu cầu giao tiếp hằng ngày trong phạm vi các chủ đề trong Chương trình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "- Viết một đoạn văn ngắn, đơn giản, có gợi ý khoảng 60 - 80 từ để mô tả các sự kiện, hoạt động cá nhân liên quan đến các chủ đề trong Chương trình. - Viết thư, bưu thiếp, tin nhắn hoặc ghi chép cá nhân ngắn, đơn giản liên quan đến nhu cầu giao tiếp hằng ngày trong phạm vi các chủ đề trong Chương trình.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -3088,6 +3587,58 @@
    }
   },
   {
+   "id": "TA-0101",
+   "subject": "Tiếng Anh",
+   "grade": 8,
+   "level": "THCS",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kỹ năng ngôn ngữ: Viết",
+   "content": "",
+   "kind": "skill",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết (có hướng dẫn) một đoạn văn ngắn, đơn giản về các chủ đề quen thuộc trong cuộc sống hằng ngày."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Viết các hướng dẫn, chỉ dẫn, thông báo, … ngắn, đơn giản khoảng 80 - 100 từ liên quan đến các chủ đề quen thuộc."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "- Viết (có hướng dẫn) một đoạn văn ngắn, đơn giản về các chủ đề quen thuộc trong cuộc sống hằng ngày. - Viết các hướng dẫn, chỉ dẫn, thông báo, … ngắn, đơn giản khoảng 80 - 100 từ liên quan đến các chủ đề quen thuộc.",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     36,
+     37,
+     38
+    ]
+   }
+  },
+  {
    "id": "TA-0046",
    "subject": "Tiếng Anh",
    "grade": 8,
@@ -3353,16 +3904,129 @@
        ]
       }
      ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu điều kiện loại 1 (củng cố và mở rộng)"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Câu tường thuật: câu kể, câu hỏi"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trạng từ chỉ tần suất"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trạng từ so sánh"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới từ chỉ vị trí, thời gian"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Danh từ đếm được/không đếm được"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đại từ sở hữu"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mạo từ: a/an, the, zero article ..."
+        }
+       ]
+      }
+     ]
     }
    ],
-   "outcome_text": "Thì tương lai đơn (củng cố và mở rộng) Thì quá khứ tiếp diễn Thì hiện tại đơn với nghĩa tương lai Động từ (chỉ sự thích) + danh động từ (V-ing) Động từ (chỉ sự thích) + động từ nguyên thể có to Câu hỏi có từ để hỏi, câu hỏi nghi vấn (Yes/No question) Các loại câu: câu đơn/câu nối/câu phức",
+   "outcome_text": "Thì tương lai đơn (củng cố và mở rộng) – Thì quá khứ tiếp diễn – Thì hiện tại đơn với nghĩa tương lai – Động từ (chỉ sự thích) + danh động từ (V-ing) – Động từ (chỉ sự thích) + động từ nguyên thể có to – Câu hỏi có từ để hỏi, câu hỏi nghi vấn (Yes/No question) – Các loại câu: câu đơn/câu nối/câu phức – Câu điều kiện loại 1 (củng cố và mở rộng) – Câu tường thuật: câu kể, câu hỏi – Trạng từ chỉ tần suất – Trạng từ so sánh – Giới từ chỉ vị trí, thời gian – Danh từ đếm được/không đếm được – Đại từ sở hữu – Mạo từ: a/an, the, zero article ...",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
     "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
     "pdf_pages": [
      36,
-     37
+     37,
+     38
     ]
    }
   },
@@ -3537,7 +4201,45 @@
        "content": [
         {
          "type": "text",
-         "text": "Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản. Ðọc - Ðọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày."
+         "text": "Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "Phát âm rõ ràng, tương đối chính xác âm, trọng âm, ngữ điệu, nhịp điệu các cụm từ và câu. - Tham gia các hội thoại ngắn, đơn giản về những vấn đề quen thuộc liên quan đến công việc và cuộc sống hằng ngày. - Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ đề quen thuộc; nêu lý do và giải thích ngắn gọn về quan điểm cá nhân. - Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản.",
+   "source": {
+    "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-tienganh-3-12-official.pdf",
+    "portal": "data.moet.gov.vn (share CXTqAkDQNTwyEPt)",
+    "pdf_pages": [
+     38,
+     39,
+     40
+    ]
+   }
+  },
+  {
+   "id": "TA-0102",
+   "subject": "Tiếng Anh",
+   "grade": 9,
+   "level": "THCS",
+   "stream": null,
+   "section": "Nội dung cụ thể",
+   "topic": "Kỹ năng ngôn ngữ: Đọc",
+   "content": "",
+   "kind": "skill",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày."
         }
        ]
       }
@@ -3551,7 +4253,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Ðọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện."
+         "text": "Đọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện."
         }
        ]
       }
@@ -3572,7 +4274,7 @@
      ]
     }
    ],
-   "outcome_text": "Phát âm rõ ràng, tương đối chính xác âm, trọng âm, ngữ điệu, nhịp điệu các cụm từ và câu. - Tham gia các hội thoại ngắn, đơn giản về những vấn đề quen thuộc liên quan đến công việc và cuộc sống hằng ngày. - Trình bày ngắn gọn, có chuẩn bị trước các dự án về các chủ đề quen thuộc; nêu lý do và giải thích ngắn gọn về quan điểm cá nhân. - Trao đổi ý kiến, thông tin về những chủ đề quen thuộc bằng các diễn ngôn đơn giản. Ðọc - Ðọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày. - Ðọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện. - Đọc hiểu và đoán nghĩa của từ mới dựa vào văn cảnh và suy luận, nhận biết tổ chức của đoạn văn ngắn, đơn giản.",
+   "outcome_text": "- Đọc hiểu các văn bản khoảng 180 - 200 từ về các chủ đề quen thuộc và cụ thể, có thể sử dụng những từ thường gặp trong đời sống hằng ngày. - Đọc hiểu và xác định thông tin cụ thể trong các văn bản liên quan đến các chủ đề về đời sống hằng ngày như quảng cáo, biển báo, thông báo,... các bài báo ngắn mô tả sự kiện. - Đọc hiểu và đoán nghĩa của từ mới dựa vào văn cảnh và suy luận, nhận biết tổ chức của đoạn văn ngắn, đơn giản.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",
@@ -5598,7 +6300,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Ðọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng."
+         "text": "Đọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng."
         }
        ]
       }
@@ -5619,7 +6321,7 @@
      ]
     }
    ],
-   "outcome_text": "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 280 - 300 từ về các chủ đề mang tính thời sự và quen thuộc. - Ðọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng. - Đọc hiểu để tìm và tóm tắt các văn bản ngắn sử dụng hằng ngày như thư từ, tờ thông tin đơn giản, sử dụng các từ và cấu trúc từ văn bản gốc.",
+   "outcome_text": "Đọc hiểu các ý chính, nội dung chi tiết của văn bản khoảng 280 - 300 từ về các chủ đề mang tính thời sự và quen thuộc. - Đọc hiểu mạch lập luận của văn bản, xác định được các kết luận chính trong các văn bản có sử dụng ngôn ngữ rõ ràng. - Đọc hiểu để tìm và tóm tắt các văn bản ngắn sử dụng hằng ngày như thư từ, tờ thông tin đơn giản, sử dụng các từ và cấu trúc từ văn bản gốc.",
    "source": {
     "document": "Chương trình môn Ngoại ngữ 1 (Tiếng Anh), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tienganh-3-12-official.pdf",

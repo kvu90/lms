@@ -925,7 +925,21 @@
        "content": [
         {
          "type": "text",
-         "text": "–Phân biệt được cảm xúc tích cực (thích, yêu, tự tin, vui vẻ, vui sướng, phấn khởi,...), cảm xúc tiêu cực (giận dữ, buồn chán, sợ hãi, tự ti, thất vọng,...). –Biết được ảnh hưởng của cảm xúc tích cực, cảm xúc tiêu cực đối với bản thân và mọi người xung quanh."
+         "text": "Phân biệt được cảm xúc tích cực (thích, yêu, tự tin, vui vẻ, vui sướng, phấn khởi,...), cảm xúc tiêu cực (giận dữ, buồn chán, sợ hãi, tự ti, thất vọng,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết được ảnh hưởng của cảm xúc tích cực, cảm xúc tiêu cực đối với bản thân và mọi người xung quanh."
         }
        ]
       }
@@ -946,7 +960,7 @@
      ]
     }
    ],
-   "outcome_text": "–Phân biệt được cảm xúc tích cực (thích, yêu, tự tin, vui vẻ, vui sướng, phấn khởi,...), cảm xúc tiêu cực (giận dữ, buồn chán, sợ hãi, tự ti, thất vọng,...). –Biết được ảnh hưởng của cảm xúc tích cực, cảm xúc tiêu cực đối với bản thân và mọi người xung quanh. – Biết kiềm chế các cảm xúc tiêu cực.",
+   "outcome_text": "– Phân biệt được cảm xúc tích cực (thích, yêu, tự tin, vui vẻ, vui sướng, phấn khởi,...), cảm xúc tiêu cực (giận dữ, buồn chán, sợ hãi, tự ti, thất vọng,...). – Biết được ảnh hưởng của cảm xúc tích cực, cảm xúc tiêu cực đối với bản thân và mọi người xung quanh. – Biết kiềm chế các cảm xúc tiêu cực.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -1978,7 +1992,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được một số biểu hiện tôn trọng tài sản của người khác. –Biết vì sao phải tôn trọng tài sản của người khác."
+         "text": "Nêu được một số biểu hiện tôn trọng tài sản của người khác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết vì sao phải tôn trọng tài sản của người khác."
         }
        ]
       }
@@ -2013,7 +2041,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được một số biểu hiện tôn trọng tài sản của người khác. –Biết vì sao phải tôn trọng tài sản của người khác. – Thể hiện thái độ tôn trọng tài sản của người khác bằng những lời nói, việc làm cụ thể phù hợp. – Nhắc nhở bạn bè, người thân tôn trọng tài sản của người khác.",
+   "outcome_text": "– Nêu được một số biểu hiện tôn trọng tài sản của người khác. – Biết vì sao phải tôn trọng tài sản của người khác. – Thể hiện thái độ tôn trọng tài sản của người khác bằng những lời nói, việc làm cụ thể phù hợp. – Nhắc nhở bạn bè, người thân tôn trọng tài sản của người khác.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -2603,7 +2631,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Biết vì sao phải bảo vệ cái đúng, cái tốt. –Biết một số cách đơn giản để bảo vệ cái đúng, cái tốt."
+         "text": "Biết vì sao phải bảo vệ cái đúng, cái tốt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết một số cách đơn giản để bảo vệ cái đúng, cái tốt."
         }
        ]
       }
@@ -2624,7 +2666,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được cái đúng, cái tốt cần bảo vệ. – Biết vì sao phải bảo vệ cái đúng, cái tốt. –Biết một số cách đơn giản để bảo vệ cái đúng, cái tốt. – Mạnh dạn bảo vệ cái đúng, cái tốt.",
+   "outcome_text": "– Nhận biết được cái đúng, cái tốt cần bảo vệ. – Biết vì sao phải bảo vệ cái đúng, cái tốt. – Biết một số cách đơn giản để bảo vệ cái đúng, cái tốt. – Mạnh dạn bảo vệ cái đúng, cái tốt.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -3215,7 +3257,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được một số biểu hiện của tôn trọng sự thật. –Hiểu vì sao phải tôn trọng sự thật."
+         "text": "Nhận biết được một số biểu hiện của tôn trọng sự thật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu vì sao phải tôn trọng sự thật."
         }
        ]
       }
@@ -3250,7 +3306,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được một số biểu hiện của tôn trọng sự thật. –Hiểu vì sao phải tôn trọng sự thật. – Luôn nói thật với người thân, thầy cô, bạn bè và người có trách nhiệm. – Không đồng tình với việc nói dối hoặc che giấu sự thật.",
+   "outcome_text": "– Nhận biết được một số biểu hiện của tôn trọng sự thật. – Hiểu vì sao phải tôn trọng sự thật. – Luôn nói thật với người thân, thầy cô, bạn bè và người có trách nhiệm. – Không đồng tình với việc nói dối hoặc che giấu sự thật.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -3826,7 +3882,35 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được những biểu hiện của sự quan tâm, cảm thôngvà chia sẻ với người khác. –Hiểu vì sao mọi người phải quan tâm, cảm thôngvà chia sẻ với nhau. –Thường xuyên có những lời nói, việc làm thể hiện sự quan tâm, cảm thôngvà chia sẻ với mọi người."
+         "text": "Nêu được những biểu hiện của sự quan tâm, cảm thôngvà chia sẻ với người khác."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu vì sao mọi người phải quan tâm, cảm thôngvà chia sẻ với nhau."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thường xuyên có những lời nói, việc làm thể hiện sự quan tâm, cảm thôngvà chia sẻ với mọi người."
         }
        ]
       }
@@ -3847,7 +3931,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được những biểu hiện của sự quan tâm, cảm thôngvà chia sẻ với người khác. –Hiểu vì sao mọi người phải quan tâm, cảm thôngvà chia sẻ với nhau. –Thường xuyên có những lời nói, việc làm thể hiện sự quan tâm, cảm thôngvà chia sẻ với mọi người. – Khích lệ, động viên bạn bè quan tâm, cảm thông và chia sẻ với người khác; phê phán thói ích kỉ, thờ ơ trước khó khăn, mất mát của người khác.",
+   "outcome_text": "– Nêu được những biểu hiện của sự quan tâm, cảm thôngvà chia sẻ với người khác. – Hiểu vì sao mọi người phải quan tâm, cảm thôngvà chia sẻ với nhau. – Thường xuyên có những lời nói, việc làm thể hiện sự quan tâm, cảm thôngvà chia sẻ với mọi người. – Khích lệ, động viên bạn bè quan tâm, cảm thông và chia sẻ với người khác; phê phán thói ích kỉ, thờ ơ trước khó khăn, mất mát của người khác.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -3876,7 +3960,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được các biểu hiện của học tập tự giác, tích cực. –Hiểu vì sao phải học tập tự giác, tích cực."
+         "text": "Nêu được các biểu hiện của học tập tự giác, tích cực."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu vì sao phải học tập tự giác, tích cực."
         }
        ]
       }
@@ -3911,7 +4009,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được các biểu hiện của học tập tự giác, tích cực. –Hiểu vì sao phải học tập tự giác, tích cực. – Thực hiện được việc học tập tự giác, tích cực. – Biết góp ý, nhắc nhở những bạn chưa tự giác, tích cực học tập để khắc phục hạn chế này.",
+   "outcome_text": "– Nêu được các biểu hiện của học tập tự giác, tích cực. – Hiểu vì sao phải học tập tự giác, tích cực. – Thực hiện được việc học tập tự giác, tích cực. – Biết góp ý, nhắc nhở những bạn chưa tự giác, tích cực học tập để khắc phục hạn chế này.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -4948,7 +5046,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được thế nào là mục tiêu cá nhân; các loại mục tiêu cá nhân. –Hiểu vì sao phải xác định mục tiêu cá nhân."
+         "text": "Nhận biết được thế nào là mục tiêu cá nhân; các loại mục tiêu cá nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu vì sao phải xác định mục tiêu cá nhân."
         }
        ]
       }
@@ -4983,7 +5095,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được thế nào là mục tiêu cá nhân; các loại mục tiêu cá nhân. –Hiểu vì sao phải xác định mục tiêu cá nhân. – Nêu được cách xác định mục tiêu và lập kế hoạch thực hiện mục tiêu cá nhân. – Xây dựng được mục tiêu cá nhân của bản thân và kế hoạch hành động nhằm đạt mục tiêu đó.",
+   "outcome_text": "– Nhận biết được thế nào là mục tiêu cá nhân; các loại mục tiêu cá nhân. – Hiểu vì sao phải xác định mục tiêu cá nhân. – Nêu được cách xác định mục tiêu và lập kế hoạch thực hiện mục tiêu cá nhân. – Xây dựng được mục tiêu cá nhân của bản thân và kế hoạch hành động nhằm đạt mục tiêu đó.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -5119,14 +5231,42 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được cách lập kế hoạch chi tiêu. –Lập được kế hoạch chi tiêu và tạo thói quen chi tiêu hợp lí. –Giúp đỡ bạn bè, người thân lập kế hoạch chi tiêu hợp lí."
+         "text": "Nêu được cách lập kế hoạch chi tiêu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập được kế hoạch chi tiêu và tạo thói quen chi tiêu hợp lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giúp đỡ bạn bè, người thân lập kế hoạch chi tiêu hợp lí."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được sự cần thiết phải lập kế hoạch chi tiêu. – Nêu được cách lập kế hoạch chi tiêu. –Lập được kế hoạch chi tiêu và tạo thói quen chi tiêu hợp lí. –Giúp đỡ bạn bè, người thân lập kế hoạch chi tiêu hợp lí.",
+   "outcome_text": "– Nhận biết được sự cần thiết phải lập kế hoạch chi tiêu. – Nêu được cách lập kế hoạch chi tiêu. – Lập được kế hoạch chi tiêu và tạo thói quen chi tiêu hợp lí. – Giúp đỡ bạn bè, người thân lập kế hoạch chi tiêu hợp lí.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -5496,7 +5636,21 @@
        "content": [
         {
          "type": "text",
-         "text": "–Hiểu được thế nào là hoạt động cộng đồng; nêu được một số hoạt động cộng đồng. –Giải thích được sự cần thiết phải tham gia các hoạt động cộng đồng."
+         "text": "Hiểu được thế nào là hoạt động cộng đồng; nêu được một số hoạt động cộng đồng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được sự cần thiết phải tham gia các hoạt động cộng đồng."
         }
        ]
       }
@@ -5545,7 +5699,7 @@
      ]
     }
    ],
-   "outcome_text": "–Hiểu được thế nào là hoạt động cộng đồng; nêu được một số hoạt động cộng đồng. –Giải thích được sự cần thiết phải tham gia các hoạt động cộng đồng. – Nhận biết được trách nhiệm của học sinh trong việc tham gia vào các hoạt động cộng đồng. – Tham gia tích cực, tự giác các hoạt động chung của cộng đồng phù hợp với lứa tuổi do lớp, trường, địa phương tổ chức. – Phê phán biểu hiện thờ ơ, thiếu trách nhiệm với các hoạt động cộng đồng.",
+   "outcome_text": "– Hiểu được thế nào là hoạt động cộng đồng; nêu được một số hoạt động cộng đồng. – Giải thích được sự cần thiết phải tham gia các hoạt động cộng đồng. – Nhận biết được trách nhiệm của học sinh trong việc tham gia vào các hoạt động cộng đồng. – Tham gia tích cực, tự giác các hoạt động chung của cộng đồng phù hợp với lứa tuổi do lớp, trường, địa phương tổ chức. – Phê phán biểu hiện thờ ơ, thiếu trách nhiệm với các hoạt động cộng đồng.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -9454,14 +9608,28 @@
        "content": [
         {
          "type": "text",
-         "text": "Phân tích, đánh giá, tham gia tranh luận được một số vấn đề đơn giản thường gặp trong đời sống liên quan đến Luật Doanh nghiệp. –Tích cực, chủ động vận động người khác thực hiện đúng Luật Doanh nghiệp; phê phán các hành vi vi phạm Luật Doanh nghiệp."
+         "text": "Phân tích, đánh giá, tham gia tranh luận được một số vấn đề đơn giản thường gặp trong đời sống liên quan đến Luật Doanh nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tích cực, chủ động vận động người khác thực hiện đúng Luật Doanh nghiệp; phê phán các hành vi vi phạm Luật Doanh nghiệp."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm Luật Doanh nghiệp và nội dung cơ bản của Luật Doanh nghiệp. – Nhận biết được hậu quả của hành vi vi phạm các quy định của Luật Doanh nghiệp. – Phân tích, đánh giá, tham gia tranh luận được một số vấn đề đơn giản thường gặp trong đời sống liên quan đến Luật Doanh nghiệp. –Tích cực, chủ động vận động người khác thực hiện đúng Luật Doanh nghiệp; phê phán các hành vi vi phạm Luật Doanh nghiệp.",
+   "outcome_text": "– Nêu được khái niệm Luật Doanh nghiệp và nội dung cơ bản của Luật Doanh nghiệp. – Nhận biết được hậu quả của hành vi vi phạm các quy định của Luật Doanh nghiệp. – Phân tích, đánh giá, tham gia tranh luận được một số vấn đề đơn giản thường gặp trong đời sống liên quan đến Luật Doanh nghiệp. – Tích cực, chủ động vận động người khác thực hiện đúng Luật Doanh nghiệp; phê phán các hành vi vi phạm Luật Doanh nghiệp.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",
@@ -9518,14 +9686,28 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được những thành tựu và hạn chế trong quá trình hội nhập kinh tế quốc tế của Việt Nam; một số biện pháp và chính sách đang áp dụng trong thực tế nhằm giải quyết các vấn đề liên quan đến kinh tế, văn hoá, xã hội trong quá trình hội nhập kinh tế quốc tế. –Trình bày được khái niệm công dân toàn cầu và các vấn đề hợp tác quốc tế, giải quyết xung đột quốc tế về kinh tế trong bối cảnh toàn cầu hoá và hội nhập kinh tế quốc tế."
+         "text": "Nêu được những thành tựu và hạn chế trong quá trình hội nhập kinh tế quốc tế của Việt Nam; một số biện pháp và chính sách đang áp dụng trong thực tế nhằm giải quyết các vấn đề liên quan đến kinh tế, văn hoá, xã hội trong quá trình hội nhập kinh tế quốc tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm công dân toàn cầu và các vấn đề hợp tác quốc tế, giải quyết xung đột quốc tế về kinh tế trong bối cảnh toàn cầu hoá và hội nhập kinh tế quốc tế."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Bước đầu phân tích được những cơ hội và thách thức đối với Việt Nam trong hội nhập kinh tế quốc tế. – Nêu được đường lối, chính sách hội nhập kinh tế quốc tế của Đảng và Nhà nước. – Nêu được những thành tựu và hạn chế trong quá trình hội nhập kinh tế quốc tế của Việt Nam; một số biện pháp và chính sách đang áp dụng trong thực tế nhằm giải quyết các vấn đề liên quan đến kinh tế, văn hoá, xã hội trong quá trình hội nhập kinh tế quốc tế. –Trình bày được khái niệm công dân toàn cầu và các vấn đề hợp tác quốc tế, giải quyết xung đột quốc tế về kinh tế trong bối cảnh toàn cầu hoá và hội nhập kinh tế quốc tế.",
+   "outcome_text": "– Bước đầu phân tích được những cơ hội và thách thức đối với Việt Nam trong hội nhập kinh tế quốc tế. – Nêu được đường lối, chính sách hội nhập kinh tế quốc tế của Đảng và Nhà nước. – Nêu được những thành tựu và hạn chế trong quá trình hội nhập kinh tế quốc tế của Việt Nam; một số biện pháp và chính sách đang áp dụng trong thực tế nhằm giải quyết các vấn đề liên quan đến kinh tế, văn hoá, xã hội trong quá trình hội nhập kinh tế quốc tế. – Trình bày được khái niệm công dân toàn cầu và các vấn đề hợp tác quốc tế, giải quyết xung đột quốc tế về kinh tế trong bối cảnh toàn cầu hoá và hội nhập kinh tế quốc tế.",
    "source": {
     "document": "Chương trình môn Giáo dục công dân (Đạo đức / Giáo dục công dân / Giáo dục kinh tế và pháp luật), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-gdcd-official.pdf",

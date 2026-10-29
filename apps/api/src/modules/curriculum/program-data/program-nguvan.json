@@ -22,21 +22,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Ngồi (hoặc đứng) thẳng lưng; sách, vở mở rộng trên mặt bàn (hoặc trên hai tay)."
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Giữ khoảng cách giữa mắt với sách, vở khoảng 25cm."
+         "text": "Ngồi (hoặc đứng) thẳng lưng; sách, vở mở rộng trên mặt bàn (hoặc trên hai tay). Giữ khoảng cách giữa mắt với sách, vở khoảng 25cm."
         }
        ]
       }
@@ -927,21 +913,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Đọc đúng và rõ ràng các đoạn văn, câu chuyện, bài thơ, văn bản thông tin ngắn."
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Tốc độ đọc khoảng 60 – 70 tiếng trong 1 phút. Biết ngắt hơi ở chỗ có dấu câu, chỗ ngắt nhịp thơ."
+         "text": "Đọc đúng và rõ ràng các đoạn văn, câu chuyện, bài thơ, văn bản thông tin ngắn. Tốc độ đọc khoảng 60 – 70 tiếng trong 1 phút. Biết ngắt hơi ở chỗ có dấu câu, chỗ ngắt nhịp thơ."
         }
        ]
       }
@@ -1004,7 +976,7 @@
      ]
     }
    ],
-   "outcome_text": "– Đọc đúng các tiếng (bao gồm cả một số tiếng có vần khó, ít dùng). Thuộc bảng chữ cái tiếng Việt; biết phân biệt tên chữ cái (a, bê, xê,...) và âm (a, bờ, cờ,...) mà chữ cái và con chữ biểu hiện. – Đọc đúng và rõ ràng các đoạn văn, câu chuyện, bài thơ, văn bản thông tin ngắn. Tốc độ đọc khoảng 60 – 70 tiếng trong 1 phút. Biết ngắt hơi ở chỗ có dấu câu, chỗ ngắt nhịp thơ. – Bước đầu phân biệt được lời nhân vật trong đối thoại và lời người kể chuyện để đọc với ngữ điệu phù hợp. Biết đọc thầm. – – Nhận biết được thông tin trên bìa sách: tranh minh hoạ, tên sách, tên tác giả, nhà xuất bản. – Điền được những thông tin quan trọng vào phiếu đọc sách.",
+   "outcome_text": "– Đọc đúng các tiếng (bao gồm cả một số tiếng có vần khó, ít dùng). Thuộc bảng chữ cái tiếng Việt; biết phân biệt tên chữ cái (a, bê, xê,...) và âm (a, bờ, cờ,...) mà chữ cái và con chữ biểu hiện. – Đọc đúng và rõ ràng các đoạn văn, câu chuyện, bài thơ, văn bản thông tin ngắn. Tốc độ đọc khoảng 60 – 70 tiếng trong 1 phút. Biết ngắt hơi ở chỗ có dấu câu, chỗ ngắt nhịp thơ. – Bước đầu phân biệt được lời nhân vật trong đối thoại và lời người kể chuyện để đọc với ngữ điệu phù hợp. – Biết đọc thầm. – Nhận biết được thông tin trên bìa sách: tranh minh hoạ, tên sách, tên tác giả, nhà xuất bản. – Điền được những thông tin quan trọng vào phiếu đọc sách.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Ngữ văn",
     "file": "ct-nguvan-official.pdf",
@@ -1248,21 +1220,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Biết nêu và trả lời được câu hỏi về các chi tiết nổi bật của văn bản như: Ai? Cái gì?"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Làm gì? Khi nào? Ở đâu? Như thế nào? Vì sao?"
+         "text": "Biết nêu và trả lời được câu hỏi về các chi tiết nổi bật của văn bản như: Ai? Cái gì? Làm gì? Khi nào? Ở đâu? Như thế nào? Vì sao?"
         }
        ]
       }
@@ -1283,7 +1241,7 @@
      ]
     }
    ],
-   "outcome_text": "Biết nêu và trả lời được câu hỏi về các chi tiết nổi bật của văn bản như: Ai? Cái gì? – Làm gì? Khi nào? Ở đâu? Như thế nào? Vì sao? – Dựa vào gợi ý, trả lời được: Văn bản viết về cái gì và có những thông tin nào đáng chú ý dựa vào gợi ý.",
+   "outcome_text": "Biết nêu và trả lời được câu hỏi về các chi tiết nổi bật của văn bản như: Ai? Cái gì? Làm gì? Khi nào? Ở đâu? Như thế nào? Vì sao? – Dựa vào gợi ý, trả lời được: Văn bản viết về cái gì và có những thông tin nào đáng chú ý dựa vào gợi ý.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Ngữ văn",
     "file": "ct-nguvan-official.pdf",
@@ -1712,21 +1670,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nói ngắn gọn về một câu chuyện hoặc bài thơ đã đọc theo lựa chọn của cá nhân"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "(tên văn bản, nội dung văn bản, nhân vật yêu thích)."
+         "text": "Nói ngắn gọn về một câu chuyện hoặc bài thơ đã đọc theo lựa chọn của cá nhân (tên văn bản, nội dung văn bản, nhân vật yêu thích)."
         }
        ]
       }
@@ -4369,21 +4313,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được bố cục (phần đầu, phần giữa (chính), phần cuối) và các yếu tố"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "(nhan đề, đoạn văn, câu chủ đề) của một văn bản thông tin đơn giản."
+         "text": "Nhận biết được bố cục (phần đầu, phần giữa (chính), phần cuối) và các yếu tố (nhan đề, đoạn văn, câu chủ đề) của một văn bản thông tin đơn giản."
         }
        ]
       }
@@ -4712,21 +4642,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Điều chỉnh được lời nói (từ ngữ, tốc độ, âm lượng) cho phù hợp với người nghe."
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Trình bày ý tưởng rõ ràng, có cảm xúc; có thái độ tự tin khi nói trước nhiều người; sử dụng lời nói, cử chỉ, điệu bộ thích hợp."
+         "text": "Điều chỉnh được lời nói (từ ngữ, tốc độ, âm lượng) cho phù hợp với người nghe. Trình bày ý tưởng rõ ràng, có cảm xúc; có thái độ tự tin khi nói trước nhiều người; sử dụng lời nói, cử chỉ, điệu bộ thích hợp."
         }
        ]
       }
@@ -7126,21 +7042,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được một số yếu tố thi luật của thơ thất ngôn bát cú và thơ tứ tuyệt luật"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Đường như: bố cục, niêm, luật, vần, nhịp, đối."
+         "text": "Nhận biết được một số yếu tố thi luật của thơ thất ngôn bát cú và thơ tứ tuyệt luật Đường như: bố cục, niêm, luật, vần, nhịp, đối."
         }
        ]
       }
@@ -12648,28 +12550,14 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được ý tưởng và cách thức tiến hành chuyển thể một"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "tác phẩm văn học."
+         "text": "Nêu được ý tưởng và cách thức tiến hành chuyển thể một tác phẩm văn học."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Hiểu thế nào là chuyển thể tác phẩm văn học. – Biết cách tìm hiểu, giới thiệu, thuyết trình về một tác phẩm nghệ thuật được chuyển thể từ văn học. Nêu được ý tưởng và cách thức tiến hành chuyển thể một – tác phẩm văn học.",
+   "outcome_text": "– Hiểu thế nào là chuyển thể tác phẩm văn học. – Biết cách tìm hiểu, giới thiệu, thuyết trình về một tác phẩm nghệ thuật được chuyển thể từ văn học. – Nêu được ý tưởng và cách thức tiến hành chuyển thể một tác phẩm văn học.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Ngữ văn",
     "file": "ct-nguvan-official.pdf",
@@ -12698,35 +12586,7 @@
        "content": [
         {
          "type": "text",
-         "text": "THỰC HOẶC LÃNG MẠN"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "Nhận biết được phong cách sáng tác của một trường phái"
-        }
-       ]
-      }
-     ]
-    },
-    {
-     "type": "doc",
-     "content": [
-      {
-       "type": "paragraph",
-       "content": [
-        {
-         "type": "text",
-         "text": "(trào lưu) văn học qua một số đặc điểm cơ bản."
+         "text": "Nhận biết được phong cách sáng tác của một trường phái (trào lưu) văn học qua một số đặc điểm cơ bản."
         }
        ]
       }
@@ -12789,7 +12649,7 @@
      ]
     }
    ],
-   "outcome_text": "THỰC HOẶC LÃNG MẠN – Nhận biết được phong cách sáng tác của một trường phái (trào lưu) văn học qua một số đặc điểm cơ bản. – Biết các yêu cầu và cách thức tìm hiểu một phong cách sáng tác của một trường phái văn học. – Biết viết bài giới thiệu về phong cách sáng tác của một trường phái văn học. – Vận dụng được những hiểu biết từ chuyên đề để tìm hiểu về một số phong cách sáng tác của một trường phái văn học khác. – Biết thuyết trình về phong cách sáng tác của một trường phái văn học.",
+   "outcome_text": "Nhận biết được phong cách sáng tác của một trường phái (trào lưu) văn học qua một số đặc điểm cơ bản. – Biết các yêu cầu và cách thức tìm hiểu một phong cách sáng tác của một trường phái văn học. – Biết viết bài giới thiệu về phong cách sáng tác của một trường phái văn học. – Vận dụng được những hiểu biết từ chuyên đề để tìm hiểu về một số phong cách sáng tác của một trường phái văn học khác. – Biết thuyết trình về phong cách sáng tác của một trường phái văn học.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Ngữ văn",
     "file": "ct-nguvan-official.pdf",

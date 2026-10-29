@@ -47,7 +47,7 @@ import {
  * chuẩn đã patch; version được ghi vào đầu file SQL và vào log seed
  * để mọi môi trường đối chiếu được mình đang chạy bản dump nào.
  */
-export const PROGRAM_DUMP_VERSION = '2026-10-29.2';
+export const PROGRAM_DUMP_VERSION = '2026-10-29.3';
 
 /** Tên file artifact trong repo (cạnh module này), được copy sang dist khi build. */
 export const PROGRAM_DUMP_FILE_NAME = 'program-dump.sql';

@@ -645,7 +645,7 @@
   {
    "id": "AN-0011",
    "subject": "Âm nhạc",
-   "grade": 3,
+   "grade": 2,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -695,7 +695,7 @@
   {
    "id": "AN-0012",
    "subject": "Âm nhạc",
-   "grade": 3,
+   "grade": 2,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -745,7 +745,7 @@
   {
    "id": "AN-0013",
    "subject": "Âm nhạc",
-   "grade": 3,
+   "grade": 2,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -1150,7 +1150,7 @@
   {
    "id": "AN-0020",
    "subject": "Âm nhạc",
-   "grade": 4,
+   "grade": 3,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -1186,7 +1186,7 @@
   {
    "id": "AN-0021",
    "subject": "Âm nhạc",
-   "grade": 4,
+   "grade": 3,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -1718,11 +1718,11 @@
   {
    "id": "AN-0028",
    "subject": "Âm nhạc",
-   "grade": 5,
+   "grade": 4,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "Thường thức âm nhạc – Tìm hiểu nhạc cụ: Một số nhạc cụ phổ biến của Việt Nam và nước ngoài.",
    "kind": "content",
    "outcomes": [
@@ -1768,11 +1768,11 @@
   {
    "id": "AN-0029",
    "subject": "Âm nhạc",
-   "grade": 5,
+   "grade": 4,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "– Câu chuyện âm nhạc: Một số câu chuyện âm nhạc phù hợp với độ tuổi.",
    "kind": "content",
    "outcomes": [
@@ -1832,11 +1832,11 @@
   {
    "id": "AN-0030",
    "subject": "Âm nhạc",
-   "grade": 5,
+   "grade": 4,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "– Tác giả và tác phẩm: Một số nhạc sĩ sáng tác ca khúc thiếu nhi.",
    "kind": "content",
    "outcomes": [
@@ -1896,11 +1896,11 @@
   {
    "id": "AN-0031",
    "subject": "Âm nhạc",
-   "grade": 5,
+   "grade": 4,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "– Hình thức biểu diễn: Đơn ca, song ca, tốp ca, đồng ca.",
    "kind": "content",
    "outcomes": [
@@ -1950,7 +1950,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Hát",
    "content": "Hát Bài hát tuổi học sinh (10 – 11",
    "kind": "content",
    "outcomes": [
@@ -2000,7 +2000,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Hát",
    "content": "tuổi), dân ca Việt Nam và bài hát nước ngoài. Các bài hát có nội dung, âm vực phù hợp với độ tuổi; đa dạng về loại nhịp và tính chất âm nhạc.",
    "kind": "content",
    "outcomes": [
@@ -2120,7 +2120,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Nghe nhạc",
    "content": "Nghe nhạc Một số bản nhạc có lời và không lời phù hợp với độ tuổi.",
    "kind": "content",
    "outcomes": [
@@ -2184,7 +2184,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Đọc nhạc",
    "content": "Đọc nhạc Giọng Đô trưởng. Các bài đọc nhạc ngắn, dễ đọc, âm vực phù hợp với độ tuổi. Sử dụng trường độ: trắng, trắng có chấm dôi, đen, đen có chấm dôi, móc đơn, và các dấu lặng.",
    "kind": "content",
    "outcomes": [
@@ -2262,7 +2262,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Nhạc cụ",
    "content": "Nhạc cụ",
    "kind": "content",
    "outcomes": [
@@ -2298,7 +2298,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Nhạc cụ",
    "content": "Một số bài tập tiết tấu và giai điệu đơn giản. Sử dụng trường độ: trắng, trắng có chấm dôi, đen, đen có chấm dôi, móc đơn, và các dấu lặng.",
    "kind": "content",
    "outcomes": [
@@ -2390,7 +2390,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Lí thuyết âm nhạc",
    "content": "Lí thuyết âm nhạc – Trọng âm, phách, ô nhịp, vạch nhịp. 2, 3. – Nhịp",
    "kind": "content",
    "outcomes": [
@@ -2454,7 +2454,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "Thường thức âm nhạc – Tìm hiểu nhạc cụ: Một số nhạc cụ phổ biến của Việt Nam và nước ngoài.",
    "kind": "content",
    "outcomes": [
@@ -2504,7 +2504,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "– Câu chuyện âm nhạc: Một số câu chuyện âm nhạc phù hợp với độ tuổi.",
    "kind": "content",
    "outcomes": [
@@ -2568,7 +2568,7 @@
    "level": "Tiểu học",
    "stream": "",
    "section": "",
-   "topic": "các dấu lặng. – 7 bậc cơ bản và vị trí trên khuông.",
+   "topic": "Thường thức âm nhạc",
    "content": "– Tác giả và tác phẩm: Một số nhạc sĩ sáng tác ca khúc thiếu nhi.",
    "kind": "content",
    "outcomes": [
@@ -2629,8 +2629,8 @@
   {
    "id": "AN-0042",
    "subject": "Âm nhạc",
-   "grade": 6,
-   "level": "THCS",
+   "grade": 5,
+   "level": "Tiểu học",
    "stream": "",
    "section": "",
    "topic": "Thường thức âm nhạc",
@@ -4784,7 +4784,7 @@
   {
    "id": "AN-0071",
    "subject": "Âm nhạc",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "",
@@ -4834,7 +4834,7 @@
   {
    "id": "AN-0072",
    "subject": "Âm nhạc",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "",
@@ -4898,7 +4898,7 @@
   {
    "id": "AN-0073",
    "subject": "Âm nhạc",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "",
@@ -4948,7 +4948,7 @@
   {
    "id": "AN-0074",
    "subject": "Âm nhạc",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "",
@@ -5700,8 +5700,8 @@
   {
    "id": "AN-0084",
    "subject": "Âm nhạc",
-   "grade": 10,
-   "level": "THPT",
+   "grade": 9,
+   "level": "THCS",
    "stream": "",
    "section": "",
    "topic": "Thường thức âm nhạc",
@@ -5750,8 +5750,8 @@
   {
    "id": "AN-0085",
    "subject": "Âm nhạc",
-   "grade": 10,
-   "level": "THPT",
+   "grade": 9,
+   "level": "THCS",
    "stream": "",
    "section": "",
    "topic": "Thường thức âm nhạc",
@@ -5814,8 +5814,8 @@
   {
    "id": "AN-0086",
    "subject": "Âm nhạc",
-   "grade": 10,
-   "level": "THPT",
+   "grade": 9,
+   "level": "THCS",
    "stream": "",
    "section": "",
    "topic": "Thường thức âm nhạc",
@@ -6526,7 +6526,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "giọng: Son trưởng, Mi thứ.",
+   "topic": "Thường thức âm nhạc",
    "content": "Thường thức âm nhạc – Thể loại âm nhạc: Sơ lược về âm nhạc giao hưởng.",
    "kind": "content",
    "outcomes": [
@@ -6590,7 +6590,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "giọng: Son trưởng, Mi thứ.",
+   "topic": "Thường thức âm nhạc",
    "content": "– Âm nhạc và đời sống: Vài nét về lịch sử âm nhạc thế giới.",
    "kind": "content",
    "outcomes": [
@@ -6640,7 +6640,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "giọng: Son trưởng, Mi thứ.",
+   "topic": "Chuyên đề 10.1: Hệ thống các hợp âm ba, hợp âm bảy của điệu thức",
    "content": "Chuyên đề 10.1: Hệ thống các hợp âm ba, hợp âm bảy của điệu thức",
    "kind": "content",
    "outcomes": [
@@ -6718,7 +6718,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "giọng: Son trưởng, Mi thứ.",
+   "topic": "Chuyên đề 10.2: Phương pháp xác định giọng và đặt hợp âm đệm cho ca khúc và bản nhạc",
    "content": "Chuyên đề 10.2: Phương pháp xác định giọng và đặt hợp âm đệm cho ca khúc và bản nhạc",
    "kind": "content",
    "outcomes": [
@@ -6820,7 +6820,7 @@
   {
    "id": "AN-0097",
    "subject": "Âm nhạc",
-   "grade": 11,
+   "grade": 10,
    "level": "THPT",
    "stream": "",
    "section": "",
@@ -7841,7 +7841,7 @@
   {
    "id": "AN-0107",
    "subject": "Âm nhạc",
-   "grade": 12,
+   "grade": 11,
    "level": "THPT",
    "stream": "",
    "section": "",
@@ -8660,7 +8660,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "chèo, cải lương,...",
+   "topic": "Chuyên đề 12.1: Phần mềm chép nhạc",
    "content": "Chuyên đề 12.1: Phần mềm chép nhạc",
    "kind": "content",
    "outcomes": [
@@ -8738,7 +8738,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "chèo, cải lương,...",
+   "topic": "Chuyên đề 12.2: Phần mềm biên tập âm thanh và thu âm",
    "content": "Chuyên đề 12.2: Phần mềm biên tập âm thanh và thu âm",
    "kind": "content",
    "outcomes": [
@@ -8830,7 +8830,7 @@
    "level": "THPT",
    "stream": "",
    "section": "",
-   "topic": "chèo, cải lương,...",
+   "topic": "Chuyên đề 12.3: Phần mềm hoà âm tự động",
    "content": "Chuyên đề 12.3: Phần mềm hoà âm tự động",
    "kind": "content",
    "outcomes": [

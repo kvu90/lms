@@ -111,7 +111,7 @@
   {
    "id": "GDTC-0002",
    "subject": "Giáo dục thể chất",
-   "grade": 2,
+   "grade": 1,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -210,7 +210,7 @@
   {
    "id": "GDTC-0004",
    "subject": "Giáo dục thể chất",
-   "grade": 3,
+   "grade": 2,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -338,7 +338,7 @@
   {
    "id": "GDTC-0006",
    "subject": "Giáo dục thể chất",
-   "grade": 4,
+   "grade": 3,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -467,7 +467,7 @@
   {
    "id": "GDTC-0008",
    "subject": "Giáo dục thể chất",
-   "grade": 5,
+   "grade": 4,
    "level": "Tiểu học",
    "stream": "",
    "section": "",
@@ -581,8 +581,8 @@
   {
    "id": "GDTC-0010",
    "subject": "Giáo dục thể chất",
-   "grade": 6,
-   "level": "THCS",
+   "grade": 5,
+   "level": "Tiểu học",
    "stream": "",
    "section": "",
    "topic": "",
@@ -1021,7 +1021,7 @@
   {
    "id": "GDTC-0014",
    "subject": "Giáo dục thể chất",
-   "grade": 8,
+   "grade": 7,
    "level": "THCS",
    "stream": "",
    "section": "",
@@ -1581,7 +1581,7 @@
   {
    "id": "GDTC-0019",
    "subject": "Giáo dục thể chất",
-   "grade": 11,
+   "grade": 10,
    "level": "THPT",
    "stream": "",
    "section": "",

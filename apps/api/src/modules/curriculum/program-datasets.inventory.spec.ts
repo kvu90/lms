@@ -41,7 +41,7 @@ const EXPECTED_RECORDS: Readonly<Record<string, number>> = {
   toan: 314,
   nguvan: 238,
   'tienganh-1-2': 16,
-  'tienganh-3-12': 95,
+  'tienganh-3-12': 102,
   gdcd: 116,
   tnxh: 48,
   khoahoc: 32,
@@ -81,7 +81,7 @@ describe('Dataset GDPT 2018 đã vendor — gác tính đầy đủ (issue #161)
       ).toBe(EXPECTED_RECORDS[def.key]);
       total += file.records.length;
     }
-    expect(total).toBe(2164);
+    expect(total).toBe(2171);
   });
 
   it('21 dataset resolve về đúng 19 môn đích phân biệt', () => {
