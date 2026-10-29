@@ -6,8 +6,8 @@ import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
-} from '../support/identity-access-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
+} from '../../support/identity-access-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Chuẩn app nhắn tin phổ biến, chốt bổ sung trên issue #33

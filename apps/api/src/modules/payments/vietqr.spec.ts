@@ -7,7 +7,7 @@ import { buildVietQrPayload } from './vietqr';
  * thuần trên hàm sinh payload và thư viện giải mã `vn-qr-pay` — không
  * qua HTTP, không chạm DB — nên nằm ở tầng unit cạnh mã nguồn. Các ca
  * còn lại của lát VietQR (IPN SePay, che cấu hình, cách ly tenant, cổng
- * hoàn tiền) lái qua HTTP/DB và ở lại `test/payments/payments-vietqr.e2e-spec.ts`.
+ * hoàn tiền) lái qua HTTP/DB và ở lại `test/e2e/payments/payments-vietqr.e2e-spec.ts`.
  */
 const SEPAY_XID = 'xid-test-org-001';
 const BANK_ACCOUNT = '113366668888';

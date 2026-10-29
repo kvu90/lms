@@ -43,24 +43,7 @@ export default defineConfig({
       {
         test: {
           name: 'e2e',
-          include: [
-            'test/e2e/**/*.e2e-spec.ts',
-            // 11 file dưới đây đang được một PR khác sửa nên chưa di
-            // chuyển vào test/e2e/ trong lượt này; khai tường minh từng
-            // đường dẫn để chúng vẫn chạy ở project e2e. Khi các file
-            // này được di chuyển ở lượt sau, xoá các dòng này (issue #454).
-            'test/auth/better-auth-mail-flow.e2e-spec.ts',
-            'test/classes/classes-teacher-surface.e2e-spec.ts',
-            'test/guardians/guardian-ph2-digest-flow.e2e-spec.ts',
-            'test/messaging/messaging-block-visibility.e2e-spec.ts',
-            'test/messaging/messaging-conversation-state.e2e-spec.ts',
-            'test/messaging/messaging-message-lifecycle.e2e-spec.ts',
-            'test/messaging/messaging-realtime-flow.e2e-spec.ts',
-            'test/messaging/notification-unread-stream-flow.e2e-spec.ts',
-            'test/messaging/notifications-course-overrides.e2e-spec.ts',
-            'test/messaging/notifications-providers-flow.e2e-spec.ts',
-            'test/payments/payments-vietqr.e2e-spec.ts',
-          ],
+          include: ['test/e2e/**/*.e2e-spec.ts'],
         },
       },
     ],

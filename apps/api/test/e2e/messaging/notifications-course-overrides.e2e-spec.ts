@@ -2,9 +2,9 @@ import type { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from '../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../support/course-enrolment-helpers';
-import { createGradeItem, setGrade } from '../support/assessment-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from '../../support/identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
+import { createGradeItem, setGrade } from '../../support/assessment-helpers';
 
 /**
  * NB-4 (issue #174): ghi đè thông báo theo khoá học.

@@ -4,8 +4,8 @@ import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
-} from '../support/identity-access-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
+} from '../../support/identity-access-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Lát M5 — GHIM / LƯU TRỮ / TẮT TIẾNG theo hội thoại (issue #240).

@@ -4,10 +4,10 @@ import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import type { BetterAuthService } from '../../src/modules/auth/better-auth/better-auth.service';
-import type { CredentialBridgeService } from '../../src/modules/auth/better-auth/credential-bridge.service';
-import type { MailMessage } from '../../src/modules/mail/mail.types';
-import type { ResendMailService } from '../../src/modules/mail/resend-mail.service';
+import type { BetterAuthService } from '../../../src/modules/auth/better-auth/better-auth.service';
+import type { CredentialBridgeService } from '../../../src/modules/auth/better-auth/credential-bridge.service';
+import type { MailMessage } from '../../../src/modules/mail/mail.types';
+import type { ResendMailService } from '../../../src/modules/mail/resend-mail.service';
 
 /**
  * Flow test của lát BA-2 (issue #7, chặng 2.5): mail auth qua Resend +
@@ -57,7 +57,7 @@ const OTP_RESET_PASSWORD = 'OtpResetPass789';
 /** Qua được độ dài tối thiểu của Better Auth nhưng thiếu chữ hoa — chính sách của dự án phải chặn. */
 const POLICY_WEAK_PASSWORD = 'alllowercase1';
 
-type Helpers = typeof import('../support/identity-access-helpers');
+type Helpers = typeof import('../../support/identity-access-helpers');
 let helpers: Helpers;
 
 function http(app: INestApplication) {
@@ -65,12 +65,12 @@ function http(app: INestApplication) {
 }
 
 async function createMountedTestApp(): Promise<INestApplication> {
-  const { AppModule } = await import('../../src/app.module');
-  const { enableTrustedProxy } = await import('../../src/common/client-ip');
-  const { ProblemDetailsFilter } = await import('../../src/common/problem-details.filter');
-  const { mountBetterAuth } = await import('../../src/modules/auth/better-auth/better-auth.mount');
+  const { AppModule } = await import('../../../src/app.module');
+  const { enableTrustedProxy } = await import('../../../src/common/client-ip');
+  const { ProblemDetailsFilter } = await import('../../../src/common/problem-details.filter');
+  const { mountBetterAuth } = await import('../../../src/modules/auth/better-auth/better-auth.mount');
   const { BetterAuthService: BetterAuthServiceClass } = await import(
-    '../../src/modules/auth/better-auth/better-auth.service'
+    '../../../src/modules/auth/better-auth/better-auth.service'
   );
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication();
@@ -136,12 +136,12 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
   }
 
   beforeAll(async () => {
-    helpers = await import('../support/identity-access-helpers');
+    helpers = await import('../../support/identity-access-helpers');
     app = await createMountedTestApp();
     const { CredentialBridgeService: BridgeClass } = await import(
-      '../../src/modules/auth/better-auth/credential-bridge.service'
+      '../../../src/modules/auth/better-auth/credential-bridge.service'
     );
-    const { ResendMailService: MailerClass } = await import('../../src/modules/mail/resend-mail.service');
+    const { ResendMailService: MailerClass } = await import('../../../src/modules/mail/resend-mail.service');
     bridge = app.get(BridgeClass);
     const mailer: ResendMailService = app.get(MailerClass);
     vi.spyOn(mailer, 'send').mockImplementation(async (message: MailMessage) => {
