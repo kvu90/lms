@@ -36,6 +36,11 @@ import {
   type RichTextDocument,
 } from '@lms/contracts';
 import { RichTextView } from '@lms/editor';
+// CSS của KaTeX nạp tại route module này (issue #503): trang làm bài
+// hiển thị nội dung câu hỏi qua RichTextView — HTML công thức do KaTeX
+// sinh cần bộ CSS này mới dựng đúng; nạp tại đây để CSS chỉ đi theo
+// route làm bài thay vì mọi route như khi nạp ở root.
+import 'katex/dist/katex.min.css';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { Input } from '@lms/ui/components/input';
