@@ -370,6 +370,36 @@ export class QuizSharedService {
   }
 
   /**
+   * Số ứng viên của một ô cho một người dùng — bản ĐẾM của
+   * cellCandidatesForUser (issue #488): số lượng tính bằng `count()` ở
+   * SQL trên đúng cùng điều kiện ứng viên (câu ready gắn bất kỳ YCCĐ
+   * nào thuộc ĐVK của ô ở đúng mức của ô, đúng dạng), nhóm theo
+   * category của bank entry; cổng quyền giữ nguyên — vẫn là
+   * PermissionEvaluator kiểm `question:useall` tại context của
+   * category chứa câu, cache theo context như đường nạp view. Chỉ các
+   * category mà người dùng dùng được mới cộng vào tổng. Đường này
+   * không nạp danh sách ứng viên và không lắp view.
+   */
+  public async cellCandidateCountForUser(actorId: string, cell: Pick<ExamMatrixCellRow, 'curriculumNodeId' | 'cognitiveLevel' | 'qtype'>): Promise<number> {
+    const groups = await this.questions.countQuestionsByCurriculumFilterByCategory({
+      nodeId: cell.curriculumNodeId, cognitiveLevel: cell.cognitiveLevel,
+      qtype: cell.qtype, status: 'ready',
+    });
+    let total = 0;
+    const usableByContext = new Map<string, boolean>();
+    for (const group of groups) {
+      const category = await this.questions.getCategory(group.categoryId);
+      let usable = usableByContext.get(category.contextId);
+      if (usable === undefined) {
+        usable = await this.evaluator.hasCapability(actorId, 'question:useall', category.contextId);
+        usableByContext.set(category.contextId, usable);
+      }
+      if (usable) total += group.count;
+    }
+    return total;
+  }
+
+  /**
    * Số câu khả dụng của một ô cho một người dùng: mọi qtype đều đếm
    * theo CÂU — câu truefalse TF-A tự nó đã là một chùm 4 ý hoàn chỉnh
    * trong một câu, không còn phép gom chùm từ 4 câu rời theo ngữ liệu

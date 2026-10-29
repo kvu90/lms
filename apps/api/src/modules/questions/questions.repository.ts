@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Database, DbTx } from '../../db/database';
 import {
@@ -442,6 +442,75 @@ export class QuestionsRepository {
     return rows.length > 0;
   }
 
+  // --- nạp theo lô cho view danh sách (issue #488) ---------------------------
+
+  /**
+   * Mọi entry của một tập câu hỏi trong MỘT lượt truy vấn — bản theo lô
+   * của getEntryByQuestion cho loader view danh sách. Entry là duy nhất
+   * theo câu hỏi (unique `question_bank_entries_question_unique`).
+   */
+  async getEntriesByQuestions(questionIds: string[]): Promise<EntryRow[]> {
+    if (!questionIds.length) return [];
+    return this.db.select().from(questionBankEntries).where(inArray(questionBankEntries.questionId, questionIds));
+  }
+
+  /**
+   * Version MỚI NHẤT của mỗi entry trong tập — bản theo lô của
+   * getVersionByNumber: nạp mọi version của các entry trong một lượt
+   * rồi giữ, cho mỗi entry, đúng dòng có số version bằng con trỏ
+   * `latestVersion` của entry đó (cặp entry × số version là duy nhất).
+   */
+  async getLatestVersionsByEntries(entries: EntryRow[]): Promise<VersionRow[]> {
+    if (!entries.length) return [];
+    const rows = await this.db.select().from(questionVersions)
+      .where(inArray(questionVersions.questionBankEntryId, entries.map((e) => e.id)));
+    const latestByEntry = new Map(entries.map((e) => [e.id, e.latestVersion]));
+    return rows.filter((r) => latestByEntry.get(r.questionBankEntryId) === r.version);
+  }
+
+  /**
+   * Mọi đáp án của một tập version trong một lượt truy vấn, giữ thứ tự
+   * hiển thị trong từng version (sortOrder rồi id — cùng thứ tự của
+   * listAnswers) để phía lắp view nhóm lại theo version không đổi thứ
+   * tự đáp án.
+   */
+  async listAnswersByVersions(versionIds: string[]): Promise<AnswerRow[]> {
+    if (!versionIds.length) return [];
+    return this.db.select().from(questionAnswers)
+      .where(inArray(questionAnswers.questionVersionId, versionIds))
+      .orderBy(asc(questionAnswers.sortOrder), asc(questionAnswers.id));
+  }
+
+  /** Mọi bản ghi phía đáp án (guidance + solution) của một tập version. */
+  async listAnswerKeysByVersions(versionIds: string[]): Promise<AnswerKeyRow[]> {
+    if (!versionIds.length) return [];
+    return this.db.select().from(questionAnswerKeys).where(inArray(questionAnswerKeys.questionVersionId, versionIds));
+  }
+
+  /** Mọi options multichoice của một tập version. */
+  async listMultichoiceOptionsByVersions(versionIds: string[]): Promise<MultichoiceOptionsRow[]> {
+    if (!versionIds.length) return [];
+    return this.db.select().from(qtypeMultichoiceOptions).where(inArray(qtypeMultichoiceOptions.questionVersionId, versionIds));
+  }
+
+  /** Mọi options shortanswer của một tập version. */
+  async listShortanswerOptionsByVersions(versionIds: string[]): Promise<ShortanswerOptionsRow[]> {
+    if (!versionIds.length) return [];
+    return this.db.select().from(qtypeShortanswerOptions).where(inArray(qtypeShortanswerOptions.questionVersionId, versionIds));
+  }
+
+  /** Mọi options essay của một tập version. */
+  async listEssayOptionsByVersions(versionIds: string[]): Promise<EssayOptionsRow[]> {
+    if (!versionIds.length) return [];
+    return this.db.select().from(qtypeEssayOptions).where(inArray(qtypeEssayOptions.questionVersionId, versionIds));
+  }
+
+  /** Mọi ngữ liệu theo một tập id trong một lượt truy vấn. */
+  async listStimuliByIds(ids: string[]): Promise<StimulusRow[]> {
+    if (!ids.length) return [];
+    return this.db.select().from(stimuli).where(inArray(stimuli.id, ids));
+  }
+
   /**
    * Lọc ngân hàng câu hỏi theo gắn kết chương trình (mục A.6): subjectId
    * khớp cả gắn mức môn lẫn YCCĐ thuộc môn đó (môn suy ngược từ YCCĐ);
@@ -452,6 +521,48 @@ export class QuestionsRepository {
   async filterQuestionsByCurriculumLinks(filter: {
     subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
   }): Promise<QuestionRow[]> {
+    const candidateIds = await this.resolveCurriculumCandidateIds(filter);
+    if (candidateIds !== null && candidateIds.size === 0) return [];
+    const rows = await this.db.select({ q: question }).from(question)
+      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
+      .where(this.curriculumFilterWhere(filter, candidateIds))
+      .orderBy(asc(question.createdAt));
+    return rows.map((r) => r.q);
+  }
+
+  /**
+   * Đếm số câu khớp bộ lọc chương trình, NHÓM THEO category của bank
+   * entry, bằng `count()` tại SQL (issue #488) — đường đếm cho các nơi
+   * chỉ cần số lượng (ứng viên của ô ma trận) thay vì lắp view. Tập ứng
+   * viên và điều kiện lọc dùng CHUNG đường phân giải với
+   * filterQuestionsByCurriculumLinks (resolveCurriculumCandidateIds +
+   * curriculumFilterWhere trên cùng phép join question × entry) nên số
+   * đếm luôn khớp đúng tập câu mà đường lọc trả về, chia theo category
+   * của entry của từng câu.
+   */
+  async countQuestionsByCurriculumFilterPerCategory(filter: {
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<{ categoryId: string; count: number }[]> {
+    const candidateIds = await this.resolveCurriculumCandidateIds(filter);
+    if (candidateIds !== null && candidateIds.size === 0) return [];
+    const rows = await this.db.select({ categoryId: questionBankEntries.questionCategoryId, value: count() })
+      .from(question)
+      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
+      .where(this.curriculumFilterWhere(filter, candidateIds))
+      .groupBy(questionBankEntries.questionCategoryId);
+    return rows.map((r) => ({ categoryId: r.categoryId, count: r.value }));
+  }
+
+  /**
+   * Phân giải tập id ứng viên theo các điều kiện GẮN KẾT của bộ lọc
+   * chương trình (subjectId / outcomeId / nodeId / cognitiveLevel):
+   * mỗi điều kiện sinh một tập id, các tập giao nhau (AND). Trả `null`
+   * khi bộ lọc không mang điều kiện gắn kết nào — mọi câu đều thuộc
+   * diện xét; tập rỗng nghĩa là không câu nào khớp.
+   */
+  private async resolveCurriculumCandidateIds(filter: {
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<Set<string> | null> {
     // Điều kiện HIỆN HÀNH của dòng YCCĐ trên các nhánh có join
     // outcome (đợt neo lại định danh, issue #161): dòng đã rút
     // (retired_at khác NULL) không còn đưa câu vào diện lọc; dòng
@@ -498,15 +609,21 @@ export class QuestionsRepository {
       const current: Set<string> = candidateIds;
       candidateIds = new Set([...current].filter((id) => set.has(id)));
     }
-    if (candidateIds !== null && candidateIds.size === 0) return [];
+    return candidateIds;
+  }
+
+  /**
+   * Điều kiện WHERE trên phép join question × bank entry cho bộ lọc
+   * chương trình: thuộc tập ứng viên (khi có điều kiện gắn kết) + dạng
+   * câu + trạng thái của bank entry.
+   */
+  private curriculumFilterWhere(filter: {
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }, candidateIds: Set<string> | null) {
     const conditions = [];
     if (candidateIds !== null) conditions.push(inArray(question.id, [...candidateIds]));
     if (filter.qtype !== undefined) conditions.push(eq(question.qtype, filter.qtype));
     if (filter.status !== undefined) conditions.push(eq(questionBankEntries.status, filter.status));
-    const rows = await this.db.select({ q: question }).from(question)
-      .innerJoin(questionBankEntries, eq(questionBankEntries.questionId, question.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(asc(question.createdAt));
-    return rows.map((r) => r.q);
+    return conditions.length > 0 ? and(...conditions) : undefined;
   }
 }
