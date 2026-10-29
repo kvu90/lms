@@ -32,7 +32,10 @@ export const AGGREGATION_ANY = 2;
  *    với phương thức của khoá ALL(AND)/ANY(OR) vào course_completions.
  *    Các loại thủ công (self, role) được chứng bằng dòng course_completion_crit_compl;
  *    các loại còn lại đánh giá từ dữ liệu sống. Kích hoạt đánh giá lại:
- *    sự kiện cm, làm mới điểm, đánh dấu self/role, unenrol (hook của Enrol), một
+ *    sự kiện cm, làm mới điểm, đánh dấu self/role, unenrol (sự kiện
+ *    outbox `course_completion_reaggregation_requested` phát trong
+ *    cùng transaction với thao tác gỡ ghi danh — consumer riêng của
+ *    module này tiêu thụ qua mốc seq của nó), một
  *    khoá tiên quyết chuyển sang hoàn thành (tổng hợp lại khoá phụ thuộc),
  *    thay đổi tiêu chí và tính lại tường minh/hàng loạt (date/duration là
  *    theo thời gian và có hiệu lực ở lần tổng hợp lại tiếp theo, như tổng hợp
@@ -123,16 +126,12 @@ export class CompletionService implements OnModuleInit {
       const available = !!row && row.completionState >= state && row.completionState !== COMPLETION_INCOMPLETE;
       return { available, description: this.i18n.t('availability.activityMustComplete', { args: { cmId } }) };
     });
-    // Probe unenrol của Enrol: bản ghi completion là dữ liệu liên quan phải sống sót qua unenrol.
-    this.enrol.registerRelatedDataProbe(async (courseId, userId) => {
-      const cms = await this.courses.listCms(courseId);
-      return this.repo.hasAnyCmCompletion(userId, cms.map((c) => c.id));
-    });
-    // Kích hoạt unenrol: rời một khoá học tự nó có thể làm hoàn thành khoá đó (tiêu chí
-    // 'unenrol' của Moodle), nên đánh giá lại user đó ngay.
-    this.enrol.registerUnenrolHook(async ({ courseId, userId }) => {
-      await this.reaggregateCourseCompletion(userId, courseId);
-    });
+    // Tái tổng hợp sau gỡ ghi danh KHÔNG còn đăng ký tại đây: bề mặt
+    // vật chất hoá dùng chung phát sự kiện outbox
+    // `course_completion_reaggregation_requested` trong cùng
+    // transaction với thao tác gỡ ghi danh, và
+    // CompletionReaggregationOutboxConsumer của module này tiêu thụ
+    // sự kiện đó qua mốc seq riêng để gọi reaggregateCourseCompletion.
   }
 
   // --- hoàn thành hoạt động ---------------------------------------------------
