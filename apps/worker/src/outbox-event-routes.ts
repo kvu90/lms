@@ -2,9 +2,10 @@ import type { Queue } from 'bullmq';
 
 /**
  * Bảng định tuyến phát job của relay outbox duy nhất (xem
- * `outbox-relay.scheduler.ts`): ánh xạ MỘT loại sự kiện outbox sang tên
- * hàng đợi BullMQ mà relay đẩy job vào khi phát sự kiện đó cho phía
- * tiêu thụ.
+ * `outbox-relay.scheduler.ts`): ánh xạ MỘT loại sự kiện outbox sang
+ * DANH SÁCH hàng đợi BullMQ mà relay đẩy job vào khi phát sự kiện đó
+ * cho các phía tiêu thụ — một sự kiện có thể có NHIỀU handler ở
+ * worker, mỗi hàng đợi trong danh sách nhận đúng một job.
  *
  * Flow tổng thể của cơ chế outbox:
  * - Phía API ghi dòng sự kiện vào bảng `outbox_events` trong cùng
@@ -13,20 +14,28 @@ import type { Queue } from 'bullmq';
  *   chưa có dấu `publishedAt`, phát từng dòng cho phía tiêu thụ rồi
  *   mới đóng dấu và phản chiếu dòng đã phát vào `event_log`.
  * - "Phát cho phía tiêu thụ" với loại sự kiện đã có consumer trên
- *   hàng đợi ở worker là đẩy MỘT job BullMQ: tên job là chính loại
- *   sự kiện, `jobId` là id của dòng outbox (khoá chống trùng của
- *   BullMQ — phát lại cùng một dòng không tạo job thứ hai), dữ liệu
- *   job là toàn bộ dòng outbox đã chuẩn hoá (xem
- *   {@link OutboxEventJobData}).
+ *   hàng đợi ở worker là đẩy MỘT job BullMQ VÀO TỪNG hàng đợi đích:
+ *   tên job là chính loại sự kiện, `jobId` là id của dòng outbox
+ *   (khoá chống trùng của BullMQ — phát lại cùng một dòng không tạo
+ *   job thứ hai; `jobId` là khoá theo TỪNG hàng đợi nên cùng một id
+ *   dùng lại ở mọi đích là an toàn), dữ liệu job là toàn bộ dòng
+ *   outbox đã chuẩn hoá (xem {@link OutboxEventJobData}).
  *
- * Hai ngữ nghĩa đã chốt cho bảng này và cho relay:
+ * Ba ngữ nghĩa đã chốt cho bảng này và cho relay:
  * - `publishedAt` là thời điểm relay đã phát sự kiện cho phía tiêu
  *   thụ, KHÔNG phải dấu hoàn thành xử lý. Relay không chờ bất kỳ
  *   consumer hay handler nào xử lý xong mới đóng dấu; mỗi consumer
  *   tự theo dõi tiến độ xử lý của mình (consumer trên hàng đợi theo
- *   cơ chế job của BullMQ, consumer polling còn sót ở phía API theo
- *   watermark `seq` riêng như hiện nay). Không consumer nào được dựa
- *   vào `publishedAt` để kết luận một sự kiện đã được xử lý xong.
+ *   cơ chế job của BullMQ và dấu chống trùng riêng theo `outboxId`,
+ *   consumer polling còn sót ở phía API theo watermark `seq` riêng
+ *   như hiện nay). Không consumer nào được dựa vào `publishedAt` để
+ *   kết luận một sự kiện đã được xử lý xong.
+ * - Đóng dấu chỉ sau khi phát thành công tới MỌI đích: một dòng có
+ *   nhiều hàng đợi đích chỉ được đóng dấu `publishedAt` khi job đã
+ *   vào đủ mọi hàng đợi. Lỗi ở BẤT KỲ đích nào thì dòng giữ nguyên
+ *   chưa đóng dấu và được phát lại ở nhịp relay sau — các đích đã
+ *   nhận job ở lượt phát dở chống trùng theo `jobId` nên mỗi đích
+ *   vẫn đúng một job cho dòng đó.
  * - Relay ở worker không chờ handler nằm trong tiến trình API hoàn
  *   tất. Một loại sự kiện chỉ vào bảng này khi consumer của nó đã
  *   được chuyển sang hàng đợi ở worker. Loại sự kiện chưa có mặt ở
@@ -38,26 +47,46 @@ import type { Queue } from 'bullmq';
  *   issue chuyển consumer tương ứng.
  *
  * Cách mở rộng khi chuyển một consumer sang worker: thêm một dòng
- * `'<loại sự kiện>': '<tên hàng đợi>'` vào bảng này và đăng ký
- * processor cho hàng đợi đó. `worker.module.ts` tự suy ra danh sách
- * hàng đợi cần đăng ký và bản đồ hàng đợi cấp cho relay từ chính
- * bảng này, nên không còn nơi nào khác phải sửa để nối đường phát.
+ * `'<loại sự kiện>': ['<tên hàng đợi>']` vào bảng này và đăng ký
+ * processor cho hàng đợi đó; sự kiện đã có đích sẵn thì THÊM hàng
+ * đợi của consumer mới vào danh sách của nó (không dựng định tuyến
+ * cạnh tranh). `worker.module.ts` tự suy ra danh sách hàng đợi cần
+ * đăng ký và bản đồ hàng đợi cấp cho relay từ chính bảng này, nên
+ * không còn nơi nào khác phải sửa để nối đường phát.
  *
- * Các loại đã vào bảng: hai loại sự kiện digest phụ huynh
- * (`guardian_digest_due`, `guardian_overdue_alert`) trỏ về hàng đợi
- * `guardian-digest-events` — consumer của chúng đã chuyển sang
- * worker (processor `GuardianDigestEventsProcessor`, handler
- * `GuardianDigestHandlerService`). Mọi loại sự kiện còn lại của đợt
- * chuyển đổi chưa có mặt ở đây cho tới khi consumer tương ứng
- * chuyển xong, đúng ngữ nghĩa ở trên.
+ * Các loại đã vào bảng:
+ * - Hai loại sự kiện digest phụ huynh (`guardian_digest_due`,
+ *   `guardian_overdue_alert`) trỏ về hàng đợi `guardian-digest-events`
+ *   — consumer của chúng đã chuyển sang worker (processor
+ *   `GuardianDigestEventsProcessor`, handler
+ *   `GuardianDigestHandlerService`).
+ * - Sáu loại sự kiện messaging (xem `MESSAGING_DISTRIBUTED_EVENT_TYPES`
+ *   của `@lms/messaging`) trỏ về hàng đợi `messaging-realtime` —
+ *   consumer phân phối realtime đã chuyển sang worker (processor
+ *   `MessagingRealtimeProcessor`, luật phân phối ở package
+ *   `@lms/messaging`). Riêng `message_sent` còn một consumer nữa ở
+ *   phía worker là notification-events (issue #520): phía nào nối
+ *   đường sau sẽ thêm hàng đợi của consumer đó vào danh sách đích
+ *   của `message_sent`, theo đúng ngữ nghĩa fan-out ở trên.
+ * Mọi loại sự kiện còn lại của đợt chuyển đổi chưa có mặt ở đây cho
+ * tới khi consumer tương ứng chuyển xong, đúng ngữ nghĩa ở trên.
  */
 export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
-  guardian_digest_due: 'guardian-digest-events',
-  guardian_overdue_alert: 'guardian-digest-events',
+  guardian_digest_due: ['guardian-digest-events'],
+  guardian_overdue_alert: ['guardian-digest-events'],
+  message_sent: ['messaging-realtime'],
+  message_conversation_read: ['messaging-realtime'],
+  message_deleted: ['messaging-realtime'],
+  message_recalled: ['messaging-realtime'],
+  message_removed: ['messaging-realtime'],
+  message_deleted_for_me: ['messaging-realtime'],
 };
 
-/** Bảng định tuyến phát job: khoá là loại sự kiện, giá trị là tên hàng đợi BullMQ. */
-export type OutboxEventQueueRoutes = Readonly<Record<string, string>>;
+/**
+ * Bảng định tuyến phát job: khoá là loại sự kiện, giá trị là DANH
+ * SÁCH tên hàng đợi BullMQ đích của sự kiện đó (mỗi đích một handler).
+ */
+export type OutboxEventQueueRoutes = Readonly<Record<string, readonly string[]>>;
 
 /**
  * Khoá tiêm (injection token) của bảng định tuyến cấp cho relay.

@@ -1,0 +1,1 @@
+{"compilerOptions":{"declaration":false,"noEmit":true},"extends":"./tsconfig.json","include":["src"]}

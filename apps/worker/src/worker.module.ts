@@ -19,6 +19,8 @@ import { NotificationDeliveryService } from './notification-delivery.service';
 import { GuardianDigestScheduler } from './guardian-digest.scheduler';
 import { GuardianDigestProcessor } from './processors/guardian-digest.processor';
 import { GuardianDigestEventsProcessor } from './processors/guardian-digest-events.processor';
+import { MessagingRealtimeProcessor, MESSAGING_DISTRIBUTED_REDIS, MESSAGING_DISTRIBUTION_SERVICE } from './processors/messaging-realtime.processor';
+import { MessagingRealtimeRuntime } from './messaging-realtime.runtime';
 import { GuardianDigestHandlerService } from './guardian-digest-handler.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
@@ -54,7 +56,7 @@ import {
  * thể lệch nhau khi bảng định tuyến được mở rộng.
  */
 const outboxRouteQueueNames: string[] = [
-  ...new Set(Object.values(OUTBOX_EVENT_QUEUE_ROUTES)),
+  ...new Set(Object.values(OUTBOX_EVENT_QUEUE_ROUTES).flat()),
 ];
 
 @Module({
@@ -139,5 +141,20 @@ const outboxRouteQueueNames: string[] = [
       useFactory: (...queues: Queue[]): OutboxEventQueues =>
         new Map(outboxRouteQueueNames.map((name, index) => [name, queues[index]!] as const)),
     },
+    // Consumer phân phối realtime messaging (issue #521): runtime
+    // giữ tầng phân phối dùng chung + Redis dấu đã-phân-phối + cổng
+    // phát qua Redis adapter; processor chỉ tiêu thụ job.
+    MessagingRealtimeRuntime,
+    {
+      provide: MESSAGING_DISTRIBUTION_SERVICE,
+      inject: [MessagingRealtimeRuntime],
+      useFactory: (runtime: MessagingRealtimeRuntime) => runtime.distribution,
+    },
+    {
+      provide: MESSAGING_DISTRIBUTED_REDIS,
+      inject: [MessagingRealtimeRuntime],
+      useFactory: (runtime: MessagingRealtimeRuntime) => runtime.redis,
+    },
+    MessagingRealtimeProcessor,
     FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, GuardianDigestEventsProcessor, GuardianDigestHandlerService, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
 export class WorkerModule {}

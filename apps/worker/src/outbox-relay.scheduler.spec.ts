@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { MESSAGING_DISTRIBUTED_EVENT_TYPES } from '@lms/messaging';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
-import type { OutboxEventJobData, OutboxEventQueueRoutes } from './outbox-event-routes';
+import { OUTBOX_EVENT_QUEUE_ROUTES, type OutboxEventJobData, type OutboxEventQueueRoutes } from './outbox-event-routes';
 
 /**
- * Test đặc trưng hoá cho relay outbox duy nhất: ghim bốn tính chất của
+ * Test đặc trưng hoá cho relay outbox duy nhất: ghim các tính chất của
  * ngữ nghĩa đóng dấu `publishedAt` và định tuyến phát job theo loại
  * sự kiện, làm căn cứ cho mọi issue chuyển consumer sang hàng đợi ở
  * worker sau này:
@@ -11,9 +12,14 @@ import type { OutboxEventJobData, OutboxEventQueueRoutes } from './outbox-event-
  *     không bao giờ trước;
  * (ii) phát thất bại thì sự kiện không có `publishedAt` và được phát
  *     lại ở lượt relay sau;
- * (iii) mỗi loại sự kiện được phát vào đúng hàng đợi của nó;
+ * (iii) mỗi loại sự kiện được phát vào đúng (các) hàng đợi của nó —
+ *     một sự kiện có nhiều đích thì mỗi đích nhận đúng một job
+ *     (fan-out một-sự-kiện-nhiều-handler, issue #520/#521);
  * (iv) `publishedAt` không phải dấu hoàn thành xử lý — relay đóng
- *     dấu ngay khi phát xong, dù job chưa được consumer nào xử lý.
+ *     dấu ngay khi phát xong, dù job chưa được consumer nào xử lý;
+ * (v) với sự kiện nhiều đích, dấu chỉ xuất hiện khi MỌI đích đã nhận
+ *     job — lỗi ở một đích thì dòng chưa có dấu, và lượt phát lại
+ *     không tạo job trùng ở các đích đã nhận (chống trùng `jobId`).
  *
  * Toàn bộ test chạy trên DB/hàng đợi giả lập trong bộ nhớ theo đúng
  * bề mặt relay dùng (chuỗi truy vấn Drizzle, `Queue.add` của BullMQ,
@@ -129,7 +135,7 @@ interface Harness {
 
 function makeRelay(rows: FakeRow[], routes: OutboxEventQueueRoutes): Harness {
   const queues = new Map<string, FakeQueue>();
-  for (const queueName of new Set(Object.values(routes))) {
+  for (const queueName of new Set(Object.values(routes).flat())) {
     queues.set(queueName, new FakeQueue(rows));
   }
   const { db } = makeFakeDb(rows);
@@ -156,8 +162,8 @@ function makeRelay(rows: FakeRow[], routes: OutboxEventQueueRoutes): Harness {
 }
 
 const ROUTES: OutboxEventQueueRoutes = {
-  auth_mail_requested: 'outbox-auth-mail',
-  message_sent: 'outbox-messaging',
+  auth_mail_requested: ['outbox-auth-mail'],
+  message_sent: ['outbox-messaging'],
 };
 
 describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', () => {
@@ -305,5 +311,69 @@ describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', ()
 
     await relay.relayTick();
     expect(taskRuns).toEqual([{ status: 'failed' }, { status: 'success' }]);
+  });
+});
+
+describe('Relay outbox duy nhất — fan-out một sự kiện nhiều đích', () => {
+  const FANOUT_ROUTES: OutboxEventQueueRoutes = {
+    message_sent: ['messaging-realtime', 'messaging-notifications'],
+  };
+
+  it('một dòng có hai đích thì mỗi đích nhận đúng một job cùng jobId và cùng dữ liệu, dòng chỉ đóng dấu sau khi cả hai đích đã nhận', async () => {
+    const row = makeRow({ aggregate: 'messaging', type: 'message_sent', tenantId: 'tenant-1' });
+    const { relay, queues } = makeRelay([row], FANOUT_ROUTES);
+    const realtime = queues.get('messaging-realtime')!;
+    const notifications = queues.get('messaging-notifications')!;
+
+    const published = await relay.publishPending();
+
+    expect(published).toBe(1);
+    expect(row.publishedAt).not.toBeNull();
+    for (const queue of [realtime, notifications]) {
+      expect(queue.jobs.size).toBe(1);
+      // Tại thời điểm job được đẩy vào TỪNG đích, dòng vẫn chưa có dấu.
+      expect(queue.stampedAtDispatch).toEqual([false]);
+      const job = queue.jobs.get(row.id);
+      expect(job?.name).toBe('message_sent');
+      expect(job?.data).toEqual({
+        outboxId: row.id,
+        seq: row.seq,
+        aggregate: 'messaging',
+        type: 'message_sent',
+        payload: { n: row.seq },
+        tenantId: 'tenant-1',
+        occurredAt: '2026-10-29T00:00:00.000Z',
+      });
+    }
+  });
+
+  it('lỗi ở đích thứ hai thì dòng không được đóng dấu; phát lại không tạo job trùng ở đích thứ nhất và hoàn tất ở đích thứ hai', async () => {
+    const row = makeRow({ aggregate: 'messaging', type: 'message_sent' });
+    const { relay, queues, mirrored } = makeRelay([row], FANOUT_ROUTES);
+    const realtime = queues.get('messaging-realtime')!;
+    const notifications = queues.get('messaging-notifications')!;
+    notifications.failNextAdd = true;
+
+    await expect(relay.publishPending()).rejects.toThrow('redis unavailable');
+    // Đích thứ nhất đã nhận job nhưng dòng CHƯA có dấu — dấu chỉ
+    // thuộc về lượt phát trọn vẹn tới mọi đích.
+    expect(realtime.jobs.size).toBe(1);
+    expect(notifications.jobs.size).toBe(0);
+    expect(row.publishedAt).toBeNull();
+    expect(mirrored).toHaveLength(0);
+
+    const published = await relay.publishPending();
+    expect(published).toBe(1);
+    expect(row.publishedAt).not.toBeNull();
+    // Phát lại không nhân đôi job ở đích đã nhận (jobId = id dòng).
+    expect(realtime.jobs.size).toBe(1);
+    expect(notifications.jobs.size).toBe(1);
+    expect(mirrored).toHaveLength(1);
+  });
+
+  it('bảng định tuyến production đưa mọi loại sự kiện phân phối messaging về hàng đợi messaging-realtime', () => {
+    for (const type of MESSAGING_DISTRIBUTED_EVENT_TYPES) {
+      expect(OUTBOX_EVENT_QUEUE_ROUTES[type]).toContain('messaging-realtime');
+    }
   });
 });

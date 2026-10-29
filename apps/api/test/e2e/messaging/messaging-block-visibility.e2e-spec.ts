@@ -7,7 +7,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
 } from '../../support/identity-access-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Chuẩn app nhắn tin phổ biến, chốt bổ sung trên issue #33
@@ -24,15 +23,15 @@ import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wa
  *    realtime cũng không trả lịch sử của conversation đang chặn.
  *    Hội thoại nhóm chứa cả hai người không bị cổng này chạm.
  *  - Xoá tin theo id (siết sau PR #94 vòng 1): xoá tin của hội thoại
- *    1–1 đang chặn cũng 404 ở cả hai phía, không ghi outbox, phía
- *    còn lại không nhận bất kỳ sự kiện nào của hội thoại đó; socket
- *    mới nối không vào room của hội thoại 1–1 đang chặn.
+ *    1–1 đang chặn cũng 404 ở cả hai phía và KHÔNG ghi outbox (khẳng
+ *    định ở ca xoá của spec này); socket mới nối không vào room của
+ *    hội thoại 1–1 đang chặn.
  *  - Presence (online) không phát tới phía bị chặn.
- *  - Biên đã-đọc cũng không rò: biên ghi outbox trước khi chặn mà
- *    consumer tiêu thụ sau khi chặn thì tầng phân phối phải chặn lại
- *    (cổng chặn của distributeReadReceipt, siết sau PR #94 vòng
- *    đánh giá lại) — phía bị chặn không nhận message.read nào sau
- *    thời điểm chặn hoàn tất.
+ *  - Phần PHÂN PHỐI của luật chặn (sự kiện gửi/xoá/đọc ghi TRƯỚC lúc
+ *    chặn bị consumer nén lại, không phát sang phía bị chặn — cổng
+ *    chặn ở tầng phân phối, siết sau PR #94) thuộc về consumer phía
+ *    worker từ issue #521 và được kiểm ở spec tích hợp của worker:
+ *    apps/worker/test/integration/messaging/messaging-realtime-queue.int-spec.ts.
  *  - Bỏ chặn thì mọi bề mặt hiện lại nguyên trạng.
  */
 
@@ -273,62 +272,50 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     const createdMsg = await send(a.token, 'tin sẽ xoá khi đang chặn');
     expect(createdMsg.status).toBe(201);
     const messageId = (createdMsg.body as { id: string }).id;
-    // B nối socket TRƯỚC khi chặn (đúng ca tái hiện của đội đánh giá:
-    // socket cũ đã nằm trong room) và nghe cả hai sự kiện mà một lần
-    // xoá từng phát ra: message.deleted + conversation.updated.
-    const bSocket = await connectSocket(b.token);
-    const seen: { event: string; conversationId: string }[] = [];
-    const record = (event: string) => (payload: { conversationId: string }) => {
-      seen.push({ event, conversationId: payload.conversationId });
-    };
-    bSocket.on('message.deleted', record('message.deleted'));
-    bSocket.on('conversation.updated', record('conversation.updated'));
+    const block = await http(app).post(`/api/v1/messages/contacts/${b.id}/block`)
+      .set('Authorization', `Bearer ${a.token}`).send({});
+    expect(block.status).toBe(201);
     try {
-      const block = await http(app).post(`/api/v1/messages/contacts/${b.id}/block`)
-        .set('Authorization', `Bearer ${a.token}`).send({});
-      expect(block.status).toBe(201);
-      try {
-        // A xoá tin của chính A trong lúc chặn: 404 như không tồn
-        // tại (không phải 200, không phải 403), ở cả phía người chặn.
-        const del = await http(app).delete(`/api/v1/messages/${messageId}`)
-          .set('Authorization', `Bearer ${a.token}`);
-        expect(del.status).toBe(404);
-        expect(del.body.code).toBe('messaging.conversation_not_found');
-        // Phía bị chặn cũng 404 (không lộ tin tồn tại qua 403).
-        const delByBlocked = await http(app).delete(`/api/v1/messages/${messageId}`)
-          .set('Authorization', `Bearer ${b.token}`);
-        expect(delByBlocked.status).toBe(404);
-        expect(delByBlocked.body.code).toBe('messaging.conversation_not_found');
-        // Hai lần xoá ở trên trả 404 ĐỒNG BỘ và không ghi outbox, nên
-        // mọi sự kiện có thể tới socket của B đều đã nằm trong outbox
-        // trước thời điểm này. Chờ watermark của consumer phân phối
-        // (distributor) chạm seq cuối cùng hiện có trong outbox — mọi
-        // sự kiện tồn tại đã phân phối xong — rồi mới khẳng định: B
-        // không nhận bất kỳ sự kiện nào của hội thoại này (kể cả
-        // conversation.updated kèm nội dung tin cuối — điểm lộ của
-        // vòng 1). Thay sleep cố định 1.500ms không gắn tín hiệu nào.
-        const tail = await pg.query(`select max(seq) as seq from outbox_events`);
-        await waitForOutboxWatermark(redis, 'distributor', Number((tail.rows[0] as { seq: string | number | null }).seq ?? 0));
-        expect(seen.filter((e) => e.conversationId === conversationId)).toEqual([]);
-      } finally {
-        const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
-          .set('Authorization', `Bearer ${a.token}`);
-        expect(unblock.status).toBe(200);
-      }
-      // Sau bỏ chặn, tin vẫn còn nguyên (lần xoá 404 không xoá mềm
-      // gì, không ghi outbox) và A xoá được bình thường.
-      const detailAfter = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
+      // A xoá tin của chính A trong lúc chặn: 404 như không tồn
+      // tại (không phải 200, không phải 403), ở cả phía người chặn.
+      const del = await http(app).delete(`/api/v1/messages/${messageId}`)
         .set('Authorization', `Bearer ${a.token}`);
-      expect(detailAfter.status).toBe(200);
-      expect((detailAfter.body as { messages: { id: string }[] }).messages
-        .some((m) => m.id === messageId)).toBe(true);
-      const delAfter = await http(app).delete(`/api/v1/messages/${messageId}`)
-        .set('Authorization', `Bearer ${a.token}`);
-      expect(delAfter.status).toBe(200);
+      expect(del.status).toBe(404);
+      expect(del.body.code).toBe('messaging.conversation_not_found');
+      // Phía bị chặn cũng 404 (không lộ tin tồn tại qua 403).
+      const delByBlocked = await http(app).delete(`/api/v1/messages/${messageId}`)
+        .set('Authorization', `Bearer ${b.token}`);
+      expect(delByBlocked.status).toBe(404);
+      expect(delByBlocked.body.code).toBe('messaging.conversation_not_found');
+      // Hai lần xoá 404 KHÔNG ghi sự kiện outbox nào cho tin này:
+      // không có sự kiện thì tầng phân phối không có gì để phát sang
+      // phía kia. Phần khẳng định ở tầng phân phối (sự kiện gửi/đọc
+      // ghi TRƯỚC lúc chặn bị cổng chặn nén lại ở consumer phía
+      // worker) được kiểm ở spec tích hợp của worker —
+      // apps/worker/test/integration/messaging/messaging-realtime-queue.int-spec.ts
+      // (issue #521).
+      const outboxRows = await pg.query(
+        `select count(*)::int as n from outbox_events where type = 'message_deleted' and payload->>'messageId' = $1`,
+        [messageId],
+      );
+      expect((outboxRows.rows[0] as { n: number }).n).toBe(0);
     } finally {
-      bSocket.disconnect();
+      const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
+        .set('Authorization', `Bearer ${a.token}`);
+      expect(unblock.status).toBe(200);
     }
+    // Sau bỏ chặn, tin vẫn còn nguyên (lần xoá 404 không xoá mềm
+    // gì, không ghi outbox) và A xoá được bình thường.
+    const detailAfter = await http(app).get(`/api/v1/messages/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(detailAfter.status).toBe(200);
+    expect((detailAfter.body as { messages: { id: string }[] }).messages
+      .some((m) => m.id === messageId)).toBe(true);
+    const delAfter = await http(app).delete(`/api/v1/messages/${messageId}`)
+      .set('Authorization', `Bearer ${a.token}`);
+    expect(delAfter.status).toBe(200);
   });
+
 
   it('presence of the blocker does not reach the blocked peer while blocked, and flows again after unblock', async () => {
     const bSocket = await connectSocket(b.token);
@@ -385,45 +372,4 @@ describe('Messaging — ẩn hội thoại/liên hệ khi có quan hệ chặn (
     }
   });
 
-  it('a read receipt queued before a block is not delivered to the blocked peer after the block', async () => {
-    // B gửi một tin mới để A có mốc chưa đọc mới; B nối socket TRƯỚC
-    // khi chặn (đúng ca tái hiện của đội đánh giá) và nghe message.read.
-    const fresh = await send(b.token, 'tin mới để A đánh dấu đã đọc');
-    expect(fresh.status).toBe(201);
-    const bSocket = await connectSocket(b.token);
-    const reads: { conversationId: string; userId: string; receivedAt: number }[] = [];
-    bSocket.on('message.read', (payload: { conversationId: string; userId: string }) => {
-      reads.push({ ...payload, receivedAt: Date.now() });
-    });
-    try {
-      expect(bSocket.connected).toBe(true);
-      // A đánh dấu đã đọc: outbox message_conversation_read được ghi,
-      // consumer nhịp 500ms chưa kịp tiêu thụ — A chặn B ngay sau đó.
-      const read = await http(app).post(`/api/v1/messages/conversations/${conversationId}/read`)
-        .set('Authorization', `Bearer ${a.token}`).send({});
-      expect(read.status).toBe(201);
-      const block = await http(app).post(`/api/v1/messages/contacts/${b.id}/block`)
-        .set('Authorization', `Bearer ${a.token}`).send({});
-      expect(block.status).toBe(201);
-      const blockDoneAt = Date.now();
-      try {
-        // Chờ watermark của distributor vượt seq của chính sự kiện
-        // message_conversation_read vừa ghi: sự kiện đó chắc chắn đã
-        // được tiêu thụ SAU khi chặn (watermark chỉ chạm mốc này khi
-        // consumer đã xử lý tới nó) và cổng chặn ở tầng phân phối phải
-        // đã giữ nó lại — B không được nhận message.read nào tới sau
-        // thời điểm chặn hoàn tất (biên tới trước khi chặn xong là
-        // hợp lệ, không tính là rò). Thay sleep cố định 1.500ms.
-        const readSeq = await latestOutboxSeq(pg, 'message_conversation_read', 'conversationId', conversationId);
-        await waitForOutboxWatermark(redis, 'distributor', readSeq);
-        expect(reads.filter((r) => r.conversationId === conversationId && r.receivedAt > blockDoneAt)).toEqual([]);
-      } finally {
-        const unblock = await http(app).delete(`/api/v1/messages/contacts/${b.id}/block`)
-          .set('Authorization', `Bearer ${a.token}`);
-        expect(unblock.status).toBe(200);
-      }
-    } finally {
-      bSocket.disconnect();
-    }
-  });
 });

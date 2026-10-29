@@ -1,6 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, notInArray, or, sql } from 'drizzle-orm';
+import {
+  attachQuotesToRows,
+  countUnreadForConversation as countUnreadForConversationShared,
+  getConversationById,
+  getConversationTenantId as getConversationTenantIdShared,
+  getMemberLastReadSeq as getMemberLastReadSeqShared,
+  getMessageById,
+  getMessagesByIds as getMessagesByIdsShared,
+  listBlockedCounterpartIds as listBlockedCounterpartIdsShared,
+  listBlockedUserIds,
+  listBlockerUserIds,
+  listConversationMemberIds,
+  listDeletedForUserIds as listDeletedForUserIdsShared,
+  listMessagesPage,
+  quoteExcerptOf,
+  QUOTE_EXCERPT_MAX_CHARS,
+  type MessageWindowOptions,
+  type MessageWithQuoteRow,
+} from '@lms/messaging';
 import type { Database, DbTx } from '../../db/database';
 import { tenantAls } from '../tenants/tenant-als';
 import {
@@ -30,30 +49,6 @@ export interface ConversationSummaryRow {
   archivedAt: Date | null;
   /** Trạng thái cá nhân (lát M5): đã tắt tiếng conversation này hay chưa. */
   muted: boolean;
-}
-
-/** Tuỳ chọn cửa sổ tin theo cursor seq. */
-export interface MessageWindowOptions {
-  /** Chỉ lấy tin có seq nhỏ hơn mốc này (tải lịch sử cũ hơn). */
-  beforeSeq?: number;
-  /** Chỉ lấy tin có seq lớn hơn mốc này (đồng bộ phần thiếu). */
-  afterSeq?: number;
-  /** Số tin tối đa trong cửa sổ (mặc định 50, trần 100). */
-  limit?: number;
-  /**
-   * Kèm cả tin đã xoá mềm (mặc định KHÔNG): chỉ các cửa sổ truy vết của
-   * người có thẩm quyền (giáo viên phụ trách/quản trị) mới bật — mọi
-   * đường đọc thường của thành viên luôn lọc bỏ tin đã xoá.
-   */
-  includeDeleted?: boolean;
-  /**
-   * Người đang xem (vòng đời tin nhắn theo vai): khi có mặt và KHÔNG
-   * ở chế độ truy vết (includeDeleted), cửa sổ lọc bỏ thêm các tin
-   * người này đã XOÁ-PHÍA-MÌNH (bảng `message_user_deletions`) — cờ
-   * cá nhân chỉ áp cho đúng chủ nhân của nó, không ai khác bị ảnh
-   * hưởng. Chế độ truy vết bỏ qua cờ này: dấu vết phải đầy đủ.
-   */
-  viewerId?: string;
 }
 
 /** Tuỳ chọn tìm nội dung tin trong một conversation (lát M4, issue #237). */
@@ -118,71 +113,15 @@ export type ContactRow = typeof messageContacts.$inferSelect;
 export type ModeratorActionRow = typeof messageModeratorActions.$inferSelect;
 
 /**
- * Vô hiệu hoá NỘI DUNG của một tin đã thu hồi cho các đường đọc/phân
- * phối thường (vòng đời tin nhắn theo vai): giữ nguyên mọi trường
- * định danh và dấu vết (id, seq, recalledAt, recalledBy...) để phía
- * nhận hiện dòng "tin nhắn đã được thu hồi", chỉ làm rỗng hai trường
- * nội dung. Đường truy vết có thẩm quyền KHÔNG đi qua hàm này. Đặt ở
- * repository để cả service lẫn tầng realtime dùng chung một luật
- * (hai tầng này không được import lẫn nhau).
+ * Các luật thuần về nội dung/trích dẫn của tin nhắn (vô hiệu nội dung
+ * tin đã thu hồi, dựng khối trích dẫn, rút gọn excerpt) sống ở
+ * package dùng chung `@lms/messaging` để repository phía API, tầng
+ * realtime phía API và consumer phân phối phía worker dùng chung một
+ * bản cài đặt (issue #521); các tên dưới đây được re-export để mọi
+ * điểm nhập hiện hữu qua repository giữ nguyên.
  */
-export function blankRecalledContent(row: MessageRow): MessageRow {
-  if (!row.recalledAt) return row;
-  return { ...row, fullMessage: '', smallMessage: '' };
-}
-
-/**
- * Khối tóm tắt TRÍCH DẪN của một tin gốc (lát M3, issue #229) — hình
- * dạng khớp `messageQuoteSchema` của @lms/contracts (khai báo cục bộ
- * ở đây để repository không phụ thuộc contracts; tương thích cấu
- * trúc khi gán vào wire ở tầng realtime/service).
- */
-export interface MessageQuoteView {
-  id: string;
-  seq: number;
-  userIdFrom: string;
-  excerpt: string;
-  unavailable: boolean;
-}
-
-/** Một dòng tin kèm khối trích dẫn đã dựng sẵn cho người nhận (`replyTo = null` khi không trích dẫn). */
-export type MessageWithQuoteRow = MessageRow & { replyTo: MessageQuoteView | null };
-
-/** Trần độ dài của excerpt trích dẫn: đủ nhận ra tin gốc, không biến khối trích dẫn thành bản sao của tin. */
-export const QUOTE_EXCERPT_MAX_CHARS = 120;
-
-/**
- * Rút gọn nội dung làm excerpt trích dẫn: cắt theo CODE POINT (không
- * cắt giữa cặp surrogate của emoji) và thêm dấu … khi bị cắt.
- */
-export function quoteExcerptOf(text: string): string {
-  const chars = Array.from(text);
-  if (chars.length <= QUOTE_EXCERPT_MAX_CHARS) return text;
-  return `${chars.slice(0, QUOTE_EXCERPT_MAX_CHARS).join('')}…`;
-}
-
-/**
- * Dựng khối trích dẫn của một tin gốc cho một người nhận.
- *
- * Luật lộ nội dung (cùng họ với blankRecalledContent): người xem
- * THƯỜNG không bao giờ nhận nội dung của tin gốc đã xoá mềm/đã thu
- * hồi, cũng không nhận nội dung của tin chính họ đã xoá-phía-mình —
- * cả ba trường hợp đều thành `unavailable = true` + excerpt rỗng để
- * client hiện "tin gốc đã bị xoá". Người có thẩm quyền kiểm duyệt
- * (privileged — cửa sổ truy vết) thấy excerpt thật, vì họ vốn đọc
- * được chính tin gốc ở đường truy vết.
- */
-export function messageQuoteOf(original: MessageRow, opts: { privileged: boolean; deletedForViewer?: boolean }): MessageQuoteView {
-  const unavailable = !opts.privileged
-    && (original.deletedAt !== null || original.recalledAt !== null || opts.deletedForViewer === true);
-  return {
-    id: original.id,
-    seq: original.seq,
-    userIdFrom: original.userIdFrom,
-    excerpt: unavailable ? '' : quoteExcerptOf(original.fullMessage),
-    unavailable,
-  };
-}
+export { blankRecalledContent, messageQuoteOf, quoteExcerptOf, QUOTE_EXCERPT_MAX_CHARS } from '@lms/messaging';
+export type { MessageQuoteView, MessageWithQuoteRow } from '@lms/messaging';
 
 /** Trần độ dài của excerpt kết quả tìm tin (lát M4): cùng trần với excerpt trích dẫn. */
 export const SEARCH_EXCERPT_MAX_CHARS = QUOTE_EXCERPT_MAX_CHARS;
@@ -236,10 +175,12 @@ export class MessagingRepository {
     const [row] = await (tx ?? this.db).insert(messageConversations).values(v).returning(); return row!;
   }
   /**
-   * Lấy conversation theo id.
+   * Lấy conversation theo id. Cài đặt truy vấn ở bề mặt đọc dùng
+   * chung `@lms/messaging` — repository chỉ uỷ quyền trên kết nối
+   * của API (issue #521).
    */
   async getConversation(id: string): Promise<ConversationRow | undefined> {
-    const [row] = await this.db.select().from(messageConversations).where(eq(messageConversations.id, id)); return row;
+    return getConversationById(this.db, id);
   }
   /**
    * Thêm thành viên conversation.
@@ -256,11 +197,11 @@ export class MessagingRepository {
       .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
   }
   /**
-   * Thành viên của conversation.
+   * Thành viên của conversation. Cài đặt truy vấn ở bề mặt đọc dùng
+   * chung `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async listMembers(conversationId: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageConversationMembers).where(eq(messageConversationMembers.conversationId, conversationId));
-    return rows.map((r) => r.userId);
+    return listConversationMemberIds(this.db, conversationId);
   }
   /**
    * User có thuộc conversation hay không.
@@ -440,10 +381,11 @@ export class MessagingRepository {
     const [row] = await (tx ?? this.db).insert(message).values(v).returning(); return row!;
   }
   /**
-   * Lấy tin nhắn theo id.
+   * Lấy tin nhắn theo id. Cài đặt truy vấn ở bề mặt đọc dùng chung
+   * `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async getMessage(id: string): Promise<MessageRow | undefined> {
-    const [row] = await this.db.select().from(message).where(eq(message.id, id)); return row;
+    return getMessageById(this.db, id);
   }
   /**
    * Tin đã lưu với khoá chống trùng (conversation, người gửi,
@@ -460,26 +402,12 @@ export class MessagingRepository {
   /**
    * Một cửa sổ tin của conversation theo cursor seq, luôn trả tăng dần
    * theo seq. Không cursor: cửa sổ MỚI NHẤT (limit tin cuối). beforeSeq:
-   * cửa sổ ngay trước mốc. afterSeq: các tin sau mốc (đồng bộ thiếu hụt).
+   * cửa sổ ngay trước mốc. afterSeq: các tin sau mốc (đồng bộ thiếu
+   * hụt). Cài đặt truy vấn ở bề mặt đọc dùng chung `@lms/messaging` —
+   * repository chỉ uỷ quyền (issue #521).
    */
   async listMessages(conversationId: string, opts: MessageWindowOptions = {}): Promise<MessageRow[]> {
-    const limit = Math.min(Math.max(opts.limit ?? 50, 1), 100);
-    const where = [eq(message.conversationId, conversationId)];
-    // Mặc định: tin đã xoá mềm bị lọc khỏi MỌI cửa sổ đọc — chỉ cửa sổ
-    // truy vết của người có thẩm quyền mới truyền includeDeleted.
-    if (!opts.includeDeleted) where.push(isNull(message.deletedAt));
-    // Cờ xoá-phía-mình của người xem (vòng đời theo vai): chỉ áp ở
-    // đường đọc thường — chế độ truy vết phải thấy đầy đủ dấu vết.
-    if (opts.viewerId && !opts.includeDeleted) {
-      where.push(sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${opts.viewerId})`);
-    }
-    if (opts.afterSeq !== undefined) {
-      where.push(gt(message.seq, opts.afterSeq));
-      return this.db.select().from(message).where(and(...where)).orderBy(asc(message.seq)).limit(limit);
-    }
-    if (opts.beforeSeq !== undefined) where.push(lt(message.seq, opts.beforeSeq));
-    const rows = await this.db.select().from(message).where(and(...where)).orderBy(desc(message.seq)).limit(limit);
-    return rows.reverse();
+    return listMessagesPage(this.db, conversationId, opts);
   }
   /**
    * Tìm nội dung tin trong MỘT conversation (lát M4, issue #237):
@@ -577,18 +505,19 @@ export class MessagingRepository {
   async hardDeleteMessage(id: string): Promise<void> {
     await this.db.delete(message).where(eq(message.id, id));
   }
-  /** Lấy nhiều dòng tin theo id (kiểm tra thẩm quyền hàng loạt trước khi gỡ). */
+  /**
+   * Lấy nhiều dòng tin theo id (kiểm tra thẩm quyền hàng loạt trước
+   * khi gỡ). Cài đặt truy vấn ở bề mặt đọc dùng chung `@lms/messaging`.
+   */
   async getMessagesByIds(ids: string[]): Promise<MessageRow[]> {
-    if (ids.length === 0) return [];
-    return this.db.select().from(message).where(inArray(message.id, ids));
+    return getMessagesByIdsShared(this.db, ids);
   }
-  /** Trong tập id này, các tin user đã đặt cờ xoá-phía-mình (lọc cá nhân của vòng đời tin nhắn). */
+  /**
+   * Trong tập id này, các tin user đã đặt cờ xoá-phía-mình. Cài đặt
+   * truy vấn ở bề mặt đọc dùng chung `@lms/messaging`.
+   */
   async listDeletedForUserIds(messageIds: string[], userId: string): Promise<Set<string>> {
-    if (messageIds.length === 0) return new Set();
-    const rows = await this.db.select({ messageId: messageUserDeletions.messageId })
-      .from(messageUserDeletions)
-      .where(and(inArray(messageUserDeletions.messageId, messageIds), eq(messageUserDeletions.userId, userId)));
-    return new Set(rows.map((r) => r.messageId));
+    return listDeletedForUserIdsShared(this.db, messageIds, userId);
   }
   /**
    * Gắn khối trích dẫn (lát M3, issue #229) cho một lô tin: tra lô
@@ -608,25 +537,7 @@ export class MessagingRepository {
    * viên nên đây không phải kênh lộ nội dung mới).
    */
   async attachQuotes(rows: MessageRow[], opts: { privileged: boolean; viewerId?: string }): Promise<MessageWithQuoteRow[]> {
-    const originalIds = [...new Set(rows.map((r) => r.replyToMessageId).filter((id): id is string => id !== null))];
-    if (originalIds.length === 0) return rows.map((r) => ({ ...r, replyTo: null }));
-    const originals = await this.getMessagesByIds(originalIds);
-    const byId = new Map(originals.map((o) => [o.id, o]));
-    const deletedForViewer = !opts.privileged && opts.viewerId
-      ? await this.listDeletedForUserIds(originalIds, opts.viewerId)
-      : new Set<string>();
-    return rows.map((r) => {
-      if (!r.replyToMessageId) return { ...r, replyTo: null };
-      const original = byId.get(r.replyToMessageId);
-      if (!original || original.conversationId !== r.conversationId) return { ...r, replyTo: null };
-      return {
-        ...r,
-        replyTo: messageQuoteOf(original, {
-          privileged: opts.privileged,
-          deletedForViewer: deletedForViewer.has(original.id),
-        }),
-      };
-    });
+    return attachQuotesToRows(this.db, rows, opts);
   }
   /**
    * Ghi một dòng dấu vết hành động kiểm duyệt. Gọi TRƯỚC khi trạng
@@ -667,13 +578,11 @@ export class MessagingRepository {
     return row;
   }
   /**
-   * Mốc đã đọc của một thành viên (undefined nếu không phải thành viên).
+   * Mốc đã đọc của một thành viên (undefined nếu không phải thành
+   * viên). Cài đặt truy vấn ở bề mặt đọc dùng chung `@lms/messaging`.
    */
   async getMemberLastReadSeq(conversationId: string, userId: string): Promise<number | undefined> {
-    const [row] = await this.db.select({ lastReadSeq: messageConversationMembers.lastReadSeq })
-      .from(messageConversationMembers)
-      .where(and(eq(messageConversationMembers.conversationId, conversationId), eq(messageConversationMembers.userId, userId)));
-    return row?.lastReadSeq;
+    return getMemberLastReadSeqShared(this.db, conversationId, userId);
   }
   /**
    * Mốc đã đọc của mọi thành viên — cho client hiển thị biên "đã xem".
@@ -786,23 +695,12 @@ export class MessagingRepository {
   /**
    * Số tin chưa đọc của MỘT user trong MỘT conversation (đếm bằng
    * count(*) theo mốc đã đọc của chính user — consumer realtime dùng
-   * để gửi kèm sự kiện cập nhật cho từng người nhận).
+   * để gửi kèm sự kiện cập nhật cho từng người nhận). Cài đặt truy
+   * vấn ở bề mặt đọc dùng chung `@lms/messaging` — repository chỉ
+   * uỷ quyền (issue #521).
    */
   async countUnreadForConversation(conversationId: string, userId: string): Promise<number> {
-    const lastReadSeq = await this.getMemberLastReadSeq(conversationId, userId);
-    if (lastReadSeq === undefined) return 0;
-    const [row] = await this.db.select({ value: sql<number>`count(*)::int` }).from(message)
-      .where(and(
-        eq(message.conversationId, conversationId),
-        gt(message.seq, lastReadSeq),
-        ne(message.userIdFrom, userId),
-        isNull(message.deletedAt),
-        // Tin đã thu hồi không còn gì để đọc; tin user đã xoá-phía-mình
-        // không thuộc tầm nhìn của họ — cả hai đều không đếm chưa đọc.
-        isNull(message.recalledAt),
-        sql`not exists (select 1 from ${messageUserDeletions} d where d.message_id = ${message.id} and d.user_id = ${userId})`,
-      ));
-    return row?.value ?? 0;
+    return countUnreadForConversationShared(this.db, conversationId, userId);
   }
   /** Các cuộc trò chuyện chưa đọc của một người dùng (Moodle count_unread_conversations): các cuộc trò chuyện có ≥1 tin nhắn chưa đọc từ người khác. */
   /**
@@ -868,29 +766,29 @@ export class MessagingRepository {
     return rows.length > 0;
   }
   /**
-   * Danh sách user bị chặn.
+   * Danh sách user bị chặn. Cài đặt truy vấn ở bề mặt đọc dùng chung
+   * `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
    */
   async listBlocked(userId: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.userId, userId));
-    return rows.map((r) => r.blockedUserId);
+    return listBlockedUserIds(this.db, userId);
   }
   /**
    * Danh sách user ĐÃ CHẶN user này (chiều ngược của listBlocked) —
    * danh sách thành viên khoá dùng để giấu phía chặn khỏi roster của
-   * phía bị chặn, khớp ngữ nghĩa chặn hiện có.
+   * phía bị chặn, khớp ngữ nghĩa chặn hiện có. Cài đặt truy vấn ở
+   * bề mặt đọc dùng chung `@lms/messaging` (issue #521).
    */
   async listBlockerIds(userId: string): Promise<string[]> {
-    const rows = await this.db.select().from(messageUsersBlocked).where(eq(messageUsersBlocked.blockedUserId, userId));
-    return rows.map((r) => r.userId);
+    return listBlockerUserIds(this.db, userId);
   }
   /**
    * Mọi user đang có quan hệ chặn với user này ở BẤT KỲ chiều nào
    * (người mình chặn ∪ người chặn mình) — tập "đối tác bị chặn" dùng
-   * cho các luật ẩn bề mặt 1–1 (presence, mốc đã đọc).
+   * cho các luật ẩn bề mặt 1–1 (presence, mốc đã đọc). Cài đặt truy
+   * vấn ở bề mặt đọc dùng chung `@lms/messaging` (issue #521).
    */
   async listBlockedCounterpartIds(userId: string): Promise<string[]> {
-    const [blocked, blockers] = await Promise.all([this.listBlocked(userId), this.listBlockerIds(userId)]);
-    return [...new Set([...blocked, ...blockers])];
+    return listBlockedCounterpartIdsShared(this.db, userId);
   }
 
   // --- contacts (quan hệ đã duyệt) + yêu cầu kết bạn -------------------------
@@ -2197,11 +2095,13 @@ export class MessagingRepository {
     return row?.tenantId ?? null;
   }
 
-  /** Tenant của một conversation (TENANT-1, #196) — nguồn tenant cho notification tin nhắn mới. */
+  /**
+   * Tenant của một conversation (TENANT-1, #196) — nguồn tenant cho
+   * notification tin nhắn mới. Cài đặt truy vấn ở bề mặt đọc dùng
+   * chung `@lms/messaging` — repository chỉ uỷ quyền (issue #521).
+   */
   async getConversationTenantId(conversationId: string): Promise<string | null> {
-    const [row] = await this.db.select({ tenantId: messageConversations.tenantId }).from(messageConversations)
-      .where(eq(messageConversations.id, conversationId));
-    return row?.tenantId ?? null;
+    return getConversationTenantIdShared(this.db, conversationId);
   }
 
   /**
