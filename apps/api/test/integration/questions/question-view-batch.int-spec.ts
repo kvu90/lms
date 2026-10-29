@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import type { INestApplication } from '@nestjs/common';
+import { NotFoundException, type INestApplication } from '@nestjs/common';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ADMIN, adminToken, assignRole, createContextViaApi, createTestApp, createUserViaApi, http, login, roleIdByShortname, systemContextId,
 } from '../../support/identity-access-helpers';
+import { QuestionsRepository } from '../../../src/modules/questions/questions.repository';
 import { QuestionsService } from '../../../src/modules/questions/questions.service';
+import { questionBankEntries } from '../../../src/db/schema';
 
 /**
  * Đặc trưng hoá hình dạng QuestionView của ba đường liệt kê câu hỏi
@@ -27,6 +30,7 @@ describe('Đặc trưng hoá view của các đường liệt kê câu hỏi (is
   let admin: string;
   let adminId: string;
   let questions: QuestionsService;
+  let repo: QuestionsRepository;
 
   let catMain = '';
   let lessonId = '';
@@ -47,6 +51,7 @@ describe('Đặc trưng hoá view của các đường liệt kê câu hỏi (is
     admin = await adminToken(app);
     adminId = (await login(app, ADMIN.username, ADMIN.password)).userId;
     questions = app.get(QuestionsService);
+    repo = app.get(QuestionsRepository);
     const sysCtx = await systemContextId(app, admin);
 
     // Context mức khoá học: giáo viên được gán vai editingteacher CHỈ
@@ -223,5 +228,71 @@ describe('Đặc trưng hoá view của các đường liệt kê câu hỏi (is
     expect(forTeacher.map((v) => v.question.id)).toEqual([courseMcId]);
     const forStranger = await questions.listQuestionsByCurriculumFilterForViewer(strangerId, filter);
     expect(forStranger).toEqual([]);
+  });
+
+  it('entry có nhiều version: loader theo lô chỉ trả đúng version mới nhất, không kèm version cũ', async () => {
+    const sysCtx = await systemContextId(app, admin);
+    const catR = await http(app).post('/api/v1/questions/categories').set(bearer(admin))
+      .send({ name: 'View batch multi-version', contextId: sysCtx });
+    if (catR.status !== 201 && catR.status !== 200) throw new Error(`category failed: ${catR.status} ${JSON.stringify(catR.body)}`);
+    const catId = catR.body.id as string;
+    const fourAnswers = [
+      { text: 'Đúng', correct: true }, { text: 'Sai', correct: false },
+      { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false },
+    ];
+    const created = await http(app).post('/api/v1/questions').set(bearer(admin)).send({
+      categoryId: catId, qtype: 'multichoice', questionText: 'Câu nhiều version — bản 1.', defaultMark: 1, answers: fourAnswers,
+    });
+    if (created.status !== 201 && created.status !== 200) throw new Error(`question failed: ${created.status} ${JSON.stringify(created.body)}`);
+    const qid = (created.body as { question: { id: string } }).question.id;
+    // Sửa hai lượt nữa → entry tích đủ 3 version, con trỏ mới nhất ở 3.
+    for (const text of ['Câu nhiều version — bản 2.', 'Câu nhiều version — bản 3.']) {
+      const r = await http(app).patch(`/api/v1/questions/${qid}`).set(bearer(admin)).send({ questionText: text });
+      if (r.status !== 200) throw new Error(`edit failed: ${r.status} ${JSON.stringify(r.body)}`);
+    }
+    const entry = await repo.getEntryByQuestion(qid);
+    expect(entry?.latestVersion).toBe(3);
+    // Hàm nạp version theo lô trả đúng MỘT dòng — version 3 — dù entry
+    // có hai version cũ nằm cùng bảng.
+    const rows = await repo.getLatestVersionsByEntries([entry!]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.version).toBe(3);
+    // View của đường liệt kê mang đúng version đó và khớp đường đọc đơn.
+    const views = await questions.listQuestions(catId);
+    expect(views).toHaveLength(1);
+    expect(views[0]?.latestVersion.version).toBe(3);
+    expect(views[0]).toEqual(await questions.getQuestion(qid));
+  });
+
+  it('entry thiếu dòng version mới nhất: đường liệt kê theo lô ném đúng mã question.version_missing như đường đọc đơn', async () => {
+    const sysCtx = await systemContextId(app, admin);
+    const catR = await http(app).post('/api/v1/questions/categories').set(bearer(admin))
+      .send({ name: 'View batch missing version', contextId: sysCtx });
+    if (catR.status !== 201 && catR.status !== 200) throw new Error(`category failed: ${catR.status} ${JSON.stringify(catR.body)}`);
+    const catId = catR.body.id as string;
+    const created = await http(app).post('/api/v1/questions').set(bearer(admin)).send({
+      categoryId: catId, qtype: 'multichoice', questionText: 'Câu thiếu version mới nhất.', defaultMark: 1,
+      answers: [
+        { text: 'Đúng', correct: true }, { text: 'Sai', correct: false },
+        { text: 'Đáp án khác 1', correct: false }, { text: 'Đáp án khác 2', correct: false },
+      ],
+    });
+    if (created.status !== 201 && created.status !== 200) throw new Error(`question failed: ${created.status} ${JSON.stringify(created.body)}`);
+    const qid = (created.body as { question: { id: string } }).question.id;
+    const entry = await repo.getEntryByQuestion(qid);
+    // Trỏ con trỏ version mới nhất tới số version không có dòng nào:
+    // dữ kiện hỏng mà cả hai đường đọc đều phải báo cùng một mã lỗi.
+    await repo.dbHandle.update(questionBankEntries).set({ latestVersion: 99 })
+      .where(eq(questionBankEntries.id, entry!.id));
+    const brokenEntry = await repo.getEntryByQuestion(qid);
+    expect(brokenEntry?.latestVersion).toBe(99);
+    // Hàm nạp version theo lô không bịa dòng nào cho entry này.
+    expect(await repo.getLatestVersionsByEntries([brokenEntry!])).toEqual([]);
+    const fromBatch = await questions.listQuestions(catId).then(() => null, (e: unknown) => e);
+    expect(fromBatch).toBeInstanceOf(NotFoundException);
+    expect((fromBatch as NotFoundException).getResponse()).toMatchObject({ code: 'question.version_missing' });
+    const fromSingle = await questions.getQuestion(qid).then(() => null, (e: unknown) => e);
+    expect(fromSingle).toBeInstanceOf(NotFoundException);
+    expect((fromSingle as NotFoundException).getResponse()).toMatchObject({ code: 'question.version_missing' });
   });
 });

@@ -456,16 +456,26 @@ export class QuestionsRepository {
 
   /**
    * Version MỚI NHẤT của mỗi entry trong tập — bản theo lô của
-   * getVersionByNumber: nạp mọi version của các entry trong một lượt
-   * rồi giữ, cho mỗi entry, đúng dòng có số version bằng con trỏ
-   * `latestVersion` của entry đó (cặp entry × số version là duy nhất).
+   * getVersionByNumber: ràng buộc ngay trong SQL bằng phép nối với
+   * `question_bank_entries` trên điều kiện số version bằng con trỏ
+   * `latestVersion` của chính entry, nên cơ sở dữ liệu chỉ trả đúng
+   * dòng version mới nhất của mỗi entry trong tập (cặp entry × số
+   * version là duy nhất) thay vì kéo toàn bộ lịch sử version về lọc
+   * trong bộ nhớ. Entry thiếu dòng version mới nhất không có dòng
+   * nào trong kết quả — phía lắp view giữ nguyên đường lỗi
+   * `question.version_missing` như đường đọc đơn.
    */
   async getLatestVersionsByEntries(entries: EntryRow[]): Promise<VersionRow[]> {
     if (!entries.length) return [];
-    const rows = await this.db.select().from(questionVersions)
-      .where(inArray(questionVersions.questionBankEntryId, entries.map((e) => e.id)));
-    const latestByEntry = new Map(entries.map((e) => [e.id, e.latestVersion]));
-    return rows.filter((r) => latestByEntry.get(r.questionBankEntryId) === r.version);
+    const rows = await this.db
+      .select({ version: questionVersions })
+      .from(questionVersions)
+      .innerJoin(questionBankEntries, and(
+        eq(questionVersions.questionBankEntryId, questionBankEntries.id),
+        eq(questionVersions.version, questionBankEntries.latestVersion),
+      ))
+      .where(inArray(questionBankEntries.id, entries.map((e) => e.id)));
+    return rows.map((r) => r.version);
   }
 
   /**
