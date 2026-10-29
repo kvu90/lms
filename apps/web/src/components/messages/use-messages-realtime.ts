@@ -1,26 +1,29 @@
 /**
  * Hook điều phối kênh realtime của trang Tin nhắn (đợt C của issue
- * #223, lát 2): nối socket một lần khi trang mở, đăng ký các handler
- * tin mới, tin bị xoá, thu hồi, đang gõ, hiện diện và nối lại, rồi
- * ngắt khi trang đóng. Di chuyển từ `pages/messages.tsx` (hiệu ứng
- * dòng 743–866), giữ nguyên kỷ luật: handlers đọc state mới nhất qua
- * ref nên không phải nối lại khi state đổi; sự kiện mang seq cũ hơn
- * seq đã áp thì bỏ qua để huy hiệu và tin cuối không nhảy lùi; danh
- * sách tự sắp xếp lại theo hoạt động mới nhất như thứ tự server trả.
+ * #223, lát 2; chuyển sang cache TanStack ở CN-13, issue #493): nối
+ * socket một lần khi trang mở, đăng ký các handler tin mới, tin bị
+ * xoá, thu hồi, đang gõ, hiện diện và nối lại, rồi ngắt khi trang
+ * đóng. Mọi sự kiện mang dữ kiện máy chủ đều VÁ VÀO CACHE TanStack
+ * (gộp tin vào cache chi tiết, áp sự kiện lên cache danh sách/cây
+ * nhóm qua các bộ chuyển đổi của hook danh sách, áp mốc đọc lên
+ * cache chi tiết, invalidate cửa sổ khi server báo dữ kiện đã đổi
+ * căn bản) — không còn state bản chép nào để đồng bộ tay. Giữ
+ * nguyên kỷ luật: handlers đọc state mới nhất qua ref nên không
+ * phải nối lại khi state đổi; sự kiện mang seq cũ hơn seq đã áp
+ * thì bỏ qua để huy hiệu và tin cuối không nhảy lùi; danh sách tự
+ * sắp xếp lại theo hoạt động mới nhất như thứ tự server trả.
  *
  * @param params - `myId` để phân biệt tin của mình; `markRead`,
  * `recountUnread`, `reload` từ hook danh sách; `activeRef` và
- * `lastSeqRef` để đọc trạng thái mới nhất và mốc seq; các setter của
- * hook danh sách và hook hội thoại đang mở để áp sự kiện;
- * `realtimeRef` để trang giữ handle socket (mở conversation tham
- * gia kênh, composer phát tín hiệu đang nhập).
+ * `lastSeqRef` để đọc trạng thái mới nhất và mốc seq; các bộ
+ * chuyển đổi ghi cache của hook danh sách và các thao tác vá cache
+ * của hook hội thoại đang mở để áp sự kiện; `realtimeRef` để trang
+ * giữ handle socket (mở conversation tham gia kênh, composer phát
+ * tín hiệu đang nhập).
  */
 import { useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { conversationDetailQueryOptions } from '#lib/messaging-data';
 import { connectMessagingRealtime, type MessagingRealtimeHandle } from '#lib/messaging-socket';
 import { withTreeUnread } from './page-helpers';
-import { mergeMessages } from './utils';
 import type { ConversationGroupTreeView, ConversationView, MessageView } from './types';
 
 export interface UseMessagesRealtimeParams {
@@ -28,26 +31,28 @@ export interface UseMessagesRealtimeParams {
   myId: string | undefined;
   /** Đánh dấu đã đọc ở server (từ hook danh sách). */
   markRead: (conversationId: string) => Promise<void>;
-  /** Đếm lại số chưa đọc (từ hook danh sách). */
-  recountUnread: (list: ConversationView[]) => void;
+  /** Làm mới huy hiệu số chưa đọc của sidebar (từ hook danh sách). */
+  recountUnread: () => void;
   /** Nạp lại danh sách (từ hook danh sách). */
   reload: () => Promise<void>;
   /** Ref conversation đang mở — handlers đọc mới nhất qua ref. */
   activeRef: { current: ConversationView | null };
   /** Mốc seq cao nhất đã thấy của từng conversation — trang sở hữu chung. */
   lastSeqRef: { current: Map<string, number> };
-  /** Ghi cửa sổ tin của conversation đang mở. */
-  setMessages: (messages: MessageView[] | ((prev: MessageView[]) => MessageView[])) => void;
-  /** Ghi danh sách conversation. */
+  /** Gộp tin phía server vào cache chi tiết của đúng conversation. */
+  mergeServerMessages: (conversationId: string, messages: MessageView[]) => void;
+  /** Áp một phép biến đổi lên mọi đoạn cửa sổ tin của một conversation trong cache. */
+  patchMessages: (conversationId: string, updater: (messages: MessageView[]) => MessageView[]) => void;
+  /** Áp một mốc đọc lên cache chi tiết (giữ mốc lớn nhất). */
+  applyReadMarker: (conversationId: string, userId: string, lastReadSeq: number) => void;
+  /** Vô hiệu hoá toàn bộ cửa sổ của một conversation trong cache. */
+  invalidateConversationWindow: (conversationId: string) => void;
+  /** Ghi danh sách conversation (bộ chuyển đổi ghi cache của hook danh sách). */
   setConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
-  /** Ghi cây nhóm (áp số chưa đọc mới). */
+  /** Ghi cây nhóm vào cache (áp số chưa đọc mới). */
   setGroupTree: (
     tree:
       ConversationGroupTreeView | null | ((prev: ConversationGroupTreeView | null) => ConversationGroupTreeView | null),
-  ) => void;
-  /** Ghi mốc đọc theo từng thành viên. */
-  setReadMarkers: (
-    markers: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>),
   ) => void;
   /** Ghi trạng thái đang gõ theo từng user. */
   setTypingUsers: (
@@ -57,8 +62,6 @@ export interface UseMessagesRealtimeParams {
   setOnlineUsers: (
     users: Record<string, boolean> | ((prev: Record<string, boolean>) => Record<string, boolean>),
   ) => void;
-  /** Ghi cờ còn tin cũ hơn phía trước. */
-  setHasMoreBefore: (value: boolean) => void;
   /** Handle socket realtime — trang sở hữu chung, hook này gán vào khi nối. */
   realtimeRef: { current: MessagingRealtimeHandle | null };
 }
@@ -70,16 +73,16 @@ export function useMessagesRealtime({
   reload,
   activeRef,
   lastSeqRef,
-  setMessages,
+  mergeServerMessages,
+  patchMessages,
+  applyReadMarker,
+  invalidateConversationWindow,
   setConversations,
   setGroupTree,
-  setReadMarkers,
   setTypingUsers,
   setOnlineUsers,
-  setHasMoreBefore,
   realtimeRef,
 }: UseMessagesRealtimeParams) {
-  const queryClient = useQueryClient();
   const typingTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Kênh realtime: nối một lần khi trang mở; handlers đọc state mới
@@ -94,7 +97,7 @@ export function useMessagesRealtime({
       onNewMessage: ({ conversationId, message }) => {
         noteSeq(conversationId, message.seq);
         if (activeRef.current?.id === conversationId) {
-          setMessages((prev) => mergeMessages(prev, [message]));
+          mergeServerMessages(conversationId, [message]);
           // Đang mở cuộc trò chuyện thì tin của người khác được đọc ngay.
           if (message.userIdFrom !== myId) void markRead(conversationId);
         }
@@ -110,15 +113,12 @@ export function useMessagesRealtime({
         noteSeq(conversationId, message.seq);
         setConversations((prev) => {
           const target = prev.find((c) => c.id === conversationId);
-          if (!target) {
-            recountUnread(prev);
-            return prev;
-          }
+          if (!target) return prev;
           // Danh sách tự sắp xếp lại theo hoạt động mới nhất (lát M1,
           // issue #204): conversation vừa có tin mới được đưa lên đầu
           // — cùng thứ tự server trả khi tải lại (updated_at giảm
           // dần) nên realtime và reload không bao giờ lệch nhau.
-          const next = [
+          return [
             {
               ...target,
               unread: activeRef.current?.id === conversationId ? 0 : unreadCount,
@@ -127,9 +127,8 @@ export function useMessagesRealtime({
             },
             ...prev.filter((c) => c.id !== conversationId),
           ];
-          recountUnread(next);
-          return next;
         });
+        recountUnread();
         // Cây nhóm cũng nhận số chưa đọc mới của conversation này để
         // huy hiệu trên các nút của tab Nhóm khớp ngay (lát MSG-T3).
         setGroupTree((prev) =>
@@ -142,35 +141,26 @@ export function useMessagesRealtime({
         // không còn thấy tin (lọc ở bước render), phía có thẩm quyền
         // kiểm duyệt thấy dấu vết ai đã xoá. Payload không kèm nội
         // dung nên không có đường nào nội dung bị lộ lại qua realtime.
-        setMessages((prev) =>
+        patchMessages(conversationId, (prev) =>
           prev.map((m) => (m.id === messageId ? { ...m, deletedAt: new Date().toISOString(), deletedBy } : m)),
         );
       },
       onConversationInvalidate: ({ conversationId }) => {
         // Vòng đời tin nhắn theo vai (issue #33): thu hồi phát
-        // message.deleted trước, invalidate sau — chỉ tải lại cửa sổ
-        // tin mới phân biệt được "đã thu hồi" (recalledAt, nội dung
+        // message.deleted trước, invalidate sau — chỉ dữ kiện nạp
+        // lại mới phân biệt được "đã thu hồi" (recalledAt, nội dung
         // rỗng) với "đã xoá", và tin bị xoá cứng mới biến mất khỏi
-        // khung. Danh sách luôn tải lại vì tin cuối/số chưa đọc đã đổi.
+        // khung: vô hiệu hoá toàn bộ cửa sổ trong cache (chi tiết +
+        // các trang + tìm kiếm) để các đăng ký đang mở tự nạp lại.
+        // Danh sách luôn nạp lại vì tin cuối/số chưa đọc đã đổi.
         if (activeRef.current?.id === conversationId) {
-          void (async () => {
-            try {
-              const detail = await queryClient.fetchQuery(conversationDetailQueryOptions(conversationId));
-              setMessages(detail.messages);
-              setHasMoreBefore(detail.hasMoreBefore ?? false);
-              const markers: Record<string, number> = {};
-              for (const marker of detail.memberReadMarkers ?? []) markers[marker.userId] = marker.lastReadSeq;
-              setReadMarkers(markers);
-            } catch {
-              // Giữ khung cũ; lần tải lại sau sẽ đồng bộ.
-            }
-          })();
+          invalidateConversationWindow(conversationId);
         }
         void reload().catch(() => undefined);
       },
       onReadReceipt: ({ conversationId, userId, lastReadSeq }) => {
         if (activeRef.current?.id === conversationId) {
-          setReadMarkers((prev) => ({ ...prev, [userId]: Math.max(prev[userId] ?? 0, lastReadSeq) }));
+          applyReadMarker(conversationId, userId, lastReadSeq);
         }
       },
       onTyping: ({ conversationId, userId }) => {
@@ -204,7 +194,7 @@ export function useMessagesRealtime({
             const missed = missing[current.id];
             if (missed && missed.length) {
               for (const m of missed) noteSeq(current.id, m.seq);
-              setMessages((prev) => mergeMessages(prev, missed));
+              mergeServerMessages(current.id, missed);
             }
           });
         }
@@ -217,5 +207,21 @@ export function useMessagesRealtime({
       for (const timeout of typingTimeoutsRef.current.values()) clearTimeout(timeout);
       typingTimeoutsRef.current.clear();
     };
-  }, [myId, markRead, recountUnread, reload]);
+  }, [
+    myId,
+    markRead,
+    recountUnread,
+    reload,
+    mergeServerMessages,
+    patchMessages,
+    applyReadMarker,
+    invalidateConversationWindow,
+    setConversations,
+    setGroupTree,
+    setTypingUsers,
+    setOnlineUsers,
+    activeRef,
+    lastSeqRef,
+    realtimeRef,
+  ]);
 }

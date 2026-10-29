@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import type {
-  AssignSubmissionDetail,
-  AssignSubmissionSummary,
-  AssignmentForUserView,
-  TeacherCommentBankEntryView,
-} from '@lms/contracts';
+import type { AssignSubmissionSummary, AssignmentForUserView } from '@lms/contracts';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Input } from '@lms/ui/components/input';
@@ -13,7 +8,7 @@ import { Skeleton } from '@lms/ui/components/skeleton';
 import { Textarea } from '@lms/ui/components/textarea';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   commentBankQueryOptions,
   submissionDetailQueryOptions,
@@ -29,7 +24,15 @@ import { dateLabel, selectClass } from './shared';
 
 const BANK_CATEGORIES = ['strengths', 'weaknesses', 'improvement', 'progress', 'general'] as const;
 
-/** Bề mặt chấm một bài nộp: xem tệp + thả dấu vector + gói chấm nháp + trả bài. */
+/**
+ * Bề mặt chấm một bài nộp: xem tệp + thả dấu vector + gói chấm
+ * nháp + trả bài. Chi tiết bài nộp và ngân hàng nhận xét là dữ
+ * kiện máy chủ nên đọc trực tiếp từ cache TanStack (CN-13, issue
+ * #493); panel chỉ giữ STATE BIỂU MẪU (điểm/mức/lời phê/đánh giá
+ * rubric đang soạn) — `loadDetail` nạp tươi chi tiết qua cache rồi
+ * gieo lại biểu mẫu từ bản mới nhất, chạy lúc mở panel và sau mỗi
+ * hành động ghi như trước.
+ */
 export function GradingPanel({
   assignmentId,
   resultMode,
@@ -46,7 +49,8 @@ export function GradingPanel({
   onChanged: () => Promise<void>;
 }) {
   const { t } = useTranslation('app');
-  const [detail, setDetail] = useState<AssignSubmissionDetail | null>(null);
+  const detailQuery = useQuery(submissionDetailQueryOptions(assignmentId, summary.userId));
+  const detail = detailQuery.data ?? null;
   const [gradeInput, setGradeInput] = useState('');
   const [levelInput, setLevelInput] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -56,7 +60,8 @@ export function GradingPanel({
   const [evaluations, setEvaluations] = useState<Record<string, { levelId: string; score: string; note: string }>>({});
   const [annKind, setAnnKind] = useState<AnnotationKind>('correct');
   const [annText, setAnnText] = useState('');
-  const [bank, setBank] = useState<TeacherCommentBankEntryView[]>([]);
+  const bankQuery = useQuery(commentBankQueryOptions());
+  const bank = bankQuery.data ?? [];
   const [bankDraft, setBankDraft] = useState('');
   const [bankCategory, setBankCategory] = useState<string>('general');
   const [busy, setBusy] = useState(false);
@@ -71,7 +76,6 @@ export function GradingPanel({
 
   const loadDetail = useCallback(async () => {
     const fresh = await queryClient.fetchQuery(submissionDetailQueryOptions(assignmentId, summary.userId));
-    setDetail(fresh);
     setGradeInput(fresh.grade?.grade !== null && fresh.grade?.grade !== undefined ? String(fresh.grade.grade) : '');
     setLevelInput(fresh.grade?.level ?? '');
     setFeedback(fresh.grade?.feedback ?? '');
@@ -91,13 +95,6 @@ export function GradingPanel({
   useEffect(() => {
     void loadDetail().catch(() => setError(t('assignLoadFailed')));
   }, [loadDetail, t]);
-
-  useEffect(() => {
-    void queryClient
-      .fetchQuery(commentBankQueryOptions())
-      .then(setBank)
-      .catch(() => undefined);
-  }, [queryClient]);
 
   async function act(run: () => Promise<unknown>, doneNotice?: string) {
     setBusy(true);
@@ -341,11 +338,12 @@ export function GradingPanel({
                 void (async () => {
                   setBusy(true);
                   try {
-                    const created = await createBankEntryMutation.mutateAsync({
+                    // Mục vừa tạo do đột biến vá thẳng vào cache ngân
+                    // hàng ở tầng dữ kiện — danh sách tự cập nhật.
+                    await createBankEntryMutation.mutateAsync({
                       category: bankCategory,
                       text: bankDraft.trim(),
                     });
-                    setBank((prev) => [...prev, created]);
                     setBankDraft('');
                   } catch {
                     setError(t('assignActionFailed'));

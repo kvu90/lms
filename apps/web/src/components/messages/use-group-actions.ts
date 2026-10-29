@@ -8,13 +8,18 @@
  * phải thành viên thì bỏ qua êm); cổng chặn học sinh tạo nhóm nằm ở
  * server, client chỉ trình bày nút theo vai.
  *
- * @param params - `active` là conversation đang mở cùng các setter
- * của nó và của danh sách; `conversations`/`archivedConversations`
- * để mở conversation đã có; `groupTree` để suy quyền hiển thị nút
- * tạo nhóm; `nameOf` cho câu xác nhận gỡ thành viên; `reload` nạp
- * lại sau khi tạo/mở; `open` mở conversation (trang nối qua
- * callback dùng-chung); `setPanelRefreshTick` để làm mới panel sau
- * khi gỡ thành viên.
+ * @param params - `active` là conversation đang mở;
+ * `setConversations` là bộ chuyển đổi ghi cache danh sách (chèn
+ * conversation vừa ensure); `conversations`/
+ * `archivedConversations` để mở conversation đã có; `groupTree`
+ * để suy quyền hiển thị nút tạo nhóm; `nameOf` cho câu xác nhận
+ * gỡ thành viên; `reload` nạp lại sau khi tạo/mở; `open` mở
+ * conversation (trang nối qua callback dùng-chung);
+ * `setPanelRefreshTick` để làm mới panel sau khi gỡ thành viên.
+ * Gỡ thành viên và bật/tắt chat không còn vá tay ở đây: hai đột
+ * biến tương ứng tự vá cache danh sách + chi tiết ở tầng dữ kiện
+ * (CN-13, issue #493) nên conversation đang mở tự cập nhật qua
+ * bước suy ra từ cache chi tiết.
  * @returns Trạng thái nhóm và handler cho trang lắp ghép.
  */
 import { useState } from 'react';
@@ -36,9 +41,7 @@ import type { ConversationGroupTreeView, ConversationView } from './types';
 export interface UseGroupActionsParams {
   /** Conversation đang mở (null khi chưa chọn). */
   active: ConversationView | null;
-  /** Ghi conversation đang mở (gỡ thành viên/tắt chat áp ngay). */
-  setActive: (active: ConversationView | null | ((prev: ConversationView | null) => ConversationView | null)) => void;
-  /** Ghi danh sách conversation. */
+  /** Ghi danh sách conversation (bộ chuyển đổi ghi cache của hook danh sách). */
   setConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
   /** Danh sách conversation chính — nguồn tìm conversation đã có. */
   conversations: ConversationView[];
@@ -58,7 +61,6 @@ export interface UseGroupActionsParams {
 
 export function useGroupActions({
   active,
-  setActive,
   setConversations,
   conversations,
   archivedConversations,
@@ -193,17 +195,16 @@ export function useGroupActions({
    * Gỡ một thành viên khỏi NHÓM TỰ DO đang mở (lát MSG-T4): xác
    * nhận trước khi gọi DELETE — server là cổng cuối (chỉ nhóm tự
    * do, chỉ người có thẩm quyền quản lý, không gỡ người tạo). Thành
-   * công thì áp danh sách thành viên mới ngay + làm mới panel; lỗi
-   * hiện ở dải thông báo hành động của khung chat.
+   * công thì đột biến tự vá danh sách thành viên mới vào cache
+   * danh sách + chi tiết ở tầng dữ kiện; hook chỉ làm mới panel và
+   * báo kết quả; lỗi hiện ở dải thông báo hành động của khung chat.
    */
   async function removeGroupMember(userId: string) {
     if (!active) return;
     if (!window.confirm(t('memberRemoveConfirm', { name: nameOf(userId) }))) return;
     setActionMessage(null);
     try {
-      const updated = await removeMemberMutation.mutateAsync({ conversationId: active.id, userId });
-      setActive((prev) => (prev ? { ...prev, members: updated.members } : prev));
-      setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, members: updated.members } : c)));
+      await removeMemberMutation.mutateAsync({ conversationId: active.id, userId });
       setPanelRefreshTick((n) => n + 1);
       setActionMessage(t('memberRemoved'));
     } catch {
@@ -211,15 +212,13 @@ export function useGroupActions({
     }
   }
 
-  /** Bật/tắt chat của cuộc trò chuyện đang mở (chỉ hiện khi canManage). */
+  /** Bật/tắt chat của cuộc trò chuyện đang mở (chỉ hiện khi canManage) — trạng thái mới do đột biến vá vào cache ở tầng dữ kiện. */
   async function toggleActiveChat() {
     if (!active) return;
-    const updated = await conversationEnabledMutation.mutateAsync({
+    await conversationEnabledMutation.mutateAsync({
       conversationId: active.id,
       enabled: !(active.enabled ?? true),
     });
-    setActive((prev) => (prev ? { ...prev, enabled: updated.enabled } : prev));
-    setConversations((prev) => prev.map((c) => (c.id === active.id ? { ...c, enabled: updated.enabled } : c)));
   }
 
   /** Xoá thông báo báo cáo/hành động khi mở conversation mới — phần đặt lại phía nhóm của trình bao `open` ở trang. */

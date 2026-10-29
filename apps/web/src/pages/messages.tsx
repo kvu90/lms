@@ -16,7 +16,7 @@ import { useContacts } from '../components/messages/use-contacts';
 import { useGroupActions } from '../components/messages/use-group-actions';
 import { useMessageModeration } from '../components/messages/use-message-moderation';
 import { useMemberPanelData } from '../components/messages/use-member-panel-data';
-import type { ContactRelationship, ContactRequestView, ConversationView } from '../components/messages/types';
+import type { ContactRelationship, ConversationView } from '../components/messages/types';
 
 /**
  * Tin nhắn: danh sách cuộc trò chuyện với số chưa đọc, luồng tin nhắn và
@@ -48,11 +48,12 @@ import type { ContactRelationship, ContactRequestView, ConversationView } from '
 
 /**
  * Callback dùng-chung "gán muộn" cho vòng phụ thuộc chéo giữa các
- * hook điều phối: hook sở hữu một hàm (ví dụ `open`, `setBlocked`)
- * có thể được tạo SAU hook cần dùng hàm đó, nên trang tạo trước một
- * hàm ổn định ủy quyền qua ref, rồi gán triển khai thật ngay sau khi
- * hook sở hữu được tạo — vẫn trong cùng lượt render, trước mọi hiệu
- * ứng và xử lý sự kiện, nên mọi lời gọi đều thấy triển khai mới nhất.
+ * hook điều phối: hook sở hữu một hàm (ví dụ `open`,
+ * `applyReadMarker`) có thể được tạo SAU hook cần dùng hàm đó, nên
+ * trang tạo trước một hàm ổn định ủy quyền qua ref, rồi gán triển
+ * khai thật ngay sau khi hook sở hữu được tạo — vẫn trong cùng lượt
+ * render, trước mọi hiệu ứng và xử lý sự kiện, nên mọi lời gọi đều
+ * thấy triển khai mới nhất.
  * Chỉ dùng cho đúng các điểm chéo đã liệt kê ở thân component; các
  * hook khác nhận trực tiếp giá trị trả về của hook đã tạo trước.
  *
@@ -82,16 +83,8 @@ export function MessagesPage() {
   // định truyền xuống hook cần dùng, triển khai thật gán ngay sau khi
   // hook sở hữu được tạo trong thân component này.
   const [openCall, assignOpen] = useLateCallback<(conv: ConversationView) => Promise<void>>();
-  const [setBlockedCall, assignSetBlocked] = useLateCallback<(blocked: string[]) => void>();
-  const [setReadMarkersCall, assignSetReadMarkers] =
-    useLateCallback<
-      (markers: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void
-    >();
-  const [setContactsCall, assignSetContacts] = useLateCallback<(contacts: string[]) => void>();
-  const [setIncomingRequestsCall, assignSetIncomingRequests] =
-    useLateCallback<(requests: ContactRequestView[]) => void>();
-  const [setOutgoingRequestsCall, assignSetOutgoingRequests] =
-    useLateCallback<(requests: ContactRequestView[]) => void>();
+  const [applyReadMarkerCall, assignApplyReadMarker] =
+    useLateCallback<(conversationId: string, userId: string, lastReadSeq: number) => void>();
   const [patchPanelCall, assignPatchPanel] =
     useLateCallback<(userId: string, relationship: ContactRelationship) => void>();
   const [removeMemberCall, assignRemoveMember] = useLateCallback<(userId: string) => Promise<void>>();
@@ -100,11 +93,7 @@ export function MessagesPage() {
   // gọi sau khi trình bao `open` đã gán ở cuối thân component).
   const list = useConversationList({
     myId,
-    setBlocked: setBlockedCall,
-    setReadMarkers: setReadMarkersCall,
-    setContacts: setContactsCall,
-    setIncomingRequests: setIncomingRequestsCall,
-    setOutgoingRequests: setOutgoingRequestsCall,
+    applyReadMarker: applyReadMarkerCall,
     lastSeqRef,
   });
 
@@ -116,13 +105,14 @@ export function MessagesPage() {
     lastSeqRef,
     realtimeRef,
   });
-  assignSetReadMarkers(activeHook.setReadMarkers);
+  assignApplyReadMarker(activeHook.applyReadMarker);
 
   const composer = useMessageComposer({
     active: activeHook.active,
     myId,
-    setMessages: activeHook.setMessages,
-    setConversations: list.setConversations,
+    addLocalMessage: activeHook.addLocalMessage,
+    setLocalMessageStatus: activeHook.setLocalMessageStatus,
+    mergeServerMessages: activeHook.mergeServerMessages,
     lastSeqRef,
     realtimeRef,
   });
@@ -130,9 +120,7 @@ export function MessagesPage() {
   const search = useMessageSearch({
     active: activeHook.active,
     messages: activeHook.messages,
-    setMessages: activeHook.setMessages,
-    setHasMoreBefore: activeHook.setHasMoreBefore,
-    activeRef: activeHook.activeRef,
+    ensurePageLoaded: activeHook.ensurePageLoaded,
   });
 
   useMessagesRealtime({
@@ -142,13 +130,14 @@ export function MessagesPage() {
     reload: list.reload,
     activeRef: activeHook.activeRef,
     lastSeqRef,
-    setMessages: activeHook.setMessages,
+    mergeServerMessages: activeHook.mergeServerMessages,
+    patchMessages: activeHook.patchMessages,
+    applyReadMarker: activeHook.applyReadMarker,
+    invalidateConversationWindow: activeHook.invalidateConversationWindow,
     setConversations: list.setConversations,
     setGroupTree: list.setGroupTree,
-    setReadMarkers: activeHook.setReadMarkers,
     setTypingUsers: activeHook.setTypingUsers,
     setOnlineUsers: activeHook.setOnlineUsers,
-    setHasMoreBefore: activeHook.setHasMoreBefore,
     realtimeRef,
   });
 
@@ -160,10 +149,6 @@ export function MessagesPage() {
     groupTree: list.groupTree,
     mergePeople: list.mergePeople,
   });
-  assignSetBlocked(contacts.setBlocked);
-  assignSetContacts(contacts.setContacts);
-  assignSetIncomingRequests(contacts.setIncomingRequests);
-  assignSetOutgoingRequests(contacts.setOutgoingRequests);
 
   const memberPanel = useMemberPanelData({
     active: activeHook.active,
@@ -187,7 +172,6 @@ export function MessagesPage() {
 
   const groupActions = useGroupActions({
     active: activeHook.active,
-    setActive: activeHook.setActive,
     setConversations: list.setConversations,
     conversations: list.conversations,
     archivedConversations: list.archivedConversations,
@@ -202,7 +186,7 @@ export function MessagesPage() {
   const moderation = useMessageModeration({
     active: activeHook.active,
     myId,
-    setMessages: activeHook.setMessages,
+    patchMessages: activeHook.patchMessages,
     setActionMessage: groupActions.setActionMessage,
   });
 
