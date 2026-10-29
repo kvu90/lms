@@ -1,4 +1,4 @@
-import { HttpException } from '@nestjs/common';
+import { HttpException, Logger } from '@nestjs/common';
 import type { CallToolResult, McpServer } from '@modelcontextprotocol/server';
 import {
   TRUE_FALSE_STATEMENT_COUNT,
@@ -122,10 +122,17 @@ const FIELDPATH_BY_CODE: Record<string, string> = {
 };
 
 /**
+ * Logger của tầng tools (code ngoài class nên khai cấp module với
+ * context dạng chuỗi, cùng tiền lệ `new Logger('Worker')` ở
+ * apps/worker): lỗi hạ tầng quanh tools ghi qua đây ở mức error.
+ */
+const logger = new Logger('McpTools');
+
+/**
  * Ghi vết MỌI lần tools/call vào event_log qua outbox (cùng đường mirror
  * của hệ thống — research Phần 2.3): ai (user + client), tool nào, kết
- * quả gì, từ IP nào. Lỗi ghi vết KHÔNG được làm hỏng tool — chỉ log ra
- * console để vận hành thấy.
+ * quả gì, từ IP nào. Lỗi ghi vết KHÔNG được làm hỏng tool — chỉ ghi log
+ * qua Logger để vận hành thấy.
  */
 async function auditCall(deps: McpToolDeps, actor: McpActor, tool: string, details: Record<string, unknown>): Promise<void> {
   try {
@@ -150,7 +157,7 @@ async function auditCall(deps: McpToolDeps, actor: McpActor, tool: string, detai
       },
     });
   } catch (error) {
-    console.error('[mcp] audit enqueue failed', error);
+    logger.error(`[mcp] audit enqueue failed ${error instanceof Error ? (error.stack ?? String(error)) : String(error)}`);
   }
 }
 
