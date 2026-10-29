@@ -1,8 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { v7 as uuidv7 } from 'uuid';
-import { PermissionEvaluator } from '../../../src/modules/access/permission-evaluator.service';
-import { UsersService } from '../../../src/modules/users/users.service';
 import {
   adminToken, assignRole, createContextViaApi, createTestApp, createRoleViaApi, createUserViaApi,
   hasCapability, http, roleIdByShortname, setOverride, systemContextId, uniqueName,
@@ -106,15 +104,10 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, adminId, 'site:config', systemId)).toBe(true);
   });
 
-  it('guest account evaluates through the guest role only', async () => {
-    const users = app.get(UsersService);
-    const evaluator = app.get(PermissionEvaluator);
-    const guest = await users.ensureGuestUser();
-    // Mặc định nguyên mẫu đã seed: vai guest ALLOW course:view tại hệ thống.
-    expect(await evaluator.hasCapability(guest.id, 'course:view', systemId, { isGuest: true })).toBe(true);
-    // …nhưng vai guest không cấp gì khác, và mặc định của người dùng đã xác thực KHÔNG được rò rỉ vào.
-    expect(await evaluator.hasCapability(guest.id, 'user:viewdetails', systemId, { isGuest: true })).toBe(false);
-  });
+  // Ca "guest account evaluates through the guest role only" gọi thẳng
+  // PermissionEvaluator với ngữ cảnh khách (isGuest) — không có tương
+  // đương HTTP trực tiếp — nên nằm ở tầng integration:
+  // test/integration/access/access-capability-evaluator.int-spec.ts (issue #483).
 
   it('changing an override changes the result (dirty marking invalidates the cache)', async () => {
     const { userId, roleId } = await freshUserAndRole();
