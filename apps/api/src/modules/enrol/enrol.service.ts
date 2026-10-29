@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from
 import { OnEvent } from '@nestjs/event-emitter';
 import { I18nService } from '@nestjs/i18n';
 import { OutboxService } from '../../infra/events/outbox.service';
+import type { DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { isRoleContextConflictError, RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
@@ -533,8 +534,13 @@ export class EnrolService implements OnModuleInit {
    * `access.role_context_conflict` thay vì lặng lẽ tạo trạng thái
    * lẫn vai. Chiều đình chỉ không qua chốt (đình chỉ chỉ làm giảm
    * trạng thái học viên).
+   *
+   * Tham số `tx` (issue #490): khi bên gọi đang settle hoàn tiền,
+   * việc đình chỉ phải nằm CÙNG transaction với ghi sổ hoàn — truyền
+   * `tx` thì hàm ghi bằng transaction đó thay vì tự mở transaction
+   * riêng như đường quản trị thường lệ.
    */
-  async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean): Promise<UserEnrolmentRow> {
+  async setSuspended(actorId: string, instanceId: string, userId: string, suspended: boolean, tx?: DbTx): Promise<UserEnrolmentRow> {
     const instance = await this.getInstance(instanceId);
     await this.requireManage(actorId, instance.courseId);
     const ue = await this.repo.getUserEnrolment(instanceId, userId);
@@ -542,17 +548,27 @@ export class EnrolService implements OnModuleInit {
     if (!suspended && ue.status !== ENROL_ACTIVE && await this.roleSeparation.isLearnerGrantRole(instance.roleId)) {
       await this.roleSeparation.assertLearnerEnrolmentAllowed(userId, instance.courseId);
     }
-    await this.repo.dbHandle.transaction(async (tx) => {
-      // modifierId = người thao tác: VẾT phân biệt đình chỉ THỦ CÔNG theo
-      // khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
-      // class-enrol-reconcile chỉ tôn trọng/không kích hoạt lại đúng các
-      // dòng mang vết người này — issue #184, ca "miễn môn").
-      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, tx);
-      await this.outbox.enqueue(tx, {
+    // modifierId = người thao tác: VẾT phân biệt đình chỉ THỦ CÔNG theo
+    // khoá với đình chỉ do hệ thống đồng bộ áp (job đối soát
+    // class-enrol-reconcile chỉ tôn trọng/không kích hoạt lại đúng các
+    // dòng mang vết người này — issue #184, ca "miễn môn").
+    const apply = async (db: DbTx): Promise<void> => {
+      await this.repo.updateUserEnrolment(ue.id, { status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId }, db);
+      await this.outbox.enqueue(db, {
         aggregate: 'enrol', type: suspended ? 'user_enrolment_suspended' : 'user_enrolment_reactivated',
         payload: { courseId: instance.courseId, userId, instanceId, actorId },
       });
-    });
+    };
+    if (tx) {
+      // Bên gọi đang ở trong transaction của nó (settle hoàn tiền —
+      // issue #490): ghi bằng ĐÚNG transaction đó để rollback của
+      // settle cũng huỷ việc đình chỉ này. Dòng trả về dựng từ dữ kiện
+      // đã biết vì đọc lại qua pool sẽ không thấy thay đổi chưa
+      // commit; bên gọi đường này (payments) không dùng dòng trả về.
+      await apply(tx);
+      return { ...ue, status: suspended ? ENROL_SUSPENDED : ENROL_ACTIVE, modifierId: actorId };
+    }
+    await this.repo.dbHandle.transaction(apply);
     return (await this.repo.getUserEnrolment(instanceId, userId))!;
   }
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentsRepository, type EntitlementRow, type PaymentRow } from './payments.repository';
+import type { DbTx } from '../../db/database';
 
 /**
  * Ảnh chụp cấu hình gói ghi vào `payments.data` (khoá `plan`) tại thời
@@ -159,8 +160,8 @@ export class PlanEntitlementsService {
    * Đình chỉ quyền lợi của một payment gói (đường hoàn đủ tiền gọi);
    * payment không phải gói thì không làm gì.
    */
-  async suspendForPayment(payment: PaymentRow): Promise<void> {
+  async suspendForPayment(payment: PaymentRow, tx?: DbTx): Promise<void> {
     if (payment.component !== 'tenant_plan' && payment.component !== 'teacher_plan') return;
-    await this.repo.suspendEntitlementsByPayment(payment.id);
+    await this.repo.suspendEntitlementsByPayment(payment.id, tx);
   }
 }

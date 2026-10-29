@@ -22,6 +22,7 @@ vụ" dù không chứa logic chạy.
 | MCP: tập scope là hợp đồng quyền của AI client — chỉ các scope đã chốt (`lms.questions.read/draft/write`, `lms.banks.contribute`); **không tồn tại scope ghi thẳng vào ngân hàng chung** trong hợp đồng này, vì đường vào bank chung duy nhất là duyệt contribution bởi con người. | `mcp.ts`; sổ mục E; issue #163 |
 | Định dạng rich-text dùng chung (`rich-text.ts`) là hợp đồng nội dung soạn thảo giữa `packages/editor`, API và web: nội dung lưu dạng cấu trúc theo schema này, không phải HTML tự do. | `rich-text.ts` |
 | Id dùng UUIDv7 (`ids.ts`) thống nhất toàn hệ — id không mang ngữ nghĩa nghiệp vụ (không mã hoá SBD/mã lớp vào id). | `ids.ts`; nền TENANT-0, issue #166 |
+| Payload của sự kiện outbox `auth_mail_requested` và hàm dựng nội dung mail auth (`renderAuthMail`) chỉ có MỘT bản dùng chung ở `auth-mail.ts`: phía API ghi payload vào outbox, phía worker dựng nội dung và gửi. Nội dung mail (tiêu đề, câu chữ, hạn hiệu lực công bố) là hợp đồng nghiệp vụ của luồng auth — đổi nội dung là đổi hành vi với người dùng, không phải việc của các issue chuyển consumer. | `auth-mail.ts`; issue #517 |
 
 ## Ranh giới — package này KHÔNG làm gì
 

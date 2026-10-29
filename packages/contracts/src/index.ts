@@ -15,3 +15,4 @@ export * from './curriculum.js';
 export * from './books.js';
 export * from './dashboard.js';
 export * from './guardian.js';
+export * from './auth-mail.js';

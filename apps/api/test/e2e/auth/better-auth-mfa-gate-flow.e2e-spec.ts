@@ -5,12 +5,12 @@ import { Test } from '@nestjs/testing';
 import { generate } from 'otplib';
 import { Client } from 'pg';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { renderAuthMail, type AuthMailPayload } from '@lms/contracts';
 import type { BetterAuthService } from '../../../src/modules/auth/better-auth/better-auth.service';
 import type { CredentialBridgeService } from '../../../src/modules/auth/better-auth/credential-bridge.service';
 import type { TotpService } from '../../../src/modules/auth/totp.service';
 import type { MailMessage } from '../../../src/modules/mail/mail.types';
-import type { ResendMailService } from '../../../src/modules/mail/resend-mail.service';
 
 /**
  * Cổng MFA thống nhất trên các đường đăng nhập của Better Auth.
@@ -128,7 +128,10 @@ describe('Cổng MFA thống nhất của Better Auth (user_totp là nguồn duy
   let googleJwks: { keys: unknown[] };
   let currentGoogleIdToken = '';
   const realFetch = globalThis.fetch;
+  /** Mail đã bắt được (dựng từ dòng outbox, xem waitForMailTo). */
   const sentMails: MailMessage[] = [];
+  /** Id các dòng outbox đã dựng thành mail, tránh bắt trùng một dòng hai lần. */
+  const capturedRowIds = new Set<string>();
 
   function mintGoogleIdToken(claims: { sub: string; email: string }): string {
     const now = Math.floor(Date.now() / 1000);
@@ -173,12 +176,32 @@ describe('Cổng MFA thống nhất của Better Auth (user_totp là nguồn duy
     return rows.rows[0].n;
   }
 
-  /** Chờ consumer outbox xả tới khi có mail gửi cho địa chỉ này. */
+  /**
+   * Chờ tới khi có mail gửi cho địa chỉ này: nội dung mail được dựng
+   * từ dòng outbox `auth_mail_requested` của chính địa chỉ đó bằng
+   * `renderAuthMail` dùng chung ở `@lms/contracts` — hàm mà
+   * processor ở phía worker gọi khi gửi thật (khâu gửi đã chuyển
+   * sang hàng đợi ở worker, issue #517; dòng outbox được ghi đồng bộ
+   * trong request nên thường có ngay).
+   */
   async function waitForMailTo(email: string, timeoutMs = 9000): Promise<MailMessage> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const found = sentMails.find((mail) => mail.to === email);
       if (found) return found;
+      const rows = await pg.query(
+        "select id, payload from outbox_events where type = 'auth_mail_requested' and payload->>'to' = $1 order by seq desc limit 1",
+        [email],
+      );
+      const row = rows.rows[0] as { id: string; payload: AuthMailPayload } | undefined;
+      if (row) {
+        const mail = renderAuthMail(row.payload);
+        if (!capturedRowIds.has(row.id)) {
+          capturedRowIds.add(row.id);
+          sentMails.push(mail);
+        }
+        return mail;
+      }
       if (Date.now() > deadline) throw new Error(`no mail captured for ${email}`);
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
@@ -223,14 +246,8 @@ describe('Cổng MFA thống nhất của Better Auth (user_totp là nguồn duy
       '../../../src/modules/auth/better-auth/credential-bridge.service'
     );
     const { TotpService: TotpClass } = await import('../../../src/modules/auth/totp.service');
-    const { ResendMailService: MailerClass } = await import('../../../src/modules/mail/resend-mail.service');
     bridge = app.get(BridgeClass);
     totp = app.get(TotpClass);
-    const mailer: ResendMailService = app.get(MailerClass);
-    vi.spyOn(mailer, 'send').mockImplementation(async (message: MailMessage) => {
-      sentMails.push(message);
-      return { status: 'sent', providerId: 'fake-resend-id' };
-    });
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
   });

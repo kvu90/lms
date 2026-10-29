@@ -4,8 +4,8 @@ import type Redis from 'ioredis';
 /**
  * Chờ tín hiệu chốt của các consumer quét outbox thay cho sleep cứng.
  *
- * Mọi consumer quét outbox trong hệ (thông báo, tổng hợp phụ
- * huynh, thư xác thực, đồng bộ cohort) đều xử lý sự kiện
+ * Mọi consumer quét outbox còn lại trong hệ (thông báo, tổng hợp
+ * phụ huynh, đồng bộ cohort) đều xử lý sự kiện
  * theo `seq` tăng dần: await xử lý xong từng sự kiện rồi mới ghi
  * watermark (seq lớn nhất đã xử lý) vào Redis. Hệ quả dùng làm tín
  * hiệu chốt trong test: khi watermark của một consumer đã >= seq của
@@ -24,13 +24,11 @@ import type Redis from 'ioredis';
 export type OutboxWatermarkConsumer =
   | 'notifications'
   | 'guardian-digest'
-  | 'auth-mail'
   | 'cohort-sync';
 
 const WATERMARK_KEY_PREFIX: Record<OutboxWatermarkConsumer, string> = {
   notifications: 'lms:messaging:notifications:',
   'guardian-digest': 'lms:guardians:digest:',
-  'auth-mail': 'lms:auth-mail:',
   'cohort-sync': 'lms:cohort-sync:',
 };
 

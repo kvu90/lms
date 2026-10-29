@@ -3,10 +3,10 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { renderAuthMail, type AuthMailPayload } from '@lms/contracts';
 import type { CredentialBridgeService } from '../../../src/modules/auth/better-auth/credential-bridge.service';
 import type { MailMessage } from '../../../src/modules/mail/mail.types';
-import type { ResendMailService } from '../../../src/modules/mail/resend-mail.service';
 
 /**
  * Flow test của chặng chuẩn bị cutover (issue #7, chặng 2.6 + phần
@@ -85,7 +85,10 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
   let app: INestApplication;
   let bridge: CredentialBridgeService;
   let pg: Client;
+  /** Mail đã bắt được (dựng từ dòng outbox, xem waitForMailTo). */
   const sentMails: MailMessage[] = [];
+  /** Id các dòng outbox đã dựng thành mail, tránh bắt trùng một dòng hai lần. */
+  const capturedRowIds = new Set<string>();
 
   async function signInByUsername(username: string, password: string) {
     return http(app)
@@ -110,11 +113,32 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     };
   }
 
+  /**
+   * Chờ tới khi có mail gửi cho địa chỉ này: nội dung mail được dựng
+   * từ dòng outbox `auth_mail_requested` của chính địa chỉ đó bằng
+   * `renderAuthMail` dùng chung ở `@lms/contracts` — hàm mà
+   * processor ở phía worker gọi khi gửi thật (khâu gửi đã chuyển
+   * sang hàng đợi ở worker, issue #517; dòng outbox được ghi đồng bộ
+   * trong request nên thường có ngay).
+   */
   async function waitForMailTo(email: string, timeoutMs = 9000): Promise<MailMessage> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const found = sentMails.find((mail) => mail.to === email);
       if (found) return found;
+      const rows = await pg.query(
+        "select id, payload from outbox_events where type = 'auth_mail_requested' and payload->>'to' = $1 order by seq desc limit 1",
+        [email],
+      );
+      const row = rows.rows[0] as { id: string; payload: AuthMailPayload } | undefined;
+      if (row) {
+        const mail = renderAuthMail(row.payload);
+        if (!capturedRowIds.has(row.id)) {
+          capturedRowIds.add(row.id);
+          sentMails.push(mail);
+        }
+        return mail;
+      }
       if (Date.now() > deadline) {
         throw new Error(`no mail captured for ${email}; captured: ${JSON.stringify(sentMails.map((m) => m.to))}`);
       }
@@ -128,13 +152,7 @@ describe('Better Auth cutover prep — bake window (issue #7 phases 2.6 + 2.7-pr
     const { CredentialBridgeService: BridgeClass } = await import(
       '../../../src/modules/auth/better-auth/credential-bridge.service'
     );
-    const { ResendMailService: MailerClass } = await import('../../../src/modules/mail/resend-mail.service');
     bridge = app.get(BridgeClass);
-    const mailer: ResendMailService = app.get(MailerClass);
-    vi.spyOn(mailer, 'send').mockImplementation(async (message: MailMessage) => {
-      sentMails.push(message);
-      return { status: 'sent', providerId: 'fake-resend-id' };
-    });
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
   });

@@ -65,7 +65,13 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *   mà trước khi đóng dấu thì nhịp sau phát lại cùng dòng; `jobId`
  *   bằng id dòng outbox khiến BullMQ trả lại job đã có thay vì tạo
  *   job trùng ở từng đích, nên phía hàng đợi vẫn đúng một job cho
- *   một dòng ở mỗi đích.
+ *   một dòng ở mỗi đích — NHƯNG chỉ trong cửa sổ hàng đợi còn lưu
+ *   giữ job theo chính sách `removeOnComplete` / `removeOnFail`
+ *   hiện hành. Job đã bị dọn khỏi hàng đợi thì lần phát lại tạo job
+ *   mới cho cùng dòng đó, và khi đó hàng rào chống tác dụng phụ lần
+ *   hai là tính idempotent của processor theo `outboxId` (processor
+ *   tự ghi dấu đã xử lý theo id dòng và bỏ qua lần xử lý trùng — xem
+ *   `outbox-event-routes.ts`).
  * - Nhịp không phát được dòng nào thì không ghi `task_log` để tránh
  *   nhiễu 5 giây; nhịp có phát hoặc có lỗi thì ghi một dòng.
  *
@@ -190,7 +196,10 @@ export class OutboxRelayScheduler {
       }
       // jobId bằng id của dòng outbox (không chứa dấu ':' theo luật
       // của package) và là khoá theo TỪNG hàng đợi: phát lại cùng
-      // một dòng sau sự cố không tạo job trùng ở bất kỳ đích nào.
+      // một dòng trong lúc job còn được BullMQ lưu giữ thì không tạo
+      // job trùng ở bất kỳ đích nào; ngoài cửa sổ lưu giữ đó, chống
+      // trùng tác dụng phụ là việc của processor (idempotent theo
+      // outboxId — xem outbox-event-routes.ts).
       await queue.add(row.type, data, { jobId: row.id });
     }
   }

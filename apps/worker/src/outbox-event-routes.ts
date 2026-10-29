@@ -16,10 +16,18 @@ import type { Queue } from 'bullmq';
  * - "Phát cho phía tiêu thụ" với loại sự kiện đã có consumer trên
  *   hàng đợi ở worker là đẩy MỘT job BullMQ VÀO TỪNG hàng đợi đích:
  *   tên job là chính loại sự kiện, `jobId` là id của dòng outbox
- *   (khoá chống trùng của BullMQ — phát lại cùng một dòng không tạo
- *   job thứ hai; `jobId` là khoá theo TỪNG hàng đợi nên cùng một id
- *   dùng lại ở mọi đích là an toàn), dữ liệu job là toàn bộ dòng
- *   outbox đã chuẩn hoá (xem {@link OutboxEventJobData}).
+ *   (`jobId` là khoá theo TỪNG hàng đợi nên cùng một id dùng lại ở
+ *   mọi đích là an toàn), dữ liệu job là toàn bộ dòng outbox đã
+ *   chuẩn hoá (xem {@link OutboxEventJobData}). `jobId` là khoá
+ *   chống trùng của BullMQ NHƯNG chỉ trong cửa sổ hàng đợi còn lưu
+ *   giữ job: phát lại cùng một dòng trong lúc job của nó còn được
+ *   lưu giữ (theo chính sách `removeOnComplete` / `removeOnFail`
+ *   hiện hành ở `worker.module.ts`) thì BullMQ trả lại job đã có
+ *   thay vì tạo job thứ hai; job đã bị dọn khỏi hàng đợi thì lần
+ *   phát lại tạo job MỚI cho cùng một dòng. Ngoài cửa sổ đó, hàng
+ *   rào chống tác dụng phụ lần hai không nằm ở `jobId` mà ở tính
+ *   idempotent của processor theo `outboxId` (xem ngữ nghĩa chống
+ *   trùng hai lớp ở dưới).
  *
  * Ba ngữ nghĩa đã chốt cho bảng này và cho relay:
  * - `publishedAt` là thời điểm relay đã phát sự kiện cho phía tiêu
@@ -34,8 +42,9 @@ import type { Queue } from 'bullmq';
  *   nhiều hàng đợi đích chỉ được đóng dấu `publishedAt` khi job đã
  *   vào đủ mọi hàng đợi. Lỗi ở BẤT KỲ đích nào thì dòng giữ nguyên
  *   chưa đóng dấu và được phát lại ở nhịp relay sau — các đích đã
- *   nhận job ở lượt phát dở chống trùng theo `jobId` nên mỗi đích
- *   vẫn đúng một job cho dòng đó.
+ *   nhận job ở lượt phát dở chống trùng theo `jobId` trong cửa sổ
+ *   lưu giữ (và theo `outboxId` ở processor ngoài cửa sổ đó) nên
+ *   mỗi đích vẫn đúng một lần xử lý hiệu lực cho dòng đó.
  * - Relay ở worker không chờ handler nằm trong tiến trình API hoàn
  *   tất. Một loại sự kiện chỉ vào bảng này khi consumer của nó đã
  *   được chuyển sang hàng đợi ở worker. Loại sự kiện chưa có mặt ở
@@ -45,6 +54,16 @@ import type { Queue } from 'bullmq';
  *   consumer polling đọc trực tiếp bảng outbox theo watermark
  *   `seq`), và đường polling của các consumer đó giữ nguyên cho tới
  *   issue chuyển consumer tương ứng.
+ * - Chống trùng hai lớp, phân vai rõ ràng: cam kết của cơ chế này
+ *   là at-least-once (`publishedAt` là dấu đã phát, không phải dấu
+ *   hoàn thành xử lý). Lớp thứ nhất là `jobId` bằng id dòng outbox,
+ *   chỉ có hiệu lực trong cửa sổ lưu giữ của hàng đợi như mô tả ở
+ *   trên. Lớp thứ hai — và là hàng rào chính ngoài cửa sổ đó — là
+ *   processor của hàng đợi được định tuyến: processor PHẢI
+ *   idempotent theo `outboxId`, tức xử lý lại cùng một sự kiện
+ *   (cùng `outboxId`) không gây tác dụng phụ lần hai. Mọi issue
+ *   thêm dòng định tuyến vào bảng này đều phải dựng processor đạt
+ *   tính chất đó và kiểm chứng bằng test mô phỏng phát lại.
  *
  * Cách mở rộng khi chuyển một consumer sang worker: thêm một dòng
  * `'<loại sự kiện>': ['<tên hàng đợi>']` vào bảng này và đăng ký
@@ -55,9 +74,12 @@ import type { Queue } from 'bullmq';
  * không còn nơi nào khác phải sửa để nối đường phát.
  *
  * Các loại đã vào bảng:
+ * - Sự kiện mail auth (`auth_mail_requested`) trỏ về hàng đợi
+ *   `auth-mail` — consumer đầu tiên của đợt chuyển đổi (issue #517,
+ *   processor `AuthMailProcessor`).
  * - Hai loại sự kiện digest phụ huynh (`guardian_digest_due`,
  *   `guardian_overdue_alert`) trỏ về hàng đợi `guardian-digest-events`
- *   — consumer của chúng đã chuyển sang worker (processor
+ *   — consumer của chúng đã chuyển sang worker (issue #518, processor
  *   `GuardianDigestEventsProcessor`, handler
  *   `GuardianDigestHandlerService`).
  * - Sáu loại sự kiện messaging (xem `MESSAGING_DISTRIBUTED_EVENT_TYPES`
@@ -72,6 +94,13 @@ import type { Queue } from 'bullmq';
  * tới khi consumer tương ứng chuyển xong, đúng ngữ nghĩa ở trên.
  */
 export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
+  // Mail auth (issue #517): processor `AuthMailProcessor` trên hàng
+  // đợi `auth-mail` dựng nội dung bằng template dùng chung ở
+  // `@lms/contracts` và gửi qua transport Resend phía worker.
+  auth_mail_requested: ['auth-mail'],
+  // Digest phụ huynh (issue #518): processor
+  // `GuardianDigestEventsProcessor` trên hàng đợi
+  // `guardian-digest-events`.
   guardian_digest_due: ['guardian-digest-events'],
   guardian_overdue_alert: ['guardian-digest-events'],
   message_sent: ['messaging-realtime'],

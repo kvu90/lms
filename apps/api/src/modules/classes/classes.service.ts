@@ -26,6 +26,7 @@ import type {
   UpdateClass,
 } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
+import type { DbTx } from '../../db/database';
 import type { ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
@@ -253,6 +254,21 @@ export class ClassesService implements OnModuleInit {
    * tại context lớp + gán vai chủ lớp (editingteacher) cho owner. Chỉ
    * `name` bắt buộc. `ownerId` khác người tạo chỉ khi người tạo có
    * `tenant:manage` (admin tạo lớp hộ giáo viên — đường review-seed dùng).
+   *
+   * Nguyên tử (issue #490, DL-09): toàn bộ chuỗi GHI sở hữu bởi lớp —
+   * cohort nền, dòng lớp, context lớp, nối context cho cohort, bộ
+   * override quyền, gán vai chủ lớp và dòng outbox `class_created` —
+   * chạy trong MỘT transaction: lỗi ở bất kỳ bước nào thì không trạng
+   * thái dở dang nào tồn tại (trước đây một lần tạo lớp chết giữa
+   * chừng để lại cohort/lớp/context mồ côi). Các cổng đọc/điều kiện
+   * đứng trước (capability, tồn tại owner, trùng mã lớp, membership
+   * hiệu lực) nằm ngoài transaction như cũ. Việc đảm bảo sẵn các VAI
+   * HỆ THỐNG dùng chung (`ensureClassRoles`) chạy TRƯỚC khi
+   * transaction mở: vai là dữ kiện toàn cục không thuộc lớp này và
+   * hàm đảm bảo chỉ tra-rồi-chèn theo shortname (idempotent, không
+   * có cơ chế bắt lỗi đua nhau — cơ chế `.catch` đọc lại khi đua
+   * nhau chỉ có ở `ensureBankRoles` của bank câu hỏi), nên lỗi tại
+   * đây huỷ luồng trước khi bất kỳ trạng thái lớp nào được ghi.
    */
   async createClass(actorId: string, input: CreateClass): Promise<ClassView> {
     const tenantId = await this.effectiveTenantId();
@@ -269,39 +285,47 @@ export class ClassesService implements OnModuleInit {
     // Chủ lớp phải là thành viên hiệu lực của tenant — nếu không, cổng
     // membership của evaluator sẽ vô hiệu mọi vai tại lớp vừa gán.
     await this.tenants.ensureActiveMembership(tenantId, ownerId);
+    // Đảm bảo các vai hệ thống của lớp tồn tại TRƯỚC khi mở
+    // transaction: vai là dữ kiện toàn cục dùng chung (không thuộc
+    // lớp đang tạo), và transaction tạo lớp không bị giữ mở trong
+    // lúc thực hiện các thao tác này bằng kết nối thường.
+    await this.ensureClassRoles();
 
-    const cohortRow = await this.repo.insertBackingCohort({
-      tenantId,
-      name: input.name,
-      idNumber: '',
-      description: '',
-      contextId: tenantCtx.id,
-      component: 'class',
-      visible: false,
-    });
-    const row = await this.repo.insertClass({
-      tenantId,
-      name: input.name,
-      code: input.code ?? null,
-      schoolYear: input.schoolYear ?? null,
-      ownerId,
-      cohortId: cohortRow.id,
-      allowSelfReport: false,
-      joinCode: null,
-      onLeave: 'suspend',
-      status: 'active',
-      description: input.description ?? '',
-    });
-    const classCtx = await this.contexts.createContext(CONTEXT_LEVELS.CLASS, row.id, tenantCtx.id);
-    await this.repo.updateCohortContext(cohortRow.id, classCtx.id);
-    await this.applyClassRoleGrants(classCtx.id, actorId);
-    const ownerRole = await this.roles.getRoleByShortname(CLASS_OWNER_ROLE);
-    if (!ownerRole) throw new Error('editingteacher role not seeded');
-    await this.roles.assignRole(ownerId, ownerRole.id, classCtx.id, actorId);
-    await this.outbox.enqueueStandalone({
-      aggregate: 'class', type: 'class_created',
-      payload: { classId: row.id, tenantId, ownerId, actorId },
-      tenantId,
+    const row = await this.repo.dbHandle.transaction(async (tx) => {
+      const cohortRow = await this.repo.insertBackingCohort({
+        tenantId,
+        name: input.name,
+        idNumber: '',
+        description: '',
+        contextId: tenantCtx.id,
+        component: 'class',
+        visible: false,
+      }, tx);
+      const classRow = await this.repo.insertClass({
+        tenantId,
+        name: input.name,
+        code: input.code ?? null,
+        schoolYear: input.schoolYear ?? null,
+        ownerId,
+        cohortId: cohortRow.id,
+        allowSelfReport: false,
+        joinCode: null,
+        onLeave: 'suspend',
+        status: 'active',
+        description: input.description ?? '',
+      }, tx);
+      const classCtx = await this.contexts.createContext(CONTEXT_LEVELS.CLASS, classRow.id, tenantCtx.id, tx);
+      await this.repo.updateCohortContext(cohortRow.id, classCtx.id, tx);
+      await this.applyClassRoleGrants(classCtx.id, actorId, tx);
+      const ownerRole = await this.roles.getRoleByShortname(CLASS_OWNER_ROLE);
+      if (!ownerRole) throw new Error('editingteacher role not seeded');
+      await this.roles.assignRole(ownerId, ownerRole.id, classCtx.id, actorId, undefined, tx);
+      await this.outbox.enqueue(tx, {
+        aggregate: 'class', type: 'class_created',
+        payload: { classId: classRow.id, tenantId, ownerId, actorId },
+        tenantId,
+      });
+      return classRow;
     });
     return toClassDto(row, true);
   }
@@ -315,14 +339,13 @@ export class ClassesService implements OnModuleInit {
     }
   }
 
-  /** Vật chất hoá bộ capability của 4 vai tại đúng context lớp này (gọi lúc tạo lớp). */
-  private async applyClassRoleGrants(classContextId: string, modifierId: string): Promise<void> {
-    await this.ensureClassRoles();
+  /** Vật chất hoá bộ capability của 4 vai tại đúng context lớp này (gọi lúc tạo lớp, bên trong transaction của `createClass`). Hàm này KHÔNG tự đảm bảo vai: bên gọi phải đã chạy `ensureClassRoles` trước khi mở transaction — vai là dữ kiện toàn cục dùng chung, xem ghi chú ở `createClass`. */
+  private async applyClassRoleGrants(classContextId: string, modifierId: string, tx?: DbTx): Promise<void> {
     for (const [shortName, caps] of Object.entries(CLASS_ROLE_GRANTS)) {
       const role = await this.roles.getRoleByShortname(shortName);
       if (!role) continue;
       for (const cap of caps) {
-        await this.roles.setCapabilityOverride(role.id, cap, classContextId, CAP_ALLOW, modifierId);
+        await this.roles.setCapabilityOverride(role.id, cap, classContextId, CAP_ALLOW, modifierId, tx);
       }
     }
   }
@@ -1224,13 +1247,35 @@ export class ClassesService implements OnModuleInit {
    *
    * @param classId - Id của lớp (chính là `item_id` của payment).
    * @param userId - Người bị đình chỉ (chính là `user_id` của payment).
+   * @param tx - Transaction của settle hoàn tiền (issue #490) khi bên
+   *   gọi đang settle: việc gỡ roster chạy trong đúng transaction đó
+   *   để rollback của settle cũng huỷ việc gỡ. Khi truyền `tx`, sự
+   *   kiện `cohort_member_removed` trong-tiến-trình KHÔNG phát ở đây
+   *   (handler đồng bộ đọc trạng thái đã commit — phát giữa
+   *   transaction sẽ thấy thành viên vẫn còn và bỏ qua) — hàm trả về
+   *   cohortId của lần gỡ để bên gọi phát bù qua
+   *   `notifyPaidClassMemberRemoved` SAU khi transaction của nó
+   *   commit. Không truyền `tx` thì hành vi như cũ, trả về null.
    */
-  async suspendPaidClassMember(classId: string, userId: string): Promise<void> {
-    await this.tenantContext.run({ platform: true }, async () => {
+  async suspendPaidClassMember(classId: string, userId: string, tx?: DbTx): Promise<string | null> {
+    return this.tenantContext.run({ platform: true }, async () => {
       const row = await this.repo.getClass(classId);
-      if (!row) return;
-      await this.groups.removeCohortMemberInternal(row.cohortId, userId);
+      if (!row) return null;
+      const removed = await this.groups.removeCohortMemberInternal(row.cohortId, userId, tx);
+      return tx && removed ? row.cohortId : null;
     });
+  }
+
+  /**
+   * Phát bù sự kiện rời cohort cho một lần gỡ roster đã commit trong
+   * transaction của bên gọi (settle hoàn tiền — xem
+   * `suspendPaidClassMember`): cohort sync của EnrolService nhận sự
+   * kiện này mới đình chỉ/rút các ghi danh tương ứng, và nó phải đọc
+   * được trạng thái thành viên ĐÃ commit nên chỉ được phát sau
+   * commit.
+   */
+  async notifyPaidClassMemberRemoved(cohortId: string, userId: string): Promise<void> {
+    await this.groups.emitCohortMemberRemoved(cohortId, userId);
   }
 
   // --- móc cho đường tạo khoá (CourseClassHook) --------------------------------
