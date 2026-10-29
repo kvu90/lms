@@ -13,9 +13,10 @@ import type { Queue } from 'bullmq';
  *   chưa có dấu `publishedAt`, phát từng dòng cho phía tiêu thụ rồi
  *   mới đóng dấu và phản chiếu dòng đã phát vào `event_log`.
  * - "Phát cho phía tiêu thụ" với loại sự kiện đã có consumer trên
- *   hàng đợi ở worker là đẩy MỘT job BullMQ: tên job là chính loại
- *   sự kiện, `jobId` là id của dòng outbox, dữ liệu job là toàn bộ
- *   dòng outbox đã chuẩn hoá (xem {@link OutboxEventJobData}).
+ *   hàng đợi ở worker là đẩy job BullMQ vào MỌI hàng đợi đích của
+ *   loại đó: tên job là chính loại sự kiện, `jobId` là id của dòng
+ *   outbox, dữ liệu job là toàn bộ dòng outbox đã chuẩn hoá (xem
+ *   {@link OutboxEventJobData}).
  *   `jobId` là khoá chống trùng của BullMQ NHƯNG chỉ trong cửa sổ
  *   hàng đợi còn lưu giữ job: phát lại cùng một dòng trong lúc job
  *   của nó còn được lưu giữ (theo chính sách `removeOnComplete` /
@@ -60,16 +61,43 @@ import type { Queue } from 'bullmq';
  * hàng đợi cần đăng ký và bản đồ hàng đợi cấp cho relay từ chính
  * bảng này, nên không còn nơi nào khác phải sửa để nối đường phát.
  *
- * Các loại đã vào bảng: sự kiện mail auth (`auth_mail_requested`)
- * trỏ về hàng đợi `auth-mail` — consumer đầu tiên của đợt chuyển
- * đổi (issue #517, processor `AuthMailProcessor`); hai loại sự
- * kiện digest phụ huynh (`guardian_digest_due`,
- * `guardian_overdue_alert`) trỏ về hàng đợi
- * `guardian-digest-events` — consumer của chúng đã chuyển sang
- * worker (issue #518, processor `GuardianDigestEventsProcessor`,
- * handler `GuardianDigestHandlerService`). Mọi loại sự kiện còn
- * lại của đợt chuyển đổi chưa có mặt ở đây cho tới khi consumer
- * tương ứng chuyển xong, đúng ngữ nghĩa ở trên.
+ * Fan-out một-nhiều: giá trị của một dòng có thể là MỘT tên hàng
+ * đợi hoặc một DANH SÁCH tên hàng đợi khi loại sự kiện có nhiều
+ * consumer trên hàng đợi. Relay phát job tới mọi đích trong danh
+ * sách và chỉ đóng dấu `publishedAt` sau khi MỌI đích đã nhận job
+ * thành công — lỗi ở bất kỳ đích nào thì dòng chưa được đóng dấu
+ * và được phát lại ở nhịp sau (đích đã nhận không sinh job trùng
+ * trong cửa sổ lưu giữ nhờ `jobId` bằng id dòng outbox; ngoài cửa
+ * sổ đó, hàng rào chống tác dụng phụ lần hai là tính idempotent
+ * theo `outboxId` của processor ở đích đó). Các consumer của cùng
+ * một loại sự kiện vẫn độc lập hoàn toàn: relay không chờ consumer
+ * nào xử lý, các consumer không chờ nhau, mỗi consumer tự theo
+ * dõi phần xử lý của mình.
+ *
+ * Các loại đã vào bảng:
+ * - Sự kiện mail auth (`auth_mail_requested`) trỏ về hàng đợi
+ *   `auth-mail` — consumer đầu tiên của đợt chuyển đổi (issue
+ *   #517, processor `AuthMailProcessor`).
+ * - Hai loại sự kiện digest phụ huynh (`guardian_digest_due`,
+ *   `guardian_overdue_alert`) trỏ về hàng đợi
+ *   `guardian-digest-events` — consumer của chúng đã chuyển sang
+ *   worker (issue #518, processor `GuardianDigestEventsProcessor`,
+ *   handler `GuardianDigestHandlerService`).
+ * - Mười loại sự kiện thông báo nghiệp vụ (điểm, hoàn thành khoá,
+ *   hết hạn ghi danh, tin nhắn, hạn nộp, vòng đời bài tập/đề) trỏ
+ *   về hàng đợi `notification-events` — consumer của chúng đã
+ *   chuyển sang worker ở issue con #520 của #491 (processor
+ *   `NotificationEventsProcessor`, handler
+ *   `NotificationEventsHandlerService`). Riêng `message_sent` còn
+ *   một consumer nữa — consumer phân phối realtime — chưa chuyển
+ *   (issue con #521): khi consumer đó chuyển, dòng này trở thành
+ *   danh sách hai đích theo đúng cơ chế fan-out ở trên; hiện tại
+ *   phía realtime vẫn đọc trực tiếp bảng outbox theo watermark
+ *   `seq` riêng như trước.
+ *
+ * Mọi loại sự kiện còn lại của đợt chuyển đổi chưa có mặt ở đây
+ * cho tới khi consumer tương ứng chuyển xong, đúng ngữ nghĩa ở
+ * trên.
  */
 export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
   // Mail auth (issue #517): processor `AuthMailProcessor` trên hàng
@@ -81,10 +109,56 @@ export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
   // `guardian-digest-events`.
   guardian_digest_due: 'guardian-digest-events',
   guardian_overdue_alert: 'guardian-digest-events',
+  // Thông báo sự kiện (issue con #520 của #491): processor
+  // `NotificationEventsProcessor` trên hàng đợi `notification-events`.
+  grade_updated: 'notification-events',
+  course_completed: 'notification-events',
+  enrol_expiry_warning: 'notification-events',
+  message_sent: 'notification-events',
+  activity_due_reminder: 'notification-events',
+  assignment_created: 'notification-events',
+  assignment_submitted: 'notification-events',
+  assignment_returned: 'notification-events',
+  exam_pinned: 'notification-events',
+  quiz_attempt_finished: 'notification-events',
 };
 
-/** Bảng định tuyến phát job: khoá là loại sự kiện, giá trị là tên hàng đợi BullMQ. */
-export type OutboxEventQueueRoutes = Readonly<Record<string, string>>;
+/**
+ * Bảng định tuyến phát job: khoá là loại sự kiện; giá trị là tên
+ * hàng đợi BullMQ duy nhất của loại đó, hoặc danh sách tên hàng
+ * đợi khi loại sự kiện có nhiều consumer trên hàng đợi (fan-out
+ * một-nhiều — xem ghi chú ở {@link OUTBOX_EVENT_QUEUE_ROUTES}).
+ */
+export type OutboxEventQueueRoutes = Readonly<Record<string, string | readonly string[]>>;
+
+/**
+ * Mọi tên hàng đợi đích của một dòng định tuyến, chuẩn hoá về
+ * dạng danh sách: một đích thì danh sách có đúng một phần tử.
+ *
+ * @param route Giá trị của dòng định tuyến (một tên hoặc danh sách).
+ * @returns Danh sách tên hàng đợi đích theo đúng thứ tự khai báo.
+ */
+export function queueNamesOfRoute(route: string | readonly string[]): readonly string[] {
+  return typeof route === 'string' ? [route] : route;
+}
+
+/**
+ * Mọi tên hàng đợi có mặt trong một bảng định tuyến (khử trùng lặp,
+ * giữ thứ tự xuất hiện đầu tiên) — nguồn suy ra danh sách hàng đợi
+ * cần đăng ký của `worker.module.ts`.
+ *
+ * @param routes Bảng định tuyến cần quét.
+ * @returns Danh sách tên hàng đợi phân biệt của cả bảng.
+ */
+export function allQueueNamesOfRoutes(routes: OutboxEventQueueRoutes): string[] {
+  const names: string[] = [];
+  for (const route of Object.values(routes)) {
+    for (const name of queueNamesOfRoute(route)) {
+      if (!names.includes(name)) names.push(name);
+    }
+  }
+  return names;
+}
 
 /**
  * Khoá tiêm (injection token) của bảng định tuyến cấp cho relay.

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
-import type { OutboxEventJobData, OutboxEventQueueRoutes } from './outbox-event-routes';
+import {
+  OUTBOX_EVENT_QUEUE_ROUTES,
+  allQueueNamesOfRoutes,
+  queueNamesOfRoute,
+  type OutboxEventJobData,
+  type OutboxEventQueueRoutes,
+} from './outbox-event-routes';
 
 /**
  * Test đặc trưng hoá cho relay outbox duy nhất: ghim bốn tính chất của
@@ -129,7 +135,7 @@ interface Harness {
 
 function makeRelay(rows: FakeRow[], routes: OutboxEventQueueRoutes): Harness {
   const queues = new Map<string, FakeQueue>();
-  for (const queueName of new Set(Object.values(routes))) {
+  for (const queueName of allQueueNamesOfRoutes(routes)) {
     queues.set(queueName, new FakeQueue(rows));
   }
   const { db } = makeFakeDb(rows);
@@ -305,5 +311,68 @@ describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', ()
 
     await relay.relayTick();
     expect(taskRuns).toEqual([{ status: 'failed' }, { status: 'success' }]);
+  });
+});
+
+describe('Relay outbox duy nhất — fan-out một sự kiện nhiều consumer (issue #520)', () => {
+  const FANOUT_ROUTES: OutboxEventQueueRoutes = {
+    message_sent: ['notification-events', 'messaging-realtime'],
+  };
+
+  it('một dòng message_sent sinh job ở CẢ hai hàng đợi đích với jobId là id dòng và chỉ đóng dấu sau khi cả hai đích đã nhận', async () => {
+    const row = makeRow({ aggregate: 'messaging', type: 'message_sent' });
+    const { relay, queues } = makeRelay([row], FANOUT_ROUTES);
+    const notificationsQueue = queues.get('notification-events')!;
+    const realtimeQueue = queues.get('messaging-realtime')!;
+
+    const published = await relay.publishPending();
+
+    expect(published).toBe(1);
+    expect(notificationsQueue.jobs.get(row.id)?.name).toBe('message_sent');
+    expect(realtimeQueue.jobs.get(row.id)?.name).toBe('message_sent');
+    // Tại thời điểm job được đẩy ở cả hai đích, dòng vẫn chưa có dấu:
+    // dấu chỉ xuất hiện sau khi MỌI đích đã phát thành công.
+    expect(notificationsQueue.stampedAtDispatch).toEqual([false]);
+    expect(realtimeQueue.stampedAtDispatch).toEqual([false]);
+    expect(row.publishedAt).not.toBeNull();
+  });
+
+  it('đích thứ hai lỗi thì dòng không được đóng dấu; phát lại không sinh job trùng ở đích đầu và hoàn tất ở đích thứ hai', async () => {
+    const row = makeRow({ aggregate: 'messaging', type: 'message_sent' });
+    const { relay, queues, mirrored } = makeRelay([row], FANOUT_ROUTES);
+    const notificationsQueue = queues.get('notification-events')!;
+    const realtimeQueue = queues.get('messaging-realtime')!;
+    realtimeQueue.failNextAdd = true;
+
+    await expect(relay.publishPending()).rejects.toThrow('redis unavailable');
+    expect(row.publishedAt).toBeNull();
+    expect(notificationsQueue.jobs.size).toBe(1);
+    expect(realtimeQueue.jobs.size).toBe(0);
+    expect(mirrored).toHaveLength(0);
+
+    const published = await relay.publishPending();
+    expect(published).toBe(1);
+    expect(row.publishedAt).not.toBeNull();
+    // jobId bằng id dòng: đích đầu vẫn đúng một job, không sinh bản trùng.
+    expect(notificationsQueue.jobs.size).toBe(1);
+    expect(realtimeQueue.jobs.size).toBe(1);
+    expect(mirrored).toHaveLength(1);
+  });
+
+  it('bảng định tuyến production: mười loại của consumer thông báo trỏ về hàng đợi notification-events, message_sent hiện có đúng một đích, hai route digest phụ huynh giữ nguyên', () => {
+    const notificationTypes = [
+      'grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent',
+      'activity_due_reminder', 'assignment_created', 'assignment_submitted',
+      'assignment_returned', 'exam_pinned', 'quiz_attempt_finished',
+    ];
+    for (const type of notificationTypes) {
+      expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES[type]!)).toContain('notification-events');
+    }
+    // Consumer realtime chưa chuyển (issue #521): message_sent vẫn
+    // chỉ có một đích trên hàng đợi; consumer realtime hiện đọc trực
+    // tiếp outbox như trước. Khi #521 chuyển, dòng này thành hai đích.
+    expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES['message_sent']!)).toEqual(['notification-events']);
+    expect(OUTBOX_EVENT_QUEUE_ROUTES['guardian_digest_due']).toBe('guardian-digest-events');
+    expect(OUTBOX_EVENT_QUEUE_ROUTES['guardian_overdue_alert']).toBe('guardian-digest-events');
   });
 });

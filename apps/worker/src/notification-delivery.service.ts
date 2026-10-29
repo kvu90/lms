@@ -52,6 +52,15 @@ export interface WorkerProviderLaw {
  * worker phát TRỌN notify() gồm cả kênh email — xem {@link notify} và
  * {@link WORKER_NOTIFY_PROVIDERS} ngay dưới. Ba provider còn lại vẫn
  * chỉ phát kênh trong-app qua {@link deliverInApp}.
+ *
+ * Mười provider của consumer thông báo sự kiện vào sổ khi consumer
+ * đó chuyển sang worker (issue con #520 của #491): cả mười đều do
+ * `NotificationEventsHandlerService` phát qua {@link notify} — chín
+ * provider có kênh email nằm thêm ở {@link WORKER_NOTIFY_PROVIDERS},
+ * riêng `course_completed` chỉ có kênh trong-app theo registry nên
+ * không vào sổ luật email. `enrol_expiry_warning` là provider bắt
+ * buộc (P2) đầu tiên phía worker: `mandatoryInApp: true` phải khớp
+ * registry phía API (spec parity canh).
  */
 export const WORKER_PROVIDERS: Record<string, WorkerProviderLaw> = {
   calendar_reminder: { name: 'calendar_reminder', component: 'core_calendar', mandatoryInApp: false },
@@ -59,6 +68,16 @@ export const WORKER_PROVIDERS: Record<string, WorkerProviderLaw> = {
   badge_awarded: { name: 'badge_awarded', component: 'core_badges', mandatoryInApp: false },
   guardian_digest: { name: 'guardian_digest', component: 'core_guardian', mandatoryInApp: false },
   guardian_overdue_alert: { name: 'guardian_overdue_alert', component: 'core_guardian', mandatoryInApp: false },
+  grade_updated: { name: 'grade_updated', component: 'core_grades', mandatoryInApp: false },
+  course_completed: { name: 'course_completed', component: 'core_completion', mandatoryInApp: false },
+  enrol_expiry_warning: { name: 'enrol_expiry_warning', component: 'core_enrol', mandatoryInApp: true },
+  activity_due_soon: { name: 'activity_due_soon', component: 'core_course', mandatoryInApp: false },
+  assignment_assigned: { name: 'assignment_assigned', component: 'mod_assign', mandatoryInApp: false },
+  assignment_submitted: { name: 'assignment_submitted', component: 'mod_assign', mandatoryInApp: false },
+  assignment_returned: { name: 'assignment_returned', component: 'mod_assign', mandatoryInApp: false },
+  quiz_available: { name: 'quiz_available', component: 'mod_quiz', mandatoryInApp: false },
+  quiz_attempt_finished: { name: 'quiz_attempt_finished', component: 'mod_quiz', mandatoryInApp: false },
+  message_new: { name: 'message_new', component: 'core_message', mandatoryInApp: false },
 };
 
 /** Tần suất email hiệu lực của một thông báo (khớp `EmailFrequency` phía API). */
@@ -85,20 +104,40 @@ export type WorkerEmailFrequency = 'immediate' | 'daily' | 'off';
  * - `labelVi`: nhãn tiếng Việt của provider trong registry phía API,
  *   chỉ dùng làm tham số {event} của nội dung generic khi luật C-5
  *   phải thay cặp nội dung ngoài đã tối thiểu hoá còn thiếu.
+ * - `externalPolicy`: chính sách nội dung kênh ngoài của registry
+ *   phía API (luật C-5). `'minimized'` — nơi phát PHẢI truyền đủ
+ *   cặp `externalSubject`/`externalBody` đã tối thiểu hoá.
+ *   `'original-ok'` — registry đã khai báo tường minh kèm lý do
+ *   rằng nội dung gốc an toàn cho kênh ngoài: job kênh ngoài mang
+ *   bản tối thiểu hoá của nơi phát cho trường nào có truyền, nội
+ *   dung gốc cho trường còn lại, đúng nhánh 1 của luật phân giải
+ *   phía API (chín provider sự kiện thông báo của issue #520 thuộc
+ *   diện này: nội dung của chúng chỉ gồm dữ kiện người nhận tự
+ *   thấy — tên khoá/hoạt động, số lượng công việc của chính họ —
+ *   và tuyệt đối không chứa điểm số hay nội dung tin nhắn).
  *
- * Có mặt trong sổ này cũng có nghĩa: provider có kênh email và chính
- * sách nội dung ngoài là 'minimized' (luật C-5) — nơi phát PHẢI
- * truyền đủ cặp `externalSubject`/`externalBody` đã tối thiểu hoá.
+ * Có mặt trong sổ này có nghĩa: provider có kênh email mà worker
+ * phát trọn qua {@link NotificationDeliveryService.notify}.
  */
 export interface WorkerNotifyProviderLaw {
   defaultEmailFrequency: Exclude<WorkerEmailFrequency, 'off'>;
   labelVi: string;
+  externalPolicy: 'original-ok' | 'minimized';
 }
 
 /** Xem {@link WorkerNotifyProviderLaw}. */
 export const WORKER_NOTIFY_PROVIDERS: Record<string, WorkerNotifyProviderLaw> = {
-  guardian_digest: { defaultEmailFrequency: 'daily', labelVi: 'Tổng hợp cho phụ huynh' },
-  guardian_overdue_alert: { defaultEmailFrequency: 'daily', labelVi: 'Cảnh báo quá hạn cho phụ huynh' },
+  guardian_digest: { defaultEmailFrequency: 'daily', labelVi: 'Tổng hợp cho phụ huynh', externalPolicy: 'minimized' },
+  guardian_overdue_alert: { defaultEmailFrequency: 'daily', labelVi: 'Cảnh báo quá hạn cho phụ huynh', externalPolicy: 'minimized' },
+  grade_updated: { defaultEmailFrequency: 'daily', labelVi: 'Điểm số thay đổi', externalPolicy: 'original-ok' },
+  enrol_expiry_warning: { defaultEmailFrequency: 'daily', labelVi: 'Sắp hết hạn ghi danh', externalPolicy: 'original-ok' },
+  activity_due_soon: { defaultEmailFrequency: 'daily', labelVi: 'Hoạt động sắp đến hạn', externalPolicy: 'original-ok' },
+  assignment_assigned: { defaultEmailFrequency: 'daily', labelVi: 'Bài tập mới', externalPolicy: 'original-ok' },
+  assignment_submitted: { defaultEmailFrequency: 'daily', labelVi: 'Bài nộp', externalPolicy: 'original-ok' },
+  assignment_returned: { defaultEmailFrequency: 'daily', labelVi: 'Bài đã được trả', externalPolicy: 'original-ok' },
+  quiz_available: { defaultEmailFrequency: 'daily', labelVi: 'Bài kiểm tra mới', externalPolicy: 'original-ok' },
+  quiz_attempt_finished: { defaultEmailFrequency: 'daily', labelVi: 'Lượt làm bài cần chấm', externalPolicy: 'original-ok' },
+  message_new: { defaultEmailFrequency: 'immediate', labelVi: 'Tin nhắn mới', externalPolicy: 'original-ok' },
 };
 
 /**
@@ -106,9 +145,10 @@ export const WORKER_NOTIFY_PROVIDERS: Record<string, WorkerNotifyProviderLaw> = 
  * của `COURSE_MUTE_EXEMPT_PROVIDERS` + luật P2 phía API (xem
  * `isExemptFromCourseMute` trong registry): chính sách P3 chừa điểm mới
  * và sắp hết hạn ghi danh của chính khoá bị mute; hai loại bắt buộc P2
- * (`mandatoryInApp`) cũng không bị chặn. Hai loại P3 không nằm trong
- * `WORKER_PROVIDERS` hôm nay; giữ bản chiếu đủ để luật ở đây khớp nguyên
- * văn luật phía API nếu sau này worker thành nơi phát của chúng.
+ * (`mandatoryInApp`) cũng không bị chặn. Từ issue con #520 của #491,
+ * cả hai loại P3 đều có mặt trong `WORKER_PROVIDERS` và do consumer
+ * thông báo sự kiện ở worker phát qua {@link NotificationDeliveryService.notify},
+ * nên miễn trừ này áp thật trên đường phát của chúng.
  */
 const COURSE_MUTE_EXEMPT_PROVIDERS = new Set(['grade_updated', 'enrol_expiry_warning']);
 
@@ -158,14 +198,15 @@ export interface InAppDeliveryResult { status: InAppDeliveryStatus; notification
  *
  * Từ issue con #518 của #491, service có thêm {@link notify}: bản đầy
  * đủ của notify() phía API cho các sự kiện mà WORKER là nơi phát và
- * registry có kênh ngoài (hiện là hai provider digest phụ huynh, xem
- * {@link WORKER_NOTIFY_PROVIDERS}). `notify()` dùng lại chính
- * `deliverInApp` cho nửa kênh trong-app (một bản luật popup duy nhất,
- * không fork), tự lo nửa kênh email (phân giải tần suất + luật C-5 +
- * xếp job vào hàng đợi `notification-dispatch` dùng chung với phía
- * API) và ghi sự kiện outbox `notification_created` như notify() phía
- * API. Đây là bề mặt phát thông báo dùng chung của worker cho cả đợt
- * chuyển consumer — các consumer chuyển sau (issue #520) dùng lại
+ * registry có kênh ngoài (xem {@link WORKER_NOTIFY_PROVIDERS} — hai
+ * provider digest phụ huynh từ #518, chín provider sự kiện thông báo
+ * từ issue con #520). `notify()` dùng lại chính `deliverInApp` cho
+ * nửa kênh trong-app (một bản luật popup duy nhất, không fork), tự
+ * lo nửa kênh email (phân giải tần suất + luật C-5 + xếp job vào
+ * hàng đợi `notification-dispatch` dùng chung với phía API) và ghi
+ * sự kiện outbox `notification_created` như notify() phía API. Đây
+ * là bề mặt phát thông báo dùng chung của worker cho cả đợt chuyển
+ * consumer — mọi consumer chuyển sang worker đều dùng lại
  * `notify()`/`deliverInApp` ở đây, không dựng đường phát riêng.
  */
 @Injectable()
@@ -384,17 +425,26 @@ export class NotificationDeliveryService implements OnModuleDestroy {
   }
 
   /**
-   * Nội dung kênh NGOÀI theo luật C-5 (chính sách 'minimized', xem
+   * Nội dung kênh NGOÀI theo luật C-5 (xem
    * {@link WORKER_NOTIFY_PROVIDERS}) — cùng luật
-   * `resolveExternalContent` phía API: kênh ngoài chỉ mang cặp nội
-   * dung đã tối thiểu hoá do nơi phát truyền vào, KHÔNG bao giờ mang
-   * tiêu đề/nội dung trong-app (chúng có thể chứa dữ kiện nhạy cảm).
-   * Thiếu một trong hai trường: ở môi trường test ném lỗi để lộ sớm;
-   * ở production ghi cảnh báo và thay trường thiếu bằng nội dung
-   * generic không chứa dữ kiện nào. Nơi phát KHÔNG kèm cặp này là lỗi
-   * lập trình, không phải ca người dùng.
+   * `resolveExternalContent` phía API:
+   * - Provider khai báo `'original-ok'`: bản tối thiểu hoá của nơi
+   *   phát cho trường nào có truyền, nội dung gốc cho trường còn
+   *   lại — registry đã xác nhận nội dung gốc của các provider này
+   *   an toàn cho kênh ngoài.
+   * - Provider thuộc diện `'minimized'`: kênh ngoài chỉ mang cặp
+   *   nội dung đã tối thiểu hoá do nơi phát truyền vào, KHÔNG bao
+   *   giờ mang tiêu đề/nội dung trong-app (chúng có thể chứa dữ
+   *   kiện nhạy cảm). Thiếu một trong hai trường: ở môi trường
+   *   test ném lỗi để lộ sớm; ở production ghi cảnh báo và thay
+   *   trường thiếu bằng nội dung generic không chứa dữ kiện nào.
+   *   Nơi phát KHÔNG kèm cặp này là lỗi lập trình, không phải ca
+   *   người dùng.
    */
   private resolveExternalContent(providerName: string, law: WorkerNotifyProviderLaw, input: { subject: string; body: string; externalSubject?: string; externalBody?: string }): { subject: string; body: string } {
+    if (law.externalPolicy === 'original-ok') {
+      return { subject: input.externalSubject ?? input.subject, body: input.externalBody ?? input.body };
+    }
     if (input.externalSubject !== undefined && input.externalBody !== undefined) {
       return { subject: input.externalSubject, body: input.externalBody };
     }
@@ -422,9 +472,13 @@ export class NotificationDeliveryService implements OnModuleDestroy {
    *     NB-7 / tuỳ chọn popup / ghi dòng + dispatch log + tín hiệu
    *     chưa đọc). Kết quả 'skipped-suspended' / 'skipped-admin-
    *     disabled' của nửa này là điểm dừng sớm như phía API: không
-   *     kênh ngoài, không sự kiện `notification_created`. (Ghi đè tắt
-   *     tiếng theo khoá NB-4 không áp ở đây vì notify() của đợt này
-   *     không gắn khoá nguồn; bề mặt này không nhận `courseId`.)
+   *     kênh ngoài, không sự kiện `notification_created`. Ghi đè tắt
+   *     tiếng theo khoá NB-4 áp khi nơi phát truyền `courseId` (từ
+   *     issue con #520 của #491, consumer thông báo sự kiện luôn
+   *     truyền khoá nguồn của sự kiện như consumer phía API trước
+   *     đây) — kết quả 'skipped-course-mute' cũng là điểm dừng sớm
+   *     như phía API; không truyền `courseId` thì ghi đè không áp
+   *     như trước.
    *     Khác biệt còn lại so với phía API nằm ở dedupeKey của các
    *     dispatch log kênh popup: giữ nguyên định dạng phía worker của
    *     deliverInApp (không tiền tố tenant) — khoá đó chỉ để truy vết
@@ -455,6 +509,12 @@ export class NotificationDeliveryService implements OnModuleDestroy {
   async notify(userId: string, providerName: string, input: {
     subject: string; body: string; contextUrl?: string; fromUserId?: string;
     externalSubject?: string; externalBody?: string; tenantId?: string | null;
+    // NB-4: khoá nguồn của sự kiện — nơi phát biết sự kiện thuộc
+    // khoá nào thì truyền vào để áp ghi đè tắt tiếng theo khoá của
+    // người nhận qua deliverInApp, như tham số cùng tên của notify()
+    // phía API. Không truyền = sự kiện không gắn khoá, ghi đè không
+    // áp dụng.
+    courseId?: string | null;
   }): Promise<{ notificationId: string | null; channels: Record<string, string>; skipped?: string }> {
     const provider = WORKER_PROVIDERS[providerName];
     if (!provider) return { notificationId: null, channels: {}, skipped: 'unknown-provider' };
@@ -464,6 +524,7 @@ export class NotificationDeliveryService implements OnModuleDestroy {
     const popup = await this.deliverInApp(userId, providerName, {
       subject: input.subject, body: input.body, smallMessage: input.body.slice(0, 200),
       contextUrl: input.contextUrl, fromUserId: input.fromUserId, tenantId,
+      courseId: input.courseId,
     });
     if (popup.status === 'skipped-suspended') return { notificationId: null, channels: {}, skipped: 'suspended' };
     if (popup.status === 'skipped-admin-disabled') return { notificationId: null, channels: {}, skipped: 'admin-disabled' };

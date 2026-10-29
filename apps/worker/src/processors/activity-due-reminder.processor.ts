@@ -28,8 +28,9 @@ const SUBMITTED_ATTEMPT_STATES = ['needsgrading', 'finished'];
  * Activity due-soon reminders: mỗi lượt quét (định kỳ 5 phút) tìm các
  * hoạt động sắp đến hạn trong cửa sổ 24 giờ và phát MỘT sự kiện
  * outbox `activity_due_reminder` cho từng (học sinh, hoạt động) chưa
- * nộp — phía API (NotificationEventsConsumer, lát N1) biến sự kiện
- * thành thông báo `activity_due_soon`. Chống trùng bền ngay tại phía
+ * nộp — consumer thông báo sự kiện ở worker (issue con #520 của
+ * #491) biến sự kiện thành thông báo `activity_due_soon`. Chống
+ * trùng bền ngay tại phía
  * phát, cùng kỷ luật warnExpiring của enrol-expiry: đã có sự kiện
  * cho (userId, hoạt động, mốc hạn) thì không phát lại; giáo viên DỜI
  * HẠN thì mốc hạn mới được nhắc lại như một hạn mới.
