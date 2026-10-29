@@ -11,8 +11,9 @@ import { ContextsService } from '../access/contexts.service';
 import { FilesService } from '../files/files.service';
 import { BEHAVIOURS, canTransition, gradeAnswer, gradedStateForFraction, usageState, type GradingData, type GradeOutcome, type QuestionState } from './domain/question-engine';
 import {
-  QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type EntryRow, type QCategoryRow,
-  type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
+  QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type EntryRow, type EssayOptionsRow,
+  type MultichoiceOptionsRow, type QCategoryRow,
+  type QuestionRow, type ShortanswerOptionsRow, type StepRow, type StimulusRow, type UsageRow, type VersionRow,
 } from './questions.repository';
 
 /** Một đáp án trong payload cấu trúc theo qtype (đầu vào của API): cờ `correct` đúng/sai NHỊ PHÂN — tỉ trọng fraction đã bỏ hẳn (quyết 12:04 ngày 26/10/2026). */
@@ -700,9 +701,25 @@ export class QuestionsService {
 
   /** Dựng options dạng bản ghi phẳng cho view/API từ bảng options của qtype. */
   private async optionsView(qtype: string, versionId: string): Promise<Record<string, unknown> | null> {
+    if (qtype === 'multichoice') return this.optionsFromRow(qtype, await this.repo.getMultichoiceOptions(versionId));
+    if (qtype === 'shortanswer') return this.optionsFromRow(qtype, await this.repo.getShortanswerOptions(versionId));
+    if (qtype === 'essay') return this.optionsFromRow(qtype, await this.repo.getEssayOptions(versionId));
+    return null;
+  }
+
+  /**
+   * Ánh xạ một dòng options đã nạp thành bản ghi phẳng của view theo
+   * qtype — phần thuần của optionsView, tách ra để loader theo lô
+   * (loadQuestionViews) dùng CHUNG đúng một ánh xạ với đường đọc đơn;
+   * version không có dòng options thì view mang `options: null`.
+   */
+  private optionsFromRow(
+    qtype: string,
+    row: MultichoiceOptionsRow | ShortanswerOptionsRow | EssayOptionsRow | undefined,
+  ): Record<string, unknown> | null {
+    if (!row) return null;
     if (qtype === 'multichoice') {
-      const o = await this.repo.getMultichoiceOptions(versionId);
-      if (!o) return null;
+      const o = row as MultichoiceOptionsRow;
       return {
         shuffleAnswers: o.shuffleAnswers, answerNumbering: o.answerNumbering,
         correctFeedback: o.correctFeedback, incorrectFeedback: o.incorrectFeedback,
@@ -710,8 +727,7 @@ export class QuestionsService {
       };
     }
     if (qtype === 'shortanswer') {
-      const o = await this.repo.getShortanswerOptions(versionId);
-      if (!o) return null;
+      const o = row as ShortanswerOptionsRow;
       return {
         useCase: o.useCase,
         numericAnswer: o.numericAnswer, numericMaxLength: o.numericMaxLength,
@@ -719,8 +735,7 @@ export class QuestionsService {
       };
     }
     if (qtype === 'essay') {
-      const o = await this.repo.getEssayOptions(versionId);
-      if (!o) return null;
+      const o = row as EssayOptionsRow;
       return {
         responseFormat: o.responseFormat, responseRequired: o.responseRequired,
         responseFieldLines: o.responseFieldLines, minWordLimit: o.minWordLimit,
@@ -748,6 +763,76 @@ export class QuestionsService {
     const options = await this.optionsView(question.qtype, version.id);
     const stimulus = version.stimulusId ? (await this.repo.getStimulus(version.stimulusId)) ?? null : null;
     return { question, entry, latestVersion: version, answers, answerKey, options, stimulus };
+  }
+
+  /**
+   * Lắp view cho một TẬP câu hỏi bằng loader theo lô (issue #488):
+   * mọi thành phần của view — entry, version mới nhất, answers, bản
+   * ghi phía đáp án, options theo dạng, ngữ liệu — được nạp bằng số
+   * lượt truy vấn HẰNG SỐ theo số câu (mỗi bảng một lượt cho cả tập)
+   * rồi lắp trong bộ nhớ, thay cho vòng lặp gọi getQuestion từng câu.
+   * Bất biến giữ nguyên so với đường từng câu:
+   * - Thứ tự view khớp đúng thứ tự dòng câu đầu vào.
+   * - Câu đầu tiên (theo thứ tự vào) thiếu entry hoặc thiếu version
+   *   mới nhất thì ném đúng NotFoundException cùng mã như getQuestion
+   *   (`question.entry_missing` / `question.version_missing`).
+   * - Hình dạng từng view do cùng các ánh xạ với assembleView dựng
+   *   (options qua optionsFromRow, answerKey mặc định cả hai null khi
+   *   version không có dòng phía đáp án, stimulus null khi version
+   *   không gắn hoặc không còn dòng ngữ liệu).
+   */
+  private async loadQuestionViews(rows: QuestionRow[]): Promise<QuestionView[]> {
+    if (!rows.length) return [];
+    const entries = await this.repo.getEntriesByQuestions(rows.map((q) => q.id));
+    const entryByQuestion = new Map(entries.map((e) => [e.questionId, e]));
+    const versions = await this.repo.getLatestVersionsByEntries(entries);
+    const versionByEntry = new Map(versions.map((v) => [v.questionBankEntryId, v]));
+    for (const q of rows) {
+      const entry = entryByQuestion.get(q.id);
+      if (!entry) throw new NotFoundException({ message: `Question ${q.id} has no bank entry`, code: 'question.entry_missing' });
+      if (!versionByEntry.has(entry.id)) throw new NotFoundException({ message: `Question ${q.id} latest version missing`, code: 'question.version_missing' });
+    }
+    const versionIds = versions.map((v) => v.id);
+    const answers = await this.repo.listAnswersByVersions(versionIds);
+    const answersByVersion = new Map<string, AnswerRow[]>();
+    for (const a of answers) {
+      const list = answersByVersion.get(a.questionVersionId);
+      if (list) list.push(a); else answersByVersion.set(a.questionVersionId, [a]);
+    }
+    const keys = await this.repo.listAnswerKeysByVersions(versionIds);
+    const keyByVersion = new Map(keys.map((k) => [k.questionVersionId, k]));
+    const qtypeByVersion = new Map<string, string>();
+    for (const q of rows) {
+      const entry = entryByQuestion.get(q.id)!;
+      const version = versionByEntry.get(entry.id)!;
+      qtypeByVersion.set(version.id, q.qtype);
+    }
+    const idsFor = (qtype: string): string[] => versionIds.filter((id) => qtypeByVersion.get(id) === qtype);
+    const mcOptions = await this.repo.listMultichoiceOptionsByVersions(idsFor('multichoice'));
+    const mcByVersion = new Map(mcOptions.map((o) => [o.questionVersionId, o]));
+    const saOptions = await this.repo.listShortanswerOptionsByVersions(idsFor('shortanswer'));
+    const saByVersion = new Map(saOptions.map((o) => [o.questionVersionId, o]));
+    const essayOptions = await this.repo.listEssayOptionsByVersions(idsFor('essay'));
+    const essayByVersion = new Map(essayOptions.map((o) => [o.questionVersionId, o]));
+    const stimulusIds = [...new Set(versions.map((v) => v.stimulusId).filter((id): id is string => id !== null))];
+    const stimuli = await this.repo.listStimuliByIds(stimulusIds);
+    const stimulusById = new Map(stimuli.map((s) => [s.id, s]));
+    return rows.map((q) => {
+      const entry = entryByQuestion.get(q.id)!;
+      const version = versionByEntry.get(entry.id)!;
+      const key = keyByVersion.get(version.id);
+      const optionsRow = q.qtype === 'multichoice' ? mcByVersion.get(version.id)
+        : q.qtype === 'shortanswer' ? saByVersion.get(version.id)
+        : q.qtype === 'essay' ? essayByVersion.get(version.id)
+        : undefined;
+      return {
+        question: q, entry, latestVersion: version,
+        answers: answersByVersion.get(version.id) ?? [],
+        answerKey: { guidance: key?.guidance ?? null, solution: key?.solution ?? null },
+        options: this.optionsFromRow(q.qtype, optionsRow),
+        stimulus: version.stimulusId ? stimulusById.get(version.stimulusId) ?? null : null,
+      };
+    });
   }
 
   /** Kiểm chứng stimulus được gắn: phải tồn tại và cùng category với câu hỏi (phạm vi chia sẻ). */
@@ -880,13 +965,13 @@ export class QuestionsService {
     return this.assembleView(q, entry, latest);
   }
   /**
-   * Câu hỏi trong category.
+   * Câu hỏi trong category — view lắp theo lô bằng loadQuestionViews
+   * (issue #488); hình dạng và thứ tự giữ nguyên như đường lắp từng
+   * câu trước đây.
    */
   async listQuestions(categoryId: string): Promise<QuestionView[]> {
     const rows = await this.repo.listQuestionsInCategory(categoryId);
-    const out: QuestionView[] = [];
-    for (const q of rows) out.push(await this.getQuestion(q.id));
-    return out;
+    return this.loadQuestionViews(rows);
   }
   /**
    * Lịch sử version của câu hỏi.
@@ -1211,9 +1296,21 @@ export class QuestionsService {
   }): Promise<QuestionView[]> {
     this.validateCurriculumFilter(filter);
     const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
-    const out: QuestionView[] = [];
-    for (const q of rows) out.push(await this.getQuestion(q.id));
-    return out;
+    return this.loadQuestionViews(rows);
+  }
+
+  /**
+   * Số câu khớp bộ lọc chương trình, NHÓM THEO category của bank
+   * entry, đếm bằng `count()` tại SQL (issue #488) — cho các đường chỉ
+   * cần số đếm như đếm ứng viên ô ma trận: không nạp danh sách câu,
+   * không lắp view. Điều kiện lọc và cổng kiểm chứng bộ lọc giống hệt
+   * listQuestionsByCurriculumFilter.
+   */
+  async countQuestionsByCurriculumFilterByCategory(filter: {
+    subjectId?: string; outcomeId?: string; nodeId?: string; cognitiveLevel?: string; qtype?: string; status?: string;
+  }): Promise<{ categoryId: string; count: number }[]> {
+    this.validateCurriculumFilter(filter);
+    return this.repo.countQuestionsByCurriculumFilterPerCategory(filter);
   }
 
   /**
@@ -1228,7 +1325,7 @@ export class QuestionsService {
     this.validateCurriculumFilter(filter);
     const rows = await this.repo.filterQuestionsByCurriculumLinks(filter);
     const readableByCategory = new Map<string, boolean>();
-    const out: QuestionView[] = [];
+    const included: QuestionRow[] = [];
     for (const q of rows) {
       let ok = readableByCategory.get(q.category);
       if (ok === undefined) {
@@ -1236,9 +1333,9 @@ export class QuestionsService {
         ok = category !== undefined && (await this.canUseBank(actorId, category.contextId));
         readableByCategory.set(q.category, ok);
       }
-      if (ok) out.push(await this.getQuestion(q.id));
+      if (ok) included.push(q);
     }
-    return out;
+    return this.loadQuestionViews(included);
   }
 
   // --- engine ------------------------------------------------------------------
@@ -1366,23 +1463,87 @@ export class QuestionsService {
    * Lấy usage kèm các attempt và trạng thái tổng.
    */
   async getUsage(id: string): Promise<UsageView> {
-    const usage = await this.repo.getUsage(id);
-    if (!usage) throw new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
-    const attempts = await this.repo.listAttempts(id);
-    const views: AttemptView[] = [];
+    const usages = await this.getUsages([id]);
+    const view = usages.get(id);
+    if (!view) throw new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
+    return view;
+  }
+
+  /**
+   * Lấy NHIỀU usage kèm attempt và step trong số truy vấn cố định
+   * (DL-03, issue #489): bốn lượt nạp theo lô (usage, attempt, step,
+   * dữ liệu step) rồi lắp view bằng đúng bộ dựng của đường đọc lẻ, nên
+   * hình dạng và thứ tự (attempt theo slot, step theo số thứ tự) của
+   * từng view khớp hệt `getUsage`. Usage không tồn tại thì vắng mặt
+   * trong map — caller cần lỗi "không thấy" thì tự kiểm như
+   * `getUsage` đang làm.
+   */
+  async getUsages(ids: string[]): Promise<Map<string, UsageView>> {
+    const uniqueIds = [...new Set(ids)];
+    const views = new Map<string, UsageView>();
+    if (!uniqueIds.length) return views;
+    const usages = await this.repo.getUsagesByIds(uniqueIds);
+    const attempts = await this.repo.listAttemptsForUsages(uniqueIds);
+    const steps = await this.repo.listStepsForAttempts(attempts.map((a) => a.id));
+    const dataRows = await this.repo.listStepDataForSteps(steps.map((s) => s.id));
+    const attemptsByUsage = new Map<string, AttemptRow[]>();
     for (const a of attempts) {
-      const steps = await this.repo.listSteps(a.id);
-      const stepViews = [];
-      for (const s of steps) {
-        const dataRows = await this.repo.listStepData(s.id);
-        stepViews.push({
-          id: s.id, sequenceNumber: s.sequenceNumber, state: s.state, fraction: s.fraction,
-          data: Object.fromEntries(dataRows.map((d) => [d.name, d.value])),
-        });
-      }
-      views.push({ ...a, steps: stepViews });
+      const list = attemptsByUsage.get(a.questionUsageId) ?? [];
+      list.push(a);
+      attemptsByUsage.set(a.questionUsageId, list);
     }
+    const stepsByAttempt = new Map<string, StepRow[]>();
+    for (const s of steps) {
+      const list = stepsByAttempt.get(s.questionAttemptId) ?? [];
+      list.push(s);
+      stepsByAttempt.set(s.questionAttemptId, list);
+    }
+    const dataByStep = new Map<string, Map<string, string | null>>();
+    for (const d of dataRows) {
+      const byName = dataByStep.get(d.attemptStepId) ?? new Map<string, string | null>();
+      byName.set(d.name, d.value);
+      dataByStep.set(d.attemptStepId, byName);
+    }
+    for (const usage of usages) {
+      views.set(usage.id, this.buildUsageView(usage, attemptsByUsage.get(usage.id) ?? [], stepsByAttempt, dataByStep));
+    }
+    return views;
+  }
+
+  /** Lắp một UsageView từ các dòng đã nạp sẵn — dùng chung cho đường lẻ và đường theo lô. */
+  private buildUsageView(
+    usage: UsageRow,
+    attempts: AttemptRow[],
+    stepsByAttempt: Map<string, StepRow[]>,
+    dataByStep: Map<string, Map<string, string | null>>,
+  ): UsageView {
+    const views: AttemptView[] = attempts.map((a) => ({
+      ...a,
+      steps: (stepsByAttempt.get(a.id) ?? []).map((s) => ({
+        id: s.id, sequenceNumber: s.sequenceNumber, state: s.state, fraction: s.fraction,
+        data: Object.fromEntries(dataByStep.get(s.id) ?? []),
+      })),
+    }));
     return { usage, state: usageState(attempts.map((a) => a.state)), attempts: views };
+  }
+
+  /**
+   * Tổng điểm tối đa (tổng maxMark các attempt) của NHIỀU usage trong
+   * một truy vấn (DL-03, issue #489): các đường đọc điểm chỉ cần con
+   * số tổng này để quy điểm lượt về thang bài, không cần nạp cả cây
+   * usage — thay cho vòng lặp `getUsage` theo từng lượt trước đây.
+   * Usage không có attempt thì vắng mặt trong map (tổng coi như 0 ở
+   * phía caller, khớp `usageTotalMax` trên view rỗng).
+   */
+  async usageTotalMaxes(usageIds: string[]): Promise<Map<string, number>> {
+    const totals = new Map<string, number>();
+    const uniqueIds = [...new Set(usageIds)];
+    if (!uniqueIds.length) return totals;
+    const attempts = await this.repo.listAttemptsForUsages(uniqueIds);
+    for (const a of attempts) {
+      totals.set(a.questionUsageId, (totals.get(a.questionUsageId) ?? 0) + a.maxMark);
+    }
+    return totals;
   }
   /**
    * Lấy một attempt.

@@ -37,6 +37,36 @@ export class QuestionBanksRepository {
   async getBank(id: string): Promise<QuestionBankRow | undefined> {
     const [row] = await this.db.select().from(questionBanks).where(eq(questionBanks.id, id)); return row;
   }
+  /**
+   * Nhiều bank theo tập id trong một truy vấn (DL-04, issue #489):
+   * bản theo lô của `getBank` cho phép suy bank của nhiều category;
+   * thứ tự trả về không cam kết, caller tự tra theo id.
+   */
+  async getBanksByIds(ids: string[]): Promise<QuestionBankRow[]> {
+    if (!ids.length) return [];
+    return this.db.select().from(questionBanks).where(inArray(questionBanks.id, ids));
+  }
+  /**
+   * Bank trường của NHIỀU tenant trong một truy vấn (DL-04, issue
+   * #489): bản theo lô của `getSchoolBank` — cùng điều kiện lọc
+   * (scope school + tenant + loại món), caller lấy dòng đầu tiên theo
+   * từng tenant như đường đọc lẻ lấy dòng đầu tiên của truy vấn.
+   */
+  async listSchoolBanksByTenantIds(tenantIds: string[], kind: BankKind = 'question'): Promise<QuestionBankRow[]> {
+    if (!tenantIds.length) return [];
+    return this.db.select().from(questionBanks)
+      .where(and(eq(questionBanks.scope, 'school'), inArray(questionBanks.tenantId, tenantIds), eq(questionBanks.bankKind, kind)));
+  }
+  /**
+   * Bank theo (scope, scope_ref_id) cho NHIỀU đích trong một truy
+   * vấn (DL-04, issue #489): bản theo lô của `getBankByScopeRef`,
+   * dùng cho phép suy bank khoá từ context của nhiều category.
+   */
+  async listBanksByScopeRefs(scope: string, scopeRefIds: string[], kind: BankKind = 'question'): Promise<QuestionBankRow[]> {
+    if (!scopeRefIds.length) return [];
+    return this.db.select().from(questionBanks)
+      .where(and(eq(questionBanks.scope, scope), inArray(questionBanks.scopeRefId, scopeRefIds), eq(questionBanks.bankKind, kind)));
+  }
   /** Mọi bank (danh sách nhỏ — tầng service lọc theo quyền của từng actor). */
   async listBanks(): Promise<QuestionBankRow[]> {
     return this.db.select().from(questionBanks).orderBy(asc(questionBanks.createdAt), asc(questionBanks.id));

@@ -1,19 +1,28 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { AssignSubmissionSummary, AssignmentForUserView } from '@lms/contracts';
+import { useCallback, useState } from 'react';
+import type { AssignmentForUserView } from '@lms/contracts';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { assignmentSubmissionsQueryOptions, useReleaseSubmissionsBatch } from '#lib/assignment-data';
+import { queryKeys } from '#lib/query-keys';
 import { GradingPanel } from './grading-panel';
 
-/** Phía giáo viên: danh sách bài nộp cả lớp + trả bài theo đợt + mở bề mặt chấm từng em. */
+/**
+ * Phía giáo viên: danh sách bài nộp cả lớp + trả bài theo đợt + mở
+ * bề mặt chấm từng em. Danh sách bài nộp là dữ kiện máy chủ nên đọc
+ * trực tiếp từ cache TanStack qua `assignmentSubmissionsQueryOptions`
+ * (CN-13, issue #493) — các đột biến chấm/trả bài tự invalidate
+ * khoá này ở tầng dữ kiện; `loadSummaries` chỉ còn là lần nạp lại
+ * tường minh cho bề mặt chấm gọi sau mỗi hành động.
+ */
 export function TeacherPanel({ data }: { data: AssignmentForUserView }) {
   const { t } = useTranslation('app');
   const { assignment, rubric } = data;
-  const [summaries, setSummaries] = useState<AssignSubmissionSummary[]>([]);
+  const summariesQuery = useQuery(assignmentSubmissionsQueryOptions(assignment.id));
+  const summaries = summariesQuery.data ?? [];
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,13 +30,14 @@ export function TeacherPanel({ data }: { data: AssignmentForUserView }) {
   const queryClient = useQueryClient();
   const releaseBatchMutation = useReleaseSubmissionsBatch();
 
-  const loadSummaries = useCallback(async () => {
-    setSummaries(await queryClient.fetchQuery(assignmentSubmissionsQueryOptions(assignment.id)));
-  }, [assignment.id, queryClient]);
+  /** Lỗi nạp danh sách lần đầu (chưa từng có dữ kiện trong cache) — lỗi hành động vẫn qua state `error`. */
+  const loadError = summariesQuery.isError && !summariesQuery.data ? t('assignLoadFailed') : null;
+  const shownError = error ?? loadError;
 
-  useEffect(() => {
-    void loadSummaries().catch(() => setError(t('assignLoadFailed')));
-  }, [loadSummaries, t]);
+  /** Nạp lại danh sách bài nộp từ server (bề mặt chấm gọi sau mỗi hành động ghi). */
+  const loadSummaries = useCallback(async () => {
+    await queryClient.refetchQueries({ queryKey: queryKeys.assignmentSubmissions(assignment.id) });
+  }, [assignment.id, queryClient]);
 
   async function releaseBatch() {
     setBusy(true);
@@ -53,9 +63,9 @@ export function TeacherPanel({ data }: { data: AssignmentForUserView }) {
         <CardDescription>{t('assignSubmissionsHint')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error ? (
+        {shownError ? (
           <ErrorAlert variant="destructive">
-            {error}
+            {shownError}
           </ErrorAlert>
         ) : null}
         {data.canGrade ? (

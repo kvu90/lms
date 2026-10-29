@@ -1,8 +1,6 @@
 import { INestApplication } from '@nestjs/common';
-import { existsSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { v7 as uuidv7 } from 'uuid';
-import { FilesService } from '../../../src/modules/files/files.service';
 import {
   adminToken, assignRole, createContextViaApi, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId,
@@ -14,6 +12,9 @@ import {
  * test_create_file_from_string, test_get_file_by_hash, test_delete_area_files;
  * ngữ nghĩa dedup/refcount từ tài liệu nội bộ File API (báo cáo §3.8).
  * Lưu ý: contentHash của chúng ta là SHA-256 (quyết định của dự án, không tương thích cũ) trong khi Moodle dùng SHA-1.
+ * File này chỉ giữ bề mặt HTTP; các bất biến tầng lưu trữ đọc qua FilesService
+ * (refcount ở kho, file vật lý tại khoá nội dung, cleanupOrphan của đường worker)
+ * nằm ở test/integration/files/files-storage-invariants.int-spec.ts (issue #483).
  */
 describe('Files: content-addressed dedup, refcount cleanup, capability-checked serving', () => {
   let app: INestApplication;
@@ -44,32 +45,22 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
   });
   afterAll(async () => { await app.close(); });
 
-  it('uploading identical content twice stores ONE physical file behind TWO records', async () => {
+  it('tải nội dung trùng hai lần tạo hai bản ghi dùng chung một hàm băm nội dung', async () => {
     const a = await upload(uploaderToken, 'a.txt', CONTENT);
     const b = await upload(uploaderToken, 'b.txt', CONTENT);
     expect(a.id).not.toBe(b.id);
     expect(a.contentHash).toBe(b.contentHash);
     expect(a.contentHash).toHaveLength(64); // SHA-256 dạng hex
-    const service = app.get(FilesService);
-    expect(await service.refcount(a.contentHash)).toBe(2);
-    expect(existsSync(service.physicalKey(a.contentHash))).toBe(true);
-    expect(service.physicalKey(a.contentHash)).toContain(`/${a.contentHash.slice(0, 2)}/${a.contentHash.slice(2, 4)}/`);
   });
 
-  it('deleting one record keeps the physical file; deleting the last queues cleanup and the worker path removes it', async () => {
+  it('xoá bản ghi báo refcount chung trong đáp ứng: 1 sau lần xoá đầu, 0 sau lần xoá cuối', async () => {
     const a = await upload(uploaderToken, 'c.txt', `${CONTENT}-v2`);
     const b = await upload(uploaderToken, 'd.txt', `${CONTENT}-v2`);
-    const service = app.get(FilesService);
     const delA = await http(app).delete(`/api/v1/files/${a.id}`).set('Authorization', `Bearer ${uploaderToken}`);
     expect(delA.status).toBe(200);
     expect(delA.body.refcount).toBe(1);
-    expect(existsSync(service.physicalKey(a.contentHash))).toBe(true);
     const delB = await http(app).delete(`/api/v1/files/${b.id}`).set('Authorization', `Bearer ${uploaderToken}`);
     expect(delB.body.refcount).toBe(0);
-    // Bộ xử lý của worker chạy cùng thao tác facade mà API đã đưa vào hàng đợi.
-    const removed = await service.cleanupOrphan(a.contentHash);
-    expect(removed).toBe(true);
-    expect(existsSync(service.physicalKey(a.contentHash))).toBe(false);
   });
 
   it('serves content to a user with the file-context capability via signed URL and guarded stream', async () => {

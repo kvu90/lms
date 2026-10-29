@@ -1,4 +1,5 @@
-import { BullModule } from '@nestjs/bullmq';
+import { BullModule, getQueueToken } from '@nestjs/bullmq';
+import type { Queue } from 'bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { DrizzleModule } from '@nestjs/drizzle';
@@ -17,8 +18,16 @@ import { NotificationRetentionScheduler } from './notification-retention.schedul
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { GuardianDigestScheduler } from './guardian-digest.scheduler';
 import { GuardianDigestProcessor } from './processors/guardian-digest.processor';
+import { GuardianDigestEventsProcessor } from './processors/guardian-digest-events.processor';
+import { GuardianDigestHandlerService } from './guardian-digest-handler.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
+import {
+  OUTBOX_EVENT_QUEUE_ROUTES,
+  OUTBOX_EVENT_QUEUES,
+  OUTBOX_EVENT_ROUTES,
+  type OutboxEventQueues,
+} from './outbox-event-routes';
 import { TaskLogService } from './task-log.service';
 import { BadgeAwardProcessor } from './processors/badge-award.processor';
 import { CalendarImportProcessor } from './processors/calendar-import.processor';
@@ -36,6 +45,17 @@ import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
 } from './processors/platform-services.processors';
+
+/**
+ * Tên các hàng đợi phát sự kiện outbox, suy ra từ bảng định tuyến
+ * {@link OUTBOX_EVENT_QUEUE_ROUTES}: mỗi loại sự kiện đã định tuyến
+ * đóng góp hàng đợi của nó một lần. Đăng ký hàng đợi và bản đồ hàng
+ * đợi cấp cho relay đều suy ra từ danh sách này nên hai nơi không
+ * thể lệch nhau khi bảng định tuyến được mở rộng.
+ */
+const outboxRouteQueueNames: string[] = [
+  ...new Set(Object.values(OUTBOX_EVENT_QUEUE_ROUTES)),
+];
 
 @Module({
   imports: [
@@ -101,8 +121,23 @@ import {
     BullModule.registerQueue({ name: 'report-schedule' }),
     BullModule.registerQueue({ name: 'privacy' }),
     BullModule.registerQueue({ name: 'payment-reconciliation' }),
+    // Hàng đợi phát sự kiện outbox của relay duy nhất: một đăng ký
+    // cho mỗi hàng đợi có mặt trong bảng định tuyến phát job.
+    ...outboxRouteQueueNames.map((name) => BullModule.registerQueue({ name })),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
   ],
-  providers: [FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
+  providers: [
+    // Đường phát job của relay outbox duy nhất: bảng định tuyến và
+    // bản đồ hàng đợi tra theo tên, cả hai suy ra từ
+    // OUTBOX_EVENT_QUEUE_ROUTES để nơi đăng ký và nơi tiêu thụ dùng
+    // chung một nguồn.
+    { provide: OUTBOX_EVENT_ROUTES, useValue: OUTBOX_EVENT_QUEUE_ROUTES },
+    {
+      provide: OUTBOX_EVENT_QUEUES,
+      inject: outboxRouteQueueNames.map((name) => getQueueToken(name)),
+      useFactory: (...queues: Queue[]): OutboxEventQueues =>
+        new Map(outboxRouteQueueNames.map((name, index) => [name, queues[index]!] as const)),
+    },
+    FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, GuardianDigestEventsProcessor, GuardianDigestHandlerService, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
 export class WorkerModule {}

@@ -1,23 +1,24 @@
 /**
  * Hook điều phối tìm trong hội thoại của trang Tin nhắn (đợt C của
- * issue #223, lát 2): sở hữu trạng thái một lượt tìm, tin đang tô
- * sáng và handle cuộn, cùng các thao tác nhảy tới tin và chạy/xoá
- * lượt tìm. Di chuyển từ `pages/messages.tsx` (dòng 279–293 và
- * khoảng 1.100–1.142), giữ nguyên cơ chế: tin đích đang có thì cuộn
- * ngay + tô sáng tạm; chưa tải thì xin cửa sổ quanh vị trí của nó
- * bằng đúng cơ chế phân trang hiện có rồi mới cuộn; tin đích không
- * còn hiển thị được thì dừng êm.
+ * issue #223, lát 2; chuyển sang cache TanStack ở CN-13, issue
+ * #493): một lượt tìm là một ĐĂNG KÝ trên cache — state cục bộ chỉ
+ * giữ (conversation, từ khoá) đã gửi, kết quả/trạng thái tải/lỗi
+ * đều đọc từ query tương ứng trong cache; nhảy tới tin dùng đường
+ * nạp trang của hook hội thoại đang mở (trang về cache rồi cửa sổ
+ * hiển thị tự suy ra). Giữ nguyên cơ chế: tin đích đang có thì
+ * cuộn ngay + tô sáng tạm; chưa tải thì xin cửa sổ quanh vị trí
+ * của nó bằng đúng cơ chế phân trang hiện có rồi mới cuộn; tin
+ * đích không còn hiển thị được thì dừng êm.
  *
  * @param params - `active` là conversation đang mở; `messages` là
- * cửa sổ tin hiện tại; `setMessages`/`setHasMoreBefore` để gộp cửa
- * sổ tải thêm; `activeRef` để bỏ kết quả cũ khi đã chuyển
- * conversation trong lúc chờ.
+ * cửa sổ tin hiện tại; `ensurePageLoaded` nạp một cửa sổ theo mốc
+ * seq vào cache khi nhảy tới tin chưa có.
  * @returns Trạng thái tìm kiếm và handler cho trang lắp ghép.
  */
 import { useRef, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { conversationMessagesPageQueryOptions, messageSearchQueryOptions } from '#lib/messaging-data';
-import { mergeMessages } from './utils';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { messageSearchQueryOptions } from '#lib/messaging-data';
+import { queryKeys } from '#lib/query-keys';
 import type { ConversationView, MessageQuoteView, MessageSearchResultView, MessageView, ScrollerHandle } from './types';
 
 export interface UseMessageSearchParams {
@@ -25,35 +26,45 @@ export interface UseMessageSearchParams {
   active: ConversationView | null;
   /** Cửa sổ tin hiện tại của conversation đang mở. */
   messages: MessageView[];
-  /** Ghi cửa sổ tin (gộp cửa sổ tải thêm khi nhảy tới tin chưa có). */
-  setMessages: (messages: MessageView[] | ((prev: MessageView[]) => MessageView[])) => void;
-  /** Ghi cờ còn tin cũ hơn phía trước. */
-  setHasMoreBefore: (value: boolean) => void;
-  /** Ref conversation đang mở — đọc mới nhất để bỏ kết quả tìm đã cũ. */
-  activeRef: { current: ConversationView | null };
+  /** Nạp một cửa sổ tin theo mốc beforeSeq vào cache (của hook hội thoại đang mở). */
+  ensurePageLoaded: (beforeSeq: number) => Promise<{ messages: MessageView[]; hasMoreBefore: boolean } | null>;
 }
 
-export function useMessageSearch({
-  active,
-  messages,
-  setMessages,
-  setHasMoreBefore,
-  activeRef,
-}: UseMessageSearchParams) {
+/** Trạng thái trống của một lượt tìm (chưa gửi hoặc đã xoá). */
+const EMPTY_SEARCH: {
+  query: string;
+  results: MessageSearchResultView[];
+  loading: boolean;
+  failed: boolean;
+  submitted: boolean;
+} = { query: '', results: [], loading: false, failed: false, submitted: false };
+
+export function useMessageSearch({ active, messages, ensurePageLoaded }: UseMessageSearchParams) {
   const queryClient = useQueryClient();
   /**
    * Tìm nội dung tin trong conversation đang mở (lát M4, issue
-   * #237): trạng thái của MỘT lượt tìm — từ khoá đã gửi, kết quả
-   * server trả (chỉ tin còn hiển thị được với mình), cờ đang tải và
-   * cờ lỗi. Đổi conversation là xoá trắng (xử lý ở `open`).
+   * #237): state chỉ giữ (conversation, từ khoá) của lượt tìm đã
+   * gửi — kết quả server trả (chỉ tin còn hiển thị được với mình),
+   * cờ đang tải và cờ lỗi đọc từ query trong cache. Đổi
+   * conversation là xoá trắng (xử lý ở `open`); kết quả của
+   * conversation khác với conversation đang mở không bao giờ hiện
+   * (điều kiện suy ra ở dưới).
    */
-  const [messageSearch, setMessageSearch] = useState<{
-    query: string;
-    results: MessageSearchResultView[];
-    loading: boolean;
-    failed: boolean;
-    submitted: boolean;
-  }>({ query: '', results: [], loading: false, failed: false, submitted: false });
+  const [submitted, setSubmitted] = useState<{ conversationId: string; q: string } | null>(null);
+  const searchQuery = useQuery({
+    ...messageSearchQueryOptions(submitted?.conversationId ?? '', submitted?.q ?? ''),
+    enabled: !!submitted,
+  });
+  const messageSearch =
+    submitted && active && submitted.conversationId === active.id
+      ? {
+          query: submitted.q,
+          results: searchQuery.data?.results ?? [],
+          loading: searchQuery.isFetching,
+          failed: searchQuery.isError,
+          submitted: true,
+        }
+      : EMPTY_SEARCH;
   /** Tin gốc vừa được nhảy tới từ một khối trích dẫn — tô sáng tạm để mắt bắt được vị trí. */
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   /** Handle cuộn của MessageScroller (component con trong ChatPanel giữ vào đây). */
@@ -64,7 +75,7 @@ export function useMessageSearch({
    * trích dẫn) và lát M4 (kết quả tìm): tin đang có trong danh sách
    * thì cuộn ngay + tô sáng tạm; chưa tải thì xin cửa sổ quanh vị trí
    * của nó bằng ĐÚNG cơ chế phân trang hiện có (beforeSeq = seq + 1
-   * → cửa sổ kết thúc tại tin đích), gộp vào danh sách rồi mới cuộn.
+   * → cửa sổ kết thúc tại tin đích), nạp vào cache rồi mới cuộn.
    * Tin đích không còn hiển thị được với mình (đã xoá-phía-mình...)
    * thì cửa sổ tải về không chứa nó — dừng êm, không báo lỗi.
    */
@@ -90,10 +101,8 @@ export function useMessageSearch({
       return;
     }
     try {
-      const page = await queryClient.fetchQuery(conversationMessagesPageQueryOptions(active.id, seq + 1));
-      setMessages((prev) => mergeMessages(page.messages, prev));
-      if (page.hasMoreBefore) setHasMoreBefore(true);
-      if (page.messages.some((m) => m.id === messageId)) scrollAndHighlight();
+      const page = await ensurePageLoaded(seq + 1);
+      if (page && page.messages.some((m) => m.id === messageId)) scrollAndHighlight();
     } catch {
       // Giữ nguyên khung hiện tại; người dùng vẫn đọc tiếp được.
     }
@@ -108,31 +117,26 @@ export function useMessageSearch({
    * Chạy một lượt tìm nội dung trong conversation đang mở (lát M4):
    * server là nơi thực thi luật tầm nhìn — client chỉ mang từ khoá
    * và hiển thị kết quả. Từ khoá toàn khoảng trắng thì xoá kết quả
-   * êm (không bắn request chắc chắn bị 400).
+   * êm (không bắn request chắc chắn bị 400). Gửi lại đúng từ khoá
+   * đang có thì nạp lại query trong cache để kết quả luôn tươi.
    */
   async function runMessageSearch(rawQuery: string) {
     if (!active) return;
-    const conversationId = active.id;
     const q = rawQuery.trim();
     if (!q) {
-      setMessageSearch({ query: '', results: [], loading: false, failed: false, submitted: false });
+      setSubmitted(null);
       return;
     }
-    setMessageSearch({ query: q, results: [], loading: true, failed: false, submitted: true });
-    try {
-      const res = await queryClient.fetchQuery(messageSearchQueryOptions(conversationId, q));
-      // Người dùng đã chuyển conversation trong lúc chờ: bỏ kết quả cũ.
-      if (activeRef.current?.id !== conversationId) return;
-      setMessageSearch({ query: q, results: res.results, loading: false, failed: false, submitted: true });
-    } catch {
-      if (activeRef.current?.id !== conversationId) return;
-      setMessageSearch({ query: q, results: [], loading: false, failed: true, submitted: true });
+    if (submitted && submitted.conversationId === active.id && submitted.q === q) {
+      await queryClient.refetchQueries({ queryKey: queryKeys.messagingSearch(active.id, q) });
+      return;
     }
+    setSubmitted({ conversationId: active.id, q });
   }
 
   /** Xoá lượt tìm hiện tại (lát M4) — khung tin trở về nguyên trạng. */
   function clearMessageSearch() {
-    setMessageSearch({ query: '', results: [], loading: false, failed: false, submitted: false });
+    setSubmitted(null);
   }
 
   return {

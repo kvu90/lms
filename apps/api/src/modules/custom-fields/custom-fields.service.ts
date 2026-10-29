@@ -131,4 +131,30 @@ export class CustomFieldsService {
     const data = await this.repo.getDataForInstance(fields.map((f) => f.id), instanceId);
     return fields.map((field) => ({ field, value: data.find((d) => d.fieldId === field.id)?.value ?? null }));
   }
+
+  /**
+   * Đọc giá trị field của NHIỀU instance trong một lượt nạp (DL-07,
+   * issue #489): bản theo lô của `getValuesForInstance` — danh sách
+   * field của (component, area) nạp một lần, dữ liệu của mọi instance
+   * nạp một truy vấn, rồi lắp cho từng instance đúng thứ tự field và
+   * luật "không có dòng dữ liệu thì null" của đường lẻ.
+   */
+  async getValuesForInstances(
+    component: string, area: string, instanceIds: string[],
+  ): Promise<Map<string, { field: FieldRow; value: string | null }[]>> {
+    const fields = await this.listFields(component, area);
+    const data = await this.repo.getDataForInstances(fields.map((f) => f.id), instanceIds);
+    const valueByInstanceField = new Map<string, string | null>();
+    for (const d of data) {
+      const key = `${d.instanceId}:${d.fieldId}`;
+      if (!valueByInstanceField.has(key)) valueByInstanceField.set(key, d.value);
+    }
+    const result = new Map<string, { field: FieldRow; value: string | null }[]>();
+    for (const instanceId of instanceIds) {
+      result.set(instanceId, fields.map((field) => ({
+        field, value: valueByInstanceField.get(`${instanceId}:${field.id}`) ?? null,
+      })));
+    }
+    return result;
+  }
 }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { Database } from '../../db/database';
 import { customFieldCategory, customFieldData, customFieldField } from '../../db/schema';
 
@@ -82,5 +82,16 @@ export class CustomFieldsRepository {
     if (fieldIds.length === 0) return [];
     return this.db.select().from(customFieldData)
       .where(and(eq(customFieldData.instanceId, instanceId)));
+  }
+  /**
+   * Dữ liệu của NHIỀU instance trong một truy vấn (DL-07, issue
+   * #489): bản theo lô của `getDataForInstance` — cùng điều kiện lọc
+   * hiệu dụng của đường lẻ (mọi dòng dữ liệu của các instance; tập
+   * field do tầng service đối chiếu khi lắp giá trị).
+   */
+  async getDataForInstances(fieldIds: string[], instanceIds: string[]): Promise<DataRow[]> {
+    if (fieldIds.length === 0 || instanceIds.length === 0) return [];
+    return this.db.select().from(customFieldData)
+      .where(inArray(customFieldData.instanceId, instanceIds));
   }
 }
