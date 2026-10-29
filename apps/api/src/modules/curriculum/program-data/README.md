@@ -651,3 +651,307 @@ subjects=19, curricula=146, curriculum_nodes=3637,
 learning_outcomes=7398, curriculum_program_records=2115; tổng số
 dòng YCCĐ trong dump là 7.398, gồm 3 dòng đã rút của các đợt trước
 giữ nguyên).
+
+## Đợt khôi phục ngày 29/10/2026 — đợt 1: khôi phục ý thiếu và tách đóng gói các môn mức A (issue #480)
+
+Đợt này là đợt 1 của đợt đối chiếu nguồn toàn bộ 21 dataset: khôi
+phục các ý gạch ngang còn thiếu và tách các YCCĐ đóng gói ở 10
+dataset có văn bản nguồn chính chủ mức A (Lịch sử, Lịch sử và Địa
+lí THCS, Công nghệ, Địa lí, Sinh học, Toán, Khoa học tự nhiên,
+Lịch sử và Địa lí tiểu học, Khoa học, Tin học). Luật hạt giữ
+nguyên như đợt #391: mỗi dấu gạch ngang trong văn bản nguồn là một
+YCCĐ riêng; dấu "+" là ý con nằm trong YCCĐ cha; không gộp, không
+tách một ý thành nhiều YCCĐ. Mọi ý khôi phục chép nguyên văn từ văn
+bản nguồn chính chủ (kèm số trang ở từng mục), không diễn giải lại.
+
+Bốn yêu cầu kỹ thuật áp dụng cho đợt này:
+
+1. Phần chuyên đề THPT của môn Công nghệ thuộc phạm vi dataset:
+   khôi phục toàn bộ 18 chuyên đề (74 ý) như các môn khác.
+2. 14 hàng "Thực hành trong phòng máy tính với phần mềm toán học"
+   của Toán: mỗi hàng dựng một bản ghi riêng, không gắn vào bản
+   ghi kề.
+3. Khối mất hẳn (không có bản ghi nào): dựng bản ghi mới; mã bản
+   ghi nối tiếp sau mã lớn nhất hiện có của chính môn đó; vị trí
+   của bản ghi trong thứ tự chương trình đặt đúng vị trí của khối
+   trong văn bản nguồn. Nguyên tắc này áp dụng thống nhất mọi môn.
+4. Thứ tự các đợt là 1 → 2 → 3; đợt này chỉ làm đợt 1. Các ca sửa
+   nguyên văn/nhãn thuộc đợt 2 và các môn mức B thuộc đợt 3 không
+   nằm trong đợt này.
+
+Cơ chế định danh khi nạp bằng importer giữ nguyên các đợt trước:
+ý trùng nguyên văn một dòng đã rút thì hồi sinh giữ ID; ý mới nhận
+ID uuidv7 do cơ sở dữ liệu cấp; ý đầu của một YCCĐ đóng gói được
+tách giữ ID của dòng đóng gói.
+
+Số liệu xuất phát (đếm lại tại main trước khi sửa): tổng 2.115 bản
+ghi, 7.395 dòng YCCĐ hiện hành. Số liệu đích và kết quả từng môn ở
+các mục dưới đây; tổng sau đợt ở bảng cuối mục.
+
+### Lịch sử — 98 bản ghi / 347 ý → 110 bản ghi / 403 ý (+12 bản ghi, +56 ý)
+
+- Hiện trạng: thiếu 56 ý ở Lớp 10, 11, 12; trong đó 12 khối nội
+  dung vắng mặt hoàn toàn khỏi dataset (không có bản ghi nào chứa
+  ý của khối), phần còn lại là các ý đầu khối bị rơi khi trích xuất
+  ở các bản ghi hiện có.
+- Đính chính: dựng 12 bản ghi mới LS-0099 đến LS-0110 (mã nối tiếp
+  sau mã lớn nhất LS-0098 theo yêu cầu 3), mỗi bản ghi đặt đúng vị
+  trí khối trong thứ tự nguồn:
+  - LS-0099 (sau LS-0003, Lớp 10, tr. 13): khối đầu chuyên đề về sử
+    học với công tác bảo tồn di sản, 2 ý.
+  - LS-0100 (sau LS-0015, Lớp 10, tr. 21): chủ đề con Văn minh Đại
+    Việt, 5 ý.
+  - LS-0101 (sau LS-0023, tr. 26–27): khối "Bảo tồn và phát huy giá
+    trị di sản văn hoá", 3 ý — chính là khối mang dấu vết đã ghi ở
+    đợt #391; ý thứ ba của khối chứa trọn mảnh chữ từng bị loại
+    khỏi LS-0024 ("…văn hoá trong quá trình phát triển bền vững
+    của đất nước."), nay trở về đúng vị trí nguồn.
+  - LS-0102 (sau LS-0024, tr. 27): khối di sản văn hoá phi vật thể,
+    2 ý.
+  - LS-0103 (sau LS-0047, Lớp 11, tr. 41–42): hàng cải cách nhà Hồ,
+    2 ý — khối mang dấu vết đã ghi ở đợt #391; ý thứ hai chứa trọn
+    mảnh chữ từng bị loại khỏi LS-0048.
+  - LS-0104 (trước LS-0031, Lớp 11, tr. 32): 4 ý. LS-0105 (trước
+    LS-0046, Lớp 11, tr. 40): 6 ý. LS-0106 (sau LS-0049, Lớp 11,
+    tr. 43): 4 ý. LS-0107 (sau LS-0053, Lớp 11, tr. 45): 2 ý.
+    LS-0108 (sau LS-0067, Lớp 12, tr. 53): 4 ý. LS-0109 (sau
+    LS-0081, Lớp 12, tr. 61): 1 ý. LS-0110 (sau LS-0084, Lớp 12,
+    tr. 64): 1 ý.
+  - Bổ sung ý đầu khối vào 11 bản ghi hiện có: LS-0030 (+1), LS-0034
+    (+2), LS-0036 (+3), LS-0049 (+3, khối khái quát Biển Đông — nội
+    dung của LS-0049 bắt đầu từ phần đuôi của tiểu mục này nên các
+    ý thuộc về đầu bản ghi), LS-0064 (+2), LS-0065 (+1), LS-0074
+    (+3), LS-0075 (+2), LS-0077 (+1), LS-0083 (+2).
+- Importer: created=12, updated=10, retiredOutcomes=0;
+  changeCounts: added=56, moved=46, còn lại 0.
+- Kết quả: 110 bản ghi, 403 dòng YCCĐ hiện hành.
+
+### Lịch sử và Địa lí THCS — 63 bản ghi / 328 ý → 64 bản ghi / 398 ý (+1 bản ghi, +70 ý)
+
+- Hiện trạng: thiếu 66 ý đầu khối rải ở 19 bản ghi (ý đầu của các
+  khối bị rơi khi trích xuất); LSDL-0026 đóng gói hai ý gạch ngang
+  thành một YCCĐ; toàn bộ khối cuối chương trình Lớp 9 "Bảo vệ chủ
+  quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông"
+  vắng mặt.
+- Đính chính: bổ sung ý đầu khối vào 19 bản ghi (LSDL-0001 +2,
+  0006 +2, 0009 +4, 0011 +8, 0013 +1, 0015 +2, 0021 +6, 0030 +2,
+  0033 +2, 0036 +7, 0037 +5, 0039 +5, 0044 +2, 0048 +4, 0050 +2,
+  0052 +1, 0055 +2, 0056 +4, 0057 +5). Tách LSDL-0026: YCCĐ vị trí
+  4 đang chứa hai ý nối nhau — "Giới thiệu được sự phát triển văn
+  hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ."
+  và "Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá
+  ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI." — tách
+  thành hai YCCĐ riêng theo đúng thứ tự nguồn; ý đầu giữ ID dòng
+  đóng gói. Dựng bản ghi mới LSDL-0064 đặt cuối chương trình (sau
+  LSDL-0063) cho khối Biển Đông Lớp 9 (văn bản nguồn tr. 51–52),
+  gồm 3 ý, `kind` là requirement theo khuôn các bản ghi cùng khối.
+- Importer: created=1, updated=20, retiredOutcomes=0;
+  changeCounts: added=70, textChanged=1 (ý đầu của ca tách sửa chữ
+  tại chỗ), moved=77, còn lại 0.
+- Kết quả: 64 bản ghi, 398 dòng YCCĐ hiện hành.
+
+### Công nghệ — 103 bản ghi / 456 ý → 121 bản ghi / 530 ý (+18 bản ghi, +74 ý)
+
+- Hiện trạng: toàn bộ phần chuyên đề THPT (6 hướng: Công nghệ lớp
+  10, Cơ khí lớp 11, Điện lớp 12, Trồng trọt lớp 10, Chăn nuôi lớp
+  11, Lâm nghiệp – Thuỷ sản lớp 12; mỗi hướng 3 chuyên đề) vắng mặt
+  khỏi dataset.
+- Đính chính: theo yêu cầu 1, dựng 18 bản ghi mới CN-0104 đến
+  CN-0121, mỗi chuyên đề một bản ghi, đặt sau bản ghi cuối của
+  hướng tương ứng (sau CN-0063, CN-0070, CN-0079, CN-0087, CN-0093,
+  CN-0103). Bảng chuyên đề trong văn bản nguồn chỉ có hai cột (tên
+  chuyên đề, yêu cầu cần đạt) nên trường `section` của bản ghi
+  mang chính tên chuyên đề nguyên văn; `topic` để trống, `kind` là
+  content như các bản ghi nội dung khác. 74 ý chép nguyên văn
+  (kể cả lỗi chính tả có sẵn trong nguồn ở chuyên đề STEM lớp 10:
+  "Tóm tắt một được một số vấn đề cơ bản về STEM, nghề nghiệp
+  STEM." — giữ nguyên văn theo quy tắc chép nguyên văn).
+- Importer: created=18, updated=0, retiredOutcomes=0;
+  changeCounts: added=74, còn lại 0.
+- Kết quả: 121 bản ghi, 530 dòng YCCĐ hiện hành.
+
+### Địa lí — 62 bản ghi / 266 ý → 63 bản ghi / 308 ý (+1 bản ghi, +42 ý)
+
+- Hiện trạng: thiếu 38 ý đầu khối ở 10 bản ghi; 2 ý của khối Trung
+  du và miền núi Bắc Bộ bị rơi giữa bản ghi DL-0051; khối thực hành
+  cuối chương trình Lớp 12 vắng mặt (văn bản của khối đang bị giữ
+  nhầm trong trường nội dung của DL-0059).
+- Đính chính: bổ sung ý đầu khối vào DL-0002 (+1 — DL-0001 là bản
+  ghi tiêu đề 0 ý, các ý của khối nằm ở DL-0002), DL-0007 (+4),
+  DL-0011 (+1), DL-0014 (+12: 8 ý Nông nghiệp và 4 ý Công nghiệp
+  đầu khối; ý duy nhất của DL-0013 thuộc khối cơ cấu đứng trước,
+  giữ nguyên), DL-0017 (+4), DL-0027 (+2), DL-0040 (+2), DL-0042
+  (+1), DL-0047 (+5), DL-0059 (+4). Chèn 2 ý Trung du và miền núi
+  Bắc Bộ vào DL-0051 tại vị trí 2 (ngay sau ý khái quát của bản
+  ghi, đúng thứ tự nguồn). Dựng bản ghi mới DL-0064 đặt sau DL-0059
+  cho khối "Thực hành tìm hiểu Địa lí địa phương" (tr. 38), 4 ý.
+  Mã DL-0064 là mã nối tiếp sau mã lớn nhất hiện có (DL-0063) theo
+  yêu cầu 3; dãy mã của môn đang khuyết DL-0061 — đợt này không
+  lấp mã khuyết, chỉ ghi nhận tại đây.
+- Importer: created=1, updated=11, retiredOutcomes=0;
+  changeCounts: added=42, moved=55, còn lại 0.
+- Kết quả: 63 bản ghi, 308 dòng YCCĐ hiện hành.
+
+### Sinh học — 133 bản ghi / 407 ý → 133 bản ghi / 433 ý (+26 ý, +2 ý con)
+
+- Hiện trạng: thiếu 26 ý đầu khối ở 6 bản ghi; hai YCCĐ cha thiếu
+  ý con trong danh sách "+" của chúng (SH-0126 thiếu ý con đầu
+  danh sách, SH-0127 thiếu ý con cuối danh sách và một câu thực
+  hành in nối tiếp không mang dấu "+" trong văn bản nguồn).
+- Đính chính: bổ sung ý đầu khối vào SH-0008 (+12), SH-0108 (+1),
+  SH-0116 (+4), SH-0124 (+2), SH-0125 (+1), SH-0129 (+6). SH-0126:
+  chèn ý con "Trình bày được khái niệm chuỗi thức ăn, các loại
+  chuỗi thức ăn, lưới thức ăn, bậc dinh dưỡng. Vẽ được sơ đồ chuỗi
+  và lưới thức ăn trong quần xã." vào đầu danh sách ý con của YCCĐ
+  vị trí 2. SH-0127: thêm ý con "Nêu được một số hiện tượng ảnh
+  hưởng đến hệ sinh thái như: sự ấm lên toàn cầu; sự phì dưỡng; sa
+  mạc hoá. Giải thích được vì sao các hiện tượng đó vừa tác động
+  đến hệ sinh thái, vừa là nguyên nhân của sự mất cân bằng của hệ
+  sinh thái." vào cuối danh sách ý con của YCCĐ vị trí 2, và thêm
+  đoạn tiếp nối "Thực hành: Thiết kế được một bể nuôi cá cảnh vận
+  dụng hiểu biết hệ sinh thái hoặc thiết kế được hệ sinh thái thuỷ
+  sinh, hệ sinh thái trên cạn." thành một đoạn văn bản riêng trong
+  cùng YCCĐ (văn bản nguồn in câu này nối tiếp không mang dấu "+"
+  nên không đặt vào danh sách ý con). Khai bổ sung trang nguồn:
+  SH-0116 tr. 46–47, SH-0129 tr. 53–54.
+- Importer: created=0, updated=8, retiredOutcomes=0;
+  changeCounts: added=26, textChanged=2 (hai YCCĐ cha nhận thêm ý
+  con sửa tại chỗ), moved=38, còn lại 0.
+- Kết quả: 133 bản ghi, 433 dòng YCCĐ hiện hành.
+
+### Toán — 300 bản ghi / 852 ý → 314 bản ghi / 900 ý (+14 bản ghi, +48 ý, 4 ca bổ đuôi)
+
+- Hiện trạng: 17 hàng "Thực hành trong phòng máy tính với phần mềm
+  toán học" (tr. 52, 54, 60, 62, 68, 69, 76, 77, 81, 84, 86, 96,
+  101, 102, 107, 109, 111 của văn bản nguồn) — 3 hàng đã có bản ghi
+  nhưng bản ghi mang ý trong trường nội dung và có 0 YCCĐ
+  (TOAN-0171 tr. 69–70, TOAN-0197 tr. 77–78, TOAN-0289 tr. 111),
+  14 hàng chưa có bản ghi; 5 ý rơi tại ranh trang thuộc hai bản ghi
+  hiện có; 4 ý bị cắt mất phần đuôi tại ranh trang.
+- Đính chính: theo yêu cầu 2, dựng 14 bản ghi mới TOAN-0301 đến
+  TOAN-0314 cho 14 hàng chưa có bản ghi, mỗi bản ghi đặt ngay sau
+  bản ghi đứng trước hàng trong thứ tự nguồn (lần lượt sau
+  TOAN-0116, 0122, 0142, 0148, 0166, 0192, 0209, 0217, 0224,
+  0250, 0261, 0264, 0280, 0284), mang nguyên văn tiêu đề hàng làm
+  nội dung và chép nguyên văn 36 ý của 14 hàng. Ba bản ghi đã có
+  được bổ sung YCCĐ nguyên văn từ văn bản nguồn (đối chiếu lại
+  trang nguồn, không chép từ trường nội dung): TOAN-0171 nhận 3 ý,
+  TOAN-0197 nhận 2 ý, TOAN-0289 nhận 2 ý (bản ghi TOAN-0288 mang
+  tiêu đề hàng giữ nguyên). Bổ sung 5 ý ranh trang: TOAN-0273 (+3,
+  khối vẽ kĩ thuật), TOAN-0296 (+1), TOAN-0299 (+1). Bổ đuôi 4 ý bị
+  cắt, thay chữ tại chỗ giữ nguyên vị trí và ID dòng: TOAN-0085 ý 3
+  thành "Nhận biết được tỉ lệ bản đồ. Vận dụng được tỉ lệ bản đồ
+  để giải quyết một số tình huống thực tiễn."; TOAN-0208 ý 3 thành
+  "Vận dụng được bất phương trình bậc hai một ẩn vào giải quyết
+  bài toán thực tiễn (ví dụ: xác định chiều cao tối đa để xe có
+  thể qua hầm có hình dạng Parabola,...)."; TOAN-0233 ý 2 thành
+  "Vận dụng cách giải hệ phương trình bậc nhất ba ẩn để giải quyết
+  một số vấn đề thực tiễn cuộc sống (ví dụ: bài toán lập kế hoạch
+  sản xuất, mô hình cân bằng thị trường, phân bố vốn đầu tư,...).";
+  TOAN-0299 ý 6 thành "Nhận biết được kết quả của việc trả các
+  khoản tiền nợ đúng thời hạn, bao gồm hồ sơ tín dụng và giá trị
+  tín dụng.". Khai bổ sung trang nguồn: TOAN-0085 tr. 42–43,
+  TOAN-0208 tr. 80–81, TOAN-0233 tr. 88–89, TOAN-0273 tr. 104–105,
+  TOAN-0296 tr. 112–113, TOAN-0299 tr. 113–114.
+- Importer: created=14, updated=9, retiredOutcomes=3 (là 3 dòng
+  TOAN-0006 đã rút từ đợt 27/10/2026 được importer kiểm lại, không
+  phải dòng rút mới của đợt này); changeCounts: added=48,
+  textChanged=4 (bốn ca bổ đuôi), removed=0, moved=0, revived=0,
+  shiftSuspected=0.
+- Kết quả: 314 bản ghi, 900 dòng YCCĐ hiện hành.
+
+### Khoa học tự nhiên — 130 bản ghi / 589 ý → 131 bản ghi / 596 ý (+1 bản ghi, +7 ý, +8 ý con)
+
+- Hiện trạng: khối mở đầu đầu tiên của Lớp 6 (phần Giới thiệu về
+  Khoa học tự nhiên, tr. 22) vắng mặt — bản ghi đầu hiện có
+  (KHTN-0001) bắt đầu từ nội dung tiếp theo; bản ghi KHTN-0039
+  thiếu toàn bộ khối Trao đổi nước (3 ý, ý thứ ba mang 8 ý con)
+  nằm giữa ý vị trí 3 và ý vị trí 4 của bản ghi.
+- Đính chính: dựng bản ghi mới KHTN-0131 đặt trước KHTN-0001, 4 ý
+  nguyên văn tr. 22. Chèn vào KHTN-0039 tại vị trí 4: ý "Nêu được
+  vai trò của nước và các chất dinh dưỡng đối với cơ thể sinh
+  vật.", ý "Dựa vào sơ đồ (hoặc mô hình) nêu được thành phần hoá
+  học và cấu trúc, tính chất của nước.", và YCCĐ cha "Mô tả được
+  quá trình trao đổi nước và các chất dinh dưỡng, lấy được ví dụ ở
+  thực vật và động vật, cụ thể:" mang đủ 8 ý con nguyên văn.
+- Importer: created=1, updated=1, retiredOutcomes=0;
+  changeCounts: added=7, moved=2, còn lại 0.
+- Kết quả: 131 bản ghi, 596 dòng YCCĐ hiện hành.
+
+### Lịch sử và Địa lí tiểu học — 47 bản ghi / 162 ý → 49 bản ghi / 171 ý (+2 bản ghi, +9 ý)
+
+- Hiện trạng: bản ghi LSDL-0047 (văn minh Hy Lạp) thiếu 2 ý đuôi
+  khối tại tr. 24; toàn bộ chủ đề cuối chương trình Lớp 5 "Chung
+  Tay Xây Dựng Thế Giới" (hai chủ đề con, tr. 24) vắng mặt.
+- Đính chính: bổ sung 2 ý đuôi vào LSDL-0047 và khai bổ sung trang
+  nguồn tr. 23–24. Dựng hai bản ghi mới đặt sau LSDL-0047:
+  LSDL-0048 (chủ đề con "Xây dựng thế giới xanh - sạch - đẹp",
+  4 ý) và LSDL-0049 (chủ đề con "Xây dựng thế giới hoà bình", 3 ý),
+  mã nối tiếp theo yêu cầu 3.
+- Importer: created=2, updated=1, retiredOutcomes=0;
+  changeCounts: added=9, còn lại 0.
+- Kết quả: 49 bản ghi, 171 dòng YCCĐ hiện hành.
+
+### Khoa học — 32 bản ghi / 107 ý → 32 bản ghi / 115 ý (+9 ý, ròng +8 dòng)
+
+- Hiện trạng: thiếu ý đầu khối ở KH-0001 (1 ý), KH-0003 (4 ý),
+  KH-0005 (2 ý); bản ghi KH-0002 thiếu ý "thành phần chính của
+  không khí" đứng đầu khối và YCCĐ "Quan sát và (hoặc) làm thí
+  nghiệm để:" đang mất phần cha — chỉ còn một tài liệu chứa 3 ý
+  con cuối của danh sách, thiếu hai ý con đầu ("Nhận biết được sự
+  có mặt của không khí." và "Xác định được một số tính chất của
+  không khí.").
+- Đính chính: bổ sung ý đầu khối vào KH-0001, KH-0003, KH-0005
+  nguyên văn (đối chiếu văn bản nguồn tr. 8–9). KH-0002: thêm ý
+  "Kể được tên thành phần chính của không khí: nitơ (nitrogen),
+  oxi (oxygen), khí cacbonic (carbon dioxide)." vào đầu bản ghi và
+  dựng lại YCCĐ cha "Quan sát và (hoặc) làm thí nghiệm để:" chứa
+  đủ 5 ý con theo thứ tự nguồn (hai ý con khôi phục đứng trước, ba
+  ý con đang có giữ nguyên văn theo sau), thay cho tài liệu chỉ
+  chứa 3 ý con. Khi nạp, importer ghép cặp theo vị trí: dòng tài
+  liệu mồ côi được sửa chữ tại chỗ thành ý thành phần (giữ ID),
+  YCCĐ cha là dòng mới; tổng dòng hiện hành của môn tăng ròng 8.
+- Importer: created=0, updated=4, retiredOutcomes=0;
+  changeCounts: added=8, textChanged=1, moved=18, removed=0,
+  revived=0, shiftSuspected=0.
+- Kết quả: 32 bản ghi, 115 dòng YCCĐ hiện hành.
+
+### Tin học — 115 bản ghi / 395 ý → 115 bản ghi / 396 ý (tách 1 ca đóng gói)
+
+- Hiện trạng: YCCĐ vị trí 2 của TH-0111 đóng gói hai ý gạch ngang:
+  ý về hàm tổ hợp tính xác suất và ý "Mô tả được dữ liệu thống kê
+  của một bài toán thực tế với sử dụng phần mềm bảng tính:" (ý này
+  mang 5 ý con đã nằm sẵn trong tài liệu đóng gói); hai ý đang bị
+  nối liền nhau trong cùng một đoạn, kèm vết trích xuất ở chỗ nối.
+- Đính chính: tách thành hai YCCĐ riêng theo thứ tự nguồn — ý đầu
+  giữ ID dòng đóng gói; ý thứ hai mang nguyên văn đoạn cha và cả 5
+  ý con giữ nguyên văn. Trường `outcome_text` viết lại khớp hai ý
+  đã tách (vết trích xuất ở chỗ nối biến mất theo đúng nguyên văn).
+- Importer: created=0, updated=1, retiredOutcomes=0;
+  changeCounts: added=1, textChanged=1, moved=1, còn lại 0.
+- Kết quả: 115 bản ghi, 396 dòng YCCĐ hiện hành.
+
+### Số liệu sau đợt khôi phục ngày 29/10/2026 (issue #480)
+
+| Dataset | Bản ghi trước → sau | Dòng YCCĐ hiện hành trước → sau |
+|---|---|---|
+| Lịch sử | 98 → 110 | 347 → 403 |
+| Lịch sử và Địa lí THCS | 63 → 64 | 328 → 398 |
+| Công nghệ | 103 → 121 | 456 → 530 |
+| Địa lí | 62 → 63 | 266 → 308 |
+| Sinh học | 133 → 133 | 407 → 433 |
+| Toán | 300 → 314 | 852 → 900 |
+| Khoa học tự nhiên | 130 → 131 | 589 → 596 |
+| Lịch sử và Địa lí tiểu học | 47 → 49 | 162 → 171 |
+| Khoa học | 32 → 32 | 107 → 115 |
+| Tin học | 115 → 115 | 395 → 396 |
+| 11 dataset còn lại | không đổi | không đổi |
+| **Tổng** | **2.115 → 2.164** | **7.395 → 7.736** |
+
+Phiên bản dump đông cứng sau đợt: `2026-10-29.1` (header dump ghi
+subjects=19, curricula=146, curriculum_nodes=3708,
+learning_outcomes=7739, curriculum_program_records=2164; tổng số
+dòng YCCĐ trong dump là 7.739, gồm 3 dòng đã rút của các đợt trước
+giữ nguyên; số dòng hiện hành 7.736). Cổng toàn vẹn nguyên văn đạt
+trên toàn bộ 21 file sau sửa; bảng số bản ghi của spec kiểm kê
+dataset đã cập nhật theo số liệu sau đợt trong cùng thay đổi này.
