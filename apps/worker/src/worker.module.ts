@@ -18,6 +18,8 @@ import { NotificationRetentionScheduler } from './notification-retention.schedul
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { GuardianDigestScheduler } from './guardian-digest.scheduler';
 import { GuardianDigestProcessor } from './processors/guardian-digest.processor';
+import { GuardianDigestEventsProcessor } from './processors/guardian-digest-events.processor';
+import { GuardianDigestHandlerService } from './guardian-digest-handler.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
@@ -137,5 +139,5 @@ const outboxRouteQueueNames: string[] = [
       useFactory: (...queues: Queue[]): OutboxEventQueues =>
         new Map(outboxRouteQueueNames.map((name, index) => [name, queues[index]!] as const)),
     },
-    FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
+    FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, GuardianDigestEventsProcessor, GuardianDigestHandlerService, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor],})
 export class WorkerModule {}

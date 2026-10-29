@@ -1,13 +1,16 @@
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDrizzle } from '@nestjs/drizzle';
+import { InjectQueue } from '@nestjs/bullmq';
+import { I18nService } from '@nestjs/i18n';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import type { Queue } from 'bullmq';
 import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
 import type { relations } from './db/relations';
 import { redisConnectionFromUrl } from './config/env';
-import { notificationDispatchLog, notifications, pluginConfig, userPreferences, users } from '@lms/db';
+import { notificationDispatchLog, notifications, outboxEvents, pluginConfig, userPreferences, users } from '@lms/db';
 
 type Database = NodePgDatabase<typeof relations>;
 
@@ -42,11 +45,60 @@ export interface WorkerProviderLaw {
  * thẳng trước đây (lớp G10) — từ đây thông báo huy hiệu phía worker áp
  * đủ luật như hai đường NB-6 (đình chỉ / chính sách admin NB-7 / ghi đè
  * tắt tiếng theo khoá NB-4 / tuỳ chọn người dùng) và có dispatch log.
+ *
+ * Hai provider digest phụ huynh (`guardian_digest`,
+ * `guardian_overdue_alert`) vào sổ khi consumer digest chuyển sang
+ * worker (issue con #518 của #491): chúng là các provider đầu tiên mà
+ * worker phát TRỌN notify() gồm cả kênh email — xem {@link notify} và
+ * {@link WORKER_NOTIFY_PROVIDERS} ngay dưới. Ba provider còn lại vẫn
+ * chỉ phát kênh trong-app qua {@link deliverInApp}.
  */
 export const WORKER_PROVIDERS: Record<string, WorkerProviderLaw> = {
   calendar_reminder: { name: 'calendar_reminder', component: 'core_calendar', mandatoryInApp: false },
   report_scheduled: { name: 'report_scheduled', component: 'core_reportbuilder', mandatoryInApp: false },
   badge_awarded: { name: 'badge_awarded', component: 'core_badges', mandatoryInApp: false },
+  guardian_digest: { name: 'guardian_digest', component: 'core_guardian', mandatoryInApp: false },
+  guardian_overdue_alert: { name: 'guardian_overdue_alert', component: 'core_guardian', mandatoryInApp: false },
+};
+
+/** Tần suất email hiệu lực của một thông báo (khớp `EmailFrequency` phía API). */
+export type WorkerEmailFrequency = 'immediate' | 'daily' | 'off';
+
+/**
+ * Luật kênh email của các provider mà WORKER phát trọn qua
+ * {@link NotificationDeliveryService.notify} — ĐÂY LÀ BỀ MẶT DÙNG
+ * CHUNG của đợt chuyển consumer sang worker: consumer nào của các
+ * issue con sau (ví dụ đường sự kiện thông báo của issue #520) cần
+ * phát thông báo có kênh ngoài thì dùng `notify()` ở đây thay vì tự
+ * dựng đường phát riêng.
+ *
+ * Vì sao tách khỏi {@link WORKER_PROVIDERS}: spec parity của issue
+ * #293 ghim mỗi mục của sổ đó đúng ba trường
+ * {name, component, mandatoryInApp} đối chiếu với registry phía API,
+ * nên hai dữ kiện luật email dưới đây — vốn registry phía API suy từ
+ * `group` và `label` — phải nằm ở sổ riêng này:
+ *
+ * - `defaultEmailFrequency`: tần suất email mặc định khi người nhận
+ *   chưa đặt tuỳ chọn nào — bản chiếu của `defaultEmailFrequency`
+ *   phía API (nhóm 'learning' → 'daily', còn lại → 'immediate'). Cả
+ *   hai provider digest phụ huynh đều thuộc nhóm 'learning'.
+ * - `labelVi`: nhãn tiếng Việt của provider trong registry phía API,
+ *   chỉ dùng làm tham số {event} của nội dung generic khi luật C-5
+ *   phải thay cặp nội dung ngoài đã tối thiểu hoá còn thiếu.
+ *
+ * Có mặt trong sổ này cũng có nghĩa: provider có kênh email và chính
+ * sách nội dung ngoài là 'minimized' (luật C-5) — nơi phát PHẢI
+ * truyền đủ cặp `externalSubject`/`externalBody` đã tối thiểu hoá.
+ */
+export interface WorkerNotifyProviderLaw {
+  defaultEmailFrequency: Exclude<WorkerEmailFrequency, 'off'>;
+  labelVi: string;
+}
+
+/** Xem {@link WorkerNotifyProviderLaw}. */
+export const WORKER_NOTIFY_PROVIDERS: Record<string, WorkerNotifyProviderLaw> = {
+  guardian_digest: { defaultEmailFrequency: 'daily', labelVi: 'Tổng hợp cho phụ huynh' },
+  guardian_overdue_alert: { defaultEmailFrequency: 'daily', labelVi: 'Cảnh báo quá hạn cho phụ huynh' },
 };
 
 /**
@@ -98,11 +150,23 @@ export interface InAppDeliveryResult { status: InAppDeliveryStatus; notification
  * - Tắt theo tuỳ chọn → dispatch log `skipped-preference`, không sinh
  *   thông báo.
  *
- * Kênh ngoài (email/push) KHÔNG thuộc service này: hai đường phát nền
- * trước đây không hề xếp hàng job kênh ngoài. Động cơ kênh ngoài nằm ở
- * processor `notification-dispatch` (gửi email thật qua Resend từ NB-5
- * của issue #174, kèm tổng hợp theo ngày) — service này chỉ nhất quán
- * hoá đường trong-app.
+ * Kênh ngoài (email/push) không thuộc `deliverInApp`: các đường phát
+ * nền trước đây không hề xếp hàng job kênh ngoài. Động cơ kênh ngoài
+ * nằm ở processor `notification-dispatch` (gửi email thật qua Resend
+ * từ NB-5 của issue #174, kèm tổng hợp theo ngày) — `deliverInApp`
+ * chỉ nhất quán hoá đường trong-app.
+ *
+ * Từ issue con #518 của #491, service có thêm {@link notify}: bản đầy
+ * đủ của notify() phía API cho các sự kiện mà WORKER là nơi phát và
+ * registry có kênh ngoài (hiện là hai provider digest phụ huynh, xem
+ * {@link WORKER_NOTIFY_PROVIDERS}). `notify()` dùng lại chính
+ * `deliverInApp` cho nửa kênh trong-app (một bản luật popup duy nhất,
+ * không fork), tự lo nửa kênh email (phân giải tần suất + luật C-5 +
+ * xếp job vào hàng đợi `notification-dispatch` dùng chung với phía
+ * API) và ghi sự kiện outbox `notification_created` như notify() phía
+ * API. Đây là bề mặt phát thông báo dùng chung của worker cho cả đợt
+ * chuyển consumer — các consumer chuyển sau (issue #520) dùng lại
+ * `notify()`/`deliverInApp` ở đây, không dựng đường phát riêng.
  */
 @Injectable()
 export class NotificationDeliveryService implements OnModuleDestroy {
@@ -112,6 +176,14 @@ export class NotificationDeliveryService implements OnModuleDestroy {
   constructor(
     @InjectDrizzle() private readonly db: Database,
     @Inject(ConfigService) private readonly config: ConfigService,
+    // Hai phụ thuộc dưới đây chỉ phục vụ notify() (xếp job kênh email +
+    // nội dung generic của luật C-5). Đánh dấu tuỳ chọn để các spec
+    // dựng service thủ công chỉ cho deliverInApp (spec parity) không
+    // phải cấp hàng đợi/i18n; trong WorkerModule thật chúng luôn được
+    // tiêm (hàng đợi `notification-dispatch` đã đăng ký sẵn cho
+    // processor phát kênh ngoài, I18nService từ I18nWorkerModule).
+    @Optional() @InjectQueue('notification-dispatch') private readonly dispatchQueue?: Queue,
+    @Optional() private readonly i18n?: I18nService,
   ) {}
 
   async onModuleDestroy(): Promise<void> {
@@ -289,5 +361,148 @@ export class NotificationDeliveryService implements OnModuleDestroy {
     // nhận (qua Redis pub/sub) để huy hiệu cập nhật ngay, không polling.
     await this.signalUnreadCountChanged(userId);
     return { status: 'delivered', notificationId: notification!.id };
+  }
+
+  /**
+   * Tần suất email HIỆU LỰC — cùng luật
+   * `resolveEmailFrequency` phía API: khoá v2
+   * `message_provider_<p>_email_v2` ('immediate'/'daily'/'off') thắng;
+   * chưa có thì giá trị kênh cũ: chưa đặt ở đâu → mặc định theo nhóm
+   * của provider (truyền vào qua `defaultFrequency`); đặt bật → mặc
+   * định đó; đặt tắt → 'off'.
+   */
+  private async resolveEmailFrequency(userId: string, providerName: string, defaultFrequency: Exclude<WorkerEmailFrequency, 'off'>): Promise<WorkerEmailFrequency> {
+    const v2 = await this.getPreference(userId, `message_provider_${providerName}_email_v2`);
+    if (v2 === 'immediate' || v2 === 'daily' || v2 === 'off') return v2;
+    let legacy: boolean | undefined;
+    for (const state of ['loggedin', 'loggedoff'] as const) {
+      const value = await this.getPreference(userId, `message_provider_${providerName}_email_${state}`);
+      if (value !== undefined) { legacy = value !== '0'; break; }
+    }
+    if (legacy === undefined) return defaultFrequency;
+    return legacy ? defaultFrequency : 'off';
+  }
+
+  /**
+   * Nội dung kênh NGOÀI theo luật C-5 (chính sách 'minimized', xem
+   * {@link WORKER_NOTIFY_PROVIDERS}) — cùng luật
+   * `resolveExternalContent` phía API: kênh ngoài chỉ mang cặp nội
+   * dung đã tối thiểu hoá do nơi phát truyền vào, KHÔNG bao giờ mang
+   * tiêu đề/nội dung trong-app (chúng có thể chứa dữ kiện nhạy cảm).
+   * Thiếu một trong hai trường: ở môi trường test ném lỗi để lộ sớm;
+   * ở production ghi cảnh báo và thay trường thiếu bằng nội dung
+   * generic không chứa dữ kiện nào. Nơi phát KHÔNG kèm cặp này là lỗi
+   * lập trình, không phải ca người dùng.
+   */
+  private resolveExternalContent(providerName: string, law: WorkerNotifyProviderLaw, input: { subject: string; body: string; externalSubject?: string; externalBody?: string }): { subject: string; body: string } {
+    if (input.externalSubject !== undefined && input.externalBody !== undefined) {
+      return { subject: input.externalSubject, body: input.externalBody };
+    }
+    if (process.env.NODE_ENV === 'test') {
+      throw new Error(
+        `messaging.external_minimization_required: nhà cung cấp ${providerName} thiếu nội dung ngoài đã tối thiểu hoá (externalSubject/externalBody)`,
+      );
+    }
+    this.logger.warn(`Thông báo ${providerName} thiếu nội dung ngoài đã tối thiểu hoá; dùng nội dung chung cho kênh ngoài`);
+    return {
+      subject: input.externalSubject ?? this.i18n!.t('platform.externalGenericSubject', { locale: 'vi' }),
+      body: input.externalBody ?? this.i18n!.t('platform.externalGenericBody', { locale: 'vi', args: { event: law.labelVi } }),
+    };
+  }
+
+  /**
+   * Phát TRỌN một thông báo cho sự kiện mà worker là nơi phát — bản
+   * đầy đủ của `MessagingService.notify()` phía API, dùng chung cho
+   * cả đợt chuyển consumer sang worker (xem docblock của class):
+   *
+   * Luồng (đúng thứ tự luật của notify() phía API):
+   *  1. Provider không có trong {@link WORKER_PROVIDERS} → trả
+   *     `skipped: 'unknown-provider'`, không lưu gì, không sự kiện.
+   *  2. Nửa kênh trong-app qua chính {@link deliverInApp} (đình chỉ /
+   *     NB-7 / tuỳ chọn popup / ghi dòng + dispatch log + tín hiệu
+   *     chưa đọc). Kết quả 'skipped-suspended' / 'skipped-admin-
+   *     disabled' của nửa này là điểm dừng sớm như phía API: không
+   *     kênh ngoài, không sự kiện `notification_created`. (Ghi đè tắt
+   *     tiếng theo khoá NB-4 không áp ở đây vì notify() của đợt này
+   *     không gắn khoá nguồn; bề mặt này không nhận `courseId`.)
+   *     Khác biệt còn lại so với phía API nằm ở dedupeKey của các
+   *     dispatch log kênh popup: giữ nguyên định dạng phía worker của
+   *     deliverInApp (không tiền tố tenant) — khoá đó chỉ để truy vết
+   *     nội bộ một tiến trình, không phải khoá chống trùng liên tiến
+   *     trình.
+   *  3. Nửa kênh email (chỉ với provider có trong
+   *     {@link WORKER_NOTIFY_PROVIDERS}): phân giải tần suất hiệu lực;
+   *     'off' → dispatch log `skipped-preference` (kênh email); khác
+   *     'off' → áp luật C-5 rồi xếp job 'dispatch' vào hàng đợi
+   *     `notification-dispatch` DÙNG CHUNG với phía API — jobId là
+   *     dedupeKey đúng định dạng phía API
+   *     (`<tenant|platform>-dispatch-<provider>-<userId>-email-<notificationId|uuid>`)
+   *     vì khoá này là khoá chống trùng liên tiến trình: cùng một
+   *     thông báo, dù API hay worker xếp job, cũng chỉ tồn tại một
+   *     job phát. Processor phát kênh ngoài (đã ở worker) áp tần
+   *     suất ('daily' → giữ lại tổng hợp) ở đầu kia.
+   *  4. Cuối đường chính (kể cả khi popup bị tuỳ chọn tắt): ghi sự
+   *     kiện outbox `notification_created` (aggregate 'messaging',
+   *     payload {userId, provider, notificationId} và tenantId được
+   *     phản chiếu vào payload như `OutboxService.enqueue` phía API)
+   *     để các đường đọc sự kiện phía API thấy đúng như khi API phát.
+   *
+   * `smallMessage` của dòng thông báo = 200 ký tự đầu của `body`,
+   * như notify() phía API khi nơi phát không truyền smallMessage
+   * riêng. Không dùng lại phiên bản này cho provider chỉ có kênh
+   * trong-app — các đường đó gọi thẳng {@link deliverInApp}.
+   */
+  async notify(userId: string, providerName: string, input: {
+    subject: string; body: string; contextUrl?: string; fromUserId?: string;
+    externalSubject?: string; externalBody?: string; tenantId?: string | null;
+  }): Promise<{ notificationId: string | null; channels: Record<string, string>; skipped?: string }> {
+    const provider = WORKER_PROVIDERS[providerName];
+    if (!provider) return { notificationId: null, channels: {}, skipped: 'unknown-provider' };
+    const tenantId = input.tenantId ?? null;
+    const tenantKey = tenantId ?? 'platform';
+
+    const popup = await this.deliverInApp(userId, providerName, {
+      subject: input.subject, body: input.body, smallMessage: input.body.slice(0, 200),
+      contextUrl: input.contextUrl, fromUserId: input.fromUserId, tenantId,
+    });
+    if (popup.status === 'skipped-suspended') return { notificationId: null, channels: {}, skipped: 'suspended' };
+    if (popup.status === 'skipped-admin-disabled') return { notificationId: null, channels: {}, skipped: 'admin-disabled' };
+    if (popup.status === 'skipped-course-mute') return { notificationId: null, channels: {}, skipped: 'course-mute' };
+
+    const channels: Record<string, string> = {};
+    const notificationId = popup.notificationId ?? null;
+    if (popup.status === 'delivered') channels['popup'] = 'delivered';
+    if (popup.status === 'skipped-preference') channels['popup'] = 'skipped-preference';
+
+    const emailLaw = WORKER_NOTIFY_PROVIDERS[providerName];
+    if (emailLaw) {
+      if (!this.dispatchQueue || !this.i18n) {
+        throw new Error('NotificationDeliveryService.notify cần hàng đợi notification-dispatch và I18nService — chỉ dùng qua WorkerModule');
+      }
+      const frequency = await this.resolveEmailFrequency(userId, providerName, emailLaw.defaultEmailFrequency);
+      if (frequency === 'off') {
+        await this.db.insert(notificationDispatchLog).values({
+          userId, provider: providerName, channel: 'email', status: 'skipped-preference', subject: input.subject,
+          dedupeKey: `${tenantKey}-email-off-${providerName}-${userId}-${randomUUID()}`,
+          tenantId,
+        }).onConflictDoNothing();
+        channels['email'] = 'skipped-preference';
+      } else {
+        const external = this.resolveExternalContent(providerName, emailLaw, input);
+        const dedupeKey = `${tenantKey}-dispatch-${providerName}-${userId}-email-${notificationId ?? randomUUID()}`;
+        await this.dispatchQueue.add('dispatch', {
+          userId, provider: providerName, channel: 'email', tenantId,
+          emailFrequency: frequency, subject: external.subject, body: external.body,
+          notificationId, dedupeKey,
+        }, { jobId: dedupeKey, attempts: 3 });
+        channels['email'] = 'queued';
+      }
+    }
+
+    await this.db.insert(outboxEvents).values({
+      aggregate: 'messaging', type: 'notification_created', tenantId,
+      payload: { userId, provider: providerName, notificationId, ...(tenantId ? { tenantId } : {}) },
+    });
+    return { notificationId, channels };
   }
 }

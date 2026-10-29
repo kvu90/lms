@@ -54,8 +54,11 @@ function weekStartUtc(now: Date): Date {
 /**
  * Quét digest phụ huynh (PH-2, issue #159): phía PHÁT hiện của lát —
  * worker chỉ quyết "ai đến lượt digest/đẩy quá hạn" một cách bền và
- * idempotent, phần tổng hợp nội dung + gửi nằm ở consumer phía API
- * (GuardianDigestConsumer) dùng đúng đường đọc đã công bố của PH-1.
+ * idempotent; phần tổng hợp nội dung + gửi nằm ở nửa tiêu thụ phía
+ * worker (relay outbox → hàng đợi `guardian-digest-events` →
+ * `GuardianDigestHandlerService`, từ issue con #518 của #491 — trước
+ * đó là consumer polling phía API) dùng đúng đường đọc đã công bố
+ * của PH-1.
  *
  * Hai loại lượt được chốt:
  *  - Digest định kỳ: với mỗi liên kết giám hộ đang `active`, theo tần
@@ -80,14 +83,16 @@ function weekStartUtc(now: Date): Date {
  */
 @Processor('guardian-digests')
 /**
- * Xử lý job quét digest phụ huynh: chốt các lượt digest/đẩy quá hạn đến hạn và phát sự kiện outbox cho phía API tổng hợp + gửi.
+ * Xử lý job quét digest phụ huynh: chốt các lượt digest/đẩy quá hạn đến hạn và phát sự kiện outbox cho nửa tiêu thụ phía worker tổng hợp + gửi.
  */
 export class GuardianDigestProcessor extends WorkerHost {
   constructor(@InjectDrizzle() private readonly db: Database, private readonly taskLog: TaskLogService) { super(); }
 
   /**
-   * Xử lý một job của queue tương ứng. Mỗi lượt quét được ghi vào
-   * task_log qua TaskLogService.
+   * Xử lý một job của queue tương ứng: chốt các lượt digest/đẩy quá
+   * hạn đến hạn và phát sự kiện outbox cho relay chuyển sang hàng
+   * đợi xử lý phía worker. Mỗi lượt quét được ghi vào task_log qua
+   * TaskLogService.
    */
   async process(_job: Job): Promise<GuardianDigestSweepResult> {
     // TENANT-1 (#196): processor nền quét/xử lý xuyên tenant — bọc
