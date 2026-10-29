@@ -99,6 +99,15 @@ import type { Queue } from 'bullmq';
  *   kiện — nên dòng của nó là danh sách hai đích
  *   `['messaging-realtime', 'notification-events']` theo đúng cơ
  *   chế fan-out ở trên.
+ * - Hai loại sự kiện thành viên cohort (`cohort_member_added`,
+ *   `cohort_member_removed`) trỏ về hàng đợi `cohort-sync-events`
+ *   — consumer của chúng đã chuyển sang worker ở issue con #528
+ *   của #519 (processor `CohortSyncEventsProcessor`, host bề mặt
+ *   dùng chung `CohortSyncService`). Processor này không mang
+ *   watermark riêng: tính idempotent hai tầng theo quyết định chốt
+ *   của issue đó (chống trùng job của relay theo id dòng + guard
+ *   theo trạng thái hiện tại của `cohort_members` trong bề mặt),
+ *   ghim bằng test mô phỏng phát lại.
  *
  * Mọi loại sự kiện còn lại của đợt chuyển đổi chưa có mặt ở đây
  * cho tới khi consumer tương ứng chuyển xong, đúng ngữ nghĩa ở
@@ -125,6 +134,12 @@ export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
   assignment_returned: 'notification-events',
   exam_pinned: 'notification-events',
   quiz_attempt_finished: 'notification-events',
+  // Đồng bộ cohort (issue con #528 của #519, đợt tách #491):
+  // processor `CohortSyncEventsProcessor` trên hàng đợi
+  // `cohort-sync-events`, gọi bề mặt vật chất hoá cohort dùng chung
+  // của issue con #527 qua host `CohortSyncService`.
+  cohort_member_added: 'cohort-sync-events',
+  cohort_member_removed: 'cohort-sync-events',
   // Phân phối realtime messaging (issue con #521 của #491):
   // processor `MessagingRealtimeProcessor` trên hàng đợi
   // `messaging-realtime`, luật phân phối ở `@lms/messaging`.

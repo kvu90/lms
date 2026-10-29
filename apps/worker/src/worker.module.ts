@@ -26,6 +26,9 @@ import { NotificationEventsMarker } from './notification-events-marker.service';
 import { NotificationEventsCatchupService } from './notification-events-catchup.service';
 import { MessagingRealtimeProcessor, MESSAGING_DISTRIBUTED_REDIS, MESSAGING_DISTRIBUTION_SERVICE } from './processors/messaging-realtime.processor';
 import { MessagingRealtimeRuntime } from './messaging-realtime.runtime';
+import { CohortSyncService } from './cohort-sync.service';
+import { CohortSyncEventsProcessor } from './processors/cohort-sync-events.processor';
+import { CohortSyncCatchupService } from './cohort-sync-catchup.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
@@ -177,5 +180,15 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     // một lần theo watermark của consumer polling cũ khi chuyển
     // đổi (chỉ chạy khi còn khoá watermark cũ, tự xoá khoá khi rút
     // cạn xong).
-    NotificationEventsProcessor, NotificationEventsHandlerService, NotificationEventsMarker, NotificationEventsCatchupService],})
+    NotificationEventsProcessor, NotificationEventsHandlerService, NotificationEventsMarker, NotificationEventsCatchupService,
+    // Consumer đồng bộ cohort trên hàng đợi (issue con #528 của
+    // #519): processor của hàng đợi `cohort-sync-events` (đăng ký
+    // hàng đợi tự suy ra từ bảng định tuyến outbox ở trên) + host
+    // bề mặt vật chất hoá cohort dùng chung của issue con #527.
+    // Processor không mang watermark riêng: idempotent hai tầng
+    // (chống trùng job của relay + guard trạng thái của bề mặt).
+    // Dịch vụ phát bù tồn đọng một lần theo watermark của consumer
+    // polling cũ khi chuyển đổi (chỉ chạy khi còn khoá watermark
+    // cũ, tự xoá khoá khi rút cạn xong; xem phân xử trên PR #550).
+    CohortSyncService, CohortSyncEventsProcessor, CohortSyncCatchupService],})
 export class WorkerModule {}
