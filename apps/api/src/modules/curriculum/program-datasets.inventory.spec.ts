@@ -19,8 +19,11 @@ import { loadProgramDataset, PROGRAM_DATASETS } from './program-datasets';
  *    phải khớp nhau hai chiều (file có trong manifest thì phải có
  *    trên đĩa và ngược lại);
  *  - số bản ghi của TỪNG dataset và tổng toàn bộ phải bằng đúng bảng
- *    đã kiểm chứng dưới đây (đếm trực tiếp từ file JSON ngày
- *    27/10/2026, khớp cả artifact dump đông cứng ở cả 5 bảng);
+ *    đã kiểm chứng dưới đây (đếm trực tiếp từ file JSON: số liệu gốc
+ *    ngày 27/10/2026, riêng 7 dataset khôi phục đợt 1 — lichsu,
+ *    lsdl-thcs, congnghe, diali, toan, khtn, lsdl-th — cập nhật theo
+ *    số đếm ngày 29/10/2026; khớp cả artifact dump đông cứng ở cả 5
+ *    bảng);
  *  - số môn đích phân biệt theo `slug` phải là 19 (môn thứ 20 danh
  *    nghĩa GDQP&AN chưa có dataset — hoãn theo issue #74).
  *
