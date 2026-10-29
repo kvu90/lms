@@ -2643,7 +2643,9 @@ export const guardianResources = {
 } as const;
 
 /** Promise import module catalog en — dùng chung cho mọi lần `read` (bốn
- * namespace) để chunk en chỉ tải đúng một lần trong suốt phiên. */
+ * namespace) để chunk en chỉ tải đúng một lần trong suốt phiên. Nếu lần
+ * nạp lỗi (mạng/CDN) thì cache tự xoá ở điểm gán trong `read` bên dưới,
+ * để lần yêu cầu sau nạp lại từ đầu thay vì dùng lại promise đã reject. */
 let englishCatalogModule: Promise<typeof import('./i18n-en')> | undefined;
 
 /**
@@ -2660,7 +2662,12 @@ const englishCatalogBackend: BackendModule = {
       callback(new Error(`Locale không thuộc đường nạp lười: ${language}`), false);
       return;
     }
-    englishCatalogModule ??= import('./i18n-en');
+    englishCatalogModule ??= import('./i18n-en').catch((error: unknown) => {
+      // Nạp lỗi: xoá cache trước khi ném tiếp lỗi cho `read` xử lý, để
+      // lần `read` sau import lại từ đầu; giữ nguyên lỗi gốc khi reject.
+      englishCatalogModule = undefined;
+      throw error;
+    });
     englishCatalogModule
       .then((module) => {
         const bundles = module.enResources as Readonly<
@@ -2669,7 +2676,14 @@ const englishCatalogBackend: BackendModule = {
         callback(null, bundles[namespace] ?? {});
       })
       .catch((error: unknown) => {
-        callback(error instanceof Error ? error : new Error(String(error)), false);
+        // Báo lỗi KÈM dữ liệu rỗng thay vì `false`: theo cơ chế của
+        // i18next, callback chỉ nhận lỗi (không kèm dữ liệu) bị coi là
+        // lỗi chết — cặp ngôn ngữ|namespace bị đánh dấu state -1 và
+        // không lần `changeLanguage` nào trong phiên nạp lại nữa. Kèm
+        // dữ liệu rỗng thì i18next coi là lỗi tạm thời: tự thử lại
+        // `read` theo `maxRetries`/`retryTimeout`, và sau khi hết lượt
+        // thử vẫn để state 0 để lần chuyển ngôn ngữ sau nạp lại được.
+        callback(error instanceof Error ? error : new Error(String(error)), {});
       });
   },
 };
