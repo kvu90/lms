@@ -47,7 +47,9 @@ describe('Enrol role-assignment integrity (#157)', () => {
     const res = await http(app).get('/api/v1/access/assignments')
       .query({ userId, contextId }).set('Authorization', `Bearer ${admin}`);
     expect(res.status).toBe(200);
-    return res.body as AssignmentRow[];
+    // Từ issue #545: phản hồi liệt kê gán vai là trang
+    // `{ assignments, total, page, pageSize }`, không còn là mảng trần.
+    return res.body.assignments as AssignmentRow[];
   }
 
   async function setupCourse(): Promise<{ course: { id: string }; ctxId: string }> {

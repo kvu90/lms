@@ -1,10 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { uuidIdSchema } from '@lms/contracts';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type AuthenticatedUser } from '../../common/current-user.decorator';
 import { RequireCapability } from '../../common/require-capability.decorator';
 import { ContextsService } from './contexts.service';
-import { assignRoleSchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, overrideCapabilitySchema, updateRoleSchema, type AssignRoleDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type OverrideCapabilityDto, type UpdateRoleDto } from './dto/access.dto';
+import { assignRoleSchema, createContextSchema, createRoleSchema, hasCapabilityQueryServerSchema, listAssignmentsQueryServerSchema, overrideCapabilitySchema, replaceRoleCapabilitiesSchema, updateRoleSchema, type AssignRoleDto, type CreateContextDto, type CreateRoleDto, type HasCapabilityQueryDto, type ListAssignmentsQueryDto, type OverrideCapabilityDto, type ReplaceRoleCapabilitiesDto, type UpdateRoleDto } from './dto/access.dto';
 import { PermissionEvaluator } from './permission-evaluator.service';
 import { RolesService } from './roles.service';
 
@@ -51,7 +51,9 @@ export class AccessController {
   @Get('roles')
   @RequireCapability('role:manage')
   /**
-   * GET /access/roles — liệt kê role.
+   * GET /access/roles — liệt kê role kèm tổng hợp phía server (số người
+   * dùng phân biệt đang giữ từng role và tổng hợp năng lực từ tập ghi
+   * đè đã lưu của role), đủ để dựng thẻ role từ một lần gọi.
    */
   async listRoles() { return this.roles.listRoles(); }
   @Get('roles/:id')
@@ -69,7 +71,9 @@ export class AccessController {
   @Delete('roles/:id')
   @RequireCapability('role:manage')
   /**
-   * DELETE /access/roles/:id — xoá role.
+   * DELETE /access/roles/:id — xoá role; bị chặn khi role là role dựng
+   * sẵn (archetype) hoặc đang còn người giữ, hai trường hợp phân biệt
+   * bằng mã lỗi riêng.
    */
   async deleteRole(@Param('id', { schema: uuidIdSchema }) id: string) { await this.roles.deleteRole(id); return { deleted: true }; }
 
@@ -85,6 +89,17 @@ export class AccessController {
    * GET /access/roles/:id/capabilities — ma trận override đã lưu của role.
    */
   async listRoleCapabilities(@Param('id', { schema: uuidIdSchema }) id: string) { return this.roles.listRoleCapabilities(id); }
+  @Put('roles/:id/capabilities')
+  @RequireCapability('role:override', 'body:contextId')
+  /**
+   * PUT /access/roles/:id/capabilities — lưu ma trận override thay toàn
+   * bộ của role tại một context trong một lần gọi nguyên tử: sau khi áp
+   * dụng, tập ghi đè của role tại context đó bằng đúng tập gửi lên.
+   */
+  async replaceRoleCapabilities(@Param('id', { schema: uuidIdSchema }) id: string, @Body({ schema: replaceRoleCapabilitiesSchema }) dto: ReplaceRoleCapabilitiesDto, @CurrentUser() actor: AuthenticatedUser) {
+    const overrides = await this.roles.replaceRoleCapabilities(id, dto.contextId, dto.overrides, actor.id);
+    return { roleId: id, contextId: dto.contextId, overrides };
+  }
 
   @Post('assignments')
   @RequireCapability('role:assign')
@@ -97,10 +112,17 @@ export class AccessController {
   @Get('assignments')
   @RequireCapability('role:assign')
   /**
-   * GET /access/assignments — liệt kê gán role.
+   * GET /access/assignments — liệt kê gán role cho bảng quản trị: lọc
+   * theo user/context/role, tìm kiếm theo người dùng (tên và email),
+   * phân trang phía server kèm tổng số dòng khớp, mỗi dòng kèm tên và
+   * email của người dùng được gán.
    */
-  async listAssignments(@Query('userId') userId?: string, @Query('contextId') contextId?: string) {
-    return this.roles.listAssignments({ userId: userId || undefined, contextId: contextId || undefined });
+  async listAssignments(@Query({ schema: listAssignmentsQueryServerSchema }) query: ListAssignmentsQueryDto) {
+    return this.roles.listAssignmentsPage(
+      { userId: query.userId, contextId: query.contextId, roleId: query.roleId, search: query.search },
+      query.page,
+      query.pageSize,
+    );
   }
   @Delete('assignments/:id')
   @RequireCapability('role:assign')

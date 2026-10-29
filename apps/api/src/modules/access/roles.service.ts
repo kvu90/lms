@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OutboxService } from '../../infra/events/outbox.service';
-import { AccessRepository, type RoleRow } from './access.repository';
+import { AccessRepository, type AssignmentListRow, type RoleRow } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { CAPABILITY_DEFINITIONS, DEFAULT_ROLES } from './domain/capabilities';
 import { CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT } from './domain/permission';
@@ -23,6 +23,22 @@ export interface AssignmentSource {
 
 /** Component đánh dấu dòng gán vai do một ghi danh (enrol instance) cấp. */
 export const ENROL_ASSIGNMENT_COMPONENT = 'enrol';
+
+/**
+ * Một dòng của danh sách role kèm dữ kiện tổng hợp phía server: số
+ * người dùng phân biệt đang giữ role và tổng hợp năng lực tính từ tập
+ * ghi đè đã lưu của role (tổng số ghi đè, số ghi đè theo capType
+ * read/write, số resource phân biệt các ghi đè chạm tới). Đây là hình
+ * dạng trả về của `GET /access/roles` — giao diện thẻ role đọc thẳng
+ * các trường tổng hợp này, không gọi thêm theo từng role.
+ */
+export interface RoleListItem extends RoleRow {
+  userCount: number;
+  overrideCount: number;
+  readOverrideCount: number;
+  writeOverrideCount: number;
+  resourceCount: number;
+}
 
 /** Dòng gán vai này có do ghi danh cấp hay không (quyết định chốt gỡ ở unassignRole). */
 export function isEnrolManagedAssignment(assignment: { component?: string | null }): boolean {
@@ -79,9 +95,36 @@ export class RolesService {
     return this.repo.insertRole({ name: input.name, shortName, description: input.description ?? '', archetype: input.archetype, sortOrder: roles.length + 1 });
   }
   /**
-   * Liệt kê mọi role.
+   * Liệt kê mọi role kèm dữ kiện tổng hợp cho thẻ role.
+   *
+   * Flow: đọc danh sách role → đọc hai tập tổng hợp phía server (số
+   * người dùng phân biệt theo role từ bảng gán; tổng hợp ghi đè theo
+   * role từ bảng ghi đè) → ghép theo id role. Role vắng mặt trong một
+   * tập tổng hợp nghĩa là chưa có dòng gán/ghi đè nào — các số tương
+   * ứng là 0. Mọi tổng hợp tính ở server trong đúng lượt gọi này để
+   * giao diện không phải tải toàn bộ bảng gán về đếm, cũng không phải
+   * gọi ma trận riêng cho từng role.
    */
-  async listRoles(): Promise<RoleRow[]> { return this.repo.listRoles(); }
+  async listRoles(): Promise<RoleListItem[]> {
+    const [roles, userCounts, aggregates] = await Promise.all([
+      this.repo.listRoles(),
+      this.repo.countDistinctUsersByRole(),
+      this.repo.getRoleOverrideAggregates(),
+    ]);
+    const userCountByRole = new Map(userCounts.map((row) => [row.roleId, row.userCount]));
+    const aggregateByRole = new Map(aggregates.map((row) => [row.roleId, row]));
+    return roles.map((roleRow) => {
+      const aggregate = aggregateByRole.get(roleRow.id);
+      return {
+        ...roleRow,
+        userCount: userCountByRole.get(roleRow.id) ?? 0,
+        overrideCount: aggregate?.overrideCount ?? 0,
+        readOverrideCount: aggregate?.readOverrideCount ?? 0,
+        writeOverrideCount: aggregate?.writeOverrideCount ?? 0,
+        resourceCount: aggregate?.resourceCount ?? 0,
+      };
+    });
+  }
   /**
    * Lấy role theo id; ném NotFound khi vắng.
    */
@@ -103,12 +146,22 @@ export class RolesService {
     return this.getRole(id);
   }
   /**
-   * Xoá role (kèm gán và override của nó).
+   * Xoá role (kèm gán và override của nó) — có hai chốt chặn.
    *
-   * Flow: đọc role → thu thập các context phân biệt từng có gán vai
-   * hoặc override của role (phải đọc TRƯỚC khi xoá, vì xoá xong không
-   * còn dữ kiện để biết cache của context nào đang stale) → xoá role
-   * cùng toàn bộ gán/override của nó → bump version từng context đó.
+   * Flow: đọc role → CHỐT 1: role dựng sẵn (có `archetype`) bị từ chối
+   * bằng `access.role_archetype_delete_forbidden`, vì cơ chế
+   * `seedDefaults` sẽ tạo lại role dựng sẵn kèm ma trận mặc định ở lần
+   * chạy seed kế tiếp: xoá rồi mọc lại vừa làm mất dữ kiện gán hiện
+   * hành vừa tạo hành vi khó đoán → đọc các dòng gán của role → CHỐT 2:
+   * role đang còn ít nhất một dòng gán (còn người giữ ở bất kỳ context
+   * nào) bị từ chối bằng `access.role_has_assignments`, vì xoá hiện
+   * hành cascade làm người giữ mất role ngay. Hai lỗi tách mã riêng để
+   * giao diện phân biệt được trường hợp → thu thập các context phân
+   * biệt từng có gán vai hoặc override của role (phải đọc TRƯỚC khi
+   * xoá, vì xoá xong không còn dữ kiện để biết cache của context nào
+   * đang stale) → xoá role cùng toàn bộ gán/override của nó → bump
+   * version từng context đó. Role thường không còn người giữ vẫn xoá
+   * được như trước, cascade cả ghi đè còn lại nếu có.
    *
    * Nguyên tắc vô hiệu hoá cache quyền (áp dụng thống nhất cho gán,
    * gỡ và xoá): MỌI thay đổi về gán vai đều phải làm mới dấu version
@@ -118,8 +171,20 @@ export class RolesService {
    * cache cho tới khi mục cache hết hạn.
    */
   async deleteRole(id: string): Promise<void> {
-    await this.getRole(id);
+    const roleRow = await this.getRole(id);
+    if (roleRow.archetype) {
+      throw new BadRequestException({
+        message: `Role ${roleRow.shortName} is a built-in archetype role and cannot be deleted`,
+        code: 'access.role_archetype_delete_forbidden',
+      });
+    }
     const assignments = await this.repo.listAssignmentsByRole(id);
+    if (assignments.length > 0) {
+      throw new BadRequestException({
+        message: `Role ${roleRow.shortName} is still held by ${assignments.length} assignment(s) and cannot be deleted`,
+        code: 'access.role_has_assignments',
+      });
+    }
     const overrides = await this.repo.listRoleCapabilities(id);
     const contextIds = [...new Set([...assignments.map((a) => a.contextId), ...overrides.map((o) => o.contextId)])];
     await this.repo.deleteRole(id);
@@ -243,6 +308,26 @@ export class RolesService {
   async listAssignments(filter: { userId?: string; contextId?: string }, tx?: DbTx): Promise<unknown[]> {
     return this.repo.listAssignments(filter, tx);
   }
+  /**
+   * Liệt kê gán role cho bảng quản trị: lọc theo user/context/role,
+   * tìm kiếm theo người dùng, phân trang phía server, mỗi dòng kèm
+   * tên/email người dùng (ghép ở tầng repository). Đây là bề mặt đọc
+   * của endpoint `GET /access/assignments`; hàm `listAssignments` ở
+   * trên giữ nguyên cho các đường nội bộ cần toàn bộ dòng khớp bộ lọc
+   * không qua phân trang.
+   *
+   * @returns các dòng của trang hiện tại kèm tổng số dòng khớp bộ lọc
+   * và chính các tham số trang đã dùng, theo khuôn phản hồi liệt kê
+   * người dùng hiện hành.
+   */
+  async listAssignmentsPage(
+    filter: { userId?: string; contextId?: string; roleId?: string; search?: string },
+    page: number,
+    pageSize: number,
+  ): Promise<{ assignments: AssignmentListRow[]; total: number; page: number; pageSize: number }> {
+    const { rows, total } = await this.repo.listAssignmentsPage(filter, page, pageSize);
+    return { assignments: rows, total, page, pageSize };
+  }
   /** Các assignment của một người dùng trên một tập context — ví dụ mọi context trên đường tổ tiên của đối tượng đích. Đây là phép tra cứu mà PermissionEvaluator dựa vào: assignment role được kế thừa xuống dưới theo cây context, nên assignment ở tổ tiên có hiệu lực tại lá. */
   /**
    * Lấy mọi gán role của user tại một tập context (vd toàn bộ đường tổ tiên của context khoá học) — cùng phép tra cứu mà PermissionEvaluator dùng để thừa hưởng gán từ context tổ tiên.
@@ -267,6 +352,68 @@ export class RolesService {
       await this.repo.upsertRoleCapability({ contextId: contextId, roleId: roleId, capability, permission, modifierId: modifierId }, tx);
     }
     await this.contexts.markContextDirty(contextId, tx);
+  }
+  /**
+   * Lưu ma trận quyền THAY TOÀN BỘ của một role tại đúng một context
+   * trong một lần gọi — đường ghi theo lô thay cho việc đặt từng ghi
+   * đè qua `setCapabilityOverride`.
+   *
+   * Flow: đọc role và context (vắng mặt thì 404 như các thao tác ghi
+   * đè hiện hành) → kiểm chứng TOÀN BỘ tập gửi lên trước khi ghi bất
+   * cứ thứ gì: một năng lực xuất hiện hai lần trong cùng tập bị từ
+   * chối (`access.duplicate_capability_override`), giá trị quyền
+   * ngoài bốn trạng thái bị từ chối (`access.invalid_permission`,
+   * cùng mã với đường đặt một ghi đè), tên năng lực ngoài danh mục
+   * bị từ chối (`access.unknown_capability`) → áp dụng nguyên tử
+   * trong một transaction: xoá trọn tập ghi đè cũ của cặp
+   * (role, context) rồi ghi lại đúng các phần tử có giá trị khác
+   * INHERIT (phần tử vắng mặt trong tập gửi lên và phần tử mang
+   * INHERIT tường minh đều kết thúc ở trạng thái không có ghi đè —
+   * tức kế thừa — đúng ngữ nghĩa của đường đặt một ghi đè) → đánh
+   * dấu dirty cho context như mọi thay đổi ghi đè khác.
+   *
+   * @returns tập ghi đè đã lưu của role tại context sau khi áp dụng,
+   * sắp xếp theo tên năng lực.
+   */
+  async replaceRoleCapabilities(
+    roleId: string,
+    contextId: string,
+    overrides: { capability: string; permission: number }[],
+    modifierId?: string,
+  ): Promise<{ capability: string; permission: number }[]> {
+    await this.getRole(roleId);
+    await this.contexts.getContext(contextId);
+    const seen = new Set<string>();
+    for (const entry of overrides) {
+      if (seen.has(entry.capability)) {
+        throw new BadRequestException({
+          message: `Capability ${entry.capability} appears more than once in the submitted matrix`,
+          code: 'access.duplicate_capability_override',
+        });
+      }
+      seen.add(entry.capability);
+      if (!VALID_PERMISSIONS.includes(entry.permission)) {
+        throw new BadRequestException({ message: `Invalid permission ${entry.permission}`, code: 'access.invalid_permission' });
+      }
+    }
+    const catalog = new Set((await this.repo.listCapabilities()).map((row) => row.name));
+    for (const entry of overrides) {
+      if (!catalog.has(entry.capability)) {
+        throw new BadRequestException({ message: `Unknown capability ${entry.capability}`, code: 'access.unknown_capability' });
+      }
+    }
+    const effective = overrides.filter((entry) => entry.permission !== CAP_INHERIT);
+    await this.repo.dbHandle.transaction(async (tx) => {
+      await this.repo.deleteRoleCapabilitiesInContext(roleId, contextId, tx);
+      for (const entry of effective) {
+        await this.repo.upsertRoleCapability({ contextId, roleId, capability: entry.capability, permission: entry.permission, modifierId }, tx);
+      }
+      await this.contexts.markContextDirty(contextId, tx);
+    });
+    const saved = await this.repo.listRoleCapabilitiesAtContext(roleId, contextId);
+    return saved
+      .map((row) => ({ capability: row.capability, permission: row.permission }))
+      .sort((a, b) => a.capability.localeCompare(b.capability));
   }
   /**
    * Liệt kê override đã lưu của role.

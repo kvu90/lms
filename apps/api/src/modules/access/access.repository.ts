@@ -1,12 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, eq, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, ilike, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
 import type { Database, DbTx } from '../../db/database';
-import { capabilities, config, context, role, roleAssignments, roleCapabilities, tenantMemberships, tenants } from '../../db/schema';
+import { capabilities, config, context, role, roleAssignments, roleCapabilities, tenantMemberships, tenants, users } from '../../db/schema';
 import { tenantAls } from '../tenants/tenant-als';
 
 export type ContextRow = typeof context.$inferSelect;
 export type RoleRow = typeof role.$inferSelect;
+
+/**
+ * Một dòng của bảng gán vai: dòng gán đã lưu kèm tên đầy đủ và email của
+ * người dùng được gán, do phép ghép với bảng người dùng trả về. Tên và
+ * email là `null` khi người dùng không còn tồn tại — cột `userId` của
+ * bảng gán không có khoá ngoại tới bảng người dùng nên dòng gán mồ côi
+ * vẫn phải liệt kê được thay vì bị phép ghép nuốt mất.
+ */
+export type AssignmentListRow = (typeof roleAssignments.$inferSelect) & {
+  userName: string | null;
+  userEmail: string | null;
+};
 
 /** Truy cập dữ liệu chỉ dành cho module Access — các module khác phải dùng các service facade của Access. */
 @Injectable()
@@ -16,6 +28,9 @@ export type RoleRow = typeof role.$inferSelect;
  */
 export class AccessRepository {
   constructor(@InjectDrizzle() private readonly db: Database) {}
+
+  /** Handle DB thô cho các service cần mở transaction nhiều bước (cùng khuôn với các repository khác của API). */
+  get dbHandle(): Database { return this.db; }
 
   // --- contexts -----------------------------------------------------------
   /**
@@ -201,6 +216,41 @@ export class AccessRepository {
     return this.db.select().from(role).orderBy(role.sortOrder);
   }
   /**
+   * Số người dùng PHÂN BIỆT đang giữ từng role — dữ kiện tổng hợp cho
+   * danh sách role. Một người giữ cùng role ở nhiều context (hoặc qua
+   * nhiều nguồn gán khác nhau) sinh nhiều dòng gán, nên phải đếm
+   * `distinct user_id` chứ không đếm dòng: đếm dòng sẽ thổi phồng số
+   * người giữ trên thẻ role. Role không có dòng gán nào vắng mặt trong
+   * kết quả — tầng service hiểu là 0.
+   */
+  async countDistinctUsersByRole(): Promise<{ roleId: string; userCount: number }[]> {
+    return this.db.select({
+      roleId: roleAssignments.roleId,
+      userCount: sql<number>`count(distinct ${roleAssignments.userId})::int`,
+    }).from(roleAssignments).groupBy(roleAssignments.roleId);
+  }
+  /**
+   * Tổng hợp năng lực theo từng role, tính từ tập ghi đè đã lưu của role
+   * (đúng tập dữ kiện mà `listRoleCapabilities` trả về, ở mọi context):
+   * tổng số ghi đè, số ghi đè theo `capType` của năng lực (read/write —
+   * tra từ bảng danh mục qua phép ghép trái theo tên, ghi đè trỏ tới tên
+   * ngoài danh mục vẫn tính vào tổng nhưng không vào hai cột read/write),
+   * và số resource phân biệt mà các ghi đè chạm tới (resource là tiền tố
+   * trước dấu `:` của tên năng lực). Role chưa có ghi đè nào vắng mặt
+   * trong kết quả — tầng service hiểu là toàn 0.
+   */
+  async getRoleOverrideAggregates(): Promise<{ roleId: string; overrideCount: number; readOverrideCount: number; writeOverrideCount: number; resourceCount: number }[]> {
+    return this.db.select({
+      roleId: roleCapabilities.roleId,
+      overrideCount: sql<number>`count(*)::int`,
+      readOverrideCount: sql<number>`coalesce(sum(case when ${capabilities.capType} = 'read' then 1 else 0 end), 0)::int`,
+      writeOverrideCount: sql<number>`coalesce(sum(case when ${capabilities.capType} = 'write' then 1 else 0 end), 0)::int`,
+      resourceCount: sql<number>`count(distinct split_part(${roleCapabilities.capability}, ':', 1))::int`,
+    }).from(roleCapabilities)
+      .leftJoin(capabilities, eq(capabilities.name, roleCapabilities.capability))
+      .groupBy(roleCapabilities.roleId);
+  }
+  /**
    * Cập nhật thông tin role.
    */
   async updateRole(id: string, values: Partial<typeof role.$inferInsert>): Promise<void> {
@@ -264,6 +314,64 @@ export class AccessRepository {
     if (filter.userId !== undefined) conds.push(eq(roleAssignments.userId, filter.userId));
     if (filter.contextId !== undefined) conds.push(eq(roleAssignments.contextId, filter.contextId));
     return db.select().from(roleAssignments).where(conds.length ? and(...conds) : undefined);
+  }
+  /**
+   * Liệt kê gán role cho bảng quản trị: lọc theo user/context/role, tìm
+   * kiếm theo người dùng và phân trang — mọi việc đều ở phía server.
+   *
+   * Flow: dựng điều kiện từ các bộ lọc đã cho → đếm tổng số dòng khớp
+   * → lấy đúng một trang dòng, sắp theo id cho thứ tự trang ổn định
+   * (cùng khuôn với phép tìm kiếm người dùng của module users). Tìm
+   * kiếm khớp không phân biệt hoa thường trên họ, tên, họ+tên ghép,
+   * email và tên đăng nhập của người dùng — cùng tập trường với phép
+   * tìm kiếm người dùng hiện hành, cộng thêm dạng họ+tên ghép để tìm
+   * theo tên đầy đủ ra kết quả. Phép ghép với bảng người dùng là ghép
+   * TRÁI: dòng gán trỏ tới người dùng không còn tồn tại vẫn được liệt
+   * kê (kèm tên/email null) thay vì biến mất khỏi bảng. Tên hiển thị
+   * ghép họ + tên, rỗng cả hai thì lùi về tên đăng nhập.
+   */
+  async listAssignmentsPage(
+    filter: { userId?: string; contextId?: string; roleId?: string; search?: string },
+    page: number,
+    pageSize: number,
+  ): Promise<{ rows: AssignmentListRow[]; total: number }> {
+    const conds = [];
+    if (filter.userId !== undefined) conds.push(eq(roleAssignments.userId, filter.userId));
+    if (filter.contextId !== undefined) conds.push(eq(roleAssignments.contextId, filter.contextId));
+    if (filter.roleId !== undefined) conds.push(eq(roleAssignments.roleId, filter.roleId));
+    if (filter.search) {
+      const pattern = `%${filter.search}%`;
+      conds.push(or(
+        ilike(users.firstName, pattern),
+        ilike(users.lastName, pattern),
+        ilike(users.email, pattern),
+        ilike(users.username, pattern),
+        sql`${users.firstName} || ' ' || ${users.lastName} ilike ${pattern}`,
+      ));
+    }
+    const where = conds.length ? and(...conds) : undefined;
+    const rows = await this.db.select({
+      id: roleAssignments.id,
+      roleId: roleAssignments.roleId,
+      userId: roleAssignments.userId,
+      contextId: roleAssignments.contextId,
+      component: roleAssignments.component,
+      itemId: roleAssignments.itemId,
+      modifierId: roleAssignments.modifierId,
+      updatedAt: roleAssignments.updatedAt,
+      userName: sql<string | null>`case when ${users.id} is null then null when trim(${users.firstName} || ' ' || ${users.lastName}) = '' then ${users.username} else trim(${users.firstName} || ' ' || ${users.lastName}) end`,
+      userEmail: users.email,
+    }).from(roleAssignments)
+      .leftJoin(users, eq(users.id, roleAssignments.userId))
+      .where(where)
+      .orderBy(roleAssignments.id)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+    const [count] = await this.db.select({ n: sql<number>`count(*)::int` })
+      .from(roleAssignments)
+      .leftJoin(users, eq(users.id, roleAssignments.userId))
+      .where(where);
+    return { rows, total: count?.n ?? 0 };
   }
   /** Các assignment có context nằm trên đường tổ tiên cho trước (các id theo đúng thứ tự được truyền vào). */
   /**
@@ -331,6 +439,29 @@ export class AccessRepository {
    */
   async listRoleCapabilities(roleId: string): Promise<(typeof roleCapabilities.$inferSelect)[]> {
     return this.db.select().from(roleCapabilities).where(eq(roleCapabilities.roleId, roleId));
+  }
+  /**
+   * Liệt kê override đã lưu của một role tại đúng một context — tập kết
+   * quả của thao tác lưu ma trận thay toàn bộ và đầu vào kiểm chứng của nó.
+   */
+  async listRoleCapabilitiesAtContext(roleId: string, contextId: string, tx?: DbTx): Promise<(typeof roleCapabilities.$inferSelect)[]> {
+    const db = tx ?? this.db;
+    return db.select().from(roleCapabilities).where(and(
+      eq(roleCapabilities.roleId, roleId), eq(roleCapabilities.contextId, contextId)));
+  }
+  /**
+   * Xoá MỌI override của một role tại đúng một context — bước dọn tập
+   * cũ của thao tác lưu ma trận thay toàn bộ (sau bước này tầng service
+   * ghi lại đúng tập mới trong cùng một transaction, nên tập lưu cuối
+   * cùng bằng đúng tập được gửi lên). Khác
+   * `deleteRoleCapabilitiesAtContext` ở chỗ hàm đó chỉ xoá theo danh
+   * sách tên cho đường seed, còn hàm này xoá trọn tập của cặp
+   * (role, context) bất kể tên.
+   */
+  async deleteRoleCapabilitiesInContext(roleId: string, contextId: string, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.delete(roleCapabilities).where(and(
+      eq(roleCapabilities.roleId, roleId), eq(roleCapabilities.contextId, contextId)));
   }
 
   // --- cấu hình site (siteadmins nằm trong bảng `config`, giống $CFG->siteadmins của Moodle) ---

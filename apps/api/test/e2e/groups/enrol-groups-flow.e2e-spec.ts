@@ -45,7 +45,7 @@ describe('Enrol & groups/cohorts', () => {
     const assignments = await http(app).get('/api/v1/access/assignments')
       .query({ userId: user.id, contextId: content.body.contextId }).set('Authorization', `Bearer ${admin}`);
     const studentRole = await roleIdByShortname(app, admin, 'student');
-    expect((assignments.body as { roleId: string }[]).some((a) => a.roleId === studentRole)).toBe(true);
+    expect((assignments.body.assignments as { roleId: string }[]).some((a) => a.roleId === studentRole)).toBe(true);
     // Góc nhìn facade isEnrolled:
     const userLogin = await login(app, user.username, STRONG_PASSWORD);
     const mine = await http(app).get(`/api/v1/courses/${course.id}/enrolments/me`).set('Authorization', `Bearer ${userLogin.accessToken}`);
@@ -378,7 +378,7 @@ describe('Enrol & groups/cohorts', () => {
     const teacherRole = await roleIdByShortname(app, admin, 'teacher');
     const assignmentsOf = async () => {
       const res = await http(app).get('/api/v1/access/assignments').query({ userId: user.id, contextId: content.body.contextId }).set('Authorization', `Bearer ${admin}`);
-      return (res.body as { roleId: string }[]).map((a) => a.roleId);
+      return (res.body.assignments as { roleId: string }[]).map((a) => a.roleId);
     };
     expect(await assignmentsOf()).toContain(studentRole);
     expect(await assignmentsOf()).not.toContain(teacherRole);
