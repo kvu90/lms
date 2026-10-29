@@ -23,6 +23,7 @@ import { GuardianDigestHandlerService } from './guardian-digest-handler.service'
 import { NotificationEventsProcessor } from './processors/notification-events.processor';
 import { NotificationEventsHandlerService } from './notification-events-handler.service';
 import { NotificationEventsMarker } from './notification-events-marker.service';
+import { NotificationEventsCatchupService } from './notification-events-catchup.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
@@ -155,6 +156,9 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     // #491): processor của hàng đợi `notification-events` (đăng ký
     // hàng đợi tự suy ra từ bảng định tuyến outbox ở trên) + handler
     // nghiệp vụ + dấu đã xử lý/lease theo outboxId trên Redis làm
-    // hàng rào idempotent cho processor.
-    NotificationEventsProcessor, NotificationEventsHandlerService, NotificationEventsMarker],})
+    // hàng rào idempotent cho processor + dịch vụ phát bù tồn đọng
+    // một lần theo watermark của consumer polling cũ khi chuyển
+    // đổi (chỉ chạy khi còn khoá watermark cũ, tự xoá khoá khi rút
+    // cạn xong).
+    NotificationEventsProcessor, NotificationEventsHandlerService, NotificationEventsMarker, NotificationEventsCatchupService],})
 export class WorkerModule {}
