@@ -3200,15 +3200,44 @@
        ]
       }
      ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ được chiều chuyển động của Mặt Trăng quanh Trái Đất trên sơ đồ và (hoặc) mô hình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được Trái Đất là một hành tinh trong hệ Mặt Trời, Mặt Trăng là vệ tinh của Trái Đất."
+        }
+       ]
+      }
+     ]
     }
    ],
-   "outcome_text": "– Chỉ và nói được vị trí của Trái Đất trong hệ Mặt Trời trên sơ đồ, tranh ảnh. – Chỉ và trình bày được chiều chuyển động của Trái Đất quanh mình nó và quanh Mặt Trời trên sơ đồ và (hoặc) mô hình. – Giải thích được ở mức độ đơn giản hiện tượng ngày và đêm, qua sử dụng mô hình hoặc video.",
+   "outcome_text": "– Chỉ và nói được vị trí của Trái Đất trong hệ Mặt Trời trên sơ đồ, tranh ảnh. – Chỉ và trình bày được chiều chuyển động của Trái Đất quanh mình nó và quanh Mặt Trời trên sơ đồ và (hoặc) mô hình. – Giải thích được ở mức độ đơn giản hiện tượng ngày và đêm, qua sử dụng mô hình hoặc video. – Chỉ được chiều chuyển động của Mặt Trăng quanh Trái Đất trên sơ đồ và (hoặc) mô hình. – Nêu được Trái Đất là một hành tinh trong hệ Mặt Trời, Mặt Trăng là vệ tinh của Trái Đất.",
    "source": {
     "document": "Chương trình môn Tự nhiên và Xã hội, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-tnxh-official.pdf",
     "portal": "data.moet.gov.vn (share 0pMcjGE1wMl8PhV)",
     "pdf_pages": [
-     21
+     21,
+     22
     ]
    }
   }

@@ -334,7 +334,7 @@
   {
    "id": "HDTN-0007",
    "subject": "Hoạt động trải nghiệm",
-   "grade": 2,
+   "grade": 1,
    "level": "Tiểu học",
    "stream": "",
    "section": "Hoạt Động Hướng Đến Tự Nhiên",
@@ -3989,7 +3989,7 @@
   {
    "id": "HDTN-0063",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
@@ -4053,7 +4053,7 @@
   {
    "id": "HDTN-0064",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
@@ -4117,7 +4117,7 @@
   {
    "id": "HDTN-0065",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
@@ -4724,8 +4724,8 @@
   {
    "id": "HDTN-0074",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 10,
-   "level": "THPT",
+   "grade": 9,
+   "level": "THCS",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
    "topic": "",
@@ -4788,8 +4788,8 @@
   {
    "id": "HDTN-0075",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 10,
-   "level": "THPT",
+   "grade": 9,
+   "level": "THCS",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
    "topic": "",
@@ -5435,7 +5435,7 @@
   {
    "id": "HDTN-0084",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 11,
+   "grade": 10,
    "level": "THPT",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
@@ -5499,7 +5499,7 @@
   {
    "id": "HDTN-0085",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 11,
+   "grade": 10,
    "level": "THPT",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
@@ -6189,7 +6189,7 @@
   {
    "id": "HDTN-0094",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 12,
+   "grade": 11,
    "level": "THPT",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",
@@ -6253,7 +6253,7 @@
   {
    "id": "HDTN-0095",
    "subject": "Hoạt động trải nghiệm, hướng nghiệp",
-   "grade": 12,
+   "grade": 11,
    "level": "THPT",
    "stream": "",
    "section": "Hoạt Động Hướng Nghiệp",

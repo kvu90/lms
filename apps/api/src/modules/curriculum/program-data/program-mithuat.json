@@ -326,7 +326,7 @@
   {
    "id": "MT-0004",
    "subject": "Mĩ thuật",
-   "grade": 2,
+   "grade": 1,
    "level": "Tiểu học",
    "stream": "",
    "section": "Mĩ Thuật Ứng Dụng",
@@ -1670,7 +1670,7 @@
   {
    "id": "MT-0017",
    "subject": "Mĩ thuật",
-   "grade": 5,
+   "grade": 4,
    "level": "Tiểu học",
    "stream": "",
    "section": "Mĩ Thuật Ứng Dụng",
@@ -2150,8 +2150,8 @@
   {
    "id": "MT-0021",
    "subject": "Mĩ thuật",
-   "grade": 6,
-   "level": "THCS",
+   "grade": 5,
+   "level": "Tiểu học",
    "stream": "",
    "section": "Mĩ Thuật Ứng Dụng",
    "topic": "",
@@ -2651,7 +2651,7 @@
   {
    "id": "MT-0025",
    "subject": "Mĩ thuật",
-   "grade": 7,
+   "grade": 6,
    "level": "THCS",
    "stream": "",
    "section": "Mĩ Thuật Ứng Dụng",
@@ -3014,7 +3014,7 @@
   {
    "id": "MT-0029",
    "subject": "Mĩ thuật",
-   "grade": 8,
+   "grade": 7,
    "level": "THCS",
    "stream": "",
    "section": "Mĩ Thuật Ứng Dụng",
@@ -3743,7 +3743,7 @@
   {
    "id": "MT-0035",
    "subject": "Mĩ thuật",
-   "grade": 9,
+   "grade": 8,
    "level": "THCS",
    "stream": "",
    "section": "Mĩ Thuật Tạo Hình",
@@ -4281,8 +4281,8 @@
   {
    "id": "MT-0040",
    "subject": "Mĩ thuật",
-   "grade": 10,
-   "level": "THPT",
+   "grade": 9,
+   "level": "THCS",
    "stream": "",
    "section": "Mĩ Thuật Ứng Dụng",
    "topic": "",
@@ -6306,7 +6306,7 @@
   {
    "id": "MT-0060",
    "subject": "Mĩ thuật",
-   "grade": 11,
+   "grade": 10,
    "level": "THPT",
    "stream": "",
    "section": "Chuyên đề 10.3: THỰC HÀNH VẼ TRANH BỐ CỤC 1",
@@ -8439,7 +8439,7 @@
   {
    "id": "MT-0079",
    "subject": "Mĩ thuật",
-   "grade": 12,
+   "grade": 11,
    "level": "THPT",
    "stream": "",
    "section": "Chuyên đề 11.3: THỰC HÀNH VẼ TRANH BỐ CỤC 2",

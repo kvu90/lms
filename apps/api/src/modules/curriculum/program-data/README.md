@@ -1175,3 +1175,324 @@ giữ nguyên; số dòng hiện hành 7.736; số node giảm ròng 12 so với
 đợt 1 do dọn node nhãn mảnh như mục Toán ở trên). Cổng toàn vẹn
 nguyên văn đạt trên toàn bộ 21 file sau sửa; bảng số bản ghi của
 spec kiểm kê dataset không đổi vì số lượng không đổi.
+
+## Đợt khôi phục ngày 29/10/2026 — đợt 3: nâng bằng chứng lên mức A, khôi phục ý thiếu, tách đóng gói và sửa nhãn 8 dataset còn lại (issue #502)
+
+Đợt này là đợt 3 — đợt cuối của đợt đối chiếu nguồn toàn bộ 21
+dataset (issue cha của chiến dịch: #504). Tám dataset còn lại vốn
+chỉ có kết luận đối chiếu ở mức B (qua bản toàn văn Thông tư
+32/2018/TT-BGDĐT trên cơ sở dữ liệu văn bản pháp luật); đợt này
+nâng từng môn lên mức A trước khi sửa: lấy PDF chính chủ của môn
+qua bản lưu Wayback ngày 02/7/2022 của đúng đường tải `/download`
+theo mã chia sẻ ghi trong trường `source` của dataset, đối chiếu
+lại toàn bộ kết luận mức B trên PDF đó, chốt số đếm đích của môn
+trong issue rồi mới sửa. Luật hạt giữ nguyên: mỗi dấu gạch ngang
+trong cột "Yêu cầu cần đạt" của văn bản nguồn là một YCCĐ riêng;
+không gộp, không tách một ý; ý khôi phục giữ nguyên văn nguồn.
+Kết quả toàn đợt: bản ghi 2.164 → 2.171 (thêm 7 bản ghi Tiếng Anh
+mới), dòng YCCĐ hiện hành 7.736 → 7.779 — khớp con số đối chiếu
+nguồn toàn cục 7.779 của toàn chiến dịch.
+
+### Giáo dục công dân — 116 bản ghi / 464 → 477 ý (tách 11 ca đóng gói, +13)
+
+- Bằng chứng mức A: `ct-gdcd-official.pdf` (59 trang, md5
+  `2d123376e1340a264908d7d15cb57d31`), mã chia sẻ
+  `Jf6LwbnDihZna46`. Trích toàn bộ mục "2. Nội dung cụ thể" được
+  đúng 477 ý; cả 11 ca đóng gói đều là các ý gạch-ngang riêng
+  trong nguồn.
+- Hiện trạng: 11 outcome đóng gói nhiều ý: GDCD-0014, GDCD-0028,
+  GDCD-0036, GDCD-0044, GDCD-0052, GDCD-0053, GDCD-0066,
+  GDCD-0068, GDCD-0073, GDCD-0115, GDCD-0116 — trong đó
+  GDCD-0052 và GDCD-0068 mỗi ca đóng gói 3 ý, 9 ca còn lại mỗi ca
+  2 ý.
+- Đính chính: tách cả 11 outcome đóng gói thành các YCCĐ riêng
+  theo đúng ranh giới ý trong nguồn (+13 dòng). Văn bản từng ý
+  con giữ nguyên ký tự của dataset (kể cả chỗ bản in nguồn dính
+  chữ "cảm thôngvà" trong GDCD-0052 — tách tại ranh giới ý,
+  không sửa chữ).
+- Importer: created=0, updated=11, skipped=105; changeCounts:
+  textChanged=11, added=13, moved=14 (dời vị trí các ý sau điểm
+  tách), removed/revived/shiftSuspected đều 0; retiredOutcomes=0.
+- Kết quả: 116 bản ghi, 477 dòng YCCĐ hiện hành.
+
+### Tiếng Anh lớp 3–12 — 95 → 102 bản ghi / 296 → 334 ý (khôi phục 35 ý, tách 3 ca đóng gói, trả 2 nhóm ý về đúng bản ghi, sửa 4 ký tự Ð)
+
+- Bằng chứng mức A: `ct-tienganh-3-12-official.pdf` (54 trang,
+  md5 `4f4d9954caed847cc416a45e72638138`), mã chia sẻ
+  `CXTqAkDQNTwyEPt`. Số đếm đích đã chốt trong issue trước khi
+  sửa: 334 ý, gồm số dòng tách 3 ca đóng gói là +3 (mỗi ca tách
+  thành đúng 2 ý theo nguồn). Đối chiếu phủ kín theo từng lớp:
+  lớp 4, 10, 11 khớp nguyên văn toàn bộ; các chênh lệch còn lại
+  nằm đúng ở các ca liệt kê dưới đây.
+- Khôi phục 35 ý thiếu (+35):
+  - Khối Viết của lớp 3, 5, 6, 7, 8 không có bản ghi nào trong
+    dataset (12 ý): dựng 5 bản ghi mới TA-0096 (Viết lớp 3, 3 ý,
+    tr. 28), TA-0097 (Viết lớp 5, 3 ý, tr. 32), TA-0099 (Viết
+    lớp 6, 2 ý, tr. 34), TA-0100 (Viết lớp 7, 2 ý, tr. 36),
+    TA-0101 (Viết lớp 8, 2 ý, tr. 38), đặt ngay sau bản ghi Đọc
+    của cùng lớp theo đúng vị trí chương trình.
+  - Danh sách Ngữ pháp bị cụt ở cuối khối (23 ý): TA-0008 (Ngữ
+    pháp lớp 3) bổ sung 4 ý đuôi ở tr. 27–28 ("Từ chỉ số lượng:
+    a lot, many, some, ...", "Liên từ: and", "Mạo từ: a/an,
+    the", "Giới từ (chỉ địa điểm): in, at, on, ... …") và hoàn
+    thiện ý 13 vốn bị cụt phần "…" ở ranh trang ("Tính từ miêu
+    tả: big, small, new, old, …"); TA-0032 (Ngữ pháp lớp 6) bổ
+    sung 11 ý đuôi ở tr. 34; TA-0048 (Ngữ pháp lớp 8) bổ sung 8
+    ý đuôi ở tr. 38. Trường `source.pdf_pages` của ba bản ghi mở
+    rộng tương ứng để phủ các trang chứa ý khôi phục.
+- Tách 3 ca đóng gói (+3): TA-0022 outcome 0 (Đọc lớp 5, tr. 31)
+  tách thành 2 ý; TA-0028 outcome 2 (Nói lớp 6, tr. 33) tách
+  thành 2 ý; TA-0052 outcome 3 (Nói lớp 9, tr. 39–40) tách
+  thành 1 ý Nói ở lại TA-0052 và 1 ý Đọc chuyển sang bản ghi Đọc
+  lớp 9 mới (xem dưới). Ý đầu của mỗi ca giữ định danh của dòng
+  đóng gói theo cơ chế importer.
+- Trả 2 nhóm ý về đúng bản ghi bằng bản ghi mới (mã nối tiếp sau
+  mã lớn nhất của môn, đặt đúng vị trí chương trình):
+  - Nhóm Đọc lớp 9 đang nằm sai trong TA-0052 (bản ghi Nói): ý
+    Đọc trong outcome 3 (sau nhãn "Ðọc" lọt vào văn bản) cùng
+    outcome 4 và outcome 5 chuyển sang bản ghi mới TA-0102
+    (topic "Kỹ năng ngôn ngữ: Đọc", 3 ý), đặt ngay sau TA-0052.
+    TA-0052 còn 4 ý Nói.
+  - Nhóm Ngữ pháp lớp 5 đang nằm sai trong TA-0024 (bản ghi Từ
+    vựng): 8 outcome cuối (outcome đầu mang tiền tố "Ngữ pháp: "
+    trong văn bản) chuyển sang bản ghi mới TA-0098 (topic "Kiến
+    thức ngôn ngữ: Ngữ pháp", 8 ý, bỏ tiền tố "Ngữ pháp: " ở ý
+    đầu vì nhãn đã nằm ở `topic`), đặt ngay sau TA-0024.
+    TA-0024 còn 1 ý Từ vựng.
+- Sửa ký tự `Ð` (U+00D0) thành `Đ` ở 4 outcome: TA-0022 outcome
+  1, TA-0052 outcome 3 và outcome 4 (hai ý Đọc lớp 9 ở trên),
+  TA-0079 outcome 1. Ghi nhận: chính lớp chữ của PDF chính chủ
+  cũng cho ra `Ð` tại các vị trí này (tiêu đề và 2 ý Đọc lớp 9 ở
+  tr. 40, 1 ý Đọc lớp 5 ở tr. 31) — đây là lỗi mã hoá của font
+  nhúng trong PDF; các vị trí khác trong cùng PDF đều in đúng
+  `Đ`, và dataset chuẩn hoá theo `Đ`. Sau sửa, không còn outcome
+  nào trong toàn bộ 21 dataset chứa ký tự `Ð`.
+- Importer: created=7, updated=8, skipped=87; changeCounts:
+  textChanged=6, added=48, removed=10, moved/revived/
+  shiftSuspected đều 0; retiredOutcomes=10. Đối chiếu: added=48
+  gồm 23 ý Ngữ pháp khôi phục + 12 ý của 5 bản ghi Viết mới + 8
+  ý ở bản ghi Ngữ pháp lớp 5 mới + 3 ý ở bản ghi Đọc lớp 9 mới +
+  2 ý nhì của hai ca tách TA-0022/TA-0028; removed=10 là 8 ý Ngữ
+  pháp và 2 ý Đọc ở bản ghi cũ khi trả nhóm — các dòng này được
+  đánh dấu rút (không xoá) và ý tương ứng được cấp dòng mới ở
+  bản ghi mới, đúng cơ chế định danh của importer.
+- Kết quả: 102 bản ghi, 334 dòng YCCĐ hiện hành.
+
+### Tự nhiên và Xã hội — 48 bản ghi / 150 → 152 ý (bổ sung 2 ý cuối khối)
+
+- Bằng chứng mức A: `ct-tnxh-official.pdf` (28 trang, md5
+  `c2d9ff4df2a6f8a82ee3fefc43955bb6`), mã chia sẻ
+  `0pMcjGE1wMl8PhV`. Đếm theo lớp trên nguồn: 54 + 46 + 52 =
+  152 ý; dataset thiếu đúng 2 ý ở lớp 3.
+- Hiện trạng và đính chính: khối "Trái Đất trong hệ Mặt Trời"
+  của TNXH-0049 có 5 ý trong nguồn; dataset mới có 3 ý đầu (tr.
+  21). Bổ sung 2 ý cuối nằm ở tr. 22 của PDF: "Chỉ được chiều
+  chuyển động của Mặt Trăng quanh Trái Đất trên sơ đồ và (hoặc)
+  mô hình." và "Nêu được Trái Đất là một hành tinh trong hệ Mặt
+  Trời, Mặt Trăng là vệ tinh của Trái Đất." Trường
+  `source.pdf_pages` của TNXH-0049 mở rộng [21] → [21, 22].
+- Ca ký tự TNXH-0029 — KẾT LUẬN KHÔNG SỬA: dataset viết "chức
+  năng của xương và cơ qua hoạt động vận động"; bản toàn văn
+  trên cơ sở dữ liệu văn bản pháp luật (mức B) viết "cơ quan".
+  PDF chính chủ (tr. 15) in đúng "cơ qua" như dataset — dataset
+  chép đúng nguyên văn nguồn chính thức, không phải lệch.
+- Importer: created=0, updated=1, skipped=47; changeCounts:
+  added=2, còn lại 0; retiredOutcomes=0.
+- Kết quả: 48 bản ghi, 152 dòng YCCĐ hiện hành.
+
+### Ngữ văn — 238 bản ghi / 537 → 527 ý (gộp 9 ca tách sai, bỏ 1 mảnh tiêu đề)
+
+- Bằng chứng mức A: `ct-nguvan-official.pdf` (110 trang, md5
+  `95549314746b4510eec835f22bbe9b9b`), mã chia sẻ
+  `KNfGVJAhcwuS2Uk`. Đối chiếu dòng token theo từng lớp giữa
+  nguồn và dataset: ngoài 10 ca dưới đây, không có ý nào thiếu
+  hay thừa ở bất kỳ lớp nào.
+- Hiện trạng và đính chính: 9 ca một ý nguồn bị tách thành 2
+  outcome liên tiếp — gộp lại thành một outcome (văn bản gộp
+  khớp đúng một ý nguồn): NV-0001 (outcome 0+1), NV-0018 (1+2),
+  NV-0023 (0+1), NV-0030 (3+4), NV-0078 (1+2), NV-0084 (0+1),
+  NV-0131 (4+5), NV-0237 (2+3 — ca tách giữa câu: "…chuyển thể
+  một" / "tác phẩm văn học."), NV-0238 (1+2). Riêng NV-0238:
+  bỏ outcome 0 "THỰC HOẶC LÃNG MẠN" — đó là mảnh đuôi của tiêu
+  đề Chuyên đề 12.3 (đầu tiêu đề đã nằm ở trường `section` của
+  chính bản ghi), không phải YCCĐ (−9 −1 = −10 dòng).
+- Ca nghi đóng gói NV-0176 — KẾT LUẬN Ở MỨC A: KHÔNG TÁCH.
+  Trong PDF chính chủ (tr. 62), khối "Liên hệ, so sánh, kết nối"
+  của Văn bản nghị luận (lớp 10) chỉ gồm một đoạn văn liền:
+  "Nhận biết và phân tích được bối cảnh lịch sử hoặc bối cảnh
+  văn hoá, xã hội – Nêu được ý nghĩa hay tác động của văn bản
+  đối với quan niệm sống của bản thân." — dấu "–" nằm giữa đoạn,
+  không phải dấu đầu dòng của ý mới. Dataset giữ đúng 1 outcome
+  là đúng nguồn.
+- Importer: created=0, updated=9, skipped=229; changeCounts:
+  textChanged=9, removed=10, moved=19 (dời vị trí các ý sau
+  điểm gộp/bỏ), added/revived/shiftSuspected đều 0;
+  retiredOutcomes=10 (9 dòng bị gộp và 1 mảnh tiêu đề được đánh
+  dấu rút, không xoá).
+- Kết quả: 238 bản ghi, 527 dòng YCCĐ hiện hành.
+
+### Âm nhạc — 116 bản ghi / 454 ý (sửa nhãn lớp 19 bản ghi, nhãn cấp 4 bản ghi, nhãn topic 21 bản ghi; số lượng không đổi)
+
+- Bằng chứng mức A: `ct-amnhac-official.pdf` (52 trang, md5
+  `26f02f4ffb1735909344e6d5078e0e55`), mã chia sẻ
+  `v8r7HtTrArjXOrk`. Đối chiếu dòng token theo từng lớp sau khi
+  gán lại nhãn: khớp toàn bộ; phân bổ ý theo lớp thành 18, 19,
+  19, 34, 35, 40, 37, 41, 43, 59, 56, 53 — đúng số đếm nguồn.
+  Ba ý chứa phân số nhịp từng chỉ khẳng định được ở mức B
+  (AN-0038 ý 2 "2/4, 3/4", AN-0048 ý 3 "4/4", AN-0069 ý 3 "3/8,
+  6/8") được xác nhận ở mức A: phân số là đối tượng ký hiệu
+  riêng trong PDF chính chủ và dataset chép đúng.
+- Hiện trạng: khuôn lệch cắt theo trang như các đợt trước —
+  bản ghi ở đuôi bảng của một lớp bị gắn nhãn của lớp bắt đầu
+  trên cùng trang (lệch +1 lớp). 19 bản ghi mang theo 52 ý:
+  AN-0011, AN-0012, AN-0013 (lớp 3 → 2), AN-0020, AN-0021 (4 →
+  3), AN-0028, AN-0029, AN-0030, AN-0031 (5 → 4), AN-0042 (6 →
+  5, đồng thời sai cấp: THCS → Tiểu học), AN-0071, AN-0072,
+  AN-0073, AN-0074 (9 → 8), AN-0084, AN-0085, AN-0086 (10 → 9,
+  đồng thời sai cấp: THPT → THCS), AN-0097 (11 → 10), AN-0107
+  (12 → 11). Thêm 21 bản ghi mang `topic` là mảnh đuôi nội dung
+  Lí thuyết âm nhạc/Đọc nhạc/Thường thức âm nhạc của lớp trước
+  rò sang (AN-0028 → AN-0041: "các dấu lặng. – 7 bậc cơ bản và
+  vị trí trên khuông."; AN-0093 → AN-0096: "giọng: Son trưởng,
+  Mi thứ."; AN-0116 → AN-0118: "chèo, cải lương,...").
+- Đính chính: đổi `grade` của 19 bản ghi theo danh sách trên;
+  đổi `level` của AN-0042 (→ Tiểu học) và AN-0084, AN-0085,
+  AN-0086 (→ THCS); đổi `topic` của 21 bản ghi thành nhãn khối
+  đúng lấy từ đầu trường `content` của chính bản ghi (Thường
+  thức âm nhạc / Hát / Nghe nhạc / Đọc nhạc / Nhạc cụ / Lí
+  thuyết âm nhạc; riêng AN-0095, AN-0096, AN-0116, AN-0117,
+  AN-0118 lấy tên chuyên đề đầy đủ — Chuyên đề 10.1, 10.2,
+  12.1, 12.2, 12.3 — cũng nằm ở đầu `content`).
+- Importer: created=0, updated=36 (19 bản ghi sửa lớp + 21 bản
+  ghi sửa topic, giao nhau 4 bản ghi AN-0028 → AN-0031),
+  skipped=80; changeCounts đều 0 (chỉ sửa trường nhãn);
+  retiredOutcomes=0.
+- Kết quả: 116 bản ghi, 454 dòng YCCĐ hiện hành (không đổi).
+
+### Mĩ thuật — 100 bản ghi / 485 ý (sửa nhãn lớp 9 bản ghi, nhãn cấp 2 bản ghi; số lượng không đổi)
+
+- Bằng chứng mức A: `ct-mithuat-official.pdf` (78 trang, md5
+  `44859d9acd7b0106d97141be894c918a`), mã chia sẻ
+  `gfmseyfWU0h4OEj`. Đối chiếu dòng token theo từng lớp sau khi
+  gán lại nhãn: khớp toàn bộ ngoài các đoạn nhãn nhóm và tiêu
+  đề mục vốn nằm ngoài tập ý; phân bổ ý theo lớp thành 21, 21,
+  21, 21, 21, 24, 24, 30, 30, 89, 91, 92 — đúng số đếm nguồn.
+- Hiện trạng và đính chính: cùng khuôn lệch cắt theo trang; 9
+  bản ghi mang theo 39 ý được đổi `grade`: MT-0004 (2 → 1),
+  MT-0017 (5 → 4), MT-0021 (6 → 5, đồng thời sai cấp: THCS →
+  Tiểu học), MT-0025 (7 → 6), MT-0029 (8 → 7), MT-0035 (9 → 8),
+  MT-0040 (10 → 9, đồng thời sai cấp: THPT → THCS), MT-0060
+  (11 → 10), MT-0079 (12 → 11); đổi `level` của MT-0021 (→
+  Tiểu học) và MT-0040 (→ THCS).
+- Importer: created=0, updated=9, skipped=91; changeCounts đều
+  0; retiredOutcomes=0.
+- Kết quả: 100 bản ghi, 485 dòng YCCĐ hiện hành (không đổi).
+
+### Giáo dục thể chất — 22 bản ghi / 115 ý (sửa nhãn lớp 6 bản ghi và GDTC-0002, nhãn cấp 1 bản ghi; số lượng không đổi)
+
+- Bằng chứng mức A: `ct-gdtc-official.pdf` (31 trang, md5
+  `d3a7ddd8bf31ef31a97aabf1ee9e42a1`), mã chia sẻ
+  `8vShtvq8x2sDOWq`. Đối chiếu dòng token theo từng lớp sau khi
+  gán lại nhãn: lớp 1–11 khớp tuyệt đối; lớp 12 đủ 13 ý (ý 10
+  "Tích cực tham gia công tác trọng tài điều khiển các trận thi
+  đấu nhằm nâng cao hiệu quả học tập và rèn luyện" có dấu gạch
+  đầu dòng dính chữ trong lớp chữ của PDF — đọc tay tại tr. 22
+  xác nhận là một ý riêng). Phân bổ ý theo lớp thành 6, 6, 7,
+  6, 7, 11, 12, 12, 13, 11, 11, 13 — đúng số đếm nguồn.
+- Hiện trạng và đính chính: cùng khuôn lệch cắt theo trang; 6
+  bản ghi mang theo 23 ý được đổi `grade`: GDTC-0004 (3 → 2),
+  GDTC-0006 (4 → 3), GDTC-0008 (5 → 4), GDTC-0010 (6 → 5, đồng
+  thời sai cấp: THCS → Tiểu học), GDTC-0014 (8 → 7), GDTC-0019
+  (11 → 10); đổi `level` của GDTC-0010 (→ Tiểu học). Thêm
+  GDTC-0002 — bản ghi 0 outcome, chỉ chứa trường `content` là
+  phần tiếp nối nội dung lớp 1 nhưng bị gắn `grade` lớp 2 —
+  đổi `grade` 2 → 1.
+- Importer: created=0, updated=7, skipped=15; changeCounts đều
+  0; retiredOutcomes=0.
+- Kết quả: 22 bản ghi, 115 dòng YCCĐ hiện hành (không đổi).
+
+### Hoạt động trải nghiệm — 105 bản ghi / 341 ý (sửa nhãn lớp 10 bản ghi, nhãn cấp 2 bản ghi; số lượng không đổi)
+
+- Bằng chứng mức A: `ct-hdtn-official.pdf` (47 trang, md5
+  `3432d1a3c1243632e1278e3e1b2d082c`), mã chia sẻ
+  `xvD7X3JpdxSF855`. PDF chính chủ có đủ tiêu đề "LỚP 3" và
+  "LỚP 4" (tr. 17 và tr. 19) — khiếm khuyết thiếu hai tiêu đề
+  này là của lớp chữ bản toàn văn mức B, không phải của
+  dataset. Đối chiếu dòng token theo từng lớp sau khi gán lại
+  nhãn: lớp 1–11 khớp tuyệt đối; lớp 12 khớp ngoài bảng tỉ lệ
+  thời lượng/đánh giá nằm sau bảng cụ thể. Phân bổ ý theo lớp
+  thành 16, 23, 23, 22, 23, 27, 28, 32, 33, 35, 39, 40 — đúng
+  số đếm nguồn. Các đoạn tổng quan theo cấp ở mục V.1 của văn
+  bản nguồn không thuộc bảng cụ thể theo lớp nên không nằm
+  trong dataset, đúng quy ước của mọi dataset.
+- Hiện trạng và đính chính: cùng khuôn lệch cắt theo trang; 10
+  bản ghi mang theo 29 ý được đổi `grade`: HDTN-0007 (2 → 1),
+  HDTN-0063, HDTN-0064, HDTN-0065 (9 → 8), HDTN-0074,
+  HDTN-0075 (10 → 9, đồng thời sai cấp: THPT → THCS),
+  HDTN-0084, HDTN-0085 (11 → 10), HDTN-0094, HDTN-0095 (12 →
+  11); đổi `level` của HDTN-0074, HDTN-0075 (→ THCS).
+- Importer: created=0, updated=10, skipped=95; changeCounts đều
+  0; retiredOutcomes=0.
+- Kết quả: 105 bản ghi, 341 dòng YCCĐ hiện hành (không đổi).
+
+### Dọn node cây sau khi nạp
+
+Importer tạo 30 node mới cho các vị trí neo đúng (bản ghi mới
+của Tiếng Anh và các vị trí nhãn/lớp đã sửa của 4 môn
+Âm nhạc/Mĩ thuật/Giáo dục thể chất/Hoạt động trải nghiệm). Sau
+khi nạp, 8 node lá thành rỗng — đã kiểm chứng từng node rỗng
+hoàn toàn (0 bản ghi neo, 0 dòng YCCĐ neo, 0 node con) và xoá
+khỏi cơ sở dữ liệu chuẩn trước khi xuất dump, theo cùng quy
+ước đợt 2: node mang nhãn mảnh "các dấu lặng. – 7 bậc cơ bản và
+vị trí trên khuông." (Âm nhạc, lớp 5), node mang nhãn mảnh
+"giọng: Son trưởng, Mi thứ." (Âm nhạc, lớp 10), node mang nhãn
+mảnh "chèo, cải lương,..." (Âm nhạc, lớp 12), node "Chuyên đề
+10.3: Phương pháp xác định tiết điệu đệm" (Âm nhạc, lớp 11),
+node "Chuyên đề 11.3: Kĩ năng chỉ huy" (Âm nhạc, lớp 12), node
+"Mĩ Thuật Ứng Dụng" (Mĩ thuật, lớp 10), node "Chuyên đề 10.3:
+THỰC HÀNH VẼ TRANH BỐ CỤC 1" (Mĩ thuật, lớp 11), node "Chuyên
+đề 11.3: THỰC HÀNH VẼ TRANH BỐ CỤC 2" (Mĩ thuật, lớp 12). Sau
+khi xoá, số node lá không có bản ghi và không có YCCĐ là 0;
+tổng số node 3.696 → 3.718 (tăng ròng 22).
+
+### Ghi nhận ngoài phạm vi đợt này (không sửa)
+
+- Trường `content` của AN-0048 còn khác biệt ở mức ký tự đã
+  ghi nhận trong hồ sơ đối chiếu nguồn (viết "Latinh" và mảnh
+  "– Nhịp 4." ở trường nội dung). Khác biệt này nằm ở trường
+  `content`, không thuộc tầng YCCĐ và không thuộc phạm vi sửa
+  nhãn của đợt này; giữ nguyên hiện trạng.
+- Các ghi nhận ngoài phạm vi của đợt 2 (HH-0024 ý 7, HH-0073 ý
+  5) không thuộc phạm vi đợt 3 và không bị đụng tới trong đợt
+  này.
+
+### Số liệu sau đợt khôi phục ngày 29/10/2026 — đợt 3 (issue #502)
+
+| Dataset | Bản ghi trước → sau | Dòng YCCĐ hiện hành trước → sau |
+|---|---|---|
+| Giáo dục công dân | 116 → 116 | 464 → 477 |
+| Tiếng Anh 3–12 | 95 → 102 | 296 → 334 |
+| Tự nhiên và Xã hội | 48 → 48 | 150 → 152 |
+| Ngữ văn | 238 → 238 | 537 → 527 |
+| Âm nhạc | 116 → 116 | 454 → 454 |
+| Mĩ thuật | 100 → 100 | 485 → 485 |
+| Giáo dục thể chất | 22 → 22 | 115 → 115 |
+| Hoạt động trải nghiệm | 105 → 105 | 341 → 341 |
+| 13 dataset còn lại | không đổi | không đổi |
+| **Tổng** | **2.164 → 2.171** | **7.736 → 7.779** |
+
+Phiên bản dump đông cứng sau đợt: `2026-10-29.3` (header dump
+ghi subjects=19, curricula=146, curriculum_nodes=3718,
+learning_outcomes=7802, curriculum_program_records=2171; tổng
+số dòng YCCĐ trong dump là 7.802, gồm 23 dòng đã rút — 3 dòng
+của các đợt trước giữ nguyên và 20 dòng rút ở đợt này: 10 dòng
+Ngữ văn bị gộp/bỏ mảnh và 10 dòng Tiếng Anh ở bản ghi cũ khi
+trả nhóm; số dòng hiện hành 7.779, khớp con số đối chiếu nguồn
+toàn cục của chiến dịch và đóng issue cha #504). Khi đối chiếu
+dump, các dòng `subjects.context_id` mang literal neo theo
+tenant của cơ sở dữ liệu chuẩn dùng để sinh dump (khác nhau
+giữa các môi trường sinh dump, vô hại — cùng ghi nhận như các
+đợt trước). Cổng toàn vẹn nguyên văn đạt trên toàn bộ 21 file
+sau sửa; bảng số bản ghi của spec kiểm kê dataset đã cập nhật
+(Tiếng Anh 3–12: 95 → 102; tổng: 2.164 → 2.171) trong cùng thay
+đổi này.
