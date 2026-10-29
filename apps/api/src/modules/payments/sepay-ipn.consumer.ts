@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { SepayMatchingService } from './sepay-matching.service';
+import { SepayMatchingService } from '@lms/payments';
 
 /** Nhịp quét sự kiện IPN chờ matching. */
 const POLL_INTERVAL_MS = 1000;

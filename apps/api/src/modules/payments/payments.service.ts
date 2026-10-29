@@ -1,9 +1,10 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectDrizzle } from '@nestjs/drizzle';
 import { timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { OutboxService } from '../../infra/events/outbox.service';
-import type { DbTx } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { ClassesService } from '../classes/classes.service';
@@ -12,8 +13,7 @@ import { SiteConfigService } from '../site-config/site-config.service';
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantConfigService } from '../tenants/tenant-config.service';
 import { TenantsService } from '../tenants/tenants.service';
-import { PaymentsRepository, type AccountRow, type CouponRow, type EntitlementRow, type PaymentRow, type ProviderEventRow, type RefundRow } from './payments.repository';
-import { PlanEntitlementsService, planChargedAmountOf, type PlanSnapshot } from './plan-entitlements.service';
+import { PaymentsRepository, PlanEntitlementsService, planChargedAmountOf, type AccountRow, type CouponRow, type EntitlementRow, type PaymentRow, type PlanSnapshot, type ProviderEventRow, type RefundRow } from '@lms/payments';
 import { buildVietQrPayload, extractPaymentCode, maskAccountConfig, paymentCodeFromSequence, readAccountConfig, PAYMENT_CODE_TTL_MS } from './vietqr';
 import type { Coupon, CreateCoupon, CreateRefund, PaymentRefund, PaymentReviewQueueItem, PlanEntitlement, RejectRefund, ResolvePaymentReview, SettleRefund, UpdateCoupon } from '@lms/contracts';
 
@@ -146,6 +146,15 @@ export class PaymentsService {
 
   constructor(
     private readonly repo: PaymentsRepository,
+    // Handle DB của chính tiến trình API: các transaction của facade
+    // (tạo yêu cầu hoàn, xác nhận chi) mở từ handle này để `tx` truyền
+    // đồng thời cho repository của package dùng chung `@lms/payments`
+    // và cho các service của API (enrol, classes) trong CÙNG một
+    // transaction mà vẫn khớp kiểu ở cả hai phía. Đây là cùng một
+    // instance kết nối mà repository nhận qua `@InjectDrizzle()` từ
+    // cùng một đăng ký DrizzleModule, nên hành vi không đổi so với
+    // khi mở qua `repo.dbHandle` (issue #538).
+    @InjectDrizzle() private readonly db: Database,
     private readonly evaluator: PermissionEvaluator,
     private readonly contexts: ContextsService,
     private readonly outbox: OutboxService,
@@ -993,7 +1002,7 @@ export class PaymentsService {
       throw new BadRequestException({ message: 'A refund reason is required', code: 'payment.refund_reason_required' });
     }
     const threshold = await this.refundDualApprovalThreshold(payment.tenantId);
-    const created = await this.repo.dbHandle.transaction(async (tx) => {
+    const created = await this.db.transaction(async (tx) => {
       // Khoá dòng payments: mọi yêu cầu hoàn của cùng một khoản thu xếp
       // hàng tại đây, cổng cộng dồn đọc-tổng → so sánh → ghi không thể
       // bị hai yêu cầu song song chẻ đôi (mỗi transaction thấy tổng đã
@@ -1190,7 +1199,7 @@ export class PaymentsService {
   }): Promise<RefundRow> {
     const { payment, refund } = input;
     const now = new Date();
-    const outcome = await this.repo.dbHandle.transaction(async (tx) => {
+    const outcome = await this.db.transaction(async (tx) => {
       await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
       const fresh = await this.repo.getRefund(refund.id, tx);
       if (!fresh || fresh.status === 'settled') return { settled: fresh ?? refund, pendingRemoval: null };

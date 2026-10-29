@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
-import type { Database, DbTx } from '../../db/database';
+import type { Database, DbTx } from './database';
 
-import { course, paymentAccounts, paymentCoupons, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '../../db/schema';
+import { course, paymentAccounts, paymentCoupons, paymentProviderEvents, paymentRefunds, payments, planEntitlements } from '@lms/db';
 
 export type AccountRow = typeof paymentAccounts.$inferSelect;
 export type PaymentRow = typeof payments.$inferSelect;
@@ -14,6 +14,13 @@ export type CouponRow = typeof paymentCoupons.$inferSelect;
 
 /**
  * Kho dữ liệu payment_accounts / payments / payment_refunds.
+ *
+ * Repository này là tầng truy cập dữ liệu thanh toán của package
+ * dùng chung `@lms/payments` (issue #538): nó chỉ thao tác dữ liệu
+ * qua Drizzle trên schema dùng chung `@lms/db`, không chứa luật
+ * nghiệp vụ và không phụ thuộc module nào của tiến trình chủ — mọi
+ * phía (facade thanh toán phía apps/api, luồng matching dùng chung)
+ * dùng đúng repository này, không có bản sao thứ hai.
  *
  * Các method ghi của vòng đời hoàn tiền (lát 3, issue #189) nhận
  * transaction tuỳ chọn để cổng cộng dồn chạy trong MỘT transaction
