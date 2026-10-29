@@ -184,6 +184,12 @@ export const envSchema = z.object({
   // thật". Gateway thật sau này xác thực bằng chữ ký của chính gateway
   // qua cùng cổng verify này.
   PAYMENT_WEBHOOK_SECRET: z.string().min(32).optional(),
+  // Allowlist IP nguồn của IPN SePay (lớp 1 của handleSepayIpn trong
+  // PaymentsService): danh sách IP được phép, phân cách bằng dấu phẩy.
+  // Không đặt hoặc rỗng thì lớp allowlist tắt — lớp xác thực Apikey
+  // phía sau vẫn bắt buộc, giống hệt ngữ nghĩa khi service còn đọc
+  // thẳng biến này từ process.env.
+  SEPAY_IPN_IP_ALLOWLIST: z.string().optional(),
   // Admin khởi tạo (được seed ở lần khởi động đầu tiên khi chưa có admin của site)
   ADMIN_USERNAME: z.string().min(1).default('admin'),
   ADMIN_PASSWORD: z.string().min(8).default('Admin123!'),

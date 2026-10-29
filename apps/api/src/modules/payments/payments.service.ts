@@ -154,6 +154,7 @@ export class PaymentsService {
     private readonly tenantConfig: TenantConfigService,
     private readonly siteConfig: SiteConfigService,
     private readonly plans: PlanEntitlementsService,
+    private readonly config: ConfigService,
   ) {}
 
   /** Tenant platform ("tenant-zero") — chủ của dòng tiền gói và của hàng đợi platform. */
@@ -835,9 +836,10 @@ export class PaymentsService {
    */
   async handleSepayIpn(input: SepayIpnInput): Promise<{ success: true; duplicate?: boolean }> {
     const body = (input.body && typeof input.body === 'object' ? input.body : {}) as Record<string, unknown>;
-    // Lớp 1 — allowlist IP nguồn (env SEPAY_IPN_IP_ALLOWLIST, phân cách dấu
-    // phẩy; chưa cấu hình = lớp này tắt, lớp Apikey vẫn bắt buộc).
-    const allowlist = (process.env.SEPAY_IPN_IP_ALLOWLIST ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    // Lớp 1 — allowlist IP nguồn (biến env SEPAY_IPN_IP_ALLOWLIST khai
+    // trong env schema, đọc qua tầng config; phân cách dấu phẩy; chưa
+    // cấu hình = lớp này tắt, lớp Apikey vẫn bắt buộc).
+    const allowlist = (this.config.get<string>('SEPAY_IPN_IP_ALLOWLIST') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     if (allowlist.length > 0) {
       const ip = (input.ip ?? '').replace(/^::ffff:/, '');
       if (!allowlist.includes(ip)) {

@@ -1,4 +1,5 @@
 import { createMcpHandler, type AuthInfo, type McpHttpHandler } from '@modelcontextprotocol/server';
+import { Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { NextFunction, Request, Response } from 'express';
 import { McpBridgeAuth } from './mcp-bridge-auth';
@@ -31,6 +32,14 @@ import { tenantAls } from '../tenants/tenant-als';
  * `insufficient_scope` + challenge step-up (lát MCP-2), rate limit theo
  * (giáo viên, nhóm tool) vượt hạn → 429.
  */
+
+/**
+ * Logger của mount (code ngoài class nên khai cấp module với context
+ * dạng chuỗi, cùng tiền lệ `new Logger('Worker')` ở apps/worker): mọi
+ * lỗi vận hành của handler và của vòng mount đều ghi qua đây ở mức
+ * error, không gọi thẳng console như trước.
+ */
+const logger = new Logger('McpMount');
 
 const MAX_BODY_BYTES = 256 * 1024;
 const MCP_SCOPES = ['lms.questions.read', 'lms.questions.draft', 'lms.questions.write', 'lms.banks.contribute'] as const;
@@ -167,7 +176,7 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
       maxRequestBodySize: MAX_BODY_BYTES,
       onerror: (error) => {
         // Chỉ ghi nhận phía server; response cho client do handler quyết.
-        console.error('[mcp] handler error:', error.message);
+        logger.error(`[mcp] handler error: ${error.message}`);
       },
     },
   );
@@ -336,7 +345,7 @@ export function mountMcp(app: NestExpressApplication, deps: McpMountDeps): void 
       );
       return pipeWebResponse(webRes, res);
     })().catch((err: unknown) => {
-      console.error('[mcp] mount error:', err);
+      logger.error(`[mcp] mount error: ${err instanceof Error ? (err.stack ?? String(err)) : String(err)}`);
       if (!res.headersSent) jsonRpcError(res, 500, null, -32603, 'Internal error');
     });
   });
