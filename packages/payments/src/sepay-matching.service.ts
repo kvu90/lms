@@ -1,10 +1,15 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { OutboxService } from '../../infra/events/outbox.service';
-import { ClassesService } from '../classes/classes.service';
-import { EnrolService } from '../enrol/enrol.service';
-import { PaymentsRepository, type ProviderEventRow } from './payments.repository';
-import { PaymentsService } from './payments.service';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { OutboxWriterService } from './outbox-writer.service';
+import { PaymentsRepository } from './payments.repository';
 import { PlanEntitlementsService } from './plan-entitlements.service';
+import {
+  PAID_CLASS_ENROL_ACTIVATION_PORT,
+  PAID_ENROL_ACTIVATION_PORT,
+  PAYMENT_SETTLEMENT_PORT,
+  type PaidClassEnrolActivationPort,
+  type PaidEnrolActivationPort,
+  type PaymentSettlementPort,
+} from './sepay-matching-ports';
 
 /**
  * Matching bất đồng bộ cho IPN SePay (lát 1 VietQR, issue #189 — hồ sơ
@@ -14,7 +19,8 @@ import { PlanEntitlementsService } from './plan-entitlements.service';
  * (3) tài khoản nhận trùng account của payment — cộng payment còn `pending`
  * và chưa hết hạn. Cộng thêm phép đối chiếu phòng thủ chiều sâu (issue
  * #419): payment phải khớp giá + tenant phía server của đối tượng đích
- * (`PaymentsService.verifyPaymentAgainstServerTarget`) — ba điều kiện
+ * (cổng đối chiếu đích `PaymentSettlementPort.verifyPaymentAgainstServerTarget`
+ * — cài đặt hiện hành là `PaymentsService` phía apps/api) — ba điều kiện
  * khớp chỉ đối chiếu payment với sự kiện tiền về, một payment tự đặt
  * số tiền thấp vẫn tự khớp với chính nó nên chưa đủ để kích hoạt. Đủ:
  * kích hoạt MỌI quyền lợi (enrol có phí / ghi danh
@@ -30,15 +36,17 @@ import { PlanEntitlementsService } from './plan-entitlements.service';
  *
  * Lát 3 (#189): biến động `debit` (tiền RA khỏi tài khoản) không còn bị
  * `ignored` — nó là bằng chứng lệnh chi của một khoản hoàn và được uỷ
- * thác cho `PaymentsService.settleRefundFromDebitEvent` đối khớp theo
+ * thác cho cổng xác nhận chi `PaymentSettlementPort.settleRefundFromDebitEvent`
+ * (cài đặt hiện hành là `PaymentsService` phía apps/api) đối khớp theo
  * (mã lệnh chi, tài khoản, số tiền) với dòng hoàn đang `approved`:
  * khớp ⇒ dòng hoàn `settled` (đảo quyền lợi nếu cộng dồn đạt 100%) và
  * sự kiện `matched`; không khớp ⇒ sự kiện vào `needs_review` của tenant
  * sở hữu tài khoản nhận để vận hành xử lý, không im lặng bỏ qua.
  *
  * CLASS-3 (#184): payment `class_fee` khớp đủ 3 điều kiện cũng đi đúng
- * đường này — kích hoạt ghi danh CẤP LỚP qua
- * `ClassesService.activatePaidClassEnrol` (vào backing cohort, cohort
+ * đường này — kích hoạt ghi danh CẤP LỚP qua cổng
+ * `PaidClassEnrolActivationPort.activatePaidClassEnrol` (cài đặt hiện
+ * hành là `ClassesService` phía apps/api: vào backing cohort, cohort
  * sync vật chất hoá xuống mọi khoá của lớp) trước nhịp lật `succeeded`;
  * thiếu điều kiện → `needs_review` và KHÔNG vào lớp, như enrol_fee.
  *
@@ -47,6 +55,17 @@ import { PlanEntitlementsService } from './plan-entitlements.service';
  * `PlanEntitlementsService.activateForPayment` trước nhịp lật
  * `succeeded`; thiếu điều kiện → `needs_review` và KHÔNG sinh quyền
  * lợi, như các component khác.
+ *
+ * Issue #538 (issue con của #522): service này thuộc bề mặt matching
+ * dùng chung của package `@lms/payments` — cùng package với
+ * `PaymentsRepository`, `PlanEntitlementsService` và bề mặt phát
+ * outbox `OutboxWriterService`. Ba hiệu ứng xuyên module (kích hoạt
+ * ghi danh, kích hoạt ghi danh cấp lớp, đối chiếu đích và xác nhận
+ * chi) nằm sau các cổng được tiêm ở `sepay-matching-ports.ts`; cài
+ * đặt cổng phía apps/api là chính các service hiện hành, nối trong
+ * `PaymentsModule` — luật matching chỉ tồn tại đúng một bản ở đây.
+ * Việc trích xuất bảo toàn hành vi: luồng dưới đây không đổi so với
+ * bản phía apps/api trước khi chuyển.
  */
 @Injectable()
 export class SepayMatchingService {
@@ -54,11 +73,11 @@ export class SepayMatchingService {
 
   constructor(
     private readonly repo: PaymentsRepository,
-    private readonly outbox: OutboxService,
-    private readonly enrol: EnrolService,
-    private readonly classes: ClassesService,
+    private readonly outbox: OutboxWriterService,
+    @Inject(PAID_ENROL_ACTIVATION_PORT) private readonly enrol: PaidEnrolActivationPort,
+    @Inject(PAID_CLASS_ENROL_ACTIVATION_PORT) private readonly classes: PaidClassEnrolActivationPort,
     private readonly plans: PlanEntitlementsService,
-    private readonly payments: PaymentsService,
+    @Inject(PAYMENT_SETTLEMENT_PORT) private readonly payments: PaymentSettlementPort,
   ) {}
 
   /** Quét một nhịp: xử lý tối đa `limit` sự kiện đang chờ. Trả số sự kiện đã xử lý. */
@@ -87,7 +106,8 @@ export class SepayMatchingService {
     if (event.direction === 'debit') {
       // Lát 3 (#189): tiền ra = bằng chứng lệnh chi hoàn — đối khớp với
       // dòng hoàn đang chờ xác nhận; không khớp thì vào hàng đợi
-      // `needs_review` của chủ tài khoản (xem PaymentsService).
+      // `needs_review` của chủ tài khoản (xem cổng xác nhận chi
+      // `PaymentSettlementPort`).
       await this.payments.settleRefundFromDebitEvent(event);
       return;
     }
