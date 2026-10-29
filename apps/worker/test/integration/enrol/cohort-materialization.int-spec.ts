@@ -56,6 +56,7 @@ describe('Vật chất hoá cohort dùng chung — gọi được và đúng hà
   let surface: CohortMaterializationSurface;
   let tenantId: string;
   let tenantCtxId: string;
+  let systemCtxId: string;
   let categoryId: string;
   let studentRoleId: string;
   let teacherRoleId: string;
@@ -72,15 +73,10 @@ describe('Vật chất hoá cohort dùng chung — gọi được và đúng hà
     const cohortId = randomUUID();
     const instanceId = randomUUID();
     const courseCtxId = randomUUID();
-    const systemCtxId = randomUUID();
-    // Mỗi đồ thị dựng cây context riêng (hệ thống → tenant → khoá)
-    // để các ca hoàn toàn độc lập trên cùng một cơ sở dữ liệu.
-    await pg.query('INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ($1, 10, NULL, $2, 1)', [
-      systemCtxId, `/${systemCtxId}`,
-    ]);
-    await pg.query('INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ($1, 20, $2, $3, 2)', [
-      tenantCtxId, tenantId, `/${systemCtxId}/${tenantCtxId}`,
-    ]);
+    // Cây context dùng chung của suite (hệ thống → tenant) đã dựng
+    // một lần ở beforeAll; mỗi đồ thị chỉ dựng thêm context khoá của
+    // riêng nó dưới tenant chung để các ca độc lập dữ kiện nghiệp vụ
+    // nhưng không chèn trùng các context dùng chung.
     await pg.query(
       'INSERT INTO course (id, tenant_id, category, full_name, short_name, is_template) VALUES ($1, $2, $3, $4, $5, true)',
       [courseId, tenantId, categoryId, 'Khoá đặc tả hoá worker 527', `W527-${courseId.slice(0, 8)}`],
@@ -146,6 +142,7 @@ describe('Vật chất hoá cohort dùng chung — gọi được và đúng hà
 
     tenantId = randomUUID();
     tenantCtxId = randomUUID();
+    systemCtxId = randomUUID();
     categoryId = randomUUID();
     studentRoleId = randomUUID();
     teacherRoleId = randomUUID();
@@ -154,6 +151,14 @@ describe('Vật chất hoá cohort dùng chung — gọi được và đúng hà
     ]);
     await pg.query('INSERT INTO course_categories (id, tenant_id, name) VALUES ($1, $2, $3)', [
       categoryId, tenantId, 'Danh mục worker 527',
+    ]);
+    // Cây context dùng chung của suite dựng MỘT lần tại đây (hệ
+    // thống → tenant của suite); các ca chỉ thêm context khoá riêng.
+    await pg.query('INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ($1, 10, NULL, $2, 1)', [
+      systemCtxId, `/${systemCtxId}`,
+    ]);
+    await pg.query('INSERT INTO context (id, context_level, instance_id, path, depth) VALUES ($1, 20, $2, $3, 2)', [
+      tenantCtxId, tenantId, `/${systemCtxId}/${tenantCtxId}`,
     ]);
     // Worker không có seed vai trò: dựng hai vai trò archetype cần
     // cho các ca (học viên cho instance, giảng dạy cho ca xung đột).
