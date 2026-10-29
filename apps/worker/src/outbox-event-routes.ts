@@ -60,15 +60,27 @@ import type { Queue } from 'bullmq';
  * hàng đợi cần đăng ký và bản đồ hàng đợi cấp cho relay từ chính
  * bảng này, nên không còn nơi nào khác phải sửa để nối đường phát.
  *
- * Trạng thái bảng: consumer đầu tiên của đợt chuyển đổi (mail
- * auth, issue #517) đã có dòng định tuyến; năm consumer còn lại
- * thêm dòng của mình ở issue chuyển consumer tương ứng.
+ * Các loại đã vào bảng: sự kiện mail auth (`auth_mail_requested`)
+ * trỏ về hàng đợi `auth-mail` — consumer đầu tiên của đợt chuyển
+ * đổi (issue #517, processor `AuthMailProcessor`); hai loại sự
+ * kiện digest phụ huynh (`guardian_digest_due`,
+ * `guardian_overdue_alert`) trỏ về hàng đợi
+ * `guardian-digest-events` — consumer của chúng đã chuyển sang
+ * worker (issue #518, processor `GuardianDigestEventsProcessor`,
+ * handler `GuardianDigestHandlerService`). Mọi loại sự kiện còn
+ * lại của đợt chuyển đổi chưa có mặt ở đây cho tới khi consumer
+ * tương ứng chuyển xong, đúng ngữ nghĩa ở trên.
  */
 export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
   // Mail auth (issue #517): processor `AuthMailProcessor` trên hàng
   // đợi `auth-mail` dựng nội dung bằng template dùng chung ở
   // `@lms/contracts` và gửi qua transport Resend phía worker.
   auth_mail_requested: 'auth-mail',
+  // Digest phụ huynh (issue #518): processor
+  // `GuardianDigestEventsProcessor` trên hàng đợi
+  // `guardian-digest-events`.
+  guardian_digest_due: 'guardian-digest-events',
+  guardian_overdue_alert: 'guardian-digest-events',
 };
 
 /** Bảng định tuyến phát job: khoá là loại sự kiện, giá trị là tên hàng đợi BullMQ. */

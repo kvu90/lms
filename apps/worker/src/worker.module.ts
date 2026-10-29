@@ -18,6 +18,8 @@ import { NotificationRetentionScheduler } from './notification-retention.schedul
 import { NotificationDeliveryService } from './notification-delivery.service';
 import { GuardianDigestScheduler } from './guardian-digest.scheduler';
 import { GuardianDigestProcessor } from './processors/guardian-digest.processor';
+import { GuardianDigestEventsProcessor } from './processors/guardian-digest-events.processor';
+import { GuardianDigestHandlerService } from './guardian-digest-handler.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
@@ -140,10 +142,10 @@ const outboxRouteQueueNames: string[] = [
       useFactory: (...queues: Queue[]): OutboxEventQueues =>
         new Map(outboxRouteQueueNames.map((name, index) => [name, queues[index]!] as const)),
     },
-    FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor,
+    FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, GuardianDigestEventsProcessor, GuardianDigestHandlerService, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor,
     // Consumer mail auth trên hàng đợi (issue #517): processor của
     // hàng đợi `auth-mail` (đăng ký hàng đợi tự suy ra từ bảng định
-    // tuyến outbox ở trên) + dấu đã xử lý theo outboxId trên Redis
-    // làm hàng rào idempotent cho processor.
+    // tuyến outbox ở trên) + dấu chiếm/đã xử lý theo outboxId trên
+    // Redis làm hàng rào idempotent cho processor.
     AuthMailProcessor, { provide: AUTH_MAIL_SENT_MARKER, useClass: RedisAuthMailSentMarker }],})
 export class WorkerModule {}

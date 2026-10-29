@@ -1,4 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import type { Queue } from 'bullmq';
 import type { Cache } from 'cache-manager';
 import { PgDialect } from 'drizzle-orm/pg-core';
@@ -200,6 +201,7 @@ function makeEvaluator(gate: GateReads): PermissionEvaluator {
     repo as unknown as AccessRepository,
     contexts as unknown as ContextsService,
     cache as unknown as Cache,
+    { getOrThrow: () => 'postgres://user:pass@localhost:5432/lms_test_api' } as unknown as ConfigService,
   );
 }
 

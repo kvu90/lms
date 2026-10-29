@@ -1,5 +1,5 @@
 import swc from 'unplugin-swc';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [swc.vite({ module: { type: 'es6' } })],
@@ -36,9 +36,25 @@ export default defineConfig({
     // `.int-spec.ts` — thiếu khai là test âm thầm không chạy. Các tuỳ
     // chọn dùng chung (env, timeout, fileParallelism) khai ở gốc để
     // project con kế thừa. Chạy riêng từng tầng: pnpm test:unit /
-    // test:int / test:e2e; script test chạy đủ cả ba project.
+    // test:int / test:e2e; script test chạy đủ mọi project.
+    //
+    // Riêng suite bench KHÔNG thuộc cổng PR: các spec hậu tố
+    // `.bench.spec.ts` là bench/nghiệm thu mô phỏng nặng theo phút
+    // (omr.bench.spec.ts: 11 ca tốn ~303–449 giây, chiếm ~70–98% thời
+    // lượng project unit tuỳ mẫu đo tại main 4d0f7b06) nên project
+    // unit loại chúng bằng exclude tường minh — khai kèm
+    // configDefaults.exclude vì theo tài liệu Vitest, khai exclude sẽ
+    // thay thế danh sách loại trừ mặc định. Project bench riêng khai
+    // include neo đúng hậu tố `.bench.spec.ts` và chỉ chạy khi được
+    // gọi qua pnpm test:bench (thủ công hoặc theo lịch ngoài cổng).
     projects: [
-      { test: { name: 'unit', include: ['src/**/*.spec.ts'] } },
+      {
+        test: {
+          name: 'unit',
+          include: ['src/**/*.spec.ts'],
+          exclude: [...configDefaults.exclude, 'src/**/*.bench.spec.ts'],
+        },
+      },
       { test: { name: 'int', include: ['test/integration/**/*.int-spec.ts'] } },
       {
         test: {
@@ -46,6 +62,7 @@ export default defineConfig({
           include: ['test/e2e/**/*.e2e-spec.ts'],
         },
       },
+      { test: { name: 'bench', include: ['src/**/*.bench.spec.ts'] } },
     ],
   },
 });

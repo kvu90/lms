@@ -10,6 +10,7 @@
     "test:unit": "vitest run --project unit",
     "test:int": "vitest run --project int",
     "test:e2e": "vitest run --project e2e",
+    "test:bench": "vitest run --project bench",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput & node --watch dist/main.js",
     "start": "node dist/main.js",
     "db:generate": "drizzle-kit generate",
