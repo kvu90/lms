@@ -21,6 +21,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Hiểu được tầm quan trọng của việc nắm các khái niệm cơ bản, các kĩ năng địa lí trong học tập và trong sinh hoạt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được ý nghĩa và sự lí thú của việc học môn Địa lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Nêu được vai trò của Địa lí trong cuộc sống."
         }
        ]
@@ -28,7 +56,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được vai trò của Địa lí trong cuộc sống.",
+   "outcome_text": "– Hiểu được tầm quan trọng của việc nắm các khái niệm cơ bản, các kĩ năng địa lí trong học tập và trong sinh hoạt. – Hiểu được ý nghĩa và sự lí thú của việc học môn Địa lí. – Nêu được vai trò của Địa lí trong cuộc sống.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -622,6 +650,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Kể được tên được các thành phần chủ yếu của thuỷ quyển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được vòng tuần hoàn lớn của nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Mô tả được các bộ phận của một dòng sông lớn; mối quan hệ giữa mùa lũ của sông với các nguồn cấp nước sông."
         }
        ]
@@ -699,7 +755,7 @@
      ]
     }
    ],
-   "outcome_text": "– Mô tả được các bộ phận của một dòng sông lớn; mối quan hệ giữa mùa lũ của sông với các nguồn cấp nước sông. – Nêu được tầm quan trọng của việc sử dụng tổng hợp nước sông, hồ. – Xác định được trên bản đồ các đại dương thế giới. – Trình bày được các hiện tượng sóng, thuỷ triều, dòng biển. – Nêu được sự khác biệt về nhiệt độ và độ muối giữa vùng biển nhiệt đới và vùng biển ôn đới. – Nêu được tầm quan trọng của nước ngầm và băng hà.",
+   "outcome_text": "– Kể được tên được các thành phần chủ yếu của thuỷ quyển. – Mô tả được vòng tuần hoàn lớn của nước. – Mô tả được các bộ phận của một dòng sông lớn; mối quan hệ giữa mùa lũ của sông với các nguồn cấp nước sông. – Nêu được tầm quan trọng của việc sử dụng tổng hợp nước sông, hồ. – Xác định được trên bản đồ các đại dương thế giới. – Trình bày được các hiện tượng sóng, thuỷ triều, dòng biển. – Nêu được sự khác biệt về nhiệt độ và độ muối giữa vùng biển nhiệt đới và vùng biển ôn đới. – Nêu được tầm quan trọng của nước ngầm và băng hà.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -969,6 +1025,62 @@
        "content": [
         {
          "type": "text",
+         "text": "Nêu được khái niệm lịch sử và môn Lịch sử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hiểu được lịch sử là những gì đã diễn ra trong quá khứ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được vì sao cần thiết phải học môn Lịch sử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các nguồn sử liệu cơ bản, ý nghĩa và giá trị của các nguồn sử liệu (tư liệu gốc, truyền miệng, hiện vật, chữ viết,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Biết được một số khái niệm và cách tính thời gian trong lịch sử: thập kỉ, thế kỉ, thiên niên kỉ, trước Công nguyên, sau Công nguyên, âm lịch, dương lịch,..."
         }
        ]
@@ -976,7 +1088,7 @@
      ]
     }
    ],
-   "outcome_text": "– Biết được một số khái niệm và cách tính thời gian trong lịch sử: thập kỉ, thế kỉ, thiên niên kỉ, trước Công nguyên, sau Công nguyên, âm lịch, dương lịch,...",
+   "outcome_text": "– Nêu được khái niệm lịch sử và môn Lịch sử. – Hiểu được lịch sử là những gì đã diễn ra trong quá khứ. – Giải thích được vì sao cần thiết phải học môn Lịch sử. – Phân biệt được các nguồn sử liệu cơ bản, ý nghĩa và giá trị của các nguồn sử liệu (tư liệu gốc, truyền miệng, hiện vật, chữ viết,...). – Biết được một số khái niệm và cách tính thời gian trong lịch sử: thập kỉ, thế kỉ, thiên niên kỉ, trước Công nguyên, sau Công nguyên, âm lịch, dương lịch,...",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -1224,6 +1336,118 @@
        "content": [
         {
          "type": "text",
+         "text": "Nêu được tác động của điều kiện tự nhiên (các dòng sông, đất đai màu mỡ) đối với sự hình thành nền văn minh Ai Cập và Lưỡng Hà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình thành lập nhà nước của người Ai Cập và người Lưỡng Hà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên và nêu được những thành tựu chủ yếu về văn hoá ở Ai Cập, Lưỡng Hà."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được điều kiện tự nhiên của lưu vực sông Ấn, sông Hằng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những điểm chính về chế độ xã hội của Ấn Độ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những thành tựu văn hoá tiêu biểu của Ấn Độ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được những đặc điểm về điều kiện tự nhiên của Trung Quốc cổ đại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sơ lược quá trình thống nhất và sự xác lập chế độ phong kiến ở Trung Quốc dưới thời Tần Thuỷ Hoàng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Xây dựng được đường thời gian từ đế chế Hán, Nam Bắc triều đến nhà Tuỳ."
         }
        ]
@@ -1287,7 +1511,7 @@
      ]
     }
    ],
-   "outcome_text": "– Xây dựng được đường thời gian từ đế chế Hán, Nam Bắc triều đến nhà Tuỳ. – Nêu được những thành tựu cơ bản của nền văn minh Trung Quốc. – Giới thiệu và nhận xét được tác động về điều kiện tự nhiên (hải cảng, biển đảo) đối với sự hình thành, phát triển của nền văn minh Hy Lạp và La Mã. – Trình bày được tổ chức nhà nước thành bang, nhà nước đế chế ở Hy Lạp và La Mã. – Nêu được một số thành tựu văn hoá tiêu biểu của Hy Lạp, La Mã.",
+   "outcome_text": "– Nêu được tác động của điều kiện tự nhiên (các dòng sông, đất đai màu mỡ) đối với sự hình thành nền văn minh Ai Cập và Lưỡng Hà. – Trình bày được quá trình thành lập nhà nước của người Ai Cập và người Lưỡng Hà. – Kể được tên và nêu được những thành tựu chủ yếu về văn hoá ở Ai Cập, Lưỡng Hà. – Giới thiệu được điều kiện tự nhiên của lưu vực sông Ấn, sông Hằng. – Trình bày được những điểm chính về chế độ xã hội của Ấn Độ. – Nhận biết được những thành tựu văn hoá tiêu biểu của Ấn Độ. – Giới thiệu được những đặc điểm về điều kiện tự nhiên của Trung Quốc cổ đại. – Mô tả được sơ lược quá trình thống nhất và sự xác lập chế độ phong kiến ở Trung Quốc dưới thời Tần Thuỷ Hoàng. – Xây dựng được đường thời gian từ đế chế Hán, Nam Bắc triều đến nhà Tuỳ. – Nêu được những thành tựu cơ bản của nền văn minh Trung Quốc. – Giới thiệu và nhận xét được tác động về điều kiện tự nhiên (hải cảng, biển đảo) đối với sự hình thành, phát triển của nền văn minh Hy Lạp và La Mã. – Trình bày được tổ chức nhà nước thành bang, nhà nước đế chế ở Hy Lạp và La Mã. – Nêu được một số thành tựu văn hoá tiêu biểu của Hy Lạp, La Mã.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -1386,6 +1610,20 @@
    "content": "+ Nhà nước Âu Lạc – Thời kì Bắc thuộc và chống Bắc thuộc từ thế kỉ II trước Công nguyên đến năm 938 + Chính sách cai trị của các triều đại phong kiến phương Bắc + Sự chuyển biến về kinh tế, văn hoá trong thời kì Bắc thuộc + Các cuộc đấu tranh giành lại độc lập và bảo vệ bản sắc văn hoá của dân tộc + Bước ngoặt lịch sử ở đầu thế kỉ X",
    "kind": "requirement",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khoảng thời gian thành lập và xác định được phạm vi không gian của nước Văn Lang, Âu Lạc trên bản đồ hoặc lược đồ."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -1499,7 +1737,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được tổ chức nhà nước của Văn Lang, Âu Lạc. – Mô tả được đời sống vật chất và tinh thần của cư dân Văn Lang, Âu Lạc. – Nêu được một số chính sách cai trị của phong kiến phương Bắc trong thời kì Bắc thuộc. – Nhận biết được một số chuyển biến quan trọng về kinh tế, xã hội, văn hoá ở Việt Nam trong thời kì Bắc thuộc. – Lập được biểu đồ, sơ đồ và trình bày được những nét chính; giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của các cuộc khởi nghĩa tiêu biểu của nhân dân Việt Nam trong thời kì Bắc thuộc (khởi nghĩa Hai Bà Trưng, Bà Triệu, Lý Bí, Mai Thúc Loan, Phùng Hưng,...). – Giới thiệu được những nét chính của cuộc đấu tranh về văn hoá và bảo vệ bản sắc văn hoá của nhân dân Việt Nam trong thời kì Bắc thuộc. – Trình bày được những nét chính (nội dung, kết quả) về các cuộc vận động giành quyền tự chủ của nhân dân Việt Nam dưới sự lãnh đạo của họ Khúc và họ Dương. – Mô tả được những nét chính trận chiến Bạch Đằng lịch sử năm 938 và những điểm độc đáo trong tổ chức đánh giặc của Ngô Quyền.",
+   "outcome_text": "– Nêu được khoảng thời gian thành lập và xác định được phạm vi không gian của nước Văn Lang, Âu Lạc trên bản đồ hoặc lược đồ. – Trình bày được tổ chức nhà nước của Văn Lang, Âu Lạc. – Mô tả được đời sống vật chất và tinh thần của cư dân Văn Lang, Âu Lạc. – Nêu được một số chính sách cai trị của phong kiến phương Bắc trong thời kì Bắc thuộc. – Nhận biết được một số chuyển biến quan trọng về kinh tế, xã hội, văn hoá ở Việt Nam trong thời kì Bắc thuộc. – Lập được biểu đồ, sơ đồ và trình bày được những nét chính; giải thích được nguyên nhân, nêu được kết quả và ý nghĩa của các cuộc khởi nghĩa tiêu biểu của nhân dân Việt Nam trong thời kì Bắc thuộc (khởi nghĩa Hai Bà Trưng, Bà Triệu, Lý Bí, Mai Thúc Loan, Phùng Hưng,...). – Giới thiệu được những nét chính của cuộc đấu tranh về văn hoá và bảo vệ bản sắc văn hoá của nhân dân Việt Nam trong thời kì Bắc thuộc. – Trình bày được những nét chính (nội dung, kết quả) về các cuộc vận động giành quyền tự chủ của nhân dân Việt Nam dưới sự lãnh đạo của họ Khúc và họ Dương. – Mô tả được những nét chính trận chiến Bạch Đằng lịch sử năm 938 và những điểm độc đáo trong tổ chức đánh giặc của Ngô Quyền.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -1648,6 +1886,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm các khu vực địa hình chính của châu Âu, đặc điểm phân hoá khí hậu; xác định được trên bản đồ các sông lớn Rhein (Rainơ), Danube (Đanuyp), Volga (Vonga); các đới thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được đặc điểm của cơ cấu dân cư, di cư và đô thị hoá ở châu Âu."
         }
        ]
@@ -1683,7 +1949,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được đặc điểm của cơ cấu dân cư, di cư và đô thị hoá ở châu Âu. – Lựa chọn và trình bày được một vấn đề bảo vệ môi trường ở châu Âu. – Nêu được dẫn chứng về Liên minh châu Âu (EU) như một trong bốn trung tâm kinh tế lớn trên thế giới.",
+   "outcome_text": "– Trình bày được đặc điểm vị trí địa lí, hình dạng và kích thước châu Âu. – Phân tích được đặc điểm các khu vực địa hình chính của châu Âu, đặc điểm phân hoá khí hậu; xác định được trên bản đồ các sông lớn Rhein (Rainơ), Danube (Đanuyp), Volga (Vonga); các đới thiên nhiên. – Trình bày được đặc điểm của cơ cấu dân cư, di cư và đô thị hoá ở châu Âu. – Lựa chọn và trình bày được một vấn đề bảo vệ môi trường ở châu Âu. – Nêu được dẫn chứng về Liên minh châu Âu (EU) như một trong bốn trung tâm kinh tế lớn trên thế giới.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -2247,6 +2513,90 @@
        "content": [
         {
          "type": "text",
+         "text": "Kể lại được những sự kiện chủ yếu về quá trình hình thành xã hội phong kiến ở Tây Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm của lãnh địa phong kiến và quan hệ xã hội của chế độ phong kiến Tây Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vai trò của thành thị trung đại."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được sơ lược sự ra đời của Thiên Chúa giáo."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng lược đồ hoặc bản đồ, giới thiệu được những nét chính về hành trình của một số cuộc phát kiến địa lí lớn trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được hệ quả của các cuộc phát kiến địa lí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Giới thiệu được sự biến đổi quan trọng về kinh tế – xã hội của Tây Âu từ thế kỉ XIII đến thế kỉ XVI."
         }
        ]
@@ -2338,7 +2688,7 @@
      ]
     }
    ],
-   "outcome_text": "– Giới thiệu được sự biến đổi quan trọng về kinh tế – xã hội của Tây Âu từ thế kỉ XIII đến thế kỉ XVI. – Trình bày được những thành tựu tiêu biểu của phong trào văn hoá Phục hưng. – Nhận biết được ý nghĩa và tác động của phong trào văn hoá Phục hưng đối với xã hội Tây Âu. – Nêu và giải thích được nguyên nhân của phong trào cải cách tôn giáo. – Mô tả khái quát được nội dung cơ bản của các cuộc cải cách tôn giáo. – Nêu được tác động của cải cách tôn giáo đối với xã hội Tây Âu. – Xác định được những biến đổi chính trong xã hội và sự nảy sinh phương thức sản xuất tư bản chủ nghĩa ở Tây Âu.",
+   "outcome_text": "– Kể lại được những sự kiện chủ yếu về quá trình hình thành xã hội phong kiến ở Tây Âu. – Trình bày được đặc điểm của lãnh địa phong kiến và quan hệ xã hội của chế độ phong kiến Tây Âu. – Phân tích được vai trò của thành thị trung đại. – Mô tả được sơ lược sự ra đời của Thiên Chúa giáo. – Sử dụng lược đồ hoặc bản đồ, giới thiệu được những nét chính về hành trình của một số cuộc phát kiến địa lí lớn trên thế giới. – Nêu được hệ quả của các cuộc phát kiến địa lí. – Giới thiệu được sự biến đổi quan trọng về kinh tế – xã hội của Tây Âu từ thế kỉ XIII đến thế kỉ XVI. – Trình bày được những thành tựu tiêu biểu của phong trào văn hoá Phục hưng. – Nhận biết được ý nghĩa và tác động của phong trào văn hoá Phục hưng đối với xã hội Tây Âu. – Nêu và giải thích được nguyên nhân của phong trào cải cách tôn giáo. – Mô tả khái quát được nội dung cơ bản của các cuộc cải cách tôn giáo. – Nêu được tác động của cải cách tôn giáo đối với xã hội Tây Âu. – Xác định được những biến đổi chính trong xã hội và sự nảy sinh phương thức sản xuất tư bản chủ nghĩa ở Tây Âu.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -2989,14 +3339,28 @@
        "content": [
         {
          "type": "text",
-         "text": "Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ. Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI."
+         "text": "Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được ý nghĩa của cuộc khởi nghĩa Lam Sơn và đánh giá được vai trò của một số nhân vật tiêu biểu: Lê Lợi, Nguyễn Trãi, Nguyễn Chích,... – Mô tả được sự thành lập nhà Lê sơ. – Nhận biết được tình hình kinh tế – xã hội thời Lê sơ. – Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ. Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI.",
+   "outcome_text": "– Nêu được ý nghĩa của cuộc khởi nghĩa Lam Sơn và đánh giá được vai trò của một số nhân vật tiêu biểu: Lê Lợi, Nguyễn Trãi, Nguyễn Chích,... – Mô tả được sự thành lập nhà Lê sơ. – Nhận biết được tình hình kinh tế – xã hội thời Lê sơ. – Giới thiệu được sự phát triển văn hoá, giáo dục và một số danh nhân văn hoá tiêu biểu thời Lê sơ. – Nêu được những diễn biến cơ bản về chính trị, kinh tế văn hoá ở vùng đất phía nam từ đầu thế kỉ X đến đầu thế kỉ XVI.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -3189,6 +3553,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Trình bày được một trong những đặc điểm chủ yếu của địa hình Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm của các khu vực địa hình: địa hình đồi núi; địa hình đồng bằng; địa hình bờ biển và thềm lục địa."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Tìm được ví dụ chứng minh ảnh hưởng của sự phân hoá địa hình đối với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế."
         }
        ]
@@ -3224,7 +3616,7 @@
      ]
     }
    ],
-   "outcome_text": "– Tìm được ví dụ chứng minh ảnh hưởng của sự phân hoá địa hình đối với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế. – Trình bày và giải thích được đặc điểm chung của tài nguyên khoáng sản Việt Nam. – Phân tích được đặc điểm phân bố các loại khoáng sản chủ yếu và vấn đề sử dụng hợp lí tài nguyên khoáng sản.",
+   "outcome_text": "– Trình bày được một trong những đặc điểm chủ yếu của địa hình Việt Nam. – Trình bày được đặc điểm của các khu vực địa hình: địa hình đồi núi; địa hình đồng bằng; địa hình bờ biển và thềm lục địa. – Tìm được ví dụ chứng minh ảnh hưởng của sự phân hoá địa hình đối với sự phân hoá lãnh thổ tự nhiên và khai thác kinh tế. – Trình bày và giải thích được đặc điểm chung của tài nguyên khoáng sản Việt Nam. – Phân tích được đặc điểm phân bố các loại khoáng sản chủ yếu và vấn đề sử dụng hợp lí tài nguyên khoáng sản.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -3551,6 +3943,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Xác định được trên bản đồ phạm vi Biển Đông, các nước và vùng lãnh thổ có chung Biển Đông với Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm tự nhiên vùng biển đảo Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Xác định được trên bản đồ các mốc xác định đường cơ sở, đường phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam)."
         }
        ]
@@ -3586,7 +4006,7 @@
      ]
     }
    ],
-   "outcome_text": "– Xác định được trên bản đồ các mốc xác định đường cơ sở, đường phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam). – Nêu được đặc điểm môi trường biển đảo và vấn đề bảo vệ môi trường biển đảo Việt Nam. – Trình bày được các tài nguyên biển và thềm lục địa Việt Nam.",
+   "outcome_text": "– Xác định được trên bản đồ phạm vi Biển Đông, các nước và vùng lãnh thổ có chung Biển Đông với Việt Nam. – Trình bày được đặc điểm tự nhiên vùng biển đảo Việt Nam. – Xác định được trên bản đồ các mốc xác định đường cơ sở, đường phân chia vịnh Bắc Bộ giữa Việt Nam và Trung Quốc; trình bày được các khái niệm vùng nội thuỷ, lãnh hải, tiếp giáp lãnh hải, vùng đặc quyền kinh tế, thềm lục địa của Việt Nam (theo Luật Biển Việt Nam). – Nêu được đặc điểm môi trường biển đảo và vấn đề bảo vệ môi trường biển đảo Việt Nam. – Trình bày được các tài nguyên biển và thềm lục địa Việt Nam.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -3772,6 +4192,104 @@
        "content": [
         {
          "type": "text",
+         "text": "Nêu được những nét chính về sự ra đời của Vương triều Mạc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được nguyên nhân bùng nổ xung đột Nam - Bắc triều, Trịnh - Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được hệ quả của xung đột Nam - Bắc triều, Trịnh - Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái quát về quá trình mở cõi của Đại Việt trong các thế kỉ XVI - XVIII."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả và nêu được ý nghĩa của quá trình thực thi chủ quyền đối với quần đảo Hoàng Sa và quần đảo Trường Sa của các chúa Nguyễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số nét chính (bối cảnh lịch sử, diễn biến, kết quả và ý nghĩa) của phong trào nông dân ở Đàng Ngoài thế kỉ XVIII."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được tác động của phong trào nông dân ở Đàng Ngoài đối với xã hội Đại Việt thế kỉ XVIII."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được một số nét chính về nguyên nhân bùng nổ và mô tả được một số thắng lợi tiêu biểu của phong trào Tây Sơn: lật đổ chúa Nguyễn, chúa Trịnh, vua Lê; đánh bại quân Xiêm xâm lược (1785) và đại phá quân Thanh xâm lược (1789),..."
         }
        ]
@@ -3821,7 +4339,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được một số nét chính về nguyên nhân bùng nổ và mô tả được một số thắng lợi tiêu biểu của phong trào Tây Sơn: lật đổ chúa Nguyễn, chúa Trịnh, vua Lê; đánh bại quân Xiêm xâm lược (1785) và đại phá quân Thanh xâm lược (1789),... – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử và đánh giá được vai trò của Nguyễn Huệ – Quang Trung trong phong trào Tây Sơn. – Nêu được những nét chính về tình hình kinh tế. – Mô tả và nhận xét được những nét chính về sự chuyển biến văn hoá và tôn giáo ở Đại Việt trong các thế kỉ XVI – XVIII.",
+   "outcome_text": "– Nêu được những nét chính về sự ra đời của Vương triều Mạc. – Giải thích được nguyên nhân bùng nổ xung đột Nam - Bắc triều, Trịnh - Nguyễn. – Nêu được hệ quả của xung đột Nam - Bắc triều, Trịnh - Nguyễn. – Trình bày được khái quát về quá trình mở cõi của Đại Việt trong các thế kỉ XVI - XVIII. – Mô tả và nêu được ý nghĩa của quá trình thực thi chủ quyền đối với quần đảo Hoàng Sa và quần đảo Trường Sa của các chúa Nguyễn. – Nêu được một số nét chính (bối cảnh lịch sử, diễn biến, kết quả và ý nghĩa) của phong trào nông dân ở Đàng Ngoài thế kỉ XVIII. – Nêu được tác động của phong trào nông dân ở Đàng Ngoài đối với xã hội Đại Việt thế kỉ XVIII. – Trình bày được một số nét chính về nguyên nhân bùng nổ và mô tả được một số thắng lợi tiêu biểu của phong trào Tây Sơn: lật đổ chúa Nguyễn, chúa Trịnh, vua Lê; đánh bại quân Xiêm xâm lược (1785) và đại phá quân Thanh xâm lược (1789),... – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử và đánh giá được vai trò của Nguyễn Huệ – Quang Trung trong phong trào Tây Sơn. – Nêu được những nét chính về tình hình kinh tế. – Mô tả và nhận xét được những nét chính về sự chuyển biến văn hoá và tôn giáo ở Đại Việt trong các thế kỉ XVI – XVIII.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -3842,6 +4360,76 @@
    "content": "– Chiến tranh thế giới thứ nhất (1914 – 1918) – Cách mạng tháng Mười Nga năm 1917",
    "kind": "requirement",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính về quá trình hình thành của chủ nghĩa đế quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày những nét chính về Công xã Paris (1871) và ý nghĩa lịch sử của việc thành lập nhà nước kiểu mới - nhà nước của giai cấp vô sản đầu tiên trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được những chuyển biến lớn về kinh tế, chính sách đối nội, đối ngoại của các đế quốc Anh, Pháp, Đức, Mỹ từ cuối thế kỉ XIX đến đầu thế kỉ XX."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được sự ra đời của giai cấp công nhân."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được một số hoạt động chính của Karl Marx, Friedrich Engels và sự ra đời của chủ nghĩa xã hội khoa học."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -3899,7 +4487,7 @@
      ]
     }
    ],
-   "outcome_text": "– Mô tả được một số hoạt động tiêu biểu của phong trào cộng sản và công nhân quốc tế cuối thế kỉ XIX, đầu thế kỉ XX (phong trào công nhân, sự ra đời và hoạt động của các Đảng và các tổ chức cộng sản,...). – Nêu được nguyên nhân bùng nổ Chiến tranh thế giới thứ nhất. – Phân tích, đánh giá được hậu quả và tác động của Chiến tranh thế giới thứ nhất (1914 – 1918) đối với lịch sử nhân loại. – Nêu được một số nét chính (nguyên nhân, diễn biến, tác động và ý nghĩa lịch sử) của Cách mạng tháng Mười Nga năm 1917.",
+   "outcome_text": "– Mô tả được những nét chính về quá trình hình thành của chủ nghĩa đế quốc. – Trình bày những nét chính về Công xã Paris (1871) và ý nghĩa lịch sử của việc thành lập nhà nước kiểu mới - nhà nước của giai cấp vô sản đầu tiên trên thế giới. – Nhận biết được những chuyển biến lớn về kinh tế, chính sách đối nội, đối ngoại của các đế quốc Anh, Pháp, Đức, Mỹ từ cuối thế kỉ XIX đến đầu thế kỉ XX. – Nêu được sự ra đời của giai cấp công nhân. – Trình bày được một số hoạt động chính của Karl Marx, Friedrich Engels và sự ra đời của chủ nghĩa xã hội khoa học. – Mô tả được một số hoạt động tiêu biểu của phong trào cộng sản và công nhân quốc tế cuối thế kỉ XIX, đầu thế kỉ XX (phong trào công nhân, sự ra đời và hoạt động của các Đảng và các tổ chức cộng sản,...). – Nêu được nguyên nhân bùng nổ Chiến tranh thế giới thứ nhất. – Phân tích, đánh giá được hậu quả và tác động của Chiến tranh thế giới thứ nhất (1914 – 1918) đối với lịch sử nhân loại. – Nêu được một số nét chính (nguyên nhân, diễn biến, tác động và ý nghĩa lịch sử) của Cách mạng tháng Mười Nga năm 1917.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -3979,6 +4567,76 @@
        "content": [
         {
          "type": "text",
+         "text": "Mô tả được quá trình xâm lược Trung Quốc của các nước đế quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sơ lược về Cách mạng Tân Hợi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được nguyên nhân thắng lợi và nêu được ý nghĩa của Cách mạng Tân Hợi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nội dung chính của cuộc Duy tân Minh Trị."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được ý nghĩa lịch sử của cuộc Duy tân Minh Trị."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được những biểu hiện của sự hình thành chủ nghĩa đế quốc ở Nhật Bản vào cuối thế kỉ XIX, đầu thế kỉ XX."
         }
        ]
@@ -4014,7 +4672,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được những biểu hiện của sự hình thành chủ nghĩa đế quốc ở Nhật Bản vào cuối thế kỉ XIX, đầu thế kỉ XX. – Trình bày được tình hình chính trị, kinh tế, xã hội Ấn Độ nửa sau thế kỉ XIX. – Nêu được một số sự kiện về phong trào giải phóng dân tộc ở Đông Nam Á từ nửa sau thế kỉ XIX đến đầu thế kỉ XX.",
+   "outcome_text": "– Mô tả được quá trình xâm lược Trung Quốc của các nước đế quốc. – Trình bày được sơ lược về Cách mạng Tân Hợi. – Nhận biết được nguyên nhân thắng lợi và nêu được ý nghĩa của Cách mạng Tân Hợi. – Nêu được những nội dung chính của cuộc Duy tân Minh Trị. – Trình bày được ý nghĩa lịch sử của cuộc Duy tân Minh Trị. – Trình bày được những biểu hiện của sự hình thành chủ nghĩa đế quốc ở Nhật Bản vào cuối thế kỉ XIX, đầu thế kỉ XX. – Trình bày được tình hình chính trị, kinh tế, xã hội Ấn Độ nửa sau thế kỉ XIX. – Nêu được một số sự kiện về phong trào giải phóng dân tộc ở Đông Nam Á từ nửa sau thế kỉ XIX đến đầu thế kỉ XX.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -4412,6 +5070,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Phân tích được một trong các nhân tố chính ảnh hưởng đến sự phát triển và phân bố nông nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm phân bố tài nguyên rừng và nguồn lợi thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được sự phát triển và phân bố nông, lâm, thuỷ sản."
         }
        ]
@@ -4447,7 +5133,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được sự phát triển và phân bố nông, lâm, thuỷ sản. – Tìm kiếm thông tin, viết báo cáo ngắn về một số mô hình sản xuất nông nghiệp có hiệu quả. – Trình bày được ý nghĩa của việc phát triển nông nghiệp xanh.",
+   "outcome_text": "– Phân tích được một trong các nhân tố chính ảnh hưởng đến sự phát triển và phân bố nông nghiệp. – Phân tích được đặc điểm phân bố tài nguyên rừng và nguồn lợi thuỷ sản. – Trình bày được sự phát triển và phân bố nông, lâm, thuỷ sản. – Tìm kiếm thông tin, viết báo cáo ngắn về một số mô hình sản xuất nông nghiệp có hiệu quả. – Trình bày được ý nghĩa của việc phát triển nông nghiệp xanh.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -4724,6 +5410,62 @@
        "content": [
         {
          "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được thế mạnh của vùng về tài nguyên thiên nhiên đối với sự phát triển nông - lâm - thuỷ sản; vấn đề phát triển kinh tế biển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm dân cư, nguồn lao động và ảnh hưởng của các nhân tố này đến sự phát triển kinh tế - xã hội của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được vấn đề đô thị hoá ở Đồng bằng sông Hồng; vị thế của Thủ đô Hà Nội."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được sự phát triển và phân bố kinh tế ở vùng Đồng bằng sông Hồng (sử dụng bản đồ và bảng số liệu)."
         }
        ]
@@ -4745,7 +5487,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được sự phát triển và phân bố kinh tế ở vùng Đồng bằng sông Hồng (sử dụng bản đồ và bảng số liệu). – Sưu tầm tư liệu và trình bày được về vùng kinh tế trọng điểm Bắc Bộ.",
+   "outcome_text": "– Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng. – Phân tích được thế mạnh của vùng về tài nguyên thiên nhiên đối với sự phát triển nông - lâm - thuỷ sản; vấn đề phát triển kinh tế biển. – Phân tích được đặc điểm dân cư, nguồn lao động và ảnh hưởng của các nhân tố này đến sự phát triển kinh tế - xã hội của vùng. – Phân tích được vấn đề đô thị hoá ở Đồng bằng sông Hồng; vị thế của Thủ đô Hà Nội. – Trình bày được sự phát triển và phân bố kinh tế ở vùng Đồng bằng sông Hồng (sử dụng bản đồ và bảng số liệu). – Sưu tầm tư liệu và trình bày được về vùng kinh tế trọng điểm Bắc Bộ.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -4894,6 +5636,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được đặc điểm tự nhiên và tài nguyên thiên nhiên, các thế mạnh và hạn chế chính."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được sự phân bố dân cư, dân tộc."
         }
        ]
@@ -4957,7 +5727,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được sự phân bố dân cư, dân tộc. – Phân tích được những chuyển biến trong sự phát triển và phân bố kinh tế của vùng. – Phân tích được sự phát triển của một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Sử dụng sơ đồ tư duy để phân tích được ảnh hưởng của nạn hạn hán và sa mạc hoá đối với sự phát triển kinh tế – xã hội ở vùng khô hạn Ninh Thuận – Bình Thuận. – Trình bày được về vùng kinh tế trọng điểm miền Trung.",
+   "outcome_text": "– Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng. – Phân tích được đặc điểm tự nhiên và tài nguyên thiên nhiên, các thế mạnh và hạn chế chính. – Trình bày được sự phân bố dân cư, dân tộc. – Phân tích được những chuyển biến trong sự phát triển và phân bố kinh tế của vùng. – Phân tích được sự phát triển của một số ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Sử dụng sơ đồ tư duy để phân tích được ảnh hưởng của nạn hạn hán và sa mạc hoá đối với sự phát triển kinh tế – xã hội ở vùng khô hạn Ninh Thuận – Bình Thuận. – Trình bày được về vùng kinh tế trọng điểm miền Trung.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -5064,6 +5834,20 @@
        "content": [
         {
          "type": "text",
+         "text": "Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng."
         }
        ]
@@ -5141,7 +5925,7 @@
      ]
     }
    ],
-   "outcome_text": "– Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng. – Trình bày được đặc điểm về dân cư, đô thị hoá ở vùng Đông Nam Bộ. – Trình bày được sự phát triển và phân bố một trong các ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Phân tích được ý nghĩa của việc tăng cường kết nối liên vùng đối với sự phát triển của vùng. – Phân tích được vị thế của Thành phố Hồ Chí Minh. – Tìm kiếm thông tin, viết báo cáo ngắn về sự phát triển của vùng kinh tế trọng điểm phía Nam.",
+   "outcome_text": "– Trình bày được đặc điểm vị trí địa lí và phạm vi lãnh thổ của vùng. – Phân tích được các thế mạnh và hạn chế về điều kiện tự nhiên và tài nguyên thiên nhiên của vùng. – Trình bày được đặc điểm về dân cư, đô thị hoá ở vùng Đông Nam Bộ. – Trình bày được sự phát triển và phân bố một trong các ngành kinh tế thế mạnh của vùng (sử dụng bản đồ và bảng số liệu). – Phân tích được ý nghĩa của việc tăng cường kết nối liên vùng đối với sự phát triển của vùng. – Phân tích được vị thế của Thành phố Hồ Chí Minh. – Tìm kiếm thông tin, viết báo cáo ngắn về sự phát triển của vùng kinh tế trọng điểm phía Nam.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -5341,6 +6125,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Nêu được những nét chính về nước Nga trước khi Liên Xô được thành lập."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những thành tựu và chỉ ra được hạn chế của công cuộc xây dựng chủ nghĩa xã hội ở Liên Xô."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được những nét chính về: phong trào cách mạng và sự thành lập Quốc tế Cộng sản; đại suy thoái kinh tế 1929 – 1933; sự hình thành chủ nghĩa phát xít ở châu Âu."
         }
        ]
@@ -5418,7 +6230,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được những nét chính về: phong trào cách mạng và sự thành lập Quốc tế Cộng sản; đại suy thoái kinh tế 1929 – 1933; sự hình thành chủ nghĩa phát xít ở châu Âu. – Nhận biết được tình hình chính trị và sự phát triển kinh tế của nước Mỹ giữa hai cuộc chiến tranh thế giới. – Nêu được những nét chính về tình hình châu Á từ năm 1918 đến năm 1945. – Trình bày được nguyên nhân và diễn biến chủ yếu của Chiến tranh thế giới thứ hai. – Phân tích được hậu quả của Chiến tranh thế giới thứ hai đối với lịch sử nhân loại. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử, vai trò của Liên Xô và các nước trong Đồng minh trong chiến thắng chủ nghĩa phát xít.",
+   "outcome_text": "– Nêu được những nét chính về nước Nga trước khi Liên Xô được thành lập. – Trình bày được những thành tựu và chỉ ra được hạn chế của công cuộc xây dựng chủ nghĩa xã hội ở Liên Xô. – Trình bày được những nét chính về: phong trào cách mạng và sự thành lập Quốc tế Cộng sản; đại suy thoái kinh tế 1929 – 1933; sự hình thành chủ nghĩa phát xít ở châu Âu. – Nhận biết được tình hình chính trị và sự phát triển kinh tế của nước Mỹ giữa hai cuộc chiến tranh thế giới. – Nêu được những nét chính về tình hình châu Á từ năm 1918 đến năm 1945. – Trình bày được nguyên nhân và diễn biến chủ yếu của Chiến tranh thế giới thứ hai. – Phân tích được hậu quả của Chiến tranh thế giới thứ hai đối với lịch sử nhân loại. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử, vai trò của Liên Xô và các nước trong Đồng minh trong chiến thắng chủ nghĩa phát xít.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -5440,6 +6252,62 @@
    "content": "– Cách mạng tháng Tám năm 1945",
    "kind": "requirement",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chính của phong trào dân tộc dân chủ những năm 1918 - 1930."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về hoạt động của Nguyễn Ái Quốc trong những năm 1918 - 1930."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được quá trình và ý nghĩa của việc thành lập Đảng Cộng sản Việt Nam; đánh giá được vai trò của Nguyễn Ái Quốc trong quá trình thành lập Đảng Cộng sản Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được những nét chủ yếu của phong trào cách mạng giai đoạn 1930 - 1931 và 1936 - 1939."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -5497,7 +6365,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được tình hình Việt Nam dưới ách thống trị của Pháp – Nhật Bản. – Nhận biết được sự chuẩn bị của nhân dân Việt Nam tiến tới khởi nghĩa giành chính quyền: chuyển hướng chiến lược của Đảng Cộng sản Đông Dương; sự ra đời của Mặt trận Việt Minh; cao trào kháng Nhật cứu nước. – Trình bày được diễn biến chính của Cách mạng tháng Tám năm 1945 và sự ra đời của nước Việt Nam Dân chủ Cộng hoà. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử của Cách mạng tháng Tám năm 1945 và đánh giá được vai trò của Đảng Cộng sản Đông Dương trong Cách mạng tháng Tám năm 1945.",
+   "outcome_text": "– Mô tả được những nét chính của phong trào dân tộc dân chủ những năm 1918 - 1930. – Nêu được những nét chính về hoạt động của Nguyễn Ái Quốc trong những năm 1918 - 1930. – Nhận biết được quá trình và ý nghĩa của việc thành lập Đảng Cộng sản Việt Nam; đánh giá được vai trò của Nguyễn Ái Quốc trong quá trình thành lập Đảng Cộng sản Việt Nam. – Mô tả được những nét chủ yếu của phong trào cách mạng giai đoạn 1930 - 1931 và 1936 - 1939. – Nêu được tình hình Việt Nam dưới ách thống trị của Pháp – Nhật Bản. – Nhận biết được sự chuẩn bị của nhân dân Việt Nam tiến tới khởi nghĩa giành chính quyền: chuyển hướng chiến lược của Đảng Cộng sản Đông Dương; sự ra đời của Mặt trận Việt Minh; cao trào kháng Nhật cứu nước. – Trình bày được diễn biến chính của Cách mạng tháng Tám năm 1945 và sự ra đời của nước Việt Nam Dân chủ Cộng hoà. – Nêu được nguyên nhân thắng lợi, ý nghĩa lịch sử của Cách mạng tháng Tám năm 1945 và đánh giá được vai trò của Đảng Cộng sản Đông Dương trong Cách mạng tháng Tám năm 1945.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -5518,6 +6386,76 @@
    "content": "– Châu Á từ năm 1945 đến năm 1991",
    "kind": "requirement",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được nguyên nhân, những biểu hiện và hậu quả của Chiến tranh lạnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình chính trị, kinh tế, xã hội, văn hoá của Liên Xô và Đông Âu từ năm 1945 đến năm 1991."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được sự sụp đổ của chế độ xã hội chủ nghĩa ở Liên Xô và Đông Âu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét chính về chính trị, kinh tế của nước Mỹ và các nước Tây Âu từ năm 1945 đến năm 1991."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đôi nét về các nước Mỹ Latinh từ năm 1945 đến năm 1991."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -5561,7 +6499,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được một cách khái quát về cách mạng Cuba và đánh giá được kết quả công cuộc xây dựng chủ nghĩa xã hội ở Cuba. – Giới thiệu được những nét chính về Nhật Bản, Trung Quốc, Ấn Độ từ năm 1945 đến năm 1991. – Trình bày được cuộc đấu tranh giành độc lập dân tộc và quá trình phát triển của các nước Đông Nam Á, sự hình thành và phát triển của Hiệp hội các quốc gia Đông Nam Á (ASEAN).",
+   "outcome_text": "– Nhận biết được nguyên nhân, những biểu hiện và hậu quả của Chiến tranh lạnh. – Trình bày được tình hình chính trị, kinh tế, xã hội, văn hoá của Liên Xô và Đông Âu từ năm 1945 đến năm 1991. – Giải thích được sự sụp đổ của chế độ xã hội chủ nghĩa ở Liên Xô và Đông Âu. – Nêu được những nét chính về chính trị, kinh tế của nước Mỹ và các nước Tây Âu từ năm 1945 đến năm 1991. – Mô tả được đôi nét về các nước Mỹ Latinh từ năm 1945 đến năm 1991. – Trình bày được một cách khái quát về cách mạng Cuba và đánh giá được kết quả công cuộc xây dựng chủ nghĩa xã hội ở Cuba. – Giới thiệu được những nét chính về Nhật Bản, Trung Quốc, Ấn Độ từ năm 1945 đến năm 1991. – Trình bày được cuộc đấu tranh giành độc lập dân tộc và quá trình phát triển của các nước Đông Nam Á, sự hình thành và phát triển của Hiệp hội các quốc gia Đông Nam Á (ASEAN).",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-thcs-official.pdf",
@@ -6008,6 +6946,71 @@
     "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
     "pdf_pages": [
      51
+    ]
+   }
+  },
+  {
+   "id": "LSDL-0064",
+   "subject": "Lịch sử và Địa lí",
+   "grade": 9,
+   "level": "THCS",
+   "stream": null,
+   "section": "Bảo Vệ Chủ Quyền, Các Quyền Và Lợi Ích Hợp Pháp Của Việt Nam Ở Biển Đông (2)",
+   "topic": "",
+   "content": "– Chứng cứ lịch sử, pháp lí về chủ quyền biển đảo của Việt Nam – Vai trò chiến lược của biển đảo Việt Nam",
+   "kind": "requirement",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được những chứng cứ lịch sử, pháp lí về chủ quyền biển đảo của Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được vai trò chiến lược của biển đảo Việt Nam trong việc khẳng định và bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có hành động cụ thể thể hiện trách nhiệm đối với việc bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được những chứng cứ lịch sử, pháp lí về chủ quyền biển đảo của Việt Nam. – Nêu được vai trò chiến lược của biển đảo Việt Nam trong việc khẳng định và bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông. – Có hành động cụ thể thể hiện trách nhiệm đối với việc bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông.",
+   "source": {
+    "document": "Chương trình môn Lịch sử và Địa lí (cấp Trung học cơ sở), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-lsdl-thcs-official.pdf",
+    "portal": "data.moet.gov.vn (share 9qMfxoXw540U6YD)",
+    "pdf_pages": [
+     51,
+     52
     ]
    }
   }

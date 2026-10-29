@@ -21,6 +21,20 @@
        "content": [
         {
          "type": "text",
+         "text": "Quan sát và làm được thí nghiệm đơn giản để phát hiện ra một số tính chất và sự chuyển thể của nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Nêu được một số tính chất của nước (không màu, không mùi, không vị, không có hình dạng nhất định; chảy từ cao xuống thấp, chảy lan ra khắp mọi phía; thấm qua một số vật và hoà tan một số chất)."
         }
        ]
@@ -126,7 +140,7 @@
      ]
     }
    ],
-   "outcome_text": "− Nêu được một số tính chất của nước (không màu, không mùi, không vị, không có hình dạng nhất định; chảy từ cao xuống thấp, chảy lan ra khắp mọi phía; thấm qua một số vật và hoà tan một số chất). − Vận dụng được tính chất của nước trong một số trường hợp đơn giản. − Vẽ sơ đồ và sử dụng được các thuật ngữ: bay hơi, ngưng tụ, đông đặc, nóng chảy để mô tả sự chuyển thể của nước. − Vẽ được sơ đồ và ghi chú được “Vòng tuần hoàn của nước trong tự nhiên”. − Nêu được và liên hệ thực tế ở gia đình và địa phương về: ứng dụng một số tính chất của nước; vai trò của nước trong đời sống, sản xuất và sinh hoạt. − Nêu được và liên hệ thực tế ở gia đình và địa phương về: nguyên nhân gây ra ô nhiễm nguồn nước; sự cần thiết phải bảo vệ nguồn nước và phải sử dụng tiết kiệm nước. − Trình bày được một số cách làm sạch nước; liên hệ thực tế về cách làm sạch nước ở gia đình và địa phương. − Thực hiện được và vận động những người xung quanh cùng bảo vệ nguồn nước và sử dụng nước tiết kiệm.",
+   "outcome_text": "− Quan sát và làm được thí nghiệm đơn giản để phát hiện ra một số tính chất và sự chuyển thể của nước. − Nêu được một số tính chất của nước (không màu, không mùi, không vị, không có hình dạng nhất định; chảy từ cao xuống thấp, chảy lan ra khắp mọi phía; thấm qua một số vật và hoà tan một số chất). − Vận dụng được tính chất của nước trong một số trường hợp đơn giản. − Vẽ sơ đồ và sử dụng được các thuật ngữ: bay hơi, ngưng tụ, đông đặc, nóng chảy để mô tả sự chuyển thể của nước. − Vẽ được sơ đồ và ghi chú được “Vòng tuần hoàn của nước trong tự nhiên”. − Nêu được và liên hệ thực tế ở gia đình và địa phương về: ứng dụng một số tính chất của nước; vai trò của nước trong đời sống, sản xuất và sinh hoạt. − Nêu được và liên hệ thực tế ở gia đình và địa phương về: nguyên nhân gây ra ô nhiễm nguồn nước; sự cần thiết phải bảo vệ nguồn nước và phải sử dụng tiết kiệm nước. − Trình bày được một số cách làm sạch nước; liên hệ thực tế về cách làm sạch nước ở gia đình và địa phương. − Thực hiện được và vận động những người xung quanh cùng bảo vệ nguồn nước và sử dụng nước tiết kiệm.",
    "source": {
     "document": "Chương trình môn Khoa học, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-khoahoc-official.pdf",
@@ -151,8 +165,59 @@
      "type": "doc",
      "content": [
       {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể được tên thành phần chính của không khí: nitơ (nitrogen), oxi (oxygen), khí cacbonic (carbon dioxide)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Quan sát và (hoặc) làm thí nghiệm để:"
+        }
+       ]
+      },
+      {
        "type": "bulletList",
        "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nhận biết được sự có mặt của không khí."
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Xác định được một số tính chất của không khí."
+            }
+           ]
+          }
+         ]
+        },
         {
          "type": "listItem",
          "content": [
@@ -256,7 +321,7 @@
      ]
     }
    ],
-   "outcome_text": "+ Nhận biết được trong không khí có hơi nước, bụi,... + Giải thích được vai trò của không khí đối với sự cháy. + Nhận biết được không khí chuyển động gây ra gió và nguyên nhân làm không khí chuyển động (khối không khí nóng bốc lên cao, khối không khí lạnh tới thay thế). − Nhận xét, so sánh được mức độ mạnh của gió qua quan sát thực tế hoặc tranh ảnh, video clip; nêu và thực hiện được một số việc cần làm để phòng tránh bão. − Trình bày được vai trò và ứng dụng tính chất của không khí đối với sự sống. − Giải thích được nguyên nhân gây ra ô nhiễm không khí; sự cần thiết phải bảo vệ bầu không khí trong lành. − Thực hiện được việc làm phù hợp để bảo vệ bầu không khí trong lành và vận động những người xung quanh cùng thực hiện.",
+   "outcome_text": "− Kể được tên thành phần chính của không khí: nitơ (nitrogen), oxi (oxygen), khí cacbonic (carbon dioxide). − Quan sát và (hoặc) làm thí nghiệm để: + Nhận biết được sự có mặt của không khí. + Xác định được một số tính chất của không khí. + Nhận biết được trong không khí có hơi nước, bụi,... + Giải thích được vai trò của không khí đối với sự cháy. + Nhận biết được không khí chuyển động gây ra gió và nguyên nhân làm không khí chuyển động (khối không khí nóng bốc lên cao, khối không khí lạnh tới thay thế). − Nhận xét, so sánh được mức độ mạnh của gió qua quan sát thực tế hoặc tranh ảnh, video clip; nêu và thực hiện được một số việc cần làm để phòng tránh bão. − Trình bày được vai trò và ứng dụng tính chất của không khí đối với sự sống. − Giải thích được nguyên nhân gây ra ô nhiễm không khí; sự cần thiết phải bảo vệ bầu không khí trong lành. − Thực hiện được việc làm phù hợp để bảo vệ bầu không khí trong lành và vận động những người xung quanh cùng thực hiện.",
    "source": {
     "document": "Chương trình môn Khoa học, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-khoahoc-official.pdf",
@@ -277,6 +342,62 @@
    "content": "− Vai trò, ứng dụng của ánh sáng trong đời sống − Ánh sáng và bảo vệ mắt",
    "kind": "requirement",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ví dụ về các vật phát sáng và các vật được chiếu sáng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được cách làm và thực hiện được thí nghiệm tìm hiểu về sự truyền thẳng của ánh sáng; về vật cho ánh sáng truyền qua và vật cản ánh sáng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức về tính chất cho ánh sáng truyền qua hay không cho ánh sáng truyền qua của các vật để giải thích được một số hiện tượng tự nhiên và ứng dụng thực tế."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được thí nghiệm để tìm hiểu nguyên nhân có bóng của vật và sự thay đổi của bóng khi vị trí của vật hoặc của nguồn sáng thay đổi."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -320,7 +441,7 @@
      ]
     }
    ],
-   "outcome_text": "− Vận dụng được trong thực tế, ở mức độ đơn giản kiến thức về bóng của vật. − Nêu được vai trò của ánh sáng đối với sự sống; liên hệ được với thực tế. − Biết tránh ánh sáng quá mạnh chiếu vào mắt; không đọc, viết dưới ánh sáng quá yếu; thực hiện được tư thế ngồi học, khoảng cách đọc, viết phù hợp để bảo vệ mắt, tránh bị cận thị.",
+   "outcome_text": "− Nêu được ví dụ về các vật phát sáng và các vật được chiếu sáng. − Nêu được cách làm và thực hiện được thí nghiệm tìm hiểu về sự truyền thẳng của ánh sáng; về vật cho ánh sáng truyền qua và vật cản ánh sáng. − Vận dụng được kiến thức về tính chất cho ánh sáng truyền qua hay không cho ánh sáng truyền qua của các vật để giải thích được một số hiện tượng tự nhiên và ứng dụng thực tế. − Thực hiện được thí nghiệm để tìm hiểu nguyên nhân có bóng của vật và sự thay đổi của bóng khi vị trí của vật hoặc của nguồn sáng thay đổi. − Vận dụng được trong thực tế, ở mức độ đơn giản kiến thức về bóng của vật. − Nêu được vai trò của ánh sáng đối với sự sống; liên hệ được với thực tế. − Biết tránh ánh sáng quá mạnh chiếu vào mắt; không đọc, viết dưới ánh sáng quá yếu; thực hiện được tư thế ngồi học, khoảng cách đọc, viết phù hợp để bảo vệ mắt, tránh bị cận thị.",
    "source": {
     "document": "Chương trình môn Khoa học, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-khoahoc-official.pdf",
@@ -469,6 +590,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Trình bày được vật nóng hơn thì có nhiệt độ cao hơn, vật lạnh hơn thì có nhiệt độ thấp hơn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức nhiệt truyền từ vật nóng hơn sang vật lạnh hơn để giải thích, đưa ra cách làm vật nóng lên hay lạnh đi trong tình huống đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Sử dụng được nhiệt kế để xác định nhiệt độ cơ thể, nhiệt độ không khí."
         }
        ]
@@ -504,7 +653,7 @@
      ]
     }
    ],
-   "outcome_text": "− Sử dụng được nhiệt kế để xác định nhiệt độ cơ thể, nhiệt độ không khí. − Đề xuất được cách làm thí nghiệm để tìm hiểu tính dẫn nhiệt của vật (dẫn nhiệt tốt hay dẫn nhiệt kém). − Vận dụng được kiến thức về vật dẫn nhiệt tốt hoặc kém để giải thích một số hiện tượng tự nhiên; để giải quyết một số vấn đề đơn giản trong cuộc sống.",
+   "outcome_text": "− Trình bày được vật nóng hơn thì có nhiệt độ cao hơn, vật lạnh hơn thì có nhiệt độ thấp hơn. − Vận dụng được kiến thức nhiệt truyền từ vật nóng hơn sang vật lạnh hơn để giải thích, đưa ra cách làm vật nóng lên hay lạnh đi trong tình huống đơn giản. − Sử dụng được nhiệt kế để xác định nhiệt độ cơ thể, nhiệt độ không khí. − Đề xuất được cách làm thí nghiệm để tìm hiểu tính dẫn nhiệt của vật (dẫn nhiệt tốt hay dẫn nhiệt kém). − Vận dụng được kiến thức về vật dẫn nhiệt tốt hoặc kém để giải thích một số hiện tượng tự nhiên; để giải quyết một số vấn đề đơn giản trong cuộc sống.",
    "source": {
     "document": "Chương trình môn Khoa học, ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-khoahoc-official.pdf",

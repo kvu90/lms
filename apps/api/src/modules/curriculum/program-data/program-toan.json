@@ -4843,20 +4843,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được tỉ lệ bản đồ. Vận dụng được tỉ lệ bản đồ để giải quyết"
+         "text": "Nhận biết được tỉ lệ bản đồ. Vận dụng được tỉ lệ bản đồ để giải quyết một số tình huống thực tiễn."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được tỉ số, tỉ số phần trăm của hai đại lượng cùng loại. – Giải quyết được một số vấn đề gắn với việc giải các bài toán liên quan đến: tìm hai số khi biết tổng (hoặc hiệu) và tỉ số của hai số đó; tính tỉ số phần trăm của hai số; tìm giá trị phần trăm của một số cho trước. – Nhận biết được tỉ lệ bản đồ. Vận dụng được tỉ lệ bản đồ để giải quyết",
+   "outcome_text": "– Nhận biết được tỉ số, tỉ số phần trăm của hai đại lượng cùng loại. – Giải quyết được một số vấn đề gắn với việc giải các bài toán liên quan đến: tìm hai số khi biết tổng (hoặc hiệu) và tỉ số của hai số đó; tính tỉ số phần trăm của hai số; tìm giá trị phần trăm của một số cho trước. – Nhận biết được tỉ lệ bản đồ. Vận dụng được tỉ lệ bản đồ để giải quyết một số tình huống thực tiễn.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
-     42
+     42,
+     43
     ]
    }
   },
@@ -6948,6 +6949,56 @@
    }
   },
   {
+   "id": "TOAN-0301",
+   "subject": "Toán",
+   "grade": 6,
+   "level": "THCS",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học phẳng",
+   "topic": "Các hình hình học cơ bản",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến các khái niệm: tam giác đều, hình vuông, hình chữ nhật, hình thoi, hình bình hành, hình thang cân, hình đối xứng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến các khái niệm: tam giác đều, hình vuông, hình chữ nhật, hình thoi, hình bình hành, hình thang cân, hình đối xứng.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     52
+    ]
+   }
+  },
+  {
    "id": "TOAN-0117",
    "subject": "Toán",
    "grade": 6,
@@ -7224,6 +7275,42 @@
     }
    ],
    "outcome_text": "Sử dụng được phân số để mô tả xác suất (thực nghiệm) của khả năng xảy ra nhiều lần thông qua kiểm đếm số lần lặp lại của khả năng đó trong một số mô hình xác suất đơn giản.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     54
+    ]
+   }
+  },
+  {
+   "id": "TOAN-0302",
+   "subject": "Toán",
+   "grade": 6,
+   "level": "THCS",
+   "stream": "Hình học và Đo lường",
+   "section": "Một số yếu tố thống kê",
+   "topic": "Một số yếu tố xác suất",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm để vẽ biểu đồ tranh; biểu đồ dạng cột/cột kép."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng được phần mềm để vẽ biểu đồ tranh; biểu đồ dạng cột/cột kép.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -8524,6 +8611,56 @@
    }
   },
   {
+   "id": "TOAN-0303",
+   "subject": "Toán",
+   "grade": 7,
+   "level": "THCS",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học phẳng",
+   "topic": "Các hình hình học cơ bản",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến các khái niệm: tia phân giác của một góc, đường trung trực của một đoạn thẳng, các đường đặc biệt trong tam giác."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến các khái niệm: tia phân giác của một góc, đường trung trực của một đoạn thẳng, các đường đặc biệt trong tam giác.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     60
+    ]
+   }
+  },
+  {
    "id": "TOAN-0143",
    "subject": "Toán",
    "grade": 7,
@@ -8814,6 +8951,42 @@
     }
    ],
    "outcome_text": "của biến cố ngẫu nhiên trong các ví dụ đơn giản. – Nhận biết được xác suất của một biến cố ngẫu nhiên trong một số ví dụ đơn giản (ví dụ: lấy bóng trong túi, tung xúc xắc,...).",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     62
+    ]
+   }
+  },
+  {
+   "id": "TOAN-0304",
+   "subject": "Toán",
+   "grade": 7,
+   "level": "THCS",
+   "stream": "Hình học và Đo lường",
+   "section": "Một số yếu tố xác suất",
+   "topic": "suất",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm để tổ chức dữ liệu vào biểu đồ hình quạt tròn (pie chart); biểu đồ đoạn thẳng (line graph)."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng được phần mềm để tổ chức dữ liệu vào biểu đồ hình quạt tròn (pie chart); biểu đồ đoạn thẳng (line graph).",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -10027,6 +10200,56 @@
    }
   },
   {
+   "id": "TOAN-0305",
+   "subject": "Toán",
+   "grade": 8,
+   "level": "THCS",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học phẳng",
+   "topic": "Hình đồng dạng",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến hình đồng dạng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến hình đồng dạng.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     68
+    ]
+   }
+  },
+  {
    "id": "TOAN-0167",
    "subject": "Toán",
    "grade": 8,
@@ -10279,8 +10502,51 @@
    "topic": "Một số yếu tố xác suất",
    "content": "– Sử dụng được phần mềm để vẽ biểu đồ. – Sử dụng được phần mềm để xác định được tần số. – Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên.",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm để vẽ biểu đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm để xác định được tần số."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "Sử dụng được phần mềm để vẽ biểu đồ. – Sử dụng được phần mềm để xác định được tần số. – Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -11609,6 +11875,56 @@
    }
   },
   {
+   "id": "TOAN-0306",
+   "subject": "Toán",
+   "grade": 9,
+   "level": "THCS",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học phẳng",
+   "topic": "Đa giác đều",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến đường tròn, tam giác vuông, đa giác đều."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để vẽ hình và thiết kế đồ hoạ liên quan đến đường tròn, tam giác vuông, đa giác đều.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     76
+    ]
+   }
+  },
+  {
    "id": "TOAN-0193",
    "subject": "Toán",
    "grade": 9,
@@ -11902,8 +12218,37 @@
    "topic": "Một số yếu tố xác suất",
    "content": "– Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên.",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm để vẽ bảng tần số, biểu đồ tần số, bảng tần số tương đối, biểu đồ tần số tương đối."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "Sử dụng được phần mềm để vẽ bảng tần số, biểu đồ tần số, bảng tần số tương đối, biểu đồ tần số tương đối. – Sử dụng được phần mềm mô tả thí nghiệm ngẫu nhiên.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -12488,20 +12833,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Vận dụng được bất phương trình bậc hai một ẩn vào giải quyết bài toán"
+         "text": "Vận dụng được bất phương trình bậc hai một ẩn vào giải quyết bài toán thực tiễn (ví dụ: xác định chiều cao tối đa để xe có thể qua hầm có hình dạng Parabola,...)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Giải thích được định lí về dấu của tam thức bậc hai từ việc quan sát đồ thị của hàm bậc hai. – Giải được bất phương trình bậc hai. – Vận dụng được bất phương trình bậc hai một ẩn vào giải quyết bài toán",
+   "outcome_text": "– Giải thích được định lí về dấu của tam thức bậc hai từ việc quan sát đồ thị của hàm bậc hai. – Giải được bất phương trình bậc hai. – Vận dụng được bất phương trình bậc hai một ẩn vào giải quyết bài toán thực tiễn (ví dụ: xác định chiều cao tối đa để xe có thể qua hầm có hình dạng Parabola,...).",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
-     80
+     80,
+     81
     ]
    }
   },
@@ -12532,6 +12878,56 @@
     }
    ],
    "outcome_text": "– Giải được phương trình chứa căn thức có dạng: ax2 bx c  dx2 ex  f ; ax2 bxc  dxe.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     81
+    ]
+   }
+  },
+  {
+   "id": "TOAN-0307",
+   "subject": "Toán",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "Đại số và Một số yếu tố giải tích",
+   "section": "Đại số",
+   "topic": "Hàm số và đồ thị",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức đại số."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ đồ thị của hàm số bậc hai; sử dụng đồ thị để tạo các hình ảnh hoa văn, hình khối."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức đại số. – Thực hành sử dụng phần mềm để vẽ đồ thị của hàm số bậc hai; sử dụng đồ thị để tạo các hình ảnh hoa văn, hình khối.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -13182,6 +13578,84 @@
    }
   },
   {
+   "id": "TOAN-0308",
+   "subject": "Toán",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học phẳng",
+   "topic": "Phương pháp toạ độ trong mặt phẳng",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để biểu thị điểm, vectơ, các phép toán vectơ trong hệ trục toạ độ Oxy."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ đường thẳng, đường tròn, các đường conic trên mặt phẳng toạ độ; xem xét sự thay đổi hình dạng của các hình khi thay đổi các yếu tố trong phương trình xác định chúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để thiết kế đồ hoạ liên quan đến đường tròn và các đường conic."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để biểu thị điểm, vectơ, các phép toán vectơ trong hệ trục toạ độ Oxy. – Thực hành sử dụng phần mềm để vẽ đường thẳng, đường tròn, các đường conic trên mặt phẳng toạ độ; xem xét sự thay đổi hình dạng của các hình khi thay đổi các yếu tố trong phương trình xác định chúng. – Thực hành sử dụng phần mềm để thiết kế đồ hoạ liên quan đến đường tròn và các đường conic.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     84
+    ]
+   }
+  },
+  {
    "id": "TOAN-0218",
    "subject": "Toán",
    "grade": 10,
@@ -13603,6 +14077,70 @@
    }
   },
   {
+   "id": "TOAN-0309",
+   "subject": "Toán",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "Thống kê và Xác suất",
+   "section": "Xác suất",
+   "topic": "Các quy tắc tính xác suất",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tính được số đặc trưng đo xu thế trung tâm và đo mức độ phân tán cho mẫu số liệu không ghép nhóm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tính xác suất theo định nghĩa cổ điển."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Thực hành sử dụng phần mềm để tính được số đặc trưng đo xu thế trung tâm và đo mức độ phân tán cho mẫu số liệu không ghép nhóm. – Thực hành sử dụng phần mềm để tính xác suất theo định nghĩa cổ điển.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     86
+    ]
+   }
+  },
+  {
    "id": "TOAN-0225",
    "subject": "Toán",
    "grade": 10,
@@ -14007,20 +14545,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Vận dụng cách giải hệ phương trình bậc nhất ba ẩn để giải quyết một số vấn đề thực tiễn cuộc sống (ví dụ: bài toán lập kế hoạch sản"
+         "text": "Vận dụng cách giải hệ phương trình bậc nhất ba ẩn để giải quyết một số vấn đề thực tiễn cuộc sống (ví dụ: bài toán lập kế hoạch sản xuất, mô hình cân bằng thị trường, phân bố vốn đầu tư,...)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Vận dụng được cách giải hệ phương trình bậc nhất ba ẩn vào giải quyết một số bài toán Vật lí (tính điện trở, tính cường độ dòng điện trong dòng điện không đổi,...), Hoá học (cân bằng phản ứng,...), Sinh học (bài tập nguyên phân, giảm phân,...). – Vận dụng cách giải hệ phương trình bậc nhất ba ẩn để giải quyết một số vấn đề thực tiễn cuộc sống (ví dụ: bài toán lập kế hoạch sản",
+   "outcome_text": "– Vận dụng được cách giải hệ phương trình bậc nhất ba ẩn vào giải quyết một số bài toán Vật lí (tính điện trở, tính cường độ dòng điện trong dòng điện không đổi,...), Hoá học (cân bằng phản ứng,...), Sinh học (bài tập nguyên phân, giảm phân,...). – Vận dụng cách giải hệ phương trình bậc nhất ba ẩn để giải quyết một số vấn đề thực tiễn cuộc sống (ví dụ: bài toán lập kế hoạch sản xuất, mô hình cân bằng thị trường, phân bố vốn đầu tư,...).",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
-     88
+     88,
+     89
     ]
    }
   },
@@ -15383,6 +15922,98 @@
    }
   },
   {
+   "id": "TOAN-0310",
+   "subject": "Toán",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "Một số yếu tố giải tích",
+   "section": null,
+   "topic": "Đạo hàm",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức đại số và giải tích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ đồ thị hàm số lượng giác và sử dụng đồ thị để tạo các hoa văn, hình khối."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tạo mô hình thao tác động mô tả giới hạn, mô tả hàm số liên tục."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ đồ thị hàm số luỹ thừa, hàm số mũ, hàm số lôgarit và tìm hiểu đặc điểm của chúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tạo mô hình mô tả đạo hàm, ý nghĩa hình học của tiếp tuyến."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức đại số và giải tích. – Thực hành sử dụng phần mềm để vẽ đồ thị hàm số lượng giác và sử dụng đồ thị để tạo các hoa văn, hình khối. – Thực hành sử dụng phần mềm để tạo mô hình thao tác động mô tả giới hạn, mô tả hàm số liên tục. – Thực hành sử dụng phần mềm để vẽ đồ thị hàm số luỹ thừa, hàm số mũ, hàm số lôgarit và tìm hiểu đặc điểm của chúng. – Thực hành sử dụng phần mềm để tạo mô hình mô tả đạo hàm, ý nghĩa hình học của tiếp tuyến.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     96
+    ]
+   }
+  },
+  {
    "id": "TOAN-0251",
    "subject": "Toán",
    "grade": 11,
@@ -16354,6 +16985,70 @@
    }
   },
   {
+   "id": "TOAN-0311",
+   "subject": "Toán",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học không gian",
+   "topic": "Quan hệ vuông góc trong không gian. Phép chiếu vuông góc",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ đường thẳng, mặt phẳng, giao điểm, giao tuyến, tạo hình trong không gian, xác định hình biểu diễn."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm hỗ trợ đồ hoạ và vẽ kĩ thuật."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để vẽ đường thẳng, mặt phẳng, giao điểm, giao tuyến, tạo hình trong không gian, xác định hình biểu diễn. – Thực hành sử dụng phần mềm hỗ trợ đồ hoạ và vẽ kĩ thuật.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     101
+    ]
+   }
+  },
+  {
    "id": "TOAN-0262",
    "subject": "Toán",
    "grade": 11,
@@ -16537,6 +17232,70 @@
     }
    ],
    "outcome_text": "– Tính được xác suất của biến cố hợp bằng cách sử dụng công thức cộng. – Tính được xác suất của biến cố giao bằng cách sử dụng công thức nhân (cho trường hợp biến cố độc lập). – Tính được xác suất của biến cố trong một số bài toán đơn giản bằng phương pháp tổ hợp. – Tính được xác suất trong một số bài toán đơn giản bằng cách sử dụng sơ đồ hình cây.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     102
+    ]
+   }
+  },
+  {
+   "id": "TOAN-0312",
+   "subject": "Toán",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "Thống kê và Xác suất",
+   "section": "Xác suất",
+   "topic": "Các quy tắc tính xác suất",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để tính được các số đặc trưng đo xu thế trung tâm cho mẫu số liệu ghép nhóm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tính xác suất."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Sử dụng phần mềm để tính được các số đặc trưng đo xu thế trung tâm cho mẫu số liệu ghép nhóm. – Thực hành sử dụng phần mềm để tính xác suất.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -16942,15 +17701,58 @@
        ]
       }
      ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được một số nguyên tắc cơ bản của vẽ kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đọc được thông tin từ một số bản vẽ kĩ thuật đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vẽ được bản vẽ kĩ thuật đơn giản (gắn với phép chiếu song song và phép chiếu vuông góc)."
+        }
+       ]
+      }
+     ]
     }
    ],
-   "outcome_text": "– Nhận biết được hình biểu diễn của một hình, khối.",
+   "outcome_text": "– Nhận biết được hình biểu diễn của một hình, khối. – Nhận biết được một số nguyên tắc cơ bản của vẽ kĩ thuật. – Đọc được thông tin từ một số bản vẽ kĩ thuật đơn giản. – Vẽ được bản vẽ kĩ thuật đơn giản (gắn với phép chiếu song song và phép chiếu vuông góc).",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
-     104
+     104,
+     105
     ]
    }
   },
@@ -17419,6 +18221,70 @@
    }
   },
   {
+   "id": "TOAN-0313",
+   "subject": "Toán",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "Một số yếu tố giải tích",
+   "section": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Sử dụng phần mềm để tính được các số đặc trưng đo xu thế trung tâm cho mẫu số liệu ghép nhóm. – Thực hành sử dụng phần mềm để tính xác suất.",
+   "topic": "Nguyên hàm. Tích phân",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức đại số và giải tích."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ các đồ thị; minh hoạ sự tương giao của các đồ thị; thực hiện các phép biến đổi đồ thị; tạo hoa văn, hình khối."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tạo mô hình khối tròn xoay trong một số bài toán ứng dụng tích phân xác định."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức đại số và giải tích. – Thực hành sử dụng phần mềm để vẽ các đồ thị; minh hoạ sự tương giao của các đồ thị; thực hiện các phép biến đổi đồ thị; tạo hoa văn, hình khối. – Thực hành sử dụng phần mềm để tạo mô hình khối tròn xoay trong một số bài toán ứng dụng tích phân xác định.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     107
+    ]
+   }
+  },
+  {
    "id": "TOAN-0281",
    "subject": "Toán",
    "grade": 12,
@@ -17774,6 +18640,70 @@
    }
   },
   {
+   "id": "TOAN-0314",
+   "subject": "Toán",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "Hình học và Đo lường",
+   "section": "Hình học không gian",
+   "topic": "Phương pháp toạ độ trong không gian",
+   "content": "Thực hành trong phòng máy tính với phần mềm toán học (nếu nhà trường có điều kiện thực hiện)",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để biểu thị điểm, vectơ, các phép toán vectơ trong hệ trục toạ độ Oxyz."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để vẽ đường thẳng, mặt phẳng, mặt cầu trong hệ trục toạ độ Oxyz; xem xét sự thay đổi hình dạng khi thay đổi các yếu tố trong phương trình của chúng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức hình học. – Thực hành sử dụng phần mềm để biểu thị điểm, vectơ, các phép toán vectơ trong hệ trục toạ độ Oxyz. – Thực hành sử dụng phần mềm để vẽ đường thẳng, mặt phẳng, mặt cầu trong hệ trục toạ độ Oxyz; xem xét sự thay đổi hình dạng khi thay đổi các yếu tố trong phương trình của chúng.",
+   "source": {
+    "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
+    "file": "ct-toan-official.pdf",
+    "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
+    "pdf_pages": [
+     109
+    ]
+   }
+  },
+  {
    "id": "TOAN-0285",
    "subject": "Toán",
    "grade": 12,
@@ -17996,8 +18926,37 @@
    "topic": "Các quy tắc tính xác suất",
    "content": "– Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Thực hành sử dụng phần mềm để tính phân bố nhị thức, tính toán thống kê.",
    "kind": "content",
-   "outcomes": [],
-   "outcome_text": "",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hành sử dụng phần mềm để tính phân bố nhị thức, tính toán thống kê."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "Sử dụng phần mềm để hỗ trợ việc học các kiến thức thống kê và xác suất. – Thực hành sử dụng phần mềm để tính phân bố nhị thức, tính toán thống kê.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
@@ -18317,15 +19276,30 @@
        ]
       }
      ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng phân bố nhị thức để giải một số bài toán liên quan đến thực tiễn."
+        }
+       ]
+      }
+     ]
     }
    ],
-   "outcome_text": "– Nhận biết được khái niệm về phép thử lặp và công thức Bernoulli. – Nhận biết được khái niệm phân bố nhị thức. Nhận biết được ý nghĩa của phân bố nhị thức.",
+   "outcome_text": "– Nhận biết được khái niệm về phép thử lặp và công thức Bernoulli. – Nhận biết được khái niệm phân bố nhị thức. Nhận biết được ý nghĩa của phân bố nhị thức. – Vận dụng phân bố nhị thức để giải một số bài toán liên quan đến thực tiễn.",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
-     112
+     112,
+     113
     ]
    }
   },
@@ -18504,20 +19478,35 @@
        "content": [
         {
          "type": "text",
-         "text": "Nhận biết được kết quả của việc trả các khoản tiền nợ đúng thời"
+         "text": "Nhận biết được kết quả của việc trả các khoản tiền nợ đúng thời hạn, bao gồm hồ sơ tín dụng và giá trị tín dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận dụng được kiến thức toán học (như các kiến thức về tỉ số, tỉ số phần trăm, phép tính luỹ thừa và lôgarit) trong việc giải quyết một số vấn đề về lãi suất và vay nợ của các tổ chức tín dụng (như ngân hàng, quỹ tín dụng,...)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nhận biết được một số vấn đề về tiền tệ. – Thiết lập được kế hoạch tài chính cá nhân cho các nhu cầu dài hạn như giáo dục hoặc sống tự lập. – Nhận biết được một số vấn đề về lãi suất và vay nợ của các tổ chức tín dụng (như ngân hàng, quỹ tín dụng,...). – Tính được lãi suất được hưởng qua tiền tiết kiệm và các giá trị thực chất có tính đến lạm phát. – Tính được lãi suất cần trả cho thẻ tín dụng, phí sử dụng thẻ (bao gồm các giao dịch). – Nhận biết được kết quả của việc trả các khoản tiền nợ đúng thời",
+   "outcome_text": "– Nhận biết được một số vấn đề về tiền tệ. – Thiết lập được kế hoạch tài chính cá nhân cho các nhu cầu dài hạn như giáo dục hoặc sống tự lập. – Nhận biết được một số vấn đề về lãi suất và vay nợ của các tổ chức tín dụng (như ngân hàng, quỹ tín dụng,...). – Tính được lãi suất được hưởng qua tiền tiết kiệm và các giá trị thực chất có tính đến lạm phát. – Tính được lãi suất cần trả cho thẻ tín dụng, phí sử dụng thẻ (bao gồm các giao dịch). – Nhận biết được kết quả của việc trả các khoản tiền nợ đúng thời hạn, bao gồm hồ sơ tín dụng và giá trị tín dụng. – Vận dụng được kiến thức toán học (như các kiến thức về tỉ số, tỉ số phần trăm, phép tính luỹ thừa và lôgarit) trong việc giải quyết một số vấn đề về lãi suất và vay nợ của các tổ chức tín dụng (như ngân hàng, quỹ tín dụng,...).",
    "source": {
     "document": "Thông tư 32/2018/TT-BGDĐT — Chương trình môn Toán",
     "file": "ct-toan-official.pdf",
     "portal": "data.moet.gov.vn (share m6ztfi7sUIIGQdY)",
     "pdf_pages": [
-     113
+     113,
+     114
     ]
    }
   },

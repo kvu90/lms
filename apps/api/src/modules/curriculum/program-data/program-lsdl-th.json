@@ -3302,15 +3302,186 @@
        ]
       }
      ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số thành tựu tiêu biểu về kiến trúc, điêu khắc,... của văn minh Hy Lạp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sưu tầm và kể lại được một số câu chuyện về lịch sử Olympic, về các vị thần của Hy Lạp."
+        }
+       ]
+      }
+     ]
     }
    ],
-   "outcome_text": "– Xác định được vị trí địa lí của nước Hy Lạp hiện nay trên bản đồ hoặc lược đồ.",
+   "outcome_text": "– Xác định được vị trí địa lí của nước Hy Lạp hiện nay trên bản đồ hoặc lược đồ. – Sưu tầm một số tư liệu (tranh ảnh, câu chuyện lịch sử,...), tìm hiểu và mô tả được một số thành tựu tiêu biểu về kiến trúc, điêu khắc,... của văn minh Hy Lạp. – Sưu tầm và kể lại được một số câu chuyện về lịch sử Olympic, về các vị thần của Hy Lạp.",
    "source": {
     "document": "Chương trình môn Lịch sử và Địa lí (cấp Tiểu học), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
     "file": "ct-lsdl-th-official.pdf",
     "portal": "data.moet.gov.vn (share DCB1dwY143wU6jF)",
     "pdf_pages": [
-     23
+     23,
+     24
+    ]
+   }
+  },
+  {
+   "id": "LSDL-0048",
+   "subject": "Lịch sử và Địa lí",
+   "grade": 5,
+   "level": "Tiểu học",
+   "stream": null,
+   "section": "Chung Tay Xây Dựng Thế Giới",
+   "topic": "Xây dựng thế giới xanh - sạch - đẹp",
+   "content": "Xây dựng thế giới xanh - sạch - đẹp",
+   "kind": "requirement",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số vai trò của thiên nhiên đối với cuộc sống con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng kiến thức lịch sử, địa lí kết hợp với một số tư liệu (tranh ảnh, câu chuyện,...), liệt kê và trình bày được một số vấn đề môi trường (ví dụ: thiên tai, biến đổi khí hậu, suy giảm tài nguyên thiên nhiên, ô nhiễm môi trường,...)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được ở mức độ đơn giản một số biện pháp để xây dựng thế giới xanh - sạch - đẹp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được sự quan tâm đến vấn đề môi trường trên thế giới qua hình thức vẽ tranh, viết thư,..."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nêu được một số vai trò của thiên nhiên đối với cuộc sống con người. – Sử dụng kiến thức lịch sử, địa lí kết hợp với một số tư liệu (tranh ảnh, câu chuyện,...), liệt kê và trình bày được một số vấn đề môi trường (ví dụ: thiên tai, biến đổi khí hậu, suy giảm tài nguyên thiên nhiên, ô nhiễm môi trường,...). – Đề xuất được ở mức độ đơn giản một số biện pháp để xây dựng thế giới xanh - sạch - đẹp. – Thể hiện được sự quan tâm đến vấn đề môi trường trên thế giới qua hình thức vẽ tranh, viết thư,...",
+   "source": {
+    "document": "Chương trình môn Lịch sử và Địa lí (cấp Tiểu học), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-lsdl-th-official.pdf",
+    "portal": "data.moet.gov.vn (share DCB1dwY143wU6jF)",
+    "pdf_pages": [
+     24
+    ]
+   }
+  },
+  {
+   "id": "LSDL-0049",
+   "subject": "Lịch sử và Địa lí",
+   "grade": 5,
+   "level": "Tiểu học",
+   "stream": null,
+   "section": "Chung Tay Xây Dựng Thế Giới",
+   "topic": "Xây dựng thế giới hoà bình",
+   "content": "Xây dựng thế giới hoà bình",
+   "kind": "requirement",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng một số tư liệu (tranh ảnh, một số câu chuyện về Liên hợp quốc, truyền thuyết về chim bồ câu và cành olive, phong trào Chữ thập đỏ, Thế vận hội Olympic,...), trình bày được mong ước và cố gắng của nhân loại trong việc xây dựng một thế giới hoà bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đề xuất được ở mức độ đơn giản một số biện pháp để xây dựng thế giới hoà bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thể hiện được một thế giới trong tương lai qua hình thức vẽ tranh, viết thư, kể chuyện,..."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Sử dụng một số tư liệu (tranh ảnh, một số câu chuyện về Liên hợp quốc, truyền thuyết về chim bồ câu và cành olive, phong trào Chữ thập đỏ, Thế vận hội Olympic,...), trình bày được mong ước và cố gắng của nhân loại trong việc xây dựng một thế giới hoà bình. – Đề xuất được ở mức độ đơn giản một số biện pháp để xây dựng thế giới hoà bình. – Thể hiện được một thế giới trong tương lai qua hình thức vẽ tranh, viết thư, kể chuyện,...",
+   "source": {
+    "document": "Chương trình môn Lịch sử và Địa lí (cấp Tiểu học), ban hành kèm theo Thông tư số 32/2018/TT-BGDĐT ngày 26/12/2018",
+    "file": "ct-lsdl-th-official.pdf",
+    "portal": "data.moet.gov.vn (share DCB1dwY143wU6jF)",
+    "pdf_pages": [
+     24
     ]
    }
   }
