@@ -34,6 +34,7 @@
   "name": "@lms/ui",
   "private": true,
   "scripts": {
+    "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "sideEffects": [
