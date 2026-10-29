@@ -13,8 +13,7 @@
     "start": "node dist/main.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "seed:review": "node dist/review-seed.js",
-    "audit:role-separation": "node dist/audit-role-separation.js"
+    "seed:review": "node dist/review-seed.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1156.0",
