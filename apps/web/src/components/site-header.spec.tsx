@@ -4,7 +4,7 @@ import { createMemoryRouter, Outlet, RouterProvider, useLocation } from 'react-r
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { SidebarProvider } from '@lms/ui/components/sidebar';
 import { TestProviders } from '#test/providers';
-import { SiteHeader } from './site-header';
+import { SiteHeader } from '#components/site-header';
 
 /**
  * Test cho header ba vùng sau chốt 23:52 ngày 26/10/2026 (issue

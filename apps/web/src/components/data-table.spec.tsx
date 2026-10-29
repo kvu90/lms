@@ -1,7 +1,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DataTable, type DataColumn } from './data-table';
+import { DataTable, type DataColumn } from '#components/data-table';
 
 /**
  * Spec của bảng dữ liệu dùng chung: ghim bốn cơ chế mà TanStack Table

@@ -7,8 +7,8 @@ import { Input } from '@lms/ui/components/input';
 import { Separator } from '@lms/ui/components/separator';
 import { SidebarTrigger } from '@lms/ui/components/sidebar';
 import { CommandPalette } from '#components/command-palette';
-import { NotificationBell } from '#components/notification-bell';
-import '../i18n';
+import { NotificationBell } from '#features/notifications/components/notification-bell';
+import '#config/i18n';
 
 /** Ánh xạ tiền tố đường dẫn → khoá i18n của tiêu đề trang, cho header trên cùng. */
 const TITLE_KEYS: { prefix: string; key: string; ns: 'app' | 'dashboard' }[] = [

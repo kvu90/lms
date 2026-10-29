@@ -10,7 +10,10 @@
     "#lib/auth": "./src/lib/auth.tsx",
     "#lib/permissions": "./src/lib/permissions.tsx",
     "#test/*": "./src/test/*.ts",
-    "#test/providers": "./src/test/providers.tsx"
+    "#test/providers": "./src/test/providers.tsx",
+    "#features/*": "./src/features/*",
+    "#utils/*": "./src/utils/*",
+    "#config/*": "./src/config/*"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && react-router build",

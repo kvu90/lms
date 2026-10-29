@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiJson } from '#lib/api';
-import { queryKeys } from './query-keys';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Kiểu + lời gọi API dùng chung cho chương trình GDPT 2018 (K0a):

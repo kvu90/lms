@@ -1,0 +1,13 @@
+/**
+ * Khoá truy vấn của feature guardians (query key factory theo khuyến
+ * nghị của tài liệu TanStack Query), tách khỏi factory tập trung khi tổ
+ * chức lại apps/web theo mô hình features/ (issue #500): mỗi feature giữ
+ * khoá của mình ở tầng queries/; khoá dùng chung nhiều feature ở lại
+ * src/lib/query-keys.ts. Cấu trúc phân cấp: thực thể → định danh → tham số.
+ */
+export const queryKeys = {
+  guardianLinks: ['guardian', 'links'] as const,
+  guardianOverview: (studentId: string) => ['guardian', 'overview', studentId] as const,
+  guardianResults: (studentId: string) => ['guardian', 'results', studentId] as const,
+  guardianDigestPreference: (studentId: string) => ['guardian', 'digest-preference', studentId] as const,
+};

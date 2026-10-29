@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { PageHeader, PageShell } from './page-shell';
+import { PageHeader, PageShell } from '#components/page-shell';
 
 /**
  * Spec cho khung trang dùng chung — viết lại theo rà soát #219: chỉ khẳng

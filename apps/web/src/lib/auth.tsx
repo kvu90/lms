@@ -1,9 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { UserProfile } from '@lms/contracts';
 import { userProfileSchema } from '@lms/contracts';
-import { apiErrorFromAuthClient, apiFetch, TwoFactorRedirectError } from './api';
-import { authClient, useSession } from './auth-client';
-import { queryClient } from './query-client';
+import { apiErrorFromAuthClient, apiFetch, TwoFactorRedirectError } from '#lib/api';
+import { authClient, useSession } from '#lib/auth-client';
+import { queryClient } from '#lib/query-client';
 
 interface AuthState {
   user: UserProfile | null;
