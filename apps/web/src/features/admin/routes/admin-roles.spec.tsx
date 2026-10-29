@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,13 +6,22 @@ import { TestProviders } from '#test/providers';
 import { AdminRolesPage } from './admin-roles';
 
 /**
- * Spec F-01 cho trang vai trò: ba danh sách (vai / capability / context)
- * là ba query TanStack qua khoá factory, và mutation gán vai phải làm
- * mới các truy vấn access (trước đây POST xong im lặng, không tải lại).
+ * Spec đợt 2 cho trang vai trò: lưới thẻ dựng từ dữ kiện tổng hợp của
+ * đợt 1 (đúng một lần gọi danh sách), hộp thoại thêm/sửa kèm ma trận
+ * bốn trạng thái lưu bằng một lần gọi thay toàn bộ, và hộp thoại xác
+ * nhận xoá hiển thị đúng lý do backend chặn. Kèm cổng chặn lưu ở chế
+ * độ sửa khi ma trận chưa tải xong hoặc tải lỗi (lưu sớm sẽ xoá lặng
+ * ghi đè đã lưu), và ca xoá thành công dùng vai trò thường đúng luật
+ * backend thay vì vai dựng sẵn.
+ *
+ * Giữ lại hai kiểm chứng F-01 cũ: ba danh sách (vai / capability /
+ * context) là ba query TanStack, và mutation gán vai làm mới các truy
+ * vấn access sau POST.
  */
-const ROLE_ID = '01900000-0000-7000-8000-0000000000r1'.replace('r', 'b');
-const CAP_ID = '01900000-0000-7000-8000-0000000000c1';
+const ROLE_ID = '01900000-0000-7000-8000-0000000000b1';
+const NEW_ROLE_ID = '01900000-0000-7000-8000-0000000000b2';
 const SYSTEM_CONTEXT_ID = '01900000-0000-7000-8000-000000000010';
+const TENANT_CONTEXT_ID = '01900000-0000-7000-8000-000000000020';
 
 interface RecordedCall {
   url: string;
@@ -20,24 +29,103 @@ interface RecordedCall {
   body: unknown;
 }
 
-function stubFetch(calls: RecordedCall[]) {
+interface StubOptions {
+  /** DELETE /access/roles/:id trả về mã lỗi này thay vì thành công. */
+  deleteErrorCode?: string;
+  /** Cách truy vấn ma trận của vai đang sửa phản hồi: treo mãi, lỗi lần đầu rồi thành công, hoặc luôn lỗi. */
+  matrixBehavior?: 'pending' | 'errorOnce' | 'errorAlways';
+  /** Ghi đè archetype của vai trò duy nhất trong fixture (mặc định 'editingteacher'). */
+  roleArchetype?: string | null;
+  /** Ghi đè số người giữ của vai trò duy nhất trong fixture (mặc định 5). */
+  roleUserCount?: number;
+}
+
+function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
+  let matrixCalls = 0;
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
-      const respond = (body: unknown) =>
-        new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      if (url === '/api/v1/access/roles')
+      const respond = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+      if (url === '/api/v1/access/roles' && method === 'GET')
         return respond([
-          { id: ROLE_ID, name: 'Giáo viên', shortName: 'editingteacher', description: '', archetype: 'editingteacher' },
+          {
+            id: ROLE_ID,
+            name: 'Giáo viên',
+            shortName: 'editingteacher',
+            description: '',
+            archetype: options.roleArchetype === undefined ? 'editingteacher' : options.roleArchetype,
+            userCount: options.roleUserCount ?? 5,
+            overrideCount: 3,
+            readOverrideCount: 2,
+            writeOverrideCount: 1,
+            resourceCount: 2,
+          },
         ]);
       if (url === '/api/v1/access/capabilities')
-        return respond([{ id: CAP_ID, name: 'course:view', capType: 'read', contextLevel: 50, component: 'core' }]);
+        return respond([
+          {
+            id: '01900000-0000-7000-8000-0000000000c1',
+            name: 'course:view',
+            capType: 'read',
+            contextLevel: 50,
+            component: 'core',
+          },
+          {
+            id: '01900000-0000-7000-8000-0000000000c2',
+            name: 'course:edit',
+            capType: 'write',
+            contextLevel: 50,
+            component: 'core',
+          },
+          {
+            id: '01900000-0000-7000-8000-0000000000c3',
+            name: 'user:view',
+            capType: 'read',
+            contextLevel: 30,
+            component: 'core',
+          },
+        ]);
       if (url === '/api/v1/access/contexts')
-        return respond([{ id: SYSTEM_CONTEXT_ID, contextLevel: 10, instanceId: '0', path: '/1' }]);
+        return respond([
+          { id: SYSTEM_CONTEXT_ID, contextLevel: 10, instanceId: '0', path: '/1' },
+          { id: TENANT_CONTEXT_ID, contextLevel: 20, instanceId: '1', path: '/1/2' },
+        ]);
       if (url === '/api/v1/access/assignments' && method === 'POST') return respond({});
-      if (url === `/api/v1/access/roles/${ROLE_ID}/capabilities`) return respond([]);
+      if (url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && method === 'GET') {
+        if (options.matrixBehavior === 'pending') return new Promise<Response>(() => {});
+        if (options.matrixBehavior === 'errorAlways')
+          return respond({ type: 'about:blank', title: 'Lỗi tải ma trận', status: 500 }, 500);
+        if (options.matrixBehavior === 'errorOnce') {
+          matrixCalls += 1;
+          if (matrixCalls === 1) return respond({ type: 'about:blank', title: 'Lỗi tải ma trận', status: 500 }, 500);
+        }
+        return respond([
+          { roleId: ROLE_ID, capability: 'course:view', contextId: SYSTEM_CONTEXT_ID, permission: -1 },
+          { roleId: ROLE_ID, capability: 'course:edit', contextId: TENANT_CONTEXT_ID, permission: 1 },
+        ]);
+      }
+      if (url === '/api/v1/access/roles' && method === 'POST')
+        return respond({
+          id: NEW_ROLE_ID,
+          name: 'Vai trò mới',
+          shortName: 'newrole',
+          description: '',
+          archetype: null,
+        });
+      if (url === `/api/v1/access/roles/${ROLE_ID}` && method === 'PATCH') return respond({});
+      if (url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && method === 'PUT') return respond([]);
+      if (url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && method === 'PUT') return respond([]);
+      if (url === `/api/v1/access/roles/${ROLE_ID}` && method === 'DELETE') {
+        if (options.deleteErrorCode)
+          return respond(
+            { type: 'about:blank', title: 'Không xoá được vai trò', status: 400, code: options.deleteErrorCode },
+            400,
+          );
+        return respond({ deleted: true });
+      }
       return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
     }),
   );
@@ -54,25 +142,37 @@ function renderPage() {
   );
 }
 
-describe('Admin roles page — TanStack queries + assignment invalidation (F-01)', () => {
+/** Mở hộp thoại sửa của thẻ vai trò duy nhất trong stub qua menu ba chấm. */
+async function openEditDialog() {
+  await userEvent.click(screen.getByRole('button', { name: 'Thao tác với vai trò' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: 'Sửa vai trò' }));
+  await screen.findByRole('dialog', { name: 'Sửa vai trò' });
+}
+
+describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2, #546)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('loads roles, capabilities and contexts through the access queries', async () => {
+  it('tải vai, capability và context qua các query access và hiện thẻ với dữ kiện tổng hợp', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
 
     expect(await screen.findByText('Giáo viên')).toBeInTheDocument();
+    expect(screen.getByText('5 người dùng')).toBeInTheDocument();
+    expect(screen.getByText(/Đọc: 2/)).toBeInTheDocument();
+    expect(screen.getByText(/Ghi: 1/)).toBeInTheDocument();
+    expect(screen.getByText('Tổng: 2 resource')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Thêm vai trò mới' })).toBeInTheDocument();
     expect(calls.some((c) => c.url === '/api/v1/access/roles')).toBe(true);
     expect(calls.some((c) => c.url === '/api/v1/access/capabilities')).toBe(true);
     expect(calls.some((c) => c.url === '/api/v1/access/contexts')).toBe(true);
   });
 
-  it('assignment POSTs to /access/assignments and invalidates the access queries', async () => {
+  it('gán vai POST tới /access/assignments và làm mới các query access', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -93,5 +193,201 @@ describe('Admin roles page — TanStack queries + assignment invalidation (F-01)
         roleLoadsBefore,
       ),
     );
+  });
+
+  it('tạo vai trò mới qua thẻ thêm rồi lưu ma trận bằng đúng một lần gọi thay toàn bộ', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm vai trò mới' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
+    await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
+    await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    // Chỉ một ô khác kế thừa: course:view thành Cho phép; các ô còn lại giữ Kế thừa nên không vào tập gửi lên.
+    await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '1');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/access/roles' && c.method === 'POST')).toBe(true));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && c.method === 'PUT'),
+      ).toBe(true),
+    );
+    const put = calls.find((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities`);
+    expect(put?.body).toEqual({
+      contextId: SYSTEM_CONTEXT_ID,
+      overrides: [{ capability: 'course:view', permission: 1 }],
+    });
+    expect(calls.filter((c) => c.method === 'PUT').length).toBe(1);
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('sửa vai trò nạp đúng ghi đè của ngữ cảnh đang chọn và không lẫn sang ngữ cảnh khác', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    // Ngữ cảnh hệ thống mặc định: course:view đã lưu Ngăn chặn (−1).
+    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'));
+    // Chuyển sang ngữ cảnh trung tâm: course:view không có ghi đè ở đó nên về Kế thừa, course:edit giữ Cho phép.
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), TENANT_CONTEXT_ID);
+    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('0'));
+    expect((within(dialog).getByLabelText('course:edit') as HTMLSelectElement).value).toBe('1');
+    // Lưu ở ngữ cảnh trung tâm: một PATCH tên/mô tả rồi đúng một PUT cho ngữ cảnh đó.
+    await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '-1000');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    await waitFor(() =>
+      expect(calls.some((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT')).toBe(
+        true,
+      ),
+    );
+    const put = calls.find((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT');
+    // Thứ tự tập gửi lên theo thứ tự danh mục năng lực, không theo thứ tự dòng đã lưu.
+    expect(put?.body).toEqual({
+      contextId: TENANT_CONTEXT_ID,
+      overrides: [
+        { capability: 'course:view', permission: -1000 },
+        { capability: 'course:edit', permission: 1 },
+      ],
+    });
+  });
+
+  it('chọn nhanh toàn cục áp đúng trạng thái cho mọi ô rồi lưu qua một lần gọi thay toàn bộ', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm vai trò mới' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
+    await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
+    await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await userEvent.selectOptions(within(dialog).getByLabelText('Chọn nhanh'), '-1');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Áp cho toàn bộ' }));
+    expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1');
+    expect((within(dialog).getByLabelText('user:view') as HTMLSelectElement).value).toBe('-1');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && c.method === 'PUT'),
+      ).toBe(true),
+    );
+    const put = calls.find((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities`);
+    expect(put?.body).toEqual({
+      contextId: SYSTEM_CONTEXT_ID,
+      overrides: [
+        { capability: 'course:view', permission: -1 },
+        { capability: 'course:edit', permission: -1 },
+        { capability: 'user:view', permission: -1 },
+      ],
+    });
+  });
+
+  it('chọn nhanh theo hàng chỉ áp cho các năng lực trong cùng nhóm resource', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls);
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await userEvent.click(screen.getByRole('button', { name: 'Thêm vai trò mới' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Thêm vai trò mới' });
+    await userEvent.type(within(dialog).getByLabelText('Tên vai trò'), 'Vai trò mới');
+    await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
+    await userEvent.selectOptions(within(dialog).getByLabelText('Chọn nhanh cho nhóm course'), '1');
+    // Mỗi nhóm resource có một nút "Áp cho hàng" riêng nên phải khoanh vùng theo nhóm course.
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'course' })).getByRole('button', { name: 'Áp cho hàng' }),
+    );
+    expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('1');
+    expect((within(dialog).getByLabelText('course:edit') as HTMLSelectElement).value).toBe('1');
+    expect((within(dialog).getByLabelText('user:view') as HTMLSelectElement).value).toBe('0');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    await waitFor(() =>
+      expect(
+        calls.some((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && c.method === 'PUT'),
+      ).toBe(true),
+    );
+    const put = calls.find((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities`);
+    expect(put?.body).toEqual({
+      contextId: SYSTEM_CONTEXT_ID,
+      overrides: [
+        { capability: 'course:view', permission: 1 },
+        { capability: 'course:edit', permission: 1 },
+      ],
+    });
+  });
+
+  it('sửa vai trò khi ma trận chưa tải xong thì nút Lưu bị chặn và không phát sinh yêu cầu ghi', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { matrixBehavior: 'pending' });
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    // Ma trận vẫn đang tải nên chỉ hiện chữ tải, chưa có ô nào; nút Lưu bị chặn.
+    expect(within(dialog).getByText('Đang tải…')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    expect(calls.some((c) => c.method === 'PUT' || c.method === 'PATCH')).toBe(false);
+  });
+
+  it('sửa vai trò khi tải ma trận lỗi thì hiện lỗi, chặn Lưu, và thử lại tải được ma trận', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { matrixBehavior: 'errorOnce' });
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    expect(
+      await within(dialog).findByText('Không tải được ma trận quyền của vai trò. Thử tải lại trước khi lưu.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
+    expect(calls.some((c) => c.method === 'PUT' || c.method === 'PATCH')).toBe(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Thử lại' }));
+    // Sau thử lại, ma trận tải thành công: course:view đã lưu Ngăn chặn (−1) ở ngữ cảnh hệ thống.
+    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'));
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeEnabled();
+  });
+
+  it('xoá vai trò bị backend chặn thì hiển thị đúng lý do và giữ nguyên vai trò', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { deleteErrorCode: 'access.role_has_assignments' });
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await userEvent.click(screen.getByRole('button', { name: 'Thao tác với vai trò' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Xoá vai trò' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Xoá vai trò' });
+    expect(within(dialog).getByText(/Xoá vai trò “Giáo viên”/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Xoá vai trò' }));
+    await waitFor(() => expect(screen.getByText('Vai trò vẫn còn người giữ nên không xoá được.')).toBeInTheDocument());
+    // Hộp thoại vẫn mở, vai trò vẫn trên lưới.
+    expect(screen.getByRole('dialog', { name: 'Xoá vai trò' })).toBeInTheDocument();
+    expect(screen.getByText('Giáo viên')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(true);
+  });
+
+  it('xoá vai trò thường không còn người giữ thì thành công và hộp thoại đóng', async () => {
+    // Fixture vai trò thường (không archetype, 0 người giữ): ca này trước
+    // đây dùng vai dựng sẵn nên không kiểm chứng đúng trường hợp thật.
+    stubFetch([], { roleArchetype: null, roleUserCount: 0 });
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await userEvent.click(screen.getByRole('button', { name: 'Thao tác với vai trò' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Xoá vai trò' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Xoá vai trò' });
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Xoá vai trò' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });

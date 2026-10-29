@@ -1,21 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
-import { CAP, type Role } from '@lms/contracts';
+import type { RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/ui/components/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@lms/ui/components/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@lms/ui/components/dropdown-menu';
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@lms/ui/components/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
+import { Ellipsis } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
-import { DataTable, type DataColumn } from '#components/data-table';
 import { PageHeader, PageShell } from '#components/page-shell';
 import '#config/i18n';
 import {
@@ -25,47 +25,44 @@ import {
   useCreateAssignment,
   useRoleCapabilities,
 } from '#lib/access';
-
-/** Nhãn mức quyền dịch qua catalog ở thời điểm render (xem hook trong component). */
+import { RoleDeleteDialog } from '../components/role-delete-dialog';
+import { RoleMatrixDialog } from '../components/role-matrix-dialog';
 
 /**
- * Trang quản trị vai trò: danh sách vai + danh mục capability + cây
- * context là ba query TanStack (lib/access.ts, F-01) dùng chung khoá
- * factory với các bề mặt quản trị khác; ma trận capability của một vai là
- * query theo vai được chọn; gán vai là mutation làm mới các truy vấn
- * access và ảnh chụp capability thay vì im lặng như trước.
+ * Trang quản trị vai trò: lưới thẻ vai trò + hộp thoại ma trận (đợt 2)
+ * và thẻ gán vai cho người dùng (giữ nguyên từ trước, thuộc đợt 3 khi
+ * bảng người dùng theo vai trò được dựng).
+ *
+ * Luồng hiển thị:
+ *
+ * 1. Ba query TanStack dùng chung (lib/access.ts): danh sách vai kèm
+ *    tổng hợp đợt 1, danh mục capability, cây context. Lưới thẻ dựng
+ *    từ ĐÚNG MỘT lần gọi danh sách — mỗi thẻ hiện tên vai, số người
+ *    giữ phân biệt, dải tổng hợp theo nhóm read/write và tổng số
+ *    resource vai chạm tới; thẻ cuối là lối vào tạo vai trò duy nhất.
+ * 2. Menu ba chấm trên mỗi thẻ chỉ có hai mục: Sửa vai trò (mở hộp
+ *    thoại ma trận ở chế độ sửa) và Xoá vai trò (mở hộp thoại xác nhận
+ *    xoá). Hộp thoại thêm/sửa dùng chung cho tạo và sửa, lưu qua
+ *    endpoint thay toàn bộ của đợt 1.
+ * 3. Ma trận của vai đang sửa là query theo vai được chọn, lọc theo
+ *    ngữ cảnh trong hộp thoại — đổi ngữ cảnh không gọi lại API, chỉ
+ *    đổi tập ghi đè đang sửa.
  */
 export function AdminRolesPage() {
   const { t } = useTranslation('app');
-  const PERMISSION_LABEL: Record<number, string> = {
-    [CAP.ALLOW]: t('permAllow'),
-    [CAP.INHERIT]: t('permInherit'),
-    [CAP.PREVENT]: t('permPrevent'),
-    [CAP.PROHIBIT]: t('permProhibit'),
-  };
-  /** Cột của ma trận capability trên DataTable dùng chung: lọc/sắp xếp theo tên capability (danh mục capability rất dài nên lọc là nhu cầu thật), phân trang thay cho bảng thô trước đây. */
-  const matrixColumns: DataColumn<{ name: string; contextId: string; permission: string }>[] = [
-    {
-      id: 'capability',
-      header: t('capability'),
-      cell: (row) => <code>{row.name}</code>,
-      sortValue: (row) => row.name,
-      filterValue: (row) => row.name,
-    },
-    { id: 'context', header: t('context'), cell: (row) => row.contextId },
-    {
-      id: 'permission',
-      header: t('permission'),
-      cell: (row) => row.permission,
-      filterValue: (row) => row.permission,
-    },
-  ];
   const [assign, setAssign] = useState({ userId: '', roleId: '', contextId: '' });
-  const [matrixRole, setMatrixRole] = useState<Role | null>(null);
+  /** Hộp thoại ma trận đang mở: chế độ tạo (role null) hoặc sửa một vai. */
+  const [matrixDialog, setMatrixDialog] = useState<{
+    mode: 'create' | 'edit';
+    role: RoleListItem | null;
+  } | null>(null);
+  /** Vai trò đang chờ xác nhận xoá; null khi hộp thoại đóng. */
+  const [deleteTarget, setDeleteTarget] = useState<RoleListItem | null>(null);
 
   const rolesQuery = useAccessRoles();
   const capabilitiesQuery = useAccessCapabilities();
   const contextsQuery = useAccessContexts();
+  const matrixRole = matrixDialog?.mode === 'edit' ? matrixDialog.role : null;
   const matrixQuery = useRoleCapabilities(matrixRole?.id ?? null);
   const assignmentMutation = useCreateAssignment();
 
@@ -92,18 +89,12 @@ export function AdminRolesPage() {
     );
   }
 
-  function showMatrix(roleRow: Role) {
-    setMatrixRole(roleRow);
-  }
-
   return (
     <PageShell width="full">
       <PageHeader title={t('rolesTitle')} description={t('rolesDescription')} />
       {loadFailed ? (
         <>
-          <ErrorAlert variant="destructive">
-            {t('rolesLoadFailed')}
-          </ErrorAlert>
+          <ErrorAlert variant="destructive">{t('rolesLoadFailed')}</ErrorAlert>
           <div>
             <Button
               type="button"
@@ -125,19 +116,52 @@ export function AdminRolesPage() {
             <PageSkeleton label={t('loading')} rows={['h-9 w-full', 'h-9 w-full', 'h-9 w-full']} />
           ) : (
             <>
-              <ul className="divide-y">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {roles.map((r) => (
-                  <li key={r.id} className="flex items-center justify-between py-2">
-                    <span>
-                      <strong>{r.name}</strong> <code>{r.shortName}</code>
-                      {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
-                    </span>
-                    <Button type="button" variant="outline" onClick={() => showMatrix(r)}>
-                      {t('capabilityMatrix')}
-                    </Button>
-                  </li>
+                  <Card key={r.id}>
+                    <CardContent className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span>
+                          <strong>{r.name}</strong> <code>{r.shortName}</code>
+                          {r.archetype ? ` ${t('archetypeSuffix', { archetype: r.archetype })}` : ''}
+                        </span>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button type="button" variant="ghost" size="icon-sm" aria-label={t('roleActions')} />
+                            }
+                          >
+                            <Ellipsis aria-hidden />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setMatrixDialog({ mode: 'edit', role: r })}>
+                              {t('editRole')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(r)}>
+                              {t('deleteRole')}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {t('roleUsersCount', { count: r.userCount ?? 0 })}
+                      </p>
+                      <p className="text-sm">
+                        {t('roleReadOverrides', { count: r.readOverrideCount ?? 0 })} ·{' '}
+                        {t('roleWriteOverrides', { count: r.writeOverrideCount ?? 0 })}
+                      </p>
+                      <p className="text-sm">{t('roleTotalResources', { count: r.resourceCount ?? 0 })}</p>
+                    </CardContent>
+                  </Card>
                 ))}
-              </ul>
+                <button
+                  type="button"
+                  className="rounded-xl border border-dashed p-6 text-left hover:bg-accent"
+                  onClick={() => setMatrixDialog({ mode: 'create', role: null })}
+                >
+                  {t('addRoleCard')}
+                </button>
+              </div>
               {roles.length === 0 ? (
                 <Empty className="p-6">
                   <EmptyHeader>
@@ -217,34 +241,28 @@ export function AdminRolesPage() {
         </CardContent>
       </Card>
 
-      {matrixRole && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('matrixTitle', { shortName: matrixRole.shortName })}</CardTitle>
-            <CardDescription>{t('matrixDescription')}</CardDescription>
-          </CardHeader>
-          <DataTable
-            data={capabilities.map((cap) => {
-              const row = matrix.find((m) => m.capability === cap.name);
-              return {
-                name: cap.name,
-                contextId: row ? row.contextId : '—',
-                permission: row ? (PERMISSION_LABEL[row.permission] ?? String(row.permission)) : t('permInherit'),
-              };
-            })}
-            columns={matrixColumns}
-            labels={{
-              columns: t('dashboard:tableColumns'),
-              previous: t('dashboard:tablePrevious'),
-              next: t('dashboard:tableNext'),
-              empty: t('dashboard:emptyTable'),
-              filterPlaceholder: t('dashboard:tableFilterPlaceholder'),
-              pageInfo: (page, pages) => t('dashboard:tablePageInfo', { page, pages }),
-            }}
-            getRowId={(row) => row.name}
-          />
-        </Card>
-      )}
+      {/* Render có điều kiện: mỗi lần mở hộp thoại là một lượt làm việc mới với state khởi tạo sạch. */}
+      {matrixDialog !== null ? (
+        <RoleMatrixDialog
+          open
+          mode={matrixDialog.mode}
+          role={matrixDialog.role}
+          capabilities={capabilities}
+          matrixRows={matrix}
+          // Query ma trận chỉ bật khi sửa một vai; ở chế độ tạo, query bị
+          // tắt vẫn mang trạng thái pending nên không được truyền thẳng.
+          matrixPending={matrixRole !== null && matrixQuery.isPending}
+          // Lỗi tải ma trận cũng phải vào hộp thoại: ma trận trống do lỗi
+          // mà vẫn cho lưu thì PUT thay toàn bộ sẽ xoá lặng ghi đè đã lưu.
+          matrixError={matrixRole !== null && matrixQuery.isError}
+          onMatrixRetry={() => void matrixQuery.refetch()}
+          contexts={contexts}
+          onClose={() => setMatrixDialog(null)}
+        />
+      ) : null}
+      {deleteTarget !== null ? (
+        <RoleDeleteDialog open role={deleteTarget} onClose={() => setDeleteTarget(null)} />
+      ) : null}
     </PageShell>
   );
 }

@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Capability, Role } from '@lms/contracts';
+import type { Capability, RoleListItem } from '@lms/contracts';
 import { apiJson } from '#lib/api';
 import { queryKeys } from '#lib/query-keys';
 
@@ -19,11 +19,17 @@ export interface RoleCapabilityRow {
   permission: number;
 }
 
-/** Danh sách vai trò (GET /access/roles) — dùng chung khoá factory với các bề mặt quản trị khác. */
+/**
+ * Danh sách vai trò kèm tổng hợp phía server (GET /access/roles) — dùng
+ * chung khoá factory với các bề mặt quản trị khác. Từ đợt 1, mỗi dòng
+ * kèm số người giữ phân biệt và tổng hợp ghi đè (theo `capType`
+ * read/write, số resource phân biệt) để lưới thẻ dựng từ đúng một lần
+ * gọi, không gọi thêm theo từng vai.
+ */
 export function useAccessRoles() {
   return useQuery({
     queryKey: queryKeys.roles,
-    queryFn: () => apiJson<Role[]>('/api/v1/access/roles'),
+    queryFn: () => apiJson<RoleListItem[]>('/api/v1/access/roles'),
   });
 }
 
