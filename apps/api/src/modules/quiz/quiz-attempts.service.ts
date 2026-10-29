@@ -205,16 +205,28 @@ export class QuizAttemptsService {
   /**
    * Điểm bài hiện tại từ tập lượt ĐÃ KẾT THÚC có sumGrades của một
    * học sinh, chọn theo grade_method của bài (DL-03, issue #489):
-   * tổng maxMark của các usage được nạp MỘT lần theo lô thay vì
-   * `getUsage` theo từng lượt như trước. Thứ tự `finished` quyết định
-   * first/last nên caller phải truyền đúng thứ tự liệt kê của
-   * repository (số lượt tăng dần cho một học sinh). Trang kết quả
-   * dùng lại chính hàm này trên tập lượt đã nạp sẵn của cả bài —
-   * không truy vấn lại theo từng học sinh.
+   * tổng maxMark của các usage trong tập được nạp MỘT lần theo lô
+   * thay vì `getUsage` theo từng lượt như trước, rồi tính qua
+   * `gradeFromTotals`. Đây là đường của phép tính cho MỘT học sinh
+   * (`currentGradeForUser`); trang kết quả không gọi hàm này theo
+   * từng học sinh — nó nạp tổng của toàn bộ lượt đã kết thúc của cả
+   * bài trong một lần rồi dùng thẳng `gradeFromTotals` cho từng
+   * học sinh.
    */
   private async gradeFromFinishedAttempts(quiz: PinRow, finished: ExamAttemptRow[]): Promise<number | null> {
     if (!finished.length) return null;
     const totals = await this.questions.usageTotalMaxes(finished.map((a) => a.usageId));
+    return this.gradeFromTotals(quiz, finished, totals);
+  }
+
+  /**
+   * Tính điểm bài từ tập lượt ĐÃ KẾT THÚC của một học sinh khi map
+   * tổng maxMark theo usage đã được nạp sẵn: thuần tính trong bộ
+   * nhớ, không phát sinh truy vấn. Thứ tự `finished` quyết định
+   * first/last nên caller phải truyền đúng thứ tự liệt kê của
+   * repository (số lượt tăng dần cho một học sinh).
+   */
+  private gradeFromTotals(quiz: PinRow, finished: ExamAttemptRow[], totals: Map<string, number>): number | null {
     const values: number[] = [];
     for (const a of finished) {
       const v = this.shared.attemptGradeValue(quiz, a, totals.get(a.usageId) ?? 0);
@@ -925,16 +937,30 @@ export class QuizAttemptsService {
     await this.shared.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
     const rows = (await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT)).filter((a) => !a.preview);
     // Tóm tắt và điểm bài đều suy từ chính tập lượt đã nạp (DL-03,
-    // issue #489): tóm tắt theo lô một lần; điểm theo từng học sinh
-    // tính từ các lượt đã kết thúc trong tập này, không truy vấn lại
-    // theo từng học sinh như trước.
+    // issue #489): tóm tắt theo lô một lần; tổng maxMark của toàn
+    // bộ lượt đã kết thúc của cả bài cũng nạp theo lô MỘT lần, điểm
+    // theo từng học sinh chỉ tính trong bộ nhớ từ các map đã nạp —
+    // không truy vấn lại theo từng học sinh như trước.
     const attempts = await this.shared.attemptSummaries(quiz, rows);
     const userIds = [...new Set(rows.map((r) => r.userId))];
-    const gradesByUser: { userId: string; grade: number | null }[] = [];
-    for (const userId of userIds) {
-      const finished = rows.filter((r) => r.userId === userId && r.state === 'finished' && r.sumGrades !== null);
-      gradesByUser.push({ userId, grade: await this.gradeFromFinishedAttempts(quiz, finished) });
+    // Gom lượt đã kết thúc theo học sinh, giữ nguyên thứ tự liệt kê
+    // của repository trong từng học sinh để ngữ nghĩa first/last
+    // của grade_method không đổi.
+    const finishedByUser = new Map<string, ExamAttemptRow[]>();
+    for (const r of rows) {
+      if (r.state !== 'finished' || r.sumGrades === null) continue;
+      const list = finishedByUser.get(r.userId);
+      if (list) list.push(r);
+      else finishedByUser.set(r.userId, [r]);
     }
+    const finishedAttempts = [...finishedByUser.values()].flat();
+    const finishedTotals = finishedAttempts.length
+      ? await this.questions.usageTotalMaxes(finishedAttempts.map((a) => a.usageId))
+      : new Map<string, number>();
+    const gradesByUser = userIds.map((userId) => ({
+      userId,
+      grade: this.gradeFromTotals(quiz, finishedByUser.get(userId) ?? [], finishedTotals),
+    }));
     const summary = await this.resultsSummary(quiz, rows, gradesByUser);
     const needsGrading: QuizNeedsGradingView[] = [];
     const gradingRows = rows.filter((a) => a.state === 'needsgrading');
