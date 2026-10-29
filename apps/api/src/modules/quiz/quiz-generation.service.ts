@@ -4,7 +4,7 @@ import { getTrueFalseStatements, TRUE_FALSE_STATEMENT_COUNT } from '@lms/contrac
 import { OutboxService } from '../../infra/events/outbox.service';
 import { CurriculumService } from '../curriculum/curriculum.service';
 import { QuestionsService, type QuestionView } from '../questions/questions.service';
-import { QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow } from './quiz.repository';
+import { QUIZ_PIN_ATTEMPTS_LIMIT, QuizRepository, type ExamMatrixCellRow, type ExamMatrixRow } from './quiz.repository';
 import { QuizSharedService } from './quiz-shared.service';
 import { QuizAttemptsService } from './quiz-attempts.service';
 import { QUIZ_COMPONENT } from './quiz-shared.service';
@@ -195,7 +195,7 @@ export class QuizGenerationService {
 
   /** Đề đã có lượt làm thật thì cấu trúc slots đóng băng (đúng ngữ nghĩa Chặng 1: attempt đã pin câu). */
   private async assertNoRealAttempts(quiz: PinRow): Promise<void> {
-    const attempts = await this.repo.listAttempts(quiz.id);
+    const attempts = await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT);
     if (attempts.some((a) => !a.preview)) {
       throw new BadRequestException({ message: 'This quiz already has real attempts; its slots are frozen', code: 'quiz.slots_frozen' });
     }

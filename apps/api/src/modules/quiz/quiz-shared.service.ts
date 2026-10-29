@@ -256,11 +256,34 @@ export class QuizSharedService {
   }
 
   public async attemptSummary(quiz: PinRow, row: ExamAttemptRow): Promise<QuizAttemptSummary> {
-    let grade: number | null = null;
+    let totalMax: number | null = null;
     if (row.sumGrades !== null) {
-      const usage = await this.questions.getUsage(row.usageId);
-      grade = this.attemptGradeValue(quiz, row, this.usageTotalMax(usage));
+      const totals = await this.questions.usageTotalMaxes([row.usageId]);
+      totalMax = totals.get(row.usageId) ?? 0;
     }
+    return this.buildAttemptSummary(quiz, row, totalMax);
+  }
+
+  /**
+   * Tóm tắt NHIỀU lượt trong một lượt nạp tổng điểm (DL-03, issue
+   * #489): các trang liệt kê lượt (kết quả, lịch sử của học sinh) cần
+   * tóm tắt cho mọi lượt trên trang — tổng maxMark của các usage được
+   * nạp một lần theo lô thay vì gọi `getUsage` cho từng lượt như
+   * trước. Thứ tự tóm tắt giữ đúng thứ tự dòng đầu vào.
+   */
+  public async attemptSummaries(quiz: PinRow, rows: ExamAttemptRow[]): Promise<QuizAttemptSummary[]> {
+    const gradedRows = rows.filter((r) => r.sumGrades !== null);
+    const totals = gradedRows.length
+      ? await this.questions.usageTotalMaxes(gradedRows.map((r) => r.usageId))
+      : new Map<string, number>();
+    return rows.map((row) => this.buildAttemptSummary(
+      quiz, row, row.sumGrades !== null ? (totals.get(row.usageId) ?? 0) : null,
+    ));
+  }
+
+  /** Lắp tóm tắt một lượt từ tổng maxMark đã nạp sẵn (null = lượt chưa có sumGrades, không cần tổng). */
+  private buildAttemptSummary(quiz: PinRow, row: ExamAttemptRow, totalMax: number | null): QuizAttemptSummary {
+    const grade = totalMax === null ? null : this.attemptGradeValue(quiz, row, totalMax);
     return {
       id: row.id, pinId: row.pinId, userId: row.userId, attemptNumber: row.attemptNumber,
       usageId: row.usageId, state: row.state, preview: row.preview,

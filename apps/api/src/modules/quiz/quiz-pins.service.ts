@@ -19,6 +19,7 @@ import type { CreateExamPinOverrideDto, UpdateExamPinOverrideDto } from './dto/q
 import { EXAM_KIND_PRESETS, type ExamKind } from './domain/matrix';
 import { isValidSubnetList } from './domain/subnet';
 import {
+  QUIZ_PIN_ATTEMPTS_LIMIT,
   QuizRepository,
   type ExamAttemptRow,
   type ExamPinFeedbackRow,
@@ -63,7 +64,7 @@ export class QuizPinsService {
 
   /** Pin đã có lượt làm thật thì exam version đã ghim bị khoá (lượt đã pin câu theo version đó). */
   async assertPinUnlocked(pin: PinRow): Promise<void> {
-    const attempts = await this.repo.listAttempts(pin.id);
+    const attempts = await this.repo.listAttempts(pin.id, QUIZ_PIN_ATTEMPTS_LIMIT);
     if (attempts.some((a) => !a.preview)) {
       throw new BadRequestException({ message: 'This pin already has real attempts; its pinned exam version is locked', code: 'exam.pin_locked' });
     }
@@ -323,7 +324,7 @@ export class QuizPinsService {
   async deletePin(actorId: string, pinId: string): Promise<void> {
     const pin = await this.shared.getPin(pinId);
     await this.shared.requireCap(actorId, pin, QUIZ_CAPABILITIES.manage);
-    const attempts = await this.repo.listAttempts(pin.id);
+    const attempts = await this.repo.listAttempts(pin.id, QUIZ_PIN_ATTEMPTS_LIMIT);
     for (const a of attempts) await this.questions.deleteUsage(a.usageId);
     if (pin.cmId) {
       const item = await this.grades.getItemForCm(pin.course, pin.cmId).catch(() => undefined);
@@ -338,7 +339,7 @@ export class QuizPinsService {
 
   /** Pin đã có lượt làm THẬT (không tính lượt preview của giáo viên) hay chưa — điều kiện của luật khoá exam.pin_locked. */
   private async pinHasRealAttempts(pinId: string): Promise<boolean> {
-    const attempts = await this.repo.listAttempts(pinId);
+    const attempts = await this.repo.listAttempts(pinId, QUIZ_PIN_ATTEMPTS_LIMIT);
     return attempts.some((a) => !a.preview);
   }
 
@@ -511,7 +512,7 @@ export class QuizPinsService {
       oldSumGrades: number; newSumGrades: number; changed: boolean;
     };
     const candidates: Candidate[] = [];
-    const submitted = (await this.repo.listAttempts(quiz.id))
+    const submitted = (await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT))
       .filter((a) => !a.preview && (a.state === 'finished' || a.state === 'needsgrading'));
     for (const attempt of submitted) {
       const usage = await this.questions.getUsage(attempt.usageId);
@@ -601,7 +602,7 @@ export class QuizPinsService {
   async listPinRegrades(actorId: string, pinId: string): Promise<PinRegradeLogEntry[]> {
     const quiz = await this.shared.getPin(pinId);
     await this.shared.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
-    const attempts = await this.repo.listAttempts(quiz.id);
+    const attempts = await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT);
     const numberByAttempt = new Map(attempts.map((a) => [a.id, a.attemptNumber]));
     const out: PinRegradeLogEntry[] = [];
     for (const r of await this.repo.listRegrades(quiz.id)) {

@@ -6,6 +6,7 @@ import type { DbTx } from '../../db/database';
 import { OutboxService } from '../../infra/events/outbox.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
+import { type ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { RolesService } from '../access/roles.service';
@@ -14,7 +15,10 @@ import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsRepository } from '../tenants/tenants.repository';
 import { TenantsService } from '../tenants/tenants.service';
 import { truefalseHashAnswers } from './domain/question-engine';
-import { QuestionsRepository, type QCategoryRow, type QuestionRow } from './questions.repository';
+import {
+  QuestionsRepository, type EntryRow, type QCategoryRow, type QuestionOutcomeLinkRow, type QuestionRow,
+  type QuestionSubjectLinkRow, type VersionRow,
+} from './questions.repository';
 import { QuestionsService, type QuestionView, type SupportedQtype } from './questions.service';
 import { QuestionBanksRepository, BANK_KINDS, type BankKind, type ContributionRow, type QuestionBankRow } from './question-banks.repository';
 
@@ -647,6 +651,109 @@ export class QuestionBanksService {
     return null;
   }
 
+  /**
+   * Bank của NHIỀU category trong số truy vấn cố định (DL-04, issue
+   * #489): bản theo lô của `findBankForCategory` với ngữ nghĩa giữ
+   * nguyên từng bước — bank_id tường minh tra theo lô; context của
+   * các category còn lại tra một lần; bank khoá tra theo lô theo
+   * scope_ref; bank trường suy theo tenant lấy từ cây context (mọi
+   * context trên các đường path được nạp chung một truy vấn, thứ tự
+   * gốc → lá dựng lại từ `path` như `getPathContexts`) và tenant dự
+   * phòng `schoolTenantId()` chỉ gọi tối đa một lần cho cả lô.
+   * Category không suy được bank thì nhận null trong map.
+   */
+  async findBanksForCategories(categories: QCategoryRow[]): Promise<Map<string, QuestionBankRow | null>> {
+    const result = new Map<string, QuestionBankRow | null>();
+    if (!categories.length) return result;
+
+    const explicitIds = [...new Set(categories.map((c) => c.bankId).filter((id): id is string => id != null))];
+    const explicitBanks = explicitIds.length
+      ? new Map((await this.repo.getBanksByIds(explicitIds)).map((b) => [b.id, b]))
+      : new Map<string, QuestionBankRow>();
+    const inferred: QCategoryRow[] = [];
+    for (const category of categories) {
+      if (category.bankId) result.set(category.id, explicitBanks.get(category.bankId) ?? null);
+      else inferred.push(category);
+    }
+    if (!inferred.length) return result;
+
+    const contextsById = new Map(
+      (await this.contexts.getContextsByIds(inferred.map((c) => c.contextId))).map((c) => [c.id, c]),
+    );
+    const courseRefs = new Map<string, QCategoryRow[]>();
+    const schoolCats: { category: QCategoryRow; ctx: ContextRow }[] = [];
+    for (const category of inferred) {
+      const ctx = contextsById.get(category.contextId);
+      if (!ctx?.instanceId) {
+        result.set(category.id, null);
+      } else if (ctx.contextLevel === CONTEXT_LEVELS.COURSE) {
+        const list = courseRefs.get(ctx.instanceId) ?? [];
+        list.push(category);
+        courseRefs.set(ctx.instanceId, list);
+      } else if (ctx.contextLevel === CONTEXT_LEVELS.SYSTEM || ctx.contextLevel === CONTEXT_LEVELS.COURSECAT) {
+        schoolCats.push({ category, ctx });
+      } else {
+        result.set(category.id, null);
+      }
+    }
+
+    if (courseRefs.size) {
+      const courseBanks = await this.repo.listBanksByScopeRefs('course', [...courseRefs.keys()]);
+      const firstByRef = new Map<string, QuestionBankRow>();
+      for (const bank of courseBanks) {
+        if (bank.scopeRefId && !firstByRef.has(bank.scopeRefId)) firstByRef.set(bank.scopeRefId, bank);
+      }
+      for (const [instanceId, cats] of courseRefs) {
+        for (const category of cats) result.set(category.id, firstByRef.get(instanceId) ?? null);
+      }
+    }
+
+    if (schoolCats.length) {
+      const pathIds = [...new Set(schoolCats.flatMap(({ ctx }) => ctx.path.split('/').filter(Boolean)))];
+      const pathContextsById = new Map(
+        (await this.contexts.getContextsByIds(pathIds)).map((c) => [c.id, c]),
+      );
+      let fallbackTenantId: string | undefined;
+      const tenantIdByCategory = new Map<string, string>();
+      for (const { category, ctx } of schoolCats) {
+        const rootToLeaf = ctx.path.split('/').filter(Boolean).reverse()
+          .map((id) => pathContextsById.get(id)).filter((c) => c !== undefined);
+        const tenantCtx = rootToLeaf.find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
+        if (tenantCtx?.instanceId) {
+          tenantIdByCategory.set(category.id, tenantCtx.instanceId);
+        } else {
+          fallbackTenantId ??= await this.schoolTenantId();
+          tenantIdByCategory.set(category.id, fallbackTenantId);
+        }
+      }
+      const schoolBanks = await this.repo.listSchoolBanksByTenantIds([...new Set(tenantIdByCategory.values())]);
+      const firstByTenant = new Map<string, QuestionBankRow>();
+      for (const bank of schoolBanks) {
+        if (bank.tenantId && !firstByTenant.has(bank.tenantId)) firstByTenant.set(bank.tenantId, bank);
+      }
+      for (const { category } of schoolCats) {
+        result.set(category.id, firstByTenant.get(tenantIdByCategory.get(category.id)!) ?? null);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Một category có thuộc về một bank hay không, theo ĐÚNG phép suy
+   * của `categoryBelongsToBank` nhưng dùng bank suy sẵn theo lô
+   * (`findBanksForCategories`) thay vì truy vấn lại cho từng cặp
+   * category × bank (DL-04, issue #489).
+   */
+  private categoryMatchesBank(
+    category: QCategoryRow,
+    bank: QuestionBankRow,
+    inferredBankByCategory: Map<string, QuestionBankRow | null>,
+  ): boolean {
+    if (category.bankId) return category.bankId === bank.id;
+    if (category.contextId === bank.contextId) return true;
+    return inferredBankByCategory.get(category.id)?.id === bank.id;
+  }
+
   /** Như findBankForCategory nhưng tạo lười bank suy được khi chưa có. */
   async ensureBankForCategory(actorId: string, category: QCategoryRow): Promise<QuestionBankRow | null> {
     const found = await this.findBankForCategory(category);
@@ -693,17 +800,61 @@ export class QuestionBanksService {
    * và hiển thị: bank suy từ category, trạng thái entry, version mới
    * nhất và version `ready` mới nhất (đích của follow_latest / nút nâng).
    */
-  async getQuestionBankInfo(questionId: string): Promise<{
-    bank: QuestionBankRow | null; bankExplicit: boolean; entryStatus: string; latestVersion: number; latestVersionId: string | null;
-    latestReadyVersionId: string | null; latestReadyVersionNumber: number | null;
-  } | null> {
-    const q = await this.questionsRepo.getQuestion(questionId);
-    if (!q) return null;
-    const entry = await this.questionsRepo.getEntryByQuestion(questionId);
-    if (!entry) return null;
-    const category = await this.questionsRepo.getCategory(q.category);
-    const bank = category ? await this.findBankForCategory(category) : null;
-    const versions = await this.questionsRepo.listVersions(entry.id);
+  async getQuestionBankInfo(questionId: string): Promise<QuestionBankInfo | null> {
+    const infos = await this.getQuestionBankInfos([questionId]);
+    return infos.get(questionId) ?? null;
+  }
+
+  /**
+   * Thông tin bank của NHIỀU câu hỏi trong số truy vấn cố định
+   * (DL-05, issue #489): bản theo lô của `getQuestionBankInfo` cho
+   * các đường đọc phải tra bank cho mọi câu trên một trang (view slot
+   * của đề) — question, entry, category, bank suy theo lô và version
+   * đều nạp theo tập, rồi lắp kết quả bằng đúng bộ dựng của đường lẻ
+   * nên mọi trường khớp hệt. Câu không tồn tại hoặc chưa có entry
+   * nhận null trong map.
+   */
+  async getQuestionBankInfos(questionIds: string[]): Promise<Map<string, QuestionBankInfo | null>> {
+    const infos = new Map<string, QuestionBankInfo | null>();
+    const uniqueIds = [...new Set(questionIds)];
+    if (!uniqueIds.length) return infos;
+    const questions = await this.questionsRepo.getQuestionsByIds(uniqueIds);
+    const questionById = new Map(questions.map((q) => [q.id, q]));
+    const entries = await this.questionsRepo.getEntriesByQuestionIds(uniqueIds);
+    const entryByQuestion = new Map(entries.map((e) => [e.questionId, e]));
+    const categories = await this.questionsRepo.getCategoriesByIds(
+      [...new Set(questions.map((q) => q.category))],
+    );
+    const categoryById = new Map(categories.map((c) => [c.id, c]));
+    const bankByCategory = await this.findBanksForCategories(categories);
+    const versions = await this.questionsRepo.listVersionsForEntries(entries.map((e) => e.id));
+    const versionsByEntry = new Map<string, VersionRow[]>();
+    for (const v of versions) {
+      const list = versionsByEntry.get(v.questionBankEntryId) ?? [];
+      list.push(v);
+      versionsByEntry.set(v.questionBankEntryId, list);
+    }
+    for (const questionId of uniqueIds) {
+      const q = questionById.get(questionId);
+      const entry = entryByQuestion.get(questionId);
+      if (!q || !entry) {
+        infos.set(questionId, null);
+        continue;
+      }
+      const category = categoryById.get(q.category);
+      const bank = category ? (bankByCategory.get(category.id) ?? null) : null;
+      infos.set(questionId, this.buildQuestionBankInfo(bank, category, entry, versionsByEntry.get(entry.id) ?? []));
+    }
+    return infos;
+  }
+
+  /** Lắp thông tin bank của một câu từ các dòng đã nạp sẵn — dùng chung cho đường lẻ và đường theo lô. */
+  private buildQuestionBankInfo(
+    bank: QuestionBankRow | null,
+    category: QCategoryRow | undefined,
+    entry: EntryRow,
+    versions: VersionRow[],
+  ): QuestionBankInfo {
     const ready = versions.filter((v) => v.status === 'ready');
     const latestReady = ready.length ? ready[ready.length - 1]! : null;
     const latest = versions.length ? versions[versions.length - 1]! : null;
@@ -1098,11 +1249,11 @@ export class QuestionBanksService {
     // Quét MỌI category thuộc bank theo phép suy thống nhất (kể cả
     // category khoá hiện hữu không gắn bank_id) — trước đây chỉ quét
     // category gắn bank_id tường minh nên chống trùng sót câu khoá.
+    // Phép suy chạy theo lô (DL-04, issue #489): nạp bank suy được
+    // cho mọi category một lần thay vì kiểm từng category.
     const allCategories = await this.questionsRepo.listCategories();
-    const categories: QCategoryRow[] = [];
-    for (const cat of allCategories) {
-      if (await this.categoryBelongsToBank(cat, bank)) categories.push(cat);
-    }
+    const inferredBankByCategory = await this.findBanksForCategories(allCategories);
+    const categories = allCategories.filter((cat) => this.categoryMatchesBank(cat, bank, inferredBankByCategory));
     const rows = await this.repo.listQuestionsWithEntryInCategories(categories.map((c) => c.id));
     let nearId: string | null = null;
     for (const { q, entry } of rows) {
@@ -1478,16 +1629,27 @@ export class QuestionBanksService {
     // Category của các bank đang xét theo phép suy thống nhất
     // categoryBelongsToBank (kể cả category khoá hiện hữu không gắn
     // bank_id — trước đây chỉ khớp bank_id tường minh hoặc context
-    // trùng context bank nên khám phá sót toàn bộ câu khoá).
+    // trùng context bank nên khám phá sót toàn bộ câu khoá). Phép suy
+    // chạy theo lô (DL-04, issue #489): bank của mọi category được
+    // suy một lần, rồi mỗi category gán cho bank ĐẦU TIÊN trong
+    // activeBanks khớp phép suy — đúng thứ tự thắng của vòng lặp cặp
+    // category × bank trước đây.
     const allCategories = await this.questionsRepo.listCategories();
+    const inferredBankByCategory = await this.findBanksForCategories(allCategories);
     const categoryBank = new Map<string, QuestionBankRow>();
     for (const cat of allCategories) {
-      for (const bank of activeBanks) {
-        if (await this.categoryBelongsToBank(cat, bank)) {
-          categoryBank.set(cat.id, bank);
-          break;
+      const matchIds = new Set<string>();
+      if (cat.bankId) {
+        matchIds.add(cat.bankId);
+      } else {
+        for (const bank of activeBanks) {
+          if (bank.contextId === cat.contextId) matchIds.add(bank.id);
         }
+        const inferred = inferredBankByCategory.get(cat.id);
+        if (inferred) matchIds.add(inferred.id);
       }
+      const winner = activeBanks.find((b) => matchIds.has(b.id));
+      if (winner) categoryBank.set(cat.id, winner);
     }
     let rows = await this.repo.listQuestionsWithEntryInCategories([...categoryBank.keys()]);
 
@@ -1499,14 +1661,22 @@ export class QuestionBanksService {
       const ids = new Set(linked.map((q) => q.id));
       rows = rows.filter((r) => ids.has(r.q.id));
     }
+    // Dòng gắn YCCĐ của mọi câu trong tập đang xét nạp MỘT lần theo
+    // lô (DL-04, issue #489): dùng cho cả bộ lọc theo node chương
+    // trình ở ngay dưới lẫn trường outcomes của từng dòng kết quả.
+    const outcomeLinksByQuestion = new Map<string, QuestionOutcomeLinkRow[]>();
+    if (rows.length) {
+      const allOutcomeLinks = await this.questionsRepo.listQuestionOutcomeLinksForQuestions(rows.map((r) => r.q.id));
+      for (const link of allOutcomeLinks) {
+        const list = outcomeLinksByQuestion.get(link.questionId) ?? [];
+        list.push(link);
+        outcomeLinksByQuestion.set(link.questionId, list);
+      }
+    }
     if (filter.nodeId !== undefined) {
       const outcomeIds = new Set(await this.repo.listOutcomeIdsForNode(filter.nodeId));
-      const kept: typeof rows = [];
-      for (const r of rows) {
-        const links = await this.questionsRepo.listQuestionOutcomeLinks(r.q.id);
-        if (links.some((l) => outcomeIds.has(l.learningOutcomeId))) kept.push(r);
-      }
-      rows = kept;
+      rows = rows.filter((r) => (outcomeLinksByQuestion.get(r.q.id) ?? [])
+        .some((l) => outcomeIds.has(l.learningOutcomeId)));
     }
     if (filter.qtype !== undefined) rows = rows.filter((r) => r.q.qtype === filter.qtype);
     if (filter.authorId !== undefined) {
@@ -1517,20 +1687,39 @@ export class QuestionBanksService {
     const names = await this.repo.getUserDisplayNames(
       rows.flatMap((r) => [r.q.createdBy ?? '', r.q.originalAuthorId ?? '']),
     );
+    // Version đích và dòng gắn môn của mọi câu còn lại cũng nạp theo
+    // lô một lần (DL-04, issue #489) thay vì tra theo từng dòng như
+    // trước; version của mỗi entry chọn đúng bản mang số version bằng
+    // entry.latestVersion như `getVersionByNumber`.
+    const versionByEntry = new Map<string, VersionRow>();
+    const subjectLinksByQuestion = new Map<string, QuestionSubjectLinkRow[]>();
+    if (rows.length) {
+      const allVersions = await this.questionsRepo.listVersionsForEntries(rows.map((r) => r.entry.id));
+      const wantedVersionByEntry = new Map(rows.map((r) => [r.entry.id, r.entry.latestVersion]));
+      for (const v of allVersions) {
+        if (wantedVersionByEntry.get(v.questionBankEntryId) === v.version) versionByEntry.set(v.questionBankEntryId, v);
+      }
+      const allSubjectLinks = await this.questionsRepo.listQuestionSubjectLinksForQuestions(rows.map((r) => r.q.id));
+      for (const link of allSubjectLinks) {
+        const list = subjectLinksByQuestion.get(link.questionId) ?? [];
+        list.push(link);
+        subjectLinksByQuestion.set(link.questionId, list);
+      }
+    }
     const keyword = filter.keyword?.toLowerCase();
     const out: DiscoveryItem[] = [];
     for (const { q, entry } of rows) {
       const bank = categoryBank.get(q.category)!;
       const privileged = q.createdBy === actorId || (moderatorByBank.get(bank.id) ?? false);
       if (entry.status !== 'ready' && !privileged) continue;
-      const version = await this.questionsRepo.getVersionByNumber(entry.id, entry.latestVersion);
+      const version = versionByEntry.get(entry.id);
       // Câu hỏi không còn trường tên: từ khoá chỉ khớp trên nội dung
       // thân câu, và nhãn hiển thị của dòng khám phá là trích đoạn
       // chính nội dung đó (cắt 120 ký tự).
       const textPlain = version ? extractRichTextPlainText(version.questionText as RichTextDocument).trim() : '';
       if (keyword && !textPlain.toLowerCase().includes(keyword)) continue;
-      const subjectLinks = await this.questionsRepo.listQuestionSubjectLinks(q.id);
-      const outcomeLinks = await this.questionsRepo.listQuestionOutcomeLinks(q.id);
+      const subjectLinks = subjectLinksByQuestion.get(q.id) ?? [];
+      const outcomeLinks = outcomeLinksByQuestion.get(q.id) ?? [];
       out.push({
         questionId: q.id, excerpt: textPlain.length > 120 ? `${textPlain.slice(0, 120)}…` : textPlain, qtype: q.qtype, status: entry.status,
         latestVersion: entry.latestVersion,
@@ -1549,6 +1738,17 @@ export class QuestionBanksService {
     out.sort((a, b) => b.useCount - a.useCount || b.copyCount - a.copyCount);
     return out;
   }
+}
+
+/** Thông tin bank của một câu hỏi (QB-3): bank suy từ category của câu, trạng thái entry và các mốc version mới nhất / ready mới nhất. */
+export interface QuestionBankInfo {
+  bank: QuestionBankRow | null;
+  bankExplicit: boolean;
+  entryStatus: string;
+  latestVersion: number;
+  latestVersionId: string | null;
+  latestReadyVersionId: string | null;
+  latestReadyVersionNumber: number | null;
 }
 
 /** Một dòng của trang khám phá (QB-4): `excerpt` là trích đoạn nội dung thân câu — câu hỏi không có trường tên (quyết 12:04 ngày 26/10/2026). */

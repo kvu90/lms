@@ -87,6 +87,17 @@ export class ContextsService {
     return this.repo.getContextByLevelInstance(contextLevel, instanceId);
   }
   /**
+   * Context của NHIỀU instance cùng một level trong một truy vấn
+   * (DL-07, issue #489): bản theo lô của `getByLevelInstance` — id
+   * không đúng định dạng uuid bị loại khỏi lô như đường lẻ trả
+   * undefined cho từng id đó.
+   */
+  async getByLevelInstances(contextLevel: number, instanceIds: string[]): Promise<ContextRow[]> {
+    const valid = instanceIds.filter((id) => uuidIdSchema.safeParse(id).success);
+    if (!valid.length) return [];
+    return this.repo.getContextsByLevelInstances(contextLevel, valid);
+  }
+  /**
    * Lấy nhiều context theo danh sách id trong MỘT truy vấn — phục vụ các
    * đường đọc theo lô (ảnh chụp quyền hợp nhất cây tổ tiên của nhiều gán
    * vai): tránh một truy vấn cho mỗi context như khi gọi getContext lặp lại.
