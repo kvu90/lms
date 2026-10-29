@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { AssignmentForUserView } from '@lms/contracts';
 import { Badge } from '@lms/ui/components/badge';
 import { Button } from '@lms/ui/components/button';
@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lms/
 import { Input } from '@lms/ui/components/input';
 import { ErrorAlert } from '#components/error-alert';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   currentUserQueryOptions,
   useDeleteSubmissionFile,
@@ -22,28 +22,23 @@ import { dateLabel } from './shared';
  * Phía học sinh: xem trạng thái bài nộp, tải tệp/ảnh vào bản nháp, chốt
  * nộp (sau hạn vẫn nộp được — máy chủ đánh dấu trễ), mở lại khi chưa bị
  * trả bài; sau khi giáo viên TRẢ bài thì thấy điểm/mức + lời phê + dấu
- * chấm trên bài của mình + kết quả rubric + hội thoại phản hồi.
+ * chấm trên bài của mình + kết quả rubric + hội thoại phản hồi. Id của
+ * chính học sinh (cho hội thoại phản hồi) đọc từ cache TanStack qua
+ * `currentUserQueryOptions` (CN-13, issue #493).
  */
 export function StudentPanel({ data, reload }: { data: AssignmentForUserView; reload: () => Promise<void> }) {
   const { t } = useTranslation('app');
   const { assignment, mySubmission: mine, rubric } = data;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [meId, setMeId] = useState<string | null>(null);
+  const meQuery = useQuery(currentUserQueryOptions());
+  const meId = meQuery.data?.id ?? null;
   const [chosenFile, setChosenFile] = useState<File | null>(null);
   const [fileInputKey, setFileInputKey] = useState(0);
-  const queryClient = useQueryClient();
   const uploadFileMutation = useUploadSubmissionFile();
   const deleteFileMutation = useDeleteSubmissionFile();
   const submitMutation = useSubmitSubmission();
   const reopenMutation = useReopenSubmission();
-
-  useEffect(() => {
-    void queryClient
-      .fetchQuery(currentUserQueryOptions())
-      .then((me) => setMeId(me.id))
-      .catch(() => undefined);
-  }, [queryClient]);
 
   const released = mine.grade !== null;
   const editable = !released && (mine.status === 'none' || mine.status === 'draft');
