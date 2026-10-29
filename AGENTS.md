@@ -263,15 +263,27 @@ trình hiện tại trong tài liệu này.
    lượt review độc lập qua ChatGPT do điều phối thực hiện bằng
    tài khoản ChatGPT của chủ repo, chỉ ở chế độ chat thường —
    cấm dùng các chế độ tốn quota như Agent, Deep Research hay
-   Work. Phán quyết đạt ở điểm 2 của mục này là phán quyết đạt
+   Work. Lượt review qua ChatGPT luôn dùng mức reasoning High;
+   sau khi gửi yêu cầu review phải kiểm tra lại mức reasoning
+   đang hiệu lực trong chính cuộc trò chuyện đó, vì ChatGPT
+   đặt mặc định Medium ở mỗi cuộc trò chuyện mới và mức đã
+   chọn có thể không giữ — phán quyết của lớp ChatGPT chỉ
+   được tính khi đã kiểm chứng mức High đang hiệu lực. Mỗi PR
+   chỉ dùng đúng một cuộc trò chuyện ChatGPT; nếu phát hiện
+   mức reasoning bị trượt về Medium, phải sửa ngay trên chính
+   cuộc trò chuyện đó (chỉnh mức reasoning rồi yêu cầu làm
+   lại review tại đó), không mở cuộc trò chuyện mới để hỏi
+   lại. Phán quyết đạt ở điểm 2 của mục này là phán quyết đạt
    của cả hai lớp: chỉ khi cả hai lớp cùng đạt, PR mới chuyển
    sang trạng thái `chờ merge` và merge theo điểm 2; nếu một
    trong hai lớp phán quyết chưa đạt, PR quay về đội thi công
    sửa và cả hai lớp chấm lại sau khi sửa. Khi việc của một PR
    kết thúc, cuộc trò chuyện ChatGPT dùng để review PR đó phải
-   được xoá. Lớp ChatGPT chỉ chấm trên nội dung được dán vào
-   cuộc trò chuyện (thân PR và diff), không thay thế kiểm
-   chứng tại nguồn của đội review nội bộ.
+   được xoá. Ở lớp ChatGPT, điều phối chỉ cần nêu số PR và
+   repo trong cuộc trò chuyện — tài khoản ChatGPT của chủ
+   repo đã có kết nối GitHub nên ChatGPT tự đọc PR qua kết
+   nối đó để review; lớp này là review độc lập bên ngoài,
+   không thay thế kiểm chứng tại nguồn của đội review nội bộ.
 
 ### Đóng issue
 
