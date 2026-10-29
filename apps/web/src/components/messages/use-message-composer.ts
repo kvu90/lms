@@ -11,8 +11,10 @@
  * ngay tại ref.
  *
  * @param params - `active` là conversation đang mở; `myId` là người
- * gửi; `setMessages`/`setConversations` để áp tin lạc quan và tin
- * thật; `lastSeqRef` là mốc seq dùng chung do trang sở hữu;
+ * gửi; `addLocalMessage`/`setLocalMessageStatus` để đẩy và đổi
+ * trạng thái tin lạc quan (state chỉ-client của hook hội thoại
+ * đang mở); `mergeServerMessages` để gộp tin thật vào cache chi
+ * tiết; `lastSeqRef` là mốc seq dùng chung do trang sở hữu;
  * `realtimeRef` để phát tín hiệu đang nhập qua socket.
  * @returns Trạng thái soạn tin và handler cho trang lắp ghép.
  */
@@ -22,7 +24,7 @@ import { MESSAGING_MAX_MESSAGE_LENGTH_DEFAULT } from '@lms/contracts';
 import { ApiError } from '#lib/api';
 import { useSendMessage } from '#lib/messaging-data';
 import type { MessagingRealtimeHandle } from '#lib/messaging-socket';
-import { countMessageCharacters, localQuoteOf, mergeMessages } from './utils';
+import { countMessageCharacters, localQuoteOf } from './utils';
 import type { ConversationView, MessageQuoteView, MessageView } from './types';
 
 export interface UseMessageComposerParams {
@@ -30,10 +32,12 @@ export interface UseMessageComposerParams {
   active: ConversationView | null;
   /** Id người xem hiện tại (người gửi). */
   myId: string | undefined;
-  /** Ghi cửa sổ tin của conversation đang mở. */
-  setMessages: (messages: MessageView[] | ((prev: MessageView[]) => MessageView[])) => void;
-  /** Ghi danh sách conversation (cập nhật xem trước sau khi gửi). */
-  setConversations: (conversations: ConversationView[] | ((prev: ConversationView[]) => ConversationView[])) => void;
+  /** Đẩy/cập nhật một tin lạc quan (state chỉ-client của hook hội thoại đang mở). */
+  addLocalMessage: (message: MessageView) => void;
+  /** Đổi trạng thái tin lạc quan theo clientMessageId (đang gửi/đã lỗi). */
+  setLocalMessageStatus: (conversationId: string, clientMessageId: string, status: 'sending' | 'failed') => void;
+  /** Gộp tin thật vào cache chi tiết của đúng conversation. */
+  mergeServerMessages: (conversationId: string, messages: MessageView[]) => void;
   /** Mốc seq cao nhất đã thấy của từng conversation — trang sở hữu chung. */
   lastSeqRef: { current: Map<string, number> };
   /** Handle socket realtime — trang sở hữu chung, hook realtime gán vào. */
@@ -43,8 +47,9 @@ export interface UseMessageComposerParams {
 export function useMessageComposer({
   active,
   myId,
-  setMessages,
-  setConversations,
+  addLocalMessage,
+  setLocalMessageStatus,
+  mergeServerMessages,
   lastSeqRef,
   realtimeRef,
 }: UseMessageComposerParams) {
@@ -104,22 +109,18 @@ export function useMessageComposer({
     quote?: { replyToMessageId: string; replyTo: MessageQuoteView } | null,
   ) {
     if (!myId) return;
-    setMessages((prev) =>
-      mergeMessages(prev, [
-        {
-          id: `temp-${clientMessageId}`,
-          conversationId,
-          userIdFrom: myId,
-          fullMessage: text,
-          createdAt: new Date().toISOString(),
-          seq: 0,
-          clientMessageId,
-          replyToMessageId: quote?.replyToMessageId ?? null,
-          replyTo: quote?.replyTo ?? null,
-          localStatus: 'sending',
-        },
-      ]),
-    );
+    addLocalMessage({
+      id: `temp-${clientMessageId}`,
+      conversationId,
+      userIdFrom: myId,
+      fullMessage: text,
+      createdAt: new Date().toISOString(),
+      seq: 0,
+      clientMessageId,
+      replyToMessageId: quote?.replyToMessageId ?? null,
+      replyTo: quote?.replyTo ?? null,
+      localStatus: 'sending',
+    });
     try {
       const saved = await sendMessageMutation.mutateAsync({
         conversationId,
@@ -131,19 +132,14 @@ export function useMessageComposer({
       });
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (saved.seq > seen) lastSeqRef.current.set(conversationId, saved.seq);
-      setMessages((prev) => mergeMessages(prev, [saved]));
-      // Tin mình vừa gửi cũng là hoạt động mới nhất (lát M1, issue
-      // #204): cập nhật xem trước và đưa conversation lên đầu danh
-      // sách ngay tại chỗ, không chờ sự kiện conversation.updated
-      // phản hồi về qua socket.
-      setConversations((prev) => {
-        const target = prev.find((c) => c.id === conversationId);
-        if (!target) return prev;
-        return [
-          { ...target, lastMessage: saved, lastMessageSeq: saved.seq },
-          ...prev.filter((c) => c.id !== conversationId),
-        ];
-      });
+      // Tin thật gộp vào cache chi tiết qua mergeServerMessages —
+      // cùng lượt đó bản tạm được dọn khỏi state lạc quan theo
+      // clientMessageId (vòng đời bản tạm kết thúc tại xác nhận).
+      // Xem trước danh sách
+      // (tin cuối + đưa conversation lên đầu — lát M1, issue #204)
+      // do chính đột biến gửi tin vá vào cache danh sách ở tầng dữ
+      // kiện, không chờ sự kiện conversation.updated qua socket.
+      mergeServerMessages(conversationId, [saved]);
     } catch (err) {
       // Hai lỗi có mã riêng của lát M2 phải hiện thành câu chữ rõ
       // ràng cạnh composer (kèm trạng thái failed để thử lại được);
@@ -153,11 +149,7 @@ export function useMessageComposer({
       } else if (err instanceof ApiError && err.problem.code === 'messaging.rate_limited') {
         setSendError(t('messageRateLimited'));
       }
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.clientMessageId === clientMessageId && m.localStatus ? { ...m, localStatus: 'failed' as const } : m,
-        ),
-      );
+      setLocalMessageStatus(conversationId, clientMessageId, 'failed');
     }
   }
 
@@ -235,7 +227,7 @@ export function useMessageComposer({
   /** Thử gửi lại một tin đã lỗi — dùng lại đúng clientMessageId nên server không tạo trùng kể cả khi lần trước đã tới nơi. */
   async function retrySend(message: MessageView) {
     if (!active || !message.clientMessageId) return;
-    setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, localStatus: 'sending' as const } : m)));
+    setLocalMessageStatus(active.id, message.clientMessageId, 'sending');
     await deliver(
       active.id,
       message.fullMessage,

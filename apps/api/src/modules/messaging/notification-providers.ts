@@ -208,10 +208,13 @@ export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
     description: { vi: 'Khi học sinh kết thúc lượt làm bài có câu cần chấm tay.', en: 'When a student finishes an attempt that needs manual grading.' },
   },
   // Digest phụ huynh (PH-2, issue #159): worker quét cửa sổ phát sự
-  // kiện guardian_digest_due, GuardianDigestConsumer (module Guardians)
-  // tổng hợp dữ liệu ĐÃ CÔNG BỐ rồi gọi notify() — nội dung chỉ là số
-  // lượng mục + link sâu, kênh ngoài dùng bản tối thiểu hoá, tuyệt đối
-  // không điểm số (luật kênh ngoài của notify + research phụ huynh).
+  // kiện guardian_digest_due; nửa tiêu thụ phía worker (relay outbox →
+  // hàng đợi guardian-digest-events → GuardianDigestHandlerService, từ
+  // issue con #518 của #491 — trước đó là consumer polling phía API)
+  // tổng hợp dữ liệu ĐÃ CÔNG BỐ rồi gọi notify() phía worker — nội
+  // dung chỉ là số lượng mục + link sâu, kênh ngoài dùng bản tối
+  // thiểu hoá, tuyệt đối không điểm số (luật kênh ngoài của notify +
+  // research phụ huynh).
   {
     // Người nhận truy vết: notify(guardianId) — phụ huynh của liên kết
     // giám hộ đang hiệu lực, không phải học sinh cũng không phải GV.

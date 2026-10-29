@@ -10,7 +10,10 @@
  * thẩm quyền trước, một tin ngoài phạm vi là cả lượt bị từ chối.
  *
  * @param params - `active` là conversation đang mở; `myId` để xét
- * quyền thu hồi; `setMessages` để áp kết quả lên khung tin;
+ * quyền thu hồi; `patchMessages` để áp kết quả của đột biến lên
+ * mọi đoạn cửa sổ tin trong cache (bốn đột biến theo tin chỉ mang
+ * id tin, không mang id hội thoại, nên việc vá cache nằm ở tầng
+ * hook này — nơi biết conversation của tin);
  * `setActionMessage` để báo kết quả ở dải thông báo của khung chat.
  * @returns Trạng thái kiểm duyệt và handler cho trang lắp ghép.
  */
@@ -29,8 +32,8 @@ export interface UseMessageModerationParams {
   active: ConversationView | null;
   /** Id người xem hiện tại (chỉ tác giả mới thu hồi/xoá-phía-mình). */
   myId: string | undefined;
-  /** Ghi cửa sổ tin của conversation đang mở. */
-  setMessages: (messages: MessageView[] | ((prev: MessageView[]) => MessageView[])) => void;
+  /** Áp một phép biến đổi lên mọi đoạn cửa sổ tin của một conversation trong cache. */
+  patchMessages: (conversationId: string, updater: (messages: MessageView[]) => MessageView[]) => void;
   /** Ghi thông báo hành động của khung chat. */
   setActionMessage: (message: string | null) => void;
 }
@@ -43,7 +46,7 @@ export interface UseMessageModerationParams {
  */
 const RECALL_WINDOW_MINUTES = 15;
 
-export function useMessageModeration({ active, myId, setMessages, setActionMessage }: UseMessageModerationParams) {
+export function useMessageModeration({ active, myId, patchMessages, setActionMessage }: UseMessageModerationParams) {
   const { t } = useTranslation('app');
   /** Tin đã chọn để gỡ hàng loạt (chỉ moderator) — chọn bằng checkbox ở từng dòng tin. */
   const [selectedForBulk, setSelectedForBulk] = useState<Set<string>>(new Set());
@@ -63,7 +66,7 @@ export function useMessageModeration({ active, myId, setMessages, setActionMessa
     setActionMessage(null);
     try {
       const deleted = await deleteMessageMutation.mutateAsync(message.id);
-      setMessages((prev) =>
+      patchMessages(message.conversationId, (prev) =>
         prev.map((m) =>
           m.id === message.id
             ? {
@@ -89,7 +92,7 @@ export function useMessageModeration({ active, myId, setMessages, setActionMessa
     setActionMessage(null);
     try {
       const recalled = await recallMessageMutation.mutateAsync(message.id);
-      setMessages((prev) =>
+      patchMessages(message.conversationId, (prev) =>
         prev.map((m) =>
           m.id === message.id
             ? {
@@ -114,7 +117,7 @@ export function useMessageModeration({ active, myId, setMessages, setActionMessa
     if (!reason || !reason.trim()) return;
     try {
       await hardDeleteMutation.mutateAsync({ messageId: message.id, reason: reason.trim() });
-      setMessages((prev) => prev.filter((m) => m.id !== message.id));
+      patchMessages(message.conversationId, (prev) => prev.filter((m) => m.id !== message.id));
       setSelectedForBulk((prev) => {
         const next = new Set(prev);
         next.delete(message.id);
@@ -135,7 +138,7 @@ export function useMessageModeration({ active, myId, setMessages, setActionMessa
     if (!reason || !reason.trim()) return;
     try {
       await bulkRemoveMutation.mutateAsync({ messageIds, reason: reason.trim() });
-      setMessages((prev) => prev.filter((m) => !selectedForBulk.has(m.id)));
+      if (active) patchMessages(active.id, (prev) => prev.filter((m) => !selectedForBulk.has(m.id)));
       setSelectedForBulk(new Set());
     } catch {
       setActionMessage(t('bulkRemoveMessageFailed'));
