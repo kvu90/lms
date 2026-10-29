@@ -12,7 +12,7 @@ import { FilesService } from '../files/files.service';
 import { BEHAVIOURS, canTransition, gradeAnswer, gradedStateForFraction, usageState, type GradingData, type GradeOutcome, type QuestionState } from './domain/question-engine';
 import {
   QuestionsRepository, type AnswerKeyRow, type AnswerRow, type AttemptRow, type EntryRow, type QCategoryRow,
-  type QuestionRow, type StimulusRow, type UsageRow, type VersionRow,
+  type QuestionRow, type StepRow, type StimulusRow, type UsageRow, type VersionRow,
 } from './questions.repository';
 
 /** Một đáp án trong payload cấu trúc theo qtype (đầu vào của API): cờ `correct` đúng/sai NHỊ PHÂN — tỉ trọng fraction đã bỏ hẳn (quyết 12:04 ngày 26/10/2026). */
@@ -1366,23 +1366,87 @@ export class QuestionsService {
    * Lấy usage kèm các attempt và trạng thái tổng.
    */
   async getUsage(id: string): Promise<UsageView> {
-    const usage = await this.repo.getUsage(id);
-    if (!usage) throw new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
-    const attempts = await this.repo.listAttempts(id);
-    const views: AttemptView[] = [];
+    const usages = await this.getUsages([id]);
+    const view = usages.get(id);
+    if (!view) throw new NotFoundException({ message: `Question usage ${id} not found`, code: 'question.usage_not_found' });
+    return view;
+  }
+
+  /**
+   * Lấy NHIỀU usage kèm attempt và step trong số truy vấn cố định
+   * (DL-03, issue #489): bốn lượt nạp theo lô (usage, attempt, step,
+   * dữ liệu step) rồi lắp view bằng đúng bộ dựng của đường đọc lẻ, nên
+   * hình dạng và thứ tự (attempt theo slot, step theo số thứ tự) của
+   * từng view khớp hệt `getUsage`. Usage không tồn tại thì vắng mặt
+   * trong map — caller cần lỗi "không thấy" thì tự kiểm như
+   * `getUsage` đang làm.
+   */
+  async getUsages(ids: string[]): Promise<Map<string, UsageView>> {
+    const uniqueIds = [...new Set(ids)];
+    const views = new Map<string, UsageView>();
+    if (!uniqueIds.length) return views;
+    const usages = await this.repo.getUsagesByIds(uniqueIds);
+    const attempts = await this.repo.listAttemptsForUsages(uniqueIds);
+    const steps = await this.repo.listStepsForAttempts(attempts.map((a) => a.id));
+    const dataRows = await this.repo.listStepDataForSteps(steps.map((s) => s.id));
+    const attemptsByUsage = new Map<string, AttemptRow[]>();
     for (const a of attempts) {
-      const steps = await this.repo.listSteps(a.id);
-      const stepViews = [];
-      for (const s of steps) {
-        const dataRows = await this.repo.listStepData(s.id);
-        stepViews.push({
-          id: s.id, sequenceNumber: s.sequenceNumber, state: s.state, fraction: s.fraction,
-          data: Object.fromEntries(dataRows.map((d) => [d.name, d.value])),
-        });
-      }
-      views.push({ ...a, steps: stepViews });
+      const list = attemptsByUsage.get(a.questionUsageId) ?? [];
+      list.push(a);
+      attemptsByUsage.set(a.questionUsageId, list);
     }
+    const stepsByAttempt = new Map<string, StepRow[]>();
+    for (const s of steps) {
+      const list = stepsByAttempt.get(s.questionAttemptId) ?? [];
+      list.push(s);
+      stepsByAttempt.set(s.questionAttemptId, list);
+    }
+    const dataByStep = new Map<string, Map<string, string | null>>();
+    for (const d of dataRows) {
+      const byName = dataByStep.get(d.attemptStepId) ?? new Map<string, string | null>();
+      byName.set(d.name, d.value);
+      dataByStep.set(d.attemptStepId, byName);
+    }
+    for (const usage of usages) {
+      views.set(usage.id, this.buildUsageView(usage, attemptsByUsage.get(usage.id) ?? [], stepsByAttempt, dataByStep));
+    }
+    return views;
+  }
+
+  /** Lắp một UsageView từ các dòng đã nạp sẵn — dùng chung cho đường lẻ và đường theo lô. */
+  private buildUsageView(
+    usage: UsageRow,
+    attempts: AttemptRow[],
+    stepsByAttempt: Map<string, StepRow[]>,
+    dataByStep: Map<string, Map<string, string | null>>,
+  ): UsageView {
+    const views: AttemptView[] = attempts.map((a) => ({
+      ...a,
+      steps: (stepsByAttempt.get(a.id) ?? []).map((s) => ({
+        id: s.id, sequenceNumber: s.sequenceNumber, state: s.state, fraction: s.fraction,
+        data: Object.fromEntries(dataByStep.get(s.id) ?? []),
+      })),
+    }));
     return { usage, state: usageState(attempts.map((a) => a.state)), attempts: views };
+  }
+
+  /**
+   * Tổng điểm tối đa (tổng maxMark các attempt) của NHIỀU usage trong
+   * một truy vấn (DL-03, issue #489): các đường đọc điểm chỉ cần con
+   * số tổng này để quy điểm lượt về thang bài, không cần nạp cả cây
+   * usage — thay cho vòng lặp `getUsage` theo từng lượt trước đây.
+   * Usage không có attempt thì vắng mặt trong map (tổng coi như 0 ở
+   * phía caller, khớp `usageTotalMax` trên view rỗng).
+   */
+  async usageTotalMaxes(usageIds: string[]): Promise<Map<string, number>> {
+    const totals = new Map<string, number>();
+    const uniqueIds = [...new Set(usageIds)];
+    if (!uniqueIds.length) return totals;
+    const attempts = await this.repo.listAttemptsForUsages(uniqueIds);
+    for (const a of attempts) {
+      totals.set(a.questionUsageId, (totals.get(a.questionUsageId) ?? 0) + a.maxMark);
+    }
+    return totals;
   }
   /**
    * Lấy một attempt.

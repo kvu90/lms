@@ -22,6 +22,7 @@ import { PasswordService } from '../users/password.service';
 import { UsersService } from '../users/users.service';
 import { ipMatchesSubnetList } from './domain/subnet';
 import {
+  QUIZ_PIN_ATTEMPTS_LIMIT,
   QuizRepository,
   type ExamAttemptEventRow,
   type ExamAttemptRow,
@@ -198,11 +199,25 @@ export class QuizAttemptsService {
    */
   async currentGradeForUser(quiz: PinRow, userId: string): Promise<number | null> {
     const finished = (await this.repo.listAttemptsForUser(quiz.id, userId)).filter((a) => a.state === 'finished' && a.sumGrades !== null);
+    return this.gradeFromFinishedAttempts(quiz, finished);
+  }
+
+  /**
+   * Điểm bài hiện tại từ tập lượt ĐÃ KẾT THÚC có sumGrades của một
+   * học sinh, chọn theo grade_method của bài (DL-03, issue #489):
+   * tổng maxMark của các usage được nạp MỘT lần theo lô thay vì
+   * `getUsage` theo từng lượt như trước. Thứ tự `finished` quyết định
+   * first/last nên caller phải truyền đúng thứ tự liệt kê của
+   * repository (số lượt tăng dần cho một học sinh). Trang kết quả
+   * dùng lại chính hàm này trên tập lượt đã nạp sẵn của cả bài —
+   * không truy vấn lại theo từng học sinh.
+   */
+  private async gradeFromFinishedAttempts(quiz: PinRow, finished: ExamAttemptRow[]): Promise<number | null> {
     if (!finished.length) return null;
+    const totals = await this.questions.usageTotalMaxes(finished.map((a) => a.usageId));
     const values: number[] = [];
     for (const a of finished) {
-      const usage = await this.questions.getUsage(a.usageId);
-      const v = this.shared.attemptGradeValue(quiz, a, this.shared.usageTotalMax(usage));
+      const v = this.shared.attemptGradeValue(quiz, a, totals.get(a.usageId) ?? 0);
       if (v !== null) values.push(v);
     }
     if (!values.length) return null;
@@ -337,9 +352,12 @@ export class QuizAttemptsService {
       throw new NotFoundException({ message: `Exam pin ${pinId} not found`, code: 'exam.pin_not_found' });
     }
     const mine = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
+    // Tóm tắt theo lô (DL-03, issue #489): tổng điểm các usage nạp
+    // một lần cho cả danh sách lượt của người xem.
+    const rawSummaries = await this.shared.attemptSummaries(quiz, mine);
     const summaries: QuizAttemptSummary[] = [];
-    for (const a of mine) {
-      const summary = await this.shared.attemptSummary(quiz, a);
+    for (const [index, a] of mine.entries()) {
+      const summary = rawSummaries[index]!;
       // Điểm tổng phía học viên phải qua cổng che hai điều kiện (mặt
       // nạ reviewMarks tại cửa sổ hiện tại + hạng mục điểm đã công
       // bố) — xem maskOwnerTotals. Nhân sự và lượt preview của giáo
@@ -905,16 +923,25 @@ export class QuizAttemptsService {
   }> {
     const quiz = await this.shared.getPin(pinId);
     await this.shared.requireCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
-    const rows = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview);
-    const attempts: QuizAttemptSummary[] = [];
-    for (const r of rows) attempts.push(await this.shared.attemptSummary(quiz, r));
+    const rows = (await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT)).filter((a) => !a.preview);
+    // Tóm tắt và điểm bài đều suy từ chính tập lượt đã nạp (DL-03,
+    // issue #489): tóm tắt theo lô một lần; điểm theo từng học sinh
+    // tính từ các lượt đã kết thúc trong tập này, không truy vấn lại
+    // theo từng học sinh như trước.
+    const attempts = await this.shared.attemptSummaries(quiz, rows);
     const userIds = [...new Set(rows.map((r) => r.userId))];
     const gradesByUser: { userId: string; grade: number | null }[] = [];
-    for (const userId of userIds) gradesByUser.push({ userId, grade: await this.currentGradeForUser(quiz, userId) });
+    for (const userId of userIds) {
+      const finished = rows.filter((r) => r.userId === userId && r.state === 'finished' && r.sumGrades !== null);
+      gradesByUser.push({ userId, grade: await this.gradeFromFinishedAttempts(quiz, finished) });
+    }
     const summary = await this.resultsSummary(quiz, rows, gradesByUser);
     const needsGrading: QuizNeedsGradingView[] = [];
-    for (const r of rows.filter((a) => a.state === 'needsgrading')) {
-      const usage = await this.questions.getUsage(r.usageId);
+    const gradingRows = rows.filter((a) => a.state === 'needsgrading');
+    const gradingUsages = await this.questions.getUsages(gradingRows.map((r) => r.usageId));
+    for (const r of gradingRows) {
+      const usage = gradingUsages.get(r.usageId);
+      if (!usage) continue;
       for (const a of usage.attempts) {
         if (a.state !== 'needsgrading') continue;
         const lastResponse = [...a.steps].reverse().find((s) => s.data.answer !== undefined)?.data.answer ?? null;
@@ -990,8 +1017,11 @@ export class QuizAttemptsService {
       correct: { userId: string }[];
     }
     const bySlot = new Map<number, SlotAcc>();
+    // Usage của mọi lượt đã nộp nạp một lần theo lô (DL-03, issue #489).
+    const usages = await this.questions.getUsages(submitted.map((r) => r.usageId));
     for (const r of submitted) {
-      const usage = await this.questions.getUsage(r.usageId);
+      const usage = usages.get(r.usageId);
+      if (!usage) continue;
       for (const a of usage.attempts) {
         let acc = bySlot.get(a.slot);
         if (!acc) {
@@ -1142,7 +1172,7 @@ export class QuizAttemptsService {
   }[]> {
     const quiz = await this.shared.getPin(pinId);
     await this.shared.requireCap(actorId, quiz, QUIZ_CAPABILITIES.grade);
-    const submitted = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview && a.state !== 'inprogress');
+    const submitted = (await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT)).filter((a) => !a.preview && a.state !== 'inprogress');
     const rows: {
       attemptId: string; userId: string; displayName: string; attemptNumber: number;
       questionAttemptId: string; slot: number; state: string; response: string | null;
@@ -1153,8 +1183,11 @@ export class QuizAttemptsService {
       const full = `${u.firstName} ${u.lastName}`.trim();
       nameById.set(u.id, full || u.username);
     }
+    // Usage của mọi lượt trong hàng đợi nạp một lần theo lô (DL-03, issue #489).
+    const queueUsages = await this.questions.getUsages(submitted.map((r) => r.usageId));
     for (const r of submitted) {
-      const usage = await this.questions.getUsage(r.usageId);
+      const usage = queueUsages.get(r.usageId);
+      if (!usage) continue;
       const qa = usage.attempts.find((a) => a.questionId === questionId);
       if (!qa) continue;
       const lastResponse = [...qa.steps].reverse().find((s) => s.data.answer !== undefined)?.data.answer ?? null;
@@ -1213,17 +1246,17 @@ export class QuizAttemptsService {
     await this.shared.requireAnyViewCap(actorId, quiz);
     const canSeeAll = await this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.viewReports);
     if (canSeeAll) {
-      const rows = (await this.repo.listAttempts(quiz.id)).filter((a) => !a.preview);
-      const out: QuizAttemptSummary[] = [];
-      for (const r of rows) out.push(await this.shared.attemptSummary(quiz, r));
-      return out;
+      const rows = (await this.repo.listAttempts(quiz.id, QUIZ_PIN_ATTEMPTS_LIMIT)).filter((a) => !a.preview);
+      return this.shared.attemptSummaries(quiz, rows);
     }
     const isStaffViewer = (await this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.grade))
       || (await this.shared.hasCap(actorId, quiz, QUIZ_CAPABILITIES.manage));
     const rows = await this.repo.listAttemptsForUser(quiz.id, actorId, true);
+    // Tóm tắt theo lô (DL-03, issue #489) rồi mới áp mặt nạ theo từng lượt.
+    const rawSummaries = await this.shared.attemptSummaries(quiz, rows);
     const out: QuizAttemptSummary[] = [];
-    for (const r of rows) {
-      const summary = await this.shared.attemptSummary(quiz, r);
+    for (const [index, r] of rows.entries()) {
+      const summary = rawSummaries[index]!;
       out.push(!isStaffViewer && !r.preview
         ? await this.maskOwnerTotals(quiz, summary, await this.ownerMarksVisible(quiz, r, new Date()))
         : summary);

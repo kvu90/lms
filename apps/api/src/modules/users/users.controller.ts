@@ -32,8 +32,9 @@ export class UsersController {
    */
   async list(@Query({ schema: listUsersQueryServerSchema }) query: ListUsersQueryDto, @CurrentUser() viewer: AuthenticatedUser) {
     const result = await this.users.listUsers(query.search, query.page ?? 1, query.pageSize ?? 20);
-    const views = [];
-    for (const u of result.users) views.push(await this.users.getProfileView(u.id, viewer.id));
+    // View của cả trang lắp MỘT lần theo lô (DL-07, issue #489) thay
+    // vì gọi getProfileView lặp cho từng user.
+    const views = await this.users.getProfileViews(result.users, viewer.id);
     return { users: views, total: result.total, page: result.page, pageSize: result.pageSize };
   }
 

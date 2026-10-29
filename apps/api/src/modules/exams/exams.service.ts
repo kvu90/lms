@@ -424,11 +424,14 @@ export class ExamsService {
     const statusById = new Map(statuses.map((s) => [s.questionId, s.status]));
     // Bản ready mới nhất của từng câu (cho huy hiệu "có bản ready mới"
     // ở bề mặt soạn đề, issue #254) — tra qua QuestionBanksService như
-    // bề mặt quiz vẫn làm cho cùng một dữ kiện.
+    // bề mặt quiz vẫn làm cho cùng một dữ kiện. Nạp MỘT lần theo lô
+    // cho mọi câu phân biệt của đề (DL-05, issue #489) thay vì tra
+    // theo từng câu; lỗi nạp cả lô thì mọi câu nhận null như lỗi tra
+    // lẻ trước đây (bắt lỗi từng câu bằng một lần bắt lỗi toàn cục).
+    const bankInfos = await this.banks.getQuestionBankInfos(questionIds).catch(() => null);
     const latestReadyById = new Map<string, number | null>();
     for (const questionId of questionIds) {
-      const bankInfo = await this.banks.getQuestionBankInfo(questionId).catch(() => null);
-      latestReadyById.set(questionId, bankInfo?.latestReadyVersionNumber ?? null);
+      latestReadyById.set(questionId, bankInfos?.get(questionId)?.latestReadyVersionNumber ?? null);
     }
     return slots.map((s) => {
       const latestReadyVersionNumber = latestReadyById.get(s.questionId) ?? null;

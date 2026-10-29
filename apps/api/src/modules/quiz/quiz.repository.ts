@@ -17,6 +17,14 @@ export type ExamPinVersionUpdateRow = typeof examPinVersionUpdates.$inferSelect;
 export type ExamAttemptRegradeRow = typeof examAttemptRegrades.$inferSelect;
 export type ExamAttemptRegradeItemRow = typeof examAttemptRegradeItems.$inferSelect;
 
+/**
+ * Trần an toàn cho số lượt làm đọc theo một lần ghim (issue #489):
+ * các đường đọc kết quả cần toàn bộ lượt để tính điểm/thống kê nên
+ * đây không phải cỡ trang — chỉ là mốc chặn truy vấn vô hạn khi dữ
+ * kiện bất thường. Mọi nơi gọi `listAttempts` đều truyền tường minh.
+ */
+export const QUIZ_PIN_ATTEMPTS_LIMIT = 10_000;
+
 @Injectable()
 /**
  * Kho dữ liệu của lần ghim đề (exam_pins) và các lượt làm: bản ghi pin
@@ -98,9 +106,16 @@ export class QuizRepository {
   }
   /**
    * Các lượt làm của một lần ghim (mọi học sinh), mới nhất theo số lượt.
+   * Giới hạn `limit` là TRẦN AN TOÀN tường minh (DL-07 của đợt audit,
+   * issue #489), KHÔNG phải phân trang: cả ba nơi gọi (trang kết quả,
+   * hàng đợi chấm theo câu, danh sách tóm tắt) đều cần TOÀN BỘ lượt
+   * của lần ghim để tính điểm và thống kê, nên trần đặt cao hơn hẳn
+   * quy mô một lớp học thật — chạm trần là dấu hiệu dữ kiện bất
+   * thường, không phải hành vi nghiệp vụ.
    */
-  async listAttempts(pinId: string): Promise<ExamAttemptRow[]> {
-    return this.db.select().from(examAttempts).where(eq(examAttempts.pinId, pinId)).orderBy(asc(examAttempts.userId), asc(examAttempts.attemptNumber));
+  async listAttempts(pinId: string, limit: number = QUIZ_PIN_ATTEMPTS_LIMIT): Promise<ExamAttemptRow[]> {
+    return this.db.select().from(examAttempts).where(eq(examAttempts.pinId, pinId))
+      .orderBy(asc(examAttempts.userId), asc(examAttempts.attemptNumber)).limit(limit);
   }
   /**
    * Các lượt làm của một học sinh trong một lần ghim (kể cả preview khi `includePreview`).

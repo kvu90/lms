@@ -47,6 +47,17 @@ export class AccessRepository {
     return row;
   }
   /**
+   * Context của NHIỀU instance cùng một level trong một truy vấn
+   * (DL-07, issue #489): bản theo lô của `getContextByLevelInstance`
+   * cho các đường đọc phải tra context của nhiều đối tượng cùng lúc
+   * (vd context user của cả một trang danh sách tài khoản).
+   */
+  async getContextsByLevelInstances(contextLevel: number, instanceIds: string[]): Promise<ContextRow[]> {
+    if (!instanceIds.length) return [];
+    return this.db.select().from(context)
+      .where(and(eq(context.contextLevel, contextLevel), inArray(context.instanceId, instanceIds)));
+  }
+  /**
    * Lấy nhiều context theo danh sách id (dùng khi duyệt path).
    */
   async getContextsByIds(ids: string[]): Promise<ContextRow[]> {

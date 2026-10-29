@@ -431,19 +431,54 @@ export class UsersService {
    */
   async getProfileView(targetId: string, viewerId: string): Promise<UserProfileView> {
     const user = await this.getUser(targetId);
-    const userCtx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.USER, targetId);
+    const views = await this.getProfileViews([user], viewerId);
+    return views[0]!;
+  }
+
+  /**
+   * View hồ sơ của NHIỀU user cho cùng một người xem, nạp theo lô
+   * (DL-07, issue #489): context user của cả trang tra một truy vấn;
+   * context hệ thống và quyền xem định danh ở đó tính một lần;
+   * quyền xem định danh tại từng context user phân giải MỘT lần theo
+   * lô qua `resolveCapabilitiesForContexts` — phép phân giải đã được
+   * chứng minh tương đương `hasCapability` theo từng context (chỉ
+   * khác là không qua cache Redis); giá trị trường tuỳ chỉnh nạp một
+   * lượt cho cả trang. Thứ tự view giữ đúng thứ tự user đầu vào và
+   * luật lộ email giữ nguyên từng người: chính chủ, hoặc có quyền
+   * xem định danh tại context của user đó, hoặc tại context hệ
+   * thống — email chỉ xuất hiện trong view khi một trong ba đúng.
+   */
+  async getProfileViews(targets: UserRow[], viewerId: string): Promise<UserProfileView[]> {
+    if (!targets.length) return [];
     const systemCtx = await this.contexts.ensureSystemContext();
-    const canSeeIdentity = viewerId === targetId
-      || (userCtx ? await this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', userCtx.id) : false)
-      || (await this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', systemCtx.id));
-    const custom = await this.customFields.getValuesForInstance(USER_COMPONENT, USER_AREA, targetId);
-    return {
-      id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName,
-      ...(canSeeIdentity ? { email: user.email } : {}),
-      suspended: user.suspended, deleted: user.deleted, isGuest: user.isGuest,
-      forcePasswordChange: user.forcePasswordChange, lastLogin: user.lastLogin, createdAt: user.createdAt,
-      customFields: custom.map((c) => ({ shortName: c.field.shortName, name: c.field.name, type: c.field.type, value: c.value })),
-    };
+    const userCtxs = await this.contexts.getByLevelInstances(CONTEXT_LEVELS.USER, targets.map((u) => u.id));
+    const ctxByUserId = new Map<string, ContextRow>();
+    for (const ctx of userCtxs) {
+      if (ctx.instanceId && !ctxByUserId.has(ctx.instanceId)) ctxByUserId.set(ctx.instanceId, ctx);
+    }
+    const canSeeAtSystem = await this.evaluator.hasCapability(viewerId, 'site:viewuseridentity', systemCtx.id);
+    const capsByContextId = userCtxs.length
+      ? await this.evaluator.resolveCapabilitiesForContexts(
+        viewerId, userCtxs, new Map(userCtxs.map((c) => [c.id, c])),
+      )
+      : new Map<string, string[]>();
+    const customByUser = await this.customFields.getValuesForInstances(
+      USER_COMPONENT, USER_AREA, targets.map((u) => u.id),
+    );
+    return targets.map((user) => {
+      const userCtx = ctxByUserId.get(user.id);
+      const canSeeIdentity = viewerId === user.id
+        || (userCtx ? (capsByContextId.get(userCtx.id) ?? []).includes('site:viewuseridentity') : false)
+        || canSeeAtSystem;
+      const custom = customByUser.get(user.id) ?? [];
+      return {
+        id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName,
+        ...(canSeeIdentity ? { email: user.email } : {}),
+        suspended: user.suspended, deleted: user.deleted, isGuest: user.isGuest,
+        forcePasswordChange: user.forcePasswordChange, lastLogin: user.lastLogin, createdAt: user.createdAt,
+        customFields: custom.map((c) => ({ shortName: c.field.shortName, name: c.field.name, type: c.field.type, value: c.value })),
+      };
+    });
   }
 
   /** Hàm hỗ trợ guard cho việc sửa hồ sơ: tự phục vụ hoặc người nắm giữ user:update. */
