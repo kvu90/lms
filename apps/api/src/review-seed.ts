@@ -199,7 +199,9 @@ async function main(): Promise<void> {
     const roles = must(await call('GET', '/access/roles', admin), 'list roles') as { id: string; shortName: string }[];
     const teacherRole = roles.find((r) => r.shortName === 'editingteacher');
     if (teacherRole) {
-      const assignments = must(await call('GET', `/access/assignments?userId=${teacherId}&contextId=${content.contextId}`, admin), 'list assignments') as { roleId: string }[];
+      // Từ issue #545: phản hồi liệt kê gán vai là trang
+      // `{ assignments, total, page, pageSize }`, không còn là mảng trần.
+      const assignments = (must(await call('GET', `/access/assignments?userId=${teacherId}&contextId=${content.contextId}`, admin), 'list assignments') as { assignments: { roleId: string }[] }).assignments ?? [];
       if (!assignments.some((a) => a.roleId === teacherRole.id)) {
         must(await call('POST', '/access/assignments', admin, { userId: teacherId, roleId: teacherRole.id, contextId: content.contextId }), 'assign teacher role');
         console.log('[seed] teacher1 assigned editingteacher at the course');
