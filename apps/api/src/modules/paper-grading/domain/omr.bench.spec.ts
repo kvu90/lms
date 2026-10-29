@@ -58,7 +58,6 @@ describe('CAM-0 simulated acceptance set', () => {
     }
     const questionAccuracy = correctQuestions / totalQuestions;
     const cellAccuracy = correctCells / totalCells;
-    // eslint-disable-next-line no-console
     console.log(`[CAM-0 bench] clean set: questions ${correctQuestions}/${totalQuestions} (${(questionAccuracy * 100).toFixed(2)}%), cells ${correctCells}/${totalCells} (${(cellAccuracy * 100).toFixed(2)}%), ambiguous-on-clean ${ambiguousOnClean}, QR ${qrOk}/${SHEETS}`);
     expect(cellAccuracy).toBeGreaterThanOrEqual(0.995);
     expect(questionAccuracy).toBeGreaterThanOrEqual(0.995);

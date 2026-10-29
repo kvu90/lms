@@ -59,7 +59,6 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
         if (studentCodeChecksumOk(mutated) || studentIndexForCode(mutated) !== null) leaks++;
       }
     }
-    // eslint-disable-next-line no-console
     console.log(`[CAM-0 checksum] student codes: ${checked} mutations checked, ${leaks} leaks`);
     expect(checked).toBe(999 * 4 * 9);
     expect(leaks).toBe(0);
@@ -88,7 +87,6 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
         checkCode(sbdCodeForIndex(index));
       }
     }
-    // eslint-disable-next-line no-console
     console.log(`[CAM-0 checksum] SBD codes: ${checked} mutations checked, ${leaks} leaks`);
     expect(checked).toBe((10_000 + 7 * 9) * 8 * 9);
     expect(leaks).toBe(0);
@@ -122,7 +120,6 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
         }
       }
     }
-    // eslint-disable-next-line no-console
     console.log(`[CAM-0 checksum] roster collision: class ${classChecked} + SBD ${sbdChecked} targeted mutations, 0 collisions`);
   });
 
@@ -165,7 +162,6 @@ describe('CAM-0 check digit — exhaustive single-digit mutation coverage', () =
         expect(ok(swapped), `${label} edge transposition ${code} -> ${swapped} must fail the checksum`).toBe(false);
         expect(roster.has(swapped), `${label} edge transposition ${code} -> ${swapped} must not be a roster code`).toBe(false);
       }
-      // eslint-disable-next-line no-console
       console.log(`[CAM-0 checksum] ${label} roster edge pair: ${checked} non-±5 transpositions checked, 0 leaks; ${declaredClass} in the declared ±5 class`);
       expect(checked).toBeGreaterThan(0);
     };
