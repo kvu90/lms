@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Cache } from 'cache-manager';
+import type { ConfigService } from '@nestjs/config';
 import { AccessRepository, type ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
 import { CAP_ALLOW } from './domain/permission';
@@ -33,6 +34,17 @@ import { PermissionEvaluator } from './permission-evaluator.service';
  *     site admin đổi qua `setSiteAdmins` — điểm ghi duy nhất của cấu
  *     hình này — cũng phải hiệu lực ngay.
  *
+ *  4. Mục cache của cấu hình site admin được cô lập theo cơ sở dữ
+ *     liệu: giá trị của nó là id người dùng, chỉ có nghĩa trong đúng
+ *     một DB, trong khi nhiều tiến trình trỏ vào các DB khác nhau có
+ *     thể dùng chung một Redis (CI chạy nhiều DB test trên một
+ *     Redis). Hai tiến trình khác DB không bao giờ được đọc/ghi lẫn
+ *     mục của nhau — nếu không, một tiến trình sẽ thấy admin của DB
+ *     lạ và quyết định sai (điển hình: seed của app con trên DB
+ *     trống tưởng admin đầu tiên đã tồn tại nên bỏ qua việc tạo).
+ *     Ngược lại, hai tiến trình cùng một DB vẫn dùng chung mục như
+ *     thiết kế cache-trước vốn có.
+ *
  * Thế giới kiểm chứng dựng trong bộ nhớ với tầng dữ liệu giả lập đếm
  * số lần bị hỏi theo từng loại đọc; `ContextsService` và
  * `PermissionEvaluator` đều là service THẬT.
@@ -46,7 +58,7 @@ const OUT_ID = '00000000-0000-4000-8000-000000000060';
 interface AssignmentRow { userId: string; roleId: string; contextId: string }
 interface OverrideRow { roleId: string; capability: string; contextId: string; permission: number }
 
-function makeWorld() {
+function makeWorld(opts?: { databaseUrl?: string; cacheStore?: Map<string, unknown> }) {
   const contexts: ContextRow[] = [
     { id: SYS_ID, contextLevel: 10, instanceId: null, path: `/${SYS_ID}`, depth: 1, version: 1 } as ContextRow,
     { id: TEN_ID, contextLevel: 20, instanceId: 'tenant-1', path: `/${SYS_ID}/${TEN_ID}`, depth: 2, version: 1 } as ContextRow,
@@ -128,7 +140,11 @@ function makeWorld() {
     },
   };
 
-  const cacheStore = new Map<string, unknown>();
+  // Kho cache và URL cơ sở dữ liệu được truyền vào khi spec cần dựng
+  // nhiều "tiến trình" dùng chung một Redis (cùng `cacheStore`) nhưng
+  // trỏ vào các DB khác nhau (khác `databaseUrl`); mặc định mỗi thế
+  // giới có kho riêng và DB tên `lms_test_api`.
+  const cacheStore = opts?.cacheStore ?? new Map<string, unknown>();
   const cache = {
     async get(key: string) { return cacheStore.get(key); },
     async set(key: string, value: unknown) { cacheStore.set(key, value); },
@@ -137,8 +153,11 @@ function makeWorld() {
 
   const repoCast = repo as unknown as AccessRepository;
   const contextsService = new ContextsService(repoCast);
-  const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache);
-  return { state, counters, contextsService, evaluator };
+  const config = {
+    getOrThrow: () => opts?.databaseUrl ?? 'postgres://user:pass@localhost:5432/lms_test_api',
+  } as unknown as ConfigService;
+  const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache, config);
+  return { state, counters, contextsService, evaluator, cacheStore };
 }
 
 describe('PermissionEvaluator — ma trận cho/chặn theo vai trò và ngữ cảnh (cache nguội)', () => {
@@ -265,5 +284,46 @@ describe('PermissionEvaluator — thay đổi dữ kiện quyền có hiệu l�
     await expect(evaluator.hasCapability('user-plain', 'course:view', OUT_ID)).resolves.toBe(true);
     await evaluator.setSiteAdmins([]);
     await expect(evaluator.hasCapability('user-plain', 'course:view', OUT_ID)).resolves.toBe(false);
+  });
+});
+
+describe('PermissionEvaluator — cô lập cache site admin theo cơ sở dữ liệu khi dùng chung Redis', () => {
+  it('tiến trình trên DB trống không thấy danh sách site admin mà tiến trình của DB khác đã ghi xuyên vào Redis chung', async () => {
+    // Đúng hình thù làm CI đỏ ở spec seed-bootstrap: app chính boot
+    // trên DB của nó và seed ghi xuyên admin đầu tiên vào Redis dùng
+    // chung; app con trên DB trống khác sau đó quyết định việc tạo
+    // admin đầu tiên dựa trên danh sách site admin nó đọc được.
+    const sharedStore = new Map<string, unknown>();
+    const processA = makeWorld({ databaseUrl: 'postgres://localhost:5432/lms_db_a', cacheStore: sharedStore });
+    const processB = makeWorld({ databaseUrl: 'postgres://localhost:5432/lms_db_b', cacheStore: sharedStore });
+    processB.state.siteAdmins = [];
+
+    await processA.evaluator.setSiteAdmins(['admin-cua-db-a']);
+
+    // B phải đọc danh sách của chính DB của nó (rỗng) từ DB, không
+    // được đọc trúng mục A đã ghi vào Redis chung.
+    await expect(processB.evaluator.listSiteAdmins()).resolves.toEqual([]);
+    await expect(processB.evaluator.isSiteAdmin('admin-cua-db-a')).resolves.toBe(false);
+    expect(processB.counters.configReads).toBeGreaterThan(0);
+  });
+
+  it('lượt đọc tự nạp cache của một DB không làm DB khác đọc trúng danh sách của DB đó', async () => {
+    const sharedStore = new Map<string, unknown>();
+    const processA = makeWorld({ databaseUrl: 'postgres://localhost:5432/lms_db_a', cacheStore: sharedStore });
+    const processB = makeWorld({ databaseUrl: 'postgres://localhost:5432/lms_db_b', cacheStore: sharedStore });
+    processB.state.siteAdmins = ['admin-cua-db-b'];
+
+    await expect(processA.evaluator.listSiteAdmins()).resolves.toEqual(['user-admin']);
+    await expect(processB.evaluator.listSiteAdmins()).resolves.toEqual(['admin-cua-db-b']);
+  });
+
+  it('hai tiến trình cùng một cơ sở dữ liệu vẫn dùng chung mục cache: lượt đọc của tiến trình sau trúng cache, không hỏi lại DB', async () => {
+    const sharedStore = new Map<string, unknown>();
+    const processA = makeWorld({ databaseUrl: 'postgres://localhost:5432/lms_db_chung', cacheStore: sharedStore });
+    const processB = makeWorld({ databaseUrl: 'postgres://localhost:5432/lms_db_chung', cacheStore: sharedStore });
+
+    await expect(processA.evaluator.listSiteAdmins()).resolves.toEqual(['user-admin']);
+    await expect(processB.evaluator.listSiteAdmins()).resolves.toEqual(['user-admin']);
+    expect(processB.counters.configReads).toBe(0);
   });
 });

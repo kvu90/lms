@@ -1,6 +1,7 @@
 import { HttpException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import type { Cache } from 'cache-manager';
+import type { ConfigService } from '@nestjs/config';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { AccessRepository, ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
@@ -180,7 +181,7 @@ function makeWorld(opts: WorldOptions = {}) {
 
   const accessRepoCast = accessRepo as unknown as AccessRepository;
   const contextsService = new ContextsService(accessRepoCast);
-  const evaluator = new PermissionEvaluator(accessRepoCast, contextsService, cache as unknown as Cache);
+  const evaluator = new PermissionEvaluator(accessRepoCast, contextsService, cache as unknown as Cache, { getOrThrow: () => 'postgres://user:pass@localhost:5432/lms_test_api' } as unknown as ConfigService);
 
   const classesRepo = {
     async listClassesByTenant(tenantId: string) {

@@ -1,5 +1,6 @@
 import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ConfigService } from '@nestjs/config';
 import type { Cache } from 'cache-manager';
 import { AccessRepository, type ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
@@ -14,9 +15,6 @@ interface TenantGate {
 
 /** TTL dùng chung cho mọi mục cache của evaluator (kết quả đánh giá, dữ kiện cổng, cấu hình site admin). */
 const ACCESS_CACHE_TTL_MS = 60 * 60 * 1000;
-
-/** Khoá cache của cấu hình `siteadmins` — điểm ghi duy nhất là `setSiteAdmins` của chính evaluator nên ghi xuyên tại đó giữ hiệu lực tức thì. */
-const SITE_ADMINS_CACHE_KEY = 'access:siteadmins';
 
 /**
  * PermissionEvaluator — nguồn sự thật duy nhất cho ngữ nghĩa capability của Moodle
@@ -34,11 +32,41 @@ const SITE_ADMINS_CACHE_KEY = 'access:siteadmins';
  * quyền chỉ được cấp khi có ít nhất một ALLOW còn hiệu lực. Site admin bỏ qua mọi kiểm tra.
  */
 export class PermissionEvaluator {
+  /**
+   * Khoá cache của cấu hình `siteadmins` của riêng tiến trình này:
+   * `access:siteadmins:<tên cơ sở dữ liệu>` — điểm ghi duy nhất là
+   * `setSiteAdmins` của chính evaluator nên ghi xuyên tại đó giữ hiệu
+   * lực tức thì.
+   *
+   * Tên cơ sở dữ liệu (suy từ `DATABASE_URL` như các consumer outbox
+   * đã làm cho khoá watermark của chúng) là phần bắt buộc phải có
+   * trong khoá: giá trị của mục cache là id người dùng — chỉ có
+   * nghĩa trong đúng một cơ sở dữ liệu — trong khi một Redis có thể
+   * được nhiều tiến trình trỏ vào các cơ sở dữ liệu khác nhau dùng
+   * chung (CI chạy nhiều DB test trên một Redis; spec
+   * seed-bootstrap spawn app con với `DATABASE_URL` khác nhưng cùng
+   * `REDIS_URL`). Khoá trần không nhúng cơ sở dữ liệu làm các tiến
+   * trình đó đọc/ghi lẫn mục của nhau: app con thấy danh sách admin
+   * của DB lạ, tưởng admin đầu tiên đã tồn tại nên bỏ qua việc tạo,
+   * và đăng nhập admin của DB con không bao giờ thành công.
+   */
+  private readonly siteAdminsCacheKey: string;
+
   constructor(
     private readonly repo: AccessRepository,
     private readonly contexts: ContextsService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
-  ) {}
+    @Inject(ConfigService) config: ConfigService,
+  ) {
+    let databaseName = 'default';
+    try {
+      databaseName = new URL(config.getOrThrow<string>('DATABASE_URL')).pathname.replace(/^\//, '') || 'default';
+    } catch {
+      // DATABASE_URL không parse được: dùng đoạn khoá mặc định — cấu
+      // hình không hợp lệ vốn đã bị chặn ở tầng validate env khi boot.
+    }
+    this.siteAdminsCacheKey = `access:siteadmins:${databaseName}`;
+  }
 
   /** Site admin (tương đương $CFG->siteadmins, khoá config `siteadmins`) bỏ qua mọi kiểm tra capability. */
   /**
@@ -60,11 +88,13 @@ export class PermissionEvaluator {
    * Thay danh sách site admin (lưu vào config) và ghi xuyên vào cache:
    * danh sách là dữ kiện gác cổng nên bản mới phải hiệu lực ngay ở lượt
    * đọc sau, không chờ TTL — cùng điều kiện hiệu lực như khi đọc thẳng
-   * từ DB như trước.
+   * từ DB như trước. Mục ghi xuyên nằm dưới khoá đã cô lập theo cơ sở
+   * dữ liệu của tiến trình (xem `siteAdminsCacheKey`) nên không chạm
+   * tới mục của tiến trình khác dùng chung Redis.
    */
   async setSiteAdmins(userIds: string[]): Promise<void> {
     await this.repo.setConfigValue('siteadmins', userIds);
-    await this.cache.set(SITE_ADMINS_CACHE_KEY, userIds, ACCESS_CACHE_TTL_MS);
+    await this.cache.set(this.siteAdminsCacheKey, userIds, ACCESS_CACHE_TTL_MS);
   }
 
   /**
@@ -73,13 +103,16 @@ export class PermissionEvaluator {
    * `setSiteAdmins` của chính evaluator (ghi xuyên vào cache ngay khi
    * ghi DB), nên mục cache không bao giờ lệch khỏi DB ở các đường ghi
    * hiện có. Giá trị vắng mặt trong DB được ghi vào cache dưới dạng
-   * `null` để phân biệt với "chưa từng đọc".
+   * `null` để phân biệt với "chưa từng đọc". Mục cache nằm dưới khoá
+   * cô lập theo cơ sở dữ liệu của tiến trình: một tiến trình chỉ bao
+   * giờ thấy danh sách admin của đúng DB nó đang dùng, kể cả khi
+   * nhiều tiến trình dùng chung một Redis.
    */
   private async siteAdminsConfig(): Promise<unknown> {
-    const cached = await this.cache.get<unknown>(SITE_ADMINS_CACHE_KEY);
+    const cached = await this.cache.get<unknown>(this.siteAdminsCacheKey);
     if (cached !== undefined) return cached === null ? undefined : cached;
     const raw = await this.repo.getConfigValue('siteadmins');
-    await this.cache.set(SITE_ADMINS_CACHE_KEY, raw ?? null, ACCESS_CACHE_TTL_MS);
+    await this.cache.set(this.siteAdminsCacheKey, raw ?? null, ACCESS_CACHE_TTL_MS);
     return raw;
   }
 

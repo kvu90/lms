@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Cache } from 'cache-manager';
+import type { ConfigService } from '@nestjs/config';
 import type { OutboxService } from '../../infra/events/outbox.service';
 import type { AccessRepository, ContextRow } from './access.repository';
 import { ContextsService } from './contexts.service';
@@ -135,7 +136,7 @@ function makeWorld() {
   const repoCast = repo as unknown as AccessRepository;
   const contextsService = new ContextsService(repoCast);
   const rolesService = new RolesService(repoCast, contextsService, outbox as unknown as OutboxService, planLimits as PlanLimitsService, roleSeparation as RoleSeparationService);
-  const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache);
+  const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache, { getOrThrow: () => 'postgres://user:pass@localhost:5432/lms_test_api' } as unknown as ConfigService);
   return { state, rolesService, evaluator };
 }
 
