@@ -6,6 +6,7 @@ import { CAPABILITY_DEFINITIONS, DEFAULT_ROLES } from './domain/capabilities';
 import { CAP_ALLOW, CAP_INHERIT, CAP_PREVENT, CAP_PROHIBIT } from './domain/permission';
 import { PlanLimitsService, TEACHING_ROLE_ARCHETYPES } from './plan-limits.service';
 import { RoleSeparationService } from './role-separation.service';
+import type { DbTx } from '../../db/database';
 
 const VALID_PERMISSIONS = [CAP_PROHIBIT, CAP_PREVENT, CAP_INHERIT, CAP_ALLOW];
 
@@ -141,9 +142,9 @@ export class RolesService {
    * vô hiệu hoá cache quyền — nửa còn lại nằm ở đường gỡ/xoá: xem
    * `unassignRole` và `deleteRole`.
    */
-  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource): Promise<unknown> {
+  async assignRole(userId: string, roleId: string, contextId: string, modifierId?: string, source?: AssignmentSource, tx?: DbTx): Promise<unknown> {
     const roleRow = await this.getRole(roleId);
-    await this.contexts.getContext(contextId);
+    await this.contexts.getContext(contextId, tx);
     // Điểm chặn SLOT GÓI TRUNG TÂM (phần còn lại của lát 2, issue
     // #189 — đặc tả slot đã duyệt): gán một vai trò GIẢNG DẠY tại bất
     // kỳ context nào trong cây của một tenant khách hàng cho một
@@ -156,7 +157,7 @@ export class RolesService {
     // trò không phải giảng dạy, và context ngoài cây tenant khách
     // hàng (tenant platform, context hệ thống) đều không bị chặn.
     if ((TEACHING_ROLE_ARCHETYPES as readonly string[]).includes(roleRow.archetype ?? '')) {
-      const tenantId = await this.planLimits.tenantIdForContext(contextId);
+      const tenantId = await this.planLimits.tenantIdForContext(contextId, tx);
       if (tenantId) {
         const facts = await this.planLimits.describeUserInTenant(tenantId, userId);
         if (facts.membershipActive && facts.accountActive && !facts.counted) {
@@ -181,17 +182,23 @@ export class RolesService {
     ) {
       await this.roleSeparation.assertTeachingAssignmentAllowed(userId, contextId);
     }
-    const existing = await this.repo.listAssignments({ userId, contextId });
+    const existing = await this.repo.listAssignments({ userId, contextId }, tx);
     const alreadyAssigned = existing.some((a) => a.roleId === roleId && a.component === component && (a.itemId ?? null) === itemId);
-    const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId, component, itemId });
-    await this.contexts.markContextDirty(contextId);
+    const row = await this.repo.insertAssignment({ roleId: roleId, userId: userId, contextId: contextId, modifierId: modifierId, component, itemId }, tx);
+    await this.contexts.markContextDirty(contextId, tx);
     if (!alreadyAssigned) {
       // Sự kiện role_assigned (Moodle \core\event\role_assigned) cho
       // logstore — chỉ phát khi gán thật sự mới (gán trùng là no-op).
-      await this.outbox.enqueueStandalone({
+      // Khi bên gọi đang ở trong một transaction (vd tạo lớp/bank —
+      // issue #490), sự kiện được ghi bằng CHÍNH transaction đó để
+      // rollback thì sự kiện cũng bị huỷ theo; không có tx thì giữ
+      // đường standalone như trước.
+      const event = {
         aggregate: 'access', type: 'role_assigned',
         payload: { assignmentId: (row as { id: string }).id, userId, roleId, contextId, actorId: modifierId ?? null, component, itemId },
-      });
+      } as const;
+      if (tx) await this.outbox.enqueue(tx, event);
+      else await this.outbox.enqueueStandalone(event);
     }
     return row;
   }
@@ -233,8 +240,8 @@ export class RolesService {
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userId?: string; contextId?: string }): Promise<unknown[]> {
-    return this.repo.listAssignments(filter);
+  async listAssignments(filter: { userId?: string; contextId?: string }, tx?: DbTx): Promise<unknown[]> {
+    return this.repo.listAssignments(filter, tx);
   }
   /** Các assignment của một người dùng trên một tập context — ví dụ mọi context trên đường tổ tiên của đối tượng đích. Đây là phép tra cứu mà PermissionEvaluator dựa vào: assignment role được kế thừa xuống dưới theo cây context, nên assignment ở tổ tiên có hiệu lực tại lá. */
   /**
@@ -248,18 +255,18 @@ export class RolesService {
   /**
    * Đặt override CAP_* cho role tại context (ALLOW/INHERIT/PREVENT/PROHIBIT).
    */
-  async setCapabilityOverride(roleId: string, capability: string, contextId: string, permission: number, modifierId?: string): Promise<void> {
+  async setCapabilityOverride(roleId: string, capability: string, contextId: string, permission: number, modifierId?: string, tx?: DbTx): Promise<void> {
     if (!VALID_PERMISSIONS.includes(permission)) {
       throw new BadRequestException({ message: `Invalid permission ${permission}`, code: 'access.invalid_permission' });
     }
     await this.getRole(roleId);
-    await this.contexts.getContext(contextId);
+    await this.contexts.getContext(contextId, tx);
     if (permission === CAP_INHERIT) {
-      await this.repo.deleteRoleCapability(contextId, roleId, capability);
+      await this.repo.deleteRoleCapability(contextId, roleId, capability, tx);
     } else {
-      await this.repo.upsertRoleCapability({ contextId: contextId, roleId: roleId, capability, permission, modifierId: modifierId });
+      await this.repo.upsertRoleCapability({ contextId: contextId, roleId: roleId, capability, permission, modifierId: modifierId }, tx);
     }
-    await this.contexts.markContextDirty(contextId);
+    await this.contexts.markContextDirty(contextId, tx);
   }
   /**
    * Liệt kê override đã lưu của role.

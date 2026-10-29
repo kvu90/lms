@@ -300,8 +300,9 @@ export class PaymentsRepository {
       .orderBy(asc(planEntitlements.startsAt));
   }
   /** Đảo quyền lợi khi hoàn đủ: quyền lợi của chính payment chuyển `suspended`. */
-  async suspendEntitlementsByPayment(paymentId: string): Promise<void> {
-    await this.db.update(planEntitlements)
+  async suspendEntitlementsByPayment(paymentId: string, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.update(planEntitlements)
       .set({ status: 'suspended', updatedAt: new Date() })
       .where(eq(planEntitlements.paymentId, paymentId));
   }

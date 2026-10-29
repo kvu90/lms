@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray, isNull, like, notInArray, or, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { capabilities, config, context, role, roleAssignments, roleCapabilities, tenantMemberships, tenants } from '../../db/schema';
 import { tenantAls } from '../tenants/tenant-als';
 
@@ -21,28 +21,32 @@ export class AccessRepository {
   /**
    * Chèn context mới; path/depth được service tính và cập nhật sau khi có id.
    */
-  async insertContext(values: typeof context.$inferInsert): Promise<ContextRow> {
-    const [row] = await this.db.insert(context).values(values).returning();
+  async insertContext(values: typeof context.$inferInsert, tx?: DbTx): Promise<ContextRow> {
+    const db = tx ?? this.db;
+    const [row] = await db.insert(context).values(values).returning();
     return row!;
   }
   /**
    * Cập nhật path vật chất hoá (danh sách id tổ tiên) và depth của context sau khi chèn/di chuyển.
    */
-  async updateContextPath(id: string, path: string, depth: number): Promise<void> {
-    await this.db.update(context).set({ path, depth }).where(eq(context.id, id));
+  async updateContextPath(id: string, path: string, depth: number, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.update(context).set({ path, depth }).where(eq(context.id, id));
   }
   /**
    * Lấy context theo id; undefined nếu không tồn tại.
    */
-  async getContextById(id: string): Promise<ContextRow | undefined> {
-    const [row] = await this.db.select().from(context).where(eq(context.id, id));
+  async getContextById(id: string, tx?: DbTx): Promise<ContextRow | undefined> {
+    const db = tx ?? this.db;
+    const [row] = await db.select().from(context).where(eq(context.id, id));
     return row;
   }
   /**
    * Lấy context theo cặp (contextLevel, instanceId) — khoá tự nhiên của cây context.
    */
-  async getContextByLevelInstance(contextLevel: number, instanceId: string | null): Promise<ContextRow | undefined> {
-    const [row] = await this.db.select().from(context)
+  async getContextByLevelInstance(contextLevel: number, instanceId: string | null, tx?: DbTx): Promise<ContextRow | undefined> {
+    const db = tx ?? this.db;
+    const [row] = await db.select().from(context)
       .where(and(eq(context.contextLevel, contextLevel), instanceId === null ? isNull(context.instanceId) : eq(context.instanceId, instanceId)));
     return row;
   }
@@ -80,8 +84,9 @@ export class AccessRepository {
   /**
    * Tăng version của các context để vô hiệu hoá cache quyền đã tính theo cây cũ.
    */
-  async bumpContextVersions(pathPrefix: string): Promise<void> {
-    await this.db.update(context).set({ version: sql`${context.version} + 1` })
+  async bumpContextVersions(pathPrefix: string, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.update(context).set({ version: sql`${context.version} + 1` })
       .where(or(eq(context.path, pathPrefix), like(context.path, `${pathPrefix}/%`)));
   }
 
@@ -214,14 +219,15 @@ export class AccessRepository {
   /**
    * Gán role cho user tại một context.
    */
-  async insertAssignment(values: typeof roleAssignments.$inferInsert): Promise<typeof roleAssignments.$inferSelect> {
-    const [row] = await this.db.insert(roleAssignments).values(values)
+  async insertAssignment(values: typeof roleAssignments.$inferInsert, tx?: DbTx): Promise<typeof roleAssignments.$inferSelect> {
+    const db = tx ?? this.db;
+    const [row] = await db.insert(roleAssignments).values(values)
       .onConflictDoNothing().returning();
     if (row) return row;
     // Fallback khi trùng unique (role, user, context, component, itemId):
     // phải khớp đúng NGUỒN của dòng sắp chèn — nếu không, gán của enrol có
     // thể trả về nhầm dòng gán tay (hoặc ngược lại) cùng role/user/context.
-    const [existing] = await this.db.select().from(roleAssignments).where(and(
+    const [existing] = await db.select().from(roleAssignments).where(and(
       eq(roleAssignments.roleId, values.roleId!), eq(roleAssignments.userId, values.userId!),
       eq(roleAssignments.contextId, values.contextId!),
       eq(roleAssignments.component, values.component ?? ''),
@@ -252,11 +258,12 @@ export class AccessRepository {
   /**
    * Liệt kê gán role, lọc tuỳ chọn theo user.
    */
-  async listAssignments(filter: { userId?: string; contextId?: string }): Promise<(typeof roleAssignments.$inferSelect)[]> {
+  async listAssignments(filter: { userId?: string; contextId?: string }, tx?: DbTx): Promise<(typeof roleAssignments.$inferSelect)[]> {
+    const db = tx ?? this.db;
     const conds = [];
     if (filter.userId !== undefined) conds.push(eq(roleAssignments.userId, filter.userId));
     if (filter.contextId !== undefined) conds.push(eq(roleAssignments.contextId, filter.contextId));
-    return this.db.select().from(roleAssignments).where(conds.length ? and(...conds) : undefined);
+    return db.select().from(roleAssignments).where(conds.length ? and(...conds) : undefined);
   }
   /** Các assignment có context nằm trên đường tổ tiên cho trước (các id theo đúng thứ tự được truyền vào). */
   /**
@@ -272,8 +279,9 @@ export class AccessRepository {
   /**
    * Ghi override quyền của role tại một context (CAP_*); ghi đè nếu đã có.
    */
-  async upsertRoleCapability(values: typeof roleCapabilities.$inferInsert): Promise<void> {
-    await this.db.insert(roleCapabilities).values(values).onConflictDoUpdate({
+  async upsertRoleCapability(values: typeof roleCapabilities.$inferInsert, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.insert(roleCapabilities).values(values).onConflictDoUpdate({
       target: [roleCapabilities.contextId, roleCapabilities.roleId, roleCapabilities.capability],
       set: { permission: values.permission, updatedAt: new Date() },
     });
@@ -281,8 +289,9 @@ export class AccessRepository {
   /**
    * Xoá một override cụ thể.
    */
-  async deleteRoleCapability(contextId: string, roleId: string, capability: string): Promise<void> {
-    await this.db.delete(roleCapabilities).where(and(
+  async deleteRoleCapability(contextId: string, roleId: string, capability: string, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.delete(roleCapabilities).where(and(
       eq(roleCapabilities.contextId, contextId), eq(roleCapabilities.roleId, roleId),
       eq(roleCapabilities.capability, capability)));
   }

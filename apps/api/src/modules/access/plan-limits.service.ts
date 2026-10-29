@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   classes, context, course, planEntitlements, pluginConfig, role, roleAssignments,
   tenantMemberships, tenants, users,
@@ -128,13 +128,14 @@ export class PlanLimitsService {
    * chính context đó). Trả null khi context không thuộc tenant nào
    * (context hệ thống/người dùng ở tầng platform).
    */
-  async tenantIdForContext(contextId: string): Promise<string | null> {
-    const [row] = await this.db.select().from(context).where(eq(context.id, contextId));
+  async tenantIdForContext(contextId: string, tx?: DbTx): Promise<string | null> {
+    const db = tx ?? this.db;
+    const [row] = await db.select().from(context).where(eq(context.id, contextId));
     if (!row) return null;
     if (row.contextLevel === CONTEXT_LEVELS.TENANT) return row.instanceId;
     const ancestorIds = row.path.split('/').filter((s) => s.length > 0);
     if (ancestorIds.length === 0) return null;
-    const ancestors = await this.db
+    const ancestors = await db
       .select({ instanceId: context.instanceId })
       .from(context)
       .where(and(inArray(context.id, ancestorIds), eq(context.contextLevel, CONTEXT_LEVELS.TENANT)));

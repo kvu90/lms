@@ -41,8 +41,9 @@ export class QuestionsRepository {
   /**
    * Chèn category câu hỏi.
    */
-  async insertCategory(v: typeof questionCategories.$inferInsert): Promise<QCategoryRow> {
-    const [row] = await this.db.insert(questionCategories).values(v).returning(); return row!;
+  async insertCategory(v: typeof questionCategories.$inferInsert, tx?: DbTx): Promise<QCategoryRow> {
+    const db = tx ?? this.db;
+    const [row] = await db.insert(questionCategories).values(v).returning(); return row!;
   }
   /**
    * Lấy category theo id.

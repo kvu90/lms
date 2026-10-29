@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, count, eq } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { classes, classJoinRequests, cohort, course, enrol, userEnrolments } from '../../db/schema';
 
 export type ClassRow = typeof classes.$inferSelect;
@@ -25,8 +25,9 @@ export class ClassesRepository {
 
   get dbHandle(): Database { return this.db; }
 
-  async insertClass(v: typeof classes.$inferInsert): Promise<ClassRow> {
-    const [row] = await this.db.insert(classes).values(v).returning();
+  async insertClass(v: typeof classes.$inferInsert, tx?: DbTx): Promise<ClassRow> {
+    const db = tx ?? this.db;
+    const [row] = await db.insert(classes).values(v).returning();
     return row!;
   }
 
@@ -59,13 +60,15 @@ export class ClassesRepository {
   }
 
   /** Backing cohort của lớp: tạo qua kho groups (bảng `cohort` do module groups sở hữu, dùng lại đúng một nguồn sự thật cho roster). */
-  async insertBackingCohort(v: typeof cohort.$inferInsert): Promise<CohortRow> {
-    const [row] = await this.db.insert(cohort).values(v).returning();
+  async insertBackingCohort(v: typeof cohort.$inferInsert, tx?: DbTx): Promise<CohortRow> {
+    const db = tx ?? this.db;
+    const [row] = await db.insert(cohort).values(v).returning();
     return row!;
   }
 
-  async updateCohortContext(cohortId: string, contextId: string): Promise<void> {
-    await this.db.update(cohort).set({ contextId, updatedAt: new Date() }).where(eq(cohort.id, cohortId));
+  async updateCohortContext(cohortId: string, contextId: string, tx?: DbTx): Promise<void> {
+    const db = tx ?? this.db;
+    await db.update(cohort).set({ contextId, updatedAt: new Date() }).where(eq(cohort.id, cohortId));
   }
 
   async deleteCohort(cohortId: string): Promise<void> {

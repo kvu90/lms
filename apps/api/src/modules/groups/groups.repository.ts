@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, eq, inArray } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import { cohort, cohortMembers, courseGroups, groupings, groupingsGroups, groupsMembers } from '../../db/schema';
 
 export type GroupRow = typeof courseGroups.$inferSelect;
@@ -167,8 +167,9 @@ export class GroupsRepository {
   /**
    * Gỡ thành viên cohort.
    */
-  async removeCohortMember(cohortId: string, userId: string): Promise<boolean> {
-    const deleted = await this.db.delete(cohortMembers).where(and(eq(cohortMembers.cohortId, cohortId), eq(cohortMembers.userId, userId))).returning();
+  async removeCohortMember(cohortId: string, userId: string, tx?: DbTx): Promise<boolean> {
+    const db = tx ?? this.db;
+    const deleted = await db.delete(cohortMembers).where(and(eq(cohortMembers.cohortId, cohortId), eq(cohortMembers.userId, userId))).returning();
     return deleted.length > 0;
   }
   /**
