@@ -217,11 +217,13 @@ export class ClassesService implements OnModuleInit {
    * thái dở dang nào tồn tại (trước đây một lần tạo lớp chết giữa
    * chừng để lại cohort/lớp/context mồ côi). Các cổng đọc/điều kiện
    * đứng trước (capability, tồn tại owner, trùng mã lớp, membership
-   * hiệu lực) và việc đảm bảo sẵn các VAI HỆ THỐNG dùng chung
-   * (`ensureClassRoles` — dữ kiện toàn cục, không thuộc lớp này; cơ
-   * chế khôi phục khi tạo vai đua nhau của nó cũng không chạy được
-   * trong transaction vì một lệnh chèn hỏng sẽ huỷ cả transaction)
-   * nằm NGOÀI transaction như cũ.
+   * hiệu lực) nằm ngoài transaction như cũ. Việc đảm bảo sẵn các VAI
+   * HỆ THỐNG dùng chung (`ensureClassRoles`) chạy TRƯỚC khi
+   * transaction mở: vai là dữ kiện toàn cục không thuộc lớp này và
+   * hàm đảm bảo chỉ tra-rồi-chèn theo shortname (idempotent, không
+   * có cơ chế bắt lỗi đua nhau — cơ chế `.catch` đọc lại khi đua
+   * nhau chỉ có ở `ensureBankRoles` của bank câu hỏi), nên lỗi tại
+   * đây huỷ luồng trước khi bất kỳ trạng thái lớp nào được ghi.
    */
   async createClass(actorId: string, input: CreateClass): Promise<ClassView> {
     const tenantId = await this.effectiveTenantId();
@@ -238,6 +240,11 @@ export class ClassesService implements OnModuleInit {
     // Chủ lớp phải là thành viên hiệu lực của tenant — nếu không, cổng
     // membership của evaluator sẽ vô hiệu mọi vai tại lớp vừa gán.
     await this.tenants.ensureActiveMembership(tenantId, ownerId);
+    // Đảm bảo các vai hệ thống của lớp tồn tại TRƯỚC khi mở
+    // transaction: vai là dữ kiện toàn cục dùng chung (không thuộc
+    // lớp đang tạo), và transaction tạo lớp không bị giữ mở trong
+    // lúc thực hiện các thao tác này bằng kết nối thường.
+    await this.ensureClassRoles();
 
     const row = await this.repo.dbHandle.transaction(async (tx) => {
       const cohortRow = await this.repo.insertBackingCohort({
@@ -287,9 +294,8 @@ export class ClassesService implements OnModuleInit {
     }
   }
 
-  /** Vật chất hoá bộ capability của 4 vai tại đúng context lớp này (gọi lúc tạo lớp). Việc đảm bảo vai hệ thống (`ensureClassRoles`) cố ý KHÔNG nhận `tx` — vai là dữ kiện toàn cục dùng chung, xem ghi chú ở `createClass`. */
+  /** Vật chất hoá bộ capability của 4 vai tại đúng context lớp này (gọi lúc tạo lớp, bên trong transaction của `createClass`). Hàm này KHÔNG tự đảm bảo vai: bên gọi phải đã chạy `ensureClassRoles` trước khi mở transaction — vai là dữ kiện toàn cục dùng chung, xem ghi chú ở `createClass`. */
   private async applyClassRoleGrants(classContextId: string, modifierId: string, tx?: DbTx): Promise<void> {
-    await this.ensureClassRoles();
     for (const [shortName, caps] of Object.entries(CLASS_ROLE_GRANTS)) {
       const role = await this.roles.getRoleByShortname(shortName);
       if (!role) continue;

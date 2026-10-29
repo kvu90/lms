@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
@@ -142,6 +142,8 @@ export const ENTITLEMENT_COMPONENTS = ['enrol_fee', 'class_fee', 'tenant_plan', 
  */
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private readonly repo: PaymentsRepository,
     private readonly evaluator: PermissionEvaluator,
@@ -1170,7 +1172,16 @@ export class PaymentsService {
    *     đồng bộ kiểm tra tư cách thành viên ĐÃ commit — phát giữa
    *     transaction sẽ thấy thành viên vẫn còn và bỏ qua, trong khi
    *     thứ tự sự kiện quan sát được từ bên ngoài không đổi: việc gỡ
-   *     chỉ hiện hình (commit) ngay trước khi sự kiện phát.
+   *     chỉ hiện hình (commit) ngay trước khi sự kiện phát. Bước
+   *     phát này mà ném lỗi thì kết quả settle KHÔNG đổi: settle đã
+   *     commit xong nên lỗi chỉ được bắt và ghi log cảnh báo có ngữ
+   *     cảnh tại điểm phát — tuyệt đối không ném ngược ra người gọi
+   *     (đường tay sẽ báo lỗi cho một xác nhận chi đã ghi sổ, đường
+   *     tự động sẽ đánh dấu oan sự kiện `debit` là `needs_review`).
+   *     Đường đồng bộ bền không phụ thuộc bước phát nhanh này: hàng
+   *     outbox `cohort_member_removed` đã ghi trong chính
+   *     transaction ở bước 3 (xem `removeCohortMemberInternal`) và
+   *     consumer outbox sẵn có sẽ quét hàng đó để áp đình chỉ bù.
    * Hoàn một phần: không đình chỉ, khoản thu giữ `succeeded`.
    */
   private async applyRefundSettlement(input: {
@@ -1206,8 +1217,17 @@ export class PaymentsService {
     });
     // Bước 5 của flow: transaction đã commit — phát bù sự kiện rời
     // cohort để cohort sync áp đình chỉ xuống các ghi danh của lớp.
+    // Lỗi tại bước phát này không được ném ngược: sổ hoàn đã settled
+    // và khoản thu đã refunded, nên chỉ ghi log cảnh báo có ngữ cảnh;
+    // hàng outbox đã ghi trong transaction là đường đồng bộ bù bền.
     if (outcome.pendingRemoval) {
-      await this.classes.notifyPaidClassMemberRemoved(outcome.pendingRemoval.cohortId, outcome.pendingRemoval.userId);
+      try {
+        await this.classes.notifyPaidClassMemberRemoved(outcome.pendingRemoval.cohortId, outcome.pendingRemoval.userId);
+      } catch (error) {
+        this.logger.warn(
+          `Phát sự kiện cohort_member_removed sau khi settle hoàn tiền đã commit lỗi (refund=${outcome.settled.id}, payment=${payment.id}, cohort=${outcome.pendingRemoval.cohortId}, user=${outcome.pendingRemoval.userId}) — kết quả settle giữ nguyên, đồng bộ ghi danh đi qua hàng outbox đã ghi trong transaction: ${(error as Error).message}`,
+        );
+      }
     }
     return outcome.settled;
   }
