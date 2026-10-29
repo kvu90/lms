@@ -3,14 +3,19 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
+import { MANDATORY_NOTIFICATION_PROVIDERS, MESSAGE_PROVIDERS, notificationPolicySettingName } from '../../../src/modules/messaging/notification-providers';
 
 /**
  * NB-7 (issue #174): chính sách thông báo cấp admin + bề mặt tuỳ chọn
  * tối thiểu cho học sinh.
  *
  * Tiêu chí kiểm chứng:
- *  - Registry chính sách: GET /site-config có đúng 20 khoá
- *    `notifications/provider_<loại>_enabled`, boolean, mặc định bật.
+ *  - Registry chính sách: GET /site-config có đúng một khoá
+ *    `notifications/provider_<loại>_enabled` cho mỗi loại trong
+ *    registry MESSAGE_PROVIDERS — tập khoá kỳ vọng suy ra từ chính
+ *    registry (đủ mọi khoá, không thừa khoá lạ), không đếm cứng tổng
+ *    số vì NB-7 chỉ chốt cơ chế khoá theo từng loại, không chốt
+ *    tổng số loại; các khoá boolean, mặc định bật.
  *  - Admin tắt một loại → notify() không phát cho BẤT KỲ ai (kể cả
  *    người có tuỳ chọn cá nhân đang bật), kết quả skipped =
  *    'admin-disabled' + dispatch log `skipped-admin-disabled`; admin
@@ -86,19 +91,33 @@ describe('NB-7 admin notification policy + student minimal preferences', () => {
       .send({ userId, provider, subject, body: 'Nội dung kiểm chứng NB-7' });
   }
 
-  it('policy registry: exactly 20 notification policy settings, boolean, default enabled', async () => {
+  it('registry chính sách: site-config có đúng tập khoá suy ra từ registry thông báo, boolean, mặc định bật, gồm hai khoá bắt buộc P2', async () => {
     const res = await http(app).get('/api/v1/site-config').set('Authorization', `Bearer ${admin}`);
     expect(res.status).toBe(200);
     const rows = (res.body as { component: string; name: string; type: string; defaultValue: unknown; value: unknown }[])
       .filter((r) => r.component === 'notifications');
-    expect(rows).toHaveLength(20);
+    // Tập khoá kỳ vọng suy ra từ chính registry MESSAGE_PROVIDERS:
+    // đúng một khoá `provider_<loại>_enabled` cho mỗi loại đã đăng
+    // ký — so tập nên đủ mọi khoá của registry, không thừa khoá lạ,
+    // không trùng. NB-7 (issue #174) chỉ chốt cơ chế khoá theo từng
+    // loại, không chốt tổng số loại: registry thêm một loại hợp lệ
+    // thì tập kỳ vọng tự dài theo, ca này không được đỏ.
+    const expectedNames = MESSAGE_PROVIDERS.map((p) => notificationPolicySettingName(p.name)).sort();
+    expect(rows.map((r) => r.name).sort()).toEqual(expectedNames);
     for (const row of rows) {
       expect(row.name).toMatch(/^provider_.+_enabled$/);
       expect(row.type).toBe('boolean');
       expect(row.defaultValue).toBe(true);
     }
-    expect(rows.map((r) => r.name)).toContain('provider_enrol_expiry_warning_enabled');
-    expect(rows.map((r) => r.name)).toContain('provider_admin_announcement_enabled');
+    const actualNames = rows.map((r) => r.name);
+    // Hai loại bắt buộc P2 theo NB-7 phải có mặt trong tập khoá:
+    // tập bắt buộc lấy từ chính registry (cờ mandatoryInApp), đồng
+    // thời neo cứng hai tên khoá mà quyết định đã nêu đích danh.
+    for (const mandatory of MANDATORY_NOTIFICATION_PROVIDERS) {
+      expect(actualNames).toContain(notificationPolicySettingName(mandatory));
+    }
+    expect(actualNames).toContain('provider_enrol_expiry_warning_enabled');
+    expect(actualNames).toContain('provider_admin_announcement_enabled');
   });
 
   it('admin disable blocks delivery for everyone before user preferences, logs skipped-admin-disabled; re-enable restores', async () => {
