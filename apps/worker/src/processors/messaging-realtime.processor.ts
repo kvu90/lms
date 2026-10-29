@@ -64,8 +64,9 @@ const DISTRIBUTION_RETRY_DELAY_MS = 5_000;
  * no-op hoàn thành bên trong luật phân phối, như consumer tiền lệ.
  *
  * Ngữ nghĩa lỗi — phần tự phục hồi của đường này: lỗi thật khi
- * phân phối (đọc dữ kiện lỗi ở tầng phân phối, publish Redis bị từ
- * chối ở cổng phát, ghi dấu lỗi) KHÔNG được ném thẳng ra cho
+ * phân phối (đọc dấu đã-phân-phối lỗi ở Redis dấu, đọc dữ kiện
+ * lỗi ở tầng phân phối, publish Redis bị từ chối ở cổng phát, ghi
+ * dấu lỗi) KHÔNG được ném thẳng ra cho
  * BullMQ tính là lần thử thất bại. Khác biệt này là cốt lõi: relay
  * đã đóng dấu `publishedAt` cho dòng outbox ngay khi job vào hàng
  * đợi thành công, nên một job chết hẳn sau số lần thử mặc định
@@ -142,11 +143,15 @@ export class MessagingRealtimeProcessor extends WorkerHost {
     }
     await tenantAls.run({ platform: true }, async () => {
       const markKey = `${MESSAGING_DISTRIBUTED_KEY_PREFIX}${data.outboxId}`;
-      if ((await this.redis.exists(markKey)) === 1) {
-        this.logger.debug(`Bỏ qua job phát lại của sự kiện outbox ${data.outboxId} (đã phân phối)`);
-        return;
-      }
       try {
+        // Đọc dấu nằm TRONG cùng phạm vi thử lại: lỗi đọc dấu
+        // (Redis dấu lỗi thoáng qua) cũng phải hoãn job như mọi
+        // lỗi phân phối khác — ném thẳng ra ngoài là đốt attempts
+        // rồi mất push, vì relay đã đóng dấu publishedAt.
+        if ((await this.redis.exists(markKey)) === 1) {
+          this.logger.debug(`Bỏ qua job phát lại của sự kiện outbox ${data.outboxId} (đã phân phối)`);
+          return;
+        }
         await this.distribution.distributeEvent(data.type, data.payload ?? {});
         await this.redis.set(markKey, '1', 'EX', DISTRIBUTED_MARK_TTL_SECONDS);
       } catch (error) {

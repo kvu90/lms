@@ -147,3 +147,126 @@ describe('Worker — job phân phối realtime lỗi bền không chết theo at
     120_000,
   );
 });
+
+/**
+ * Thử lại khi đọc dấu đã-phân-phối lỗi bền (điểm chặn của lượt
+ * chấm lại trên head `daf49959`, phán quyết đối chiếu trên PR
+ * #543): lệnh đọc dấu nằm trong cùng phạm vi `try/catch` hoãn
+ * job như mọi lỗi phân phối khác — lỗi đọc dấu không được ném
+ * thẳng ra cho BullMQ đốt attempts rồi giết job.
+ *
+ * Khuôn test: như spec trên (hàng đợi BullMQ THẬT, processor
+ * THẬT, chính sách job mặc định sao đúng `worker.module.ts`),
+ * nhưng lần này stub đúng biên đọc dấu: client Redis dấu bọc
+ * client thật, `exists` ném lỗi 4 lần liên tiếp (nhiều hơn
+ * attempts mặc định 3) rồi hoạt động lại, trong khi hàng đợi
+ * vẫn lành mạnh và tầng phân phối luôn thành công. Kỳ vọng:
+ * trong lúc lỗi, job nằm ở trạng thái hoãn (delayed) với
+ * `attemptsMade` bằng 0; lỗi hết thì sự kiện phân phối đúng
+ * một lần và dấu ghi đúng một lần.
+ */
+const EXISTS_RETRY_TEST_QUEUE = 'messaging-realtime-exists-retry-test';
+
+/** Số lần đọc dấu lỗi liên tiếp trước khi hết lỗi: nhiều hơn attempts mặc định (3). */
+const EXISTS_FAILURES_BEFORE_SUCCESS = 4;
+
+describe('Worker — job phân phối realtime khi đọc dấu lỗi bền vẫn không chết theo attempts (issue #521)', () => {
+  const outboxId = uuidv7();
+  const markKey = `${MESSAGING_DISTRIBUTED_KEY_PREFIX}${outboxId}`;
+
+  let queue: Queue<OutboxEventJobData>;
+  let worker: Worker<OutboxEventJobData>;
+  let markRedis: Redis;
+  let existsCalls = 0;
+  const delivered: string[] = [];
+
+  beforeAll(async () => {
+    markRedis = new Redis(REDIS_URL);
+    await markRedis.del(markKey);
+
+    // Client Redis dấu bọc client thật: chỉ `exists` bị tiêm
+    // lỗi bền, `set` vẫn đi thẳng tới Redis thật.
+    const markClient = {
+      exists: async (key: string): Promise<number> => {
+        existsCalls += 1;
+        if (existsCalls <= EXISTS_FAILURES_BEFORE_SUCCESS) {
+          throw new Error('EXISTS timeout (lỗi bền giả lập)');
+        }
+        return markRedis.exists(key);
+      },
+      set: async (key: string, value: string, mode: 'EX', seconds: number): Promise<string | null> => {
+        return markRedis.set(key, value, mode, seconds);
+      },
+    };
+    const distribution = {
+      distributeEvent: async (type: string) => {
+        delivered.push(type);
+      },
+    };
+    const processor = new MessagingRealtimeProcessor(distribution as never, markClient as never);
+
+    queue = new Queue<OutboxEventJobData>(EXISTS_RETRY_TEST_QUEUE, {
+      connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
+      },
+    });
+    await queue.obliterate({ force: true });
+    worker = new Worker<OutboxEventJobData>(
+      EXISTS_RETRY_TEST_QUEUE,
+      async (job, token) => processor.process(job, token),
+      { connection: new Redis(REDIS_URL, { maxRetriesPerRequest: null }) },
+    );
+    await worker.waitUntilReady();
+  });
+
+  afterAll(async () => {
+    await worker.close();
+    await queue.obliterate({ force: true });
+    await queue.close();
+    await markRedis.del(markKey);
+    markRedis.disconnect();
+  });
+
+  it(
+    'đọc dấu lỗi liên tục quá số attempts mặc định vẫn không chết: được hoãn thử lại mà không đốt attempts, lỗi hết thì sự kiện tới và dấu ghi đúng một lần',
+    async () => {
+      const jobData: OutboxEventJobData = {
+        outboxId,
+        seq: 1,
+        aggregate: 'messaging',
+        type: 'message_sent',
+        payload: { conversationId: 'conv-exists-retry', messageId: 'msg-exists-retry' },
+        tenantId: 'tenant-exists-retry',
+        occurredAt: '2026-10-29T00:00:00.000Z',
+      };
+      const job = await queue.add('message_sent', jobData, { jobId: outboxId });
+
+      // Trong lúc lỗi đọc dấu còn bền và số lần lỗi đã vượt
+      // attempts mặc định, job phải đang nằm ở trạng thái hoãn
+      // (delayed) với attemptsMade vẫn bằng 0 — không phải failed.
+      await waitUntil(
+        async () => existsCalls >= 2 && (await job.getState()) === 'delayed',
+        30_000,
+        'job vào trạng thái delayed sau các lần đọc dấu lỗi đầu',
+      );
+      expect(await job.getState()).not.toBe('failed');
+      const freshDuringFault = await queue.getJob(outboxId);
+      expect(freshDuringFault?.attemptsMade).toBe(0);
+
+      // Lỗi hết ở lần đọc dấu thứ 5: job hoàn thành, sự kiện
+      // được phân phối đúng một lần hiệu lực và dấu đứng đúng
+      // một khoá.
+      await waitUntil(async () => (await job.getState()) === 'completed', 60_000, 'job hoàn thành sau khi lỗi hết');
+      expect(delivered).toEqual(['message_sent']);
+      expect(existsCalls).toBe(EXISTS_FAILURES_BEFORE_SUCCESS + 1);
+      expect(await markRedis.exists(markKey)).toBe(1);
+      const freshAfterSuccess = await queue.getJob(outboxId);
+      expect(freshAfterSuccess?.attemptsMade).toBe(1);
+    },
+    120_000,
+  );
+});

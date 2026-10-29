@@ -32,7 +32,7 @@ describe('MessagingRealtimeProcessor — chống trùng theo outboxId', () => {
     occurredAt: '2026-10-29T00:00:00.000Z',
   };
 
-  function build(opts: { alreadyDistributed?: boolean; distributeError?: Error } = {}) {
+  function build(opts: { alreadyDistributed?: boolean; distributeError?: Error; existsError?: Error } = {}) {
     const calls: string[] = [];
     const distribution = {
       distributeEvent: vi.fn(async (type: string) => {
@@ -41,7 +41,10 @@ describe('MessagingRealtimeProcessor — chống trùng theo outboxId', () => {
       }),
     };
     const redis = {
-      exists: vi.fn(async () => (opts.alreadyDistributed ? 1 : 0)),
+      exists: vi.fn(async () => {
+        if (opts.existsError) throw opts.existsError;
+        return opts.alreadyDistributed ? 1 : 0;
+      }),
       set: vi.fn(async () => {
         calls.push('mark');
         return 'OK';
@@ -98,6 +101,19 @@ describe('MessagingRealtimeProcessor — chống trùng theo outboxId', () => {
     expect(token).toBe('worker-token-1');
     expect(timestamp).toBeGreaterThanOrEqual(before + 4_000);
     expect(timestamp).toBeLessThanOrEqual(Date.now() + 6_000);
+    expect(redis.set).not.toHaveBeenCalled();
+  });
+
+  it('đọc dấu lỗi thì hoãn job bằng moveToDelayed và ném DelayedError như mọi lỗi phân phối khác, không phân phối và không ghi dấu', async () => {
+    const { processor, distribution, redis } = build({ existsError: new Error('EXISTS timeout') });
+    const moveToDelayed = vi.fn(async () => undefined);
+
+    await expect(
+      processor.process({ data: JOB_DATA, moveToDelayed } as never, 'worker-token-2'),
+    ).rejects.toThrow(DelayedError);
+
+    expect(moveToDelayed).toHaveBeenCalledTimes(1);
+    expect(distribution.distributeEvent).not.toHaveBeenCalled();
     expect(redis.set).not.toHaveBeenCalled();
   });
 
