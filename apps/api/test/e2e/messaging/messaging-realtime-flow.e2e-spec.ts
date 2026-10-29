@@ -2,9 +2,9 @@ import type { INestApplication } from '@nestjs/common';
 import type { AddressInfo } from 'node:net';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from '../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../support/course-enrolment-helpers';
-import { addGroupMember, createGroupViaApi } from '../support/engagement-helpers';
+import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from '../../support/identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
+import { addGroupMember, createGroupViaApi } from '../../support/engagement-helpers';
 
 /**
  * Flow test cho nền dữ liệu + realtime của messaging (issue #33,

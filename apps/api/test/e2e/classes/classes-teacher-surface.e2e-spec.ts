@@ -10,8 +10,8 @@ import {
   login,
   roleIdByShortname,
   uniqueName,
-} from '../support/identity-access-helpers';
-import { createCategory } from '../support/course-enrolment-helpers';
+} from '../../support/identity-access-helpers';
+import { createCategory } from '../../support/course-enrolment-helpers';
 
 /**
  * CLASS-1 (issue #184) — bề mặt giáo viên trên nền CLASS-0:

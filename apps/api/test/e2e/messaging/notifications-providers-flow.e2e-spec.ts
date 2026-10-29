@@ -2,11 +2,11 @@ import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from '../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from '../support/course-enrolment-helpers';
-import { addExamSlot, createExamDraft, createReadyQuestion, pinExam } from '../support/exam-pin-helpers';
-import { createGradeItem, setGrade } from '../support/assessment-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, systemContextId } from '../../support/identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstSectionId } from '../../support/course-enrolment-helpers';
+import { addExamSlot, createExamDraft, createReadyQuestion, pinExam } from '../../support/exam-pin-helpers';
+import { createGradeItem, setGrade } from '../../support/assessment-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Lát N1 (issue #49): nối dây 3 provider thông báo từng là CÔNG TẮC GIẢ

@@ -2,10 +2,10 @@ import type { INestApplication } from '@nestjs/common';
 import { Client } from 'pg';
 import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from '../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../support/course-enrolment-helpers';
-import { createGradeItem, setGrade } from '../support/assessment-helpers';
-import { waitForOutboxWatermark } from '../support/outbox-wait-helpers';
+import { adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD } from '../../support/identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
+import { createGradeItem, setGrade } from '../../support/assessment-helpers';
+import { waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * PH-2 (issue #159) — nửa API của digest phụ huynh: consumer quét

@@ -5,8 +5,8 @@ import { decodeQr } from 'vn-qr-pay';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login,
   roleIdByShortname, STRONG_PASSWORD, systemContextId,
-} from '../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance } from '../support/course-enrolment-helpers';
+} from '../../support/identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance } from '../../support/course-enrolment-helpers';
 
 /**
  * Lát 1 VietQR (issue #189, hồ sơ payment-vietqr §6.4) — bộ nghiệm thu

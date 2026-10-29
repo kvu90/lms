@@ -6,10 +6,10 @@ import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
-} from '../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../support/course-enrolment-helpers';
-import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../support/engagement-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../support/outbox-wait-helpers';
+} from '../../support/identity-access-helpers';
+import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
+import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../../support/engagement-helpers';
+import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Vòng đời tin nhắn THEO VAI (issue #33, bổ sung cho PR #94) — ba lớp
