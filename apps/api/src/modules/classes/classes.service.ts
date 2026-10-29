@@ -26,6 +26,7 @@ import type {
   UpdateClass,
 } from '@lms/contracts';
 import { OutboxService } from '../../infra/events/outbox.service';
+import type { ContextRow } from '../access/access.repository';
 import { ContextsService } from '../access/contexts.service';
 import { CONTEXT_LEVELS } from '../access/domain/capabilities';
 import { CAP_ALLOW } from '../access/domain/permission';
@@ -201,6 +202,50 @@ export class ClassesService implements OnModuleInit {
     return this.groups.isCohortMember(row.cohortId, actorId);
   }
 
+  /**
+   * Lọc các lớp người xem thấy được khi KHÔNG ở chế độ thấy toàn bộ,
+   * giữ đúng cổng của `canViewClass` cho từng lớp (chủ lớp → capability
+   * `class:view` → thành viên roster) nhưng đánh giá capability THEO
+   * LÔ cho cả tập lớp: context của mọi lớp không do người xem sở hữu
+   * được phân giải trong MỘT lượt `resolveCapabilitiesForContexts`
+   * thay cho một lượt `hasCapability` cho từng lớp. Phép phân giải
+   * theo lô tương đương theo từng cặp với `hasCapability` (bất biến
+   * đã chốt trong đặc tả của PermissionEvaluator) nên tập lớp thấy
+   * được không đổi; thứ tự đáp ứng giữ nguyên thứ tự của `rows`. Lớp
+   * thiếu context vẫn ném `class.context_missing` như đường cũ (qua
+   * cùng thông điệp và mã lỗi của `classContextId`).
+   */
+  private async filterVisibleClasses(actorId: string, rows: ClassRow[]): Promise<ClassRow[]> {
+    const evaluated: { row: ClassRow; ctx: ContextRow }[] = [];
+    for (const row of rows) {
+      if (row.ownerId === actorId) continue;
+      const ctx = await this.contexts.getByLevelInstance(CONTEXT_LEVELS.CLASS, row.id);
+      if (!ctx) throw new NotFoundException({ message: `No context for class ${row.id}`, code: 'class.context_missing' });
+      evaluated.push({ row, ctx });
+    }
+    const viewByClassId = new Map<string, boolean>();
+    if (evaluated.length > 0) {
+      const targets = evaluated.map((entry) => entry.ctx);
+      const resolved = await this.evaluator.resolveCapabilitiesForContexts(
+        actorId,
+        targets,
+        new Map(targets.map((c) => [c.id, c])),
+      );
+      for (const entry of evaluated) {
+        viewByClassId.set(entry.row.id, (resolved.get(entry.ctx.id) ?? []).includes('class:view'));
+      }
+    }
+    const visible: ClassRow[] = [];
+    for (const row of rows) {
+      if (row.ownerId === actorId || viewByClassId.get(row.id)) {
+        visible.push(row);
+        continue;
+      }
+      if (await this.groups.isCohortMember(row.cohortId, actorId)) visible.push(row);
+    }
+    return visible;
+  }
+
   // --- vòng đời lớp ------------------------------------------------------------
 
   /**
@@ -303,10 +348,7 @@ export class ClassesService implements OnModuleInit {
     const seesAll = (await this.evaluator.isSiteAdmin(actorId))
       || (tenantCtx ? await this.evaluator.hasCapability(actorId, 'tenant:manage', tenantCtx.id) : false);
     const canCreate = tenantCtx ? await this.evaluator.hasCapability(actorId, 'class:create', tenantCtx.id) : false;
-    const visible: ClassRow[] = [];
-    for (const row of rows) {
-      if (seesAll || (await this.canViewClass(actorId, row))) visible.push(row);
-    }
+    const visible = seesAll ? rows : await this.filterVisibleClasses(actorId, rows);
     return Promise.all(visible.map(async (row) => {
       const ctxId = await this.classContextId(row.id);
       const isOwner = actorId === row.ownerId;
