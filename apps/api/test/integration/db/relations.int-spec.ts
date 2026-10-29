@@ -167,7 +167,7 @@ describe('Relations miền câu hỏi — db.query trùng khớp join tay', () =
       .select()
       .from(questionCategories)
       .where(eq(questionCategories.id, IDS.category));
-    const entryRows = await db
+    const [entryRow] = await db
       .select()
       .from(questionBankEntries)
       .where(eq(questionBankEntries.questionId, IDS.question));
@@ -186,7 +186,6 @@ describe('Relations miền câu hỏi — db.query trùng khớp join tay', () =
 
     expect({
       ...viaRelations,
-      questionBankEntries: sortById(viaRelations.questionBankEntries),
       questionVersions: sortById(
         viaRelations.questionVersions.map((version) => ({
           ...version,
@@ -196,7 +195,7 @@ describe('Relations miền câu hỏi — db.query trùng khớp join tay', () =
     }).toEqual({
       ...questionRow,
       categoryRef: categoryRow,
-      questionBankEntries: sortById(entryRows),
+      questionBankEntries: entryRow,
       questionVersions: sortById(versionsWithAnswers),
     });
   });

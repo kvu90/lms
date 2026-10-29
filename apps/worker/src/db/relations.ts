@@ -214,8 +214,8 @@ export const relations = defineRelations(schema, (r) => ({
     courseSections: {
       courseRef: r.one.course({ from: r.courseSections.course, to: r.course.id, optional: false }),
       courseModules: r.many.courseModules({ from: r.courseSections.id, to: r.courseModules.section }),
-      courseSectionAnchors: r.many.courseSectionAnchors({ from: r.courseSections.id, to: r.courseSectionAnchors.sectionId }),
-      courseSectionBookAnchors: r.many.courseSectionBookAnchors({ from: r.courseSections.id, to: r.courseSectionBookAnchors.sectionId }),
+      courseSectionAnchors: r.one.courseSectionAnchors({ from: r.courseSections.id, to: r.courseSectionAnchors.sectionId }),
+      courseSectionBookAnchors: r.one.courseSectionBookAnchors({ from: r.courseSections.id, to: r.courseSectionBookAnchors.sectionId }),
     },
     courseModules: {
       courseRef: r.one.course({ from: r.courseModules.course, to: r.course.id, optional: false }),
@@ -381,7 +381,7 @@ export const relations = defineRelations(schema, (r) => ({
       examSlots: r.many.examSlots({ from: r.question.id, to: r.examSlots.questionId }),
       questionAttempts: r.many.questionAttempts({ from: r.question.id, to: r.questionAttempts.questionId }),
       questionBankContributions: r.many.questionBankContributions({ from: r.question.id, to: r.questionBankContributions.questionId }),
-      questionBankEntries: r.many.questionBankEntries({ from: r.question.id, to: r.questionBankEntries.questionId }),
+      questionBankEntries: r.one.questionBankEntries({ from: r.question.id, to: r.questionBankEntries.questionId }),
       questionLearningOutcomes: r.many.questionLearningOutcomes({ from: r.question.id, to: r.questionLearningOutcomes.questionId }),
       questionSubjects: r.many.questionSubjects({ from: r.question.id, to: r.questionSubjects.questionId }),
       questionVersions: r.many.questionVersions({ from: r.question.id, to: r.questionVersions.questionId }),
@@ -401,13 +401,13 @@ export const relations = defineRelations(schema, (r) => ({
       stimulus: r.one.stimuli({ from: r.questionVersions.stimulusId, to: r.stimuli.id }),
       examAttemptRegradesAsFromVersion: r.many.examAttemptRegrades({ from: r.questionVersions.id, to: r.examAttemptRegrades.fromVersionId, alias: 'examAttemptRegradesAsFromVersion' }),
       examAttemptRegradesAsToVersion: r.many.examAttemptRegrades({ from: r.questionVersions.id, to: r.examAttemptRegrades.toVersionId, alias: 'examAttemptRegradesAsToVersion' }),
-      qtypeEssayOptions: r.many.qtypeEssayOptions({ from: r.questionVersions.id, to: r.qtypeEssayOptions.questionVersionId }),
-      qtypeMultichoiceOptions: r.many.qtypeMultichoiceOptions({ from: r.questionVersions.id, to: r.qtypeMultichoiceOptions.questionVersionId }),
-      qtypeShortanswerOptions: r.many.qtypeShortanswerOptions({ from: r.questionVersions.id, to: r.qtypeShortanswerOptions.questionVersionId }),
-      questionAnswerKeys: r.many.questionAnswerKeys({ from: r.questionVersions.id, to: r.questionAnswerKeys.questionVersionId }),
+      qtypeEssayOptions: r.one.qtypeEssayOptions({ from: r.questionVersions.id, to: r.qtypeEssayOptions.questionVersionId }),
+      qtypeMultichoiceOptions: r.one.qtypeMultichoiceOptions({ from: r.questionVersions.id, to: r.qtypeMultichoiceOptions.questionVersionId }),
+      qtypeShortanswerOptions: r.one.qtypeShortanswerOptions({ from: r.questionVersions.id, to: r.qtypeShortanswerOptions.questionVersionId }),
+      questionAnswerKeys: r.one.questionAnswerKeys({ from: r.questionVersions.id, to: r.questionAnswerKeys.questionVersionId }),
       questionAnswers: r.many.questionAnswers({ from: r.questionVersions.id, to: r.questionAnswers.questionVersionId }),
       questionAttempts: r.many.questionAttempts({ from: r.questionVersions.id, to: r.questionAttempts.questionVersionId }),
-      questionTruefalses: r.many.questionTruefalse({ from: r.questionVersions.id, to: r.questionTruefalse.questionVersionId }),
+      questionTruefalses: r.one.questionTruefalse({ from: r.questionVersions.id, to: r.questionTruefalse.questionVersionId }),
     },
     questionAnswers: {
       questionVersion: r.one.questionVersions({ from: r.questionAnswers.questionVersionId, to: r.questionVersions.id, optional: false }),
@@ -432,7 +432,7 @@ export const relations = defineRelations(schema, (r) => ({
       questionVersion: r.one.questionVersions({ from: r.qtypeEssayOptions.questionVersionId, to: r.questionVersions.id, optional: false }),
     },
     questionUsages: {
-      examAttempts: r.many.examAttempts({ from: r.questionUsages.id, to: r.examAttempts.usageId }),
+      examAttempts: r.one.examAttempts({ from: r.questionUsages.id, to: r.examAttempts.usageId }),
       questionAttempts: r.many.questionAttempts({ from: r.questionUsages.id, to: r.questionAttempts.questionUsageId }),
     },
     questionAttempts: {
@@ -590,7 +590,7 @@ export const relations = defineRelations(schema, (r) => ({
     assignments: {
       courseRef: r.one.course({ from: r.assignments.course, to: r.course.id, optional: false }),
       assignGrades: r.many.assignGrades({ from: r.assignments.id, to: r.assignGrades.assignmentId }),
-      assignRubrics: r.many.assignRubrics({ from: r.assignments.id, to: r.assignRubrics.assignmentId }),
+      assignRubrics: r.one.assignRubrics({ from: r.assignments.id, to: r.assignRubrics.assignmentId }),
       assignSubmissions: r.many.assignSubmissions({ from: r.assignments.id, to: r.assignSubmissions.assignmentId }),
     },
     assignSubmissions: {
@@ -891,7 +891,7 @@ export const relations = defineRelations(schema, (r) => ({
       reviewHandledByRef: r.one.users({ from: r.payments.reviewHandledBy, to: r.users.id }),
       paymentProviderEvents: r.many.paymentProviderEvents({ from: r.payments.id, to: r.paymentProviderEvents.matchedPaymentId }),
       paymentRefunds: r.many.paymentRefunds({ from: r.payments.id, to: r.paymentRefunds.paymentId }),
-      planEntitlements: r.many.planEntitlements({ from: r.payments.id, to: r.planEntitlements.paymentId }),
+      planEntitlements: r.one.planEntitlements({ from: r.payments.id, to: r.planEntitlements.paymentId }),
     },
     paymentRefunds: {
       payment: r.one.payments({ from: r.paymentRefunds.paymentId, to: r.payments.id, optional: false }),
