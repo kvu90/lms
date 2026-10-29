@@ -21,14 +21,13 @@ import { fetchApiJson } from './lib/server-api';
 import { AppShellSkeleton } from './components/app-shell-skeleton';
 import './i18n';
 import '@lms/ui/globals.css';
-// CSS của KaTeX cho công thức toán trong rich text (@lms/editor): editor
-// không tự nạp CSS nên app nạp tại điểm CSS toàn cục này (bàn giao QE-1).
-import 'katex/dist/katex.min.css';
-// Vỏ trình bày của @lms/editor (lát E1 #248): khung vùng soạn, trạng
-// thái pressed của toolbar icon, panel công thức dạng overlay. Trước
-// lát này editor không có CSS nào — app nạp tại đây sau globals.css để
-// các biến token của @lms/ui đã sẵn sàng.
-import '@lms/editor/editor.css';
+// CSS của KaTeX và vỏ trình bày của @lms/editor KHÔNG còn nạp ở root
+// (issue #503, bước gọn CSS ở root theo số đo: một file CSS ~162,5 kB
+// giải nén từng đi theo mọi route): hai gói CSS đó nay nạp ngay tại các
+// route module thật sự dựng editor/công thức — trang soạn câu hỏi
+// (editor + KaTeX) và trang làm bài quiz (KaTeX cho RichTextView) — để
+// React Router cắt thành CSS riêng theo route. Thứ tự cascade được giữ:
+// CSS theo route luôn đứng sau globals.css của root trong tài liệu.
 
 /**
  * Đọc cookie `sidebar_state` (ui/sidebar ghi mỗi lần bật/tắt) từ một

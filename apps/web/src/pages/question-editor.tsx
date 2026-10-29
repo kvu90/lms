@@ -2,6 +2,15 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { QuestionCategory, QuestionView, StimulusView } from '@lms/contracts';
 import { composeMultipleChoiceDocument, splitMultipleChoiceDocument } from '@lms/editor';
+// CSS của editor và KaTeX nạp tại route module này (issue #503): trang
+// soạn câu hỏi là bề mặt duy nhất dựng các editor của @lms/editor (kèm
+// panel công thức) và xem trước bằng RichTextView có công thức KaTeX —
+// nạp tại đây để CSS chỉ đi theo hai route tạo/sửa câu hỏi thay vì mọi
+// route như khi nạp ở root. Vỏ trình bày của @lms/editor (lát E1 #248):
+// khung vùng soạn, trạng thái pressed của toolbar icon, panel công thức
+// dạng overlay; editor không tự nạp CSS nên app nạp tại bề mặt dùng nó.
+import '@lms/editor/editor.css';
+import 'katex/dist/katex.min.css';
 import { Button } from '@lms/ui/components/button';
 import { Card, CardContent } from '@lms/ui/components/card';
 import { FieldGroup } from '@lms/ui/components/field';
