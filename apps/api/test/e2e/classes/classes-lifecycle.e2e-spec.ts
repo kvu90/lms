@@ -24,8 +24,12 @@ import { createCategory, grantActiveTeacherPlan } from '../../support/course-enr
  *  (4) rời lớp → SUSPENDED ở mọi khoá; vào lại → ACTIVE lại;
  *  (5) thêm khoá mới vào lớp đang chạy → backfill ngay toàn bộ roster;
  *  (6) bền vững: chèn cohort_members + sự kiện outbox TRỰC TIẾP vào DB
- *      (bỏ qua đường in-process) → CohortSyncOutboxConsumer vẫn vật
- *      chất hoá ghi danh trong một chu kỳ quét;
+ *      (bỏ qua đường in-process) → consumer vật chất hoá ghi danh —
+ *      ca này đã chuyển sang tầng integration của worker cùng
+ *      consumer đồng bộ cohort (issue con #528 của #519), xem
+ *      `apps/worker/test/integration/enrol/cohort-sync-events-delivery.int-spec.ts`;
+ *      tiến trình API không còn consumer polling cho hai loại sự kiện
+ *      cohort nên ca không còn chạy được ở tầng e2e của API;
  *  (7) đình chỉ thủ công theo khoá mang vết modifierId = người thao
  *      tác (căn cứ để job đối soát tôn trọng ca "miễn môn");
  *  (8) đổi on_leave = unenrol → rời lớp thì ghi danh WITHDRAWN;
@@ -216,26 +220,15 @@ describe('class lifecycle (CLASS-0, #184)', () => {
     expect(await cohortUeStatus(course3, student2Id)).toBe(0);
   });
 
-  it('(6) bền vững: cohort_members + outbox ghi thẳng vào DB (không qua in-process) → consumer vật chất hoá ghi danh', async () => {
-    // Mô phỏng API chết sau khi cohort_members đã commit: chỉ còn dòng
-    // outbox làm bằng chứng — đường in-process không hề chạy.
-    await pg.query('insert into cohort_members (cohort_id, user_id) values ($1, $2)', [cohortId, student3Id]);
-    await pg.query(
-      `insert into outbox_events (aggregate, type, payload) values ('cohort', 'cohort_member_added', $1::jsonb)`,
-      [JSON.stringify({ cohortId, userId: student3Id })],
-    );
-    const deadline = Date.now() + 20000;
-    let status1: number | undefined;
-    let status2: number | undefined;
-    while (Date.now() < deadline) {
-      status1 = await cohortUeStatus(course1, student3Id);
-      status2 = await cohortUeStatus(course2, student3Id);
-      if (status1 === 0 && status2 === 0) break;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-    expect(status1).toBe(0);
-    expect(status2).toBe(0);
-  });
+  // (6) bền vững đã chuyển sang tầng integration của worker cùng
+  // consumer đồng bộ cohort (issue con #528 của #519):
+  // `apps/worker/test/integration/enrol/cohort-sync-events-delivery.int-spec.ts`
+  // giữ nguyên khẳng định nghiệp vụ (cohort_members + outbox ghi
+  // thẳng vào DB, không qua in-process → relay → hàng đợi →
+  // consumer vật chất hoá ghi danh) trên đường thật của production.
+  // Đường polling phía API đã gỡ nên ca này không còn chạy được ở
+  // tầng e2e của API (tiến trình API không còn consumer nào quét
+  // outbox cho hai loại sự kiện cohort).
 
   it('(7) đình chỉ thủ công theo khoá mang vết modifierId = giáo viên; kích hoạt lại xoá vết về đồng bộ', async () => {
     const instance = await cohortInstance(course1);

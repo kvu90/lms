@@ -8,7 +8,6 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { CourseEnrolmentsController, EnrolController } from './enrol.controller';
 import { EnrolRepository } from './enrol.repository';
 import { EnrolService } from './enrol.service';
-import { CohortSyncOutboxConsumer } from './cohort-sync-outbox.consumer';
 
 /**
  * Facade của EnrolModule: EnrolService. Phụ thuộc Courses, Groups, Access
@@ -21,7 +20,7 @@ import { CohortSyncOutboxConsumer } from './cohort-sync-outbox.consumer';
 @Module({
   imports: [AccessModule, CoursesModule, GroupsModule, EventsModule, MessagingModule, TenantsModule],
   controllers: [EnrolController, CourseEnrolmentsController],
-  providers: [EnrolRepository, EnrolService, CohortSyncOutboxConsumer],
+  providers: [EnrolRepository, EnrolService],
   exports: [EnrolService],
 })
 /** Module ghi danh. */
