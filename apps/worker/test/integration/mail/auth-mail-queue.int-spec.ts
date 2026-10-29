@@ -22,11 +22,13 @@ import {
  *   mang `jobId` bằng id của dòng và dữ liệu là toàn bộ dòng; dòng
  *   được đóng dấu `publishedAt` và phản chiếu vào `event_log` như
  *   mọi dòng outbox khác.
- * - Processor xử lý dữ liệu job đó bằng dấu đã xử lý trên Redis
- *   thật: gửi đúng một mail dựng từ template dùng chung, và xử lý
- *   lại cùng một sự kiện (cùng `outboxId`) không gửi lần hai —
- *   tính idempotent theo `outboxId` kiểm chứng ở tầng hạ tầng thật
- *   chứ không chỉ bằng bản giả trong bộ nhớ của spec unit.
+ * - Processor xử lý dữ liệu job đó bằng dấu trên Redis thật: gửi
+ *   đúng một mail dựng từ template dùng chung, xử lý lại cùng một
+ *   sự kiện (cùng `outboxId`) không gửi lần hai, và hai lượt xử lý
+ *   ĐỒNG THỜI cùng một sự kiện cũng chỉ gửi đúng một mail (chiếm
+ *   dấu nguyên tử `SET ... NX` phía Redis) — tính idempotent theo
+ *   `outboxId` kiểm chứng ở tầng hạ tầng thật chứ không chỉ bằng
+ *   bản giả trong bộ nhớ của spec unit.
  *
  * Vì sao processor ở ca thứ hai được dựng tay: module đã boot có
  * processor nền riêng đang tiêu thụ cùng hàng đợi (đúng như
@@ -45,6 +47,31 @@ class FakeMailer {
   async send(message: WorkerMailMessage): Promise<WorkerMailSendResult> {
     this.sent.push(message);
     return { status: 'sent', providerId: 'fake-resend-id' };
+  }
+}
+
+/**
+ * Transport giả có cổng chặn: mọi lượt `send` treo lại cho tới khi
+ * test mở cổng — ép hai lượt xử lý đồng thời chồng lấn tại cửa sổ
+ * gửi để kiểm chứng hàng rào chiếm dấu nguyên tử trên Redis thật.
+ */
+class GatedMailer {
+  readonly sent: WorkerMailMessage[] = [];
+  calls = 0;
+  private open!: () => void;
+  private readonly gate = new Promise<void>((resolve) => {
+    this.open = resolve;
+  });
+
+  async send(message: WorkerMailMessage): Promise<WorkerMailSendResult> {
+    this.calls += 1;
+    await this.gate;
+    this.sent.push(message);
+    return { status: 'sent', providerId: 'fake-resend-id' };
+  }
+
+  openGate(): void {
+    this.open();
   }
 }
 
@@ -153,6 +180,60 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
       expect(mailer.sent[0]?.text).toContain('482916');
     } finally {
       await marker.onModuleDestroy();
+    }
+  });
+
+  it('hai lượt xử lý đồng thời cùng outboxId trên dấu Redis thật chỉ gửi đúng một mail', async () => {
+    // Hai processor và hai bản dấu riêng (mỗi bản một kết nối) trên
+    // cùng một Redis — mô phỏng hai tiến trình worker cùng nhận xử
+    // lý một sự kiện (job mất khoá BullMQ được nhận lại trong lúc
+    // lượt đầu còn đang gửi).
+    const mailer = new GatedMailer();
+    const makeMarker = () =>
+      new RedisAuthMailSentMarker({
+        getOrThrow: (key: string) => process.env[key],
+      } as unknown as ConfigService);
+    const markerA = makeMarker();
+    const markerB = makeMarker();
+    const processorA = new AuthMailProcessor(mailer as never, markerA);
+    const processorB = new AuthMailProcessor(mailer as never, markerB);
+    const outboxId = `0191e8f2-7c3a-7b21-9f01-${suffix.slice(-12).padStart(12, '0')}`;
+    const job = {
+      data: {
+        outboxId,
+        seq: 2,
+        aggregate: 'auth',
+        type: 'auth_mail_requested',
+        payload: { kind: 'email_otp', to: recipient, otp: '730215', otpType: 'sign-in' },
+        tenantId: null,
+        occurredAt: new Date().toISOString(),
+      },
+    };
+
+    try {
+      const first = processorA.process(job as never);
+      let secondSettled = false;
+      const second = processorB.process(job as never).then((result) => {
+        secondSettled = true;
+        return result;
+      });
+
+      // Chờ đường đua bộc lộ: cả hai lượt cùng tới transport (hàng
+      // rào thủng) hoặc lượt thứ hai bị chặn và kết thúc trước.
+      const deadline = Date.now() + 10000;
+      while (!(mailer.calls >= 2 || secondSettled)) {
+        if (Date.now() > deadline) throw new Error('Hết hạn chờ hai lượt xử lý đồng thời tới điểm quyết định');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      mailer.openGate();
+
+      const results = await Promise.all([first, second]);
+      expect(mailer.calls).toBe(1);
+      expect(mailer.sent).toHaveLength(1);
+      expect(results.map((result) => result.status).sort()).toEqual(['duplicate', 'sent']);
+    } finally {
+      await markerA.onModuleDestroy();
+      await markerB.onModuleDestroy();
     }
   });
 });

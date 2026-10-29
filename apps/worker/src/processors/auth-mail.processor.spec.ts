@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import type { OutboxEventJobData } from '../outbox-event-routes';
 import type { ResendMailService, WorkerMailMessage, WorkerMailSendResult } from '../resend-mail.service';
@@ -16,6 +16,10 @@ import { AuthMailProcessor, type AuthMailSentMarker } from './auth-mail.processo
  *   hai — tính idempotent theo `outboxId` là hàng rào chống tác
  *   dụng phụ trùng ngoài cửa sổ chống trùng bằng `jobId` của
  *   BullMQ, nên ca phát lại là ca trung tâm của spec này.
+ * - Hai lượt xử lý ĐỒNG THỜI cùng một sự kiện cũng chỉ gửi đúng
+ *   một mail: hàng rào là chiếm dấu nguyên tử trước khi gửi, nên
+ *   ca đồng thời (transport có cổng chặn ép hai lượt chồng lấn)
+ *   ghim đường đua mà kiểm tra-rồi-ghi dấu rời nhau từng để lọt.
  * - Lỗi gửi tạm thời không để lại dấu đã xử lý: job bị ném lỗi cho
  *   hàng đợi thử lại và lần xử lý sau gửi được, tổng cộng vẫn đúng
  *   một mail.
@@ -44,7 +48,41 @@ class FakeMailer {
   }
 }
 
-/** Dấu đã xử lý giả trong bộ nhớ, đúng hợp đồng {@link AuthMailSentMarker}. */
+/**
+ * Transport giả có cổng chặn: mọi lượt `send` treo lại cho tới khi
+ * test mở cổng — dùng để ép hai lượt xử lý ĐỒNG THỜI cùng một sự
+ * kiện chồng lấn lên nhau tại đúng cửa sổ gửi, tái hiện đường đua
+ * chống trùng (job bị nhận xử lý lại trong khi lượt trước còn đang
+ * gửi).
+ */
+class GatedMailer {
+  readonly sent: WorkerMailMessage[] = [];
+  /** Số lần `send` được gọi — mỗi lượt xử lý tới được transport đều tăng biến này. */
+  calls = 0;
+  private open!: () => void;
+  private readonly gate = new Promise<void>((resolve) => {
+    this.open = resolve;
+  });
+
+  async send(message: WorkerMailMessage): Promise<WorkerMailSendResult> {
+    this.calls += 1;
+    await this.gate;
+    this.sent.push(message);
+    return { status: 'sent', providerId: 'fake-resend-id' };
+  }
+
+  /** Mở cổng: mọi lượt gửi đang treo hoàn tất. */
+  openGate(): void {
+    this.open();
+  }
+}
+
+/**
+ * Dấu chiếm/đã xử lý giả trong bộ nhớ, đúng hợp đồng
+ * {@link AuthMailSentMarker}. `claim` kiểm tra-và-ghi trong một
+ * khối đồng bộ không có điểm chờ ở giữa, nên nguyên tử đúng như
+ * `SET ... NX` phía Redis trên vòng lặp sự kiện đơn luồng.
+ */
 class FakeSentMarker implements AuthMailSentMarker {
   private readonly marked = new Set<string>();
 
@@ -52,8 +90,14 @@ class FakeSentMarker implements AuthMailSentMarker {
     return this.marked.has(outboxId);
   }
 
-  async mark(outboxId: string): Promise<void> {
+  async claim(outboxId: string): Promise<boolean> {
+    if (this.marked.has(outboxId)) return false;
     this.marked.add(outboxId);
+    return true;
+  }
+
+  async release(outboxId: string): Promise<void> {
+    this.marked.delete(outboxId);
   }
 }
 
@@ -124,6 +168,37 @@ describe('AuthMailProcessor (consumer mail auth trên hàng đợi ở worker)',
     expect(replay.status).toBe('duplicate');
     expect(mailer.calls).toBe(1);
     expect(mailer.sent).toHaveLength(1);
+  });
+
+  it('hai lượt xử lý đồng thời cùng một sự kiện (cùng outboxId) chỉ gửi đúng một mail', async () => {
+    const mailer = new GatedMailer();
+    const processor = new AuthMailProcessor(mailer as unknown as ResendMailService, new FakeSentMarker());
+    const job = makeJob({ kind: 'password_reset', to: 'user@example.com', url: RESET_URL });
+
+    // Hai lượt xử lý cùng một job chạy chồng lấn: lượt thứ hai bắt
+    // đầu khi lượt thứ nhất còn đang treo ở transport (cổng chưa
+    // mở) — đúng tình huống job bị nhận xử lý lại sau khi mất khoá
+    // BullMQ trong lúc lượt đầu chưa gửi xong.
+    const first = processor.process(job);
+    let secondSettled = false;
+    const second = processor.process(job).then((result) => {
+      secondSettled = true;
+      return result;
+    });
+
+    // Chờ tới khi đường đua bộc lộ: hoặc cả hai lượt cùng tới được
+    // transport (hàng rào thủng — ca này phải đỏ trên cơ chế kiểm
+    // tra-rồi-ghi dấu rời nhau), hoặc lượt thứ hai đã bị hàng rào
+    // chặn lại và kết thúc trước khi gửi.
+    await vi.waitFor(() => {
+      expect(mailer.calls >= 2 || secondSettled).toBe(true);
+    });
+    mailer.openGate();
+
+    const results = await Promise.all([first, second]);
+    expect(mailer.calls).toBe(1);
+    expect(mailer.sent).toHaveLength(1);
+    expect(results.map((result) => result.status).sort()).toEqual(['duplicate', 'sent']);
   });
 
   it('hai sự kiện khác outboxId thì gửi hai mail riêng, dấu của sự kiện này không chặn sự kiện kia', async () => {
