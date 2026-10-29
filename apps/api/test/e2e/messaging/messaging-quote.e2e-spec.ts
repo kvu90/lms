@@ -1,7 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { AddressInfo } from 'node:net';
 import { Client } from 'pg';
-import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
@@ -24,8 +22,12 @@ import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../
  *  - tin gốc bị thu hồi / bị tác giả ẩn phía mình → quote chuyển
  *    `unavailable`, excerpt rỗng, nội dung gốc KHÔNG xuất hiện ở bất
  *    kỳ trường nào của payload người thường; tin gốc bị moderator
- *    xoá cứng → tham chiếu mất hẳn (replyTo null qua FK SET NULL);
- *  - realtime `message.new` mang đủ dữ kiện trích dẫn.
+ *    xoá cứng → tham chiếu mất hẳn (replyTo null qua FK SET NULL).
+ * Khẳng định realtime "`message.new` mang đủ dữ kiện trích dẫn" không
+ * còn ở file này: từ issue #521, phân phối realtime chạy ở hàng đợi
+ * phía worker (không còn consumer trong tiến trình API để phát tới
+ * socket gắn ở đây) — khẳng định đó cư trú ở spec tích hợp
+ * `apps/worker/test/integration/messaging/messaging-realtime-queue.int-spec.ts`.
  * Trạng thái xoá mềm toàn cục (deletedAt) hiện không còn đường API
  * nào đặt (luật quote vẫn xử lý cho dữ liệu cũ + moderator) — hai
  * trạng thái "không còn hiển thị" kiểm chứng sống ở đây là thu hồi
@@ -44,9 +46,7 @@ interface MessageBody {
 }
 
 let app: INestApplication;
-let base: string;
 let admin: string;
-const sockets: Socket[] = [];
 
 let counter = 0;
 async function person(_prefix: string): Promise<Person> {
@@ -117,7 +117,6 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
     app = await createTestApp();
     const server = app.getHttpServer();
     await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', () => resolve()); });
-    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     admin = await adminToken(app);
 
     a = await person('a');
@@ -147,7 +146,6 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
   }, 180000);
 
   afterAll(async () => {
-    for (const socket of sockets) socket.disconnect();
     // Dọn site-config trần ký tự nếu ca trần chết giữa chừng.
     await http(app).delete('/api/v1/site-config/core/messagingmaxmessagelength')
       .set('Authorization', `Bearer ${admin}`).catch(() => undefined);
@@ -302,39 +300,4 @@ describe('Messaging M3 — trả lời trích dẫn (issue #229)', () => {
     expect(seen?.replyTo).toBeNull();
   });
 
-  it('8. realtime: message.new mang đủ dữ kiện trích dẫn cho phía nhận', async () => {
-    const socket: Socket = io(`${base}/messaging`, {
-      auth: { token: b.token }, transports: ['websocket'], reconnection: false,
-    });
-    sockets.push(socket);
-    await new Promise<void>((resolve, reject) => {
-      socket.on('connect', () => resolve());
-      socket.on('connect_error', (err) => reject(err));
-    });
-
-    const original = await send(b.token, convId, 'tin gốc cho realtime');
-    expect(original.status).toBe(201);
-
-    const eventPromise = new Promise<{ message: MessageBody }>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('không nhận được message.new trong 10s')), 10000);
-      socket.on('message.new', (payload: { message: MessageBody }) => {
-        if (payload.message.replyToMessageId === (original.body.id as string)) {
-          clearTimeout(timer);
-          resolve(payload);
-        }
-      });
-    });
-    const reply = await send(a.token, convId, 'trả lời qua realtime', original.body.id as string);
-    expect(reply.status).toBe(201);
-
-    const payload = await eventPromise;
-    expect(payload.message.id).toBe(reply.body.id as string);
-    expect(payload.message.replyTo).toMatchObject({
-      id: original.body.id as string,
-      userIdFrom: b.id,
-      excerpt: 'tin gốc cho realtime',
-      unavailable: false,
-    });
-    socket.disconnect();
-  });
 });

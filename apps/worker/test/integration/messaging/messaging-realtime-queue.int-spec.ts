@@ -43,11 +43,13 @@ import {
  *
  * Các ca ở đây là nơi cư trú mới của các khẳng định phân phối vốn
  * nằm ở e2e phía API (messaging-realtime-flow, messaging-message-
- * lifecycle ca 6, messaging-block-visibility ca biên đã-đọc) và ở
- * spec neo watermark phía API (messaging-outbox-reanchor) — cùng
- * khẳng định hành vi quan sát được, đổi cơ chế vận hành:
+ * lifecycle ca 6, messaging-block-visibility ca biên đã-đọc,
+ * messaging-quote ca 8) và ở spec neo watermark phía API
+ * (messaging-outbox-reanchor) — cùng khẳng định hành vi quan sát
+ * được, đổi cơ chế vận hành:
  *  - tin mới tới đúng room, `conversation.updated` mang số chưa đọc
  *    của CHÍNH từng thành viên;
+ *  - `message.new` của tin trả lời mang đủ dữ kiện trích dẫn;
  *  - biên đã-đọc tới các thành viên còn lại;
  *  - thứ tự phát theo đúng thứ tự sự kiện;
  *  - thành viên đã bị gỡ khỏi conversation không nhận tin nữa và
@@ -168,7 +170,7 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
 
   async function makeMessage(opts: {
     conversationId: string; userIdFrom: string; seq: number; text: string;
-    recalledAt?: Date; recalledBy?: string;
+    recalledAt?: Date; recalledBy?: string; replyToMessageId?: string;
   }): Promise<string> {
     const id = randomUUID();
     await db.insert(message).values({
@@ -179,6 +181,7 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
       fullMessage: opts.text,
       smallMessage: opts.text,
       seq: opts.seq,
+      replyToMessageId: opts.replyToMessageId ?? null,
       recalledAt: opts.recalledAt ?? null,
       recalledBy: opts.recalledBy ?? null,
     });
@@ -202,6 +205,7 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
   /** Ghi một tin + sự kiện message_sent như transaction gửi tin phía API, rồi relay và chờ phân phối chốt. */
   async function sendAndDistribute(opts: {
     conversationId: string; userIdFrom: string; seq: number; text: string; tenantId: string | null;
+    replyToMessageId?: string;
   }): Promise<{ messageId: string; outboxId: string }> {
     const messageId = await makeMessage(opts);
     const outboxId = await insertOutbox('message_sent', {
@@ -278,6 +282,32 @@ describe('Worker — phân phối realtime messaging qua hàng đợi (issue #52
     expect(updatedOf('b')!.unreadCount).toBe(2);
     expect(updatedOf('a')!.unreadCount).toBe(1);
     expect(updatedOf('c')!.unreadCount).toBe(2);
+  });
+
+  it('message.new của tin trả lời mang đủ dữ kiện trích dẫn cho phía nhận', async () => {
+    const tenantId = randomUUID();
+    await makeTenant(tenantId);
+    const [a, b] = [randomUUID(), randomUUID()];
+    for (const u of [a, b]) await makeUser(u);
+    const convId = await makeConversation({ type: 1, tenantId, memberIds: [a, b] });
+    await connectClient('b-quote', { userId: b, tenantId, conversationIds: [convId] });
+
+    const originalId = await makeMessage({ conversationId: convId, userIdFrom: b, seq: 1, text: 'tin gốc cho realtime' });
+    const { messageId } = await sendAndDistribute({
+      conversationId: convId, userIdFrom: a, seq: 2, text: 'trả lời qua realtime', tenantId, replyToMessageId: originalId,
+    });
+
+    await waitUntil(() => eventsOf('b-quote', 'message.new').length === 1, 10000, 'B nhận message.new của tin trả lời');
+    const payload = eventsOf('b-quote', 'message.new')[0]!.payload as {
+      message: { id: string; replyTo: { id: string; userIdFrom: string; excerpt: string; unavailable: boolean } | null };
+    };
+    expect(payload.message.id).toBe(messageId);
+    expect(payload.message.replyTo).toMatchObject({
+      id: originalId,
+      userIdFrom: b,
+      excerpt: 'tin gốc cho realtime',
+      unavailable: false,
+    });
   });
 
   it('phân phối biên đã-đọc tới các thành viên còn lại kèm mốc của người đọc', async () => {
