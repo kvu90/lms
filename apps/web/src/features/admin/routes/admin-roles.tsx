@@ -252,6 +252,10 @@ export function AdminRolesPage() {
           // Query ma trận chỉ bật khi sửa một vai; ở chế độ tạo, query bị
           // tắt vẫn mang trạng thái pending nên không được truyền thẳng.
           matrixPending={matrixRole !== null && matrixQuery.isPending}
+          // Lỗi tải ma trận cũng phải vào hộp thoại: ma trận trống do lỗi
+          // mà vẫn cho lưu thì PUT thay toàn bộ sẽ xoá lặng ghi đè đã lưu.
+          matrixError={matrixRole !== null && matrixQuery.isError}
+          onMatrixRetry={() => void matrixQuery.refetch()}
           contexts={contexts}
           onClose={() => setMatrixDialog(null)}
         />

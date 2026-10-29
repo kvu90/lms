@@ -29,6 +29,11 @@ import { groupCapabilitiesByResource, verbOfCapability, type RoleMatrixDraft } f
  *    xoá sạch sửa đổi của ngữ cảnh trước nên ma trận không bao giờ lẫn
  *    ghi đè giữa hai ngữ cảnh; ma trận tải về muộn cũng tự đúng vì giá
  *    trị suy ra trực tiếp từ props, không qua state đồng bộ bằng effect.
+ *    Cổng an toàn ở chế độ sửa: nút Lưu bị chặn cho tới khi ma trận tải
+ *    thành công — lưu khi ma trận chưa về hoặc tải lỗi sẽ gửi PUT thay
+ *    toàn bộ mang tập gần rỗng và xoá lặng ghi đè đã lưu; khi tải lỗi,
+ *    hộp thoại hiện thông báo lỗi kèm nút thử lại thay vì hiện ma trận
+ *    trống.
  * 3. Chọn nhanh: chọn một trạng thái rồi bấm áp — theo hàng (mọi ô
  *    trong nhóm resource đó) hoặc toàn cục (mọi ô trong ma trận).
  * 4. Lưu: khi tạo — tạo vai trò trước, rồi lưu ma trận bằng endpoint
@@ -40,8 +45,9 @@ import { groupCapabilitiesByResource, verbOfCapability, type RoleMatrixDraft } f
  *    trận, không tạo vai trò trùng.
  *
  * @param props - Trạng thái mở, chế độ tạo/sửa, vai đang sửa, danh mục
- *   năng lực, các dòng ma trận đã lưu (mọi ngữ cảnh), cây context và
- *   hàm đóng hộp thoại.
+ *   năng lực, các dòng ma trận đã lưu (mọi ngữ cảnh), trạng thái tải
+ *   và tải lỗi của ma trận, hàm tải lại ma trận, cây context và hàm
+ *   đóng hộp thoại.
  */
 export interface RoleMatrixDialogProps {
   /** Hộp thoại đang mở hay không. */
@@ -56,6 +62,10 @@ export interface RoleMatrixDialogProps {
   matrixRows: RoleCapabilityRow[];
   /** Ma trận đã lưu đang tải hay không. */
   matrixPending: boolean;
+  /** Ma trận đã lưu tải lỗi hay không — chỉ bật ở chế độ sửa. */
+  matrixError: boolean;
+  /** Tải lại ma trận đã lưu (nút thử lại khi tải lỗi). */
+  onMatrixRetry: () => void;
   /** Cây context phân quyền từ `GET /access/contexts`. */
   contexts: ContextRow[];
   /** Đóng hộp thoại (sau khi lưu thành công hoặc khi người dùng huỷ). */
@@ -75,6 +85,8 @@ export function RoleMatrixDialog({
   capabilities,
   matrixRows,
   matrixPending,
+  matrixError,
+  onMatrixRetry,
   contexts,
   onClose,
 }: RoleMatrixDialogProps) {
@@ -204,7 +216,15 @@ export function RoleMatrixDialog({
   }
 
   const title = mode === 'create' ? t('roleDialogCreateTitle') : t('roleDialogEditTitle');
-  const canSave = name.trim() !== '' && (mode === 'edit' || shortName.trim() !== '') && contextId !== '' && !saving;
+  /**
+   * Chế độ sửa chỉ lưu được khi ma trận đã tải thành công: đang tải
+   * hoặc tải lỗi mà vẫn cho lưu thì PUT thay toàn bộ mang tập gần
+   * rỗng (mọi ô tính là kế thừa) và xoá lặng ghi đè đã lưu tại ngữ
+   * cảnh đó. Chế độ tạo không có ma trận đã lưu nên không cần cổng.
+   */
+  const matrixReady = mode === 'create' || (!matrixPending && !matrixError);
+  const canSave =
+    name.trim() !== '' && (mode === 'edit' || shortName.trim() !== '') && contextId !== '' && !saving && matrixReady;
 
   return (
     <div
@@ -285,7 +305,16 @@ export function RoleMatrixDialog({
         <div className="mt-6">
           <h3 className="text-sm font-semibold">{t('roleMatrix')}</h3>
           <p className="mb-3 text-xs text-muted-foreground">{t('roleMatrixHint')}</p>
-          {matrixPending ? (
+          {matrixError ? (
+            <>
+              <ErrorAlert variant="destructive" className="mb-3">
+                {t('roleMatrixLoadFailed')}
+              </ErrorAlert>
+              <Button type="button" variant="outline" size="sm" onClick={onMatrixRetry}>
+                {t('retry')}
+              </Button>
+            </>
+          ) : matrixPending ? (
             <p className="text-sm text-muted-foreground">{t('loading')}</p>
           ) : (
             <>

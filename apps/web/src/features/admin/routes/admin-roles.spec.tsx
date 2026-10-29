@@ -9,7 +9,10 @@ import { AdminRolesPage } from './admin-roles';
  * Spec đợt 2 cho trang vai trò: lưới thẻ dựng từ dữ kiện tổng hợp của
  * đợt 1 (đúng một lần gọi danh sách), hộp thoại thêm/sửa kèm ma trận
  * bốn trạng thái lưu bằng một lần gọi thay toàn bộ, và hộp thoại xác
- * nhận xoá hiển thị đúng lý do backend chặn.
+ * nhận xoá hiển thị đúng lý do backend chặn. Kèm cổng chặn lưu ở chế
+ * độ sửa khi ma trận chưa tải xong hoặc tải lỗi (lưu sớm sẽ xoá lặng
+ * ghi đè đã lưu), và ca xoá thành công dùng vai trò thường đúng luật
+ * backend thay vì vai dựng sẵn.
  *
  * Giữ lại hai kiểm chứng F-01 cũ: ba danh sách (vai / capability /
  * context) là ba query TanStack, và mutation gán vai làm mới các truy
@@ -29,9 +32,16 @@ interface RecordedCall {
 interface StubOptions {
   /** DELETE /access/roles/:id trả về mã lỗi này thay vì thành công. */
   deleteErrorCode?: string;
+  /** Cách truy vấn ma trận của vai đang sửa phản hồi: treo mãi, lỗi lần đầu rồi thành công, hoặc luôn lỗi. */
+  matrixBehavior?: 'pending' | 'errorOnce' | 'errorAlways';
+  /** Ghi đè archetype của vai trò duy nhất trong fixture (mặc định 'editingteacher'). */
+  roleArchetype?: string | null;
+  /** Ghi đè số người giữ của vai trò duy nhất trong fixture (mặc định 5). */
+  roleUserCount?: number;
 }
 
 function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
+  let matrixCalls = 0;
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: RequestInit) => {
@@ -46,8 +56,8 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
             name: 'Giáo viên',
             shortName: 'editingteacher',
             description: '',
-            archetype: 'editingteacher',
-            userCount: 5,
+            archetype: options.roleArchetype === undefined ? 'editingteacher' : options.roleArchetype,
+            userCount: options.roleUserCount ?? 5,
             overrideCount: 3,
             readOverrideCount: 2,
             writeOverrideCount: 1,
@@ -84,11 +94,19 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           { id: TENANT_CONTEXT_ID, contextLevel: 20, instanceId: '1', path: '/1/2' },
         ]);
       if (url === '/api/v1/access/assignments' && method === 'POST') return respond({});
-      if (url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && method === 'GET')
+      if (url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && method === 'GET') {
+        if (options.matrixBehavior === 'pending') return new Promise<Response>(() => {});
+        if (options.matrixBehavior === 'errorAlways')
+          return respond({ type: 'about:blank', title: 'Lỗi tải ma trận', status: 500 }, 500);
+        if (options.matrixBehavior === 'errorOnce') {
+          matrixCalls += 1;
+          if (matrixCalls === 1) return respond({ type: 'about:blank', title: 'Lỗi tải ma trận', status: 500 }, 500);
+        }
         return respond([
           { roleId: ROLE_ID, capability: 'course:view', contextId: SYSTEM_CONTEXT_ID, permission: -1 },
           { roleId: ROLE_ID, capability: 'course:edit', contextId: TENANT_CONTEXT_ID, permission: 1 },
         ]);
+      }
       if (url === '/api/v1/access/roles' && method === 'POST')
         return respond({
           id: NEW_ROLE_ID,
@@ -307,6 +325,40 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     });
   });
 
+  it('sửa vai trò khi ma trận chưa tải xong thì nút Lưu bị chặn và không phát sinh yêu cầu ghi', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { matrixBehavior: 'pending' });
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    // Ma trận vẫn đang tải nên chỉ hiện chữ tải, chưa có ô nào; nút Lưu bị chặn.
+    expect(within(dialog).getByText('Đang tải…')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
+    expect(calls.some((c) => c.method === 'PUT' || c.method === 'PATCH')).toBe(false);
+  });
+
+  it('sửa vai trò khi tải ma trận lỗi thì hiện lỗi, chặn Lưu, và thử lại tải được ma trận', async () => {
+    const calls: RecordedCall[] = [];
+    stubFetch(calls, { matrixBehavior: 'errorOnce' });
+    renderPage();
+
+    await screen.findByText('Giáo viên');
+    await openEditDialog();
+    const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
+    expect(
+      await within(dialog).findByText('Không tải được ma trận quyền của vai trò. Thử tải lại trước khi lưu.'),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeDisabled();
+    expect(calls.some((c) => c.method === 'PUT' || c.method === 'PATCH')).toBe(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Thử lại' }));
+    // Sau thử lại, ma trận tải thành công: course:view đã lưu Ngăn chặn (−1) ở ngữ cảnh hệ thống.
+    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'));
+    expect(within(dialog).getByRole('button', { name: 'Lưu vai trò' })).toBeEnabled();
+  });
+
   it('xoá vai trò bị backend chặn thì hiển thị đúng lý do và giữ nguyên vai trò', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { deleteErrorCode: 'access.role_has_assignments' });
@@ -326,7 +378,9 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
   });
 
   it('xoá vai trò thường không còn người giữ thì thành công và hộp thoại đóng', async () => {
-    stubFetch([]);
+    // Fixture vai trò thường (không archetype, 0 người giữ): ca này trước
+    // đây dùng vai dựng sẵn nên không kiểm chứng đúng trường hợp thật.
+    stubFetch([], { roleArchetype: null, roleUserCount: 0 });
     renderPage();
 
     await screen.findByText('Giáo viên');

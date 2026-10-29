@@ -633,6 +633,7 @@ export const appResources = {
       selectContext: 'Chọn một ngữ cảnh…',
       roleMatrix: 'Ma trận quyền',
       roleMatrixHint: 'Ma trận chỉ hiển thị các ghi đè đã lưu tại ngữ cảnh đang chọn.',
+      roleMatrixLoadFailed: 'Không tải được ma trận quyền của vai trò. Thử tải lại trước khi lưu.',
       roleQuickApply: 'Chọn nhanh',
       roleQuickApplyRow: 'Chọn nhanh cho nhóm {{resource}}',
       applyToRow: 'Áp cho hàng',

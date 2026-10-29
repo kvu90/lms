@@ -632,6 +632,7 @@ export const enResources = {
     selectContext: 'Select a context…',
     roleMatrix: 'Permission matrix',
     roleMatrixHint: 'The matrix only shows overrides saved at the selected context.',
+    roleMatrixLoadFailed: 'Could not load the role permission matrix. Retry before saving.',
     roleQuickApply: 'Quick apply',
     roleQuickApplyRow: 'Quick apply for group {{resource}}',
     applyToRow: 'Apply to row',
