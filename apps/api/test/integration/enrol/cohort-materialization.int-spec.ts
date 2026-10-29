@@ -1,10 +1,17 @@
 import type { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CohortMaterializationSurface, type SharedOutboxPort } from '@lms/enrol';
+import Redis from 'ioredis';
 import { createTestApp } from '../../support/identity-access-helpers';
 import { CompletionReaggregationOutboxConsumer } from '../../../src/modules/completion/completion-reaggregation-outbox.consumer';
+import { CompletionService } from '../../../src/modules/completion/completion.service';
+import { EnrolRepository } from '../../../src/modules/enrol/enrol.repository';
 import { EnrolService } from '../../../src/modules/enrol/enrol.service';
+import { OutboxService } from '../../../src/infra/events/outbox.service';
+import { tenantAls } from '../../../src/modules/tenants/tenant-als';
 
 /**
  * Spec đặc tả hoá (characterization) cho bề mặt vật chất hoá cohort
@@ -46,6 +53,16 @@ import { EnrolService } from '../../../src/modules/enrol/enrol.service';
  *   hoàn thành cho người vừa rời (trước khi consumer chạy thì chưa
  *   hoàn thành — đường tái tổng hợp nay là đường sự kiện, không còn
  *   là hook đồng bộ trong lúc rút);
+ * - consumer khởi tạo lần đầu (watermark chưa từng được lưu, khoá
+ *   Redis vắng) vẫn tiêu thụ yêu cầu tái tổng hợp đã ghi TRƯỚC lúc
+ *   khởi tạo — loại sự kiện này sinh ra cùng chính consumer nên
+ *   không có lịch sử của chính nó để neo qua như khuôn consumer
+ *   của các loại sự kiện cũ;
+ * - ở nhánh xoá cứng, việc xoá dòng ghi danh nằm trong cùng
+ *   transaction với hai sự kiện: sự kiện tái tổng hợp không bao
+ *   giờ nhìn thấy được trong lúc dòng ghi danh còn tồn tại, và
+ *   transaction rollback thì cả việc xoá lẫn hai sự kiện cùng
+ *   biến mất, dòng ghi danh còn nguyên;
  * - funnel trực tiếp `enrolUserInternal` vẫn từ chối ghi danh học
  *   viên cho người có cấp quyền giảng dạy bao phủ khoá bằng lỗi 400
  *   mã `access.role_context_conflict`.
@@ -146,6 +163,19 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
       [userId, graph.courseCtxId],
     );
     return res.rows as Array<Record<string, unknown>>;
+  }
+
+  /**
+   * Dựng hình dạng dòng enrol (camelCase) mà funnel nhận từ các
+   * đường gọi trong tiến trình — cùng khuôn ca kiểm funnel trực
+   * tiếp ở trên, dùng cho các ca lái thẳng bề mặt dùng chung.
+   */
+  function instanceLiteral(graph: CourseGraph): Parameters<CohortMaterializationSurface['unenrolInternal']>[0] {
+    return {
+      id: graph.instanceId, courseId: graph.courseId, enrol: 'cohort', status: 0,
+      roleId: studentRoleId, enrolPeriod: 0, customInt1: graph.cohortId,
+      customInt2: graph.groupId, customText1: 'unenrol',
+    } as unknown as Parameters<CohortMaterializationSurface['unenrolInternal']>[0];
   }
 
   beforeAll(async () => {
@@ -421,5 +451,150 @@ describe('Vật chất hoá cohort dùng chung — đặc tả hoá hành vi ở
       [userId, graph.courseId],
     );
     expect((after.rows[0] as { status: string } | undefined)?.status).toBe('complete');
+  });
+
+  it('consumer khởi tạo lần đầu khi khoá watermark chưa từng được lưu thì vẫn xử lý yêu cầu tái tổng hợp đã ghi trước lúc khởi tạo', async () => {
+    const graph = await makeCourseGraph({ onLeave: 'unenrol' });
+    const userId = await insertUser();
+    await pg.query(
+      "INSERT INTO course_completion_criteria (course, criteria_type) VALUES ($1, 'unenrol')",
+      [graph.courseId],
+    );
+    await addMember(graph, userId);
+    await removeMember(graph, userId);
+
+    // Yêu cầu tái tổng hợp đã nằm trong outbox TRƯỚC khi consumer
+    // khởi tạo, và trước khi consumer chạy thì khoá chưa hoàn thành.
+    expect(await outboxOf('course_completion_reaggregation_requested', userId)).toHaveLength(1);
+    const before = await pg.query(
+      "SELECT status FROM course_completions WHERE user_id = $1 AND course = $2 AND status = 'complete'",
+      [userId, graph.courseId],
+    );
+    expect(before.rows).toHaveLength(0);
+
+    // Trạng thái khởi tạo thật của một tiến trình mới: watermark
+    // trong bộ nhớ chưa có và khoá watermark trong Redis vắng —
+    // consumer phải tự quyết mốc bắt đầu qua đường OnModuleInit
+    // của chính nó, không được neo qua yêu cầu đã ghi ở trên.
+    const databaseName = new URL(process.env.DATABASE_URL!).pathname.replace(/^\//, '');
+    const redis = new Redis(process.env.REDIS_URL!);
+    await redis.del(`lms:completion-reaggregation:${databaseName}:seq`);
+    const fresh = new CompletionReaggregationOutboxConsumer(
+      app.get(ConfigService),
+      app.get(EnrolRepository).dbHandle,
+      app.get(CompletionService),
+    );
+    try {
+      fresh.onModuleInit();
+      // Consumer quét theo nhịp 1 giây của chính nó: chờ nó tiêu
+      // thụ yêu cầu đã ghi trước và biến khoá thành hoàn thành.
+      const deadline = Date.now() + 20_000;
+      let status: string | undefined;
+      while (Date.now() < deadline) {
+        const res = await pg.query(
+          'SELECT status FROM course_completions WHERE user_id = $1 AND course = $2',
+          [userId, graph.courseId],
+        );
+        status = (res.rows[0] as { status: string } | undefined)?.status;
+        if (status === 'complete') break;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      expect(status).toBe('complete');
+    } finally {
+      await fresh.onModuleDestroy();
+      await redis.quit();
+    }
+  });
+
+  it('rời khoá ở nhánh xoá cứng thì sự kiện tái tổng hợp chỉ nhìn thấy được sau khi dòng ghi danh đã biến mất', async () => {
+    const graph = await makeCourseGraph({ onLeave: 'unenrol' });
+    const userId = await insertUser();
+    await addMember(graph, userId);
+
+    // Bề mặt dựng bằng tay cầm DB bọc quanh tay cầm thật: ngay khi
+    // transaction của unenrolInternal commit xong — thời điểm sự
+    // kiện trở nên nhìn thấy được với mọi kết nối khác — mà TRƯỚC
+    // khi hàm chạy bất kỳ bước nào tiếp theo, đọc lại từ kết nối
+    // độc lập của spec xem sự kiện và dòng ghi danh có cùng tồn
+    // tại hay không. Consumer quét mỗi giây chỉ được phép quan
+    // sát sự kiện khi dòng ghi danh đã biến mất, vì tiêu chí
+    // 'unenrol' đọc chính dòng đó.
+    const realDb = app.get(EnrolRepository).dbHandle;
+    const observed: { current: { eventVisible: boolean; enrolmentPresent: boolean } | null } = { current: null };
+    const wrappedDb = new Proxy(realDb, {
+      get(target, prop) {
+        if (prop === 'transaction') {
+          return async (callback: (tx: unknown) => Promise<unknown>): Promise<unknown> => {
+            const result = await Reflect.apply(target.transaction, target, [callback]) as unknown;
+            if (observed.current === null) {
+              const ev = await pg.query(
+                "SELECT COUNT(*)::int AS n FROM outbox_events WHERE type = 'course_completion_reaggregation_requested' AND payload ->> 'userId' = $1",
+                [userId],
+              );
+              observed.current = {
+                eventVisible: Number((ev.rows[0] as { n: number }).n) > 0,
+                enrolmentPresent: (await ueRow(graph.instanceId, userId)) !== undefined,
+              };
+            }
+            return result;
+          };
+        }
+        const value = Reflect.get(target, prop) as unknown;
+        return typeof value === 'function' ? (value as (...args: never[]) => unknown).bind(target) : value;
+      },
+    });
+    const surface = new CohortMaterializationSurface({
+      db: wrappedDb,
+      outbox: app.get(OutboxService),
+      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+    });
+
+    await surface.unenrolInternal(instanceLiteral(graph), userId);
+
+    expect(observed.current).not.toBeNull();
+    expect(observed.current?.eventVisible).toBe(true);
+    expect(observed.current?.enrolmentPresent).toBe(false);
+    expect(await ueRow(graph.instanceId, userId)).toBeUndefined();
+    expect(await enrolAssignments(graph, userId)).toHaveLength(0);
+    expect(await outboxOf('course_completion_reaggregation_requested', userId)).toHaveLength(1);
+  });
+
+  it('rời khoá ở nhánh xoá cứng mà transaction rollback thì không phát sự kiện nào và dòng ghi danh còn nguyên', async () => {
+    const graph = await makeCourseGraph({ onLeave: 'unenrol' });
+    const userId = await insertUser();
+    await addMember(graph, userId);
+
+    // Cổng outbox giả lập lỗi ngay khi ghi sự kiện tái tổng hợp —
+    // sự kiện này được ghi sau lệnh xoá trong cùng transaction,
+    // nên rollback phải cuốn theo cả việc xoá lẫn sự kiện
+    // user_unenrolled đã ghi trước đó trong transaction.
+    const realOutbox = app.get(OutboxService);
+    const failingOutbox: SharedOutboxPort = {
+      enqueue: async (tx, input) => {
+        if (input.type === 'course_completion_reaggregation_requested') {
+          throw new Error('Lỗi giả lập: ghi sự kiện tái tổng hợp hoàn thành thất bại');
+        }
+        await realOutbox.enqueue(tx, input);
+      },
+      enqueueStandalone: async (input) => {
+        await realOutbox.enqueueStandalone(input);
+      },
+    };
+    const surface = new CohortMaterializationSurface({
+      db: app.get(EnrolRepository).dbHandle,
+      outbox: failingOutbox,
+      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+    });
+
+    await expect(surface.unenrolInternal(instanceLiteral(graph), userId)).rejects.toThrow(
+      'Lỗi giả lập: ghi sự kiện tái tổng hợp hoàn thành thất bại',
+    );
+
+    const ue = await ueRow(graph.instanceId, userId);
+    expect(ue).toBeDefined();
+    expect(ue?.status).toBe(0);
+    expect(await enrolAssignments(graph, userId)).toHaveLength(1);
+    expect(await outboxOf('user_unenrolled', userId)).toHaveLength(0);
+    expect(await outboxOf('course_completion_reaggregation_requested', userId)).toHaveLength(0);
   });
 });

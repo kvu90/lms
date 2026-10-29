@@ -273,19 +273,28 @@ export class CohortMaterializationSurface {
    * Flow: không có ghi danh → `{ withdrawn: false }`, không làm gì.
    * Có ghi danh → quyết định giữ/xoá theo dữ liệu liên quan (truy
    * vấn dữ liệu dùng chung): trong MỘT transaction, giữ thì chuyển
-   * dòng sang WITHDRAWN, và phát cả `user_unenrolled` (mang cờ
-   * `keptData`) lẫn `course_completion_reaggregation_requested` —
-   * sự kiện tái tổng hợp hoàn thành phải nằm trong cùng transaction
-   * này để việc gỡ ghi danh không bao giờ commit mà thiếu yêu cầu
-   * tái tổng hợp (đường hook đồng bộ trước đây chạy sau commit và
-   * nuốt lỗi: tiến trình chết giữa hai bước là mất tái tổng hợp
-   * vĩnh viễn). Transaction commit xong: không giữ thì xoá cứng
-   * dòng ghi danh; rồi gỡ đúng các dòng gán vai do chính instance
-   * này cấp (component='enrol' + itemId=instance, theo phạm vi
-   * Moodle) — gán của cùng role do instance khác cấp hoặc cấp tay
-   * vẫn giữ nguyên, nên user còn ghi danh qua instance khác vẫn giữ
-   * role. Việc tái tổng hợp không đọc gán vai nên thứ tự tiêu thụ
-   * sự kiện so với việc gỡ gán không ảnh hưởng kết quả của nó.
+   * dòng sang WITHDRAWN, không giữ thì XOÁ CỨNG dòng ngay trong
+   * cùng transaction, và phát cả `user_unenrolled` (mang cờ
+   * `keptData`) lẫn `course_completion_reaggregation_requested`
+   * trong cùng transaction đó. Sự kiện tái tổng hợp hoàn thành
+   * phải nằm trong cùng transaction này để việc gỡ ghi danh không
+   * bao giờ commit mà thiếu yêu cầu tái tổng hợp (đường hook đồng
+   * bộ trước đây chạy sau commit và nuốt lỗi: tiến trình chết giữa
+   * hai bước là mất tái tổng hợp vĩnh viễn). Lệnh xoá cứng cũng
+   * phải nằm trong transaction: sự kiện chỉ được phép trở nên
+   * nhìn thấy được khi dòng ghi danh đã biến mất — consumer tái
+   * tổng hợp quét mỗi giây, quan sát sự kiện trong lúc dòng còn
+   * hiệu lực sẽ đánh giá sai tiêu chí 'unenrol' rồi tiến
+   * watermark qua không quay lại, và xoá sau commit còn để cửa
+   * sổ tiến trình chết giữa commit và lệnh xoá (sự kiện đã chốt
+   * kèm dòng ghi danh mồ côi). Transaction rollback thì cả việc
+   * xoá lẫn hai sự kiện cùng biến mất. Transaction commit xong:
+   * gỡ đúng các dòng gán vai do chính instance này cấp
+   * (component='enrol' + itemId=instance, theo phạm vi Moodle) —
+   * gán của cùng role do instance khác cấp hoặc cấp tay vẫn giữ
+   * nguyên, nên user còn ghi danh qua instance khác vẫn giữ role.
+   * Việc tái tổng hợp không đọc gán vai nên thứ tự tiêu thụ sự
+   * kiện so với việc gỡ gán không ảnh hưởng kết quả của nó.
    *
    * @param instance - enrol instance của ghi danh.
    * @param userId - người dùng bị rút ghi danh.
@@ -303,6 +312,17 @@ export class CohortMaterializationSurface {
     await this.db.transaction(async (tx) => {
       if (hasRelated) {
         await this.updateUserEnrolment(tx, ue.id, { status: ENROL_WITHDRAWN, modifierId });
+      } else {
+        // Xoá cứng NGAY trong transaction, không để sau commit: sự
+        // kiện chỉ được phép trở nên nhìn thấy được khi dòng ghi
+        // danh đã biến mất. Consumer tái tổng hợp quét mỗi giây —
+        // quan sát sự kiện trong lúc dòng còn hiệu lực sẽ đánh giá
+        // sai tiêu chí 'unenrol' (tiêu chí này là phủ định của
+        // việc còn ghi danh) rồi tiến watermark qua luôn không
+        // quay lại; xoá sau commit còn để cửa sổ tiến trình chết
+        // giữa commit và lệnh xoá, khi đó sự kiện đã chốt kèm một
+        // dòng ghi danh mồ côi không bao giờ bị xoá.
+        await tx.delete(userEnrolments).where(eq(userEnrolments.id, ue.id));
       }
       await this.outbox.enqueue(tx, {
         aggregate: 'enrol', type: 'user_unenrolled',
@@ -317,7 +337,6 @@ export class CohortMaterializationSurface {
         payload: { courseId: instance.courseId, userId },
       });
     });
-    if (!hasRelated) await this.db.delete(userEnrolments).where(eq(userEnrolments.id, ue.id));
     // Chỉ gỡ gán role mà instance ghi danh này đã cấp: gán của cùng
     // role do instance khác cấp hoặc cấp tay vẫn giữ nguyên, nên
     // user còn ghi danh qua instance khác vẫn giữ role. Các dòng cũ
