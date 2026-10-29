@@ -1,15 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import type { AddressInfo } from 'node:net';
 import { Client } from 'pg';
-import Redis from 'ioredis';
-import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, assignRole, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD,
 } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
 import { addGroupMember, contextIdByLevelInstance, createGroupViaApi } from '../../support/engagement-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Vòng đời tin nhắn THEO VAI (issue #33, bổ sung cho PR #94) — ba lớp
@@ -22,10 +18,13 @@ import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wa
  *   (c) moderator có capability `moderation:manage` XOÁ CỨNG / GỠ
  *       HÀNG LOẠT không giới hạn thời gian, lý do bắt buộc, mọi lần
  *       ghi moderator_action — dòng tin biến mất khỏi mọi đường đọc.
- * Kèm: sự kiện realtime của thu hồi BẮT BUỘC vô hiệu cache danh sách
- * (`conversation.invalidate`) ở phía kia, còn xoá-phía-mình không
- * phát bất kỳ tín hiệu nào sang phía kia; cổng chặn 1–1 vẫn nuốt cả
- * thu hồi lẫn xoá-phía-mình như mọi đường theo id khác.
+ * Kèm: cổng chặn 1–1 vẫn nuốt cả thu hồi lẫn xoá-phía-mình như mọi
+ * đường theo id khác. Phần SỰ KIỆN realtime của vòng đời (thu hồi
+ * phát `message.deleted` + BẮT BUỘC `conversation.invalidate` ở phía
+ * kia; xoá-phía-mình không phát tín hiệu nào sang phía kia) thuộc
+ * về consumer phân phối phía worker từ issue #521 và được kiểm ở
+ * spec tích hợp của worker:
+ * apps/worker/test/integration/messaging/messaging-realtime-queue.int-spec.ts.
  */
 
 interface Person { id: string; username: string; token: string }
@@ -39,44 +38,15 @@ interface ModeratorActionRow {
   action: string; actor_id: string; author_id: string; reason: string | null; message_seq: number | null;
 }
 
-async function connectSocket(base: string, token: string): Promise<Socket> {
-  const socket = io(`${base}/messaging`, {
-    auth: { token },
-    transports: ['websocket'],
-    reconnection: false,
-    timeout: 5000,
-  });
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('socket connect timeout')), 8000);
-    socket.once('connect', () => { clearTimeout(timer); resolve(); });
-    socket.once('connect_error', (err) => { clearTimeout(timer); reject(err); });
-  });
-  return socket;
-}
-
-/** Chờ một điều kiện đúng (poll ngắn) — dùng cho khẳng định realtime bất đồng bộ qua outbox. */
-async function waitUntil(check: () => boolean, timeoutMs = 12000): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (check()) return;
-    await new Promise((resolve) => { setTimeout(resolve, 150); });
-  }
-  throw new Error(`điều kiện realtime không đạt trong ${timeoutMs}ms`);
-}
-
 describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung PR #94)', () => {
   let app: INestApplication;
-  let base: string;
   let pg: Client;
-  let redis: Redis;
   let admin: string;
   let teacher: Person;
   let otherTeacher: Person;
   let s1: Person;
   let s2: Person;
-  let courseId: string;
   let groupConvId: string;
-  const sockets: Socket[] = [];
 
   async function person(): Promise<Person> {
     const u = await createUserViaApi(app, admin);
@@ -117,15 +87,12 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     app = await createTestApp();
     const server = app.getHttpServer();
     await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', () => resolve()); });
-    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
-    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
     admin = await adminToken(app);
 
     const category = await createCategory(app, admin);
     const course = await createCourse(app, admin, category.id);
-    courseId = course.id;
     const instance = await createEnrolInstance(app, admin, course.id);
     teacher = await person();
     s1 = await person();
@@ -164,8 +131,6 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
   }, 180000);
 
   afterAll(async () => {
-    for (const socket of sockets) socket.disconnect();
-    redis.disconnect();
     await pg.end();
     await app.close();
   });
@@ -359,68 +324,6 @@ describe('Messaging — vòng đời tin nhắn theo vai (issue #33, bổ sung P
     const s1View = await viewMessages(s1.token, groupConvId);
     expect(s1View.messages.map((m) => m.id)).not.toContain(ids[0]);
     expect(s1View.messages.map((m) => m.id)).not.toContain(ids[1]);
-  });
-
-  it('6. realtime: thu hồi phát message.deleted + conversation.invalidate cho phía kia; xoá-phía-mình không phát gì sang phía kia', async () => {
-    // Conversation nhóm riêng cho ca realtime để bộ thu sự kiện sạch.
-    const group2 = await createGroupViaApi(app, admin, courseId, 'Lớp realtime vòng đời');
-    for (const p of [teacher, s1, s2]) await addGroupMember(app, admin, courseId, group2.id, p.id);
-    const created = await http(app).post('/api/v1/messages/conversations/group')
-      .set('Authorization', `Bearer ${teacher.token}`).send({ groupId: group2.id });
-    expect(created.status).toBe(201);
-    const convId = created.body.id as string;
-
-    // s2 nối socket SAU khi đã là thành viên: gateway cho vào room
-    // của conversation ngay lúc bắt tay.
-    const socketB = await connectSocket(base, s2.token);
-    sockets.push(socketB);
-    const newEvents: { message: { id: string } }[] = [];
-    const deletedEvents: { messageId: string; conversationId: string }[] = [];
-    const invalidateEvents: { conversationId: string }[] = [];
-    socketB.on('message.new', (payload: { message: { id: string } }) => { newEvents.push(payload); });
-    socketB.on('message.deleted', (payload: { messageId: string; conversationId: string }) => { deletedEvents.push(payload); });
-    socketB.on('conversation.invalidate', (payload: { conversationId: string }) => { invalidateEvents.push(payload); });
-
-    // Tin r1 đến s2 qua realtime như thường lệ.
-    const r1 = await send(s1.token, convId, 'tin realtime sẽ thu hồi');
-    expect(r1.status).toBe(201);
-    const r1Id = r1.body.id as string;
-    await waitUntil(() => newEvents.some((e) => e.message.id === r1Id));
-
-    // THU HỒI: phía kia BẮT BUỘC nhận cả hai tín hiệu — gỡ nội dung
-    // (message.deleted) và vô hiệu cache danh sách (conversation.invalidate).
-    const recall = await http(app).post(`/api/v1/messages/${r1Id}/recall`)
-      .set('Authorization', `Bearer ${s1.token}`).send({});
-    expect(recall.status).toBe(201);
-    await waitUntil(() => deletedEvents.some((e) => e.messageId === r1Id));
-    await waitUntil(() => invalidateEvents.some((e) => e.conversationId === convId));
-
-    // XOÁ-PHÍA-MÌNH: phía kia không nhận BẤT KỲ tín hiệu nào. Hành
-    // động này CÓ ghi sự kiện outbox message_deleted_for_me — tín
-    // hiệu chốt là distributor đã tiêu thụ chính sự kiện đó (theo
-    // seq của nó) mà không phát gì cho phía kia; chờ sự kiện xuất
-    // hiện rồi chờ watermark vượt qua nó, sau đó mới đối chiếu bộ
-    // đếm. Thay sleep cố định 2.500ms "quá vài nhịp phân phối".
-    const r2 = await send(s1.token, convId, 'tin realtime xoá phía mình');
-    expect(r2.status).toBe(201);
-    const r2Id = r2.body.id as string;
-    await waitUntil(() => newEvents.some((e) => e.message.id === r2Id));
-    const deletedBefore = deletedEvents.length;
-    const invalidateBefore = invalidateEvents.length;
-    const del = await http(app).delete(`/api/v1/messages/${r2Id}`)
-      .set('Authorization', `Bearer ${s1.token}`);
-    expect(del.status).toBe(200);
-    let delSeq = 0;
-    const delDeadline = Date.now() + 12000;
-    while (delSeq === 0 && Date.now() < delDeadline) {
-      delSeq = await latestOutboxSeq(pg, 'message_deleted_for_me', 'messageId', r2Id);
-      if (delSeq === 0) await new Promise((resolve) => { setTimeout(resolve, 100); });
-    }
-    if (delSeq === 0) throw new Error('message_deleted_for_me event was not written for the delete-for-me action');
-    await waitForOutboxWatermark(redis, 'distributor', delSeq);
-    expect(deletedEvents).toHaveLength(deletedBefore);
-    expect(invalidateEvents).toHaveLength(invalidateBefore);
-    expect(deletedEvents.some((e) => e.messageId === r2Id)).toBe(false);
   });
 
   it('7. cổng chặn 1–1: đang chặn thì thu hồi và xoá-phía-mình đều 404 như hội thoại không tồn tại', async () => {

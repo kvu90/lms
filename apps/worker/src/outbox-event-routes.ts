@@ -88,12 +88,17 @@ import type { Queue } from 'bullmq';
  *   về hàng đợi `notification-events` — consumer của chúng đã
  *   chuyển sang worker ở issue con #520 của #491 (processor
  *   `NotificationEventsProcessor`, handler
- *   `NotificationEventsHandlerService`). Riêng `message_sent` còn
- *   một consumer nữa — consumer phân phối realtime — chưa chuyển
- *   (issue con #521): khi consumer đó chuyển, dòng này trở thành
- *   danh sách hai đích theo đúng cơ chế fan-out ở trên; hiện tại
- *   phía realtime vẫn đọc trực tiếp bảng outbox theo watermark
- *   `seq` riêng như trước.
+ *   `NotificationEventsHandlerService`).
+ * - Sáu loại sự kiện messaging (xem
+ *   `MESSAGING_DISTRIBUTED_EVENT_TYPES` của `@lms/messaging`) trỏ
+ *   về hàng đợi `messaging-realtime` — consumer phân phối
+ *   realtime đã chuyển sang worker ở issue con #521 của #491
+ *   (processor `MessagingRealtimeProcessor`, luật phân phối ở
+ *   package `@lms/messaging`). Riêng `message_sent` có HAI
+ *   consumer ở worker — phân phối realtime và thông báo sự
+ *   kiện — nên dòng của nó là danh sách hai đích
+ *   `['messaging-realtime', 'notification-events']` theo đúng cơ
+ *   chế fan-out ở trên.
  *
  * Mọi loại sự kiện còn lại của đợt chuyển đổi chưa có mặt ở đây
  * cho tới khi consumer tương ứng chuyển xong, đúng ngữ nghĩa ở
@@ -114,13 +119,24 @@ export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
   grade_updated: 'notification-events',
   course_completed: 'notification-events',
   enrol_expiry_warning: 'notification-events',
-  message_sent: 'notification-events',
   activity_due_reminder: 'notification-events',
   assignment_created: 'notification-events',
   assignment_submitted: 'notification-events',
   assignment_returned: 'notification-events',
   exam_pinned: 'notification-events',
   quiz_attempt_finished: 'notification-events',
+  // Phân phối realtime messaging (issue con #521 của #491):
+  // processor `MessagingRealtimeProcessor` trên hàng đợi
+  // `messaging-realtime`, luật phân phối ở `@lms/messaging`.
+  // `message_sent` còn consumer thông báo ở khối trên nên là
+  // danh sách hai đích (fan-out) — không dựng dòng riêng cạnh
+  // tranh cho cùng một loại sự kiện.
+  message_sent: ['messaging-realtime', 'notification-events'],
+  message_conversation_read: 'messaging-realtime',
+  message_deleted: 'messaging-realtime',
+  message_recalled: 'messaging-realtime',
+  message_removed: 'messaging-realtime',
+  message_deleted_for_me: 'messaging-realtime',
 };
 
 /**

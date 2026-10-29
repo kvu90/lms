@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MESSAGING_DISTRIBUTED_EVENT_TYPES } from '@lms/messaging';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
   OUTBOX_EVENT_QUEUE_ROUTES,
@@ -9,7 +10,7 @@ import {
 } from './outbox-event-routes';
 
 /**
- * Test đặc trưng hoá cho relay outbox duy nhất: ghim bốn tính chất của
+ * Test đặc trưng hoá cho relay outbox duy nhất: ghim các tính chất của
  * ngữ nghĩa đóng dấu `publishedAt` và định tuyến phát job theo loại
  * sự kiện, làm căn cứ cho mọi issue chuyển consumer sang hàng đợi ở
  * worker sau này:
@@ -17,9 +18,14 @@ import {
  *     không bao giờ trước;
  * (ii) phát thất bại thì sự kiện không có `publishedAt` và được phát
  *     lại ở lượt relay sau;
- * (iii) mỗi loại sự kiện được phát vào đúng hàng đợi của nó;
+ * (iii) mỗi loại sự kiện được phát vào đúng (các) hàng đợi của nó —
+ *     một sự kiện có nhiều đích thì mỗi đích nhận đúng một job
+ *     (fan-out một-sự-kiện-nhiều-handler, issue #520/#521);
  * (iv) `publishedAt` không phải dấu hoàn thành xử lý — relay đóng
- *     dấu ngay khi phát xong, dù job chưa được consumer nào xử lý.
+ *     dấu ngay khi phát xong, dù job chưa được consumer nào xử lý;
+ * (v) với sự kiện nhiều đích, dấu chỉ xuất hiện khi MỌI đích đã nhận
+ *     job — lỗi ở một đích thì dòng chưa có dấu, và lượt phát lại
+ *     không tạo job trùng ở các đích đã nhận (chống trùng `jobId`).
  *
  * Toàn bộ test chạy trên DB/hàng đợi giả lập trong bộ nhớ theo đúng
  * bề mặt relay dùng (chuỗi truy vấn Drizzle, `Queue.add` của BullMQ,
@@ -162,8 +168,8 @@ function makeRelay(rows: FakeRow[], routes: OutboxEventQueueRoutes): Harness {
 }
 
 const ROUTES: OutboxEventQueueRoutes = {
-  auth_mail_requested: 'outbox-auth-mail',
-  message_sent: 'outbox-messaging',
+  auth_mail_requested: ['outbox-auth-mail'],
+  message_sent: ['outbox-messaging'],
 };
 
 describe('Relay outbox duy nhất — ngữ nghĩa đóng dấu publishedAt', () => {
@@ -330,6 +336,18 @@ describe('Relay outbox duy nhất — fan-out một sự kiện nhiều consumer
     expect(published).toBe(1);
     expect(notificationsQueue.jobs.get(row.id)?.name).toBe('message_sent');
     expect(realtimeQueue.jobs.get(row.id)?.name).toBe('message_sent');
+    // Dữ liệu job ở cả hai đích là toàn bộ dòng outbox đã chuẩn hoá.
+    for (const queue of [notificationsQueue, realtimeQueue]) {
+      expect(queue.jobs.get(row.id)?.data).toEqual({
+        outboxId: row.id,
+        seq: row.seq,
+        aggregate: 'messaging',
+        type: 'message_sent',
+        payload: { n: row.seq },
+        tenantId: row.tenantId,
+        occurredAt: '2026-10-29T00:00:00.000Z',
+      });
+    }
     // Tại thời điểm job được đẩy ở cả hai đích, dòng vẫn chưa có dấu:
     // dấu chỉ xuất hiện sau khi MỌI đích đã phát thành công.
     expect(notificationsQueue.stampedAtDispatch).toEqual([false]);
@@ -359,7 +377,7 @@ describe('Relay outbox duy nhất — fan-out một sự kiện nhiều consumer
     expect(mirrored).toHaveLength(1);
   });
 
-  it('bảng định tuyến production: mười loại của consumer thông báo trỏ về hàng đợi notification-events, message_sent hiện có đúng một đích, hai route digest phụ huynh giữ nguyên', () => {
+  it('bảng định tuyến production: mười loại của consumer thông báo trỏ về hàng đợi notification-events, message_sent có đúng hai đích, hai route digest phụ huynh giữ nguyên', () => {
     const notificationTypes = [
       'grade_updated', 'course_completed', 'enrol_expiry_warning', 'message_sent',
       'activity_due_reminder', 'assignment_created', 'assignment_submitted',
@@ -368,11 +386,16 @@ describe('Relay outbox duy nhất — fan-out một sự kiện nhiều consumer
     for (const type of notificationTypes) {
       expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES[type]!)).toContain('notification-events');
     }
-    // Consumer realtime chưa chuyển (issue #521): message_sent vẫn
-    // chỉ có một đích trên hàng đợi; consumer realtime hiện đọc trực
-    // tiếp outbox như trước. Khi #521 chuyển, dòng này thành hai đích.
-    expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES['message_sent']!)).toEqual(['notification-events']);
+    // Consumer realtime đã chuyển (issue #521): message_sent là
+    // danh sách đúng hai đích — realtime trước, thông báo sau.
+    expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES['message_sent']!)).toEqual(['messaging-realtime', 'notification-events']);
     expect(OUTBOX_EVENT_QUEUE_ROUTES['guardian_digest_due']).toBe('guardian-digest-events');
     expect(OUTBOX_EVENT_QUEUE_ROUTES['guardian_overdue_alert']).toBe('guardian-digest-events');
+  });
+
+  it('bảng định tuyến production đưa mọi loại sự kiện phân phối messaging về hàng đợi messaging-realtime', () => {
+    for (const type of MESSAGING_DISTRIBUTED_EVENT_TYPES) {
+      expect(queueNamesOfRoute(OUTBOX_EVENT_QUEUE_ROUTES[type]!)).toContain('messaging-realtime');
+    }
   });
 });

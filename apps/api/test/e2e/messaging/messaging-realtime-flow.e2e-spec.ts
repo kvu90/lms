@@ -3,8 +3,6 @@ import type { AddressInfo } from 'node:net';
 import { io, type Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD } from '../../support/identity-access-helpers';
-import { createCategory, createCourse, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
-import { addGroupMember, createGroupViaApi } from '../../support/engagement-helpers';
 
 /**
  * Flow test cho nền dữ liệu + realtime của messaging (issue #33,
@@ -15,11 +13,17 @@ import { addGroupMember, createGroupViaApi } from '../../support/engagement-help
  *  - gửi trùng `clientMessageId` không nhân đôi tin (idempotent);
  *  - phân trang cursor theo `seq` không trùng/sót, đồng bộ thiếu hụt
  *    bằng afterSeq;
- *  - realtime qua Socket.IO (namespace /messaging): tin mới đến ngay
- *    qua đường outbox → consumer phân phối; biên đã-đọc phát cho
- *    thành viên còn lại; nối lại + `sync` bù đúng phần thiếu;
- *  - socket không có token hợp lệ bị ngắt; presence/typing (A2) đi
- *    qua Redis, không xuống DB.
+ *  - realtime theo KẾT NỐI ở phía API: nối lại + `sync` bù đúng phần
+ *    thiếu; socket không có token hợp lệ bị ngắt; presence/typing
+ *    (A2) đi qua Redis, không xuống DB.
+ *
+ * Các khẳng định về PHÂN PHỐI sự kiện (tin mới tới socket qua
+ * outbox → hàng đợi, biên đã-đọc tới thành viên còn lại, thành viên
+ * bị gỡ không nhận tin nữa) thuộc về consumer phía worker từ issue
+ * #521 và được kiểm ở
+ * `apps/worker/test/integration/messaging/messaging-realtime-queue.int-spec.ts`
+ * — spec này chỉ giữ phần hành vi mà tiến trình API tự chịu trách
+ * nhiệm (ghi dữ kiện + sự kiện outbox, đọc/sync, presence/typing).
  */
 
 interface WireMessage {
@@ -215,48 +219,19 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     expect(newestWindow.body.hasMoreBefore).toBe(true);
   });
 
-  it('realtime: a connected member receives the new message and per-user unread update via the outbox consumer', async () => {
-    const socketB = await connect(tokenB);
-    const newSeen = waitForSocketEvent<{ conversationId: string; message: WireMessage }>(
-      socketB, 'message.new', (p) => p.conversationId === convId && p.message.fullMessage === 'tin realtime',
-    );
-    // Khớp conversation.updated theo ĐÚNG tin vừa gửi (id + seq), không
-    // lấy "sự kiện khớp đầu tiên theo conversationId": khi consumer bị
-    // dồn, một sự kiện cũ hơn của cùng conversation có thể đến cùng lúc
-    // và mang unreadCount của thời điểm cũ (quan sát nhẹ của review).
-    let sentRef: WireMessage | null = null;
-    const updatedSeen = waitForSocketEvent<{ conversationId: string; unreadCount: number; message: WireMessage }>(
-      socketB, 'conversation.updated',
-      (p) => p.conversationId === convId && sentRef !== null && p.message.id === sentRef.id && p.message.seq === sentRef.seq,
-    );
-    const sent = await sendAs(tokenA, 'tin realtime');
-    sentRef = sent;
-    expect(sent.seq).toBe(8);
-
-    const newPayload = await newSeen;
-    expect(newPayload.message.id).toBe(sent.id);
-    expect(newPayload.message.seq).toBe(8);
-    // B đã đọc tới seq 2, tin của A tới seq 8 → 6 tin chưa đọc (3..8).
-    const updatedPayload = await updatedSeen;
-    expect(updatedPayload.unreadCount).toBe(6);
-    socketB.disconnect();
-  });
-
-  it('realtime: read receipts reach the other members with the reader marker', async () => {
-    const socketA = await connect(tokenA);
-    const receiptSeen = waitForSocketEvent<{ conversationId: string; userId: string; lastReadSeq: number }>(
-      socketA, 'message.read', (p) => p.conversationId === convId && p.userId === userB.id,
-    );
+  it('reconnect sync returns exactly the messages missed while offline', async () => {
+    // Hai hành động dưới đây trước đây thuộc hai ca realtime riêng
+    // (tin mới tới socket + biên đã-đọc tới thành viên còn lại): phần
+    // khẳng định qua socket đã chuyển sang spec tích hợp của worker
+    // (issue #521, xem ghi chú đầu file); ở đây chỉ giữ khẳng định
+    // REST và giữ nguyên chuỗi seq mà ca sync phía dưới neo vào.
+    const eighth = await sendAs(tokenA, 'tin realtime');
+    expect(eighth.seq).toBe(8);
     const read = await http(app).post(`/api/v1/messages/conversations/${convId}/read`)
       .set('Authorization', `Bearer ${tokenB}`).send({});
     expect(read.status).toBe(201);
     expect(read.body.lastReadSeq).toBe(8);
-    const receipt = await receiptSeen;
-    expect(receipt.lastReadSeq).toBe(8);
-    socketA.disconnect();
-  });
 
-  it('reconnect sync returns exactly the messages missed while offline', async () => {
     const ninth = await sendAs(tokenA, 'thiếu một');
     const tenth = await sendAs(tokenA, 'thiếu hai');
     expect(ninth.seq).toBe(9);
@@ -315,82 +290,4 @@ describe('Messaging foundation + realtime (issue #33, Lớp A)', () => {
     socketB.disconnect();
   });
 
-  it('realtime: a member removed from the course group receives no further message.new (F1)', async () => {
-    // Conversation gắn course group — đường gỡ thành viên thật của hệ
-    // thống: rời group thì bị đồng bộ lười gỡ khỏi conversation.
-    const category = await createCategory(app, admin);
-    const course = await createCourse(app, admin, category.id);
-    const instance = await createEnrolInstance(app, admin, course.id);
-    const m1 = await createUserViaApi(app, admin);
-    const m2 = await createUserViaApi(app, admin);
-    for (const m of [m1, m2]) await enrolUser(app, admin, course.id, instance.id, m.id);
-    const group = await createGroupViaApi(app, admin, course.id, 'Nhóm F1');
-    await addGroupMember(app, admin, course.id, group.id, m1.id);
-    await addGroupMember(app, admin, course.id, group.id, m2.id);
-    const m1Token = (await login(app, m1.username, STRONG_PASSWORD)).accessToken;
-    const m2Token = (await login(app, m2.username, STRONG_PASSWORD)).accessToken;
-
-    const created = await http(app).post('/api/v1/messages/conversations/group')
-      .set('Authorization', `Bearer ${m1Token}`).send({ groupId: group.id });
-    expect(created.status).toBe(201);
-    const gConvId = created.body.id as string;
-
-    // Cả hai nối socket khi còn là thành viên: socket vào room của
-    // conversation lúc bắt tay.
-    const socketM1 = await connect(m1Token);
-    const socketM2 = await connect(m2Token);
-
-    // Sanity: khi còn là thành viên, m2 nhận tin bình thường — khẳng
-    // định socket của m2 thật sự nằm trong room, để khẳng định "không
-    // nhận nữa" sau khi bị gỡ có giá trị.
-    const firstSeenByM2 = waitForSocketEvent<{ conversationId: string; message: WireMessage }>(
-      socketM2, 'message.new', (p) => p.conversationId === gConvId && p.message.fullMessage === 'trước khi gỡ',
-    );
-    const first = await http(app).post(`/api/v1/messages/conversations/${gConvId}/messages`)
-      .set('Authorization', `Bearer ${m1Token}`).send({ text: 'trước khi gỡ' });
-    expect(first.status).toBe(201);
-    await firstSeenByM2;
-
-    // Gỡ m2 khỏi group qua API groups; lần gửi kế tiếp của m1 chạy
-    // đồng bộ lười và gỡ m2 khỏi conversation ngay trong đường gửi đó.
-    const removed = await http(app).delete(`/api/v1/courses/${course.id}/groups/${group.id}/members/${m2.id}`)
-      .set('Authorization', `Bearer ${admin}`);
-    expect([200, 204]).toContain(removed.status);
-
-    const leaked: { conversationId: string; message: WireMessage }[] = [];
-    socketM2.on('message.new', (p: { conversationId: string; message: WireMessage }) => {
-      if (p.conversationId === gConvId) leaked.push(p);
-    });
-    const seenByM1 = waitForSocketEvent<{ conversationId: string; message: WireMessage }>(
-      socketM1, 'message.new', (p) => p.conversationId === gConvId && p.message.fullMessage === 'sau khi gỡ',
-    );
-    const sent = await http(app).post(`/api/v1/messages/conversations/${gConvId}/messages`)
-      .set('Authorization', `Bearer ${m1Token}`).send({ text: 'sau khi gỡ' });
-    expect(sent.status).toBe(201);
-    // Thành viên còn lại nhận bình thường: phân phối ĐÃ xảy ra.
-    await seenByM1;
-
-    // Membership trong DB đã thật sự mất (m2 mở conversation bị 403).
-    const detail = await http(app).get(`/api/v1/messages/conversations/${gConvId}`)
-      .set('Authorization', `Bearer ${m2Token}`);
-    expect(detail.status).toBe(403);
-
-    // Tin neo chốt lượt: gửi thêm một tin nữa và chờ m1 nhận nó.
-    // Distributor xử lý sự kiện theo seq tăng dần nên lượt phân phối
-    // của tin neo hoàn tất nghĩa là lượt phân phối của tin 'sau khi
-    // gỡ' (đứng trước) đã chốt xong cho mọi socket — nếu lượt đó có
-    // rò sang m2 thì sự kiện rò đã phải tới trước cả tin neo. Khẳng
-    // định rỗng sau mốc này là trên trạng thái đã chốt, thay sleep cố
-    // định 800ms "chờ cùng nhịp phát".
-    const anchorSeenByM1 = waitForSocketEvent<{ conversationId: string; message: WireMessage }>(
-      socketM1, 'message.new', (p) => p.conversationId === gConvId && p.message.fullMessage === 'tin neo chốt lượt',
-    );
-    await http(app).post(`/api/v1/messages/conversations/${gConvId}/messages`)
-      .set('Authorization', `Bearer ${m1Token}`).send({ text: 'tin neo chốt lượt' });
-    await anchorSeenByM1;
-    expect(leaked).toEqual([]);
-
-    socketM1.disconnect();
-    socketM2.disconnect();
-  });
 });

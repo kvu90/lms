@@ -245,6 +245,9 @@ importers:
       '@lms/grades':
         specifier: workspace:*
         version: link:../../packages/grades
+      '@lms/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       '@lms/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -577,6 +580,9 @@ importers:
       '@lms/grades':
         specifier: workspace:*
         version: link:../../packages/grades
+      '@lms/messaging':
+        specifier: workspace:*
+        version: link:../../packages/messaging
       '@nestjs/bullmq':
         specifier: ^12.0.0
         version: 12.0.0(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)(bullmq@6.4.0(ioredis@6.0.0)(pg@8.23.1))
@@ -601,6 +607,9 @@ importers:
       '@nestjs/schedule':
         specifier: ^12.0.2
         version: 12.0.2(@nestjs/common@12.2.0(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@12.2.0)
+      '@socket.io/redis-adapter':
+        specifier: ^8.3.0
+        version: 8.3.0(socket.io-adapter@2.5.8)
       bullmq:
         specifier: ^6.4.0
         version: 6.4.0(ioredis@6.0.0)(pg@8.23.1)
@@ -619,6 +628,9 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
+      socket.io:
+        specifier: ^4.8.4
+        version: 4.8.4
       uuid:
         specifier: ^14.0.3
         version: 14.0.3
@@ -641,6 +653,9 @@ importers:
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
+      socket.io-client:
+        specifier: ^4.8.4
+        version: 4.8.4
       typescript:
         specifier: catalog:nest
         version: 6.0.3
@@ -824,6 +839,28 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@1.8.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))
+
+  packages/messaging:
+    dependencies:
+      '@lms/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@lms/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: 1.0.0-rc.5
+        version: 1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.7)
+    devDependencies:
+      '@lms/config':
+        specifier: workspace:*
+        version: link:../config
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))
 
   packages/payments:
     dependencies:
@@ -8889,7 +8926,6 @@ snapshots:
       pg: 8.23.1
       valibot: 1.5.0(typescript@7.0.2)
       zod: 4.6.7
-    optional: true
 
   dunder-proto@1.0.1:
     dependencies:

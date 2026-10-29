@@ -11,7 +11,8 @@ import type { Server, Socket } from 'socket.io';
 import { Public } from '../../common/public.decorator';
 import { blankRecalledContent, MessagingRepository } from './messaging.repository';
 import { MessagingSocketAuth } from './messaging-socket-auth';
-import { conversationRoom, MessagingRealtimeService, toWireMessage, userRoom } from './messaging-realtime.service';
+import { conversationRoom, toWireMessage, userRoom } from '@lms/messaging';
+import { MessagingRealtimeService } from './messaging-realtime.service';
 
 /** Số tin tối đa trả cho mỗi conversation trong một lần đồng bộ (client xin tiếp nếu còn thiếu). */
 const SYNC_LIMIT_PER_CONVERSATION = 100;
@@ -29,12 +30,14 @@ const SYNC_MAX_CONVERSATIONS = 50;
  * Bearer) là đường dự phòng cho tới cutover. Kết nối không xác thực
  * được thì ngắt ngay.
  *
- * Khi nối, socket vào room riêng `user:<id>` và room của mọi
+ * Khi nối, socket vào room riêng của mình và room của mọi
  * conversation mình là thành viên. Sự kiện tin mới/đã đọc KHÔNG phát
  * từ đây cũng không phát từ service ghi DB — chúng đi đường outbox →
- * {@link MessagingOutboxConsumer} → {@link MessagingRealtimeService}.
- * Gateway chỉ xử lý các tương tác theo kết nối: join/leave room,
- * `sync` (xin tin còn thiếu theo seq khi nối lại) và `typing`.
+ * relay duy nhất → hàng đợi ở worker → consumer phân phối theo luật
+ * ở `@lms/messaging`, phát qua Redis emitter về adapter của gateway
+ * này (issue #521). Gateway chỉ xử lý các tương tác theo kết nối:
+ * join/leave room, `sync` (xin tin còn thiếu theo seq khi nối lại)
+ * và `typing`.
  */
 // @Public ở đây KHÔNG có nghĩa là không cần đăng nhập: nó chỉ tắt
 // JwtAuthGuard toàn cục (guard HTTP đọc header Authorization qua
