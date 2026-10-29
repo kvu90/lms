@@ -175,3 +175,64 @@ describe('NotificationDeliveryService.notify — bề mặt phát trọn phía w
     expect(queue.add).not.toHaveBeenCalled();
   });
 });
+
+describe('NotificationDeliveryService.notify — chín provider sự kiện thông báo (issue #520)', () => {
+  it('provider original-ok (grade_updated): job email mang NGUYÊN nội dung gốc khi nơi phát không truyền bản tối thiểu hoá, tần suất mặc định daily của nhóm learning', async () => {
+    const { delivery, queue, insertedOutbox } = buildNotify({ user: ACTIVE_USER });
+    const result = await delivery.notify('user-guardian', 'grade_updated', {
+      subject: 'Điểm mới trong khoá học "Toán"',
+      body: 'Bạn có điểm mới cho mục "Bài 1" trong khoá học "Toán".',
+      contextUrl: '/courses/course-1/grades',
+      tenantId: 'tenant-1',
+    });
+    expect(result).toEqual({ notificationId: 'notif-notify-1', channels: { popup: 'delivered', email: 'queued' } });
+    const [jobName, jobData, jobOptions] = queue.add.mock.calls[0]! as unknown as [string, Record<string, unknown>, Record<string, unknown>];
+    expect(jobName).toBe('dispatch');
+    // Luật C-5 nhánh original-ok: kênh ngoài mang nguyên nội dung gốc
+    // (registry đã xác nhận an toàn — nội dung không chứa điểm số),
+    // KHÔNG ném lỗi thiếu cặp tối thiểu hoá như provider minimized.
+    expect(jobData).toMatchObject({
+      provider: 'grade_updated', channel: 'email', emailFrequency: 'daily',
+      subject: 'Điểm mới trong khoá học "Toán"',
+      body: 'Bạn có điểm mới cho mục "Bài 1" trong khoá học "Toán".',
+    });
+    expect(jobOptions).toMatchObject({ attempts: 3 });
+    expect(insertedOutbox[0]).toMatchObject({ payload: { provider: 'grade_updated' } });
+  });
+
+  it('provider original-ok ngoài nhóm learning (message_new): tần suất email mặc định là immediate như phía API', async () => {
+    const { delivery, queue } = buildNotify({ user: ACTIVE_USER });
+    await delivery.notify('user-guardian', 'message_new', {
+      subject: 'Tin nhắn mới từ An',
+      body: 'Bạn có tin nhắn mới đang chờ.',
+      contextUrl: '/messages?conversation=conv-1',
+      tenantId: 'tenant-1',
+    });
+    const [, jobData] = queue.add.mock.calls[0]! as unknown as [string, Record<string, unknown>];
+    expect(jobData).toMatchObject({ provider: 'message_new', emailFrequency: 'immediate' });
+  });
+
+  it('notify truyền courseId của người nhận đã tắt tiếng khoá đó: dừng sớm skipped-course-mute — không thông báo, không job email, không sự kiện', async () => {
+    // Lượt đọc tuỳ chọn đầu tiên trong deliverInApp là khoá tắt tiếng
+    // theo khoá (NB-4): giá trị 'mute' nghĩa là người nhận đã tắt
+    // tiếng khoá đó theo luật ghi đè của phía API. Provider dùng ở
+    // ca này là activity_due_soon — loại THƯỜNG, không thuộc diện
+    // miễn trừ P3 như grade_updated.
+    const { delivery, queue, insertedNotifications, insertedLogs, insertedOutbox } = buildNotify({
+      user: ACTIVE_USER, preferenceReads: ['mute'],
+    });
+    const result = await delivery.notify('user-guardian', 'activity_due_soon', {
+      subject: 'Sắp đến hạn nộp: "Bài 1"',
+      body: 'Hoạt động "Bài 1" trong khoá học "Toán" sẽ đến hạn vào mai.',
+      contextUrl: '/courses/course-1/exams/pin-1',
+      courseId: 'course-1',
+      tenantId: 'tenant-1',
+    });
+    expect(result.skipped).toBe('course-mute');
+    expect(result.notificationId).toBeNull();
+    expect(insertedNotifications).toHaveLength(0);
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(insertedOutbox).toHaveLength(0);
+    expect(insertedLogs.some((l) => l.status === 'skipped-course-mute' && l.provider === 'activity_due_soon')).toBe(true);
+  });
+});

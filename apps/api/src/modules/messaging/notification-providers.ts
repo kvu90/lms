@@ -126,10 +126,11 @@ export interface MessageProviderDefinition {
  * LUẬT SỐNG THẬT (lát N1, issue #49): một provider chỉ được đăng ký ở
  * đây khi đã có nơi phát thật vào `notify()` — provider chưa nối dây
  * thì KHÔNG đăng ký, để trang cài đặt không bao giờ hiện công tắc giả.
- * Ba provider từng "treo" đã được nối dây qua NotificationEventsConsumer
- * (sự kiện outbox grade_updated / course_completed / enrol_expiry_warning);
- * `message_new` cũng qua consumer đó (sự kiện message_sent, gộp theo
- * conversation khi còn chưa đọc).
+ * Ba provider từng "treo" đã được nối dây qua consumer thông báo
+ * sự kiện — trước đây ở API, nay ở worker theo issue con #520 của
+ * #491 — từ các sự kiện outbox grade_updated / course_completed /
+ * enrol_expiry_warning; `message_new` cũng qua consumer đó (sự kiện
+ * message_sent, gộp theo conversation khi còn chưa đọc).
  */
 export const MESSAGE_PROVIDERS: MessageProviderDefinition[] = [
   {

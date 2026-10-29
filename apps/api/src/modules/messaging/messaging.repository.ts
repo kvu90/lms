@@ -2043,8 +2043,9 @@ export class MessagingRepository {
   /**
    * Còn notification CHƯA ĐỌC của (user, loại sự kiện, ngữ cảnh) hay
    * không — căn cứ gộp thông báo tin nhắn mới theo conversation của
-   * NotificationEventsConsumer: còn một bản chưa đọc thì các tin tiếp
-   * theo trong cùng conversation không sinh thêm bản nữa.
+   * consumer thông báo sự kiện ở worker: còn một bản chưa đọc thì
+   * các tin tiếp theo trong cùng conversation không sinh thêm bản
+   * nữa.
    */
   async hasUnreadNotification(userIdTo: string, eventType: string, contextUrl: string): Promise<boolean> {
     const [row] = await this.db.select({ id: notifications.id }).from(notifications)

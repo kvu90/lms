@@ -11,6 +11,7 @@ import { tenantAls } from './db/tenant-als';
 import {
   OUTBOX_EVENT_QUEUES,
   OUTBOX_EVENT_ROUTES,
+  queueNamesOfRoute,
   type OutboxEventJobData,
   type OutboxEventQueueRoutes,
   type OutboxEventQueues,
@@ -34,10 +35,12 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *    ĐÓNG DẤU sau, PHẢN CHIẾU vào `event_log` cuối cùng.
  *    - Nếu loại sự kiện có trong bảng định tuyến
  *      {@link OUTBOX_EVENT_QUEUE_ROUTES}: bước phát là đẩy một job
- *      BullMQ vào hàng đợi của loại đó (tên job là loại sự kiện,
- *      `jobId` là id của dòng outbox, dữ liệu job là toàn bộ dòng —
- *      xem {@link OutboxEventJobData}). Job đẩy thành công mới được
- *      coi là đã phát.
+ *      BullMQ vào MỌI hàng đợi đích của loại đó (tên job là loại
+ *      sự kiện, `jobId` là id của dòng outbox, dữ liệu job là toàn
+ *      bộ dòng — xem {@link OutboxEventJobData}). Mọi đích đều đẩy
+ *      thành công mới được coi là đã phát: loại có nhiều consumer
+ *      (fan-out) chỉ được đóng dấu khi mọi consumer đều đã có job
+ *      của dòng.
  *    - Nếu loại sự kiện chưa có trong bảng định tuyến: consumer của
  *      nó chưa chuyển sang worker nên chưa thuộc phạm vi phát job;
  *      phía tiêu thụ của dòng vẫn là các consumer polling đọc trực
@@ -163,24 +166,23 @@ export class OutboxRelayScheduler {
   }
 
   /**
-   * Bước phát của một dòng: đẩy job BullMQ nếu loại sự kiện của dòng
-   * đã có trong bảng định tuyến; chưa có thì dòng chưa thuộc phạm vi
-   * phát job và bước phát là rỗng (phía tiêu thụ của dòng vẫn đọc
-   * trực tiếp bảng outbox như hiện hành). Hàm chỉ resolve khi bước
-   * phát đã hoàn tất — mọi lỗi đều ném ra để dòng không bị đóng dấu.
+   * Bước phát của một dòng: đẩy job BullMQ vào mọi hàng đợi đích
+   * của loại sự kiện nếu loại đó đã có trong bảng định tuyến; chưa
+   * có thì dòng chưa thuộc phạm vi phát job và bước phát là rỗng
+   * (phía tiêu thụ của dòng vẫn đọc trực tiếp bảng outbox như hiện
+   * hành). Hàm chỉ resolve khi MỌI đích đã nhận job — mọi lỗi đều
+   * ném ra để dòng không bị đóng dấu: phát lại ở nhịp sau an toàn ở
+   * các đích đã nhận nhờ `jobId` bằng id dòng outbox (BullMQ trả
+   * lại job đã có thay vì tạo job thứ hai), nên bất biến "đóng dấu
+   * chỉ sau khi phát thành công" giữ nguyên cả khi fan-out nhiều
+   * đích.
    *
    * @param row Dòng outbox đang phát (chưa có `publishedAt` tại thời
    * điểm hàm chạy — job được đẩy trong khi dòng còn chưa có dấu).
    */
   private async dispatchRow(row: OutboxRow): Promise<void> {
-    const queueName = this.routes[row.type];
-    if (!queueName) return;
-    const queue = this.queues.get(queueName);
-    if (!queue) {
-      throw new Error(
-        `Outbox event type "${row.type}" is routed to queue "${queueName}" but that queue is not registered`,
-      );
-    }
+    const route = this.routes[row.type];
+    if (!route) return;
     const data: OutboxEventJobData = {
       outboxId: row.id,
       seq: row.seq,
@@ -190,11 +192,19 @@ export class OutboxRelayScheduler {
       tenantId: row.tenantId,
       occurredAt: row.occurredAt.toISOString(),
     };
-    // jobId bằng id của dòng outbox (không chứa dấu ':' theo luật của
-    // package): phát lại cùng một dòng trong lúc job còn được BullMQ
-    // lưu giữ thì không tạo job trùng; ngoài cửa sổ lưu giữ đó, chống
-    // trùng tác dụng phụ là việc của processor (idempotent theo
-    // outboxId — xem outbox-event-routes.ts).
-    await queue.add(row.type, data, { jobId: row.id });
+    for (const queueName of queueNamesOfRoute(route)) {
+      const queue = this.queues.get(queueName);
+      if (!queue) {
+        throw new Error(
+          `Outbox event type "${row.type}" is routed to queue "${queueName}" but that queue is not registered`,
+        );
+      }
+      // jobId bằng id của dòng outbox (không chứa dấu ':' theo luật của
+      // package): phát lại cùng một dòng trong lúc job còn được BullMQ
+      // lưu giữ thì không tạo job trùng ở đích đó; ngoài cửa sổ lưu
+      // giữ đó, chống trùng tác dụng phụ là việc của processor
+      // (idempotent theo outboxId — xem outbox-event-routes.ts).
+      await queue.add(row.type, data, { jobId: row.id });
+    }
   }
 }

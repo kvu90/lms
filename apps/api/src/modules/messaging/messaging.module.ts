@@ -8,7 +8,6 @@ import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
 import { MessagingController, NotificationsController } from './messaging.controller';
 import { MessagingGateway } from './messaging.gateway';
 import { MessagingOutboxConsumer } from './messaging-outbox.consumer';
-import { NotificationEventsConsumer } from './notification-events.consumer';
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingRepository } from './messaging.repository';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
@@ -40,10 +39,10 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
     // phân phối (Redis adapter, presence/typing) + consumer quét
     // outbox để phân phối sự kiện đã commit.
     MessagingSocketAuth, MessagingRealtimeService, MessagingGateway, MessagingOutboxConsumer,
-    // Nối dây thông báo (issue #49): consumer quét outbox biến sự kiện
-    // nghiệp vụ (điểm mới / hoàn thành khoá / sắp hết hạn ghi danh /
-    // tin nhắn mới) thành notification qua MessagingService.notify().
-    NotificationEventsConsumer,
+    // Consumer thông báo sự kiện không còn nằm ở API: mười loại sự
+    // kiện nghiệp vụ được relay outbox phát sang hàng đợi ở worker
+    // và xử lý ở đó (issue con #520 của #491). API chỉ giữ consumer
+    // realtime ở trên cho tới khi consumer đó chuyển ở issue #521.
   ],
   exports: [MessagingService],
 })
