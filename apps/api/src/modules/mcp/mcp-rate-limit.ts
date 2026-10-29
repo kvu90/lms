@@ -47,6 +47,12 @@ export class McpRateLimiter {
     const key = `${userId}:${bucket}`;
     const limit = this.limits[bucket];
     const units = Math.max(1, Math.floor(cost) || 1);
+    // Dọn entry hết hạn trước khi quyết định: Map chỉ còn giữ các khoá
+    // đang trong cửa sổ hiệu lực, không phình theo tổng số client từng
+    // gọi tới (issue #485). Việc dọn không đổi bất kỳ quyết định nào —
+    // entry hết hạn nếu chính là khoá đang kiểm tra thì vốn cũng bị
+    // nhánh đặt lại cửa sổ ở dưới ghi đè như thể chưa từng tồn tại.
+    this.dropExpiredWindows(now);
     const current = this.windows.get(key);
     if (!current || now - current.windowStart >= WINDOW_MS) {
       this.windows.set(key, { windowStart: now, count: units });
@@ -60,5 +66,21 @@ export class McpRateLimiter {
     }
     current.count += units;
     return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  /**
+   * Xoá mọi entry mà cửa sổ đã hết hạn tại thời điểm `now`. Điều kiện
+   * hết hạn ở đây trùng khớp điều kiện đặt lại cửa sổ trong `check`
+   * (`now - windowStart >= WINDOW_MS`) nên entry còn hiệu lực không
+   * bao giờ bị xoá nhầm, và `retryAfterSeconds` của các khoá còn hiệu
+   * lực giữ nguyên. Xoá phần tử trong lúc duyệt `Map` là thao tác an
+   * toàn theo ngữ nghĩa của `Map` trong JavaScript.
+   */
+  private dropExpiredWindows(now: number): void {
+    for (const [key, window] of this.windows) {
+      if (now - window.windowStart >= WINDOW_MS) {
+        this.windows.delete(key);
+      }
+    }
   }
 }
