@@ -262,7 +262,14 @@ trình hiện tại trong tài liệu này.
    đội review độc lập nội bộ chấm PR tại nguồn; lớp thứ hai là
    lớp review độc lập qua tài khoản ChatGPT của chủ repo, thực
    hiện trên chính PR, chỉ ở chế độ chat thường — cấm dùng các
-   chế độ tốn quota như Agent, Deep Research hay Work. Ở lượt
+   chế độ tốn quota như Agent, Deep Research hay Work. Điều
+   phối chỉ nêu số PR và repo trong cuộc trò chuyện ChatGPT;
+   ChatGPT tự đọc PR qua kết nối GitHub của tài khoản và đăng
+   phán quyết của mình thành comment trên chính PR. Phán quyết
+   của lớp ChatGPT là comment thường, không phải trạng thái
+   review chính thức, vì tài khoản kết nối chính là tác giả
+   của PR và GitHub không cho tác giả nộp đánh giá Approve hay
+   Request changes lên PR của chính mình. Ở lượt
    đầu, hai lớp chấm độc lập và không bên nào thấy phán quyết
    của bên kia; phán quyết lượt đầu của đội review nội bộ được
    niêm phong trên PR, ghi kèm head SHA của PR, trước khi lớp
