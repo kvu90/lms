@@ -257,6 +257,62 @@ trình hiện tại trong tài liệu này.
 4. Ở từng chặng (bắt đầu thi công, bắt đầu review, có phán quyết,
    merge xong), label trạng thái của issue được đổi theo mục "Label
    trạng thái của issue" trong tài liệu này.
+5. **Cổng review hai lớp.** Sau khi đội thi công đẩy PR, PR phải
+   qua hai lớp review độc lập trước khi merge: lớp thứ nhất là
+   đội review độc lập nội bộ chấm PR tại nguồn; lớp thứ hai là
+   lớp review độc lập qua tài khoản ChatGPT của chủ repo, thực
+   hiện trên chính PR, chỉ ở chế độ chat thường — cấm dùng các
+   chế độ tốn quota như Agent, Deep Research hay Work. Điều
+   phối chỉ nêu số PR và repo trong cuộc trò chuyện ChatGPT;
+   ChatGPT tự đọc PR qua kết nối GitHub của tài khoản và đăng
+   phán quyết của mình thành comment trên chính PR. Phán quyết
+   của lớp ChatGPT là comment thường, không phải trạng thái
+   review chính thức, vì tài khoản kết nối chính là tác giả
+   của PR và GitHub không cho tác giả nộp đánh giá Approve hay
+   Request changes lên PR của chính mình. Ở lượt
+   đầu, hai lớp chấm độc lập và không bên nào thấy phán quyết
+   của bên kia; phán quyết lượt đầu của đội review nội bộ được
+   niêm phong trên PR, ghi kèm head SHA của PR, trước khi lớp
+   ChatGPT bắt đầu chấm. Sau khi cả hai lớp đã có phán quyết
+   lượt đầu, hai lớp đọc comment của nhau trên PR và đánh giá
+   qua lại tới đồng thuận. Lượt review qua ChatGPT luôn dùng
+   mức reasoning High; sau khi gửi yêu cầu review phải kiểm
+   tra lại mức reasoning đang hiệu lực trong chính cuộc trò
+   chuyện đó, vì ChatGPT đặt mặc định Medium ở mỗi cuộc trò
+   chuyện mới và mức đã chọn có thể không giữ — phán quyết của
+   lớp ChatGPT chỉ được tính khi đã kiểm chứng mức High đang
+   hiệu lực. Mỗi PR chỉ dùng đúng một cuộc trò chuyện ChatGPT;
+   nếu phát hiện mức reasoning bị trượt về Medium, phải sửa
+   ngay trên chính cuộc trò chuyện đó (chỉnh mức reasoning rồi
+   yêu cầu làm lại review tại đó), không mở cuộc trò chuyện
+   mới để hỏi lại. Phán quyết đạt ở điểm 2 của mục này là sự
+   đồng thuận đạt của cả hai lớp trên đúng head SHA cuối của
+   PR, thể hiện trên PR: chỉ khi cả hai lớp cùng đồng thuận
+   đạt trên head đó, PR mới chuyển sang trạng thái `chờ merge`
+   và merge theo điểm 2. Mỗi commit mới đẩy lên PR làm cả hai
+   phán quyết hết hiệu lực, hai lớp phải chấm lại phần thay
+   đổi. Mọi finding chặn (mức nghiêm trọng cao) phải về một
+   trạng thái cuối: đã sửa và được bên nêu kiểm chứng lại;
+   hoặc bên nêu tự rút kèm bằng chứng; hoặc chủ repo phân xử
+   bằng văn bản trên PR — im lặng không tính là đồng thuận.
+   Nếu có điểm chưa đạt từ bất kỳ lớp nào, điều phối cử đội
+   thi công sửa theo các điểm đã nêu trên PR và cả hai lớp
+   chấm lại sau khi sửa. Khi việc của một PR kết thúc, cuộc
+   trò chuyện ChatGPT dùng để review PR đó phải được xoá. Lớp
+   ChatGPT là review độc lập bên ngoài, không thay thế kiểm
+   chứng tại nguồn của đội review nội bộ.
+6. **Review hậu merge.** Ngay sau khi một PR được merge, điều
+   phối cử thêm một đội review độc lập nữa — khác cả đội thi
+   công lẫn đội review nội bộ của PR đó — chấm lại thay đổi
+   đã vào `main` tại nguồn trong điều kiện chấm mù (chưa xem
+   phán quyết của hai lớp), sau đó mới đối chiếu với các
+   comment của hai lớp trên PR và phân loại từng lỗi: cả hai
+   lớp cùng bắt được; chỉ lớp nội bộ bắt được; chỉ lớp
+   ChatGPT bắt được; chỉ đội hậu merge bắt được (lỗi lọt cả
+   hai lớp). Nếu có lỗi lọt cả hai lớp, việc sửa mở theo đúng
+   flow hai lớp như một PR thường. Kết quả đối chiếu được báo
+   cáo lại theo chỉ dẫn của điều phối từng lượt: đăng comment
+   lên PR đã merge hoặc ghi vào issue liên quan.
 
 ### Đóng issue
 
