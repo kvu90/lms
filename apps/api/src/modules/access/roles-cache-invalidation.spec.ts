@@ -24,7 +24,11 @@ import { RolesService } from './roles.service';
  *     (API quản trị, rút ghi danh, đồng bộ danh sách lớp, thu hồi
  *     chia sẻ ngân hàng câu hỏi) đều chảy qua hàm này;
  *   - `RolesService.deleteRole` — xoá role phải bump mọi context
- *     từng có gán vai hoặc override của role đó.
+ *     từng có gán vai hoặc override của role đó. Từ issue #545, đường
+ *     xoá có chốt chặn: role dựng sẵn (có archetype) và role đang còn
+ *     người giữ đều bị từ chối, nên ca xoá trong spec này kiểm cả hai
+ *     mặt — lần xoá khi còn gán bị chặn, và sau khi gỡ hết gán, lần
+ *     xoá hợp lệ vẫn bump context nơi override của role từng nằm.
  *
  * Thế giới kiểm chứng dựng trong bộ nhớ (tầng dữ liệu giả lập đếm số
  * lần bị hỏi) nhưng cả ba service đều là service THẬT:
@@ -58,7 +62,10 @@ function makeWorld() {
     { id: COURSE_ID, contextLevel: 50, instanceId: 'course-1', path: `/${SYSTEM_ID}/${COURSE_ID}`, depth: 2, version: 1 } as ContextRow,
   ];
   const roles = new Map<string, { id: string; shortName: string; archetype?: string }>([
-    [ROLE_ID, { id: ROLE_ID, shortName: 'gradeeditor', archetype: 'student' }],
+    // ROLE_ID là role tuỳ biến KHÔNG có archetype: từ issue #545 role
+    // có archetype là role dựng sẵn và bị chặn xoá ở tầng service, nên
+    // một ca kiểm đường xoá hợp lệ phải dùng role không archetype.
+    [ROLE_ID, { id: ROLE_ID, shortName: 'gradeeditor' }],
     [USER_ROLE_ID, { id: USER_ROLE_ID, shortName: 'user', archetype: 'user' }],
   ]);
   const state = {
@@ -137,7 +144,7 @@ function makeWorld() {
   const contextsService = new ContextsService(repoCast);
   const rolesService = new RolesService(repoCast, contextsService, outbox as unknown as OutboxService, planLimits as PlanLimitsService, roleSeparation as RoleSeparationService);
   const evaluator = new PermissionEvaluator(repoCast, contextsService, cache as unknown as Cache, { getOrThrow: () => 'postgres://user:pass@localhost:5432/lms_test_api' } as unknown as ConfigService);
-  return { state, rolesService, evaluator };
+  return { state, rolesService, evaluator, contexts };
 }
 
 describe('Thu hồi quyền phải vô hiệu hoá cache đánh giá ngay (unassignRole / deleteRole)', () => {
@@ -160,16 +167,34 @@ describe('Thu hồi quyền phải vô hiệu hoá cache đánh giá ngay (unass
     expect(state.assignmentReads).toBeGreaterThan(readsAfterFirstCheck);
   });
 
-  it('deleting a role makes the next capability check recompute and deny', async () => {
-    const { state, rolesService, evaluator } = makeWorld();
-    await rolesService.assignRole(USER_ID, ROLE_ID, COURSE_ID);
+  it('xoá role bị chặn khi đang còn người giữ; sau khi gỡ hết gán, lần xoá hợp lệ vẫn vô hiệu hoá cache ngay', async () => {
+    const { state, rolesService, evaluator, contexts } = makeWorld();
+    const assignment = (await rolesService.assignRole(USER_ID, ROLE_ID, COURSE_ID)) as { id: string };
 
     await expect(evaluator.hasCapability(USER_ID, CAPABILITY, COURSE_ID)).resolves.toBe(true);
     const readsAfterFirstCheck = state.assignmentReads;
     await expect(evaluator.hasCapability(USER_ID, CAPABILITY, COURSE_ID)).resolves.toBe(true);
     expect(state.assignmentReads).toBe(readsAfterFirstCheck);
 
+    // Chốt chặn của issue #545: role đang còn người giữ thì xoá bị từ
+    // chối bằng mã lỗi riêng — lần xoá này không được chạm vào dữ kiện.
+    let deleteError: unknown;
+    try {
+      await rolesService.deleteRole(ROLE_ID);
+    } catch (err) {
+      deleteError = err;
+    }
+    expect((deleteError as { response?: { code?: string } }).response?.code).toBe('access.role_has_assignments');
+    await expect(evaluator.hasCapability(USER_ID, CAPABILITY, COURSE_ID)).resolves.toBe(true);
+
+    // Gỡ hết gán rồi xoá: lần xoá hợp lệ phải bump version của context
+    // hệ thống — nơi override của role vừa xoá từng nằm (gán/gỡ ở
+    // context khoá không bump context hệ thống, nên mức tăng này chỉ
+    // có thể đến từ chính đường xoá).
+    await rolesService.unassignRole(assignment.id);
+    const systemVersionBeforeDelete = contexts.find((c) => c.id === SYSTEM_ID)!.version;
     await rolesService.deleteRole(ROLE_ID);
+    expect(contexts.find((c) => c.id === SYSTEM_ID)!.version).toBe(systemVersionBeforeDelete + 1);
 
     await expect(evaluator.hasCapability(USER_ID, CAPABILITY, COURSE_ID)).resolves.toBe(false);
     expect(state.assignmentReads).toBeGreaterThan(readsAfterFirstCheck);

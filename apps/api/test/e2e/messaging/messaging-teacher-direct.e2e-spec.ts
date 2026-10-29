@@ -261,7 +261,7 @@ describe('Messaging — GV nhắn riêng học sinh trong khoá không cần k�
     expect((await send(teacherE, convEId, 'Tin khi còn vai dạy')).status).toBe(201);
     const assignments = await http(app).get(`/api/v1/access/assignments?userId=${teacherE.id}&contextId=${ctxE}`)
       .set('Authorization', `Bearer ${admin}`);
-    const mine = (assignments.body as { id: string; userId: string; contextId: string }[])
+    const mine = (assignments.body.assignments as { id: string; userId: string; contextId: string }[])
       .find((a) => a.userId === teacherE.id && a.contextId === ctxE);
     expect(mine).toBeDefined();
     const unassign = await http(app).delete(`/api/v1/access/assignments/${mine!.id}`)
