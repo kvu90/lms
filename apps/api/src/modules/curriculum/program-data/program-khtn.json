@@ -3,6 +3,84 @@
  "issued_with": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
  "records": [
   {
+   "id": "KHTN-0131",
+   "subject": "Khoa học tự nhiên",
+   "grade": 6,
+   "level": "THCS",
+   "stream": "",
+   "section": "",
+   "topic": "Mở đầu",
+   "content": "Giới thiệu về Khoa học tự nhiên Các lĩnh vực chủ yếu của Khoa học tự nhiên",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được khái niệm Khoa học tự nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của Khoa học tự nhiên trong cuộc sống."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các lĩnh vực Khoa học tự nhiên dựa vào đối tượng nghiên cứu."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào các đặc điểm đặc trưng, phân biệt được vật sống và vật không sống."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nêu được khái niệm Khoa học tự nhiên. – Trình bày được vai trò của Khoa học tự nhiên trong cuộc sống. – Phân biệt được các lĩnh vực Khoa học tự nhiên dựa vào đối tượng nghiên cứu. – Dựa vào các đặc điểm đặc trưng, phân biệt được vật sống và vật không sống.",
+   "source": {
+    "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-khtn-official.pdf",
+    "portal": "data.moet.gov.vn (share gYENIAgt44DU0G8; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     22
+    ]
+   }
+  },
+  {
    "id": "KHTN-0001",
    "subject": "Khoa học tự nhiên",
    "grade": 6,
@@ -3576,6 +3654,165 @@
        "content": [
         {
          "type": "text",
+         "text": "Nêu được vai trò của nước và các chất dinh dưỡng đối với cơ thể sinh vật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Dựa vào sơ đồ (hoặc mô hình) nêu được thành phần hoá học và cấu trúc, tính chất của nước."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quá trình trao đổi nước và các chất dinh dưỡng, lấy được ví dụ ở thực vật và động vật, cụ thể:"
+        }
+       ]
+      },
+      {
+       "type": "bulletList",
+       "content": [
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Dựa vào sơ đồ đơn giản mô tả được con đường hấp thụ, vận chuyển nước và khoáng của cây từ môi trường ngoài vào miền lông hút, vào rễ, lên thân cây và lá cây;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Dựa vào sơ đồ, hình ảnh, phân biệt được sự vận chuyển các chất trong mạch gỗ từ rễ lên lá cây (dòng đi lên) và từ lá xuống các cơ quan trong mạch rây (dòng đi xuống);"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nêu được vai trò thoát hơi nước ở lá và hoạt động đóng, mở khí khổng trong quá trình thoát hơi nước;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Nêu được một số yếu tố chủ yếu ảnh hưởng đến trao đổi nước và các chất dinh dưỡng ở thực vật;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Tiến hành được thí nghiệm chứng minh thân vận chuyển nước và lá thoát hơi nước;"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Trình bày được con đường trao đổi nước và nhu cầu sử dụng nước ở động vật (lấy ví dụ ở người);"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Dựa vào sơ đồ khái quát (hoặc mô hình, tranh ảnh, học liệu điện tử) mô tả được con đường thu nhận và tiêu hoá thức ăn trong ống tiêu hoá ở động vật (đại diện ở người);"
+            }
+           ]
+          }
+         ]
+        },
+        {
+         "type": "listItem",
+         "content": [
+          {
+           "type": "paragraph",
+           "content": [
+            {
+             "type": "text",
+             "text": "Mô tả được quá trình vận chuyển các chất ở động vật (thông qua quan sát tranh, ảnh, mô hình, học liệu điện tử), lấy ví dụ cụ thể ở hai vòng tuần hoàn ở người."
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Vận dụng được những hiểu biết về trao đổi chất và chuyển hoá năng lượng ở thực vật vào thực tiễn (ví dụ giải thích việc tưới nước và bón phân hợp lí cho cây)."
         }
        ]
@@ -3597,7 +3834,7 @@
      ]
     }
    ],
-   "outcome_text": "– Sử dụng hình ảnh để mô tả được quá trình trao đổi khí qua khí khổng của lá. – Dựa vào hình vẽ mô tả được cấu tạo khí khổng, nêu được chức năng của khí khổng. – Dựa vào sơ đồ khái quát mô tả được con đường đi của khí qua các cơ quan của hệ hô hấp ở động vật (ví dụ ở người). – Vận dụng được những hiểu biết về trao đổi chất và chuyển hoá năng lượng ở thực vật vào thực tiễn (ví dụ giải thích việc tưới nước và bón phân hợp lí cho cây). – Vận dụng được những hiểu biết về trao đổi chất và chuyển hoá năng lượng ở động vật vào thực tiễn (ví dụ về dinh dưỡng và vệ sinh ăn uống, ...).",
+   "outcome_text": "– Sử dụng hình ảnh để mô tả được quá trình trao đổi khí qua khí khổng của lá. – Dựa vào hình vẽ mô tả được cấu tạo khí khổng, nêu được chức năng của khí khổng. – Dựa vào sơ đồ khái quát mô tả được con đường đi của khí qua các cơ quan của hệ hô hấp ở động vật (ví dụ ở người). – Nêu được vai trò của nước và các chất dinh dưỡng đối với cơ thể sinh vật. – Dựa vào sơ đồ (hoặc mô hình) nêu được thành phần hoá học và cấu trúc, tính chất của nước. – Mô tả được quá trình trao đổi nước và các chất dinh dưỡng, lấy được ví dụ ở thực vật và động vật, cụ thể: + Dựa vào sơ đồ đơn giản mô tả được con đường hấp thụ, vận chuyển nước và khoáng của cây từ môi trường ngoài vào miền lông hút, vào rễ, lên thân cây và lá cây; + Dựa vào sơ đồ, hình ảnh, phân biệt được sự vận chuyển các chất trong mạch gỗ từ rễ lên lá cây (dòng đi lên) và từ lá xuống các cơ quan trong mạch rây (dòng đi xuống); + Nêu được vai trò thoát hơi nước ở lá và hoạt động đóng, mở khí khổng trong quá trình thoát hơi nước; + Nêu được một số yếu tố chủ yếu ảnh hưởng đến trao đổi nước và các chất dinh dưỡng ở thực vật; + Tiến hành được thí nghiệm chứng minh thân vận chuyển nước và lá thoát hơi nước; + Trình bày được con đường trao đổi nước và nhu cầu sử dụng nước ở động vật (lấy ví dụ ở người); + Dựa vào sơ đồ khái quát (hoặc mô hình, tranh ảnh, học liệu điện tử) mô tả được con đường thu nhận và tiêu hoá thức ăn trong ống tiêu hoá ở động vật (đại diện ở người); + Mô tả được quá trình vận chuyển các chất ở động vật (thông qua quan sát tranh, ảnh, mô hình, học liệu điện tử), lấy ví dụ cụ thể ở hai vòng tuần hoàn ở người. – Vận dụng được những hiểu biết về trao đổi chất và chuyển hoá năng lượng ở thực vật vào thực tiễn (ví dụ giải thích việc tưới nước và bón phân hợp lí cho cây). – Vận dụng được những hiểu biết về trao đổi chất và chuyển hoá năng lượng ở động vật vào thực tiễn (ví dụ về dinh dưỡng và vệ sinh ăn uống, ...).",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",

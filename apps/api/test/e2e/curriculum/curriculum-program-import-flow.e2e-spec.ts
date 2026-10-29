@@ -11,7 +11,7 @@ import {
  * K0a (issue #66) — cơ chế nạp dữ liệu chương trình chuẩn GDPT 2018.
  * Oracle: chính các file dataset đã kiểm chứng nguyên văn với văn bản
  * ban hành kèm Thông tư 32/2018/TT-BGDĐT (hồ sơ kiểm chứng của dự án:
- * Toán 300/300, Ngữ văn 238/238, 0 chênh lệch chữ) — bản sao vendor tại
+ * Toán 314/314, Ngữ văn 238/238, 0 chênh lệch chữ) — bản sao vendor tại
  * `src/modules/curriculum/program-data/`. Spec này đối chiếu TỪNG bản
  * ghi qua API cây: vị trí trong cây (mạch → section → topic → nội dung),
  * toàn bộ YCCĐ theo thứ tự, và truy vết nguồn (source_ref chứa mã bản
@@ -181,7 +181,7 @@ describe('K0a program import (verified GDPT 2018 datasets → programme tree)', 
     const rows = status.body as { datasetKey: string; totalRecords: number; importedRecords: number; subjectId: string | null }[];
     const toanRow = rows.find((r) => r.datasetKey === 'toan');
     const nguvanRow = rows.find((r) => r.datasetKey === 'nguvan');
-    expect(toanRow?.totalRecords).toBe(300);
+    expect(toanRow?.totalRecords).toBe(toan.records.length);
     expect(nguvanRow?.totalRecords).toBe(238);
     // importedRecords có thể đã > 0 nếu một spec khác trong cùng DB đã nạp — chỉ chốt tổng số bản ghi ở đây.
 
@@ -207,10 +207,10 @@ describe('K0a program import (verified GDPT 2018 datasets → programme tree)', 
     const res = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'toan' });
     expect(res.status).toBe(201);
     const result = res.body as { totalRecords: number; created: number; updated: number; skipped: number; outcomesWritten: number };
-    expect(result.totalRecords).toBe(300);
-    expect(result.created + result.updated + result.skipped).toBe(300);
+    expect(result.totalRecords).toBe(toan.records.length);
+    expect(result.created + result.updated + result.skipped).toBe(toan.records.length);
     const expectedOutcomes = toan.records.reduce((n, r) => n + expectedOutcomeTexts(r).length, 0);
-    if (result.created === 300) expect(result.outcomesWritten).toBe(expectedOutcomes);
+    if (result.created === toan.records.length) expect(result.outcomesWritten).toBe(expectedOutcomes);
 
     await verifyDatasetAgainstTree('toan', toan);
 
@@ -223,13 +223,13 @@ describe('K0a program import (verified GDPT 2018 datasets → programme tree)', 
   it('re-importing Toán is a no-op: every record skipped, tree counts unchanged', async () => {
     const before = await http(app).get('/api/v1/curriculum/program-import').set(bearer(admin));
     const beforeRow = (before.body as { datasetKey: string; importedRecords: number }[]).find((r) => r.datasetKey === 'toan');
-    expect(beforeRow?.importedRecords).toBe(300);
+    expect(beforeRow?.importedRecords).toBe(toan.records.length);
     const res = await http(app).post('/api/v1/curriculum/program-import').set(bearer(admin)).send({ datasetKey: 'toan' });
     expect(res.status).toBe(201);
     const result = res.body as { created: number; updated: number; skipped: number };
     expect(result.created).toBe(0);
     expect(result.updated).toBe(0);
-    expect(result.skipped).toBe(300);
+    expect(result.skipped).toBe(toan.records.length);
     const lessons5 = await treeLessons('toan', 5);
     expect(lessons5.length).toBe(toan.records.filter((r) => r.grade === 5).length);
   }, 180_000);

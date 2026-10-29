@@ -309,6 +309,56 @@
    }
   },
   {
+   "id": "LS-0099",
+   "subject": "Lịch sử",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Vai Trò Của Sử Học",
+   "topic": "",
+   "content": "Sử học với công tác bảo tồn và phát huy giá trị di sản văn hoá, di sản thiên nhiên – Mối quan hệ giữa sử học với công tác bảo tồn và phát huy giá trị các di sản văn hoá – Vai trò của công tác bảo tồn và phát huy giá trị di sản văn hoá và thiên nhiên",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mối quan hệ giữa sử học với công tác bảo tồn và phát huy giá trị di sản văn hoá, di sản thiên nhiên."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Vận động được các bạn và mọi người ở xung quanh cùng tham gia bảo vệ các di sản văn hoá, di sản thiên nhiên ở địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được mối quan hệ giữa sử học với công tác bảo tồn và phát huy giá trị di sản văn hoá, di sản thiên nhiên. – Vận động được các bạn và mọi người ở xung quanh cùng tham gia bảo vệ các di sản văn hoá, di sản thiên nhiên ở địa phương.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     13
+    ]
+   }
+  },
+  {
    "id": "LS-0004",
    "subject": "Lịch sử",
    "grade": 10,
@@ -1292,6 +1342,98 @@
    }
   },
   {
+   "id": "LS-0100",
+   "subject": "Lịch sử",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Một Số Nền Văn Minh Trên Đất Nước Việt Nam (Trước Năm 1858)",
+   "topic": "",
+   "content": "Văn minh Đại Việt Cơ sở hình thành và quá trình phát triển của văn minh Đại Việt – Khái niệm văn minh Đại Việt – Cơ sở hình thành – Quá trình phát triển Một số thành tựu của văn minh Đại Việt – Về kinh tế – Về chính trị – Về tư tưởng, tôn giáo – Về văn hoá, giáo dục, văn học, nghệ thuật",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được khái niệm văn minh Đại Việt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được cơ sở hình thành văn minh Đại Việt: kế thừa văn minh Văn Lang – Âu Lạc, nền độc lập tự chủ của đất nước, tiếp thu ảnh hưởng của văn hoá Trung Quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được quá trình phát triển của văn minh Đại Việt trên đường thời gian."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về những thành tựu của văn minh Đại Việt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được một số thành tựu cơ bản của nền văn minh Đại Việt về kinh tế, chính trị, tư tưởng, tôn giáo, văn hoá, giáo dục, văn học, nghệ thuật,..."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Giải thích được khái niệm văn minh Đại Việt. – Phân tích được cơ sở hình thành văn minh Đại Việt: kế thừa văn minh Văn Lang – Âu Lạc, nền độc lập tự chủ của đất nước, tiếp thu ảnh hưởng của văn hoá Trung Quốc. – Nêu được quá trình phát triển của văn minh Đại Việt trên đường thời gian. – Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về những thành tựu của văn minh Đại Việt. – Nêu được một số thành tựu cơ bản của nền văn minh Đại Việt về kinh tế, chính trị, tư tưởng, tôn giáo, văn hoá, giáo dục, văn học, nghệ thuật,...",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     21
+    ]
+   }
+  },
+  {
    "id": "LS-0016",
    "subject": "Lịch sử",
    "grade": 10,
@@ -1918,6 +2060,71 @@
    }
   },
   {
+   "id": "LS-0101",
+   "subject": "Lịch sử",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.2: BẢO TỒN VÀ PHÁT HUY GIÁ TRỊ DI SẢN VĂN HOÁ Ở VIỆT NAM",
+   "topic": "",
+   "content": "Bảo tồn và phát huy giá trị di sản văn hoá Mối quan hệ giữa bảo tồn và phát triển – Khái niệm bảo tồn di sản văn hoá – Mối quan hệ giữa bảo tồn và phát huy giá trị di sản văn hoá Giải pháp bảo tồn và phát huy giá trị di sản – Cơ sở khoa học của công tác bảo tồn, phát huy giá trị di sản văn hoá",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được khái niệm bảo tồn di sản văn hoá."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mối quan hệ giữa bảo tồn và phát huy giá trị di sản văn hoá: bảo tồn phải đặt trong bối cảnh phát triển bền vững để bảo tồn không trở thành gánh nặng và rào cản của phát triển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được cơ sở khoa học của công tác bảo tồn di sản văn hoá trong quá trình phát triển bền vững của đất nước."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Giải thích được khái niệm bảo tồn di sản văn hoá. – Phân tích được mối quan hệ giữa bảo tồn và phát huy giá trị di sản văn hoá: bảo tồn phải đặt trong bối cảnh phát triển bền vững để bảo tồn không trở thành gánh nặng và rào cản của phát triển. – Phân tích được cơ sở khoa học của công tác bảo tồn di sản văn hoá trong quá trình phát triển bền vững của đất nước.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     26,
+     27
+    ]
+   }
+  },
+  {
    "id": "LS-0024",
    "subject": "Lịch sử",
    "grade": 10,
@@ -1986,6 +2193,56 @@
     }
    ],
    "outcome_text": "– Nêu được các giải pháp bảo tồn và phát huy giá trị di sản văn hoá: tuyên truyền giáo dục ý thức bảo tồn di sản, đầu tư cơ sở vật chất, tăng cường biện pháp bảo vệ di sản,... – Giải thích được vai trò của hệ thống chính trị, doanh nghiệp, cộng đồng dân cư và của mỗi cá nhân trong công tác bảo tồn và phát huy giá trị di sản văn hoá. – Trình bày được trách nhiệm của Nhà nước, tổ chức xã hội, nhà trường, cộng đồng, công dân trong việc bảo tồn và phát huy giá trị di sản thông qua ví dụ cụ thể. – Có ý thức trách nhiệm và sẵn sàng đóng góp và vận động người khác cùng tham gia vào việc bảo tồn và phát huy giá trị các di sản văn hoá ở địa phương và đất nước.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     27
+    ]
+   }
+  },
+  {
+   "id": "LS-0102",
+   "subject": "Lịch sử",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 10.2: BẢO TỒN VÀ PHÁT HUY GIÁ TRỊ DI SẢN VĂN HOÁ Ở VIỆT NAM",
+   "topic": "",
+   "content": "Giới thiệu một số di sản văn hoá phi vật thể tiêu biểu – Dân ca quan họ Bắc Ninh – Ca trù – Không gian văn hoá cồng chiêng Tây Nguyên – Nhã nhạc cung đình Huế – Đờn ca tài tử Nam Bộ – ...",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Xác định được vị trí phân bố các di sản văn hoá phi vật thể tiêu biểu trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giới thiệu được nét cơ bản về một trong số những di sản văn hoá phi vật thể tiêu biểu."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Xác định được vị trí phân bố các di sản văn hoá phi vật thể tiêu biểu trên bản đồ. – Giới thiệu được nét cơ bản về một trong số những di sản văn hoá phi vật thể tiêu biểu.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -2350,6 +2607,20 @@
        "content": [
         {
          "type": "text",
+         "text": "Nêu được điểm chung về bối cảnh ra đời của các bản Hiến pháp ở Việt Nam từ năm 1946 đến nay (1946, 1959, 1980, 1992 và 2013): những thay đổi quan trọng về chính trị, kinh tế, xã hội, văn hoá, gắn với một giai đoạn phát triển của lịch sử dân tộc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Phân tích được một số điểm chính của các bản Hiến pháp Việt Nam: cơ sở pháp lí để xây dựng hệ thống pháp luật, tổ chức hoạt động của bộ máy Nhà nước,..."
         }
        ]
@@ -2427,13 +2698,91 @@
      ]
     }
    ],
-   "outcome_text": "– Phân tích được một số điểm chính của các bản Hiến pháp Việt Nam: cơ sở pháp lí để xây dựng hệ thống pháp luật, tổ chức hoạt động của bộ máy Nhà nước,... – Nêu được một số nội dung chính của Hiến pháp năm 1946: ghi nhận thành quả của Cách mạng tháng Tám 1945, quyền bình đẳng và nghĩa vụ công dân, cơ cấu hệ thống chính trị,... – Phân tích được ý nghĩa của Hiến pháp năm 1946 – Hiến pháp đầu tiên trong lịch sử Việt Nam. – Nêu được một số nét chính của Hiến pháp năm 1992: ban hành trong những năm đầu của công cuộc Đổi mới, là cơ sở chính trị – pháp lí quan trọng để thực hiện công cuộc Đổi mới,... – Phân tích được điểm mới của Hiến pháp năm 2013: sự tiến bộ về tư tưởng dân chủ, cơ cấu Nhà nước, kĩ thuật lập hiến,... – Có ý thức trân trọng lịch sử lập hiến của dân tộc, có trách nhiệm và sẵn sàng vận động người khác cùng tuân thủ pháp luật.",
+   "outcome_text": "– Nêu được điểm chung về bối cảnh ra đời của các bản Hiến pháp ở Việt Nam từ năm 1946 đến nay (1946, 1959, 1980, 1992 và 2013): những thay đổi quan trọng về chính trị, kinh tế, xã hội, văn hoá, gắn với một giai đoạn phát triển của lịch sử dân tộc. – Phân tích được một số điểm chính của các bản Hiến pháp Việt Nam: cơ sở pháp lí để xây dựng hệ thống pháp luật, tổ chức hoạt động của bộ máy Nhà nước,... – Nêu được một số nội dung chính của Hiến pháp năm 1946: ghi nhận thành quả của Cách mạng tháng Tám 1945, quyền bình đẳng và nghĩa vụ công dân, cơ cấu hệ thống chính trị,... – Phân tích được ý nghĩa của Hiến pháp năm 1946 – Hiến pháp đầu tiên trong lịch sử Việt Nam. – Nêu được một số nét chính của Hiến pháp năm 1992: ban hành trong những năm đầu của công cuộc Đổi mới, là cơ sở chính trị – pháp lí quan trọng để thực hiện công cuộc Đổi mới,... – Phân tích được điểm mới của Hiến pháp năm 2013: sự tiến bộ về tư tưởng dân chủ, cơ cấu Nhà nước, kĩ thuật lập hiến,... – Có ý thức trân trọng lịch sử lập hiến của dân tộc, có trách nhiệm và sẵn sàng vận động người khác cùng tuân thủ pháp luật.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
     "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
     "pdf_pages": [
      31,
+     32
+    ]
+   }
+  },
+  {
+   "id": "LS-0104",
+   "subject": "Lịch sử",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Các Cuộc Cách Mạng Tư Sản",
+   "topic": "",
+   "content": "Một số vấn đề chung về cách mạng tư sản Tiền đề của cách mạng tư sản – Kinh tế – Chính trị – Xã hội – Tư tưởng Mục tiêu, nhiệm vụ, giai cấp lãnh đạo, động lực của cách mạng tư sản – Mục tiêu và nhiệm vụ – Giai cấp lãnh đạo và động lực cách mạng Các loại hình, tính chất và đặc điểm – Các loại hình – Tính chất và đặc điểm",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tiền đề của cách mạng tư sản: kinh tế, chính trị, xã hội, tư tưởng thông qua ví dụ cụ thể của các cuộc cách mạng tư sản tiêu biểu như: Cách mạng tư sản Anh, Chiến tranh giành độc lập ở Bắc Mỹ, Cách mạng tư sản Pháp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được mục tiêu, nhiệm vụ, giai cấp lãnh đạo, động lực của cách mạng tư sản thông qua dẫn chứng cụ thể của các cuộc cách mạng tư sản tiêu biểu như: Cách mạng tư sản Anh, Chiến tranh giành độc lập ở Bắc Mỹ, Cách mạng tư sản Pháp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được các loại hình cách mạng tư sản thông qua ví dụ cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tính chất và đặc điểm của cách mạng tư sản thông qua dẫn chứng cụ thể của các cuộc cách mạng tư sản tiêu biểu như: Cách mạng tư sản Anh, Chiến tranh giành độc lập ở Bắc Mỹ, Cách mạng tư sản Pháp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được tiền đề của cách mạng tư sản: kinh tế, chính trị, xã hội, tư tưởng thông qua ví dụ cụ thể của các cuộc cách mạng tư sản tiêu biểu như: Cách mạng tư sản Anh, Chiến tranh giành độc lập ở Bắc Mỹ, Cách mạng tư sản Pháp. – Phân tích được mục tiêu, nhiệm vụ, giai cấp lãnh đạo, động lực của cách mạng tư sản thông qua dẫn chứng cụ thể của các cuộc cách mạng tư sản tiêu biểu như: Cách mạng tư sản Anh, Chiến tranh giành độc lập ở Bắc Mỹ, Cách mạng tư sản Pháp. – Nêu được các loại hình cách mạng tư sản thông qua ví dụ cụ thể. – Phân tích được tính chất và đặc điểm của cách mạng tư sản thông qua dẫn chứng cụ thể của các cuộc cách mạng tư sản tiêu biểu như: Cách mạng tư sản Anh, Chiến tranh giành độc lập ở Bắc Mỹ, Cách mạng tư sản Pháp.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
      32
     ]
    }
@@ -2692,6 +3041,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Phân tích được quá trình hình thành Liên bang Cộng hoà xã hội chủ nghĩa Xô viết – Nhà nước xã hội chủ nghĩa đầu tiên trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được ý nghĩa của việc xuất hiện Nhà nước xã hội chủ nghĩa đầu tiên trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được sự phát triển của chủ nghĩa xã hội ở các nước Đông Âu sau Chiến tranh thế giới thứ hai."
         }
        ]
@@ -2769,7 +3146,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được sự phát triển của chủ nghĩa xã hội ở các nước Đông Âu sau Chiến tranh thế giới thứ hai. – Phân tích được sự mở rộng của chủ nghĩa xã hội ở khu vực châu Á (Trung Quốc, Việt Nam, Lào), ở khu vực Mỹ Latinh (Cuba). – Giải thích được nguyên nhân dẫn tới sự sụp đổ mô hình chủ nghĩa xã hội ở Đông Âu, Liên Xô. – Nêu được ý nghĩa của công cuộc cải cách mở cửa của Trung Quốc và công cuộc Đổi mới ở Việt Nam đối với sự phát triển chủ nghĩa xã hội. – Nêu được nét chính về những thách thức và triển vọng của chủ nghĩa xã hội ở Trung Quốc, Việt Nam. – Có ý thức trân trọng những thành tựu, giá trị của chủ nghĩa xã hội, sẵn sàng tham gia đóng góp vào công cuộc xây dựng chủ nghĩa xã hội ở Việt Nam.",
+   "outcome_text": "– Phân tích được quá trình hình thành Liên bang Cộng hoà xã hội chủ nghĩa Xô viết – Nhà nước xã hội chủ nghĩa đầu tiên trên thế giới. – Nêu được ý nghĩa của việc xuất hiện Nhà nước xã hội chủ nghĩa đầu tiên trên thế giới. – Trình bày được sự phát triển của chủ nghĩa xã hội ở các nước Đông Âu sau Chiến tranh thế giới thứ hai. – Phân tích được sự mở rộng của chủ nghĩa xã hội ở khu vực châu Á (Trung Quốc, Việt Nam, Lào), ở khu vực Mỹ Latinh (Cuba). – Giải thích được nguyên nhân dẫn tới sự sụp đổ mô hình chủ nghĩa xã hội ở Đông Âu, Liên Xô. – Nêu được ý nghĩa của công cuộc cải cách mở cửa của Trung Quốc và công cuộc Đổi mới ở Việt Nam đối với sự phát triển chủ nghĩa xã hội. – Nêu được nét chính về những thách thức và triển vọng của chủ nghĩa xã hội ở Trung Quốc, Việt Nam. – Có ý thức trân trọng những thành tựu, giá trị của chủ nghĩa xã hội, sẵn sàng tham gia đóng góp vào công cuộc xây dựng chủ nghĩa xã hội ở Việt Nam.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -2848,6 +3225,48 @@
        "content": [
         {
          "type": "text",
+         "text": "Tóm tắt được nét chính về cuộc đấu tranh chống thực dân xâm lược ở một số nước Đông Nam Á hải đảo (Indonesia, Philippines) và Đông Nam Á lục địa (Myanmar, ba nước Đông Dương)."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được các giai đoạn phát triển của cuộc đấu tranh giành độc lập dân tộc ở Đông Nam Á trên đường thời gian."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được sự đa dạng của cuộc đấu tranh giành độc lập dân tộc ở Đông Nam Á."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Có ý thức trân trọng thành quả đấu tranh giải phóng của các dân tộc bị áp bức."
         }
        ]
@@ -2897,7 +3316,7 @@
      ]
     }
    ],
-   "outcome_text": "– Có ý thức trân trọng thành quả đấu tranh giải phóng của các dân tộc bị áp bức. – Đánh giá được những ảnh hưởng của chế độ thực dân đối với các thuộc địa. Liên hệ với thực tế ở Việt Nam. – Tóm tắt được nét chính về quá trình tái thiết và phát triển ở Đông Nam Á. – Vận dụng được những hiểu biết về quá trình giành độc lập dân tộc và phát triển ở Đông Nam Á để giải thích về sự đa dạng của các nước Đông Nam Á hiện nay.",
+   "outcome_text": "– Tóm tắt được nét chính về cuộc đấu tranh chống thực dân xâm lược ở một số nước Đông Nam Á hải đảo (Indonesia, Philippines) và Đông Nam Á lục địa (Myanmar, ba nước Đông Dương). – Chỉ ra được các giai đoạn phát triển của cuộc đấu tranh giành độc lập dân tộc ở Đông Nam Á trên đường thời gian. – Giải thích được sự đa dạng của cuộc đấu tranh giành độc lập dân tộc ở Đông Nam Á. – Có ý thức trân trọng thành quả đấu tranh giải phóng của các dân tộc bị áp bức. – Đánh giá được những ảnh hưởng của chế độ thực dân đối với các thuộc địa. Liên hệ với thực tế ở Việt Nam. – Tóm tắt được nét chính về quá trình tái thiết và phát triển ở Đông Nam Á. – Vận dụng được những hiểu biết về quá trình giành độc lập dân tộc và phát triển ở Đông Nam Á để giải thích về sự đa dạng của các nước Đông Nam Á hiện nay.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -3400,6 +3819,112 @@
    }
   },
   {
+   "id": "LS-0105",
+   "subject": "Lịch sử",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Làng Xã Việt Nam Trong Lịch Sử",
+   "topic": "",
+   "content": "Giới thiệu chung về làng xã – Khái niệm làng xã – Các loại hình làng xã – Tên gọi làng xã Nguồn gốc và quá trình phát triển của làng xã Việt Nam – Nguồn gốc của làng xã – Quá trình phát triển làng xã Việt Nam Kinh tế làng xã – Kinh tế nông nghiệp và chế độ sở hữu ruộng đất – Thương nghiệp, thủ công nghiệp làng xã",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được khái niệm làng xã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân biệt được các loại hình làng xã."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được cách thức đặt tên các làng xã qua một số ví dụ cụ thể."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được nguồn gốc của làng xã Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nét chính về sự phát triển của làng xã qua các thời kì lịch sử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được nét chính về kinh tế của làng xã Việt Nam: kinh tế nông nghiệp, chế độ sở hữu ruộng đất, thương nghiệp, thủ công nghiệp làng xã."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Giải thích được khái niệm làng xã. – Phân biệt được các loại hình làng xã. – Giải thích được cách thức đặt tên các làng xã qua một số ví dụ cụ thể. – Giải thích được nguồn gốc của làng xã Việt Nam. – Nêu được nét chính về sự phát triển của làng xã qua các thời kì lịch sử. – Phân tích được nét chính về kinh tế của làng xã Việt Nam: kinh tế nông nghiệp, chế độ sở hữu ruộng đất, thương nghiệp, thủ công nghiệp làng xã.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     40
+    ]
+   }
+  },
+  {
    "id": "LS-0046",
    "subject": "Lịch sử",
    "grade": 11,
@@ -3557,6 +4082,57 @@
    }
   },
   {
+   "id": "LS-0103",
+   "subject": "Lịch sử",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Một Số Cuộc Cải Cách Lớn Trong Lịch Sử Việt Nam (Trước Năm 1858)",
+   "topic": "",
+   "content": "Cuộc cải cách của Hồ Quý Ly và triều Hồ (đầu thế kỉ XV) – Bối cảnh lịch sử – Nội dung chính – Kết quả",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được bối cảnh lịch sử, nội dung và đánh giá ý nghĩa cuộc cải cách của nhà Hồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nhận xét về nguyên nhân thất bại của triều Hồ trong sự nghiệp cải cách và kháng chiến bảo vệ Tổ quốc."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Tóm tắt được bối cảnh lịch sử, nội dung và đánh giá ý nghĩa cuộc cải cách của nhà Hồ. – Nêu được nhận xét về nguyên nhân thất bại của triều Hồ trong sự nghiệp cải cách và kháng chiến bảo vệ Tổ quốc.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     41,
+     42
+    ]
+   }
+  },
+  {
    "id": "LS-0048",
    "subject": "Lịch sử",
    "grade": 11,
@@ -3653,6 +4229,48 @@
        "content": [
         {
          "type": "text",
+         "text": "Xác định được vị trí của Biển Đông trên bản đồ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những đặc điểm của Biển Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được tầm quan trọng chiến lược của Biển Đông về giao thông biển, vị trí chiến lược, nguồn tài nguyên thiên nhiên biển,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Xác định được vị trí của các đảo và quần đảo ở Biển Đông trên bản đồ."
         }
        ]
@@ -3674,7 +4292,85 @@
      ]
     }
    ],
-   "outcome_text": "– Xác định được vị trí của các đảo và quần đảo ở Biển Đông trên bản đồ. – Giải thích được tầm quan trọng chiến lược của các đảo và quần đảo ở Biển Đông.",
+   "outcome_text": "– Xác định được vị trí của Biển Đông trên bản đồ. – Nêu được những đặc điểm của Biển Đông. – Giải thích được tầm quan trọng chiến lược của Biển Đông về giao thông biển, vị trí chiến lược, nguồn tài nguyên thiên nhiên biển,... – Xác định được vị trí của các đảo và quần đảo ở Biển Đông trên bản đồ. – Giải thích được tầm quan trọng chiến lược của các đảo và quần đảo ở Biển Đông.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     43
+    ]
+   }
+  },
+  {
+   "id": "LS-0106",
+   "subject": "Lịch sử",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Lịch Sử Bảo Vệ Chủ Quyền, Các Quyền Và Lợi Ích Hợp Pháp Của Việt Nam Ở Biển Đông",
+   "topic": "",
+   "content": "Việt Nam và Biển Đông Tầm quan trọng của Biển Đông đối với Việt Nam – Về quốc phòng, an ninh – Về phát triển các ngành kinh tế trọng điểm Lịch sử bảo vệ chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam đối với hai quần đảo Hoàng Sa và Trường Sa – Việt Nam là Nhà nước đầu tiên xác lập chủ quyền và quản lí liên tục – Tình hình tranh chấp chủ quyền ở Biển Đông: quá khứ và hiện tại – Cuộc đấu tranh bảo vệ và thực thi chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được tầm quan trọng chiến lược của Biển Đông đối với Việt Nam về quốc phòng, an ninh, về phát triển các ngành kinh tế trọng điểm."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được Việt Nam là Nhà nước đầu tiên xác lập chủ quyền và quản lí liên tục đối với hai quần đảo Hoàng Sa và Trường Sa trong lịch sử."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được tình hình tranh chấp chủ quyền ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nét chính về cuộc đấu tranh bảo vệ và thực thi chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được tầm quan trọng chiến lược của Biển Đông đối với Việt Nam về quốc phòng, an ninh, về phát triển các ngành kinh tế trọng điểm. – Giải thích được Việt Nam là Nhà nước đầu tiên xác lập chủ quyền và quản lí liên tục đối với hai quần đảo Hoàng Sa và Trường Sa trong lịch sử. – Trình bày được tình hình tranh chấp chủ quyền ở Biển Đông. – Nêu được nét chính về cuộc đấu tranh bảo vệ và thực thi chủ quyền, các quyền và lợi ích hợp pháp của Việt Nam ở Biển Đông.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -3861,6 +4557,56 @@
     }
    ],
    "outcome_text": "– Nêu được những thành tựu nghệ thuật chính thời Lê sơ về kiến trúc và điêu khắc thông qua hoạt động trải nghiệm thực tế hoặc sưu tầm tranh ảnh, tài liệu,... – Liệt kê được những thành tựu nghệ thuật chính thời Mạc. – Nêu được những điểm chính của nghệ thuật kiến trúc thời Mạc.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     45
+    ]
+   }
+  },
+  {
+   "id": "LS-0107",
+   "subject": "Lịch sử",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chuyên đề 11.1: LỊCH SỬ NGHỆ THUẬT TRUYỀN THỐNG VIỆT NAM",
+   "topic": "",
+   "content": "Nghệ thuật thời Lê trung hưng – Kiến trúc – Điêu khắc – Mỹ thuật",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được những nét cơ bản của nghệ thuật thời Lê trung hưng về kiến trúc, điêu khắc, mỹ thuật thông qua hoạt động trải nghiệm thực tế hoặc sưu tầm tranh ảnh, tài liệu,..."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những điểm mới về nghệ thuật thời Lê trung hưng."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nêu được những nét cơ bản của nghệ thuật thời Lê trung hưng về kiến trúc, điêu khắc, mỹ thuật thông qua hoạt động trải nghiệm thực tế hoặc sưu tầm tranh ảnh, tài liệu,... – Phân tích được những điểm mới về nghệ thuật thời Lê trung hưng.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -4516,6 +5262,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về quá trình thành lập Liên hợp quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được bối cảnh lịch sử và quá trình hình thành Liên hợp quốc."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được mục tiêu và nguyên tắc cơ bản của Liên hợp quốc."
         }
        ]
@@ -4607,7 +5381,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được mục tiêu và nguyên tắc cơ bản của Liên hợp quốc. – Biết cách sưu tầm và sử dụng tài liệu để tìm hiểu về cơ cấu tổ chức của Liên hợp quốc. – Nêu được vai trò của Liên hợp quốc trong việc duy trì hoà bình, an ninh quốc tế thông qua ví dụ cụ thể. – Phân tích được vai trò của Liên hợp quốc trong lĩnh vực thúc đẩy phát triển, tạo môi trường thuận lợi để phát triển kinh tế, tài chính, thương mại quốc tế, nâng cao đời sống người dân. – Phân tích được vai trò của Liên hợp quốc trong việc đảm bảo quyền con người, phát triển văn hoá, xã hội và các lĩnh vực khác. – Nêu được nhận xét về vai trò của các tổ chức quốc tế của Liên hợp quốc ở Việt Nam thông qua ví dụ cụ thể. – Nêu được nhận xét về đóng góp của Việt Nam đối với các hoạt động của Liên hợp quốc. Tự hào về vai trò và đóng góp của Việt Nam và có ý thức sẵn sàng đóng góp sự nghiệp chung của Liên hợp quốc và cộng đồng quốc tế.",
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về quá trình thành lập Liên hợp quốc. – Phân tích được bối cảnh lịch sử và quá trình hình thành Liên hợp quốc. – Trình bày được mục tiêu và nguyên tắc cơ bản của Liên hợp quốc. – Biết cách sưu tầm và sử dụng tài liệu để tìm hiểu về cơ cấu tổ chức của Liên hợp quốc. – Nêu được vai trò của Liên hợp quốc trong việc duy trì hoà bình, an ninh quốc tế thông qua ví dụ cụ thể. – Phân tích được vai trò của Liên hợp quốc trong lĩnh vực thúc đẩy phát triển, tạo môi trường thuận lợi để phát triển kinh tế, tài chính, thương mại quốc tế, nâng cao đời sống người dân. – Phân tích được vai trò của Liên hợp quốc trong việc đảm bảo quyền con người, phát triển văn hoá, xã hội và các lĩnh vực khác. – Nêu được nhận xét về vai trò của các tổ chức quốc tế của Liên hợp quốc ở Việt Nam thông qua ví dụ cụ thể. – Nêu được nhận xét về đóng góp của Việt Nam đối với các hoạt động của Liên hợp quốc. Tự hào về vai trò và đóng góp của Việt Nam và có ý thức sẵn sàng đóng góp sự nghiệp chung của Liên hợp quốc và cộng đồng quốc tế.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -4629,6 +5403,20 @@
    "content": "– Sự hình thành – Nội dung Sự sụp đổ của Trật tự thế giới hai cực Yalta – Nguyên nhân sụp đổ – Hệ quả và tác động",
    "kind": "content",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về Trật tự thế giới hai cực Yalta."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -4686,7 +5474,7 @@
      ]
     }
    ],
-   "outcome_text": "– Phân tích được sự hình thành Trật tự thế giới hai cực Yalta. – Trình bày được những nét chính của Trật tự thế giới hai cực Yalta. – Nêu được nguyên nhân dẫn đến sự sụp đổ của Trật tự thế giới hai cực Yalta. – Phân tích được hệ quả và tác động sự sụp đổ Trật tự thế giới hai cực Yalta đối với tình hình thế giới.",
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về Trật tự thế giới hai cực Yalta. – Phân tích được sự hình thành Trật tự thế giới hai cực Yalta. – Trình bày được những nét chính của Trật tự thế giới hai cực Yalta. – Nêu được nguyên nhân dẫn đến sự sụp đổ của Trật tự thế giới hai cực Yalta. – Phân tích được hệ quả và tác động sự sụp đổ Trật tự thế giới hai cực Yalta đối với tình hình thế giới.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -4830,6 +5618,84 @@
     }
    ],
    "outcome_text": "– Giải thích được nguyên nhân dẫn đến sự phát triển (1945 – 1960) và sự suy giảm của nền kinh tế Mỹ (1960 – 1973). – Giải thích được vì sao những năm 1960 – 1973 ở Mỹ được gọi là “thời kì của những thay đổi”.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     53
+    ]
+   }
+  },
+  {
+   "id": "LS-0108",
+   "subject": "Lịch sử",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Quá Trình Phát Triển Kinh Tế – Xã Hội Mỹ Từ Năm 1945 Đến Nay",
+   "topic": "",
+   "content": "Cuộc khủng hoảng dầu mỏ năm 1973 và tác động đối với nước Mỹ – Nước Mỹ với cuộc khủng hoảng dầu mỏ năm 1973 – Thời kì lạm phát, đình đốn của nền kinh tế – Những vấn đề chính trị – xã hội Những biện pháp điều chỉnh kinh tế – xã hội thập niên 80 của thế kỉ XX – Chính sách kinh tế của Chính quyền Reagan",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về diễn biến cuộc khủng hoảng dầu mỏ năm 1973."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Chỉ ra được tác động của cuộc khủng hoảng dầu mỏ đối với nước Mỹ."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được nét chính về tình hình kinh tế, chính trị – xã hội của nước Mỹ trong thập niên 70 của thế kỉ XX."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được những nội dung chính của chính sách kinh tế của chính quyền Reagan."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về diễn biến cuộc khủng hoảng dầu mỏ năm 1973. – Chỉ ra được tác động của cuộc khủng hoảng dầu mỏ đối với nước Mỹ. – Phân tích được nét chính về tình hình kinh tế, chính trị – xã hội của nước Mỹ trong thập niên 70 của thế kỉ XX. – Phân tích được những nội dung chính của chính sách kinh tế của chính quyền Reagan.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -5201,6 +6067,48 @@
        "content": [
         {
          "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tư liệu để tìm hiểu về quá trình thành lập ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được quá trình hình thành và mục đích thành lập của ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được quá trình phát triển từ ASEAN 5 đến ASEAN 10."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Nêu được các giai đoạn phát triển chính của ASEAN (1967 đến nay) trên đường thời gian."
         }
        ]
@@ -5250,7 +6158,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được các giai đoạn phát triển chính của ASEAN (1967 đến nay) trên đường thời gian. – Trình bày được cơ cấu tổ chức của ASEAN thông qua sơ đồ. – Chỉ ra được những nguyên tắc cơ bản của ASEAN. – Giải thích được phương thức ASEAN (ASEAN Way) là cách tiếp cận riêng của ASEAN trong việc giải quyết các vấn đề của khu vực và duy trì quan hệ giữa các nước thành viên.",
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu để tìm hiểu về quá trình thành lập ASEAN. – Trình bày được quá trình hình thành và mục đích thành lập của ASEAN. – Phân tích được quá trình phát triển từ ASEAN 5 đến ASEAN 10. – Nêu được các giai đoạn phát triển chính của ASEAN (1967 đến nay) trên đường thời gian. – Trình bày được cơ cấu tổ chức của ASEAN thông qua sơ đồ. – Chỉ ra được những nguyên tắc cơ bản của ASEAN. – Giải thích được phương thức ASEAN (ASEAN Way) là cách tiếp cận riêng của ASEAN trong việc giải quyết các vấn đề của khu vực và duy trì quan hệ giữa các nước thành viên.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -5280,6 +6188,34 @@
        "content": [
         {
          "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tài liệu để tìm hiểu về quá trình hình thành và mục tiêu của Cộng đồng ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nét chính về ý tưởng, mục tiêu và kế hoạch xây dựng Cộng đồng ASEAN."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Phân tích được nội dung ba trụ cột của Cộng đồng ASEAN: Cộng đồng Chính trị – An ninh ASEAN (APSC), Cộng đồng Kinh tế ASEAN (AEC), Cộng đồng Văn hoá – Xã hội (ASCC)."
         }
        ]
@@ -5301,7 +6237,7 @@
      ]
     }
    ],
-   "outcome_text": "– Phân tích được nội dung ba trụ cột của Cộng đồng ASEAN: Cộng đồng Chính trị – An ninh ASEAN (APSC), Cộng đồng Kinh tế ASEAN (AEC), Cộng đồng Văn hoá – Xã hội (ASCC). – Nêu được nhận xét về thuận lợi, khó khăn của Cộng đồng ASEAN. Có ý thức sẵn sàng tham gia vào các hoạt động xây dựng Cộng đồng ASEAN.",
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tài liệu để tìm hiểu về quá trình hình thành và mục tiêu của Cộng đồng ASEAN. – Nêu được nét chính về ý tưởng, mục tiêu và kế hoạch xây dựng Cộng đồng ASEAN. – Phân tích được nội dung ba trụ cột của Cộng đồng ASEAN: Cộng đồng Chính trị – An ninh ASEAN (APSC), Cộng đồng Kinh tế ASEAN (AEC), Cộng đồng Văn hoá – Xã hội (ASCC). – Nêu được nhận xét về thuận lợi, khó khăn của Cộng đồng ASEAN. Có ý thức sẵn sàng tham gia vào các hoạt động xây dựng Cộng đồng ASEAN.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -5395,6 +6331,20 @@
        "content": [
         {
          "type": "text",
+         "text": "Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về cuộc kháng chiến chống thực dân Pháp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
          "text": "Trình bày được nét khái quát về bối cảnh lịch sử, diễn biến chính của cuộc kháng chiến chống thực dân Pháp."
         }
        ]
@@ -5430,7 +6380,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được nét khái quát về bối cảnh lịch sử, diễn biến chính của cuộc kháng chiến chống thực dân Pháp. – Nêu được nguyên nhân thắng lợi của cuộc kháng chiến chống thực dân Pháp. – Phân tích được vị trí, ý nghĩa lịch sử của cuộc kháng chiến chống thực dân Pháp trong tiến trình lịch sử Việt Nam.",
+   "outcome_text": "– Biết cách sưu tầm và sử dụng tư liệu lịch sử để tìm hiểu về cuộc kháng chiến chống thực dân Pháp. – Trình bày được nét khái quát về bối cảnh lịch sử, diễn biến chính của cuộc kháng chiến chống thực dân Pháp. – Nêu được nguyên nhân thắng lợi của cuộc kháng chiến chống thực dân Pháp. – Phân tích được vị trí, ý nghĩa lịch sử của cuộc kháng chiến chống thực dân Pháp trong tiến trình lịch sử Việt Nam.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -5732,6 +6682,42 @@
    }
   },
   {
+   "id": "LS-0109",
+   "subject": "Lịch sử",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công Cuộc Đổi Mới Ở Việt Nam Từ Năm 1986 Đến Nay",
+   "topic": "",
+   "content": "Đặc điểm của công cuộc Đổi mới ở Việt Nam từ năm 1986 đến nay Về bối cảnh lịch sử – Bối cảnh quốc tế, khu vực – Bối cảnh trong nước",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được công cuộc Đổi mới ở Việt Nam diễn ra trong bối cảnh quốc tế, khu vực có nhiều biến đổi. Kinh nghiệm cải cách của các nước gợi mở cho Việt Nam trong quá trình đổi mới."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Phân tích được công cuộc Đổi mới ở Việt Nam diễn ra trong bối cảnh quốc tế, khu vực có nhiều biến đổi. Kinh nghiệm cải cách của các nước gợi mở cho Việt Nam trong quá trình đổi mới.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     61
+    ]
+   }
+  },
+  {
    "id": "LS-0082",
    "subject": "Lịch sử",
    "grade": 12,
@@ -5807,6 +6793,34 @@
    "content": "– Xây dựng, hoàn thiện hệ thống chính trị – Vượt qua tình trạng bị bao vây cấm vận, tích cực và chủ động hội nhập quốc tế – Giải quyết các vấn đề xã hội, phát triển văn hoá, con người Một số bài học kinh nghiệm – Kiên trì mục tiêu độc lập dân tộc và chủ nghĩa xã hội trên nền tảng chủ nghĩa Mác – Lênin và tư tưởng Hồ Chí Minh – Đổi mới toàn diện, đồng bộ, có bước đi, hình thức và cách làm phù hợp – Đổi mới phải vì lợi ích của nhân dân, phát huy vai trò chủ động, sáng tạo của nhân dân – Kết hợp sức mạnh nội lực và ngoại lực, kết hợp sức mạnh dân tộc với sức mạnh thời đại trong điều kiện mới",
    "kind": "content",
    "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Giải thích được công cuộc Đổi mới đã đưa Việt Nam thoát khỏi khủng hoảng kinh tế – xã hội và tình trạng kém phát triển, trở thành nước đang phát triển có thu nhập trung bình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được sự chuyển đổi quan trọng từ mô hình kinh tế kế hoạch hoá tập trung sang mô hình mới – kinh tế hàng hoá nhiều thành phần; từ mô hình quản lí kinh tế theo cơ chế tập trung, quan liêu bao cấp chuyển sang mô hình quản lí kinh tế theo cơ chế thị trường."
+        }
+       ]
+      }
+     ]
+    },
     {
      "type": "doc",
      "content": [
@@ -5920,7 +6934,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được những nét chính về quá trình xây dựng và đổi mới trong cơ chế, chính sách, tổ chức bộ máy nhà nước, nâng cao hiệu quả của hệ thống chính trị. – Giải thích được Việt Nam đã vượt qua thế bị bao vây, cấm vận, tích cực và chủ động hội nhập kinh tế khu vực và toàn cầu, quan hệ quốc tế và thương mại quốc tế mở rộng mạnh mẽ. – Phân tích được nét chính về việc giải quyết các vấn đề xã hội, phát triển văn hoá, con người, chú trọng nâng cao đời sống vật chất và tinh thần của nhân dân. Gắn kết tăng trưởng kinh tế với thực hiện tiến bộ, công bằng xã hội. – Phân tích được đổi mới là sự vận dụng sáng tạo và phát triển chủ nghĩa Mác – Lênin, tư tưởng Hồ Chí Minh và vai trò lãnh đạo của Đảng. – Giải thích được sự cần thiết phải đổi mới đồng bộ tất cả các mặt của đời sống xã hội, có những bước đi thích hợp. – Vận dụng những hiểu biết về vai trò của quần chúng nhân dân trong lịch sử để phân tích được vai trò của quần chúng nhân dân trong công cuộc Đổi mới. – Trình bày được vai trò của việc kết hợp nội lực với ngoại lực, phát huy sức mạnh dân tộc với sức mạnh thời đại như là cách thức để tận dụng thời cơ, vận hội để tiếp tục công cuộc Đổi mới. – Có ý thức trân trọng những thành tựu của công cuộc Đổi mới, sẵn sàng tham gia đóng góp vào công cuộc Đổi mới ở địa phương và đất nước.",
+   "outcome_text": "– Giải thích được công cuộc Đổi mới đã đưa Việt Nam thoát khỏi khủng hoảng kinh tế – xã hội và tình trạng kém phát triển, trở thành nước đang phát triển có thu nhập trung bình. – Phân tích được sự chuyển đổi quan trọng từ mô hình kinh tế kế hoạch hoá tập trung sang mô hình mới – kinh tế hàng hoá nhiều thành phần; từ mô hình quản lí kinh tế theo cơ chế tập trung, quan liêu bao cấp chuyển sang mô hình quản lí kinh tế theo cơ chế thị trường. – Trình bày được những nét chính về quá trình xây dựng và đổi mới trong cơ chế, chính sách, tổ chức bộ máy nhà nước, nâng cao hiệu quả của hệ thống chính trị. – Giải thích được Việt Nam đã vượt qua thế bị bao vây, cấm vận, tích cực và chủ động hội nhập kinh tế khu vực và toàn cầu, quan hệ quốc tế và thương mại quốc tế mở rộng mạnh mẽ. – Phân tích được nét chính về việc giải quyết các vấn đề xã hội, phát triển văn hoá, con người, chú trọng nâng cao đời sống vật chất và tinh thần của nhân dân. Gắn kết tăng trưởng kinh tế với thực hiện tiến bộ, công bằng xã hội. – Phân tích được đổi mới là sự vận dụng sáng tạo và phát triển chủ nghĩa Mác – Lênin, tư tưởng Hồ Chí Minh và vai trò lãnh đạo của Đảng. – Giải thích được sự cần thiết phải đổi mới đồng bộ tất cả các mặt của đời sống xã hội, có những bước đi thích hợp. – Vận dụng những hiểu biết về vai trò của quần chúng nhân dân trong lịch sử để phân tích được vai trò của quần chúng nhân dân trong công cuộc Đổi mới. – Trình bày được vai trò của việc kết hợp nội lực với ngoại lực, phát huy sức mạnh dân tộc với sức mạnh thời đại như là cách thức để tận dụng thời cơ, vận hội để tiếp tục công cuộc Đổi mới. – Có ý thức trân trọng những thành tựu của công cuộc Đổi mới, sẵn sàng tham gia đóng góp vào công cuộc Đổi mới ở địa phương và đất nước.",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",
@@ -5986,6 +7000,42 @@
     }
    ],
    "outcome_text": "– Tóm tắt được những nét chính về sự thiết lập quan hệ bang giao Việt Nam – Trung Quốc ở thế kỉ thứ X. – Phân tích được những đặc điểm của quan hệ bang giao Việt Nam – Trung Quốc. – Nêu được nhưng nét chính trong quan hệ bang giao Việt Nam – Đông Nam Á.",
+   "source": {
+    "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-lichsu-official.pdf",
+    "portal": "data.moet.gov.vn (share Pjk1JJIcg7CxsnP; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     64
+    ]
+   }
+  },
+  {
+   "id": "LS-0110",
+   "subject": "Lịch sử",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Lịch Sử Quan Hệ Đối Ngoại Việt Nam",
+   "topic": "",
+   "content": "Hoạt động đối ngoại của Việt Nam trong đấu tranh giành độc lập dân tộc (đầu thế kỉ XX đến Cách mạng tháng Tám năm 1945) – Bối cảnh lịch sử – Hoạt động đối ngoại chủ yếu",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được nét khái quát về bối cảnh lịch sử và những hoạt động đối ngoại chủ yếu của Việt Nam trong đấu tranh giành độc lập dân tộc (từ đầu thế kỉ XX đến Cách mạng tháng Tám năm 1945)."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nêu được nét khái quát về bối cảnh lịch sử và những hoạt động đối ngoại chủ yếu của Việt Nam trong đấu tranh giành độc lập dân tộc (từ đầu thế kỉ XX đến Cách mạng tháng Tám năm 1945).",
    "source": {
     "document": "Chương trình môn Lịch sử ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-lichsu-official.pdf",

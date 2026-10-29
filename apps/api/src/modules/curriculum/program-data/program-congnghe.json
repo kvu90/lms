@@ -5419,6 +5419,184 @@
    }
   },
   {
+   "id": "CN-0104",
+   "subject": "Công nghệ",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Vẽ và thiết kế với sự hỗ trợ của máy tính",
+   "topic": "",
+   "content": "Vẽ và thiết kế với sự hỗ trợ của máy tính",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của công nghệ thông tin trong các hoạt động tạo lập bản vẽ và thiết kế kĩ thuật."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Sử dụng được phần mềm CAD để lập bản vẽ kĩ thuật của vật thể đơn giản."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được vai trò của công nghệ thông tin trong các hoạt động tạo lập bản vẽ và thiết kế kĩ thuật. – Sử dụng được phần mềm CAD để lập bản vẽ kĩ thuật của vật thể đơn giản.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "CN-0105",
+   "subject": "Công nghệ",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Thiết kế mạch điều khiển cho ngôi nhà thông minh",
+   "topic": "",
+   "content": "Thiết kế mạch điều khiển cho ngôi nhà thông minh",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được sơ đồ khối và nguyên tắc hoạt động của một hệ thống điều khiển cho ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Kể tên, mô tả được cấu tạo, nguyên tắc hoạt động của một số cảm biến thông dụng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế được một hệ thống điều khiển đơn giản cho ngôi nhà thông minh."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được sơ đồ khối và nguyên tắc hoạt động của một hệ thống điều khiển cho ngôi nhà thông minh. – Kể tên, mô tả được cấu tạo, nguyên tắc hoạt động của một số cảm biến thông dụng. – Thiết kế được một hệ thống điều khiển đơn giản cho ngôi nhà thông minh.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
+   "id": "CN-0106",
+   "subject": "Công nghệ",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Nghề nghiệp STEM",
+   "topic": "",
+   "content": "Nghề nghiệp STEM",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt một được một số vấn đề cơ bản về STEM, nghề nghiệp STEM."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tìm hiểu được các thông tin về nhu cầu nghề nghiệp STEM trong tương lai gần tại Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập và thực hiện được kế hoạch để thích ứng với nghề nghiệp STEM."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Tóm tắt một được một số vấn đề cơ bản về STEM, nghề nghiệp STEM. – Tìm hiểu được các thông tin về nhu cầu nghề nghiệp STEM trong tương lai gần tại Việt Nam. – Lập và thực hiện được kế hoạch để thích ứng với nghề nghiệp STEM.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     31
+    ]
+   }
+  },
+  {
    "id": "CN-0064",
    "subject": "Công nghệ",
    "grade": 11,
@@ -5905,6 +6083,226 @@
     "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
     "pdf_pages": [
      33,
+     34
+    ]
+   }
+  },
+  {
+   "id": "CN-0107",
+   "subject": "Công nghệ",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Dự án nghiên cứu lĩnh vực kĩ thuật cơ khí",
+   "topic": "",
+   "content": "Dự án nghiên cứu lĩnh vực kĩ thuật cơ khí",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm của một dự án nghiên cứu thuộc lĩnh vực kĩ thuật cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liệt kê được một số nội dung kĩ thuật có liên quan trong thực hiện dự án nghiên cứu thuộc lĩnh vực kĩ thuật cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hình thành được ý tưởng, lập kế hoạch và triển khai nghiên cứu một dự án thuộc lĩnh vực kĩ thuật cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Báo cáo được kết quả triển khai dự án nghiên cứu."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Mô tả được đặc điểm của một dự án nghiên cứu thuộc lĩnh vực kĩ thuật cơ khí. – Liệt kê được một số nội dung kĩ thuật có liên quan trong thực hiện dự án nghiên cứu thuộc lĩnh vực kĩ thuật cơ khí. – Hình thành được ý tưởng, lập kế hoạch và triển khai nghiên cứu một dự án thuộc lĩnh vực kĩ thuật cơ khí. – Báo cáo được kết quả triển khai dự án nghiên cứu.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33
+    ]
+   }
+  },
+  {
+   "id": "CN-0108",
+   "subject": "Công nghệ",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công nghệ CAD/CAM-CNC",
+   "topic": "",
+   "content": "Công nghệ CAD/CAM-CNC",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò và chức năng của CAD/CAM-CNC trong sản xuất cơ khí."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu đặc điểm, mô tả cấu trúc chung, nhận biết được các bộ phận của máy CNC."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được quy trình gia công với máy CNC tại một cơ sở sản xuất, giáo dục tại địa phương."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được vai trò và chức năng của CAD/CAM-CNC trong sản xuất cơ khí. – Nêu đặc điểm, mô tả cấu trúc chung, nhận biết được các bộ phận của máy CNC. – Tóm tắt được quy trình gia công với máy CNC tại một cơ sở sản xuất, giáo dục tại địa phương.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     33
+    ]
+   }
+  },
+  {
+   "id": "CN-0109",
+   "subject": "Công nghệ",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công nghệ in 3D",
+   "topic": "",
+   "content": "Công nghệ in 3D",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm, ứng dụng của công nghệ in 3D và cấu trúc chung, nguyên lí làm việc của máy in 3D."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được một số công nghệ in 3D."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được triển vọng và xu hướng phát triển công nghệ in 3D."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lập trình, kết nối và in được vật thể đơn giản bằng máy in 3D."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được đặc điểm, ứng dụng của công nghệ in 3D và cấu trúc chung, nguyên lí làm việc của máy in 3D. – Mô tả được một số công nghệ in 3D. – Phân tích được triển vọng và xu hướng phát triển công nghệ in 3D. – Lập trình, kết nối và in được vật thể đơn giản bằng máy in 3D.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
      34
     ]
    }
@@ -6553,6 +6951,227 @@
     "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
     "pdf_pages": [
      36
+    ]
+   }
+  },
+  {
+   "id": "CN-0110",
+   "subject": "Công nghệ",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Thiết kế hệ thống cảnh báo trong gia đình",
+   "topic": "",
+   "content": "Thiết kế hệ thống cảnh báo trong gia đình",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được nhu cầu và các tình huống cần cảnh báo tự động trong gia đình."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được cấu trúc, nguyên lí hoạt động của hệ thống cảnh báo sử dụng vi điều khiển."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thiết kế, chế tạo được một hệ thống cảnh báo trong gia đình."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Nhận biết được nhu cầu và các tình huống cần cảnh báo tự động trong gia đình. – Trình bày được cấu trúc, nguyên lí hoạt động của hệ thống cảnh báo sử dụng vi điều khiển. – Thiết kế, chế tạo được một hệ thống cảnh báo trong gia đình.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     36,
+     37
+    ]
+   }
+  },
+  {
+   "id": "CN-0111",
+   "subject": "Công nghệ",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Dự án nghiên cứu lĩnh vực hệ thống nhúng",
+   "topic": "",
+   "content": "Dự án nghiên cứu lĩnh vực hệ thống nhúng",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm của một dự án nghiên cứu thuộc lĩnh vực hệ thống nhúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liệt kê được các nội dung liên quan trong một dự án cụ thể thuộc lĩnh vực hệ thống nhúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hình thành được ý tưởng, lập kế hoạch và triển khai nghiên cứu một dự án thuộc lĩnh vực hệ thống nhúng."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Báo cáo được kết quả triển khai dự án nghiên cứu."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Mô tả được đặc điểm của một dự án nghiên cứu thuộc lĩnh vực hệ thống nhúng. – Liệt kê được các nội dung liên quan trong một dự án cụ thể thuộc lĩnh vực hệ thống nhúng. – Hình thành được ý tưởng, lập kế hoạch và triển khai nghiên cứu một dự án thuộc lĩnh vực hệ thống nhúng. – Báo cáo được kết quả triển khai dự án nghiên cứu.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
+    ]
+   }
+  },
+  {
+   "id": "CN-0112",
+   "subject": "Công nghệ",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Dự án nghiên cứu lĩnh vực robot và máy thông minh",
+   "topic": "",
+   "content": "Dự án nghiên cứu lĩnh vực robot và máy thông minh",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được đặc điểm của một dự án nghiên cứu thuộc lĩnh vực robot và máy thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Liệt kê được các nội dung liên quan trong một dự án cụ thể thuộc lĩnh vực robot và máy thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Hình thành được ý tưởng, lập kế hoạch và triển khai nghiên cứu một dự án thuộc lĩnh vực robot và máy thông minh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Báo cáo được kết quả triển khai dự án nghiên cứu."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Mô tả được đặc điểm của một dự án nghiên cứu thuộc lĩnh vực robot và máy thông minh. – Liệt kê được các nội dung liên quan trong một dự án cụ thể thuộc lĩnh vực robot và máy thông minh. – Hình thành được ý tưởng, lập kế hoạch và triển khai nghiên cứu một dự án thuộc lĩnh vực robot và máy thông minh. – Báo cáo được kết quả triển khai dự án nghiên cứu.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     37
     ]
    }
   },
@@ -7239,6 +7858,296 @@
    }
   },
   {
+   "id": "CN-0113",
+   "subject": "Công nghệ",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công nghệ sinh học trong trồng trọt",
+   "topic": "",
+   "content": "Công nghệ sinh học trong trồng trọt",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong trồng trọt ở Việt Nam và trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được triển vọng của công nghệ sinh học trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và đạo đức nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong trồng trọt. – Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong trồng trọt ở Việt Nam và trên thế giới. – Đánh giá được triển vọng của công nghệ sinh học trong trồng trọt. – Có ý thức về an toàn lao động và đạo đức nghề nghiệp.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     40
+    ]
+   }
+  },
+  {
+   "id": "CN-0114",
+   "subject": "Công nghệ",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Trồng và chăm sóc hoa, cây cảnh",
+   "topic": "",
+   "content": "Trồng và chăm sóc hoa, cây cảnh",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được vai trò của hoa, cây cảnh đối với đời sống con người."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nêu được đặc điểm thực vật học và yêu cầu ngoại cảnh của một số loại hoa, cây cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được quy trình nhân giống phù hợp cho một số loại hoa, cây cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quy trình trồng, chăm sóc, phòng trừ sâu bệnh, thu hoạch, bảo quản một số loại hoa, cây cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trồng và chăm sóc được một loại hoa, cây cảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích công việc trồng và chăm sóc hoa, cây cảnh, có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được vai trò của hoa, cây cảnh đối với đời sống con người. – Nêu được đặc điểm thực vật học và yêu cầu ngoại cảnh của một số loại hoa, cây cảnh phổ biến. – Lựa chọn được quy trình nhân giống phù hợp cho một số loại hoa, cây cảnh phổ biến. – Mô tả được quy trình trồng, chăm sóc, phòng trừ sâu bệnh, thu hoạch, bảo quản một số loại hoa, cây cảnh phổ biến. – Trồng và chăm sóc được một loại hoa, cây cảnh. – Yêu thích công việc trồng và chăm sóc hoa, cây cảnh, có ý thức về an toàn lao động và bảo vệ môi trường.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     40
+    ]
+   }
+  },
+  {
+   "id": "CN-0115",
+   "subject": "Công nghệ",
+   "grade": 10,
+   "level": "THPT",
+   "stream": "",
+   "section": "Trồng trọt theo tiêu chuẩn VietGAP",
+   "topic": "",
+   "content": "Trồng trọt theo tiêu chuẩn VietGAP",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, ý nghĩa, các tiêu chí của trồng trọt theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được các yêu cầu về: chọn đất trồng, nguồn nước tưới, giống, phân bón, phòng, trừ sâu bệnh, thu hoạch, sơ chế và kiểm tra, vận chuyển, bảo quản và sử dụng sản phẩm trong trồng trọt theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được các bước trong quy trình trồng trọt theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được mô hình trồng trọt thích hợp cho một số loại cây trồng phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc trong quy trình trồng trọt theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn vệ sinh thực phẩm và bảo vệ môi trường trong trồng trọt."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được khái niệm, ý nghĩa, các tiêu chí của trồng trọt theo tiêu chuẩn VietGAP. – Tóm tắt được các yêu cầu về: chọn đất trồng, nguồn nước tưới, giống, phân bón, phòng, trừ sâu bệnh, thu hoạch, sơ chế và kiểm tra, vận chuyển, bảo quản và sử dụng sản phẩm trong trồng trọt theo tiêu chuẩn VietGAP. – Mô tả được các bước trong quy trình trồng trọt theo tiêu chuẩn VietGAP. – Lựa chọn được mô hình trồng trọt thích hợp cho một số loại cây trồng phổ biến. – Thực hiện được một số công việc trong quy trình trồng trọt theo tiêu chuẩn VietGAP. – Có ý thức về an toàn vệ sinh thực phẩm và bảo vệ môi trường trong trồng trọt.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     41
+    ]
+   }
+  },
+  {
    "id": "CN-0088",
    "subject": "Công nghệ",
    "grade": 11,
@@ -7817,6 +8726,282 @@
     "pdf_pages": [
      43,
      45
+    ]
+   }
+  },
+  {
+   "id": "CN-0116",
+   "subject": "Công nghệ",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công nghệ sinh học trong chăn nuôi",
+   "topic": "",
+   "content": "Công nghệ sinh học trong chăn nuôi",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong chăn nuôi (Ví dụ: Công nghệ sinh chọn tạo giống, công nghệ sinh sản, sản xuất thức ăn, chẩn đoán bệnh, sản xuất vắc-xin, sản xuất đệm lót sinh học) ở Việt Nam và trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá triển vọng của công nghệ sinh học trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và đạo đức nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong chăn nuôi. – Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong chăn nuôi (Ví dụ: Công nghệ sinh chọn tạo giống, công nghệ sinh sản, sản xuất thức ăn, chẩn đoán bệnh, sản xuất vắc-xin, sản xuất đệm lót sinh học) ở Việt Nam và trên thế giới. – Đánh giá triển vọng của công nghệ sinh học trong chăn nuôi. – Có ý thức về an toàn lao động và đạo đức nghề nghiệp.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     43
+    ]
+   }
+  },
+  {
+   "id": "CN-0117",
+   "subject": "Công nghệ",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Nuôi dưỡng và chăm sóc động vật cảnh",
+   "topic": "",
+   "content": "Nuôi dưỡng và chăm sóc động vật cảnh",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm và yêu cầu điều kiện sống của một số động vật cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được thức ăn phù hợp cho một số động vật cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quy trình nuôi dưỡng, chăm sóc, phòng, trị bệnh cho một số động vật cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc trong nuôi dưỡng và chăm sóc động vật cảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích công việc nuôi dưỡng và chăm sóc động vật cảnh; có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được đặc điểm và yêu cầu điều kiện sống của một số động vật cảnh phổ biến. – Lựa chọn được thức ăn phù hợp cho một số động vật cảnh phổ biến. – Mô tả được quy trình nuôi dưỡng, chăm sóc, phòng, trị bệnh cho một số động vật cảnh phổ biến. – Thực hiện được một số công việc trong nuôi dưỡng và chăm sóc động vật cảnh. – Yêu thích công việc nuôi dưỡng và chăm sóc động vật cảnh; có ý thức về an toàn lao động và bảo vệ môi trường.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     44
+    ]
+   }
+  },
+  {
+   "id": "CN-0118",
+   "subject": "Công nghệ",
+   "grade": 11,
+   "level": "THPT",
+   "stream": "",
+   "section": "Chăn nuôi theo tiêu chuẩn VietGAP",
+   "topic": "",
+   "content": "Chăn nuôi theo tiêu chuẩn VietGAP",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, ý nghĩa, các tiêu chí của chăn nuôi theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Tóm tắt được các yêu cầu về: chọn vị trí, chuồng trại, con giống, thức ăn chăn nuôi, nước uống, vệ sinh thú y, quản lí chất thải trong chăn nuôi theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Nhận biết được các bước trong quy trình chăn nuôi theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được mô hình chăn nuôi thích hợp cho một số đối tượng vật nuôi phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc đơn giản trong quy trình chăn nuôi theo tiêu chuẩn VietGAP."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và bảo vệ môi trường trong chăn nuôi."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được khái niệm, ý nghĩa, các tiêu chí của chăn nuôi theo tiêu chuẩn VietGAP. – Tóm tắt được các yêu cầu về: chọn vị trí, chuồng trại, con giống, thức ăn chăn nuôi, nước uống, vệ sinh thú y, quản lí chất thải trong chăn nuôi theo tiêu chuẩn VietGAP. – Nhận biết được các bước trong quy trình chăn nuôi theo tiêu chuẩn VietGAP. – Lựa chọn được mô hình chăn nuôi thích hợp cho một số đối tượng vật nuôi phổ biến. – Thực hiện được một số công việc đơn giản trong quy trình chăn nuôi theo tiêu chuẩn VietGAP. – Có ý thức về an toàn lao động và bảo vệ môi trường trong chăn nuôi.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     44
     ]
    }
   },
@@ -8668,6 +9853,254 @@
     "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
     "pdf_pages": [
      47
+    ]
+   }
+  },
+  {
+   "id": "CN-0119",
+   "subject": "Công nghệ",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công nghệ sinh học trong lâm nghiệp",
+   "topic": "",
+   "content": "Công nghệ sinh học trong lâm nghiệp",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong lâm nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong lâm nghiệp ở Việt Nam."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá triển vọng của công nghệ sinh học trong lâm nghiệp."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và đạo đức nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong lâm nghiệp. – Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong lâm nghiệp ở Việt Nam. – Đánh giá triển vọng của công nghệ sinh học trong lâm nghiệp. – Có ý thức về an toàn lao động và đạo đức nghề nghiệp.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     47
+    ]
+   }
+  },
+  {
+   "id": "CN-0120",
+   "subject": "Công nghệ",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Công nghệ sinh học trong thuỷ sản",
+   "topic": "",
+   "content": "Công nghệ sinh học trong thuỷ sản",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong thuỷ sản (chọn tạo giống, công nghệ sinh sản, sản xuất thức ăn, chẩn đoán bệnh, sản xuất vắc-xin, xử lí môi trường thuỷ sản) ở Việt Nam và trên thế giới."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Đánh giá được triển vọng của công nghệ sinh học trong thuỷ sản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Có ý thức về an toàn lao động và đạo đức nghề nghiệp."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được khái niệm, vai trò và một số thành tựu của công nghệ sinh học trong thuỷ sản. – Phân tích được một số hướng ứng dụng phổ biến của công nghệ sinh học trong thuỷ sản (chọn tạo giống, công nghệ sinh sản, sản xuất thức ăn, chẩn đoán bệnh, sản xuất vắc-xin, xử lí môi trường thuỷ sản) ở Việt Nam và trên thế giới. – Đánh giá được triển vọng của công nghệ sinh học trong thuỷ sản. – Có ý thức về an toàn lao động và đạo đức nghề nghiệp.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     48
+    ]
+   }
+  },
+  {
+   "id": "CN-0121",
+   "subject": "Công nghệ",
+   "grade": 12,
+   "level": "THPT",
+   "stream": "",
+   "section": "Nuôi cá cảnh",
+   "topic": "",
+   "content": "Nuôi cá cảnh",
+   "kind": "content",
+   "outcomes": [
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Trình bày được đặc điểm động vật học và yêu cầu ngoại cảnh của một số loại cá cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Lựa chọn được thức ăn phù hợp cho một số loại cá cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được quy trình nuôi dưỡng, chăm sóc, phòng trừ dịch bệnh cho một số loại cá cảnh phổ biến."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Thực hiện được một số công việc trong nuôi và chăm sóc cá cảnh."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Yêu thích công việc nuôi và chăm sóc cá cảnh, có ý thức về an toàn lao động và bảo vệ môi trường."
+        }
+       ]
+      }
+     ]
+    }
+   ],
+   "outcome_text": "– Trình bày được đặc điểm động vật học và yêu cầu ngoại cảnh của một số loại cá cảnh phổ biến. – Lựa chọn được thức ăn phù hợp cho một số loại cá cảnh phổ biến. – Mô tả được quy trình nuôi dưỡng, chăm sóc, phòng trừ dịch bệnh cho một số loại cá cảnh phổ biến. – Thực hiện được một số công việc trong nuôi và chăm sóc cá cảnh. – Yêu thích công việc nuôi và chăm sóc cá cảnh, có ý thức về an toàn lao động và bảo vệ môi trường.",
+   "source": {
+    "document": "Chương trình môn Công nghệ ban hành kèm Thông tư 32/2018/TT-BGDĐT",
+    "file": "ct-congnghe-official.pdf",
+    "portal": "data.moet.gov.vn (share oJEpNgn7tQW4wyo; ban luu Wayback khop digest)",
+    "pdf_pages": [
+     48
     ]
    }
   }

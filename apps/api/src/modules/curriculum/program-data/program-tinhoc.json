@@ -8147,7 +8147,21 @@
        "content": [
         {
          "type": "text",
-         "text": "Sử dụng được các hàm tổ hợp (Ví dụ: COMBINA, PERMUT,...) tính xác suất một biến cố theo xác suất cổ điển, tính xác suất biến ngẫu nhiên theo phân phối nhị thức (BINOMDIST) trong một số bài toán đơn giản. –Mô tả được dữ liệu thống kê của một bài toán thực tếvới sử dụng phần mềm bảng tính:"
+         "text": "Sử dụng được các hàm tổ hợp (Ví dụ: COMBINA, PERMUT,...) tính xác suất một biến cố theo xác suất cổ điển, tính xác suất biến ngẫu nhiên theo phân phối nhị thức (BINOMDIST) trong một số bài toán đơn giản."
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "doc",
+     "content": [
+      {
+       "type": "paragraph",
+       "content": [
+        {
+         "type": "text",
+         "text": "Mô tả được dữ liệu thống kê của một bài toán thực tế với sử dụng phần mềm bảng tính:"
         }
        ]
       },
@@ -8243,7 +8257,7 @@
      ]
     }
    ],
-   "outcome_text": "– Sử dụng được các hàm (Ví dụ: RAND, RANDBETWEEN,...) chọn trực tiếp ngẫu nhiên các mẫu dữ liệu. – Sử dụng được các hàm tổ hợp (Ví dụ: COMBINA, PERMUT,...) tính xác suất một biến cố theo xác suất cổ điển, tính xác suất biến ngẫu nhiên theo phân phối nhị thức (BINOMDIST) trong một số bài toán đơn giản. –Mô tả được dữ liệu thống kê của một bài toán thực tếvới sử dụng phần mềm bảng tính: + Trình bày được dữ liệu thống kê bằng: bảng tần số, tần suất một, hai chiều, bảng thống kê theo số liệu gộp nhóm và bảng tổng hợp nhiều chiều; + Mô tả được các thống kê của bảng số liệu tổng hợp bằng các loại biểu đồ thông dụng (pie chart, column chart, histogram); + Sử dụng được các hàm tính các đặc trưng về độ tập trung: trung bình cộng (mean), trung vị (median), tứ phân vị (quartile), mốt (mode); + Sử dụng được các hàm tính các đặc trưng về độ phân tán: khoảng biến thiên, phương sai và độ lệch chuẩn, hệ số biến thiên; + Giải quyết được bài toán thực tế đơn giản về kiểm định giả thuyết, dựa trên số trung bình của quần thể và sự khác biệt hai số trung bình quần thể. – Phân tích được dữ liệu về tương quan tuyến tính ở mức đơn giản trong một bài toán thực tế với sử dụng phần mềm bảng tính.",
+   "outcome_text": "– Sử dụng được các hàm (Ví dụ: RAND, RANDBETWEEN,...) chọn trực tiếp ngẫu nhiên các mẫu dữ liệu. – Sử dụng được các hàm tổ hợp (Ví dụ: COMBINA, PERMUT,...) tính xác suất một biến cố theo xác suất cổ điển, tính xác suất biến ngẫu nhiên theo phân phối nhị thức (BINOMDIST) trong một số bài toán đơn giản. – Mô tả được dữ liệu thống kê của một bài toán thực tế với sử dụng phần mềm bảng tính: + Trình bày được dữ liệu thống kê bằng: bảng tần số, tần suất một, hai chiều, bảng thống kê theo số liệu gộp nhóm và bảng tổng hợp nhiều chiều; + Mô tả được các thống kê của bảng số liệu tổng hợp bằng các loại biểu đồ thông dụng (pie chart, column chart, histogram); + Sử dụng được các hàm tính các đặc trưng về độ tập trung: trung bình cộng (mean), trung vị (median), tứ phân vị (quartile), mốt (mode); + Sử dụng được các hàm tính các đặc trưng về độ phân tán: khoảng biến thiên, phương sai và độ lệch chuẩn, hệ số biến thiên; + Giải quyết được bài toán thực tế đơn giản về kiểm định giả thuyết, dựa trên số trung bình của quần thể và sự khác biệt hai số trung bình quần thể. – Phân tích được dữ liệu về tương quan tuyến tính ở mức đơn giản trong một bài toán thực tế với sử dụng phần mềm bảng tính.",
    "source": {
     "document": "Chương trình môn Tin học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-tinhoc-official.pdf",

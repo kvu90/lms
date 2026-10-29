@@ -19,8 +19,11 @@ import { loadProgramDataset, PROGRAM_DATASETS } from './program-datasets';
  *    phải khớp nhau hai chiều (file có trong manifest thì phải có
  *    trên đĩa và ngược lại);
  *  - số bản ghi của TỪNG dataset và tổng toàn bộ phải bằng đúng bảng
- *    đã kiểm chứng dưới đây (đếm trực tiếp từ file JSON ngày
- *    27/10/2026, khớp cả artifact dump đông cứng ở cả 5 bảng);
+ *    đã kiểm chứng dưới đây (đếm trực tiếp từ file JSON: số liệu gốc
+ *    ngày 27/10/2026, riêng 7 dataset khôi phục đợt 1 — lichsu,
+ *    lsdl-thcs, congnghe, diali, toan, khtn, lsdl-th — cập nhật theo
+ *    số đếm ngày 29/10/2026; khớp cả artifact dump đông cứng ở cả 5
+ *    bảng);
  *  - số môn đích phân biệt theo `slug` phải là 19 (môn thứ 20 danh
  *    nghĩa GDQP&AN chưa có dataset — hoãn theo issue #74).
  *
@@ -33,25 +36,25 @@ import { loadProgramDataset, PROGRAM_DATASETS } from './program-datasets';
  * nghiệp vụ mà admin và giáo viên nhìn thấy trực tiếp.
  */
 
-/** Số bản ghi đã kiểm chứng theo khoá dataset (tổng 2.115). */
+/** Số bản ghi đã kiểm chứng theo khoá dataset (tổng 2.164). */
 const EXPECTED_RECORDS: Readonly<Record<string, number>> = {
-  toan: 300,
+  toan: 314,
   nguvan: 238,
   'tienganh-1-2': 16,
   'tienganh-3-12': 95,
   gdcd: 116,
   tnxh: 48,
   khoahoc: 32,
-  'lsdl-th': 47,
-  'lsdl-thcs': 63,
-  lichsu: 98,
-  diali: 62,
-  khtn: 130,
+  'lsdl-th': 49,
+  'lsdl-thcs': 64,
+  lichsu: 110,
+  diali: 63,
+  khtn: 131,
   vatli: 82,
   hoahoc: 94,
   sinhhoc: 133,
   tinhoc: 115,
-  congnghe: 103,
+  congnghe: 121,
   gdtc: 22,
   amnhac: 116,
   mithuat: 100,
@@ -68,7 +71,7 @@ describe('Dataset GDPT 2018 đã vendor — gác tính đầy đủ (issue #161)
     expect(inManifest).toEqual(onDisk);
   });
 
-  it('số bản ghi từng dataset và tổng toàn bộ khớp bảng đã kiểm chứng (2.115)', () => {
+  it('số bản ghi từng dataset và tổng toàn bộ khớp bảng đã kiểm chứng (2.164)', () => {
     let total = 0;
     for (const def of PROGRAM_DATASETS) {
       const file = loadProgramDataset(def);
@@ -78,7 +81,7 @@ describe('Dataset GDPT 2018 đã vendor — gác tính đầy đủ (issue #161)
       ).toBe(EXPECTED_RECORDS[def.key]);
       total += file.records.length;
     }
-    expect(total).toBe(2115);
+    expect(total).toBe(2164);
   });
 
   it('21 dataset resolve về đúng 19 môn đích phân biệt', () => {
