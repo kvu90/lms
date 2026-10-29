@@ -2863,14 +2863,14 @@
        "content": [
         {
          "type": "text",
-         "text": "Phân tích được ảnh hưởng của các điều kiện đến quang hợp (ánh sáng, CO , nhiệt độ)."
+         "text": "Phân tích được ảnh hưởng của các điều kiện đến quang hợp (ánh sáng, CO2, nhiệt độ)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Phân tích được ảnh hưởng của các điều kiện đến quang hợp (ánh sáng, CO , nhiệt độ).",
+   "outcome_text": "– Phân tích được ảnh hưởng của các điều kiện đến quang hợp (ánh sáng, CO2, nhiệt độ).",
    "source": {
     "document": "Chương trình môn Sinh học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-sinhhoc-official.pdf",

@@ -748,7 +748,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được vai trò, ảnh hưởng của liên kết hydrogen tới tính chất vật lí của H O."
+         "text": "Nêu được vai trò, ảnh hưởng của liên kết hydrogen tới tính chất vật lí của H2O."
         }
        ]
       }
@@ -769,7 +769,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được vai trò, ảnh hưởng của liên kết hydrogen tới tính chất vật lí của H O. – Nêu được khái niệm về tương tác van der Waals và ảnh hưởng của tương tác này tới nhiệt độ nóng chảy, nhiệt độ sôi của các chất.",
+   "outcome_text": "– Nêu được vai trò, ảnh hưởng của liên kết hydrogen tới tính chất vật lí của H2O. – Nêu được khái niệm về tương tác van der Waals và ảnh hưởng của tương tác này tới nhiệt độ nóng chảy, nhiệt độ sôi của các chất.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -876,7 +876,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Trình bày được khái niệm phản ứng toả nhiệt, thu nhiệt; điều kiện chuẩn (áp suất 1 bar và 25oC thường chọn nhiệt độ hay 298 K); enthalpy tạo thành (nhiệt tạo thành)  Ho , và biến f 298 Ho thiên enthalpy (nhiệt phản ứng) của phản ứng  . r 298 Ho"
+         "text": "Trình bày được khái niệm phản ứng toả nhiệt, thu nhiệt; điều kiện chuẩn (áp suất 1 bar và thường chọn nhiệt độ 25oC hay 298 K); enthalpy tạo thành (nhiệt tạo thành) ΔfHo298, và biến thiên enthalpy (nhiệt phản ứng) của phản ứng ΔrHo298."
         }
        ]
       }
@@ -890,7 +890,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được ý nghĩa của dấu và giá trị  . r 298 Ho"
+         "text": "Nêu được ý nghĩa của dấu và giá trị ΔrHo298."
         }
        ]
       }
@@ -904,14 +904,14 @@
        "content": [
         {
          "type": "text",
-         "text": "Tính được  của một phản ứng dựa vào bảng số liệu năng lượng liên kết, nhiệt tạo r 298 thành cho sẵn, vận dụng công thức:  H0 E (cđ)–E (sp)và  H0   H0 (sp)– H0 (cđ) r 298 b b r 298 f 298 f 298 E (cđ) E (sp) b , b là tổng năng lượng liên kết trong phân tử chất đầu và sản phẩm phản ứng."
+         "text": "Tính được ΔrHo298 của một phản ứng dựa vào bảng số liệu năng lượng liên kết, nhiệt tạo thành cho sẵn, vận dụng công thức: ΔrHo298 = ΣEb(cđ) – ΣEb(sp) và ΔrHo298 = ΣΔfHo298(sp) – ΣΔfHo298(cđ). Eb(cđ), Eb(sp) là tổng năng lượng liên kết trong phân tử chất đầu và sản phẩm phản ứng."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Trình bày được khái niệm phản ứng toả nhiệt, thu nhiệt; điều kiện chuẩn (áp suất 1 bar và 25oC thường chọn nhiệt độ hay 298 K); enthalpy tạo thành (nhiệt tạo thành)  Ho , và biến f 298 Ho thiên enthalpy (nhiệt phản ứng) của phản ứng  . r 298 Ho – Nêu được ý nghĩa của dấu và giá trị  . r 298 Ho – Tính được  của một phản ứng dựa vào bảng số liệu năng lượng liên kết, nhiệt tạo r 298 thành cho sẵn, vận dụng công thức:  H0 E (cđ)–E (sp)và  H0   H0 (sp)– H0 (cđ) r 298 b b r 298 f 298 f 298 E (cđ) E (sp) b , b là tổng năng lượng liên kết trong phân tử chất đầu và sản phẩm phản ứng.",
+   "outcome_text": "– Trình bày được khái niệm phản ứng toả nhiệt, thu nhiệt; điều kiện chuẩn (áp suất 1 bar và thường chọn nhiệt độ 25oC hay 298 K); enthalpy tạo thành (nhiệt tạo thành) ΔfHo298, và biến thiên enthalpy (nhiệt phản ứng) của phản ứng ΔrHo298. – Nêu được ý nghĩa của dấu và giá trị ΔrHo298. – Tính được ΔrHo298 của một phản ứng dựa vào bảng số liệu năng lượng liên kết, nhiệt tạo thành cho sẵn, vận dụng công thức: ΔrHo298 = ΣEb(cđ) – ΣEb(sp) và ΔrHo298 = ΣΔfHo298(sp) – ΣΔfHo298(cđ). Eb(cđ), Eb(sp) là tổng năng lượng liên kết trong phân tử chất đầu và sản phẩm phản ứng.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -1453,7 +1453,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được ảnh hưởng của năng lượng hoạt hoá và nhiệt độ tới tốc độ phản ứng thông qua A.e(–E /RT). phương trình Arrhenius k a"
+         "text": "Nêu được ảnh hưởng của năng lượng hoạt hoá và nhiệt độ tới tốc độ phản ứng thông qua phương trình Arrhenius k = A.e^(–Ea/RT)."
         }
        ]
       }
@@ -1474,7 +1474,7 @@
      ]
     }
    ],
-   "outcome_text": "– Trình bày được khái niệm năng lượng hoạt hoá (theo khía cạnh ảnh hưởng đến tốc độ phản ứng). – Nêu được ảnh hưởng của năng lượng hoạt hoá và nhiệt độ tới tốc độ phản ứng thông qua A.e(–E /RT). phương trình Arrhenius k a – Giải thích được vai trò của chất xúc tác.",
+   "outcome_text": "– Trình bày được khái niệm năng lượng hoạt hoá (theo khía cạnh ảnh hưởng đến tốc độ phản ứng). – Nêu được ảnh hưởng của năng lượng hoạt hoá và nhiệt độ tới tốc độ phản ứng thông qua phương trình Arrhenius k = A.e^(–Ea/RT). – Giải thích được vai trò của chất xúc tác.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -1582,7 +1582,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được một số ví dụ về sự cháy các chất vô cơ và hữu cơ (xăng, dầu cháy trong không khí; Mg cháy trong CO ,...)."
+         "text": "Nêu được một số ví dụ về sự cháy các chất vô cơ và hữu cơ (xăng, dầu cháy trong không khí; Mg cháy trong CO2,...)."
         }
        ]
       }
@@ -1659,7 +1659,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm, đặc điểm của phản ứng cháy (thuộc loại phản ứng oxi hoá – khử và là phản ứng toả nhiệt, phát ra ánh sáng). – Nêu được một số ví dụ về sự cháy các chất vô cơ và hữu cơ (xăng, dầu cháy trong không khí; Mg cháy trong CO ,...). – Nêu được điều kiện cần và đủ để phản ứng cháy xảy ra. – Nêu được khái niệm, đặc điểm cơ bản của phản ứng nổ (xảy ra với tốc độ rất nhanh kèm theo sự tăng thể tích đột ngột và toả lượng nhiệt lớn) – Nêu được khái niệm phản ứng nổ vật lí và nổ hoá học. – Trình bày được khái niệm về “nổ bụi” (nổ bụi là vụ nổ gây bởi các hạt bụi rắn có kích thước hạt nhỏ (hầu hết các vật liệu hữu cơ rắn như bột nhựa, bột đường, bột ngũ cốc cũng như bột kim loại có khả năng tác dụng với oxi và toả nhiệt mạnh) trong không khí) – Trình bày được những sản phẩm độc hại thường sinh ra trong các phản ứng cháy: CO , CO, HCl, SO ,... và tác hại của chúng với con người. (CO rất độc với con người. Ở nồng độ 1,28%CO, con người bất tỉnh sau 2 – 3 hơi thở, chết sau 2 – 3 phút)",
+   "outcome_text": "– Nêu được khái niệm, đặc điểm của phản ứng cháy (thuộc loại phản ứng oxi hoá – khử và là phản ứng toả nhiệt, phát ra ánh sáng). – Nêu được một số ví dụ về sự cháy các chất vô cơ và hữu cơ (xăng, dầu cháy trong không khí; Mg cháy trong CO2,...). – Nêu được điều kiện cần và đủ để phản ứng cháy xảy ra. – Nêu được khái niệm, đặc điểm cơ bản của phản ứng nổ (xảy ra với tốc độ rất nhanh kèm theo sự tăng thể tích đột ngột và toả lượng nhiệt lớn) – Nêu được khái niệm phản ứng nổ vật lí và nổ hoá học. – Trình bày được khái niệm về “nổ bụi” (nổ bụi là vụ nổ gây bởi các hạt bụi rắn có kích thước hạt nhỏ (hầu hết các vật liệu hữu cơ rắn như bột nhựa, bột đường, bột ngũ cốc cũng như bột kim loại có khả năng tác dụng với oxi và toả nhiệt mạnh) trong không khí) – Trình bày được những sản phẩm độc hại thường sinh ra trong các phản ứng cháy: CO , CO, HCl, SO ,... và tác hại của chúng với con người. (CO rất độc với con người. Ở nồng độ 1,28%CO, con người bất tỉnh sau 2 – 3 hơi thở, chết sau 2 – 3 phút)",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -2613,7 +2613,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Trình bày được cấu tạo H SO ; tính chất vật lí, tính chất hoá học cơ bản, ứng dụng của sulfuric acid loãng, sulfuric acid đặc và những lưu ý khi sử dụng sulfuric acid."
+         "text": "Trình bày được cấu tạo H2SO4; tính chất vật lí, tính chất hoá học cơ bản, ứng dụng của sulfuric acid loãng, sulfuric acid đặc và những lưu ý khi sử dụng sulfuric acid."
         }
        ]
       }
@@ -2655,14 +2655,14 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được ứng dụng của một số muối sulfate quan trọng: barium sulfate (bari sunfat), ammonium sulfate (amoni sunfat), calcium sulfate (canxi sunfat), magnesium sulfate (magie sunfat) và nhận SO2– Ba2+. biết được ion trong dung dịch bằng ion"
+         "text": "Nêu được ứng dụng của một số muối sulfate quan trọng: barium sulfate (bari sunfat), ammonium sulfate (amoni sunfat), calcium sulfate (canxi sunfat), magnesium sulfate (magie sunfat) và nhận biết được ion SO4 2– trong dung dịch bằng ion Ba2+."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Trình bày được tính chất vật lí, cách bảo quản, sử dụng và nguyên tắc xử lí sơ bộ khi bỏng acid. – Trình bày được cấu tạo H SO ; tính chất vật lí, tính chất hoá học cơ bản, ứng dụng của sulfuric acid loãng, sulfuric acid đặc và những lưu ý khi sử dụng sulfuric acid. – Thực hiện được một số thí nghiệm chứng minh tính oxi hoá mạnh và tính háo nước của sulfuric acid đặc (với đồng, da, than, giấy, đường, gạo,...). – Vận dụng được kiến thức về năng lượng phản ứng, chuyển dịch cân bằng, vấn đề bảo vệ môi trường để giải thích các giai đoạn trong quá trình sản xuất sulfuric acid theo phương pháp tiếp xúc. – Nêu được ứng dụng của một số muối sulfate quan trọng: barium sulfate (bari sunfat), ammonium sulfate (amoni sunfat), calcium sulfate (canxi sunfat), magnesium sulfate (magie sunfat) và nhận SO2– Ba2+. biết được ion trong dung dịch bằng ion",
+   "outcome_text": "– Trình bày được tính chất vật lí, cách bảo quản, sử dụng và nguyên tắc xử lí sơ bộ khi bỏng acid. – Trình bày được cấu tạo H2SO4; tính chất vật lí, tính chất hoá học cơ bản, ứng dụng của sulfuric acid loãng, sulfuric acid đặc và những lưu ý khi sử dụng sulfuric acid. – Thực hiện được một số thí nghiệm chứng minh tính oxi hoá mạnh và tính háo nước của sulfuric acid đặc (với đồng, da, than, giấy, đường, gạo,...). – Vận dụng được kiến thức về năng lượng phản ứng, chuyển dịch cân bằng, vấn đề bảo vệ môi trường để giải thích các giai đoạn trong quá trình sản xuất sulfuric acid theo phương pháp tiếp xúc. – Nêu được ứng dụng của một số muối sulfate quan trọng: barium sulfate (bari sunfat), ammonium sulfate (amoni sunfat), calcium sulfate (canxi sunfat), magnesium sulfate (magie sunfat) và nhận biết được ion SO4 2– trong dung dịch bằng ion Ba2+.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -3622,7 +3622,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hiện được (hoặc quan sát video, hoặc qua mô tả) thí nghiệm của phenol với sodium hydroxide, sodium carbonate, với nước bromine, với HNO đặctrong H SO đặc; mô tả hiện tượng thí nghiệm, giải thích được tính chất hoá học của phenol."
+         "text": "Thực hiện được (hoặc quan sát video, hoặc qua mô tả) thí nghiệm của phenol với sodium hydroxide, sodium carbonate, với nước bromine, với HNO3 đặc trong H2SO4 đặc; mô tả hiện tượng thí nghiệm, giải thích được tính chất hoá học của phenol."
         }
        ]
       }
@@ -3643,7 +3643,7 @@
      ]
     }
    ],
-   "outcome_text": "Nêu được khái niệm về phenol, tên gọi, công thức cấu tạo một số phenol đơn giản, đặc điểm cấu – tạo và hình dạng phân tử của phenol. – Nêu được tính chất vật lí (trạng thái, nhiệt độ nóng chảy, độ tan trong nước) của phenol. – Trình bày được tính chất hoá học cơ bản của phenol: Phản ứng thế H ở nhóm –OH (tính acid: thông qua phản ứng với sodium hydroxide, sodium carbonate), phản ứng thế ở vòng thơm (tác dụng với nước bromine, với HNO đặctrong H SO đặc). – Thực hiện được (hoặc quan sát video, hoặc qua mô tả) thí nghiệm của phenol với sodium hydroxide, sodium carbonate, với nước bromine, với HNO đặctrong H SO đặc; mô tả hiện tượng thí nghiệm, giải thích được tính chất hoá học của phenol. – Trình bày được ứng dụng của phenol và điều chế phenol (từ cumene và từ nhựa than đá).",
+   "outcome_text": "Nêu được khái niệm về phenol, tên gọi, công thức cấu tạo một số phenol đơn giản, đặc điểm cấu – tạo và hình dạng phân tử của phenol. – Nêu được tính chất vật lí (trạng thái, nhiệt độ nóng chảy, độ tan trong nước) của phenol. – Trình bày được tính chất hoá học cơ bản của phenol: Phản ứng thế H ở nhóm –OH (tính acid: thông qua phản ứng với sodium hydroxide, sodium carbonate), phản ứng thế ở vòng thơm (tác dụng với nước bromine, với HNO đặctrong H SO đặc). – Thực hiện được (hoặc quan sát video, hoặc qua mô tả) thí nghiệm của phenol với sodium hydroxide, sodium carbonate, với nước bromine, với HNO3 đặc trong H2SO4 đặc; mô tả hiện tượng thí nghiệm, giải thích được tính chất hoá học của phenol. – Trình bày được ứng dụng của phenol và điều chế phenol (từ cumene và từ nhựa than đá).",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -5626,7 +5626,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Sử dụng bảng giá trị thế điện cực chuẩn của một số cặp oxi hoá – khử phổ biến của ion kim loại/ kim loại (có bổ sung thế điện cực chuẩn các cặp: H + 1/2H ; ; SO2– + SO + 2H O) để giải thích được các trường hợp kim loại phản ứng với dung dịch HCl, H SO loãng và đặc; nước; dung dịch muối."
+         "text": "Sử dụng bảng giá trị thế điện cực chuẩn của một số cặp oxi hoá – khử phổ biến của ion kim loại/ kim loại (có bổ sung thế điện cực chuẩn các cặp: H2O/OH– + 1/2H2; 2H+/H2; SO4 2– + 4H+/SO2 + 2H2O) để giải thích được các trường hợp kim loại phản ứng với dung dịch HCl, H2SO4 loãng và đặc; nước; dung dịch muối."
         }
        ]
       }
@@ -5661,7 +5661,7 @@
      ]
     }
    ],
-   "outcome_text": "– Giải thích được một số tính chất vật lí chung của kim loại (tính dẻo, tính dẫn điện, tính dẫn nhiệt, tính ánh kim). – Trình bày được ứng dụng từ tính chất vật lí chung và riêng của kim loại. – Sử dụng bảng giá trị thế điện cực chuẩn của một số cặp oxi hoá – khử phổ biến của ion kim loại/ kim loại (có bổ sung thế điện cực chuẩn các cặp: H + 1/2H ; ; SO2– + SO + 2H O) để giải thích được các trường hợp kim loại phản ứng với dung dịch HCl, H SO loãng và đặc; nước; dung dịch muối. – Trình bày được phản ứng của kim loại với phi kim (chlorine, oxygen, lưu huỳnh) và viết được các phương trình hoá học. – Thực hiện được một số thí nghiệm của kim loại tác dụng với phi kim, acid (HCl, H SO ), muối.",
+   "outcome_text": "– Giải thích được một số tính chất vật lí chung của kim loại (tính dẻo, tính dẫn điện, tính dẫn nhiệt, tính ánh kim). – Trình bày được ứng dụng từ tính chất vật lí chung và riêng của kim loại. – Sử dụng bảng giá trị thế điện cực chuẩn của một số cặp oxi hoá – khử phổ biến của ion kim loại/ kim loại (có bổ sung thế điện cực chuẩn các cặp: H2O/OH– + 1/2H2; 2H+/H2; SO4 2– + 4H+/SO2 + 2H2O) để giải thích được các trường hợp kim loại phản ứng với dung dịch HCl, H2SO4 loãng và đặc; nước; dung dịch muối. – Trình bày được phản ứng của kim loại với phi kim (chlorine, oxygen, lưu huỳnh) và viết được các phương trình hoá học. – Thực hiện được một số thí nghiệm của kim loại tác dụng với phi kim, acid (HCl, H SO ), muối.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -6145,7 +6145,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Giải thích được nguyên nhân tính kim loại tăng dần từ trên xuống dưới trong cùng nhóm của kim loại nhóm IIA tạo (dựa vào bán kính nguyên tử, điện tích hạt nhân)."
+         "text": "Giải thích được nguyên nhân tính kim loại tăng dần từ trên xuống dưới trong cùng nhóm của kim loại nhóm IIA tạo M2+ (dựa vào bán kính nguyên tử, điện tích hạt nhân)."
         }
        ]
       }
@@ -6159,7 +6159,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Trình bày được phản ứng của kim loại IIA với oxygen. Nhận biết được đơn chất và các hợp Ca2+, Sr2+, Ba2+ chất của dựa vào màu ngọn lửa."
+         "text": "Trình bày được phản ứng của kim loại IIA với oxygen. Nhận biết được đơn chất và các hợp chất của Ca2+, Sr2+, Ba2+ dựa vào màu ngọn lửa."
         }
        ]
       }
@@ -6180,7 +6180,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được trạng thái tự nhiên của nguyên tố nhóm IIA. – Nêu các đại lượng vật lí cơ bản của kim loại nhóm IIA (bán kính nguyên tử, nhiệt độ nóng chảy, khối lượng riêng). – Giải thích được nguyên nhân tính kim loại tăng dần từ trên xuống dưới trong cùng nhóm của kim loại nhóm IIA tạo (dựa vào bán kính nguyên tử, điện tích hạt nhân). – Trình bày được phản ứng của kim loại IIA với oxygen. Nhận biết được đơn chất và các hợp Ca2+, Sr2+, Ba2+ chất của dựa vào màu ngọn lửa. – Nêu được mức độ tương tác của kim loại IIA với nước. Chứng minh được xu hướng tăng hoặc giảm dần mức độ các phản ứng dựa vào tính kiềm của dung dịch thu được cùng với độ tan của các hydroxide nhóm IIA.",
+   "outcome_text": "– Nêu được trạng thái tự nhiên của nguyên tố nhóm IIA. – Nêu các đại lượng vật lí cơ bản của kim loại nhóm IIA (bán kính nguyên tử, nhiệt độ nóng chảy, khối lượng riêng). – Giải thích được nguyên nhân tính kim loại tăng dần từ trên xuống dưới trong cùng nhóm của kim loại nhóm IIA tạo M2+ (dựa vào bán kính nguyên tử, điện tích hạt nhân). – Trình bày được phản ứng của kim loại IIA với oxygen. Nhận biết được đơn chất và các hợp chất của Ca2+, Sr2+, Ba2+ dựa vào màu ngọn lửa. – Nêu được mức độ tương tác của kim loại IIA với nước. Chứng minh được xu hướng tăng hoặc giảm dần mức độ các phản ứng dựa vào tính kiềm của dung dịch thu được cùng với độ tan của các hydroxide nhóm IIA.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
@@ -6593,7 +6593,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Trình bày được sự hình thành phức chất aqua của ion kim loại chuyển tiếp và H O trong dung dịch nước."
+         "text": "Trình bày được sự hình thành phức chất aqua của ion kim loại chuyển tiếp và H2O trong dung dịch nước."
         }
        ]
       }
@@ -6621,7 +6621,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Thực hiện được một số thí nghiệm tạo phức chất của một ion kim loại chuyển tiếp trong dung dịch với một số phối tử đơn giản khác nhau (ví dụ: sự tạo phức của dung dịch Cu(II) với NH , OH–, Cl- ,...)."
+         "text": "Thực hiện được một số thí nghiệm tạo phức chất của một ion kim loại chuyển tiếp trong dung dịch với một số phối tử đơn giản khác nhau (ví dụ: sự tạo phức của dung dịch Cu(II) với NH3, OH–, Cl–, ...)."
         }
        ]
       }
@@ -6642,7 +6642,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được nguyên tử trung tâm; phối tử; liên kết cho nhận giữa nguyên tử trung tâm và phối tử trong phức chất. – Nêu được một số dạng hình học của phức chất (tứ diện, vuông phẳng, bát diện). – Trình bày được một số dấu hiệu của phản ứng tạo phức chất trong dung dịch (đổi màu, kết tủa, hoà tan...). – Trình bày được sự hình thành phức chất aqua của ion kim loại chuyển tiếp và H O trong dung dịch nước. – Mô tả được phản ứng thay thế phối tử của phức chất bởi một số phối tử đơn giản trong dung dịch nước. – Thực hiện được một số thí nghiệm tạo phức chất của một ion kim loại chuyển tiếp trong dung dịch với một số phối tử đơn giản khác nhau (ví dụ: sự tạo phức của dung dịch Cu(II) với NH , OH–, Cl- ,...). – Nêu được một số ứng dụng của phức chất.",
+   "outcome_text": "– Nêu được nguyên tử trung tâm; phối tử; liên kết cho nhận giữa nguyên tử trung tâm và phối tử trong phức chất. – Nêu được một số dạng hình học của phức chất (tứ diện, vuông phẳng, bát diện). – Trình bày được một số dấu hiệu của phản ứng tạo phức chất trong dung dịch (đổi màu, kết tủa, hoà tan...). – Trình bày được sự hình thành phức chất aqua của ion kim loại chuyển tiếp và H2O trong dung dịch nước. – Mô tả được phản ứng thay thế phối tử của phức chất bởi một số phối tử đơn giản trong dung dịch nước. – Thực hiện được một số thí nghiệm tạo phức chất của một ion kim loại chuyển tiếp trong dung dịch với một số phối tử đơn giản khác nhau (ví dụ: sự tạo phức của dung dịch Cu(II) với NH3, OH–, Cl–, ...). – Nêu được một số ứng dụng của phức chất.",
    "source": {
     "document": "Chương trình môn Hoá học ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-hoahoc-official.pdf",
