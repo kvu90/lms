@@ -137,6 +137,17 @@ miền nằm trong feature của nó, tách rõ tầng `api/` khỏi tầng
   các thư mục dùng chung tương ứng (khai ở `package.json` mục
   `imports` và `tsconfig.json` mục `paths`).
 
+### Ngoại lệ của kỷ luật import ngang — tập cạnh đóng băng
+
+Kỷ luật ở trên có đúng một ngoại lệ: tập cạnh import ngang giữa các
+feature đã đóng băng trong [comment phán quyết của điều phối trên
+issue #500](https://github.com/kvu90/lms/issues/500#issuecomment-6504346634)
+(27 cặp ở code chạy thật và các cặp chỉ có ở file spec, đúng danh sách
+trong comment đó — các cạnh này là hệ quả của bảng ánh xạ đã duyệt khi
+tổ chức lại `features/`). Mọi cạnh import ngang phát sinh **ngoài** tập
+đóng băng đều là khuyết tật phải sửa; không tự ý thêm cạnh vào tập
+ngoại lệ — muốn mở rộng phải có phán quyết ghi lại trong issue.
+
 ## Bản đồ flow của package
 
 - **Điểm vào:** `src/app/entry.client.tsx` (hydrate phía client) và
