@@ -55,6 +55,20 @@ import {
   AUTH_MAIL_SENT_MARKER, AuthMailProcessor, RedisAuthMailSentMarker,
 } from './processors/auth-mail.processor';
 import {
+  OutboxWriterService,
+  PAID_CLASS_ENROL_ACTIVATION_PORT,
+  PAID_ENROL_ACTIVATION_PORT,
+  PAYMENT_SETTLEMENT_PORT,
+  PaymentsRepository,
+  PlanEntitlementsService,
+  SepayMatchingService,
+} from '@lms/payments';
+import { SepayMatchingScheduler } from './sepay-matching.scheduler';
+import { WorkerEnrolOutboxService } from './worker-enrol-outbox.service';
+import { WorkerPaidClassEnrolActivationService } from './worker-paid-class-enrol-activation.service';
+import { WorkerPaidEnrolActivationService } from './worker-paid-enrol-activation.service';
+import { WorkerPaymentSettlementService } from './worker-payment-settlement.service';
+import {
   AnalyticsRunProcessor, BackupProcessor, PaymentReconciliationProcessor, PrivacyProcessor,
   ReportScheduleProcessor, RestoreProcessor, SearchReindexProcessor,
 } from './processors/platform-services.processors';
@@ -190,5 +204,19 @@ const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE
     // Dịch vụ phát bù tồn đọng một lần theo watermark của consumer
     // polling cũ khi chuyển đổi (chỉ chạy khi còn khoá watermark
     // cũ, tự xoá khoá khi rút cạn xong; xem phân xử trên PR #550).
-    CohortSyncService, CohortSyncEventsProcessor, CohortSyncCatchupService],})
+    CohortSyncService, CohortSyncEventsProcessor, CohortSyncCatchupService,
+    // Điểm quét matching IPN SePay ở worker (issue con #539 của
+    // #522): scheduler quét bảng `payment_provider_events` theo
+    // nhịp 1 giây + bề mặt matching dùng chung của `@lms/payments`
+    // + cài đặt phía worker cho ba cổng xuyên module (kích hoạt ghi
+    // danh / ghi danh cấp lớp / đối chiếu đích + settle) trên bề mặt
+    // vật chất hoá cohort dùng chung của `@lms/enrol`. Không đăng ký
+    // hàng đợi BullMQ nào cho nhịp quét: đây là quét bảng, không
+    // phải đường relay outbox.
+    PaymentsRepository, OutboxWriterService, PlanEntitlementsService, SepayMatchingService,
+    WorkerEnrolOutboxService, WorkerPaidEnrolActivationService, WorkerPaidClassEnrolActivationService, WorkerPaymentSettlementService,
+    { provide: PAID_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidEnrolActivationService },
+    { provide: PAID_CLASS_ENROL_ACTIVATION_PORT, useExisting: WorkerPaidClassEnrolActivationService },
+    { provide: PAYMENT_SETTLEMENT_PORT, useExisting: WorkerPaymentSettlementService },
+    SepayMatchingScheduler],})
 export class WorkerModule {}

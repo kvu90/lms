@@ -5,6 +5,9 @@ import {
   adminToken, createTestApp, createUserViaApi, http, login, roleIdByShortname, STRONG_PASSWORD, uniqueName,
 } from '../../support/identity-access-helpers';
 import { createCategory, createEnrolInstance, enrolUser } from '../../support/course-enrolment-helpers';
+// Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
+// không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
+import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * Phần còn lại của lát 2, issue #189 — COUPON giảm giá mua gói và
@@ -91,6 +94,7 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     const start = Date.now();
     let last = '';
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const res = await http(app).get(`/api/v1/payments/${id}`).set(auth(admin));
       last = (res.body as { status: string }).status;
       if (last === want) return;
@@ -209,6 +213,7 @@ describe('Coupons + plan slot limits (issue #189, remaining slice 2)', () => {
     if (disabledAccountIds.length > 0) {
       await pg.query('update payment_accounts set enabled = true where id = any($1)', [disabledAccountIds]);
     }
+    await closeSepaySweepDriver();
     await pg.end();
     await app.close();
   });

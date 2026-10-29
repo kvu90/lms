@@ -39,15 +39,19 @@ thanh toán). Package chỉ định nghĩa cổng (port/interface) và gọi
 qua cổng; cài đặt cổng thuộc về tiến trình chủ:
 
 - `PaidEnrolActivationPort` — kích hoạt ghi danh có phí. Cài đặt
-  phía apps/api: `EnrolService`.
+  phía apps/worker (từ issue #539): `WorkerPaidEnrolActivationService`
+  trên phễu ghi danh dùng chung của `@lms/enrol`.
 - `PaidClassEnrolActivationPort` — kích hoạt ghi danh cấp lớp. Cài
-  đặt phía apps/api: `ClassesService`.
+  đặt phía apps/worker (từ issue #539):
+  `WorkerPaidClassEnrolActivationService` trên phễu cohort dùng chung
+  của `@lms/enrol`.
 - `PaymentSettlementPort` — đối chiếu đích phía server và xác nhận
-  chi hoàn cho sự kiện `debit`. Cài đặt phía apps/api:
-  `PaymentsService`.
+  chi hoàn cho sự kiện `debit`. Cài đặt phía apps/worker (từ issue
+  #539): `WorkerPaymentSettlementService` trên dữ liệu dùng chung
+  `@lms/db` và repository/service của chính package này.
 
-Việc nối cài đặt phía apps/api nằm trong `PaymentsModule`
-(`useExisting` trỏ vào chính các service hiện hành). Luật nghiệp vụ
+Việc nối cài đặt phía worker nằm trong `WorkerModule`
+(`useExisting` trỏ vào các adapter của worker). Luật nghiệp vụ
 của cả matching lẫn ba hiệu ứng chỉ tồn tại đúng một bản trong
 repo: cấm chép logic matching hoặc logic của ba hiệu ứng sang bất
 kỳ nơi thứ hai nào.
@@ -55,9 +59,8 @@ kỳ nơi thứ hai nào.
 ## Điều gì KHÔNG nằm ở package này
 
 - Phía tiếp nhận IPN (controller, xác thực, ghi sự kiện provider)
-  và facade thanh toán `PaymentsService`, điểm kích hoạt theo nhịp
-  `SepayIpnConsumer` — ở nguyên phía apps/api.
-- Điểm quét matching ở worker và việc gỡ consumer phía API thuộc
-  issue con tiếp theo của #522 (chỉ thi công sau khi issue #538 và
-  issue #527 đã merge); issue này chỉ trích xuất bề mặt dùng chung
-  và nối phía API dùng bề mặt đó, hành vi quan sát được không đổi.
+  và facade thanh toán `PaymentsService` — ở nguyên phía apps/api.
+- Điểm quét matching (`SepayMatchingScheduler` ở apps/worker, nhịp
+  1 giây / lô 20) và cài đặt cho ba cổng — thuộc về tiến trình
+  worker từ issue con #539 của #522; consumer `SepayIpnConsumer`
+  phía API đã được gỡ ở cùng issue đó.

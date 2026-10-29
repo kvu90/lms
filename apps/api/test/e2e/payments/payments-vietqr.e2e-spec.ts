@@ -7,6 +7,9 @@ import {
   roleIdByShortname, STRONG_PASSWORD, systemContextId,
 } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from '../../support/course-enrolment-helpers';
+// Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
+// không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
+import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * Lát 1 VietQR (issue #189, hồ sơ payment-vietqr §6.4) — bộ nghiệm thu
@@ -79,6 +82,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     const start = Date.now();
     let last: Record<string, unknown> = {};
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const res = await http(app).get(`/api/v1/payments/${id}`).set('Authorization', `Bearer ${admin}`);
       last = res.body;
       if (last.status === want) return last;
@@ -100,6 +104,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
   async function waitForPaymentReconciled(paymentId: string, timeoutMs = 12000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
+      await driveSepaySweep();
       const matched = await pg.query(
         `select count(*)::int as c from payment_provider_events where matched_payment_id = $1 and match_status = 'matched'`,
         [paymentId],
@@ -126,7 +131,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     await pg.connect();
     sepayAccountId = await createSepayAccount();
   });
-  afterAll(async () => { await pg.end(); await app.close(); });
+  afterAll(async () => { await closeSepaySweepDriver(); await pg.end(); await app.close(); });
 
   it('6.4.4 + 6.4.5: payment trên account SePay có mã + QR + hạn 24h; config bị che ở list và get', async () => {
     const { instance, buyerToken } = await createFeeCourse(sepayAccountId);
@@ -251,6 +256,7 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     const start = Date.now();
     let status = '';
     while (Date.now() - start < 12000) {
+      await driveSepaySweep();
       const ev = await pg.query('select match_status from payment_provider_events where external_transaction_id = $1', [body.transaction_id]);
       status = ev.rows[0]?.match_status ?? '';
       if (status === 'needs_review') break;

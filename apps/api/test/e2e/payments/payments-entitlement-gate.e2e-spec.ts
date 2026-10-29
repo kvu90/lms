@@ -6,6 +6,9 @@ import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
 } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance, grantActiveTeacherPlan } from '../../support/course-enrolment-helpers';
+// Từ issue #539, nhịp quét matching chạy ở worker nên tiến trình API trong test
+// không còn tự quét: mỗi vòng chờ dẫn một nhịp qua cầu dẫn này rồi mới đọc trạng thái.
+import { closeSepaySweepDriver, driveSepaySweep } from '../../support/sepay-sweep-driver';
 
 /**
  * Chốt chặn component cấp quyền ở pipeline thanh toán (issue #419) —
@@ -65,6 +68,7 @@ describe('Chốt chặn component cấp quyền: endpoint chung bị cấm + đ�
     const start = Date.now();
     let last: Record<string, unknown> = {};
     while (Date.now() - start < timeoutMs) {
+      await driveSepaySweep();
       const res = await http(app).get(`/api/v1/payments/${id}`).set('Authorization', `Bearer ${admin}`);
       last = res.body as Record<string, unknown>;
       if (last.status === want) return last;
@@ -186,6 +190,7 @@ describe('Chốt chặn component cấp quyền: endpoint chung bị cấm + đ�
     if (pg && disabledAccountIds.length > 0) {
       await pg.query('update payment_accounts set enabled = true where id = any($1)', [disabledAccountIds]);
     }
+    await closeSepaySweepDriver();
     await pg?.end();
     await app?.close();
   }, 60000);
@@ -341,6 +346,7 @@ describe('Chốt chặn component cấp quyền: endpoint chung bị cấm + đ�
     await waitPaymentStatus(payment.id, 'succeeded');
     const deadline = Date.now() + 12000;
     for (;;) {
+      await driveSepaySweep();
       if ((await rosterIds(feeClassId)).includes(buyer.id) && await enrolmentActive(feeClassCourseId, buyer.token)) return;
       if (Date.now() > deadline) throw new Error('class enrolment was not materialised in time');
       await new Promise((r) => setTimeout(r, 250));

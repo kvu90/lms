@@ -158,7 +158,7 @@ export class PaymentsController {
    * header `Authorization: Apikey …` kiểm trong service sau khi định tuyến
    * theo bank_account_xid. Thân IPN là định dạng của SePay nên KHÔNG qua
    * zod schema của hệ thống; handler chỉ ghi sự kiện rồi trả {success:true},
-   * matching chạy bất đồng bộ ở SepayIpnConsumer.
+   * matching chạy bất đồng bộ ở điểm quét phía worker (issue #539).
    */
   @Public()
   @Post('ipn/sepay')
