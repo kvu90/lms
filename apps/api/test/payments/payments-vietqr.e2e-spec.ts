@@ -179,21 +179,11 @@ describe('VietQR slice 1: SePay IPN pipeline for enrol_fee (issue #189, §6.4)',
     expect(unknown.status).toBe(401);
 
     const allowTx = `sepay-tx-allowlist-${Date.now()}`;
-    // Allowlist nay được đọc qua tầng config (env schema nạp một lần
-    // lúc khởi động) nên tiểu mục này boot một app riêng SAU khi đặt
-    // biến env — đúng cơ chế nạp cấu hình lúc boot của repo (tiền lệ:
-    // spec messaging-presence đặt biến env trước createTestApp). Khẳng
-    // định hành vi giữ nguyên: IP nguồn ngoài allowlist → 401.
     process.env.SEPAY_IPN_IP_ALLOWLIST = '203.0.113.99';
-    let allowlistApp: INestApplication | undefined;
     try {
-      allowlistApp = await createTestApp();
-      const blocked = await http(allowlistApp).post('/api/v1/payments/ipn/sepay')
-        .set('Authorization', `Apikey ${SEPAY_KEY}`)
-        .send(ipnBody({ transaction_id: allowTx, content: `TT ${payment.paymentCode}` }));
+      const blocked = await postIpn(ipnBody({ transaction_id: allowTx, content: `TT ${payment.paymentCode}` }));
       expect(blocked.status).toBe(401);
     } finally {
-      await allowlistApp?.close();
       delete process.env.SEPAY_IPN_IP_ALLOWLIST;
     }
 
