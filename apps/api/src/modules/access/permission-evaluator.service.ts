@@ -12,6 +12,12 @@ interface TenantGate {
   assignmentScope: Set<string> | null;
 }
 
+/** TTL dùng chung cho mọi mục cache của evaluator (kết quả đánh giá, dữ kiện cổng, cấu hình site admin). */
+const ACCESS_CACHE_TTL_MS = 60 * 60 * 1000;
+
+/** Khoá cache của cấu hình `siteadmins` — điểm ghi duy nhất là `setSiteAdmins` của chính evaluator nên ghi xuyên tại đó giữ hiệu lực tức thì. */
+const SITE_ADMINS_CACHE_KEY = 'access:siteadmins';
+
 /**
  * PermissionEvaluator — nguồn sự thật duy nhất cho ngữ nghĩa capability của Moodle
  * (report §3.3). KHÔNG phải CASL, KHÔNG phải JWT claims: kết quả được tính
@@ -39,7 +45,7 @@ export class PermissionEvaluator {
    * User có nằm trong danh sách site admin (config siteadmins) hay không — admin bỏ qua mọi capability check.
    */
   async isSiteAdmin(userId: string): Promise<boolean> {
-    const raw = await this.repo.getConfigValue('siteadmins');
+    const raw = await this.siteAdminsConfig();
     if (!Array.isArray(raw)) return false;
     return raw.map((v) => String(v)).includes(userId);
   }
@@ -47,14 +53,34 @@ export class PermissionEvaluator {
    * Danh sách id site admin hiện tại.
    */
   async listSiteAdmins(): Promise<string[]> {
-    const raw = await this.repo.getConfigValue('siteadmins');
+    const raw = await this.siteAdminsConfig();
     return Array.isArray(raw) ? raw.map((v) => String(v)) : [];
   }
   /**
-   * Thay danh sách site admin (lưu vào config).
+   * Thay danh sách site admin (lưu vào config) và ghi xuyên vào cache:
+   * danh sách là dữ kiện gác cổng nên bản mới phải hiệu lực ngay ở lượt
+   * đọc sau, không chờ TTL — cùng điều kiện hiệu lực như khi đọc thẳng
+   * từ DB như trước.
    */
   async setSiteAdmins(userIds: string[]): Promise<void> {
     await this.repo.setConfigValue('siteadmins', userIds);
+    await this.cache.set(SITE_ADMINS_CACHE_KEY, userIds, ACCESS_CACHE_TTL_MS);
+  }
+
+  /**
+   * Đọc cấu hình `siteadmins` cache-trước: tra cache trước, chỉ xuống
+   * DB khi cache chưa có. Điểm ghi duy nhất của cấu hình này là
+   * `setSiteAdmins` của chính evaluator (ghi xuyên vào cache ngay khi
+   * ghi DB), nên mục cache không bao giờ lệch khỏi DB ở các đường ghi
+   * hiện có. Giá trị vắng mặt trong DB được ghi vào cache dưới dạng
+   * `null` để phân biệt với "chưa từng đọc".
+   */
+  private async siteAdminsConfig(): Promise<unknown> {
+    const cached = await this.cache.get<unknown>(SITE_ADMINS_CACHE_KEY);
+    if (cached !== undefined) return cached === null ? undefined : cached;
+    const raw = await this.repo.getConfigValue('siteadmins');
+    await this.cache.set(SITE_ADMINS_CACHE_KEY, raw ?? null, ACCESS_CACHE_TTL_MS);
+    return raw;
   }
 
   /**
@@ -83,7 +109,7 @@ export class PermissionEvaluator {
   private async tenantGate(userId: string, pathContexts: ContextRow[]): Promise<TenantGate> {
     const tenantCtx = pathContexts.find((c) => c.contextLevel === CONTEXT_LEVELS.TENANT);
     if (!tenantCtx?.instanceId) return { allowed: true, assignmentScope: null };
-    const info = await this.repo.getTenantGateInfo(tenantCtx.instanceId);
+    const info = await this.tenantGateInfo(tenantCtx);
     // Không xác minh được tenant của path → từ chối (fail-closed), kể
     // cả nhánh lối tắt site admin ở hasCapability: assignmentScope chỉ
     // được null (không thu hẹp) khi tenant đã xác minh là không thuộc
@@ -93,12 +119,49 @@ export class PermissionEvaluator {
     // Tenant đã khoá (suspended) hoặc lưu trữ (archived) thì không ai còn
     // quyền trong cây của nó — kể cả thành viên.
     if (info.status !== 'active') return { allowed: false, assignmentScope: null };
-    const status = await this.repo.getMembershipStatus(tenantCtx.instanceId, userId);
+    const status = await this.membershipStatus(tenantCtx, userId);
     if (status !== 'active') return { allowed: false, assignmentScope: null };
     const scope = new Set(
       pathContexts.filter((c) => c.path.startsWith(tenantCtx.path)).map((c) => c.id),
     );
     return { allowed: true, assignmentScope: scope };
+  }
+
+  /**
+   * Thông tin cổng của tenant (kind + status), tra cache trước, chỉ
+   * xuống DB khi cache chưa có. Khoá cache nhúng `version` của context
+   * tenant: mọi thay đổi làm đổi kết quả cổng — đổi trạng thái tenant,
+   * đổi trạng thái membership — đều bump version của context tenant
+   * (hoặc của một tổ tiên, mà bump tổ tiên cũng lan xuống context
+   * tenant) qua `markContextDirty`, nên mục cache hết hiệu lực ở đúng
+   * cùng điều kiện như cache kết quả đánh giá. Trạng thái "không xác
+   * minh được" (DB trả `undefined`) KHÔNG được cache: nó là căn cứ
+   * fail-closed và phải được đọc lại ở lượt sau như trước.
+   */
+  private async tenantGateInfo(tenantCtx: ContextRow): Promise<{ kind: string; status: string } | undefined> {
+    const cacheKey = `access:gateinfo:${tenantCtx.instanceId}:v${tenantCtx.version}`;
+    const cached = await this.cache.get<{ kind: string; status: string }>(cacheKey);
+    if (cached !== undefined && cached !== null) return cached;
+    const info = await this.repo.getTenantGateInfo(tenantCtx.instanceId!);
+    if (info) await this.cache.set(cacheKey, info, ACCESS_CACHE_TTL_MS);
+    return info;
+  }
+
+  /**
+   * Trạng thái membership của user trong tenant, tra cache trước, chỉ
+   * xuống DB khi cache chưa có. Khoá cache nhúng `version` của context
+   * tenant như `tenantGateInfo`: mọi đường ghi membership (thêm thành
+   * viên, đổi trạng thái) đều bump version của context tenant nên mục
+   * cache — kể cả mục "chưa là thành viên" ghi dưới dạng `null` — hết
+   * hiệu lực ở đúng cùng điều kiện như cache kết quả đánh giá.
+   */
+  private async membershipStatus(tenantCtx: ContextRow, userId: string): Promise<string | undefined> {
+    const cacheKey = `access:member:${tenantCtx.instanceId}:${userId}:v${tenantCtx.version}`;
+    const cached = await this.cache.get<string | null>(cacheKey);
+    if (cached !== undefined) return cached ?? undefined;
+    const status = await this.repo.getMembershipStatus(tenantCtx.instanceId!, userId);
+    await this.cache.set(cacheKey, status ?? null, ACCESS_CACHE_TTL_MS);
+    return status;
   }
 
   /**
@@ -113,17 +176,29 @@ export class PermissionEvaluator {
    * tenant-zero) lối tắt giữ nguyên như cũ.
    */
   async hasCapability(userId: string, capability: string, contextId: string, opts?: { isGuest?: boolean }): Promise<boolean> {
+    // Hai phép đọc context/path mở đầu là phần duy nhất luôn xuống DB
+    // trước các tầng cache: chúng dựng dấu version của path — chính
+    // khoá vô hiệu hoá của cache kết quả (mọi thay đổi dữ kiện quyền
+    // đều bump version của context liên quan) — nên dấu phải luôn lấy
+    // từ dữ kiện DB hiện hành, không qua cache.
     const target = await this.contexts.getContext(contextId);
     const pathContexts = await this.contexts.getPathContexts(target);
+    const stamp = this.contexts.pathVersionStamp(pathContexts);
+    const cacheKey = `access:${userId}:${capability}:${contextId}:${stamp}:${opts?.isGuest ? 'g' : 'u'}`;
+    // Cache kết quả được tra TRƯỚC mọi truy vấn DB còn lại của đường
+    // đánh giá. Cổng tenant và lối tắt site admin vẫn áp ở lượt này
+    // trước khi kết quả cache được dùng — thứ tự ra quyết định không
+    // đổi — nhưng dữ kiện của chúng cũng tra cache trước (dữ kiện cổng
+    // theo version của context tenant, cấu hình site admin ghi xuyên
+    // khi đổi), nên ở lượt cache ấm, tầng dữ liệu đánh giá (gán vai,
+    // override), dữ kiện cổng và cấu hình đều không bị hỏi lại.
+    const cached = await this.cache.get<boolean>(cacheKey);
     const gate = await this.tenantGate(userId, pathContexts);
     if (!gate.allowed) return false;
     if (gate.assignmentScope === null && (await this.isSiteAdmin(userId))) return true;
-    const stamp = this.contexts.pathVersionStamp(pathContexts);
-    const cacheKey = `access:${userId}:${capability}:${contextId}:${stamp}:${opts?.isGuest ? 'g' : 'u'}`;
-    const cached = await this.cache.get<boolean>(cacheKey);
     if (cached !== undefined && cached !== null) return cached;
     const result = await this.evaluate(userId, capability, pathContexts, opts, gate.assignmentScope);
-    await this.cache.set(cacheKey, result, 60 * 60 * 1000);
+    await this.cache.set(cacheKey, result, ACCESS_CACHE_TTL_MS);
     return result;
   }
 
