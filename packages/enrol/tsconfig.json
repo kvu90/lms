@@ -1,0 +1,1 @@
+{"compilerOptions":{"noUncheckedIndexedAccess":true,"outDir":"./dist","rootDir":"./src"},"extends":"@lms/config/tsconfig/nest.json","include":["src"]}

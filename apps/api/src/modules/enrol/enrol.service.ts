@@ -1,14 +1,17 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { I18nService } from '@nestjs/i18n';
+import { CohortMaterializationSurface } from '@lms/enrol';
 import { OutboxService } from '../../infra/events/outbox.service';
 import type { DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { isRoleContextConflictError, RoleSeparationService } from '../access/role-separation.service';
 import { ENROL_ASSIGNMENT_COMPONENT, RolesService } from '../access/roles.service';
+import { delegateToSharedCore } from '../access/translate-shared-error';
 import { CoursesService } from '../courses/courses.service';
 import { GroupsService } from '../groups/groups.service';
 import { MessagingService } from '../messaging/messaging.service';
+import { tenantAls } from '../tenants/tenant-als';
 import { TenantsService } from '../tenants/tenants.service';
 import { EnrolRepository, type EnrolRow, type UserEnrolmentRow } from './enrol.repository';
 
@@ -18,16 +21,6 @@ interface EnrolAssignmentRow { id: string; roleId: string; component: string; it
 /** Truy vết nguồn cho dòng gán vai do một enrol instance cấp (Moodle: component/itemid trên role_assignments). */
 function enrolAssignmentSource(instance: EnrolRow): { component: string; itemId: string } {
   return { component: ENROL_ASSIGNMENT_COMPONENT, itemId: instance.id };
-}
-
-/** Lỗi có phải unique violation của PostgreSQL (mã 23505, có thể bọc trong cause của DrizzleQueryError) hay không. */
-function isUniqueViolation(err: unknown): boolean {
-  let current: unknown = err;
-  for (let depth = 0; depth < 6 && current instanceof Error; depth++) {
-    if ((current as { code?: unknown }).code === '23505') return true;
-    current = (current as { cause?: unknown }).cause;
-  }
-  return false;
 }
 
 /** Dòng `a` có phải là dòng gán vai do chính instance này cấp hay không. */
@@ -51,10 +44,11 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
  *  - User bị SUSPENDED không truy cập được khoá học (cổng của CoursesService dùng
  *    isEnrolled(onlyActive)) dù gán role của họ vẫn còn.
  *  - Unenrol giữ dữ liệu đóng góp: khi user có bản ghi completion
- *    trong khoá học (kiểm qua probe đã đăng ký từ CompletionModule) hoặc
- *    luôn theo luật enrol hiện hành, dòng user_enrolments được giữ dạng WITHDRAWN
- *    (trạng thái mềm) thay vì xoá cứng, và `user_unenrolled` được
- *    phát. Gán role do ghi danh này cấp sẽ bị gỡ.
+ *    hoặc điểm trong khoá học (truy vấn dữ liệu liên quan dùng chung
+ *    ở tầng dữ liệu) hoặc luôn theo luật enrol hiện hành, dòng
+ *    user_enrolments được giữ dạng WITHDRAWN (trạng thái mềm) thay vì
+ *    xoá cứng, và `user_unenrolled` được phát. Gán role do ghi danh
+ *    này cấp sẽ bị gỡ.
  *  - Ghi danh hết hạn (timeEnd trong quá khứ) không còn hiệu lực; job
  *    `enrol-expiry` của worker cũng chuyển chúng sang SUSPENDED hàng loạt.
  */
@@ -64,14 +58,22 @@ export type EnrolMethod = (typeof ENROL_METHODS)[number];
  * Đối chiếu Moodle: lib/enrollib.php (enrol_get_plugin, user_enrolment) và các plugin enrol_manual/enrol_self/enrol_cohort.
  * Trạng thái ghi danh: 0 = đang hiệu lực, 1 = tạm đình chỉ, 2 = đã rút; ghi danh có thể có cửa sổ thời gian (timeStart/timeEnd).
  * Cohort sync: thành viên cohort được tự động ghi danh qua instance cohort; rời cohort thì ghi danh cohort bị rút
- * (chỉ rút khi user không còn dữ liệu liên quan — bài nộp/điểm — theo probe dữ liệu liên quan, khớp hành vi Moodle).
+ * (chỉ rút khi user không còn dữ liệu liên quan — bài nộp/điểm — theo truy vấn dữ liệu liên quan dùng chung ở tầng dữ liệu, khớp hành vi Moodle).
  */
 export class EnrolService implements OnModuleInit {
-  /** Probe do CompletionModule đăng ký: user này có dữ liệu completion trong khoá học này không? */
-  /** Các probe dữ liệu liên quan (Completion, Grades, …): BẤT KỲ probe nào báo có dữ liệu thì giữ dòng UE dạng đã rút-chưa-xoá. */
-  private relatedDataProbes: ((courseId: string, userId: string) => Promise<boolean>)[] = [];
-  /** Các hook unenrol (CompletionModule: tiêu chí 'unenrol' của khoá học theo Moodle phải được đánh giá lại ngay lúc một user rời khoá học). */
-  private unenrolHooks: ((e: { courseId: string; userId: string; instanceId: string }) => Promise<void>)[] = [];
+  /**
+   * Bề mặt vật chất hoá cohort dùng chung (`@lms/enrol`): funnel ghi
+   * danh lõi, đường gỡ ghi danh lõi và hai điểm vào vật chất hoá
+   * theo sự kiện thành viên cohort sống ở tầng dữ liệu dùng chung
+   * để tiến trình khác (worker) gọi được cùng một định nghĩa.
+   * Service này dựng bề mặt bằng tay cầm Drizzle của repository,
+   * dịch vụ outbox của API và cổng ngữ cảnh platform của API, rồi
+   * dịch lỗi của bề mặt (mang mã kỹ thuật) về exception HTTP mang
+   * cùng mã và thông điệp như trước khi trích xuất. Phần thuộc về
+   * tiến trình API ở lại đây: kiểm capability của người thao tác,
+   * tin nhắn chào mừng, và các đường quản trị instance.
+   */
+  private readonly materialization: CohortMaterializationSurface;
 
   constructor(
     private readonly repo: EnrolRepository,
@@ -84,7 +86,13 @@ export class EnrolService implements OnModuleInit {
     private readonly i18n: I18nService,
     private readonly tenants: TenantsService,
     private readonly roleSeparation: RoleSeparationService,
-  ) {}
+  ) {
+    this.materialization = new CohortMaterializationSurface({
+      db: this.repo.dbHandle,
+      outbox: this.outbox,
+      runInPlatformScope: (fn) => tenantAls.run({ platform: true }, fn),
+    });
+  }
 
   /**
    * Khởi tạo: đăng ký enrol checker cho module courses và lắng nghe sự kiện thành viên cohort.
@@ -93,28 +101,6 @@ export class EnrolService implements OnModuleInit {
     this.courses.registerEnrolChecker({
       isEnrolled: (courseId, userId, opts) => this.isEnrolled(courseId, userId, opts),
     });
-  }
-  /**
-   * Đăng ký probe kiểm tra user còn dữ liệu liên quan trong khoá học hay không (module khác cắm vào).
-   */
-  registerRelatedDataProbe(probe: (courseId: string, userId: string) => Promise<boolean>): void {
-    this.relatedDataProbes.push(probe);
-  }
-  /**
-   * Đăng ký hook chạy sau khi một user bị huỷ ghi danh khỏi khoá học
-   * (module khác cắm vào, cùng mẫu registerRelatedDataProbe).
-   */
-  registerUnenrolHook(fn: (e: { courseId: string; userId: string; instanceId: string }) => Promise<void>): void {
-    this.unenrolHooks.push(fn);
-  }
-  /**
-   * User còn dữ liệu liên quan (điểm/bài nộp) trong khoá học hay không — quyết định rút hẳn hay chỉ đình chỉ khi rời cohort.
-   */
-  async hasRelatedData(courseId: string, userId: string): Promise<boolean> {
-    for (const probe of this.relatedDataProbes) {
-      if (await probe(courseId, userId)) return true;
-    }
-    return false;
   }
 
   private async requireManage(actorId: string, courseId: string): Promise<void> {
@@ -319,68 +305,23 @@ export class EnrolService implements OnModuleInit {
   /** Đường ghi danh lõi (cũng dùng cho đồng bộ cohort). Cấp role của instance tại context khoá học qua facade Access. */
   /**
    * Ghi danh nội bộ không kiểm capability (dùng cho cohort sync và thanh toán đã xác nhận).
+   *
+   * Toàn bộ funnel sống ở bề mặt vật chất hoá dùng chung
+   * (`CohortMaterializationSurface.enrolUserInternal` của
+   * `@lms/enrol`): chốt tách vai, transaction chèn ghi danh +
+   * `user_enrolled`, membership tenant, cấp vai của instance và xếp
+   * nhóm đích — xem lời dẫn của bề mặt đó để biết flow đầy đủ.
+   * Service này chỉ giữ phần thuộc về tiến trình API: dịch lỗi của
+   * bề mặt về exception HTTP và gửi tin nhắn chào mừng khi đây là
+   * ghi danh MỚI (chào mừng là hiệu ứng phụ của API — worker vật
+   * chất hoá cùng funnel này thì không gửi tin nhắn).
    */
   async enrolUserInternal(instance: EnrolRow, userId: string, modifierId?: string, opts?: { timeStart?: Date; timeEnd?: Date }): Promise<UserEnrolmentRow> {
-    if (instance.status !== 0) throw new BadRequestException({ message: 'Enrol instance is disabled', code: 'enrol.instance_disabled' });
-    // Chốt TÁCH VAI — funnel 1 (RoleSeparationService giữ định nghĩa
-    // dùng chung): mọi đường ghi danh đều hội tụ về hàm này (ghi danh
-    // tay, tự ghi danh, kích hoạt sau thanh toán, đồng bộ cohort), nên
-    // chốt tại đây phủ toàn bộ các đường đó. Chỉ áp khi instance cấp
-    // vai HỌC VIÊN: người đã có cấp quyền giảng dạy bao phủ chính
-    // khoá đích bị từ chối với mã `access.role_context_conflict`,
-    // TRƯỚC khi bất kỳ bản ghi ghi danh hay dòng gán vai nào được
-    // tạo. Instance cấp vai giảng dạy là đường cấp vai của quản trị
-    // (nằm ngoài quyết định tách vai) nên không qua chốt.
-    if (await this.roleSeparation.isLearnerGrantRole(instance.roleId)) {
-      await this.roleSeparation.assertLearnerEnrolmentAllowed(userId, instance.courseId);
-    }
-    const timeStart = opts?.timeStart ?? new Date();
-    const timeEnd = opts?.timeEnd ?? (instance.enrolPeriod > 0 ? new Date(timeStart.getTime() + instance.enrolPeriod * 1000) : null);
-    const existing = await this.repo.getUserEnrolment(instance.id, userId);
-    let ue: UserEnrolmentRow;
-    let isNewEnrolment = false;
-    if (existing) {
-      await this.repo.updateUserEnrolment(existing.id, { status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId });
-      ue = (await this.repo.getUserEnrolment(instance.id, userId))!;
-    } else {
-      try {
-        ue = await this.repo.dbHandle.transaction(async (tx) => {
-          const row = await this.repo.insertUserEnrolment({ enrolId: instance.id, userId: userId, status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId }, tx);
-          await this.outbox.enqueue(tx, { aggregate: 'enrol', type: 'user_enrolled', payload: { courseId: instance.courseId, userId, instanceId: instance.id, method: instance.enrol, actorId: modifierId ?? null } });
-          return row;
-        });
-        isNewEnrolment = true;
-      } catch (err) {
-        // Đua ghi đồng thời (CLASS-0, #184): consumer outbox phát lại sự
-        // kiện cohort trong lúc request tạo instance đang backfill cùng
-        // một học sinh — cả hai cùng qua cửa "chưa có UE" rồi cùng
-        // insert, một phía ăn unique violation trên
-        // (enrol_id, user_id). Nối vào đường cập nhật idempotent thay
-        // vì để 500 lọt ra ngoài; phía thắng đã phát user_enrolled.
-        if (!isUniqueViolation(err)) throw err;
-        const winner = await this.repo.getUserEnrolment(instance.id, userId);
-        if (!winner) throw err;
-        await this.repo.updateUserEnrolment(winner.id, { status: ENROL_ACTIVE, timeStart, timeEnd, modifierId: modifierId });
-        ue = (await this.repo.getUserEnrolment(instance.id, userId))!;
-      }
-    }
-    // Ghi danh vào khoá của tenant nào thì thuộc tenant đó (TENANT-0,
-    // #168): membership active được đảm bảo ngay tại đây để cổng
-    // membership của evaluator cho qua các vai ghi danh vừa cấp.
-    const courseTenantId = await this.courses.getCourseTenantId(instance.courseId);
-    if (courseTenantId) await this.tenants.ensureActiveMembership(courseTenantId, userId);
-    if (instance.roleId) {
-      const courseCtxId = await this.courses.courseContextId(instance.courseId);
-      // Dòng gán mang truy vết của chính instance này — unenrol/đổi vai
-      // sau đó chỉ gỡ đúng dòng đó, không đụng gán của instance khác hay
-      // gán tay cùng role (issue #157).
-      await this.roles.assignRole(userId, instance.roleId, courseCtxId, modifierId, enrolAssignmentSource(instance));
-    }
-    if (instance.customInt2) {
-      await this.groups.addMemberInternal(instance.customInt2, userId, 'enrol_cohort', instance.id).catch(() => undefined);
-    }
+    const { userEnrolment, isNewEnrolment } = await delegateToSharedCore(
+      () => this.materialization.enrolUserInternal(instance, userId, modifierId, opts),
+    );
     if (isNewEnrolment) await this.maybeSendWelcomeMessage(instance, userId);
-    return ue;
+    return userEnrolment;
   }
 
   /**
@@ -575,10 +516,11 @@ export class EnrolService implements OnModuleInit {
   /**
    * Unenrol: gỡ gán role do ghi danh cấp và phát
    * user_unenrolled. Dòng UE bị rút MỀM (status=2) khi user
-   * có dữ liệu liên quan (completion v.v.) trong khoá học — probe được
-   * CompletionModule đăng ký; khi không có probe/dữ liệu thì dòng bị
-   * xoá cứng, đúng sự phân chia của Moodle giữa dữ liệu tham gia hiển thị
-   * (được giữ) và tham gia vô hình (bị dọn).
+   * có dữ liệu liên quan (completion/điểm) trong khoá học — quyết
+   * định theo truy vấn dữ liệu liên quan dùng chung ở tầng dữ
+   * liệu; khi không có dữ liệu thì dòng bị xoá cứng, đúng sự phân
+   * chia của Moodle giữa dữ liệu tham gia hiển thị (được giữ) và
+   * tham gia vô hình (bị dọn).
    */
   /**
    * Rút ghi danh (kiểm capability).
@@ -591,39 +533,17 @@ export class EnrolService implements OnModuleInit {
 
   /**
    * Rút ghi danh nội bộ không kiểm capability.
+   *
+   * Toàn bộ đường rút sống ở bề mặt vật chất hoá dùng chung
+   * (`CohortMaterializationSurface.unenrolInternal` của
+   * `@lms/enrol`) — gồm quyết định giữ/xoá theo dữ liệu liên quan,
+   * transaction phát `user_unenrolled` cùng sự kiện tái tổng hợp
+   * hoàn thành `course_completion_reaggregation_requested`, và việc
+   * gỡ đúng dòng gán do chính instance này cấp. Service này chỉ
+   * dịch lỗi của bề mặt về exception HTTP.
    */
   async unenrolInternal(instance: EnrolRow, userId: string, modifierId?: string): Promise<{ withdrawn: boolean }> {
-    const ue = await this.repo.getUserEnrolment(instance.id, userId);
-    if (!ue) return { withdrawn: false };
-    const hasRelated = await this.hasRelatedData(instance.courseId, userId);
-    await this.repo.dbHandle.transaction(async (tx) => {
-      if (hasRelated) {
-        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_WITHDRAWN, modifierId: modifierId }, tx);
-      }
-      await this.outbox.enqueue(tx, {
-        aggregate: 'enrol', type: 'user_unenrolled',
-        payload: { courseId: instance.courseId, userId, instanceId: instance.id, keptData: hasRelated, actorId: modifierId ?? null },
-      });
-    });
-    if (!hasRelated) await this.repo.deleteUserEnrolment(ue.id);
-    // Chỉ gỡ gán role mà instance ghi danh này đã cấp
-    // (component='enrol' + itemId=instance, theo phạm vi Moodle): gán của
-    // cùng role do instance khác cấp hoặc cấp tay vẫn giữ nguyên,
-    // nên user còn ghi danh qua instance khác vẫn giữ role
-    // (issue #157). Các dòng cũ không có component/itemId tính là cấp tay
-    // và cũng được để yên.
-    if (instance.roleId) {
-      const assignments = await this.roles.listAssignments({ userId: userId, contextId: await this.courses.courseContextId(instance.courseId) });
-      for (const a of assignments as EnrolAssignmentRow[]) {
-        if (isInstanceAssignment(a, instance)) await this.roles.unassignRole(a.id, modifierId, { allowEnrolManaged: true });
-      }
-    }
-    // Các hook phía sau (đánh giá lại tiêu chí 'unenrol' của completion). Một
-    // hook lỗi không được làm hỏng chính việc unenrol.
-    for (const hook of this.unenrolHooks) {
-      await hook({ courseId: instance.courseId, userId, instanceId: instance.id }).catch(() => undefined);
-    }
-    return { withdrawn: hasRelated };
+    return delegateToSharedCore(() => this.materialization.unenrolInternal(instance, userId, modifierId));
   }
 
   // --- truy vấn ---------------------------------------------------------------------
@@ -724,48 +644,24 @@ export class EnrolService implements OnModuleInit {
   @OnEvent('cohort_member_added')
   /**
    * Sự kiện thành viên cohort mới → ghi danh vào mọi khoá học có instance cohort tương ứng.
+   * Vật chất hoá sống ở bề mặt dùng chung (`materializeCohortMemberAdded`):
+   * guard theo trạng thái hiện tại của `cohort_members` và bỏ qua riêng lẻ
+   * thành viên vi phạm chốt tách vai nằm trong bề mặt đó; handler này chỉ
+   * uỷ thác và dịch lỗi.
    */
   async onCohortMemberAdded(payload: { cohortId: string; userId: string }): Promise<void> {
-    // Guard trạng thái hiện tại (CLASS-0, #184): sự kiện có thể được
-    // consumer outbox phát lại MUỘN, sau khi user đã rời cohort —
-    // không ghi danh cho người hiện không còn trong cohort.
-    if (!(await this.groups.isCohortMember(payload.cohortId, payload.userId))) return;
-    const instances = await this.repo.listCohortInstances(payload.cohortId);
-    for (const instance of instances) {
-      if (instance.status !== 0) continue;
-      // Đồng bộ hàng loạt: thành viên vi phạm chốt tách vai bị bỏ qua
-      // riêng lẻ (xem enrolFromCohortSync) — sự kiện phát lại không
-      // được chết vì một thành viên đã trở thành giáo viên của khoá.
-      await this.enrolFromCohortSync(instance, payload.userId);
-    }
+    await delegateToSharedCore(() => this.materialization.materializeCohortMemberAdded(payload));
   }
 
   @OnEvent('cohort_member_removed')
   /**
    * Sự kiện rời cohort → rút/đình chỉ ghi danh cohort tương ứng.
+   * Vật chất hoá sống ở bề mặt dùng chung (`materializeCohortMemberRemoved`):
+   * guard theo trạng thái hiện tại của `cohort_members`, chế độ rời theo
+   * từng instance (rút qua đường gỡ lõi hoặc đình chỉ do đồng bộ hệ thống)
+   * nằm trong bề mặt đó; handler này chỉ uỷ thác và dịch lỗi.
    */
   async onCohortMemberRemoved(payload: { cohortId: string; userId: string }): Promise<void> {
-    // Guard trạng thái hiện tại (CLASS-0, #184): sự kiện removed phát
-    // lại muộn KHÔNG được đình chỉ người đã vào lại cohort — nguồn sự
-    // thật là cohort_members hiện tại, không phải thứ tự tới của sự
-    // kiện (đường in-process và consumer outbox có thể đan nhau).
-    if (await this.groups.isCohortMember(payload.cohortId, payload.userId)) return;
-    const instances = await this.repo.listCohortInstances(payload.cohortId);
-    for (const instance of instances) {
-      const ue = await this.repo.getUserEnrolment(instance.id, payload.userId);
-      if (!ue || ue.status === ENROL_WITHDRAWN) continue;
-      if (instance.customText1 === 'unenrol') {
-        await this.unenrolInternal(instance, payload.userId);
-      } else {
-        // Đình chỉ do ĐỒNG BỘ HỆ THỐNG: xoá vết modifierId (về null) để
-        // job đối soát phân biệt được với đình chỉ thủ công theo khoá
-        // (vết = actorId do setSuspended ghi) — issue #184.
-        await this.repo.updateUserEnrolment(ue.id, { status: ENROL_SUSPENDED, modifierId: null });
-        await this.outbox.enqueueStandalone({
-          aggregate: 'enrol', type: 'user_enrolment_suspended',
-          payload: { courseId: instance.courseId, userId: payload.userId, instanceId: instance.id, reason: 'cohort_removed' },
-        });
-      }
-    }
+    await delegateToSharedCore(() => this.materialization.materializeCohortMemberRemoved(payload));
   }
 }

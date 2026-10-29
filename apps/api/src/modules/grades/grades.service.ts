@@ -64,10 +64,10 @@ export class GradesService implements OnModuleInit {
     this.courses.registerGradeProvider(async (userId, courseId) => this.gradePercentagesForUser(userId, courseId));
     this.completion.registerGradeEvaluator(async (cmId, userId) => this.evaluateCmGrade(cmId, userId));
     this.completion.registerCourseGradeChecker(async (courseId, userId) => this.courseGradePassed(courseId, userId));
-    this.enrol.registerRelatedDataProbe(async (courseId, userId) => {
-      const grades = await this.repo.listGradesForCourse(courseId, userId);
-      return grades.length > 0;
-    });
+    // Dữ liệu điểm là một họ "dữ liệu liên quan" quyết định giữ/xoá
+    // dòng ghi danh khi gỡ ghi danh: họ đó nay được truy vấn trực
+    // tiếp ở tầng dữ liệu dùng chung (@lms/enrol) thay cho probe
+    // đăng ký lúc khởi tạo tiến trình như trước đây.
   }
 
   private async requireCap(actorId: string, capability: string, courseId: string): Promise<void> {

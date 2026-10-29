@@ -258,8 +258,17 @@ describe('Completion criteria — full 8 Moodle types', () => {
     const del = await http(app).delete(`/api/v1/courses/${course.id}/enrol/instances/${instance.id}/users/${student.id}`)
       .set('Authorization', `Bearer ${admin}`);
     expect(del.status).toBeLessThan(300);
-    // Hook unenrol đã đánh giá lại người dùng một cách đồng bộ.
-    expect(await userStatus(course.id, student.id)).toBe('complete');
+    // Việc tổng hợp lại completion sau unenrol đi qua sự kiện outbox
+    // course_completion_reaggregation_requested và consumer đích
+    // danh phía API (không còn hook đồng bộ trong giao dịch rút):
+    // chờ trạng thái quan sát được chuyển thành hoàn thành, khẳng
+    // định cuối giữ nguyên như khi cơ chế còn đồng bộ.
+    let status = await userStatus(course.id, student.id);
+    for (let attempt = 0; attempt < 40 && status !== 'complete'; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      status = await userStatus(course.id, student.id);
+    }
+    expect(status).toBe('complete');
   });
 
   it('aggregation still governs the new types: ALL needs every criterion, ANY needs one', async () => {
