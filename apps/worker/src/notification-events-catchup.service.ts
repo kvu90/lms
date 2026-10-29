@@ -26,6 +26,15 @@ type Database = NodePgDatabase<typeof relations>;
 const LEGACY_WATERMARK_KEY_PREFIX = 'lms:messaging:notifications:';
 /** Số dòng tồn đọng tối đa đọc trong một lô phát bù — cùng cỡ lô quét của consumer cũ. */
 const DRAIN_BATCH_SIZE = 100;
+/**
+ * Nhịp chờ đầu tiên trước lần thử phát bù kế tiếp khi một lần
+ * thử bị lỗi — cùng quy ước backoff mũ của hàng đợi trong hệ
+ * (`defaultJobOptions` ở `worker.module.ts`: backoff
+ * exponential, delay 1000 ms).
+ */
+const DRAIN_RETRY_BASE_DELAY_MS = 1_000;
+/** Trần nhịp chờ giữa hai lần thử phát bù: backoff gấp đôi sau mỗi lần thử lỗi nhưng không vượt mức này. */
+const DRAIN_RETRY_MAX_DELAY_MS = 30_000;
 
 /**
  * Cơ chế chuyển tiếp MỘT LẦN của consumer thông báo sự kiện (issue
@@ -45,8 +54,10 @@ const DRAIN_BATCH_SIZE = 100;
  * watermark đã bị gỡ — thông báo tương ứng mất vĩnh viễn và lặng
  * lẽ nếu không có bước chuyển tiếp.
  *
- * Flow (chạy đúng một lần khi module khởi động, trong ngữ cảnh
- * platform tường minh như relay vì việc quét xuyên tenant):
+ * Flow (kích hoạt khi module khởi động — `onModuleInit` chờ
+ * lượt phát bù rút cạn xong mới hoàn tất khởi tạo, đúng mẫu
+ * hook async của NestJS; trong ngữ cảnh platform tường minh
+ * như relay vì việc quét xuyên tenant):
  * 1. Dựng lại khoá watermark của consumer cũ từ tên database
  *    trong `DATABASE_URL` — đúng cách consumer cũ dựng — và đọc
  *    giá trị đã lưu. Khoá không tồn tại nghĩa là hệ mới tinh
@@ -83,13 +94,28 @@ const DRAIN_BATCH_SIZE = 100;
  *   được xoá như thường, không kẹt lại cho các lần khởi động
  *   sau.
  *
- * Hành vi khi lỗi: lỗi ở bất kỳ bước nào (đọc khoá, đọc DB, đẩy
- * job) làm phần rút cạn dừng ngay tại đó; khoá watermark cũ
- * KHÔNG bị xoá nên lần khởi động worker kế tiếp thử phát bù
- * lại từ đầu (an toàn nhờ hai lớp chống trùng ở trên). Lỗi được
- * ghi log ở mức error và KHÔNG làm hỏng việc khởi động worker:
- * thông báo là kênh phụ, đường hàng đợi thường trực vẫn chạy —
- * đúng triết lý nuốt lỗi của consumer cũ.
+ * Hành vi khi lỗi (sửa vòng 2 theo phân xử trên PR #542): lỗi
+ * ở bất kỳ bước nào (đọc khoá, đọc DB, đẩy job) làm LẦN THỬ
+ * đang chạy dừng ngay tại đó; khoá watermark cũ KHÔNG bị xoá.
+ * Lượt phát bù tự thử lại ngay trong cùng tiến trình, có
+ * backoff mũ ({@link DRAIN_RETRY_BASE_DELAY_MS} gấp đôi mỗi
+ * lần, trần {@link DRAIN_RETRY_MAX_DELAY_MS}), cho tới khi
+ * rút cạn trọn vẹn — mỗi lần thử thất bại ghi log mức error
+ * kèm số lần thử và nhịp chờ kế tiếp, không nuốt lặng. Cơ
+ * chế trước đây chỉ thử đúng một lần ở `onModuleInit` rồi
+ * nuốt lỗi: relay thường trực chỉ quét dòng chưa có
+ * `publishedAt` nên phần tồn đọng chưa phát kẹt vô hạn tới
+ * lần khởi động worker kế tiếp — vòng thử lại này đóng đúng
+ * cửa sổ đó, và việc phát lại an toàn nhờ hai lớp chống
+ * trùng ở trên. Vòng thử chỉ dừng hẳn khi module bị huỷ
+ * (`onModuleDestroy`, tiến trình đang đóng): lần khởi động
+ * kế tiếp vẫn gặp khoá cũ và phát bù lại từ đầu. Vì
+ * `onModuleInit` chờ lượt phát bù, một hạ tầng đang lỗi kéo
+ * dài việc khởi tạo module tương ứng — đây là lựa chọn có
+ * chủ đích: thà worker chậm lên còn hơn chuyển tiếp kẹt
+ * lặng lẽ; hệ không còn khoá cũ (trạng thái thường trực sau
+ * chuyển đổi) thì lượt phát bù là no-op tức thì và khởi tạo
+ * không bị ảnh hưởng.
  *
  * Side-effect: đẩy job BullMQ vào hàng đợi `notification-events`
  * và xoá khoá Redis của consumer cũ sau khi rút cạn. Không ghi
@@ -100,6 +126,8 @@ export class NotificationEventsCatchupService implements OnModuleInit, OnModuleD
   private readonly logger = new Logger(NotificationEventsCatchupService.name);
   private readonly redis: Redis;
   private readonly legacyWatermarkKey: string;
+  /** Cờ báo module đang bị huỷ: vòng thử lại của lượt phát bù dừng hẳn thay vì quay tiếp trong tiến trình đang đóng. */
+  private destroying = false;
 
   constructor(
     @InjectDrizzle() private readonly db: Database,
@@ -123,60 +151,108 @@ export class NotificationEventsCatchupService implements OnModuleInit, OnModuleD
   }
 
   /**
-   * Điểm vào khi module khởi động: chạy phần phát bù một lần.
-   * Mọi lỗi đã được {@link drainLegacyBacklog} ghi log và nuốt —
-   * hook này không bao giờ ném, để việc khởi động worker không
-   * bị chặn bởi kênh phụ.
+   * Điểm vào khi module khởi động: chạy lượt phát bù và chờ nó
+   * rút cạn xong mới hoàn tất khởi tạo (hook async được NestJS
+   * chờ theo đúng vòng đời của framework).
+   * {@link drainLegacyBacklog} tự thử lại có backoff khi gặp
+   * lỗi thoáng qua nên hook này không ném; nó chỉ trở về sớm
+   * khi module bị huỷ giữa chừng (tiến trình đang đóng).
    */
   async onModuleInit(): Promise<void> {
     await this.drainLegacyBacklog();
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.destroying = true;
     await this.redis.quit().catch(() => undefined);
   }
 
   /**
-   * Rút cạn tồn đọng theo watermark cũ và phát bù thành job.
+   * Rút cạn tồn đọng theo watermark cũ và phát bù thành job,
+   * tự thử lại có backoff cho tới khi rút cạn trọn vẹn.
    *
-   * @returns Số job đã phát bù trong lượt này: 0 khi không có
-   * khoá watermark cũ (hệ mới tinh, hoặc chuyển tiếp đã hoàn
-   * tất ở một lần khởi động trước), 0 khi tồn đọng rỗng, và số
-   * job đã phát được trước điểm lỗi khi lượt rút cạn bị dừng
-   * giữa chừng vì lỗi (khoá cũ còn nguyên để lần khởi động sau
-   * thử lại).
+   * @returns Số job đã phát trong lần thử hoàn tất: 0 khi
+   * không có khoá watermark cũ (hệ mới tinh, hoặc chuyển tiếp
+   * đã hoàn tất ở một lần khởi động trước), 0 khi tồn đọng
+   * rỗng, và 0 khi vòng thử bị dừng vì module đang bị huỷ.
+   * Các dòng đã phát ở một lần thử dở dang được phát lại ở lần
+   * thử kế tiếp và được BullMQ trả về job đã có theo `jobId`,
+   * nên con số này đếm theo lần thử hoàn tất, không cộng dồn
+   * qua các lần thử.
    */
   async drainLegacyBacklog(): Promise<number> {
-    return tenantAls.run({ platform: true }, () => this.drainInContext());
+    return tenantAls.run({ platform: true }, () => this.drainWithRetry());
   }
 
   /**
-   * Thân của {@link drainLegacyBacklog} trong ngữ cảnh platform
-   * đã bọc. Mọi lỗi đều dừng tại đây: ghi log, giữ khoá cũ, trả
-   * số job đã phát được trước điểm lỗi — không ném ra ngoài.
+   * Vòng thử lại của lượt phát bù: chạy từng lần thử rút cạn
+   * ({@link drainAttempt}) cho tới khi một lần thử hoàn tất.
+   * Mỗi lần thử thất bại ghi log mức error kèm số lần thử, số
+   * job đã phát được trong lần thử đó và nhịp chờ backoff
+   * trước lần thử kế tiếp — tồn đọng không bao giờ kẹt lặng
+   * lẽ trong lúc tiến trình còn sống. Vòng chỉ dừng hẳn khi
+   * module đang bị huỷ.
+   *
+   * @returns Số job đã phát trong lần thử hoàn tất (0 khi bị
+   * dừng vì module đang bị huỷ).
    */
-  private async drainInContext(): Promise<number> {
-    let enqueued = 0;
-    try {
-      const storedRaw = await this.redis.get(this.legacyWatermarkKey);
-      if (storedRaw === null) return 0;
-      const watermark = Number(storedRaw);
-      if (!Number.isFinite(watermark)) {
-        this.logger.warn(
-          `Khoá watermark cũ ${this.legacyWatermarkKey} mang giá trị không phải số ("${storedRaw}") — bỏ qua lượt phát bù, giữ nguyên khoá.`,
+  private async drainWithRetry(): Promise<number> {
+    let attempt = 0;
+    for (;;) {
+      if (this.destroying) return 0;
+      attempt += 1;
+      let enqueuedThisAttempt = 0;
+      try {
+        const enqueued = await this.drainAttempt((count) => {
+          enqueuedThisAttempt = count;
+        });
+        if (attempt > 1) {
+          this.logger.log(
+            `Phát bù tồn đọng thông báo theo watermark cũ hoàn tất ở lần thử ${attempt} (${enqueued} job).`,
+          );
+        }
+        return enqueued;
+      } catch (error) {
+        const delayMs = Math.min(
+          DRAIN_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1),
+          DRAIN_RETRY_MAX_DELAY_MS,
         );
-        return 0;
+        this.logger.error(
+          `Phát bù tồn đọng thông báo theo watermark cũ dừng giữa chừng ở lần thử ${attempt} sau ${enqueuedThisAttempt} job (khoá ${this.legacyWatermarkKey} được giữ nguyên): ${error instanceof Error ? error.message : String(error)}. Thử lại sau ${delayMs} ms.`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       }
-
-      return await this.drainFromWatermark(watermark, (count) => {
-        enqueued = count;
-      });
-    } catch (error) {
-      this.logger.error(
-        `Phát bù tồn đọng thông báo theo watermark cũ dừng giữa chừng sau ${enqueued} job (khoá ${this.legacyWatermarkKey} được giữ để thử lại ở lần khởi động sau): ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return enqueued;
     }
+  }
+
+  /**
+   * Một lần thử rút cạn trong ngữ cảnh platform đã bọc: đọc
+   * khoá watermark cũ và rút cạn các dòng trên nó. Lỗi ở bất
+   * kỳ bước nào được ném ra cho {@link drainWithRetry} quyết
+   * định thử lại — hàm này không tự nuốt lỗi.
+   *
+   * Hai trạng thái kết thúc không phải lỗi: không có khoá cũ
+   * (hệ mới tinh hoặc chuyển tiếp đã xong — no-op) và giá trị
+   * khoá không phải số (dữ kiện hỏng cố định, thử lại không
+   * sửa được: ghi log mức warn và giữ nguyên khoá, giữ đúng
+   * hành vi trước đây).
+   *
+   * @param onProgress Báo số job đã phát sau mỗi job, để tầng
+   * gọi ghi được con số thật của lần thử khi nó dừng vì lỗi.
+   * @returns Số job đã phát trong lần thử này.
+   */
+  private async drainAttempt(onProgress: (enqueued: number) => void): Promise<number> {
+    const storedRaw = await this.redis.get(this.legacyWatermarkKey);
+    if (storedRaw === null) return 0;
+    const watermark = Number(storedRaw);
+    if (!Number.isFinite(watermark)) {
+      this.logger.warn(
+        `Khoá watermark cũ ${this.legacyWatermarkKey} mang giá trị không phải số ("${storedRaw}") — bỏ qua lượt phát bù, giữ nguyên khoá.`,
+      );
+      return 0;
+    }
+
+    return this.drainFromWatermark(watermark, onProgress);
   }
 
   /**

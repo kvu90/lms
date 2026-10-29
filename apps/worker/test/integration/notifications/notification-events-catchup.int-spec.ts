@@ -34,6 +34,19 @@ import {
  *     là no-op — cơ chế không thành consumer polling thường trực.
  *  5. Hệ mới tinh (không có khoá watermark cũ) thì không phát bù
  *     gì: dòng đã đóng dấu không thành job, không có thông báo.
+ *  6. Đường khởi động thật: khoá watermark đã tồn tại TRƯỚC khi
+ *     module worker khởi tạo thì hook `OnModuleInit` tự phát bù
+ *     trong lúc khởi tạo — không cần lời gọi tay
+ *     `drainLegacyBacklog()` (phân xử vòng 2 trên PR #542: bản
+ *     spec trước chỉ gọi tay sau khi module đã boot xong nên
+ *     không khoá được hành vi này).
+ *  7. Lỗi thoáng qua giữa lượt phát bù (lần đẩy job đầu tiên ném
+ *     lỗi) không làm kẹt tồn đọng: lượt phát bù tự thử lại có
+ *     backoff trong cùng tiến trình tới khi rút cạn trọn vẹn,
+ *     khoá cũ chỉ bị xoá sau khi thành công, và lần thử thất bại
+ *     được ghi log mức error kèm số lần thử (phân xử vòng 2 trên
+ *     PR #542: cơ chế cũ nuốt lỗi sau một lần thử duy nhất, tồn
+ *     đọng kẹt tới lần khởi động worker kế tiếp).
  */
 describe('Worker notification events catch-up (phát bù tồn đọng theo watermark cũ ở #520)', () => {
   let context: INestApplicationContext;
@@ -196,5 +209,100 @@ describe('Worker notification events catch-up (phát bù tồn đọng theo wate
     expect(await catchup.drainLegacyBacklog()).toBe(0);
     expect(await eventsQueue.getJob(row.id)).toBeFalsy();
     expect(await notificationsOf(student, 'enrol_expiry_warning')).toHaveLength(0);
+  }, 180000);
+
+  it('khoá watermark có sẵn trước khi worker khởi động thì OnModuleInit tự phát bù không cần gọi tay: dòng trên watermark được xử lý đúng một lần và khoá cũ bị xoá trong lúc khởi tạo module', async () => {
+    const belowFixture = await makeStudentCourse(11);
+    const aboveFixture = await makeStudentCourse(12);
+    const below = await emitMarkedRow(belowFixture.student, belowFixture.courseId);
+    const above = await emitMarkedRow(aboveFixture.student, aboveFixture.courseId);
+    expect(above.seq).toBeGreaterThan(below.seq);
+    // Khoá watermark tồn tại TRƯỚC khi module worker mới khởi tạo —
+    // đúng trạng thái của lần triển khai chuyển đổi thật.
+    await redis.set(legacyWatermarkKey, String(below.seq));
+
+    // Boot một module worker mới: hook OnModuleInit của service
+    // phát bù phải tự rút cạn trong lúc context.init() chạy. Ca
+    // này không hề gọi drainLegacyBacklog() — nếu sau khi boot
+    // xong mà khoá đã mất và job đã vào hàng đợi thì chỉ có thể
+    // do đường khởi động tự chạy.
+    const bootHarness = await bootWorkerModuleAsOrdinaryRole();
+    try {
+      expect(await redis.get(legacyWatermarkKey)).toBeNull();
+      await waitJobCompleted(above.id);
+      expect(await notificationsOf(aboveFixture.student, 'enrol_expiry_warning')).toHaveLength(1);
+      expect(await notificationsOf(belowFixture.student, 'enrol_expiry_warning')).toHaveLength(0);
+      expect(await eventsQueue.getJob(below.id)).toBeFalsy();
+    } finally {
+      await bootHarness.close();
+    }
+  }, 180000);
+
+  it('lỗi thoáng qua ở lần đẩy job đầu tiên thì lượt phát bù tự thử lại tới khi rút cạn trọn vẹn: tồn đọng được phát đúng một lần, khoá chỉ bị xoá sau khi thành công và lần thử thất bại có log error kèm số lần thử', async () => {
+    const belowFixture = await makeStudentCourse(21);
+    const aboveFixture = await makeStudentCourse(22);
+    const markedFixture = await makeStudentCourse(23);
+    const below = await emitMarkedRow(belowFixture.student, belowFixture.courseId);
+    const above = await emitMarkedRow(aboveFixture.student, aboveFixture.courseId);
+    const marked = await emitMarkedRow(markedFixture.student, markedFixture.courseId);
+    expect(above.seq).toBeGreaterThan(below.seq);
+    expect(marked.seq).toBeGreaterThan(above.seq);
+    await marker.markProcessed(marked.id);
+    await redis.set(legacyWatermarkKey, String(below.seq));
+
+    // Tiêm lỗi thoáng qua: lần queue.add đầu tiên cho đúng dòng
+    // tồn đọng này ném lỗi, mọi lần đẩy khác đi qua bình thường
+    // (relay thường trực đẩy các dòng khác không bị ảnh hưởng).
+    // Tại thời điểm lỗi nổ ra, ghi lại giá trị khoá để khẳng định
+    // khoá vẫn còn nguyên — khoá chỉ được xoá sau khi rút cạn
+    // thành công.
+    const originalAdd = eventsQueue.add.bind(eventsQueue);
+    let faultArmed = true;
+    let keyValueAtFailure: string | null = null;
+    eventsQueue.add = (async (...args: unknown[]) => {
+      const data = args[1] as { outboxId?: string } | undefined;
+      if (faultArmed && data?.outboxId === above.id) {
+        faultArmed = false;
+        keyValueAtFailure = await redis.get(legacyWatermarkKey);
+        throw new Error('Lỗi thoáng qua mô phỏng tại queue.add trong ca tiêm lỗi');
+      }
+      return (originalAdd as unknown as (...a: unknown[]) => Promise<unknown>)(...args);
+    }) as unknown as typeof eventsQueue.add;
+
+    // Bắt log error của chính service phát bù để khẳng định lần
+    // thử thất bại được ghi kèm số lần thử, không nuốt lặng.
+    const loggerRef = (catchup as unknown as {
+      logger: { error: (...args: unknown[]) => void };
+    }).logger;
+    const originalError = loggerRef.error.bind(loggerRef);
+    const errorMessages: string[] = [];
+    loggerRef.error = (...args: unknown[]) => {
+      errorMessages.push(String(args[0]));
+      originalError(...args);
+    };
+
+    let enqueued: number | undefined;
+    try {
+      enqueued = await catchup.drainLegacyBacklog();
+    } finally {
+      eventsQueue.add = originalAdd as typeof eventsQueue.add;
+      loggerRef.error = originalError;
+    }
+
+    // Lỗi đã thật sự nổ ở lần thử đầu, khoá còn nguyên tại thời
+    // điểm đó, và lượt phát bù tự hồi phục trong cùng tiến trình:
+    // rút cạn đủ hai dòng trên watermark ở lần thử sau.
+    expect(faultArmed).toBe(false);
+    expect(keyValueAtFailure).toBe(String(below.seq));
+    expect(errorMessages.some((message) => message.includes('lần thử 1'))).toBe(true);
+    expect(enqueued).toBe(2);
+
+    await waitJobCompleted(above.id);
+    await waitJobCompleted(marked.id);
+    expect(await notificationsOf(aboveFixture.student, 'enrol_expiry_warning')).toHaveLength(1);
+    expect(await notificationsOf(markedFixture.student, 'enrol_expiry_warning')).toHaveLength(0);
+    expect(await notificationsOf(belowFixture.student, 'enrol_expiry_warning')).toHaveLength(0);
+    expect(await eventsQueue.getJob(below.id)).toBeFalsy();
+    expect(await redis.get(legacyWatermarkKey)).toBeNull();
   }, 180000);
 });
