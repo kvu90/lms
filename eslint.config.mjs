@@ -53,7 +53,11 @@ export default defineConfig([
     ...reactHooks.configs.flat.recommended,
   },
   {
-    files: ["**/*.spec.{ts,tsx}", "**/*.int-spec.{ts,tsx}", "**/*.e2e-spec.{ts,tsx}"],
+    files: [
+      "**/*.spec.{js,mjs,cjs,ts,tsx}",
+      "**/*.int-spec.{js,mjs,cjs,ts,tsx}",
+      "**/*.e2e-spec.{js,mjs,cjs,ts,tsx}",
+    ],
     ...vitest.configs.recommended,
   },
 ]);
