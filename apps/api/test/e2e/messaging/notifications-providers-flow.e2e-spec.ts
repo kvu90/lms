@@ -247,7 +247,8 @@ describe('Notification providers wired (N1, issue #49)', () => {
     expect(groups.get('quiz_available')).toBe('learning');
     expect(groups.get('quiz_attempt_finished')).toBe('learning');
     // PH-2 (issue #159): hai provider digest phụ huynh đã nối dây qua
-    // GuardianDigestConsumer — không phải công tắc giả.
+    // nửa tiêu thụ phía worker (GuardianDigestHandlerService) — không
+    // phải công tắc giả.
     expect(groups.get('guardian_digest')).toBe('learning');
     expect(groups.get('guardian_overdue_alert')).toBe('learning');
     expect(groups.get('message_new')).toBe('people');

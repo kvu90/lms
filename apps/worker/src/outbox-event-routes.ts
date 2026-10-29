@@ -43,12 +43,18 @@ import type { Queue } from 'bullmq';
  * hàng đợi cần đăng ký và bản đồ hàng đợi cấp cho relay từ chính
  * bảng này, nên không còn nơi nào khác phải sửa để nối đường phát.
  *
- * Tại thời điểm dựng bảng, chưa consumer nào của đợt chuyển đổi
- * hoàn tất nên bảng rỗng có chủ đích: cơ chế phát job, ngữ nghĩa
- * đóng dấu và test đặc trưng hoá ghim cả hai đã sẵn sàng làm nền
- * cho từng issue chuyển consumer.
+ * Các loại đã vào bảng: hai loại sự kiện digest phụ huynh
+ * (`guardian_digest_due`, `guardian_overdue_alert`) trỏ về hàng đợi
+ * `guardian-digest-events` — consumer của chúng đã chuyển sang
+ * worker (processor `GuardianDigestEventsProcessor`, handler
+ * `GuardianDigestHandlerService`). Mọi loại sự kiện còn lại của đợt
+ * chuyển đổi chưa có mặt ở đây cho tới khi consumer tương ứng
+ * chuyển xong, đúng ngữ nghĩa ở trên.
  */
-export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {};
+export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
+  guardian_digest_due: 'guardian-digest-events',
+  guardian_overdue_alert: 'guardian-digest-events',
+};
 
 /** Bảng định tuyến phát job: khoá là loại sự kiện, giá trị là tên hàng đợi BullMQ. */
 export type OutboxEventQueueRoutes = Readonly<Record<string, string>>;

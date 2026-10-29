@@ -13,10 +13,12 @@ import {
  * chốt lượt digest định kỳ (cửa sổ tuần/ngày đã đóng, theo tần suất của
  * phụ huynh cho từng con, mặc định weekly) và lượt đẩy riêng quá hạn ≥7
  * ngày, mỗi lượt đúng MỘT lần nhờ dedupe_key unique của guardian_digests;
- * chỉ lượt thật sự mới chốt mới sinh sự kiện outbox cho consumer phía
- * API. Nửa API (sự kiện → tổng hợp đã công bố → thông báo) được kiểm
- * chứng ở apps/api/test/guardian-ph2-digest-flow.e2e-spec.ts bằng đúng
- * hình dạng sự kiện phát ở đây.
+ * chỉ lượt thật sự mới chốt mới sinh sự kiện outbox cho nửa tiêu thụ.
+ * Nửa tiêu thụ (sự kiện → tổng hợp đã công bố → thông báo) nằm cùng
+ * phía worker từ issue con #518 của #491 (trước đó là consumer polling
+ * phía API) và được kiểm chứng ở
+ * test/integration/guardians/guardian-digest-delivery.int-spec.ts
+ * bằng đúng hình dạng sự kiện phát ở đây.
  *
  * Từ lát 2 của issue #294, spec này boot WorkerModule qua harness
  * role thường (`test/ordinary-worker-module.ts`): module chạy bằng
