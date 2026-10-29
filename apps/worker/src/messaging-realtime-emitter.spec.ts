@@ -17,10 +17,12 @@
  * - Chỉ đường publish bị hỏng (connection publish của cổng phát
  *   dùng một user Redis riêng bị từ chối đúng lệnh `PUBLISH` bằng
  *   ACL, trong khi connection ghi dấu dùng user mặc định, lành
- *   mạnh): `process()` NÉM lỗi, dấu KHÔNG được ghi, phía API không
- *   nhận sự kiện nào của tin đó — để lượt thử lại của BullMQ còn
- *   đất phân phối tiếp; và lượt xử lý lại cùng job bằng cổng phát
- *   lành mạnh phân phối được thật và ghi dấu.
+ *   mạnh): lỗi publish nổi lên thành lỗi phân phối, processor
+ *   biến nó thành tín hiệu hoãn thử lại (`DelayedError`), dấu
+ *   KHÔNG được ghi, phía API không nhận sự kiện nào của tin đó —
+ *   để lượt phát lại của BullMQ còn đất phân phối tiếp; và lượt
+ *   xử lý lại cùng job bằng cổng phát lành mạnh phân phối được
+ *   thật và ghi dấu.
  *
  * User ACL của test được xoá trong `afterAll`; mọi dấu ghi trong
  * test được dọn cùng lúc.
@@ -29,6 +31,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer, type Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { DelayedError } from 'bullmq';
 import Redis from 'ioredis';
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
@@ -210,7 +213,7 @@ describe('Cổng phát realtime messaging ở worker — publish Redis phải đ
     expect(await markRedis.exists(`${MESSAGING_DISTRIBUTED_KEY_PREFIX}${outboxId}`)).toBe(1);
   }, 60000);
 
-  it('publish bị Redis từ chối trong khi đường ghi dấu lành mạnh: process() ném lỗi, dấu không được ghi, phía API không nhận sự kiện; lượt thử lại bằng cổng phát lành mạnh phân phối được và ghi dấu', async () => {
+  it('publish bị Redis từ chối trong khi đường ghi dấu lành mạnh: process() ném DelayedError hẹn thử lại, dấu không được ghi, phía API không nhận sự kiện; lượt chạy lại bằng cổng phát lành mạnh phân phối được và ghi dấu', async () => {
     // User Redis riêng cho connection publish của cổng phát: mọi
     // lệnh chạy trừ PUBLISH (bị NOPERM) — đường ghi dấu dùng
     // connection mặc định, không liên quan.
@@ -230,7 +233,10 @@ describe('Cổng phát realtime messaging ở worker — publish Redis phải đ
     try {
       const badProcessor = makeProcessor(badEmitter, markRedis);
 
-      await expect(badProcessor.process(jobOf(outboxId, messageId, 2))).rejects.toThrow(/NOPERM/);
+      // Lỗi NOPERM của publish được cổng phát ném ra khỏi tầng
+      // phân phối; processor bắt nó và trả tín hiệu hoãn thử lại
+      // (DelayedError) thay vì để job bị tính là lần thử thất bại.
+      await expect(badProcessor.process(jobOf(outboxId, messageId, 2))).rejects.toThrow(DelayedError);
 
       // Cho mọi tín hiệu muộn (nếu có) cơ hội tới trước khi khẳng
       // định "không nhận gì" trên trạng thái cuối.
@@ -243,9 +249,9 @@ describe('Cổng phát realtime messaging ở worker — publish Redis phải đ
       await badEmitter.close().catch(() => undefined);
     }
 
-    // Lượt thử lại của cùng job (BullMQ giao lại khi process()
-    // ném lỗi) bằng cổng phát lành mạnh: phân phối được thật, dấu
-    // được ghi — sự kiện không mất vì lượt publish hỏng trước đó.
+    // Lượt chạy lại của cùng job (BullMQ phát lại job đã hoãn)
+    // bằng cổng phát lành mạnh: phân phối được thật, dấu được
+    // ghi — sự kiện không mất vì lượt publish hỏng trước đó.
     const retryProcessor = makeProcessor(healthyEmitter, markRedis);
     await retryProcessor.process(jobOf(outboxId, messageId, 2));
     await waitUntil(
