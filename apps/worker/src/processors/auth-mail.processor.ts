@@ -62,6 +62,17 @@ import { ResendMailService } from '../resend-mail.service';
  *   công hay không. Khi job được phát lại, hoặc dấu ĐÃ GỬI đã
  *   đứng (lượt kia gửi xong — kết thúc `duplicate`), hoặc lease
  *   đã hết hạn/được nhả (chiếm lại và gửi).
+ * - Đọc lại dấu ĐÃ GỬI TRONG lease: lượt chiếm được lease đọc
+ *   lại dấu ĐÃ GỬI trong lúc đang giữ lease, TRƯỚC khi gọi
+ *   transport — kết quả đọc lại này mới là kết quả có hiệu lực.
+ *   Lần đọc trước khi chiếm lease chỉ là đường nhanh cho các lần
+ *   phát lại thông thường, vì kết quả của nó có thể thành cũ:
+ *   một lượt đọc "chưa gửi" rồi bị chậm trước khi chiếm lease,
+ *   trong lúc lượt khác gửi trọn, ghi dấu và nhả lease; lượt đầu
+ *   chiếm lại lease vừa nhả mà dựa vào kết quả cũ thì gửi lần
+ *   hai dù không hề có lỗi nào xảy ra. Thấy dấu ở lần đọc lại
+ *   thì lượt giữ lease nhả lease của chính mình (kiểm tra chủ)
+ *   và kết thúc `duplicate`.
  * - Tiến trình sập SAU khi chiếm lease mà TRƯỚC khi gửi xong:
  *   lease tự hết hạn sau tối đa 60 giây; job của worker đã chết
  *   được BullMQ phát hiện qua khoá job hết hạn (mặc định 30 giây)
@@ -313,8 +324,11 @@ export class AuthMailProcessor extends WorkerHost {
    * job theo chính sách mặc định, nhưng CHỈ sau khi đã nhả lease
    * (kiểm tra chủ), nên lần thử lại chiếm lại được lease và gửi
    * được (không bị lease của lần lỗi chặn).
-   * @throws Lỗi Redis khi kiểm tra dấu ĐÃ GỬI hoặc chiếm lease —
-   * ném ra TRƯỚC khi bất kỳ mail nào được gửi ở lần xử lý đó.
+   * @throws Lỗi Redis khi kiểm tra dấu ĐÃ GỬI (lần đọc nhanh
+   * trước khi chiếm lease, hoặc lần đọc lại trong lúc giữ
+   * lease) hoặc chiếm lease — ném ra TRƯỚC khi bất kỳ mail nào
+   * được gửi ở lần xử lý đó; riêng lần đọc lại lỗi thì lease
+   * được nhả (kiểm tra chủ) trước khi ném.
    * @throws Lỗi Redis khi ghi dấu ĐÃ GỬI sau khi transport đã nhận
    * mail — lease được nhả trước khi ném, lần thử lại gửi lại từ
    * đầu; đây là đường duy nhất có thể sinh mail trùng (transport
@@ -331,9 +345,14 @@ export class AuthMailProcessor extends WorkerHost {
       return { status: 'invalid' };
     }
 
-    // Hàng rào idempotent, trạng thái ĐÃ GỬI: dấu chỉ tồn tại khi
-    // transport đã thật sự nhận mail ở một lần xử lý trước — thấy
-    // dấu này thì bỏ qua, không gửi lại.
+    // Hàng rào idempotent, trạng thái ĐÃ GỬI — lần đọc nhanh
+    // trước khi chiếm lease: dấu chỉ tồn tại khi transport đã
+    // thật sự nhận mail ở một lần xử lý trước — thấy dấu này thì
+    // bỏ qua ngay, không gửi lại. Kết quả lần đọc này CHƯA phải
+    // kết quả có hiệu lực: một lượt có thể đọc "chưa gửi" rồi bị
+    // chậm trước khi chiếm lease, trong lúc lượt khác gửi trọn,
+    // ghi dấu và nhả lease — kết quả có hiệu lực là lần đọc lại
+    // trong lúc đang giữ lease ở dưới.
     if (await this.sentMarker.hasSent(data.outboxId)) {
       this.logger.log(
         `Mail auth của dòng outbox ${data.outboxId} đã được gửi ở lần xử lý trước — bỏ qua lần phát lại.`,
@@ -359,6 +378,24 @@ export class AuthMailProcessor extends WorkerHost {
     }
 
     try {
+      // Đọc lại dấu ĐÃ GỬI trong lúc đang giữ lease, TRƯỚC khi
+      // gọi transport: đây là kết quả có hiệu lực. Nếu một lượt
+      // khác đã gửi trọn và ghi dấu trong cửa sổ lượt này bị
+      // chậm trước khi chiếm lease (lần đọc nhanh ở trên cho
+      // kết quả cũ "chưa gửi"), dấu giờ đã đứng — nhả lease của
+      // chính lượt này (kiểm tra chủ) và kết thúc `duplicate`,
+      // không gửi lần hai. Lỗi của thao tác nhả ở đây bị nuốt
+      // có chủ đích như ở bước thành công: dấu ĐÃ GỬI đã đứng
+      // và tự nó bảo đảm các lần phát lại bỏ qua; lease còn sót
+      // sẽ tự hết hạn trong hạn ngắn.
+      if (await this.sentMarker.hasSent(data.outboxId)) {
+        this.logger.log(
+          `Mail auth của dòng outbox ${data.outboxId} đã được gửi bởi lượt xử lý vừa nhả lease — bỏ qua, không gửi lần hai.`,
+        );
+        await this.sentMarker.releaseProcessing(data.outboxId, leaseToken).catch(() => undefined);
+        return { status: 'duplicate' };
+      }
+
       const message = renderAuthMail(parsed);
       const result = await this.mailer.send(message);
       if (result.status === 'skipped') {
@@ -377,10 +414,11 @@ export class AuthMailProcessor extends WorkerHost {
       await this.sentMarker.releaseProcessing(data.outboxId, leaseToken).catch(() => undefined);
       return { status: result.status };
     } catch (error) {
-      // Gửi thất bại hoặc ghi dấu ĐÃ GỬI thất bại: nhả lease
-      // (kiểm tra chủ) TRƯỚC khi ném lỗi, để lượt thử lại của
-      // BullMQ chiếm lại được lease và gửi được. Lỗi của chính
-      // thao tác nhả lease không được nuốt lỗi gốc.
+      // Gửi thất bại, đọc lại dấu ĐÃ GỬI trong lease thất bại,
+      // hoặc ghi dấu ĐÃ GỬI thất bại: nhả lease (kiểm tra chủ)
+      // TRƯỚC khi ném lỗi, để lượt thử lại của BullMQ chiếm lại
+      // được lease và gửi được. Lỗi của chính thao tác nhả
+      // lease không được nuốt lỗi gốc.
       await this.sentMarker.releaseProcessing(data.outboxId, leaseToken).catch(() => undefined);
       throw error;
     }

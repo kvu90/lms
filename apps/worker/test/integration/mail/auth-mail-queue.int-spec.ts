@@ -11,6 +11,7 @@ import {
   AuthMailProcessor,
   RedisAuthMailSentMarker,
   type AuthMailProcessResult,
+  type AuthMailSentMarker,
 } from '../../../src/processors/auth-mail.processor';
 import type { WorkerMailMessage, WorkerMailSendResult } from '../../../src/resend-mail.service';
 import {
@@ -36,9 +37,15 @@ import {
  *   `DelayedError` chứ không kết thúc như đã xử lý); lượt giữ
  *   lease chết trước khi gửi thì lease hết hạn và lượt sau gửi
  *   được mail (khôi phục sau sập); nhả lease kiểm tra token chủ
- *   sở hữu bằng script Lua phía Redis. Tính idempotent theo
- *   `outboxId` kiểm chứng ở tầng hạ tầng thật chứ không chỉ bằng
- *   bản giả trong bộ nhớ của spec unit.
+ *   sở hữu bằng script Lua phía Redis. Hàng rào còn phải đọc lại
+ *   dấu ĐÃ GỬI trong lúc đang giữ lease, trước khi gọi transport:
+ *   một lượt đọc dấu là chưa có rồi bị giữ lại trước khi chiếm
+ *   lease, trong lúc lượt khác gửi trọn và nhả lease, mà dựa vào
+ *   kết quả kiểm tra cũ thì gửi lần hai dù không có lỗi nào xảy
+ *   ra — ca xen kẽ có điều phối thứ tự ở dưới ghim cửa sổ này
+ *   trên Redis thật. Tính idempotent theo `outboxId` kiểm chứng
+ *   ở tầng hạ tầng thật chứ không chỉ bằng bản giả trong bộ nhớ
+ *   của spec unit.
  *
  * Vì sao processor ở các ca sau ca đầu được dựng tay: module đã
  * boot có processor nền riêng đang tiêu thụ cùng hàng đợi (đúng
@@ -82,6 +89,61 @@ class GatedMailer {
 
   openGate(): void {
     this.open();
+  }
+}
+
+/**
+ * Bọc bản dấu Redis thật bằng cổng chặn ở lượt chiếm lease ĐẦU
+ * TIÊN: lượt gọi `claimProcessing` đầu tiên được báo hiệu qua
+ * `firstClaimParked` rồi treo lại cho tới khi test mở cổng; mọi
+ * thao tác còn lại đi thẳng xuống Redis thật. Dùng để ép lịch
+ * xen kẽ xác định trên hạ tầng thật: lượt A đọc dấu đã gửi (chưa
+ * có) rồi bị giữ ngay trước khi chiếm lease, trong lúc lượt B
+ * chạy trọn chu trình gửi và nhả lease.
+ */
+class FirstClaimGatedRedisMarker implements AuthMailSentMarker {
+  private claimCalls = 0;
+  private openClaimGate!: () => void;
+  private readonly claimGate = new Promise<void>((resolve) => {
+    this.openClaimGate = resolve;
+  });
+  private signalFirstClaimParked!: () => void;
+  /** Giải quyết khi lượt chiếm lease đầu tiên đã bị giữ ở cổng. */
+  readonly firstClaimParked = new Promise<void>((resolve) => {
+    this.signalFirstClaimParked = resolve;
+  });
+
+  constructor(private readonly inner: RedisAuthMailSentMarker) {}
+
+  async hasSent(outboxId: string): Promise<boolean> {
+    return this.inner.hasSent(outboxId);
+  }
+
+  async claimProcessing(outboxId: string): Promise<string | null> {
+    this.claimCalls += 1;
+    if (this.claimCalls === 1) {
+      this.signalFirstClaimParked();
+      await this.claimGate;
+    }
+    return this.inner.claimProcessing(outboxId);
+  }
+
+  async markSent(outboxId: string): Promise<void> {
+    return this.inner.markSent(outboxId);
+  }
+
+  async releaseProcessing(outboxId: string, ownerToken: string): Promise<void> {
+    return this.inner.releaseProcessing(outboxId, ownerToken);
+  }
+
+  /** Mở cổng: lượt chiếm lease đầu tiên đang bị giữ được tiếp tục. */
+  releaseFirstClaim(): void {
+    this.openClaimGate();
+  }
+
+  /** Đóng kết nối Redis của bản dấu được bọc khi ca kết thúc. */
+  async onModuleDestroy(): Promise<void> {
+    await this.inner.onModuleDestroy();
   }
 }
 
@@ -327,6 +389,46 @@ describe('Worker: mail auth qua hàng đợi (issue #517)', () => {
     } finally {
       await raw.quit().catch(() => undefined);
       await marker.onModuleDestroy();
+    }
+  });
+
+  it('lượt đọc dấu đã gửi là chưa có rồi bị giữ trước khi chiếm lease, trong lúc lượt khác gửi trọn và nhả lease trên Redis thật, thì khi chiếm lại lease phải đọc lại dấu và không gửi lần hai', async () => {
+    // Hai processor với hai bản dấu trên cùng một Redis thật —
+    // lượt A qua bản dấu có cổng chặn, lượt B qua bản dấu thường.
+    // Lịch xen kẽ được ép xác định bằng cổng, không dựa vào thời
+    // gian chờ may rủi.
+    const mailer = new FakeMailer();
+    const gatedMarker = new FirstClaimGatedRedisMarker(makeMarker());
+    const markerB = makeMarker();
+    const processorA = new AuthMailProcessor(mailer as never, gatedMarker);
+    const processorB = new AuthMailProcessor(mailer as never, markerB);
+    const outboxId = `0191e8f2-7c3a-7b21-9f05-${suffix.slice(-12).padStart(12, '0')}`;
+    const job = { data: makeJobData(outboxId, 5) };
+
+    try {
+      // Lượt A bắt đầu trước: đọc dấu đã gửi trên Redis thật
+      // (chưa có) rồi bị cổng giữ lại ngay trước khi chiếm
+      // lease — kết quả kiểm tra của lượt A từ đây là dữ kiện cũ.
+      const turnA = processorA.process(job as never);
+      await gatedMarker.firstClaimParked;
+
+      // Lượt B chạy trọn trong cửa sổ lượt A bị giữ: chiếm
+      // lease, gửi đúng một mail, ghi dấu đã gửi và nhả lease.
+      const turnB = await processorB.process(job as never);
+      expect(turnB.status).toBe('sent');
+      expect(mailer.sent).toHaveLength(1);
+
+      // Mở cổng cho lượt A tiếp tục: lượt A chiếm được lease
+      // lượt B vừa nhả. Lần đọc lại dấu trong lúc giữ lease
+      // phải thấy dấu đã đứng nên lượt A kết thúc trùng lặp,
+      // transport không bị gọi lần hai.
+      gatedMarker.releaseFirstClaim();
+      const turnAResult = await turnA;
+      expect(turnAResult.status).toBe('duplicate');
+      expect(mailer.sent).toHaveLength(1);
+    } finally {
+      await gatedMarker.onModuleDestroy();
+      await markerB.onModuleDestroy();
     }
   });
 

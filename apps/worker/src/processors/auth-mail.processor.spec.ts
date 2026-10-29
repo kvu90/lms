@@ -26,6 +26,13 @@ import { AuthMailProcessor, type AuthMailSentMarker } from './auth-mail.processo
  *   lease để gửi — ca khôi phục sau sập này ghim đúng cửa sổ mà
  *   cơ chế một khoá (chiếm dấu trước khi gửi và giữ luôn làm dấu
  *   đã xử lý) từng để mất mail im lặng.
+ * - Cửa sổ kết quả kiểm tra thành cũ: một lượt đọc dấu đã gửi là
+ *   chưa có rồi bị giữ lại TRƯỚC khi chiếm lease, trong lúc lượt
+ *   khác gửi trọn, ghi dấu và nhả lease — lượt đầu chiếm lại
+ *   lease vừa nhả mà dựa vào kết quả kiểm tra cũ thì gửi lần hai
+ *   dù không hề có lỗi nào xảy ra. Hàng rào vì vậy phải đọc lại
+ *   dấu ĐÃ GỬI trong lúc đang giữ lease, trước khi gọi transport;
+ *   ca xen kẽ có điều phối thứ tự dưới đây ghim đúng cửa sổ này.
  * - Nhả lease có kiểm tra chủ sở hữu: token sai không xoá được
  *   lease của lượt khác.
  * - Lỗi gửi tạm thời không để lại dấu đã gửi: job bị ném lỗi cho
@@ -123,6 +130,56 @@ class FakeSentMarker implements AuthMailSentMarker {
   async releaseProcessing(outboxId: string, ownerToken: string): Promise<void> {
     const current = this.leases.get(outboxId);
     if (current && current.ownerToken === ownerToken) this.leases.delete(outboxId);
+  }
+}
+
+/**
+ * Hàng rào giả có cổng chặn ở lượt chiếm lease ĐẦU TIÊN: lượt gọi
+ * `claimProcessing` đầu tiên được báo hiệu qua `firstClaimParked`
+ * rồi treo lại cho tới khi test mở cổng; mọi thao tác còn lại uỷ
+ * thác nguyên vẹn cho bản giả trong bộ nhớ. Dùng để ép lịch xen
+ * kẽ xác định: lượt A đọc dấu đã gửi (chưa có) rồi bị giữ ngay
+ * trước khi chiếm lease, trong lúc lượt B chạy trọn chu trình
+ * gửi — đúng cửa sổ mà kết quả kiểm tra dấu đọc trước khi chiếm
+ * lease trở nên cũ.
+ */
+class FirstClaimGatedMarker implements AuthMailSentMarker {
+  private readonly inner = new FakeSentMarker();
+  private claimCalls = 0;
+  private openClaimGate!: () => void;
+  private readonly claimGate = new Promise<void>((resolve) => {
+    this.openClaimGate = resolve;
+  });
+  private signalFirstClaimParked!: () => void;
+  /** Giải quyết khi lượt chiếm lease đầu tiên đã bị giữ ở cổng. */
+  readonly firstClaimParked = new Promise<void>((resolve) => {
+    this.signalFirstClaimParked = resolve;
+  });
+
+  async hasSent(outboxId: string): Promise<boolean> {
+    return this.inner.hasSent(outboxId);
+  }
+
+  async claimProcessing(outboxId: string): Promise<string | null> {
+    this.claimCalls += 1;
+    if (this.claimCalls === 1) {
+      this.signalFirstClaimParked();
+      await this.claimGate;
+    }
+    return this.inner.claimProcessing(outboxId);
+  }
+
+  async markSent(outboxId: string): Promise<void> {
+    return this.inner.markSent(outboxId);
+  }
+
+  async releaseProcessing(outboxId: string, ownerToken: string): Promise<void> {
+    return this.inner.releaseProcessing(outboxId, ownerToken);
+  }
+
+  /** Mở cổng: lượt chiếm lease đầu tiên đang bị giữ được tiếp tục. */
+  releaseFirstClaim(): void {
+    this.openClaimGate();
   }
 }
 
@@ -238,6 +295,36 @@ describe('AuthMailProcessor (consumer mail auth trên hàng đợi ở worker)',
     );
     expect(rejectedErrors).toHaveLength(1);
     expect(rejectedErrors[0]).toBeInstanceOf(DelayedError);
+  });
+
+  it('lượt đọc dấu đã gửi là chưa có rồi bị giữ trước khi chiếm lease, trong lúc lượt khác gửi trọn và nhả lease, thì khi chiếm lại lease phải đọc lại dấu và kết thúc trùng lặp thay vì gửi lần hai', async () => {
+    const mailer = new FakeMailer();
+    const marker = new FirstClaimGatedMarker();
+    const processor = new AuthMailProcessor(mailer as unknown as ResendMailService, marker);
+    const job = makeJob({ kind: 'password_reset', to: 'user@example.com', url: RESET_URL });
+
+    // Lượt A bắt đầu trước: đọc dấu đã gửi (chưa có) rồi bị cổng
+    // giữ lại ngay trước khi chiếm lease — kết quả kiểm tra của
+    // lượt A từ thời điểm này là dữ kiện cũ, không còn bảo đảm
+    // sự kiện chưa được gửi.
+    const turnA = processor.process(job);
+    await marker.firstClaimParked;
+
+    // Lượt B chạy trọn trong cửa sổ lượt A bị giữ: chiếm lease,
+    // gửi đúng một mail, ghi dấu đã gửi và nhả lease.
+    const turnB = await processor.process(job);
+    expect(turnB.status).toBe('sent');
+    expect(mailer.calls).toBe(1);
+
+    // Mở cổng cho lượt A tiếp tục: lượt A chiếm được lease lượt
+    // B vừa nhả. Kết quả có hiệu lực phải là lần đọc lại dấu
+    // trong lúc đang giữ lease — dấu đã đứng nên lượt A kết
+    // thúc trùng lặp và transport không bị gọi lần hai.
+    marker.releaseFirstClaim();
+    const turnAResult = await turnA;
+    expect(turnAResult.status).toBe('duplicate');
+    expect(mailer.calls).toBe(1);
+    expect(mailer.sent).toHaveLength(1);
   });
 
   it('lease đang bị một lượt xử lý khác giữ thì ném tín hiệu hẹn thử lại DelayedError, không gọi transport và không ghi dấu đã gửi', async () => {
