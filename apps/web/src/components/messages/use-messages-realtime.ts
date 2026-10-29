@@ -144,8 +144,17 @@ export function useMessagesRealtime({
         );
       },
       onMessageDeleted: ({ conversationId, messageId, deletedBy }) => {
-        if (activeRef.current?.id !== conversationId) return;
-        // Xoá mềm (Lớp B): đánh dấu ngay trong khung — phía học sinh
+        // Xoá mềm (Lớp B): vá dấu đã xoá vào cache chi tiết của ĐÚNG
+        // conversation đó dù nó có đang mở hay không. Phân phối xoá
+        // mềm phía server chỉ phát sự kiện này kèm
+        // conversation.updated, KHÔNG phát conversation.invalidate
+        // như các đường thu hồi/xoá cứng — nên sự kiện này là đường
+        // duy nhất đưa dấu deletedAt vào cache chi tiết; thoát sớm
+        // khi conversation không mở thì mở lại trong cửa sổ staleTime
+        // vẫn hiện nguyên nội dung trước người xem không có quyền
+        // kiểm duyệt (vòng sửa 2 PR #530 — cùng họ cơ chế với điểm
+        // tin lỡ của vòng sửa 1). patchMessages tự bỏ qua an toàn khi
+        // chi tiết chưa từng được nạp. Sau khi vá: phía học sinh
         // không còn thấy tin (lọc ở bước render), phía có thẩm quyền
         // kiểm duyệt thấy dấu vết ai đã xoá. Payload không kèm nội
         // dung nên không có đường nào nội dung bị lộ lại qua realtime.

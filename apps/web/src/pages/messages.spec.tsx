@@ -2656,11 +2656,12 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
 });
 
 /**
- * Stub fetch cho hai ca hồi quy của vòng sửa PR #530: chi tiết nhóm
- * một có trạng thái (tin gửi thành công nằm trong chi tiết cho tới
- * khi bị gỡ — giả lập tin đã bị xoá cứng phía server), và đáp ứng
- * POST gửi tin có thể bị GIỮ LẠI để test chèn sự kiện socket xác
- * nhận đến trước đáp ứng REST.
+ * Stub fetch cho các ca hồi quy của các vòng sửa PR #530: chi tiết
+ * nhóm một có trạng thái (tin gửi thành công nằm trong chi tiết cho
+ * tới khi bị gỡ — giả lập tin đã bị xoá cứng phía server; tin cũng
+ * có thể được thêm vào chi tiết — giả lập tin đến trong lúc mất kết
+ * nối), và đáp ứng POST gửi tin có thể bị GIỮ LẠI để test chèn sự
+ * kiện socket xác nhận đến trước đáp ứng REST.
  */
 function stubFix530Fetch(calls: RecordedCall[]) {
   const SAVED_ID = '01900000-0000-7000-8000-0000000000f6';
@@ -2685,6 +2686,10 @@ function stubFix530Fetch(calls: RecordedCall[]) {
     /** Gỡ một tin khỏi chi tiết phía server (giả lập tin đã bị xoá cứng). */
     removeFromDetail(messageId: string) {
       state.detailMessages = state.detailMessages.filter((m) => m.id !== messageId);
+    },
+    /** Thêm một tin vào chi tiết phía server (giả lập tin đến trong lúc mất kết nối). */
+    addToDetail(message: Record<string, unknown>) {
+      state.detailMessages = [...state.detailMessages, message];
     },
     savedId: SAVED_ID,
   };
@@ -2874,5 +2879,125 @@ describe('Messages page — hồi quy vòng sửa PR #530 (tin ở hội thoại
     );
     await waitFor(() => expect(within(thread).queryByText('nội dung sẽ bị xoá cứng')).not.toBeInTheDocument());
     expect(within(thread).getByText('tin đầu tiên')).toBeInTheDocument();
+  });
+});
+
+describe('Messages page — hồi quy vòng sửa 2 PR #530 (xoá mềm ở hội thoại không hoạt động + ghim thác vô hiệu và nối lại)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('tin bị xoá mềm ở hội thoại không hoạt động không còn hiện nguyên nội dung khi mở lại trong cửa sổ tươi', async () => {
+    const calls: RecordedCall[] = [];
+    stubFix530Fetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm một/);
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    // Chuyển hẳn sang nhóm hai — nhóm một không còn hoạt động.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm hai/ }));
+    await waitFor(() =>
+      expect(within(screen.getByLabelText('Tin nhắn')).queryByText('tin đầu tiên')).not.toBeInTheDocument(),
+    );
+
+    // Xoá mềm phía server: phân phối thật chỉ phát message.deleted +
+    // conversation.updated, KHÔNG phát conversation.invalidate.
+    act(() => {
+      realtime.handlers?.onMessageDeleted({
+        conversationId: CONV_ID,
+        messageId: FIRST_MESSAGE.id,
+        deletedBy: OTHER_ID,
+      } as never);
+      realtime.handlers?.onConversationUpdated({
+        conversationId: CONV_ID,
+        message: FIRST_MESSAGE,
+        unreadCount: 0,
+      } as never);
+    });
+
+    // Mở lại nhóm một trong cửa sổ tươi: người xem không có quyền kiểm
+    // duyệt không được thấy lại nội dung tin đã xoá mềm.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    const reopened = await screen.findByLabelText('Tin nhắn');
+    await waitFor(() => expect(within(reopened).queryByText('tin đầu tiên')).not.toBeInTheDocument());
+  });
+
+  it('tin đã xoá cứng phía server không còn hiện khi mở lại hội thoại không hoạt động trong cửa sổ tươi', async () => {
+    const calls: RecordedCall[] = [];
+    const controls = stubFix530Fetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm một/);
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    // Chuyển hẳn sang nhóm hai — từ đây nhóm một không còn hoạt động.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm hai/ }));
+    await waitFor(() =>
+      expect(within(screen.getByLabelText('Tin nhắn')).queryByText('tin đầu tiên')).not.toBeInTheDocument(),
+    );
+
+    // Phía server xoá cứng tin của nhóm một; server phát message.deleted
+    // trước rồi conversation.invalidate sau (đúng thứ tự luồng thật).
+    controls.removeFromDetail(FIRST_MESSAGE.id);
+    act(() => {
+      realtime.handlers?.onMessageDeleted({
+        conversationId: CONV_ID,
+        messageId: FIRST_MESSAGE.id,
+        deletedBy: OTHER_ID,
+      } as never);
+      realtime.handlers?.onConversationInvalidate({ conversationId: CONV_ID } as never);
+    });
+
+    // Mở lại nhóm một ngay trong cửa sổ tươi của cache chi tiết:
+    // tin đã xoá cứng không được hiện lại trong khung.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    const reopened = await screen.findByLabelText('Tin nhắn');
+    await waitFor(() => expect(within(reopened).queryByText('tin đầu tiên')).not.toBeInTheDocument());
+  });
+
+  it('tin đến ở hội thoại không hoạt động trong lúc mất kết nối hiện ra khi mở lại sau khi nối lại', async () => {
+    const calls: RecordedCall[] = [];
+    const controls = stubFix530Fetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm một/);
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm hai/ }));
+    await waitFor(() =>
+      expect(within(screen.getByLabelText('Tin nhắn')).queryByText('tin đầu tiên')).not.toBeInTheDocument(),
+    );
+
+    // Trong lúc mất kết nối, nhóm một nhận tin mới phía server —
+    // không sự kiện socket nào tới được client trong thời gian đó.
+    controls.addToDetail({
+      id: '01900000-0000-7000-8000-0000000000f9',
+      conversationId: CONV_ID,
+      userIdFrom: OTHER_ID,
+      subject: '',
+      fullMessage: 'tin đến trong lúc mất kết nối',
+      createdAt: '2026-01-01T00:03:00.000Z',
+      seq: 2,
+      clientMessageId: null,
+    });
+
+    // Socket nối lại.
+    realtime.handle.sync.mockClear();
+    act(() => {
+      realtime.handlers?.onReconnect({} as never);
+    });
+
+    // Mở lại nhóm một: tin đến trong lúc mất kết nối phải có mặt.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    const reopened = await screen.findByLabelText('Tin nhắn');
+    expect(await within(reopened).findByText('tin đến trong lúc mất kết nối')).toBeInTheDocument();
+    expect(within(reopened).getByText('tin đầu tiên')).toBeInTheDocument();
   });
 });
