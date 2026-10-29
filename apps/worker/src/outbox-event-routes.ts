@@ -14,10 +14,17 @@ import type { Queue } from 'bullmq';
  *   mới đóng dấu và phản chiếu dòng đã phát vào `event_log`.
  * - "Phát cho phía tiêu thụ" với loại sự kiện đã có consumer trên
  *   hàng đợi ở worker là đẩy MỘT job BullMQ: tên job là chính loại
- *   sự kiện, `jobId` là id của dòng outbox (khoá chống trùng của
- *   BullMQ — phát lại cùng một dòng không tạo job thứ hai), dữ liệu
- *   job là toàn bộ dòng outbox đã chuẩn hoá (xem
- *   {@link OutboxEventJobData}).
+ *   sự kiện, `jobId` là id của dòng outbox, dữ liệu job là toàn bộ
+ *   dòng outbox đã chuẩn hoá (xem {@link OutboxEventJobData}).
+ *   `jobId` là khoá chống trùng của BullMQ NHƯNG chỉ trong cửa sổ
+ *   hàng đợi còn lưu giữ job: phát lại cùng một dòng trong lúc job
+ *   của nó còn được lưu giữ (theo chính sách `removeOnComplete` /
+ *   `removeOnFail` hiện hành ở `worker.module.ts`) thì BullMQ trả
+ *   lại job đã có thay vì tạo job thứ hai; job đã bị dọn khỏi hàng
+ *   đợi thì lần phát lại tạo job MỚI cho cùng một dòng. Ngoài cửa
+ *   sổ đó, hàng rào chống tác dụng phụ lần hai không nằm ở `jobId`
+ *   mà ở tính idempotent của processor theo `outboxId` (xem ngữ
+ *   nghĩa thứ ba ở dưới).
  *
  * Hai ngữ nghĩa đã chốt cho bảng này và cho relay:
  * - `publishedAt` là thời điểm relay đã phát sự kiện cho phía tiêu
@@ -36,6 +43,16 @@ import type { Queue } from 'bullmq';
  *   consumer polling đọc trực tiếp bảng outbox theo watermark
  *   `seq`), và đường polling của các consumer đó giữ nguyên cho tới
  *   issue chuyển consumer tương ứng.
+ * - Chống trùng hai lớp, phân vai rõ ràng: cam kết của cơ chế này
+ *   là at-least-once (`publishedAt` là dấu đã phát, không phải dấu
+ *   hoàn thành xử lý). Lớp thứ nhất là `jobId` bằng id dòng outbox,
+ *   chỉ có hiệu lực trong cửa sổ lưu giữ của hàng đợi như mô tả ở
+ *   trên. Lớp thứ hai — và là hàng rào chính ngoài cửa sổ đó — là
+ *   processor của hàng đợi được định tuyến: processor PHẢI
+ *   idempotent theo `outboxId`, tức xử lý lại cùng một sự kiện
+ *   (cùng `outboxId`) không gây tác dụng phụ lần hai. Mọi issue
+ *   thêm dòng định tuyến vào bảng này đều phải dựng processor đạt
+ *   tính chất đó và kiểm chứng bằng test mô phỏng phát lại.
  *
  * Cách mở rộng khi chuyển một consumer sang worker: thêm một dòng
  * `'<loại sự kiện>': '<tên hàng đợi>'` vào bảng này và đăng ký
@@ -43,12 +60,16 @@ import type { Queue } from 'bullmq';
  * hàng đợi cần đăng ký và bản đồ hàng đợi cấp cho relay từ chính
  * bảng này, nên không còn nơi nào khác phải sửa để nối đường phát.
  *
- * Tại thời điểm dựng bảng, chưa consumer nào của đợt chuyển đổi
- * hoàn tất nên bảng rỗng có chủ đích: cơ chế phát job, ngữ nghĩa
- * đóng dấu và test đặc trưng hoá ghim cả hai đã sẵn sàng làm nền
- * cho từng issue chuyển consumer.
+ * Trạng thái bảng: consumer đầu tiên của đợt chuyển đổi (mail
+ * auth, issue #517) đã có dòng định tuyến; năm consumer còn lại
+ * thêm dòng của mình ở issue chuyển consumer tương ứng.
  */
-export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {};
+export const OUTBOX_EVENT_QUEUE_ROUTES: OutboxEventQueueRoutes = {
+  // Mail auth (issue #517): processor `AuthMailProcessor` trên hàng
+  // đợi `auth-mail` dựng nội dung bằng template dùng chung ở
+  // `@lms/contracts` và gửi qua transport Resend phía worker.
+  auth_mail_requested: 'auth-mail',
+};
 
 /** Bảng định tuyến phát job: khoá là loại sự kiện, giá trị là tên hàng đợi BullMQ. */
 export type OutboxEventQueueRoutes = Readonly<Record<string, string>>;

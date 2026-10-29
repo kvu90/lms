@@ -22,11 +22,12 @@ export interface AuthMailPort {
 
 /**
  * Dựng plugin `emailOTP` của Better Auth với đường gửi mã qua cổng
- * mail của hệ (outbox → Resend, xem AuthMailService/AuthMailConsumer).
+ * mail của hệ (outbox → relay ở worker → Resend, xem AuthMailService).
  *
  * Các ghim theo chính sách đã chốt của hệ:
  * - `otpLength: 6` + `expiresIn: 300` (5 phút — khớp câu chữ trong
- *   mẫu mail ở mail-templates.ts) + `allowedAttempts: 5`.
+ *   mẫu mail dùng chung ở `@lms/contracts`, module `auth-mail`) +
+ *   `allowedAttempts: 5`.
  * - `disableSignUp: true` — BẮT BUỘC: mặc định của plugin là cho
  *   email lạ nhận OTP rồi TỰ TẠO tài khoản khi đăng nhập bằng mã, tức
  *   mở đăng ký công khai qua đường OTP trong khi toàn hệ đã ghim
