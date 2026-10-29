@@ -45,7 +45,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
   });
   afterAll(async () => { await app.close(); });
 
-  it('uploading identical content twice creates two records sharing one content hash', async () => {
+  it('tải nội dung trùng hai lần tạo hai bản ghi dùng chung một hàm băm nội dung', async () => {
     const a = await upload(uploaderToken, 'a.txt', CONTENT);
     const b = await upload(uploaderToken, 'b.txt', CONTENT);
     expect(a.id).not.toBe(b.id);
@@ -53,7 +53,7 @@ describe('Files: content-addressed dedup, refcount cleanup, capability-checked s
     expect(a.contentHash).toHaveLength(64); // SHA-256 dạng hex
   });
 
-  it('deleting records reports the shared refcount in the response: 1 after the first delete, 0 after the last', async () => {
+  it('xoá bản ghi báo refcount chung trong đáp ứng: 1 sau lần xoá đầu, 0 sau lần xoá cuối', async () => {
     const a = await upload(uploaderToken, 'c.txt', `${CONTENT}-v2`);
     const b = await upload(uploaderToken, 'd.txt', `${CONTENT}-v2`);
     const delA = await http(app).delete(`/api/v1/files/${a.id}`).set('Authorization', `Bearer ${uploaderToken}`);
