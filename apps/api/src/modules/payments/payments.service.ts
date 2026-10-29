@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { timingSafeEqual } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { OutboxService } from '../../infra/events/outbox.service';
+import type { DbTx } from '../../db/database';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { ContextsService } from '../access/contexts.service';
 import { ClassesService } from '../classes/classes.service';
@@ -1097,22 +1098,36 @@ export class PaymentsService {
    * xác nhận chi (hoặc người tạo yêu cầu hoàn khi hệ thống tự xác
    * nhận qua sự kiện `debit`) vì `EnrolService.setSuspended` tự gác
    * quyền `enrol:manage` theo actor đó.
+   *
+   * Nguyên tử (issue #490, DL-10): hàm này chạy BẰNG transaction
+   * `tx` của khâu settle truyền vào — cả ba đường đình chỉ đều ghi
+   * qua đúng transaction đó, nên settle rollback thì đình chỉ cũng
+   * bị huỷ (trước đây mỗi đường đình chỉ tự mở transaction riêng và
+   * commit ngay giữa settle: settle lỗi ghi sổ thì học viên đã mất
+   * quyền lợi trong khi khoản hoàn chưa hề được ghi). Riêng sự kiện
+   * rời cohort của đường `class_fee` là sự kiện TRONG TIẾN TRÌNH mà
+   * handler đồng bộ đọc trạng thái đã commit, nên không phát tại
+   * đây: hàm trả về `{ cohortId, userId }` của lần gỡ để khâu settle
+   * phát bù SAU khi transaction commit (xem `applyRefundSettlement`).
+   * Trả null khi không có lần gỡ cohort nào chờ phát.
    */
-  private async suspendEntitlementForFullRefund(actorId: string, payment: PaymentRow): Promise<void> {
+  private async suspendEntitlementForFullRefund(actorId: string, payment: PaymentRow, tx: DbTx): Promise<{ cohortId: string; userId: string } | null> {
     if (payment.component === 'enrol_fee' && payment.itemId) {
-      await this.enrol.setSuspended(actorId, payment.itemId, payment.userId, true);
+      await this.enrol.setSuspended(actorId, payment.itemId, payment.userId, true, tx);
     }
     // CLASS-3: hoàn đủ gói lớp → đình chỉ khỏi lớp (gỡ backing cohort;
     // cohort sync đình chỉ mọi khoá, giữ điểm/dữ liệu theo chế độ rời
     // mặc định của lớp).
     if (payment.component === 'class_fee' && payment.itemId) {
-      await this.classes.suspendPaidClassMember(payment.itemId, payment.userId);
+      const cohortId = await this.classes.suspendPaidClassMember(payment.itemId, payment.userId, tx);
+      return cohortId ? { cohortId, userId: payment.userId } : null;
     }
     // Lát 2 (#189): hoàn đủ gói → đình chỉ quyền lợi gói của chính
     // payment đó.
     if (payment.component === 'tenant_plan' || payment.component === 'teacher_plan') {
-      await this.plans.suspendForPayment(payment);
+      await this.plans.suspendForPayment(payment, tx);
     }
+    return null;
   }
 
   /**
@@ -1142,9 +1157,20 @@ export class PaymentsService {
    *  3. Đạt 100% theo tổng đã khoá thì đình chỉ quyền lợi
    *     (idempotent) TRƯỚC khi ghi: đình chỉ ném lỗi ⇒ transaction
    *     huỷ, chưa ghi gì, gọi lại được. Chưa đạt thì ghi mà không
-   *     đình chỉ.
+   *     đình chỉ. Đình chỉ ghi BẰNG CHÍNH transaction này (issue
+   *     #490, DL-10) — mọi bước ghi sổ sau đó mà lỗi, transaction
+   *     rollback thì đình chỉ cũng bị huỷ theo, không còn trạng thái
+   *     "đã đình chỉ nhưng chưa ghi hoàn".
    *  4. Ghi dòng hoàn `settled` (+ lật khoản thu `refunded` khi đạt
    *     100%) trong cùng transaction rồi commit.
+   *  5. SAU khi commit: nếu bước 3 có gỡ một thành viên khỏi backing
+   *     cohort (đường `class_fee`), phát sự kiện trong-tiến-trình
+   *     `cohort_member_removed` để cohort sync đình chỉ các ghi danh
+   *     tương ứng. Sự kiện này bắt buộc chờ sau commit vì handler
+   *     đồng bộ kiểm tra tư cách thành viên ĐÃ commit — phát giữa
+   *     transaction sẽ thấy thành viên vẫn còn và bỏ qua, trong khi
+   *     thứ tự sự kiện quan sát được từ bên ngoài không đổi: việc gỡ
+   *     chỉ hiện hình (commit) ngay trước khi sự kiện phát.
    * Hoàn một phần: không đình chỉ, khoản thu giữ `succeeded`.
    */
   private async applyRefundSettlement(input: {
@@ -1153,19 +1179,21 @@ export class PaymentsService {
   }): Promise<RefundRow> {
     const { payment, refund } = input;
     const now = new Date();
-    const settled = await this.repo.dbHandle.transaction(async (tx) => {
+    const outcome = await this.repo.dbHandle.transaction(async (tx) => {
       await tx.execute(sql`select id from payments where id = ${payment.id} for update`);
       const fresh = await this.repo.getRefund(refund.id, tx);
-      if (!fresh || fresh.status === 'settled') return fresh ?? refund;
+      if (!fresh || fresh.status === 'settled') return { settled: fresh ?? refund, pendingRemoval: null };
       if (fresh.status !== 'approved') {
         throw new BadRequestException({ message: 'Refund is not approved for settlement', code: 'payment.refund_not_approved' });
       }
       const settledSum = await this.repo.sumRefundsByStatuses(payment.id, ['settled'], tx);
       const full = settledSum + fresh.amount === payment.amount;
+      let pendingRemoval: { cohortId: string; userId: string } | null = null;
       if (full) {
-        // Đình chỉ trước mọi ghi sổ, theo đúng tổng đã khoá ở trên:
-        // lỗi tại đây ⇒ transaction huỷ trước khi ghi, gọi lại được.
-        await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment);
+        // Đình chỉ trước mọi ghi sổ, theo đúng tổng đã khoá ở trên và
+        // bằng chính transaction này: lỗi tại đây ⇒ transaction huỷ
+        // trước khi ghi, gọi lại được.
+        pendingRemoval = await this.suspendEntitlementForFullRefund(input.suspensionActorId, payment, tx);
       }
       const data = { ...((fresh.data ?? {}) as Record<string, unknown>), reversal: { applied: full, at: now.toISOString() } };
       const updated = await this.repo.updateRefund(fresh.id, {
@@ -1174,9 +1202,14 @@ export class PaymentsService {
         externalTransactionId: input.externalTransactionId, data,
       }, tx);
       if (full) await this.repo.updatePayment(payment.id, { status: 'refunded' }, tx);
-      return updated;
+      return { settled: updated, pendingRemoval };
     });
-    return settled;
+    // Bước 5 của flow: transaction đã commit — phát bù sự kiện rời
+    // cohort để cohort sync áp đình chỉ xuống các ghi danh của lớp.
+    if (outcome.pendingRemoval) {
+      await this.classes.notifyPaidClassMemberRemoved(outcome.pendingRemoval.cohortId, outcome.pendingRemoval.userId);
+    }
+    return outcome.settled;
   }
 
   /**

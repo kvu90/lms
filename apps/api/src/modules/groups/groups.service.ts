@@ -11,6 +11,7 @@ import { CoursesService, GROUPMODE_SEPARATEGROUPS } from '../courses/courses.ser
 import { TenantContextService } from '../tenants/tenant-context.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { GroupsRepository, type CohortRow, type GroupRow, type GroupingRow } from './groups.repository';
+import type { DbTx } from '../../db/database';
 
 /**
  * Facade của GroupsModule (core_group + cohort của Moodle).
@@ -519,6 +520,19 @@ export class GroupsService implements OnModuleInit {
     const removed = await this.repo.removeCohortMember(cohortId, userId);
     if (!removed) return;
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
+    await this.emitCohortMemberRemoved(cohortId, userId);
+  }
+
+  /**
+   * Phát sự kiện trong-tiến-trình `cohort_member_removed` — móc mà
+   * EnrolService lắng nghe để đình chỉ/rút các ghi danh cohort-sync.
+   * Tách thành điểm vào riêng để các luồng ĐANG ở trong một transaction
+   * (settle hoàn tiền học phí lớp, issue #490) có thể hoãn việc phát
+   * cho tới SAU khi transaction commit: handler đồng bộ đọc trạng thái
+   * thành viên ĐÃ commit, phát giữa transaction sẽ thấy thành viên vẫn
+   * còn và bỏ qua việc đình chỉ.
+   */
+  async emitCohortMemberRemoved(cohortId: string, userId: string): Promise<void> {
     await this.emitter.emitAsync('cohort_member_removed', { cohortId, userId });
   }
   /**
@@ -553,12 +567,26 @@ export class GroupsService implements OnModuleInit {
    * khoá theo chế độ rời của từng instance. Không phải thành viên thì
    * im lặng bỏ qua (idempotent — tiêu thụ lặp sự kiện hoàn tiền không
    * phát sự kiện hai lần).
+   *
+   * Biến thể TRONG TRANSACTION (issue #490): khi bên gọi truyền `tx`
+   * (settle hoàn tiền), việc xoá và dòng outbox đi bằng chính
+   * transaction đó — rollback thì cả hai cùng huỷ — và sự kiện
+   * trong-tiến-trình KHÔNG phát ở đây (handler đọc trạng thái đã
+   * commit nên phải chờ sau commit); hàm trả `true` để bên gọi biết
+   * cần phát bù qua `emitCohortMemberRemoved` sau khi transaction của
+   * nó commit xong. Không truyền `tx` thì hành vi như cũ và hàm trả
+   * về chỉ cho biết có xoá được dòng thành viên hay không.
    */
-  async removeCohortMemberInternal(cohortId: string, userId: string): Promise<void> {
+  async removeCohortMemberInternal(cohortId: string, userId: string, tx?: DbTx): Promise<boolean> {
     await this.getCohort(cohortId);
-    const removed = await this.repo.removeCohortMember(cohortId, userId);
-    if (!removed) return;
+    const removed = await this.repo.removeCohortMember(cohortId, userId, tx);
+    if (!removed) return false;
+    if (tx) {
+      await this.outbox.enqueue(tx, { aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
+      return true;
+    }
     await this.outbox.enqueueStandalone({ aggregate: 'cohort', type: 'cohort_member_removed', payload: { cohortId, userId } });
-    await this.emitter.emitAsync('cohort_member_removed', { cohortId, userId });
+    await this.emitCohortMemberRemoved(cohortId, userId);
+    return true;
   }
 }

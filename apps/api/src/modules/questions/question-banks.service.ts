@@ -125,15 +125,15 @@ export class QuestionBanksService {
   }
 
   /** Đặt override ALLOW cho một vai tại context bank (idempotent). */
-  private async grantCaps(roleId: string, contextId: string, caps: string[]): Promise<void> {
-    for (const cap of caps) await this.roles.setCapabilityOverride(roleId, cap, contextId, CAP_ALLOW);
+  private async grantCaps(roleId: string, contextId: string, caps: string[], tx?: DbTx): Promise<void> {
+    for (const cap of caps) await this.roles.setCapabilityOverride(roleId, cap, contextId, CAP_ALLOW, undefined, tx);
   }
 
   /** Gán vai tại context bank nếu chưa có (gán trùng là no-op ở RolesService). */
-  private async ensureAssignment(userId: string, roleId: string, contextId: string): Promise<void> {
-    const existing = await this.roles.listAssignments({ userId, contextId });
+  private async ensureAssignment(userId: string, roleId: string, contextId: string, tx?: DbTx): Promise<void> {
+    const existing = await this.roles.listAssignments({ userId, contextId }, tx);
     if (!existing.some((a) => (a as { roleId: string }).roleId === roleId)) {
-      await this.roles.assignRole(userId, roleId, contextId);
+      await this.roles.assignRole(userId, roleId, contextId, undefined, undefined, tx);
     }
   }
 
@@ -143,6 +143,17 @@ export class QuestionBanksService {
    * Dựng một bank hoàn chỉnh: context riêng (instance = bank id), dòng
    * bank, category mặc định ("Mặc định") và override capability cho hai
    * vai chuyên dụng tại context bank.
+   *
+   * Nguyên tử (issue #490, DL-09): toàn bộ chuỗi GHI sở hữu bởi bank —
+   * context bank, dòng bank, category mặc định, override cho hai vai,
+   * gán vai lead và dòng outbox `question_bank_created` — chạy trong
+   * MỘT transaction: lỗi giữa chừng thì không bank/context mồ côi nào
+   * tồn tại (trước đây các đường ensure bắt lỗi rồi đọc lại có thể
+   * nhặt trúng đúng bank dở dang đó và dùng tiếp). Việc đảm bảo hai
+   * VAI CHUYÊN DỤNG dùng chung (`ensureBankRoles`) nằm NGOÀI
+   * transaction như cũ: vai là dữ kiện toàn cục không thuộc bank này,
+   * và cơ chế `.catch` đọc-lại-khi-đua-nhau của nó không chạy được
+   * trong transaction (một lệnh chèn hỏng sẽ huỷ cả transaction).
    */
   private async buildBank(actorId: string, input: {
     name: string; scope: BankScope; bankKind?: BankKind; ownerId: string | null; scopeRefId: string | null;
@@ -155,28 +166,30 @@ export class QuestionBanksService {
     const kind = input.bankKind ?? 'question';
     const { memberRoleId, leadRoleId } = await this.ensureBankRoles();
     const bankId = uuidv7();
-    const ctx = await this.contexts.createContext(input.contextLevel, bankId, input.parentContextId);
-    const bank = await this.repo.insertBank({
-      id: bankId, tenantId: input.tenantId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
-      scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
-    });
-    // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
-    if (kind === 'question') {
-      await this.questionsRepo.insertCategory({
-        name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
-        stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
+    return this.repo.dbHandle.transaction(async (tx) => {
+      const ctx = await this.contexts.createContext(input.contextLevel, bankId, input.parentContextId, tx);
+      const bank = await this.repo.insertBank({
+        id: bankId, tenantId: input.tenantId, name: input.name, scope: input.scope, bankKind: kind, ownerId: input.ownerId,
+        scopeRefId: input.scopeRefId, contextId: ctx.id, createdBy: actorId,
+      }, tx);
+      // Category mặc định chỉ thuộc về bank câu hỏi; bank đề/ma trận không có question_categories.
+      if (kind === 'question') {
+        await this.questionsRepo.insertCategory({
+          name: 'Mặc định', contextId: ctx.id, bankId: bank.id, info: '', parent: null,
+          stamp: `qbank-${Date.now().toString(36)}-${bank.id.slice(0, 8)}`,
+        }, tx);
+      }
+      await this.grantCaps(memberRoleId, ctx.id, memberCapsForKind(kind), tx);
+      await this.grantCaps(leadRoleId, ctx.id, leadCapsForKind(kind), tx);
+      const leadUserId = input.ownerId ?? input.leadUserId ?? null;
+      if (leadUserId) await this.ensureAssignment(leadUserId, leadRoleId, ctx.id, tx);
+      await this.outbox.enqueue(tx, {
+        aggregate: 'question_bank', type: 'question_bank_created',
+        payload: { bankId: bank.id, scope: bank.scope, scopeRefId: bank.scopeRefId, ownerId: bank.ownerId, actorId },
+        tenantId: input.tenantId,
       });
-    }
-    await this.grantCaps(memberRoleId, ctx.id, memberCapsForKind(kind));
-    await this.grantCaps(leadRoleId, ctx.id, leadCapsForKind(kind));
-    const leadUserId = input.ownerId ?? input.leadUserId ?? null;
-    if (leadUserId) await this.ensureAssignment(leadUserId, leadRoleId, ctx.id);
-    await this.outbox.enqueueStandalone({
-      aggregate: 'question_bank', type: 'question_bank_created',
-      payload: { bankId: bank.id, scope: bank.scope, scopeRefId: bank.scopeRefId, ownerId: bank.ownerId, actorId },
-      tenantId: input.tenantId,
+      return bank;
     });
-    return bank;
   }
 
   /** Bank cá nhân của người dùng cho một loại món — tạo lười ở lần chạm đầu tiên ("Ngân hàng của tôi").

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { uuidIdSchema } from '@lms/contracts';
 import { AccessRepository, type ContextRow } from './access.repository';
 import { CONTEXT_LEVELS } from './domain/capabilities';
+import type { DbTx } from '../../db/database';
 
 @Injectable()
 /**
@@ -17,12 +18,12 @@ export class ContextsService {
   /**
    * Đảm bảo context hệ thống (level CONTEXT_SYSTEM, instance 0) tồn tại; idempotent.
    */
-  async ensureSystemContext(): Promise<ContextRow> {
-    const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.SYSTEM, null);
+  async ensureSystemContext(tx?: DbTx): Promise<ContextRow> {
+    const existing = await this.repo.getContextByLevelInstance(CONTEXT_LEVELS.SYSTEM, null, tx);
     if (existing) return existing;
-    const row = await this.repo.insertContext({ contextLevel: CONTEXT_LEVELS.SYSTEM, instanceId: null, path: '', depth: 0 });
+    const row = await this.repo.insertContext({ contextLevel: CONTEXT_LEVELS.SYSTEM, instanceId: null, path: '', depth: 0 }, tx);
     const path = `/${row.id}`;
-    await this.repo.updateContextPath(row.id, path, 1);
+    await this.repo.updateContextPath(row.id, path, 1, tx);
     return { ...row, path, depth: 1 };
   }
 
@@ -48,17 +49,17 @@ export class ContextsService {
   /**
    * Tạo context con dưới một context cha, tính path/depth; cha không tồn tại → lỗi access.parent_context_not_found.
    */
-  async createContext(contextLevel: number, instanceId: string, parentId?: string): Promise<ContextRow> {
-    const existing = await this.repo.getContextByLevelInstance(contextLevel, instanceId);
+  async createContext(contextLevel: number, instanceId: string, parentId?: string, tx?: DbTx): Promise<ContextRow> {
+    const existing = await this.repo.getContextByLevelInstance(contextLevel, instanceId, tx);
     if (existing) return existing;
     const parent = contextLevel === CONTEXT_LEVELS.SYSTEM
       ? undefined
-      : await this.repo.getContextById(parentId ?? (await this.ensureSystemContext()).id);
+      : await this.repo.getContextById(parentId ?? (await this.ensureSystemContext(tx)).id, tx);
     if (contextLevel !== CONTEXT_LEVELS.SYSTEM && !parent) throw new BadRequestException({ message: 'Parent context not found', code: 'access.parent_context_not_found' });
-    const row = await this.repo.insertContext({ contextLevel, instanceId, path: '', depth: 0 });
+    const row = await this.repo.insertContext({ contextLevel, instanceId, path: '', depth: 0 }, tx);
     const path = parent ? `${parent.path}/${row.id}` : `/${row.id}`;
     const depth = parent ? parent.depth + 1 : 1;
-    await this.repo.updateContextPath(row.id, path, depth);
+    await this.repo.updateContextPath(row.id, path, depth, tx);
     return { ...row, path, depth };
   }
 
@@ -68,8 +69,8 @@ export class ContextsService {
    * trả NotFound thay vì để DB ném lỗi cú pháp uuid: các guard chạy
    * trước pipe validate nên id thô trên URL tới được đây.
    */
-  async getContext(id: string): Promise<ContextRow> {
-    const row = uuidIdSchema.safeParse(id).success ? await this.repo.getContextById(id) : undefined;
+  async getContext(id: string, tx?: DbTx): Promise<ContextRow> {
+    const row = uuidIdSchema.safeParse(id).success ? await this.repo.getContextById(id, tx) : undefined;
     if (!row) throw new NotFoundException({ message: `Context ${id} not found`, code: 'access.context_not_found' });
     return row;
   }
@@ -142,9 +143,9 @@ export class ContextsService {
   /**
    * Đánh dấu cây context đã đổi để các cache phụ thuộc phải tính lại.
    */
-  async markContextDirty(contextId: string): Promise<void> {
-    const ctx = await this.repo.getContextById(contextId);
-    if (ctx) await this.repo.bumpContextVersions(ctx.path);
+  async markContextDirty(contextId: string, tx?: DbTx): Promise<void> {
+    const ctx = await this.repo.getContextById(contextId, tx);
+    if (ctx) await this.repo.bumpContextVersions(ctx.path, tx);
   }
   /** Dấu cache cho path của một context: thay đổi mỗi khi bất kỳ context nào trên path (hoặc gốc hệ thống) bị đánh dấu dirty. */
   /**

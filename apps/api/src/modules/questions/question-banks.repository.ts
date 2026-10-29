@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import type { Database } from '../../db/database';
+import type { Database, DbTx } from '../../db/database';
 import {
   course, learningOutcomes, question, questionAttempts, questionBankContributions, questionBankEntries, questionBanks, questionCategories,
   examPins, examSlots, examVersions, role, roleAssignments, users,
@@ -29,8 +29,9 @@ export class QuestionBanksRepository {
   // --- banks -------------------------------------------------------------------
 
   /** Chèn bank mới (id do service cấp trước để dựng context trỏ về bank). */
-  async insertBank(v: typeof questionBanks.$inferInsert): Promise<QuestionBankRow> {
-    const [row] = await this.db.insert(questionBanks).values(v).returning(); return row!;
+  async insertBank(v: typeof questionBanks.$inferInsert, tx?: DbTx): Promise<QuestionBankRow> {
+    const db = tx ?? this.db;
+    const [row] = await db.insert(questionBanks).values(v).returning(); return row!;
   }
   /** Bank theo id. */
   async getBank(id: string): Promise<QuestionBankRow | undefined> {
