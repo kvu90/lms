@@ -125,6 +125,91 @@ export const hasCapabilityQuerySchema = z.strictObject({
 });
 export type HasCapabilityQuery = z.infer<typeof hasCapabilityQuerySchema>;
 
+/**
+ * Một dòng vai trong danh sách vai kèm dữ kiện tổng hợp phía server: số
+ * người dùng phân biệt đang giữ vai (một người giữ cùng vai ở nhiều
+ * context sinh nhiều dòng gán — đếm theo người, không đếm dòng) và tổng
+ * hợp năng lực tính từ tập ghi đè đã lưu của vai (tổng số ghi đè, số ghi
+ * đè theo `capType` read/write của năng lực, số resource phân biệt mà
+ * các ghi đè chạm tới — resource là tiền tố trước dấu `:` của tên năng
+ * lực). Nhờ các trường này, thẻ vai dựng được từ đúng một lần gọi danh
+ * sách, không gọi thêm theo từng vai.
+ */
+export const roleListItemSchema = roleSchema.extend({
+  userCount: z.number().int().min(0),
+  overrideCount: z.number().int().min(0),
+  readOverrideCount: z.number().int().min(0),
+  writeOverrideCount: z.number().int().min(0),
+  resourceCount: z.number().int().min(0),
+});
+export type RoleListItem = z.infer<typeof roleListItemSchema>;
+
+/**
+ * Payload lưu ma trận quyền thay toàn bộ cho một vai tại đúng một
+ * context: sau khi áp dụng thành công, tập ghi đè của vai tại context đó
+ * bằng đúng tập gửi lên — phần tử vắng mặt trong tập trở về kế thừa, và
+ * phần tử mang giá trị INHERIT (0) tường minh cũng tương đương không có
+ * ghi đè. Giá trị quyền thuộc bốn trạng thái đã chốt (ALLOW = 1,
+ * INHERIT = 0, PREVENT = −1, PROHIBIT = −1000); việc từ chối giá trị
+ * ngoài bốn trạng thái và tên năng lực ngoài danh mục nằm ở tầng service
+ * của API với mã lỗi riêng, cùng khuôn với thao tác đặt một ghi đè hiện
+ * hành. Thao tác là nguyên tử: lỗi kiểm chứng thì không thay đổi gì.
+ */
+export const replaceRoleCapabilitiesSchema = z.strictObject({
+  contextId: uuidIdSchema,
+  overrides: z.array(z.strictObject({
+    capability: z.string().min(1),
+    permission: z.number().int(),
+  })),
+});
+export type ReplaceRoleCapabilities = z.infer<typeof replaceRoleCapabilitiesSchema>;
+
+/**
+ * Query liệt kê gán vai (dạng nền — phía server ép kiểu `page`/`pageSize`
+ * từ query string): lọc tuỳ chọn theo người dùng, context và vai; tìm
+ * kiếm theo người dùng khớp trên tên và email; phân trang phía server.
+ */
+export const listAssignmentsQuerySchema = z.strictObject({
+  userId: uuidIdSchema.optional(),
+  contextId: uuidIdSchema.optional(),
+  roleId: uuidIdSchema.optional(),
+  search: z.string().optional(),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).optional(),
+});
+export type ListAssignmentsQuery = z.infer<typeof listAssignmentsQuerySchema>;
+
+/**
+ * Một dòng gán vai trong bảng gán vai: giữ nguyên các trường của dòng
+ * gán đã lưu (gồm `component` — nguồn gán, phân biệt dòng do ghi danh
+ * quản lý — và `updatedAt`), kèm tên đầy đủ và email của người dùng được
+ * gán do server ghép sẵn. Tên/email là `null` khi dòng gán trỏ tới người
+ * dùng không còn tồn tại (dòng gán không có khoá ngoại tới bảng người
+ * dùng nên vẫn phải liệt kê được).
+ */
+export const assignmentListItemSchema = z.object({
+  id: uuidIdSchema,
+  roleId: uuidIdSchema,
+  userId: uuidIdSchema,
+  contextId: uuidIdSchema,
+  component: z.string(),
+  itemId: uuidIdSchema.nullable(),
+  modifierId: uuidIdSchema.nullable(),
+  updatedAt: z.iso.datetime(),
+  userName: z.string().nullable(),
+  userEmail: z.string().nullable(),
+});
+export type AssignmentListItem = z.infer<typeof assignmentListItemSchema>;
+
+/** Phản hồi liệt kê gán vai đã phân trang: các dòng của trang hiện tại kèm tổng số dòng khớp bộ lọc. */
+export const assignmentListResponseSchema = z.object({
+  assignments: z.array(assignmentListItemSchema),
+  total: z.number().int().min(0),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+});
+export type AssignmentListResponse = z.infer<typeof assignmentListResponseSchema>;
+
 /** Payload tạo người dùng. */
 export const createUserSchema = z.strictObject({
   username: z.string().min(1),
