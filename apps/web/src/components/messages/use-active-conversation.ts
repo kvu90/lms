@@ -73,9 +73,12 @@ export function useActiveConversation({
   /**
    * Tin LẠC QUAN theo từng conversation (bản tạm `localStatus`
    * đang gửi/đã lỗi): dữ kiện chỉ sinh ở client, chưa có bản phía
-   * server nên không thuộc cache; khi bản thật về qua cache chi
-   * tiết, bước suy ra cửa sổ tự loại bản tạm theo clientMessageId
-   * (luật của `mergeMessages`).
+   * server nên không thuộc cache. Vòng đời của bản tạm kết thúc
+   * ngay khi server xác nhận: `mergeServerMessages` dọn bản tạm
+   * khỏi state này theo clientMessageId trong cùng lượt gộp bản
+   * thật vào cache chi tiết; luật khử trùng của `mergeMessages`
+   * ở bước suy ra cửa sổ chỉ còn là lưới an toàn trong lúc xác
+   * nhận đang trên đường về.
    */
   const [localMessages, setLocalMessages] = useState<Record<string, MessageView[]>>({});
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
@@ -192,12 +195,42 @@ export function useActiveConversation({
     await ensurePageLoaded(oldest.seq);
   }
 
-  /** Gộp tin phía server (tin vừa gửi được xác nhận, tin realtime, phần thiếu khi nối lại) vào cache chi tiết của đúng conversation. */
+  /**
+   * Gộp tin phía server (tin vừa gửi được xác nhận, tin realtime,
+   * phần thiếu khi nối lại) vào cache chi tiết của đúng conversation,
+   * đồng thời DỌN bản tạm lạc quan mà các tin này xác nhận khỏi state
+   * chỉ-client theo clientMessageId. Mọi đường xác nhận của server —
+   * đáp ứng REST của lượt gửi, echo qua socket, phần thiếu lúc nối
+   * lại — đều chảy qua đây, nên vòng đời của bản tạm kết thúc tại
+   * đúng điểm xác nhận này. Chỉ khử trùng ở bước suy ra hiển thị là
+   * chưa đủ: bản thật rời khỏi cửa sổ (bị xoá cứng, hoặc cửa sổ nạp
+   * lại không còn bản thật) thì bản tạm còn nguyên trong state sẽ
+   * hiện lại với trạng thái đang gửi, kể cả nội dung đáng lẽ đã bị
+   * gỡ (vòng sửa PR #530). Bản tạm chưa được xác nhận (đang gửi,
+   * hoặc đã lỗi và chờ thử lại) không có clientMessageId nào trong
+   * đợt gộp này nên không bị đụng tới.
+   */
   const mergeServerMessages = useCallback(
     (conversationId: string, incoming: MessageView[]) => {
       queryClient.setQueryData<ConversationDetailView>(queryKeys.messagingConversationDetail(conversationId), (old) =>
         old ? { ...old, messages: mergeMessages(old.messages, incoming) } : old,
       );
+      const confirmedClientIds = new Set(
+        incoming.map((m) => m.clientMessageId).filter((id): id is string => Boolean(id)),
+      );
+      if (confirmedClientIds.size === 0) return;
+      setLocalMessages((prev) => {
+        const list = prev[conversationId];
+        if (!list?.some((m) => m.localStatus && m.clientMessageId && confirmedClientIds.has(m.clientMessageId))) {
+          return prev;
+        }
+        return {
+          ...prev,
+          [conversationId]: list.filter(
+            (m) => !(m.localStatus && m.clientMessageId && confirmedClientIds.has(m.clientMessageId)),
+          ),
+        };
+      });
     },
     [queryClient],
   );

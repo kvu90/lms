@@ -132,8 +132,10 @@ export function useMessageComposer({
       });
       const seen = lastSeqRef.current.get(conversationId) ?? 0;
       if (saved.seq > seen) lastSeqRef.current.set(conversationId, saved.seq);
-      // Tin thật gộp vào cache chi tiết; bản tạm tự bị loại khỏi
-      // cửa sổ suy ra theo clientMessageId. Xem trước danh sách
+      // Tin thật gộp vào cache chi tiết qua mergeServerMessages —
+      // cùng lượt đó bản tạm được dọn khỏi state lạc quan theo
+      // clientMessageId (vòng đời bản tạm kết thúc tại xác nhận).
+      // Xem trước danh sách
       // (tin cuối + đưa conversation lên đầu — lát M1, issue #204)
       // do chính đột biến gửi tin vá vào cache danh sách ở tầng dữ
       // kiện, không chờ sự kiện conversation.updated qua socket.

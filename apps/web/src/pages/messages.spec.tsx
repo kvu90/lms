@@ -2654,3 +2654,225 @@ describe('Messages page — sửa dứt điểm trình bày (toolbar nổi + gi�
     );
   });
 });
+
+/**
+ * Stub fetch cho hai ca hồi quy của vòng sửa PR #530: chi tiết nhóm
+ * một có trạng thái (tin gửi thành công nằm trong chi tiết cho tới
+ * khi bị gỡ — giả lập tin đã bị xoá cứng phía server), và đáp ứng
+ * POST gửi tin có thể bị GIỮ LẠI để test chèn sự kiện socket xác
+ * nhận đến trước đáp ứng REST.
+ */
+function stubFix530Fetch(calls: RecordedCall[]) {
+  const SAVED_ID = '01900000-0000-7000-8000-0000000000f6';
+  const state = {
+    detailMessages: [FIRST_MESSAGE] as Record<string, unknown>[],
+    sendGate: null as Promise<void> | null,
+    releaseSend: null as (() => void) | null,
+  };
+  const controls = {
+    /** Giữ đáp ứng POST gửi tin đang bay cho tới khi `releaseSend` được gọi. */
+    holdSend() {
+      state.sendGate = new Promise<void>((resolve) => {
+        state.releaseSend = resolve;
+      });
+    },
+    /** Thả đáp ứng POST đang bị giữ. */
+    releaseSend() {
+      state.releaseSend?.();
+      state.sendGate = null;
+      state.releaseSend = null;
+    },
+    /** Gỡ một tin khỏi chi tiết phía server (giả lập tin đã bị xoá cứng). */
+    removeFromDetail(messageId: string) {
+      state.detailMessages = state.detailMessages.filter((m) => m.id !== messageId);
+    },
+    savedId: SAVED_ID,
+  };
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET';
+      const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : undefined;
+      calls.push({ url, method, body });
+      const respond = (payload: unknown) =>
+        new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      if (isGetSessionUrl(url)) return respond(baSessionBody({ id: PROFILE.id, username: PROFILE.username, email: PROFILE.email }));
+      if (url === '/api/v1/users/me') return respond(PROFILE);
+      if (url === '/api/v1/messages/conversations')
+        return respond([
+          {
+            id: CONV_ID, type: 2, name: 'Nhóm một', members: [ME_ID, OTHER_ID],
+            unread: 1, lastReadSeq: 0, lastMessageSeq: 1, lastMessage: FIRST_MESSAGE,
+          },
+          {
+            id: CONV2_ID, type: 2, name: 'Nhóm hai', members: [ME_ID, OTHER_ID],
+            unread: 0, lastReadSeq: 0, lastMessageSeq: 0, lastMessage: null,
+          },
+        ]);
+      if (url === '/api/v1/messages/contacts/blocked') return respond({ blocked: [] });
+      // Cây nhóm: hai hội thoại là nhóm tự do, mở qua tab Nhóm như bộ dữ kiện realtime.
+      if (url === '/api/v1/messages/group-tree')
+        return respond({
+          classes: [],
+          coursesOutsideClasses: [],
+          freeGroups: [
+            { id: CONV_ID, name: 'Nhóm một', myRole: 'staff', conversationId: CONV_ID, unread: 0 },
+            { id: CONV2_ID, name: 'Nhóm hai', myRole: 'staff', conversationId: CONV2_ID, unread: 2 },
+          ],
+        });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}`)
+        return respond({
+          id: CONV_ID, type: 2, name: 'Nhóm một', members: [ME_ID, OTHER_ID],
+          messages: state.detailMessages, hasMoreBefore: false,
+          memberReadMarkers: [
+            { userId: ME_ID, lastReadSeq: 1 },
+            { userId: OTHER_ID, lastReadSeq: 0 },
+          ],
+        });
+      if (url === `/api/v1/messages/conversations/${CONV2_ID}`)
+        return respond({
+          id: CONV2_ID, type: 2, name: 'Nhóm hai', members: [ME_ID, OTHER_ID],
+          messages: [], hasMoreBefore: false, memberReadMarkers: [],
+        });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/read`) return respond({ marked: 1, lastReadSeq: 1 });
+      if (url === `/api/v1/messages/conversations/${CONV2_ID}/read`) return respond({ marked: 0, lastReadSeq: 0 });
+      if (url === `/api/v1/messages/conversations/${CONV_ID}/messages` && method === 'POST') {
+        const saved = {
+          id: SAVED_ID,
+          conversationId: CONV_ID,
+          userIdFrom: ME_ID,
+          subject: '',
+          fullMessage: body?.text,
+          createdAt: '2026-01-01T00:01:00.000Z',
+          seq: 2,
+          clientMessageId: body?.clientMessageId ?? null,
+        };
+        state.detailMessages = [...state.detailMessages, saved];
+        if (state.sendGate) await state.sendGate;
+        return respond(saved);
+      }
+      return new Response('{}', { status: 404, headers: { 'Content-Type': 'application/json' } });
+    }),
+  );
+  return controls;
+}
+
+describe('Messages page — hồi quy vòng sửa PR #530 (tin ở hội thoại không hoạt động + tin tạm sau xác nhận)', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    realtime.handlers = null;
+  });
+
+  it('hiện tin mới nhận lúc hội thoại không hoạt động khi mở lại hội thoại đó trong cửa sổ dữ kiện còn tươi', async () => {
+    const calls: RecordedCall[] = [];
+    stubFix530Fetch(calls);
+    renderMessages();
+
+    // Mở nhóm một: chi tiết nạp vào cache, khung hiện tin đầu tiên.
+    // (Vùng khung tin bị dựng lại mỗi lần chuyển hội thoại nên mọi
+    // khẳng định về khung đều lấy node HIỆN HÀNH theo nhãn, không
+    // giữ node đã chụp từ hội thoại trước.)
+    await openGroupFromTree(/Nhóm một/);
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    // Chuyển hẳn sang nhóm hai — từ đây nhóm một không còn hoạt động:
+    // khung hiện hành không còn tin của nhóm một.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm hai/ }));
+    await waitFor(() =>
+      expect(within(screen.getByLabelText('Tin nhắn')).queryByText('tin đầu tiên')).not.toBeInTheDocument(),
+    );
+
+    // Tin mới đến ở nhóm một trong lúc người dùng đang ở nhóm hai:
+    // server đẩy cả sự kiện tin mới lẫn sự kiện cập nhật hội thoại.
+    const incoming = {
+      id: '01900000-0000-7000-8000-0000000000f7',
+      conversationId: CONV_ID,
+      userIdFrom: OTHER_ID,
+      subject: '',
+      fullMessage: 'tin đến lúc đang ở nhóm hai',
+      createdAt: '2026-01-01T00:02:00.000Z',
+      seq: 2,
+      clientMessageId: null,
+    };
+    act(() => {
+      realtime.handlers?.onNewMessage({ conversationId: CONV_ID, message: incoming } as never);
+      realtime.handlers?.onConversationUpdated({ conversationId: CONV_ID, message: incoming, unreadCount: 1 } as never);
+    });
+
+    // Mở lại nhóm một ngay trong cửa sổ còn tươi của cache chi tiết:
+    // tin mới phải có mặt trong khung tin, không chỉ ở xem trước.
+    await userEvent.click(await screen.findByRole('button', { name: /Nhóm một/ }));
+    const reopenedThread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(reopenedThread).findByText('tin đến lúc đang ở nhóm hai')).toBeInTheDocument();
+    expect(within(reopenedThread).getByText('tin đầu tiên')).toBeInTheDocument();
+  });
+
+  it('không hiện lại nội dung tin tạm sau khi tin thật đã được xác nhận qua socket rồi bị xoá cứng khỏi cửa sổ', async () => {
+    const calls: RecordedCall[] = [];
+    const controls = stubFix530Fetch(calls);
+    renderMessages();
+
+    await openGroupFromTree(/Nhóm một/);
+    const thread = await screen.findByLabelText('Tin nhắn');
+    expect(await within(thread).findByText('tin đầu tiên')).toBeInTheDocument();
+
+    // Giữ đáp ứng REST của lượt gửi để sự kiện socket xác nhận đến trước.
+    controls.holdSend();
+    const input = screen.getByLabelText('Nội dung tin nhắn');
+    await userEvent.type(input, 'nội dung sẽ bị xoá cứng');
+    await userEvent.click(screen.getByRole('button', { name: 'Gửi' }));
+    await waitFor(() => {
+      const send = calls.find((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/messages` && c.method === 'POST');
+      expect(send).toBeDefined();
+    });
+    // Bản tạm hiện trong khung trong lúc chờ xác nhận.
+    expect(await within(thread).findByText('nội dung sẽ bị xoá cứng')).toBeInTheDocument();
+    const sendCall = calls.find((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}/messages` && c.method === 'POST');
+    const clientMessageId = (sendCall?.body as { clientMessageId: string }).clientMessageId;
+
+    // Socket xác nhận tin thật trước (cùng id + clientMessageId mà server sẽ trả qua REST).
+    act(() => {
+      realtime.handlers?.onNewMessage({
+        conversationId: CONV_ID,
+        message: {
+          id: controls.savedId,
+          conversationId: CONV_ID,
+          userIdFrom: ME_ID,
+          subject: '',
+          fullMessage: 'nội dung sẽ bị xoá cứng',
+          createdAt: '2026-01-01T00:01:00.000Z',
+          seq: 2,
+          clientMessageId,
+        },
+      } as never);
+    });
+    expect(within(thread).getAllByText('nội dung sẽ bị xoá cứng')).toHaveLength(1);
+
+    // Đáp ứng REST về sau đó: lượt gửi hoàn tất (nút Gửi hết bị khoá), tin không nhân đôi.
+    await act(async () => {
+      controls.releaseSend();
+    });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Gửi' })).toBeEnabled());
+    expect(within(thread).getAllByText('nội dung sẽ bị xoá cứng')).toHaveLength(1);
+
+    // Phía server xoá cứng tin thật; sự kiện invalidate nạp lại cửa sổ
+    // không còn tin đó — nội dung không được hiện lại dưới dạng bản tạm.
+    controls.removeFromDetail(controls.savedId);
+    const detailCallsBefore = calls.filter(
+      (c) => c.url === `/api/v1/messages/conversations/${CONV_ID}` && c.method === 'GET',
+    ).length;
+    act(() => {
+      realtime.handlers?.onConversationInvalidate({ conversationId: CONV_ID } as never);
+    });
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.url === `/api/v1/messages/conversations/${CONV_ID}` && c.method === 'GET').length,
+      ).toBeGreaterThan(detailCallsBefore),
+    );
+    await waitFor(() => expect(within(thread).queryByText('nội dung sẽ bị xoá cứng')).not.toBeInTheDocument());
+    expect(within(thread).getByText('tin đầu tiên')).toBeInTheDocument();
+  });
+});

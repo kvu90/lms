@@ -96,8 +96,16 @@ export function useMessagesRealtime({
     const handle = connectMessagingRealtime({
       onNewMessage: ({ conversationId, message }) => {
         noteSeq(conversationId, message.seq);
+        // Gộp tin vào cache chi tiết của ĐÚNG conversation đó dù nó
+        // có đang mở hay không: chi tiết của conversation không hoạt
+        // động vẫn nằm trong cache và còn bị coi là tươi trong cửa
+        // sổ staleTime khi mở lại — không vá tại đây thì mở lại
+        // trong cửa sổ đó hiện bản cũ thiếu tin mới (vòng sửa PR
+        // #530). Conversation chưa từng nạp chi tiết thì phép gộp
+        // tự bỏ qua (chưa có bản cũ trong cache để vá); lần mở đầu
+        // tiên tự nạp bản tươi từ server.
+        mergeServerMessages(conversationId, [message]);
         if (activeRef.current?.id === conversationId) {
-          mergeServerMessages(conversationId, [message]);
           // Đang mở cuộc trò chuyện thì tin của người khác được đọc ngay.
           if (message.userIdFrom !== myId) void markRead(conversationId);
         }
