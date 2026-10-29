@@ -1,12 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { CreateRole, ReplaceRoleCapabilities, UpdateRole } from '@lms/contracts';
 import { queryKeys as sharedQueryKeys } from '#lib/query-keys';
-import {
-  createRole,
-  deleteRole,
-  replaceRoleCapabilities,
-  updateRole,
-} from '../api/admin-roles';
+import { createRole, deleteRole, replaceRoleCapabilities, updateRole } from '../api/admin-roles';
 
 /**
  * Tầng đột biến của bề mặt quản trị vai trò thuộc feature admin.
@@ -41,8 +36,7 @@ export function useUpdateRole() {
 export function useReplaceRoleCapabilities() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { roleId: string; payload: ReplaceRoleCapabilities }) =>
-      replaceRoleCapabilities(input),
+    mutationFn: (input: { roleId: string; payload: ReplaceRoleCapabilities }) => replaceRoleCapabilities(input),
     onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
   });
 }

@@ -98,12 +98,7 @@ export function RoleDeleteDialog({ open, role, onClose }: RoleDeleteDialogProps)
           </ErrorAlert>
         ) : null}
         <div className="flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={deleteMutation.isPending}
-            onClick={onClose}
-          >
+          <Button type="button" variant="outline" disabled={deleteMutation.isPending} onClick={onClose}>
             {t('cancel')}
           </Button>
           <Button

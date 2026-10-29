@@ -639,8 +639,7 @@ export const enResources = {
     saveRole: 'Save role',
     savingRole: 'Saving…',
     roleSaveFailed: 'Could not save the role. Check and try again.',
-    roleCreatedMatrixFailed:
-      'The role was created but the matrix could not be saved. Adjust and press Save to retry.',
+    roleCreatedMatrixFailed: 'The role was created but the matrix could not be saved. Adjust and press Save to retry.',
     deleteRoleConfirm: 'Delete role “{{name}}”? This cannot be undone.',
     deleteRoleArchetypeForbidden: 'Built-in roles cannot be deleted.',
     deleteRoleHasAssignments: 'The role is still held by users and cannot be deleted.',

@@ -44,14 +44,11 @@ export function updateRole(input: { roleId: string; draft: UpdateRole }) {
  * @param input - Định danh vai trò, ngữ cảnh và tập ghi đè khác kế thừa.
  * @returns Các ghi đè đã lưu.
  */
-export function replaceRoleCapabilities(input: {
-  roleId: string;
-  payload: ReplaceRoleCapabilities;
-}) {
-  return apiJson<{ capability: string; permission: number }[]>(
-    `/api/v1/access/roles/${input.roleId}/capabilities`,
-    { method: 'PUT', body: JSON.stringify(input.payload) },
-  );
+export function replaceRoleCapabilities(input: { roleId: string; payload: ReplaceRoleCapabilities }) {
+  return apiJson<{ capability: string; permission: number }[]>(`/api/v1/access/roles/${input.roleId}/capabilities`, {
+    method: 'PUT',
+    body: JSON.stringify(input.payload),
+  });
 }
 
 /**

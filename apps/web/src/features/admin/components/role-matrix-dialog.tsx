@@ -7,16 +7,8 @@ import { ErrorAlert } from '#components/error-alert';
 import type { ContextRow, RoleCapabilityRow } from '#lib/access';
 import { useTranslation } from 'react-i18next';
 import '#config/i18n';
-import {
-  useCreateRole,
-  useReplaceRoleCapabilities,
-  useUpdateRole,
-} from '../queries/admin-roles';
-import {
-  groupCapabilitiesByResource,
-  verbOfCapability,
-  type RoleMatrixDraft,
-} from '../types/admin-roles';
+import { useCreateRole, useReplaceRoleCapabilities, useUpdateRole } from '../queries/admin-roles';
+import { groupCapabilitiesByResource, verbOfCapability, type RoleMatrixDraft } from '../types/admin-roles';
 
 /**
  * Hộp thoại thêm/sửa vai trò kèm ma trận quyền của feature admin.
@@ -206,9 +198,7 @@ export function RoleMatrixDialog({
       // Vai đã tạo nhưng ma trận chưa lưu: thông báo riêng để người dùng
       // bấm Lưu lại thay vì tưởng đã xong hoặc tạo trùng vai trò.
       setSaveError(
-        step === 'matrix' && (mode === 'create' || createdRoleId)
-          ? t('roleCreatedMatrixFailed')
-          : t('roleSaveFailed'),
+        step === 'matrix' && (mode === 'create' || createdRoleId) ? t('roleCreatedMatrixFailed') : t('roleSaveFailed'),
       );
     }
   }
@@ -247,12 +237,7 @@ export function RoleMatrixDialog({
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="role-dialog-name">{t('roleName')}</FieldLabel>
-            <Input
-              id="role-dialog-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={saving}
-            />
+            <Input id="role-dialog-name" value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
           </Field>
           <Field>
             <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
@@ -342,9 +327,7 @@ export function RoleMatrixDialog({
                         aria-label={t('roleQuickApplyRow', { resource: group.resource })}
                         className={SELECT_CLASS}
                         value={quickByResource[group.resource] ?? ''}
-                        onChange={(e) =>
-                          setQuickByResource((prev) => ({ ...prev, [group.resource]: e.target.value }))
-                        }
+                        onChange={(e) => setQuickByResource((prev) => ({ ...prev, [group.resource]: e.target.value }))}
                         disabled={saving}
                       >
                         <option value="">—</option>
@@ -359,9 +342,7 @@ export function RoleMatrixDialog({
                         variant="outline"
                         size="sm"
                         disabled={saving || (quickByResource[group.resource] ?? '') === ''}
-                        onClick={() =>
-                          applyToResource(group.resource, Number(quickByResource[group.resource]))
-                        }
+                        onClick={() => applyToResource(group.resource, Number(quickByResource[group.resource]))}
                       >
                         {t('applyToRow')}
                       </Button>

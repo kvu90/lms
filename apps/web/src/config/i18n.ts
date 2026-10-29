@@ -140,7 +140,8 @@ export const platformResources = {
       libraryFormNode: 'Node chương trình',
       libraryFormOutcomes: 'YCCĐ liên quan (giữ Ctrl/Cmd để chọn nhiều)',
       libraryFormCategory: 'Category ngân hàng câu hỏi (tham chiếu)',
-      libraryFormCategoryHint: 'Bộ câu hỏi chỉ tham chiếu tới ngân hàng câu hỏi — câu hỏi sống ở ngân hàng câu hỏi, không sao chép vào kho học liệu.',
+      libraryFormCategoryHint:
+        'Bộ câu hỏi chỉ tham chiếu tới ngân hàng câu hỏi — câu hỏi sống ở ngân hàng câu hỏi, không sao chép vào kho học liệu.',
       libraryFormExternalUrl: 'Liên kết ngoài (URL)',
       libraryFormDescription: 'Mô tả học liệu',
       libraryFormKeywords: 'Từ khoá (phân tách bằng dấu phẩy)',
@@ -185,7 +186,7 @@ export const platformResources = {
       requestSent: 'Yêu cầu #{{id}} ({{type}}) đang {{status}}',
       requestLine: '#{{id}} người dùng {{userId}} — {{type}} — {{status}}',
     },
-  }
+  },
 } as const;
 
 /**
@@ -217,7 +218,8 @@ export const appResources = {
       classStatusActive: 'Đang hoạt động',
       classStatusArchived: 'Đã lưu trữ',
       classCreateTitle: 'Tạo lớp mới',
-      classCreateDescription: 'Chỉ tên lớp là bắt buộc. Học sinh được nạp vào danh sách lớp sau; khoá học tạo trong lớp sẽ tự ghi danh cho cả lớp.',
+      classCreateDescription:
+        'Chỉ tên lớp là bắt buộc. Học sinh được nạp vào danh sách lớp sau; khoá học tạo trong lớp sẽ tự ghi danh cho cả lớp.',
       classCreateSubmit: 'Tạo lớp',
       classCreateFailed: 'Không tạo được lớp.',
       classEditTitle: 'Sửa lớp',
@@ -227,7 +229,8 @@ export const appResources = {
       classChatOpen: 'Chat lớp',
       classChatOpenFailed: 'Không thể mở chat của lớp',
       classArchive: 'Lưu trữ',
-      classArchiveConfirm: 'Lưu trữ lớp "{{name}}"? Lớp sẽ đóng băng danh sách học sinh và không tạo thêm khoá được; dữ liệu vẫn đọc lại được.',
+      classArchiveConfirm:
+        'Lưu trữ lớp "{{name}}"? Lớp sẽ đóng băng danh sách học sinh và không tạo thêm khoá được; dữ liệu vẫn đọc lại được.',
       classArchived: 'Đã lưu trữ lớp.',
       classArchiveFailed: 'Không lưu trữ được lớp.',
       classDelete: 'Xoá',
@@ -252,26 +255,32 @@ export const appResources = {
       classRosterEmail: 'Email',
       classRosterAddedAt: 'Ngày vào lớp',
       classSuspend: 'Đình chỉ',
-      classSuspendConfirm: 'Đình chỉ "{{name}}" khỏi lớp? Học sinh mất quyền vào các khoá của lớp nhưng điểm và bài làm vẫn được giữ; thêm lại vào danh sách là kích hoạt lại.',
-      classRemoveWithdrawConfirm: 'Gỡ "{{name}}" khỏi lớp? Lớp đang ở chế độ rút hẳn: ghi danh ở các khoá sẽ bị rút theo luật của hệ.',
+      classSuspendConfirm:
+        'Đình chỉ "{{name}}" khỏi lớp? Học sinh mất quyền vào các khoá của lớp nhưng điểm và bài làm vẫn được giữ; thêm lại vào danh sách là kích hoạt lại.',
+      classRemoveWithdrawConfirm:
+        'Gỡ "{{name}}" khỏi lớp? Lớp đang ở chế độ rút hẳn: ghi danh ở các khoá sẽ bị rút theo luật của hệ.',
       classSuspendDone: 'Đã đình chỉ học sinh khỏi lớp.',
       classSuspendFailed: 'Không đình chỉ được học sinh.',
       classAddStudent: 'Thêm học sinh',
       classAddStudentName: 'Họ tên học sinh',
       classAddStudentEmail: 'Email (khớp tài khoản)',
       classAddStudentPhone: 'Số điện thoại (khớp tài khoản)',
-      classAddStudentHint: 'Hệ khớp tài khoản theo email hoặc số điện thoại; chưa có tài khoản thì tạo mới kèm mật khẩu tạm và buộc đổi ở lần đăng nhập đầu.',
+      classAddStudentHint:
+        'Hệ khớp tài khoản theo email hoặc số điện thoại; chưa có tài khoản thì tạo mới kèm mật khẩu tạm và buộc đổi ở lần đăng nhập đầu.',
       classAddStudentSubmit: 'Thêm vào lớp',
       classAddStudentFailed: 'Không thêm được học sinh.',
       classStudentMatched: 'Đã thêm {{name}} (khớp tài khoản có sẵn).',
-      classStudentCreated: 'Đã tạo tài khoản cho {{name}} — mật khẩu tạm: {{password}} (chỉ hiện lần này, hãy đưa cho học sinh).',
+      classStudentCreated:
+        'Đã tạo tài khoản cho {{name}} — mật khẩu tạm: {{password}} (chỉ hiện lần này, hãy đưa cho học sinh).',
       classStudentAlready: '{{name}} đã có trong lớp.',
       classImport: 'Nhập từ Excel',
-      classImportHint: 'File theo mẫu 4 cột: Họ tên | Số điện thoại | Email | Ngày sinh. Mỗi dòng xử lý độc lập — dòng lỗi được báo riêng, không chặn các dòng khác.',
+      classImportHint:
+        'File theo mẫu 4 cột: Họ tên | Số điện thoại | Email | Ngày sinh. Mỗi dòng xử lý độc lập — dòng lỗi được báo riêng, không chặn các dòng khác.',
       classImportTemplate: 'Tải file mẫu',
       classImportFile: 'Chọn file Excel (.xlsx)',
       classImportSubmit: 'Nhập danh sách',
-      classImportReport: 'Kết quả nhập: {{total}} dòng — thêm {{added}} (tạo tài khoản {{created}}), đã có trong lớp {{already}}, lỗi {{failed}}.',
+      classImportReport:
+        'Kết quả nhập: {{total}} dòng — thêm {{added}} (tạo tài khoản {{created}}), đã có trong lớp {{already}}, lỗi {{failed}}.',
       classImportRowError: 'Dòng {{row}} ({{name}}): lỗi {{error}}',
       classImportCreatedRow: 'Dòng {{row}}: tạo tài khoản {{username}} — mật khẩu tạm {{password}}',
       classImportFailed: 'Không nhập được file.',
@@ -281,7 +290,8 @@ export const appResources = {
       classReactivated: 'Đã kích hoạt lại {{name}}.',
       classReactivateFailed: 'Không kích hoạt lại được.',
       classStaff: 'Phân quyền trong lớp',
-      classStaffHint: 'Ba quyền kiểu Azota: giao bài/tạo khoá, chấm bài, quản danh sách học sinh. Người được phân quyền không phân quyền tiếp được.',
+      classStaffHint:
+        'Ba quyền kiểu Azota: giao bài/tạo khoá, chấm bài, quản danh sách học sinh. Người được phân quyền không phân quyền tiếp được.',
       classStaffOwner: 'Chủ lớp',
       classStaffRoleAssign: 'Giao bài / tạo khoá',
       classStaffRoleGrade: 'Chấm bài',
@@ -293,7 +303,8 @@ export const appResources = {
       classStaffFailed: 'Không cập nhật được phân quyền.',
       classStaffRemove: 'Thu hồi hết quyền',
       classSelfReport: 'Tự báo danh',
-      classSelfReportHint: 'Khi bật, học sinh có tài khoản tự xin vào lớp bằng mã tham gia. Lớp đã có học sinh thì yêu cầu vào hàng chờ duyệt, trừ khi bật tự duyệt.',
+      classSelfReportHint:
+        'Khi bật, học sinh có tài khoản tự xin vào lớp bằng mã tham gia. Lớp đã có học sinh thì yêu cầu vào hàng chờ duyệt, trừ khi bật tự duyệt.',
       classAllowSelfReport: 'Cho phép tự báo danh',
       classJoinAutoApprove: 'Tự duyệt yêu cầu (vào thẳng, không qua hàng chờ)',
       classJoinCode: 'Mã tham gia',
@@ -314,16 +325,19 @@ export const appResources = {
       classJoinCodeInput: 'Mã tham gia',
       classJoinSubmit: 'Xin vào lớp',
       classJoinJoined: 'Bạn đã vào lớp "{{name}}".',
-      classJoinPendingMsg: 'Đã gửi yêu cầu vào lớp "{{name}}". Giáo viên duyệt xong bạn sẽ học được các khoá trong lớp.',
+      classJoinPendingMsg:
+        'Đã gửi yêu cầu vào lớp "{{name}}". Giáo viên duyệt xong bạn sẽ học được các khoá trong lớp.',
       classJoinAlready: 'Bạn đã là học viên của lớp "{{name}}".',
       classJoinInvalid: 'Mã tham gia không đúng hoặc lớp chưa mở tự báo danh.',
       classJoinPreviewOwner: 'Chủ lớp: {{name}}',
       classJoinGoToClasses: 'Tới danh sách lớp của tôi',
       classFee: 'Học phí gói lớp',
-      classFeeHint: 'Đặt số tiền thì lớp bán gói qua VietQR/SePay: học sinh thanh toán thành công là tự vào lớp và học mọi khoá trong lớp. Để trống hoặc 0 = lớp không thu học phí qua hệ thống.',
+      classFeeHint:
+        'Đặt số tiền thì lớp bán gói qua VietQR/SePay: học sinh thanh toán thành công là tự vào lớp và học mọi khoá trong lớp. Để trống hoặc 0 = lớp không thu học phí qua hệ thống.',
       classFeeCost: 'Số tiền học phí (đơn vị nhỏ nhất, vd 1500000 = 1.500.000₫)',
       classFeeCurrency: 'Đơn vị tiền',
-      classFeeAccountId: 'Tài khoản nhận học phí (id tài khoản thanh toán; để trống = tài khoản mặc định của trung tâm / trang chính)',
+      classFeeAccountId:
+        'Tài khoản nhận học phí (id tài khoản thanh toán; để trống = tài khoản mặc định của trung tâm / trang chính)',
       classPublicOwner: 'Chủ lớp: {{name}}',
       classPublicTitle: 'Trang công khai của lớp',
       classPublicFeeLabel: 'Học phí gói lớp',
@@ -334,7 +348,8 @@ export const appResources = {
       classPublicNoFee: 'Lớp này không thu học phí qua hệ thống — hãy liên hệ giáo viên để được thêm vào lớp.',
       classPublicArchived: 'Lớp đã lưu trữ — không còn nhận ghi danh mới.',
       classPublicPayFailed: 'Không tạo được yêu cầu thanh toán.',
-      classPublicScanHint: 'Quét mã VietQR bằng ứng dụng ngân hàng để thanh toán. Ghi danh tự kích hoạt khi hệ thống đối soát thành công.',
+      classPublicScanHint:
+        'Quét mã VietQR bằng ứng dụng ngân hàng để thanh toán. Ghi danh tự kích hoạt khi hệ thống đối soát thành công.',
       classPublicPaymentCode: 'Mã thanh toán (nội dung chuyển khoản)',
       classPublicPayPending: 'Đang chờ đối soát thanh toán…',
       classPublicPaySucceeded: 'Thanh toán thành công — bạn đã vào lớp!',
@@ -343,7 +358,8 @@ export const appResources = {
       wizardClass: 'Lớp của khoá',
       wizardClassPick: 'Chọn lớp',
       wizardClassNewName: 'Tên lớp mới',
-      wizardClassStepHint: 'Khoá học phải nằm trong một lớp. Bạn chưa có lớp nào — tạo lớp ngay tại đây (chỉ cần tên), khoá sẽ thuộc lớp này.',
+      wizardClassStepHint:
+        'Khoá học phải nằm trong một lớp. Bạn chưa có lớp nào — tạo lớp ngay tại đây (chỉ cần tên), khoá sẽ thuộc lớp này.',
       wizardClassRequired: 'Hãy chọn hoặc tạo một lớp cho khoá học.',
       wizardClassCreateFailed: 'Không tạo được lớp cho khoá học.',
       navQuestions: 'Ngân hàng câu hỏi',
@@ -408,8 +424,7 @@ export const appResources = {
       loginFailed: 'Đăng nhập thất bại',
       signingIn: 'Đang đăng nhập…',
       signInWithEmailOtp: 'Đăng nhập bằng mã qua email',
-      emailOtpDescription:
-        'Nhập email của tài khoản, hệ thống sẽ gửi mã 6 số để bạn đăng nhập mà không cần mật khẩu.',
+      emailOtpDescription: 'Nhập email của tài khoản, hệ thống sẽ gửi mã 6 số để bạn đăng nhập mà không cần mật khẩu.',
       emailOtpSend: 'Gửi mã',
       emailOtpSending: 'Đang gửi…',
       emailOtpSentNotice: 'Mã đã được gửi tới {{email}}. Nhập mã 6 số trong email để tiếp tục.',
@@ -460,7 +475,8 @@ export const appResources = {
       oauthErrorEmailMissing: 'Nhà cung cấp không trả về email nên không thể hoàn tất đăng nhập.',
       oauthCallbackTitle: 'Đang hoàn tất đăng nhập…',
       oauthCallbackDescription: 'Hệ thống đang xác nhận phiên đăng nhập của bạn.',
-      oauthCallbackFailed: 'Không thể hoàn tất đăng nhập bằng tài khoản ngoài. Phiên có thể đã hết hạn — vui lòng thử lại.',
+      oauthCallbackFailed:
+        'Không thể hoàn tất đăng nhập bằng tài khoản ngoài. Phiên có thể đã hết hạn — vui lòng thử lại.',
       backToLogin: 'Về trang đăng nhập',
       linkedAccountsTitle: 'Tài khoản liên kết',
       linkedAccountsDescription: 'Các tài khoản ngoài bạn có thể dùng để đăng nhập vào LMS.',
@@ -527,7 +543,8 @@ export const appResources = {
       tenantStatusSuspended: 'Đã tạm dừng',
       tenantStatusArchived: 'Đã lưu trữ',
       tenantMembersTitle: 'Thành viên của trung tâm',
-      tenantMembersDescription: 'Membership được ghép với hồ sơ người dùng của đúng tenant đang chọn hoặc tenant hiệu lực.',
+      tenantMembersDescription:
+        'Membership được ghép với hồ sơ người dùng của đúng tenant đang chọn hoặc tenant hiệu lực.',
       tenantMembersLoadFailed: 'Không tải được thành viên của trung tâm này.',
       tenantMembersEmpty: 'Trung tâm này chưa có thành viên nào.',
       tenantMemberStatusActive: 'Đang hoạt động',
@@ -538,9 +555,11 @@ export const appResources = {
       tenantAddMemberTitle: 'Thêm thành viên có sẵn',
       tenantAddMember: 'Thêm thành viên',
       tenantMemberAdded: 'Đã thêm thành viên vào trung tâm.',
-      tenantMemberAddFailed: 'Không thể thêm thành viên (lỗi quyền, tenant không hoạt động hoặc người dùng không tồn tại).',
+      tenantMemberAddFailed:
+        'Không thể thêm thành viên (lỗi quyền, tenant không hoạt động hoặc người dùng không tồn tại).',
       tenantCreateUserTitle: 'Tạo người dùng trong trung tâm',
-      tenantCreateUserDescription: 'Tài khoản được tạo ở phạm vi toàn hệ thống và gắn membership vào trung tâm này ngay sau đó.',
+      tenantCreateUserDescription:
+        'Tài khoản được tạo ở phạm vi toàn hệ thống và gắn membership vào trung tâm này ngay sau đó.',
       tenantUserCreated: 'Đã tạo người dùng và thêm vào trung tâm.',
       tenantUserCreateFailed: 'Không thể tạo người dùng trong trung tâm (lỗi quyền hoặc dữ liệu chưa hợp lệ).',
       tenantMemberStatusUpdated: 'Đã đổi trạng thái thành viên.',
@@ -640,8 +659,7 @@ export const appResources = {
       saveRole: 'Lưu vai trò',
       savingRole: 'Đang lưu…',
       roleSaveFailed: 'Không lưu được vai trò. Kiểm tra lại rồi thử lại.',
-      roleCreatedMatrixFailed:
-        'Vai trò đã được tạo nhưng ma trận chưa lưu được. Sửa lại rồi bấm Lưu để thử lại.',
+      roleCreatedMatrixFailed: 'Vai trò đã được tạo nhưng ma trận chưa lưu được. Sửa lại rồi bấm Lưu để thử lại.',
       deleteRoleConfirm: 'Xoá vai trò “{{name}}”? Hành động này không thể hoàn tác.',
       deleteRoleArchetypeForbidden: 'Vai trò dựng sẵn không được xoá.',
       deleteRoleHasAssignments: 'Vai trò vẫn còn người giữ nên không xoá được.',
@@ -652,38 +670,46 @@ export const appResources = {
       categoryCreateFailed: 'Không thể tạo danh mục (lỗi quyền hoặc validation)',
       courseCreated: 'Đã tạo khoá học',
       wizardTitle: 'Tạo khoá học',
-      wizardDescription: 'Chọn một trong năm cách tạo khoá: từ khung chương trình, từ khung sách giáo khoa, nhân bản khoá có sẵn, khoá trắng, hoặc từ khoá mẫu của tổ/trường. Tạo xong sẽ vào thẳng trang xây dựng khoá học.',
+      wizardDescription:
+        'Chọn một trong năm cách tạo khoá: từ khung chương trình, từ khung sách giáo khoa, nhân bản khoá có sẵn, khoá trắng, hoặc từ khoá mẫu của tổ/trường. Tạo xong sẽ vào thẳng trang xây dựng khoá học.',
       wizardPathFrame: 'Từ khung chương trình',
       wizardPathFrameDesc: 'Tạo khoá theo môn × khối của CT GDPT 2018 và nạp sẵn các đơn vị khung đã chọn.',
       wizardPathBook: 'Từ khung sách giáo khoa',
       wizardPathBookDesc: 'Tạo khoá theo cấu trúc SGK bộ Kết nối tri thức với cuộc sống.',
       wizardPathDuplicate: 'Nhân bản khoá có sẵn',
-      wizardPathDuplicateDesc: 'Sao chép cấu trúc, nội dung và chính sách điểm của một khoá cũ (không chép người học và bài làm); bản sao ở trạng thái nháp.',
+      wizardPathDuplicateDesc:
+        'Sao chép cấu trúc, nội dung và chính sách điểm của một khoá cũ (không chép người học và bài làm); bản sao ở trạng thái nháp.',
       wizardPathBlank: 'Khoá trắng',
       wizardPathBlankDesc: 'Bắt đầu từ một khoá trống và tự xây dựng từng phần.',
       wizardPathTemplate: 'Từ khoá mẫu tổ/trường',
       wizardPathTemplateDesc: 'Tạo khoá từ một khoá mẫu đã được tổ chuyên môn hoặc trường chuẩn bị sẵn.',
-      wizardBookPending: 'Đường tạo khoá từ khung SGK đang được xây dựng ở feat K0b (tầng ánh xạ SGK). Trong lúc chờ, hãy dùng đường "Từ khung chương trình" — cùng một cơ chế nạp khung sẵn cho giáo viên.',
+      wizardBookPending:
+        'Đường tạo khoá từ khung SGK đang được xây dựng ở feat K0b (tầng ánh xạ SGK). Trong lúc chờ, hãy dùng đường "Từ khung chương trình" — cùng một cơ chế nạp khung sẵn cho giáo viên.',
       wizardUseFrameInstead: 'Dùng đường khung chương trình',
       wizardSourceCourse: 'Khoá nguồn để nhân bản',
       wizardPickSource: '— Chọn khoá nguồn —',
       wizardTemplateCourse: 'Khoá mẫu',
       wizardPickTemplate: '— Chọn khoá mẫu —',
-      wizardNoTemplates: 'Chưa có khoá mẫu nào. Quản trị viên hoặc tổ trưởng có thể đánh dấu một khoá là khoá mẫu trong trang xây dựng khoá học.',
+      wizardNoTemplates:
+        'Chưa có khoá mẫu nào. Quản trị viên hoặc tổ trưởng có thể đánh dấu một khoá là khoá mẫu trong trang xây dựng khoá học.',
       wizardCopySuffix: '(bản sao)',
-      wizardStartDateHint: 'Ngày bắt đầu mới là mốc lùi toàn bộ hạn trong khoá (hạn mở bài, hạn nộp quiz…) theo đúng khoảng chênh với khoá nguồn. Để trống nếu muốn giữ nguyên các mốc cũ.',
+      wizardStartDateHint:
+        'Ngày bắt đầu mới là mốc lùi toàn bộ hạn trong khoá (hạn mở bài, hạn nộp quiz…) theo đúng khoảng chênh với khoá nguồn. Để trống nếu muốn giữ nguyên các mốc cũ.',
       wizardCreateAndBuild: 'Tạo khoá và xây dựng',
       wizardBackToCourses: 'Về danh sách khoá học',
       wizardCreateFailed: 'Không tạo được khoá học. Kiểm tra lại thông tin (mã khoá có thể đã trùng) rồi thử lại.',
-      wizardListHint: 'Tạo khoá mới bằng wizard 5 đường: khung chương trình, khung SGK, nhân bản, khoá trắng hoặc khoá mẫu.',
+      wizardListHint:
+        'Tạo khoá mới bằng wizard 5 đường: khung chương trình, khung SGK, nhân bản, khoá trắng hoặc khoá mẫu.',
       wizardOpen: 'Mở wizard tạo khoá',
-      builderMovedDescription: 'Khu xây dựng khoá học (thông tin khoá, outline section/module, nạp khung, tiêu chí hoàn thành) đã chuyển sang trang Builder Outline riêng.',
+      builderMovedDescription:
+        'Khu xây dựng khoá học (thông tin khoá, outline section/module, nạp khung, tiêu chí hoàn thành) đã chuyển sang trang Builder Outline riêng.',
       builderOpen: 'Mở Builder Outline',
       builderNoAccess: 'Bạn không có quyền xây dựng khoá học này.',
       builderToAdmin: 'Quản trị khoá (nhóm, ghi danh)',
       builderIsTemplate: 'Khoá mẫu tổ/trường (hiện trong wizard tạo khoá, ẩn khỏi danh sách khoá thường)',
       builderOutlineTitle: 'Outline khoá học',
-      builderOutlineDescription: 'Kéo–thả hoặc dùng nút lên/xuống để đổi thứ tự; mỗi dòng đều có Nhân bản và Xoá. Thêm nội dung bằng menu chọn loại — không cần gõ mã loại nội dung.',
+      builderOutlineDescription:
+        'Kéo–thả hoặc dùng nút lên/xuống để đổi thứ tự; mỗi dòng đều có Nhân bản và Xoá. Thêm nội dung bằng menu chọn loại — không cần gõ mã loại nội dung.',
       builderStatusLabel: 'Trạng thái',
       builderStatusDraft: 'Nháp',
       builderStatusOpen: 'Đã mở',
@@ -703,7 +729,8 @@ export const appResources = {
       contentType_mod_quiz: 'Bài kiểm tra (Quiz)',
       contentType_mod_assign: 'Bài tập nộp tệp/ảnh',
       builderImportTitle: 'Dùng lại từ khoá khác',
-      builderImportDescription: 'Chép nguyên section hoặc từng module từ một khoá khác vào khoá này (quiz được nhân bản sâu, không mang theo bài làm của học viên).',
+      builderImportDescription:
+        'Chép nguyên section hoặc từng module từ một khoá khác vào khoá này (quiz được nhân bản sâu, không mang theo bài làm của học viên).',
       builderImportSource: 'Khoá nguồn',
       builderImportWholeSection: '(cả section)',
       builderImportSubmit: 'Chép vào khoá này',
@@ -818,7 +845,8 @@ export const appResources = {
       groupAddMemberLabel: 'Học sinh cần thêm vào nhóm',
       groupAddMember: 'Thêm vào nhóm',
       groupMemberAdded: 'Đã thêm thành viên vào nhóm',
-      groupMemberAddFailed: 'Không thể thêm thành viên vào nhóm (chỉ xếp được học sinh đang ghi danh hiệu lực trong khoá)',
+      groupMemberAddFailed:
+        'Không thể thêm thành viên vào nhóm (chỉ xếp được học sinh đang ghi danh hiệu lực trong khoá)',
       groupRemoveMember: 'Gỡ khỏi nhóm',
       groupMemberRemoved: 'Đã gỡ thành viên khỏi nhóm',
       groupMemberRemoveFailed: 'Không thể gỡ thành viên khỏi nhóm',
@@ -835,7 +863,8 @@ export const appResources = {
       groupDeleteFailed: 'Không thể xoá nhóm',
       noGroups: 'Chưa có nhóm nào.',
       groupModeSettings: 'Chế độ nhóm của khoá học',
-      groupModeDescription: 'Chế độ nhóm quyết định học sinh thấy các nhóm của nhau thế nào: nhóm tách biệt — mỗi nhóm chỉ thấy nhóm của mình; nhóm hiển thị — thấy mọi nhóm nhưng chỉ thao tác trong nhóm của mình. Bật ép buộc thì chế độ của khoá thắng mọi chế độ riêng của từng hoạt động.',
+      groupModeDescription:
+        'Chế độ nhóm quyết định học sinh thấy các nhóm của nhau thế nào: nhóm tách biệt — mỗi nhóm chỉ thấy nhóm của mình; nhóm hiển thị — thấy mọi nhóm nhưng chỉ thao tác trong nhóm của mình. Bật ép buộc thì chế độ của khoá thắng mọi chế độ riêng của từng hoạt động.',
       groupModeLoadFailed: 'Không tải được cài đặt chế độ nhóm của khoá.',
       groupModeLabel: 'Chế độ nhóm',
       groupModeNone: 'Không dùng nhóm',
@@ -846,7 +875,8 @@ export const appResources = {
       groupModeSaved: 'Đã lưu chế độ nhóm của khoá',
       groupModeSaveFailed: 'Không thể lưu chế độ nhóm của khoá',
       courseChatSettings: 'Nhắn tin lớp học',
-      courseChatSettingsDescription: 'Chat toàn lớp của khoá học: học viên đã ghi danh và giáo viên/staff nhắn tin hai chiều. Khi tắt, chỉ giáo viên/staff gửi được tin (học viên vẫn đọc được).',
+      courseChatSettingsDescription:
+        'Chat toàn lớp của khoá học: học viên đã ghi danh và giáo viên/staff nhắn tin hai chiều. Khi tắt, chỉ giáo viên/staff gửi được tin (học viên vẫn đọc được).',
       courseChatStateOn: 'Chat lớp đang BẬT: mọi thành viên của lớp gửi được tin.',
       courseChatStateOff: 'Chat lớp đang TẮT: chỉ giáo viên/staff gửi được tin.',
       courseChatEnable: 'Bật chat lớp',
@@ -1055,9 +1085,11 @@ export const appResources = {
       extraCreditSuffix: '(điểm cộng)',
       gradebook: 'Điểm theo bài',
       myGradesTitle: 'Điểm của tôi',
-      myGradesDescription: 'Điểm của từng bài trong khoá. Bài chấm theo chính sách thủ công chỉ hiện điểm sau khi giáo viên công bố.',
+      myGradesDescription:
+        'Điểm của từng bài trong khoá. Bài chấm theo chính sách thủ công chỉ hiện điểm sau khi giáo viên công bố.',
       gradesGridTitle: 'Bảng điểm lớp theo bài',
-      gradesGridDescription: 'Mỗi ô là điểm của đúng bài đó. Bảng này chỉ để xem — hệ thống không tính điểm tổng của khoá.',
+      gradesGridDescription:
+        'Mỗi ô là điểm của đúng bài đó. Bảng này chỉ để xem — hệ thống không tính điểm tổng của khoá.',
       gradesStudentColumn: 'Học sinh',
       gradesPublished: 'Đã công bố',
       gradesUnpublished: 'Chưa công bố',
@@ -1130,7 +1162,8 @@ export const appResources = {
       vneduMappingInvalid: 'Cần ít nhất 1 mục thường xuyên, đúng 1 mục giữa kỳ và đúng 1 mục cuối kỳ để xuất vnEdu.',
       importGradesCsvFile: 'Tệp CSV điểm (cột username khớp người học, các cột còn lại là mục điểm)',
       importGradesCsv: 'Nhập điểm từ CSV',
-      gradesImportSummary: 'Đã nhập {{imported}} điểm, bỏ qua {{skipped}} ô trống, {{errors}} lỗi, {{ignored}} cột bị bỏ qua.',
+      gradesImportSummary:
+        'Đã nhập {{imported}} điểm, bỏ qua {{skipped}} ô trống, {{errors}} lỗi, {{ignored}} cột bị bỏ qua.',
       gradesImportErrorLine: 'Dòng {{row}}, cột {{column}}: {{message}}',
       gradesImportFailed: 'Không thể nhập điểm từ tệp CSV này.',
       gradeHistoryTitle: 'Lịch sử điểm của học viên',
@@ -1156,9 +1189,11 @@ export const appResources = {
       version: 'Phiên bản',
       questionBankDescription: 'Sửa một câu hỏi sẽ tạo phiên bản mới; các phiên bản cũ được giữ lại.',
       myQuestionBank: 'Ngân hàng riêng của tôi',
-      myQuestionBankDescription: 'Câu hỏi của chính bạn. Câu copy từ ngân hàng chung về đây là của bạn — sửa tự do, hai bản độc lập tuyệt đối.',
+      myQuestionBankDescription:
+        'Câu hỏi của chính bạn. Câu copy từ ngân hàng chung về đây là của bạn — sửa tự do, hai bản độc lập tuyệt đối.',
       systemBank: 'Ngân hàng hệ thống',
-      systemBankDescription: 'Các ngân hàng CHUNG của hệ thống: câu hỏi chung, đề chung, ma trận chung. Copy câu về ngân hàng riêng để sửa theo ý, hoặc dùng thẳng vào đề (bản được ghim phiên bản).',
+      systemBankDescription:
+        'Các ngân hàng CHUNG của hệ thống: câu hỏi chung, đề chung, ma trận chung. Copy câu về ngân hàng riêng để sửa theo ý, hoặc dùng thẳng vào đề (bản được ghim phiên bản).',
       sharedQuestionBank: 'Ngân hàng câu hỏi chung',
       sharedExamBank: 'Ngân hàng đề chung',
       sharedMatrixBank: 'Ngân hàng ma trận chung',
@@ -1166,7 +1201,8 @@ export const appResources = {
       // MB-1 (issue #111): ngân hàng ma trận.
       matrixBank: 'Ngân hàng ma trận',
       myMatrixBank: 'Ma trận của tôi',
-      myMatrixBankDescription: 'Ma trận đề của chính bạn. Ma trận copy từ mẫu chung về đây là bản làm việc của bạn — sửa ô tự do, mẫu gốc không đổi.',
+      myMatrixBankDescription:
+        'Ma trận đề của chính bạn. Ma trận copy từ mẫu chung về đây là bản làm việc của bạn — sửa ô tự do, mẫu gốc không đổi.',
       matrixTemplateBadge: 'Mẫu',
       matrixStatusDraft: 'Nháp',
       matrixStatusReady: 'Sẵn sàng',
@@ -1210,7 +1246,8 @@ export const appResources = {
       matrixAvailabilityAvailable: 'Có',
       matrixAvailabilityDeficit: 'Thiếu',
       specSectionTitle: 'Bản đặc tả',
-      specSectionHint: 'Bản đặc tả được suy ra từ các ô của ma trận (không nhập riêng): cột Yêu cầu cần đạt lấy từ các yêu cầu cần đạt thuộc đơn vị kiến thức của từng ô.',
+      specSectionHint:
+        'Bản đặc tả được suy ra từ các ô của ma trận (không nhập riêng): cột Yêu cầu cần đạt lấy từ các yêu cầu cần đạt thuộc đơn vị kiến thức của từng ô.',
       specView: 'Xem bản đặc tả',
       specHide: 'Ẩn bản đặc tả',
       specExportExcel: 'Xuất Excel',
@@ -1228,7 +1265,8 @@ export const appResources = {
       matrixProposeHint: 'Ma trận phải ở trạng thái Sẵn sàng mới đề xuất đóng góp được.',
       examBank: 'Ngân hàng đề',
       myExamBank: 'Đề của tôi',
-      myExamBankDescription: 'Đề thi của chính bạn trong ngân hàng đề cá nhân. Soạn tự do, triển khai vào quiz của khoá (quiz ghim đúng phiên bản đề đã triển khai).',
+      myExamBankDescription:
+        'Đề thi của chính bạn trong ngân hàng đề cá nhân. Soạn tự do, triển khai vào quiz của khoá (quiz ghim đúng phiên bản đề đã triển khai).',
       examPaperName: 'Tên đề',
       examPaperNew: 'Soạn đề mới',
       examPaperEdit: 'Sửa đề',
@@ -1242,7 +1280,8 @@ export const appResources = {
       examPaperMarkReady: 'Đánh dấu sẵn sàng',
       examPaperHide: 'Ẩn đề',
       examPaperRestore: 'Khôi phục',
-      examPaperDeleteConfirm: 'Xoá vĩnh viễn đề này? Quiz đã triển khai giữ nguyên bộ câu đã chụp, chỉ mất liên kết về đề.',
+      examPaperDeleteConfirm:
+        'Xoá vĩnh viễn đề này? Quiz đã triển khai giữ nguyên bộ câu đã chụp, chỉ mất liên kết về đề.',
       examPaperDeleted: 'Đã xoá đề.',
       examPaperDeleteFailed: 'Không xoá được đề.',
       examPaperCopiedFrom: 'Copy từ đề của {{author}}',
@@ -1273,11 +1312,13 @@ export const appResources = {
       pinPickSection: 'Chọn chương',
       pinPickGroup: 'Nhóm đích (tuỳ chọn)',
       pinExamTitle: 'Đề đã ghim',
-      pinExamDescription: 'Nội dung thuộc về ĐỀ trong ngân hàng — lần ghim chỉ giữ cấu hình tổ chức. Tổng điểm tối đa: {{total}}.',
+      pinExamDescription:
+        'Nội dung thuộc về ĐỀ trong ngân hàng — lần ghim chỉ giữ cấu hình tổ chức. Tổng điểm tối đa: {{total}}.',
       pinExamSourceLine: 'Đề nguồn',
       pinExamGroupLine: 'Chỉ nhóm: {{group}}',
       pinExamWholeCourse: 'Toàn khoá',
-      pinExamFrozenNote: 'Các câu dưới đây là bản đã ghim của version đề — sửa nội dung trong trình soạn đề rồi nâng version tại đây.',
+      pinExamFrozenNote:
+        'Các câu dưới đây là bản đã ghim của version đề — sửa nội dung trong trình soạn đề rồi nâng version tại đây.',
       pinExamOpenEditor: 'Mở trình soạn đề',
       pinExamUpgradeVersion: 'Nâng lên version {{version}}',
       pinExamSlotMark: '{{mark}} điểm',
@@ -1287,7 +1328,8 @@ export const appResources = {
       pinVersionUpdateReview: 'Xem thay đổi & cập nhật',
       pinVersionUpdateTitle: 'Cập nhật bản đề đã ghim',
       pinVersionUpdateFromTo: 'Từ bản đề v{{from}} lên v{{to}}',
-      pinVersionUpdateBlocked: 'Lần ghim đã có lượt làm thật — version đề đã bị khoá, không áp được cập nhật. Nếu cần sửa đáp án của một câu, dùng đường chấm lại theo đáp án.',
+      pinVersionUpdateBlocked:
+        'Lần ghim đã có lượt làm thật — version đề đã bị khoá, không áp được cập nhật. Nếu cần sửa đáp án của một câu, dùng đường chấm lại theo đáp án.',
       pinVersionUpdateApply: 'Áp dụng cập nhật',
       pinVersionUpdateCancel: 'Đóng',
       pinVersionUpdateEmpty: 'Không có thay đổi nào giữa hai bản đề.',
@@ -1303,10 +1345,13 @@ export const appResources = {
       pinVersionModeLabel: 'Chế độ version câu hỏi',
       pinVersionMode_pinned: 'Ghim cứng (mặc định)',
       pinVersionMode_float_latest_ready: 'Trôi theo bản ready mới nhất (chỉ luyện tập)',
-      pinVersionModeHint: 'Chế độ trôi chỉ áp dụng cho lần ghim luyện tập (preset thường xuyên). Kiểm tra chính thức luôn ghim cứng để mọi học sinh trong cùng cửa sổ làm đúng một version.',
-      pinVersionModeNotAllowed: 'Không thể bật chế độ trôi cho lần ghim này: chỉ lần ghim luyện tập (preset thường xuyên) mới được trôi theo bản ready mới nhất.',
+      pinVersionModeHint:
+        'Chế độ trôi chỉ áp dụng cho lần ghim luyện tập (preset thường xuyên). Kiểm tra chính thức luôn ghim cứng để mọi học sinh trong cùng cửa sổ làm đúng một version.',
+      pinVersionModeNotAllowed:
+        'Không thể bật chế độ trôi cho lần ghim này: chỉ lần ghim luyện tập (preset thường xuyên) mới được trôi theo bản ready mới nhất.',
       regradeTitle: 'Chấm lại theo đáp án',
-      regradeDescription: 'Khi đáp án của một câu bị ghi sai: sửa câu trong ngân hàng để tạo version đúng, rồi chấm lại các lượt đã nộp theo version đó. Xem trước điểm đổi trước khi áp.',
+      regradeDescription:
+        'Khi đáp án của một câu bị ghi sai: sửa câu trong ngân hàng để tạo version đúng, rồi chấm lại các lượt đã nộp theo version đó. Xem trước điểm đổi trước khi áp.',
       regradeQuestionLabel: 'Câu hỏi',
       regradeVersionLabel: 'Version đúng',
       regradeDryRun: 'Xem trước điểm đổi',
@@ -1332,7 +1377,8 @@ export const appResources = {
       matrixImportTemplateDownload: 'Tải file mẫu',
       matrixImportTemplateFailed: 'Không tải được file mẫu.',
       matrixImportSubjectsFailed: 'Không tải được danh sách môn học/chương trình. Vui lòng tải lại trang và thử lại.',
-      matrixImportTemplateHint: 'Tải mẫu do hệ sinh cho đúng môn, chương trình và bộ mức đã chọn, điền số vào file đó rồi tải lên ở bước sau.',
+      matrixImportTemplateHint:
+        'Tải mẫu do hệ sinh cho đúng môn, chương trình và bộ mức đã chọn, điền số vào file đó rồi tải lên ở bước sau.',
       matrixImportNext: 'Tiếp tục',
       matrixImportBack: 'Quay lại',
       matrixImportFileLabel: 'Chọn file .xlsx đã điền',
@@ -1350,7 +1396,8 @@ export const appResources = {
       matrixImportConfirm: 'Xác nhận ghi ma trận',
       matrixImportCommit: 'Ghi ma trận',
       matrixImportCommitFailed: 'Không ghi được ma trận.',
-      matrixImportCommitRejected: 'File không còn hợp lệ tại thời điểm ghi — chưa ghi ma trận nào. Hãy sửa file theo các lỗi dưới đây rồi tải lại.',
+      matrixImportCommitRejected:
+        'File không còn hợp lệ tại thời điểm ghi — chưa ghi ma trận nào. Hãy sửa file theo các lỗi dưới đây rồi tải lại.',
       matrixImportChooseOtherFile: 'Chọn file khác',
       matrixImportResult: 'Ma trận đã sẵn sàng',
       matrixImportOpenEdit: 'Mở trang sửa ma trận',
@@ -1363,7 +1410,8 @@ export const appResources = {
       deployPickCourse: 'Chọn khoá học',
       deployVariantCount: 'Số mã đề',
       swapAction: 'Đổi câu cùng ô',
-      swapPickHint: 'Đang đổi câu ở vị trí {{position}}: tìm câu thay thế bên dưới (phải thuộc pool của ô nguồn) rồi bấm "Thay vào ô này".',
+      swapPickHint:
+        'Đang đổi câu ở vị trí {{position}}: tìm câu thay thế bên dưới (phải thuộc pool của ô nguồn) rồi bấm "Thay vào ô này".',
       swapApply: 'Thay vào ô này',
       swapOk: 'Đã đổi câu (phiên bản {{version}}).',
       swapFailed: 'Không đổi được câu.',
@@ -1449,7 +1497,8 @@ export const appResources = {
       newMatrix: 'Ma trận mới',
       editQuestionTitle: 'Sửa câu hỏi: {{name}}',
       programmeHeading: 'Chương trình',
-      programmeDescription: 'Gắn câu hỏi vào môn học và yêu cầu cần đạt (YCCĐ) của chương trình GDPT 2018. Mức độ nhận thức nằm trên từng cặp câu hỏi × YCCĐ.',
+      programmeDescription:
+        'Gắn câu hỏi vào môn học và yêu cầu cần đạt (YCCĐ) của chương trình GDPT 2018. Mức độ nhận thức nằm trên từng cặp câu hỏi × YCCĐ.',
       programmeSubjects: 'Môn học đã gắn',
       programmePickSubject: 'Chọn môn học',
       programmeOutcomes: 'Yêu cầu cần đạt đã gắn',
@@ -1501,7 +1550,8 @@ export const appResources = {
       guidanceHeading: 'Hướng dẫn',
       modelAnswer: 'Lời giải mẫu (solution)',
       modelAnswerHeading: 'Lời giải mẫu',
-      mcAuthoringHint: 'Soạn thân câu và 4 lựa chọn ngay trong khung soạn; bấm nút tròn tại một lựa chọn để đặt làm đáp án đúng, kéo-thả lựa chọn để đổi thứ tự.',
+      mcAuthoringHint:
+        'Soạn thân câu và 4 lựa chọn ngay trong khung soạn; bấm nút tròn tại một lựa chọn để đặt làm đáp án đúng, kéo-thả lựa chọn để đổi thứ tự.',
       correctFeedback: 'Phản hồi khi đúng hoàn toàn',
       incorrectFeedback: 'Phản hồi khi sai',
       answerFeedback: 'Phản hồi cho lựa chọn {{index}}',
@@ -1515,7 +1565,8 @@ export const appResources = {
       answerNumberingIIII: 'I, II, III',
       answerNumberingNone: 'Không đánh số',
       tfStatementsHeading: 'Các mệnh đề đúng/sai',
-      tfAuthoringHint: 'Soạn thân câu chung và đúng 4 mệnh đề ngay trong khung soạn; chọn Đúng/Sai tại từng mệnh đề để đặt đáp án của mệnh đề đó.',
+      tfAuthoringHint:
+        'Soạn thân câu chung và đúng 4 mệnh đề ngay trong khung soạn; chọn Đúng/Sai tại từng mệnh đề để đặt đáp án của mệnh đề đó.',
       tfStatement: 'Mệnh đề {{index}}',
       addStatement: 'Thêm mệnh đề',
       removeStatement: 'Xoá mệnh đề {{index}}',
@@ -1534,7 +1585,8 @@ export const appResources = {
       graderInfo: 'Thông tin cho người chấm (grader info)',
       responseTemplate: 'Khung bài làm mẫu (response template)',
       stimuli: 'Ngữ liệu',
-      stimuliDescription: 'Ngữ liệu dùng chung trong danh mục đang chọn; gắn ngữ liệu vào phiên bản câu hỏi khi soạn câu.',
+      stimuliDescription:
+        'Ngữ liệu dùng chung trong danh mục đang chọn; gắn ngữ liệu vào phiên bản câu hỏi khi soạn câu.',
       newStimulus: 'Ngữ liệu mới',
       stimulusContent: 'Nội dung ngữ liệu',
       createStimulus: 'Tạo ngữ liệu',
@@ -1633,7 +1685,8 @@ export const appResources = {
       assignKind_frame: 'Khoanh vùng',
       assignKind_draw: 'Nét vẽ',
       assignSubmissionsTitle: 'Bài nộp của lớp',
-      assignSubmissionsHint: 'Bấm "Chấm bài" ở từng học sinh để xem bài nộp, thả dấu chấm và nhập gói chấm; học sinh chỉ thấy kết quả sau khi trả bài.',
+      assignSubmissionsHint:
+        'Bấm "Chấm bài" ở từng học sinh để xem bài nộp, thả dấu chấm và nhập gói chấm; học sinh chỉ thấy kết quả sau khi trả bài.',
       assignSubmissionsEmpty: 'Chưa có học sinh nào trong danh sách.',
       assignFileCount: '{{count}} tệp',
       assignGradeStatus_none: 'Chưa chấm',
@@ -1726,7 +1779,8 @@ export const appResources = {
       quizNoMoreAttempts: 'Bạn đã hết số lần làm cho phép.',
       quizNoQuestions: 'Đề chưa có câu hỏi nào.',
       quizBuildTitle: 'Dựng đề',
-      quizBuildDescription: 'Điểm từng câu nằm ở slot của đề này (tổng hiện tại: {{total}}); điểm mặc định trong ngân hàng câu hỏi chỉ là gợi ý khi thêm câu.',
+      quizBuildDescription:
+        'Điểm từng câu nằm ở slot của đề này (tổng hiện tại: {{total}}); điểm mặc định trong ngân hàng câu hỏi chỉ là gợi ý khi thêm câu.',
       quizSlotLine: 'Câu {{slot}} (trang {{page}}):',
       quizSlotFixed: 'câu cố định',
       quizSlotRandom: 'câu ngẫu nhiên theo danh mục',
@@ -1756,7 +1810,8 @@ export const appResources = {
       quizEffectiveNote: 'Đang áp dụng ghi đè riêng cho bạn — cửa sổ và giới hạn dưới đây là của riêng bạn.',
       quizMakeupBadge: 'Kiểm tra bù',
       quizOverridesTitle: 'Ghi đè cho học sinh/nhóm (kiểm tra bù, cộng giờ)',
-      quizOverridesDescription: 'Ghi đè chỉ áp cho đúng học sinh/nhóm được chọn; trường để trống = kế thừa cài đặt chung của đề. Xoá trắng một trường khi sửa = bỏ ghi đè trường đó.',
+      quizOverridesDescription:
+        'Ghi đè chỉ áp cho đúng học sinh/nhóm được chọn; trường để trống = kế thừa cài đặt chung của đề. Xoá trắng một trường khi sửa = bỏ ghi đè trường đó.',
       quizOverridesEmpty: 'Chưa có ghi đè nào.',
       quizOverridesLoadFailed: 'Không thể tải danh sách ghi đè.',
       quizOverrideActionFailed: 'Thao tác ghi đè thất bại.',
@@ -1791,7 +1846,8 @@ export const appResources = {
       quizAttemptLoadFailed: 'Không thể tải lượt làm.',
       quizAttemptActionFailed: 'Thao tác làm bài thất bại.',
       quizAttemptHeaderLine: 'Lượt làm {{number}} — {{state}}',
-      quizAttemptInstructions: 'Trả lời từng câu rồi bấm lưu; bấm "Nộp bài" để chốt điểm. Điểm chỉ được tính khi nộp bài.',
+      quizAttemptInstructions:
+        'Trả lời từng câu rồi bấm lưu; bấm "Nộp bài" để chốt điểm. Điểm chỉ được tính khi nộp bài.',
       quizTimeRemaining: 'Thời gian còn lại: {{minutes}} phút {{seconds}} giây',
       quizClosedByTimeLimit: 'Đã hết giờ làm bài — lượt làm đã được hệ thống tự chốt.',
       quizResultSummary: 'Kết quả: {{sum}}/{{total}} điểm câu — điểm bài {{grade}}/{{max}}',
@@ -1823,7 +1879,8 @@ export const appResources = {
       paperLoadFailed: 'Không thể tải dữ liệu chấm bài giấy (cần quyền chấm bài giấy tại bài thi này).',
       paperActionFailed: 'Thao tác thất bại.',
       paperBatchesTitle: 'Lô in phiếu (mã đề)',
-      paperBatchesDescription: 'Mỗi lô in là một mã đề: bố cục đề được ghim tại thời điểm sinh lô, danh sách lớp được chụp kèm mã tô cho phiếu dùng chung (4 số tại lớp, 8 số thi thử theo phòng). In phiếu dùng chung theo chồng rồi phát kèm đề — học sinh tự ghi + tô mã, hệ thống khớp lại theo mã.',
+      paperBatchesDescription:
+        'Mỗi lô in là một mã đề: bố cục đề được ghim tại thời điểm sinh lô, danh sách lớp được chụp kèm mã tô cho phiếu dùng chung (4 số tại lớp, 8 số thi thử theo phòng). In phiếu dùng chung theo chồng rồi phát kèm đề — học sinh tự ghi + tô mã, hệ thống khớp lại theo mã.',
       paperNoBatches: 'Chưa có lô phiếu nào.',
       paperBatchLine: 'Mã đề {{code}} · mã tô {{exam}} — {{count}} học sinh, {{slots}} câu',
       paperVariantLabel: 'Mã biến thể (để trống = tự đánh)',
@@ -1836,7 +1893,8 @@ export const appResources = {
       paperDownloadBlank: 'Tải phiếu dùng chung (PDF)',
       paperCopiesLabel: 'Số bản phiếu dùng chung',
       paperUploadTitle: 'Tải ảnh phiếu đã chụp (theo buổi)',
-      paperUploadHint: 'Tải cả chồng phiếu của buổi một lượt, không cần tách theo mã đề — hệ thống đọc mã đề trên từng phiếu và tự khớp về đúng lô in; phiếu không khớp được sẽ vào hàng chờ. Ảnh mờ, lóa, quá tối hoặc thiếu góc định vị sẽ bị từ chối ngay kèm lý do — hãy chụp lại thay vì cố tải lên.',
+      paperUploadHint:
+        'Tải cả chồng phiếu của buổi một lượt, không cần tách theo mã đề — hệ thống đọc mã đề trên từng phiếu và tự khớp về đúng lô in; phiếu không khớp được sẽ vào hàng chờ. Ảnh mờ, lóa, quá tối hoặc thiếu góc định vị sẽ bị từ chối ngay kèm lý do — hãy chụp lại thay vì cố tải lên.',
       paperUploadButton: 'Tải ảnh lên',
       paperUploadStored: 'đã nhận',
       paperUploadRejected: 'bị từ chối',
@@ -1848,14 +1906,16 @@ export const appResources = {
       paperReason_rejected: 'không đạt cổng chất lượng',
       paperQueueIdentityTitle: 'Hàng chờ gán học sinh',
       paperQueueReviewTitle: 'Hàng chờ xác nhận câu mơ hồ',
-      paperQueueReviewDescription: 'Hệ thống không chấm đoán: câu tô mờ, đánh dấu ✓, tô hai ô hoặc tẩy xoá phải do giáo viên nhìn ảnh và quyết.',
+      paperQueueReviewDescription:
+        'Hệ thống không chấm đoán: câu tô mờ, đánh dấu ✓, tô hai ô hoặc tẩy xoá phải do giáo viên nhìn ảnh và quyết.',
       paperQueueReadyTitle: 'Sẵn sàng ghi điểm',
       paperQueueRecordedTitle: 'Đã ghi điểm',
       paperQueueEmpty: 'Không có phiếu nào.',
       paperFromBatch: 'Lô {{code}}',
       paperNoBatch: 'Chưa gắn lô in',
       paperVariantRead: 'mã đề đọc được: {{code}}',
-      paperVariantMismatch: 'Mã đề đọc được {{read}} khác mã đề của lô {{exam}} — phiếu bị chặn ghi điểm; hãy gán lại đúng lô hoặc xoá phiếu.',
+      paperVariantMismatch:
+        'Mã đề đọc được {{read}} khác mã đề của lô {{exam}} — phiếu bị chặn ghi điểm; hãy gán lại đúng lô hoặc xoá phiếu.',
       paperSelectBatch: 'Chọn lô in',
       paperAssignBatch: 'Gán lô này',
       paperRegionCode: 'Vùng mã đã tô',
@@ -1879,7 +1939,8 @@ export const appResources = {
       quizResultsNoGrade: 'chưa có điểm',
       quizResultsNoAttempts: 'Chưa có lượt làm nào.',
       quizGradingQueueTitle: 'Hàng đợi chấm tay (essay)',
-      quizGradingQueueDescription: 'Chấm từng câu tự luận; điểm bài của học sinh được tính lại và ghi vào sổ điểm ngay sau khi chấm xong câu cuối cùng.',
+      quizGradingQueueDescription:
+        'Chấm từng câu tự luận; điểm bài của học sinh được tính lại và ghi vào sổ điểm ngay sau khi chấm xong câu cuối cùng.',
       quizGradingQueueEmpty: 'Không có câu nào đang chờ chấm.',
       quizGradingLine: 'Câu {{slot}} (tối đa {{max}} điểm) — học sinh {{user}}, lượt {{number}}',
       quizGradingMark: 'Điểm',
@@ -1888,7 +1949,8 @@ export const appResources = {
       quizGradeFailed: 'Chấm điểm thất bại.',
       quizStatsSlotLine: 'Câu {{slot}} (tối đa {{max}} điểm)',
       quizStatsTitle: 'Thống kê câu hỏi',
-      quizStatsDescription: 'Câu sai nhiều nhất xếp trước. "Làm sai" là câu đã chấm mà chưa đạt trọn điểm; chỉ tính các lượt đã nộp.',
+      quizStatsDescription:
+        'Câu sai nhiều nhất xếp trước. "Làm sai" là câu đã chấm mà chưa đạt trọn điểm; chỉ tính các lượt đã nộp.',
       quizStatsRandomSlot: 'Câu ngẫu nhiên',
       quizStatsWrongOf: '{{wrong}}/{{graded}} lượt đã chấm làm sai',
       quizStatsFullyWrongPart: '{{count}} sai hẳn',
@@ -2277,7 +2339,8 @@ export const appResources = {
       curriculumImportFailed: 'Đồng bộ dữ liệu thất bại.',
       curriculumImportResult: 'mới {{created}} · cập nhật {{updated}} · bỏ qua {{skipped}}',
       curriculumImportRetired: 'đang rút khỏi chương trình: {{outcomes}} YCCĐ · {{nodes}} node ngoài dataset',
-      curriculumImportChanges: 'thay đổi lần nạp này: sửa chữ {{textChanged}} · thêm {{added}} · rút {{removed}} · dời vị trí {{moved}} · hồi sinh {{revived}}',
+      curriculumImportChanges:
+        'thay đổi lần nạp này: sửa chữ {{textChanged}} · thêm {{added}} · rút {{removed}} · dời vị trí {{moved}} · hồi sinh {{revived}}',
       curriculumImportChangeFlag: 'cần người duyệt đối chiếu',
       curriculumImportChangesOmitted: '… và {{count}} thay đổi nữa không liệt kê',
       curriculumChangeTextChanged: 'sửa chữ',
@@ -2288,7 +2351,8 @@ export const appResources = {
       curriculumContentColumn: 'Nội dung',
       curriculumSubjectsTitle: 'Môn học',
       curriculumCreateSubject: 'Tạo môn học',
-      curriculumNoSubjects: 'Chưa có môn học nào. Chương trình chuẩn đã có sẵn sau khi seed cơ sở dữ liệu; tạo môn thủ công nếu cần thêm.',
+      curriculumNoSubjects:
+        'Chưa có môn học nào. Chương trình chuẩn đã có sẵn sau khi seed cơ sở dữ liệu; tạo môn thủ công nếu cần thêm.',
       curriculumEdit: 'Sửa',
       curriculumDelete: 'Xoá',
       curriculumConfirmDeleteSubject: 'Xoá môn "{{name}}" cùng toàn bộ chương trình của môn này?',
@@ -2520,7 +2584,7 @@ export const appResources = {
       prefMinimalNote:
         'Tài khoản học sinh chỉ tuỳ chỉnh được thông báo theo từng khoá học ở mục Ngoại lệ theo khoá học bên dưới.',
     },
-  }
+  },
 } as const;
 
 /**
@@ -2564,7 +2628,8 @@ export const dashboardResources = {
       chartAdminDescription: 'Số tài khoản được tạo theo tuần (8 tuần gần nhất)',
       chartAdminSeries: 'Người dùng mới',
       chartTeacherTitle: 'Phân bố điểm của học viên',
-      chartTeacherDescription: 'Từng điểm bài kiểm tra, bài tập trong các khoá tôi dạy, quy về tỉ lệ % của điểm tối đa và gom theo khoảng',
+      chartTeacherDescription:
+        'Từng điểm bài kiểm tra, bài tập trong các khoá tôi dạy, quy về tỉ lệ % của điểm tối đa và gom theo khoảng',
       chartTeacherSeries: 'Học viên',
       chartStudentTitle: 'Sự kiện sắp tới',
       chartStudentDescription: 'Số sự kiện theo ngày trong 30 ngày tới',
@@ -2617,7 +2682,7 @@ export const dashboardResources = {
       gradingPaperPart: '{{count}} phiếu giấy chờ xử lý',
       viewGradingQueue: 'Tới hàng đợi chấm',
     },
-  }
+  },
 } as const;
 
 /**
@@ -2630,7 +2695,8 @@ export const guardianResources = {
     guardian: {
       title: 'Theo dõi học tập của con',
       subtitle: 'Chỉ xem: việc học tuần này, kết quả đã công bố, thông báo lớp và tiến độ của con.',
-      noChildren: 'Tài khoản của bạn chưa được liên kết với học sinh nào. Nhà trường xác lập liên kết giám hộ theo hồ sơ đã xác minh — vui lòng liên hệ nhà trường nếu cần hỗ trợ.',
+      noChildren:
+        'Tài khoản của bạn chưa được liên kết với học sinh nào. Nhà trường xác lập liên kết giám hộ theo hồ sơ đã xác minh — vui lòng liên hệ nhà trường nếu cần hỗ trợ.',
       loadError: 'Không tải được dữ liệu. Vui lòng thử lại sau.',
       chooseChild: 'Chọn con',
       weeklyTitle: 'Tuần này của con',
@@ -2666,13 +2732,14 @@ export const guardianResources = {
       commentLabel: 'Nhận xét tổng kỳ',
       yearLabel: 'Cả năm',
       digestTitle: 'Thông báo tổng hợp',
-      digestDescription: 'Hệ thống tổng hợp kết quả đã công bố, thông báo lớp, việc quá hạn và việc sắp đến hạn của con rồi gửi cho bạn theo tần suất đã chọn. Thông báo gửi ra ngoài chỉ nhắc có thông tin mới, không kèm điểm số.',
+      digestDescription:
+        'Hệ thống tổng hợp kết quả đã công bố, thông báo lớp, việc quá hạn và việc sắp đến hạn của con rồi gửi cho bạn theo tần suất đã chọn. Thông báo gửi ra ngoài chỉ nhắc có thông tin mới, không kèm điểm số.',
       digestWeekly: 'Hàng tuần',
       digestDaily: 'Hàng ngày',
       digestOff: 'Tắt',
       digestError: 'Không lưu được tần suất. Vui lòng thử lại.',
     },
-  }
+  },
 } as const;
 
 /** Promise import module catalog en — dùng chung cho mọi lần `read` (bốn
@@ -2703,9 +2770,7 @@ const englishCatalogBackend: BackendModule = {
     });
     englishCatalogModule
       .then((module) => {
-        const bundles = module.enResources as Readonly<
-          Record<string, Readonly<Record<string, string>>>
-        >;
+        const bundles = module.enResources as Readonly<Record<string, Readonly<Record<string, string>>>>;
         callback(null, bundles[namespace] ?? {});
       })
       .catch((error: unknown) => {

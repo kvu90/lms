@@ -11,13 +11,7 @@ import {
 import { Empty, EmptyHeader, EmptyTitle } from '@lms/ui/components/empty';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
 import { Input } from '@lms/ui/components/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@lms/ui/components/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@lms/ui/components/select';
 import { Ellipsis } from 'lucide-react';
 import { PageSkeleton } from '#components/page-skeleton';
 import { ErrorAlert } from '#components/error-alert';
@@ -100,9 +94,7 @@ export function AdminRolesPage() {
       <PageHeader title={t('rolesTitle')} description={t('rolesDescription')} />
       {loadFailed ? (
         <>
-          <ErrorAlert variant="destructive">
-            {t('rolesLoadFailed')}
-          </ErrorAlert>
+          <ErrorAlert variant="destructive">{t('rolesLoadFailed')}</ErrorAlert>
           <div>
             <Button
               type="button"
@@ -142,9 +134,7 @@ export function AdminRolesPage() {
                             <Ellipsis aria-hidden />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => setMatrixDialog({ mode: 'edit', role: r })}
-                            >
+                            <DropdownMenuItem onClick={() => setMatrixDialog({ mode: 'edit', role: r })}>
                               {t('editRole')}
                             </DropdownMenuItem>
                             <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(r)}>
@@ -160,9 +150,7 @@ export function AdminRolesPage() {
                         {t('roleReadOverrides', { count: r.readOverrideCount ?? 0 })} ·{' '}
                         {t('roleWriteOverrides', { count: r.writeOverrideCount ?? 0 })}
                       </p>
-                      <p className="text-sm">
-                        {t('roleTotalResources', { count: r.resourceCount ?? 0 })}
-                      </p>
+                      <p className="text-sm">{t('roleTotalResources', { count: r.resourceCount ?? 0 })}</p>
                     </CardContent>
                   </Card>
                 ))}

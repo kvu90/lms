@@ -56,9 +56,27 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
         ]);
       if (url === '/api/v1/access/capabilities')
         return respond([
-          { id: '01900000-0000-7000-8000-0000000000c1', name: 'course:view', capType: 'read', contextLevel: 50, component: 'core' },
-          { id: '01900000-0000-7000-8000-0000000000c2', name: 'course:edit', capType: 'write', contextLevel: 50, component: 'core' },
-          { id: '01900000-0000-7000-8000-0000000000c3', name: 'user:view', capType: 'read', contextLevel: 30, component: 'core' },
+          {
+            id: '01900000-0000-7000-8000-0000000000c1',
+            name: 'course:view',
+            capType: 'read',
+            contextLevel: 50,
+            component: 'core',
+          },
+          {
+            id: '01900000-0000-7000-8000-0000000000c2',
+            name: 'course:edit',
+            capType: 'write',
+            contextLevel: 50,
+            component: 'core',
+          },
+          {
+            id: '01900000-0000-7000-8000-0000000000c3',
+            name: 'user:view',
+            capType: 'read',
+            contextLevel: 30,
+            component: 'core',
+          },
         ]);
       if (url === '/api/v1/access/contexts')
         return respond([
@@ -72,7 +90,13 @@ function stubFetch(calls: RecordedCall[], options: StubOptions = {}) {
           { roleId: ROLE_ID, capability: 'course:edit', contextId: TENANT_CONTEXT_ID, permission: 1 },
         ]);
       if (url === '/api/v1/access/roles' && method === 'POST')
-        return respond({ id: NEW_ROLE_ID, name: 'Vai trò mới', shortName: 'newrole', description: '', archetype: null });
+        return respond({
+          id: NEW_ROLE_ID,
+          name: 'Vai trò mới',
+          shortName: 'newrole',
+          description: '',
+          archetype: null,
+        });
       if (url === `/api/v1/access/roles/${ROLE_ID}` && method === 'PATCH') return respond({});
       if (url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && method === 'PUT') return respond([]);
       if (url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && method === 'PUT') return respond([]);
@@ -168,14 +192,10 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '1');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
 
-    await waitFor(() =>
-      expect(calls.some((c) => c.url === '/api/v1/access/roles' && c.method === 'POST')).toBe(true),
-    );
+    await waitFor(() => expect(calls.some((c) => c.url === '/api/v1/access/roles' && c.method === 'POST')).toBe(true));
     await waitFor(() =>
       expect(
-        calls.some(
-          (c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && c.method === 'PUT',
-        ),
+        calls.some((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities` && c.method === 'PUT'),
       ).toBe(true),
     );
     const put = calls.find((c) => c.url === `/api/v1/access/roles/${NEW_ROLE_ID}/capabilities`);
@@ -196,29 +216,26 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await openEditDialog();
     const dialog = screen.getByRole('dialog', { name: 'Sửa vai trò' });
     // Ngữ cảnh hệ thống mặc định: course:view đã lưu Ngăn chặn (−1).
-    await waitFor(() =>
-      expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'),
-    );
+    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('-1'));
     // Chuyển sang ngữ cảnh trung tâm: course:view không có ghi đè ở đó nên về Kế thừa, course:edit giữ Cho phép.
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), TENANT_CONTEXT_ID);
-    await waitFor(() =>
-      expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('0'),
-    );
+    await waitFor(() => expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('0'));
     expect((within(dialog).getByLabelText('course:edit') as HTMLSelectElement).value).toBe('1');
     // Lưu ở ngữ cảnh trung tâm: một PATCH tên/mô tả rồi đúng một PUT cho ngữ cảnh đó.
     await userEvent.selectOptions(within(dialog).getByLabelText('course:view'), '-1000');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Lưu vai trò' }));
     await waitFor(() =>
-      expect(
-        calls.some((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT'),
-      ).toBe(true),
+      expect(calls.some((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT')).toBe(
+        true,
+      ),
     );
     const put = calls.find((c) => c.url === `/api/v1/access/roles/${ROLE_ID}/capabilities` && c.method === 'PUT');
+    // Thứ tự tập gửi lên theo thứ tự danh mục năng lực, không theo thứ tự dòng đã lưu.
     expect(put?.body).toEqual({
       contextId: TENANT_CONTEXT_ID,
       overrides: [
-        { capability: 'course:edit', permission: 1 },
         { capability: 'course:view', permission: -1000 },
+        { capability: 'course:edit', permission: 1 },
       ],
     });
   });
@@ -267,7 +284,10 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     await userEvent.type(within(dialog).getByLabelText('Tên ngắn (shortName)'), 'newrole');
     await userEvent.selectOptions(within(dialog).getByLabelText('Ngữ cảnh'), SYSTEM_CONTEXT_ID);
     await userEvent.selectOptions(within(dialog).getByLabelText('Chọn nhanh cho nhóm course'), '1');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Áp cho hàng' }));
+    // Mỗi nhóm resource có một nút "Áp cho hàng" riêng nên phải khoanh vùng theo nhóm course.
+    await userEvent.click(
+      within(screen.getByRole('region', { name: 'course' })).getByRole('button', { name: 'Áp cho hàng' }),
+    );
     expect((within(dialog).getByLabelText('course:view') as HTMLSelectElement).value).toBe('1');
     expect((within(dialog).getByLabelText('course:edit') as HTMLSelectElement).value).toBe('1');
     expect((within(dialog).getByLabelText('user:view') as HTMLSelectElement).value).toBe('0');
@@ -298,9 +318,7 @@ describe('Trang vai trò — lưới thẻ và hộp thoại ma trận (đợt 2
     const dialog = await screen.findByRole('dialog', { name: 'Xoá vai trò' });
     expect(within(dialog).getByText(/Xoá vai trò “Giáo viên”/)).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Xoá vai trò' }));
-    await waitFor(() =>
-      expect(screen.getByText('Vai trò vẫn còn người giữ nên không xoá được.')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('Vai trò vẫn còn người giữ nên không xoá được.')).toBeInTheDocument());
     // Hộp thoại vẫn mở, vai trò vẫn trên lưới.
     expect(screen.getByRole('dialog', { name: 'Xoá vai trò' })).toBeInTheDocument();
     expect(screen.getByText('Giáo viên')).toBeInTheDocument();
