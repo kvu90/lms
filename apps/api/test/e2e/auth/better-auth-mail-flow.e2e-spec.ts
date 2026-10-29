@@ -3,23 +3,25 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
 import { Client } from 'pg';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { renderAuthMail, type AuthMailPayload } from '@lms/contracts';
 import type { BetterAuthService } from '../../../src/modules/auth/better-auth/better-auth.service';
 import type { CredentialBridgeService } from '../../../src/modules/auth/better-auth/credential-bridge.service';
 import type { MailMessage } from '../../../src/modules/mail/mail.types';
-import type { ResendMailService } from '../../../src/modules/mail/resend-mail.service';
 
 /**
  * Flow test của lát BA-2 (issue #7, chặng 2.5): mail auth qua Resend +
  * reset mật khẩu end-to-end + đăng nhập bằng email OTP.
  *
- * Cách kiểm chứng "mailer giả lập": transport ResendMailService bị
- * thay hàm `send` bằng bản ghi lại (không gọi Resend thật — env test
- * cũng không có RESEND_API_KEY), nhưng MỌI mắt xích còn lại là đồ
- * thật: endpoint Better Auth → callback → AuthMailService ghi outbox
- * → AuthMailConsumer quét outbox → transport. Mail "đã gửi" được đọc
- * từ bản ghi đó để lấy liên kết reset / mã OTP như người dùng thật
- * nhận qua email.
+ * Cách kiểm chứng nội dung mail: MỌI mắt xích phía API là đồ thật —
+ * endpoint Better Auth → callback → AuthMailService ghi dòng outbox
+ * `auth_mail_requested` (đồng bộ trong request). Mail "người dùng
+ * nhận" được dựng từ chính dòng outbox đó bằng `renderAuthMail` của
+ * `@lms/contracts` — hàm dùng chung duy nhất mà processor ở phía
+ * worker gọi khi gửi thật (issue #517: khâu gửi đã chuyển sang hàng
+ * đợi ở worker; relay phát job, processor dựng nội dung và gọi
+ * transport Resend phía worker — khâu đó được kiểm chứng ở suite
+ * worker: spec unit của processor và spec tích hợp hàng đợi mail).
  *
  * Các cổng nghiệp vụ được chứng minh: reset đủ vòng (mail chứa liên
  * kết → đặt mật khẩu mới → mật khẩu cũ chết, phiên cũ bị thu hồi,
@@ -94,8 +96,10 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
   let app: INestApplication;
   let bridge: CredentialBridgeService;
   let pg: Client;
-  /** Mọi mail transport "đã gửi" trong spec này (mailer giả lập ghi lại). */
+  /** Mọi mail đã bắt được trong spec này (dựng từ dòng outbox của chính địa chỉ đó). */
   const sentMails: MailMessage[] = [];
+  /** Id các dòng outbox đã dựng thành mail, tránh bắt trùng một dòng hai lần. */
+  const capturedRowIds = new Set<string>();
 
   async function createMailUser(prefix: string): Promise<{ id: string; username: string; email: string }> {
     const username = helpers.uniqueName(prefix);
@@ -115,12 +119,31 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     await pg.query('update users set email_verified = true where id = $1', [userId]);
   }
 
-  /** Chờ consumer outbox xả tới khi có mail gửi cho địa chỉ này (nhịp quét 1 giây + dự phòng). */
+  /**
+   * Chờ tới khi có mail gửi cho địa chỉ này: dòng outbox được
+   * AuthMailService ghi đồng bộ trong request nên thường có ngay;
+   * mail được dựng từ dòng đó bằng template dùng chung (xem docblock
+   * ở đầu file) và ghi vào danh sách đã bắt để các ca "không có mail"
+   * đối chiếu được.
+   */
   async function waitForMailTo(email: string, timeoutMs = 9000): Promise<MailMessage> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
       const found = sentMails.find((mail) => mail.to === email);
       if (found) return found;
+      const rows = await pg.query(
+        "select id, payload from outbox_events where type = 'auth_mail_requested' and payload->>'to' = $1 order by seq desc limit 1",
+        [email],
+      );
+      const row = rows.rows[0] as { id: string; payload: AuthMailPayload } | undefined;
+      if (row) {
+        const mail = renderAuthMail(row.payload);
+        if (!capturedRowIds.has(row.id)) {
+          capturedRowIds.add(row.id);
+          sentMails.push(mail);
+        }
+        return mail;
+      }
       if (Date.now() > deadline) {
         throw new Error(`no mail captured for ${email}; captured: ${JSON.stringify(sentMails.map((m) => m.to))}`);
       }
@@ -141,13 +164,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     const { CredentialBridgeService: BridgeClass } = await import(
       '../../../src/modules/auth/better-auth/credential-bridge.service'
     );
-    const { ResendMailService: MailerClass } = await import('../../../src/modules/mail/resend-mail.service');
     bridge = app.get(BridgeClass);
-    const mailer: ResendMailService = app.get(MailerClass);
-    vi.spyOn(mailer, 'send').mockImplementation(async (message: MailMessage) => {
-      sentMails.push(message);
-      return { status: 'sent', providerId: 'fake-resend-id' };
-    });
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
   });
@@ -216,12 +233,13 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
       .send({ email: ghost, redirectTo: `${TRUSTED_ORIGIN}/reset-password` });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe(true);
-    // Neo chốt qua chính consumer: phát một yêu cầu đặt lại THẬT cho
-    // người dùng có thật NGAY SAU yêu cầu lạ và chờ mail của họ tới.
-    // Consumer thư xử lý outbox theo seq tăng dần nên khi mail thật
-    // đã được gửi, lượt quét đã đi qua cửa sổ của yêu cầu lạ — nếu yêu
-    // cầu lạ có sinh mail thì mail đó đã phải nằm trong hộp thư stub.
-    // Thay sleep cố định 1.600ms "cho consumer vài nhịp quét".
+    // Neo chốt: dòng outbox được ghi đồng bộ trong request (callback
+    // trả về sau khi ghi xong), nên khi yêu cầu lạ đã có đáp ứng mà
+    // vẫn không có dòng nào cho nó thì nó không sinh mail — khẳng
+    // định trực tiếp trên bảng outbox ở dưới là kết luận cuối, danh
+    // sách mail đã bắt chỉ là đối chiếu phụ. Yêu cầu đặt lại THẬT
+    // cho người dùng có thật ngay sau đó giữ vai trò mốc thứ tự:
+    // mail của họ bắt được thì cửa sổ của yêu cầu lạ đã khép hẳn.
     const sentinel = await createMailUser('bamailchotreset');
     await http(app)
       .post('/api/v1/auth/request-password-reset')
@@ -316,11 +334,11 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     // tài khoản nào tồn tại) — nhưng KHÔNG có mail nào được gửi.
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    // Neo chốt qua chính consumer (cùng lập luận với ca đặt lại mật
-    // khẩu cho email lạ ở trên): gửi OTP thật cho người dùng có thật
-    // ngay sau yêu cầu lạ và chờ mail OTP của họ — consumer đã quét
-    // qua cửa sổ của yêu cầu lạ thì mới gửi được mail này. Thay sleep
-    // cố định 1.600ms.
+    // Neo chốt (cùng lập luận với ca đặt lại mật khẩu cho email lạ ở
+    // trên): gửi OTP thật cho người dùng có thật ngay sau yêu cầu lạ
+    // và chờ mail OTP của họ — mail của họ bắt được thì cửa sổ của
+    // yêu cầu lạ đã khép hẳn; khẳng định kết luận nằm ở truy vấn
+    // outbox ngay dưới (dòng được ghi đồng bộ trong request).
     const sentinel = await createMailUser('bamailchototp');
     await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
@@ -328,6 +346,11 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
       .send({ email: sentinel.email, type: 'sign-in' });
     await waitForMailTo(sentinel.email);
     expect(sentMails.some((mail) => mail.to === ghost)).toBe(false);
+    const ghostOutbox = await pg.query(
+      "select count(*)::int as n from outbox_events where type = 'auth_mail_requested' and payload->>'to' = $1",
+      [ghost],
+    );
+    expect(ghostOutbox.rows[0].n).toBe(0);
     const users = await pg.query('select count(*)::int as n from users where email = $1', [ghost]);
     expect(users.rows[0].n).toBe(0);
     // Và không có mã nào đăng nhập được cho email lạ (không tài khoản nào được tự tạo).
