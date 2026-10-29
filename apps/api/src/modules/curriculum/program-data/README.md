@@ -717,7 +717,7 @@ các mục dưới đây; tổng sau đợt ở bảng cuối mục.
     LS-0108 (sau LS-0067, Lớp 12, tr. 53): 4 ý. LS-0109 (sau
     LS-0081, Lớp 12, tr. 61): 1 ý. LS-0110 (sau LS-0084, Lớp 12,
     tr. 64): 1 ý.
-  - Bổ sung ý đầu khối vào 11 bản ghi hiện có: LS-0030 (+1), LS-0034
+  - Bổ sung ý đầu khối vào 10 bản ghi hiện có: LS-0030 (+1), LS-0034
     (+2), LS-0036 (+3), LS-0049 (+3, khối khái quát Biển Đông — nội
     dung của LS-0049 bắt đầu từ phần đuôi của tiểu mục này nên các
     ý thuộc về đầu bản ghi), LS-0064 (+2), LS-0065 (+1), LS-0074
@@ -772,8 +772,8 @@ các mục dưới đây; tổng sau đợt ở bảng cuối mục.
 
 ### Địa lí — 62 bản ghi / 266 ý → 63 bản ghi / 308 ý (+1 bản ghi, +42 ý)
 
-- Hiện trạng: thiếu 38 ý đầu khối ở 10 bản ghi; 2 ý của khối Trung
-  du và miền núi Bắc Bộ bị rơi giữa bản ghi DL-0051; khối thực hành
+- Hiện trạng: thiếu 36 ý đầu khối ở 10 bản ghi và 2 ý giữa khối ở
+  DL-0051 (của khối Trung du và miền núi Bắc Bộ); khối thực hành
   cuối chương trình Lớp 12 vắng mặt (văn bản của khối đang bị giữ
   nhầm trong trường nội dung của DL-0059).
 - Đính chính: bổ sung ý đầu khối vào DL-0002 (+1 — DL-0001 là bản
@@ -826,7 +826,7 @@ các mục dưới đây; tổng sau đợt ở bảng cuối mục.
   101, 102, 107, 109, 111 của văn bản nguồn) — 3 hàng đã có bản ghi
   nhưng bản ghi mang ý trong trường nội dung và có 0 YCCĐ
   (TOAN-0171 tr. 69–70, TOAN-0197 tr. 77–78, TOAN-0289 tr. 111),
-  14 hàng chưa có bản ghi; 5 ý rơi tại ranh trang thuộc hai bản ghi
+  14 hàng chưa có bản ghi; 5 ý rơi tại ranh trang thuộc ba bản ghi
   hiện có; 4 ý bị cắt mất phần đuôi tại ranh trang.
 - Đính chính: theo yêu cầu 2, dựng 14 bản ghi mới TOAN-0301 đến
   TOAN-0314 cho 14 hàng chưa có bản ghi, mỗi bản ghi đặt ngay sau
