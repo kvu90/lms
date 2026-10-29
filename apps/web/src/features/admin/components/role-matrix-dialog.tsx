@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CAP, type Capability, type RoleListItem } from '@lms/contracts';
 import { Button } from '@lms/ui/components/button';
 import { Field, FieldGroup, FieldLabel } from '@lms/ui/components/field';
@@ -26,13 +26,17 @@ import {
  * 1. Mở hộp thoại: trường tên/mô tả nạp từ vai đang sửa (hoặc trống khi
  *    tạo); `shortName` chỉ hiện khi tạo, bắt buộc và duy nhất, khi sửa
  *    thì khoá không cho đổi; ngữ cảnh mặc định là ngữ cảnh hệ thống
- *    (cấp 10).
+ *    (cấp 10). Trang chứa render hộp thoại có điều kiện nên mỗi lần mở
+ *    là một lượt làm việc mới với state khởi tạo sạch.
  * 2. Ma trận trình bày các ghi đè ĐÃ LƯU tại ngữ cảnh đang chọn, gom
  *    theo resource, mỗi ô là một điều khiển bốn trạng thái (ALLOW /
  *    INHERIT / PREVENT / PROHIBIT) trên năng lực thật — không dựng bốn
- *    cột Read/Write/Create/Delete. Đổi ngữ cảnh là đổi tập ghi đè đang
- *    sửa: bản nháp được nạp lại từ các dòng đã lưu của ngữ cảnh mới,
- *    không lẫn ghi đè của ngữ cảnh trước.
+ *    cột Read/Write/Create/Delete. Giá trị mỗi ô suy ra từ hai nguồn:
+ *    sửa đổi của người dùng trong lượt này (ưu tiên) rồi tới dòng đã
+ *    lưu của ngữ cảnh đang chọn, vắng mặt thì là kế thừa. Đổi ngữ cảnh
+ *    xoá sạch sửa đổi của ngữ cảnh trước nên ma trận không bao giờ lẫn
+ *    ghi đè giữa hai ngữ cảnh; ma trận tải về muộn cũng tự đúng vì giá
+ *    trị suy ra trực tiếp từ props, không qua state đồng bộ bằng effect.
  * 3. Chọn nhanh: chọn một trạng thái rồi bấm áp — theo hàng (mọi ô
  *    trong nhóm resource đó) hoặc toàn cục (mọi ô trong ma trận).
  * 4. Lưu: khi tạo — tạo vai trò trước, rồi lưu ma trận bằng endpoint
@@ -90,13 +94,13 @@ export function RoleMatrixDialog({
     [CAP.PROHIBIT]: t('permProhibit'),
   };
 
-  const [name, setName] = useState('');
-  const [shortName, setShortName] = useState('');
-  const [description, setDescription] = useState('');
-  const [contextId, setContextId] = useState('');
-  const [draft, setDraft] = useState<RoleMatrixDraft>({});
-  /** Bản nháp đã bị người dùng sửa hay chưa — chặn việc nạp lại từ dữ liệu tải về làm mất sửa đổi đang làm dở. */
-  const [draftDirty, setDraftDirty] = useState(false);
+  const [name, setName] = useState(role?.name ?? '');
+  const [shortName, setShortName] = useState(role?.shortName ?? '');
+  const [description, setDescription] = useState(role?.description ?? '');
+  /** Ngữ cảnh người dùng đã chọn trong hộp thoại; trống nghĩa là dùng ngữ cảnh hệ thống mặc định. */
+  const [contextOverride, setContextOverride] = useState('');
+  /** Sửa đổi ma trận của người dùng trong lượt này, ghi đè lên dòng đã lưu khi hiển thị và khi lưu. */
+  const [edits, setEdits] = useState<RoleMatrixDraft>({});
   const [saveError, setSaveError] = useState<string | null>(null);
   /** Id vai trò vừa tạo trong lượt này khi lưu ma trận lỗi — lần Lưu lại dùng id này thay vì tạo mới. */
   const [createdRoleId, setCreatedRoleId] = useState<string | null>(null);
@@ -110,61 +114,22 @@ export function RoleMatrixDialog({
 
   /** Ngữ cảnh hệ thống (cấp 10) — ngữ cảnh mặc định của hộp thoại. */
   const systemContextId = contexts.find((ctx) => ctx.contextLevel === 10)?.id ?? '';
+  /** Ngữ cảnh đang sửa: lựa chọn tường minh, nếu chưa chọn thì ngữ cảnh hệ thống. */
+  const contextId = contextOverride !== '' ? contextOverride : systemContextId;
 
-  /** Nạp bản nháp từ các dòng đã lưu của đúng ngữ cảnh đang chọn. */
-  function draftFromRows(rows: RoleCapabilityRow[], ctxId: string): RoleMatrixDraft {
-    const next: RoleMatrixDraft = {};
-    for (const row of rows) {
-      if (row.contextId === ctxId) next[row.capability] = row.permission;
+  /** Các ghi đè đã lưu tại ngữ cảnh đang chọn, suy ra trực tiếp từ props. */
+  const savedByCapability = useMemo(() => {
+    const saved: RoleMatrixDraft = {};
+    for (const row of matrixRows) {
+      if (row.contextId === contextId) saved[row.capability] = row.permission;
     }
-    return next;
+    return saved;
+  }, [matrixRows, contextId]);
+
+  /** Giá trị hiển thị của một ô: sửa đổi trong lượt này, rồi dòng đã lưu, rồi kế thừa. */
+  function valueOf(capabilityName: string): number {
+    return edits[capabilityName] ?? savedByCapability[capabilityName] ?? CAP.INHERIT;
   }
-
-  /** Mở hộp thoại là một lượt làm việc mới: nạp trường + bản nháp, xoá lỗi và trạng thái tạo dở. */
-  const firstOpenRef = useRef(false);
-  useEffect(() => {
-    if (!open) {
-      firstOpenRef.current = false;
-      return;
-    }
-    if (firstOpenRef.current) return;
-    firstOpenRef.current = true;
-    setName(role?.name ?? '');
-    setShortName(role?.shortName ?? '');
-    setDescription(role?.description ?? '');
-    setContextId(systemContextId);
-    setDraft(draftFromRows(matrixRows, systemContextId));
-    setDraftDirty(false);
-    setSaveError(null);
-    setCreatedRoleId(null);
-    setQuickGlobal('');
-    setQuickByResource({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
-  /** Đổi ngữ cảnh là đổi tập ghi đè đang sửa: nạp lại bản nháp từ ngữ cảnh mới. */
-  const previousContextRef = useRef('');
-  useEffect(() => {
-    if (!open || !contextId || previousContextRef.current === contextId) return;
-    previousContextRef.current = contextId;
-    setDraft(draftFromRows(matrixRows, contextId));
-    setDraftDirty(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextId, open ]);
-
-  /** Cây context tải về muộn thì mặc định ngữ cảnh hệ thống cho hộp thoại đang mở. */
-  useEffect(() => {
-    if (!open || contextId !== '' || systemContextId === '') return;
-    setContextId(systemContextId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, systemContextId]);
-
-  /** Ma trận tải về muộn (sau khi hộp thoại đã mở) thì nạp vào bản nháp, trừ khi người dùng đã sửa. */
-  useEffect(() => {
-    if (!open || draftDirty || !contextId) return;
-    setDraft(draftFromRows(matrixRows, contextId));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matrixRows, open]);
 
   /** Phím Escape đóng hộp thoại khi không trong lúc lưu. */
   useEffect(() => {
@@ -184,22 +149,20 @@ export function RoleMatrixDialog({
   function applyToResource(resource: string, permission: number) {
     const group = groups.find((item) => item.resource === resource);
     if (!group) return;
-    setDraft((prev) => {
+    setEdits((prev) => {
       const next = { ...prev };
       for (const capability of group.capabilities) next[capability.name] = permission;
       return next;
     });
-    setDraftDirty(true);
   }
 
   /** Đặt một trạng thái cho mọi năng lực trong toàn bộ ma trận. */
   function applyToAll(permission: number) {
-    setDraft((prev) => {
+    setEdits((prev) => {
       const next = { ...prev };
       for (const capability of capabilities) next[capability.name] = permission;
       return next;
     });
-    setDraftDirty(true);
   }
 
   /**
@@ -229,9 +192,9 @@ export function RoleMatrixDialog({
       }
       if (!id || !contextId) return;
       step = 'matrix';
-      const overrides = Object.entries(draft)
-        .filter(([, permission]) => permission !== CAP.INHERIT)
-        .map(([capability, permission]) => ({ capability, permission }));
+      const overrides = capabilities
+        .map((capability) => ({ capability: capability.name, permission: valueOf(capability.name) }))
+        .filter((entry) => entry.permission !== CAP.INHERIT);
       // Chế độ tạo mà ma trận toàn kế thừa thì vai mới vốn đã có 0 ghi
       // đè nên bỏ qua lần gọi thay toàn bộ; chế độ sửa luôn gọi một lần
       // để việc xoá hết ghi đè tại ngữ cảnh cũng được lưu.
@@ -291,24 +254,16 @@ export function RoleMatrixDialog({
               disabled={saving}
             />
           </Field>
-          {mode === 'create' ? (
-            <Field>
-              <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
-              <Input
-                id="role-dialog-shortname"
-                value={shortName}
-                onChange={(e) => setShortName(e.target.value)}
-                disabled={saving}
-              />
-              <p className="text-xs text-muted-foreground">{t('roleShortNameHint')}</p>
-            </Field>
-          ) : (
-            <Field>
-              <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
-              <Input id="role-dialog-shortname" value={shortName} disabled />
-              <p className="text-xs text-muted-foreground">{t('roleShortNameHint')}</p>
-            </Field>
-          )}
+          <Field>
+            <FieldLabel htmlFor="role-dialog-shortname">{t('roleShortName')}</FieldLabel>
+            <Input
+              id="role-dialog-shortname"
+              value={shortName}
+              onChange={(e) => setShortName(e.target.value)}
+              disabled={saving || mode === 'edit' || createdRoleId !== null}
+            />
+            <p className="text-xs text-muted-foreground">{t('roleShortNameHint')}</p>
+          </Field>
           <Field>
             <FieldLabel htmlFor="role-dialog-description">{t('roleDescription')}</FieldLabel>
             <Input
@@ -324,7 +279,12 @@ export function RoleMatrixDialog({
               id="role-dialog-context"
               className={SELECT_CLASS}
               value={contextId}
-              onChange={(e) => setContextId(e.target.value)}
+              onChange={(e) => {
+                // Đổi ngữ cảnh là đổi tập ghi đè đang sửa: xoá sạch sửa
+                // đổi của ngữ cảnh trước để không lẫn sang ngữ cảnh mới.
+                setContextOverride(e.target.value);
+                setEdits({});
+              }}
               disabled={saving || contexts.length === 0}
             >
               <option value="">{t('selectContext')}</option>
@@ -416,11 +376,10 @@ export function RoleMatrixDialog({
                           <select
                             aria-label={capability.name}
                             className={`${SELECT_CLASS} shrink-0`}
-                            value={String(draft[capability.name] ?? CAP.INHERIT)}
+                            value={String(valueOf(capability.name))}
                             onChange={(e) => {
                               const permission = Number(e.target.value);
-                              setDraft((prev) => ({ ...prev, [capability.name]: permission }));
-                              setDraftDirty(true);
+                              setEdits((prev) => ({ ...prev, [capability.name]: permission }));
                             }}
                             disabled={saving}
                           >

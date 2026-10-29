@@ -49,10 +49,7 @@ export function RoleDeleteDialog({ open, role, onClose }: RoleDeleteDialogProps)
   const [error, setError] = useState<string | null>(null);
   const deleteMutation = useDeleteRole();
 
-  /** Mỗi lần mở là một lượt xác nhận mới: xoá lỗi của lượt trước. */
-  useEffect(() => {
-    if (open) setError(null);
-  }, [open ]);
+  /** Trang chứa render hộp thoại có điều kiện nên mỗi lần mở là một lượt xác nhận mới với lỗi khởi tạo null. */
 
   /** Phím Escape đóng hộp thoại khi không trong lúc xoá. */
   useEffect(() => {
@@ -68,6 +65,7 @@ export function RoleDeleteDialog({ open, role, onClose }: RoleDeleteDialogProps)
 
   /** Xoá vai trò: lỗi thì giữ hộp thoại mở kèm lý do; thành công thì đóng. */
   async function confirmDelete() {
+    if (!role) return;
     setError(null);
     try {
       await deleteMutation.mutateAsync(role.id);

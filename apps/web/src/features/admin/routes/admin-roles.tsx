@@ -253,23 +253,24 @@ export function AdminRolesPage() {
         </CardContent>
       </Card>
 
-      <RoleMatrixDialog
-        open={matrixDialog !== null}
-        mode={matrixDialog?.mode ?? 'create'}
-        role={matrixDialog?.role ?? null}
-        capabilities={capabilities}
-        matrixRows={matrix}
-        // Query ma trận chỉ bật khi sửa một vai; ở chế độ tạo, query bị
-        // tắt vẫn mang trạng thái pending nên không được truyền thẳng.
-        matrixPending={matrixRole !== null && matrixQuery.isPending}
-        contexts={contexts}
-        onClose={() => setMatrixDialog(null)}
-      />
-      <RoleDeleteDialog
-        open={deleteTarget !== null}
-        role={deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-      />
+      {/* Render có điều kiện: mỗi lần mở hộp thoại là một lượt làm việc mới với state khởi tạo sạch. */}
+      {matrixDialog !== null ? (
+        <RoleMatrixDialog
+          open
+          mode={matrixDialog.mode}
+          role={matrixDialog.role}
+          capabilities={capabilities}
+          matrixRows={matrix}
+          // Query ma trận chỉ bật khi sửa một vai; ở chế độ tạo, query bị
+          // tắt vẫn mang trạng thái pending nên không được truyền thẳng.
+          matrixPending={matrixRole !== null && matrixQuery.isPending}
+          contexts={contexts}
+          onClose={() => setMatrixDialog(null)}
+        />
+      ) : null}
+      {deleteTarget !== null ? (
+        <RoleDeleteDialog open role={deleteTarget} onClose={() => setDeleteTarget(null)} />
+      ) : null}
     </PageShell>
   );
 }
