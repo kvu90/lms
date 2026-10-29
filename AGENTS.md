@@ -257,6 +257,21 @@ trình hiện tại trong tài liệu này.
 4. Ở từng chặng (bắt đầu thi công, bắt đầu review, có phán quyết,
    merge xong), label trạng thái của issue được đổi theo mục "Label
    trạng thái của issue" trong tài liệu này.
+5. **Cổng review hai lớp.** Sau khi đội thi công đẩy PR, PR phải
+   qua hai lớp review độc lập trước khi merge: lớp thứ nhất là
+   đội review độc lập nội bộ chấm PR tại nguồn; lớp thứ hai là
+   lượt review độc lập qua ChatGPT do điều phối thực hiện bằng
+   tài khoản ChatGPT của chủ repo, chỉ ở chế độ chat thường —
+   cấm dùng các chế độ tốn quota như Agent, Deep Research hay
+   Work. Phán quyết đạt ở điểm 2 của mục này là phán quyết đạt
+   của cả hai lớp: chỉ khi cả hai lớp cùng đạt, PR mới chuyển
+   sang trạng thái `chờ merge` và merge theo điểm 2; nếu một
+   trong hai lớp phán quyết chưa đạt, PR quay về đội thi công
+   sửa và cả hai lớp chấm lại sau khi sửa. Khi việc của một PR
+   kết thúc, cuộc trò chuyện ChatGPT dùng để review PR đó phải
+   được xoá. Lớp ChatGPT chỉ chấm trên nội dung được dán vào
+   cuộc trò chuyện (thân PR và diff), không thay thế kiểm
+   chứng tại nguồn của đội review nội bộ.
 
 ### Đóng issue
 
