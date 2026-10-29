@@ -1,7 +1,7 @@
 import type { MyTenant } from '@lms/contracts';
 import { queryOptions, useQuery } from '@tanstack/react-query';
-import { apiJson } from './api';
-import { queryKeys } from './query-keys';
+import { apiJson } from '#lib/api';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Bộ chọn tenant (TENANT-0, #168): người dùng thuộc nhiều tenant (giáo

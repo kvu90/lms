@@ -4,8 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { TestProviders } from '#test/providers';
 import { baSessionBody, isGetSessionUrl } from '#test/ba-session';
-import { usePermissions } from './permissions';
-import { useCourseGradeData, useCoursesGradeData } from './course-grade-data';
+import { usePermissions } from '#lib/permissions';
+import { useCourseGradeData } from '#features/grades/queries/course-grade';
+import { useCoursesGradeData } from '#hooks/use-courses-grade-data';
 
 /**
  * Bảo chứng phân loại khoá dạy/học theo định nghĩa “thuộc khoá” đã chốt

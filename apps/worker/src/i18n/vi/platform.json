@@ -1,4 +1,14 @@
 {
+  "activityDueSoonBody": "Hoạt động \"{activity}\" trong khoá học \"{course}\" sẽ đến hạn vào {datetime}. Mở trang hoạt động để hoàn thành và nộp bài trước hạn.",
+  "activityDueSoonSubject": "Sắp đến hạn nộp: \"{activity}\"",
+  "assignmentAssignedBody": "Khoá học \"{course}\" vừa có bài tập mới \"{assignment}\". Mở trang bài tập để xem yêu cầu và nộp bài.",
+  "assignmentAssignedSubject": "Bài tập mới: \"{assignment}\"",
+  "assignmentReturnedBody": "Bài tập \"{assignment}\" trong khoá học \"{course}\" đã được trả kèm lời phê. Mở trang bài tập để xem kết quả và nhận xét của giáo viên.",
+  "assignmentReturnedSubject": "Bài tập đã được trả: \"{assignment}\"",
+  "assignmentSubmitReceiptBody": "Bài nộp của bạn cho bài tập \"{assignment}\" trong khoá học \"{course}\" đã được ghi nhận. Mở trang bài tập để xem lại trạng thái nộp.",
+  "assignmentSubmitReceiptSubject": "Đã nộp bài: \"{assignment}\"",
+  "assignmentSubmittedBody": "Có {count} bài nộp đang chờ chấm cho bài tập \"{assignment}\" trong khoá học \"{course}\". Mở trang bài tập để xem danh sách bài nộp.",
+  "assignmentSubmittedSubject": "Bài nộp mới: \"{assignment}\"",
   "backupMode": {
     "new": "Tạo khoá mới",
     "merge": "Gộp vào khoá đích",
@@ -13,8 +23,14 @@
     "draft": "Bản nháp",
     "public": "Công khai"
   },
+  "courseCompletedBody": "Chúc mừng! Bạn đã hoàn thành mọi tiêu chí của khoá học \"{course}\".",
+  "courseCompletedSubject": "Bạn đã hoàn thành khoá học \"{course}\"",
+  "enrolExpiryWarningBody": "Ghi danh của bạn vào khoá học \"{course}\" sẽ hết hạn vào {date}. Hãy hoàn thành các hoạt động còn lại hoặc liên hệ giáo viên để được gia hạn.",
+  "enrolExpiryWarningSubject": "Ghi danh sắp hết hạn: khoá học \"{course}\"",
   "externalGenericBody": "Có thông báo mới thuộc loại \"{event}\" dành cho bạn. Đăng nhập LMS để xem chi tiết.",
   "externalGenericSubject": "Bạn có thông báo mới",
+  "gradeUpdatedBody": "Bạn có điểm mới cho mục \"{item}\" trong khoá học \"{course}\". Mở trang điểm của khoá để xem chi tiết.",
+  "gradeUpdatedSubject": "Điểm mới trong khoá học \"{course}\"",
   "guardianDigestBody": "Kết quả mới đã công bố: {results}. Thông báo lớp mới: {announcements}. Việc quá hạn chưa nộp: {overdue}. Việc sắp đến hạn: {upcoming}. Mở trang phụ huynh để xem chi tiết.",
   "guardianDigestDailySubject": "Tổng hợp ngày về việc học của con {name}",
   "guardianDigestExternalBody": "Có thông tin học tập mới đã được công bố cho con bạn. Đăng nhập LMS để xem chi tiết.",
@@ -24,6 +40,8 @@
   "guardianOverdueAlertExternalBody": "Con bạn có một việc đã quá hạn 7 ngày chưa nộp. Đăng nhập LMS để xem chi tiết.",
   "guardianOverdueAlertExternalSubject": "Có việc quá hạn 7 ngày chưa nộp",
   "guardianOverdueAlertSubject": "Việc quá hạn 7 ngày chưa nộp: \"{activity}\"",
+  "messageNewBody": "Bạn có tin nhắn mới đang chờ. Mở mục Tin nhắn để đọc.",
+  "messageNewSubject": "Tin nhắn mới từ {name}",
   "notificationDigestFooter": "Mở ứng dụng để xem chi tiết từng thông báo.",
   "notificationDigestIntro": "Bạn có {count} thông báo mới kể từ lần tổng hợp trước:",
   "notificationDigestSubject": "Tổng hợp thông báo: {count} sự kiện mới",
@@ -37,6 +55,10 @@
     "export": "Xuất dữ liệu cá nhân",
     "delete": "Xoá dữ liệu cá nhân"
   },
+  "quizAttemptFinishedBody": "Có {count} lượt làm bài đang chờ chấm tay cho bài kiểm tra \"{quiz}\" trong khoá học \"{course}\". Mở trang kết quả để xử lý hàng đợi chấm.",
+  "quizAttemptFinishedSubject": "Bài thi chờ chấm: \"{quiz}\"",
+  "quizAvailableBody": "Khoá học \"{course}\" vừa có bài kiểm tra mới \"{quiz}\". Mở trang bài kiểm tra để xem thông tin và làm bài.",
+  "quizAvailableSubject": "Bài kiểm tra mới: \"{quiz}\"",
   "reportReadyBody": "Báo cáo \"{name}\" đã chạy xong theo lịch. Mở báo cáo để xem kết quả mới nhất.",
   "reportReadySubject": "Báo cáo theo lịch đã chạy xong"
 }

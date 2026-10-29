@@ -4,8 +4,8 @@ import {
   type CourseCardColor,
   type CourseCardPrefView,
 } from '@lms/contracts';
-import { apiJson } from './api';
-import { queryKeys } from './query-keys';
+import { apiJson } from '#lib/api';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Thẻ khoá cá nhân (DASH1, issue #121): màu + biệt danh người dùng tự đặt

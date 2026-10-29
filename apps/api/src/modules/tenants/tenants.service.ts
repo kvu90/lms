@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { MyTenant, Tenant as TenantDto, TenantMembership as TenantMembershipDto } from '@lms/contracts';
+import { ensureActiveTenantMembership } from '@lms/enrol';
 import { ContextsService } from '../access/contexts.service';
 import { PermissionEvaluator } from '../access/permission-evaluator.service';
 import { PlanLimitsService } from '../access/plan-limits.service';
@@ -371,6 +372,13 @@ export class TenantsService {
    * đó). Đổi trạng thái membership luôn phá cache evaluator của cây
    * tenant để cổng membership có hiệu lực ngay.
    *
+   * Thao tác dữ liệu sống ở tầng dùng chung
+   * (`ensureActiveTenantMembership` của `@lms/enrol`) vì funnel ghi
+   * danh dùng chung phải đảm bảo membership ngay trong đường vật
+   * chất hoá của nó mà không phụ thuộc service của API; method này
+   * chỉ uỷ thác bằng tay cầm Drizzle của repository, giữ nguyên
+   * hành vi và kiểu trả về.
+   *
    * CỐ Ý không tự bọc ngữ cảnh platform (HOTFIX #196 vòng 2): đây là
    * thao tác dữ liệu CỦA một tenant — các call-site nghiệp vụ (ghi
    * danh, roster lớp) chạy trong đúng ngữ cảnh của tenant sở hữu và
@@ -379,18 +387,7 @@ export class TenantsService {
    * tầng của chúng và method này kế thừa ngữ cảnh của nơi gọi.
    */
   async ensureActiveMembership(tenantId: string, userId: string): Promise<TenantMembershipRow> {
-    const existing = await this.repo.getMembership(tenantId, userId);
-    if (existing?.status === 'active') return existing;
-    let row: TenantMembershipRow;
-    if (existing) {
-      await this.repo.updateMembership(existing.id, { status: 'active', endedAt: null });
-      row = { ...existing, status: 'active', endedAt: null };
-    } else {
-      row = await this.repo.insertMembership({ tenantId, userId, status: 'active' });
-    }
-    const tenantCtx = await this.contexts.ensureTenantContext(tenantId);
-    await this.contexts.markContextDirty(tenantCtx.id);
-    return row;
+    return ensureActiveTenantMembership(this.repo.dbHandle, tenantId, userId);
   }
 
   async addMember(actorId: string, tenantId: string, dto: AddTenantMemberDto): Promise<TenantMembershipDto> {

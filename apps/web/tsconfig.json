@@ -4,6 +4,15 @@
     "paths": {
       "@lms/contracts": [
         "../../packages/contracts/src/index.ts"
+      ],
+      "#features/*": [
+        "./src/features/*"
+      ],
+      "#utils/*": [
+        "./src/utils/*"
+      ],
+      "#config/*": [
+        "./src/config/*"
       ]
     },
     "types": [

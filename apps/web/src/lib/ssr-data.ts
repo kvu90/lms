@@ -29,8 +29,8 @@
  * giờ "đóng băng" dữ liệu rỗng/null giả vào cache của trang.
  */
 import { dehydrate, type DehydratedState, type QueryClient } from '@tanstack/react-query';
-import { createQueryClient } from './query-client';
-import { fetchApiJsonForRequest, fetchApiJsonForRequestOrThrow } from './server-api';
+import { createQueryClient } from '#lib/query-client';
+import { fetchApiJsonForRequest, fetchApiJsonForRequestOrThrow } from '#lib/server-api';
 
 /** Hình dạng dữ liệu loader mà mọi route tầng SL trả về cho root.tsx gom qua HydrationBoundary. */
 export interface SsrLoaderData {

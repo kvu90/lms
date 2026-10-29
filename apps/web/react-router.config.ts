@@ -12,7 +12,9 @@ import type { Config } from '@react-router/dev/config';
  * route đã đăng nhập tải phía client như trước (token Bearer ở
  * localStorage — server không đọc được; cơ chế loader theo cookie đã
  * có sẵn trong lib/server-api.ts cho khi phiên cookie thành luồng
- * chính ở Giai đoạn 2). Mã nguồn giữ trong `src/` (appDirectory).
+ * chính ở Giai đoạn 2). Mã nguồn framework giữ trong `src/app/`
+ * (appDirectory — gốc framework sau đợt tổ chức lại theo mô hình
+ * features/, issue #500; các feature và tầng dùng chung nằm ở `src/`).
  *
  * Prerender (lát SL-1 của #7, theo bảng phân tầng route mục 5/6.5):
  * `/` (mặt CÔNG KHAI — bản build chạy loader không cookie nên chỉ
@@ -25,6 +27,6 @@ import type { Config } from '@react-router/dev/config';
  */
 export default {
   ssr: true,
-  appDirectory: 'src',
+  appDirectory: 'src/app',
   prerender: ['/', '/login'],
 } satisfies Config;

@@ -1,9 +1,9 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Course, MyAccessView } from '@lms/contracts';
-import { apiJson } from './api';
-import { useAuth } from './auth';
-import { queryKeys } from './query-keys';
+import { apiJson } from '#lib/api';
+import { useAuth } from '#lib/auth';
+import { queryKeys } from '#lib/query-keys';
 
 /**
  * Quyền hiệu lực của người dùng trong MỘT khoá học cụ thể — quyền trong hệ
@@ -232,7 +232,7 @@ export function hasCourseAssignment(access: MyAccessView | null, course: Course)
  * #133; trước đây provider fan-out thêm dữ liệu điểm theo khoá). Dữ
  * liệu điểm theo khoá (report + gradebook, thuần hiển thị) KHÔNG còn
  * nằm trong provider: các bề mặt cần nó (dashboard, trang grades) tải
- * lười qua hook ở `lib/course-grade-data.ts` với đúng khoá
+ * lười qua hook dùng chung ở `src/hooks/use-courses-grade-data.ts` với đúng khoá
  * `courseAccess` dùng chung. Phân loại quản trị/
  * giảng dạy/học viên suy ra hoàn toàn từ capability và gán vai đã phân
  * giải trong ảnh chụp; các tải dữ liệu thất bại độc lập và chỉ làm

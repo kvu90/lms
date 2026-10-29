@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
-import { ApiError } from './api';
+import { ApiError } from '#lib/api';
 
 /**
  * Tạo QueryClient cho app (theo tài liệu chính thức TanStack Query v5):

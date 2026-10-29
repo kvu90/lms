@@ -7,7 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { BetterAuthModule } from '../auth/better-auth/better-auth.module';
 import { MessagingController, NotificationsController } from './messaging.controller';
 import { MessagingGateway } from './messaging.gateway';
-import { NotificationEventsConsumer } from './notification-events.consumer';
+
 import { MessagingRealtimeService } from './messaging-realtime.service';
 import { MessagingRepository } from './messaging.repository';
 import { MessagingSendThrottleService } from './messaging-send-throttle.service';
@@ -36,14 +36,15 @@ import { NotificationUnreadStreamService } from './notification-unread-stream.se
     // Throttle gửi tin theo người dùng bằng Redis (lát M2, issue #212).
     MessagingSendThrottleService,
     // Realtime (issue #33): gateway Socket.IO + lớp auth mỏng + tầng
-    // realtime phía kết nối (Redis adapter, presence/typing). Phân
-    // phối sự kiện nghiệp vụ qua outbox chạy ở worker từ issue #521
-    // (consumer hàng đợi + luật phân phối ở `@lms/messaging`).
+    // realtime phía kết nối (Redis adapter, presence/typing).
     MessagingSocketAuth, MessagingRealtimeService, MessagingGateway,
-    // Nối dây thông báo (issue #49): consumer quét outbox biến sự kiện
-    // nghiệp vụ (điểm mới / hoàn thành khoá / sắp hết hạn ghi danh /
-    // tin nhắn mới) thành notification qua MessagingService.notify().
-    NotificationEventsConsumer,
+    // Cả hai consumer quét outbox đều đã chuyển sang worker: phân
+    // phối sự kiện messaging qua hàng đợi `messaging-realtime`
+    // (issue con #521 của #491; consumer hàng đợi ở worker, luật
+    // phân phối ở `@lms/messaging`) và thông báo sự kiện nghiệp vụ
+    // qua hàng đợi `notification-events` (issue con #520 của
+    // #491). Phía API không còn consumer polling nào đọc trực
+    // tiếp bảng outbox.
   ],
   exports: [MessagingService],
 })

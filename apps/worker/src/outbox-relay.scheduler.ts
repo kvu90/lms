@@ -11,6 +11,7 @@ import { tenantAls } from './db/tenant-als';
 import {
   OUTBOX_EVENT_QUEUES,
   OUTBOX_EVENT_ROUTES,
+  queueNamesOfRoute,
   type OutboxEventJobData,
   type OutboxEventQueueRoutes,
   type OutboxEventQueues,
@@ -34,10 +35,12 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *    ĐÓNG DẤU sau, PHẢN CHIẾU vào `event_log` cuối cùng.
  *    - Nếu loại sự kiện có trong bảng định tuyến
  *      {@link OUTBOX_EVENT_QUEUE_ROUTES}: bước phát là đẩy một job
- *      BullMQ vào TỪNG hàng đợi trong danh sách đích của loại đó
- *      (tên job là loại sự kiện, `jobId` là id của dòng outbox, dữ
- *      liệu job là toàn bộ dòng — xem {@link OutboxEventJobData}).
- *      Mọi đích đều nhận job thành công mới được coi là đã phát.
+ *      BullMQ vào MỌI hàng đợi đích của loại đó (tên job là loại
+ *      sự kiện, `jobId` là id của dòng outbox, dữ liệu job là toàn
+ *      bộ dòng — xem {@link OutboxEventJobData}). Mọi đích đều đẩy
+ *      thành công mới được coi là đã phát: loại có nhiều consumer
+ *      (fan-out) chỉ được đóng dấu khi mọi consumer đều đã có job
+ *      của dòng.
  *    - Nếu loại sự kiện chưa có trong bảng định tuyến: consumer của
  *      nó chưa chuyển sang worker nên chưa thuộc phạm vi phát job;
  *      phía tiêu thụ của dòng vẫn là các consumer polling đọc trực
@@ -56,21 +59,21 @@ type OutboxRow = typeof outboxEvents.$inferSelect;
  *
  * Bất biến và hành vi khi lỗi:
  * - `publishedAt` không bao giờ xuất hiện trước khi bước phát của
- *   dòng hoàn tất ở MỌI đích: đẩy job thất bại ở bất kỳ đích nào
- *   (ví dụ Redis lỗi) thì dòng KHÔNG được đóng dấu, KHÔNG được phản
- *   chiếu, nhịp relay dừng ngay tại dòng đó (các dòng sau giữ
- *   nguyên thứ tự chờ) và lỗi được ghi vào `task_log` như một nhịp
- *   thất bại; dòng được phát lại ở nhịp relay sau.
+ *   dòng hoàn tất: đẩy job thất bại (ví dụ Redis lỗi) thì dòng
+ *   KHÔNG được đóng dấu, KHÔNG được phản chiếu, nhịp relay dừng
+ *   ngay tại dòng đó (các dòng sau giữ nguyên thứ tự chờ) và lỗi
+ *   được ghi vào `task_log` như một nhịp thất bại; dòng được phát
+ *   lại ở nhịp relay sau.
  * - Tính idempotent / at-least-once: tiến trình sập sau khi đẩy job
  *   mà trước khi đóng dấu thì nhịp sau phát lại cùng dòng; `jobId`
  *   bằng id dòng outbox khiến BullMQ trả lại job đã có thay vì tạo
- *   job trùng ở từng đích, nên phía hàng đợi vẫn đúng một job cho
- *   một dòng ở mỗi đích — NHƯNG chỉ trong cửa sổ hàng đợi còn lưu
- *   giữ job theo chính sách `removeOnComplete` / `removeOnFail`
- *   hiện hành. Job đã bị dọn khỏi hàng đợi thì lần phát lại tạo job
- *   mới cho cùng dòng đó, và khi đó hàng rào chống tác dụng phụ lần
- *   hai là tính idempotent của processor theo `outboxId` (processor
- *   tự ghi dấu đã xử lý theo id dòng và bỏ qua lần xử lý trùng — xem
+ *   job trùng, nên phía hàng đợi vẫn đúng một job cho một dòng —
+ *   NHƯNG chỉ trong cửa sổ hàng đợi còn lưu giữ job theo chính sách
+ *   `removeOnComplete` / `removeOnFail` hiện hành. Job đã bị dọn
+ *   khỏi hàng đợi thì lần phát lại tạo job mới cho cùng dòng đó, và
+ *   khi đó hàng rào chống tác dụng phụ lần hai là tính idempotent
+ *   của processor theo `outboxId` (processor tự ghi dấu đã xử lý
+ *   theo id dòng và bỏ qua lần xử lý trùng — xem
  *   `outbox-event-routes.ts`).
  * - Nhịp không phát được dòng nào thì không ghi `task_log` để tránh
  *   nhiễu 5 giây; nhịp có phát hoặc có lỗi thì ghi một dòng.
@@ -163,21 +166,23 @@ export class OutboxRelayScheduler {
   }
 
   /**
-   * Bước phát của một dòng: đẩy một job BullMQ vào TỪNG hàng đợi
-   * trong danh sách đích nếu loại sự kiện của dòng đã có trong bảng
-   * định tuyến; chưa có thì dòng chưa thuộc phạm vi phát job và bước
-   * phát là rỗng (phía tiêu thụ của dòng vẫn đọc trực tiếp bảng
-   * outbox như hiện hành). Hàm chỉ resolve khi MỌI đích đã nhận job
-   * — lỗi ở bất kỳ đích nào cũng ném ra để dòng không bị đóng dấu;
-   * nhịp phát lại sau đó đi lại từ đầu danh sách và các đích đã nhận
-   * chống trùng theo `jobId`.
+   * Bước phát của một dòng: đẩy job BullMQ vào mọi hàng đợi đích
+   * của loại sự kiện nếu loại đó đã có trong bảng định tuyến; chưa
+   * có thì dòng chưa thuộc phạm vi phát job và bước phát là rỗng
+   * (phía tiêu thụ của dòng vẫn đọc trực tiếp bảng outbox như hiện
+   * hành). Hàm chỉ resolve khi MỌI đích đã nhận job — mọi lỗi đều
+   * ném ra để dòng không bị đóng dấu: phát lại ở nhịp sau an toàn ở
+   * các đích đã nhận nhờ `jobId` bằng id dòng outbox (BullMQ trả
+   * lại job đã có thay vì tạo job thứ hai), nên bất biến "đóng dấu
+   * chỉ sau khi phát thành công" giữ nguyên cả khi fan-out nhiều
+   * đích.
    *
    * @param row Dòng outbox đang phát (chưa có `publishedAt` tại thời
    * điểm hàm chạy — job được đẩy trong khi dòng còn chưa có dấu).
    */
   private async dispatchRow(row: OutboxRow): Promise<void> {
-    const queueNames = this.routes[row.type];
-    if (!queueNames || queueNames.length === 0) return;
+    const route = this.routes[row.type];
+    if (!route) return;
     const data: OutboxEventJobData = {
       outboxId: row.id,
       seq: row.seq,
@@ -187,19 +192,18 @@ export class OutboxRelayScheduler {
       tenantId: row.tenantId,
       occurredAt: row.occurredAt.toISOString(),
     };
-    for (const queueName of queueNames) {
+    for (const queueName of queueNamesOfRoute(route)) {
       const queue = this.queues.get(queueName);
       if (!queue) {
         throw new Error(
           `Outbox event type "${row.type}" is routed to queue "${queueName}" but that queue is not registered`,
         );
       }
-      // jobId bằng id của dòng outbox (không chứa dấu ':' theo luật
-      // của package) và là khoá theo TỪNG hàng đợi: phát lại cùng
-      // một dòng trong lúc job còn được BullMQ lưu giữ thì không tạo
-      // job trùng ở bất kỳ đích nào; ngoài cửa sổ lưu giữ đó, chống
-      // trùng tác dụng phụ là việc của processor (idempotent theo
-      // outboxId — xem outbox-event-routes.ts).
+      // jobId bằng id của dòng outbox (không chứa dấu ':' theo luật của
+      // package): phát lại cùng một dòng trong lúc job còn được BullMQ
+      // lưu giữ thì không tạo job trùng ở đích đó; ngoài cửa sổ lưu
+      // giữ đó, chống trùng tác dụng phụ là việc của processor
+      // (idempotent theo outboxId — xem outbox-event-routes.ts).
       await queue.add(row.type, data, { jobId: row.id });
     }
   }

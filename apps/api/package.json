@@ -28,6 +28,7 @@
     "@lms/config": "workspace:*",
     "@lms/contracts": "workspace:*",
     "@lms/db": "workspace:*",
+    "@lms/enrol": "workspace:*",
     "@lms/grades": "workspace:*",
     "@lms/messaging": "workspace:*",
     "@lms/payments": "workspace:*",

@@ -1,11 +1,8 @@
 import type { INestApplication } from '@nestjs/common';
-import { Client } from 'pg';
-import Redis from 'ioredis';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   adminToken, createTestApp, createUserViaApi, http, login, STRONG_PASSWORD,
 } from '../../support/identity-access-helpers';
-import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wait-helpers';
 
 /**
  * Lát M5 — GHIM / LƯU TRỮ / TẮT TIẾNG theo hội thoại (issue #240).
@@ -18,9 +15,11 @@ import { latestOutboxSeq, waitForOutboxWatermark } from '../../support/outbox-wa
  *    mục đã lưu; có tin mới từ phía kia thì TỰ HIỆN LẠI ở danh sách
  *    chính (quyết định đã chốt ở sổ);
  *  - tắt tiếng: tin vẫn tới và vẫn đếm chưa đọc trong danh sách,
- *    nhưng huy hiệu điều hướng không tính hội thoại này và consumer
- *    KHÔNG sinh thông báo `message_new`; bỏ tắt tiếng thì thông báo
- *    trở lại bình thường;
+ *    nhưng huy hiệu điều hướng không tính hội thoại này. Cổng thông
+ *    báo `message_new` theo cờ tắt tiếng (consumer không sinh thông
+ *    báo cho thành viên đã tắt tiếng; bỏ tắt tiếng thì thông báo
+ *    trở lại) được kiểm chứng ở tầng integration của worker, nơi
+ *    consumer thông báo sự kiện đang chạy (issue con #520 của #491);
  *  - cổng: người ngoài đặt trạng thái → 404 như hội thoại không tồn
  *    tại; PATCH từng phần chỉ đổi đúng cờ được gửi.
  */
@@ -35,16 +34,10 @@ interface ConversationListEntry {
   muted: boolean;
 }
 
-interface Notif { id: string; eventType: string; contextUrl: string | null; timeRead: string | null }
-
 let app: INestApplication;
 let admin: string;
-let pg: Client;
-let redis: Redis;
 
-let counter = 0;
 async function person(): Promise<Person> {
-  counter += 1;
   const created = await createUserViaApi(app, admin);
   const session = await login(app, created.username, STRONG_PASSWORD);
   return { id: created.id, username: created.username, token: session.accessToken };
@@ -92,24 +85,6 @@ async function unreadConversationCount(token: string): Promise<number> {
   return res.body.conversations as number;
 }
 
-async function notificationsOf(token: string): Promise<Notif[]> {
-  const res = await http(app).get('/api/v1/notifications/items').set('Authorization', `Bearer ${token}`);
-  expect(res.status).toBe(200);
-  return (res.body as { items: Notif[] }).items;
-}
-
-/** Chờ consumer (nhịp quét outbox) biến tin mới thành thông báo message_new cho đúng conversation. */
-async function waitForMessageNotification(token: string, conversationId: string, timeoutMs = 20000): Promise<Notif> {
-  const contextUrl = `/messages?conversation=${conversationId}`;
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const found = (await notificationsOf(token)).find((n) => n.eventType === 'message_new' && n.contextUrl === contextUrl);
-    if (found) return found;
-    if (Date.now() > deadline) throw new Error(`message_new for ${conversationId} did not arrive within ${timeoutMs}ms`);
-    await new Promise((r) => setTimeout(r, 400));
-  }
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại (issue #240)', () => {
@@ -119,9 +94,6 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
   beforeAll(async () => {
     app = await createTestApp();
     admin = await adminToken(app);
-    pg = new Client({ connectionString: process.env.DATABASE_URL });
-    await pg.connect();
-    redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6379');
     a = await person();
     b = await person();
     d = await person();
@@ -132,7 +104,7 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
     convD = await openConversation(a, d);
   });
 
-  afterAll(async () => { redis.disconnect(); await pg.end(); await app.close(); });
+  afterAll(async () => { await app.close(); });
 
   it('ghim: hội thoại đã ghim lên đầu và giữ thứ tự qua tải lại; trạng thái chỉ của người ghim', async () => {
     // Hoạt động gần nhất ở convD → danh sách chính của A: convD trước, convB sau.
@@ -255,49 +227,24 @@ describe('Messaging M5 — ghim / lưu trữ / tắt tiếng theo hội thoại 
     expect(await unreadConversationCount(a.token)).toBe(2);
   });
 
-  it('tắt tiếng: consumer không sinh thông báo message_new; bỏ tắt tiếng thì thông báo trở lại', async () => {
-    // Đối chứng trước: hội thoại KHÔNG tắt tiếng (convD) vẫn sinh
-    // thông báo như thường — consumer đang chạy thật.
-    await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${a.token}`).send({ scope: 'all' });
-    await send(d.token, convD, 'tin đối chứng trước khi tắt tiếng');
-    await waitForMessageNotification(a.token, convD);
-
-    // Xoá dấu vết đối chứng để khẳng định "không có" ở bước sau sạch.
-    await http(app).post('/api/v1/notifications/mark-read').set('Authorization', `Bearer ${a.token}`).send({ scope: 'all' });
-    const cleared = await http(app).post('/api/v1/notifications/clear-read').set('Authorization', `Bearer ${a.token}`).send({});
-    expect(cleared.status).toBeLessThan(300);
-
-    // A tắt tiếng convD rồi D gửi tiếp hai tin: không được có
-    // message_new nào cho convD. Nhánh tắt tiếng bị consumer bỏ qua
-    // TRƯỚC khi notify nên không để lại tín hiệu nhìn thấy nào (không
-    // thông báo, không dispatch log) — tín hiệu chốt duy nhất là
-    // watermark: chờ watermark của consumer thông báo vượt seq của cả
-    // hai sự kiện message_sent lúc tắt tiếng rồi mới khẳng định 0.
-    // Sleep cố định 5.000ms ở đây trước đây là gốc của ca chập chờn đã
-    // ghi nhận: nhịp quét + tải CI có thể vượt cửa sổ chờ đó.
+  it('tắt tiếng: tin vẫn tới và đọc được bình thường trong hội thoại đã tắt tiếng', async () => {
+    // Phần cổng thông báo của ca này (thành viên đã tắt tiếng không
+    // nhận message_new, bỏ tắt tiếng thì thông báo trở lại) đã chuyển
+    // cùng consumer sang tầng integration của worker (issue con #520
+    // của #491). Ở tầng API chỉ còn khẳng định phần hành vi của chính
+    // API: tắt tiếng không chặn đường tin — tin gửi vào hội thoại đã
+    // tắt tiếng vẫn được lưu và đọc lại đầy đủ.
     await setState(a.token, convD, { muted: true });
-    const muted1 = await send(d.token, convD, 'tin khi đang tắt tiếng 1');
-    const muted2 = await send(d.token, convD, 'tin khi đang tắt tiếng 2');
-    const mutedSeq = Math.max(
-      await latestOutboxSeq(pg, 'message_sent', 'messageId', (muted1 as { id: string }).id),
-      await latestOutboxSeq(pg, 'message_sent', 'messageId', (muted2 as { id: string }).id),
-    );
-    await waitForOutboxWatermark(redis, 'notifications', mutedSeq);
-    const whileMuted = (await notificationsOf(a.token))
-      .filter((n) => n.eventType === 'message_new' && n.contextUrl === `/messages?conversation=${convD}`);
-    expect(whileMuted).toHaveLength(0);
+    await send(d.token, convD, 'tin khi đang tắt tiếng 1');
+    await send(d.token, convD, 'tin khi đang tắt tiếng 2');
 
-    // Tin vẫn tới và đọc được bình thường trong hội thoại đã tắt tiếng.
     const detail = await http(app).get(`/api/v1/messages/conversations/${convD}`)
       .set('Authorization', `Bearer ${a.token}`);
     expect(detail.status).toBe(200);
     const texts = (detail.body.messages as { fullMessage: string }[]).map((m) => m.fullMessage);
+    expect(texts).toContain('tin khi đang tắt tiếng 1');
     expect(texts).toContain('tin khi đang tắt tiếng 2');
 
-    // Bỏ tắt tiếng → tin mới lại sinh thông báo như thường.
     await setState(a.token, convD, { muted: false });
-    await send(d.token, convD, 'tin sau khi bật lại tiếng');
-    const notif = await waitForMessageNotification(a.token, convD);
-    expect(notif.contextUrl).toBe(`/messages?conversation=${convD}`);
-  }, 90000);
+  });
 });

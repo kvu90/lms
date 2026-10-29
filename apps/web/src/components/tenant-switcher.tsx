@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
 } from '@lms/ui/components/dropdown-menu';
 import { switchTenant, useMyTenants } from '#lib/tenants';
-import '../i18n';
+import '#config/i18n';
 
 /**
  * Mục chuyển không gian làm việc trong menu người dùng (TENANT-0,

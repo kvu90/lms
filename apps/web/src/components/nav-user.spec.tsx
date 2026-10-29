@@ -2,9 +2,9 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import App from '../root';
-import Shell from '../routes/shell';
-import { queryClient } from '../lib/query-client';
+import App from '../app/root';
+import Shell from '../app/shell';
+import { queryClient } from '#lib/query-client';
 import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 
 /**

@@ -32,7 +32,7 @@
  * gộp bằng `AbortSignal.any` — hủy bên nào cũng dừng lượt gọi.
  */
 import { problemDetailsSchema } from '@lms/contracts';
-import { ApiError } from './api';
+import { ApiError } from '#lib/api';
 
 /** Trần thời gian cho MỘT lượt gọi API nội bộ phía server (mili giây). */
 export const SSR_FETCH_TIMEOUT_MS = 10_000;

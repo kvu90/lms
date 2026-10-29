@@ -19,15 +19,18 @@ import { NotificationDeliveryService } from './notification-delivery.service';
 import { GuardianDigestScheduler } from './guardian-digest.scheduler';
 import { GuardianDigestProcessor } from './processors/guardian-digest.processor';
 import { GuardianDigestEventsProcessor } from './processors/guardian-digest-events.processor';
-import { MessagingRealtimeProcessor, MESSAGING_DISTRIBUTED_REDIS, MESSAGING_DISTRIBUTION_SERVICE } from './processors/messaging-realtime.processor';
-import { MessagingRealtimeRuntime } from './messaging-realtime.runtime';
 import { GuardianDigestHandlerService } from './guardian-digest-handler.service';
+import { NotificationEventsProcessor } from './processors/notification-events.processor';
+import { NotificationEventsHandlerService } from './notification-events-handler.service';
+import { NotificationEventsMarker } from './notification-events-marker.service';
+import { NotificationEventsCatchupService } from './notification-events-catchup.service';
 import { EventLogWriter } from './event-log-writer.service';
 import { OutboxRelayScheduler } from './outbox-relay.scheduler';
 import {
   OUTBOX_EVENT_QUEUE_ROUTES,
   OUTBOX_EVENT_QUEUES,
   OUTBOX_EVENT_ROUTES,
+  allQueueNamesOfRoutes,
   type OutboxEventQueues,
 } from './outbox-event-routes';
 import { TaskLogService } from './task-log.service';
@@ -54,13 +57,12 @@ import {
 /**
  * Tên các hàng đợi phát sự kiện outbox, suy ra từ bảng định tuyến
  * {@link OUTBOX_EVENT_QUEUE_ROUTES}: mỗi loại sự kiện đã định tuyến
- * đóng góp hàng đợi của nó một lần. Đăng ký hàng đợi và bản đồ hàng
- * đợi cấp cho relay đều suy ra từ danh sách này nên hai nơi không
- * thể lệch nhau khi bảng định tuyến được mở rộng.
+ * đóng góp mọi hàng đợi đích của nó một lần (một loại fan-out nhiều
+ * đích đóng góp đủ các đích). Đăng ký hàng đợi và bản đồ hàng đợi
+ * cấp cho relay đều suy ra từ danh sách này nên hai nơi không thể
+ * lệch nhau khi bảng định tuyến được mở rộng.
  */
-const outboxRouteQueueNames: string[] = [
-  ...new Set(Object.values(OUTBOX_EVENT_QUEUE_ROUTES).flat()),
-];
+const outboxRouteQueueNames: string[] = allQueueNamesOfRoutes(OUTBOX_EVENT_QUEUE_ROUTES);
 
 @Module({
   imports: [
@@ -144,25 +146,19 @@ const outboxRouteQueueNames: string[] = [
       useFactory: (...queues: Queue[]): OutboxEventQueues =>
         new Map(outboxRouteQueueNames.map((name, index) => [name, queues[index]!] as const)),
     },
-    // Consumer phân phối realtime messaging (issue #521): runtime
-    // giữ tầng phân phối dùng chung + Redis dấu đã-phân-phối + cổng
-    // phát qua Redis adapter; processor chỉ tiêu thụ job.
-    MessagingRealtimeRuntime,
-    {
-      provide: MESSAGING_DISTRIBUTION_SERVICE,
-      inject: [MessagingRealtimeRuntime],
-      useFactory: (runtime: MessagingRealtimeRuntime) => runtime.distribution,
-    },
-    {
-      provide: MESSAGING_DISTRIBUTED_REDIS,
-      inject: [MessagingRealtimeRuntime],
-      useFactory: (runtime: MessagingRealtimeRuntime) => runtime.redis,
-    },
-    MessagingRealtimeProcessor,
     FileCleanupProcessor, OutboxRelayScheduler, EventLogWriter, TaskLogService, EnrolExpiryProcessor, ClassEnrolReconcileProcessor, ClassEnrolReconcileScheduler, ActivityDueReminderProcessor, ActivityDueReminderScheduler, GuardianDigestProcessor, GuardianDigestScheduler, GuardianDigestEventsProcessor, GuardianDigestHandlerService, CompletionRecalculateProcessor, EnrolExpiryScheduler, NotificationDispatchProcessor, ResendMailService, NotificationDigestProcessor, NotificationDigestScheduler, NotificationDeliveryService, NotificationRetentionProcessor, NotificationRetentionScheduler, CalendarReminderProcessor, CalendarImportProcessor, BadgeAwardProcessor, BackupProcessor, RestoreProcessor, SearchReindexProcessor, AnalyticsRunProcessor, ReportScheduleProcessor, PrivacyProcessor, PaymentReconciliationProcessor,
     // Consumer mail auth trên hàng đợi (issue #517): processor của
     // hàng đợi `auth-mail` (đăng ký hàng đợi tự suy ra từ bảng định
     // tuyến outbox ở trên) + dấu chiếm/đã xử lý theo outboxId trên
     // Redis làm hàng rào idempotent cho processor.
-    AuthMailProcessor, { provide: AUTH_MAIL_SENT_MARKER, useClass: RedisAuthMailSentMarker }],})
+    AuthMailProcessor, { provide: AUTH_MAIL_SENT_MARKER, useClass: RedisAuthMailSentMarker },
+    // Consumer thông báo sự kiện trên hàng đợi (issue con #520 của
+    // #491): processor của hàng đợi `notification-events` (đăng ký
+    // hàng đợi tự suy ra từ bảng định tuyến outbox ở trên) + handler
+    // nghiệp vụ + dấu đã xử lý/lease theo outboxId trên Redis làm
+    // hàng rào idempotent cho processor + dịch vụ phát bù tồn đọng
+    // một lần theo watermark của consumer polling cũ khi chuyển
+    // đổi (chỉ chạy khi còn khoá watermark cũ, tự xoá khoá khi rút
+    // cạn xong).
+    NotificationEventsProcessor, NotificationEventsHandlerService, NotificationEventsMarker, NotificationEventsCatchupService],})
 export class WorkerModule {}
