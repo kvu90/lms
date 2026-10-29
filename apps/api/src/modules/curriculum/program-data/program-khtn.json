@@ -2668,7 +2668,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được mô hình sắp xếp electron trong vỏ nguyên tử của một số nguyên tố khí hiếm; sự hình thành liên kết cộng hoá trị theo nguyên tắc dùng chung electron để tạo ra lớp vỏ electron của nguyên tố khí hiếm (Áp dụng được cho các phân tử đơn giản như H , Cl , 3 2 2 2 ."
+         "text": "Nêu được mô hình sắp xếp electron trong vỏ nguyên tử của một số nguyên tố khí hiếm; sự hình thành liên kết cộng hoá trị theo nguyên tắc dùng chung electron để tạo ra lớp vỏ electron của nguyên tố khí hiếm (Áp dụng được cho các phân tử đơn giản như H2, Cl2, NH3, H2O, CO2, N2,…)."
         }
        ]
       }
@@ -2703,7 +2703,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được mô hình sắp xếp electron trong vỏ nguyên tử của một số nguyên tố khí hiếm; sự hình thành liên kết cộng hoá trị theo nguyên tắc dùng chung electron để tạo ra lớp vỏ electron của nguyên tố khí hiếm (Áp dụng được cho các phân tử đơn giản như H , Cl , 3 2 2 2 . – Nêu được được sự hình thành liên kết ion theo nguyên tắc cho và nhận electron để tạo ra ion có lớp vỏ electron của nguyên tố khí hiếm (Áp dụng cho phân tử đơn giản như NaCl, MgO,…). – Chỉ ra được sự khác nhau về một số tính chất của chất ion và chất cộng hoá trị.",
+   "outcome_text": "– Nêu được mô hình sắp xếp electron trong vỏ nguyên tử của một số nguyên tố khí hiếm; sự hình thành liên kết cộng hoá trị theo nguyên tắc dùng chung electron để tạo ra lớp vỏ electron của nguyên tố khí hiếm (Áp dụng được cho các phân tử đơn giản như H2, Cl2, NH3, H2O, CO2, N2,…). – Nêu được được sự hình thành liên kết ion theo nguyên tắc cho và nhận electron để tạo ra ion có lớp vỏ electron của nguyên tố khí hiếm (Áp dụng cho phân tử đơn giản như NaCl, MgO,…). – Chỉ ra được sự khác nhau về một số tính chất của chất ion và chất cộng hoá trị.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -5104,7 +5104,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được khái niệm acid (tạo ra ion"
+         "text": "Nêu được khái niệm acid (tạo ra ion H+)."
         }
        ]
       }
@@ -5132,14 +5132,14 @@
        "content": [
         {
          "type": "text",
-         "text": "Trình bày được một số ứng dụng của một số acid thông dụng (HCl, H SO , CH COOH)."
+         "text": "Trình bày được một số ứng dụng của một số acid thông dụng (HCl, H2SO4, CH3COOH)."
         }
        ]
       }
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm acid (tạo ra ion – Tiến hành được thí nghiệm của hydrochloric acid (làm đổi màu chất chỉ thị; phản ứng với kim loại), nêu và giải thích được hiện tượng xảy ra trong thí nghiệm (viết phương trình hoá học) và rút ra nhận xét về tính chất của acid. – Trình bày được một số ứng dụng của một số acid thông dụng (HCl, H SO , CH COOH).",
+   "outcome_text": "– Nêu được khái niệm acid (tạo ra ion H+). – Tiến hành được thí nghiệm của hydrochloric acid (làm đổi màu chất chỉ thị; phản ứng với kim loại), nêu và giải thích được hiện tượng xảy ra trong thí nghiệm (viết phương trình hoá học) và rút ra nhận xét về tính chất của acid. – Trình bày được một số ứng dụng của một số acid thông dụng (HCl, H2SO4, CH3COOH).",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -5389,7 +5389,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được khái niệm về muối (các muối thông thường là hợp chất được hình thành từ sự thay thế ion của acid bởi ion kim loại hoặc ion"
+         "text": "Nêu được khái niệm về muối (các muối thông thường là hợp chất được hình thành từ sự thay thế ion H+ của acid bởi ion kim loại hoặc ion NH4+)."
         }
        ]
       }
@@ -5466,7 +5466,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm về muối (các muối thông thường là hợp chất được hình thành từ sự thay thế ion của acid bởi ion kim loại hoặc ion – Chỉ ra được một số muối tan và muối không tan từ bảng tính tan. – Trình bày được một số phương pháp điều chế muối. – Đọc được tên một số loại muối thông dụng. – Tiến hành được thí nghiệm muối phản ứng với kim loại, với acid, với base, với muối; nêu và giải thích được hiện tượng xảy ra trong thí nghiệm (viết phương trình hoá học) và rút ra kết luận về tính chất hoá học của muối. – Trình bày được mối quan hệ giữa acid, base, oxide và muối; rút ra được kết luận về tính chất hoá học của acid, base, oxide.",
+   "outcome_text": "– Nêu được khái niệm về muối (các muối thông thường là hợp chất được hình thành từ sự thay thế ion H+ của acid bởi ion kim loại hoặc ion NH4+). – Chỉ ra được một số muối tan và muối không tan từ bảng tính tan. – Trình bày được một số phương pháp điều chế muối. – Đọc được tên một số loại muối thông dụng. – Tiến hành được thí nghiệm muối phản ứng với kim loại, với acid, với base, với muối; nêu và giải thích được hiện tượng xảy ra trong thí nghiệm (viết phương trình hoá học) và rút ra kết luận về tính chất hoá học của muối. – Trình bày được mối quan hệ giữa acid, base, oxide và muối; rút ra được kết luận về tính chất hoá học của acid, base, oxide.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",
@@ -10283,7 +10283,7 @@
        "content": [
         {
          "type": "text",
-         "text": "Nêu được khái niệm lipid, khái niệm chất béo, trạng thái thiên nhiên, công thức tổng quát của chất béo đơn giản là (R–COO) C H , đặc điểm cấu tạo."
+         "text": "Nêu được khái niệm lipid, khái niệm chất béo, trạng thái thiên nhiên, công thức tổng quát của chất béo đơn giản là (R–COO)3C3H5, đặc điểm cấu tạo."
         }
        ]
       }
@@ -10332,7 +10332,7 @@
      ]
     }
    ],
-   "outcome_text": "– Nêu được khái niệm lipid, khái niệm chất béo, trạng thái thiên nhiên, công thức tổng quát của chất béo đơn giản là (R–COO) C H , đặc điểm cấu tạo. – Trình bày được tính chất vật lí của chất béo (trạng thái, tính tan) và tính chất hoá học (phản ứng xà phòng hoá). Viết được phương trình hoá học xảy ra. – Nêu được vai trò của lipid tham gia vào cấu tạo tế bào và tích lũy năng lượng trong cơ thể. – Trình bày được ứng dụng của chất béo và đề xuất biện pháp sử dụng chất béo cho phù hợp trong việc ăn uống hàng ngày để có cơ thể khoẻ mạnh, tránh được bệnh béo phì.",
+   "outcome_text": "– Nêu được khái niệm lipid, khái niệm chất béo, trạng thái thiên nhiên, công thức tổng quát của chất béo đơn giản là (R–COO)3C3H5, đặc điểm cấu tạo. – Trình bày được tính chất vật lí của chất béo (trạng thái, tính tan) và tính chất hoá học (phản ứng xà phòng hoá). Viết được phương trình hoá học xảy ra. – Nêu được vai trò của lipid tham gia vào cấu tạo tế bào và tích lũy năng lượng trong cơ thể. – Trình bày được ứng dụng của chất béo và đề xuất biện pháp sử dụng chất béo cho phù hợp trong việc ăn uống hàng ngày để có cơ thể khoẻ mạnh, tránh được bệnh béo phì.",
    "source": {
     "document": "Chương trình môn Khoa học tự nhiên ban hành kèm Thông tư 32/2018/TT-BGDĐT",
     "file": "ct-khtn-official.pdf",

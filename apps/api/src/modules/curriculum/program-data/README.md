@@ -955,3 +955,223 @@ dòng YCCĐ trong dump là 7.739, gồm 3 dòng đã rút của các đợt trư
 giữ nguyên; số dòng hiện hành 7.736). Cổng toàn vẹn nguyên văn đạt
 trên toàn bộ 21 file sau sửa; bảng số bản ghi của spec kiểm kê
 dataset đã cập nhật theo số liệu sau đợt trong cùng thay đổi này.
+
+## Đợt khôi phục ngày 29/10/2026 — đợt 2: sửa nguyên văn công thức và nhãn (issue #501)
+
+Đợt này là đợt 2 của đợt đối chiếu nguồn toàn bộ 21 dataset: chỉ
+sửa nguyên văn các YCCĐ bị nát công thức, sửa nhãn mảnh, dọn chữ rò
+vào trường `section` và sửa lớp của LS-0063. Không thêm, không bớt
+bản ghi hay YCCĐ nào: tổng giữ nguyên 2.164 bản ghi và 7.736 dòng
+YCCĐ hiện hành như sau đợt 1. Luật hạt giữ nguyên: không tách,
+không gộp ý. Mọi đoạn sửa đối chiếu từng ký tự với văn bản nguồn
+chính thức (bản PDF chương trình môn học của Bộ): Hoá học, Khoa
+học tự nhiên, Sinh học, Vật lí, Lịch sử và Toán.
+
+Quy ước chép công thức vào dataset (theo đúng các tiền lệ sạch đã
+có sẵn trong chính dataset, ví dụ HH-0023, HH-0027): chỉ số dưới
+viết liền sau ký hiệu bằng chữ/số thường (H2O, SO4 2–); Δ là ký tự
+U+0394 viết liền với chỉ số dưới và mũ độ viết bằng chữ "o"
+(ΔrHo298, ΔfHo298, 25oC); Σ là ký tự U+03A3; quanh dấu "=" và dấu
+"–" trong công thức có khoảng trắng như bản in.
+
+### Hoá học — 94 bản ghi / 359 ý (sửa nguyên văn 14 ý ở 9 bản ghi, số lượng không đổi)
+
+- Hiện trạng: 14 ý ở HH-0013, HH-0015, HH-0022, HH-0024, HH-0037,
+  HH-0047, HH-0073, HH-0080, HH-0085 bị nát chỉ số dưới/trên của
+  công thức hoá học khi trích xuất (chỉ số rơi khỏi ký hiệu, ký tự
+  điều khiển lọt vào giữa công thức, có chỗ mất hẳn một vế).
+- Đính chính (trước → sau, chỉ ghi đoạn thay đổi):
+  - HH-0013 ý 1: "tính chất vật lí của H O" → "tính chất vật lí
+    của H2O".
+  - HH-0015 ý 1: "(áp suất 1 bar và 25oC thường chọn nhiệt độ hay
+    298 K); enthalpy tạo thành (nhiệt tạo thành) Δ Ho , và biến
+    thiên enthalpy (nhiệt phản ứng) của phản ứng Δ . r 298 Ho" →
+    "(áp suất 1 bar và thường chọn nhiệt độ 25oC hay 298 K);
+    enthalpy tạo thành (nhiệt tạo thành) ΔfHo298, và biến thiên
+    enthalpy (nhiệt phản ứng) của phản ứng ΔrHo298."
+  - HH-0015 ý 2: "dấu và giá trị Δ . r 298 Ho" → "dấu và giá trị
+    ΔrHo298".
+  - HH-0015 ý 3: hai công thức nát chỉ số → "ΔrHo298 = ΣEb(cđ) –
+    ΣEb(sp) và ΔrHo298 = ΣΔfHo298(sp) – ΣΔfHo298(cđ)"; "E (cđ)
+    E (sp) b , b" → "Eb(cđ), Eb(sp)".
+  - HH-0022 ý 2: "=A.e(–E /RT). phương trình Arrhenius k a" →
+    "phương trình Arrhenius k = A.e^(–Ea/RT)".
+  - HH-0024 ý 2: "Mg cháy trong CO ,..." → "Mg cháy trong
+    CO2,...".
+  - HH-0037 ý 2: "cấu tạo H SO" → "cấu tạo H2SO4".
+  - HH-0037 ý 5: "nhận SO2– Ba2+. biết được ion trong dung dịch
+    bằng ion" → "nhận biết được ion SO4 2– trong dung dịch bằng
+    ion Ba2+.".
+  - HH-0047 ý 4: "với HNO đặctrong H SO đặc" → "với HNO3 đặc
+    trong H2SO4 đặc" (đồng thời khôi phục chữ "của" bị nát ký tự
+    trong cùng ý).
+  - HH-0073 ý 3: "(có bổ sung thế điện cực chuẩn các cặp: H +
+    1/2H ; ; SO2– + SO + 2H O)" → "(có bổ sung thế điện cực chuẩn
+    các cặp: H2O/OH– + 1/2H2; 2H+/H2; SO4 2– + 4H+/SO2 + 2H2O)";
+    "dung dịch HCl, H SO loãng và đặc" → "dung dịch HCl, H2SO4
+    loãng và đặc".
+  - HH-0080 ý 3: "kim loại nhóm IIA tạo (dựa vào" → "kim loại
+    nhóm IIA tạo M2+ (dựa vào".
+  - HH-0080 ý 4: "các hợp Ca2+, Sr2+, Ba2+ chất của dựa vào màu
+    ngọn lửa" → "các hợp chất của Ca2+, Sr2+, Ba2+ dựa vào màu
+    ngọn lửa".
+  - HH-0085 ý 4: "phức chất aqua của ion kim loại chuyển tiếp và
+    H O" → "phức chất aqua của ion kim loại chuyển tiếp và H2O".
+  - HH-0085 ý 6: "với NH , OH–, Cl- ,..." → "với NH3, OH–, Cl–,
+    ...".
+- Importer: created=0, updated=9, skipped=85; changeCounts:
+  textChanged=14, còn lại 0 (added/removed/moved/revived/
+  shiftSuspected đều 0).
+- Kết quả: 94 bản ghi, 359 dòng YCCĐ hiện hành (không đổi).
+
+### Khoa học tự nhiên — 131 bản ghi / 596 ý (sửa nguyên văn 5 ý ở 4 bản ghi, số lượng không đổi)
+
+- Hiện trạng: 5 ý bị nát công thức: KHTN-0029 ý 1 (danh sách phân
+  tử chỉ còn "H , Cl , 3 2 2 2 ."), KHTN-0055 ý 1 và ý 3, KHTN-0059
+  ý 1, KHTN-0108 ý 1.
+- Đính chính (trước → sau, chỉ ghi đoạn thay đổi):
+  - KHTN-0029 ý 1: "(Áp dụng được cho các phân tử đơn giản như
+    H , Cl , 3 2 2 2 ." → "(Áp dụng được cho các phân tử đơn giản
+    như H2, Cl2, NH3, H2O, CO2, N2,…)". Lưu ý: bản trích dẫn trong
+    hồ sơ đối chiếu nguồn ghi rút gọn danh sách này; văn bản in
+    chính thức liệt kê đủ 6 phân tử như trên và dataset lấy theo
+    bản in.
+  - KHTN-0055 ý 1: "khái niệm acid (tạo ra ion –" → "khái niệm
+    acid (tạo ra ion H+).".
+  - KHTN-0055 ý 3: "(HCl, H SO , CH COOH)" → "(HCl, H2SO4,
+    CH3COOH)".
+  - KHTN-0059 ý 1: "hình thành từ sự thay thế ion của acid bởi
+    ion kim loại hoặc ion –" → "hình thành từ sự thay thế ion H+
+    của acid bởi ion kim loại hoặc ion NH4+)".
+  - KHTN-0108 ý 1: "công thức tổng quát của chất béo đơn giản là
+    (R–COO) C H" → "công thức tổng quát của chất béo đơn giản là
+    (R–COO)3C3H5".
+- Importer: created=0, updated=4, skipped=127; changeCounts:
+  textChanged=5, còn lại 0.
+- Kết quả: 131 bản ghi, 596 dòng YCCĐ hiện hành (không đổi).
+
+### Sinh học — 133 bản ghi / 433 ý (sửa nguyên văn 1 ý, số lượng không đổi)
+
+- Hiện trạng: SH-0031 ý 1 viết "(ánh sáng, CO , nhiệt độ)" — chỉ
+  số 2 của CO2 bị rơi.
+- Đính chính: "(ánh sáng, CO , nhiệt độ)" → "(ánh sáng, CO2,
+  nhiệt độ)".
+- Importer: created=0, updated=1, skipped=132; changeCounts:
+  textChanged=1, còn lại 0.
+- Kết quả: 133 bản ghi, 433 dòng YCCĐ hiện hành (không đổi).
+
+### Vật lí — 82 bản ghi / 245 ý (sửa nguyên văn 1 ý, số lượng không đổi)
+
+- Hiện trạng: VL-0081 ý 4 viết "hf = E – E ." — hai chỉ số mức
+  năng lượng bị rơi.
+- Đính chính: "Vận dụng được biểu thức chuyển mức năng lượng
+  hf = E – E ." → "Vận dụng được biểu thức chuyển mức năng lượng
+  hf = E1 – E2.".
+- Importer: created=0, updated=1, skipped=81; changeCounts:
+  textChanged=1, còn lại 0.
+- Kết quả: 82 bản ghi, 245 dòng YCCĐ hiện hành (không đổi).
+
+### Lịch sử — 110 bản ghi / 403 ý (sửa lớp LS-0063, số lượng không đổi)
+
+- Hiện trạng: LS-0063 (chuyên đề 11.3, danh nhân trong lịch sử
+  Việt Nam) mang grade=12, nhưng trong văn bản nguồn cả ba ý của
+  bản ghi nằm trọn phía trên tiêu đề "LỚP 12", thuộc phần Lớp 11.
+- Đính chính: grade của LS-0063: 12 → 11; nội dung ba ý giữ
+  nguyên văn.
+- Importer: created=0, updated=1, skipped=109; changeCounts đều 0
+  (chỉ dời vị trí cây).
+- Kết quả: 110 bản ghi, 403 dòng YCCĐ hiện hành (không đổi).
+
+### Toán — 314 bản ghi / 900 ý (sửa nhãn 21 bản ghi, dọn `section` 7 bản ghi, số lượng không đổi)
+
+- Hiện trạng: một loạt bản ghi mang nhãn `topic`/`section` là
+  mảnh chữ bị cắt ở ranh giới cột khi trích xuất (ví dụ topic
+  "Thu thập và tổ" / "chức dữ liệu" là hai nửa của cùng một ô nội
+  dung; topic "đến:" và section "đến" là mảnh của cụm "…hàm số
+  liên tục trên một khoảng, một đoạn từ … đến …" không thuộc nhãn).
+  Hồ sơ đối chiếu nguồn đếm 24 nhãn mảnh trên nền dataset 300 bản
+  ghi trước đợt 1; đợt này rà lại toàn bộ tập giá trị
+  `stream`/`section`/`topic` phân biệt của dataset hiện hành 314
+  bản ghi và sửa mọi nhãn khách quan là mảnh — tổng cộng 21 bản
+  ghi (gồm TOAN-0304, bản ghi dựng ở đợt 1 chép theo nhãn mảnh của
+  TOAN-0148). Ngoài ra 7 bản ghi (TOAN-0275–TOAN-0280 và
+  TOAN-0313) mang `section` là nguyên văn 3 ý phần mềm lớp 11 bị
+  rò vào trường nhãn từ TOAN-0280; 3 ý đó đã có đầy đủ, đúng vị
+  trí ở TOAN-0312 (khôi phục ở đợt 1) nên phần rò chỉ cần xoá
+  khỏi trường `section`.
+- Đính chính nhãn (trước → sau):
+  - TOAN-0064 topic: "Các phép tính với" → "Các phép tính với
+    phân số".
+  - TOAN-0065 section: "trong tính giá trị của biểu thức." →
+    null; topic: "phân số" → "Các phép tính với phân số".
+  - TOAN-0086, TOAN-0087 section: "– Giải quyết được một số vấn
+    đề gắn với việc giải các bài toán liên quan" → "Phân số";
+    topic: "đến:" → "Tỉ số. Tỉ số phần trăm".
+  - TOAN-0093–TOAN-0096 section: "đến" → "Hình học trực quan".
+  - TOAN-0143 topic: "Thu thập và tổ" → "Thu thập và tổ chức dữ
+    liệu"; TOAN-0144, TOAN-0145 topic: "chức dữ liệu" → "Thu thập
+    và tổ chức dữ liệu".
+  - TOAN-0147 topic: "Một số yếu tố xác" → "Một số yếu tố xác
+    suất"; TOAN-0148, TOAN-0304 topic: "suất" → "Một số yếu tố
+    xác suất".
+  - TOAN-0183 topic: "Bất phương trình" → "Bất phương trình bậc
+    nhất một ẩn"; TOAN-0184 topic: "bậc nhất một ẩn" → "Bất
+    phương trình bậc nhất một ẩn".
+  - TOAN-0194 topic: "Phân tích và xử lí" → "Phân tích và xử lí
+    dữ liệu"; TOAN-0195 topic: "dữ liệu" → "Phân tích và xử lí dữ
+    liệu".
+  - TOAN-0210, TOAN-0211 section: "xứng." → "Đại số".
+  - TOAN-0273 topic: "Chuyên đề 11.2: Một" → "Chuyên đề 11.2:
+    Một số yếu tố vẽ kĩ thuật".
+  - TOAN-0275–TOAN-0280, TOAN-0313 section: nguyên văn 3 ý phần
+    mềm lớp 11 → null (các trường còn lại giữ nguyên; riêng
+    TOAN-0313 là bản ghi phần mềm giải tích lớp 11 khôi phục ở
+    đợt 1, chỉ dọn trường `section`, không đổi vị trí).
+  - Mọi nhãn đầy đủ trên đối chiếu cột nội dung của văn bản
+    nguồn môn Toán (vị trí ô chủ đề và ô nội dung trong bảng
+    chương trình).
+- Importer: created=0, updated=28, skipped=286; changeCounts đều
+  0 (chỉ sửa trường nhãn của bản ghi); retiredOutcomes=3 là 3
+  dòng đã rút từ các đợt trước được kiểm tra lại, không phải rút
+  mới ở đợt này.
+- Dọn node cây sau khi nạp: importer tạo 11 node mới cho các vị
+  trí nhãn đầy đủ; 23 node thành rỗng sau đợt sửa (toàn bộ là
+  node mang nhãn mảnh hoặc node `section` chứa chữ rò, không còn
+  bản ghi hay YCCĐ nào neo vào) đã được xoá khỏi cơ sở dữ liệu
+  chuẩn trước khi xuất dump, để cây chương trình không còn nhánh
+  rỗng mang nhãn mảnh. Sau khi xoá, số node lá không có bản ghi
+  và không có YCCĐ là 0.
+- Kết quả: 314 bản ghi, 900 dòng YCCĐ hiện hành (không đổi); rà
+  lại toàn bộ giá trị `stream`/`section`/`topic` phân biệt của
+  dataset: không còn nhãn mảnh, không còn chữ rò trong trường
+  `section`.
+
+### Ghi nhận ngoài phạm vi đợt này (không sửa)
+
+- HH-0024 ý 7 (danh sách sản phẩm độc hại của phản ứng cháy:
+  "CO , CO, HCl, SO ,...") và HH-0073 ý 5 ("acid (HCl, H SO )")
+  còn vết nát chỉ số dưới tương tự nhưng không nằm trong danh
+  sách ý đã kiểm chứng của đợt này; giữ nguyên văn hiện trạng,
+  ghi nhận tại đây để đợt rà soát riêng xử lý nếu được mở.
+
+### Số liệu sau đợt khôi phục ngày 29/10/2026 — đợt 2 (issue #501)
+
+| Dataset | Bản ghi trước → sau | Dòng YCCĐ hiện hành trước → sau |
+|---|---|---|
+| Hoá học | 94 → 94 | 359 → 359 |
+| Khoa học tự nhiên | 131 → 131 | 596 → 596 |
+| Sinh học | 133 → 133 | 433 → 433 |
+| Vật lí | 82 → 82 | 245 → 245 |
+| Lịch sử | 110 → 110 | 403 → 403 |
+| Toán | 314 → 314 | 900 → 900 |
+| 15 dataset còn lại | không đổi | không đổi |
+| **Tổng** | **2.164 → 2.164** | **7.736 → 7.736** |
+
+Phiên bản dump đông cứng sau đợt: `2026-10-29.2` (header dump ghi
+subjects=19, curricula=146, curriculum_nodes=3696,
+learning_outcomes=7739, curriculum_program_records=2164; tổng số
+dòng YCCĐ trong dump là 7.739, gồm 3 dòng đã rút của các đợt trước
+giữ nguyên; số dòng hiện hành 7.736; số node giảm ròng 12 so với
+đợt 1 do dọn node nhãn mảnh như mục Toán ở trên). Cổng toàn vẹn
+nguyên văn đạt trên toàn bộ 21 file sau sửa; bảng số bản ghi của
+spec kiểm kê dataset không đổi vì số lượng không đổi.
