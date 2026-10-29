@@ -25,7 +25,7 @@ import { Link } from 'react-router';
 import { NavMain, type NavEntry } from '#components/nav-main';
 import { NavUser } from '#components/nav-user';
 import { apiJson } from '#lib/api';
-import { useNotificationUnreadStream } from '#lib/notification-unread-stream';
+import { useNotificationUnreadStream } from '#features/notifications/hooks/notification-unread-stream';
 import { queryKeys } from '#lib/query-keys';
 import {
   Sidebar,
@@ -38,7 +38,7 @@ import {
   SidebarRail,
 } from '@lms/ui/components/sidebar';
 import { usePermissions } from '#lib/permissions';
-import '../i18n';
+import '#config/i18n';
 
 /** Khoá localStorage lưu các nhóm điều hướng đang mở (hồ sơ UI/UX §4.3). */
 const OPEN_GROUPS_STORAGE_KEY = 'lms:sidebar:open-groups';

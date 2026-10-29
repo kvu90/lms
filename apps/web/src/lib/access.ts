@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Capability, Role } from '@lms/contracts';
-import { apiJson } from './api';
-import { queryKeys } from './query-keys';
+import { apiJson } from '#lib/api';
+import { queryKeys } from '#lib/query-keys';
 
 /** Một dòng cây context phân quyền (GET /access/contexts). */
 export interface ContextRow {

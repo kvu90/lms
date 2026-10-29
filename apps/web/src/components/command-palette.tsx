@@ -7,7 +7,7 @@ import { apiJson } from '#lib/api';
 import { systemCapabilities, usePermissions } from '#lib/permissions';
 import { queryKeys } from '#lib/query-keys';
 import { globalSearchTarget, type GlobalSearchDoc } from '#lib/search-target';
-import '../i18n';
+import '#config/i18n';
 
 /**
  * Một đích đến trong bề mặt tìm kiếm: mục đi tới (màn hình theo quyền

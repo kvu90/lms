@@ -105,26 +105,74 @@ vào trí nhớ của trợ lý:
   flow đạt chuẩn là chưa đạt. Code cũ chưa có comment được phủ theo đợt riêng
   của issue #272, không tự trộn việc phủ vào feat đang bay.
 
+## Cấu trúc `features/` và kỷ luật import (issue #500)
+
+Từ đợt tổ chức lại theo mô hình features/, `apps/web` tổ chức theo
+feature: mỗi miền nghiệp vụ là một thư mục `src/features/<feature>/` tự
+chứa các tầng của chính nó — `routes/` (route module, export trực tiếp
+component/loader/clientLoader/meta/ErrorBoundary; config route riêng ở
+`features/<feature>/routes.ts` dùng `relative()`/`prefix()` của React
+Router), `components/`, `api/` (hàm gọi API thuần, không phụ thuộc
+React), `queries/` (hook React Query + query keys riêng của feature ở
+`queries/keys.ts` + prefetch/clientLoader), `types/`, `utils/`,
+`hooks/`. Mô hình `src/lib/*-data.ts` phẳng đã bỏ: tầng dữ liệu của mỗi
+miền nằm trong feature của nó, tách rõ tầng `api/` khỏi tầng
+`queries/`.
+
+- **Kỷ luật phụ thuộc một chiều:** thư mục dùng chung ← features ← app.
+  Feature chỉ import từ tầng dùng chung (`src/lib/`, `src/components/`,
+  `src/hooks/`, `src/config/`, `src/utils/`) và từ chính feature của nó;
+  **không import ngang giữa các feature**. Phần hai feature cùng cần
+  phải đưa xuống thư mục dùng chung hoặc hợp nhất ở tầng app. Tầng app
+  (`src/app/`) import từ mọi feature (file `src/app/routes.ts` chỉ gộp
+  các khối route của feature vào layout chung).
+- Phần thật sự đa-feature mới ở lại tầng dùng chung: `src/lib/` giữ
+  client API (`api.ts`), auth (`auth.tsx`, `auth-client.ts`), phân
+  quyền hiển thị (`permissions.tsx`, `access.ts`), `query-keys.ts`
+  (chỉ các khoá dùng chung/đa-feature), `curriculum.ts`,
+  `course-cards.ts`, `ssr-data.ts`, `tenants.ts`… — không thêm module
+  dữ liệu theo miền mới vào `src/lib/`.
+- Alias đường dẫn: `#features/*` trỏ `src/features/*`, `#lib/*`,
+  `#components/*`, `#hooks/*`, `#config/*`, `#utils/*`, `#test/*` trỏ
+  các thư mục dùng chung tương ứng (khai ở `package.json` mục
+  `imports` và `tsconfig.json` mục `paths`).
+
+### Ngoại lệ của kỷ luật import ngang — tập cạnh đóng băng
+
+Kỷ luật ở trên có đúng một ngoại lệ: tập cạnh import ngang giữa các
+feature đã đóng băng trong [comment phán quyết của điều phối trên
+issue #500](https://github.com/kvu90/lms/issues/500#issuecomment-6504346634)
+(27 cặp ở code chạy thật và các cặp chỉ có ở file spec, đúng danh sách
+trong comment đó — các cạnh này là hệ quả của bảng ánh xạ đã duyệt khi
+tổ chức lại `features/`). Mọi cạnh import ngang phát sinh **ngoài** tập
+đóng băng đều là khuyết tật phải sửa; không tự ý thêm cạnh vào tập
+ngoại lệ — muốn mở rộng phải có phán quyết ghi lại trong issue.
+
 ## Bản đồ flow của package
 
-- **Điểm vào:** `src/entry.client.tsx` (hydrate phía client) và
-  `src/entry.server.tsx` (render SSR cho bề mặt public) của React Router
-  framework mode; `src/root.tsx` là vỏ gốc (sidebar, phiên đăng nhập, thông
-  báo); `src/routes.ts` + thư mục `src/routes/` khai báo cây route theo chuẩn
-  đường dẫn của sổ mục F; `src/i18n.ts` nạp bản dịch.
+- **Điểm vào:** `src/app/entry.client.tsx` (hydrate phía client) và
+  `src/app/entry.server.tsx` (render SSR cho bề mặt public) của React
+  Router framework mode; `src/app/root.tsx` là vỏ gốc (sidebar, phiên
+  đăng nhập, thông báo); `src/app/routes.ts` chỉ gộp các khối route do
+  từng feature khai trong `src/features/<feature>/routes.ts` theo
+  chuẩn đường dẫn của sổ mục F; `src/config/i18n.ts` nạp bản dịch.
 - **Luồng hiển thị:** điều hướng vào route → root/vỏ đọc phiên (cookie
-  `lms_session`) và capabilities từ API → trang trong `src/pages/` nạp dữ
-  liệu qua `src/lib/api.ts` và các helper dữ liệu theo miền trong `src/lib/`
-  (`course-data.ts`, `course-builder-data.ts`, `assignment-data.ts`,
-  `matrix-data.ts`, `classes.ts`, `notifications.ts`…) trên nền TanStack
-  Query → render bằng component nền của `@lms/ui` và editor của `@lms/editor`
-  (không tự chế editor/component nền riêng) → hành động của người dùng gọi
-  API `/api/v1` hoặc kênh realtime (`src/lib/messaging-socket.ts`,
-  `src/lib/notification-unread-stream.ts`) rồi cập nhật cache/dữ liệu hiển
-  thị.
-- **Thư mục chính:** `src/pages/` — các màn hình theo route (khoá học, lớp,
-  câu hỏi/đề/ma trận, làm bài, điểm theo bài, tin nhắn, quản trị…);
-  `src/components/` — vỏ dùng chung của app (bọc component `@lms/ui` theo
-  luồng GV/HS); `src/lib/` — client API, auth (`auth.tsx`, `auth-client.ts`),
-  phân quyền hiển thị (`permissions.tsx`, `access.ts`), helper dữ liệu theo
-  miền; `src/test/` — hạ tầng test của app.
+  `lms_session`) và capabilities từ API → route module trong
+  `src/features/<feature>/routes/` nạp dữ liệu qua tầng `queries/` của
+  chính feature đó (hook React Query, prefetch/clientLoader) trên nền
+  các hàm gọi API thuần ở tầng `api/` và client dùng chung
+  `src/lib/api.ts` → render bằng component nền của `@lms/ui` và editor
+  của `@lms/editor` (không tự chế editor/component nền riêng) → hành
+  động của người dùng gọi API `/api/v1` hoặc kênh realtime
+  (`src/features/messaging/api/messaging-socket.ts`,
+  `src/features/notifications/hooks/notification-unread-stream.ts`)
+  rồi cập nhật cache/dữ liệu hiển thị.
+- **Thư mục chính:** `src/features/` — 27 feature theo miền nghiệp vụ
+  (khoá học, lớp, câu hỏi/đề/ma trận, làm bài, điểm, tin nhắn, quản
+  trị…), mỗi feature tự chứa route module, component và tầng dữ liệu
+  của nó; `src/app/` — khung framework (điểm vào, root, shell, file
+  gộp route); `src/components/` — vỏ dùng chung của app (bọc component
+  `@lms/ui` theo luồng GV/HS); `src/lib/` — client API, auth, phân
+  quyền hiển thị và helper thật sự đa-feature; `src/config/`,
+  `src/hooks/`, `src/utils/` — cấu hình, hook và hàm thuần dùng
+  chung; `src/test/` — hạ tầng test của app.

@@ -16,7 +16,7 @@
  * triển khai trong của hai hàm.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fetchMyTenants, switchTenant } from './tenants';
+import { fetchMyTenants, switchTenant } from '#lib/tenants';
 
 /**
  * Stub fetch trả đáp ứng JSON thành công cho mọi request và trả spy

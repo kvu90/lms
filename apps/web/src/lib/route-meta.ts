@@ -1,4 +1,4 @@
-import i18n from '../i18n';
+import i18n from '#config/i18n';
 
 /**
  * Helper meta() theo route (F-08 của rà soát #133, việc #146): trước
