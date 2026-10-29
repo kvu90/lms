@@ -411,7 +411,11 @@ function TeacherSection() {
     ];
     const counts = buckets.map(() => 0);
     for (const access of teaching) {
-      const report = reportOf(access);
+      // Đọc thẳng báo cáo từ gradeData thay vì gọi reportOf của
+      // component: reportOf là hàm tạo mới ở mỗi lần render nên
+      // không thể nằm trong mảng phụ thuộc của useMemo này;
+      // phép đọc ở đây tương đương đúng định nghĩa của reportOf.
+      const report = gradeData.get(access.course.id)?.report ?? null;
       const maxByItem = new Map((report?.items ?? []).map((i) => [i.id, i.gradeMax]));
       for (const row of report?.rows ?? []) {
         for (const [itemId, grade] of Object.entries(row.grades)) {
@@ -425,7 +429,6 @@ function TeacherSection() {
       }
     }
     return buckets.map((b, i) => ({ label: b.label, value: counts[i]! }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teaching, gradeData]);
 
   const columns: DataColumn<CourseAccess>[] = [

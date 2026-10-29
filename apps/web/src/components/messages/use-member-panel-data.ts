@@ -197,6 +197,16 @@ export function useMemberPanelData({
     // trạng thái quan hệ của nhóm tự do được đọc tại thời điểm chạy
     // và đồng bộ lại qua patch tại chỗ khi có hành động kết bạn —
     // cùng kỷ luật gác ref/deps chọn lọc như các hiệu ứng khác của trang.
+    // Giữ disable CÓ CHỦ ĐÍCH cho react-hooks/exhaustive-deps:
+    // hiệu ứng nạp roster khoá theo (id conversation, khoá ngữ
+    // cảnh, mốc làm mới); các giá trị còn lại mà thân hiệu ứng đọc
+    // (active, panelContext, danh bạ/hàng chờ/người đã chặn,
+    // nameOf, mergePeople, queryClient) là ảnh chụp tại thời điểm
+    // chạy. Đưa chúng vào mảng phụ thuộc sẽ nạp lại toàn bộ
+    // roster (tới 25 trang) và đặt panel về trạng thái đang tải
+    // mỗi khi đối tượng conversation đổi — ví dụ mỗi tin nhắn mới
+    // trong nhóm — tức đổi hành vi người dùng thấy được, nên
+    // không sửa mảng phụ thuộc tại điểm này.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.id, panelContextKey, panelRefreshTick]);
 

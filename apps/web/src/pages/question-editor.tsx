@@ -227,8 +227,19 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
     [loadCurriculumLinks, loadLinkSubjects],
   );
 
+  // Gác khởi tạo một lần của màn soạn: mảng phụ thuộc của hiệu
+  // ứng khởi tạo dưới đây liệt kê đủ các giá trị nó đọc (tham số
+  // route, các hàm nạp đã bọc useCallback, queryClient, `t`),
+  // nhưng thân hiệu ứng — nhất là startEdit nạp lại form — chỉ
+  // được chạy đúng lần mở màn đầu tiên; các lần chạy thêm do
+  // phụ thuộc đổi (đổi tham số route, đổi ngôn ngữ) thoát ngay
+  // nhờ ref này, đúng như khi mảng phụ thuộc còn để trống.
+  const initStartedRef = useRef(false);
+
   /** Khởi tạo màn: nạp danh mục (cần contextId cho bộ chọn ảnh), chốt danh mục đích, nạp ngữ liệu, và (khi sửa) tìm câu hỏi. */
   useEffect(() => {
+    if (initStartedRef.current) return;
+    initStartedRef.current = true;
     void (async () => {
       try {
         const cats = await queryClient.fetchQuery(questionCategoriesQueryOptions());
@@ -264,9 +275,7 @@ export function QuestionEditorPage({ mode }: { mode: 'new' | 'edit' }) {
         setLoading(false);
       }
     })();
-    // Chỉ chạy một lần khi mở màn; categoryParam/questionId cố định theo route.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [categoryParam, loadStimuli, mode, queryClient, questionId, startEdit, t]);
 
   /** Đưa trạng thái bank của câu về trạng thái đích sau khi lưu nội dung (không tạo phiên bản). */
   async function applyStatus(id: string, current: string | undefined, target: 'draft' | 'ready') {

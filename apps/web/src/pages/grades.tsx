@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { GradeItem } from '@lms/contracts';
@@ -78,6 +78,8 @@ export function GradebookPage() {
   const [itemEdits, setItemEdits] = useState<Record<string, GradeItemEdit>>({});
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const [vneduKinds, setVneduKinds] = useState<Record<string, VneduColumnKind>>({});
+  /** Mốc tập id bài đã áp gợi ý vnEdu gần nhất — dùng bởi khối điều chỉnh state ngay trong render ở dưới. */
+  const [prevItemsIdKey, setPrevItemsIdKey] = useState('');
   const [vneduSemester, setVneduSemester] = useState('1');
   const [vneduSchoolYear, setVneduSchoolYear] = useState('');
   const [vneduSubject, setVneduSubject] = useState('');
@@ -104,15 +106,23 @@ export function GradebookPage() {
   // bản cũ; `error` trong state chỉ còn giữ lỗi của thao tác ghi.
   const gradebookError = gradeDataQuery.data && !gradeDataQuery.data.gradebook ? t('gradebookLoadFailed') : null;
 
-  // Gợi ý ánh xạ vnEdu mặc định theo tên bài khi danh sách bài đổi.
-  useEffect(() => {
+  // Gợi ý ánh xạ vnEdu mặc định theo tên bài mỗi khi TẬP id
+  // của danh sách bài đổi: điều chỉnh state ngay trong lúc
+  // render (khuôn React khuyến nghị cho state suy từ dữ kiện
+  // thay vì dùng effect) — giữ nguyên mốc kích hoạt của effect
+  // cũ (chuỗi id nối), giữ loại cột giáo viên đã chọn cho các
+  // bài còn hiện diện và chỉ đoán cho bài mới xuất hiện; không
+  // còn mảng phụ thuộc dạng biểu thức mà lint không kiểm chứng
+  // tĩnh được.
+  const itemsIdKey = items.map((i) => i.id).join(',');
+  if (itemsIdKey !== prevItemsIdKey) {
+    setPrevItemsIdKey(itemsIdKey);
     setVneduKinds((prev) => {
       const next: Record<string, VneduColumnKind> = {};
       for (const item of items) next[item.id] = prev[item.id] ?? guessVneduColumnKind(item);
       return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.map((i) => i.id).join(',')]);
+  }
 
   /** Nhập/sửa điểm một bài cho một học sinh (POST /grade-items/:itemId/grades). */
   async function submitGrade(event: FormEvent) {
