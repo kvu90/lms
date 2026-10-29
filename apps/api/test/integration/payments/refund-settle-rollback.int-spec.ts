@@ -7,7 +7,7 @@ import {
 import { createCategory, createCourse, createEnrolInstance } from '../../support/course-enrolment-helpers';
 import { ClassesService } from '../../../src/modules/classes/classes.service';
 import { ENROL_ACTIVE, ENROL_SUSPENDED, EnrolService } from '../../../src/modules/enrol/enrol.service';
-import { PaymentsRepository } from '../../../src/modules/payments/payments.repository';
+import { PaymentsRepository } from '@lms/payments';
 import { PaymentsService } from '../../../src/modules/payments/payments.service';
 
 const TEST_DB_URL = process.env.LMS_TEST_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/lms_test_api';

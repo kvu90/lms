@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentsRepository, type EntitlementRow, type PaymentRow } from './payments.repository';
-import type { DbTx } from '../../db/database';
+import type { DbTx } from './database';
 
 /**
  * Ảnh chụp cấu hình gói ghi vào `payments.data` (khoá `plan`) tại thời
