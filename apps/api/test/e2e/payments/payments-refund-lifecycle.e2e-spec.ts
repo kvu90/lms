@@ -6,7 +6,6 @@ import {
   http, login, roleIdByShortname, setOverride, STRONG_PASSWORD, systemContextId, uniqueName,
 } from '../../support/identity-access-helpers';
 import { createCategory, createCourse, createEnrolInstance } from '../../support/course-enrolment-helpers';
-import { PaymentsService } from '../../../src/modules/payments/payments.service';
 import { TenantConfigService } from '../../../src/modules/tenants/tenant-config.service';
 
 /**
@@ -640,35 +639,12 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
     expect(refunds[0]!.approvedBy).toBe(a.status < 300 ? mgrA.id : mgrB.id);
   });
 
-  it('12. đối soát reconcile: ba con số đếm ở SQL khớp phép đếm độc lập trên cùng dữ kiện và dịch đúng khi có khoản thu mới', async () => {
-    const payments = app.get(PaymentsService);
-    const countViaSql = async () => {
-      const res = await pg.query(
-        `select count(*)::int as total,
-                count(*) filter (where status = 'succeeded')::int as succeeded,
-                count(*) filter (where status = 'pending' and (external_transaction_id is null or external_transaction_id = ''))::int as pending_without
-           from payments`,
-      );
-      const row = res.rows[0] as { total: number; succeeded: number; pending_without: number };
-      return { total: row.total, succeeded: row.succeeded, pendingWithoutExternalTx: row.pending_without };
-    };
-
-    expect(await payments.reconcile()).toEqual(await countViaSql());
-
-    // Thêm một khoản thu succeeded mới bằng fixture chuẩn của spec:
-    // cả hai nguồn đếm phải dịch đúng — tổng +1, succeeded +1, khoản
-    // pending chưa có mã ngoài không đổi.
-    const before = await countViaSql();
-    await manualSucceededPayment();
-    const after = await payments.reconcile();
-    expect(after).toEqual(await countViaSql());
-    expect(after.total).toBe(before.total + 1);
-    expect(after.succeeded).toBe(before.succeeded + 1);
-    expect(after.pendingWithoutExternalTx).toBe(before.pendingWithoutExternalTx);
-  });
+  // Ca 12 (đối soát reconcile: gọi thẳng PaymentsService.reconcile và
+  // đối chiếu với phép đếm SQL độc lập — bề mặt nội bộ, không có route
+  // HTTP) nằm ở tầng integration:
+  // test/integration/payments/payments-reconcile.int-spec.ts (issue #483).
 
   it('13. hàng đợi needs_review: nhiều dòng cùng một tenant chỉ tra cấu hình ngưỡng quá hạn một lần trong một lần dựng hàng đợi', async () => {
-    const payments = app.get(PaymentsService);
     const tenantConfig = app.get(TenantConfigService);
     // Hai debit lạ mới → hai dòng needs_review nữa của tenant chủ tài
     // khoản SePay (tenant nền tảng) trong cùng hàng đợi.
@@ -685,8 +661,13 @@ describe('Lát 3 #189: vòng đời hoàn tiền + hàng đợi needs_review the
       return original(tenantId, component, name);
     };
     try {
-      const queue = await payments.listReviewQueue(adminId);
-      expect(queue.length).toBeGreaterThanOrEqual(2);
+      // Hàng đợi đọc qua HTTP GET /payments/review-queue (endpoint trả
+      // đúng mảng mà listReviewQueue dựng cho người gọi); việc đếm
+      // lượt tra cấu hình ở trên vẫn quan sát được vì request chạy
+      // trong cùng một instance ứng dụng.
+      const queueRes = await http(app).get('/api/v1/payments/review-queue').set('Authorization', `Bearer ${admin}`);
+      expect(queueRes.status).toBe(200);
+      expect((queueRes.body as unknown[]).length).toBeGreaterThanOrEqual(2);
     } finally {
       config.getEffectiveValue = original;
     }
