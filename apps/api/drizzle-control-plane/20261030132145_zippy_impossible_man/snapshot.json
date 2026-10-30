@@ -1,0 +1,876 @@
+{
+  "type": "base",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "4881f46b-bb91-4dcc-ac33-a7636f7854f7",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_registry"
+      ],
+      "writes": [
+        "s|tbl|public.space_registry",
+        "n|tbl|public.space_registry",
+        "e|tbl|public.space_registry",
+        "n|rel|public.space_registry",
+        "n|type|public.space_registry",
+        "n|rel|public.space_registry_pkey",
+        "n|rel|public.space_registry_slug_key"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_registry_history"
+      ],
+      "writes": [
+        "s|tbl|public.space_registry_history",
+        "n|tbl|public.space_registry_history",
+        "e|tbl|public.space_registry_history",
+        "n|rel|public.space_registry_history",
+        "n|type|public.space_registry_history",
+        "n|rel|public.space_registry_history_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_schema_migration_runs"
+      ],
+      "writes": [
+        "s|tbl|public.space_schema_migration_runs",
+        "n|tbl|public.space_schema_migration_runs",
+        "e|tbl|public.space_schema_migration_runs",
+        "n|rel|public.space_schema_migration_runs",
+        "n|type|public.space_schema_migration_runs",
+        "n|rel|public.space_schema_migration_runs_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_schema_registry"
+      ],
+      "writes": [
+        "s|tbl|public.space_schema_registry",
+        "n|tbl|public.space_schema_registry",
+        "e|tbl|public.space_schema_registry",
+        "n|rel|public.space_schema_registry",
+        "n|type|public.space_schema_registry",
+        "n|rel|public.space_schema_registry_pkey"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "space_registry",
+        "space_registry_status_idx"
+      ],
+      "writes": [
+        "s|idx|public.space_registry_status_idx",
+        "n|idx|public.space_registry_status_idx",
+        "e|idx|public.space_registry_status_idx",
+        "n|rel|public.space_registry_status_idx"
+      ],
+      "reads": [
+        "n|tbl|public.space_registry",
+        "n|sch|public",
+        "n|col|public.space_registry.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "space_registry_history",
+        "space_registry_history_space_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.space_registry_history_space_id_idx",
+        "n|idx|public.space_registry_history_space_id_idx",
+        "e|idx|public.space_registry_history_space_id_idx",
+        "n|rel|public.space_registry_history_space_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.space_registry_history",
+        "n|sch|public",
+        "n|col|public.space_registry_history.space_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "space_schema_migration_runs",
+        "space_schema_migration_runs_space_id_idx"
+      ],
+      "writes": [
+        "s|idx|public.space_schema_migration_runs_space_id_idx",
+        "n|idx|public.space_schema_migration_runs_space_id_idx",
+        "e|idx|public.space_schema_migration_runs_space_id_idx",
+        "n|rel|public.space_schema_migration_runs_space_id_idx"
+      ],
+      "reads": [
+        "n|tbl|public.space_schema_migration_runs",
+        "n|sch|public",
+        "n|col|public.space_schema_migration_runs.space_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_registry_history"
+      ],
+      "writes": [
+        "s|fk|public.space_registry_history.space_registry_history_space_id_space_registry_id_fkey",
+        "n|fk|public.space_registry_history.space_registry_history_space_id_space_registry_id_fkey",
+        "e|fk|public.space_registry_history.space_registry_history_space_id_space_registry_id_fkey",
+        "n|con|public.space_registry_history.space_registry_history_space_id_space_registry_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.space_registry_history",
+        "n|sch|public",
+        "n|tbl|public.space_registry",
+        "n|sch|public",
+        "n|col|public.space_registry_history.space_id",
+        "n|col|public.space_registry.id",
+        "e|uniqueness|public.space_registry.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_schema_migration_runs"
+      ],
+      "writes": [
+        "s|fk|public.space_schema_migration_runs.space_schema_migration_runs_space_id_space_registry_id_fkey",
+        "n|fk|public.space_schema_migration_runs.space_schema_migration_runs_space_id_space_registry_id_fkey",
+        "e|fk|public.space_schema_migration_runs.space_schema_migration_runs_space_id_space_registry_id_fkey",
+        "n|con|public.space_schema_migration_runs.space_schema_migration_runs_space_id_space_registry_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.space_schema_migration_runs",
+        "n|sch|public",
+        "n|tbl|public.space_registry",
+        "n|sch|public",
+        "n|col|public.space_schema_migration_runs.space_id",
+        "n|col|public.space_registry.id",
+        "e|uniqueness|public.space_registry.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "public",
+        "space_schema_registry"
+      ],
+      "writes": [
+        "s|fk|public.space_schema_registry.space_schema_registry_space_id_space_registry_id_fkey",
+        "n|fk|public.space_schema_registry.space_schema_registry_space_id_space_registry_id_fkey",
+        "e|fk|public.space_schema_registry.space_schema_registry_space_id_space_registry_id_fkey",
+        "n|con|public.space_schema_registry.space_schema_registry_space_id_space_registry_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|public.space_schema_registry",
+        "n|sch|public",
+        "n|tbl|public.space_registry",
+        "n|sch|public",
+        "n|col|public.space_schema_registry.space_id",
+        "n|col|public.space_registry.id",
+        "e|uniqueness|public.space_registry.id"
+      ]
+    }
+  ],
+  "ddl": [
+    {
+      "schema": "public",
+      "name": "space_registry",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "space_registry_history",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "space_schema_migration_runs",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "name": "space_schema_registry",
+      "isRlsEnabled": false,
+      "entityType": "tables"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "slug",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'provisioning'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "database_name",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "storage_mode",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "connection_role_ref",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "secret_ref",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "schema_version",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "plan",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "space_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "actor_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "action",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "before",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "after",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "uuidv7()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "space_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "run_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "from_version",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "to_version",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "steps",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'[]'",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "started_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "finished_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "space_id",
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "current_version",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "last_backup_status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "last_backup_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "last_restore_status",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "last_restore_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "updated_at",
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "space_registry_status_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "space_registry_history_space_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "space_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "space_schema_migration_runs_space_id_idx",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "space_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "space_registry_history_space_id_space_registry_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "space_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "space_registry",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "space_schema_migration_runs_space_id_space_registry_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "space_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "space_registry",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "space_schema_registry_space_id_space_registry_id_fkey",
+      "nameExplicit": false,
+      "columns": [
+        "space_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "space_registry",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "entityType": "fks"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "space_registry_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry_history",
+      "name": "space_registry_history_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_migration_runs",
+      "name": "space_schema_migration_runs_pkey",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "space_schema_registry",
+      "name": "space_schema_registry_pkey",
+      "columns": [
+        "space_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "schema": "public",
+      "table": "space_registry",
+      "name": "space_registry_slug_key",
+      "nameExplicit": false,
+      "columns": [
+        "slug"
+      ],
+      "nullsNotDistinct": false,
+      "entityType": "uniques"
+    }
+  ]
+}

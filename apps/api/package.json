@@ -15,6 +15,9 @@
     "start": "node dist/main.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:generate:control-plane": "drizzle-kit generate --config drizzle-control-plane.config.ts",
+    "db:migrate:control-plane": "drizzle-kit migrate --config drizzle-control-plane.config.ts",
+    "db:setup:control-plane": "node dist/control-plane-setup.js",
     "seed:review": "node dist/review-seed.js"
   },
   "dependencies": {

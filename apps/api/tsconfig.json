@@ -5,6 +5,14 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      // Subpath control plane của @lms/db (issue #580): package giữ
+      // moduleResolution Node10 nên TS không đọc được `exports` của
+      // package — ánh xạ thẳng tới bản dist đã build (đúng kỷ luật
+      // "app tiêu thụ dùng bản dist" của @lms/db). Runtime Node đọc
+      // `exports` trong package.json của @lms/db như thường.
+      "@lms/db/control-plane": [
+        "../../packages/db/dist/control-plane.d.ts"
       ]
     },
     // Chương trình typecheck (noEmit) bao gồm cả cầu dẫn test
