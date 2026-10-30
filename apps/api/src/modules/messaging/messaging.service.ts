@@ -453,9 +453,14 @@ export class MessagingService {
   /**
    * CÂY NHÓM của chính người gọi (lát MSG-T1, issue #33 — thiết kế
    * Uỷ quyền cho MessagingGroupTreeService.getGroupTree — đặc tả luồng đầy đủ nằm tại method đích.
+   * Cờ `canCreateFreeGroup` của cây do facade tính tại đây bằng ĐÚNG
+   * cổng tạo nhóm tự do của cụm hội thoại
+   * (MessagingConversationsService.canCreateFreeGroup) cho tenant
+   * hiện hành, để nút tạo nhóm phía web khớp tuyệt đối với cổng API.
    */
   async getGroupTree(actorId: string): Promise<ConversationGroupTreeView> {
-    return this.groupTree.getGroupTree(actorId);
+    const canCreateFreeGroup = await this.conversations.canCreateFreeGroup(actorId);
+    return this.groupTree.getGroupTree(actorId, canCreateFreeGroup);
   }
 
   /**
