@@ -1,4 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Job, Queue } from 'bullmq';
@@ -400,7 +401,11 @@ describe('Định tuyến job theo trung tâm phía worker (integration)', () =>
     // Phát lại từ đầu trên một dòng outbox MỚI trong kho riêng để
     // job đi trọn đường relay → consumer như production (dòng của
     // ca trước đã đóng dấu và đã được kiểm chứng ở ca đó).
-    const freshOutboxId = '01958200-0000-7000-8000-0000000000f3';
+    // Id dòng outbox của ca này phải DUY NHẤT theo lượt chạy:
+    // dấu chống trùng của consumer nằm trong Redis dùng chung
+    // (không bị xoá cùng database khi dọn), nên id cố định sẽ bị
+    // coi là "đã xử lý" ở mọi lượt chạy sau lượt đầu tiên.
+    const freshOutboxId = randomUUID();
     await spaceDb.withSpaceDatabase(
       CENTRE_SLUG,
       async (db) => {
