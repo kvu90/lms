@@ -11,6 +11,11 @@
  * 3. Đảm bảo role tồn tại (mật khẩu đồng bộ theo URL), database tồn
  *    tại thuộc sở hữu của role đó, và quyền kết nối vào database
  *    control plane chỉ thuộc về role đó (thu hồi PUBLIC).
+ * 4. Khoá cả chiều ngược ở mức kết nối: thu hồi quyền CONNECT của
+ *    PUBLIC trên chính database nghiệp vụ (đích suy từ
+ *    `DATABASE_URL`) và chỉ cấp lại cho role nghiệp vụ — role
+ *    control plane vì vậy bị từ chối ngay khi mở kết nối vào kho
+ *    nghiệp vụ, thay vì mở được kết nối rồi mới chết ở quyền bảng.
  *
  * Mọi bước đều idempotent: chạy lại ở mỗi lần stack khởi động là an
  * toàn và không đổi dữ kiện. Script KHÔNG tạo bảng — bảng do bộ
@@ -25,7 +30,9 @@ import { Client } from 'pg';
 import {
   buildEnsureDatabaseStatements,
   buildEnsureRoleStatements,
+  buildRestrictBusinessConnectStatements,
   buildRestrictConnectStatements,
+  parseBusinessTarget,
   parseControlPlaneTarget,
   quoteIdentifier,
 } from './control-plane-provision';
@@ -56,6 +63,17 @@ async function main(): Promise<void> {
       await client.query(statement);
     }
     for (const statement of buildRestrictConnectStatements(target)) {
+      await client.query(statement);
+    }
+    // Khoá chiều ngược trên database nghiệp vụ: database đích phải
+    // tồn tại sẵn trên cụm (nó là kho của chính ứng dụng đang chạy,
+    // luôn có trước bước migrate) — thiếu là cấu hình sai, dừng ngay.
+    const businessTarget = parseBusinessTarget(businessUrl);
+    const businessResult = await client.query('SELECT 1 FROM pg_database WHERE datname = $1', [businessTarget.database]);
+    if ((businessResult.rowCount ?? 0) === 0) {
+      throw new Error(`business database ${quoteIdentifier(businessTarget.database)} does not exist on this cluster`);
+    }
+    for (const statement of buildRestrictBusinessConnectStatements(businessTarget)) {
       await client.query(statement);
     }
     console.log(

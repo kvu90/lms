@@ -24,6 +24,19 @@ import { createTestApp } from '../../support/identity-access-helpers';
  * `CONTROL_PLANE_DATABASE_URL` trỏ vào đó — để cả đường gieo dữ kiện
  * lúc bootstrap cũng được kiểm chứng trên cùng một lượt chạy.
  *
+ * Cô lập kết nối được kiểm ở ĐÚNG bước mở kết nối, hai chiều: ca
+ * cũng khoá CONNECT trên chính database nghiệp vụ test (thu hồi
+ * PUBLIC, cấp lại cho role của đường dữ kiện và một role nghiệp vụ
+ * thường `lms_biz_test_580`) như script cấp phát làm ở môi trường
+ * triển khai, rồi khẳng định role control plane chết ngay tại
+ * `connect()`. ACL của database nghiệp vụ được trả về mặc định ở
+ * afterAll để không ảnh hưởng các ca khác dùng chung cụm test.
+ * Giới hạn phạm vi của các ca kết nối: chúng chứng minh cô lập với
+ * role KHÔNG phải superuser — role runtime của ứng dụng trong
+ * compose hiện là superuser của cụm, mà superuser thì bỏ qua mọi
+ * kiểm tra quyền kết nối; việc hạ role runtime xuống role thường
+ * là việc hạ tầng riêng ngoài issue này.
+ *
  * Shim `uuidv7()` chỉ áp khi server PostgreSQL dưới 18 (môi trường
  * chạy local bằng PG16): PG18 — bản ở CI và production — có sẵn hàm
  * này, shim sẽ che mất hàm gốc nên tuyệt đối không áp ở đó.
@@ -42,6 +55,11 @@ function clusterUrl(database: string, username?: string, secret?: string): strin
   if (username) base.username = username;
   if (secret) base.password = secret;
   return base.toString();
+}
+
+/** Bọc một định danh Postgres trong dấu nháy kép cho các câu lệnh quản trị của ca test. */
+function quoted(identifier: string): string {
+  return `"${identifier.replace(/"/g, '""')}"`;
 }
 
 async function withClient<T>(connectionString: string, fn: (client: Client) => Promise<T>): Promise<T> {
@@ -83,11 +101,26 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
   let adminId: string;
   let guestId: string;
   let createdSpaceId: string;
+  // Database nghiệp vụ test và role kết nối của đường dữ kiện, suy
+  // từ chính DATABASE_URL của môi trường test (không gán cứng tên,
+  // để ca chạy đúng trên mọi môi trường trỏ DB riêng).
+  let businessDatabase: string;
+  let businessRole: string;
 
   beforeAll(async () => {
+    const businessUrl = new URL(process.env.DATABASE_URL!);
+    businessDatabase = decodeURIComponent(businessUrl.pathname.replace(/^\//, ''));
+    businessRole = decodeURIComponent(businessUrl.username);
     // Cấp phát database + role của control plane trên cụm test, đúng
     // các bước script control-plane-setup làm ở môi trường triển khai.
     await withClient(clusterUrl('postgres'), async (admin) => {
+      // Dọn grant còn sót của một lượt chạy trước bị ngắt giữa chừng:
+      // role nghiệp vụ mẫu còn giữ quyền CONNECT trên database
+      // nghiệp vụ thì DROP ROLE ở dưới sẽ vấp phụ thuộc.
+      const staleBizRole = await admin.query(`SELECT 1 FROM pg_roles WHERE rolname = '${BIZ_ROLE}'`);
+      if ((staleBizRole.rowCount ?? 0) > 0) {
+        await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(businessDatabase)} FROM ${BIZ_ROLE}`);
+      }
       await admin.query(`DROP DATABASE IF EXISTS ${CP_DATABASE} WITH (FORCE)`);
       await admin.query(`DROP ROLE IF EXISTS ${CP_ROLE}`);
       await admin.query(`DROP ROLE IF EXISTS ${BIZ_ROLE}`);
@@ -96,6 +129,13 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
       await admin.query(`CREATE DATABASE ${CP_DATABASE} OWNER ${CP_ROLE}`);
       await admin.query(`REVOKE CONNECT ON DATABASE ${CP_DATABASE} FROM PUBLIC`);
       await admin.query(`GRANT CONNECT ON DATABASE ${CP_DATABASE} TO ${CP_ROLE}`);
+      // Khoá cả chiều ngược trên chính database nghiệp vụ, đúng
+      // bước script cấp phát làm: thu hồi CONNECT của PUBLIC, chỉ
+      // cấp lại cho role của đường dữ kiện và role nghiệp vụ thường
+      // dùng làm mẫu kiểm chứng trong ca này.
+      await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(businessDatabase)} FROM PUBLIC`);
+      await admin.query(`GRANT CONNECT ON DATABASE ${quoted(businessDatabase)} TO ${quoted(businessRole)}`);
+      await admin.query(`GRANT CONNECT ON DATABASE ${quoted(businessDatabase)} TO ${BIZ_ROLE}`);
     });
     await applyControlPlaneMigrations(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD));
     process.env.CONTROL_PLANE_DATABASE_URL = clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD);
@@ -113,6 +153,13 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     await app.close();
     delete process.env.CONTROL_PLANE_DATABASE_URL;
     await withClient(clusterUrl('postgres'), async (admin) => {
+      // Trả ACL của database nghiệp vụ về mặc định (PUBLIC được kết
+      // nối) trước khi dọn: các ca khác dùng chung cụm test không bị
+      // ảnh hưởng bởi khoá của ca này. Grant riêng đã cấp cho role
+      // nghiệp vụ mẫu phải thu hồi tường minh, nếu không DROP ROLE
+      // sẽ vấp phụ thuộc trên ACL của database nghiệp vụ.
+      await admin.query(`GRANT CONNECT ON DATABASE ${quoted(businessDatabase)} TO PUBLIC`);
+      await admin.query(`REVOKE CONNECT ON DATABASE ${quoted(businessDatabase)} FROM ${BIZ_ROLE}`);
       await admin.query(`DROP DATABASE IF EXISTS ${CP_DATABASE} WITH (FORCE)`);
       await admin.query(`DROP ROLE IF EXISTS ${CP_ROLE}`);
       await admin.query(`DROP ROLE IF EXISTS ${BIZ_ROLE}`);
@@ -292,17 +339,167 @@ describe('Control plane: sổ đăng ký không gian và registry phiên bản s
     expect(updated.currentVersion).toBe('v2');
   });
 
-  it('role của control plane bị từ chối khi đọc dữ liệu ở kho nghiệp vụ', async () => {
-    await expect(
-      withClient(clusterUrl('lms_test_api', CP_ROLE, CP_PASSWORD), async (client) => {
-        await client.query('SELECT * FROM tenants LIMIT 1');
-      }),
-    ).rejects.toThrow(/permission denied/);
+  it('registry phiên bản schema: xoá phiên bản bằng null thì dòng đăng ký cũng đồng bộ về null', async () => {
+    const cleared = await registry.updateSchemaRegistry(adminId, createdSpaceId, { currentVersion: null });
+    expect(cleared.currentVersion).toBeNull();
+    // Hai nơi lưu phiên bản (registry của kho và trường phiên bản
+    // trên dòng đăng ký — đường đọc định tuyến) phải cùng đọc ra
+    // null sau khi xoá, không nơi nào giữ giá trị cũ.
+    const reread = await registry.getSchemaRegistry(adminId, createdSpaceId);
+    expect(reread.currentVersion).toBeNull();
+    expect((await registry.getBySlug(adminId, 'trung-tam-test-580')).schemaVersion).toBeNull();
   });
 
-  it('role phía nghiệp vụ không kết nối được vào database control plane', async () => {
-    await expect(withClient(clusterUrl(CP_DATABASE, BIZ_ROLE, CP_PASSWORD), async () => undefined)).rejects.toThrow(
-      /permission denied/,
-    );
+  it('hai lượt cập nhật registry chồng lấn vào hai trường độc lập không làm mất giá trị của nhau', async () => {
+    // Dựng chồng lấn xác định bằng một transaction thô giữ khoá
+    // dòng của registry: cả hai lượt ghi của service đều phải ĐỌC
+    // trạng thái hiện tại trước khi lượt nào ghi được (lượt ghi bị
+    // chặn ở bước upsert cho tới khi transaction thô commit). Với
+    // cơ chế đọc-ngoài-transaction rồi ghi đè toàn dòng, lượt ghi
+    // sau mang theo ảnh cũ và xoá mất trường lượt trước vừa ghi;
+    // với cơ chế đọc-trong-transaction sau khoá dòng đăng ký, lượt
+    // sau đọc lại trạng thái tươi và cả hai trường cùng tồn tại.
+    const gate = new Client({ connectionString: clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD) });
+    await gate.connect();
+    try {
+      await gate.query('BEGIN');
+      await gate.query('SELECT space_id FROM space_schema_registry WHERE space_id = $1 FOR UPDATE', [createdSpaceId]);
+      const backupWrite = registry.updateSchemaRegistry(adminId, createdSpaceId, {
+        lastBackupStatus: 'success',
+        lastBackupAt: '2026-10-30T11:00:00+07:00',
+      });
+      const restoreWrite = registry.updateSchemaRegistry(adminId, createdSpaceId, {
+        lastRestoreStatus: 'success',
+        lastRestoreAt: '2026-10-30T11:05:00+07:00',
+      });
+      // Khoảng chờ dư dả để cả hai lượt đều tới bước ghi và bị chặn
+      // ở khoá của transaction thô trước khi mở cổng.
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      await gate.query('COMMIT');
+      await Promise.all([backupWrite, restoreWrite]);
+    } finally {
+      await gate.end().catch(() => undefined);
+    }
+    const state = await registry.getSchemaRegistry(adminId, createdSpaceId);
+    expect(state.lastBackupStatus).toBe('success');
+    expect(state.lastBackupAt).toBe('2026-10-30T04:00:00.000Z');
+    expect(state.lastRestoreStatus).toBe('success');
+    expect(state.lastRestoreAt).toBe('2026-10-30T04:05:00.000Z');
+  });
+
+  it('role của control plane bị từ chối ngay ở bước mở kết nối vào kho nghiệp vụ', async () => {
+    // Khẳng định tách riêng bước mở kết nối: dùng Client thô và chỉ
+    // gọi connect() — lỗi phải sinh ra ngay tại đây với thông điệp
+    // từ chối ở mức database, không phải lỗi quyền trên bảng sau
+    // khi kết nối đã mở thành công.
+    const client = new Client({ connectionString: clusterUrl(businessDatabase, CP_ROLE, CP_PASSWORD) });
+    let connectError: unknown;
+    try {
+      await client.connect();
+    } catch (err) {
+      connectError = err;
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+    expect(connectError).toBeInstanceOf(Error);
+    expect((connectError as Error).message).toMatch(/permission denied for database/);
+  });
+
+  it('role nghiệp vụ thường vẫn mở được kết nối vào kho nghiệp vụ sau khi khoá PUBLIC', async () => {
+    // Nửa còn lại của khoá: role nghiệp vụ hợp lệ (ở đây là role
+    // thường đóng vai role của đường dữ kiện) không bị khoá nhầm —
+    // kết nối mở được và truy vấn tối thiểu chạy được.
+    const database = await withClient(clusterUrl(businessDatabase, BIZ_ROLE, CP_PASSWORD), async (client) => {
+      const result = await client.query<{ current_database: string }>('SELECT current_database()');
+      return result.rows[0]!.current_database;
+    });
+    expect(database).toBe(businessDatabase);
+  });
+
+  it('role nghiệp vụ không phải superuser bị từ chối ngay ở bước mở kết nối vào database control plane', async () => {
+    // Ca này chứng minh cô lập chiều ngược với role nghiệp vụ
+    // THƯỜNG (không phải superuser). Role runtime của ứng dụng
+    // trong compose hiện là superuser của cụm nên không bị ACL kết
+    // nối ràng buộc — giới hạn đó thuộc việc hạ role runtime ở
+    // tầng hạ tầng, ngoài phạm vi ca này.
+    const client = new Client({ connectionString: clusterUrl(CP_DATABASE, BIZ_ROLE, CP_PASSWORD) });
+    let connectError: unknown;
+    try {
+      await client.connect();
+    } catch (err) {
+      connectError = err;
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+    expect(connectError).toBeInstanceOf(Error);
+    expect((connectError as Error).message).toMatch(/permission denied for database/);
+  });
+
+  it('nhiều thao tác ghi đồng thời trên cùng dòng đăng ký cho chuỗi lịch sử liên tục, không đứt', async () => {
+    const space = await registry.createRegistration(adminId, {
+      slug: 'trung-tam-song-song-589',
+      name: 'Trung tâm kiểm đồng thời',
+      kind: 'center',
+      databaseName: 'lms_centre_parallel_589',
+      storageMode: 'dedicated',
+      connectionRoleRef: 'lms_centre_parallel_589_app',
+    });
+    // Bốn thao tác ghi chạy cùng lúc trên cùng một dòng (hai đổi
+    // trạng thái qua lại, hai cập nhật tên): ảnh before của mỗi
+    // dòng lịch sử phải đúng bằng ảnh after của dòng lịch sử ngay
+    // trước nó theo thứ tự ghi thật — đọc dòng hiện tại ngoài
+    // transaction sẽ làm các dòng cùng chụp một ảnh cũ và chuỗi
+    // đứt ở điểm nối.
+    await Promise.allSettled([
+      registry.changeStatus(adminId, space.id, { status: 'active' }),
+      registry.updateRegistration(adminId, space.id, { name: 'Tên đồng thời một' }),
+      registry.changeStatus(adminId, space.id, { status: 'suspended' }),
+      registry.updateRegistration(adminId, space.id, { name: 'Tên đồng thời hai' }),
+    ]);
+    const history = await registry.listHistory(adminId, space.id);
+    // Ít nhất hai thao tác đổi trạng thái nối tiếp nhau thật sự
+    // phải có mặt (một thao tác đổi về đúng trạng thái hiện tại là
+    // thao tác rỗng, không ghi lịch sử — số dòng vì vậy dao động).
+    expect(history.length).toBeGreaterThanOrEqual(3);
+    const chronological = [...history].reverse();
+    for (let i = 1; i < chronological.length; i += 1) {
+      expect(chronological[i]!.before).toEqual(chronological[i - 1]!.after);
+    }
+    const finalRow = await registry.getBySlug(adminId, 'trung-tam-song-song-589');
+    expect(['Tên đồng thời một', 'Tên đồng thời hai']).toContain(finalRow.name);
+    expect(['active', 'suspended']).toContain(finalRow.status);
+  });
+
+  it('nhiều lượt tạo đồng thời cùng slug: đúng một lượt thành công, các lượt còn lại nhận lỗi xung đột', async () => {
+    const dto = {
+      slug: 'trung-tam-trung-dong-thoi-589',
+      name: 'Trung tâm trùng đồng thời',
+      kind: 'center' as const,
+      databaseName: 'lms_centre_race_589',
+      storageMode: 'dedicated' as const,
+      connectionRoleRef: 'lms_centre_race_589_app',
+    };
+    const results = await Promise.allSettled([
+      registry.createRegistration(adminId, dto),
+      registry.createRegistration(adminId, dto),
+      registry.createRegistration(adminId, dto),
+      registry.createRegistration(adminId, dto),
+    ]);
+    const fulfilled = results.filter((result) => result.status === 'fulfilled');
+    const rejected = results.filter((result) => result.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(3);
+    // Các lượt thua nhận lỗi xung đột nghiệp vụ (409), không phải
+    // lỗi máy chủ do vấp ràng buộc unique ở tầng database.
+    for (const result of rejected) {
+      expect((result as PromiseRejectedResult).reason).toBeInstanceOf(ConflictException);
+    }
+    const count = await withClient(clusterUrl(CP_DATABASE, CP_ROLE, CP_PASSWORD), async (client) => {
+      const result = await client.query<{ count: string }>(
+        `SELECT count(*) FROM space_registry WHERE slug = 'trung-tam-trung-dong-thoi-589'`,
+      );
+      return Number(result.rows[0]!.count);
+    });
+    expect(count).toBe(1);
   });
 });

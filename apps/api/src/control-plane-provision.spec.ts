@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildEnsureDatabaseStatements,
   buildEnsureRoleStatements,
+  buildRestrictBusinessConnectStatements,
   buildRestrictConnectStatements,
+  parseBusinessTarget,
   parseControlPlaneTarget,
   quoteIdentifier,
   quoteLiteral,
@@ -46,6 +48,27 @@ describe('Cấp phát database control plane (helper thuần)', () => {
     expect(buildRestrictConnectStatements(target)).toEqual([
       'REVOKE CONNECT ON DATABASE "cp" FROM PUBLIC',
       'GRANT CONNECT ON DATABASE "cp" TO "cp_role"',
+    ]);
+  });
+
+  it('đích khoá kho nghiệp vụ đọc từ URL: tên database ở path, role nghiệp vụ ở username', () => {
+    expect(parseBusinessTarget('postgres://app_role:pw@db.internal:5432/lms')).toEqual({
+      database: 'lms',
+      roles: ['app_role'],
+    });
+    expect(() => parseBusinessTarget('postgres://app_role:pw@db.internal:5432/')).toThrow(/database/);
+    expect(() => parseBusinessTarget('postgres://db.internal:5432/lms')).toThrow(/role/);
+  });
+
+  it('khoá kho nghiệp vụ thu hồi CONNECT của PUBLIC và chỉ cấp lại cho các role nghiệp vụ hợp lệ', () => {
+    expect(buildRestrictBusinessConnectStatements({ database: 'lms', roles: ['app_role'] })).toEqual([
+      'REVOKE CONNECT ON DATABASE "lms" FROM PUBLIC',
+      'GRANT CONNECT ON DATABASE "lms" TO "app_role"',
+    ]);
+    expect(buildRestrictBusinessConnectStatements({ database: 'lms', roles: ['app_role', 'report_role'] })).toEqual([
+      'REVOKE CONNECT ON DATABASE "lms" FROM PUBLIC',
+      'GRANT CONNECT ON DATABASE "lms" TO "app_role"',
+      'GRANT CONNECT ON DATABASE "lms" TO "report_role"',
     ]);
   });
 });
