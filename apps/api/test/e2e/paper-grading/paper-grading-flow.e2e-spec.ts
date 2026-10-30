@@ -20,7 +20,7 @@ import { sheetQrPayload } from '../../../src/modules/paper-grading/domain/sheet-
  * bị từ chối ở cổng, ca mơ hồ không bao giờ bị đoán, mã đề mơ hồ/kh lạ
  * không bao giờ bị đoán, học sinh không chạm được bề mặt chấm giấy.
  */
-describe('CAM-0 paper grading flow', () => {
+describe('Luồng chấm bài giấy CAM-0', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -172,7 +172,7 @@ describe('CAM-0 paper grading flow', () => {
     return fills;
   };
 
-  it('batch pins the layout and snapshots a student-only roster with bubble codes', () => {
+  it('lô ghim layout và chụp danh sách chỉ-học-viên kèm mã ô tròn', () => {
     expect(ctx.batch.variantCode).toBe('A');
     // Lô đầu tiên của quiz: mã đề số tự cấp từ 1001, lưới mã 4 cột tại lớp.
     expect(ctx.batch.examCode).toBe('1001');
@@ -184,7 +184,7 @@ describe('CAM-0 paper grading flow', () => {
     for (const entry of ctx.batch.roster) expect(entry.code).toMatch(/^\d{4}$/);
   });
 
-  it('rejects a duplicate variant code and a duplicate exam code for the same quiz', async () => {
+  it('từ chối mã biến thể trùng và mã đề trùng cho cùng quiz', async () => {
     const res = await http(app).post(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)
       .send({ variantCode: 'A' });
     expect(res.status).toBe(409);
@@ -195,7 +195,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(dupExam.body.code).toBe('paper.exam_code_exists');
   });
 
-  it('serves sheet PDFs: shared by default, personalized only as an explicit option', async () => {
+  it('phục vụ PDF phiếu: chung mặc định, cá nhân hoá chỉ khi chọn tường minh', async () => {
     const parsePdf = (res: unknown, cb: (err: Error | null, body?: Buffer) => void) => {
       const chunks: Buffer[] = [];
       (res as NodeJS.ReadableStream).on('data', (c: Buffer) => chunks.push(c));
@@ -219,14 +219,14 @@ describe('CAM-0 paper grading flow', () => {
     expect(blank.status).toBe(200);
   });
 
-  it('students cannot touch the paper grading surface at all', async () => {
+  it('học viên hoàn toàn không chạm được bề mặt chấm bài giấy', async () => {
     const create = await http(app).post(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.tokenA}`).send({});
     expect(create.status).toBe(403);
     const list = await http(app).get(`/api/v1/exam-scans?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.tokenA}`);
     expect(list.status).toBe(403);
   });
 
-  it('personalized sheet: QR identity, all certain → ready → recorded with hand-checked grade', async () => {
+  it('phiếu cá nhân hoá: định danh QR, tất cả chắc chắn → sẵn sàng → ghi kèm điểm kiểm tay', async () => {
     const fills = new Map<number, SlotFill>([
       [1, { choice: CORRECT[0]!, style: 'full' }],
       [2, { choice: CORRECT[1]!, style: 'full' }],
@@ -261,7 +261,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(again.body.code).toBe('paper.already_recorded');
   });
 
-  it('blank sheet: bubble-code identity, one ambiguous answer waits for the teacher, then records full marks', async () => {
+  it('phiếu trắng: định danh bằng mã ô tròn, một đáp án mơ hồ chờ giáo viên, rồi ghi điểm tối đa', async () => {
     const codeB = ctx.batch.roster.find((r) => r.userId === ctx.studentB.id)!.code;
     const fills = new Map<number, SlotFill>([
       [1, { choice: CORRECT[0]!, style: 'full' }],
@@ -295,7 +295,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(rec.body.sumGrades).toBe(10);
   });
 
-  it('tampered bubble code lands in the identity queue; manual assignment fixes it; unrecorded scans can be deleted', async () => {
+  it('mã ô tròn bị sửa rơi vào hàng đợi định danh; gán thủ công sửa nó; bản quét chưa ghi có thể xoá', async () => {
     const good = ctx.batch.roster.find((r) => r.userId === ctx.studentA.id)!.code;
     const tampered = `${good.slice(0, 3)}${(Number(good[3]) + 1) % 10}`;
     const fills = new Map<number, SlotFill>([
@@ -338,7 +338,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(gone.status).toBe(404);
   });
 
-  it('quality gate rejects a heavily blurred photo outright (422, nothing stored)', async () => {
+  it('cổng chất lượng từ chối thẳng ảnh mờ nặng (422, không lưu gì)', async () => {
     const fills = new Map<number, SlotFill>([[1, { choice: 0, style: 'full' }]]);
     const photo = photoFor({ qrText: sheetQrPayload(ctx.batch.id, ctx.batch.variantCode, ctx.studentA.id), bubbleCode: null, fills, seed: 444, blurPasses: 8 });
     const res = await upload(photo, 'blur.png', ctx.teacher);
@@ -353,7 +353,7 @@ describe('CAM-0 paper grading flow', () => {
 
   type ScanOutcome = { fileName: string; stored: boolean; scan?: { id: string; batchId: string | null; sessionId: string | null; status: string; studentId: string | null; identitySource: string | null; identityCode: string | null; variantCodeRead: string | null } };
 
-  it('session upload routes a shared sheet to its print batch by the bubbled exam code, then records', async () => {
+  it('tải lên theo phiên định tuyến phiếu chung tới lô in của nó theo mã đề đã tô, rồi ghi', async () => {
     const batch2 = await createBatch({ examCode: '1002' });
     const codeB = batch2.roster.find((r) => r.userId === ctx.studentB.id)!.code;
     const photo = photoFor({
@@ -376,7 +376,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(rec.body.sumGrades).toBe(10);
   });
 
-  it('a second sheet claiming an already-matched student waits in the identity queue instead of overwriting', async () => {
+  it('phiếu thứ hai nhận học viên đã khớp chờ trong hàng đợi định danh thay vì ghi đè', async () => {
     const batch2Id = (await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)).body
       .find((b: { examCode: string }) => b.examCode === '1002').id as string;
     const batches = (await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; roster: { code: string; userId: string }[] }[];
@@ -403,7 +403,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(del.status).toBe(200);
   });
 
-  it('session upload: an ambiguous exam code falls back to QR routing, never to a guess', async () => {
+  it('tải lên theo phiên: mã đề mơ hồ fallback về định tuyến QR, không bao giờ đoán', async () => {
     const batches = (await http(app).get(`/api/v1/exam-batches?pinId=${ctx.quizId}`).set('Authorization', `Bearer ${ctx.teacher}`)).body as { id: string; examCode: string | null; roster: { code: string; userId: string }[] }[];
     const batch2 = batches.find((b) => b.examCode === '1002')!;
     const codeA = batch2.roster.find((r) => r.userId === ctx.studentA.id)!.code;
@@ -421,7 +421,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.status).toBe('ready');
   });
 
-  it('unrouted sheet (unknown exam code, no QR) waits unbatched; teacher assigns batch + identity with an event-log trail', async () => {
+  it('phiếu chưa định tuyến (mã đề lạ, không QR) chờ chưa xếp lô; giáo viên gán lô + định danh kèm vết event-log', async () => {
     const studentC = await createUserViaApi(app, admin);
     await enrolUser(app, admin, ctx.courseId, ctx.instanceId, studentC.id);
     const batch3 = await createBatch({ examCode: '1003' });
@@ -482,7 +482,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(rec.body.sumGrades).toBe(10);
   });
 
-  it('per-batch upload still routes a stray sheet to the batch of its bubbled exam code', async () => {
+  it('tải lên theo lô vẫn định tuyến phiếu lạc tới lô của mã đề đã tô của nó', async () => {
     const studentD = await createUserViaApi(app, admin);
     await enrolUser(app, admin, ctx.courseId, ctx.instanceId, studentD.id);
     const batch4 = await createBatch({ examCode: '1004' });
@@ -501,7 +501,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(outcome.scan!.status).toBe('ready');
   });
 
-  it('a sheet whose read exam code differs from its routed batch is blocked from recording (variant mismatch)', async () => {
+  it('phiếu có mã đề đọc được khác lô đã định tuyến bị chặn ghi (lệch biến thể)', async () => {
     const batch5 = await createBatch({ examCode: '1005' });
     const codeA = batch5.roster.find((r) => r.userId === ctx.studentA.id)!.code;
     const photo = photoFor({
@@ -519,7 +519,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(rec.body.code).toBe('paper.variant_mismatch');
   });
 
-  it('SBD batch (8-digit codes): roster carries 8-digit codes and a shared sheet records end-to-end', async () => {
+  it('Lô SBD (mã 8 chữ số): danh sách mang mã 8 chữ số và phiếu chung ghi đầu-cuối', async () => {
     const batchSbd = await createBatch({ codeDigits: 8, examCode: '2001' });
     expect(batchSbd.codeDigits).toBe(8);
     for (const entry of batchSbd.roster) expect(entry.code).toMatch(/^\d{8}$/);
@@ -541,7 +541,7 @@ describe('CAM-0 paper grading flow', () => {
     expect(rec.body.sumGrades).toBe(10);
   });
 
-  it('single-digit mutation at a previously-leaking position lands in the identity queue — never silently assigned to another student', async () => {
+  it('đột biến một chữ số tại vị trí từng rò rỉ rơi vào hàng đợi định danh — không bao giờ lặng lẽ gán cho học viên khác', async () => {
     // Khoá hồi quy cho phán quyết 6393776449 (PR #120): bộ trọng số cũ
     // có trọng số 5 (gcd(5,10)=5) nên đột biến 1 chữ số với delta CHẴN
     // ở vị trí đó làm tổng kiểm tra không đổi → phiếu của học sinh này
@@ -617,7 +617,7 @@ describe('CAM-0 paper grading flow', () => {
     // hơn mặc định 30s của suite.
   }, 180_000);
 
-  it('SBD edge-pair transposition (last body digit swapped with the check digit) is caught by the checksum — identity queue, never another student', async () => {
+  it('hoán vị cặp biên SBD (chữ số thân cuối hoán với chữ số kiểm) bị checksum bắt — hàng đợi định danh, không bao giờ là học viên khác', async () => {
     // Khoá hồi quy cho phán quyết 6394453120 (PR #120): trọng số thân
     // cuối của mã SBD vòng trước là 9 ≡ −1 (mod 10) — bằng đúng trọng
     // số hiệu dụng của vị trí số kiểm tra — nên hoán vị hai ký tự

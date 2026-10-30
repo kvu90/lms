@@ -19,7 +19,7 @@ import { MessagingService, coursePreferenceName } from '../messaging/messaging.s
  * - Khoá khác không bị ảnh hưởng; huy hiệu cấp site (không gắn khoá)
  *   vẫn phát bình thường dù người nhận đã mute một khoá bất kỳ.
  */
-describe('BadgesService.issueBadge — badge_awarded notification honours the per-course mute (NB-4, #174-A)', () => {
+describe('BadgesService.issueBadge — thông báo badge_awarded tôn trọng tắt tiếng theo khoá (NB-4, #174-A)', () => {
   const MUTED_COURSE = 'course-muted';
   const OPEN_COURSE = 'course-open';
 
@@ -82,7 +82,7 @@ describe('BadgesService.issueBadge — badge_awarded notification honours the pe
     };
   }
 
-  it('a badge of a muted course is still ISSUED, but its notification is skipped on every channel and logged as skipped-course-mute', async () => {
+  it('huy hiệu của khoá bị tắt tiếng vẫn được CẤP, nhưng thông báo của nó bị bỏ qua trên mọi kênh và ghi log skipped-course-mute', async () => {
     const ctx = buildServices();
     ctx.setBadge(badgeOf(MUTED_COURSE));
     const issued = await ctx.badges.issueBadge('badge-1', 'user-1');
@@ -96,7 +96,7 @@ describe('BadgesService.issueBadge — badge_awarded notification honours the pe
     expect(ctx.dispatchLogs[0]).toMatchObject({ provider: 'badge_awarded', channel: 'popup', status: 'skipped-course-mute' });
   });
 
-  it('a badge of another (unmuted) course is delivered normally — the mute is per-course, not per-user', async () => {
+  it('huy hiệu của khoá khác (không bị tắt tiếng) được gửi bình thường — tắt tiếng theo khoá, không theo người dùng', async () => {
     const ctx = buildServices();
     ctx.setBadge(badgeOf(OPEN_COURSE));
     const issued = await ctx.badges.issueBadge('badge-1', 'user-1');
@@ -107,7 +107,7 @@ describe('BadgesService.issueBadge — badge_awarded notification honours the pe
     expect(ctx.dispatchLogs.some((l) => l.status === 'skipped-course-mute')).toBe(false);
   });
 
-  it('a site badge (no course) is delivered even when the recipient muted some course — there is no course to mute', async () => {
+  it('huy hiệu cấp site (không khoá học) vẫn được gửi ngay cả khi người nhận đã tắt tiếng một khoá nào đó — không có khoá nào để tắt tiếng', async () => {
     const ctx = buildServices();
     ctx.setBadge(badgeOf(null));
     const issued = await ctx.badges.issueBadge('badge-1', 'user-1');

@@ -15,7 +15,7 @@ import { contextIdByLevelInstance, courseContextId, setCourseCompletionCriteria 
  * ("manual completion by others"); course = khoá tiên quyết đã hoàn thành;
  * duration = N ngày sau khi ghi danh; unenrol = hoàn thành khi đã huỷ ghi danh.
  */
-describe('Completion criteria — full 8 Moodle types', () => {
+describe('Tiêu chí hoàn thành — đủ 8 loại Moodle', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -48,7 +48,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     return res.body.course.status as string;
   }
 
-  it('validation: each new type requires its parameter, references must exist, unknown types still rejected', async () => {
+  it('kiểm chứng: mỗi loại mới cần tham số của nó, tham chiếu phải tồn tại, loại lạ vẫn bị từ chối', async () => {
     const { course } = await setupCourse();
     const put = (criteria: unknown[]) => http(app).put(`/api/v1/courses/${course.id}/completion/criteria`)
       .set('Authorization', `Bearer ${admin}`).send({ method: 1, criteria });
@@ -91,7 +91,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(byType.has('unenrol')).toBe(true);
   });
 
-  it('self: learner marks themselves complete (and can unmark); a course without a self criterion rejects the call', async () => {
+  it('self: học viên tự đánh dấu hoàn thành (và có thể bỏ đánh dấu); khoá không có tiêu chí self từ chối lời gọi', async () => {
     const { course, instance } = await setupCourse();
     const { student, token } = await setupStudent(course.id, instance.id);
     await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'self' }]);
@@ -119,7 +119,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(rejected.body.code).toBe('completion.no_self_criterion');
   });
 
-  it('course: two-course prerequisite chain — B completes only after A completes, propagated automatically', async () => {
+  it('course: chuỗi tiên quyết hai khoá — B chỉ hoàn thành sau khi A hoàn thành, lan tự động', async () => {
     const cat = await createCategory(app, admin);
     const courseA = await createCourse(app, admin, cat.id);
     const courseB = await createCourse(app, admin, cat.id);
@@ -142,7 +142,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(await myStatus(only.token, courseB.id)).not.toBe('complete');
   });
 
-  it('duration: completes once the enrolment is old enough, not before', async () => {
+  it('duration: hoàn thành khi ghi danh đủ lâu, không sớm hơn', async () => {
     const tenDaysAgo = new Date(Date.now() - 10 * 86_400_000).toISOString();
     const { course: week, instance: weekInst } = await setupCourse();
     await setCourseCompletionCriteria(app, admin, week.id, [{ criteriaType: 'duration', enrolPeriodDays: 7 }]);
@@ -155,7 +155,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(await myStatus(waiting.token, month.id)).not.toBe('complete');
   });
 
-  it('role: only a holder of the named role at the course context may mark learners complete', async () => {
+  it('role: chỉ người giữ vai trò nêu tên ở ngữ cảnh khoá học mới được đánh dấu học viên hoàn thành', async () => {
     const { course, instance } = await setupCourse();
     const teacherRoleId = await roleIdByShortname(app, admin, 'teacher');
     await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'role', roleId: teacherRoleId }]);
@@ -188,7 +188,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(await myStatus(token, course.id)).not.toBe('complete');
   });
 
-  it('role: assignments at ancestor contexts (system, class) also authorise marking; unrelated branches do not (issue #23 F1)', async () => {
+  it('role: gán vai ở ngữ cảnh tổ tiên (system, lớp) cũng cho phép đánh dấu; nhánh không liên quan thì không (issue #23 F1)', async () => {
     const { cat, course, instance } = await setupCourse();
     const teacherRoleId = await roleIdByShortname(app, admin, 'teacher');
     await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'role', roleId: teacherRoleId }]);
@@ -249,7 +249,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(await myStatus(token, course.id)).not.toBe('complete');
   });
 
-  it('unenrol: enrolled learners are not complete; leaving the course completes it', async () => {
+  it('unenrol: học viên đang ghi danh chưa hoàn thành; rời khoá học thì hoàn thành', async () => {
     const { course, instance } = await setupCourse();
     const { student } = await setupStudent(course.id, instance.id);
     await setCourseCompletionCriteria(app, admin, course.id, [{ criteriaType: 'unenrol' }]);
@@ -271,7 +271,7 @@ describe('Completion criteria — full 8 Moodle types', () => {
     expect(status).toBe('complete');
   });
 
-  it('aggregation still governs the new types: ALL needs every criterion, ANY needs one', async () => {
+  it('tổng hợp vẫn chi phối loại mới: ALL cần mọi tiêu chí, ANY cần một', async () => {
     const { course, instance } = await setupCourse();
     // duration 0 ngày được thoả mãn ngay sau khi ghi danh; self thì không.
     await setCourseCompletionCriteria(app, admin, course.id, [

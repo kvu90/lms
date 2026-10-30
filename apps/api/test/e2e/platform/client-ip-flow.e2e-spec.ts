@@ -15,7 +15,7 @@ import { adminToken, createTestApp, createUserViaApi, http, STRONG_PASSWORD } fr
  * thêm chặng vào đầu danh sách, và không qua proxy thì ghi địa chỉ
  * socket trực tiếp đã chuẩn hoá (không còn dạng `::ffff:`).
  */
-describe('Client IP resolution behind the trusted proxy', () => {
+describe('Phân giải IP client sau proxy tin cậy', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -44,13 +44,13 @@ describe('Client IP resolution behind the trusted proxy', () => {
     return current!.ip;
   }
 
-  it('records the forwarded client IP when the request passes the trusted proxy', async () => {
+  it('ghi IP client được chuyển tiếp khi request qua proxy tin cậy', async () => {
     const user = await createUserViaApi(app, admin);
     const ip = await loginAndReadSessionIp(user.username, '203.0.113.55');
     expect(ip).toBe('203.0.113.55');
   });
 
-  it('ignores spoofed left-side X-Forwarded-For entries and records the rightmost hop', async () => {
+  it('bỏ qua mục X-Forwarded-For giả mạo phía trái và ghi hop phải nhất', async () => {
     const user = await createUserViaApi(app, admin);
     // Khách tự chèn 1.1.1.1 và 2.2.2.2; chặng phải nhất 198.51.100.23
     // là chặng "router" nối thêm — chỉ chặng đó mới được ghi.
@@ -58,7 +58,7 @@ describe('Client IP resolution behind the trusted proxy', () => {
     expect(ip).toBe('198.51.100.23');
   });
 
-  it('records the normalized direct socket address when no X-Forwarded-For is present', async () => {
+  it('ghi địa chỉ socket trực tiếp đã chuẩn hoá khi không có X-Forwarded-For', async () => {
     const user = await createUserViaApi(app, admin);
     const ip = await loginAndReadSessionIp(user.username);
     expect(ip).toBe('127.0.0.1');

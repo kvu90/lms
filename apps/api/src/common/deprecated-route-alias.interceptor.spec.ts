@@ -21,7 +21,7 @@ import { DeprecatedRouteAliasInterceptor } from './deprecated-route-alias.interc
  * các ca dễ bị mẫu tổng quát nuốt như `dossiers/mine`,
  * `:id/dossiers` hay `bulk-remove`.
  */
-describe('DeprecatedRouteAliasInterceptor', () => {
+describe('Khối DeprecatedRouteAliasInterceptor', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -71,7 +71,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
     expect(warn).not.toHaveBeenCalled();
   }
 
-  describe('action-rename and flattened-path surface', () => {
+  describe('Bề mặt đổi tên action và đường dẫn phẳng', () => {
     /** Các cặp alias → canonical của việc áp danh sách hành động đóng: [url cụ thể, method, alias mẫu, canonical mẫu] — tám cặp giai đoạn 1 ngoài module exams cộng bốn cặp giai đoạn 2 trong module exams (`board-*` → `approve`/`reject`) cộng một cặp làm phẳng của issue #346 (gradebook của phụ huynh). */
     const aliasCases: [string, string, string, string][] = [
       ['/api/v1/badges/01900000-0000-7000-8000-000000000001/duplicate', 'POST', 'badges/:id/duplicate', 'badges/:id/copy'],
@@ -90,7 +90,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       ['/api/v1/guardian/students/01900000-0000-7000-8000-000000000001/courses/01900000-0000-7000-8000-000000000002/gradebook', 'GET', 'guardian/students/:studentId/courses/:courseId/gradebook', 'guardian/students/:studentId/gradebooks/:courseId'],
     ];
 
-    it.each(aliasCases)('marks alias URL %s with Deprecation/Sunset headers and one structured warn log', async (url, method, alias, canonical) => {
+    it.each(aliasCases)('đánh dấu URL alias %s bằng header Deprecation/Sunset và một log warn có cấu trúc', async (url, method, alias, canonical) => {
       const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
       const interceptor = new DeprecatedRouteAliasInterceptor();
       const { context, next, headers } = buildContext(`${url}?foo=bar`, method);
@@ -118,7 +118,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       '/api/v1/exams/banks/01900000-0000-7000-8000-000000000001/contributions/01900000-0000-7000-8000-000000000002/approve',
       '/api/v1/exams/dossiers/01900000-0000-7000-8000-000000000001/reject',
       '/api/v1/guardian/students/01900000-0000-7000-8000-000000000001/gradebooks/01900000-0000-7000-8000-000000000002',
-    ])('leaves canonical URL %s untouched: no headers, no warn log', async (url) => {
+    ])('để nguyên URL canonical %s: không header, không log warn', async (url) => {
       const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
       const interceptor = new DeprecatedRouteAliasInterceptor();
       const { context, next, headers } = buildContext(url, 'POST');
@@ -130,7 +130,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
     });
   });
 
-  describe('grades surface', () => {
+  describe('Bề mặt grades', () => {
     /** Toàn bộ 10 mục của bảng alias module điểm: [url cụ thể, method, alias mẫu, canonical mẫu] — gồm cả họ thuộc khoá học (`courses/:courseId/grades/...`) và họ "phantom" (`courses/grades/...`), theo đúng thứ tự khớp của bảng. */
     const aliasCases: [string, string, string, string][] = [
       ['/api/v1/courses/01900000-0000-7000-8000-000000000001/grades/export/vnedu', 'POST', 'courses/:courseId/grades/export/vnedu', 'courses/:courseId/grade-exports'],
@@ -145,7 +145,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       ['/api/v1/courses/grades/grades/01900000-0000-7000-8000-000000000001', 'GET', 'courses/grades/grades/:gradeId', 'grades/:gradeId'],
     ];
 
-    it.each(aliasCases)('marks grades alias URL %s with Deprecation/Sunset headers and one structured warn log', async (url, method, alias, canonical) => {
+    it.each(aliasCases)('đánh dấu URL alias grades %s bằng header Deprecation/Sunset và một log warn có cấu trúc', async (url, method, alias, canonical) => {
       await assertAlias(url, method, alias, canonical);
     });
 
@@ -153,12 +153,12 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       '/api/v1/courses/01900000-0000-7000-8000-000000000001/grade-items',
       '/api/v1/courses/01900000-0000-7000-8000-000000000001/gradebook/report',
       '/api/v1/grade-items/01900000-0000-7000-8000-000000000001/users/01900000-0000-7000-8000-000000000002/history',
-    ])('leaves grades canonical URL %s untouched: no headers, no warn log', async (url) => {
+    ])('để nguyên URL canonical grades %s: không header, không log warn', async (url) => {
       await assertCanonicalUntouched(url);
     });
   });
 
-  describe('exam-papers surface', () => {
+  describe('Bề mặt exam-papers', () => {
     /** Toàn bộ 28 hậu tố của bảng sinh bề mặt `exam-papers`: [url cụ thể, method, alias mẫu, canonical mẫu] — gồm 4 ca canonical ghi đè `board-*` → `approve`/`reject` và các ca phân loại theo thứ tự khớp (segment chữ trước tham số: `dossiers/mine` theo mẫu chữ của chính nó; `/exam-papers/:id/dossiers` theo mẫu `:id/dossiers` chứ không phải `dossiers/:dossierId`). */
     const aliasCases: [string, string, string, string][] = [
       ['/api/v1/exam-papers/banks/01900000-0000-7000-8000-000000000001/contributions/01900000-0000-7000-8000-000000000002/board-approve', 'POST', 'exam-papers/banks/:bankId/contributions/:contributionId/board-approve', 'exams/banks/:bankId/contributions/:contributionId/approve'],
@@ -191,7 +191,7 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       ['/api/v1/exam-papers/01900000-0000-7000-8000-000000000001', 'GET', 'exam-papers/:id', 'exams/:id'],
     ];
 
-    it.each(aliasCases)('marks exam-papers alias URL %s with Deprecation/Sunset headers and one structured warn log', async (url, method, alias, canonical) => {
+    it.each(aliasCases)('đánh dấu URL alias exam-papers %s bằng header Deprecation/Sunset và một log warn có cấu trúc', async (url, method, alias, canonical) => {
       await assertAlias(url, method, alias, canonical);
     });
 
@@ -199,12 +199,12 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       '/api/v1/exams/banks/01900000-0000-7000-8000-000000000001/exams',
       '/api/v1/exams/dossiers/mine',
       '/api/v1/exams/01900000-0000-7000-8000-000000000001',
-    ])('leaves exams canonical URL %s untouched: no headers, no warn log', async (url) => {
+    ])('để nguyên URL canonical exams %s: không header, không log warn', async (url) => {
       await assertCanonicalUntouched(url);
     });
   });
 
-  describe('messaging and notifications surface', () => {
+  describe('Bề mặt messaging và notifications', () => {
     /** Toàn bộ 5 mục của bảng alias messaging/notifications: [url cụ thể, method, alias mẫu, canonical mẫu] — gồm ca phân loại theo thứ tự khớp (`bulk-remove` theo mẫu chữ của chính nó chứ không phải mẫu `:id` trần). */
     const aliasCases: [string, string, string, string][] = [
       ['/api/v1/messages/messages/bulk-remove', 'POST', 'messages/messages/bulk-remove', 'messages/bulk-remove'],
@@ -214,14 +214,14 @@ describe('DeprecatedRouteAliasInterceptor', () => {
       ['/api/v1/notifications/read-all', 'POST', 'notifications/read-all', 'notifications/mark-read'],
     ];
 
-    it.each(aliasCases)('marks messaging alias URL %s with Deprecation/Sunset headers and one structured warn log', async (url, method, alias, canonical) => {
+    it.each(aliasCases)('đánh dấu URL alias messaging %s bằng header Deprecation/Sunset và một log warn có cấu trúc', async (url, method, alias, canonical) => {
       await assertAlias(url, method, alias, canonical);
     });
 
     it.each([
       '/api/v1/messages/01900000-0000-7000-8000-000000000001/recall',
       '/api/v1/notifications/mark-read',
-    ])('leaves messaging canonical URL %s untouched: no headers, no warn log', async (url) => {
+    ])('để nguyên URL canonical messaging %s: không header, không log warn', async (url) => {
       await assertCanonicalUntouched(url);
     });
   });

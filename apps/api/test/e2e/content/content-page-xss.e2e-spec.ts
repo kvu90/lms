@@ -22,7 +22,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser, getFirstS
  * ContentService thì các ca payload độc dưới đây đỏ (đã chạy tay khi
  * thi công, xem thân PR).
  */
-describe('Content stored-XSS guards (page content sanitising + resource URL schemes)', () => {
+describe('Rào stored-XSS nội dung (làm sạch nội dung trang + scheme URL tài nguyên)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

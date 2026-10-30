@@ -38,7 +38,7 @@ interface BankBody {
   };
 }
 
-describe('Bank capability mold (issue #228 S3)', () => {
+describe('Khuôn năng lực ngân hàng (issue #228 S3)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

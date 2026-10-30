@@ -55,7 +55,7 @@ const SLUG = 'giao-duc-cong-dan';
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('Program identity + frozen dump distribution (issue #161)', () => {
+describe('Định danh chương trình + phân phối dump đã đóng băng (issue #161)', () => {
   let app: INestApplication;
   let admin: string;
   let adminId: string;
@@ -174,7 +174,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     await app.close();
   });
 
-  it('central production: importer loads GDCD; outcome ids are DB-assigned uuidv7, not derived from any attribute', async () => {
+  it('bản production trung tâm: trình nhập nạp GDCD; id outcome do DB cấp dạng uuidv7, không suy ra từ thuộc tính nào', async () => {
     const res = await svc.importDatasetInternal(DATASET_KEY);
     expect(res.totalRecords).toBe(116);
     expect(res.created).toBe(116);
@@ -224,7 +224,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     outcomeA1 = outcomes[0]!.id;
   }, 180_000);
 
-  it('frozen dump: export → wipe → restore reproduces the identical id set; restore on populated DB is a no-op', async () => {
+  it('dump đã đóng băng: xuất → xoá → khôi phục tái tạo đúng tập id; khôi phục trên DB đã có dữ liệu thì không làm gì', async () => {
     const before = await snapshotIds();
     expect(before.nodes.length).toBeGreaterThan(116);
     expect(before.outcomes.length).toBeGreaterThan(300);
@@ -302,7 +302,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(view.id).toBe(rows[0]!.id);
   }, 180_000);
 
-  it('central patch — text correction keeps the same outcome id and every reference', async () => {
+  it('bản vá trung tâm — sửa văn bản giữ nguyên id outcome và mọi tham chiếu', async () => {
     // --- dựng tham chiếu quanh cây vừa restore ---------------------
     const derivedRes = await http(app).post('/api/v1/curriculum/outcomes').set(bearer(admin))
       .send({ nodeId: lessonA, content: 'YCCĐ suy ra phục vụ kiểm chứng.', sourceKind: 'derived', derivedFromId: outcomeA1 });
@@ -394,7 +394,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(derived[0]!.derived_from_id).toBe(outcomeA1);
   }, 180_000);
 
-  it('central patch — inserting a line in the middle gives it a fresh id and only resequences positions', async () => {
+  it('bản vá trung tâm — chèn một dòng vào giữa cấp id mới cho dòng đó và chỉ đánh lại thứ tự vị trí', async () => {
     const lessonD = await lessonIdOf(recD.id);
     const beforeRows = await outcomesOf(lessonD);
     expect(beforeRows.length).toBeGreaterThanOrEqual(4);
@@ -428,7 +428,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     }
   }, 180_000);
 
-  it('retiring a line removes it from the question pool and the specification, but never deletes it', async () => {
+  it('cho một dòng nghỉ hưu sẽ loại nó khỏi ngân hàng câu hỏi và khỏi đặc tả, nhưng không bao giờ xoá hẳn', async () => {
     lessonE = await lessonIdOf(recE.id);
     outcomeE1 = (await outcomesOf(lessonE))[0]!.id;
 
@@ -500,7 +500,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(specOutcomeIds).not.toContain(outcomeE1);
   }, 180_000);
 
-  it('identical twin lines get distinct ids; retiring one keeps the other active and flags the ambiguity', async () => {
+  it('các dòng giống hệt nhau vẫn có id riêng; cho một dòng nghỉ hưu thì dòng còn lại vẫn hoạt động và được gắn cờ mơ hồ', async () => {
     const lessonF = await lessonIdOf(recF.id);
     const twin = 'Ý trùng hệt nhau phục vụ kiểm chứng.';
     const third = 'Ý thứ ba phân biệt phục vụ kiểm chứng.';
@@ -533,7 +533,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     expect(retiredTwin!.retired_at).not.toBeNull();
   }, 180_000);
 
-  it('removing a whole record retires all its lines; the record returning revives the same rows', async () => {
+  it('xoá cả một bản ghi sẽ cho toàn bộ dòng của nó nghỉ hưu; bản ghi quay lại sẽ hồi sinh đúng các dòng đó', async () => {
     const lessonG = await lessonIdOf(recG.id);
     const beforeRows = await outcomesOf(lessonG);
     expect(beforeRows.length).toBeGreaterThan(0);
@@ -554,7 +554,7 @@ describe('Program identity + frozen dump distribution (issue #161)', () => {
     for (const r of backRows) expect(r.retired_at).toBeNull();
   }, 180_000);
 
-  it('restrict blocks deletion with a business error until references are removed', async () => {
+  it('chế độ restrict chặn xoá bằng lỗi nghiệp vụ cho tới khi hết tham chiếu', async () => {
     const delOutcome = await http(app).delete(`/api/v1/curriculum/outcomes/${outcomeA1}`).set(bearer(admin));
     expect(delOutcome.status).toBe(409);
     expect(delOutcome.body.code).toBe('curriculum.delete_referenced');

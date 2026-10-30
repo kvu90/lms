@@ -160,14 +160,14 @@ function stubFetch(calls: RecordedCall[]) {
   );
 }
 
-describe('Question usage flow — real endpoints', () => {
+describe('Luồng sử dụng câu hỏi — endpoint thật', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('creates a usage from selected questions and navigates to the usage page', async () => {
+  it('tạo usage từ câu hỏi đã chọn và điều hướng tới trang usage', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(
@@ -194,7 +194,7 @@ describe('Question usage flow — real endpoints', () => {
     expect(await screen.findByText(/Trạng thái lượt làm:/)).toBeInTheDocument();
   });
 
-  it('submits an answer via POST submit and only shows the fraction after POST finish', async () => {
+  it('nộp đáp án qua POST submit và chỉ hiện fraction sau POST finish', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter([{ path: '/question-usages/:id', element: <QuestionUsagePage /> }], {
@@ -230,7 +230,7 @@ describe('Question usage flow — real endpoints', () => {
     expect(screen.getByTestId(`attempt-${ATTEMPT_ID}`)).toHaveTextContent('hệ số 1');
   });
 
-  it('creates a category on its own screen through the context select, defaulting to the system context (issue #55, §9)', async () => {
+  it('tạo danh mục trên màn riêng qua select ngữ cảnh, mặc định ngữ cảnh hệ thống (issue #55, §9)', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     const router = createMemoryRouter(
@@ -277,14 +277,14 @@ describe('Question usage flow — real endpoints', () => {
   });
 });
 
-describe('Question bank page — role gate (issue #55)', () => {
+describe('Trang ngân hàng câu hỏi — cổng vai trò (issue #55)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('renders no bank data and calls no bank endpoint for a role without question capabilities', async () => {
+  it('không render dữ liệu ngân hàng và không gọi endpoint ngân hàng cho vai trò thiếu năng lực câu hỏi', async () => {
     const calls: RecordedCall[] = [];
     vi.stubGlobal(
       'fetch',
@@ -338,7 +338,7 @@ describe('Question bank page — role gate (issue #55)', () => {
  * (isSiteAdmin) lẫn giáo viên (capability qua context, không phải
  * site admin).
  */
-describe('Question bank page — admin parity (issue #70)', () => {
+describe('Trang ngân hàng câu hỏi — ngang bằng admin (issue #70)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -460,12 +460,12 @@ describe('Question bank page — admin parity (issue #70)', () => {
     cleanup();
   }
 
-  it('site admin sees and can use the personal bank area exactly like a teacher', async () => {
+  it('site admin thấy và dùng được khu vực ngân hàng cá nhân đúng như giáo viên', async () => {
     stubBankFetch('admin', { userId: PROFILE.id, isSiteAdmin: true, assignments: [], contexts: [] });
     await expectFullBankSurface();
   });
 
-  it('teacher (capabilities via context, not site admin) sees the identical surface', async () => {
+  it('giáo viên (năng lực qua ngữ cảnh, không phải site admin) thấy bề mặt giống hệt', async () => {
     stubBankFetch('teacher1', {
       userId: PROFILE.id,
       isSiteAdmin: false,
@@ -492,7 +492,7 @@ describe('Question bank page — admin parity (issue #70)', () => {
  * #system-matrices trên từng trang con; thẻ Ngữ liệu giữ neo
  * #stimuli ở /questions/stimuli.
  */
-describe('Question bank areas — by path (issue #221)', () => {
+describe('Khu vực ngân hàng câu hỏi — theo đường dẫn (issue #221)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -635,7 +635,7 @@ describe('Question bank areas — by path (issue #221)', () => {
  * Nhập từ file → /matrices/import. Khu Hệ thống KHÔNG có bất kỳ
  * nút tạo nào ở đầu trang.
  */
-describe('Bank list pages — header create buttons (issue #228)', () => {
+describe('Trang danh sách ngân hàng — nút tạo ở header (issue #228)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -1131,7 +1131,7 @@ describe('Trang ngân hàng câu hỏi — huy hiệu phiên bản và trang usa
  * các lời gọi API của ba thao tác đó và khẳng định KHÔNG còn lời gọi
  * ghi nào tới bề mặt hồ sơ (nơi API đã đóng, trả 410).
  */
-describe('Exam dossier writes ride the single contribution path (issue #228 Q4)', () => {
+describe('Ghi hồ sơ đề đi theo đường đóng góp duy nhất (issue #228 Q4)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

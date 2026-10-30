@@ -96,7 +96,7 @@ function flattenLessons(nodes: TreeNode[], prefix: string[], out: FlatLesson[]):
 
 const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 
-describe('K0a program import (verified GDPT 2018 datasets → programme tree)', () => {
+describe('Nhập chương trình K0a (dataset GDPT 2018 đã kiểm chứng → cây chương trình)', () => {
   let app: INestApplication;
   let admin: string;
   let systemCtxId: string;
@@ -175,7 +175,7 @@ describe('K0a program import (verified GDPT 2018 datasets → programme tree)', 
     expect(lessonTotal).toBe(dataset.records.length);
   }
 
-  it('reports dataset status before import and denies users without curriculum capabilities', async () => {
+  it('báo trạng thái dataset trước khi nhập và từ chối người thiếu năng lực chương trình', async () => {
     const status = await http(app).get('/api/v1/curriculum/program-import').set(bearer(admin));
     expect(status.status).toBe(200);
     const rows = status.body as { datasetKey: string; totalRecords: number; importedRecords: number; subjectId: string | null }[];

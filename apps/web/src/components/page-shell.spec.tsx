@@ -15,7 +15,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('PageShell — khung trang', () => {
+describe('PageShell — khung của trang', () => {
   it('dựng nội dung con trong khung trang', () => {
     render(
       <PageShell>

@@ -72,7 +72,7 @@ function renderApp(initialEntry = '/login') {
   );
 }
 
-describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)', () => {
+describe('Luồng đăng nhập (hợp đồng cookie Better Auth, fetch mock tại biên)', () => {
   afterEach(() => {
     // Dự án không bật auto-cleanup của Testing Library nên phải dọn
     // DOM tường minh, tránh cây render của test trước sót sang test sau.
@@ -81,7 +81,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     localStorage.clear();
   });
 
-  it('signs in via the username endpoint, keeps no tokens in localStorage, and lands on the profile', async () => {
+  it('đăng nhập qua endpoint username, không giữ token nào trong localStorage, và tới trang hồ sơ', async () => {
     let signedIn = false;
     const signInBodies: unknown[] = [];
     const fetchMock = vi.fn(async (input: unknown, init?: RequestInit) => {
@@ -110,7 +110,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     expect(screen.getByLabelText(/Department/)).toHaveValue('Sales');
   });
 
-  it('shows the server message when credentials are rejected', async () => {
+  it('hiện thông báo của server khi thông tin đăng nhập bị từ chối', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: unknown) => {
@@ -131,7 +131,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     expect(localStorage.getItem('lms.accessToken')).toBeNull();
   });
 
-  it('resolves an existing cookie session straight into the profile without a sign-in round trip', async () => {
+  it('phân giải phiên cookie sẵn có thẳng vào hồ sơ mà không cần vòng đăng nhập', async () => {
     const requestedUrls: string[] = [];
     vi.stubGlobal(
       'fetch',
@@ -151,7 +151,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     expect(requestedUrls.some((u) => u.endsWith('/api/v1/auth/sign-in/username'))).toBe(false);
   });
 
-  it('MFA: a twoFactorRedirect response switches to the code step, and verifying TOTP completes sign-in', async () => {
+  it('MFA: phản hồi twoFactorRedirect chuyển sang bước mã, và xác minh TOTP hoàn tất đăng nhập', async () => {
     let signedIn = false;
     const verifyBodies: unknown[] = [];
     vi.stubGlobal(
@@ -189,7 +189,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     expect(verifyBodies).toEqual([{ code: '123456' }]);
   });
 
-  it('email OTP: requesting a code then entering it completes sign-in', async () => {
+  it('OTP email: yêu cầu mã rồi nhập mã sẽ hoàn tất đăng nhập', async () => {
     let signedIn = false;
     const sendBodies: unknown[] = [];
     const verifyBodies: unknown[] = [];
@@ -227,7 +227,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     expect(verifyBodies).toEqual([{ email: 'learner@example.com', otp: '654321' }]);
   });
 
-  it('OAuth: only enabled issuers get a button, and clicking it starts the Better Auth social flow', async () => {
+  it('OAuth: chỉ issuer đã bật mới có nút, và bấm nút bắt đầu luồng social Better Auth', async () => {
     const socialBodies: unknown[] = [];
     vi.stubGlobal(
       'fetch',
@@ -257,7 +257,7 @@ describe('Login flow (Better Auth cookie contract, fetch mocked at the boundary)
     expect(socialBodies[0]).toMatchObject({ provider: 'google', callbackURL: '/oauth/callback' });
   });
 
-  it('OAuth: an oauthError code in the URL is shown as a localised message', async () => {
+  it('OAuth: mã oauthError trong URL hiện thành thông báo đã bản địa hoá', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: unknown) => {

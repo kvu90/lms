@@ -99,7 +99,7 @@ async function enableMfaViaApi(app: INestApplication, accessToken: string): Prom
   return secret;
 }
 
-describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => {
+describe('Đợt xác thực: đăng nhập social OAuth2, luồng phiên MFA, phiên của tôi', () => {
   let app: INestApplication;
   let admin: string;
   let provider: Server;
@@ -152,7 +152,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     return res.body as { accessToken: string; refreshToken: string; user: { id: string; username: string } };
   }
 
-  it('reports both issuers as enabled once configured (Moodle: only enabled issuers appear)', async () => {
+  it('báo cả hai issuer đều đã bật sau khi cấu hình (Moodle: chỉ issuer đã bật mới hiện)', async () => {
     const res = await http(app).get('/api/v1/auth/oauth/providers');
     expect(res.status).toBe(200);
     expect(res.body.providers).toEqual([
@@ -161,7 +161,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     ]);
   });
 
-  it('google login with a new verified email creates a confirmed account, a linked login and a working session (auth_test::test_oauth2_complete_login)', async () => {
+  it('đăng nhập google bằng email mới đã xác minh tạo tài khoản đã xác nhận, liên kết đăng nhập và phiên hoạt động (auth_test::test_oauth2_complete_login)', async () => {
     const email = `${uniqueName('oauthnew')}@example.com`;
     profilesByCode.set('google-new', {
       sub: `g-${uniqueName('sub')}`, email, email_verified: true, given_name: 'New', family_name: 'Learner',
@@ -197,7 +197,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(againBody.user.id).toBe(body.user.id);
   });
 
-  it('google login matches an existing account by verified email and links it instead of duplicating the account', async () => {
+  it('đăng nhập google khớp tài khoản sẵn có bằng email đã xác minh và liên kết nó thay vì nhân đôi tài khoản', async () => {
     const existing = await createUserViaApi(app, admin);
     profilesByCode.set('google-match', {
       sub: `g-${uniqueName('sub')}`, email: existing.email, email_verified: true, given_name: 'Exist', family_name: 'Ing',
@@ -211,7 +211,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(links.body.links[0].issuer).toBe('google');
   });
 
-  it('refuses a google profile whose email is not verified and creates nothing', async () => {
+  it('từ chối hồ sơ google có email chưa xác minh và không tạo gì', async () => {
     const email = `${uniqueName('unverified')}@example.com`;
     profilesByCode.set('google-unverified', {
       sub: `g-${uniqueName('sub')}`, email, email_verified: false, given_name: 'Un', family_name: 'Verified',
@@ -223,7 +223,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(search.body.total).toBe(0);
   });
 
-  it('rejects a callback with a tampered state and an unknown code', async () => {
+  it('từ chối callback có state bị sửa và mã lạ', async () => {
     const authorizeRes = await http(app).get('/api/v1/auth/oauth/google/authorize');
     const state = new URL(authorizeRes.body.authorizeUrl as string).searchParams.get('state')!;
     const tampered = await http(app).get(`/api/v1/auth/oauth/google/callback?code=google-new&state=${state}x`);
@@ -234,7 +234,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(badCode.headers.location).toContain('/login?oauthError=auth.oauth_token_exchange_failed');
   });
 
-  it('a signed-in user can link a facebook account, and unlinking respects the last-login-method rule', async () => {
+  it('người đã đăng nhập có thể liên kết tài khoản facebook, và huỷ liên kết tôn trọng quy tắc phương thức đăng nhập cuối', async () => {
     // User có mật khẩu liên kết Facebook (email provider khác email tài khoản vẫn được — chính user chứng minh sở hữu qua authorize).
     const user = await createUserViaApi(app, admin);
     const session = await login(app, user.username, STRONG_PASSWORD);
@@ -270,7 +270,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(foreign.status).toBe(404);
   });
 
-  it('MFA: session-cookie login stops at the challenge and only the session verify step creates a session (tool_mfa)', async () => {
+  it('MFA: đăng nhập bằng session-cookie dừng ở thử thách và chỉ bước verify phiên mới tạo phiên (tool_mfa)', async () => {
     const user = await createUserViaApi(app, admin);
     const plain = await login(app, user.username, STRONG_PASSWORD);
     const secret = await enableMfaViaApi(app, plain.accessToken);
@@ -310,7 +310,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(crossSession.body.code).toBe('auth.mfa_challenge_invalid');
   });
 
-  it('my sessions: list marks the current session, other sessions can be revoked one by one and in bulk (report_usersessions)', async () => {
+  it('phiên của tôi: danh sách đánh dấu phiên hiện tại, phiên khác thu hồi được từng cái và hàng loạt (report_usersessions)', async () => {
     const user = await createUserViaApi(app, admin);
     // Đăng nhập token qua /auth/token kèm User-Agent biết trước: họ token
     // của lần đăng nhập này phải mang đúng thông tin máy khách đó.
@@ -398,7 +398,7 @@ describe('Auth wave: OAuth2 social login, MFA session flow, my sessions', () => 
     expect(thirdDead.status).toBe(401);
   });
 
-  it('with no OAuth env configured, providers report disabled and authorize is refused', async () => {
+  it('khi không cấu hình env OAuth, provider báo đã tắt và authorize bị từ chối', async () => {
     const saved = [
       'OAUTH_GOOGLE_CLIENT_ID', 'OAUTH_GOOGLE_CLIENT_SECRET', 'OAUTH_FACEBOOK_CLIENT_ID', 'OAUTH_FACEBOOK_CLIENT_SECRET',
     ].map((key) => [key, process.env[key]] as const);

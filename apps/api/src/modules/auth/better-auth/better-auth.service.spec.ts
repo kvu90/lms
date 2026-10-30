@@ -28,21 +28,21 @@ function buildService(values: Record<string, unknown>): BetterAuthService {
  * bất hoạt, cờ bật thiếu secret phải từ chối khởi tạo, và các tuỳ chọn
  * đã chốt trong issue phải được ghim đúng trên instance.
  */
-describe('BetterAuthService', () => {
-  it('is fully inert when the flag is off (default)', () => {
+describe('Khối BetterAuthService', () => {
+  it('hoàn toàn trơ khi cờ đang tắt (mặc định)', () => {
     const service = buildService({});
     expect(service.enabled).toBe(false);
     expect(service.auth).toBeNull();
     expect(() => service.requireAuth()).toThrow(/not enabled/);
   });
 
-  it('refuses to initialize when enabled without BETTER_AUTH_SECRET', () => {
+  it('từ chối khởi tạo khi bật mà thiếu BETTER_AUTH_SECRET', () => {
     expect(() => buildService({ BETTER_AUTH_ENABLED: true, PORT: 3000 })).toThrow(
       /BETTER_AUTH_SECRET is required/,
     );
   });
 
-  it('pins the options settled in issue #7 when enabled', () => {
+  it('ghim các tuỳ chọn đã chốt trong issue #7 khi bật', () => {
     const service = buildService({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
     expect(service.enabled).toBe(true);
     const auth = service.requireAuth();
@@ -74,7 +74,7 @@ describe('BetterAuthService', () => {
     expect(auth.options.hooks?.after).toBeDefined();
   });
 
-  it('defaults the cutover stage to off: no legacy sync hooks are wired', () => {
+  it('mặc định giai đoạn cutover là tắt: không nối hook đồng bộ cũ nào', () => {
     const service = buildService({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
     expect(service.cutoverStage).toBe('off');
     const auth = service.requireAuth();
@@ -84,7 +84,7 @@ describe('BetterAuthService', () => {
     expect(auth.options.emailAndPassword?.onPasswordReset).toBeUndefined();
   });
 
-  it('refuses to initialize when AUTH_CUTOVER_STAGE=bake without BETTER_AUTH_ENABLED', () => {
+  it('từ chối khởi tạo khi AUTH_CUTOVER_STAGE=bake mà thiếu BETTER_AUTH_ENABLED', () => {
     // Cửa sổ bake chạy trên phiên Better Auth — bật bake mà hệ BA tắt
     // là cấu hình nửa vời, phải chết ngay lúc boot thay vì chạy lặng.
     expect(() => buildService({ AUTH_CUTOVER_STAGE: 'bake', PORT: 3000 })).toThrow(
@@ -92,7 +92,7 @@ describe('BetterAuthService', () => {
     );
   });
 
-  it('wires the bake-window legacy sync when stage is bake and BA is enabled', () => {
+  it('nối đồng bộ cũ trong cửa sổ bake khi giai đoạn là bake và BA đang bật', () => {
     const service = buildService({
       BETTER_AUTH_ENABLED: true,
       BETTER_AUTH_SECRET: SECRET,
@@ -110,7 +110,7 @@ describe('BetterAuthService', () => {
     expect(typeof auth.options.emailAndPassword?.onPasswordReset).toBe('function');
   });
 
-  it('has no mail surface when the mail port is not wired (phase 2.5 not connected yet)', () => {
+  it('không có bề mặt mail khi cổng mail chưa nối (giai đoạn 2.5 chưa kết nối)', () => {
     const service = buildService({ BETTER_AUTH_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
     const auth = service.requireAuth();
     // Chưa nối cổng mail: không callback reset (endpoint reset của
@@ -120,7 +120,7 @@ describe('BetterAuthService', () => {
     expect(auth.options.plugins?.some((plugin) => plugin.id === 'email-otp')).toBe(false);
   });
 
-  it('wires the mail port when provided: reset callback, email-otp plugin, revocation pin', async () => {
+  it('nối cổng mail khi được cấp: reset callback, plugin email-otp, ghim thu hồi', async () => {
     const resetCalls: Array<{ userId: string; email: string; url: string }> = [];
     const mailPort = {
       sendPasswordResetEmail: async (input: { userId: string; email: string; url: string }) => {
@@ -151,17 +151,17 @@ describe('BetterAuthService', () => {
     expect(resetCalls).toEqual([{ userId: 'user-1', email: 'u@example.com', url: 'https://app/reset-password/tok' }]);
   });
 
-  it('is inert for the OAuth AS when only MCP_AS_ENABLED is off (default)', () => {
+  it('trơ với OAuth AS khi chỉ có MCP_AS_ENABLED đang tắt (mặc định)', () => {
     const service = buildService({});
     expect(service.mcpAsEnabled).toBe(false);
     expect(service.mcpAs).toBeNull();
   });
 
-  it('refuses to initialize when MCP_AS_ENABLED without BETTER_AUTH_SECRET', () => {
+  it('từ chối khởi tạo khi MCP_AS_ENABLED mà thiếu BETTER_AUTH_SECRET', () => {
     expect(() => buildService({ MCP_AS_ENABLED: true, PORT: 3000 })).toThrow(/BETTER_AUTH_SECRET is required/);
   });
 
-  it('composes the OAuth AS (jwt + oauth-provider + cimd) under MCP_AS_ENABLED alone (issue #163)', () => {
+  it('ghép OAuth AS (jwt + oauth-provider + cimd) chỉ với MCP_AS_ENABLED (issue #163)', () => {
     const service = buildService({ MCP_AS_ENABLED: true, BETTER_AUTH_SECRET: SECRET, PORT: 3000 });
     // Cờ GĐ1 vẫn tắt — AS là lát độc lập, không chờ cutover của #7.
     expect(service.enabled).toBe(false);

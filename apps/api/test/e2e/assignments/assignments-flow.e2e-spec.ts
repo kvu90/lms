@@ -21,7 +21,7 @@ import { getGradebook } from '../../support/assessment-helpers';
  *    (Đạt/Chưa đạt) cho nhóm môn chỉ nhận xét; ngân hàng lời phê cá
  *    nhân của giáo viên; hội thoại phản hồi mở sau khi trả bài.
  */
-describe('Assignment file submission (mod_assign)', () => {
+describe('Nộp file bài tập (mod_assign)', () => {
   let app: INestApplication;
   let admin: string;
 

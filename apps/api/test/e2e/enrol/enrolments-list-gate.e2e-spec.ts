@@ -18,7 +18,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from '..
  * người ngoài nhận 404 `course.not_found`, giống hệt khoá không tồn tại,
  * để không lộ sự tồn tại của khoá.
  */
-describe('Enrolments list gate (issue #44)', () => {
+describe('Cổng danh sách ghi danh (issue #44)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -37,7 +37,7 @@ describe('Enrolments list gate (issue #44)', () => {
     return content.body.contextId as string;
   }
 
-  it('outsider gets 404 indistinguishable from a nonexistent course', async () => {
+  it('người ngoài nhận 404 không phân biệt được với khoá không tồn tại', async () => {
     const { course } = await setupCourse();
     const outsider = await createUserViaApi(app, admin);
     const outsiderLogin = await login(app, outsider.username, STRONG_PASSWORD);
@@ -53,7 +53,7 @@ describe('Enrolments list gate (issue #44)', () => {
     expect(missing.body.code).toBe('course.not_found');
   });
 
-  it('enrolled student (active enrolment) gets 200 with the full list shape', async () => {
+  it('học viên đã ghi danh (ghi danh đang hoạt động) nhận 200 với đầy đủ hình dạng danh sách', async () => {
     const { course, instance } = await setupCourse();
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student.id);
@@ -70,7 +70,7 @@ describe('Enrolments list gate (issue #44)', () => {
     expect(mine!.enrolMethod).toBe('manual');
   });
 
-  it('teacher assigned at the course context (not enrolled) gets 200', async () => {
+  it('giáo viên gán tại ngữ cảnh khoá học (không ghi danh) nhận 200', async () => {
     const { course } = await setupCourse();
     const teacher = await createUserViaApi(app, admin);
     const teacherRole = await roleIdByShortname(app, admin, 'teacher');
@@ -83,7 +83,7 @@ describe('Enrolments list gate (issue #44)', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
-  it('enrol manager (editingteacher assignment, enrol:manage) and site admin get 200 intact', async () => {
+  it('quản lý ghi danh (gán editingteacher, enrol:manage) và site admin nhận 200 nguyên vẹn', async () => {
     const { course, instance } = await setupCourse();
     const student = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, student.id);

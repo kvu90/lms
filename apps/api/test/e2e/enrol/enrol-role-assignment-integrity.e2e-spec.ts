@@ -24,7 +24,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from '..
  * quản trị chặn xoá dòng nguồn enrol (`access.assignment_enrol_managed`);
  * dòng cũ không component/itemId được coi là gán tay.
  */
-describe('Enrol role-assignment integrity (#157)', () => {
+describe('Toàn vẹn gán vai trò ghi danh (#157)', () => {
   let app: INestApplication;
   let admin: string;
   let studentRole: string;
@@ -58,7 +58,7 @@ describe('Enrol role-assignment integrity (#157)', () => {
     return { course, ctxId: await courseContextId(course.id) };
   }
 
-  it('two instances with the same role: unenrolling from one keeps the role, the enrolment view and course capability', async () => {
+  it('hai instance cùng vai trò: huỷ ghi danh ở một instance giữ vai trò, view ghi danh và năng lực khoá học', async () => {
     const { course, ctxId } = await setupCourse();
     const instanceA = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
     const instanceB = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
@@ -97,7 +97,7 @@ describe('Enrol role-assignment integrity (#157)', () => {
     expect(blocked.status).toBe(403);
   });
 
-  it('leaving a cohort with onCohortLeave=unenrol removes only the cohort instance row; the manual enrolment keeps the role', async () => {
+  it('rời cohort với onCohortLeave=unenrol chỉ xoá dòng instance cohort; ghi danh thủ công giữ vai trò', async () => {
     const { course, ctxId } = await setupCourse();
     const manual = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Integrity cohort' });
@@ -124,7 +124,7 @@ describe('Enrol role-assignment integrity (#157)', () => {
     expect(await hasCapability(app, admin, user.id, 'course:view', ctxId)).toBe(true);
   });
 
-  it('the admin assignments API cannot delete an enrol-managed assignment, but manual assignments delete normally', async () => {
+  it('API assignments của admin không thể xoá gán do enrol quản lý, nhưng gán thủ công xoá bình thường', async () => {
     const { course, ctxId } = await setupCourse();
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
     const user = await createUserViaApi(app, admin);
@@ -157,7 +157,7 @@ describe('Enrol role-assignment integrity (#157)', () => {
     expect((await assignmentsOf(user.id, ctxId)).some((a) => a.id === manualRow.id)).toBe(false);
   });
 
-  it('a manual assignment of the same role survives unenrol: unenrol removes only its own instance row', async () => {
+  it('gán thủ công cùng vai trò sống sót sau unenrol: unenrol chỉ xoá dòng instance của chính nó', async () => {
     const { course, ctxId } = await setupCourse();
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'manual' });
     const user = await createUserViaApi(app, admin);

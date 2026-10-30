@@ -36,7 +36,7 @@ import {
  * fixture và đọc kiểm chứng đi qua kết nối quản trị của harness;
  * khẳng định nghiệp vụ của spec không đổi.
  */
-describe('Worker class enrol reconcile (CLASS-0, #184)', () => {
+describe('Đối chiếu ghi danh lớp của worker (CLASS-0, #184)', () => {
   let context_: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;

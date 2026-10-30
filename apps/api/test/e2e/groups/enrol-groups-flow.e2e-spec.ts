@@ -21,7 +21,7 @@ import { createCategory, createCourse, createEnrolInstance, enrolUser } from '..
  * , enrol/cohort/tests/behat/enrolcohorts.feature ("Editing a
  * cohort enrolment method's role should change participants' role").
  */
-describe('Enrol & groups/cohorts', () => {
+describe('Ghi danh và nhóm/cohort', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -35,7 +35,7 @@ describe('Enrol & groups/cohorts', () => {
     return { cat, course, instance };
   }
 
-  it('enrolling grants the student role at the course context, emits user_enrolled, and isEnrolled separates enrol from capability', async () => {
+  it('ghi danh cấp vai học viên tại ngữ cảnh khoá học, phát user_enrolled, và isEnrolled tách ghi danh khỏi năng lực', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     const ue = await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -60,7 +60,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(asOutsider.status).toBe(403);
   });
 
-  it('SUSPENDED user is blocked from course content despite holding the student role; reactivation restores access', async () => {
+  it('người SUSPENDED bị chặn khỏi nội dung khoá học dù giữ vai học viên; kích hoạt lại khôi phục truy cập', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -79,7 +79,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(restored.status).toBe(200);
   });
 
-  it('a suspended user who ALSO holds a real teacher assignment still gets in via course:view (the documented exception)', async () => {
+  it('người bị đình chỉ NHƯNG đồng thời giữ gán giáo viên thật vẫn vào được qua course:view (ngoại lệ đã ghi)', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -98,7 +98,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(res.status).toBe(200);
   });
 
-  it('unenrol without related data removes the enrolment and the granted role; user_unenrolled is emitted', async () => {
+  it('unenrol không kèm dữ liệu liên quan xoá ghi danh và vai đã cấp; user_unenrolled được phát', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -111,7 +111,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(res.status).toBe(403);
   });
 
-  it('groups + groupings: membership, grouping links, and deleting a group cleans its links (lib_test::test_groups_delete_*)', async () => {
+  it('nhóm + grouping: thành viên, liên kết grouping, và xoá nhóm dọn sạch liên kết của nó (lib_test::test_groups_delete_*)', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -132,7 +132,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((after.body as { id: string }[]).map((g) => g.id)).toEqual([gB.body.id]);
   });
 
-  it('SEPARATE GROUPS is a server-side data law: a student in group A gets 403 for group B members and never sees them in lists', async () => {
+  it('SEPARATE GROUPS là luật dữ liệu phía server: học viên nhóm A nhận 403 với thành viên nhóm B và không bao giờ thấy họ trong danh sách', async () => {
     const { course, instance } = await setupCourse(1); // SEPARATEGROUPS
     const alice = await createUserViaApi(app, admin);
     const bob = await createUserViaApi(app, admin);
@@ -164,7 +164,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((adminList.body as unknown[]).length).toBe(3);
   });
 
-  it('cohort sync: adding a user to a cohort enrols them into linked courses; removing suspends by default and unenrols when configured', async () => {
+  it('đồng bộ cohort: thêm người vào cohort ghi danh họ vào khoá liên kết; xoá đình chỉ mặc định và huỷ ghi danh khi đã cấu hình', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Class of 2026' });
@@ -199,7 +199,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((list2.body as { userId: string }[]).some((e) => e.userId === user.id)).toBe(false);
   });
 
-  it('a cohort enrol instance created AFTER users joined the cohort syncs the existing members', async () => {
+  it('instance ghi danh cohort tạo SAU khi người dùng đã vào cohort đồng bộ các thành viên sẵn có', async () => {
     const cat = await createCategory(app, admin);
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Early joiners' });
     const user = await createUserViaApi(app, admin);
@@ -210,7 +210,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((list.body as { userId: string; status: number }[]).find((e) => e.userId === user.id)?.status).toBe(0);
   });
 
-  it('expired enrolment (timeEnd in the past) is not active: access blocked before any sweep runs', async () => {
+  it('ghi danh hết hạn (timeEnd trong quá khứ) không hoạt động: truy cập bị chặn trước khi sweep nào chạy', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
@@ -222,7 +222,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(403);
   });
 
-  it('self enrol instance: a user can self-enrol; a manual instance refuses self-enrol', async () => {
+  it('instance tự ghi danh: người dùng có thể tự ghi danh; instance thủ công từ chối tự ghi danh', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self' });
@@ -236,7 +236,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
   });
 
-  it('enrolment key: a keyed self instance refuses missing/wrong keys with 400 and enrols nobody, enrols with the correct key, and never leaks the key to non-managers (Behat self_enrolment.feature "Self-enrolment enabled requiring an enrolment key")', async () => {
+  it('khoá ghi danh: instance tự ghi danh có khoá từ chối khoá thiếu/sai bằng 400 và không ghi danh ai, ghi danh khi đúng khoá, và không bao giờ lộ khoá cho người không quản lý (Behat self_enrolment.feature “Self-enrolment enabled requiring an enrolment key”)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const instance = await createEnrolInstance(app, admin, course.id, { method: 'self', enrolmentKey: 's3cret-key' }) as unknown as { id: string; enrolmentKey: string | null };
@@ -266,7 +266,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${userLogin.accessToken}`)).status).toBe(200);
   });
 
-  it('group enrolment key: a key matching a course group enrols AND places the learner in that group, while the instance key enrols without group placement (Behat self_enrolment.feature "...requiring a group enrolment key")', async () => {
+  it('khoá ghi danh nhóm: khoá khớp nhóm khoá học ghi danh VÀ xếp học viên vào nhóm đó, trong khi khoá instance ghi danh mà không xếp nhóm (Behat self_enrolment.feature “…requiring a group enrolment key”)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const group = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Keyed team', enrolmentKey: 'group-key-1' });
@@ -295,7 +295,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((await http(app).get(`/api/v1/courses/${course.id}/content`).set('Authorization', `Bearer ${bobLogin.accessToken}`)).status).toBe(200);
   });
 
-  it('self-unenrol: a self-enrolled student can unenrol themselves (role removed, access lost), while an enrolment from another method refuses self-unenrol (Behat self_enrolment.feature "Self unenrol as a self-enrolled student")', async () => {
+  it('tự huỷ ghi danh: học viên tự ghi danh có thể tự huỷ ghi danh (vai bị xoá, mất truy cập), trong khi ghi danh từ phương thức khác từ chối tự huỷ (Behat self_enrolment.feature “Self unenrol as a self-enrolled student”)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self' });
@@ -328,7 +328,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(again.body.code).toBe('enrol.user_not_enrolled');
   });
 
-  it('welcome message: self enrol sends the configured welcome notification through Messaging, manual enrol only when the instance enables it (default off) (Behat enrol/self + enrol/manual welcome-message scenarios)', async () => {
+  it('thông báo chào mừng: tự ghi danh gửi thông báo chào mừng đã cấu hình qua Messaging, ghi danh thủ công chỉ khi instance bật nó (mặc định tắt) (Behat enrol/self + enrol/manual welcome-message scenarios)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const selfInstance = await createEnrolInstance(app, admin, course.id, { method: 'self', welcomeMessage: 'Xin chào! Chào mừng bạn tới {coursename}.' }) as unknown as { id: string; sendWelcomeMessage: boolean };
@@ -364,7 +364,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(carolWelcome!.fullMessage).toContain('Manual welcome for');
   });
 
-  it('cohort role reassignment: editing a cohort enrolment method role re-assigns already-enrolled participants to the new role and keeps their enrolment (Behat enrolcohorts.feature "Editing a cohort enrolment method\'s role should change participants\' role")', async () => {
+  it('gán lại vai trò cohort: sửa vai trò của phương thức ghi danh cohort gán lại người đã ghi danh sang vai mới và giữ ghi danh của họ (Behat enrolcohorts.feature “Editing a cohort enrolment method’s role should change participants’ role”)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);
     const cohortRes = await http(app).post('/api/v1/cohorts').set('Authorization', `Bearer ${admin}`).send({ name: 'Role change cohort' });
@@ -418,7 +418,7 @@ describe('Enrol & groups/cohorts', () => {
     return { course, alice, bob, gA: gA.body, gB: gB.body, aliceLogin };
   }
 
-  it('VISIBLE GROUPS: a student in group A sees BOTH groups and the members of group B, but write operations stay capability-gated (MoodleDocs Groups — visible groups are read-only for other groups)', async () => {
+  it('VISIBLE GROUPS: học viên nhóm A thấy CẢ hai nhóm và thành viên nhóm B, nhưng thao tác ghi vẫn cổng theo năng lực (MoodleDocs Groups — visible groups chỉ-đọc với nhóm khác)', async () => {
     const { course, bob, gA, gB, aliceLogin } = await setupTwoGroups(2); // VISIBLEGROUPS
     // Group list contains both groups — cộng nhóm "Cả lớp" tự sinh của
     // CLASS-0 (khoá thuộc lớp thì có thêm nhóm này, PR #200).
@@ -440,7 +440,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(create.status).toBe(403);
   });
 
-  it('SEPARATE GROUPS applies to groupings too: a student only sees groupings containing her group, and only her group inside a shared grouping', async () => {
+  it('SEPARATE GROUPS áp dụng cả cho grouping: học viên chỉ thấy grouping chứa nhóm của mình, và chỉ nhóm của mình trong grouping chung', async () => {
     const { course, gA, gB, aliceLogin } = await setupTwoGroups(1); // SEPARATEGROUPS
     const shared = await http(app).post(`/api/v1/courses/${course.id}/groupings`).set('Authorization', `Bearer ${admin}`).send({ name: 'Both teams' });
     await http(app).post(`/api/v1/courses/${course.id}/groupings/${shared.body.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ groupId: gA.id });
@@ -464,7 +464,7 @@ describe('Enrol & groups/cohorts', () => {
     expect((adminInShared.body as { id: string }[]).map((g) => g.id).sort()).toEqual([gA.id, gB.id].sort());
   });
 
-  it('a teacher with course:managegroups sees ALL groups and members in BOTH separate and visible mode, without being a group member', async () => {
+  it('giáo viên có course:managegroups thấy TẤT CẢ nhóm và thành viên ở CẢ chế độ separate và visible, mà không cần là thành viên nhóm', async () => {
     for (const mode of [1, 2]) {
       const { course, gA, gB } = await setupTwoGroups(mode);
       const teacher = await createUserViaApi(app, admin);
@@ -482,7 +482,7 @@ describe('Enrol & groups/cohorts', () => {
     }
   });
 
-  it('groupModeForce round-trips through course create/update and the course payload (Moodle course settings: "Force group mode" applies the course mode to every activity)', async () => {
+  it('groupModeForce đi khứ hồi qua tạo/cập nhật khoá học và payload khoá học (Moodle course settings: “Force group mode” áp chế độ khoá học cho mọi hoạt động)', async () => {
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id, { groupMode: 1, groupModeForce: true }) as unknown as { id: string; groupMode: number; groupModeForce: boolean };
     expect(course.groupMode).toBe(1);
@@ -495,7 +495,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(plain.groupModeForce).toBe(false);
   });
 
-  it('group update + delete over HTTP: PATCH renames a group and clears its enrolment key; DELETE removes the group (memberships go with it)', async () => {
+  it('cập nhật + xoá nhóm qua HTTP: PATCH đổi tên nhóm và xoá khoá ghi danh; DELETE xoá nhóm (thành viên đi theo)', async () => {
     const { course, instance } = await setupCourse();
     const user = await createUserViaApi(app, admin);
     await enrolUser(app, admin, course.id, instance.id, user.id);
@@ -529,7 +529,7 @@ describe('Enrol & groups/cohorts', () => {
     expect(membersAfter.body.code).toBe('group.not_found');
   });
 
-  it('adding a group member requires an ACTIVE enrolment in the course: never-enrolled, withdrawn and suspended users are refused with 400 group.member_not_enrolled (GN-2, issue #234)', async () => {
+  it('thêm thành viên nhóm cần ghi danh ĐANG HOẠT ĐỘNG trong khoá học: người chưa từng ghi danh, đã rút và bị đình chỉ bị từ chối bằng 400 group.member_not_enrolled (GN-2, issue #234)', async () => {
     const { course, instance } = await setupCourse();
     const group = await http(app).post(`/api/v1/courses/${course.id}/groups`).set('Authorization', `Bearer ${admin}`).send({ name: 'Guarded team' });
     expect(group.status).toBe(201);

@@ -21,7 +21,7 @@ import { contextIdByLevelInstance, courseContextId } from '../../support/engagem
  *    hiển thị ghi chú tuân theo báo cáo §2#16 + đặc tả social (ghi chú khoá học
  *    dành cho giáo viên của khoá).
  */
-describe('Social: tags, comments, ratings, notes', () => {
+describe('Xã hội: thẻ, bình luận, đánh giá, ghi chú', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -42,7 +42,7 @@ describe('Social: tags, comments, ratings, notes', () => {
     return { course, student, studentToken, ctxId };
   }
 
-  it('tags are polymorphic: the same API tags a course and a badge; ordering is per item; correlations follow co-occurrence (taglib_test)', async () => {
+  it('thẻ đa hình: cùng API gắn thẻ khoá học và huy hiệu; thứ tự theo từng mục; tương quan theo đồng xuất hiện (taglib_test)', async () => {
     const { course, student, studentToken, ctxId } = await courseWithStudent();
     const setCourse = await http(app).post('/api/v1/tags/items').set('Authorization', `Bearer ${studentToken}`)
       .send({ component: 'core', itemType: 'course', itemId: course.id, contextId: ctxId, tags: ['Science', 'STEM'] });
@@ -85,7 +85,7 @@ describe('Social: tags, comments, ratings, notes', () => {
     expect(emptied.body.tags).toHaveLength(0);
   });
 
-  it('comments are polymorphic with per-context capabilities: post/read on a course item and on a forum post; strangers cannot post (externallib_test)', async () => {
+  it('bình luận đa hình với năng lực theo ngữ cảnh: đăng/đọc trên mục khoá học và bài đăng diễn đàn; người lạ không thể đăng (externallib_test)', async () => {
     const { course, student, studentToken, ctxId } = await courseWithStudent();
     const c1 = await http(app).post('/api/v1/comments').set('Authorization', `Bearer ${studentToken}`)
       .send({ contextId: ctxId, component: 'core', commentArea: 'course', itemId: course.id, content: 'Great course' });
@@ -117,7 +117,7 @@ describe('Social: tags, comments, ratings, notes', () => {
     expect(after.body.count).toBe(0);
   });
 
-  it('ratings aggregate per item exactly like the Moodle oracle: (1,3)→2, (1,4)→2.5, (3,5)→4; viewall is a separate gate (rating_test)', async () => {
+  it('đánh giá tổng hợp theo từng mục đúng như oracle Moodle: (1,3)→2, (1,4)→2.5, (3,5)→4; viewall là cổng riêng (rating_test)', async () => {
     const { ctxId } = await courseWithStudent();
     const raters: string[] = [];
     for (let i = 0; i < 3; i++) {
@@ -171,7 +171,7 @@ describe('Social: tags, comments, ratings, notes', () => {
     void ctxId;
   });
 
-  it('notes: draft is creator-only, course notes are visible to the course teacher (not fellow students, not the subject), site notes to system-level viewers', async () => {
+  it('ghi chú: draft chỉ người tạo, ghi chú khoá hiện với giáo viên khoá (không phải học viên cùng lớp, không phải môn học), ghi chú site cho người xem cấp system', async () => {
     const { course, student } = await courseWithStudent();
     // Một giáo viên của khoá (gán vai giáo viên thật tại context khoá học).
     const { assignRole, roleIdByShortname } = await import('../../support/identity-access-helpers');

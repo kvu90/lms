@@ -20,7 +20,7 @@ import { addExamSlot, createExamDraft, pinExam } from '../../support/exam-pin-he
  *    QĐ 764 mặc định [0,10,25,50,100]% — KHÔNG cộng tuyến tính;
  *  - bản đặc tả theo Mẫu 2 CV 7991 + xuất xlsx/docx.
  */
-describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () => {
+describe('Sinh ma trận quiz + chấm TF-A + đặc tả (giai đoạn 3)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;
@@ -225,7 +225,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     return submit.body as AttemptViewBody;
   }
 
-  it('matrix CRUD: preset targets are snapshotted; ratio mismatch only warns; cell guards hold', async () => {
+  it('CRUD ma trận: target preset được snapshot; lệch tỷ lệ chỉ cảnh báo; guard ô giữ vững', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'cv7991_periodic' });
     expect(matrix.targetFormPercents).toEqual({ multichoice: 30, truefalse: 20, shortanswer: 20, essay: 30 });
@@ -260,7 +260,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(view.body.warnings.some((w: string) => w.includes('Tổng điểm các ô'))).toBe(true);
   });
 
-  it('availability counts candidates per cell BY KNOWLEDGE UNIT (issue #249); generate hard-fails 422 when a cell is short', async () => {
+  it('khả dụng đếm ứng viên mỗi ô THEO ĐƠN VỊ KIẾN THỨC (issue #249); generate lỗi cứng 422 khi ô thiếu', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 6 });
     await addCell(matrix.id, {
@@ -293,7 +293,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(detailText).toContain('required 5, available 4, deficit 1');
   });
 
-  it('generate fixed: slots follow cells, TF cell counts TF-A QUESTIONS (one slot per question, full cell marks)', async () => {
+  it('generate cố định: slot theo ô, ô TF đếm CÂU HỎI TF-A (một slot mỗi câu, đủ điểm ô)', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 6 });
     await addCell(matrix.id, {
@@ -324,7 +324,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(tfSlots[0]!.maxMark).toBeCloseTo(4, 6);
   });
 
-  it('TF-A grading follows the QD764 progressive scale, not linear addition', async () => {
+  it('chấm TF-A theo thang tiến triển QD764, không cộng tuyến tính', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 4 });
     await addCell(matrix.id, {
@@ -346,7 +346,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(info.body.myGrade).toBeCloseTo(1, 6);
   });
 
-  it('generate draws ONE fixed set for the whole pin: slots carry pinned questions + source cells; two students receive the same set; exam swap makes a new version; the pin version freezes after a real attempt', async () => {
+  it('generate rút MỘT bộ cố định cho toàn ghim: slot mang câu hỏi đã ghim + ô nguồn; hai học viên nhận cùng bộ; đổi đề tạo phiên bản mới; phiên bản ghim đóng băng sau lượt làm thật', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 4 });
     const cellARes = await addCell(matrix.id, {
@@ -404,7 +404,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(frozen.body.code).toBe('exam.pin_locked');
   });
 
-  it('specification follows the matrix and the generated quiz; exports produce real files', async () => {
+  it('đặc tả theo ma trận và quiz đã sinh; xuất tạo file thật', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'cv7991_periodic', totalScore: 6 });
     await addCell(matrix.id, {
@@ -466,7 +466,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(pdf.body.code).toBe('quiz.spec_export_format');
   });
 
-  it('hand-made TF-A slot: a single TF-A slot in a hand-built exam grades by the tf scale on its own', async () => {
+  it('slot TF-A làm tay: một slot TF-A duy nhất trong đề dựng tay chấm theo thang tf một mình', async () => {
     const ctx = await setup();
     // Không còn cơ chế gom chùm ở tầng ghim: đề tay chỉ gồm MỘT slot
     // TF-A; thang áp ngay trên chính slot đó.
@@ -478,7 +478,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(one.attempt.sumGrades).toBeCloseTo(0.4, 6);
   });
 
-  it('matrix bank fields (MB-0): defaults, status lifecycle and version bump on content edit after ready', async () => {
+  it('trường ngân hàng ma trận (MB-0): mặc định, vòng đời trạng thái và tăng phiên bản khi sửa nội dung sau ready', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'custom', totalScore: 10 });
     expect(matrix.status).toBe('draft');
@@ -515,7 +515,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(cellDel.body.version).toBe(5);
   });
 
-  it('TF-A review presentation (Q-a): one question, scale fraction and mark, per-statement solution, no cluster block', async () => {
+  it('trình bày xem lại TF-A (Q-a): một câu hỏi, fraction thang và điểm, solution từng mệnh đề, không khối cụm', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
     await addCell(matrix.id, {
@@ -557,7 +557,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(q.rightAnswer).toBe('Đúng, Sai, Đúng, Sai');
   });
 
-  it('grade-by-question (Q-b): queue lists every submitted attempt for one question; bulk grading finishes the attempts', async () => {
+  it('chấm theo câu hỏi (Q-b): hàng đợi liệt kê mọi lượt đã nộp cho một câu hỏi; chấm hàng loạt kết thúc các lượt', async () => {
     const ctx = await setup();
     const essay = await ctx.mkQuestion({
       qtype: 'essay', questionText: 'Viết đoạn văn ngắn.', defaultMark: 2,
@@ -592,7 +592,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(summaries.find((s) => s.id === a2)!.sumGrades).toBe(1);
   });
 
-  it('overall feedback bands (Q-c layer 4): the finished attempt view carries the band matching its percent', async () => {
+  it('dải phản hồi tổng thể (Q-c lớp 4): view lượt đã xong mang dải khớp phần trăm của nó', async () => {
     const ctx = await setup();
     const draft = await createExamDraft(app, admin, 'Đề feedback', 10);
     await addExamSlot(app, admin, draft, { questionId: ctx.mcPool[0]! });
@@ -617,7 +617,7 @@ describe('Quiz matrix generation + TF-A grading + specification (stage 3)', () =
     expect(bands.body).toHaveLength(2);
   });
 
-  it('TF-A statistics: the removed cluster endpoint is gone; per-question stats count the TF-A slot as one question', async () => {
+  it('thống kê TF-A: endpoint cụm đã xoá biến mất; thống kê theo câu hỏi đếm slot TF-A là một câu hỏi', async () => {
     const ctx = await setup();
     const matrix = await createMatrix(ctx, { presetKind: 'qd764_graduation', totalScore: 4 });
     await addCell(matrix.id, {

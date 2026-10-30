@@ -225,7 +225,7 @@ function stubFetchEdit(calls: RecordedCall[]) {
   );
 }
 
-describe('Matrix bank UI (MB-1)', () => {
+describe('Giao diện ngân hàng ma trận (MB-1)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();

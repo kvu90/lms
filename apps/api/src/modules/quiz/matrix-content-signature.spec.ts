@@ -30,7 +30,7 @@ const BASE: MatrixContentSignatureInput = {
   ],
 };
 
-describe('matrixContentSignature', () => {
+describe('Hàm matrixContentSignature', () => {
   it('không phụ thuộc thứ tự của tập phạm vi và của các ô', () => {
     const reordered: MatrixContentSignatureInput = {
       ...BASE,
@@ -70,7 +70,7 @@ describe('matrixContentSignature', () => {
   });
 });
 
-describe('isMatrixContentSignatureConflict', () => {
+describe('Hàm isMatrixContentSignatureConflict', () => {
   it('nhận diện 23505 mang tên ràng buộc ở trường constraint', () => {
     const err = Object.assign(new Error('duplicate key'), {
       code: '23505', constraint: 'exam_matrices_bank_content_signature_unique',

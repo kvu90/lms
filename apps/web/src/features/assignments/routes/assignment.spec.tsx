@@ -94,7 +94,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('Assignment page — student submission flow', () => {
+describe('Trang bài tập — luồng nộp bài của học viên', () => {
   it('nộp tệp → chốt nộp → mở lại → chốt nộp lại, trạng thái đi đúng vòng đời', async () => {
     const calls: RecordedCall[] = [];
     const state = {
@@ -254,7 +254,7 @@ describe('Assignment page — student submission flow', () => {
   });
 });
 
-describe('Assignment page — teacher grading flow', () => {
+describe('Trang bài tập — luồng chấm của giáo viên', () => {
   it('danh sách bài nộp → chấm nháp → thả dấu → trả bài từng em + theo đợt; sửa cài đặt qua PATCH', async () => {
     const calls: RecordedCall[] = [];
     const detail = {

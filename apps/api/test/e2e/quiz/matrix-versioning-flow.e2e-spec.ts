@@ -20,7 +20,7 @@ import { adminToken, createTestApp, http } from '../../support/identity-access-h
  *    trị.
  *  - Copy ma trận: bản copy có version 1 bất biến của riêng nó.
  */
-describe('Matrix immutable versions (issue #228 S1)', () => {
+describe('Phiên bản ma trận bất biến (issue #228 S1)', () => {
   let app: INestApplication;
   let admin: string;
   let pg: Client;

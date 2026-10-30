@@ -15,7 +15,7 @@ class ThrowProbeController {
   }
 }
 
-describe('API e2e (supertest, real DB + Redis)', () => {
+describe('API e2e (supertest, DB + Redis thật)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
@@ -34,7 +34,7 @@ describe('API e2e (supertest, real DB + Redis)', () => {
     await app.close();
   });
 
-  it('GET /api/v1/health returns 200 with the contract shape', async () => {
+  it('GET /api/v1/health trả 200 với hình dạng hợp đồng', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
@@ -42,7 +42,7 @@ describe('API e2e (supertest, real DB + Redis)', () => {
     expect(typeof res.body.timestamp).toBe('string');
   });
 
-  it('errors are RFC 7807 application/problem+json', async () => {
+  it('lỗi dạng RFC 7807 application/problem+json', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/throw-probe');
     expect(res.status).toBe(404);
     expect(res.headers['content-type']).toContain('application/problem+json');
@@ -55,7 +55,7 @@ describe('API e2e (supertest, real DB + Redis)', () => {
     });
   });
 
-  it('unknown routes also produce Problem Details', async () => {
+  it('route lạ cũng tạo Problem Details', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/does-not-exist');
     expect(res.status).toBe(404);
     expect(res.headers['content-type']).toContain('application/problem+json');

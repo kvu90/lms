@@ -29,7 +29,7 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-describe('Messaging presence TTL refresh (issue #33, F2)', () => {
+describe('Làm mới TTL presence nhắn tin (issue #33, F2)', () => {
   let app: INestApplication;
   let base: string;
   let redis: Redis;
@@ -55,7 +55,7 @@ describe('Messaging presence TTL refresh (issue #33, F2)', () => {
     await app.close();
   });
 
-  it('a still-connected user stays present after the initial TTL would have elapsed', async () => {
+  it('người vẫn đang kết nối vẫn hiện diện sau khi TTL ban đầu lẽ ra đã hết', async () => {
     const socket: Socket = io(`${base}/messaging`, {
       auth: { token },
       transports: ['websocket'],

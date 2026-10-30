@@ -14,7 +14,7 @@ import { createTestApp } from '../../support/identity-access-helpers';
  * bootstrap đó trên toàn bộ AppModule để mọi route tương lai thêm schema
  * không biểu diễn được đều đỏ tại CI thay vì tại production.
  */
-describe('OpenAPI document generation (production bootstrap parity)', () => {
+describe('Sinh tài liệu OpenAPI (ngang bằng với bootstrap production)', () => {
   let app: INestApplication;
   let document: OpenAPIObject;
 
@@ -30,13 +30,13 @@ describe('OpenAPI document generation (production bootstrap parity)', () => {
     await app.close();
   });
 
-  it('generates the document for every route without throwing', () => {
+  it('sinh tài liệu cho mọi route mà không ném lỗi', () => {
     expect(document).toBeDefined();
     expect(document.openapi).toMatch(/^3\./);
     expect(Object.keys(document.paths ?? {}).length).toBeGreaterThan(0);
   });
 
-  it('documents GET /event-logs with from/to as ISO date-time strings', () => {
+  it('ghi tài liệu cho GET /event-logs với from/to là chuỗi ngày-giờ ISO', () => {
     const pathKey = Object.keys(document.paths ?? {}).find((p) => p.endsWith('/event-logs'));
     expect(pathKey, 'event-logs path must be present in the OpenAPI document').toBeDefined();
     const operation = document.paths[pathKey!]?.get;

@@ -701,7 +701,7 @@ describe('MCP-1: máy chủ OAuth (AS) + RS + bộ tool mới (issue #163)', () 
     expect(submit.structured!.results[0].status).toBe('pending');
   });
 
-  it('search_questions + check_duplicates + search_curriculum_outcomes', async () => {
+  it('Công cụ search_questions + check_duplicates + search_curriculum_outcomes', async () => {
     const search = await callTool(app, tokens.accessToken, 'search_questions', {
       bankId,
       query: 'Thủ đô của Việt Nam',

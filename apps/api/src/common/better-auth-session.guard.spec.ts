@@ -44,8 +44,8 @@ const COOKIE = 'better-auth.session_token=tok.abc; other=1';
  * khi phiên Better Auth hợp lệ VÀ tài khoản còn hoạt động; mọi trường
  * hợp còn lại phải để nguyên cho đường JWT hiện tại quyết định.
  */
-describe('BetterAuthSessionGuard', () => {
-  it('passes through untouched when Better Auth is disabled', async () => {
+describe('Khối BetterAuthSessionGuard', () => {
+  it('cho qua nguyên vẹn khi Better Auth đang tắt', async () => {
     const { guard, getSession } = buildGuard({ enabled: false });
     const req: FakeRequest = { headers: { cookie: COOKIE } };
     await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
@@ -53,7 +53,7 @@ describe('BetterAuthSessionGuard', () => {
     expect(req.user).toBeUndefined();
   });
 
-  it('passes through when the request carries no Better Auth session cookie', async () => {
+  it('cho qua khi request không mang cookie phiên Better Auth', async () => {
     const { guard, getSession } = buildGuard({ enabled: true });
     const req: FakeRequest = { headers: { cookie: 'something-else=1' } };
     await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
@@ -61,7 +61,7 @@ describe('BetterAuthSessionGuard', () => {
     expect(req.user).toBeUndefined();
   });
 
-  it('maps a valid Better Auth session onto AuthenticatedUser and marks the request', async () => {
+  it('ánh xạ phiên Better Auth hợp lệ thành AuthenticatedUser và đánh dấu request', async () => {
     const { guard } = buildGuard({
       enabled: true,
       getSession: async () => ({ session: { id: 'session-id', userId: 'user-id' }, user: { id: 'user-id' } }),
@@ -73,7 +73,7 @@ describe('BetterAuthSessionGuard', () => {
     expect(req[AUTHENTICATED_VIA_BETTER_AUTH]).toBe(true);
   });
 
-  it('does not authenticate a suspended user even with a live session', async () => {
+  it('không xác thực người dùng bị đình chỉ ngay cả khi phiên đang sống', async () => {
     const { guard } = buildGuard({
       enabled: true,
       getSession: async () => ({ session: { id: 'session-id', userId: 'user-id' }, user: { id: 'user-id' } }),
@@ -85,14 +85,14 @@ describe('BetterAuthSessionGuard', () => {
     expect(req[AUTHENTICATED_VIA_BETTER_AUTH]).toBeUndefined();
   });
 
-  it('passes through (leaving the 401 to the JWT guard) when the session does not resolve', async () => {
+  it('cho qua (để 401 cho JWT guard) khi phiên không resolve được', async () => {
     const { guard } = buildGuard({ enabled: true, getSession: async () => null });
     const req: FakeRequest = { headers: { cookie: COOKIE } };
     await expect(guard.canActivate(contextOf(req))).resolves.toBe(true);
     expect(req.user).toBeUndefined();
   });
 
-  it('passes through when getSession throws on a malformed cookie', async () => {
+  it('cho qua khi getSession ném lỗi trên cookie sai định dạng', async () => {
     const { guard } = buildGuard({
       enabled: true,
       getSession: async () => {

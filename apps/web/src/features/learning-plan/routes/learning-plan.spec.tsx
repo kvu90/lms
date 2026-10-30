@@ -162,14 +162,14 @@ function renderPage() {
   );
 }
 
-describe('Learning plan page — competency administration', () => {
+describe('Trang kế hoạch học tập — quản trị năng lực', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('creates a framework via POST with the real contracts DTO body', async () => {
+  it('tạo khung qua POST với body DTO contracts thật', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -190,7 +190,7 @@ describe('Learning plan page — competency administration', () => {
     });
   });
 
-  it('exports a framework as JSON via GET /frameworks/:id/export and downloads it', async () => {
+  it('xuất khung dạng JSON qua GET /frameworks/:id/export và tải xuống', async () => {
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     const createObjectURL = vi.fn(() => 'blob:mock-url');
@@ -212,7 +212,7 @@ describe('Learning plan page — competency administration', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Đã xuất framework "FW1"');
   });
 
-  it('imports a framework by posting the parsed file JSON to /frameworks/import', async () => {
+  it('nhập khung bằng cách post JSON file đã phân tích tới /frameworks/import', async () => {
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     renderPage();
@@ -233,7 +233,7 @@ describe('Learning plan page — competency administration', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Đã nhập thành framework mới "FW-NEW"');
   });
 
-  it('shows the API integrity error verbatim when the import document is rejected', async () => {
+  it('hiện nguyên văn lỗi toàn vẹn của API khi tài liệu nhập bị từ chối', async () => {
     const calls: RecordedCall[] = [];
     stubFetchExport(calls);
     renderPage();
@@ -248,7 +248,7 @@ describe('Learning plan page — competency administration', () => {
     expect(alert).toHaveTextContent('Tài liệu thiếu thang đánh giá của framework');
   });
 
-  it('approves an in-review plan from the review queue via POST /plans/:id/approve', async () => {
+  it('duyệt kế hoạch đang chờ duyệt từ hàng đợi duyệt qua POST /plans/:id/approve', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls);
     renderPage();
@@ -276,7 +276,7 @@ describe('Learning plan page — competency administration', () => {
  * lỗi của khu quản trị, và thao tác duyệt phải làm mới cả hai danh
  * sách của hàng đợi.
  */
-describe('Learning plan page — competency administration (TanStack Query conversion)', () => {
+describe('Trang kế hoạch học tập — quản trị năng lực (chuyển đổi TanStack Query)', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -335,7 +335,7 @@ describe('Learning plan page — competency administration (TanStack Query conve
     );
   }
 
-  it('shows the newly created framework in the list via mutation invalidation, without a page reload', async () => {
+  it('hiện khung mới tạo trong danh sách nhờ vô hiệu mutation, không cần tải lại trang', async () => {
     const calls: RecordedCall[] = [];
     stubFetchAdminState(calls);
     renderPage();
@@ -352,7 +352,7 @@ describe('Learning plan page — competency administration (TanStack Query conve
     expect(frameworkGets.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('shows the admin load error message when the framework list fails to load', async () => {
+  it('hiện thông báo lỗi tải của admin khi danh sách khung tải thất bại', async () => {
     const calls: RecordedCall[] = [];
     stubFetchAdminState(calls, { failFrameworks: true });
     renderPage();
@@ -360,7 +360,7 @@ describe('Learning plan page — competency administration (TanStack Query conve
     expect(await screen.findByText('Không tải được dữ liệu quản lý năng lực.')).toBeInTheDocument();
   });
 
-  it('refetches both review queue lists after a review action', async () => {
+  it('fetch lại cả hai danh sách hàng đợi duyệt sau một thao tác duyệt', async () => {
     const calls: RecordedCall[] = [];
     stubFetchAdminState(calls);
     renderPage();
@@ -392,7 +392,7 @@ describe('Learning plan page — competency administration (TanStack Query conve
  * hoạch và gửi một năng lực đi duyệt đều gọi đúng endpoint và hiện
  * dòng xác nhận như bản fetch thủ công.
  */
-describe('Learning plan page — learner side', () => {
+describe('Trang kế hoạch học tập — phía học viên', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
@@ -432,7 +432,7 @@ describe('Learning plan page — learner side', () => {
     );
   }
 
-  it('shows my plans, opens the detail and sends review requests for the plan and one competency', async () => {
+  it('hiện các kế hoạch của tôi, mở chi tiết và gửi yêu cầu duyệt cho kế hoạch và một năng lực', async () => {
     const calls: RecordedCall[] = [];
     stubFetchLearner(calls);
     renderPage();

@@ -46,7 +46,7 @@ interface AttemptBody {
   questions: { slot: number; questionId: string }[];
 }
 
-describe('Exam paper bank (feat #113 EB-1)', () => {
+describe('Ngân hàng đề thi (feat #113 EB-1)', () => {
   let app: INestApplication;
   let admin: string;
 

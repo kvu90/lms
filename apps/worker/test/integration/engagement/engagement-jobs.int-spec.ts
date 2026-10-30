@@ -32,7 +32,7 @@ import {
  * chứng đi qua kết nối quản trị của harness — khẳng định nghiệp vụ
  * của spec không đổi.
  */
-describe('Worker engagement: notification dispatch, calendar reminder/import, badge auto-award', () => {
+describe('Engagement của worker: gửi thông báo, nhắc/lấy lịch, tự trao huy hiệu', () => {
   let context: INestApplicationContext;
   let harness: OrdinaryWorkerModuleHarness;
   let db: any;
@@ -67,7 +67,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
   });
   afterAll(async () => { await harness.close(); });
 
-  it('notification dispatch records skipped-not-configured for email while the Resend channel is unconfigured, idempotent by dedupeKey', async () => {
+  it('gửi thông báo ghi skipped-not-configured cho email khi kênh Resend chưa cấu hình, lũy đẳng theo dedupeKey', async () => {
     // NB-5 (issue #174): kênh email gửi thật qua Resend ở worker.
     // Môi trường test không có RESEND_API_KEY/MAIL_FROM nên transport
     // ở chế độ fail-soft có khai báo: không gửi, dispatch log ghi
@@ -86,7 +86,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     expect(rows[0].status).toBe('skipped-not-configured');
   });
 
-  it('notification dispatch never dispatches for a suspended user or when the preference is off in both states', async () => {
+  it('gửi thông báo không bao giờ gửi cho người dùng bị đình chỉ hoặc khi tuỳ chọn đang tắt ở cả hai trạng thái', async () => {
     const processor = context.get(NotificationDispatchProcessor);
     const suspended = await processor.process({ data: { userId: userSuspended, provider: 'grade_updated', channel: 'email', subject: 's', body: 'b', dedupeKey: `test-susp-${suffix}` } } as never);
     expect(suspended.status).toBe('skipped-suspended');
@@ -97,7 +97,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     expect(rows.every((r: { status: string }) => r.status !== 'logged')).toBe(true);
   });
 
-  it('calendar reminder creates exactly one notification and respects the popup preference', async () => {
+  it('nhắc lịch tạo đúng một thông báo và tôn trọng tuỳ chọn popup', async () => {
     const [event] = await db.insert(calendarEvents).values({
       name: `Reminder event ${suffix}`, eventType: 'user', userId: userA, contextId: null, timeStart: new Date(Date.now() + 3600_000),
     }).returning();
@@ -117,7 +117,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     expect(susp.status).toBe('skipped-suspended');
   });
 
-  it('calendar import parses ICS into subscription events; a rerun imports nothing twice (lib_test import counts)', async () => {
+  it('nhập lịch phân tích ICS thành sự kiện đăng ký; chạy lại không nhập trùng gì (số đếm nhập lib_test)', async () => {
     const ics = [
       'BEGIN:VCALENDAR', 'VERSION:2.0',
       'BEGIN:VEVENT', 'UID:import-1@lms', 'SUMMARY:Keynote', 'DTSTART:20270105T090000Z', 'DTEND:20270105T100000Z', 'END:VEVENT',
@@ -138,7 +138,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     expect(rows[0].timeDuration).toBeGreaterThan(0);
   });
 
-  it('badge auto-award: a completed course satisfies a coursecompletion badge exactly once; ALL with an unmet leaf issues nothing', async () => {
+  it('tự trao huy hiệu: khoá học đã hoàn thành thoả huy hiệu coursecompletion đúng một lần; ALL có lá chưa đạt thì không cấp gì', async () => {
     const catRows = await db.execute(sql`insert into course_categories (name, path, tenant_id) values (${`wk-cat4-${suffix}`}, '', (select id from tenants where slug = 'worker-fixture')) returning id`);
     const catId = (catRows.rows[0] as { id: string }).id;
     const courseRows = await db.execute(sql`insert into course (category, tenant_id, full_name, short_name, class_id) values (${catId}, (select tenant_id from course_categories where id = ${catId}), 'Worker engagement course', ${`wk4c${suffix}`}, ${await fixtureClassId()}) returning id`);
@@ -168,7 +168,7 @@ describe('Worker engagement: notification dispatch, calendar reminder/import, ba
     expect((notifs as { subject: string }[]).some((n) => n.subject.includes(`Worker badge ${suffix}`))).toBe(true);
   });
 
-  it('badge auto-award honours the cohort + profile leaves and the coursecompletion by-date (worker twin of the API evaluator)', async () => {
+  it('tự trao huy hiệu tôn trọng lá cohort + profile và coursecompletion theo ngày (bản song sinh worker của bộ đánh giá API)', async () => {
     // Cohort và tư cách thành viên chỉ dành cho userA. Test tự tạo context
     // hệ thống theo cùng mẫu idempotent của platform-jobs, thay vì mượn
     // context do suite khác để lại — trên database mới bảng context rỗng.

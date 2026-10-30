@@ -38,7 +38,7 @@ import { createCategory, grantActiveTeacherPlan } from '../../support/course-enr
  * (10) lớp lưu trữ: đóng băng roster + chặn tạo khoá; xoá lớp còn khoá
  *      → 409 class.has_courses.
  */
-describe('class lifecycle (CLASS-0, #184)', () => {
+describe('Vòng đời lớp (CLASS-0, #184)', () => {
   let app: INestApplication;
   let pg: Client;
   let admin = '';

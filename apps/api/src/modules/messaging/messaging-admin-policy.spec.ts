@@ -19,7 +19,7 @@ import { notificationPolicySettingName } from './notification-providers';
  *   mình; tầng audience theo vai + context (issue #288) lọc tiếp bên
  *   trong bề mặt đó — các ca audience nằm ở cuối file này.
  */
-describe('MessagingService — admin site policy + student minimal preferences (NB-7)', () => {
+describe('MessagingService — chính sách site của admin + tuỳ chọn tối thiểu của học viên (NB-7)', () => {
   function buildService(opts: {
     disabledProviders?: string[];
     staffAssignment?: boolean;
@@ -69,7 +69,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     return { service, inserted, logs, jobs, storedPrefs };
   }
 
-  it('a site-disabled type is skipped on every channel with an admin-disabled log, even when the user preference is on', async () => {
+  it('loại bị site tắt thì bỏ qua trên mọi kênh kèm log admin-disabled, ngay cả khi tuỳ chọn người dùng đang bật', async () => {
     const { service, inserted, logs, jobs, storedPrefs } = buildService({ disabledProviders: ['grade_updated'] });
     // Tuỳ chọn cá nhân đang BẬT tường minh (khoá v2 = '1').
     storedPrefs.set('message_provider_grade_updated_popup_v2', '1');
@@ -83,14 +83,14 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(logs[0]).toMatchObject({ provider: 'grade_updated', channel: 'popup', status: 'skipped-admin-disabled' });
   });
 
-  it('types the admin has not disabled keep flowing normally', async () => {
+  it('loại admin chưa tắt vẫn chảy bình thường', async () => {
     const { service, inserted } = buildService({ disabledProviders: ['grade_updated'] });
     const result = await service.notify('user-1', 'enrol_welcome', { subject: 'Chào mừng', body: 'Nội dung' });
     expect(result.skipped).toBeUndefined();
     expect(inserted).toHaveLength(1);
   });
 
-  it('mandatory P2 types are never blocked by the site policy layer', async () => {
+  it('loại bắt buộc P2 không bao giờ bị lớp chính sách site chặn', async () => {
     // Kể cả khi kho dữ liệu có giá trị false (không thể xảy ra qua API
     // vì SiteConfigService chặn, nhưng luật ở notify vẫn phải tự đứng).
     const { service, inserted } = buildService({ disabledProviders: ['enrol_expiry_warning', 'admin_announcement'] });
@@ -108,7 +108,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(inserted).toHaveLength(2);
   });
 
-  it('a pure student gets 403 on per-type PUT and an empty (minimal) GET', async () => {
+  it('học viên thuần nhận 403 trên PUT theo loại và GET rỗng (tối thiểu)', async () => {
     const { service } = buildService({ staffAssignment: false, siteAdmin: false });
     await expect(service.getPreferences('student-1')).resolves.toEqual([]);
     const error = await service.setPreference('student-1', { provider: 'grade_updated', popupEnabled: false })
@@ -121,7 +121,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(error2).toBeInstanceOf(ForbiddenException);
   });
 
-  it('teaching staff keep the v2 surface for their side (GET rows + PUT works on staff types)', async () => {
+  it('nhân viên giảng dạy giữ bề mặt v2 cho phía của họ (dòng GET + PUT chạy trên loại staff)', async () => {
     const { service, storedPrefs } = buildService({ staffAssignment: true });
     const rows = await service.getPreferences('teacher-1');
     // Giáo viên thuần: chỉ phía nhân sự + mọi-vai (10 loại) — phần
@@ -136,7 +136,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(storedPrefs.get('message_provider_assignment_submitted_popup_v2')).toBe('0');
   });
 
-  it('audience split (issue #288): a pure teacher neither sees nor can set student-only or guardian types', async () => {
+  it('tách audience (issue #288): giáo viên thuần không thấy và không đặt được loại chỉ-dành-cho-học-viên hay loại phụ huynh', async () => {
     const { service } = buildService({ staffAssignment: true });
     const names = (await service.getPreferences('teacher-1')).map((r) => r.provider);
     // Loại chỉ học sinh nhận (báo điểm là ca đã bị bắt lỗi tại trận) và
@@ -153,7 +153,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     }
   });
 
-  it('audience split (issue #288): a dual-role user (teaches + learns) sees both sides, guardians only with a guardian link', async () => {
+  it('tách audience (issue #288): người dùng hai vai (dạy + học) thấy cả hai phía, phụ huynh chỉ khi có liên kết phụ huynh', async () => {
     const dual = buildService({ staffAssignment: true, studentContext: true });
     const dualNames = (await dual.service.getPreferences('dual-1')).map((r) => r.provider);
     expect(dualNames).toContain('grade_updated');
@@ -169,7 +169,7 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(guardianNames).toHaveLength(12);
   });
 
-  it('preference rows expose the site policy as siteEnabled so the settings page can lock admin-disabled types (#288)', async () => {
+  it('dòng tuỳ chọn lộ chính sách site dưới dạng siteEnabled để trang cài đặt khoá được loại admin đã tắt (#288)', async () => {
     // Trang Cài đặt thông báo chỉ HIỂN THỊ được "Admin đã tắt ở cấp
     // site" khi dòng tuỳ chọn mang đúng trạng thái chính sách mà
     // notify() tôn trọng — cùng một hàm đọc chính sách, không suy diễn.
@@ -185,12 +185,12 @@ describe('MessagingService — admin site policy + student minimal preferences (
     expect(byProvider.get('enrol_expiry_warning')?.siteEnabled).toBe(true);
   });
 
-  it('a site admin without course roles still has the full surface', async () => {
+  it('site admin không có vai trò khoá học vẫn có đầy đủ bề mặt', async () => {
     const { service } = buildService({ staffAssignment: false, siteAdmin: true });
     expect(await service.getPreferences('admin-1')).toHaveLength(20);
   });
 
-  it('the policy setting name follows the registered shape', () => {
+  it('tên cài đặt chính sách theo đúng hình dạng đã đăng ký', () => {
     expect(notificationPolicySettingName('grade_updated')).toBe('provider_grade_updated_enabled');
   });
 });

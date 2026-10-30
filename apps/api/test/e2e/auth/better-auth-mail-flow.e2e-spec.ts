@@ -92,7 +92,7 @@ function sessionCookieFrom(setCookie: string[] | undefined): string {
   return raw.split(';')[0]!;
 }
 
-describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
+describe('Mail Better Auth: đặt lại + OTP email (issue #7 giai đoạn 2.5)', () => {
   let app: INestApplication;
   let bridge: CredentialBridgeService;
   let pg: Client;
@@ -174,7 +174,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     await app?.close();
   });
 
-  it('reset password end-to-end: mail link resets, old password dies, sessions are revoked, token is single-use', async () => {
+  it('đặt lại mật khẩu đầu-cuối: liên kết mail đặt lại, mật khẩu cũ chết, phiên bị thu hồi, token dùng một lần', async () => {
     const user = await createMailUser('bamailreset');
     // Phiên sống trước reset — phải bị thu hồi bởi reset.
     const before = await signInByUsername(user.username, OLD_PASSWORD);
@@ -225,7 +225,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect(reuse.status).toBe(400);
   });
 
-  it('reset request for an unknown email answers neutrally and sends no mail', async () => {
+  it('yêu cầu đặt lại cho email lạ trả lời trung lập và không gửi mail', async () => {
     const ghost = `${helpers.uniqueName('bamailghost')}@example.com`;
     const res = await http(app)
       .post('/api/v1/auth/request-password-reset')
@@ -254,7 +254,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect(outbox.rows[0].n).toBe(0);
   });
 
-  it('a policy-weak new password is rejected before the token is consumed', async () => {
+  it('mật khẩu mới yếu theo chính sách bị từ chối trước khi token bị tiêu thụ', async () => {
     const user = await createMailUser('bamailweak');
     const requested = await http(app)
       .post('/api/v1/auth/request-password-reset')
@@ -280,7 +280,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect((await signInByUsername(user.username, NEW_PASSWORD)).status).toBe(200);
   });
 
-  it('email OTP sign-in end-to-end: wrong code rejected, right code creates a working session, code is single-use', async () => {
+  it('đăng nhập OTP email đầu-cuối: mã sai bị từ chối, mã đúng tạo phiên hoạt động, mã dùng một lần', async () => {
     const user = await createMailUser('bamailotp');
     // User đã chứng minh email (trạng thái sau xác minh) — đường
     // đăng nhập OTP chuẩn. User bridge nay được tạo với
@@ -324,7 +324,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect(reuse.status).toBe(400);
   });
 
-  it('OTP for an unknown email neither sends a code nor creates an account (sign-up stays closed)', async () => {
+  it('OTP cho email lạ không gửi mã cũng không tạo tài khoản (đăng ký vẫn đóng)', async () => {
     const ghost = `${helpers.uniqueName('bamailotpnew')}@example.com`;
     const res = await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
@@ -370,7 +370,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
   // đăng nhập OTP, credential mật khẩu của user vẫn còn nguyên trong
   // bảng account và đăng nhập bằng username/mật khẩu vẫn chạy — tức
   // OTP không xoá credential đã migrate.
-  it('OTP sign-in for a bridged user succeeds and keeps the password credential (BA-1 semantics)', async () => {
+  it('đăng nhập OTP cho người dùng đã bridge thành công và giữ credential mật khẩu (ngữ nghĩa BA-1)', async () => {
     const user = await createMailUser('bamailotpunv');
     const sent = await http(app)
       .post('/api/v1/auth/email-otp/send-verification-otp')
@@ -393,7 +393,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect((await signInByUsername(user.username, OLD_PASSWORD)).status).toBe(200);
   });
 
-  it('password reset by email OTP works with the same mail pipeline', async () => {
+  it('đặt lại mật khẩu bằng OTP email chạy với cùng pipeline mail', async () => {
     const user = await createMailUser('bamailotpreset');
     const sent = await http(app)
       .post('/api/v1/auth/email-otp/request-password-reset')
@@ -415,7 +415,7 @@ describe('Better Auth mail: reset + email OTP (issue #7 phase 2.5)', () => {
     expect((await signInByUsername(user.username, OLD_PASSWORD)).status).toBe(401);
   });
 
-  it('a suspended user who signs in by OTP is still blocked at the guard', async () => {
+  it('người bị đình chỉ đăng nhập bằng OTP vẫn bị chặn tại guard', async () => {
     const user = await createMailUser('bamailotpsusp');
     await markEmailVerified(user.id);
     const sent = await http(app)

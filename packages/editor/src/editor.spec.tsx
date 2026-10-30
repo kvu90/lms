@@ -46,8 +46,8 @@ afterEach(() => {
  * tiết triển khai; luật "chỉ lát văn bản thuần" được khẳng định ở tầng
  * nghiệp vụ bởi e2e question-types-stimulus: tài liệu ngoài lát bị từ chối.)
  */
-describe('RichTextView', () => {
-  it('renders a paragraph with bold text to HTML', () => {
+describe('Khối RichTextView', () => {
+  it('kết xuất một đoạn có chữ đậm ra HTML', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [
@@ -69,13 +69,13 @@ describe('RichTextView', () => {
     expect(container.querySelector('strong')).toHaveTextContent('bạn');
   });
 
-  it('renders nothing for a null document without crashing', () => {
+  it('không kết xuất gì cho tài liệu null mà không sập', () => {
     const { container } = render(<RichTextView value={null} />);
 
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders nothing for an empty document without crashing', () => {
+  it('không kết xuất gì cho tài liệu rỗng mà không sập', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [{ type: 'paragraph' }],
@@ -86,7 +86,7 @@ describe('RichTextView', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders inline and block math with KaTeX from the saved document', () => {
+  it('kết xuất math nội dòng và khối bằng KaTeX từ tài liệu đã lưu', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [
@@ -114,7 +114,7 @@ describe('RichTextView', () => {
     expect(block?.querySelector('.katex')).not.toBeNull();
   });
 
-  it('renders a bullet list with its items', () => {
+  it('kết xuất danh sách dấu đầu dòng kèm các mục của nó', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [
@@ -148,7 +148,7 @@ describe('RichTextView', () => {
     expect(items[1]?.querySelector('[data-type="block-math"] .katex')).not.toBeNull();
   });
 
-  it('renders an image with its durable src and alt text', () => {
+  it('kết xuất hình ảnh với src bền và văn bản alt của nó', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [
@@ -177,7 +177,7 @@ describe('RichTextView', () => {
  * được công thức đã chèn, và LaTeX sai thì bị chặn, không lọt vào tài
  * liệu đã lưu.
  */
-describe('RichTextEditor', () => {
+describe('Khối RichTextEditor', () => {
   /** Thu thập mọi tài liệu editor phát qua onChange, mới nhất ở cuối. */
   function collectChanges() {
     const changes: RichTextDocument[] = [];
@@ -190,7 +190,7 @@ describe('RichTextEditor', () => {
     };
   }
 
-  it('inserts an inline math node through the LaTeX panel', async () => {
+  it('chèn node math nội dòng qua bảng LaTeX', async () => {
     const { onChange, lastChange } = collectChanges();
     const { container } = render(<RichTextEditor onChange={onChange} />);
     await focusEditor(container);
@@ -217,7 +217,7 @@ describe('RichTextEditor', () => {
     expect(screen.queryByTestId('math-panel')).toBeNull();
   });
 
-  it('inserts a block math node when the panel toggle is on', async () => {
+  it('chèn node math khối khi công tắc bảng đang bật', async () => {
     const { onChange, lastChange } = collectChanges();
     const { container } = render(<RichTextEditor onChange={onChange} />);
     await focusEditor(container);
@@ -238,7 +238,7 @@ describe('RichTextEditor', () => {
     });
   });
 
-  it('blocks saving invalid LaTeX and keeps the panel open with an error', async () => {
+  it('chặn lưu LaTeX không hợp lệ và giữ bảng mở kèm lỗi', async () => {
     const { onChange, changes } = collectChanges();
     const { container } = render(<RichTextEditor onChange={onChange} />);
     await focusEditor(container);
@@ -256,7 +256,7 @@ describe('RichTextEditor', () => {
     expect(savedMath).not.toContain('blockMath');
   });
 
-  it('reopens the panel on double-click and updates the existing formula', async () => {
+  it('mở lại bảng khi nhấp đúp và cập nhật công thức đã có', async () => {
     const initial: RichTextDocument = {
       type: 'doc',
       content: [
@@ -297,7 +297,7 @@ describe('RichTextEditor', () => {
     }
   });
 
-  it('turns the current paragraph into a bullet list from the toolbar', async () => {
+  it('đổi đoạn hiện tại thành danh sách dấu đầu dòng từ thanh công cụ', async () => {
     const initial: RichTextDocument = {
       type: 'doc',
       content: [
@@ -315,7 +315,7 @@ describe('RichTextEditor', () => {
     });
   });
 
-  it('inserts an image through the host onRequestImage callback', async () => {
+  it('chèn hình ảnh qua callback onRequestImage của host', async () => {
     const onRequestImage = vi.fn(async () => ({
       src: '/api/v1/files/abc-123/content',
       alt: 'Đồ thị hàm số',
@@ -340,14 +340,14 @@ describe('RichTextEditor', () => {
     expect(onRequestImage).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the image button when the host provides no image callback', async () => {
+  it('ẩn nút hình ảnh khi host không cung cấp callback hình ảnh', async () => {
     const { container } = render(<RichTextEditor />);
     await focusEditor(container);
 
     expect(screen.queryByRole('button', { name: 'Chèn ảnh' })).toBeNull();
   });
 
-  it('shows the toolbar only while the editor is active (focused)', async () => {
+  it('chỉ hiện thanh công cụ khi editor đang hoạt động (được focus)', async () => {
     const { container } = render(<RichTextEditor />);
 
     // Chưa focus: không toolbar nào — trước lát E3 toolbar luôn hiện
@@ -364,7 +364,7 @@ describe('RichTextEditor', () => {
     });
   });
 
-  it('keeps a single toolbar for the focused editor when several editors share a page', async () => {
+  it('giữ một thanh công cụ duy nhất cho editor được focus khi nhiều editor chung một trang', async () => {
     const first = render(<RichTextEditor ariaLabel="Trường một" />);
     const second = render(<RichTextEditor ariaLabel="Trường hai" />);
 
@@ -405,7 +405,7 @@ describe('RichTextEditor', () => {
     });
   });
 
-  it('saves a document ending in a block formula without the technical trailing paragraph', async () => {
+  it('lưu tài liệu kết thúc bằng công thức khối mà không có đoạn cuối kỹ thuật', async () => {
     const { onChange, lastChange } = collectChanges();
     const { container } = render(<RichTextEditor onChange={onChange} />);
     await focusEditor(container);
@@ -430,8 +430,8 @@ describe('RichTextEditor', () => {
  * là hạ tầng soạn thảo, không phải nội dung — dạng đem lưu phải dọn nó,
  * dạng nạp vào phải có nó để người soạn viết tiếp được.
  */
-describe('document continuation helpers', () => {
-  it('strips only the empty continuation paragraph after a trailing atomic block', () => {
+describe('Hàm hỗ trợ nối tiếp tài liệu', () => {
+  it('chỉ lược đoạn nối tiếp trống sau khối nguyên tử cuối', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [
@@ -447,7 +447,7 @@ describe('document continuation helpers', () => {
     ]);
   });
 
-  it('keeps a trailing empty paragraph that does not follow an atomic block', () => {
+  it('giữ đoạn trống cuối không đứng sau khối nguyên tử', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [
@@ -459,7 +459,7 @@ describe('document continuation helpers', () => {
     expect(contentForSave(document).content).toHaveLength(2);
   });
 
-  it('appends a continuation paragraph when loading a document ending in an atomic block', () => {
+  it('thêm đoạn nối tiếp khi nạp tài liệu kết thúc bằng khối nguyên tử', () => {
     const document: RichTextDocument = {
       type: 'doc',
       content: [{ type: 'blockMath', attrs: { latex: 'x^2' } }],
@@ -490,13 +490,13 @@ describe('document continuation helpers', () => {
  * đúng nằm trong nội dung lựa chọn, thân câu còn choiceList khi lưu)
  * thì các ca này phải đỏ.
  */
-describe('MultipleChoice authoring document', () => {
+describe('Tài liệu soạn thảo MultipleChoice', () => {
   const textDoc = (text: string): RichTextDocument => ({
     type: 'doc',
     content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
   });
 
-  it('creates an empty document with exactly four identified choices', () => {
+  it('tạo tài liệu rỗng có đúng bốn lựa chọn đã định danh', () => {
     const document = createEmptyMultipleChoiceDocument();
     const { question, choices } = splitMultipleChoiceDocument(document);
 
@@ -506,7 +506,7 @@ describe('MultipleChoice authoring document', () => {
     expect(isCompleteMultipleChoice(document, choices[0]?.attrs.id)).toBe(false);
   });
 
-  it('composes a question view into a unified document and splits it back losslessly', () => {
+  it('ghép khung nhìn câu hỏi thành tài liệu thống nhất và tách lại không mất mát', () => {
     const answers = [
       { id: 'ans-2', answer: textDoc('Phương án B'), sortOrder: 2 },
       { id: 'ans-1', answer: textDoc('Phương án A'), sortOrder: 1 },
@@ -528,7 +528,7 @@ describe('MultipleChoice authoring document', () => {
     expect(isCompleteMultipleChoice(document, undefined)).toBe(false);
   });
 
-  it('keeps the answer order equal to the document order after a reorder', () => {
+  it('giữ thứ tự đáp án bằng thứ tự tài liệu sau khi sắp xếp lại', () => {
     const answers = [1, 2, 3, 4].map((n) => ({
       id: `ans-${n}`,
       answer: textDoc(`Phương án ${n}`),
@@ -546,7 +546,7 @@ describe('MultipleChoice authoring document', () => {
     expect(choices.map((choice) => choice.attrs.id)).toEqual(['ans-4', 'ans-1', 'ans-2', 'ans-3']);
   });
 
-  it('renders one correct-answer radio per choice and reports the picked choice id', async () => {
+  it('kết xuất một nút radio đáp án đúng cho mỗi lựa chọn và báo id lựa chọn đã chọn', async () => {
     const answers = [1, 2, 3, 4].map((n) => ({
       id: `ans-${n}`,
       answer: textDoc(`Phương án ${n}`),
@@ -576,10 +576,10 @@ describe('MultipleChoice authoring document', () => {
   });
 });
 
-describe('TrueFalse authoring document (TF-A)', () => {
+describe('Tài liệu soạn thảo TrueFalse (TF-A)', () => {
   const textBlocks = (text: string) => [{ type: 'paragraph', content: [{ type: 'text', text }] }];
 
-  it('creates an empty document with exactly four identified statements', () => {
+  it('tạo tài liệu rỗng có đúng bốn mệnh đề đã định danh', () => {
     const document = createEmptyTrueFalseDocument();
     const { stem, statements } = splitTrueFalseDocument(document);
 
@@ -590,7 +590,7 @@ describe('TrueFalse authoring document (TF-A)', () => {
     expect(isCompleteTrueFalse(document, {})).toBe(false);
   });
 
-  it('composes a stored TF document losslessly and completeness follows the per-statement answers', () => {
+  it('ghép tài liệu TF đã lưu không mất mát và tính đầy đủ theo đáp án từng mệnh đề', () => {
     const stored: RichTextDocument = {
       type: 'doc',
       content: [
@@ -636,7 +636,7 @@ describe('TrueFalse authoring document (TF-A)', () => {
     void textBlocks;
   });
 
-  it('renders the stored TF document statically with its stem and every statement', () => {
+  it('kết xuất tĩnh tài liệu TF đã lưu kèm thân và mọi mệnh đề', () => {
     const stored: RichTextDocument = {
       type: 'doc',
       content: [

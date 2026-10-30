@@ -8,7 +8,7 @@ function formatDescription(browser: string, os: string): string {
   return `${browser} trên ${os}`;
 }
 
-describe('describeUserAgent', () => {
+describe('Hàm describeUserAgent', () => {
   it('mô tả Chrome trên Windows khi phân tích được cả trình duyệt và hệ điều hành', () => {
     expect(
       describeUserAgent(
@@ -35,7 +35,7 @@ describe('describeUserAgent', () => {
     ).toBe('Safari trên macOS');
   });
 
-  it('mô tả Safari trên iOS', () => {
+  it('mô tả Mobile Safari trên iOS', () => {
     expect(
       describeUserAgent(
         'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',

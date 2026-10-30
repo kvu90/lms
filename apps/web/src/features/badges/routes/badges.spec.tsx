@@ -111,14 +111,14 @@ function renderBadges() {
   );
 }
 
-describe('Badges page — real endpoints', () => {
+describe('Trang huy hiệu — endpoint thật', () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
     localStorage.clear();
   });
 
-  it('loads my badges from /badges/mine and never calls the old per-user or activate URLs', async () => {
+  it('tải huy hiệu của tôi từ /badges/mine và không bao giờ gọi URL cũ theo người dùng hay activate', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { badgeStatus: 0 });
     renderBadges();
@@ -129,7 +129,7 @@ describe('Badges page — real endpoints', () => {
     expect(calls.some((c) => String(c.url).includes('/activate'))).toBe(false);
   });
 
-  it('activates a badge via POST /badges/:id/status with { status: 1 }', async () => {
+  it('kích hoạt huy hiệu qua POST /badges/:id/status với { status: 1 }', async () => {
     const calls: RecordedCall[] = [];
     const state = { badgeStatus: 0 };
     stubFetch(calls, state);
@@ -145,7 +145,7 @@ describe('Badges page — real endpoints', () => {
     expect(calls.some((c) => String(c.url).includes('/activate'))).toBe(false);
   });
 
-  it('invalidates the badge queries after activation so the list refetches with the new status (F-01)', async () => {
+  it('vô hiệu query huy hiệu sau khi kích hoạt để danh sách fetch lại với trạng thái mới (F-01)', async () => {
     const calls: RecordedCall[] = [];
     const state = { badgeStatus: 0 };
     stubFetch(calls, state);
@@ -165,7 +165,7 @@ describe('Badges page — real endpoints', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Kích hoạt' })).not.toBeInTheDocument());
   });
 
-  it('shows the issued list of a badge from GET /badges/:id/issued in the admin panel', async () => {
+  it('hiện danh sách đã cấp của một huy hiệu từ GET /badges/:id/issued trong panel admin', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { badgeStatus: 1 });
     renderBadges();
@@ -179,7 +179,7 @@ describe('Badges page — real endpoints', () => {
     expect(await screen.findByText(new RegExp(ISSUED_USER_ID))).toBeInTheDocument();
   });
 
-  it('saves criteria via PUT with the contracts payload shape (criteria array, not leaves)', async () => {
+  it('lưu tiêu chí qua PUT với hình dạng payload contracts (mảng criteria, không phải leaves)', async () => {
     const calls: RecordedCall[] = [];
     stubFetch(calls, { badgeStatus: 1 });
     renderBadges();

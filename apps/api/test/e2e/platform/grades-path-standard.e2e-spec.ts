@@ -19,7 +19,7 @@ import { createGradeItem, setGrade } from '../../support/assessment-helpers';
  *   kiện gỡ alias (0 lượt gọi trong 14 ngày), nên spec kiểm cả nội
  *   dung bản ghi log, không chỉ kiểm header.
  */
-describe('Grades path standard (issue #342)', () => {
+describe('Chuẩn đường dẫn điểm (issue #342)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -35,7 +35,7 @@ describe('Grades path standard (issue #342)', () => {
 
 
 
-  it('serves legacy aliases with deprecation headers and structured logs while canonical routes stay unmarked', async () => {
+  it('phục vụ alias cũ kèm header deprecation và log có cấu trúc trong khi route chuẩn không bị đánh dấu', async () => {
     // Dựng khoá học + học sinh + item + điểm hoàn toàn bằng path canonical.
     const cat = await createCategory(app, admin);
     const course = await createCourse(app, admin, cat.id);

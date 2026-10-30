@@ -72,14 +72,14 @@ function buildService() {
 const call = (service: IntegrationsService) =>
   service.callFunction({ token: RAW_TOKEN, functionName: 'core_course_get_courses', args: {} });
 
-describe('IntegrationsService.callFunction — token owner account state at call time', () => {
-  it('an active token owner can call a function in the service as before', async () => {
+describe('IntegrationsService.callFunction — trạng thái tài khoản chủ token lúc gọi', () => {
+  it('chủ token đang hoạt động vẫn gọi được hàm trong service như trước', async () => {
     const { service, listCourses } = buildService();
     await expect(call(service)).resolves.toEqual([{ id: 'course-1' }]);
     expect(listCourses).toHaveBeenCalledTimes(1);
   });
 
-  it('a suspended token owner is rejected with 401 and the function handler never runs', async () => {
+  it('chủ token bị đình chỉ bị từ chối với 401 và handler hàm không bao giờ chạy', async () => {
     const { service, listCourses, setOwnerState } = buildService();
     setOwnerState({ suspended: true, deleted: false });
     const err = await call(service).catch((e: unknown) => e);
@@ -89,7 +89,7 @@ describe('IntegrationsService.callFunction — token owner account state at call
     expect(listCourses).not.toHaveBeenCalled();
   });
 
-  it('a deleted token owner is rejected with 401 and the function handler never runs', async () => {
+  it('chủ token đã xoá bị từ chối với 401 và handler hàm không bao giờ chạy', async () => {
     const { service, listCourses, setOwnerState } = buildService();
     setOwnerState({ suspended: false, deleted: true });
     const err = await call(service).catch((e: unknown) => e);
@@ -98,7 +98,7 @@ describe('IntegrationsService.callFunction — token owner account state at call
     expect(listCourses).not.toHaveBeenCalled();
   });
 
-  it('a token whose owner row no longer exists is rejected with 401', async () => {
+  it('token mà dòng chủ đã không còn thì bị từ chối với 401', async () => {
     const { service, listCourses, setOwnerState } = buildService();
     setOwnerState(undefined);
     const err = await call(service).catch((e: unknown) => e);
@@ -107,7 +107,7 @@ describe('IntegrationsService.callFunction — token owner account state at call
     expect(listCourses).not.toHaveBeenCalled();
   });
 
-  it('a reinstated (unsuspended) owner can call again with the same token — suspension never revokes the token', async () => {
+  it('chủ đã khôi phục (hết đình chỉ) gọi lại được với cùng token — đình chỉ không bao giờ thu hồi token', async () => {
     const { service, tokenRow, updateToken, setOwnerState } = buildService();
     setOwnerState({ suspended: true, deleted: false });
     await expect(call(service)).rejects.toBeInstanceOf(UnauthorizedException);

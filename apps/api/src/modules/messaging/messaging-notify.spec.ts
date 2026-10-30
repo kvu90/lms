@@ -20,7 +20,7 @@ import { MESSAGE_PROVIDERS } from './notification-providers';
  * Đường sendSystemNotification áp cứng diện 'minimized' cho mọi
  * provider vì nội dung là văn bản tự do của quản trị viên.
  */
-describe('MessagingService.notify — external channel minimization (C-5)', () => {
+describe('MessagingService.notify — tối thiểu hoá kênh ngoài (C-5)', () => {
   const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
   afterEach(() => { process.env.NODE_ENV = ORIGINAL_NODE_ENV; });
 
@@ -69,7 +69,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     return { service, inserted, jobs };
   }
 
-  it('the external dispatch job carries only the minimized subject/body; the in-app row keeps the full content', async () => {
+  it('job gửi ngoài chỉ mang subject/body đã tối thiểu; dòng in-app giữ đầy đủ nội dung', async () => {
     const { service, inserted, jobs } = buildService();
     const result = await service.notify('user-1', 'grade_updated', {
       subject: 'Full in-app subject', body: 'Full in-app body with detail',
@@ -85,7 +85,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     expect(jobs[0]!.body).toBe('Open the app to see it.');
   });
 
-  it('C-5 ban: a minimized provider without minimized variants throws in the test environment instead of leaking the original content', async () => {
+  it('C-5 cấm: provider đã tối thiểu nhưng thiếu biến thể tối thiểu thì ném lỗi trong môi trường test thay vì rò rỉ nội dung gốc', async () => {
     process.env.NODE_ENV = 'test';
     const { service, jobs } = buildService();
     // guardian_digest thuộc diện 'minimized': nội dung trong app là
@@ -101,7 +101,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     expect(jobs).toHaveLength(0);
   });
 
-  it('C-5 fallback: outside the test environment a minimized provider without variants gets the generic i18n summary, never the original content', async () => {
+  it('C-5 fallback: ngoài môi trường test, provider đã tối thiểu nhưng thiếu biến thể nhận bản tóm tắt i18n chung, không bao giờ nhận nội dung gốc', async () => {
     process.env.NODE_ENV = 'production';
     const { service, inserted, jobs } = buildService();
     await service.notify('user-1', 'guardian_digest', {
@@ -119,7 +119,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     expect(jobs[0]!.body).not.toContain('child data');
   });
 
-  it("C-5 exception: a provider declared 'original-ok' in the registry still sends the original subject/body to external channels", async () => {
+  it("C-5 ngoại lệ: provider khai original-ok trong registry vẫn gửi subject/body gốc ra kênh ngoài", async () => {
     const { service, jobs } = buildService();
     // enrol_welcome khai báo 'original-ok' kèm lý do trong registry
     // (văn bản chào mừng do giáo viên soạn cho chính khoá của mình
@@ -133,7 +133,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     expect(jobs[0]!.body).toBe('Welcome body');
   });
 
-  it('C-5 forced path: sendSystemNotification forces the generic summary on external channels even for an original-ok provider', async () => {
+  it('C-5 đường ép: sendSystemNotification ép bản tóm tắt chung lên kênh ngoài ngay cả với provider original-ok', async () => {
     const { service, inserted, jobs } = buildService();
     // Nội dung đường gửi hệ thống là VĂN BẢN TỰ DO của quản trị
     // viên: áp cứng tối thiểu hoá bất kể registry khai báo
@@ -152,7 +152,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     expect(jobs[0]!.body).not.toContain('Free admin body');
   });
 
-  it('C-5 registry guard: every provider declares an external policy, and every original-ok declaration carries a reason', () => {
+  it('C-5 rào registry: mọi provider đều khai chính sách ngoài, và mọi khai original-ok đều kèm lý do', () => {
     // Ca gác ở tầng khai báo: thêm provider mới mà không phân loại
     // kênh ngoài — hoặc khai báo 'original-ok' mà không kèm lý do —
     // là ca này đỏ, để điểm mù không quay lại qua đường registry.
@@ -165,7 +165,7 @@ describe('MessagingService.notify — external channel minimization (C-5)', () =
     }
   });
 
-  it('the email job carries the resolved email frequency for the worker send/digest decision (NB-5)', async () => {
+  it('job email mang tần suất email đã phân giải cho quyết định gửi/digest của worker (NB-5)', async () => {
     const { service, jobs } = buildService();
     // grade_updated thuộc nhóm learning → tần suất mặc định 'daily'
     // (P1): job phải mang 'daily' để worker gom vào digest theo ngày

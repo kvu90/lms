@@ -17,7 +17,7 @@ import { adminToken, createTestApp, http } from '../../support/identity-access-h
  * gộp theo ngữ cảnh, số lượng chờ chấm cập nhật tại chỗ) trên đường
  * relay → hàng đợi → consumer ở worker.
  */
-describe('Notification providers wired (N1, issue #49)', () => {
+describe('Provider thông báo đã nối dây (N1, issue #49)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -27,7 +27,7 @@ describe('Notification providers wired (N1, issue #49)', () => {
   });
   afterAll(async () => { await app.close(); });
 
-  it('preferences: every listed provider is wired and carries its 3-group classification — no fake toggles remain', async () => {
+  it('tuỳ chọn: mọi provider liệt kê đều đã nối dây và mang phân loại 3 nhóm — không còn toggle giả', async () => {
     // NB-7: danh sách tuỳ chọn theo loại là bề mặt của nhân sự — học
     // sinh chỉ nhận phần tối thiểu (spec riêng notifications-admin-policy).
     // Audience theo vai (issue #288): danh sách ĐẦY ĐỦ cả registry chỉ

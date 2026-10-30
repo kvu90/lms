@@ -142,7 +142,7 @@ function stubCalendarApi() {
   });
 }
 
-describe('SL-1 — loader /calendar', () => {
+describe('SL-1 — bộ nạp /calendar', () => {
   it('có phiên: dehydrate đủ ba query của trang với đúng dữ liệu API', async () => {
     stubCalendarApi();
     const { dehydratedState } = await calendarLoader({ request: sessionRequest('/calendar') });
@@ -196,7 +196,7 @@ describe('SL-1 — loader /calendar', () => {
   });
 });
 
-describe('SL-1 — loader /badges', () => {
+describe('SL-1 — bộ nạp /badges', () => {
   it('có phiên: dehydrate huy hiệu của tôi + danh mục huy hiệu', async () => {
     stubApi({
       '/api/v1/badges/mine': { body: [{ id: 'mine-1', badgeName: 'Ngôi sao tuần' }] },
@@ -219,7 +219,7 @@ describe('SL-1 — loader /badges', () => {
   });
 });
 
-describe('SL-1 — loader /admin/site-config', () => {
+describe('SL-1 — bộ nạp /admin/site-config', () => {
   it('có phiên + quyền: dehydrate cấu hình + nhật ký kiểm toán', async () => {
     stubApi({
       '/api/v1/site-config': { body: [{ key: 'site_name', value: 'LMS Thử nghiệm' }] },
@@ -303,7 +303,7 @@ describe('SSR — HTTP status phải sống sót qua đường prefetch (chính 
   });
 });
 
-describe('SL-1 — loader /notifications', () => {
+describe('SL-1 — bộ nạp /notifications', () => {
   it('có phiên: dehydrate trang đầu bộ lọc mặc định + tuỳ chọn + ghi đè theo khoá (đã bóc mảng courses)', async () => {
     const page = { items: [], nextCursor: 'con-tro-2' };
     stubApi({
@@ -391,7 +391,7 @@ function stubHomeApi(access: unknown) {
   });
 }
 
-describe('SL-1 — loader / (dashboard)', () => {
+describe('SL-1 — bộ nạp / (dashboard)', () => {
   it('học viên: dehydrate query gốc + khối học viên + điểm của khoá thuộc về; KHÔNG có query quản trị', async () => {
     stubHomeApi(STUDENT_ACCESS);
     const { dehydratedState } = await homeLoader({ request: sessionRequest('/') });

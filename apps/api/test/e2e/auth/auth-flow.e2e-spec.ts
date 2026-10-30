@@ -39,13 +39,13 @@ async function enableMfaViaApi(app: INestApplication, accessToken: string): Prom
   expect(confirm.body.mfaEnabled).toBe(true);
   return secret;
 }
-describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
+describe('Xác thực: đăng nhập, khoá tài khoản, xoay refresh, phiên, login-as', () => {
   let app: INestApplication;
   let admin: string;
   beforeAll(async () => { app = await createTestApp(); admin = await adminToken(app); });
   afterAll(async () => { await app.close(); });
 
-  it('logs in with correct credentials (token endpoint and passport-local endpoint) and loads the profile', async () => {
+  it('đăng nhập bằng thông tin đúng (endpoint token và endpoint passport-local) và tải hồ sơ', async () => {
     const user = await createUserViaApi(app, admin);
     const viaToken = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
     expect(viaToken.status).toBe(201);
@@ -59,7 +59,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(me.body.email).toBe(user.email); // hồ sơ của chính mình luôn hiển thị các trường định danh của chính mình
   });
 
-  it('rejects a wrong password with 401 Problem Details', async () => {
+  it('từ chối mật khẩu sai bằng 401 Problem Details', async () => {
     const user = await createUserViaApi(app, admin);
     const res = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: 'WrongPass1' });
     expect(res.status).toBe(401);
@@ -67,7 +67,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(res.body.code).toBe('auth.invalid_credentials');
   });
 
-  it('locks the account out after the configured number of failed attempts (authlib test_lockout)', async () => {
+  it('khoá tài khoản sau số lần thất bại đã cấu hình (authlib test_lockout)', async () => {
     const user = await createUserViaApi(app, admin);
     for (let i = 0; i < 5; i++) {
       const res = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: 'WrongPass1' });
@@ -78,7 +78,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(locked.body.code).toBe('auth.locked_out');
   });
 
-  it('rotates refresh tokens and revokes the whole family on reuse of a rotated-out token', async () => {
+  it('xoay refresh token và thu hồi cả họ khi token đã xoay bị dùng lại', async () => {
     const user = await createUserViaApi(app, admin);
     const first = await login(app, user.username, STRONG_PASSWORD);
     const rotated = await http(app).post('/api/v1/auth/refresh').send({ refreshToken: first.refreshToken });
@@ -92,7 +92,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(afterRevoke.status).toBe(401);
   });
 
-  it('refuses login for suspended users and kills their existing access tokens', async () => {
+  it('từ chối đăng nhập cho người bị đình chỉ và huỷ token truy cập sẵn có của họ', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     await http(app).post(`/api/v1/users/${user.id}/suspend`).set('Authorization', `Bearer ${admin}`);
@@ -103,7 +103,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(me.status).toBe(401);
   });
 
-  it('enforces the force-password-change flow on first login', async () => {
+  it('áp đặt luồng bắt đổi mật khẩu ở lần đăng nhập đầu tiên', async () => {
     const user = await createUserViaApi(app, admin, { forcePasswordChange: true });
     const first = await http(app).post('/api/v1/auth/token').send({ username: user.username, password: STRONG_PASSWORD });
     expect(first.body.user.forcePasswordChange).toBe(true);
@@ -121,7 +121,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(weak.status).toBe(400);
   });
 
-  it('web session: login rotates the session id, suspend invalidates the session', async () => {
+  it('phiên web: đăng nhập xoay session id, đình chỉ vô hiệu phiên', async () => {
     const user = await createUserViaApi(app, admin);
     const first = await http(app).post('/api/v1/auth/session/login').send({ username: user.username, password: STRONG_PASSWORD });
     expect(first.status).toBe(201);
@@ -141,7 +141,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(suspendedMe.status).toBe(401);
   });
 
-  it('login-as: an admin with user:loginas can act as another user; a normal user cannot', async () => {
+  it('login-as: admin có user:loginas có thể hành động thay người khác; người thường không thể', async () => {
     const target = await createUserViaApi(app, admin);
     const as = await http(app).post('/api/v1/auth/login-as').set('Authorization', `Bearer ${admin}`).send({ userId: target.id, reason: 'Hỗ trợ kỹ thuật (spec)' });
     expect(as.status).toBe(201);
@@ -163,7 +163,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(blankReason.status).toBe(400);
   });
 
-  it('authentication alone grants no admin capability (auth ≠ role assignment)', async () => {
+  it('chỉ xác thực không cấp năng lực admin nào (auth ≠ gán vai trò)', async () => {
     const user = await createUserViaApi(app, admin);
     const { accessToken } = await login(app, user.username, STRONG_PASSWORD);
     const res = await http(app).post('/api/v1/users').set('Authorization', `Bearer ${accessToken}`)
@@ -171,7 +171,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(res.status).toBe(403);
   });
 
-  it('MFA TOTP: setup → confirm → login stops at MFA → verify admits; disable returns to direct login (tool_mfa factor_totp)', async () => {
+  it('MFA TOTP: thiết lập → xác nhận → đăng nhập dừng ở MFA → verify cho vào; tắt về lại đăng nhập trực tiếp (tool_mfa factor_totp)', async () => {
     const user = await createUserViaApi(app, admin);
     // Chưa bật MFA: đăng nhập thẳng như cũ, và trạng thái MFA báo chưa bật.
     const plain = await login(app, user.username, STRONG_PASSWORD);
@@ -242,7 +242,7 @@ describe('Auth: login, lockout, refresh rotation, sessions, login-as', () => {
     expect(direct.body.accessToken).toBeTruthy();
   });
 
-  it('MFA TOTP: re-setup while enabled requires the current code; rejected attempts keep the active factor intact', async () => {
+  it('MFA TOTP: thiết lập lại khi đang bật cần mã hiện tại; lần thử bị từ chối giữ nguyên factor đang hoạt động', async () => {
     const user = await createUserViaApi(app, admin);
     const plain = await login(app, user.username, STRONG_PASSWORD);
     const activeSecret = await enableMfaViaApi(app, plain.accessToken);

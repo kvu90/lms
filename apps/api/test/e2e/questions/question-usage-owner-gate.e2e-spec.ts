@@ -14,7 +14,7 @@ import { addExamSlot, createExamDraft, pinExam } from '../../support/exam-pin-he
  *    lộ qua luồng quiz sau khi nộp;
  *  - usage tự do của ngân hàng: chủ sở hữu vẫn làm trọn luồng như cũ.
  */
-describe('Question usage owner gate (issue #60)', () => {
+describe('Cổng chủ sở hữu usage câu hỏi (issue #60)', () => {
   let app: INestApplication;
   let admin: string;
 
@@ -124,7 +124,7 @@ describe('Question usage owner gate (issue #60)', () => {
     return answered.body as QuizView;
   }
 
-  it('stranger cannot submit into or finish another student\'s in-progress quiz usage; the owner finishes through the quiz flow', async () => {
+  it('người lạ không thể nộp hay kết thúc lượt làm quiz đang dở của học viên khác; chủ sở hữu kết thúc qua luồng quiz', async () => {
     const s = await setup();
     const view = await startAndAnswer(s.tokenA, s.quizId);
     const usageId = view.attempt.usageId;
@@ -173,7 +173,7 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(submitted.questions[0]!.rightAnswer).toBe(TF_RIGHT_ANSWER);
   });
 
-  it('owner cannot finish or submit early through the raw routes while the quiz attempt is in progress', async () => {
+  it('chủ sở hữu không thể kết thúc hay nộp sớm qua route thô khi lượt làm quiz đang diễn ra', async () => {
     const s = await setup();
     const view = await startAndAnswer(s.tokenA, s.quizId);
     const usageId = view.attempt.usageId;
@@ -212,7 +212,7 @@ describe('Question usage owner gate (issue #60)', () => {
     expect(submitted.questions[0]!.rightAnswer).toBe(TF_RIGHT_ANSWER);
   });
 
-  it('free bank usage: the owner runs the full raw flow; strangers get 404 and a mismatched path is not found', async () => {
+  it('usage ngân hàng tự do: chủ sở hữu chạy đầy đủ luồng thô; người lạ nhận 404 và đường dẫn lệch không tìm thấy', async () => {
     const s = await setup();
     // Mẫu dựng sau khi cổng tạo usage của #55 có mặt: tạo usage thô qua
     // HTTP đòi `question:useall` (usage thô là đường đọc đáp án) nên học

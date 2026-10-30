@@ -15,7 +15,7 @@ const ALLOW = 1, PREVENT = -1, PROHIBIT = -1000;
  * test_permission_evaluation, test_assign_capability, test_role_assign,
  * test_is_siteadmin, test_get_guest_role.
  */
-describe('Access: capability evaluation over the context tree (golden)', () => {
+describe('Quyền truy cập: đánh giá năng lực trên cây ngữ cảnh (golden)', () => {
   let app: INestApplication;
   let admin: string;
   let systemId: string, catId: string, courseId: string, modId: string;
@@ -37,7 +37,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     return { userId: user.id, roleId };
   }
 
-  it('PROHIBIT at system beats ALLOW at module for the same role', async () => {
+  it('PROHIBIT ở cấp system thắng ALLOW ở cấp module cho cùng vai trò', async () => {
     const { userId, roleId } = await freshUserAndRole();
     await assignRole(app, admin, userId, roleId, modId);
     await setOverride(app, admin, roleId, CAP, modId, ALLOW);
@@ -45,7 +45,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, userId, CAP, modId)).toBe(false);
   });
 
-  it('a leaf ALLOW cannot remove an ancestor PROHIBIT (course level)', async () => {
+  it('ALLOW ở lá không xoá được PROHIBIT của tổ tiên (cấp khoá học)', async () => {
     const { userId, roleId } = await freshUserAndRole();
     await assignRole(app, admin, userId, roleId, systemId);
     await setOverride(app, admin, roleId, CAP, courseId, PROHIBIT);
@@ -54,7 +54,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, userId, CAP, courseId)).toBe(false);
   });
 
-  it('PREVENT at parent + ALLOW at leaf allows that role (nearest wins)', async () => {
+  it('PREVENT ở cha + ALLOW ở lá cho phép vai trò đó (gần nhất thắng)', async () => {
     const { userId, roleId } = await freshUserAndRole();
     await assignRole(app, admin, userId, roleId, systemId);
     await setOverride(app, admin, roleId, CAP, courseId, PREVENT);
@@ -62,7 +62,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, userId, CAP, modId)).toBe(true);
   });
 
-  it('two roles: ALLOW in one + PREVENT in another (different levels) is allowed', async () => {
+  it('hai vai trò: ALLOW ở một vai + PREVENT ở vai khác (cấp khác nhau) thì được phép', async () => {
     const user = await createUserViaApi(app, admin);
     const roleA = await createRoleViaApi(app, admin);
     const roleB = await createRoleViaApi(app, admin);
@@ -73,7 +73,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, user.id, CAP, modId)).toBe(true);
   });
 
-  it('two roles: ALLOW at leaf in role A + PROHIBIT at root in role B is denied', async () => {
+  it('hai vai trò: ALLOW ở lá của vai A + PROHIBIT ở gốc của vai B thì bị từ chối', async () => {
     const user = await createUserViaApi(app, admin);
     const roleA = await createRoleViaApi(app, admin);
     const roleB = await createRoleViaApi(app, admin);
@@ -84,12 +84,12 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, user.id, CAP, modId)).toBe(false);
   });
 
-  it('a user with no role assignment is denied', async () => {
+  it('người dùng không có gán vai trò nào bị từ chối', async () => {
     const user = await createUserViaApi(app, admin);
     expect(await hasCapability(app, admin, user.id, CAP, modId)).toBe(false);
   });
 
-  it('assignments only apply within their context subtree', async () => {
+  it('gán vai trò chỉ áp dụng trong cây con ngữ cảnh của chúng', async () => {
     const { userId, roleId } = await freshUserAndRole();
     await assignRole(app, admin, userId, roleId, courseId);
     await setOverride(app, admin, roleId, CAP, systemId, ALLOW);
@@ -97,7 +97,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, userId, CAP, systemId)).toBe(false);
   });
 
-  it('site admin bypasses capability checks (doanything)', async () => {
+  it('site admin bỏ qua kiểm tra năng lực (doanything)', async () => {
     const res = await http(app).get('/api/v1/users/me').set('Authorization', `Bearer ${admin}`);
     const adminId = res.body.id as string;
     expect(await hasCapability(app, admin, adminId, CAP, modId)).toBe(true);
@@ -109,7 +109,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
   // đương HTTP trực tiếp — nên nằm ở tầng integration:
   // test/integration/access/access-capability-evaluator.int-spec.ts (issue #483).
 
-  it('changing an override changes the result (dirty marking invalidates the cache)', async () => {
+  it('đổi override làm đổi kết quả (đánh dấu dirty vô hiệu cache)', async () => {
     const { userId, roleId } = await freshUserAndRole();
     await assignRole(app, admin, userId, roleId, systemId);
     await setOverride(app, admin, roleId, CAP, courseId, ALLOW);
@@ -120,7 +120,7 @@ describe('Access: capability evaluation over the context tree (golden)', () => {
     expect(await hasCapability(app, admin, userId, CAP, courseId)).toBe(true);
   });
 
-  it('standard Moodle roles are seeded and admin endpoints deny non-admins', async () => {
+  it('vai trò Moodle chuẩn được seed và endpoint admin từ chối người không phải admin', async () => {
     const studentId = await roleIdByShortname(app, admin, 'student');
     expect(studentId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     const user = await createUserViaApi(app, admin);
