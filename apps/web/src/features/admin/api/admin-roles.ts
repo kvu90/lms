@@ -1,7 +1,9 @@
 import type {
   AssignRole,
   AssignmentListResponse,
+  CapabilityMatrixResponse,
   CreateRole,
+  OverrideCapability,
   ReplaceRoleCapabilities,
   Role,
   UpdateRole,
@@ -14,9 +16,44 @@ import { apiJson } from '#lib/api';
  * Tầng `queries/` của feature bọc các hàm này thành đột biến. Các
  * thao tác đọc (danh sách vai kèm tổng hợp, danh mục capability, cây
  * context, ma trận đã lưu) nằm ở tầng dùng chung `src/lib/access.ts`
- * vì nhiều feature cùng dùng; riêng bốn thao tác ghi của đợt 2 đặt ở
- * đây để hộp thoại ma trận không gọi thẳng client dùng chung.
+ * vì nhiều feature cùng dùng; riêng bốn thao tác ghi của đợt 2 và hai
+ * thao tác của trang Permissions độc lập (đọc ma trận toàn trang theo
+ * ngữ cảnh, ghi từng ô) đặt ở đây vì chỉ feature admin dùng tới.
  */
+
+/**
+ * Đọc ma trận ghi đè đã lưu của MỌI vai trò tại đúng một ngữ cảnh
+ * (GET /access/capability-matrix) — trang Permissions toàn trang dựng
+ * bảng chuyển vị từ đáp ứng này thay vì gọi ma trận riêng cho từng
+ * vai; vai không có ghi đè tại ngữ cảnh đó mang tập rỗng và vẫn xuất
+ * hiện. Ngữ cảnh không tồn tại thì backend trả 404
+ * `access.context_not_found` như các đường đọc hiện hành của module.
+ *
+ * @param contextId - Định danh ngữ cảnh đang chọn.
+ * @returns Đáp ứng ma trận kèm số người giữ phân biệt của từng vai.
+ */
+export function getCapabilityMatrix(contextId: string) {
+  return apiJson<CapabilityMatrixResponse>(
+    `/api/v1/access/capability-matrix?contextId=${encodeURIComponent(contextId)}`,
+  );
+}
+
+/**
+ * Đặt ghi đè cho MỘT ô của ma trận (POST /access/overrides) — ghi
+ * từng ô áp dụng ngay, không qua lưu thay toàn bộ: đặt ô về Kế thừa
+ * (INHERIT = 0) thì backend xoá dòng ghi đè của ô đó, các giá trị còn
+ * lại ghi đè đúng một dòng của bộ ba (vai trò × năng lực × ngữ cảnh).
+ * Quyền `role:override` được đánh giá tại ngữ cảnh trong thân yêu cầu.
+ *
+ * @param input - Vai trò, năng lực, ngữ cảnh và giá trị bốn trạng thái.
+ * @returns Xác nhận đã cập nhật.
+ */
+export function setCapabilityOverride(input: OverrideCapability) {
+  return apiJson<{ updated: boolean }>('/api/v1/access/overrides', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
 
 /**
  * Tạo vai trò mới (POST /access/roles) — vai mới bắt đầu với 0 ghi đè.

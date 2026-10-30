@@ -1,13 +1,21 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { AssignRole, CreateRole, ReplaceRoleCapabilities, UpdateRole } from '@lms/contracts';
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  AssignRole,
+  CreateRole,
+  OverrideCapability,
+  ReplaceRoleCapabilities,
+  UpdateRole,
+} from '@lms/contracts';
 import { queryKeys as sharedQueryKeys } from '#lib/query-keys';
 import {
   createAssignment,
   createRole,
   deleteAssignment,
   deleteRole,
+  getCapabilityMatrix,
   listAssignments,
   replaceRoleCapabilities,
+  setCapabilityOverride,
   updateRole,
   type ListAssignmentsParams,
 } from '../api/admin-roles';
@@ -57,6 +65,41 @@ export function useDeleteRole() {
   return useMutation({
     mutationFn: (roleId: string) => deleteRole(roleId),
     onSuccess: () => client.invalidateQueries({ queryKey: sharedQueryKeys.access }),
+  });
+}
+
+/**
+ * Tuỳ chọn truy vấn ma trận quyền toàn trang theo ngữ cảnh (trang
+ * Permissions độc lập) — khoá mang ngữ cảnh nên đổi ngữ cảnh là gọi
+ * lại server; query tắt khi chưa có ngữ cảnh (cây context rỗng) để
+ * trang không gọi ma trận với ngữ cảnh trống.
+ */
+export function capabilityMatrixQueryOptions(contextId: string) {
+  return queryOptions({
+    queryKey: queryKeys.capabilityMatrix(contextId),
+    queryFn: () => getCapabilityMatrix(contextId),
+    enabled: contextId !== '',
+  });
+}
+
+/** Truy vấn ma trận quyền toàn trang theo ngữ cảnh đang chọn. */
+export function useCapabilityMatrix(contextId: string) {
+  return useQuery(capabilityMatrixQueryOptions(contextId));
+}
+
+/**
+ * Đột biến ghi một ô ma trận (POST /access/overrides) — thành công
+ * thì làm mới ma trận của mọi ngữ cảnh (gốc khoá của feature) để bảng
+ * về đúng trạng thái đã lưu; trang giữ giá trị hiển thị lạc quan của
+ * ô trong lúc chờ và chỉ hoàn lại khi ghi lỗi (xem route module).
+ */
+export function useSetCapabilityOverride() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: OverrideCapability) => setCapabilityOverride(input),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: queryKeys.capabilityMatrixRoot });
+    },
   });
 }
 

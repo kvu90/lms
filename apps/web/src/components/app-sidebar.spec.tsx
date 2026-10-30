@@ -10,13 +10,15 @@ import { baSessionResponse, isGetSessionUrl } from '#test/ba-session';
 /**
  * Test cho cây điều hướng sidebar sau Lát 1 của hồ sơ UI/UX (sidebar
  * collapse theo cơ chế sidebar-07): 5 mục trực tiếp + các mục cha
- * thu/mở (Học tập / Người dùng & quyền / Cài đặt hệ thống) thay cho 3
- * nhóm phẳng cũ. Mục "Tìm kiếm" không còn ở sidebar từ chốt 23:52
+ * thu/mở (Học tập / Người dùng & quyền / Vai trò & Quyền / Cài đặt
+ * hệ thống) thay cho 3 nhóm phẳng cũ. Nhóm Vai trò & Quyền (issue
+ * #570) gom hai mục Vai trò và Quyền, Vai trò trước rồi Quyền sau;
+ * mục Vai trò vì thế không còn nằm trong nhóm Người dùng & quyền. Mục "Tìm kiếm" không còn ở sidebar từ chốt 23:52
  * ngày 26/10/2026 (issue #303 — ô tìm kiếm chuyển ra giữa header).
  * Dựng đúng cây thật (App → Shell → AppSidebar) như
  * sidebar-notification-count.spec, stub fetch theo vai trò:
  *
- * - Admin thấy đủ cây (3 mục cha); nhóm cha đóng mặc định, bấm mới mở
+ * - Admin thấy đủ cây (4 mục cha); nhóm cha đóng mặc định, bấm mới mở
  *   mục con; các nhóm mở độc lập (không accordion).
  * - Trạng thái mở của nhóm lưu ở localStorage `lms:sidebar:open-groups`
  *   — "F5" (gỡ cây, dựng lại) vẫn giữ; nhóm chứa route đang xem thì
@@ -135,6 +137,7 @@ const PROBE_PATHS = [
   'system-bank/matrices',
   'admin/users',
   'admin/roles',
+  'admin/permissions',
   'tokens',
   'admin/site-config',
   'reports',
@@ -197,7 +200,7 @@ afterEach(() => {
 });
 
 describe('cây điều hướng sidebar — admin', () => {
-  it('thấy 5 mục trực tiếp + 3 mục cha; nhóm đóng mặc định nên chưa thấy mục con', async () => {
+  it('thấy 5 mục trực tiếp + 4 mục cha; nhóm đóng mặc định nên chưa thấy mục con', async () => {
     stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS, 2);
     renderShell();
 
@@ -213,8 +216,8 @@ describe('cây điều hướng sidebar — admin', () => {
     const notifications = await screen.findByRole('link', { name: /Thông báo/ });
     expect(await within(notifications).findByText('2')).toBeInTheDocument();
 
-    // 3 mục cha là nút thu/mở thuần (button, không phải link).
-    for (const name of ['Học tập', 'Người dùng & quyền', 'Cài đặt hệ thống']) {
+    // 4 mục cha là nút thu/mở thuần (button, không phải link).
+    for (const name of ['Học tập', 'Người dùng & quyền', 'Vai trò & Quyền', 'Cài đặt hệ thống']) {
       expect(await screen.findByRole('button', { name })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
     }
@@ -324,7 +327,7 @@ describe('cây điều hướng sidebar — admin', () => {
     expect(hrefs).toEqual(expectedOrder);
 
     // Mở thêm nhóm thứ hai: cả hai cùng mở (không accordion).
-    await userEvent.click(screen.getByRole('button', { name: 'Người dùng & quyền' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Vai trò & Quyền' }));
     expect(await screen.findByRole('link', { name: 'Vai trò' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sao lưu' })).toBeInTheDocument();
 
@@ -368,8 +371,25 @@ describe('cây điều hướng sidebar — trạng thái nhóm', () => {
     const child = await screen.findByRole('link', { name: 'Vai trò' });
     expect(child).toHaveAttribute('href', '/admin/roles');
     expect(child.hasAttribute('data-active')).toBe(true);
-    const parent = screen.getByRole('button', { name: 'Người dùng & quyền' });
+    const parent = screen.getByRole('button', { name: 'Vai trò & Quyền' });
     expect(parent.hasAttribute('data-active')).toBe(true);
+  });
+
+  it('đang ở /admin/permissions: nhóm Vai trò & Quyền tự mở, mục Quyền active và đứng sau Vai trò', async () => {
+    stubFetch(profileOf(ADMIN_ID, 'admin'), ADMIN_ACCESS);
+    renderShell('/admin/permissions');
+
+    const child = await screen.findByRole('link', { name: 'Quyền' });
+    expect(child).toHaveAttribute('href', '/admin/permissions');
+    expect(child.hasAttribute('data-active')).toBe(true);
+    const parent = screen.getByRole('button', { name: 'Vai trò & Quyền' });
+    expect(parent.hasAttribute('data-active')).toBe(true);
+    const rolesLink = await screen.findByRole('link', { name: 'Vai trò' });
+    expect(rolesLink).toHaveAttribute('href', '/admin/roles');
+    // Thứ tự con trong nhóm: Vai trò trước, Quyền sau.
+    expect(
+      rolesLink.compareDocumentPosition(child) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('đang ở /exams: mục top level "Ngân hàng đề" là link active, hai mục ngân hàng còn lại không', async () => {
@@ -436,6 +456,7 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
 
     expect(await screen.findByRole('link', { name: 'Tổng quan' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Người dùng & quyền' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vai trò & Quyền' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cài đặt hệ thống' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Ngân hàng hệ thống' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Ngân hàng câu hỏi' })).not.toBeInTheDocument();
@@ -511,6 +532,7 @@ describe('cây điều hướng sidebar — lọc theo quyền', () => {
     expect(await screen.findByRole('link', { name: 'Trung tâm' })).toHaveAttribute('href', '/admin/tenants');
     expect(screen.queryByRole('link', { name: 'Người dùng' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Vai trò' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vai trò & Quyền' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cài đặt hệ thống' })).not.toBeInTheDocument();
   });
 });

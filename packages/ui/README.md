@@ -96,6 +96,18 @@ build + test của `@lms/web`, đối chiếu diff của `components.json` và
   tượng sai rằng chúng là một phần của bộ component đang dùng. Nếu
   lần đồng bộ shadcn sau sinh lại hai file này, đánh giá lại theo nhu
   cầu dùng thật tại thời điểm đó thay vì giữ sẵn.
+- `src/components/native-select.tsx` (issue #570, cùng bản registry
+  với vòng sửa #561): THÊM MỚI theo đúng bản NativeSelect của
+  registry shadcn cho preset đang dùng (base-vega) — bọc đúng thẻ
+  select gốc nên giữ được hành vi chọn của trình duyệt và các test
+  chọn giá trị, khác với Select kiểu listbox của package. Điểm thích
+  ứng duy nhất theo khuôn các component do CLI sinh trước đó trong
+  package này: dòng import `cn` dùng `#lib/utils` (cùng cài đặt `cn`
+  bằng clsx + tailwind-merge của package). Khi đồng bộ upstream lần
+  tới: chạy `shadcn add native-select --overwrite` tại thư mục này và
+  đối chiếu diff của file, đặc biệt dòng import `cn`. Lưu ý hợp nhất:
+  vòng sửa #561 cũng thêm đúng file này với cùng nội dung — đội merge
+  giữ một bản duy nhất và gộp hai ghi chú ngoại lệ thành một.
 - `src/components/drawer.tsx`, `src/components/sonner.tsx` và
   `src/components/radio-group.tsx` (issue #438): đã XOÁ khỏi package,
   kèm các dependency chỉ còn chúng dùng (`vaul`, `sonner`,

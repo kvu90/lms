@@ -4,7 +4,7 @@ const { prefix, route } = relative(import.meta.dirname);
 
 /**
  * Khu route của feature admin: quản trị người dùng, tenant, vai
- * trò và cấu hình site.
+ * trò, quyền và cấu hình site.
  */
 export default [
   ...prefix('admin', [
@@ -13,6 +13,7 @@ export default [
     route('users/:userId/edit', 'routes/admin-user-edit.tsx'),
     route('tenants', 'routes/admin-tenants.tsx'),
     route('roles', 'routes/admin-roles.tsx'),
+    route('permissions', 'routes/admin-permissions.tsx'),
   ]),
 ] satisfies RouteConfig;
 
